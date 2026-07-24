@@ -24,6 +24,10 @@ from fdai.delivery.read_api.routes.chat_data_sources import (
     read_source_evidence_refs,
     render_read_source_answer,
 )
+from fdai.delivery.read_api.routes.chat_detection_readiness import (
+    detection_readiness_evidence_refs,
+    render_detection_readiness_answer,
+)
 from fdai.delivery.read_api.routes.chat_inventory import (
     inventory_evidence_refs,
     render_inventory_answer,
@@ -193,6 +197,38 @@ def verify_answer(
             checks_total=1,
             evidence_refs=log_refs,
             reason_code="log_query_unavailable",
+        )
+
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_detection_readiness":
+        readiness_answer = render_detection_readiness_answer(tool, locale=locale)
+        if readiness_answer is None:
+            return AnswerVerification(
+                status="unverified",
+                answer="Detection readiness evidence could not be rendered.",
+                authority="server_detection_readiness",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="detection_readiness_evidence_invalid",
+            )
+        result = tool.get("result")
+        state = result.get("status") if isinstance(result, Mapping) else None
+        readiness_refs = detection_readiness_evidence_refs(tool)
+        return AnswerVerification(
+            status=(
+                _changed(provisional, readiness_answer)
+                if state in {"matched", "empty"}
+                else "unverified"
+            ),
+            answer=readiness_answer,
+            authority="server_detection_readiness",
+            checks_completed=1 if state in {"matched", "empty"} else 0,
+            checks_total=1,
+            evidence_refs=readiness_refs,
+            reason_code=(
+                "detection_readiness_snapshot_grounded"
+                if state in {"matched", "empty"}
+                else "detection_readiness_unavailable"
+            ),
         )
 
     if isinstance(tool, Mapping) and tool.get("tool") == "query_inventory":

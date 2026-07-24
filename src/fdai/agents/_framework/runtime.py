@@ -64,6 +64,7 @@ from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
 from fdai.core.learning import PostTurnReviewCoordinator
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ class PantheonRuntime:
         enforce: bool = False,
         consumer_group_prefix: str = _DEFAULT_GROUP_PREFIX,
         saga: Saga | None = None,
+        muninn_state_store: StateStore | None = None,
         disabled_agents: frozenset[str] | None = None,
         divergence: ShadowDivergenceLedger | None = None,
         thor_executor: ActionExecutor | None = None,
@@ -202,8 +204,13 @@ class PantheonRuntime:
                 post_turn_review=post_turn_review,
                 case_history_analyzer=case_history_analyzer,
             )
-        if case_history_materializer is not None or case_history_retention is not None:
+        if (
+            muninn_state_store is not None
+            or case_history_materializer is not None
+            or case_history_retention is not None
+        ):
             instantiated["Muninn"] = Muninn(
+                durable_state_store=muninn_state_store,
                 case_history=case_history_materializer,
                 case_history_retention=case_history_retention,
                 case_retention_days=case_retention_days,

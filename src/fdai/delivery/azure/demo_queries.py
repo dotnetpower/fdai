@@ -211,6 +211,8 @@ def sre_demo_capture_queries() -> Mapping[str, MetricKqlTemplate]:
 # fails-closed on a lookup miss, so a rename here without a matching
 # analyzer edit is a defect.
 METRIC_NODE_CPU_PERCENT = "node_cpu_percent"
+METRIC_POD_RESTART_COUNT = "pod_restart_count"
+METRIC_ROLLOUT_STALL_DURATION_SECONDS = "rollout_stall_duration_seconds"
 METRIC_HTTP_429_RATE = "http_429_rate"
 METRIC_REQUEST_SURGE_RATIO = "request_surge_ratio"
 METRIC_BACKEND_FIRST_BYTE_MS = "backend_first_byte_response_time_ms"
@@ -392,6 +394,8 @@ _APIM_BACKEND_LATENCY_MS = MetricKqlTemplate(
 _ANALYZER_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyType(
     {
         METRIC_NODE_CPU_PERCENT: _NODE_CPU_PERCENT,
+        METRIC_POD_RESTART_COUNT: _POD_RESTARTS,
+        METRIC_ROLLOUT_STALL_DURATION_SECONDS: _ROLLOUT_STALL_SECONDS,
         METRIC_HTTP_429_RATE: _HTTP_429_RATE,
         METRIC_REQUEST_SURGE_RATIO: _REQUEST_SURGE_RATIO,
         METRIC_BACKEND_FIRST_BYTE_MS: _BACKEND_FIRST_BYTE_MS,
@@ -459,10 +463,12 @@ __all__ = [
     "METRIC_MYSQL_ACTIVE_CONNECTIONS",
     "METRIC_MYSQL_CPU_PERCENT",
     "METRIC_NODE_CPU_PERCENT",
+    "METRIC_POD_RESTART_COUNT",
     "METRIC_POD_RESTARTS",
     "METRIC_REQUEST_FAILURE_RATE",
     "METRIC_REQUEST_SURGE_RATIO",
     "METRIC_ROLLOUT_STALL_SECONDS",
+    "METRIC_ROLLOUT_STALL_DURATION_SECONDS",
     "default_metric_queries",
     "sre_demo_analyzer_queries",
     "sre_demo_capture_queries",

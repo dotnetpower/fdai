@@ -31,7 +31,14 @@ def build_local_data_sources(
             if remote_state
             else "empty-local-memory"
         ),
-        routes=("/audit", "/kpi", "/incidents", "/hil-queue", "/rca"),
+        routes=(
+            "/audit",
+            "/detection-readiness",
+            "/kpi",
+            "/incidents",
+            "/hil-queue",
+            "/rca",
+        ),
         availability=(
             "available"
             if test_fixtures or local_state_available

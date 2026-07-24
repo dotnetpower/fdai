@@ -1,0 +1,37 @@
+{
+  "title": "Detection readiness",
+  "subtitle": "Agent-owned evidence that monitored Kubernetes targets can produce governed failure signals.",
+  "resourceLabel": "detection readiness",
+  "unavailable": "Detection readiness snapshots are not connected on this deployment.",
+  "contextPurpose": "Read-only Muninn snapshots reduced by Heimdall from Huginn observations.",
+  "contextHeadline": "{ready} of {targets} targets ready",
+  "bannerTitle": "Agent-owned state, not a browser health check.",
+  "bannerBody": "Huginn ingests probe facts, Heimdall decides readiness, Muninn stores the latest snapshot, and Saga audits transitions.",
+  "targets": "Monitored targets",
+  "ready": "Ready",
+  "attention": "Needs attention",
+  "shadowLimited": "Shadow-limited",
+  "provenance": "Evidence provenance",
+  "source": "Source",
+  "observedAt": "Last agent snapshot",
+  "notObserved": "Not observed",
+  "targetTitle": "Target readiness",
+  "emptyTitle": "No detection readiness snapshots",
+  "emptyBody": "No target has completed the Huginn to Heimdall to Muninn evidence path.",
+  "gapSummary": "Missing {missing}, stale {stale}",
+  "column": {
+    "target": "Target",
+    "decision": "Decision",
+    "evidence": "Evidence axes",
+    "gaps": "Coverage gaps",
+    "ceiling": "Authority ceiling"
+  },
+  "decision": {
+    "ready": "Ready",
+    "partial": "Partial",
+    "blocked": "Blocked",
+    "stale": "Stale",
+    "unauthorized": "Unauthorized",
+    "unknown": "Unknown"
+  }
+}

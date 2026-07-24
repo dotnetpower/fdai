@@ -50,6 +50,11 @@ Integrations and Diagnostics consume the same projection. They expose only confi
 incomplete, mode, and boolean runtime status. They never render endpoint, secret, tenant, resource,
 repository credential, recipient, or managed identity values.
 
+Operations includes a Detection readiness route backed only by Muninn's durable StateSnapshots.
+It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
+observation time. The browser does not probe AKS or derive a replacement decision. Each target
+links to its Architecture resource, and promotion-related counts link to Promotion gates.
+
 Activity uses one bounded chronological log for durable audit rows and browser-session runtime
 frames. Each row keeps its source label, so a runtime frame is never presented as durable audit
 evidence. Recorded and live agent-to-agent turns render as individual `from -> to` rows with their

@@ -480,6 +480,7 @@ async def _run() -> int:
                     ).strip(),
                     enforce=pantheon_enforce,
                     saga=_build_runtime_saga(incident_audit_store),
+                    muninn_state_store=incident_audit_store,
                     disabled_agents=disabled_agents,
                     divergence=divergence_ledger,
                     incident_candidate_hook=_open_incident_candidate,

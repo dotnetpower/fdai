@@ -14,6 +14,7 @@ from fdai.delivery.analyzer_tick_cli import (
     _finding_event,
     _load_targets,
     _positive_float,
+    _publish_detection_readiness,
     _run_tick,
     _runtime_number,
     _targets_from_inventory,
@@ -99,6 +100,79 @@ def test_inventory_resources_map_to_reference_analyzer_kinds() -> None:
         ("aks-1", "aks_cluster"),
         ("mysql-1", "mysql_flexible_server"),
     ]
+
+
+async def test_readiness_publisher_emits_six_passed_observations_with_prior_snapshot() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.core.readiness import detection_readiness_state_key
+    from fdai.delivery.analyzer_tick_cli import _Target
+    from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
+    from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    now = datetime(2026, 7, 24, 1, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    await store.write_state(
+        detection_readiness_state_key("aks-1"),
+        {"generated_at": now.isoformat()},
+    )
+    bus = InMemoryEventBus()
+    count = await _publish_detection_readiness(
+        targets=(_Target(resource_ref="aks-1", resource_kind="aks_cluster"),),
+        metric_provider=StaticMetricProvider(
+            [MetricPoint("k8s.pod.restarts", now, 0.0, {"resource_id": "aks-1"})]
+        ),
+        event_bus=bus,
+        topic="events",
+        state_store=store,
+        observed_at=now,
+    )
+
+    records = bus._records["events"]
+    assert count == 6
+    assert len(records) == 6
+    assert {record[0] for record in records} == {"aks-1"}
+    readiness = [record[1]["payload"]["detection_readiness"] for record in records]
+    assert {item["status"] for item in readiness} == {"passed"}
+    assert len({item["pass_id"] for item in readiness}) == 1
+    assert {item["dimension"] for item in readiness} == {
+        "discovered",
+        "collector_configured",
+        "telemetry_observed",
+        "detector_bound",
+        "pipeline_observed",
+        "action_governed",
+    }
+
+
+async def test_readiness_publisher_is_partial_on_first_pipeline_pass() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.delivery.analyzer_tick_cli import _Target
+    from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
+    from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+
+    now = datetime(2026, 7, 24, 1, 0, tzinfo=UTC)
+    bus = InMemoryEventBus()
+    await _publish_detection_readiness(
+        targets=(_Target(resource_ref="aks-1", resource_kind="aks_cluster"),),
+        metric_provider=StaticMetricProvider(
+            [MetricPoint("k8s.pod.restarts", now, 0.0, {"resource_id": "aks-1"})]
+        ),
+        event_bus=bus,
+        topic="events",
+        state_store=None,
+        observed_at=now,
+    )
+
+    pipeline = next(
+        record[1]["payload"]["detection_readiness"]
+        for record in bus._records["events"]
+        if record[1]["payload"]["detection_readiness"]["dimension"] == "pipeline_observed"
+    )
+    assert pipeline["status"] == "unavailable"
+    assert pipeline["detail_code"] == "prior_snapshot_missing"
 
 
 def test_positive_float_returns_default_on_missing(

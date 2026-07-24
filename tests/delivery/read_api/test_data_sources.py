@@ -316,6 +316,7 @@ def test_optional_console_routes_have_explicit_source_owners() -> None:
     owned_routes = {route for source in sources for route in source.routes}
 
     assert {
+        "/detection-readiness",
         "/forecast-learning",
         "/me/context",
         "/me/conversations/search",

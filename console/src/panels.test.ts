@@ -17,6 +17,7 @@ describe("panel navigation placement", () => {
       "hil-queue",
       "provision",
       "onboarding",
+      "detection-readiness",
       "processes",
       "workflow-apps",
       "scheduler-runs",

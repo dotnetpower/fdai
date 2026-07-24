@@ -140,6 +140,23 @@ def aks_analyzer(provider: MetricProvider, *, wall_clock: _Clock = None) -> Thre
                 signal="node_cpu",
                 observation="AKS node CPU is high; autoscaling may be in progress.",
             ),
+            Threshold(
+                metric="pod_restart_count",
+                compare=Comparison.GTE,
+                bound=1.0,
+                severity=Severity.HIGH,
+                signal="pod_restart",
+                observation="One or more Kubernetes pods restarted in the observation window.",
+                remediation_ref="ops.restart-service",
+            ),
+            Threshold(
+                metric="rollout_stall_duration_seconds",
+                compare=Comparison.GTE,
+                bound=120.0,
+                severity=Severity.HIGH,
+                signal="rollout_stall",
+                observation="A Kubernetes deployment rollout remained stalled past the bound.",
+            ),
         ),
     )
 

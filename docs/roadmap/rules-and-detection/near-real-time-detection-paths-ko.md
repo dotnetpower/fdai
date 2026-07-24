@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 1be435bfb4982796f9613ee9cf0880aacb4a15f7
-translation_revised: 2026-07-21
+translation_source_sha: 3cef80240f1e08fd5d79a6d1cf7eb0358f2d1420
+translation_revised: 2026-07-24
 ---
 
 # 근실시간 감지 경로
@@ -10,9 +10,9 @@ translation_revised: 2026-07-21
 이벤트로 도착하는 신호(KubeEvents, Activity Log 등)는 이미 서브초에
 처리되지만, **샘플 메트릭 경로에서 지연이 살아있음**. 이 문서는 이 리포가
 지원하는 모든 push / pull 경로를 열거해서 fork가 자기 비용·지연 예산에
-맞는 조합을 고를 수 있게 한다. Upstream은 가장 안전한 pull baseline을 제공하지만 analyzer
-tick cron의 기본값은 빈 문자열이라 실행은 opt-in입니다. Fork가 Terraform + env-var seam을
-통해 pull 또는 더 빠른 push 경로를 명시적으로 켭니다.
+맞는 조합을 고를 수 있게 합니다. Upstream은 가장 안전한 pull baseline을 shadow 모드에서
+1분마다 기본 실행합니다. Analyzer tick cron을 명시적으로 빈 값으로 설정하면 비활성화됩니다.
+더 빠른 push 경로는 Terraform 및 env-var seam을 통해 계속 opt-in합니다.
 
 > **구현 상태**: Pull provider/CLI, 두 push normalizer/route 및 Terraform primitive는
 > 구현되어 있습니다. Path #2 Kafka consumer glue는 fork 작업입니다. Path #1은 추가로 인증
@@ -129,7 +129,7 @@ event로 승격할지 고름.
 
 ## Pull baseline - `analyzer_tick_cli` + `RoutedMetricProvider`
 
-새로운 건 아니지만, 모든 fork가 사용할 수 있는 opt-in baseline
+모든 fork가 사용할 수 있는 기본 baseline
 ([observability-and-detection-ko.md](observability-and-detection-ko.md)
 참조).
 [analyzer tick job](../../../infra/modules/compute/container-apps/analyzer_tick_job.tf)이
@@ -138,8 +138,28 @@ CLI가 조립된 `MetricProvider`
 ([Prom > Metrics API > Logs](../architecture/csp-neutrality-ko.md))에
 대해 reference threshold analyzer들을 호출.
 
-`analyzer_tick_cron_expression`과 `analyzer_targets_json`의 기본값은 모두 비어 있어 generic
-deploy에서는 job이 실행되지 않습니다. Fork가 target과 cadence를 함께 설정해야 합니다.
+`analyzer_tick_cron_expression`은 기본 1분입니다. Target 목록이 비어 있으면 durable inventory
+projection을 사용하므로 새로 발견된 지원 리소스가 배포 변경 없이 다음 tick에 포함됩니다.
+Cron을 명시적으로 빈 값으로 설정하면 job이 비활성화됩니다. Explicit target과 durable inventory
+모두에 지원 리소스가 없으면 CLI가 조용히 종료됩니다.
+
+### 에이전트 소유 AKS 감지 준비도
+
+같은 tick은 각 AKS 대상에 대해 discovery, collector 구성, 최근 telemetry, detector binding,
+이전 pipeline 연속성, action governance의 정제된 6개 관측을 Huginn raw ingress에 발행합니다.
+Heimdall은 관측을 `object.drift`로 축약하고, Muninn은 최신 `object.state-snapshot`을 저장하며,
+Saga는 전환을 감사하고, Forseti는 스냅샷을 권한 상한으로 사용합니다. 첫 pass에는 이전 Muninn
+스냅샷이 없으므로 partial이며, 이후 pass에서 pipeline 연속성을 증명할 수 있습니다.
+
+한 target tick의 6개 관측은 결정론적 `pass_id`와 target resource partition key를 공유합니다.
+따라서 runtime replica가 여러 개여도 Event Hubs ordering과 Heimdall consumer group이 하나의
+완전한 pass를 한 consumer에 전달합니다. Heimdall은 차원을 어떤 순서로든 받지만 같은 pass의
+6개가 모두 도착하기 전에는 drift를 발행하지 않습니다. 불완전한 새 pass는 마지막 완전한
+스냅샷을 교체하지 않습니다.
+
+축약은 fail-closed입니다. 누락, stale, unavailable, unauthorized 근거는 ready가 되지 않습니다.
+6개 차원이 모두 통과해도 새 readiness capability는 `shadow`로 유지되므로 ActionType을 승격하거나
+변경을 실행할 수 없습니다. Read API와 콘솔은 Muninn 판정을 projection하며 다시 계산하지 않습니다.
 
 ## 조합 규칙
 

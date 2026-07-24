@@ -94,7 +94,7 @@ ingestion_cors_allow_origins      = "https://console.example.com"
 document_storage_replication_type = "ZRS"
 
 # ---------------------------------------------------------------
-# Metric analyzer tick (opt-in) - drives the reference threshold
+# Metric analyzer tick (one-minute shadow default) - drives the reference threshold
 # analyzers so metric-based scenarios get near-real-time detection.
 # Prod default: 30 s cron with Prom-primary wiring so AKS metrics
 # hit ~15-30 s detection; non-AKS resources ride the AML floor

@@ -8,9 +8,9 @@ The control loop already reacts to Kafka-delivered events in sub-second
 time; **sampled metrics** are where detection latency lives. This page
 catalogs every push and pull path this repo ships so a fork picks the
 combination that fits its cost and freshness envelope. Nothing here is
-mandatory. Upstream provides the safest pull baseline, but the analyzer-tick
-cron defaults to an empty string and is opt-in. A fork explicitly enables a
-pull path or a faster push path through the Terraform and environment-variable seams.
+mandatory. Upstream enables the safest pull baseline every minute in shadow mode. An explicit
+empty analyzer-tick cron disables it. Faster push paths remain opt-in through the Terraform and
+environment-variable seams.
 
 > **Implementation status**: The pull provider and CLI, two push normalizers and routes, and
 > Terraform primitives are implemented. Kafka-consumer glue for path #2 remains a fork task.
@@ -140,8 +140,30 @@ invokes the reference threshold analyzers against whichever
 `MetricProvider` composition wired
 ([Prom > Metrics API > Logs](../architecture/csp-neutrality.md)).
 
-Both `analyzer_tick_cron_expression` and `analyzer_targets_json` default to empty, so the job does
-not run in a generic deployment. A fork must configure the targets and cadence together.
+`analyzer_tick_cron_expression` defaults to one minute. An empty target list uses the durable
+inventory projection, so a newly discovered supported resource joins the next tick without a
+deployment edit. An explicit empty cron disables the job; the CLI exits quietly when neither
+explicit targets nor durable inventory contains a supported resource.
+
+### Agent-owned AKS detection readiness
+
+For every AKS target, the same tick publishes six sanitized observations to Huginn's raw ingress:
+discovery, collector configuration, recent telemetry, detector binding, previous pipeline
+continuity, and action governance. Heimdall reduces those observations into `object.drift`; Muninn
+stores the latest `object.state-snapshot`; Saga audits the transition; and Forseti uses the
+snapshot as an authority ceiling. The first pass is partial because no previous Muninn snapshot
+exists. A later pass can prove pipeline continuity.
+
+All six observations in one target tick share a deterministic `pass_id` and the target resource
+partition key. Event Hubs ordering and the Heimdall consumer group therefore deliver one complete
+pass to one consumer even when the runtime has multiple replicas. Heimdall accepts dimensions in
+any order but publishes no drift until all six from the same pass arrive. An incomplete newer pass
+does not replace the last complete snapshot.
+
+The reduction is fail-closed. Missing, stale, unavailable, or unauthorized evidence never becomes
+ready. New readiness capability remains `shadow` even when all six dimensions pass, so it cannot
+promote an ActionType or execute a change. The read API and console project Muninn's decision and
+do not recompute it.
 
 ## Composition rules
 

@@ -1,13 +1,13 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: ebf8990b4259dc6d44ed45320d5feb33a55a257a
-translation_revised: 2026-07-22
+translation_source_sha: b684d92407cf1a67f24b5533d2f3a34328d13c25
+translation_revised: 2026-07-24
 ---
 
 # 에이전트 워크플로우
 
-판테온이 제품 수준 capability 로 조합하는 12개 cross-agent 워크플로우. 각
+판테온이 제품 수준 capability 로 조합하는 13개 cross-agent 워크플로우. 각
 워크플로우는 참여 에이전트, 트리거, 종단간 sequence, exit criteria 를
 명명한다. 모든 워크플로우는 shadow 모드로 먼저 배포
 ([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-로-cross-agent-workflows))
@@ -605,7 +605,7 @@ command 를 받거나 source 를 event bus 로 전달하거나 risk gate 를 우
 | 10 | Retrospective what-if | Operator 또는 post-incident | Bragi | (본질적으로 shadow) |
 | 11 | Operational readiness handoff | `ownership_transfer` signal | Forseti | env당 30일 shadow, critical FN zero, FP < 5% |
 | 12 | Scheduled governed Python task | Strict cron schedule | Forseti + Thor | plan 30개, accuracy >= 99%, escape zero, Owner HIL |
-
+| 13 | Detection readiness assurance | `detection.readiness.observed` | Heimdall | 대상별 30일 shadow, false-ready zero, stale p99 < 15분 |
 ## Next steps
 
 | 학습 주제 | 읽기 |

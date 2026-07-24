@@ -142,19 +142,19 @@ secret or an env-var name whose value the app resolves at runtime via the inject
 `SecretProvider` - see
 [csp-neutrality.md § Secret Contract](../docs/roadmap/architecture/csp-neutrality.md#3-secret-contract--environment--k8s-secret).
 
-## Opt-in variables (metric analyzer tick + Prometheus)
+## Metric analyzer tick and Prometheus
 
 The reference threshold analyzers ([src/fdai/core/investigation/analyzers.py](../src/fdai/core/investigation/analyzers.py))
-never fire on their own - a periodic tick has to invoke them. The tick is an
-opt-in Container Apps Job (mirroring the scheduler tick pattern) driven by
-these root-level variables; the whole thing stays dormant until the fork
-supplies a cron expression. Full latency analysis:
+never fire on their own - a periodic tick has to invoke them. The Container Apps Job runs every
+minute by default in observation mode (`shadow`). It uses explicit targets when supplied and
+otherwise reads the durable inventory projection. Set an explicit empty cron to disable it. The
+same tick publishes AKS detection-readiness observations through Huginn. Full latency analysis:
 [docs/roadmap/rules-and-detection/observability-and-detection.md](../docs/roadmap/rules-and-detection/observability-and-detection.md).
 
 | Variable | Type | Purpose |
 |----------|------|---------|
-| `analyzer_tick_cron_expression` | string | Cron for the tick job. Empty (default) leaves it unprovisioned. Recommended: `"* * * * *"` (every minute). |
-| `analyzer_targets_json` | string | JSON array of `{"resource_id", "kind"}` pairs. `kind` MUST be one of `aks_cluster` / `mysql_flexible_server` / `azure_openai` / `application_gateway` / `api_management`. Empty -> the CLI logs `no targets` and exits 0, so a mis-provisioned cron stays quiet. |
+| `analyzer_tick_cron_expression` | string | Cron for the tick job. Default: `"* * * * *"`. An explicit empty string disables it. |
+| `analyzer_targets_json` | string | Optional JSON array of `{"resource_id", "kind"}` pairs. `kind` MUST be one of `aks_cluster` / `mysql_flexible_server` / `azure_openai` / `application_gateway` / `api_management`. Empty uses durable inventory and exits quietly only when both sources have no supported targets. |
 | `analyzer_window_seconds` | string | Look-back window per analyzer per tick. Empty -> CLI default (300 s). |
 | `analyzer_budget_seconds` | string | Coordinator time budget; over this the outcome is `BUDGET_EXCEEDED`. Empty -> CLI default (60 s). |
 | `prometheus_endpoint` | string | Base URL of a Prometheus-compatible query API (AKS Managed Prometheus data-collection endpoint, self-hosted Prom, Thanos, Cortex, Mimir). When set alongside a Log Analytics workspace, `wire_azure_container` builds a **RoutedMetricProvider**: Prom serves its declared metrics (AKS-scoped: `node_cpu_percent`, ...) and AML fills the rest of the 14-metric analyzer catalog. Prom-only or AML-only cases keep the single-backend binding. |

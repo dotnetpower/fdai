@@ -62,6 +62,20 @@ def append_projection_routes(
             )
         )
 
+    if config.detection_readiness_reader is not None:
+        from fdai.delivery.read_api.routes.detection_readiness import (
+            DEFAULT_ROUTE_PATH,
+            make_detection_readiness_route,
+        )
+
+        _ensure_available(DEFAULT_ROUTE_PATH, "detection-readiness path", core_paths, panel_paths)
+        routes.append(
+            make_detection_readiness_route(
+                reader=config.detection_readiness_reader,
+                authorize=authorize,
+            )
+        )
+
     if config.rule_catalog_rules or config.rule_catalog_collected_rules:
         from fdai.delivery.read_api.routes.rule_catalog import (
             DEFAULT_ROUTE_PATH,

@@ -181,6 +181,7 @@ _SAGA = AgentSpec(
         "object.verdict",
         "object.approval",
         "object.security-event",
+        "object.state-snapshot",
         "object.issue",
         "object.forecast-outcome",
         "object.handoff-escalation",
@@ -218,6 +219,7 @@ _MUNINN = AgentSpec(
     subscribes=(
         "object.turn",
         "object.audit-entry",
+        "object.drift",
         "object.forecast-outcome",
         "object.event",
     ),

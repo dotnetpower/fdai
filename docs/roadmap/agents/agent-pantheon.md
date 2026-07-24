@@ -439,7 +439,7 @@ and `producer_principal`; Thor uses `correlation_id:state` for `object.action-ru
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
 | object.event | Huginn | Heimdall, Muninn (case-history retention ticks only) |
-| object.anomaly, object.drift, object.forecast | Heimdall | Forseti |
+| object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn reads detection-readiness drift only |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.security-event | Forseti | Heimdall (correlation), Saga |
 | object.verdict | Forseti | Thor, Saga, Odin |
@@ -452,7 +452,7 @@ and `producer_principal`; Thor uses `correlation_id:state` for `object.action-ru
 | object.issue | Saga | Norns, Mimir |
 | object.rule-candidate | Norns | Mimir |
 | object.rule | Mimir | Forseti (cache reload) |
-| object.context-index | Muninn | Norns (sealed case-history intake) |
+| object.context-index, object.state-snapshot | Muninn | Norns (sealed case-history intake), Saga (snapshot audit) |
 | object.conversation | Bragi | (session index) |
 | object.turn | Bragi | Muninn |
 | object.post-turn-review | Bragi | Norns (consent-filtered off-path review only) |

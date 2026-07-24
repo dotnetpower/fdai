@@ -175,6 +175,14 @@ export const TERMS = {
       "how many resources an action could reach - the risk gate caps it so a single change can never touch more than its scope",
     seeAlso: "blast-radius",
   },
+  detectionReadiness: {
+    term: "detection readiness",
+    plain:
+      "the agent-owned evidence that a monitored target can produce a governed failure signal; missing or stale evidence keeps authority in shadow",
+    tech: "DetectionReadinessSnapshot",
+    seeAlso: "detection-readiness",
+    match: "detection_readiness",
+  },
 } as const satisfies Record<string, GlossaryTerm>;
 
 /**

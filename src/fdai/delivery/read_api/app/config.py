@@ -197,6 +197,11 @@ class ReadApiConfig:
     Reader-gated ``GET /inventory/graph``. The provider reads the inventory
     projection only; the console never receives a cloud or executor identity."""
 
+    detection_readiness_reader: Any = None
+    """Optional Muninn StateSnapshot reader for ``GET /detection-readiness``.
+    The route projects agent-owned state and never probes Azure or recomputes a
+    readiness decision."""
+
     subscription_health_provider: Any = None
     """Optional bounded read-only Azure scope health provider for ChatOps.
     It owns subscription and resource-group scope, Resource Graph templates,

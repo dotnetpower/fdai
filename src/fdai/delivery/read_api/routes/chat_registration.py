@@ -36,6 +36,7 @@ from fdai.delivery.read_api.routes.chat_behavior_evidence import (
 )
 from fdai.delivery.read_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.read_api.routes.chat_data_sources import DataSourceChatTools
+from fdai.delivery.read_api.routes.chat_detection_readiness import DetectionReadinessChatTools
 from fdai.delivery.read_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.read_api.routes.chat_inventory import InventoryChatTools
@@ -48,6 +49,7 @@ from fdai.delivery.read_api.routes.chat_subscription_health import (
 from fdai.delivery.read_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.read_api.routes.data_sources import ReadDataSourceStatus
+from fdai.delivery.read_api.routes.detection_readiness import DetectionReadinessReader
 from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphProvider
 from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewSubmitter
 from fdai.shared.providers.briefing import ConversationPolicyStore
@@ -67,6 +69,7 @@ def append_chat_routes(
     conversation_history_store: ConversationHistoryStore | None = None,
     conversation_search: ConversationSearch | None = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
+    detection_readiness_reader: DetectionReadinessReader | None = None,
     subscription_health_provider: SubscriptionHealthProvider | None = None,
     log_query_provider: Any = None,
     data_sources: tuple[ReadDataSourceStatus, ...] = (),
@@ -111,10 +114,18 @@ def append_chat_routes(
             fallback=inventory_tools,
         )
     )
-    skill_tools = (
+    detection_readiness_tools = (
         subscription_health_tools
+        if detection_readiness_reader is None
+        else DetectionReadinessChatTools(
+            detection_readiness_reader,
+            fallback=subscription_health_tools,
+        )
+    )
+    skill_tools = (
+        detection_readiness_tools
         if skill_disclosure is None
-        else RuntimeSkillChatTools(skill_disclosure, fallback=subscription_health_tools)
+        else RuntimeSkillChatTools(skill_disclosure, fallback=detection_readiness_tools)
     )
     data_source_tools = DataSourceChatTools(data_sources, fallback=skill_tools)
     system_health_tools = SystemHealthChatTools(

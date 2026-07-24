@@ -129,6 +129,17 @@ WORKFLOWS: tuple[WorkflowSpec, ...] = (
         default_mode="shadow",
         promotion_gate="inherently shadow - never promoted",
     ),
+    WorkflowSpec(
+        id="detection-readiness-assurance",
+        name="Detection readiness assurance",
+        primary_agent="Heimdall",
+        participating_agents=("Huginn", "Heimdall", "Muninn", "Forseti", "Saga", "Bragi"),
+        trigger="detection.readiness.observed on the raw ingress topic",
+        default_mode="shadow",
+        promotion_gate=(
+            "30d shadow per target; zero false-ready snapshots; stale detection p99 < 15m"
+        ),
+    ),
 )
 
 WORKFLOWS_BY_ID: dict[str, WorkflowSpec] = {w.id: w for w in WORKFLOWS}

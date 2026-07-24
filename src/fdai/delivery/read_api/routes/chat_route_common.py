@@ -117,6 +117,7 @@ def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
         "describe_read_sources",
         "get_current_time",
         "query_inventory",
+        "query_detection_readiness",
         "query_log",
         "query_subscription_health",
     }:

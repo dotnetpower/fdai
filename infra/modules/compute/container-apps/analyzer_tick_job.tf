@@ -15,10 +15,10 @@
 // safe default: it never runs faster than either backend can
 // serve, and it recovers on the next fire when a tick fails.
 //
-// Opt-in: an empty `analyzer_tick_cron_expression` (the default)
-// provisions no job, so day-zero applies are unchanged. FDAI_ANALYZER_TARGETS
-// is required at runtime - the CLI exits 0 with a `no targets` info
-// line when unset, so a stray misconfigured cron does not crash-loop.
+// Enabled by default in shadow mode. An explicit empty
+// `analyzer_tick_cron_expression` provisions no job. FDAI_ANALYZER_TARGETS
+// is optional because the CLI falls back to the durable inventory projection;
+// it exits 0 only when neither source contains a supported target.
 
 resource "azurerm_container_app_job" "analyzer_tick" {
   count = var.analyzer_tick_cron_expression == "" ? 0 : 1
@@ -35,14 +35,14 @@ resource "azurerm_container_app_job" "analyzer_tick" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.executor_identity_id]
+    identity_ids = [var.inventory_identity_id]
   }
 
   dynamic "registry" {
     for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = var.acr_login_server
-      identity = var.executor_identity_id
+      identity = var.inventory_identity_id
     }
   }
 
@@ -50,7 +50,7 @@ resource "azurerm_container_app_job" "analyzer_tick" {
     for_each = nonsensitive(var.state_store_dsn_secret_id) == "" ? toset([]) : toset(["1"])
     content {
       name                = "analyzer-store-dsn"
-      identity            = var.executor_identity_id
+      identity            = var.inventory_identity_id
       key_vault_secret_id = var.state_store_dsn_secret_id
     }
   }
@@ -82,9 +82,7 @@ resource "azurerm_container_app_job" "analyzer_tick" {
         }
       }
 
-      // Explicit target list. Empty / unset -> the CLI logs a
-      // `no targets` info line and exits 0, so a misconfigured cron
-      // stays quiet instead of crash-looping.
+      // Optional explicit target list. Empty / unset uses durable inventory.
       env {
         name  = "FDAI_ANALYZER_TARGETS"
         value = var.analyzer_targets_json

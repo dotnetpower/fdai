@@ -146,6 +146,19 @@ You can tune the bounded runner with `FDAI_STARTUP_MAX_CONCURRENCY`,
 should register a `StartupProbeSpec` and `StartupProbe`; they should not add a blanket connectivity
 flag.
 
+### Continuous monitored-target readiness
+
+The analyzer Container Apps Job runs every minute by default in shadow mode. It uses explicit
+targets when configured and otherwise reads supported resources from durable inventory. For each
+AKS target it publishes six sanitized `detection.readiness.observed` records through the normal raw
+event topic. Huginn, Heimdall, Muninn, Forseti, and Saga then own normalization, reduction, durable
+snapshot, authority ceiling, and audit respectively. The console reads the Muninn snapshot; it does
+not probe Azure or recalculate the decision.
+
+An explicit empty `analyzer_tick_cron_expression` disables the job. Missing telemetry or a missing
+previous pipeline snapshot produces `partial`, never `ready`. Even a complete snapshot stays under
+the readiness workflow's initial `shadow` ceiling and cannot promote an action.
+
 ### Live validation evidence
 
 On 2026-07-23, a VNet-integrated self-hosted runner performed bounded checks against the existing

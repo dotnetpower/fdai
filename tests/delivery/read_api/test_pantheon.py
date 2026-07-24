@@ -76,15 +76,16 @@ def test_pantheon_graph_carries_org_chart_edges() -> None:
     assert "Forseti" in to_names
 
 
-def test_pantheon_workflows_returns_ten() -> None:
+def test_pantheon_workflows_returns_registered_catalog() -> None:
     client = _client(expose=True)
     resp = client.get("/pantheon/workflows")
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["count"] == 10
+    assert body["count"] == 11
     ids = {w["id"] for w in body["workflows"]}
     assert "handoff-capability" in ids
     assert "security-escalation" in ids
+    assert "detection-readiness-assurance" in ids
 
 
 def test_pantheon_workflows_include_primary_agent_and_gate() -> None:

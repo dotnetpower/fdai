@@ -227,7 +227,6 @@ the resolved `Principal`; RPC calls derive the role from server-authorized scope
 caller-supplied role parameter. Both surfaces return descriptors only and cannot invoke the target.
 
 ### 3.1 Day-1 tool set (read-only + explain)
-
 | Tool | Purpose | RBAC floor | Delegates to |
 |------|---------|-----------|--------------|
 | `describe_event(payload)` | Run one event through `EventIngest → TrustRouter → T0Engine` in memory (no PR, no audit write); return the resulting routing decision + candidate rule ids. | Reader | `EventIngest`, `TrustRouter`, `T0Engine` |
@@ -236,6 +235,7 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_audit(filters)` | Structured audit query: by event id, actor, decision, mode, time window. Paginated. | Reader | `StateStore.query_audit()` |
 | `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, and relationship queries. Returns bounded allowlisted fields plus active view and snapshot source/freshness; local VM state comes from `az vm list --show-details`; provider failure renders unavailable. | Reader | `InventoryGraphProvider` |
 | `query_subscription_health()` | Inspect the server-configured Azure reader scope with parallel Resource Graph inventory and Resource Health queries, then bounded representative metric checks. Returns explicit findings, coverage gaps, freshness, and truncation without allowing caller-supplied scope. | Reader | `SubscriptionHealthProvider` |
+| `query_detection_readiness()` | Read Heimdall's latest AKS readiness decisions from Muninn StateSnapshots, including six-axis coverage gaps and the authority ceiling. It does not probe Azure or recompute readiness. | Reader | `DetectionReadinessReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 90a34a7b1b75537eeb316c4bb911c07a13bb808d
+translation_source_sha: 6368ea9b7a37ce52f005b3f7c3189e0af7ac5a10
 translation_revised: 2026-07-24
 ---
 
@@ -51,6 +51,11 @@ required로 표시하며 저장된 값을 action promotion 또는 cloud-resource
 Integrations와 Diagnostics는 동일한 projection을 사용합니다. 이 화면은 configured, ready,
 incomplete, mode 및 boolean runtime status만 표시합니다. Endpoint, secret, tenant, resource,
 repository credential, recipient 또는 managed identity value는 렌더링하지 않습니다.
+
+Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비도 route가 있습니다.
+이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
+브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
+promotion 관련 count는 Promotion gates로 연결됩니다.
 
 활동 view는 durable audit 행과 browser-session runtime frame을 하나의 bounded chronological log로
 표시합니다. 각 행은 source label을 유지하므로 runtime frame을 durable audit evidence로 표시하지

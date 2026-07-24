@@ -65,28 +65,39 @@ Exit codes
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 import httpx
 
 from fdai.composition import Container, default_container_from_env
 from fdai.core.investigation import (
+    KIND_AKS,
     AnalyzerFinding,
     InvestigationCoordinator,
     InvestigationRequest,
     default_analyzers,
 )
+from fdai.core.readiness import (
+    DetectionObservationStatus,
+    DetectionReadinessDimension,
+    DetectionReadinessObservation,
+    detection_readiness_state_key,
+)
 from fdai.core.report_feed import signals_from_investigation
+from fdai.delivery.azure.demo_queries import METRIC_POD_RESTARTS
 from fdai.delivery.event_publisher import EventPublisherContext
-from fdai.shared.contracts.models import Event, Mode
+from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.metric import NoopMetricProvider
+from fdai.shared.providers.metric import MetricProvider, MetricQuery, NoopMetricProvider
+from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.delivery.analyzer_tick_cli")
 
@@ -97,6 +108,8 @@ _ENV_BUDGET = "FDAI_ANALYZER_BUDGET_SECONDS"
 
 _DEFAULT_WINDOW_SECONDS = 300.0
 _DEFAULT_BUDGET_SECONDS = 60.0
+_READINESS_EVIDENCE_SECONDS = 600
+_PIPELINE_FRESHNESS_SECONDS = 900
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +241,195 @@ async def _run_tick(
     return 0
 
 
+async def _publish_detection_readiness(
+    *,
+    targets: tuple[_Target, ...],
+    metric_provider: MetricProvider,
+    event_bus: EventBus,
+    topic: str,
+    state_store: StateStore | None,
+    observed_at: datetime,
+) -> int:
+    """Publish bounded AKS readiness facts to Huginn's raw ingress topic."""
+    published = 0
+    for target in targets:
+        if target.resource_kind != KIND_AKS:
+            continue
+        observations = await _aks_detection_observations(
+            target.resource_ref,
+            metric_provider=metric_provider,
+            state_store=state_store,
+            observed_at=observed_at,
+        )
+        resource_digest = hashlib.sha256(target.resource_ref.encode("utf-8")).hexdigest()
+        pass_id = hashlib.sha256(
+            f"{resource_digest}|{observed_at.isoformat()}".encode()
+        ).hexdigest()
+        for observation in observations:
+            identity = f"detection-readiness:{observation.evidence_digest}"
+            event = Event(
+                schema_version="1.0.0",
+                event_id=uuid5(NAMESPACE_URL, identity),
+                idempotency_key=identity,
+                correlation_id=f"detection-readiness:{resource_digest}",
+                source="fdai.delivery.analyzer_tick",
+                event_type="detection.readiness.observed",
+                resource_ref=target.resource_ref,
+                payload={
+                    "detection_readiness": {
+                        "dimension": observation.dimension.value,
+                        "status": observation.status.value,
+                        "observed_at": observation.observed_at.isoformat(),
+                        "expires_at": observation.expires_at.isoformat(),
+                        "source": observation.source,
+                        "evidence_digest": observation.evidence_digest,
+                        "pass_id": pass_id,
+                        **(
+                            {"detail_code": observation.detail_code}
+                            if observation.detail_code is not None
+                            else {}
+                        ),
+                    }
+                },
+                detected_at=observation.observed_at,
+                ingested_at=observation.observed_at,
+                incident_correlation=IncidentCorrelation.NONE,
+                mode=Mode.SHADOW,
+            )
+            await event_bus.publish(topic, target.resource_ref, event.model_dump(mode="json"))
+            published += 1
+    return published
+
+
+async def _aks_detection_observations(
+    resource_ref: str,
+    *,
+    metric_provider: MetricProvider,
+    state_store: StateStore | None,
+    observed_at: datetime,
+) -> tuple[DetectionReadinessObservation, ...]:
+    statuses: dict[
+        DetectionReadinessDimension,
+        tuple[DetectionObservationStatus, str, str | None],
+    ] = {
+        DetectionReadinessDimension.DISCOVERED: (
+            DetectionObservationStatus.PASSED,
+            "inventory.target",
+            None,
+        ),
+        DetectionReadinessDimension.DETECTOR_BOUND: (
+            DetectionObservationStatus.PASSED,
+            "fdai.catalog",
+            None,
+        ),
+        DetectionReadinessDimension.ACTION_GOVERNED: (
+            DetectionObservationStatus.PASSED,
+            "fdai.governance",
+            None,
+        ),
+    }
+    metric_status: DetectionObservationStatus
+    metric_detail: str | None
+    telemetry_status: DetectionObservationStatus
+    telemetry_detail: str | None
+    if isinstance(metric_provider, NoopMetricProvider):
+        metric_status = DetectionObservationStatus.UNAVAILABLE
+        metric_detail = "metric_provider_unconfigured"
+        telemetry_status = DetectionObservationStatus.UNAVAILABLE
+        telemetry_detail = metric_detail
+    else:
+        try:
+            query = MetricQuery(
+                metric_name=METRIC_POD_RESTARTS,
+                labels={"resource_id": resource_ref},
+                since=observed_at - timedelta(seconds=_READINESS_EVIDENCE_SECONDS),
+                until=observed_at,
+                aggregation="max",
+            )
+            has_sample = False
+            async for _point in metric_provider.query(query):
+                has_sample = True
+                break
+            metric_status = DetectionObservationStatus.PASSED
+            metric_detail = None
+            telemetry_status = (
+                DetectionObservationStatus.PASSED
+                if has_sample
+                else DetectionObservationStatus.UNAVAILABLE
+            )
+            telemetry_detail = None if has_sample else "telemetry_sample_missing"
+        except Exception:  # noqa: BLE001 - provider details stay behind sanitized status
+            metric_status = DetectionObservationStatus.UNAVAILABLE
+            metric_detail = "metric_query_unavailable"
+            telemetry_status = DetectionObservationStatus.UNAVAILABLE
+            telemetry_detail = metric_detail
+    statuses[DetectionReadinessDimension.COLLECTOR_CONFIGURED] = (
+        metric_status,
+        "metric.provider",
+        metric_detail,
+    )
+    statuses[DetectionReadinessDimension.TELEMETRY_OBSERVED] = (
+        telemetry_status,
+        "metric.sample",
+        telemetry_detail,
+    )
+
+    pipeline_status = DetectionObservationStatus.UNAVAILABLE
+    pipeline_detail: str | None = "prior_snapshot_missing"
+    if state_store is not None:
+        prior = await state_store.read_state(detection_readiness_state_key(resource_ref))
+        prior_generated = prior.get("generated_at") if prior is not None else None
+        if isinstance(prior_generated, str):
+            try:
+                generated_at = datetime.fromisoformat(prior_generated.replace("Z", "+00:00"))
+            except ValueError:
+                generated_at = None
+            if (
+                generated_at is not None
+                and generated_at.tzinfo is not None
+                and timedelta(0)
+                <= observed_at - generated_at
+                <= timedelta(seconds=_PIPELINE_FRESHNESS_SECONDS)
+            ):
+                pipeline_status = DetectionObservationStatus.PASSED
+                pipeline_detail = None
+            else:
+                pipeline_detail = "prior_snapshot_stale"
+    statuses[DetectionReadinessDimension.PIPELINE_OBSERVED] = (
+        pipeline_status,
+        "muninn.snapshot",
+        pipeline_detail,
+    )
+
+    expires_at = observed_at + timedelta(seconds=_READINESS_EVIDENCE_SECONDS)
+    observations: list[DetectionReadinessObservation] = []
+    resource_digest = hashlib.sha256(resource_ref.encode("utf-8")).hexdigest()
+    for dimension in DetectionReadinessDimension:
+        status, source, detail = statuses[dimension]
+        material = "|".join(
+            (
+                resource_digest,
+                dimension.value,
+                status.value,
+                detail or "passed",
+                observed_at.isoformat(),
+            )
+        )
+        observations.append(
+            DetectionReadinessObservation(
+                resource_ref=resource_ref,
+                dimension=dimension,
+                status=status,
+                observed_at=observed_at,
+                expires_at=expires_at,
+                source=source,
+                evidence_digest=hashlib.sha256(material.encode("utf-8")).hexdigest(),
+                detail_code=detail,
+            )
+        )
+    return tuple(observations)
+
+
 async def _persist_report_signals(report: object) -> None:
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
     if not dsn:
@@ -291,6 +493,7 @@ async def _tick() -> int:
     prometheus_base_url = os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip() or None
     prometheus_audience = os.environ.get("FDAI_PROMETHEUS_AUDIENCE", "").strip() or None
     http_client: httpx.AsyncClient | None = None
+    readiness_store: StateStore | None = None
     try:
         if monitor_workspace_id is not None or prometheus_base_url is not None:
             from fdai.composition import attach_metric_provider
@@ -310,7 +513,20 @@ async def _tick() -> int:
                 prometheus_queries=None,
                 prometheus_audience=prometheus_audience,
             )
+        dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+        if dsn:
+            from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+
+            readiness_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
         async with EventPublisherContext(kafka=container.config.kafka) as event_bus:
+            await _publish_detection_readiness(
+                targets=targets,
+                metric_provider=container.metric_provider,
+                event_bus=event_bus,
+                topic=container.config.kafka.topic_events,
+                state_store=readiness_store,
+                observed_at=datetime.now(tz=UTC),
+            )
             return await _run_tick(
                 container,
                 targets,

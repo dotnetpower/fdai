@@ -28,7 +28,7 @@ from fdai.agents.var import Var
 
 
 def test_workflow_catalog_has_ten_entries() -> None:
-    assert len(WORKFLOWS) == 10
+    assert len(WORKFLOWS) == 11
 
 
 def test_every_workflow_participant_is_a_real_agent() -> None:

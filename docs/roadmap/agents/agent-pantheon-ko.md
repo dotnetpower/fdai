@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c44914c92eb94d4fe930c1284bd61c206cdf11f4
+translation_source_sha: 6fb261cbddafa67669644d38143fed731f70b194
 translation_revised: 2026-07-24
 ---
 
@@ -417,7 +417,7 @@ Object type 당 topic 하나, `object.<type>` 로 명명. 모든 메시지는 `c
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
 | object.event | Huginn | Heimdall, Muninn (case-history retention tick만) |
-| object.anomaly, object.drift, object.forecast | Heimdall | Forseti |
+| object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn은 감지 준비도 drift만 읽음 |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.security-event | Forseti | Heimdall (correlation), Saga |
 | object.verdict | Forseti | Thor, Saga, Odin |
@@ -430,7 +430,7 @@ Object type 당 topic 하나, `object.<type>` 로 명명. 모든 메시지는 `c
 | object.issue | Saga | Norns, Mimir |
 | object.rule-candidate | Norns | Mimir |
 | object.rule | Mimir | Forseti (cache reload) |
-| object.context-index | Muninn | Norns (봉인된 case-history intake) |
+| object.context-index, object.state-snapshot | Muninn | Norns (봉인된 case-history intake), Saga (snapshot 감사) |
 | object.conversation | Bragi | (session index) |
 | object.turn | Bragi | Muninn |
 | object.post-turn-review | Bragi | Norns(동의가 확인된 off-path 검토만) |

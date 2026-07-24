@@ -479,7 +479,7 @@ variable "scheduler_cron_expression" {
 
 
 # ---------------------------------------------------------------------------
-# Analyzer tick job (opt-in) - drives the reference threshold analyzers
+# Analyzer tick job - drives the reference threshold analyzers
 # out-of-band so metric-based scenarios (node_cpu_percent, http_429_rate,
 # ...) get periodic detection. Bounded below by the metric backend's
 # ingestion lag (AKS Managed Prometheus ~15 s, Azure Monitor Logs KQL
@@ -487,13 +487,13 @@ variable "scheduler_cron_expression" {
 # ---------------------------------------------------------------------------
 
 variable "analyzer_tick_cron_expression" {
-  description = "Cron for the analyzer tick Container Apps Job that drives the reference threshold analyzers. Empty string disables the job (default)."
+  description = "Cron for the analyzer and detection-readiness tick Container Apps Job. The one-minute default enables shadow observation; an explicit empty string disables it."
   type        = string
-  default     = ""
+  default     = "* * * * *"
 }
 
 variable "analyzer_targets_json" {
-  description = "JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty (default) -> the CLI logs a no-targets info line and exits 0, so a mis-provisioned cron stays quiet."
+  description = "Optional JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty uses the durable inventory projection."
   type        = string
   default     = ""
 }

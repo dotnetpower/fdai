@@ -1,7 +1,7 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 3f89268dbea91d333c14c8c3176bd48e0a43bc15
+translation_source_sha: 68fa74305c445b2ba35f8300aee00bc61eea161a
 translation_revised: 2026-07-24
 ---
 
@@ -147,6 +147,19 @@ Bounded runner는 `FDAI_STARTUP_MAX_CONCURRENCY`, `FDAI_STARTUP_PROBE_TIMEOUT_SE
 `FDAI_STARTUP_COST_LIMIT_USD`, `FDAI_STARTUP_MODEL_SAMPLE_COUNT` 및
 `FDAI_STARTUP_REFRESH_SECONDS`로 조정할 수 있습니다. 활성화된 optional adapter는 blanket connectivity
 flag를 추가하지 말고 `StartupProbeSpec`과 `StartupProbe`를 등록하는 것이 좋습니다.
+
+### 지속적인 monitored-target readiness
+
+Analyzer Container Apps Job은 shadow 모드에서 기본 1분마다 실행됩니다. 명시적 target이 있으면
+이를 사용하고, 그렇지 않으면 durable inventory에서 지원 리소스를 읽습니다. 각 AKS target에
+대해 정제된 6개 `detection.readiness.observed` record를 일반 raw event topic으로 발행합니다.
+이후 Huginn, Heimdall, Muninn, Forseti, Saga가 각각 정규화, 축약, durable snapshot, 권한 상한,
+감사를 담당합니다. 콘솔은 Muninn snapshot을 읽으며 Azure를 probe하거나 판정을 다시 계산하지
+않습니다.
+
+`analyzer_tick_cron_expression`을 명시적으로 빈 값으로 설정하면 job이 비활성화됩니다. Telemetry
+또는 이전 pipeline snapshot이 누락되면 `ready`가 아니라 `partial`이 됩니다. 완전한 snapshot도
+readiness workflow의 초기 `shadow` 상한 아래에 유지되며 action을 승격할 수 없습니다.
 
 ### Live 검증 Evidence
 

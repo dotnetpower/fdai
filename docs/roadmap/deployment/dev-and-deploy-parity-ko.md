@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a5fbd238ba9a120301fb5a3426b58b9ac565263d
+translation_source_sha: 14caebd0ca9cceeec12167e7b336fdc3742828fc
 translation_revised: 2026-07-24
 ---
 
@@ -123,6 +123,12 @@ allowlist만 업데이트할 수 있습니다. IRP 변경은 다음 eligible ale
 retention cadence 변경은 다음 Job 또는 tick에 적용됩니다. Logging level과 case retention/deletion day
 변경은 restart required로 표시되며 headless runtime이 시작될 때 로드됩니다. 어떤 setting도 local read
 API에 executor identity를 부여하거나 ActionType 및 Workflow promotion state를 변경하지 않습니다.
+
+Detection readiness도 같은 경계를 사용합니다. Deployment는 항상 PostgreSQL에서 Muninn
+StateSnapshot을 읽습니다. Interactive local은 local PostgreSQL이 구성된 경우에만
+`/detection-readiness`를 등록하며, 그렇지 않으면 route와 source manifest가 unavailable을
+보고합니다. Local browser는 Azure CLI inventory로 대체하거나 Heimdall 판정을 다시 계산하지
+않습니다.
 
 Standard full-stack launch는 narrator endpoint reconciliation도 활성 상태로 유지합니다. Read API는
 Command Deck을 deterministic fallback으로 강제하지 않고 configured Azure OpenAI narrator를 항상

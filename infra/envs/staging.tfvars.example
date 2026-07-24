@@ -32,7 +32,7 @@ additional_tags = {
 }
 
 # ---------------------------------------------------------------
-# Metric analyzer tick (opt-in) - see dev.tfvars.example for the
+# Metric analyzer tick (one-minute shadow default) - see dev.tfvars.example for the
 # full example. Staging default: enable with a 60 s cron and no
 # Prom endpoint (AML-only) so the 2-5 min AML floor is visible
 # during dry-runs before wiring Managed Prometheus in prod.

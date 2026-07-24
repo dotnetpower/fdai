@@ -21,7 +21,9 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _MUNINN
 from fdai.core.case_history import CaseHistoryMaterializer, CaseHistoryRetentionService
+from fdai.core.readiness import DetectionReadinessSnapshot, detection_readiness_state_key
 from fdai.shared.contracts.models import ForecastOutcome
+from fdai.shared.providers.state_store import StateStore
 
 
 class Muninn(Agent):
@@ -31,6 +33,7 @@ class Muninn(Agent):
         self,
         *,
         state_store: InMemoryStateStore | None = None,
+        durable_state_store: StateStore | None = None,
         case_history: CaseHistoryMaterializer | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         case_history_clock: Callable[[], datetime] | None = None,
@@ -41,6 +44,7 @@ class Muninn(Agent):
             raise ValueError("Muninn case retention days MUST be positive and ordered")
         super().__init__(spec=_MUNINN)
         self.state_store = state_store or InMemoryStateStore()
+        self._durable_state_store = durable_state_store
         self._case_history = case_history
         self._case_history_retention = case_history_retention
         self._case_history_clock = case_history_clock or _utc_now
@@ -52,6 +56,8 @@ class Muninn(Agent):
             turn_id = str(payload.get("turn_id") or payload.get("id", ""))
             if turn_id:
                 self.state_store.put("conversation_turns", turn_id, payload)
+        elif topic == "object.drift" and payload.get("kind") == "detection_readiness":
+            await self._materialize_detection_readiness(payload)
         elif (
             topic == "object.audit-entry"
             and payload.get("kind") == "document_ingestion"
@@ -74,6 +80,68 @@ class Muninn(Agent):
             "case_history.retention_due"
         ):
             await self._apply_case_history_retention(payload)
+
+    async def _materialize_detection_readiness(self, payload: dict[str, Any]) -> None:
+        """Persist and publish one validated Heimdall readiness snapshot."""
+        try:
+            snapshot = DetectionReadinessSnapshot.model_validate(
+                {
+                    "resource_ref": payload.get("resource_id"),
+                    "generated_at": payload.get("generated_at"),
+                    "decision": payload.get("decision"),
+                    "observations": payload.get("observations"),
+                    "missing_dimensions": payload.get("missing_dimensions", []),
+                    "stale_dimensions": payload.get("stale_dimensions", []),
+                    "authority_ceiling": payload.get("authority_ceiling"),
+                }
+            )
+        except ValueError:
+            self.record_behavior("detection_readiness:invalid")
+            return
+        idempotency_key = str(payload.get("idempotency_key") or "")
+        correlation_id = str(payload.get("correlation_id") or "")
+        if not idempotency_key or not correlation_id:
+            self.record_behavior("detection_readiness:invalid")
+            return
+
+        record = {
+            "kind": "detection_readiness",
+            "producer_principal": "Muninn",
+            "correlation_id": correlation_id,
+            "idempotency_key": idempotency_key,
+            **snapshot.model_dump(mode="json"),
+        }
+        prior = self.state_store.get("detection_readiness", snapshot.resource_ref)
+        if isinstance(prior, dict) and prior.get("idempotency_key") == idempotency_key:
+            self.record_behavior("detection_readiness:duplicate")
+            return
+        key = detection_readiness_state_key(snapshot.resource_ref)
+        if self._durable_state_store is not None:
+            durable_prior = await self._durable_state_store.read_state(key)
+            if (
+                durable_prior is not None
+                and durable_prior.get("idempotency_key") == idempotency_key
+            ):
+                self.state_store.put(
+                    "detection_readiness",
+                    snapshot.resource_ref,
+                    dict(durable_prior),
+                )
+                self.record_behavior("detection_readiness:duplicate")
+                return
+            await self._durable_state_store.write_state(key, record)
+        self.state_store.put("detection_readiness", snapshot.resource_ref, record)
+        self.record_behavior(f"detection_readiness:{snapshot.decision.value}")
+        if self.bus is not None:
+            await self.bus.publish(
+                "Muninn",
+                "object.state-snapshot",
+                {
+                    **record,
+                    "snapshot_type": "detection_readiness",
+                    "idempotency_key": f"state-snapshot:{idempotency_key}",
+                },
+            )
 
     async def _apply_case_history_retention(self, payload: dict[str, Any]) -> None:
         identity_fields = (

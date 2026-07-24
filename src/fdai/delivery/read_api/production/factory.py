@@ -635,6 +635,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             )
         ),
         subscription_health_provider=subscription_health_provider,
+        detection_readiness_reader=state_store,
         scope_source=scope_source,
         log_query_provider=log_query_provider,
         reporting=reporting,

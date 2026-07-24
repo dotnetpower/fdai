@@ -28,6 +28,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _FORSETI
+from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 
 # ---------------------------------------------------------------------------
 # Deterministic tables (wave 3 defaults)
@@ -96,6 +97,9 @@ class Forseti(Agent):
         # from the signal (cost overspend ratio, capacity forecast util). Fed
         # to Odin so arbitration weighs magnitude, not just priority.
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
+        self._detection_readiness: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -103,6 +107,14 @@ class Forseti(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.event" and payload.get("event_type") == (
+            "detection.readiness.observed"
+        ):
+            self.record_behavior("detection_readiness:observation_deferred")
+            return
+        if topic == "object.drift" and payload.get("kind") == "detection_readiness":
+            self._record_detection_readiness(payload)
+            return
         if payload.get("kind") == "document_ingestion":
             if topic == "object.event" and payload.get("event_type") == "document.received":
                 await self.judge_document_ingestion(payload)
@@ -118,6 +130,23 @@ class Forseti(Agent):
             await self._ingest_domain_signal("capacity", payload)
         elif topic == "object.arbitration-decision":
             self._record_arbitration(payload)
+
+    def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
+        resource_id = str(payload.get("resource_id") or "")
+        try:
+            decision = DetectionReadinessDecision(str(payload.get("decision") or ""))
+            ceiling = AuthorityCeiling(str(payload.get("authority_ceiling") or ""))
+        except ValueError:
+            self.record_behavior("detection_readiness:invalid")
+            return
+        if not resource_id:
+            self.record_behavior("detection_readiness:invalid")
+            return
+        self._detection_readiness.set(
+            resource_id,
+            {"decision": decision.value, "authority_ceiling": ceiling.value},
+        )
+        self.record_behavior(f"detection_readiness:{decision.value}")
 
     # ---- cross-vertical arbitration -----------------------------------
 
@@ -370,8 +399,19 @@ class Forseti(Agent):
             risk_verdict = "deny"
             rbac_denied = True
 
+        readiness = self._detection_readiness.get(str(event.get("resource_id") or ""))
+        readiness_limited = bool(
+            readiness
+            and readiness["authority_ceiling"] in {"disabled", "deterministic_fallback", "shadow"}
+            and risk_verdict == "auto"
+        )
+        if readiness_limited:
+            risk_verdict = "hil"
+
         if risk_verdict == "deny":
             reason = "rbac_insufficient" if rbac_denied else "risk_deny"
+        elif readiness_limited:
+            reason = "detection_readiness_ceiling"
         else:
             reason = "rule_match"
         # Measurable behaviour: the verdict distribution + why. A scenario
@@ -388,6 +428,7 @@ class Forseti(Agent):
             "action_type": action_type,
             "risk_verdict": risk_verdict,
             "reason": reason,
+            "detection_readiness": readiness,
             # Distinct-approver quorum: an irreversible action MUST clear two
             # approvers (agent-pantheon.md 4.6). The judge sets it on the
             # verdict; Thor propagates it onto the ActionRun and Var enforces

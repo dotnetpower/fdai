@@ -122,6 +122,11 @@ retention/deletion day changes are labeled restart required and are loaded when 
 starts. No setting grants the local read API an executor identity or changes ActionType and Workflow
 promotion state.
 
+Detection readiness uses the same boundary. Deployment always reads Muninn StateSnapshots from
+PostgreSQL. Interactive local registers `/detection-readiness` only when local PostgreSQL is
+configured; otherwise the route and source manifest report unavailable. The local browser never
+substitutes Azure CLI inventory or recomputes Heimdall's decision.
+
 The standard full-stack launch also leaves narrator endpoint reconciliation enabled. The read API
 always tries the configured Azure OpenAI narrator instead of forcing the Command Deck into its
 deterministic fallback. At startup, the local-only hook can add the current public IP to the

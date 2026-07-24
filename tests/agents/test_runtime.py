@@ -27,6 +27,7 @@ from fdai.agents._framework.provider_adapters import (
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
+from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
@@ -78,6 +79,27 @@ def test_object_event_fans_out_to_forseti_and_heimdall() -> None:
     runtime, _ = _build()
     subscribers = {name for name, _ in runtime.bridge._subs["object.event"]}
     assert {"Forseti", "Heimdall"} <= subscribers
+
+
+def test_detection_readiness_subscriptions_follow_agent_ownership() -> None:
+    runtime, _ = _build()
+    drift_subscribers = {name for name, _ in runtime.bridge._subs["object.drift"]}
+    snapshot_subscribers = {name for name, _ in runtime.bridge._subs["object.state-snapshot"]}
+    assert {"Forseti", "Muninn"} <= drift_subscribers
+    assert "Saga" in snapshot_subscribers
+
+
+def test_runtime_injects_durable_state_store_into_muninn() -> None:
+    store = InMemoryStateStore()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+    )
+
+    muninn = runtime.agents["Muninn"]
+    assert isinstance(muninn, Muninn)
+    assert muninn._durable_state_store is store
 
 
 def test_forecast_findings_route_to_forseti_judgment() -> None:

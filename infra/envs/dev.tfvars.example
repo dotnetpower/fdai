@@ -56,16 +56,15 @@ additional_tags = {
 
 
 # ---------------------------------------------------------------
-# Metric analyzer tick (opt-in) - drives the reference threshold
+# Metric analyzer tick - enabled every minute by default and drives the reference threshold
 # analyzers so metric-based scenarios (node_cpu_percent,
 # http_429_rate, ...) get near-real-time detection. Latency
 # envelope: AKS Managed Prometheus ~15-60 s (with Prom wired);
 # non-AKS resources ~2-5 min (Azure Monitor Logs ingestion floor).
-# Empty cron (default) leaves the job unprovisioned - the demo
-# path AKS pod CPU stress etc. is DARK until you fill this in.
+# Set an explicit empty cron to disable the job. Empty targets use durable inventory.
 # See docs/roadmap/rules-and-detection/observability-and-detection.md.
 # ---------------------------------------------------------------
-# analyzer_tick_cron_expression = "* * * * *"          # every minute
+# analyzer_tick_cron_expression = "* * * * *"          # explicit default
 # analyzer_targets_json = <<-EOT
 #   [
 #     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ContainerService/managedClusters/<name>", "kind": "aks_cluster"},

@@ -1357,11 +1357,10 @@ module "compute" {
   dr_drill_source_server_arm_id = var.dr_drill_source_server_arm_id
   dr_drill_dry_run              = var.dr_drill_dry_run
 
-  # Metric analyzer tick (opt-in) - drives the reference threshold
-  # analyzers so metric-based scenarios (node_cpu_percent, http_429_rate,
-  # ...) get near-real-time detection instead of sitting dark. Empty
-  # cron (default) leaves the job unprovisioned; a fork sets a cadence
-  # + targets JSON + optional Prom endpoint to enable. See
+  # Metric analyzer and detection-readiness tick. The one-minute shadow
+  # default uses explicit targets or durable inventory and runs under the
+  # read-only inventory identity, never Thor's executor identity. An explicit
+  # empty cron disables it. See
   # docs/roadmap/rules-and-detection/observability-and-detection.md.
   analyzer_tick_cron_expression = var.analyzer_tick_cron_expression
   analyzer_targets_json         = var.analyzer_targets_json

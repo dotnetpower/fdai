@@ -309,7 +309,7 @@ variable "dr_drill_dry_run" {
 
 
 # ---------------------------------------------------------------------------
-# Metric analyzer tick (opt-in) - drives the reference threshold analyzers
+# Metric analyzer tick - drives the reference threshold analyzers
 # out-of-band so metric-based scenarios (node_cpu_percent, http_429_rate,
 # ...) get near-real-time detection. Latency envelope is bounded below by
 # the metric backend: AKS Managed Prometheus scrapes on ~15 s; Azure
@@ -319,9 +319,9 @@ variable "dr_drill_dry_run" {
 # ---------------------------------------------------------------------------
 
 variable "analyzer_tick_cron_expression" {
-  description = "Cron for the analyzer tick Container Apps Job. Empty string (default) disables the job entirely so a generic deploy does not incur tick cost. Fork sets e.g. '* * * * *' (every minute) once analyzer_targets_json is filled."
+  description = "Cron for the analyzer and detection-readiness tick Container Apps Job. The one-minute default starts shadow observation from explicit targets or durable inventory. Set an explicit empty string to disable the job."
   type        = string
-  default     = ""
+  default     = "* * * * *"
 }
 
 variable "forecast_tick_cron_expression" {
@@ -372,7 +372,7 @@ variable "inventory_freshness_seconds" {
 }
 
 variable "analyzer_targets_json" {
-  description = "JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty (default) - the CLI logs a no-targets info line and exits 0, so a mis-provisioned cron stays quiet. Kind MUST match one of KIND_AKS / KIND_MYSQL / KIND_AZURE_OPENAI / KIND_APP_GATEWAY / KIND_API_MANAGEMENT (see src/fdai/core/investigation/analyzers.py)."
+  description = "Optional JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty uses the durable inventory projection; the CLI exits quietly only when both sources are empty. Kind MUST match one of KIND_AKS / KIND_MYSQL / KIND_AZURE_OPENAI / KIND_APP_GATEWAY / KIND_API_MANAGEMENT (see src/fdai/core/investigation/analyzers.py)."
   type        = string
   default     = ""
 }

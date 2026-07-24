@@ -7890,6 +7890,16 @@ main { padding-bottom: 60px !important; }
   line-height: 1.5;
 }
 .governance-readonly-banner strong { color: var(--fg); }
+.detection-readiness-route .governance-readonly-banner {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
+}
+@media (max-width: 640px) {
+  .detection-readiness-route .governance-readonly-banner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}
 .governance-filterbar {
   display: flex;
   align-items: center;

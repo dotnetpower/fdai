@@ -9,6 +9,8 @@ registers. Deduplication of admin cards uses a rolling window per
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import time
 from collections import Counter, deque
@@ -29,6 +31,13 @@ from fdai.agents._framework.pantheon import _HEIMDALL
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
+from fdai.core.readiness import (
+    AuthorityCeiling,
+    DetectionReadinessDimension,
+    DetectionReadinessObservation,
+    DetectionReadinessSnapshot,
+    reduce_detection_readiness,
+)
 from fdai.shared.contracts.models import ForecastOutcome
 
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
@@ -56,6 +65,7 @@ _ALERT_WINDOW_SECONDS = 3600.0
 #: restarts its rate window on its next event.
 _MAX_TRACKED_KEYS = 10_000
 _MAX_FORECAST_PUBLICATION_ATTEMPTS = 5
+_DETECTION_READINESS_EVENT = "detection.readiness.observed"
 
 
 def _evict_oldest(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
@@ -114,6 +124,10 @@ class Heimdall(Agent):
         self._forecast_store = forecast_store
         self._action_semantics = action_semantics
         self._alert_windows: dict[str, tuple[float, int]] = {}
+        self._detection_readiness: dict[str, dict[str, DetectionReadinessObservation]] = {}
+        self._detection_readiness_pending: dict[
+            str, tuple[str, dict[str, DetectionReadinessObservation]]
+        ] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -145,6 +159,9 @@ class Heimdall(Agent):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.event":
+            if payload.get("event_type") == _DETECTION_READINESS_EVENT:
+                await self._observe_detection_readiness(payload)
+                return
             if payload.get("event_type") == "forecast.evaluation_due":
                 await self._run_forecast_tick(payload)
                 return
@@ -159,6 +176,96 @@ class Heimdall(Agent):
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
+
+    async def _observe_detection_readiness(self, event: dict[str, Any]) -> None:
+        """Validate one probe fact and publish the agent-owned reduction."""
+        resource_id = str(event.get("resource_id") or "")
+        attributes = event.get("attributes")
+        pass_id = str(attributes.get("pass_id") or "") if isinstance(attributes, dict) else ""
+        if not resource_id or not pass_id or not isinstance(attributes, dict):
+            self.record_behavior("detection_readiness:invalid")
+            return
+        try:
+            observation = DetectionReadinessObservation.model_validate(
+                {
+                    "resource_ref": resource_id,
+                    "dimension": attributes.get("dimension"),
+                    "status": attributes.get("status"),
+                    "observed_at": attributes.get("observed_at"),
+                    "expires_at": attributes.get("expires_at"),
+                    "source": attributes.get("source"),
+                    "evidence_digest": attributes.get("evidence_digest"),
+                    "detail_code": attributes.get("detail_code") or None,
+                }
+            )
+        except ValueError:
+            self.record_behavior("detection_readiness:invalid")
+            return
+
+        pending = self._detection_readiness_pending.get(resource_id)
+        if pending is None or pending[0] != pass_id:
+            observations: dict[str, DetectionReadinessObservation] = {}
+            self._detection_readiness_pending[resource_id] = (pass_id, observations)
+        else:
+            observations = pending[1]
+        _evict_oldest(self._detection_readiness_pending, _MAX_TRACKED_KEYS, keep=resource_id)
+        observations[observation.dimension.value] = observation
+        if len(observations) != len(DetectionReadinessDimension):
+            self.record_behavior("detection_readiness:collecting")
+            return
+        self._detection_readiness[resource_id] = dict(observations)
+        _evict_oldest(self._detection_readiness, _MAX_TRACKED_KEYS, keep=resource_id)
+        del self._detection_readiness_pending[resource_id]
+        snapshot = reduce_detection_readiness(
+            tuple(observations.values()),
+            resource_ref=resource_id,
+            generated_at=self._forecast_clock(),
+            deployment_ceiling=AuthorityCeiling.SHADOW,
+        )
+        await self._publish_detection_readiness(event, snapshot)
+
+    async def _publish_detection_readiness(
+        self,
+        event: dict[str, Any],
+        snapshot: DetectionReadinessSnapshot,
+    ) -> None:
+        material = {
+            "resource_ref": snapshot.resource_ref,
+            "decision": snapshot.decision.value,
+            "authority_ceiling": snapshot.authority_ceiling.value,
+            "observations": [
+                {
+                    "dimension": item.dimension.value,
+                    "status": item.status.value,
+                    "evidence_digest": item.evidence_digest,
+                    "expires_at": item.expires_at.isoformat(),
+                }
+                for item in snapshot.observations
+            ],
+            "missing_dimensions": [item.value for item in snapshot.missing_dimensions],
+            "stale_dimensions": [item.value for item in snapshot.stale_dimensions],
+        }
+        digest = hashlib.sha256(
+            json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        payload = {
+            "producer_principal": "Heimdall",
+            "kind": "detection_readiness",
+            "event_type": "detection.readiness",
+            "correlation_id": str(event.get("correlation_id") or f"readiness:{digest}"),
+            "idempotency_key": f"detection-readiness:{digest}",
+            "resource_id": snapshot.resource_ref,
+            "target_type": "kubernetes-cluster",
+            "decision": snapshot.decision.value,
+            "authority_ceiling": snapshot.authority_ceiling.value,
+            "generated_at": snapshot.generated_at.isoformat(),
+            "observations": [item.model_dump(mode="json") for item in snapshot.observations],
+            "missing_dimensions": [item.value for item in snapshot.missing_dimensions],
+            "stale_dimensions": [item.value for item in snapshot.stale_dimensions],
+        }
+        self.record_behavior(f"detection_readiness:{snapshot.decision.value}")
+        if self.bus is not None:
+            await self.bus.publish("Heimdall", "object.drift", payload)
 
     async def _run_forecast_tick(self, payload: dict[str, Any]) -> None:
         identity_fields = (

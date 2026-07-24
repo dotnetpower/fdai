@@ -10,6 +10,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   "hil-queue": "/approvals",
   provision: "/provisioning",
   onboarding: "/onboarding",
+  "detection-readiness": "/detection-readiness",
   processes: "/processes",
   "workflow-apps": "/workflow-apps",
   "scheduler-runs": "/scheduler-runs",

@@ -124,6 +124,7 @@ class Huginn(Agent):
         event_payload = raw.get("payload")
         canonical_payload = event_payload if isinstance(event_payload, Mapping) else {}
         inventory_change = canonical_payload.get("inventory_change")
+        detection_readiness = canonical_payload.get("detection_readiness")
         resource_value = (
             inventory_change.get("resource") if isinstance(inventory_change, Mapping) else None
         )
@@ -152,6 +153,20 @@ class Huginn(Agent):
             signal_kind = canonical_payload.get("signal_kind")
             if isinstance(signal_kind, str):
                 payload["attributes"]["signal_kind"] = _bound(signal_kind)
+        if isinstance(detection_readiness, Mapping):
+            for field in (
+                "dimension",
+                "status",
+                "observed_at",
+                "expires_at",
+                "source",
+                "evidence_digest",
+                "detail_code",
+                "pass_id",
+            ):
+                value = detection_readiness.get(field)
+                if value is not None:
+                    payload["attributes"][field] = _bound(value)
         # Operator-proposal fields (`initiator_principal`, `action_type`,
         # `params`) are honored ONLY for an explicit operator request
         # (``event_type == "operator_request"``). This is the trust gate: a

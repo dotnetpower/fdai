@@ -90,6 +90,9 @@ Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 forecast Job publishes only a raw tick, which Huginn normalizes for Heimdall to evaluate and close.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
+The analyzer job defaults to a one-minute shadow schedule. When explicit analyzer targets are
+empty, it reads supported targets from durable inventory and publishes AKS detection-readiness
+observations through Huginn. Set the analyzer cron to an explicit empty string to disable the job.
 
 #### Inventory discovery with restricted egress
 

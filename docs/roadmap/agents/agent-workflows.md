@@ -4,7 +4,7 @@ title: Agent Workflows
 
 # Agent Workflows
 
-The twelve cross-agent workflows that the pantheon composes into product-level
+The thirteen cross-agent workflows that the pantheon composes into product-level
 capabilities. Each workflow names its participating agents, its trigger,
 its end-to-end sequence, and its exit criteria. Every workflow ships in
 shadow mode first ([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation.md#11-wave-7---cross-agent-workflows-in-shadow))
@@ -609,7 +609,7 @@ commands, pass source through the event bus, or bypass the risk gate.
 | 10 | Retrospective what-if | Operator or post-incident | Bragi | (inherently shadow) |
 | 11 | Operational readiness handoff | `ownership_transfer` signal | Forseti | 30d shadow/env, zero critical FN, FP < 5% |
 | 12 | Scheduled governed Python task | Strict cron schedule | Forseti + Thor | 30 plans, >= 99% accuracy, zero escapes, Owner HIL |
-
+| 13 | Detection readiness assurance | `detection.readiness.observed` | Heimdall | 30d shadow/target, zero false-ready, stale p99 < 15m |
 ## Next steps
 
 | To learn about | Read |

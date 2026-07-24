@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: bc531e3f7ad2a31124d6f6ee83dfb0b8344fc741
+translation_source_sha: e21b8679bb1aa85f1bb13cb274e4809e74ed75e7
 translation_revised: 2026-07-24
 ---
 
@@ -93,6 +93,9 @@ Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSIO
 Forecast Job은 raw tick만 publish하며 Huginn이 이를 Heimdall 평가 및 closure용으로 정규화합니다.
 빈 cron은 해당 job을 비활성화합니다. 기존 scheduler 또는 analyzer job은 plan 전에 안전하게
 가져오고 이후 image와 configuration 변경은 같은 plan 및 apply 경로로 수렴합니다.
+Analyzer job은 기본 1분 shadow schedule을 사용합니다. 명시적 analyzer target이 비어 있으면
+durable inventory에서 지원 target을 읽고 Huginn을 통해 AKS 감지 준비도 관측을 발행합니다.
+Analyzer cron을 명시적으로 빈 문자열로 설정하면 job이 비활성화됩니다.
 
 #### 제한된 egress 환경의 인벤토리 디스커버리
 

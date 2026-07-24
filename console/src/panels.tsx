@@ -59,6 +59,7 @@ const LlmCostRoute = lazy(async () => ({ default: (await import("./routes/llm-co
 const CapabilitiesRoute = lazy(async () => ({ default: (await import("./routes/capabilities")).CapabilitiesRoute }));
 const SkillsRoute = lazy(async () => ({ default: (await import("./routes/skills")).SkillsRoute }));
 const OnboardingRoute = lazy(async () => ({ default: (await import("./routes/onboarding")).OnboardingRoute }));
+const DetectionReadinessRoute = lazy(async () => ({ default: (await import("./routes/detection-readiness")).DetectionReadinessRoute }));
 const SchedulerRunsRoute = lazy(async () => ({ default: (await import("./routes/scheduler-runs")).SchedulerRunsRoute }));
 const AutomationBlueprintsRoute = lazy(async () => ({ default: (await import("./routes/automation-blueprints")).AutomationBlueprintsRoute }));
 const ScheduledContinuationsRoute = lazy(async () => ({ default: (await import("./routes/scheduled-continuations")).ScheduledContinuationsRoute }));
@@ -195,6 +196,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.onboarding"),
     group: "operations",
     component: OnboardingRoute,
+  },
+  {
+    id: "detection-readiness",
+    label: t("nav.panel.detectionReadiness"),
+    subtitle: t("nav.panelSub.detectionReadiness"),
+    group: "operations",
+    component: DetectionReadinessRoute,
   },
   {
     id: "processes",

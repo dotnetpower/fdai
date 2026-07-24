@@ -61,6 +61,7 @@ def build_production_data_sources(
                 "/browser-evidence",
                 "/context-selection-comparisons",
                 "/conversation-delivery",
+                "/detection-readiness",
                 "/forecast-learning",
                 "/me/context",
                 "/me/conversations/search",
