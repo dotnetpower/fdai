@@ -96,6 +96,22 @@ describe("agent live log projection", () => {
     expect(filterAgentLogRows(rows, "Heimdall", "corr live")).toHaveLength(1);
     expect(filterAgentLogRows(rows, "Thor", "anomaly")).toHaveLength(0);
   });
+
+  it("keeps live row identity stable across prepends and suppresses exact replay duplicates", () => {
+    const existing = liveConversation();
+    const newer: LiveAgentActivityEvent = {
+      ...existing,
+      detail: "A newer handoff.",
+      ts: "2026-07-24T10:02:00Z",
+    };
+
+    const before = buildAgentLogRows([existing], []);
+    const after = buildAgentLogRows([newer, existing, existing], []);
+
+    expect(after).toHaveLength(2);
+    expect(after.find((row) => row.detail === existing.detail)?.id).toBe(before[0]?.id);
+    expect(new Set(after.map((row) => row.id)).size).toBe(after.length);
+  });
 });
 
 describe("agent live log controls", () => {
