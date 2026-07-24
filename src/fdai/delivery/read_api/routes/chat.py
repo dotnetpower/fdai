@@ -96,6 +96,7 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     _with_agent_evidence,
     _with_behavior_evidence,
     _with_operational_evidence,
+    _with_screen_scope,
     _with_tool_evidence,
     _with_web_evidence,
 )
@@ -393,6 +394,7 @@ def make_chat_route(
                 store=conversation_policy_store,
             )
             view_context = with_document_evidence(view_context, document_evidence_refs)
+            view_context = _with_screen_scope(clean_prompt, view_context, agent_delegate)
             view_context = await _with_behavior_evidence(
                 clean_prompt,
                 view_context,
@@ -426,7 +428,7 @@ def make_chat_route(
             answer_plan, planning_task = start_shadow_answer_planning(
                 prompt=clean_prompt,
                 plan=answer_plan,
-                delegate=answer_planning_delegate,
+                delegate=(None if "_screen_scope" in view_context else answer_planning_delegate),
             )
             view_context["_answer_plan"] = answer_plan.to_dict()
         except Exception:

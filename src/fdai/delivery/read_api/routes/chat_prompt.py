@@ -212,6 +212,7 @@ def _with_concept_evidence(prompt: str, view_context: dict[str, Any]) -> dict[st
             "_operational_evidence",
             "_tool_evidence",
             "_agent_evidence",
+            "_screen_scope",
         )
     ):
         return enriched

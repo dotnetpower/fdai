@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: e30c4f58efdd8c3c1c421436aa6b84519b567c4e
+translation_source_sha: a699db6a3f6abb4224ca352336079a26f1becf09
 translation_revised: 2026-07-24
 ---
 
@@ -307,9 +307,11 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   검색 가능한 model이 `web` / `local` / `none`, confidence, reason code 및 normalized query를 strict
   JSON으로 반환합니다. Low-confidence, malformed 또는 unavailable classification은 `none`을 유지합니다.
   Current-screen, audit, inventory, catalog 및 sensitive-data 경계는 semantic fallback 전에 적용됩니다.
-  현재 화면에 turn의 fact 또는 record가 있으면 Bragi는 data question을 해당 화면 범위에
-  결정론적으로 유지합니다. 이 범위에서는 specialist delegation과 semantic web classification을
-  생략합니다. 요청한 field가 없으면 일반 model knowledge로 채우지 않고 부재를 알립니다.
+  현재 화면에 명시적으로 빈 projection을 포함한 turn의 facts 또는 records projection이 있으면
+  Bragi는 data question을 해당 화면 범위에 결정론적으로 유지합니다. 이 scope는 behavior, tool,
+  incident, agent, concept 및 web resolver보다 먼저 선택합니다. Specialist delegation, semantic web
+  classification 및 shadow contributor planning은 생략합니다. 요청한 field가 없으면 일반 model
+  knowledge로 채우지 않고 부재를 알립니다.
   `bragi-screen-t0` renderer는 지원하는 fact, record, latest audit, action summary 및 promotion row
   질문을 narrator model 호출 없이 답합니다. JSON과 SSE는 동일한 renderer와 verifier를 사용합니다.
 - **검색:** 대상 turn은 검색 가능한 Azure Responses model candidate로 route됩니다. Provider는

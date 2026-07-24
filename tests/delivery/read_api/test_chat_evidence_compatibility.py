@@ -11,6 +11,7 @@ from fdai.delivery.read_api.routes.chat_agent_delegate import PantheonChatDelega
 from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     _with_agent_evidence,
     _with_operational_evidence,
+    _with_screen_scope,
     _with_web_evidence,
 )
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -195,9 +196,14 @@ async def test_bragi_screen_scope_suppresses_agent_and_web_enrichment() -> None:
         "facts": [{"key": "tier.t2", "value": "5%"}],
     }
 
-    enriched = await _with_agent_evidence(
+    enriched = _with_screen_scope(
         "what is the T2 tier share?",
         context,
+        delegate,
+    )
+    enriched = await _with_agent_evidence(
+        "what is the T2 tier share?",
+        enriched,
         delegate,
         user_id="operator-1",
         session_id="session-1",
@@ -222,3 +228,17 @@ async def test_bragi_screen_scope_suppresses_agent_and_web_enrichment() -> None:
     assert "_agent_evidence" not in enriched
     assert "_web_evidence" not in enriched
     assert web.calls == 0
+
+
+def test_bragi_screen_scope_treats_empty_facts_as_authoritative_absence() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+    )
+    context = _with_screen_scope(
+        "what is the eps?",
+        {"routeId": "live", "facts": []},
+        PantheonChatDelegate(runtime),
+    )
+
+    assert context["_screen_scope"]["authority"] == "current_screen"

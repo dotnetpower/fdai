@@ -42,7 +42,7 @@
     "src/fdai/agents/_framework/runtime.py": "e0dc862d6c78af380f0793d6608cab8bf23f467fa876b20e2f31db1fe27ee404",
     "src/fdai/agents/_framework/topics.py": "19182a613b7b19752a05be5148b4617885ea39b37250567a05ca49a2772595d5",
     "src/fdai/agents/_framework/workflows.py": "5a9e64963a61aaca2cc0292b37dcd77abdc02091c923a170cf21f67a9e990f69",
-    "src/fdai/agents/bragi.py": "74c2a1f73ccba850213bdc933cd125b1ddf2e72b2f0caeaf53ffa30fcb8acfc9",
+    "src/fdai/agents/bragi.py": "4e9057650eafb8325dac9938e7e1acf692f36895af605a55dac246af16122df9",
     "src/fdai/agents/forseti.py": "e562c3823370002b3a567434d9f0ba02b8a747e9c333c034140aed3102b769b7",
     "src/fdai/agents/freyr.py": "e19853dd5c9abad5f71b23f982e9126d1c8e4cc56e13dd820cadaf0e03b2d598",
     "src/fdai/agents/heimdall.py": "3d1043758a81d9524639ac5f5811ccaea0b2d554c7c58fa8507cdce08db95b28",
@@ -787,7 +787,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-24T07:43:21Z",
+  "generated_at": "2026-07-24T07:44:30Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

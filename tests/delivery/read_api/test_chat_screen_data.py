@@ -233,3 +233,28 @@ def test_json_and_stream_use_same_model_free_screen_answer() -> None:
     assert stream_payload["model"] == "bragi-screen-t0"
     assert json_payload["source"] == "evidence:current-screen"
     assert stream_payload["source"] == "evidence:current-screen"
+
+
+def test_empty_screen_snapshot_refuses_without_model_call() -> None:
+    backend = _RecordingBackend()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+    )
+    delegate = PantheonChatDelegate(runtime)
+    app = Starlette(
+        routes=[make_chat_route(backend=backend, authorize=_allow, agent_delegate=delegate)]
+    )
+
+    with TestClient(app) as client:
+        payload = client.post(
+            "/chat",
+            json={
+                "prompt": "what is the eps?",
+                "view_context": {"routeId": "live", "facts": []},
+            },
+        ).json()
+
+    assert backend.calls == 0
+    assert "does not show" in payload["answer"]
+    assert payload["model"] == "bragi-screen-t0"

@@ -316,8 +316,10 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   malformed, or unavailable classification stays `none`. Current-screen, audit, inventory,
   catalog, and sensitive-data boundaries are applied before this semantic fallback.
   Bragi deterministically keeps a data question on the current screen when that screen carries
-  facts or records for the turn. That scope suppresses specialist delegation and semantic web
-  classification. If the requested field is absent, Bragi reports the absence instead of using
+  a facts or records projection for the turn, including an explicitly empty projection. The scope
+  is selected before behavior, tool, incident, agent, concept, and web resolvers. It suppresses
+  specialist delegation, semantic web classification, and shadow contributor planning. If the
+  requested field is absent, Bragi reports the absence instead of using
   general model knowledge. The `bragi-screen-t0` renderer answers supported fact, record, latest
   audit, action-summary, and promotion-row questions without a narrator-model call. JSON and SSE
   use the same renderer and verifier.

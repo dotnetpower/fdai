@@ -112,11 +112,31 @@ async def _with_behavior_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_behavior_evidence", None)
-    if resolver is None:
+    if resolver is None or "_screen_scope" in enriched:
         return enriched
     evidence = await resolver.resolve(prompt)
     if evidence is not None:
         enriched["_behavior_evidence"] = dict(evidence)
+    return enriched
+
+
+def _with_screen_scope(
+    prompt: str,
+    view_context: dict[str, Any],
+    delegate: AgentChatDelegate | None,
+) -> dict[str, Any]:
+    """Apply Bragi's screen-versus-agent authority decision before retrieval."""
+
+    enriched = dict(view_context)
+    enriched.pop("_screen_scope", None)
+    if delegate is None:
+        return enriched
+    should_delegate = getattr(delegate, "should_delegate", None)
+    if callable(should_delegate) and not should_delegate(prompt, enriched):
+        enriched["_screen_scope"] = {
+            "authority": "current_screen",
+            "route_id": str(enriched.get("routeId") or ""),
+        }
     return enriched
 
 
@@ -138,6 +158,7 @@ async def _with_operational_evidence(
     effective_context = conversation_context or trace_context
     if (
         resolver is None
+        or "_screen_scope" in enriched
         or "_behavior_evidence" in enriched
         or (effective_context is None and not operational_question)
         or "_tool_evidence" in enriched
@@ -196,7 +217,8 @@ async def _with_agent_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_agent_evidence", None)
-    enriched.pop("_screen_scope", None)
+    if "_screen_scope" in enriched:
+        return enriched
     current_screen_tool = enriched.pop("_current_screen_tool", None)
     explicit_agent = _explicit_agent_requested(prompt)
     read_investigation = (
@@ -212,13 +234,6 @@ async def _with_agent_evidence(
         or _uses_view_explanations(prompt, enriched)
         or (_is_concept_query(prompt) and _CONCEPT_DOMAIN.search(prompt) and not explicit_agent)
     ):
-        return enriched
-    should_delegate = getattr(delegate, "should_delegate", None)
-    if callable(should_delegate) and not should_delegate(prompt, enriched):
-        enriched["_screen_scope"] = {
-            "authority": "current_screen",
-            "route_id": str(enriched.get("routeId") or ""),
-        }
         return enriched
     progressive = getattr(delegate, "delegate_with_progress", None)
     evidence = (
@@ -264,12 +279,16 @@ async def _with_tool_evidence(
     inventory_question = needs_inventory_evidence(prompt)
     subscription_health_question = needs_subscription_health(prompt)
     read_source_question = needs_read_source_evidence(prompt)
-    if resolver is None or (
-        not explicit_command
-        and not inventory_question
-        and not subscription_health_question
-        and not read_source_question
-        and ("_behavior_evidence" in enriched or "_operational_evidence" in enriched)
+    if (
+        resolver is None
+        or ("_screen_scope" in enriched and not explicit_command)
+        or (
+            not explicit_command
+            and not inventory_question
+            and not subscription_health_question
+            and not read_source_question
+            and ("_behavior_evidence" in enriched or "_operational_evidence" in enriched)
+        )
     ):
         return enriched
     progressive = getattr(resolver, "resolve_with_progress", None)

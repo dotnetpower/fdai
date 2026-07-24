@@ -225,10 +225,8 @@ class Bragi(Agent):
     def should_delegate(self, question: str, view_context: dict[str, Any]) -> bool:
         """Return whether a question needs agent-owned state beyond the screen."""
         route_id = str(view_context.get("routeId") or "").strip()
-        facts = view_context.get("facts")
-        records = view_context.get("records")
-        has_screen_evidence = bool(facts) or bool(records)
-        if not route_id or not has_screen_evidence:
+        has_screen_snapshot = "facts" in view_context or "records" in view_context
+        if not route_id or not has_screen_snapshot:
             return True
         return _CURRENT_SCREEN_DATA_INTENT.search(question) is None
 

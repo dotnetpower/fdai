@@ -189,7 +189,9 @@ Current-screen data scope takes precedence over inventory, incident, agent, and 
 The Trace correlation is an incident selection hint only when the question explicitly carries
 incident, failure, problem, or cause semantics; ordinary stage and actor fields remain screen facts.
 Supported current-screen values and explicit absence answers are rendered by Bragi T0 without a
-model call. The resulting answer still passes the atomic-claim verifier before it becomes terminal.
+model call. An explicitly empty facts or records projection is evidence of screen coverage, not
+permission to fall back to model memory. The resulting answer still passes the atomic-claim
+verifier before it becomes terminal.
 Current-time questions use an injected timezone-aware server clock and the principal's IANA
 timezone preference. The terminal answer is rendered deterministically with the exact timestamp and
 timezone. A missing preference falls back to explicitly labeled UTC; the narrator and browser clock
