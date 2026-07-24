@@ -93,6 +93,9 @@ export function GroundedReply({
     verification.reason_code === "ambiguous_incident";
   const recordedFailure = verification?.status === "verified" &&
     verification.reason_code === "recorded_failure_reason";
+  const showProcessingDisclosure = !streaming && (
+    parsedSource?.kind === "llm" || parsedSource?.kind === "deterministic"
+  );
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(
@@ -172,24 +175,48 @@ export function GroundedReply({
         </div>
       ) : null}
 
-      {!streaming && parsedSource?.kind === "llm" ? (
-        <section class="deck-llm-escalation" aria-label={t("deck.grounded.llmEscalation")}>
+      {showProcessingDisclosure ? (
+        <section
+          class="deck-llm-escalation"
+          aria-label={t(
+            parsedSource.kind === "llm"
+              ? "deck.grounded.llmEscalation"
+              : "deck.grounded.deterministicPath",
+          )}
+        >
           <header class="deck-llm-escalation-head">
-            <span class="deck-llm-escalation-label">{t("deck.grounded.llmEscalation")}</span>
-            <strong class="deck-llm-escalation-model">{parsedSource.model}</strong>
-            {parsedSource.timing ? (
+            <span class="deck-llm-escalation-label">
+              {t(
+                parsedSource.kind === "llm"
+                  ? "deck.grounded.llmEscalation"
+                  : "deck.grounded.deterministicPath",
+              )}
+            </span>
+            <strong class="deck-llm-escalation-model">
+              {parsedSource.kind === "llm"
+                ? parsedSource.model
+                : t("deck.grounded.deterministicAnswerer")}
+            </strong>
+            {parsedSource.kind === "llm" && parsedSource.timing ? (
               <span class="deck-llm-escalation-timing">
                 {t("deck.grounded.processingTime", { timing: parsedSource.timing })}
               </span>
             ) : null}
           </header>
           <p class="deck-llm-escalation-summary">
-            {t(
-              sources.length > 0
-                ? "deck.grounded.llmGroundedSummary"
-                : "deck.grounded.llmContextSummary",
-              { model: parsedSource.model },
-            )}
+            {parsedSource.kind === "llm"
+              ? t(
+                  sources.length > 0
+                    ? "deck.grounded.llmGroundedSummary"
+                    : "deck.grounded.llmContextSummary",
+                  { model: parsedSource.model },
+                )
+              : t(
+                  parsedSource.reason
+                    ? "deck.grounded.deterministicReasonSummary"
+                    : "deck.grounded.deterministicSummary",
+                  { reason: parsedSource.reason ?? "" },
+                )}
           </p>
           <GroundingTrace stages={stages} />
         </section>

@@ -62,7 +62,20 @@ describe("parseReplySource", () => {
   });
 
   it("recognises the deterministic answerer", () => {
-    expect(parseReplySource("deterministic")).toEqual({ kind: "deterministic" });
+    expect(parseReplySource("deterministic")).toEqual({
+      kind: "deterministic",
+      reason: null,
+    });
+  });
+
+  it.each([
+    ["deterministic (offline)", "offline"],
+    ["deterministic (LLM not configured)", "LLM not configured"],
+    ["deterministic (blocked by content policy)", "blocked by content policy"],
+    ["deterministic (backend 503)", "backend 503"],
+    ["deterministic (stream interrupted)", "stream interrupted"],
+  ])("recognises a reason-bearing fallback: %s", (source, reason) => {
+    expect(parseReplySource(source)).toEqual({ kind: "deterministic", reason });
   });
 
   it("returns null for an absent or blank source", () => {
@@ -209,6 +222,24 @@ describe("groundingStages", () => {
       status: "complete",
       model: "gpt-4o-mini",
     }]);
+  });
+
+  it("keeps a deterministic fallback visible without adding an LLM stage", () => {
+    const stages = groundingStages({
+      sources: [],
+      source: "deterministic (offline)",
+      verification: undefined,
+      agents: [],
+    });
+
+    expect(stages).toEqual([{
+      action: "deterministic",
+      label: "Used deterministic answerer",
+      detail: "offline",
+      side: "route",
+      status: "complete",
+    }]);
+    expect(stages.some((stage) => stage.action === "infer")).toBe(false);
   });
 
   it("marks an unverified answer check as requiring attention", () => {

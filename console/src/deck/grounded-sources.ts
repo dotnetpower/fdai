@@ -72,7 +72,7 @@ export interface TraceStage {
 
 /** Parsed reply source descriptor. */
 export type ReplySource =
-  | { readonly kind: "deterministic" }
+  | { readonly kind: "deterministic"; readonly reason: string | null }
   | { readonly kind: "llm"; readonly model: string; readonly timing: string | null }
   | { readonly kind: "other"; readonly raw: string };
 
@@ -82,7 +82,12 @@ export function parseReplySource(source: string | undefined): ReplySource | null
   if (source === undefined) return null;
   const trimmed = source.trim();
   if (trimmed.length === 0) return null;
-  if (trimmed === "deterministic") return { kind: "deterministic" };
+  if (trimmed === "deterministic") return { kind: "deterministic", reason: null };
+  const deterministic = /^deterministic \(([^()]*)\)$/.exec(trimmed);
+  if (deterministic) {
+    const reason = deterministic[1]?.trim() ?? "";
+    return { kind: "deterministic", reason: reason.length > 0 ? reason : null };
+  }
   if (trimmed.startsWith("llm:")) {
     const rest = trimmed.slice(4).trim();
     const canonicalParts = rest.split(" · ").map((part) => part.trim());
@@ -258,7 +263,7 @@ export function groundingStages(input: {
     stages.push({
       action: "deterministic",
       label: "Used deterministic answerer",
-      detail: "no model",
+      detail: parsed.reason ?? "no model",
       side: "route",
       status: "complete",
     });

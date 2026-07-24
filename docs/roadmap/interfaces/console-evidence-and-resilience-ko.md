@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c5b866f16dd6ab5ae7b07870cf397b0a7f35e9bb
+translation_source_sha: fdb00708eb7ca0273a8964f8ec65821e7c451cff
 translation_revised: 2026-07-24
 ---
 
@@ -261,6 +261,10 @@ disclosure에 계속 표시합니다. 새 citation이 없는 follow-up turn도 m
 Evidence value와 path는 잘리지 않고 줄바꿈되며, source detail은 별도로 펼쳐 확인할 수 있습니다. 완료된
 verification stage는 검사가 수행되었음을 나타내며, unverified result는 성공 check 대신 attention mark를
 사용합니다.
+
+완료된 deterministic turn은 LLM label 없이 동일한 processing disclosure를 사용합니다. Disclosure는
+결정론적 응답기를 식별하고 사용할 수 없는 backend 또는 content-policy block 같은 기록된 fallback
+reason을 유지하므로 model outage가 공개되지 않은 model response처럼 보이지 않습니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

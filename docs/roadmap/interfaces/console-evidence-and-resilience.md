@@ -264,6 +264,11 @@ being truncated, and source details remain independently expandable for inspecti
 verification stage reports that checks ran; an unverified result uses an attention mark instead of
 a success check.
 
+A completed deterministic turn uses the same processing disclosure without an LLM label. The
+disclosure identifies the deterministic answerer and preserves a recorded fallback reason such as
+an unavailable backend or content-policy block, so a model outage never looks like an undisclosed
+model response.
+
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
 image source previews (name, media type, size) but never the base64 payload. The turn escalates to
