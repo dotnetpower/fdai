@@ -152,6 +152,14 @@ describe("serializeTurns", () => {
           label: "Resolve scope",
           completed: 1,
           total: 1,
+          execution: {
+            tool: "Azure CLI",
+            command: "az resource show --ids <resource-id>",
+            redacted: true as const,
+            output: "{\"status\": \"available\"}",
+            exitCode: 0,
+            durationMs: 250,
+          },
         },
       ],
     }];
@@ -160,6 +168,8 @@ describe("serializeTurns", () => {
 
     expect(parsed[0]?.kind).toBe("activity");
     expect(parsed[0]?.activities?.[0]?.activityId).toBe("scope");
+    expect(parsed[0]?.activities?.[0]?.execution?.command).toContain("az resource show");
+    expect(parsed[0]?.activities?.[0]?.execution?.output).toContain("available");
   });
 
   it("drops a stopped provisional assistant turn", () => {

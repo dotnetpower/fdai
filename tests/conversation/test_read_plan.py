@@ -15,6 +15,7 @@ from fdai.core.conversation import (
     default_tool_schemas,
 )
 from fdai.core.conversation.tools import SideEffectClass
+from fdai.shared.providers.conversation_channel import AgentHandoffActivity
 
 
 class _ReadTool:
@@ -34,6 +35,13 @@ class _ReadTool:
             data={"tool": self.name, "arguments": dict(arguments)},
             preview=f"{self.name} complete",
             evidence_refs=(self.evidence_ref,),
+            activities=(
+                AgentHandoffActivity(
+                    from_agent="Bragi",
+                    to_agent="Heimdall",
+                    task=f"Inspect {self.name} evidence.",
+                ),
+            ),
         )
 
 
@@ -119,6 +127,14 @@ def test_valid_read_plan_executes_and_aggregates_grounded_results() -> None:
     assert isinstance(result, ToolResult)
     assert result.status == "ok"
     assert result.evidence_refs == ("rule-example", "inventory:vm-example")
+    handoffs = [
+        activity for activity in result.activities if isinstance(activity, AgentHandoffActivity)
+    ]
+    assert len(handoffs) == len(result.activities)
+    assert [activity.task for activity in handoffs] == [
+        "Inspect explore_catalog evidence.",
+        "Inspect query_inventory evidence.",
+    ]
     assert result.preview.startswith("Catalog and inventory reads completed.")
     assert catalog.calls == [{"query": "storage"}]
     assert inventory.calls == [{"resource_type": "virtual-machine"}]

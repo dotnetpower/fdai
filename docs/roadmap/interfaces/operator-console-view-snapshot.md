@@ -158,11 +158,11 @@ viewports use the full-screen geometry without replacing the stored preference.
 - `unverified` means verification could not complete; it MUST NOT render the
   same trust check used for `verified`.
 
-When a delegated agent's provisional prose remains `consistent`, the reply
-header keeps that agent. When verification replaces the prose with a
-`corrected` or `unverified` terminal answer, the header returns to **Bragi**,
-the final narrator. The original `primary_agent` remains in delegation and
-trace metadata; it is not presented as the author of verifier-generated text.
+The terminal reply header always remains **Bragi**, the human-facing narrator.
+The delegated agent appears in the visible handoff and execution-activity rows,
+and its original `primary_agent` remains in delegation and trace metadata. This
+keeps observation ownership visible without presenting a specialist as the
+owner of the human conversation.
 
 Every event carries a monotonic `seq`; answer-changing events also carry a
 monotonic `revision`. The client ignores stale revisions and events after the

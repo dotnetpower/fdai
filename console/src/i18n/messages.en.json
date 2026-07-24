@@ -1768,7 +1768,17 @@
       "completed": "Completed",
       "unavailable": "Unavailable",
       "failed": "Failed",
-      "finished": "Finished"
+      "finished": "Finished",
+      "executionEvidence": "Observed execution evidence",
+      "redacted": "Sensitive values redacted",
+      "copyCommand": "Copy command",
+      "exitCode": "Exit code {code}",
+      "outputLogs": "Output logs",
+      "truncated": "Truncated preview",
+      "timestamps": "Timestamps",
+      "startedAt": "Started",
+      "completedAt": "Completed",
+      "duration": "Duration"
     },
     "rich": {
       "code": "Code",

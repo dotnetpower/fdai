@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 163c0b72712e8f7882ffa6eb9ba10f17cea3af5d
-translation_revised: 2026-07-23
+translation_source_sha: 3204431dbe6acf9d52d01ed042c03ca8eba47aa8
+translation_revised: 2026-07-24
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -206,6 +206,11 @@ liveness만 노출하며 channel, principal, credential data를 포함하지 않
 delivery 및 thread intent를 전달합니다. 기존 text reply가 기본값이며 scheduled continuation은
 명시적 origin 또는 dedicated thread mode와 opaque anchor id metadata를 사용합니다. Response는
 bounded mention과 rich operation 하나를 추가할 수 있으며 모호하거나 큰 값은 게시 전에 차단됩니다.
+Read observation reply는 순서와 크기가 제한된 activity sequence도 전달할 수 있습니다. Handoff는
+conversation router인 Bragi와 책임 observer를 표시하고, observed execution은 observer, canonical
+server tool, 정제된 command, 안전한 result summary, status, authority 및 timing을 기록합니다. 전체
+sequence는 durable response replay에 포함되며 channel adapter에 tool 또는 execution authority를
+부여하지 않습니다.
 
 Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
 
@@ -216,6 +221,7 @@ Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
 | Streaming | 최초 `chat.postMessage` 후 cumulative `chat.update` | 최초 activity `POST` 후 cumulative activity `PUT` | 최종 text reply 하나 |
 | Edit | 선언된 message id에 `chat.update` | 선언된 activity id에 activity `PUT` | `Update:` prefix가 있는 새 thread reply |
 | Reaction | inbound message에 `reactions.add` | inbound message에 `messageReaction` activity | `Reaction:` label이 있는 새 thread reply |
+| Agent activity | handoff, command/result, Bragi answer 순서의 Block Kit section | 같은 순서의 Adaptive Card block | 같은 agent attribution 및 redaction marker가 있는 bounded text |
 
 Concrete Slack 및 Teams configuration은 mention, streaming, edit, reaction capability flag를
 소유합니다. Disabled capability가 core에서 vendor payload를 추측하게 하지 않으며 publisher가

@@ -23,6 +23,52 @@ const ACTIVITY_STATUSES = new Set<InvestigationActivityStatus>([
   "failed",
 ]);
 
+const MAX_EXECUTION_TOOL_CHARS = 64;
+const MAX_EXECUTION_COMMAND_CHARS = 16 * 1024;
+const MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024;
+
+function parseInvestigationExecution(raw: unknown): InvestigationActivity["execution"] {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (
+    typeof record.tool !== "string" ||
+    record.tool.length === 0 ||
+    record.tool.length > MAX_EXECUTION_TOOL_CHARS ||
+    typeof record.command !== "string" ||
+    record.command.length === 0 ||
+    record.command.length > MAX_EXECUTION_COMMAND_CHARS ||
+    record.redacted !== true
+  ) return undefined;
+  const output = typeof record.output === "string" &&
+      record.output.length <= MAX_EXECUTION_OUTPUT_CHARS
+    ? record.output
+    : undefined;
+  const exitCode = typeof record.exit_code === "number" &&
+      Number.isSafeInteger(record.exit_code)
+    ? record.exit_code
+    : undefined;
+  const durationMs = typeof record.duration_ms === "number" &&
+      Number.isSafeInteger(record.duration_ms) &&
+      record.duration_ms >= 0
+    ? record.duration_ms
+    : undefined;
+  return {
+    tool: record.tool,
+    command: record.command,
+    redacted: true,
+    ...(output !== undefined ? { output } : {}),
+    ...(record.output_truncated === true ? { outputTruncated: true } : {}),
+    ...(exitCode !== undefined ? { exitCode } : {}),
+    ...(typeof record.started_at === "string" && record.started_at.length <= 64
+      ? { startedAt: record.started_at }
+      : {}),
+    ...(typeof record.completed_at === "string" && record.completed_at.length <= 64
+      ? { completedAt: record.completed_at }
+      : {}),
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  };
+}
+
 export function parseInvestigationActivity(raw: unknown): InvestigationActivity | null {
   if (typeof raw !== "object" || raw === null) return null;
   const record = raw as Record<string, unknown>;
@@ -39,11 +85,15 @@ export function parseInvestigationActivity(raw: unknown): InvestigationActivity 
   ) return null;
   const completed = finiteProgress(record.completed);
   const total = finiteProgress(record.total);
+  const execution = parseInvestigationExecution(record.execution);
   return {
     activityId: record.activity_id,
     kind: record.kind,
     status: status as InvestigationActivityStatus,
     label: record.label,
+    ...(typeof record.agent === "string" && record.agent.length > 0 && record.agent.length <= 64
+      ? { agent: record.agent }
+      : {}),
     ...(typeof record.detail === "string" && record.detail.length > 0
       ? { detail: record.detail }
       : {}),
@@ -55,6 +105,7 @@ export function parseInvestigationActivity(raw: unknown): InvestigationActivity 
     ...(typeof record.observed_at === "string" && record.observed_at.length > 0
       ? { observedAt: record.observed_at }
       : {}),
+    ...(execution ? { execution } : {}),
   };
 }
 

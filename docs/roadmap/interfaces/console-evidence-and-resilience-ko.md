@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5e9810528bfa46c9c06ca48937d3765a8b0308b8
+translation_source_sha: bc1bb3acd6339be8acf3a30fa528cd7e0e31ec5c
 translation_revised: 2026-07-24
 ---
 
@@ -220,6 +220,15 @@ Cross-origin direct-upload target에는 content header를 보내지만 read API 
 cancel하고 bounded reconnect를 사용합니다. Provisioning은 event 전달 실패 시 reader도 cancel합니다.
 Agent stream의 `401`은 전체 화면 login recovery를 기다리고, `403`은 새 App Role을 page reload 없이
 반영할 수 있도록 reconnect합니다.
+
+Command Deck 조사 activity에는 선택적인 observed execution evidence가 포함될 수 있습니다. Server는
+emit 전에 credential과 민감한 identifier를 제거하고 `redacted=true`를 설정하며, browser는 이 확인이
+없는 command evidence를 폐기합니다. 허용된 activity는 bounded command, tool label, exit code,
+authority 및 완료 상태를 표시할 수 있습니다. 출력 로그와 timestamp는 기본적으로 접힌 상태를
+유지합니다. Command는 16 KiB, output preview는 64 KiB로 제한되며 잘림 여부를 명시합니다. Browser는
+표시된 command를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 evidence는 권한 있는
+runtime이 수행한 work를 read-only로 관찰한 것이며, console이 executor identity 또는 임시 권한을
+보유한다는 증거가 아닙니다.
 
 Command Deck의 web research turn은 작업 진행 중 실제 상태를 나타내는 `status` frame을 stream합니다.
 Server는 semantic search intent가 narrator model을 호출할 때만 `web_search_classifying`을 emit하고,

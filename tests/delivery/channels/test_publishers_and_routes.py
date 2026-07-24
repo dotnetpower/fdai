@@ -23,12 +23,15 @@ from fdai.delivery.channels import (
     make_teams_activity_route,
 )
 from fdai.shared.providers.conversation_channel import (
+    AgentHandoffActivity,
     ChannelDeliveryError,
     ChannelDeliveryOperation,
     ChannelDeliveryReceipt,
     ChannelMention,
     ChannelThreadMode,
     ConversationChannelKind,
+    ConversationExecutionStatus,
+    ObservedExecutionActivity,
     OutboundResponse,
 )
 from fdai.shared.providers.workload_identity import IdentityToken
@@ -64,6 +67,27 @@ def _response(kind: ConversationChannelKind, **changes: object) -> OutboundRespo
     }
     values.update(changes)
     return OutboundResponse(**values)  # type: ignore[arg-type]
+
+
+def _activities() -> tuple[AgentHandoffActivity, ObservedExecutionActivity]:
+    return (
+        AgentHandoffActivity(
+            from_agent="Bragi",
+            to_agent="Heimdall",
+            task="Inspect the bounded metric evidence.",
+        ),
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label="Query metric evidence",
+            tool="query_metric",
+            command="query_metric --metric <redacted> --window <redacted>",
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+            output='{"point_count":2,"status":"completed"}',
+            exit_code=0,
+            authority="server_read_model",
+        ),
+    )
 
 
 async def test_slack_publisher_uses_fixed_endpoint_token_and_thread() -> None:
@@ -109,6 +133,55 @@ async def test_teams_publisher_uses_server_owned_endpoint_and_identity() -> None
     assert captured["url"] == "https://bot.example.com/conversations/1/activities"
     assert captured["authorization"] == "Bearer workload-token"
     assert captured["body"] == {"type": "message", "text": "reply", "replyToId": "message-1"}
+
+
+async def test_slack_publisher_renders_agent_activity_blocks() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(), token="app-token", http_client=client
+        )
+        await publisher.publish(_response(ConversationChannelKind.SLACK, activities=_activities()))
+
+    text = str(captured["text"])
+    blocks = captured["blocks"]
+    assert "Bragi -> @Heimdall" in text
+    assert "Command: query_metric" in text
+    assert isinstance(blocks, list)
+    assert "*Bragi* -> *@Heimdall*" in str(blocks[0])
+    assert "query_metric" in str(blocks[1])
+    assert "point_count" in str(blocks[2])
+
+
+async def test_teams_publisher_renders_agent_activity_adaptive_card() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(201, json={"id": "activity-2"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+        )
+        await publisher.publish(_response(ConversationChannelKind.TEAMS, activities=_activities()))
+
+    assert "Bragi -> @Heimdall" in str(captured["text"])
+    attachments = captured["attachments"]
+    assert isinstance(attachments, list)
+    card = attachments[0]["content"]
+    assert card["type"] == "AdaptiveCard"
+    assert "Bragi" in str(card["body"][0])
+    assert "query_metric" in str(card["body"])
+    assert "point_count" in str(card["body"])
 
 
 async def test_teams_dedicated_thread_starts_without_reply_target() -> None:

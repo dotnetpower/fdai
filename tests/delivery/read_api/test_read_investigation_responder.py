@@ -218,6 +218,7 @@ async def test_chat_delegate_streams_activities_and_milestones() -> None:
     assert result is not None
     assert result["primary_agent"] == "Heimdall"
     assert [event["event"] for event in events] == [
+        "milestone",
         "activity",
         "activity",
         "milestone",
@@ -225,10 +226,23 @@ async def test_chat_delegate_streams_activities_and_milestones() -> None:
         "activity",
         "activity",
         "milestone",
+        "activity",
         "activity",
     ]
-    assert events[1]["activity_id"] == "resource"
-    assert events[3]["activity_id"] == "state"
+    assert events[0]["message_id"] == "handoff-bragi-heimdall"
+    assert events[0]["agent"] == "Bragi"
+    assert events[2]["activity_id"] == "resource"
+    assert events[4]["activity_id"] == "state"
+    assert events[-1]["activity_id"] == "read-execution"
+    assert events[-1]["agent"] == "Heimdall"
+    execution = events[-1]["execution"]
+    assert execution["tool"] == "read_investigation"
+    assert execution["command"] == (
+        "read_investigation --intent resource_state --resource <redacted>"
+    )
+    assert execution["redacted"] is True
+    assert execution["output"] == '{"evidence_ref_count":1,"status":"matched"}'
+    assert execution["exit_code"] == 0
 
 
 async def test_chat_delegate_hands_multi_source_work_off_before_cloud_io() -> None:

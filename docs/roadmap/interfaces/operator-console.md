@@ -104,6 +104,9 @@ flowchart TD
 - **Layer 3 (Channel)** is thin. Every adapter converts one turn between its wire format and a
   `ConversationTurn`; no judgment lives here. A streamed read sends SSE comment heartbeats while the
   provider task is idle, without progress or evidence. Stream close cancels and awaits that task.
+  Web, Slack, and Teams render the same ordered agent-activity contract: Bragi shows the handoff,
+  the accountable observer shows canonical command/result evidence, and Bragi remains the final
+  human-facing narrator. Vendor adapters change presentation only.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol. A narrator that also implements `GroundedAnswerNarrator` receives a completed

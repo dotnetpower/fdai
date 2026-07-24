@@ -206,6 +206,11 @@ channel, principal, or credential data.
 a Slack or Teams dependency. Existing text replies remain the default; scheduled continuations use
 explicit origin or dedicated thread mode and carry an opaque anchor id as metadata. A response can
 add bounded mentions and one rich operation; ambiguous or oversized values fail before publishing.
+Read observation replies can also carry an ordered, bounded activity sequence. A handoff names
+Bragi as the conversational router and the accountable observer, while observed execution records
+the observer, canonical server tool, redacted command, safe result summary, status, authority, and
+timing. The complete sequence is part of durable response replay and never grants channel adapters
+tool or execution authority.
 
 Concrete publishers map that intent as follows:
 
@@ -216,6 +221,7 @@ Concrete publishers map that intent as follows:
 | Streaming | Initial `chat.postMessage`, then cumulative `chat.update` | Initial activity `POST`, then cumulative activity `PUT` | One final text reply |
 | Edit | `chat.update` for the declared message id | Activity `PUT` for the declared activity id | New thread reply prefixed with `Update:` |
 | Reaction | `reactions.add` against the inbound message | `messageReaction` activity against the inbound message | New thread reply with a `Reaction:` label |
+| Agent activity | Block Kit sections in handoff, command/result, Bragi-answer order | Adaptive Card blocks in the same order | Bounded text with the same agent attribution and redaction markers |
 
 The concrete Slack and Teams configurations own capability flags for mentions, streaming, edits,
 and reactions. A disabled capability never causes the core to guess a vendor payload; the publisher

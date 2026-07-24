@@ -159,13 +159,40 @@ function validActivities(value: unknown): value is readonly InvestigationActivit
         String(record.status),
       ) &&
       typeof record.label === "string" &&
+      (record.agent === undefined || typeof record.agent === "string") &&
       (record.detail === undefined || typeof record.detail === "string") &&
       (record.completed === null || typeof record.completed === "number") &&
       (record.total === null || typeof record.total === "number") &&
       (record.authority === undefined || typeof record.authority === "string") &&
-      (record.observedAt === undefined || typeof record.observedAt === "string")
+      (record.observedAt === undefined || typeof record.observedAt === "string") &&
+      (record.execution === undefined || validExecution(record.execution))
     );
   });
+}
+
+function validExecution(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.tool === "string" &&
+    record.tool.length > 0 &&
+    record.tool.length <= 64 &&
+    typeof record.command === "string" &&
+    record.command.length > 0 &&
+    record.command.length <= 16 * 1024 &&
+    record.redacted === true &&
+    (record.output === undefined ||
+      (typeof record.output === "string" && record.output.length <= 64 * 1024)) &&
+    (record.outputTruncated === undefined || typeof record.outputTruncated === "boolean") &&
+    (record.exitCode === undefined ||
+      (typeof record.exitCode === "number" && Number.isSafeInteger(record.exitCode))) &&
+    (record.startedAt === undefined || typeof record.startedAt === "string") &&
+    (record.completedAt === undefined || typeof record.completedAt === "string") &&
+    (record.durationMs === undefined ||
+      (typeof record.durationMs === "number" &&
+        Number.isSafeInteger(record.durationMs) &&
+        record.durationMs >= 0))
+  );
 }
 
 function validVerification(value: unknown): value is NonNullable<PersistedTurn["verification"]> {

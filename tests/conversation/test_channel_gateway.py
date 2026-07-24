@@ -25,9 +25,12 @@ from fdai.core.conversation.session import ConversationSession, Principal, Role
 from fdai.core.conversation.tools import ToolResult
 from fdai.shared.contracts import DocumentPurpose
 from fdai.shared.providers.conversation_channel import (
+    AgentHandoffActivity,
     ChannelAttachment,
     ConversationChannelKind,
+    ConversationExecutionStatus,
     InboundTurn,
+    ObservedExecutionActivity,
     OutboundResponse,
 )
 from fdai.shared.providers.conversation_delivery import (
@@ -47,7 +50,28 @@ class _ReadTool:
 
     def call(self, *, arguments: Mapping[str, object], principal: Principal) -> ToolResult:
         self.calls.append(arguments)
-        return ToolResult(status="ok", preview=f"found {arguments['query']}")
+        return ToolResult(
+            status="ok",
+            preview=f"found {arguments['query']}",
+            activities=(
+                AgentHandoffActivity(
+                    from_agent="Bragi",
+                    to_agent="Heimdall",
+                    task="Inspect the bounded catalog evidence.",
+                ),
+                ObservedExecutionActivity(
+                    agent="Heimdall",
+                    label="Query catalog evidence",
+                    tool="explore_catalog",
+                    command="explore_catalog --query <redacted>",
+                    status=ConversationExecutionStatus.COMPLETED,
+                    redacted=True,
+                    output='{"match_count": 1}',
+                    exit_code=0,
+                    authority="server_read_model",
+                ),
+            ),
+        )
 
 
 class _AttachmentIngestor:
@@ -267,6 +291,10 @@ async def test_routes_authenticated_turn_back_to_same_thread() -> None:
     adapter = _Adapter((_turn(),))
 
     await _gateway().run(adapter)
+
+    assert len(adapter.sent[0].activities) == 2
+    assert isinstance(adapter.sent[0].activities[0], AgentHandoffActivity)
+    assert isinstance(adapter.sent[0].activities[1], ObservedExecutionActivity)
 
     assert len(adapter.sent) == 1
     assert adapter.sent[0].thread_id == "thread-1"

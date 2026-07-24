@@ -9,6 +9,10 @@ from typing import Any, Protocol
 
 from fdai.agents import PANTHEON_NAMES
 from fdai.core.conversation.narrator import default_tool_schemas
+from fdai.core.read_investigation import (
+    classify_read_investigation_intent,
+    resource_name_from_question,
+)
 from fdai.delivery.read_api.routes.chat_data_sources import needs_read_source_evidence
 from fdai.delivery.read_api.routes.chat_evidence import needs_operational_evidence
 from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
@@ -192,11 +196,15 @@ async def _with_agent_evidence(
     enriched.pop("_agent_evidence", None)
     current_screen_tool = enriched.pop("_current_screen_tool", None)
     explicit_agent = _explicit_agent_requested(prompt)
+    read_investigation = (
+        classify_read_investigation_intent(prompt) is not None
+        and resource_name_from_question(prompt) is not None
+    )
     if (
         delegate is None
         or "_behavior_evidence" in enriched
         or "_operational_evidence" in enriched
-        or "_tool_evidence" in enriched
+        or ("_tool_evidence" in enriched and not read_investigation)
         or current_screen_tool is not None
         or _uses_view_explanations(prompt, enriched)
         or (_is_concept_query(prompt) and _CONCEPT_DOMAIN.search(prompt) and not explicit_agent)
@@ -218,6 +226,8 @@ async def _with_agent_evidence(
         )
     )
     if evidence is not None:
+        if read_investigation:
+            enriched.pop("_tool_evidence", None)
         enriched["_agent_evidence"] = dict(evidence)
     return enriched
 

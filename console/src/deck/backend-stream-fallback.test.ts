@@ -392,6 +392,17 @@ describe("askBackendStream fallback typewriter", () => {
         total: 128,
         authority: "azure.resource_health",
         observed_at: "2026-07-22T05:00:00Z",
+        execution: {
+          tool: "Azure CLI",
+          command: "az monitor metrics list --resource /subscriptions/00000000-0000-0000-0000-000000000000",
+          redacted: true,
+          output: "{\"cost\": 6, \"value\": []}",
+          output_truncated: false,
+          exit_code: 0,
+          started_at: "2026-07-22T05:00:00Z",
+          completed_at: "2026-07-22T05:00:04Z",
+          duration_ms: 4000,
+        },
       }],
       ["milestone", {
         seq: 4,
@@ -494,6 +505,7 @@ describe("askBackendStream fallback typewriter", () => {
     let generatingSources: readonly { readonly kind: string; readonly label: string }[] = [];
     const revisions: Array<{ answer: string; revision: number; status: string }> = [];
     const activities: string[] = [];
+    const activityCommands: string[] = [];
     const milestones: string[] = [];
     const callbackOrder: string[] = [];
     const reply = await mod.askBackendStream("q", snap(), [], {
@@ -505,9 +517,12 @@ describe("askBackendStream fallback typewriter", () => {
         progress.push(item.phase);
         if (item.phase === "generating") generatingSources = item.sources ?? [];
       },
-      onActivity: (activity) => activities.push(
-        `${activity.activityId}:${activity.status}:${activity.completed}/${activity.total}`,
-      ),
+      onActivity: (activity) => {
+        activities.push(
+          `${activity.activityId}:${activity.status}:${activity.completed}/${activity.total}`,
+        );
+        if (activity.execution) activityCommands.push(activity.execution.command);
+      },
       onMilestone: (milestone) => milestones.push(`${milestone.agent}:${milestone.text}`),
       onRevision: (answer, revision, status) => {
         revisions.push({ answer, revision, status });
@@ -529,6 +544,9 @@ describe("askBackendStream fallback typewriter", () => {
       }),
     ]);
     expect(activities).toEqual(["health-sweep:running:24/128"]);
+    expect(activityCommands).toEqual([
+      "az monitor metrics list --resource /subscriptions/00000000-0000-0000-0000-000000000000",
+    ]);
     expect(milestones).toEqual([
       "Bragi:Found seven candidates and started metric checks.",
     ]);

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import time
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.conversation.session import Principal, Role
@@ -12,6 +15,12 @@ from fdai.core.conversation.tools import (
     _optional_int,
     _optional_str,
     _require_str,
+)
+from fdai.shared.providers.conversation_channel import (
+    AgentHandoffActivity,
+    ConversationActivity,
+    ConversationExecutionStatus,
+    ObservedExecutionActivity,
 )
 from fdai.shared.providers.observation import (
     DeploymentHistoryProvider,
@@ -45,6 +54,7 @@ class QueryLogTool:
         if not window:
             return ToolResult(status="error", preview="query_log requires a non-empty 'window'")
         max_rows = _optional_int(arguments, "max_rows", default=100, minimum=1, maximum=500)
+        started_at, started = _start_observation()
         try:
             result = asyncio.run(
                 self._provider.query_log(query=query, window=window, max_rows=max_rows)
@@ -54,6 +64,15 @@ class QueryLogTool:
                 status="abstain",
                 preview=f"query_log abstains: {exc}",
                 data={"query": query, "window": window},
+                activities=_observation_activities(
+                    label="Query log evidence",
+                    tool="query_log",
+                    command="query_log --query <redacted> --window <redacted>",
+                    output={"status": "unavailable"},
+                    started_at=started_at,
+                    started=started,
+                    status=ConversationExecutionStatus.UNAVAILABLE,
+                ),
             )
         except RuntimeError as exc:
             return ToolResult(status="error", preview=f"query_log event-loop reuse: {exc}")
@@ -71,6 +90,20 @@ class QueryLogTool:
                 "scanned_records": result.scanned_records,
             },
             preview=preview,
+            activities=_observation_activities(
+                label="Query log evidence",
+                tool="query_log",
+                command=(f"query_log --query <redacted> --window <redacted> --max-rows {max_rows}"),
+                output={
+                    "status": "completed",
+                    "row_count": len(rows),
+                    "scanned_records": result.scanned_records,
+                    "truncated": result.truncated,
+                },
+                started_at=started_at,
+                started=started,
+                output_truncated=result.truncated,
+            ),
         )
 
 
@@ -105,6 +138,7 @@ class QueryMetricTool:
                     status="error",
                     preview=f"query_metric requires a non-empty {name!r}",
                 )
+            started_at, started = _start_observation()
         try:
             result = asyncio.run(
                 self._provider.query_metric(
@@ -124,6 +158,18 @@ class QueryMetricTool:
                     "aggregation": aggregation,
                     "window": window,
                 },
+                activities=_observation_activities(
+                    label="Query metric evidence",
+                    tool="query_metric",
+                    command=(
+                        "query_metric --namespace <redacted> --metric <redacted> "
+                        "--aggregation <redacted> --window <redacted>"
+                    ),
+                    output={"status": "unavailable"},
+                    started_at=started_at,
+                    started=started,
+                    status=ConversationExecutionStatus.UNAVAILABLE,
+                ),
             )
         except RuntimeError as exc:
             return ToolResult(status="error", preview=f"query_metric event-loop reuse: {exc}")
@@ -138,6 +184,17 @@ class QueryMetricTool:
                 "points": points,
             },
             preview=f"query_metric[{namespace}/{metric}]: {len(points)} point(s)",
+            activities=_observation_activities(
+                label="Query metric evidence",
+                tool="query_metric",
+                command=(
+                    "query_metric --namespace <redacted> --metric <redacted> "
+                    "--aggregation <redacted> --window <redacted>"
+                ),
+                output={"status": "completed", "point_count": len(points)},
+                started_at=started_at,
+                started=started,
+            ),
         )
 
 
@@ -166,6 +223,7 @@ class QueryDeploymentsTool:
         resource_ref = _optional_str(arguments, "resource_ref", default="") or None
         if resource_ref is not None and not resource_ref.strip():
             resource_ref = None
+        started_at, started = _start_observation()
         try:
             result = asyncio.run(
                 self._provider.query_deployments(window=window, resource_ref=resource_ref)
@@ -175,6 +233,15 @@ class QueryDeploymentsTool:
                 status="abstain",
                 preview=f"query_deployments abstains: {exc}",
                 data={"window": window, "resource_ref": resource_ref},
+                activities=_observation_activities(
+                    label="Query deployment evidence",
+                    tool="query_deployments",
+                    command=("query_deployments --window <redacted> --resource-ref <redacted>"),
+                    output={"status": "unavailable"},
+                    started_at=started_at,
+                    started=started,
+                    status=ConversationExecutionStatus.UNAVAILABLE,
+                ),
             )
         except RuntimeError as exc:
             return ToolResult(status="error", preview=f"query_deployments event-loop reuse: {exc}")
@@ -184,6 +251,14 @@ class QueryDeploymentsTool:
             data={"window": window, "resource_ref": resource_ref, "records": records},
             preview=f"query_deployments[{window}]: {len(records)} deployment(s)",
             evidence_refs=tuple(f"deployment:{record['deployment_ref']}" for record in records),
+            activities=_observation_activities(
+                label="Query deployment evidence",
+                tool="query_deployments",
+                command="query_deployments --window <redacted> --resource-ref <redacted>",
+                output={"status": "completed", "deployment_count": len(records)},
+                started_at=started_at,
+                started=started,
+            ),
         )
 
 
@@ -211,6 +286,7 @@ class CorrelateIncidentTool:
                 status="error",
                 preview="correlate_incident requires a non-empty 'incident_id'",
             )
+        started_at, started = _start_observation()
         try:
             correlation = asyncio.run(self._correlator.correlate(incident_id=incident_id))
         except ObservationError as exc:
@@ -218,6 +294,15 @@ class CorrelateIncidentTool:
                 status="abstain",
                 preview=f"correlate_incident abstains: {exc}",
                 data={"incident_id": incident_id},
+                activities=_observation_activities(
+                    label="Correlate incident evidence",
+                    tool="correlate_incident",
+                    command="correlate_incident --incident-id <redacted>",
+                    output={"status": "unavailable"},
+                    started_at=started_at,
+                    started=started,
+                    status=ConversationExecutionStatus.UNAVAILABLE,
+                ),
             )
         except RuntimeError as exc:
             return ToolResult(
@@ -247,7 +332,63 @@ class CorrelateIncidentTool:
             },
             preview=preview,
             evidence_refs=(f"incident:{correlation.incident_id}",),
+            activities=_observation_activities(
+                label="Correlate incident evidence",
+                tool="correlate_incident",
+                command="correlate_incident --incident-id <redacted>",
+                output={
+                    "status": "completed",
+                    "event_count": len(correlation.events),
+                    "audit_count": len(correlation.audit_entries),
+                    "log_count": len(correlation.log_hits),
+                    "metric_count": len(correlation.metric_points),
+                    "deployment_count": len(correlation.deployments),
+                },
+                started_at=started_at,
+                started=started,
+            ),
         )
+
+
+def _start_observation() -> tuple[str, float]:
+    return datetime.now(UTC).isoformat(), time.monotonic()
+
+
+def _observation_activities(
+    *,
+    label: str,
+    tool: str,
+    command: str,
+    output: Mapping[str, object],
+    started_at: str,
+    started: float,
+    status: ConversationExecutionStatus = ConversationExecutionStatus.COMPLETED,
+    output_truncated: bool = False,
+) -> tuple[ConversationActivity, ...]:
+    completed_at = datetime.now(UTC).isoformat()
+    duration_ms = max(0, round((time.monotonic() - started) * 1_000))
+    return (
+        AgentHandoffActivity(
+            from_agent="Bragi",
+            to_agent="Heimdall",
+            task=f"{label} with a read-only server tool.",
+        ),
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label=label,
+            tool=tool,
+            command=command,
+            status=status,
+            redacted=True,
+            output=json.dumps(output, sort_keys=True, separators=(",", ":")),
+            output_truncated=output_truncated,
+            exit_code=0 if status is ConversationExecutionStatus.COMPLETED else None,
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_ms=duration_ms,
+            authority="server_read_model",
+        ),
+    )
 
 
 def _project_deployment_record(record: Any) -> dict[str, Any]:

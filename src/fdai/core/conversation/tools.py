@@ -27,6 +27,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from fdai.core.conversation.session import Principal, Role
 from fdai.shared.contracts.models import OntologyActionType, Rule
+from fdai.shared.providers.conversation_channel import ConversationActivity
 
 SideEffectClass = Literal["read", "simulate", "approve", "execute", "breakglass"]
 
@@ -45,6 +46,7 @@ class ToolResult:
     data: Mapping[str, Any] = field(default_factory=dict)
     preview: str = ""
     evidence_refs: tuple[str, ...] = ()
+    activities: tuple[ConversationActivity, ...] = ()
 
 
 @dataclass(frozen=True)

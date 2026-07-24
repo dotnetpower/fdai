@@ -73,6 +73,16 @@ class _ProgressiveDelegate:
         }
 
 
+class _InventoryResolver:
+    async def resolve(self, prompt: str, *, principal_id: str) -> Mapping[str, Any]:
+        del prompt, principal_id
+        return {
+            "tool": "query_inventory",
+            "authority": "server_inventory_view",
+            "result": {"status": "matched", "items": []},
+        }
+
+
 async def _allow(request: Request) -> str:
     del request
     return "principal-one"
@@ -85,6 +95,7 @@ def test_chat_stream_delivers_investigation_activity_before_terminal_answer() ->
                 backend=_Backend(),
                 authorize=_allow,
                 agent_delegate=_ProgressiveDelegate(),
+                tool_resolver=_InventoryResolver(),
             )
         ]
     )
@@ -108,3 +119,4 @@ def test_chat_stream_delivers_investigation_activity_before_terminal_answer() ->
     assert activity < milestone < done
     assert '"activity_id": "resource"' in body
     assert '"message_id": "resource-resolved"' in body
+    assert '"primary_agent": "Heimdall"' in body

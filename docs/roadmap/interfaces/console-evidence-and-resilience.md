@@ -221,6 +221,15 @@ including keepalive comments, then use bounded reconnect. Provisioning also canc
 event delivery fails. Agent-stream `401` waits for full-screen login recovery; `403` reconnects so a
 new App Role can take effect without a page reload.
 
+Command Deck investigation activity can include optional observed execution evidence. The server
+removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
+drops command evidence without that attestation. An accepted activity can show a bounded command,
+tool label, exit code, authority, and completion state. Output logs and timestamps stay collapsed by
+default. The command is limited to 16 KiB and the output preview to 64 KiB; truncation is explicit.
+The browser can copy the displayed command but can't run or retry it. This evidence remains a
+read-only observation of work performed by an authorized runtime, not proof that the console owns
+an executor identity or temporary permission.
+
 Command Deck web-research turns stream truthful `status` frames while work is in progress. The
 server emits `web_search_classifying` only when semantic search intent invokes the narrator model,
 `web_search_searching` only before a public-web provider call, and `web_search_grounded` with the

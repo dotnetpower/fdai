@@ -67,7 +67,7 @@ describe("Deck transcript search", () => {
 });
 
 describe("terminal reply attribution", () => {
-  test("uses Bragi when verification replaces delegated prose", () => {
+  test("keeps Bragi as the human-facing narrator after delegation", () => {
     const delegation = { primary_agent: "Saga", contributors: [] };
     const verification = {
       authority: "client_snapshot",
@@ -82,7 +82,7 @@ describe("terminal reply attribution", () => {
     expect(replyAgent({ delegation, verification: { ...verification, status: "corrected" } }))
       .toBe("Bragi");
     expect(replyAgent({ delegation, verification: { ...verification, status: "consistent" } }))
-      .toBe("Saga");
+      .toBe("Bragi");
   });
 });
 

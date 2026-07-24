@@ -1,8 +1,8 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: e8484c26d669ce6076ee683e57840895191facb5
-translation_revised: 2026-07-23
+translation_source_sha: b1964ff4e0ad2f9a9871fee7b5ff04662bfc24d7
+translation_revised: 2026-07-24
 ---
 
 # Operator Console - View Snapshot Contract
@@ -158,11 +158,10 @@ full-screen geometry를 사용합니다.
 - `unverified`는 verification이 완료되지 않았음을 의미하며 `verified`와 같은
   trust check를 표시하면 안 됨.
 
-Delegate된 agent의 provisional prose가 `consistent`로 유지되면 reply header는
-해당 agent를 유지. Verification이 prose를 `corrected` 또는 `unverified` terminal
-answer로 교체하면 header는 최종 narrator인 **Bragi**로 돌아감. 원래
-`primary_agent`는 delegation 및 trace metadata에 보존하지만 verifier가 생성한
-text의 작성자로 표시하지 않음.
+Terminal reply header는 항상 human-facing narrator인 **Bragi**로 유지됩니다.
+Delegated agent는 visible handoff 및 execution-activity row에 표시되고 원래
+`primary_agent`는 delegation 및 trace metadata에 보존됩니다. Observation ownership은
+보이지만 specialist를 human conversation의 owner로 표시하지 않습니다.
 
 모든 event는 단조 증가 `seq`를 가지며 answer를 바꾸는 event는 단조 증가
 `revision`도 가짐. Client는 stale revision과 terminal event 이후 event를 무시.

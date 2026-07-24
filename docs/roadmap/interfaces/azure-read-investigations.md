@@ -248,7 +248,7 @@ The estimate never extends a timeout or increases a tool budget.
 
 ## Progress and completion delivery
 
-Progress describes operator-meaningful milestones, not commands or raw provider output:
+Progress describes operator-meaningful milestones, not raw provider commands or output:
 
 ```text
 investigation.planned
@@ -260,6 +260,13 @@ guest-log.unavailable
 evidence.correlating
 investigation.completed
 ```
+
+Before the first provider read, Bragi emits a visible handoff to Heimdall. After terminal evidence
+is normalized, an optional observed-execution activity shows the canonical FDAI read operation,
+with resource and query values redacted, plus a safe status/count summary. It never exposes raw
+CLI argv, raw Azure payloads, credentials, subscription ids, resource ids, or provider errors.
+Web, Slack, and Teams render the same ordered handoff and execution evidence; Bragi renders the
+final answer.
 
 The existing reporter coalesces events and caps their count. The direct Command Deck stream emits
 `activity` events as tools start and finish, plus bounded `milestone` messages when resource

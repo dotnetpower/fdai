@@ -466,6 +466,7 @@ def _to_response(
             text=result.preview,
             data=result.data,
             evidence_refs=tuple(dict.fromkeys((*result.evidence_refs, *attachment_evidence))),
+            activities=result.activities,
         )
     return OutboundResponse(
         channel_kind=turn.channel_kind,

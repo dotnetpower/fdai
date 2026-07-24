@@ -9,6 +9,11 @@ from fdai.core.conversation import (
     QueryMetricTool,
 )
 from fdai.core.conversation.session import Principal, Role
+from fdai.shared.providers.conversation_channel import (
+    AgentHandoffActivity,
+    ConversationExecutionStatus,
+    ObservedExecutionActivity,
+)
 from fdai.shared.providers.observation import (
     DeploymentHistoryError,
     DeploymentRecord,
@@ -62,6 +67,7 @@ def test_query_log_returns_seeded_rows() -> None:
     data = result.data or {}
     assert data["rows"] == [{"id": "r1", "msg": "hi"}]
     assert data["truncated"] is False
+    _assert_observation_activities(result, tool="query_log")
 
 
 def test_query_log_empty_result_abstains() -> None:
@@ -158,6 +164,7 @@ def test_query_metric_returns_seeded_points() -> None:
     points = (result.data or {})["points"]
     assert len(points) == 2
     assert points[0]["value"] == 1.0
+    _assert_observation_activities(result, tool="query_metric")
 
 
 def test_query_metric_empty_abstains() -> None:
@@ -222,6 +229,7 @@ def test_query_deployments_returns_records() -> None:
     assert len(data["records"]) == 1
     assert data["records"][0]["deployment_ref"] == "d-1"
     assert result.evidence_refs == ("deployment:d-1",)
+    _assert_observation_activities(result, tool="query_deployments")
 
 
 def test_query_deployments_resource_ref_filter() -> None:
@@ -314,6 +322,24 @@ def test_correlate_incident_returns_seeded_correlation() -> None:
     assert data["events"] == [{"e": 1}]
     assert data["deployments"][0]["deployment_ref"] == "d-1"
     assert result.evidence_refs == ("incident:INC-1",)
+    _assert_observation_activities(result, tool="correlate_incident")
+
+
+def _assert_observation_activities(result: object, *, tool: str) -> None:
+    activities = result.activities  # type: ignore[attr-defined]
+    assert len(activities) == 2
+    assert activities[0] == AgentHandoffActivity(
+        from_agent="Bragi",
+        to_agent="Heimdall",
+        task=f"{activities[1].label} with a read-only server tool.",
+    )
+    execution = activities[1]
+    assert isinstance(execution, ObservedExecutionActivity)
+    assert execution.agent == "Heimdall"
+    assert execution.tool == tool
+    assert execution.status is ConversationExecutionStatus.COMPLETED
+    assert execution.redacted is True
+    assert execution.output
 
 
 def test_correlate_incident_unknown_id_abstains() -> None:

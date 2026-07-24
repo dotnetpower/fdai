@@ -6275,15 +6275,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   list-style: none;
 }
 .deck-investigation-item {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
   min-height: 34px;
   padding: 4px 7px;
   border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
   border-radius: 6px;
   background: color-mix(in oklab, var(--bg-subtle) 55%, transparent);
+}
+.deck-investigation-summary {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
 }
 .deck-investigation-state {
   display: grid;
@@ -6336,6 +6339,118 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-meta {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+.deck-investigation-execution {
+  margin: 2px 0 5px 26px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--border) 88%, transparent);
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--bg) 78%, #111 22%);
+}
+.deck-investigation-command-head {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 8px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.deck-investigation-redacted {
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-weight: 450;
+}
+.deck-investigation-copy-command {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+}
+.deck-investigation-copy-command:hover { background: var(--bg-hover); color: var(--fg); }
+.deck-investigation-copy-command svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.deck-investigation-command,
+.deck-investigation-output {
+  max-height: 260px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  font: 10.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.deck-investigation-result {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 31px;
+  padding: 0 9px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 10.5px;
+}
+.deck-investigation-result-status {
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-weight: 650;
+}
+.deck-investigation-result-status.is-completed {
+  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 18%, transparent);
+  color: var(--tier-t0, #237a4b);
+}
+.deck-investigation-result-status.is-failed,
+.deck-investigation-result-status.is-unavailable {
+  background: color-mix(in oklab, var(--danger, #b3261e) 14%, transparent);
+  color: var(--danger, #b3261e);
+}
+.deck-investigation-disclosure {
+  border-top: 1px solid var(--border);
+}
+.deck-investigation-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.deck-investigation-disclosure > summary > .muted { margin-left: auto; }
+.deck-investigation-output {
+  max-height: 420px;
+  border-top: 1px solid var(--border);
+  color: var(--tier-t0, #4dab7a);
+}
+.deck-investigation-timestamps {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 12px;
+  margin: 0;
+  padding: 9px 10px 11px;
+  border-top: 1px solid var(--border);
+  font-size: 10.5px;
+}
+.deck-investigation-timestamps dt { color: var(--fg-muted); }
+.deck-investigation-timestamps dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* Retrieval trace (deck/retrieval-trace.tsx) - the pending "preparing

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Protocol
@@ -25,6 +27,10 @@ from fdai.core.read_investigation import (
 from fdai.delivery.read_api.routes.read_investigations import (
     ReadInvestigationDirectExecution,
     ReadInvestigationRunRejectedError,
+)
+from fdai.shared.providers.conversation_channel import (
+    ConversationExecutionStatus,
+    ObservedExecutionActivity,
 )
 from fdai.shared.providers.read_investigation import (
     ReadEvidenceEnvelope,
@@ -300,6 +306,21 @@ class HeimdallReadInvestigationChatDelegate:
         if intent is None or resource_name is None:
             return await self.delegate(prompt=prompt, user_id=user_id, session_id=session_id)
         korean = _is_korean(prompt)
+        started_at = datetime.now(UTC)
+        started = time.monotonic()
+
+        await progress_observer(
+            {
+                "event": "milestone",
+                "message_id": "handoff-bragi-heimdall",
+                "text": (
+                    "@Heimdall, 이 리소스의 읽기 전용 상태 근거를 확인해 주세요."
+                    if korean
+                    else "@Heimdall, please inspect the read-only state evidence for this resource."
+                ),
+                "agent": "Bragi",
+            }
+        )
 
         async def observe(kind: ReadInvestigationProgressKind) -> None:
             for event in _progress_events(kind, resource_name=resource_name, korean=korean):
@@ -312,6 +333,15 @@ class HeimdallReadInvestigationChatDelegate:
         )
         if result is None:
             return None
+        facts = result.get("facts")
+        execution = _read_execution_activity(
+            intent=intent,
+            facts=facts if isinstance(facts, Mapping) else {},
+            started_at=started_at,
+            duration_ms=max(0, round((time.monotonic() - started) * 1_000)),
+            korean=korean,
+        )
+        await progress_observer(_execution_progress_event(execution))
         return {
             "primary_agent": "Heimdall",
             "answer": result["answer"],
@@ -482,6 +512,7 @@ def _progress_events(
             "detail": resource_name,
             "completed": None,
             "total": None,
+            "agent": "Heimdall",
         }
     ]
     if kind is ReadInvestigationProgressKind.RESOURCE_RESOLVED:
@@ -513,6 +544,74 @@ def _progress_events(
             }
         )
     return tuple(events)
+
+
+def _read_execution_activity(
+    *,
+    intent: ReadInvestigationIntent,
+    facts: Mapping[str, object],
+    started_at: datetime,
+    duration_ms: int,
+    korean: bool,
+) -> ObservedExecutionActivity:
+    raw_status = facts.get("status")
+    evidence_status = (
+        str(raw_status)
+        if raw_status in {"matched", "ambiguous", "none", "unavailable"}
+        else "unavailable"
+    )
+    execution_status = (
+        ConversationExecutionStatus.UNAVAILABLE
+        if evidence_status == "unavailable"
+        else ConversationExecutionStatus.COMPLETED
+    )
+    evidence_refs = facts.get("evidence_refs")
+    evidence_ref_count = len(evidence_refs) if isinstance(evidence_refs, (list, tuple)) else 0
+    completed_at = datetime.now(UTC)
+    return ObservedExecutionActivity(
+        agent="Heimdall",
+        label="읽기 조사 근거 확인" if korean else "Inspect read investigation evidence",
+        tool="read_investigation",
+        command=f"read_investigation --intent {intent.value} --resource <redacted>",
+        status=execution_status,
+        redacted=True,
+        output=json.dumps(
+            {"evidence_ref_count": evidence_ref_count, "status": evidence_status},
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        exit_code=0 if execution_status is ConversationExecutionStatus.COMPLETED else None,
+        started_at=started_at.isoformat(),
+        completed_at=completed_at.isoformat(),
+        duration_ms=duration_ms,
+        authority="server_read_model",
+    )
+
+
+def _execution_progress_event(activity: ObservedExecutionActivity) -> dict[str, object]:
+    return {
+        "event": "activity",
+        "activity_id": "read-execution",
+        "kind": "read.execution",
+        "status": activity.status.value,
+        "label": activity.label,
+        "completed": 1,
+        "total": 1,
+        "agent": activity.agent,
+        "authority": activity.authority,
+        "observed_at": activity.completed_at,
+        "execution": {
+            "tool": activity.tool,
+            "command": activity.command,
+            "redacted": activity.redacted,
+            "output": activity.output,
+            "output_truncated": activity.output_truncated,
+            "exit_code": activity.exit_code,
+            "started_at": activity.started_at,
+            "completed_at": activity.completed_at,
+            "duration_ms": activity.duration_ms,
+        },
+    }
 
 
 def _korean_progress_label(kind: ReadInvestigationProgressKind) -> str:

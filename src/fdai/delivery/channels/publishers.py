@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.shared.providers.conversation_channel import (
+    AgentHandoffActivity,
     ChannelDeliveryError,
     ChannelDeliveryOperation,
     ChannelDeliveryReceipt,
@@ -165,6 +166,8 @@ class SlackWebApiReplyPublisher:
             "channel": response.channel_id,
             "text": text,
         }
+        if response.activities:
+            body["blocks"] = _slack_activity_blocks(response, text)
         if response.thread_id is not None:
             body["thread_ts"] = response.thread_id
         payload = await self._call(self._config.api_url, body)
@@ -422,6 +425,8 @@ def _render_slack_text(
         for mention in response.mentions
     )
     rendered = f"{mention_text} {text}" if mention_text else text
+    if response.activities:
+        rendered = f"{_activity_fallback(response)}\n\nBragi: {rendered}"
     if include_operation_fallback and response.reaction is not None:
         rendered = f"{rendered}\n\nReaction: {response.reaction}"
     elif include_operation_fallback and response.edit_message_id is not None:
@@ -444,15 +449,25 @@ def _teams_message_body(
     *,
     native_mentions: bool,
 ) -> dict[str, Any]:
-    body: dict[str, Any] = {"type": "message", "text": text}
+    rendered_text = (
+        f"{_activity_fallback(response)}\n\nBragi: {text}" if response.activities else text
+    )
+    body: dict[str, Any] = {"type": "message", "text": rendered_text}
+    if response.activities:
+        body["attachments"] = [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": _teams_activity_card(response, text),
+            }
+        ]
     if not response.mentions:
         return body
     if not native_mentions:
         mention_text = " ".join(f"@{mention.display_text}" for mention in response.mentions)
-        body["text"] = f"{mention_text} {text}"
+        body["text"] = f"{mention_text} {rendered_text}"
         return body
     tags = [f"<at>{mention.display_text}</at>" for mention in response.mentions]
-    body["text"] = f"{' '.join(tags)} {text}"
+    body["text"] = f"{' '.join(tags)} {rendered_text}"
     body["entities"] = [
         {
             "type": "mention",
@@ -462,6 +477,140 @@ def _teams_message_body(
         for tag, mention in zip(tags, response.mentions, strict=True)
     ]
     return body
+
+
+def _activity_fallback(response: OutboundResponse) -> str:
+    lines: list[str] = []
+    for activity in response.activities:
+        if isinstance(activity, AgentHandoffActivity):
+            lines.append(f"{activity.from_agent} -> @{activity.to_agent}: {activity.task}")
+            continue
+        status = activity.status.value.capitalize()
+        lines.extend(
+            (
+                f"{activity.agent} - {activity.label} [{status}]",
+                f"Command: {activity.command}",
+            )
+        )
+        if activity.output:
+            lines.append(f"Output: {_bounded_text(activity.output, 1_000)}")
+    return "\n".join(lines)
+
+
+def _slack_activity_blocks(response: OutboundResponse, answer: str) -> list[dict[str, object]]:
+    blocks: list[dict[str, object]] = []
+    for activity in response.activities:
+        if isinstance(activity, AgentHandoffActivity):
+            blocks.append(
+                _slack_section(
+                    f"*{_slack_escape(activity.from_agent)}* -> "
+                    f"*@{_slack_escape(activity.to_agent)}*\n"
+                    f"{_slack_escape(activity.task)}"
+                )
+            )
+            continue
+        blocks.append(
+            _slack_section(
+                f"*{_slack_escape(activity.agent)} - {_slack_escape(activity.label)}* "
+                f"`{activity.status.value}`\n"
+                f"*{_slack_escape(activity.tool)}*\n"
+                f"```{_slack_code(activity.command, 1_800)}```"
+            )
+        )
+        if activity.output:
+            blocks.append(_slack_section(f"*Output*\n```{_slack_code(activity.output, 2_400)}```"))
+    blocks.append(_slack_section(f"*Bragi*\n{_slack_escape(answer)}"))
+    return blocks
+
+
+def _slack_section(text: str) -> dict[str, object]:
+    return {
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": _bounded_text(text, 2_900)},
+    }
+
+
+def _slack_escape(value: str) -> str:
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _slack_code(value: str, limit: int) -> str:
+    return _slack_escape(_bounded_text(value.replace("`", "'"), limit))
+
+
+def _teams_activity_card(response: OutboundResponse, answer: str) -> dict[str, object]:
+    body: list[dict[str, object]] = []
+    for activity in response.activities:
+        if isinstance(activity, AgentHandoffActivity):
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": (
+                        f"**{activity.from_agent}** -> **@{activity.to_agent}**\n{activity.task}"
+                    ),
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+            )
+            continue
+        facts: list[dict[str, str]] = [
+            {"title": "Status", "value": activity.status.value.capitalize()},
+            {"title": "Tool", "value": activity.tool},
+        ]
+        if activity.authority:
+            facts.append({"title": "Authority", "value": activity.authority})
+        if activity.exit_code is not None:
+            facts.append({"title": "Exit code", "value": str(activity.exit_code)})
+        body.extend(
+            (
+                {
+                    "type": "TextBlock",
+                    "text": f"**{activity.agent} - {activity.label}**",
+                    "wrap": True,
+                    "spacing": "Medium",
+                },
+                {"type": "FactSet", "facts": facts},
+                {
+                    "type": "TextBlock",
+                    "text": _bounded_text(activity.command, 4_000),
+                    "fontType": "Monospace",
+                    "wrap": True,
+                    "separator": True,
+                },
+            )
+        )
+        if activity.output:
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": _bounded_text(activity.output, 4_000),
+                    "fontType": "Monospace",
+                    "wrap": True,
+                    "separator": True,
+                }
+            )
+    body.append(
+        {
+            "type": "TextBlock",
+            "text": f"**Bragi**\n{answer}",
+            "wrap": True,
+            "separator": True,
+            "spacing": "Medium",
+        }
+    )
+    return {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.5",
+        "body": body,
+    }
+
+
+def _bounded_text(value: str, limit: int) -> str:
+    if len(value) <= limit:
+        return value
+    suffix = "\n[TRUNCATED]"
+    return f"{value[: max(0, limit - len(suffix))]}{suffix}"
 
 
 def _activity_endpoint(base: str, message_id: str) -> str:

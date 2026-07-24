@@ -146,16 +146,30 @@ export type InvestigationActivityStatus =
   | "unavailable"
   | "failed";
 
+export interface InvestigationExecutionEvidence {
+  readonly tool: string;
+  readonly command: string;
+  readonly redacted: true;
+  readonly output?: string;
+  readonly outputTruncated?: boolean;
+  readonly exitCode?: number;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly durationMs?: number;
+}
+
 export interface InvestigationActivity {
   readonly activityId: string;
   readonly kind: string;
   readonly status: InvestigationActivityStatus;
   readonly label: string;
+  readonly agent?: string;
   readonly detail?: string;
   readonly completed: number | null;
   readonly total: number | null;
   readonly authority?: string;
   readonly observedAt?: string;
+  readonly execution?: InvestigationExecutionEvidence;
 }
 
 export interface InvestigationMilestone {

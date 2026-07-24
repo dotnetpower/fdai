@@ -57,13 +57,16 @@ from .command_runner import (
     CommandStatus,
 )
 from .conversation_channel import (
+    AgentHandoffActivity,
     ChannelAttachment,
     ChannelDeliveryOperation,
     ChannelDeliveryReceipt,
     ChannelThreadMode,
     ConversationChannelAdapter,
     ConversationChannelKind,
+    ConversationExecutionStatus,
     InboundTurn,
+    ObservedExecutionActivity,
     OutboundResponse,
 )
 from .conversation_search import (
@@ -253,6 +256,7 @@ from .workflow_definition import (
 from .workload_identity import IdentityToken, WorkloadIdentity
 
 __all__ = [
+    "AgentHandoffActivity",
     "DirectUploadStore",
     "BlastProbeConfigError",
     "BlastProbeError",
@@ -305,6 +309,7 @@ __all__ = [
     "ChannelThreadMode",
     "ConversationChannelAdapter",
     "ConversationChannelKind",
+    "ConversationExecutionStatus",
     "ConversationPolicyKind",
     "ConversationPolicyRecord",
     "ConversationPolicyStore",
@@ -382,6 +387,7 @@ __all__ = [
     "OntologyLinkRecord",
     "OntologyObjectRecord",
     "OutboundResponse",
+    "ObservedExecutionActivity",
     "PrPublishReceipt",
     "PreflightCheck",
     "PreflightCheckPublishError",

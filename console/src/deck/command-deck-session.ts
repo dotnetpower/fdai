@@ -77,13 +77,7 @@ export function matchingTurnIndexes(
 }
 
 export function replyAgent(
-  reply: Pick<ProgressiveAnswer, "delegation" | "verification">,
+  _reply: Pick<ProgressiveAnswer, "delegation" | "verification">,
 ): string {
-  if (
-    reply.verification?.status === "corrected" ||
-    reply.verification?.status === "unverified"
-  ) {
-    return "Bragi";
-  }
-  return reply.delegation?.primary_agent ?? "Bragi";
+  return "Bragi";
 }

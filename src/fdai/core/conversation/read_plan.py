@@ -128,6 +128,7 @@ def execute_read_plan(
     evidence_refs = tuple(
         dict.fromkeys(reference for _, result in results for reference in result.evidence_refs)
     )
+    activities = tuple(activity for _, result in results for activity in result.activities)
     data: dict[str, object] = {
         "results": [
             {
@@ -155,6 +156,7 @@ def execute_read_plan(
         data=data,
         preview=preview,
         evidence_refs=evidence_refs,
+        activities=activities,
     )
 
 

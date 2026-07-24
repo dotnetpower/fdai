@@ -1768,7 +1768,17 @@
       "completed": "완료",
       "unavailable": "사용할 수 없음",
       "failed": "실패",
-      "finished": "종료"
+      "finished": "종료",
+      "executionEvidence": "관찰된 실행 근거",
+      "redacted": "민감한 값 정제됨",
+      "copyCommand": "명령 복사",
+      "exitCode": "종료 코드 {code}",
+      "outputLogs": "출력 로그",
+      "truncated": "잘린 미리보기",
+      "timestamps": "타임스탬프",
+      "startedAt": "시작",
+      "completedAt": "완료",
+      "duration": "소요 시간"
     },
     "rich": {
       "code": "코드",

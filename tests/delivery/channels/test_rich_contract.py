@@ -7,10 +7,15 @@ import pytest
 from fdai.shared.providers.conversation_channel import (
     MAX_MENTION_COUNT,
     MAX_STREAM_CHUNKS,
+    AgentHandoffActivity,
     ChannelDeliveryOperation,
     ChannelMention,
     ConversationChannelKind,
+    ConversationExecutionStatus,
+    ObservedExecutionActivity,
     OutboundResponse,
+    outbound_response_from_json,
+    outbound_response_to_json,
 )
 
 
@@ -50,6 +55,60 @@ def test_mentions_keep_opaque_target_separate_from_fallback_text() -> None:
 
     assert response.mentions[0].target_id == "vendor-user-1"
     assert response.mentions[0].display_text == "Operator"
+
+
+def test_agent_activity_round_trips_through_durable_response() -> None:
+    response = _response(
+        activities=(
+            AgentHandoffActivity(
+                from_agent="Bragi",
+                to_agent="Heimdall",
+                task="Inspect the bounded metric evidence.",
+                trace_ref="trace-example",
+            ),
+            ObservedExecutionActivity(
+                agent="Heimdall",
+                label="Query metric evidence",
+                tool="query_metric",
+                command="query_metric --metric Requests --window PT5M",
+                status=ConversationExecutionStatus.COMPLETED,
+                redacted=True,
+                output='{"point_count": 2, "status": "completed"}',
+                exit_code=0,
+                duration_ms=42,
+                authority="server_read_model",
+            ),
+        )
+    )
+
+    restored = outbound_response_from_json(outbound_response_to_json(response))
+
+    assert restored.activities == response.activities
+
+
+@pytest.mark.parametrize(
+    "changes",
+    (
+        {"redacted": False},
+        {"command": "Bearer secret-token"},
+        {"output": "/subscriptions/00000000-0000-0000-0000-000000000000"},
+    ),
+)
+def test_execution_activity_rejects_unredacted_or_sensitive_content(
+    changes: dict[str, object],
+) -> None:
+    values: dict[str, object] = {
+        "agent": "Heimdall",
+        "label": "Query metric evidence",
+        "tool": "query_metric",
+        "command": "query_metric --metric Requests --window PT5M",
+        "status": ConversationExecutionStatus.COMPLETED,
+        "redacted": True,
+    }
+    values.update(changes)
+
+    with pytest.raises(ValueError):
+        ObservedExecutionActivity(**values)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
