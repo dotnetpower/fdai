@@ -130,6 +130,19 @@ describe("agent live log projection", () => {
     expect(rows.filter((row) => row.kind === "handoff").map((row) => row.detail))
       .toEqual(turns.map((turn) => turn.text));
   });
+
+  it("retains malformed timestamps at the visible end instead of silently pruning them", () => {
+    const rows = buildAgentLogRows([], [
+      auditItem(1, { summary: "valid" }, "2026-07-24T10:00:00Z"),
+      auditItem(2, { summary: "malformed" }, "not-a-timestamp"),
+    ]);
+
+    expect(rows.map((row) => row.detail)).toEqual(["valid", "malformed"]);
+    expect(rows.at(-1)).toMatchObject({
+      timestamp: "not-a-timestamp",
+      timestampValid: false,
+    });
+  });
 });
 
 describe("agent live log controls", () => {

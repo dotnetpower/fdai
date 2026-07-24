@@ -31,6 +31,7 @@ export type AgentLogSource = FrameSource | "audit-operational" | "audit-sample";
 export interface AgentLogRow {
   readonly id: string;
   readonly timestamp: string;
+  readonly timestampValid: boolean;
   readonly route: readonly string[];
   readonly kind: "incident" | "handoff" | "state" | Exclude<ActivityVerb, "all"> | "activity";
   readonly detail: string;
@@ -54,6 +55,7 @@ export function buildAgentLogRows(
     rows.push({
       id: `live:${event.kind}:${event.ts}:${event.agent}:${event.correlationId ?? "none"}:${stableHash(identity)}`,
       timestamp: event.ts,
+      timestampValid: timestamp(event.ts) !== null,
       route: event.agents.length > 0 ? event.agents : [event.agent],
       kind: liveKind(event),
       detail: event.detail || event.summary,
@@ -73,6 +75,7 @@ export function buildAgentLogRows(
     rows.push({
       id: `audit:${item.seq}`,
       timestamp: item.recorded_at,
+      timestampValid: timestamp(item.recorded_at) !== null,
       route: [actor],
       kind: activityVerb(item),
       detail: target ? `${item.action_kind} on ${target} - ${summary}` : summary,
@@ -86,6 +89,7 @@ export function buildAgentLogRows(
       rows.push({
         id: `audit:${item.seq}:conversation:${index}`,
         timestamp: item.recorded_at,
+        timestampValid: timestamp(item.recorded_at) !== null,
         route: [turn.from, turn.to],
         kind: "handoff",
         detail: turn.text,
@@ -97,7 +101,7 @@ export function buildAgentLogRows(
       });
     });
   });
-  rows.sort((left, right) => timestamp(left.timestamp) - timestamp(right.timestamp) ||
+  rows.sort((left, right) => compareTimestamp(left.timestamp, right.timestamp) ||
     compareOrder(left.sortOrder, right.sortOrder) || left.id.localeCompare(right.id));
   return rows.slice(-AGENT_LOG_LIMIT);
 }
@@ -177,9 +181,17 @@ function stableHash(value: string): string {
   return hash.toString(36);
 }
 
-function timestamp(value: string): number {
+function compareTimestamp(left: string, right: string): number {
+  const leftValue = timestamp(left);
+  const rightValue = timestamp(right);
+  if (leftValue === null) return rightValue === null ? 0 : 1;
+  if (rightValue === null) return -1;
+  return leftValue - rightValue;
+}
+
+function timestamp(value: string): number | null {
   const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? 0 : parsed;
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function normalize(value: string): string {

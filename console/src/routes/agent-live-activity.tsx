@@ -262,7 +262,13 @@ function AgentLogRowView({
   return (
     <div class={`aa-log-row kind-${row.kind}`} role="row">
       {visibleColumns.includes("time") ? (
-        <time role="cell" data-column="time" dateTime={row.timestamp}>
+        <time
+          role="cell"
+          data-column="time"
+          dateTime={row.timestampValid ? row.timestamp : undefined}
+          aria-invalid={row.timestampValid ? undefined : "true"}
+          title={row.timestampValid ? undefined : row.timestamp}
+        >
           {formatConsoleTimestamp(row.timestamp)}
         </time>
       ) : null}
