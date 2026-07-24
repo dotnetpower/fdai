@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 57594f230abd08c1d7de0dbb253c225dec79d020
+translation_source_sha: e30c4f58efdd8c3c1c421436aa6b84519b567c4e
 translation_revised: 2026-07-24
 ---
 
@@ -310,6 +310,8 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   현재 화면에 turn의 fact 또는 record가 있으면 Bragi는 data question을 해당 화면 범위에
   결정론적으로 유지합니다. 이 범위에서는 specialist delegation과 semantic web classification을
   생략합니다. 요청한 field가 없으면 일반 model knowledge로 채우지 않고 부재를 알립니다.
+  `bragi-screen-t0` renderer는 지원하는 fact, record, latest audit, action summary 및 promotion row
+  질문을 narrator model 호출 없이 답합니다. JSON과 SSE는 동일한 renderer와 verifier를 사용합니다.
 - **검색:** 대상 turn은 검색 가능한 Azure Responses model candidate로 route됩니다. Provider는
   multilingual public-search 요청을 bounded English query로 변환합니다. Search provider는 해당 query와
   domain allowlist만 받고 정제된 evidence snapshot을 반환합니다. Bragi는 source URL과 함께 답변하며

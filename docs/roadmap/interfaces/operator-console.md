@@ -318,7 +318,9 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   Bragi deterministically keeps a data question on the current screen when that screen carries
   facts or records for the turn. That scope suppresses specialist delegation and semantic web
   classification. If the requested field is absent, Bragi reports the absence instead of using
-  general model knowledge.
+  general model knowledge. The `bragi-screen-t0` renderer answers supported fact, record, latest
+  audit, action-summary, and promotion-row questions without a narrator-model call. JSON and SSE
+  use the same renderer and verifier.
 - **Retrieval:** An eligible turn routes to a search-capable Azure Responses model candidate. The
   classifier converts multilingual public-search requests into a bounded English query; the search
   provider receives only that query and the domain allowlist, then returns a sanitized evidence

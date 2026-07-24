@@ -162,6 +162,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     _uses_evidence_fast_path,
     _with_compiled_user_policy,
 )
+from fdai.delivery.read_api.routes.chat_screen_data import render_screen_data_answer
 from fdai.delivery.read_api.routes.chat_stream import (
     DEFAULT_STREAM_PATH,
     make_chat_stream_route,
@@ -449,6 +450,11 @@ def make_chat_route(
                 view_context,
                 locale=response_locale,
             )
+            screen_answer = render_screen_data_answer(
+                clean_prompt,
+                view_context,
+                locale=response_locale,
+            )
             concept_answer = (
                 _concept_answer(view_context, answer_plan) if response_locale is None else None
             )
@@ -496,6 +502,18 @@ def make_chat_route(
                     "answer": verification.answer,
                     "model": "read-model-health",
                     "source": "evidence:system-health",
+                    "verification": verification.to_dict(),
+                }
+            elif screen_answer is not None:
+                verification = verify_answer(
+                    screen_answer,
+                    view_context,
+                    locale=response_locale,
+                )
+                reply = {
+                    "answer": verification.answer,
+                    "model": "bragi-screen-t0",
+                    "source": "evidence:current-screen",
                     "verification": verification.to_dict(),
                 }
             elif concept_answer is not None:

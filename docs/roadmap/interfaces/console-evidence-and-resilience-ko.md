@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0c60b584ce8fe5f5e73e85c696742bb7c38bd07c
+translation_source_sha: fac231575f9083f99f9a9abefe06a6663c9e8fbc
 translation_revised: 2026-07-24
 ---
 
@@ -188,6 +188,8 @@ Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 
 Current-screen data scope는 inventory, incident, agent 및 web enrichment보다 우선합니다. Trace
 correlation은 질문에 incident, failure, problem 또는 cause 의미가 명시된 경우에만 incident selection
 hint로 사용하며 일반 stage 및 actor field는 screen fact로 유지합니다.
+지원되는 current-screen value와 명시적 absence answer는 model 호출 없이 Bragi T0가 렌더링합니다.
+이 answer도 terminal이 되기 전에 atomic-claim verifier를 통과합니다.
 Current-time 질문은 injected timezone-aware server clock과 principal의 IANA timezone preference를
 사용합니다. Terminal answer는 exact timestamp와 timezone으로 결정론적으로 렌더링합니다. Preference가
 없으면 명시적으로 표시한 UTC로 fallback하며 narrator와 browser clock은 time authority가 아닙니다.

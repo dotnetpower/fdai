@@ -85,6 +85,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     _uses_evidence_fast_path,
     _with_compiled_user_policy,
 )
+from fdai.delivery.read_api.routes.chat_screen_data import render_screen_data_answer
 from fdai.delivery.read_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _chunk_answer_for_stream,
@@ -415,6 +416,11 @@ def make_chat_stream_route(
                     enriched_context,
                     locale=response_locale,
                 )
+                screen_answer = render_screen_data_answer(
+                    clean_prompt,
+                    enriched_context,
+                    locale=response_locale,
+                )
                 concept_answer = (
                     _concept_answer(enriched_context, answer_plan)
                     if response_locale is None
@@ -445,6 +451,7 @@ def make_chat_stream_route(
                             if evidence_fast_path
                             or ontology_answer is not None
                             or health_answer is not None
+                            or screen_answer is not None
                             else "Evidence ready; drafting answer"
                         ),
                         "authority": (
@@ -483,6 +490,11 @@ def make_chat_stream_route(
                 elif health_answer is not None:
                     provisional_answer = health_answer
                     terminal_model = "read-model-health"
+                    for chunk in _chunk_answer_for_stream(provisional_answer):
+                        yield frame("token", {"delta": chunk})
+                elif screen_answer is not None:
+                    provisional_answer = screen_answer
+                    terminal_model = "bragi-screen-t0"
                     for chunk in _chunk_answer_for_stream(provisional_answer):
                         yield frame("token", {"delta": chunk})
                 elif concept_answer is not None:
@@ -717,7 +729,13 @@ def make_chat_stream_route(
                                 "evidence:system-health"
                                 if health_answer is not None
                                 else (
-                                    "evidence:fdai-glossary" if concept_answer is not None else None
+                                    "evidence:current-screen"
+                                    if screen_answer is not None
+                                    else (
+                                        "evidence:fdai-glossary"
+                                        if concept_answer is not None
+                                        else None
+                                    )
                                 )
                             )
                         )
