@@ -34,6 +34,10 @@ describe("composer-attachments", () => {
     expect(thumbLabel("ppt")).toBe("PPT");
     expect(thumbLabel("zip")).toBe("ZIP");
     expect(thumbLabel("rms")).toBe("RMS");
+    expect(thumbLabel("log")).toBe("LOG");
+    expect(thumbLabel("plan")).toBe("TF");
+    expect(thumbLabel("data")).toBe("DAT");
+    expect(thumbLabel("doc")).toBe("DOC");
   });
 
   it("flags a rights-protected OOXML file (OLE header) as RMS", () => {
@@ -62,6 +66,10 @@ describe("composer-attachments", () => {
     expect(formatSize(512)).toBe("512 B");
     expect(formatSize(43008)).toBe("42 KB");
     expect(formatSize(1_887_437)).toBe("1.8 MB");
+  });
+
+  it("formats sizes in GB for very large files", () => {
+    expect(formatSize(2_147_483_648)).toBe("2.0 GB");
   });
 
   it("mints unique attachment ids", () => {
