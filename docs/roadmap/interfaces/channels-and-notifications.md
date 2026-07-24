@@ -214,6 +214,8 @@ tool or execution authority. In addition to per-field limits, the complete activ
 48,000-character budget so one accepted response cannot exceed durable or vendor payload ceilings.
 Command, output, label, tool, and authority fields all pass the same high-signal secret scanner;
 Bearer credentials are rejected across whitespace and common separator forms.
+Durable activity decoding is type-strict and validates ordered RFC 3339 timestamps before a
+publisher receives the response.
 
 Concrete publishers map that intent as follows:
 

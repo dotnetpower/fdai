@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal, Protocol, cast, runtime_checkable
 from unicodedata import category
@@ -39,6 +40,7 @@ _SENSITIVE_ACTIVITY_TEXT = re.compile(
     r"[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b"
     r"|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"
 )
+_RFC3339 = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
 
 
 class ConversationChannelKind(StrEnum):
@@ -120,6 +122,12 @@ class ObservedExecutionActivity:
         ):
             if value is not None:
                 _bounded(f"activity.{name}", value, MAX_ACTIVITY_LABEL_CHARS)
+                _rfc3339(f"activity.{name}", value)
+        if self.started_at is not None and self.completed_at is not None:
+            if _rfc3339("activity.completed_at", self.completed_at) < _rfc3339(
+                "activity.started_at", self.started_at
+            ):
+                raise ValueError("activity.completed_at MUST NOT precede activity.started_at")
         if self.authority is not None:
             _safe_bounded("activity.authority", self.authority, MAX_ACTIVITY_LABEL_CHARS)
 
@@ -373,6 +381,20 @@ def _safe_bounded(name: str, value: str, maximum: int) -> None:
         raise ValueError(f"{name} contains sensitive channel content")
 
 
+def _rfc3339(name: str, value: str) -> datetime:
+    if _RFC3339.fullmatch(value) is None:
+        raise ValueError(f"{name} MUST be an RFC 3339 timestamp")
+    try:
+        parsed = datetime.fromisoformat(
+            value.removesuffix("Z") + ("+00:00" if value.endswith("Z") else "")
+        )
+    except ValueError as exc:
+        raise ValueError(f"{name} MUST be an RFC 3339 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"{name} MUST include a timezone")
+    return parsed
+
+
 def _activity_chars(activity: ConversationActivity) -> int:
     if isinstance(activity, AgentHandoffActivity):
         return sum(
@@ -431,30 +453,68 @@ def _activity_from_json(value: object) -> ConversationActivity:
         raise ValueError("stored conversation activity MUST be an object")
     if value.get("kind") == "handoff":
         return AgentHandoffActivity(
-            from_agent=str(value["from_agent"]),
-            to_agent=str(value["to_agent"]),
-            task=str(value["task"]),
-            trace_ref=str(value["trace_ref"]) if value.get("trace_ref") is not None else None,
+            from_agent=_required_json_text(value, "from_agent"),
+            to_agent=_required_json_text(value, "to_agent"),
+            task=_required_json_text(value, "task"),
+            trace_ref=_optional_json_text(value, "trace_ref"),
         )
     if value.get("kind") != "execution":
         raise ValueError("stored conversation activity kind is unsupported")
     return ObservedExecutionActivity(
-        agent=str(value["agent"]),
-        label=str(value["label"]),
-        tool=str(value["tool"]),
-        command=str(value["command"]),
-        status=ConversationExecutionStatus(str(value["status"])),
-        redacted=value.get("redacted"),  # type: ignore[arg-type]
-        output=str(value.get("output") or ""),
-        output_truncated=value.get("output_truncated") is True,
-        exit_code=int(value["exit_code"]) if value.get("exit_code") is not None else None,
-        started_at=str(value["started_at"]) if value.get("started_at") is not None else None,
-        completed_at=(
-            str(value["completed_at"]) if value.get("completed_at") is not None else None
-        ),
-        duration_ms=int(value["duration_ms"]) if value.get("duration_ms") is not None else None,
-        authority=str(value["authority"]) if value.get("authority") is not None else None,
+        agent=_required_json_text(value, "agent"),
+        label=_required_json_text(value, "label"),
+        tool=_required_json_text(value, "tool"),
+        command=_required_json_text(value, "command"),
+        status=ConversationExecutionStatus(_required_json_text(value, "status")),
+        redacted=_required_json_true(value, "redacted"),
+        output=_optional_json_text(value, "output") or "",
+        output_truncated=_optional_json_bool(value, "output_truncated"),
+        exit_code=_optional_json_int(value, "exit_code"),
+        started_at=_optional_json_text(value, "started_at"),
+        completed_at=_optional_json_text(value, "completed_at"),
+        duration_ms=_optional_json_int(value, "duration_ms"),
+        authority=_optional_json_text(value, "authority"),
     )
+
+
+def _required_json_text(value: Mapping[object, object], field_name: str) -> str:
+    raw = value.get(field_name)
+    if not isinstance(raw, str):
+        raise ValueError(f"stored conversation activity {field_name} MUST be a string")
+    return raw
+
+
+def _optional_json_text(value: Mapping[object, object], field_name: str) -> str | None:
+    raw = value.get(field_name)
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ValueError(f"stored conversation activity {field_name} MUST be a string")
+    return raw
+
+
+def _optional_json_bool(value: Mapping[object, object], field_name: str) -> bool:
+    if field_name not in value:
+        return False
+    raw = value[field_name]
+    if not isinstance(raw, bool):
+        raise ValueError(f"stored conversation activity {field_name} MUST be a boolean")
+    return raw
+
+
+def _optional_json_int(value: Mapping[object, object], field_name: str) -> int | None:
+    raw = value.get(field_name)
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ValueError(f"stored conversation activity {field_name} MUST be an integer")
+    return raw
+
+
+def _required_json_true(value: Mapping[object, object], field_name: str) -> Literal[True]:
+    if value.get(field_name) is not True:
+        raise ValueError(f"stored conversation activity {field_name} MUST be true")
+    return True
 
 
 __all__ = [

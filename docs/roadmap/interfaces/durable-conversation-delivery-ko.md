@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 90cff5c3a37726722731f78e686e9a527d08fbda
-translation_revised: 2026-07-23
+translation_source_sha: 12760fe6e1dff1e1f8f043f1edc4357a3a40f505
+translation_revised: 2026-07-24
 ---
 # 영구 대화 전송
 
@@ -63,6 +63,8 @@ Complete `OutboundResponse`, response digest, destination, operation, principal,
 conversation, binding, origin reference, freshness deadline, retention deadline을 send 전에
 저장합니다. Stable origin과 destination 및 operation으로 deterministic idempotency key를
 만듭니다. 동일 key를 다른 response content에 재사용하면 차단됩니다.
+Replay decode는 agent activity의 scalar coercion을 차단합니다. Boolean 및 integer는 JSON type을
+유지하고 timestamp는 timezone이 있는 RFC 3339를 사용하며 completion은 start보다 빠를 수 없습니다.
 
 다음 state는 immutable입니다.
 

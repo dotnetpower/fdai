@@ -87,6 +87,71 @@ def test_agent_activity_round_trips_through_durable_response() -> None:
     assert restored.activities == response.activities
 
 
+@pytest.mark.parametrize(
+    ("field_name", "malformed"),
+    (
+        ("agent", 123),
+        ("output_truncated", 1),
+        ("exit_code", True),
+        ("duration_ms", "42"),
+        ("redacted", "true"),
+    ),
+)
+def test_durable_activity_rejects_scalar_type_coercion(
+    field_name: str,
+    malformed: object,
+) -> None:
+    serialized = outbound_response_to_json(
+        _response(
+            activities=(
+                ObservedExecutionActivity(
+                    agent="Heimdall",
+                    label="Query metric evidence",
+                    tool="query_metric",
+                    command="query_metric --metric <redacted>",
+                    status=ConversationExecutionStatus.COMPLETED,
+                    redacted=True,
+                ),
+            )
+        )
+    )
+    serialized["activities"][0][field_name] = malformed
+
+    with pytest.raises(ValueError):
+        outbound_response_from_json(serialized)
+
+
+@pytest.mark.parametrize(
+    "started_at",
+    ("2026-07-24 10:15:00", "2026/07/24T10:15:00Z", "2026-07-24T10:15:00"),
+)
+def test_execution_activity_rejects_non_rfc3339_timestamps(started_at: str) -> None:
+    with pytest.raises(ValueError, match="RFC 3339"):
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label="Query metric evidence",
+            tool="query_metric",
+            command="query_metric --metric <redacted>",
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+            started_at=started_at,
+        )
+
+
+def test_execution_activity_rejects_reversed_timestamps() -> None:
+    with pytest.raises(ValueError, match="MUST NOT precede"):
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label="Query metric evidence",
+            tool="query_metric",
+            command="query_metric --metric <redacted>",
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+            started_at="2026-07-24T10:15:01Z",
+            completed_at="2026-07-24T10:15:00Z",
+        )
+
+
 def test_outbound_response_rejects_aggregate_activity_payload_over_budget() -> None:
     oversized = tuple(
         ObservedExecutionActivity(

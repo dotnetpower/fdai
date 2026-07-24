@@ -62,6 +62,8 @@ The complete `OutboundResponse`, response digest, destination, operation, princi
 conversation, binding, origin reference, freshness deadline, and retention deadline are stored
 before send. The stable origin plus destination and operation derive one deterministic idempotency
 key. Reusing that key with different response content is rejected.
+Replay decoding rejects scalar coercion in agent activities. Booleans and integers retain their
+JSON types, timestamps use RFC 3339 with a timezone, and completion cannot precede start.
 
 The following states are immutable:
 

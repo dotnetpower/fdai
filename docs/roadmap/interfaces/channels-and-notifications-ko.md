@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: fafb0467fc96e11523618b53372f90284a9d1af3
+translation_source_sha: a1b31849b21da3464e8be33489a84d1b03623cbd
 translation_revised: 2026-07-24
 ---
 
@@ -214,6 +214,8 @@ sequence는 durable response replay에 포함되며 channel adapter에 tool 또�
 허용된 response 하나가 durable 또는 vendor payload ceiling을 넘지 않게 합니다. Command, output,
 label, tool 및 authority field는 모두 같은 high-signal secret scanner를 통과하며, Bearer credential은
 whitespace 및 일반적인 separator form에서 차단됩니다.
+Durable activity decode는 type-strict하며 publisher가 response를 받기 전에 ordered RFC 3339
+timestamp를 검증합니다.
 
 Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
 
