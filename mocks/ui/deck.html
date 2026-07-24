@@ -381,6 +381,60 @@
     .dk-tool-call .dk-tool-latency { margin-left: auto; color: var(--cs-text-soft); font-family: "Cascadia Code","Consolas",monospace; font-size: 11px; }
     .dk-tool-call pre { margin: 0; padding: 8px 10px; border-top: 1px solid var(--cs-hairline); background: var(--cs-card); font-family: "Cascadia Code","Consolas",monospace; font-size: 11.5px; line-height: 1.55; color: var(--cs-text); overflow-x: auto; }
 
+     /* -------------------------------------------------------------------
+       Observed command execution. This is evidence emitted by an authorized
+       read runtime, not an execution control owned by the browser.
+       ------------------------------------------------------------------- */
+     .dk-turn.is-execution { width: 100%; max-width: 100%; }
+     .dk-turn.is-execution .dk-turn-body { flex: 1 1 auto; }
+     .dk-exec { overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 2px 8px rgba(46,54,64,.045); }
+     .dk-exec > summary { min-height: 38px; padding: 0 10px; list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--cs-text); }
+     .dk-exec > summary::-webkit-details-marker,
+     .dk-exec-section > summary::-webkit-details-marker { display: none; }
+     .dk-exec > summary::after { content: "\2304"; margin-left: 2px; color: var(--cs-text-soft); font-size: 13px; transform: rotate(180deg); transition: transform .14s ease; }
+     .dk-exec[open] > summary::after { transform: rotate(0); }
+     .dk-exec-title { font-size: 12.5px; font-weight: 650; }
+     .dk-exec-risk { padding: 1px 7px; border: 1px solid var(--cs-hairline); border-radius: 999px; color: var(--cs-text-soft); background: var(--cs-shade); font-size: 10.5px; font-weight: 600; }
+     .dk-exec-state { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--cs-sage); font-size: 11px; font-weight: 650; }
+     .dk-exec-state::before { content: "\2713"; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; color: #fff; background: var(--cs-sage); font-size: 9px; }
+     .dk-exec-body { border-top: 1px solid var(--cs-hairline); }
+     .dk-exec-command { margin: 10px; overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-shade); }
+     .dk-exec-command-head { min-height: 31px; padding: 0 8px 0 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 10.5px; }
+     .dk-exec-command-head strong { color: var(--cs-text); font-size: 11px; }
+     .dk-exec-redacted { margin-left: auto; }
+     .dk-exec-copy { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--cs-text-soft); cursor: pointer; }
+     .dk-exec-copy:hover { color: var(--cs-text); background: var(--cs-card); }
+     .dk-exec-copy.is-copied { color: var(--cs-sage); background: rgba(94,130,89,.10); }
+     .dk-exec-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+     .dk-exec-command pre,
+     .dk-exec-output { margin: 0; padding: 9px 10px; overflow: auto; font-family: "JetBrains Mono","Cascadia Code","Consolas",monospace; font-size: 10.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--cs-text); }
+    .dk-exec-command code,
+    .dk-exec-output code { padding: 0; border-radius: 0; background: transparent; color: inherit; }
+     .dk-exec-result { min-height: 35px; padding: 0 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 11px; }
+     .dk-exec-complete { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 999px; color: var(--cs-sage); background: rgba(94,130,89,.12); font-weight: 700; }
+     .dk-exec-complete::before { content: "\2713"; }
+     .dk-exec-section { border-top: 1px solid var(--cs-hairline); }
+     .dk-exec-section > summary { min-height: 37px; padding: 0 10px; list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--cs-text); font-size: 11.5px; }
+     .dk-exec-section > summary::before { content: "\203A"; color: var(--cs-text-soft); font-size: 16px; transition: transform .12s ease; }
+     .dk-exec-section[open] > summary::before { transform: rotate(90deg); }
+     .dk-exec-section .dk-exec-meta { margin-left: auto; color: var(--cs-text-soft); font-family: "JetBrains Mono","Consolas",monospace; font-size: 10px; }
+     .dk-exec-output { max-height: 260px; border-top: 1px solid var(--cs-hairline); background: #202621; color: #c5d9c7; }
+     .dk-exec-output .key { color: #8fb8d8; }
+     .dk-exec-output .str { color: #b9d89f; }
+     .dk-exec-output .num { color: #e1b18d; }
+     .dk-exec-times { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 5px 12px; margin: 0; padding: 9px 10px 11px; border-top: 1px solid var(--cs-hairline); font-size: 10.5px; }
+     .dk-exec-times dt { color: var(--cs-text-soft); }
+     .dk-exec-times dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--cs-text); font-family: "JetBrains Mono","Consolas",monospace; }
+     @media (max-width: 560px) {
+      .dk-turn.is-execution { display: block; }
+      .dk-turn.is-execution .dk-turn-avatar { display: none; }
+      .dk-exec-redacted { display: none; }
+      .dk-exec-title { font-size: 11.5px; }
+      .dk-exec-state { font-size: 10.5px; }
+      .dk-exec-command { margin: 8px; }
+      .dk-exec-times { grid-template-columns: 72px minmax(0,1fr); }
+     }
+
     /* -------------------------------------------------------------------
        Turn actions (copy / permalink / thumbs / fork). Hover-reveal, live
        on the right side of an agent bubble. Left side for operator turns.
@@ -629,6 +683,61 @@
                 <button type="button" title="Permalink to this turn">Link</button>
                 <button type="button" title="Fork the conversation from this point">Fork</button>
               </div>
+            </div>
+          </div>
+
+          <!-- Observed execution evidence from Heimdall's read runtime. The
+               browser can inspect and copy the command, but cannot run it. -->
+          <div class="dk-turn is-execution">
+            <span class="dk-turn-avatar is-teal" aria-hidden="true">He</span>
+            <div class="dk-turn-body">
+              <span class="dk-turn-meta"><strong>Heimdall</strong> &middot; <time>09:43</time> &middot; observed execution</span>
+              <details class="dk-exec" open>
+                <summary>
+                  <span class="dk-exec-title">Querying container restart evidence</span>
+                  <span class="dk-exec-risk">Read only</span>
+                  <span class="dk-exec-state">Completed</span>
+                </summary>
+                <div class="dk-exec-body">
+                  <div class="dk-exec-command">
+                    <div class="dk-exec-command-head">
+                      <strong>Azure CLI</strong>
+                      <span class="dk-exec-redacted">Sensitive values redacted</span>
+                      <button class="dk-exec-copy" type="button" data-copy-target="dk-command-1" aria-label="Copy command" title="Copy command">
+                        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"></path></svg>
+                      </button>
+                    </div>
+                    <pre id="dk-command-1"><code>az monitor log-analytics query --workspace &lt;workspace-id&gt; --analytics-query "KubePodInventory | where ClusterName == 'example-cluster' | where Name startswith 'nginx-canary' | where ContainerStatusReason == 'OOMKilled' | project TimeGenerated, Name, ContainerStatusReason | take 20"</code></pre>
+                    <div class="dk-exec-result">
+                      <span class="dk-exec-complete">Completed</span>
+                      <span>Exit code 0</span>
+                      <span>Azure Monitor Reader</span>
+                    </div>
+                  </div>
+                  <details class="dk-exec-section" open>
+                    <summary>Output logs <span class="dk-exec-meta">1 result &middot; 684 B</span></summary>
+                    <pre class="dk-exec-output"><code>{
+  <span class="key">"tables"</span>: [
+    {
+      <span class="key">"name"</span>: <span class="str">"PrimaryResult"</span>,
+      <span class="key">"rows"</span>: [
+        [<span class="str">"2026-07-24T00:35:58Z"</span>, <span class="str">"nginx-canary-7c8f9"</span>, <span class="str">"OOMKilled"</span>]
+      ],
+      <span class="key">"rowCount"</span>: <span class="num">1</span>
+    }
+  ]
+}</code></pre>
+                  </details>
+                  <details class="dk-exec-section">
+                    <summary>Timestamps <span class="dk-exec-meta">4.2 s</span></summary>
+                    <dl class="dk-exec-times">
+                      <dt>Started</dt><dd>2026-07-24T00:36:02Z</dd>
+                      <dt>Completed</dt><dd>2026-07-24T00:36:06Z</dd>
+                      <dt>Duration</dt><dd>4.2 s</dd>
+                    </dl>
+                  </details>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -1567,6 +1676,28 @@
           if (ok) flash(btn);
         });
         pre.appendChild(btn);
+      });
+
+      document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const target = document.getElementById(btn.getAttribute('data-copy-target'));
+          if (!target) return;
+          const text = target.textContent.trim();
+          let ok = false;
+          if (navigator.clipboard && window.isSecureContext) {
+            try { await navigator.clipboard.writeText(text); ok = true; } catch (_) { ok = false; }
+          }
+          if (!ok) ok = fallbackCopy(text);
+          if (!ok) return;
+          btn.classList.add('is-copied');
+          btn.setAttribute('aria-label', 'Command copied');
+          btn.setAttribute('title', 'Command copied');
+          setTimeout(function () {
+            btn.classList.remove('is-copied');
+            btn.setAttribute('aria-label', 'Copy command');
+            btn.setAttribute('title', 'Copy command');
+          }, 1400);
+        });
       });
     })();
   </script>
