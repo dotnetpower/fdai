@@ -3,6 +3,7 @@ import { t } from "../i18n";
 import { fetchConversationTurns } from "../user-context-client";
 import { restoredTurn } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
+import { resetComposerAttachments } from "./composer-attachment-store";
 import {
   conversationIndexKeyFor,
   conversationFallbackForRoute,
@@ -186,6 +187,7 @@ export function useCommandDeckSessionController({
     binding?: IncidentConversationBinding,
   ) => {
     if (key !== sessionKeyRef.current) cancelActiveRequest();
+    if (key !== sessionKeyRef.current) resetComposerAttachments();
     const store = sessionStore();
     if (store && key !== sessionKeyRef.current) {
       try {

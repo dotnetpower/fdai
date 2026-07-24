@@ -58,13 +58,26 @@ export function unstageComposerAttachment(id: string): void {
 export function takeComposerAttachments(): ChatAttachment[] {
   const list = [...staged.values()];
   staged.clear();
-  for (const listener of drainListeners) listener();
+  notifyDrain();
   return list;
 }
 
-/** Drop everything without returning it (e.g. conversation switch). */
+/** Drop everything and notify drain subscribers so the composer tray clears
+ *  too. Use on a conversation switch so a staged image never bleeds from the
+ *  conversation it was attached in into another one. */
+export function resetComposerAttachments(): void {
+  staged.clear();
+  notifyDrain();
+}
+
+/** Drop everything WITHOUT notifying, for composer unmount where the tray is
+ *  going away with the component and a state update would be a no-op. */
 export function clearComposerAttachments(): void {
   staged.clear();
+}
+
+function notifyDrain(): void {
+  for (const listener of drainListeners) listener();
 }
 
 /** How many attachments are currently staged (view/tests only). */

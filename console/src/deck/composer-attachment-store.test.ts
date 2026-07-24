@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   MAX_ATTACHMENTS,
   clearComposerAttachments,
+  resetComposerAttachments,
   stageComposerAttachment,
   stagedComposerAttachmentCount,
   subscribeComposerAttachmentDrain,
@@ -60,6 +61,30 @@ describe("composer-attachment-store", () => {
     stageComposerAttachment("a", att(1));
     clearComposerAttachments();
     expect(stagedComposerAttachmentCount()).toBe(0);
+  });
+
+  it("reset drops everything and notifies drain (conversation switch)", () => {
+    let drains = 0;
+    const unsubscribe = subscribeComposerAttachmentDrain(() => {
+      drains += 1;
+    });
+    stageComposerAttachment("a", att(1));
+    resetComposerAttachments();
+    expect(stagedComposerAttachmentCount()).toBe(0);
+    // Unlike clear(), reset() notifies so the composer tray clears too.
+    expect(drains).toBe(1);
+    unsubscribe();
+  });
+
+  it("clear does NOT notify (unmount path)", () => {
+    let drains = 0;
+    const unsubscribe = subscribeComposerAttachmentDrain(() => {
+      drains += 1;
+    });
+    stageComposerAttachment("a", att(1));
+    clearComposerAttachments();
+    expect(drains).toBe(0);
+    unsubscribe();
   });
 
   it("notifies drain subscribers on take (send), and stops after unsubscribe", () => {
