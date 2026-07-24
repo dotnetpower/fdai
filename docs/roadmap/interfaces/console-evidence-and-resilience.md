@@ -27,6 +27,9 @@ The shared page title renders the domain and panel labels when they differ, incl
 `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
 
+The shared top bar renders the Cloud Aperture mark in its canonical source blue. Console themes
+don't desaturate or recolor the brand mark.
+
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
 in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,
 window, and connection status remain visible.
