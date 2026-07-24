@@ -225,7 +225,9 @@ Command Deck investigation activity can include optional observed execution evid
 removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
 drops command evidence without that attestation. An accepted activity can show a bounded command,
 tool label, exit code, authority, and completion state. Output logs and timestamps stay collapsed by
-default. The command is limited to 16 KiB and the output preview to 64 KiB; truncation is explicit.
+default. Intermediate progress detail and milestones use an opaque resource placeholder rather
+than the parsed resource name. The command is limited to 16 KiB and the output preview to 64 KiB;
+truncation is explicit.
 The browser can copy the displayed command but can't run or retry it. This evidence remains a
 read-only observation of work performed by an authorized runtime, not proof that the console owns
 an executor identity or temporary permission.

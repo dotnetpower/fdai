@@ -266,7 +266,8 @@ is normalized, an optional observed-execution activity shows the canonical FDAI 
 with resource and query values redacted, plus a safe status/count summary. It never exposes raw
 CLI argv, raw Azure payloads, credentials, subscription ids, resource ids, or provider errors.
 Web, Slack, and Teams render the same ordered handoff and execution evidence; Bragi renders the
-final answer.
+final answer. Progress detail and milestone text use an opaque resource placeholder; only the
+authorized terminal answer can name a resource from normalized evidence.
 
 The existing reporter coalesces events and caps their count. The direct Command Deck stream emits
 `activity` events as tools start and finish, plus bounded `milestone` messages when resource

@@ -231,6 +231,9 @@ async def test_chat_delegate_streams_activities_and_milestones() -> None:
     ]
     assert events[0]["message_id"] == "handoff-bragi-heimdall"
     assert events[0]["agent"] == "Bragi"
+    activity_events = [event for event in events if event["event"] == "activity"]
+    assert all(event.get("detail") == "<redacted-resource>" for event in activity_events[:-1])
+    assert all("vm-01" not in str(event) for event in events)
     assert events[2]["activity_id"] == "resource"
     assert events[4]["activity_id"] == "state"
     assert events[-1]["activity_id"] == "read-execution"

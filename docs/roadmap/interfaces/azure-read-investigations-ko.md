@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 68eb1a3cd44cf63742797a6a9bc7a1596aeb0f7b
+translation_source_sha: 99f8fe5592a5dc3086b190d0dee0b76a6d203521
 translation_revised: 2026-07-24
 ---
 
@@ -263,7 +263,9 @@ investigation.completed
 후 optional observed-execution activity는 resource 및 query value를 정제한 canonical FDAI read
 operation과 안전한 status/count summary를 표시합니다. Raw CLI argv, raw Azure payload, credential,
 subscription id, resource id 또는 provider error는 노출하지 않습니다. Web, Slack 및 Teams는 같은
-ordered handoff와 execution evidence를 렌더링하고 Bragi가 최종 답변을 렌더링합니다.
+ordered handoff와 execution evidence를 렌더링하고 Bragi가 최종 답변을 렌더링합니다. Progress
+detail과 milestone text는 opaque resource placeholder를 사용하며, authorized terminal answer만
+normalized evidence의 resource name을 표시할 수 있습니다.
 
 기존 reporter는 event를 coalesce하고 개수를 제한합니다. Direct Command Deck stream은 tool이 시작하고
 완료될 때 `activity` event를 보내고, resource resolution과 evidence collection이 operator 경험을

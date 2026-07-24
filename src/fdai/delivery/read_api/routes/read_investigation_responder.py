@@ -323,7 +323,7 @@ class HeimdallReadInvestigationChatDelegate:
         )
 
         async def observe(kind: ReadInvestigationProgressKind) -> None:
-            for event in _progress_events(kind, resource_name=resource_name, korean=korean):
+            for event in _progress_events(kind, korean=korean):
                 await progress_observer(event)
 
         result = await self._responder(
@@ -497,7 +497,6 @@ _PROGRESS_ACTIVITY: dict[
 def _progress_events(
     kind: ReadInvestigationProgressKind,
     *,
-    resource_name: str,
     korean: bool,
 ) -> tuple[dict[str, object], ...]:
     activity_id, status, label = _PROGRESS_ACTIVITY[kind]
@@ -509,7 +508,7 @@ def _progress_events(
             "kind": kind.value,
             "status": status,
             "label": localized_label,
-            "detail": resource_name,
+            "detail": "<redacted-resource>",
             "completed": None,
             "total": None,
             "agent": "Heimdall",
@@ -521,10 +520,11 @@ def _progress_events(
                 "event": "milestone",
                 "message_id": "resource-resolved",
                 "text": (
-                    f"{resource_name} 리소스를 확인했습니다. 관련 근거를 병렬로 조회합니다."
+                    "대상 리소스를 확인했습니다. 관련 근거를 병렬로 조회합니다."
                     if korean
                     else (
-                        f"Resolved {resource_name}. I am checking its evidence sources in parallel."
+                        "Resolved the target resource. I am checking its evidence sources "
+                        "in parallel."
                     )
                 ),
                 "agent": "Bragi",
