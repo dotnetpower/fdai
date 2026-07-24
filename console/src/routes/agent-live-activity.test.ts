@@ -120,6 +120,27 @@ describe("agent live log projection", () => {
     expect(new Set(after.map((row) => row.id)).size).toBe(after.length);
   });
 
+  it("coalesces passive snapshots already present in an open-tab buffer", () => {
+    const older: LiveAgentActivityEvent = {
+      sequence: 1,
+      kind: "agent.state",
+      agent: "Odin",
+      agents: ["Odin"],
+      state: "idle",
+      summary: "Runtime agent initialized",
+      detail: "Runtime agent initialized",
+      correlationId: null,
+      ts: "2026-07-24T10:00:00Z",
+      source: "runtime-observed",
+    };
+    const newer = { ...older, sequence: 2, ts: "2026-07-24T10:00:15Z" };
+
+    const rows = buildAgentLogRows([newer, older], []);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: "live:2", timestamp: newer.ts });
+  });
+
   it("preserves numeric audit sequence and conversation turn order at equal timestamps", () => {
     const turns = Array.from({ length: 12 }, (_, index) => ({
       from: "Odin",

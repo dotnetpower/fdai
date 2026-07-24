@@ -216,11 +216,29 @@ function recordLiveActivity(
 ): AgentsState {
   const event = projectLiveActivity(msg, state.nextLiveActivitySequence);
   if (event === null) return state;
+  if (isRepeatedPassiveState(state.liveActivity, event)) return state;
   return {
     ...state,
     liveActivity: [event, ...state.liveActivity].slice(0, MAX_LIVE_ACTIVITY),
     nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
   };
+}
+
+function isRepeatedPassiveState(
+  events: readonly LiveAgentActivityEvent[],
+  candidate: LiveAgentActivityEvent,
+): boolean {
+  if (
+    candidate.kind !== "agent.state" ||
+    (candidate.state !== "idle" && candidate.state !== "watching")
+  ) return false;
+  const previous = events.find((event) => event.agent === candidate.agent);
+  return previous !== undefined &&
+    previous.kind === candidate.kind &&
+    previous.state === candidate.state &&
+    previous.detail === candidate.detail &&
+    previous.correlationId === candidate.correlationId &&
+    previous.source === candidate.source;
 }
 
 function applyAgentState(

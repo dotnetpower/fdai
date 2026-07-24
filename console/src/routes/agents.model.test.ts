@@ -102,6 +102,41 @@ describe("agents.model", () => {
       .toEqual(["collecting"]);
   });
 
+  it("coalesces repeated passive runtime snapshots while refreshing current state", () => {
+    let state = makeInitialState();
+    for (let cycle = 1; cycle <= 3; cycle += 1) {
+      for (const agent of PANTHEON) {
+        state = reducer(state, {
+          kind: "message",
+          msg: {
+            type: "agent.state",
+            agent: agent.name,
+            state: agent.name === "Huginn" || agent.name === "Heimdall" ? "watching" : "idle",
+            ts: `2026-07-12T00:00:0${cycle}+00:00`,
+            correlation_id: null,
+            detail: "Runtime agent initialized",
+            source: "runtime-observed",
+          },
+        });
+      }
+    }
+
+    expect(state.liveActivity).toHaveLength(PANTHEON.length);
+    expect(state.nextLiveActivitySequence).toBe(PANTHEON.length + 1);
+    expect(state.agents.Odin?.since).toBe("2026-07-12T00:00:03+00:00");
+    expect(state.agents.Huginn?.since).toBe("2026-07-12T00:00:03+00:00");
+  });
+
+  it("retains repeated active work frames even when their details match", () => {
+    let state = makeInitialState();
+    const message = stateMsg("Forseti", "analyzing", "inc-1");
+    state = reducer(state, { kind: "message", msg: message });
+    state = reducer(state, { kind: "message", msg: message });
+
+    expect(state.liveActivity).toHaveLength(2);
+    expect(state.liveActivity.map((event) => event.sequence)).toEqual([2, 1]);
+  });
+
   it("ignores state frames outside the fixed pantheon", () => {
     const initial = makeInitialState();
     const next = reducer(initial, {

@@ -47,7 +47,13 @@ export function buildAgentLogRows(
   auditItems: readonly AuditItem[],
 ): readonly AgentLogRow[] {
   const rows: AgentLogRow[] = [];
+  const latestLiveEventByAgent = new Map<string, LiveAgentActivityEvent>();
   events.forEach((event, index) => {
+    const previous = latestLiveEventByAgent.get(event.agent);
+    if (isRepeatedPassiveSnapshot(previous, event)) return;
+    for (const agent of event.agents.length > 0 ? event.agents : [event.agent]) {
+      latestLiveEventByAgent.set(agent, event);
+    }
     addBoundedRow(rows, {
       id: `live:${event.sequence}`,
       timestamp: event.ts,
@@ -157,6 +163,22 @@ function liveKind(event: LiveAgentActivityEvent): AgentLogRow["kind"] {
   if (event.kind === "incident.ticket") return "incident";
   if (event.kind === "conversation.turn") return "handoff";
   return "state";
+}
+
+function isRepeatedPassiveSnapshot(
+  previous: LiveAgentActivityEvent | undefined,
+  candidate: LiveAgentActivityEvent,
+): boolean {
+  if (
+    previous === undefined ||
+    candidate.kind !== "agent.state" ||
+    (candidate.state !== "idle" && candidate.state !== "watching")
+  ) return false;
+  return previous.kind === candidate.kind &&
+    previous.state === candidate.state &&
+    previous.detail === candidate.detail &&
+    previous.correlationId === candidate.correlationId &&
+    previous.source === candidate.source;
 }
 
 function compareOrder(
