@@ -24,6 +24,7 @@ import {
 import {
   clearComposerAttachments,
   stageComposerAttachment,
+  subscribeComposerAttachmentDrain,
   unstageComposerAttachment,
 } from "./composer-attachment-store";
 
@@ -143,6 +144,18 @@ export function ComposerAttachments() {
     });
   }, []);
 
+  // Clear the visual tray, revoking any object URLs first. Bound to the store's
+  // drain event so the tray empties on both Enter-send and button-send (a form
+  // `submit` event fires only for the button), keeping tray and payload in sync.
+  const clearTray = useCallback(() => {
+    for (const entry of itemsRef.current) {
+      if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+    }
+    setItems([]);
+  }, []);
+
+  useEffect(() => subscribeComposerAttachmentDrain(clearTray), [clearTray]);
+
   // Drag-and-drop onto the composer, and clear staged files after a send.
   useEffect(() => {
     const form = inputRef.current?.closest("form");
@@ -163,21 +176,13 @@ export function ComposerAttachments() {
       }
       setDragging(false);
     };
-    const onSubmit = () => {
-      for (const entry of itemsRef.current) {
-        if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
-      }
-      setItems([]);
-    };
     form.addEventListener("dragover", onDragOver);
     form.addEventListener("dragleave", onDragLeave);
     form.addEventListener("drop", onDrop);
-    form.addEventListener("submit", onSubmit);
     return () => {
       form.removeEventListener("dragover", onDragOver);
       form.removeEventListener("dragleave", onDragLeave);
       form.removeEventListener("drop", onDrop);
-      form.removeEventListener("submit", onSubmit);
     };
   }, [addFiles]);
 

@@ -4,6 +4,7 @@ import {
   clearComposerAttachments,
   stageComposerAttachment,
   stagedComposerAttachmentCount,
+  subscribeComposerAttachmentDrain,
   takeComposerAttachments,
   unstageComposerAttachment,
   type ChatAttachment,
@@ -47,6 +48,23 @@ describe("composer-attachment-store", () => {
     stageComposerAttachment("a", att(1));
     clearComposerAttachments();
     expect(stagedComposerAttachmentCount()).toBe(0);
+  });
+
+  it("notifies drain subscribers on take (send), and stops after unsubscribe", () => {
+    let drains = 0;
+    const unsubscribe = subscribeComposerAttachmentDrain(() => {
+      drains += 1;
+    });
+    stageComposerAttachment("a", att(1));
+    takeComposerAttachments();
+    expect(drains).toBe(1);
+    // A text-only send (empty store) still notifies so the tray clears on
+    // every send, on both Enter and button paths.
+    takeComposerAttachments();
+    expect(drains).toBe(2);
+    unsubscribe();
+    takeComposerAttachments();
+    expect(drains).toBe(2);
   });
 });
 

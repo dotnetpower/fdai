@@ -24,6 +24,18 @@ export interface ChatAttachment {
 export const MAX_ATTACHMENTS = 4;
 
 const staged = new Map<string, ChatAttachment>();
+const drainListeners = new Set<() => void>();
+
+/** Subscribe to "the store was drained by a send". The composer uses this to
+ *  clear its visual tray on both Enter-send and button-send (a form `submit`
+ *  event fires only for the button), keeping the tray and the send payload in
+ *  sync. Returns an unsubscribe function. */
+export function subscribeComposerAttachmentDrain(listener: () => void): () => void {
+  drainListeners.add(listener);
+  return () => {
+    drainListeners.delete(listener);
+  };
+}
 
 /** Stage (or replace) one attachment by its composer id. Ignored once the
  *  per-turn cap is reached so the browser cannot exceed the server bound. */
@@ -37,12 +49,13 @@ export function unstageComposerAttachment(id: string): void {
   staged.delete(id);
 }
 
-/** Read all staged attachments and clear the store atomically. Called by the
- *  submit path so exactly one turn owns the payload and a later composer clear
- *  cannot race it away. */
+/** Read all staged attachments and clear the store atomically, then notify
+ *  drain subscribers. Called by the submit path so exactly one turn owns the
+ *  payload and a later composer clear cannot race it away. */
 export function takeComposerAttachments(): ChatAttachment[] {
   const list = [...staged.values()];
   staged.clear();
+  for (const listener of drainListeners) listener();
   return list;
 }
 
