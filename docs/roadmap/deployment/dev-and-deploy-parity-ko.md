@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9896b3bff2fd05876622154eba430ae9d87daf60
+translation_source_sha: 07bcc57a549139c7643075ec0daa5b6dcffb1f9a
 translation_revised: 2026-07-24
 ---
 
@@ -261,7 +261,9 @@ Fresh cache는 read API restart 이후에도 즉시 반환됩니다. 만료되�
 `cache.status=refreshing`인 `stale` 상태로 즉시 반환되고, background Azure CLI scan이 이를 원자적으로
 교체합니다. Provision된 `aw.inventory.raw` topic을 `FDAI_INVENTORY_RAW_TOPIC`으로 구성하면 수락된
 write/delete event가 durable projection 이후 local cache를 invalidate합니다. 해당 auxiliary-topic
-binding이 없는 stack은 TTL refresh로 수렴합니다. 명시적 subscription이 없으면 다른 active Azure CLI
+binding이 없는 stack은 TTL refresh로 수렴합니다. Resource type 또는 relationship을 추가하는 inventory
+projection change는 cache envelope schema revision을 올리므로, 이전 complete snapshot을 stale semantic과
+함께 표시하지 않고 refresh합니다. 명시적 subscription이 없으면 다른 active Azure CLI
 subscription의 snapshot을 사용할 위험을 피하기 위해 persistent cache 재사용을 비활성화합니다.
 Cache envelope은 resource limit도 bind하고 malformed 또는 과도하게 미래 시각인 snapshot을 거부하며
 각 local refresh를 240초로 제한합니다. Cache file 또는 marker I/O failure가 발생해도 마지막 complete

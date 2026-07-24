@@ -137,34 +137,27 @@ def extract_attached_to_links_from_row(
 
     seen: set[tuple[str, str, str]] = set()
     links: list[LinkRecord] = []
-    for attachment_properties in _attachment_property_maps(properties):
-        for key in _ATTACHED_TO_PROPERTY_KEYS:
-            nested = attachment_properties.get(key)
-            if not isinstance(nested, Mapping):
-                continue
-            ref_id = nested.get("id")
-            if not isinstance(ref_id, str) or not ref_id:
-                continue
-            arm_type = arm_id_to_type(ref_id)
-            if arm_type is None:
-                continue
-            to_type = arm_to_neutral.get(arm_type.lower())
-            if to_type is None:
-                continue
-            target_neutral = to_neutral_id(ref_id)
-            dedup_key = (child.resource_id, "attached_to", target_neutral)
-            if dedup_key in seen:
-                continue
-            seen.add(dedup_key)
-            links.append(
-                LinkRecord(
-                    from_id=child.resource_id,
-                    from_type=child.type,
-                    link_type="attached_to",
-                    to_id=target_neutral,
-                    to_type=to_type,
-                )
+    for ref_id in _attachment_ids(properties):
+        arm_type = arm_id_to_type(ref_id)
+        if arm_type is None:
+            continue
+        to_type = arm_to_neutral.get(arm_type.lower())
+        if to_type is None:
+            continue
+        target_neutral = to_neutral_id(ref_id)
+        dedup_key = (child.resource_id, "attached_to", target_neutral)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        links.append(
+            LinkRecord(
+                from_id=child.resource_id,
+                from_type=child.type,
+                link_type="attached_to",
+                to_id=target_neutral,
+                to_type=to_type,
             )
+        )
     return tuple(links)
 
 
@@ -180,6 +173,43 @@ def _attachment_property_maps(properties: Mapping[str, Any]) -> Iterable[Mapping
             nested = entry.get("properties")
             if isinstance(nested, Mapping):
                 yield nested
+
+
+def _attachment_ids(properties: Mapping[str, Any]) -> Iterable[str]:
+    for attachment_properties in _attachment_property_maps(properties):
+        for key in _ATTACHED_TO_PROPERTY_KEYS:
+            nested = attachment_properties.get(key)
+            if isinstance(nested, Mapping) and isinstance(nested.get("id"), str):
+                yield nested["id"]
+
+    network_profile = properties.get("networkProfile")
+    if isinstance(network_profile, Mapping):
+        network_interfaces = network_profile.get("networkInterfaces")
+        if isinstance(network_interfaces, Sequence) and not isinstance(
+            network_interfaces, (str, bytes)
+        ):
+            for network_interface in network_interfaces:
+                if isinstance(network_interface, Mapping) and isinstance(
+                    network_interface.get("id"), str
+                ):
+                    yield network_interface["id"]
+
+    storage_profile = properties.get("storageProfile")
+    if not isinstance(storage_profile, Mapping):
+        return
+    os_disk = storage_profile.get("osDisk")
+    if isinstance(os_disk, Mapping):
+        managed_disk = os_disk.get("managedDisk")
+        if isinstance(managed_disk, Mapping) and isinstance(managed_disk.get("id"), str):
+            yield managed_disk["id"]
+    data_disks = storage_profile.get("dataDisks")
+    if isinstance(data_disks, Sequence) and not isinstance(data_disks, (str, bytes)):
+        for data_disk in data_disks:
+            if not isinstance(data_disk, Mapping):
+                continue
+            managed_disk = data_disk.get("managedDisk")
+            if isinstance(managed_disk, Mapping) and isinstance(managed_disk.get("id"), str):
+                yield managed_disk["id"]
 
 
 _DEPENDS_ON_ID_PROPERTY_KEYS: Final[tuple[str, ...]] = ("storageAccount",)

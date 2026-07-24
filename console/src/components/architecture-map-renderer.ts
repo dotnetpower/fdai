@@ -176,6 +176,7 @@ function drawReflections(
     const color = resourceColorOf(node);
     const shape = shapeOf(node);
     const geometry = geometryOf(node);
+    if (shape === "lane") continue;
     if (shape === "cylinder") {
       drawCylinderReflection(
         context,
@@ -623,6 +624,25 @@ function drawNodeOverlay(
   context.lineWidth = 2.4;
   context.strokeText(abbreviation(node.type), center.x, center.y);
   context.fillText(abbreviation(node.type), center.x, center.y);
+  if ((node.collapsed_count ?? 0) > 0) {
+    const badge = project(
+      camera,
+      width,
+      height,
+      nodeX + geometry.width / 2,
+      nodeY - geometry.depth / 2,
+      LIFT + geometry.height + .06,
+    );
+    const label = `+${node.collapsed_count}`;
+    context.font = "700 10px Aptos, Segoe UI, sans-serif";
+    const badgeWidth = Math.max(22, context.measureText(label).width + 10);
+    context.fillStyle = "rgba(25,45,58,.92)";
+    context.beginPath();
+    context.roundRect(badge.x - badgeWidth / 2, badge.y - 9, badgeWidth, 18, 9);
+    context.fill();
+    context.fillStyle = "#fff";
+    context.fillText(label, badge.x, badge.y + .5);
+  }
   if (showLabels) {
     const fontSize = architectureLabelFontSize(camera.scale, selected);
     const labelPoint = project(camera, width, height, nodeX, nodeY, 0);

@@ -11,6 +11,7 @@ export interface InventoryResource {
   readonly w?: number;
   readonly h?: number;
   readonly render_scale?: number;
+  readonly collapsed_count?: number;
 }
 
 export interface InventoryLink {
@@ -117,6 +118,7 @@ export type ArchitectureNodeShape =
   | "cylinder"
   | "gateway"
   | "hexagon"
+  | "lane"
   | "slab";
 
 export interface ArchitectureNodeGeometry {
@@ -375,12 +377,34 @@ const COMPACT_TYPES = new Set([
   "managed-identity",
   "certificate",
 ]);
+const NETWORK_LANE_TYPES = new Set([
+  "subnet",
+  "virtual-network",
+  "network.subnet",
+  "network.vnet",
+]);
+const AUXILIARY_TYPES = new Set([
+  "app-service-plan",
+  "application-insights",
+  "certificate",
+  "compute.container-app-job",
+  "diagnostic-settings",
+  "disk",
+  "email-domain",
+  "file-share",
+  "kubernetes-node-pool",
+  "managed-identity",
+  "network.dns-resolver-inbound-endpoint",
+  "network.interface",
+  "network.private-dns-zone-link",
+]);
 const SHAPE_GEOMETRY: Readonly<Record<ArchitectureNodeShape, ArchitectureNodeGeometry>> = {
   block: { width: 1.04, depth: .76, height: .34 },
   compact: { width: .88, depth: .72, height: .34 },
   cylinder: { width: .92, depth: .92, height: .34 },
   gateway: { width: 1.32, depth: .64, height: .22 },
   hexagon: { width: 1.02, depth: .88, height: .32 },
+  lane: { width: 2.5, depth: .72, height: .05 },
   slab: { width: 1.08, depth: .82, height: .22 },
 };
 
@@ -427,6 +451,7 @@ export function isRegion(resource: InventoryResource): boolean {
 }
 
 export function shapeOf(resource: InventoryResource): ArchitectureNodeShape {
+  if (NETWORK_LANE_TYPES.has(resource.type)) return "lane";
   if (CYLINDER_TYPES.has(resource.type)) return "cylinder";
   if (GATEWAY_TYPES.has(resource.type)) return "gateway";
   if (SLAB_TYPES.has(resource.type)) return "slab";
@@ -479,6 +504,62 @@ export function graphSubset(
     ...graph,
     resources,
     links: graph.links.filter((link) => ids.has(link.source) && ids.has(link.target)),
+  };
+}
+
+export function isAuxiliaryArchitectureResource(resource: InventoryResource): boolean {
+  return AUXILIARY_TYPES.has(resource.type);
+}
+
+export function architecturePresentationGraph(
+  graph: InventoryGraphResponse,
+  selectedId: string | null,
+): InventoryGraphResponse {
+  const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const visibleIds = new Set(
+    graph.resources
+      .filter((resource) => isRegion(resource) || !isAuxiliaryArchitectureResource(resource))
+      .map((resource) => resource.id),
+  );
+  if (selectedId && byId.has(selectedId)) {
+    visibleIds.add(selectedId);
+    for (const resource of graph.resources) {
+      if (resource.parent_id === selectedId) visibleIds.add(resource.id);
+    }
+    for (const link of graph.links) {
+      if (link.source === selectedId) visibleIds.add(link.target);
+      if (link.target === selectedId) visibleIds.add(link.source);
+    }
+  }
+
+  const collapsedByOwner = new Map<string, number>();
+  for (const resource of graph.resources) {
+    if (!isAuxiliaryArchitectureResource(resource) || visibleIds.has(resource.id)) continue;
+    const semanticOwner = graph.links
+      .filter((link) => link.type !== "contains")
+      .map((link) => link.source === resource.id
+        ? link.target
+        : link.target === resource.id ? link.source : null)
+      .find((resourceId): resourceId is string =>
+        resourceId !== null && visibleIds.has(resourceId));
+    const ownerId = semanticOwner ?? resource.parent_id;
+    if (ownerId && visibleIds.has(ownerId)) {
+      collapsedByOwner.set(ownerId, (collapsedByOwner.get(ownerId) ?? 0) + 1);
+    }
+  }
+
+  return {
+    ...graph,
+    resources: graph.resources
+      .filter((resource) => visibleIds.has(resource.id))
+      .map((resource) => {
+        const collapsedCount = collapsedByOwner.get(resource.id);
+        return collapsedCount === undefined
+          ? resource
+          : { ...resource, collapsed_count: collapsedCount };
+      }),
+    links: graph.links.filter((link) =>
+      visibleIds.has(link.source) && visibleIds.has(link.target)),
   };
 }
 

@@ -269,6 +269,14 @@ places inspection details below it. Narrow viewports preserve node size and use 
 of shrinking boxes into unreadable marks. Selection updates the canonical deep link without
 reloading inventory and exposes directional relationships before technical identifiers.
 
+The factual counts and inspection index continue to use the complete authoritative inventory. The
+isometric overview applies a presentation-only projection that collapses auxiliary resources such
+as network interfaces, managed disks, diagnostics, certificates, and provider helper resources.
+Each visible owner shows a `+N` badge for its collapsed neighbors. Selecting a resource reveals its
+direct auxiliary children and semantic neighbors without requesting or inventing new inventory.
+Virtual networks and subnets render as low floor lanes so compute, data, and gateway nodes remain
+readable above the network plane; floor lanes do not render reflections.
+
 Labels avoid collisions, fit long names, and scale from 13 px to 20 px as the operator zooms; the
 selected label may reach 22 px. Zoom steps are reciprocal, colors follow the console theme, and a
 keyboard-accessible resource and relationship index is equivalent to the filtered canvas. Pointer

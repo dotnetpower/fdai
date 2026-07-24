@@ -259,9 +259,12 @@ replace. A fresh cache returns immediately across read API restarts. An expired 
 cache returns immediately as `stale` with `cache.status=refreshing`, then a background Azure CLI scan
 atomically replaces it. When a provisioned `aw.inventory.raw` topic is configured through
 `FDAI_INVENTORY_RAW_TOPIC`, accepted write/delete events invalidate the local cache after durable
-projection. A stack without that auxiliary-topic binding converges through TTL refresh. A missing
-explicit subscription disables persistent cache reuse rather than risking a snapshot from another
-active Azure CLI subscription. The cache envelope also binds the resource limit, rejects malformed
+projection. A stack without that auxiliary-topic binding converges through TTL refresh.
+Inventory projection changes that add resource types or relationships increment the cache envelope
+schema revision so an older complete snapshot is refreshed instead of being presented with stale
+semantics. A missing explicit subscription disables persistent cache reuse rather than risking a
+snapshot from another active Azure CLI subscription. The cache envelope also binds the resource
+limit, rejects malformed
 or materially future-dated snapshots, and bounds each local refresh to 240 seconds. Cache-file or
 marker I/O failure preserves the last complete in-memory graph. Marker write failure falls back to
 TTL convergence; marker metadata read failure is treated as stale and schedules refresh rather than

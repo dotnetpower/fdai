@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6e4686979cff801b2348135e0d7bd75ebfe080f9
+translation_source_sha: 5e9810528bfa46c9c06ca48937d3765a8b0308b8
 translation_revised: 2026-07-24
 ---
 
@@ -267,6 +267,14 @@ layout은 supplied geometry를 유지합니다. Map은 workspace 전체 너비�
 아래에 배치합니다. 좁은 viewport에서는 box를 읽을 수 없게 줄이는 대신 node 크기를 유지하고 map
 panning을 사용합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며
 technical identifier보다 directional relationship을 먼저 표시합니다.
+
+Factual count와 inspection index는 계속 complete authoritative inventory를 사용합니다. Isometric
+overview는 network interface, managed disk, diagnostic, certificate 및 provider helper resource 같은
+auxiliary resource를 접는 presentation-only projection을 적용합니다. 표시된 각 owner는 접힌 neighbor
+수에 해당하는 `+N` badge를 표시합니다. Resource를 선택하면 새 inventory를 요청하거나 만들어 내지
+않고 direct auxiliary child와 semantic neighbor를 표시합니다. Virtual network와 subnet은 낮은 floor
+lane으로 렌더링하므로 compute, data 및 gateway node를 network plane 위에서 읽을 수 있습니다. Floor
+lane은 reflection을 렌더링하지 않습니다.
 
 Label은 collision을 피하고 긴 이름을 맞추며 zoom에 따라 13 px에서 20 px까지 커집니다. 선택된
 label은 22 px까지 커질 수 있습니다. Zoom step은 reciprocal이고 색상은 console theme을 따르며,

@@ -959,6 +959,53 @@ def test_extract_attached_to_from_load_balancer_frontend_public_ip() -> None:
     assert edge.link_type == "attached_to"
 
 
+def test_extract_attached_to_from_vm_network_interfaces_and_disks() -> None:
+    from fdai.delivery.azure.arg_query import (
+        _build_arm_to_neutral_map,
+        _extract_attached_to_links_from_row,
+    )
+
+    reverse = _build_arm_to_neutral_map(_vocab())
+    nic_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Network/networkInterfaces/nic-1"
+    )
+    os_disk_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/disks/os-1"
+    )
+    data_disk_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/disks/data-1"
+    )
+    child = ResourceRecord(
+        resource_id="resource-group/rg-a/providers/microsoft.compute/virtualmachines/vm-1",
+        type="compute.vm",
+        provider_ref="/subscriptions/.../virtualMachines/vm-1",
+    )
+    row = {
+        "properties": {
+            "networkProfile": {"networkInterfaces": [{"id": nic_id}]},
+            "storageProfile": {
+                "osDisk": {"managedDisk": {"id": os_disk_id}},
+                "dataDisks": [{"managedDisk": {"id": data_disk_id}}],
+            },
+        }
+    }
+
+    links = _extract_attached_to_links_from_row(
+        row,
+        child=child,
+        arm_to_neutral=reverse,
+    )
+
+    assert {(link.to_type, link.to_id.rsplit("/", 1)[-1]) for link in links} == {
+        ("network.interface", "nic-1"),
+        ("disk", "os-1"),
+        ("disk", "data-1"),
+    }
+
+
 def test_extract_attached_to_drops_reference_to_unmapped_type() -> None:
     """A referenced ARM type not in the vocabulary is dropped, not
     emitted with an unknown to_type."""

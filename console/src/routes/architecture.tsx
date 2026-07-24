@@ -9,6 +9,7 @@ import {
   DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architectureHref,
+  architecturePresentationGraph,
   architectureViewFromHash,
   constrainGraph,
   graphSubset,
@@ -262,7 +263,11 @@ function ArchitectureBody({
     );
     return () => window.clearTimeout(timer);
   }, [graph.snapshot_at, now]);
-  const laidOutGraph = useMemo(() => constrainGraph(graph), [graph]);
+  const presentedGraph = useMemo(
+    () => architecturePresentationGraph(graph, selectedId),
+    [graph, selectedId],
+  );
+  const laidOutGraph = useMemo(() => constrainGraph(presentedGraph), [presentedGraph]);
   const filtered = useMemo(
     () => graphSubset(laidOutGraph, visibleLayers),
     [laidOutGraph, visibleLayers],

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
+  architecturePresentationGraph,
   architectureHref,
   DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   architectureViewKindLabel,
@@ -139,6 +140,8 @@ describe("architecture map model", () => {
     ["nosql-database", "cylinder"],
     ["file-share", "slab"],
     ["disk", "slab"],
+    ["network.vnet", "lane"],
+    ["network.subnet", "lane"],
   ] as const)("maps %s to the %s shape", (type, expected) => {
     expect(shapeOf({ id: type, type, name: type, status: "healthy" })).toBe(expected);
   });
@@ -153,6 +156,12 @@ describe("architecture map model", () => {
     );
     expect(geometryOf(resource("storage-account")).height).toBeLessThan(
       geometryOf(resource("postgresql")).height,
+    );
+    expect(geometryOf(resource("network.vnet")).width).toBeGreaterThan(
+      geometryOf(resource("application-gateway")).width,
+    );
+    expect(geometryOf(resource("network.vnet")).height).toBeLessThan(
+      geometryOf(resource("storage-account")).height,
     );
   });
 
@@ -188,6 +197,55 @@ describe("architecture map model", () => {
   test("identifies the selected resource neighborhood", () => {
     expect(relatedResourceIds(GRAPH, "app")).toEqual(new Set(["app", "rg", "db"]));
     expect(relatedResourceIds(GRAPH, "missing")).toBeUndefined();
+  });
+
+  test("collapses auxiliary resources until their owner is selected", () => {
+    const graph: InventoryGraphResponse = {
+      ...GRAPH,
+      resources: [
+        { id: "rg", type: "resource-group", name: "rg", status: "healthy", w: 8, h: 8 },
+        { id: "vm", type: "compute.vm", name: "vm", status: "healthy", parent_id: "rg" },
+        { id: "nic", type: "network.interface", name: "nic", status: "healthy", parent_id: "rg" },
+        { id: "disk", type: "disk", name: "disk", status: "healthy", parent_id: "rg" },
+        { id: "identity", type: "managed-identity", name: "identity", status: "healthy", parent_id: "rg" },
+        { id: "db", type: "postgresql-server", name: "db", status: "healthy", parent_id: "rg" },
+      ],
+      links: [
+        { source: "rg", target: "vm", type: "contains" },
+        { source: "rg", target: "nic", type: "contains" },
+        { source: "rg", target: "disk", type: "contains" },
+        { source: "rg", target: "identity", type: "contains" },
+        { source: "rg", target: "db", type: "contains" },
+        { source: "vm", target: "nic", type: "attached_to" },
+        { source: "vm", target: "disk", type: "attached_to" },
+      ],
+    };
+
+    const overview = architecturePresentationGraph(graph, null);
+    expect(overview.resources.map((resource) => resource.id)).toEqual(["rg", "vm", "db"]);
+    expect(overview.resources.find((resource) => resource.id === "vm")?.collapsed_count).toBe(2);
+    expect(overview.resources.find((resource) => resource.id === "rg")?.collapsed_count).toBe(1);
+
+    const focused = architecturePresentationGraph(graph, "vm");
+    expect(focused.resources.map((resource) => resource.id)).toEqual([
+      "rg", "vm", "nic", "disk", "db",
+    ]);
+    expect(focused.links).toContainEqual({ source: "vm", target: "nic", type: "attached_to" });
+    expect(focused.resources.some((resource) => resource.id === "identity")).toBe(false);
+  });
+
+  test("reveals direct auxiliary children when a boundary is selected", () => {
+    const graph: InventoryGraphResponse = {
+      ...GRAPH,
+      resources: [
+        { id: "rg", type: "resource-group", name: "rg", status: "healthy", w: 8, h: 8 },
+        { id: "identity", type: "managed-identity", name: "identity", status: "healthy", parent_id: "rg" },
+      ],
+      links: [{ source: "rg", target: "identity", type: "contains" }],
+    };
+
+    expect(architecturePresentationGraph(graph, "rg").resources.map((resource) => resource.id))
+      .toEqual(["rg", "identity"]);
   });
 
   test("predefines every canonical resource vocabulary color", () => {
