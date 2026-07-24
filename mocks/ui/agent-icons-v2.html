@@ -22,6 +22,9 @@
       --sensing: #167a72;
       --governance: #70579c;
       --domain: #3d7454;
+      --gold: #aa7417;
+      --silver: #687982;
+      --bronze: #9b5732;
       --chaos: #b52f46;
       --icon-size: 32px;
     }
@@ -260,10 +263,6 @@
       place-items: center;
       width: 68px;
       height: 68px;
-      border: 1px solid color-mix(in srgb, currentColor 20%, var(--line));
-      border-radius: 8px;
-      background: linear-gradient(145deg, color-mix(in srgb, currentColor 9%, #ffffff), color-mix(in srgb, currentColor 4%, #ffffff));
-      box-shadow: 0 7px 16px color-mix(in srgb, currentColor 7%, transparent), 0 1px 0 rgba(255, 255, 255, 0.88) inset;
     }
 
     .icon-tile svg {
@@ -317,12 +316,20 @@
     .sensing { color: var(--sensing); }
     .governance { color: var(--governance); }
     .domain { color: var(--domain); }
+    .gold { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 24%, var(--line)); }
+    .silver { color: var(--silver); border-color: color-mix(in srgb, var(--silver) 23%, var(--line)); }
+    .bronze { color: var(--bronze); border-color: color-mix(in srgb, var(--bronze) 24%, var(--line)); }
+    .gold .icon-tile svg,
+    .bronze .icon-tile svg { filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.75)); }
+    .silver .icon-tile svg {
+      filter: drop-shadow(0 1px 0.4px rgba(46, 60, 68, 0.34));
+      stroke-width: 1.85;
+    }
+    .gold .group-dot { background: linear-gradient(135deg, #f5d77b, #8c5b0c); }
+    .silver .group-dot { background: linear-gradient(135deg, #f2f6f7, #64747d); }
+    .bronze .group-dot { background: linear-gradient(135deg, #dda06b, #774027); }
     .chaos { color: var(--chaos); border-color: color-mix(in srgb, var(--chaos) 25%, var(--line)); }
     .chaos::before { opacity: 0.72; }
-    .chaos .icon-tile {
-      background: linear-gradient(145deg, color-mix(in srgb, var(--chaos) 12%, #ffffff), color-mix(in srgb, var(--chaos) 5%, #ffffff));
-      box-shadow: 0 8px 18px color-mix(in srgb, var(--chaos) 10%, transparent), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
-    }
 
     .board-footer {
       display: flex;
@@ -426,13 +433,18 @@
   </main>
 
   <script>
-    const stroke = 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+    const strokeAttributes = 'fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+    const metalPalettes = {
+      gold: ['#7a4c08', '#e1bd50', '#fff0a3', '#9a620e'],
+      silver: ['#3e4e57', '#8998a0', '#cad4d8', '#465a64'],
+      bronze: ['#713a22', '#c77d49', '#efb17d', '#844328']
+    };
     const agents = [
-      { name: 'Odin', role: 'Master Planner', group: 'command', symbol: 'Sight and direction', svg: '<path d="M3 12s3.2-4.5 9-4.5 9 4.5 9 4.5-3.2 4.5-9 4.5S3 12 3 12Z"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v2M5.6 5.5 7 6.9M18.4 5.5 17 6.9"/>' },
-      { name: 'Thor', role: 'Responder', group: 'operations', symbol: 'Hammer and impact', svg: '<path d="M6 5h12v5H6zM9 5v5M15 5v5M12 10v9M9.5 19h5"/>' },
-      { name: 'Forseti', role: 'Judge', group: 'judgment', symbol: 'Balanced decision', svg: '<path d="M12 4v15M8.5 19h7M5 7h14M5 7l-2 5h4L5 7ZM19 7l-2 5h4l-2-5Z"/><circle cx="12" cy="6" r="1.2"/>' },
+      { name: 'Odin', role: 'Master Planner', group: 'command', tone: 'gold', symbol: 'Sight and direction', svg: '<path d="M3 12s3.2-4.5 9-4.5 9 4.5 9 4.5-3.2 4.5-9 4.5S3 12 3 12Z"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v2M5.6 5.5 7 6.9M18.4 5.5 17 6.9"/>' },
+      { name: 'Thor', role: 'Responder', group: 'operations', tone: 'gold', symbol: 'Hammer and impact', svg: '<path d="M6 5h12v5H6zM9 5v5M15 5v5M12 10v9M9.5 19h5"/>' },
+      { name: 'Forseti', role: 'Judge', group: 'judgment', tone: 'bronze', symbol: 'Balanced decision', svg: '<path d="M12 4v15M8.5 19h7M5 7h14M5 7l-2 5h4L5 7ZM19 7l-2 5h4l-2-5Z"/><circle cx="12" cy="6" r="1.2"/>' },
       { name: 'Huginn', role: 'Event Collector', group: 'sensing', symbol: 'Raven in motion', svg: '<path d="M3 15.5c4.2-.2 6.7-2.4 8.2-6.3 1.8 2.2 4.4 3.5 7.8 3.7-2.5 1.9-5.3 2.8-8.4 2.3-2.7-.4-5.2-.3-7.6.3Z"/><path d="m11.2 9.2 1.3-2.1 2.2.7-2 1.4"/><circle cx="13.1" cy="8.3" r=".45" fill="currentColor" stroke="none"/>' },
-      { name: 'Heimdall', role: 'Observer', group: 'sensing', symbol: 'Signal watch', svg: '<circle cx="12" cy="15" r="1.4"/><path d="M8.5 15a3.5 3.5 0 0 1 7 0M5.5 15a6.5 6.5 0 0 1 13 0M12 4v3M9.7 5.2 12 7l2.3-1.8"/>' },
+      { name: 'Heimdall', role: 'Observer', group: 'sensing', tone: 'silver', symbol: 'Signal watch', svg: '<circle cx="12" cy="15" r="1.4"/><path d="M8.5 15a3.5 3.5 0 0 1 7 0M5.5 15a6.5 6.5 0 0 1 13 0M12 4v3M9.7 5.2 12 7l2.3-1.8"/>' },
       { name: 'Var', role: 'Approver', group: 'operations', symbol: 'Oath and consent', svg: '<circle cx="12" cy="12" r="8"/><path d="m8.2 12.2 2.5 2.6 5.2-5.5"/>' },
       { name: 'Vidar', role: 'Recovery', group: 'operations', symbol: 'Shield and return', svg: '<path d="M12 3.5 19 6v5.2c0 4.2-2.7 7.2-7 9.3-4.3-2.1-7-5.1-7-9.3V6l7-2.5Z"/><path d="M15 12a3 3 0 1 1-1.2-2.4M14 7.8v2.7h-2.7"/>' },
       { name: 'Bragi', role: 'Narrator', group: 'operations', symbol: 'Voice and clarity', svg: '<path d="M4 5.5h16v10H9l-4 3v-3H4v-10Z"/><path d="M9 10.5h6M9 8h4M9 13h3"/>' },
@@ -446,7 +458,13 @@
     ];
 
     function iconMarkup(agent, size) {
-      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" ${stroke} role="img" aria-label="${agent.name}: ${agent.symbol}">${agent.svg}</svg>`;
+      const palette = metalPalettes[agent.tone];
+      const gradientId = `metal-${agent.name.toLowerCase()}-${String(size).replace(/[^a-z0-9]/gi, '')}`;
+      const gradient = palette
+        ? `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${palette[0]}"/><stop offset="0.38" stop-color="${palette[1]}"/><stop offset="0.58" stop-color="${palette[2]}"/><stop offset="1" stop-color="${palette[3]}"/></linearGradient></defs>`
+        : '';
+      const stroke = palette ? `url(#${gradientId})` : 'currentColor';
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" ${strokeAttributes} stroke="${stroke}" role="img" aria-label="${agent.name}: ${agent.symbol}">${gradient}${agent.svg}</svg>`;
     }
 
     const grid = document.getElementById('agent-grid');
