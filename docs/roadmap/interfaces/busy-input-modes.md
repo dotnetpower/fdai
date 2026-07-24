@@ -102,6 +102,8 @@ Queued and steered follow-ups retain the active incident conversation binding; a
 reverts to fuzzy incident selection or changes Bragi's narrator identity.
 They also preserve an English or Korean current-screen explanation intent and its 120-word
 walkthrough bound; steer guidance cannot expand that turn into an unbounded snapshot recital.
+They preserve Bragi's current-screen data scope as well. A steer rerun cannot widen a screen fact
+question into inventory, incident, agent, or public-web evidence.
 They also retain intent scope. A steer rerun keeps the active turn's structured `web`, `local`, or
 `none` search route; a queued next turn classifies its own content. An incident collection-summary
 follow-up deterministically renders the bounded matching set without asking the operator to select

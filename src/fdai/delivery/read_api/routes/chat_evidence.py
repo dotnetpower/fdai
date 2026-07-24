@@ -23,13 +23,13 @@ from fdai.delivery.read_api.routes.rca_projection import project_rca
 _LOG = logging.getLogger(__name__)
 
 _OPERATIONAL_INTENT: Final = re.compile(
-    r"\b(incidents?|issue|outage|failure|problem|root cause|cause|why did)\b"
+    r"\b(incidents?|issue|outage|failure|problem|root cause|caus(?:e|ed|ing)|why did)\b"
     "|인시던트|이슈|장애"
     "|실패|문제|원인|근본 원인",
     re.IGNORECASE,
 )
 _EXPLICIT_OPERATIONAL_CONTEXT: Final = re.compile(
-    r"\b(recent|latest|last|incidents?|outage|failure|root cause|cause|why did)\b"
+    r"\b(recent|latest|last|incidents?|outage|failure|root cause|caus(?:e|ed|ing)|why did)\b"
     "|최근|최신|직전|인시던트|장애"
     "|실패|원인|근본 원인",
     re.IGNORECASE,

@@ -37,6 +37,15 @@ _DIAGNOSIS_INTENT: Final = re.compile(
     r"\b(?:why|cause|latency|slow)\b|왜|원인|지연|느려",
     re.IGNORECASE,
 )
+_NON_INVENTORY_METRIC_INTENT: Final = re.compile(
+    r"\b(?:cpu|memory|latency|throughput|usage|utilization|eps)\b"
+    r"|메트릭|사용률|이용률|처리량|지연",
+    re.IGNORECASE,
+)
+_IMPACT_SCOPE_INTENT: Final = re.compile(
+    r"\b(?:affected|impact(?:ed)?|blast\s+radius)\b|영향|영향\s*범위",
+    re.IGNORECASE,
+)
 _COUNT_INTENT: Final = re.compile(r"\b(?:how many|count)\b|몇\s*개|개수", re.IGNORECASE)
 _TYPE_SUMMARY_INTENT: Final = re.compile(
     r"\b(?:resource types?|types? exist|inventory summary)\b|"
@@ -113,6 +122,8 @@ def needs_inventory_evidence(prompt: str) -> bool:
     return bool(
         not _MUTATION_INTENT.search(prompt)
         and not _DIAGNOSIS_INTENT.search(prompt)
+        and not _NON_INVENTORY_METRIC_INTENT.search(prompt)
+        and not _IMPACT_SCOPE_INTENT.search(prompt)
         and _RESOURCE_INTENT.search(prompt)
         and _QUESTION_INTENT.search(prompt)
     )

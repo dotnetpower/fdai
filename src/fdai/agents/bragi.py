@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -67,6 +68,13 @@ _MAX_PROGRESS_KEYS = 5_000
 _MAX_PROGRESS_STEPS = 64
 _MAX_CONTRIBUTORS = 3
 _CONTRIBUTOR_TIMEOUT_SECONDS = 2.0
+
+_CURRENT_SCREEN_DATA_INTENT = re.compile(
+    r"\b(?:how many|count|share|rate|eps|attention|failed|mode|terminal\s+stage|"
+    r"affected|cpu\s+usage|approved|owner|t0|t1|t2)\b"
+    r"|몇\s*개|개수|비율|주의|실패|모드|최종\s*단계|영향|사용률|승인|소유자|그럼\s*T[012]",
+    re.IGNORECASE,
+)
 
 
 #: Entry RBAC gate for execute-class conversational requests. A console
@@ -211,6 +219,16 @@ class Bragi(Agent):
 
     def route(self, question: str) -> RoutingDecision:
         return route_question(question, max_contributors=_MAX_CONTRIBUTORS)
+
+    def should_delegate(self, question: str, view_context: dict[str, Any]) -> bool:
+        """Return whether a question needs agent-owned state beyond the screen."""
+        route_id = str(view_context.get("routeId") or "").strip()
+        facts = view_context.get("facts")
+        records = view_context.get("records")
+        has_screen_evidence = bool(facts) or bool(records)
+        if not route_id or not has_screen_evidence:
+            return True
+        return _CURRENT_SCREEN_DATA_INTENT.search(question) is None
 
     # ---- session -------------------------------------------------------
 

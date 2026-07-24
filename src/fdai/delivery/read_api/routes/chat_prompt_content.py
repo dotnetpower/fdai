@@ -69,6 +69,14 @@ replace it with screen data.
 """
 
 
+_SCREEN_SCOPE_DIRECTIVE = """\
+Bragi selected the current screen as the authority for this data question.
+Answer only the requested screen field. If that field is absent, state that it
+is not shown and do not fill it from general knowledge, another route, an
+unrelated headline, or conversation history.
+"""
+
+
 _CONCEPT_EVIDENCE_DIRECTIVE = """\
 `_concept_evidence` contains the server-selected canonical FDAI glossary
 entries for this concept question. Use those entries as the primary authority,

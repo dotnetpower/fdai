@@ -427,6 +427,16 @@ class PantheonRuntime:
             return None
         return self._bragi.route(question)
 
+    def should_delegate_conversation(
+        self,
+        question: str,
+        view_context: dict[str, Any],
+    ) -> bool:
+        """Return Bragi's current-screen versus agent-owned scope decision."""
+        if self._bragi is None:
+            return False
+        return self._bragi.should_delegate(question, view_context)
+
     async def contribute_conversation(
         self,
         agent_name: str,

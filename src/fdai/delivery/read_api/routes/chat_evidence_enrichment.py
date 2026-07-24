@@ -133,11 +133,13 @@ async def _with_operational_evidence(
     enriched.pop("_operational_evidence", None)
     if str(enriched.get("routeId") or "").lower() == "audit":
         return enriched
-    effective_context = conversation_context or _trace_incident_context(enriched)
+    operational_question = needs_operational_evidence(prompt, enriched)
+    trace_context = _trace_incident_context(enriched) if operational_question else None
+    effective_context = conversation_context or trace_context
     if (
         resolver is None
         or "_behavior_evidence" in enriched
-        or (effective_context is None and not needs_operational_evidence(prompt, enriched))
+        or (effective_context is None and not operational_question)
         or "_tool_evidence" in enriched
         or "_current_screen_tool" in enriched
     ):
@@ -194,6 +196,7 @@ async def _with_agent_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_agent_evidence", None)
+    enriched.pop("_screen_scope", None)
     current_screen_tool = enriched.pop("_current_screen_tool", None)
     explicit_agent = _explicit_agent_requested(prompt)
     read_investigation = (
@@ -209,6 +212,13 @@ async def _with_agent_evidence(
         or _uses_view_explanations(prompt, enriched)
         or (_is_concept_query(prompt) and _CONCEPT_DOMAIN.search(prompt) and not explicit_agent)
     ):
+        return enriched
+    should_delegate = getattr(delegate, "should_delegate", None)
+    if callable(should_delegate) and not should_delegate(prompt, enriched):
+        enriched["_screen_scope"] = {
+            "authority": "current_screen",
+            "route_id": str(enriched.get("routeId") or ""),
+        }
         return enriched
     progressive = getattr(delegate, "delegate_with_progress", None)
     evidence = (
@@ -304,7 +314,7 @@ async def _with_web_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_web_evidence", None)
-    if resolver is None or "_behavior_evidence" in enriched:
+    if resolver is None or "_behavior_evidence" in enriched or "_screen_scope" in enriched:
         return enriched
     progressive = getattr(resolver, "resolve_with_progress", None)
     evidence = (

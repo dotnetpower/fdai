@@ -98,6 +98,22 @@ def test_delegate_does_not_materialize_principal_scoped_chat_as_global_activity(
     assert call["materialize_handoff"] is False
 
 
+def test_screen_data_questions_stay_with_bragi_t0() -> None:
+    delegate = _delegate()
+    context = {
+        "routeId": "live",
+        "facts": [
+            {"key": "attention.total", "value": 3},
+            {"key": "tier.t2", "value": "5%"},
+        ],
+    }
+
+    assert delegate.should_delegate("몇 개가 주의가 필요해?", context) is False
+    assert delegate.should_delegate("what is the T2 tier share?", context) is False
+    assert delegate.should_delegate("그럼 T2는?", context) is False
+    assert delegate.should_delegate("cost breakdown", context) is True
+
+
 def test_shadow_planning_route_is_deterministic_and_excludes_norns_and_odin() -> None:
     route = _delegate().route_answer_planning("Ask Freyr and Njord about capacity and cost")
 

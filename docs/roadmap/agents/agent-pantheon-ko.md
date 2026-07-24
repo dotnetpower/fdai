@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: fb1887c78e6b5949a948bdb2f5aac9b2faf26f01
+translation_source_sha: c44914c92eb94d4fe930c1284bd61c206cdf11f4
 translation_revised: 2026-07-24
 ---
 
@@ -470,19 +470,23 @@ question, requester=...)`` (``Bragi.introspect_agent`` 로 위임)로 도달하�
 
 Bragi는 router이지 answerer가 아닙니다. 영어 및 한국어 Azure read intent는 generic domain scoring 전에 Heimdall로 routing되며 topic, agent identity, execution authority를 추가하지 않습니다.
 
-1. **Canonical glossary lookup.** 공유 ontology 또는 control-loop 용어의 직접
+1. **Current-screen authority.** Active screen이 fact 또는 record를 제공하는 data
+  question은 Bragi T0 범위에 유지합니다. Specialist delegation과 semantic web
+  classification은 실행하지 않습니다. 요청한 field가 없으면 model memory로
+  채우지 않고 명시적인 absence answer를 반환합니다.
+2. **Canonical glossary lookup.** 공유 ontology 또는 control-loop 용어의 직접
   정의 질문은 agent scoring 전에 grounded glossary evidence로 답변. 예를 들어
   `ActionType` 또는 한국어 조사가 붙은 `ActionType이`는 단순히 같은 어간을 가진
   agent domain으로 delegate하지 않음.
-2. **T0 keyword / regex 매칭.** Intent 토큰을 `Agent.question_domains` 와
+3. **T0 keyword / regex 매칭.** Intent 토큰을 `Agent.question_domains` 와
    비교. Domain specificity, 참조된 object type 의 ownership, 상호작용
   recency 로 점수화. Prefix 기반 stemming은 짧은 활용 차이만 허용하며,
   `actiontype` 같은 복합 token은 일반 `action` domain과 매칭하지 않음.
-3. **T1 embedding similarity.** T0 가 abstain 하면 과거 해결된 query 와
+4. **T1 embedding similarity.** T0 가 abstain 하면 과거 해결된 query 와
    similarity 매칭; 여전히 deterministic ranking, LLM 없음.
-4. **T2 intent classification.** T0/T1 모두 abstain 하면 LLM 이 intent 를
+5. **T2 intent classification.** T0/T1 모두 abstain 하면 LLM 이 intent 를
    분류하고, Bragi 는 분류된 intent 로 scoring 을 재실행.
-5. **Handoff.** Scoring margin 이 여전히 임계값 미만이면
+6. **Handoff.** Scoring margin 이 여전히 임계값 미만이면
   `HandoffEscalation` 발행 (§6.4). 시스템은 추측 대신 GitHub issue 를
    생성한다.
 

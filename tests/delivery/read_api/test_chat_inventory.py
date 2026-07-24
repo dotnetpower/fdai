@@ -190,6 +190,8 @@ INVENTORY_WEAKNESS_CASES = (
     InventoryWeaknessCase("database backup policy", False),
     InventoryWeaknessCase("storage account encryption policy", False),
     InventoryWeaknessCase("compare VM and storage architecture", False),
+    InventoryWeaknessCase("how many resources are affected?", False),
+    InventoryWeaknessCase("what is the database CPU usage?", False),
 )
 
 INVENTORY_RUBRIC_NAMES = (

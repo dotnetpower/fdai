@@ -24,6 +24,7 @@ from fdai.delivery.read_api.routes.chat_prompt_content import (
     _GLOSSARY,
     _OPERATIONAL_EVIDENCE_DIRECTIVE,
     _SCREEN_EXPLANATION_DIRECTIVE,
+    _SCREEN_SCOPE_DIRECTIVE,
     _SYSTEM_PROMPT,
     _TOOL_EVIDENCE_DIRECTIVE,
     _VISION_EVIDENCE_DIRECTIVE,
@@ -743,6 +744,8 @@ def _build_messages(
         messages.append({"role": "system", "content": _AGENT_EVIDENCE_DIRECTIVE})
     if "_tool_evidence" in view_context:
         messages.append({"role": "system", "content": _TOOL_EVIDENCE_DIRECTIVE})
+    if "_screen_scope" in view_context:
+        messages.append({"role": "system", "content": _SCREEN_SCOPE_DIRECTIVE})
     if "_concept_evidence" in view_context:
         messages.append({"role": "system", "content": _CONCEPT_EVIDENCE_DIRECTIVE})
     if "_web_evidence" in view_context:
@@ -781,6 +784,7 @@ __all__ = [
     "_ontology_browse_answer",
     "_OPERATIONAL_EVIDENCE_DIRECTIVE",
     "_SCREEN_EXPLANATION_DIRECTIVE",
+    "_SCREEN_SCOPE_DIRECTIVE",
     "_SYSTEM_PROMPT",
     "_TOOL_EVIDENCE_DIRECTIVE",
     "_WEB_EVIDENCE_DIRECTIVE",

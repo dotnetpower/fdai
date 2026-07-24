@@ -27,6 +27,10 @@ class PantheonChatDelegate:
 
     runtime: PantheonRuntime
 
+    def should_delegate(self, prompt: str, view_context: dict[str, Any]) -> bool:
+        """Ask Bragi whether this turn needs agent-owned state beyond the screen."""
+        return self.runtime.should_delegate_conversation(prompt, view_context)
+
     async def delegate(
         self,
         *,

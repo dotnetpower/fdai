@@ -185,6 +185,9 @@ Generic recency words such as `latest`, `recent`, or `최신` do not create inci
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the
 bounded public-web path instead of producing a deterministic "no matching incident" answer.
+Current-screen data scope takes precedence over inventory, incident, agent, and web enrichment.
+The Trace correlation is an incident selection hint only when the question explicitly carries
+incident, failure, problem, or cause semantics; ordinary stage and actor fields remain screen facts.
 Current-time questions use an injected timezone-aware server clock and the principal's IANA
 timezone preference. The terminal answer is rendered deterministically with the exact timestamp and
 timezone. A missing preference falls back to explicitly labeled UTC; the narrator and browser clock

@@ -6,9 +6,14 @@ from unittest.mock import patch
 
 import pytest
 
+from fdai.agents import PantheonRuntime
+from fdai.delivery.read_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
+    _with_agent_evidence,
     _with_operational_evidence,
+    _with_web_evidence,
 )
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 CONTEXT = {
     "kind": "incident",
@@ -91,6 +96,29 @@ async def test_trace_screen_correlation_becomes_exact_selection_hint() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    ("what was the terminal stage?", "who approved this trace?"),
+)
+async def test_trace_screen_fact_question_does_not_force_incident_lookup(prompt: str) -> None:
+    resolver = _ContextResolver()
+
+    enriched = await _with_operational_evidence(
+        prompt,
+        {
+            "routeId": "trace",
+            "facts": [
+                {"key": "terminal_stage", "value": "audit"},
+                {"key": "correlation_id", "value": "corr-screen"},
+            ],
+        },
+        resolver,
+    )
+
+    assert resolver.context is None
+    assert "_operational_evidence" not in enriched
+
+
 async def test_explicit_binding_wins_over_trace_screen_hint() -> None:
     resolver = _ContextResolver()
 
@@ -154,3 +182,43 @@ async def test_uninspectable_resolver_uses_current_context_contract() -> None:
         )
 
     assert resolver.context == CONTEXT
+
+
+async def test_bragi_screen_scope_suppresses_agent_and_web_enrichment() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+    )
+    delegate = PantheonChatDelegate(runtime)
+    context = {
+        "routeId": "live",
+        "facts": [{"key": "tier.t2", "value": "5%"}],
+    }
+
+    enriched = await _with_agent_evidence(
+        "what is the T2 tier share?",
+        context,
+        delegate,
+        user_id="operator-1",
+        session_id="session-1",
+    )
+
+    class _WebResolver:
+        calls = 0
+
+        async def resolve(
+            self,
+            prompt: str,
+            view_context: Mapping[str, Any],
+        ) -> dict[str, Any]:
+            del prompt, view_context
+            self.calls += 1
+            return {"status": "matched"}
+
+    web = _WebResolver()
+    enriched = await _with_web_evidence("what is the T2 tier share?", enriched, web)
+
+    assert enriched["_screen_scope"]["authority"] == "current_screen"
+    assert "_agent_evidence" not in enriched
+    assert "_web_evidence" not in enriched
+    assert web.calls == 0
