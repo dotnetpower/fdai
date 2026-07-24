@@ -121,6 +121,13 @@ def parse_vision_attachments(
         if media_type not in _ALLOWED_MEDIA_TYPES:
             raise ValueError(f"unsupported attachment media type: {media_type}")
         b64 = re.sub(r"\s+", "", match.group("b64"))
+        # Reject a clearly-oversized payload from its encoded length BEFORE
+        # allocating the decode buffer, so a caller cannot force a large
+        # transient allocation only to have it rejected after decoding. The
+        # exact post-decode check below stays authoritative; this bound only
+        # fires when the decoded size must exceed the cap regardless of padding.
+        if (len(b64) // 4) * 3 > max_image_bytes + 3:
+            raise ValueError(f"attachment exceeds size cap (>{max_image_bytes})")
         try:
             decoded = base64.b64decode(b64, validate=True)
         except (binascii.Error, ValueError) as exc:

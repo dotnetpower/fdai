@@ -104,6 +104,17 @@ def test_enforces_size_cap() -> None:
         parse_vision_attachments(body, max_image_bytes=8)
 
 
+def test_rejects_oversized_before_decode() -> None:
+    # A base64 string whose encoded length alone implies a decoded size above
+    # the cap is rejected by the early length guard, before the decode buffer
+    # is allocated and before magic-byte validation (the payload is not a real
+    # PNG, yet it is refused on size, not on content).
+    big_b64 = base64.b64encode(b"\x00" * 64).decode()
+    body = {"attachments": [{"data_url": f"data:image/png;base64,{big_b64}"}]}
+    with pytest.raises(ValueError, match=r"exceeds size cap \(>8\)"):
+        parse_vision_attachments(body, max_image_bytes=8)
+
+
 def test_enforces_count_cap() -> None:
     body = {"attachments": [_attachment("image/png", _PNG) for _ in range(3)]}
     with pytest.raises(ValueError, match="exceed cap"):
