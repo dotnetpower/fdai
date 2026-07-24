@@ -28,6 +28,8 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 #: ``FDAI_NARRATOR_MAX_TOKENS``.
 _DEFAULT_NARRATOR_MAX_TOKENS = 2048
 _NARRATOR_MAX_TOKENS_ENV = "FDAI_NARRATOR_MAX_TOKENS"
+_DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS = 30.0
+_NARRATOR_TURN_TIMEOUT_SECONDS_ENV = "FDAI_NARRATOR_TURN_TIMEOUT_SECONDS"
 
 
 def _narrator_max_tokens(env: dict[str, str]) -> int:
@@ -44,6 +46,19 @@ def _narrator_max_tokens(env: dict[str, str]) -> int:
     except ValueError:
         return _DEFAULT_NARRATOR_MAX_TOKENS
     return value if value >= 1 else _DEFAULT_NARRATOR_MAX_TOKENS
+
+
+def _narrator_turn_timeout_seconds(env: dict[str, str]) -> float:
+    """Resolve the total routed-turn deadline from bounded configuration."""
+
+    raw = env.get(_NARRATOR_TURN_TIMEOUT_SECONDS_ENV, "").strip()
+    if not raw:
+        return _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS
+    return value if 1.0 <= value <= 300.0 else _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS
 
 
 def backend_from_env(
@@ -70,6 +85,7 @@ def backend_from_env(
     """
     src = env if env is not None else dict(os.environ)
     max_tokens = _narrator_max_tokens(src)
+    turn_timeout_seconds = _narrator_turn_timeout_seconds(src)
     # 1) API-key config.
     base_url = src.get("FDAI_NARRATOR_BASE_URL")
     api_key = src.get("FDAI_NARRATOR_API_KEY")
@@ -94,6 +110,7 @@ def backend_from_env(
         identity=identity,
         http_client=http_client,
         max_tokens=max_tokens,
+        turn_timeout_seconds=turn_timeout_seconds,
         metering_sink=metering_sink,
     )
     if disk is not None:
@@ -107,6 +124,7 @@ def _resolve_disk_azure_backend(
     identity: WorkloadIdentity | None = None,
     http_client: httpx.AsyncClient | None = None,
     max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
+    turn_timeout_seconds: float = _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS,
     metering_sink: MeteringSink | None = None,
 ) -> ChatBackend | None:
     """Look up ``resolved-models.json`` and build an Azure AD backend.
@@ -139,6 +157,7 @@ def _resolve_disk_azure_backend(
         identity=identity,
         http_client=http_client,
         max_tokens=max_tokens,
+        turn_timeout_seconds=turn_timeout_seconds,
         metering_sink=metering_sink,
     )
     if routed is not None:
@@ -195,6 +214,7 @@ def _build_routed_backend(
     identity: WorkloadIdentity | None = None,
     http_client: httpx.AsyncClient | None = None,
     max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
+    turn_timeout_seconds: float = _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS,
     metering_sink: MeteringSink | None = None,
 ) -> LatencyRoutedChatBackend | None:
     """Build the latency-routed backend from a ``narrator_candidates`` list.
@@ -247,7 +267,10 @@ def _build_routed_backend(
         )
     if len(candidates) < 2:
         return None
-    return LatencyRoutedChatBackend(candidates=candidates)
+    return LatencyRoutedChatBackend(
+        candidates=candidates,
+        turn_timeout_seconds=turn_timeout_seconds,
+    )
 
 
 def _chat_metering(

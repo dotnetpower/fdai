@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 57f5ea4215aa33f1380b2ef2a67b3c6baa09aaf4
+translation_source_sha: 1a09180225e1236637cd3f578497c327e93b90bf
 translation_revised: 2026-07-24
 ---
 
@@ -144,6 +144,15 @@ gate에서 설정된 가격표를 계속 사용할 수 있습니다. 헤드리�
 사용하며 오래된 metering freshness를 browser time으로 대체하지 않습니다. 빈
 metering source는 `null`을 반환합니다. emit은 best-effort이므로 계량 실패는
 로그로 남고 decision 또는 chat 경로를 중단하지 않습니다.
+
+### 4.5 Routed turn deadline
+
+Routed web narrator는 turn 하나에 total wall-clock deadline을 적용합니다. 기본값은
+30초이며 배포는 `FDAI_NARRATOR_TURN_TIMEOUT_SECONDS`를 1-300초 범위에서 설정할 수
+있습니다. 각 candidate는 남은 deadline을 남은 candidate 수로 나눈 budget만 받으므로
+느린 deployment 하나가 다른 candidate의 failover budget까지 소비할 수 없습니다.
+첫 streamed token 전 timeout은 failover할 수 있습니다. Token이 표시된 뒤 timeout이
+발생하면 stream을 중단하며 다른 model의 text를 결합하지 않습니다.
 
 ## 5. DI seam
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections import deque
@@ -58,13 +59,21 @@ class LatencyRoutedChatBackend:
     · fastest: gpt-5.4-mini · p50 820ms" in the badge tooltip.
     """
 
-    def __init__(self, *, candidates: list[tuple[str, ChatBackend]]) -> None:
+    def __init__(
+        self,
+        *,
+        candidates: list[tuple[str, ChatBackend]],
+        turn_timeout_seconds: float = 30.0,
+    ) -> None:
         if len(candidates) < 2:
             raise ValueError("LatencyRoutedChatBackend requires >= 2 candidates")
         names = [n for n, _ in candidates]
         if len(set(names)) != len(names):
             raise ValueError("LatencyRoutedChatBackend candidate names MUST be unique")
+        if turn_timeout_seconds <= 0:
+            raise ValueError("turn_timeout_seconds MUST be > 0")
         self._candidates: list[tuple[str, ChatBackend]] = list(candidates)
+        self._turn_timeout_seconds = turn_timeout_seconds
         self._samples: dict[str, deque[int]] = {
             name: deque(maxlen=_ROUTER_WINDOW_SIZE) for name, _ in candidates
         }
@@ -201,20 +210,24 @@ class LatencyRoutedChatBackend:
     ) -> dict[str, Any]:
         attempted: set[str] = set()
         last_error: Exception | None = None
+        deadline = time.monotonic() + self._turn_timeout_seconds
         while len(attempted) < len(self._candidates):
             name, backend = self._pick(exclude=attempted, preferred_model=preferred_model)
             self._in_flight[name] += 1
             started = time.monotonic()
             try:
-                reply = await backend.answer(
-                    prompt=prompt, view_context=view_context, history=history
-                )
+                async with asyncio.timeout(self._attempt_budget(deadline, attempted)):
+                    reply = await backend.answer(
+                        prompt=prompt, view_context=view_context, history=history
+                    )
                 answer = reply.get("answer")
                 if not isinstance(answer, str) or not answer.strip():
                     raise ChatBackendUnavailableError(
                         f"chat candidate {name!r} returned an empty answer"
                     )
             except Exception as exc:
+                if isinstance(exc, TimeoutError):
+                    exc = TimeoutError("chat turn deadline exceeded")
                 self._samples[name].append(_ROUTER_FAILURE_PENALTY_MS)
                 attempted.add(name)
                 last_error = exc
@@ -273,77 +286,87 @@ class LatencyRoutedChatBackend:
         """
         attempted: set[str] = set()
         last_error: Exception | None = None
+        deadline = time.monotonic() + self._turn_timeout_seconds
         while len(attempted) < len(self._candidates):
             name, backend = self._pick(exclude=attempted, preferred_model=preferred_model)
             self._in_flight[name] += 1
             started = time.monotonic()
             emitted_content = False
             try:
-                stream = getattr(backend, "answer_stream", None)
-                if stream is not None:
-                    async for event in stream(
-                        prompt=prompt, view_context=view_context, history=history
-                    ):
-                        if event.get("type") == "token" and event.get("delta"):
-                            if not emitted_content:
-                                self._ttft_samples[name].append(
-                                    int((time.monotonic() - started) * 1000)
-                                )
-                            emitted_content = True
-                        if event.get("type") == "done":
-                            answer = event.get("answer")
-                            if not emitted_content and (
-                                not isinstance(answer, str) or not answer.strip()
-                            ):
-                                raise ChatBackendUnavailableError(
-                                    f"chat candidate {name!r} returned an empty stream"
-                                )
-                            event = dict(event)
-                            event["model"] = name
-                            event["router"] = {
-                                "chose": name,
-                                "reason": "failover"
-                                if attempted
-                                else (
-                                    "user-preferred"
-                                    if preferred_model == name
+                async with asyncio.timeout(self._attempt_budget(deadline, attempted)):
+                    stream = getattr(backend, "answer_stream", None)
+                    if stream is not None:
+                        async for event in stream(
+                            prompt=prompt, view_context=view_context, history=history
+                        ):
+                            if event.get("type") == "token" and event.get("delta"):
+                                if not emitted_content:
+                                    self._ttft_samples[name].append(
+                                        int((time.monotonic() - started) * 1000)
+                                    )
+                                emitted_content = True
+                            if event.get("type") == "done":
+                                answer = event.get("answer")
+                                if not emitted_content and (
+                                    not isinstance(answer, str) or not answer.strip()
+                                ):
+                                    raise ChatBackendUnavailableError(
+                                        f"chat candidate {name!r} returned an empty stream"
+                                    )
+                                event = dict(event)
+                                event["model"] = name
+                                event["router"] = {
+                                    "chose": name,
+                                    "reason": "failover"
+                                    if attempted
                                     else (
-                                        "warmup"
-                                        if len(self._samples[name]) < _ROUTER_WARMUP_SAMPLES
+                                        "user-preferred"
+                                        if preferred_model == name
+                                        else (
+                                            "warmup"
+                                            if len(self._samples[name]) < _ROUTER_WARMUP_SAMPLES
+                                            else "lowest-p50"
+                                        )
+                                    ),
+                                    "candidates": self.stats(),
+                                }
+                            yield event
+                    else:
+                        reply = await backend.answer(
+                            prompt=prompt, view_context=view_context, history=history
+                        )
+                        answer = reply.get("answer", "")
+                        if not isinstance(answer, str) or not answer.strip():
+                            raise ChatBackendUnavailableError(
+                                f"chat candidate {name!r} returned an empty answer"
+                            )
+                        if answer:
+                            self._ttft_samples[name].append(
+                                int((time.monotonic() - started) * 1000)
+                            )
+                            emitted_content = True
+                            yield {"type": "token", "delta": answer}
+                        yield {
+                            "type": "done",
+                            "answer": answer,
+                            "model": name,
+                            "router": {
+                                "chose": name,
+                                "reason": (
+                                    "failover"
+                                    if attempted
+                                    else (
+                                        "user-preferred"
+                                        if preferred_model == name
                                         else "lowest-p50"
                                     )
                                 ),
                                 "candidates": self.stats(),
-                            }
-                        yield event
-                else:
-                    reply = await backend.answer(
-                        prompt=prompt, view_context=view_context, history=history
-                    )
-                    answer = reply.get("answer", "")
-                    if not isinstance(answer, str) or not answer.strip():
-                        raise ChatBackendUnavailableError(
-                            f"chat candidate {name!r} returned an empty answer"
-                        )
-                    if isinstance(answer, str) and answer:
-                        self._ttft_samples[name].append(int((time.monotonic() - started) * 1000))
-                        emitted_content = True
-                        yield {"type": "token", "delta": answer}
-                    yield {
-                        "type": "done",
-                        "answer": answer,
-                        "model": name,
-                        "router": {
-                            "chose": name,
-                            "reason": (
-                                "failover"
-                                if attempted
-                                else ("user-preferred" if preferred_model == name else "lowest-p50")
-                            ),
-                            "candidates": self.stats(),
-                        },
-                    }
+                            },
+                        }
             except Exception as exc:
+                if isinstance(exc, TimeoutError):
+                    exc = TimeoutError("chat turn deadline exceeded")
                 self._samples[name].append(_ROUTER_FAILURE_PENALTY_MS)
                 _LOG.warning(
                     "router.stream_candidate_failed",
@@ -365,6 +388,13 @@ class LatencyRoutedChatBackend:
         if last_error is not None:
             raise last_error
         raise RuntimeError("chat router exhausted candidates")
+
+    def _attempt_budget(self, deadline: float, attempted: set[str]) -> float:
+        remaining = deadline - time.monotonic()
+        candidates_remaining = len(self._candidates) - len(attempted)
+        if remaining <= 0 or candidates_remaining <= 0:
+            raise TimeoutError("chat turn deadline exceeded")
+        return remaining / candidates_remaining
 
     # ------------------------------------------------------------------ internal
     def _effective_sample_count(self, name: str) -> int:

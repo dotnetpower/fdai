@@ -151,6 +151,16 @@ time. An empty metering source returns `null`. Emission remains
 best-effort: a metering failure is logged and doesn't interrupt the
 decision or chat path.
 
+### 4.5 Routed turn deadline
+
+The routed web narrator applies one total wall-clock deadline to a turn. The
+default is 30 seconds and deployments can set
+`FDAI_NARRATOR_TURN_TIMEOUT_SECONDS` from 1 through 300 seconds. Each candidate
+receives an equal share of the remaining deadline, so one slow deployment can't
+consume the failover budget for every other candidate. A timeout before the
+first streamed token can fail over. A timeout after a token is visible stops the
+stream and never combines text from another model.
+
 ## 5. DI seams
 
 Every seam is a Protocol; the composition root wires the concrete

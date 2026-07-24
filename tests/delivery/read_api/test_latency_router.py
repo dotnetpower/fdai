@@ -62,6 +62,33 @@ class _EmptyBackend:
         return {"answer": "   ", "model": "empty"}
 
 
+class _NeverBackend:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def answer(
+        self,
+        *,
+        prompt: str,  # noqa: ARG002
+        view_context: dict[str, Any],  # noqa: ARG002
+        history: list[dict[str, str]],  # noqa: ARG002
+    ) -> dict[str, Any]:
+        self.calls += 1
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    async def answer_stream(
+        self,
+        *,
+        prompt: str,  # noqa: ARG002
+        view_context: dict[str, Any],  # noqa: ARG002
+        history: list[dict[str, str]],  # noqa: ARG002
+    ) -> AsyncIterator[dict[str, Any]]:
+        self.calls += 1
+        await asyncio.Event().wait()
+        yield {"type": "done", "answer": "unreachable"}
+
+
 class _StreamingBackend:
     def __init__(self, *, fail_before: bool = False, fail_after: bool = False) -> None:
         self._fail_before = fail_before
@@ -116,6 +143,15 @@ class TestRouterConstruction:
         b = _FixedLatencyBackend(model="dup", delay_ms=1)
         with pytest.raises(ValueError, match="unique"):
             LatencyRoutedChatBackend(candidates=[("dup", a), ("dup", b)])
+
+    def test_rejects_non_positive_turn_deadline(self) -> None:
+        a = _FixedLatencyBackend(model="a", delay_ms=1)
+        b = _FixedLatencyBackend(model="b", delay_ms=1)
+        with pytest.raises(ValueError, match="turn_timeout_seconds"):
+            LatencyRoutedChatBackend(
+                candidates=[("a", a), ("b", b)],
+                turn_timeout_seconds=0,
+            )
 
     def test_cold_candidate_stats_are_json_safe(self) -> None:
         a = _FixedLatencyBackend(model="a", delay_ms=1)
@@ -273,6 +309,40 @@ class TestRouterWarmupAndSelection:
 
 
 class TestRouterFailureHandling:
+    async def test_total_turn_deadline_bounds_all_candidate_attempts(self) -> None:
+        first = _NeverBackend()
+        second = _NeverBackend()
+        router = LatencyRoutedChatBackend(
+            candidates=[("first", first), ("second", second)],
+            turn_timeout_seconds=0.05,
+        )
+
+        with pytest.raises(TimeoutError, match="deadline"):
+            await asyncio.wait_for(
+                router.answer(prompt="hi", view_context={}, history=[]),
+                timeout=0.2,
+            )
+
+        assert first.calls == 1
+        assert second.calls == 1
+
+    async def test_stream_deadline_fails_over_only_before_first_token(self) -> None:
+        first = _NeverBackend()
+        second = _NeverBackend()
+        router = LatencyRoutedChatBackend(
+            candidates=[("first", first), ("second", second)],
+            turn_timeout_seconds=0.05,
+        )
+
+        with pytest.raises(TimeoutError, match="deadline"):
+            await asyncio.wait_for(
+                _collect_stream(router),
+                timeout=0.2,
+            )
+
+        assert first.calls == 1
+        assert second.calls == 1
+
     async def test_failure_penalizes_candidate_and_fails_over(self) -> None:
         good = _FixedLatencyBackend(model="good", delay_ms=5)
         bad = _RaisingBackend(model="bad")
@@ -356,6 +426,10 @@ class TestRouterFailureHandling:
 
         assert events == [{"type": "token", "delta": "hello"}]
         assert good.calls == 0
+
+
+async def _collect_stream(router: LatencyRoutedChatBackend) -> list[dict[str, Any]]:
+    return [event async for event in router.answer_stream(prompt="hi", view_context={}, history=[])]
 
 
 class TestRouterConcurrencyFairness:
