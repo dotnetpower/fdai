@@ -8,6 +8,9 @@ import pytest
 
 from fdai.delivery.read_api.routes.chat_vision_evidence import (
     VisionAttachment,
+    _clean_name,
+    _format_bytes,
+    _magic_matches,
     parse_vision_attachments,
     vision_source_previews,
 )
@@ -165,3 +168,62 @@ def test_vision_source_previews_tolerate_bad_input() -> None:
     assert vision_source_previews(None) == []
     assert vision_source_previews("nope") == []
     assert vision_source_previews([{"media_type": "image/png"}]) == []  # no name
+
+
+def test_vision_source_previews_skip_and_partial_detail() -> None:
+    previews = vision_source_previews(
+        [
+            "not-a-dict",  # skipped: non-dict item
+            {"name": ""},  # skipped: empty name
+            {"name": "only-name.png"},  # no media / size -> empty detail
+            {"name": "typed.png", "media_type": 42, "byte_size": "big"},  # bad types -> empty
+        ]
+    )
+    assert [p["label"] for p in previews] == ["only-name.png", "typed.png"]
+    assert previews[0]["detail"] == ""
+    assert previews[1]["detail"] == ""
+
+
+def test_format_bytes_units() -> None:
+    assert _format_bytes(512) == "512 B"
+    assert _format_bytes(43008) == "42 KB"
+    assert _format_bytes(1_887_437) == "1.8 MB"
+
+
+def test_magic_matches_direct() -> None:
+    assert _magic_matches("image/png", _PNG) is True
+    assert _magic_matches("image/jpeg", _JPEG) is True
+    assert _magic_matches("image/gif", b"GIF87a" + b"\x00" * 8) is True
+    assert _magic_matches("image/webp", _WEBP) is True
+    # A truncated WEBP header fails the length guard.
+    assert _magic_matches("image/webp", b"RIFF") is False
+    # An unknown media type has no signature handler.
+    assert _magic_matches("image/tiff", b"II*\x00") is False
+
+
+def test_clean_name_falls_back_when_only_control_chars() -> None:
+    assert _clean_name("\x00\x01\x1f", 0) == "image-1"
+    assert _clean_name(None, 3) == "image-4"
+    assert _clean_name("  keep.png  ", 0) == "keep.png"
+
+
+def test_rejects_non_string_data_url() -> None:
+    with pytest.raises(ValueError, match="data_url MUST be a string"):
+        parse_vision_attachments({"attachments": [{"data_url": 123}]})
+
+
+def test_rejects_regex_passing_but_undecodable_base64() -> None:
+    # "AAA" passes the data-URL character class but is not a valid base64 length,
+    # so it reaches and fails the decode step (not the pre-filter).
+    with pytest.raises(ValueError, match="not valid base64"):
+        parse_vision_attachments({"attachments": [{"data_url": "data:image/png;base64,AAA"}]})
+
+
+def test_exact_size_check_catches_borderline_over_cap() -> None:
+    # 40-byte PNG with a 39-byte cap: the encoded-length guard passes (its bound
+    # only fires for clearly-oversized payloads), so the exact post-decode size
+    # check is the one that rejects.
+    body = {"attachments": [_attachment("image/png", _PNG)]}
+    assert len(_PNG) == 40
+    with pytest.raises(ValueError, match=r"exceeds size cap \(40 > 39\)"):
+        parse_vision_attachments(body, max_image_bytes=39)
