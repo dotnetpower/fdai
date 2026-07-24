@@ -94,6 +94,7 @@ describe("agents.model", () => {
       "collecting",
       "watching",
     ]);
+    expect(s.liveActivity.map((event) => event.sequence)).toEqual([3, 2, 1]);
     expect(s.liveActivity.every((event) => event.agent === "Huginn")).toBe(true);
     expect(liveActivityForAgent(s.liveActivity, "Huginn")).toHaveLength(3);
     expect(liveActivityForAgent(s.liveActivity, "Forseti")).toHaveLength(0);

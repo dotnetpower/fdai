@@ -115,9 +115,12 @@ export interface AgentsState {
   readonly incidentOrder: readonly string[];
   /** Observed SSE frames from this browser connection, newest first. */
   readonly liveActivity: readonly LiveAgentActivityEvent[];
+  /** Monotonic browser-session identity for observed live frames. */
+  readonly nextLiveActivitySequence: number;
 }
 
 export interface LiveAgentActivityEvent {
+  readonly sequence: number;
   readonly kind: AgentActivityMessage["type"];
   readonly agent: string;
   readonly agents: readonly string[];
@@ -147,13 +150,23 @@ export function makeInitialState(): AgentsState {
       detail: null,
     };
   }
-  return { agents, incidents: {}, incidentOrder: [], liveActivity: [] };
+  return {
+    agents,
+    incidents: {},
+    incidentOrder: [],
+    liveActivity: [],
+    nextLiveActivitySequence: 1,
+  };
 }
 
-function projectLiveActivity(msg: AgentActivityMessage): LiveAgentActivityEvent | null {
+function projectLiveActivity(
+  msg: AgentActivityMessage,
+  sequence: number,
+): LiveAgentActivityEvent | null {
   if (msg.type === "agent.state") {
     if (_LAYER_OF[msg.agent] === undefined) return null;
     return {
+      sequence,
       kind: msg.type,
       agent: msg.agent,
       agents: [msg.agent],
@@ -168,6 +181,7 @@ function projectLiveActivity(msg: AgentActivityMessage): LiveAgentActivityEvent 
   if (msg.type === "incident.ticket") {
     const agents = msg.involved_agents.filter((agent) => _LAYER_OF[agent] !== undefined);
     return {
+      sequence,
       kind: msg.type,
       agent: agents[0] ?? "System",
       agents,
@@ -183,6 +197,7 @@ function projectLiveActivity(msg: AgentActivityMessage): LiveAgentActivityEvent 
     (agent, index, names) => _LAYER_OF[agent] !== undefined && names.indexOf(agent) === index,
   );
   return {
+    sequence,
     kind: msg.type,
     agent: msg.from_agent,
     agents,
@@ -199,11 +214,12 @@ function recordLiveActivity(
   state: AgentsState,
   msg: AgentActivityMessage,
 ): AgentsState {
-  const event = projectLiveActivity(msg);
+  const event = projectLiveActivity(msg, state.nextLiveActivitySequence);
   if (event === null) return state;
   return {
     ...state,
     liveActivity: [event, ...state.liveActivity].slice(0, MAX_LIVE_ACTIVITY),
+    nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
   };
 }
 

@@ -47,13 +47,9 @@ export function buildAgentLogRows(
   auditItems: readonly AuditItem[],
 ): readonly AgentLogRow[] {
   const rows: AgentLogRow[] = [];
-  const seenLiveEvents = new Set<string>();
   events.forEach((event, index) => {
-    const identity = liveEventIdentity(event);
-    if (seenLiveEvents.has(identity)) return;
-    seenLiveEvents.add(identity);
     addBoundedRow(rows, {
-      id: `live:${event.kind}:${event.ts}:${event.agent}:${event.correlationId ?? "none"}:${stableHash(identity)}`,
+      id: `live:${event.sequence}`,
       timestamp: event.ts,
       timestampValid: timestamp(event.ts) !== null,
       route: event.agents.length > 0 ? event.agents : [event.agent],
@@ -179,29 +175,6 @@ function addBoundedRow(rows: AgentLogRow[], row: AgentLogRow): void {
 function compareRows(left: AgentLogRow, right: AgentLogRow): number {
   return compareTimestamp(left.timestamp, right.timestamp) ||
     compareOrder(left.sortOrder, right.sortOrder) || left.id.localeCompare(right.id);
-}
-
-function liveEventIdentity(event: LiveAgentActivityEvent): string {
-  return [
-    event.kind,
-    event.ts,
-    event.agent,
-    event.agents.join("\u001f"),
-    event.state ?? "",
-    event.summary,
-    event.detail ?? "",
-    event.correlationId ?? "",
-    event.source,
-  ].join("\u001e");
-}
-
-function stableHash(value: string): string {
-  let hash = 0xcbf29ce484222325n;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= BigInt(value.charCodeAt(index));
-    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
-  }
-  return hash.toString(36);
 }
 
 function compareTimestamp(left: string, right: string): number {

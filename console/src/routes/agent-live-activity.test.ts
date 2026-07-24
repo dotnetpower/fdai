@@ -31,8 +31,9 @@ function auditItem(
   };
 }
 
-function liveConversation(): LiveAgentActivityEvent {
+function liveConversation(sequence = 1): LiveAgentActivityEvent {
   return {
+    sequence,
     kind: "conversation.turn",
     agent: "Heimdall",
     agents: ["Heimdall", "Forseti"],
@@ -99,18 +100,20 @@ describe("agent live log projection", () => {
     expect(filterAgentLogRows(rows, "Thor", "anomaly")).toHaveLength(0);
   });
 
-  it("keeps live row identity stable across prepends and suppresses exact replay duplicates", () => {
+  it("keeps live row identity stable across prepends and preserves identical events", () => {
     const existing = liveConversation();
     const newer: LiveAgentActivityEvent = {
       ...existing,
+      sequence: 2,
       detail: "A newer handoff.",
       ts: "2026-07-24T10:02:00Z",
     };
+    const identicalButDistinct = liveConversation(3);
 
     const before = buildAgentLogRows([existing], []);
-    const after = buildAgentLogRows([newer, existing, existing], []);
+    const after = buildAgentLogRows([identicalButDistinct, newer, existing], []);
 
-    expect(after).toHaveLength(2);
+    expect(after).toHaveLength(3);
     expect(after.find((row) => row.detail === existing.detail)?.id).toBe(before[0]?.id);
     expect(new Set(after.map((row) => row.id)).size).toBe(after.length);
   });
