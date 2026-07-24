@@ -210,7 +210,8 @@ Read observation replies can also carry an ordered, bounded activity sequence. A
 Bragi as the conversational router and the accountable observer, while observed execution records
 the observer, canonical server tool, redacted command, safe result summary, status, authority, and
 timing. The complete sequence is part of durable response replay and never grants channel adapters
-tool or execution authority.
+tool or execution authority. In addition to per-field limits, the complete activity sequence has a
+48,000-character budget so one accepted response cannot exceed durable or vendor payload ceilings.
 
 Concrete publishers map that intent as follows:
 

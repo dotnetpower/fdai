@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from fdai.shared.providers.conversation_channel import (
+    MAX_ACTIVITY_TOTAL_CHARS,
     MAX_MENTION_COUNT,
     MAX_STREAM_CHUNKS,
     AgentHandoffActivity,
@@ -84,6 +85,26 @@ def test_agent_activity_round_trips_through_durable_response() -> None:
     restored = outbound_response_from_json(outbound_response_to_json(response))
 
     assert restored.activities == response.activities
+
+
+def test_outbound_response_rejects_aggregate_activity_payload_over_budget() -> None:
+    oversized = tuple(
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label=f"Read evidence {index}",
+            tool="query_log",
+            command="query_log --query <redacted>",
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+            output="x" * 12_000,
+        )
+        for index in range(4)
+    )
+
+    with pytest.raises(ValueError, match="character budget"):
+        _response(activities=oversized)
+
+    assert sum(len(activity.output) for activity in oversized) == MAX_ACTIVITY_TOTAL_CHARS
 
 
 @pytest.mark.parametrize(

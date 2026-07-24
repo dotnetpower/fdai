@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9b26c2ce22d780afffe17b6e08d232d5d93048bc
+translation_source_sha: 126c7570b461da16a2d1f615437d920c6ea5051e
 translation_revised: 2026-07-24
 ---
 # 코드 맵
@@ -195,7 +195,7 @@ shared 패키지를 커버한다.
 |--------|------|------|
 | contracts | optional ObjectType lifecycle 기준을 포함한 크로스 패키지 Pydantic 계약 | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
 | ontology | 도메인 온톨로지 (ObjectType / LinkType / ActionType) | [src/fdai/shared/ontology/](../../../src/fdai/shared/ontology/) |
-| providers | `ExecutionBackend`, bounded diagnostic receipt와 분리되고 cache되지 않는 ephemeral typed-command output, durable channel-neutral handoff/execution activity를 포함한 Provider Protocol, process-local EventBus, bounded SSE, isolated programmatic pipeline runner, [access-scoped conversation search](../interfaces/conversation-search-ko.md), [structured behavior knowledge](../interfaces/behavior-knowledge-ko.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
+| providers | `ExecutionBackend`, bounded diagnostic receipt와 분리되고 cache되지 않는 ephemeral typed-command output, count 및 character bound가 있는 durable channel-neutral handoff/execution activity를 포함한 Provider Protocol, process-local EventBus, bounded SSE, isolated programmatic pipeline runner, [access-scoped conversation search](../interfaces/conversation-search-ko.md), [structured behavior knowledge](../interfaces/behavior-knowledge-ko.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
 | config | 설정 로더, 스키마, shared runtime activation flag | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |
 | streaming | Kafka / Event Hub 추상화 | [src/fdai/shared/streaming/](../../../src/fdai/shared/streaming/) |
 | resilience | 재시도 / circuit-breaker 헬퍼 | [src/fdai/shared/resilience/](../../../src/fdai/shared/resilience/) |

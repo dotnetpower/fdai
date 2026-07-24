@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 3204431dbe6acf9d52d01ed042c03ca8eba47aa8
+translation_source_sha: 80d76ee5e8c0e14d711970685806049d088168b3
 translation_revised: 2026-07-24
 ---
 
@@ -210,7 +210,8 @@ Read observation reply는 순서와 크기가 제한된 activity sequence도 전
 conversation router인 Bragi와 책임 observer를 표시하고, observed execution은 observer, canonical
 server tool, 정제된 command, 안전한 result summary, status, authority 및 timing을 기록합니다. 전체
 sequence는 durable response replay에 포함되며 channel adapter에 tool 또는 execution authority를
-부여하지 않습니다.
+부여하지 않습니다. Per-field limit 외에도 전체 activity sequence에 48,000자 budget을 적용하여
+허용된 response 하나가 durable 또는 vendor payload ceiling을 넘지 않게 합니다.
 
 Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
 

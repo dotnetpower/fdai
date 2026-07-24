@@ -27,6 +27,7 @@ MAX_ACTIVITY_TASK_CHARS = 512
 MAX_ACTIVITY_TOOL_CHARS = 64
 MAX_ACTIVITY_COMMAND_CHARS = 8_192
 MAX_ACTIVITY_OUTPUT_CHARS = 12_000
+MAX_ACTIVITY_TOTAL_CHARS = 48_000
 
 _SENSITIVE_ACTIVITY_TEXT = re.compile(
     r"(?i)\bbearer\s+[a-z0-9._~+/=-]+"
@@ -244,6 +245,12 @@ class OutboundResponse:
             raise ValueError("OutboundResponse.mentions exceeds cap")
         if len(self.activities) > MAX_ACTIVITY_COUNT:
             raise ValueError("OutboundResponse.activities exceeds cap")
+        activity_chars = sum(_activity_chars(activity) for activity in self.activities)
+        if activity_chars > MAX_ACTIVITY_TOTAL_CHARS:
+            raise ValueError(
+                "OutboundResponse.activities exceeds character budget "
+                f"({activity_chars} > {MAX_ACTIVITY_TOTAL_CHARS})"
+            )
         if len(self.stream_chunks) > MAX_STREAM_CHUNKS:
             raise ValueError("OutboundResponse.stream_chunks exceeds cap")
         if any(not chunk or not chunk.strip() for chunk in self.stream_chunks):
@@ -365,6 +372,32 @@ def _safe_bounded(name: str, value: str, maximum: int) -> None:
         raise ValueError(f"{name} contains sensitive channel content")
 
 
+def _activity_chars(activity: ConversationActivity) -> int:
+    if isinstance(activity, AgentHandoffActivity):
+        return sum(
+            len(value)
+            for value in (
+                activity.from_agent,
+                activity.to_agent,
+                activity.task,
+                activity.trace_ref or "",
+            )
+        )
+    return sum(
+        len(value)
+        for value in (
+            activity.agent,
+            activity.label,
+            activity.tool,
+            activity.command,
+            activity.output,
+            activity.started_at or "",
+            activity.completed_at or "",
+            activity.authority or "",
+        )
+    )
+
+
 def _activity_to_json(activity: ConversationActivity) -> dict[str, Any]:
     if isinstance(activity, AgentHandoffActivity):
         return {
@@ -438,6 +471,7 @@ __all__ = [
     "InboundTurn",
     "MAX_ATTACHMENT_COUNT",
     "MAX_ACTIVITY_COUNT",
+    "MAX_ACTIVITY_TOTAL_CHARS",
     "MAX_MENTION_COUNT",
     "MAX_STREAM_CHUNKS",
     "OutboundResponse",

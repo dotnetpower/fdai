@@ -674,7 +674,7 @@
     "src/fdai/shared/providers/change_feed.py": "ebfe441da9666134bcf9b31ff738bb87b86a969eaec42ebb5f2e1e8143723ec3",
     "src/fdai/shared/providers/code_workspace.py": "771ae67947f82224dce98a25c9bdbfa379f9993d42a660d36e6bb23e469ecc6b",
     "src/fdai/shared/providers/command_runner.py": "0281d98163be8b2cdd455c65f8994482bd57a48b6214df2c2770b91fef39b129",
-    "src/fdai/shared/providers/conversation_channel.py": "54e3e166e894155d1ea32e5bb3865991b1450419cbfe5a7b4eccb3bd6603707b",
+    "src/fdai/shared/providers/conversation_channel.py": "d72e729346e84a44ecff9b4106283cea4cf8e162bd268c54b269423ebe7dd4b7",
     "src/fdai/shared/providers/conversation_delivery.py": "5be21b78d088798cf377da50b45c793faca24d553ef69049e10a709d38e195be",
     "src/fdai/shared/providers/conversation_search.py": "f7b14807181eab596759be466eabd4d26bd656ba07f83a78dabd12ddcfff51ef",
     "src/fdai/shared/providers/conversation_search_text.py": "05a995e4369d9a8ccd4e84228ef9ca3387973de4d229b3723e987274a1be4d2d",
@@ -787,7 +787,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-24T05:54:07Z",
+  "generated_at": "2026-07-24T06:12:31Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
