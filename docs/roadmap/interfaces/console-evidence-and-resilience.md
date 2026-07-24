@@ -250,6 +250,13 @@ server emits `web_search_classifying` only when semantic search intent invokes t
 sanitized source count and previews after retrieval. The preparing-answer trace renders these
 stages immediately. A turn that doesn't perform a stage doesn't claim that stage.
 
+Each completed model-backed turn keeps a visible LLM escalation disclosure with the selected model
+and the stages supported by that turn's recorded metadata: evidence retrieval, model reasoning,
+specialist consultation, evidence binding, and verification. A follow-up turn without new citations
+still shows the model reasoning step and states that no separate source was attached; it doesn't
+reuse earlier citations as if they were newly retrieved. Evidence values and paths wrap instead of
+being truncated, and source details remain independently expandable for inspection.
+
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
 image source previews (name, media type, size) but never the base64 payload. The turn escalates to

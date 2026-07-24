@@ -1744,8 +1744,28 @@
     "grounded": {
       "showTrace": "추적 보기",
       "hideTrace": "추적 숨기기",
+      "showSources": "출처 보기",
+      "hideSources": "출처 숨기기",
       "traceLabel": "검색 추적",
-      "sourceAria": "출처"
+      "sourceAria": "출처",
+      "llmEscalation": "LLM 에스컬레이션",
+      "processingTime": "처리 시간 {timing}",
+      "llmGroundedSummary": "{model}을 사용해 조회된 근거를 종합하고 답변을 구성했습니다.",
+      "llmContextSummary": "{model}을 사용해 대화 맥락을 추론하고 답변을 구성했습니다. 이 turn에는 별도 출처가 첨부되지 않았습니다.",
+      "stage": {
+        "retrieve": "근거 출처 조회",
+        "infer": "{model}으로 추론 및 답변 구성",
+        "deterministic": "결정론적 응답기 사용",
+        "consult": "전문 에이전트 의견 조회",
+        "ground": "답변과 근거 연결",
+        "verify": "답변 검증"
+      },
+      "side": {
+        "read": "조회",
+        "route": "추론",
+        "ground": "그라운딩",
+        "verify": "검증"
+      }
     },
     "retrieval": {
       "readScreen": "현재 화면 읽기",

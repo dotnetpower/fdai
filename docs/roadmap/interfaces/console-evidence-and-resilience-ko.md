@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 7c9ce679f4b45ac25b512999dcc962c9c89cace2
+translation_source_sha: 90a34a7b1b75537eeb316c4bb911c07a13bb808d
 translation_revised: 2026-07-24
 ---
 
@@ -248,6 +248,12 @@ Server는 semantic search intent가 narrator model을 호출할 때만 `web_sear
 public-web provider 호출 직전에만 `web_search_searching`을 emit하며, retrieval 후에는 정제된 source
 수와 preview를 포함한 `web_search_grounded`를 emit합니다. 답변 준비 trace는 이 단계를 즉시
 렌더링합니다. 실행하지 않은 단계는 해당 turn의 진행 상태로 표시하지 않습니다.
+
+완료된 각 model-backed turn은 선택된 model과 해당 turn의 기록된 metadata로 확인되는 단계인 evidence
+retrieval, model reasoning, specialist consultation, evidence binding 및 verification을 LLM escalation
+disclosure에 계속 표시합니다. 새 citation이 없는 follow-up turn도 model reasoning 단계를 표시하고
+별도 source가 첨부되지 않았음을 명시합니다. 이전 citation을 새로 조회한 것처럼 재사용하지 않습니다.
+Evidence value와 path는 잘리지 않고 줄바꿈되며, source detail은 별도로 펼쳐 확인할 수 있습니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

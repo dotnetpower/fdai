@@ -37,6 +37,14 @@ function manifestVerification(
 }
 
 describe("parseReplySource", () => {
+  it("splits the canonical model, latency, and token descriptor", () => {
+    expect(parseReplySource("llm:narrator-gpt-4-1-mini · 7146ms · 8.1k tok")).toEqual({
+      kind: "llm",
+      model: "narrator-gpt-4-1-mini",
+      timing: "7146ms · 8.1k tok",
+    });
+  });
+
   it("splits an llm descriptor into model and timing", () => {
     expect(parseReplySource("llm:gpt-4o-mini - 240ms")).toEqual({
       kind: "llm",
@@ -165,8 +173,34 @@ describe("groundingStages", () => {
       agents: ["Forseti"],
     });
     expect(stages.map((s) => s.side)).toEqual(["read", "route", "read", "ground", "verify"]);
-    expect(stages[1]).toMatchObject({ label: "Routed to gpt-4o-mini", detail: "120ms" });
-    expect(stages[2]).toMatchObject({ label: "Consulted agents", detail: "Forseti" });
+    expect(stages[1]).toMatchObject({
+      action: "infer",
+      label: "Reasoned with gpt-4o-mini",
+      detail: "120ms",
+      model: "gpt-4o-mini",
+    });
+    expect(stages[2]).toMatchObject({
+      action: "consult",
+      label: "Consulted specialist agents",
+      detail: "Forseti",
+    });
+  });
+
+  it("keeps model inference visible when a follow-up has no new citations", () => {
+    expect(
+      groundingStages({
+        sources: [],
+        source: "llm:gpt-4o-mini - 95ms",
+        verification: undefined,
+        agents: [],
+      }),
+    ).toEqual([{
+      action: "infer",
+      label: "Reasoned with gpt-4o-mini",
+      detail: "95ms",
+      side: "route",
+      model: "gpt-4o-mini",
+    }]);
   });
 
   it("returns nothing when the reply carries no grounding metadata", () => {

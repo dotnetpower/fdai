@@ -6,7 +6,7 @@
  *
  * Honest-data only: every source card is a real ``Citation`` the backend
  * returned (a fact the answer is grounded in). The pill's summary line is the
- * real reply ``source`` descriptor (``llm:<model> - <ms>`` or
+ * real reply ``source`` descriptor (``llm:<model> · <ms> · <tokens>`` or
  * ``deterministic``). Nothing here is fabricated - it re-presents what the
  * reply already carries.
  *
@@ -65,6 +65,7 @@ export function GroundedReply({
   readonly onRegenerate?: () => void;
 }) {
   void turnId;
+  const parsedSource = parseReplySource(source);
   const [open, setOpen] = useState(false);
   const [copied, showCopied] = useTransientFlag(1500);
   const cites = relevantCitations(citations ?? [], text);
@@ -73,12 +74,17 @@ export function GroundedReply({
   const showEvidence = verification?.status !== "unverified";
   const sources = showEvidence ? buildSources(verification, cites) : [];
   const marks = citationMarks(sources);
-  const parsedSource = parseReplySource(source);
   const replyModel = parsedSource?.kind === "llm"
     ? parsedSource.timing
       ? `${parsedSource.model} \u00b7 ${parsedSource.timing}`
       : parsedSource.model
     : null;
+  const stages = groundingStages({
+    sources,
+    source,
+    verification,
+    agents: answerPlanning?.consulted_agents ?? [],
+  });
   const boundedCorrection = verification?.status === "corrected" && (
     verification.reason_code === "screen_unsupported_sentences_removed" ||
     verification.reason_code === "concept_scope_claims_removed"
@@ -166,6 +172,29 @@ export function GroundedReply({
         </div>
       ) : null}
 
+      {!streaming && parsedSource?.kind === "llm" ? (
+        <section class="deck-llm-escalation" aria-label={t("deck.grounded.llmEscalation")}>
+          <header class="deck-llm-escalation-head">
+            <span class="deck-llm-escalation-label">{t("deck.grounded.llmEscalation")}</span>
+            <strong class="deck-llm-escalation-model">{parsedSource.model}</strong>
+            {parsedSource.timing ? (
+              <span class="deck-llm-escalation-timing">
+                {t("deck.grounded.processingTime", { timing: parsedSource.timing })}
+              </span>
+            ) : null}
+          </header>
+          <p class="deck-llm-escalation-summary">
+            {t(
+              sources.length > 0
+                ? "deck.grounded.llmGroundedSummary"
+                : "deck.grounded.llmContextSummary",
+              { model: parsedSource.model },
+            )}
+          </p>
+          <GroundingTrace stages={stages} />
+        </section>
+      ) : null}
+
       {!streaming && (verification || text.trim().length > 0 || cites.length > 0) ? (
         <div class="deck-gr-actions">
           {verification ? (
@@ -247,7 +276,7 @@ export function GroundedReply({
                 ))}
                 {replyModel ? <span class="deck-gr-stat is-model">{replyModel}</span> : null}
                 <span class="deck-gr-more">
-                  {open ? t("deck.grounded.hideTrace") : t("deck.grounded.showTrace")}
+                  {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
                 </span>
               </button>
             </Tooltip>
@@ -257,14 +286,6 @@ export function GroundedReply({
 
       {!streaming && open && sources.length > 0 ? (
         <div class="deck-gr-panel">
-          <GroundingTrace
-            stages={groundingStages({
-              sources,
-              source,
-              verification,
-              agents: answerPlanning?.consulted_agents ?? [],
-            })}
-          />
           <SourceDetail sources={sources} />
         </div>
       ) : null}
@@ -303,9 +324,15 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
       {stages.map((stage, i) => (
         <li key={`${stage.label}-${i}`} class="deck-gr-trace-row">
           <span class="deck-gr-trace-mark" aria-hidden="true">{"\u2713"}</span>
-          <span class="deck-gr-trace-label">{stage.label}</span>
-          <span class="deck-gr-trace-detail muted">{stage.detail}</span>
-          <span class={`deck-gr-trace-side is-${stage.side}`}>{stage.side}</span>
+          <span class="deck-gr-trace-copy">
+            <span class="deck-gr-trace-label">
+              {t(`deck.grounded.stage.${stage.action}`, { model: stage.model ?? "" })}
+            </span>
+            <span class="deck-gr-trace-detail">{stage.detail}</span>
+          </span>
+          <span class={`deck-gr-trace-side is-${stage.side}`}>
+            {t(`deck.grounded.side.${stage.side}`)}
+          </span>
         </li>
       ))}
     </ol>

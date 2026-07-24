@@ -1744,8 +1744,28 @@
     "grounded": {
       "showTrace": "show trace",
       "hideTrace": "hide trace",
+      "showSources": "show sources",
+      "hideSources": "hide sources",
       "traceLabel": "Retrieval trace",
-      "sourceAria": "Source"
+      "sourceAria": "Source",
+      "llmEscalation": "LLM escalation",
+      "processingTime": "Processing time {timing}",
+      "llmGroundedSummary": "{model} reasoned over the retrieved evidence and composed this answer.",
+      "llmContextSummary": "{model} reasoned over the conversation context and composed this answer. No separate source was attached to this turn.",
+      "stage": {
+        "retrieve": "Retrieved grounding sources",
+        "infer": "Reasoned with {model}",
+        "deterministic": "Used deterministic answerer",
+        "consult": "Consulted specialist agents",
+        "ground": "Bound answer to evidence",
+        "verify": "Verified answer"
+      },
+      "side": {
+        "read": "retrieve",
+        "route": "inference",
+        "ground": "grounding",
+        "verify": "verification"
+      }
     },
     "retrieval": {
       "readScreen": "Read this screen",

@@ -6,7 +6,7 @@
  *
  * Honest-data only: every field here is derived from data the reply already
  * carries - the evidence manifest (field / value / path / kind), the plain
- * citations, the reply ``source`` descriptor (``llm:<model> - <ms>`` or
+ * citations, the reply ``source`` descriptor (``llm:<model> · <ms> · <tokens>`` or
  * ``deterministic``), the verification check counts, and the shadow
  * answer-planning consulted-agent list. Nothing is fetched or fabricated.
  *
@@ -62,9 +62,11 @@ export interface PillStat {
 /** One reconstructed retrieval-trace stage. `side` mirrors the mock's
  *  side_effect_class tag (read / route / ground / verify). */
 export interface TraceStage {
+  readonly action: "retrieve" | "infer" | "deterministic" | "consult" | "ground" | "verify";
   readonly label: string;
   readonly detail: string;
   readonly side: "read" | "route" | "ground" | "verify";
+  readonly model?: string;
 }
 
 /** Parsed reply source descriptor. */
@@ -73,7 +75,7 @@ export type ReplySource =
   | { readonly kind: "llm"; readonly model: string; readonly timing: string | null }
   | { readonly kind: "other"; readonly raw: string };
 
-/** Parse the reply ``source`` descriptor (``llm:<model> - <ms>`` or
+/** Parse the reply ``source`` descriptor (``llm:<model> · <ms> · <tokens>`` or
  *  ``deterministic``) into its display parts. */
 export function parseReplySource(source: string | undefined): ReplySource | null {
   if (source === undefined) return null;
@@ -82,6 +84,15 @@ export function parseReplySource(source: string | undefined): ReplySource | null
   if (trimmed === "deterministic") return { kind: "deterministic" };
   if (trimmed.startsWith("llm:")) {
     const rest = trimmed.slice(4).trim();
+    const canonicalParts = rest.split(" · ").map((part) => part.trim());
+    if (canonicalParts.length > 1) {
+      const [model, ...metrics] = canonicalParts;
+      return {
+        kind: "llm",
+        model: model ?? "",
+        timing: metrics.filter(Boolean).join(" · ") || null,
+      };
+    }
     const sep = rest.indexOf(" - ");
     if (sep >= 0) {
       const model = rest.slice(0, sep).trim();
@@ -225,7 +236,8 @@ export function groundingStages(input: {
   const stages: TraceStage[] = [];
   if (input.sources.length > 0) {
     stages.push({
-      label: "Read sources",
+      action: "retrieve",
+      label: "Retrieved grounding sources",
       detail: `${input.sources.length} read-only`,
       side: "read",
     });
@@ -233,16 +245,24 @@ export function groundingStages(input: {
   const parsed = parseReplySource(input.source);
   if (parsed?.kind === "llm") {
     stages.push({
-      label: `Routed to ${parsed.model}`,
+      action: "infer",
+      label: `Reasoned with ${parsed.model}`,
       detail: parsed.timing ?? "narrator",
       side: "route",
+      model: parsed.model,
     });
   } else if (parsed?.kind === "deterministic") {
-    stages.push({ label: "Deterministic answer", detail: "no model", side: "route" });
+    stages.push({
+      action: "deterministic",
+      label: "Used deterministic answerer",
+      detail: "no model",
+      side: "route",
+    });
   }
   if (input.agents.length > 0) {
     stages.push({
-      label: "Consulted agents",
+      action: "consult",
+      label: "Consulted specialist agents",
       detail: input.agents.join(", "),
       side: "read",
     });
@@ -252,13 +272,15 @@ export function groundingStages(input: {
     const refs = verification.evidence_refs.length;
     if (refs > 0) {
       stages.push({
-        label: "Grounded on evidence",
+        action: "ground",
+        label: "Bound answer to evidence",
         detail: `${refs} reference${refs === 1 ? "" : "s"}`,
         side: "ground",
       });
     }
     if (verification.checks_total > 0) {
       stages.push({
+        action: "verify",
         label: "Verified answer",
         detail: `${verification.checks_completed}/${verification.checks_total} checks`,
         side: "verify",
