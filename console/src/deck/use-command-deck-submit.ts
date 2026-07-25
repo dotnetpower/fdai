@@ -333,6 +333,7 @@ export function useCommandDeckSubmit({
       try {
         reply = await askBackendStream(text, snapshot, history, {
           sessionId: sessionIdFor(sessionIdsRef.current, originSessionKey),
+          ...(sessionSummary?.agent ? { targetAgent: sessionSummary.agent } : {}),
           ...(attachments.length > 0 ? { attachments } : {}),
           ...(sessionSummary?.binding
             ? { conversationBinding: sessionSummary.binding }
@@ -493,6 +494,7 @@ export function useCommandDeckSubmit({
                   ...(reply.router ? { router: reply.router } : {}),
                   ...(reply.answerPlan ? { answerPlan: reply.answerPlan } : {}),
                   ...(reply.answerPlanning ? { answerPlanning: reply.answerPlanning } : {}),
+                  ...(reply.delegation ? { delegation: reply.delegation } : {}),
                   ...(reply.codeArtifacts ? { codeArtifacts: reply.codeArtifacts } : {}),
                 }
               : turn;

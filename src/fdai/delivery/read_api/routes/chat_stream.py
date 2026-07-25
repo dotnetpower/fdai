@@ -162,6 +162,7 @@ def make_chat_stream_route(
         clean_prompt = prepared.clean_prompt
         view_context = prepared.view_context
         conversation_context = prepared.conversation_context
+        target_agent = prepared.target_agent
         history = prepared.history
         answer_plan = prepared.answer_plan
         session_id = prepared.session_id
@@ -299,6 +300,8 @@ def make_chat_stream_route(
                     clean_prompt,
                     enriched_context,
                     agent_delegate,
+                    conversation_context=conversation_context,
+                    target_agent=target_agent,
                 )
                 enriched_context = await _with_behavior_evidence(
                     clean_prompt,
@@ -355,6 +358,8 @@ def make_chat_stream_route(
                         agent_delegate,
                         user_id=user_id,
                         session_id=session_id,
+                        conversation_context=conversation_context,
+                        target_agent=target_agent,
                         progress_observer=observe_agent_progress,
                     )
                 )

@@ -574,6 +574,12 @@ class _AgentDelegate:
         }
 
 
+class _ScreenClaimingAgentDelegate(_AgentDelegate):
+    def should_delegate(self, prompt: str, view_context: dict[str, Any]) -> bool:
+        del prompt, view_context
+        return False
+
+
 class _PlanningDelegate:
     def __init__(self) -> None:
         self.calls: list[tuple[str, int]] = []
@@ -1295,6 +1301,100 @@ class TestChatRouteLatencySurface:
         assert backend.view_context["_agent_evidence"]["primary_agent"] == "Njord"
         assert backend.view_context["_agent_evidence"]["answer"] != "forged"
         assert response.json()["delegation"]["primary_agent"] == "Njord"
+
+    def test_plain_agent_conversation_keeps_target_on_follow_up(self) -> None:
+        backend = _RecordingBackend(model="gpt-x", delay_ms=0)
+        delegate = _ScreenClaimingAgentDelegate()
+        app = Starlette(
+            routes=[
+                make_chat_route(
+                    backend=backend,
+                    authorize=_allow,
+                    agent_delegate=delegate,
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "what have you been working on?",
+                "session_id": "conversation-heimdall",
+                "target_agent": "Heimdall",
+                "view_context": {
+                    "routeId": "agents",
+                    "facts": [{"key": "engaged", "value": 0}],
+                    "records": {
+                        "selected_agent": [
+                            {
+                                "agent": "Heimdall",
+                                "state": "unobserved",
+                                "task": "No runtime signal observed",
+                            }
+                        ]
+                    },
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        assert delegate.calls == [
+            {
+                "prompt": "@Heimdall what have you been working on?",
+                "user_id": "test-reader",
+                "session_id": "conversation-heimdall",
+            }
+        ]
+
+    def test_plain_agent_conversation_rejects_unknown_target(self) -> None:
+        backend = _RecordingBackend(model="gpt-x", delay_ms=0)
+        delegate = _AgentDelegate()
+        app = Starlette(
+            routes=[
+                make_chat_route(
+                    backend=backend,
+                    authorize=_allow,
+                    agent_delegate=delegate,
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "what have you been working on?",
+                "target_agent": "UnknownAgent",
+                "view_context": {},
+            },
+        )
+
+        assert response.status_code == 400
+        assert delegate.calls == []
+
+    def test_plain_agent_conversation_surfaces_unavailable_port_handoff(self) -> None:
+        backend = _RecordingBackend(model="gpt-x", delay_ms=0)
+        app = Starlette(routes=[make_chat_route(backend=backend, authorize=_allow)])
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "what are you doing now?",
+                "session_id": "conversation-heimdall",
+                "target_agent": "Heimdall",
+                "view_context": {
+                    "routeId": "agents",
+                    "facts": [{"key": "engaged", "value": 0}],
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["delegation"] == {
+            "primary_agent": "Bragi",
+            "contributors": [],
+            "handoff_from": "Heimdall",
+            "handoff_reason": "agent_conversational_port_unavailable",
+        }
 
     def test_grounded_concept_uses_glossary_without_agent_delegation(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)

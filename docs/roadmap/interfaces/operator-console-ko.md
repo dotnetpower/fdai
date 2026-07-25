@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 9a3f5bff8936a6ebeaac87d4695064398116a38b
-translation_revised: 2026-07-24
+translation_source_sha: e87b4a7a72b1e423f7ab3fe145eb9a3af616d574
+translation_revised: 2026-07-25
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -103,11 +103,14 @@ flowchart TD
   변환하며 판단하지 않습니다. Streamed read는 provider task가 idle인 동안 progress 또는 evidence가
   없는 SSE comment heartbeat를 전송합니다. Stream을 닫으면 해당 task를 cancel하고 await합니다.
   Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 handoff를 표시하고,
-  책임 observer는 canonical command/result evidence를 표시하며, Bragi는 최종 human-facing narrator로
-  유지됩니다. Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에
+  책임 observer는 canonical command/result evidence를 표시합니다. Agent conversation target 또는
+  incident binding에서 선택했거나 `Ask <agent>` 또는 `@<agent>`로 지정한 agent는 response owner로
+  유지됩니다. 해당 agent가 판단을
+  보류하고 turn을 다시 handoff한 경우에만 Bragi가 response owner가 됩니다. Vendor adapter는
+  presentation만 변경합니다. Slack은 command 및 output body에
   plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
   post, stream update 및 edit에서 해당 block을 보존합니다.
-  Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 Bragi
+  Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 책임 agent
   answer를 항상 보존합니다. Renderer는 producer-side partial evidence를
   `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
   구분합니다.
@@ -315,6 +318,15 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   knowledge로 채우지 않고 부재를 알립니다.
   `bragi-screen-t0` renderer는 지원하는 fact, record, latest audit, action summary 및 promotion row
   질문을 narrator model 호출 없이 답합니다. JSON과 SSE는 동일한 renderer와 verifier를 사용합니다.
+  Agent를 지정한 turn과 server-owned agent evidence가 있는 turn도 semantic public-web classification을
+  건너뜁니다. 책임 agent가 turn을 Bragi에 명시적으로 다시 handoff하고 남은 question이 독립적으로
+  web-search eligibility를 충족할 때만 public-web routing을 다시 적용합니다.
+  Semantic classification을 실행하면 progress에 선택된 classifier deployment를 route source로
+  표시합니다. 완료된 reply는 generation model, response owner, contributor, 명시적인 agent-to-Bragi
+  handoff, verification result 및 기록된 모든 evidence reference를 유지합니다. Unverified evidence도
+  숨기지 않고 attention state로 확인할 수 있습니다.
+  Cross-process agent conversational port가 없는 deployment는 unavailable reason을 명시적인 handoff로
+  표시하며, Bragi가 생성한 prose를 선택한 agent의 답변으로 표시하지 않습니다.
 - **검색:** 대상 turn은 검색 가능한 Azure Responses model candidate로 route됩니다. Provider는
   multilingual public-search 요청을 bounded English query로 변환합니다. Search provider는 해당 query와
   domain allowlist만 받고 정제된 evidence snapshot을 반환합니다. Bragi는 source URL과 함께 답변하며

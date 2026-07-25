@@ -49,8 +49,22 @@ class PantheonChatDelegate:
             return None
         answer = turn.answer.get("answer")
         primary = turn.answer.get("primary_agent")
-        if not isinstance(answer, str) or not answer or not isinstance(primary, str):
+        if not isinstance(primary, str):
             return None
+        if not isinstance(answer, str) or not answer:
+            abstain_reason = turn.answer.get("abstain_reason")
+            if not isinstance(abstain_reason, str) or not abstain_reason:
+                return None
+            return {
+                "primary_agent": "Bragi",
+                "answer": None,
+                "facts": {},
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": str(turn.answer.get("trace_ref") or "")[:256],
+                "handoff_from": primary,
+                "handoff_reason": abstain_reason[:128],
+            }
         facts = turn.answer.get("facts")
         contributors = turn.answer.get("contributors")
         contributor_answers = turn.answer.get("contributor_answers")

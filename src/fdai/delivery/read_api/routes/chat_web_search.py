@@ -196,19 +196,11 @@ class ChatWebSearchResolver:
         alternative_requested = alternative_search_requested(prompt)
         if search_intent.route == "none":
             if semantic_eligible:
-                await _report_progress(
-                    progress_observer,
-                    phase="web_search_classifying",
-                    label="Escalating search intent to the narrator model",
-                )
+                await self._report_intent_classification(progress_observer)
             search_intent = await self._semantic_search_intent(prompt, view_context)
         elif search_intent.route == "web":
             if semantic_eligible:
-                await _report_progress(
-                    progress_observer,
-                    phase="web_search_classifying",
-                    label="Escalating search intent to the narrator model",
-                )
+                await self._report_intent_classification(progress_observer)
             enriched_intent = await self._semantic_search_intent(prompt, view_context)
             if enriched_intent.route == "web":
                 search_intent = enriched_intent
@@ -332,6 +324,37 @@ class ChatWebSearchResolver:
             "provider_reasons": list(result.reasons),
             "router": self.descriptor()["router"],
         }
+
+    async def _report_intent_classification(
+        self,
+        progress_observer: WebSearchProgressObserver | None,
+    ) -> None:
+        picker = getattr(self._intent_classifier, "current_pick_name", None)
+        classifier_name = picker() if callable(picker) else None
+        named_classifier = (
+            classifier_name if isinstance(classifier_name, str) and classifier_name else None
+        )
+        await _report_progress(
+            progress_observer,
+            phase="web_search_classifying",
+            label=(
+                f"Classifying web-search intent with {named_classifier}"
+                if named_classifier is not None
+                else "Classifying web-search intent"
+            ),
+            sources=(
+                [
+                    {
+                        "kind": "model",
+                        "label": "Search intent classifier",
+                        "detail": named_classifier,
+                        "side_effect_class": "route",
+                    }
+                ]
+                if named_classifier is not None
+                else None
+            ),
+        )
 
     async def _semantic_search_intent(
         self,

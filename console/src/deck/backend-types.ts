@@ -80,6 +80,8 @@ export interface DelegationMetadata {
   readonly primary_agent: string;
   readonly contributors: readonly string[];
   readonly trace_ref?: string;
+  readonly handoff_from?: string;
+  readonly handoff_reason?: string;
 }
 
 export interface AnswerPlanMetadata {
@@ -219,6 +221,7 @@ export interface StreamCallbacks {
   ) => void;
   readonly signal?: AbortSignal;
   readonly sessionId?: string;
+  readonly targetAgent?: string;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
   /** Inline image attachments to escalate this turn to a vision narrator. */
   readonly attachments?: readonly import("./composer-attachment-store").ChatAttachment[];

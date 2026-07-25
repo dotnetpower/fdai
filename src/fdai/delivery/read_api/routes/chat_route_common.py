@@ -57,6 +57,15 @@ def _conversation_context(body: Mapping[str, Any]) -> dict[str, str] | None:
     return context
 
 
+def _target_agent(body: Mapping[str, Any]) -> str | None:
+    raw = body.get("target_agent")
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or raw not in PANTHEON_NAMES:
+        raise HTTPException(status_code=400, detail="target_agent MUST name a Pantheon agent")
+    return raw
+
+
 def _turn_metadata(
     *,
     model: str,

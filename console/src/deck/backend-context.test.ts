@@ -17,6 +17,7 @@ async function callAskAndCaptureBody(
   snap: ViewSnapshot | null,
   sessionId?: string,
   binding?: import("./open-deck").IncidentConversationBinding,
+  targetAgent?: string,
 ) {
   const capture: { body?: string } = {};
   const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
@@ -27,7 +28,7 @@ async function callAskAndCaptureBody(
     );
   });
   vi.stubGlobal("fetch", fetchMock);
-  await askBackend("hi", snap, [], sessionId, binding);
+  await askBackend("hi", snap, [], sessionId, binding, targetAgent);
   return capture.body
     ? (JSON.parse(capture.body) as {
         view_context?: Record<string, unknown>;
@@ -113,6 +114,17 @@ describe("viewContextWithUser wiring", () => {
       correlation_id: "corr-selected",
       selected_agent: "Var",
     });
+  });
+
+  test("sends the persistent target for a plain agent conversation", async () => {
+    const parsed = await callAskAndCaptureBody(
+      liveSnap(),
+      "session-heimdall",
+      undefined,
+      "Heimdall",
+    );
+
+    expect((parsed as Record<string, unknown>).target_agent).toBe("Heimdall");
   });
 });
 

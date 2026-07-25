@@ -68,12 +68,14 @@ export interface PillStat {
 /** One reconstructed retrieval-trace stage. `side` mirrors the mock's
  *  side_effect_class tag (read / route / ground / verify). */
 export interface TraceStage {
-  readonly action: "retrieve" | "infer" | "deterministic" | "consult" | "ground" | "verify";
+  readonly action: "retrieve" | "infer" | "deterministic" | "consult" | "handoff" | "ground" | "verify";
   readonly label: string;
   readonly detail: string;
   readonly side: "read" | "route" | "ground" | "verify";
   readonly status: "complete" | "attention";
   readonly model?: string;
+  readonly from?: string;
+  readonly to?: string;
 }
 
 /** Parsed reply source descriptor. */
@@ -281,6 +283,11 @@ export function groundingStages(input: {
   readonly source: string | undefined;
   readonly verification: AnswerVerification | undefined;
   readonly agents: readonly string[];
+  readonly handoff?: {
+    readonly from: string;
+    readonly to: string;
+    readonly reason?: string;
+  };
 }): TraceStage[] {
   const stages: TraceStage[] = [];
   if (input.sources.length > 0) {
@@ -318,6 +325,17 @@ export function groundingStages(input: {
       detail: input.agents.join(", "),
       side: "read",
       status: "complete",
+    });
+  }
+  if (input.handoff) {
+    stages.push({
+      action: "handoff",
+      label: `Agent handoff: ${input.handoff.from} to ${input.handoff.to}`,
+      detail: input.handoff.reason ?? "specialist abstained",
+      side: "route",
+      status: "complete",
+      from: input.handoff.from,
+      to: input.handoff.to,
     });
   }
   const verification = input.verification;

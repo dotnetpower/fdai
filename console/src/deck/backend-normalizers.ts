@@ -178,6 +178,12 @@ export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
     ...(typeof record.trace_ref === "string" && record.trace_ref.length > 0
       ? { trace_ref: record.trace_ref }
       : {}),
+    ...(typeof record.handoff_from === "string" && record.handoff_from.length > 0
+      ? { handoff_from: record.handoff_from.slice(0, 64) }
+      : {}),
+    ...(typeof record.handoff_reason === "string" && record.handoff_reason.length > 0
+      ? { handoff_reason: record.handoff_reason.slice(0, 128) }
+      : {}),
   };
 }
 

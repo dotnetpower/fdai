@@ -160,6 +160,7 @@ export async function askBackendStream(
           requestId,
           callbacks.conversationBinding,
           callbacks.attachments,
+          callbacks.targetAgent,
         ),
       ),
       signal: callbacks.signal ?? null,

@@ -22,6 +22,7 @@ import type {
   AnswerPlanMetadata,
   AnswerPlanningMetadata,
   AnswerVerification,
+  DelegationMetadata,
   GroundedCodeArtifact,
   VerificationProgress,
 } from "./backend";
@@ -47,6 +48,7 @@ export function GroundedReply({
   verificationProgress,
   answerPlan,
   answerPlanning,
+  delegation,
   codeArtifacts,
   onRegenerate,
 }: {
@@ -60,6 +62,7 @@ export function GroundedReply({
   readonly verificationProgress: VerificationProgress | undefined;
   readonly answerPlan: AnswerPlanMetadata | undefined;
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
+  readonly delegation: DelegationMetadata | undefined;
   readonly codeArtifacts: readonly GroundedCodeArtifact[] | undefined;
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
@@ -71,8 +74,7 @@ export function GroundedReply({
   const cites = relevantCitations(citations ?? [], text);
   const evidenceReferences = cites.every((citation) =>
     citation.label.startsWith("evidence."));
-  const showEvidence = verification?.status !== "unverified";
-  const sources = showEvidence ? buildSources(verification, cites) : [];
+  const sources = buildSources(verification, cites);
   const marks = citationMarks(sources);
   const replyModel = parsedSource?.kind === "llm"
     ? parsedSource.timing
@@ -83,7 +85,21 @@ export function GroundedReply({
     sources,
     source,
     verification,
-    agents: answerPlanning?.consulted_agents ?? [],
+    agents: [
+      ...(delegation
+        ? [delegation.handoff_from ?? delegation.primary_agent, ...delegation.contributors]
+        : []),
+      ...(answerPlanning?.consulted_agents ?? []),
+    ].filter((agent, index, agents) => agents.indexOf(agent) === index),
+    ...(delegation?.handoff_from
+      ? {
+          handoff: {
+            from: delegation.handoff_from,
+            to: delegation.primary_agent,
+            ...(delegation.handoff_reason ? { reason: delegation.handoff_reason } : {}),
+          },
+        }
+      : {}),
   });
   const boundedCorrection = verification?.status === "corrected" && (
     verification.reason_code === "screen_unsupported_sentences_removed" ||
@@ -113,7 +129,7 @@ export function GroundedReply({
       {answerPlan ? (
         <Tooltip content={t(`deck.answerPlan.format.${answerPlan.format}`)}>
           <div class="deck-answer-plan">
-            <span>Bragi</span>
+            <span>{delegation?.primary_agent ?? "Bragi"}</span>
             <span aria-hidden="true">·</span>
             <span>{t(`deck.answerPlan.intent.${answerPlan.intent}`)}</span>
             <span aria-hidden="true">·</span>
@@ -355,7 +371,11 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
           </span>
           <span class="deck-gr-trace-copy">
             <span class="deck-gr-trace-label">
-              {t(`deck.grounded.stage.${stage.action}`, { model: stage.model ?? "" })}
+              {t(`deck.grounded.stage.${stage.action}`, {
+                model: stage.model ?? "",
+                from: stage.from ?? "",
+                to: stage.to ?? "",
+              })}
             </span>
             <span class="deck-gr-trace-detail">{stage.detail}</span>
           </span>

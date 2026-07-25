@@ -19,10 +19,11 @@ import {
   type AnswerPlanMetadata,
   type AnswerPlanningMetadata,
   type AnswerVerification,
+  type DelegationMetadata,
   type GroundedCodeArtifact,
   type InvestigationActivity,
 } from "./backend";
-import { parseAnswerVerification } from "./backend-normalizers";
+import { parseAnswerVerification, parseDelegation } from "./backend-normalizers";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 
@@ -56,6 +57,7 @@ export interface PersistedTurn {
   readonly verification?: AnswerVerification;
   readonly answerPlan?: AnswerPlanMetadata;
   readonly answerPlanning?: AnswerPlanningMetadata;
+  readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
 }
 
@@ -95,6 +97,7 @@ export function serializeTurns(
         ...(verification ? { verification } : {}),
         ...(t.answerPlan ? { answerPlan: t.answerPlan } : {}),
         ...(t.answerPlanning ? { answerPlanning: t.answerPlanning } : {}),
+        ...(t.delegation ? { delegation: t.delegation } : {}),
         ...(t.codeArtifacts && t.codeArtifacts.length > 0
           ? { codeArtifacts: t.codeArtifacts }
           : {}),
@@ -123,6 +126,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     if (typeof rec.at !== "string") continue;
     const answerPlan = parseAnswerPlan(rec.answerPlan);
     const answerPlanning = parseAnswerPlanning(rec.answerPlanning);
+    const delegation = parseDelegation(rec.delegation);
     const codeArtifacts = parseGroundedCodeArtifacts(rec.codeArtifacts);
     const verification = parseAnswerVerification(rec.verification);
     const turn: PersistedTurn = {
@@ -143,6 +147,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(verification ? { verification } : {}),
       ...(answerPlan ? { answerPlan } : {}),
       ...(answerPlanning ? { answerPlanning } : {}),
+      ...(delegation ? { delegation } : {}),
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     };
     out.push(turn);

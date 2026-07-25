@@ -1768,6 +1768,7 @@
         "infer": "Reasoned with {model}",
         "deterministic": "Used deterministic answerer",
         "consult": "Consulted specialist agents",
+        "handoff": "Agent handoff: {from} to {to}",
         "ground": "Bound answer to evidence",
         "verify": "Checked answer"
       },

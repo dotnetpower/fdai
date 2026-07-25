@@ -159,6 +159,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     _metering_correlation_id,
     _request_id,
     _session_id,
+    _target_agent,
     _turn_metadata,
     _uses_evidence_fast_path,
     _with_compiled_user_policy,
@@ -314,6 +315,7 @@ def make_chat_route(
         if vision_attachments:
             view_context["_attachments"] = [a.to_view_dict() for a in vision_attachments]
         conversation_context = _conversation_context(body)
+        target_agent = _target_agent(body)
         history_raw = body.get("history", [])
         if not isinstance(history_raw, list):
             raise HTTPException(status_code=400, detail="history MUST be a list")
@@ -394,7 +396,13 @@ def make_chat_route(
                 store=conversation_policy_store,
             )
             view_context = with_document_evidence(view_context, document_evidence_refs)
-            view_context = _with_screen_scope(clean_prompt, view_context, agent_delegate)
+            view_context = _with_screen_scope(
+                clean_prompt,
+                view_context,
+                agent_delegate,
+                conversation_context=conversation_context,
+                target_agent=target_agent,
+            )
             view_context = await _with_behavior_evidence(
                 clean_prompt,
                 view_context,
@@ -418,6 +426,8 @@ def make_chat_route(
                 agent_delegate,
                 user_id=user_id,
                 session_id=session_id,
+                conversation_context=conversation_context,
+                target_agent=target_agent,
             )
             view_context = _with_concept_evidence(clean_prompt, view_context)
             view_context = await _with_web_evidence(

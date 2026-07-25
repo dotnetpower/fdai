@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from fdai.agents import PantheonRuntime
 from fdai.delivery.read_api.routes.chat_agent_delegate import PantheonChatDelegate
+from fdai.delivery.read_api.routes.chat_evidence_enrichment import _with_agent_evidence
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 
@@ -98,6 +100,40 @@ def test_delegate_does_not_materialize_principal_scoped_chat_as_global_activity(
     assert call["materialize_handoff"] is False
 
 
+def test_specialist_abstention_becomes_an_explicit_handoff_to_bragi() -> None:
+    delegate = _delegate()
+    ask = AsyncMock(
+        return_value=SimpleNamespace(
+            answer={
+                "answer": None,
+                "primary_agent": "Heimdall",
+                "abstain_reason": "insufficient_agent_evidence",
+                "trace_ref": "trace-handoff",
+            }
+        )
+    )
+
+    with patch.object(delegate.runtime, "ask", ask):
+        result = asyncio.run(
+            delegate.delegate(
+                prompt="@Heimdall explain the missing observation",
+                user_id="operator-1",
+                session_id="conversation-1",
+            )
+        )
+
+    assert result == {
+        "primary_agent": "Bragi",
+        "answer": None,
+        "facts": {},
+        "contributors": [],
+        "contributor_answers": [],
+        "trace_ref": "trace-handoff",
+        "handoff_from": "Heimdall",
+        "handoff_reason": "insufficient_agent_evidence",
+    }
+
+
 def test_screen_data_questions_stay_with_bragi_t0() -> None:
     delegate = _delegate()
     context = {
@@ -153,3 +189,53 @@ def test_shadow_contributor_refuses_action_and_synchronous_norns() -> None:
 
     assert action is None
     assert learner is None
+
+
+async def test_selected_agent_binding_persists_until_operator_explicitly_overrides_it() -> None:
+    prompts: list[str] = []
+
+    class _CapturingDelegate:
+        async def delegate(
+            self,
+            *,
+            prompt: str,
+            user_id: str,
+            session_id: str,
+        ) -> dict[str, object]:
+            del user_id, session_id
+            prompts.append(prompt)
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "No active work.",
+                "facts": {},
+            }
+
+    delegate = _CapturingDelegate()
+    context = {
+        "kind": "incident",
+        "incident_id": "INC-example",
+        "correlation_id": "corr-example",
+        "selected_agent": "Heimdall",
+    }
+
+    await _with_agent_evidence(
+        "What have you been working on?",
+        {},
+        delegate,
+        user_id="operator-1",
+        session_id="conversation-1",
+        conversation_context=context,
+    )
+    await _with_agent_evidence(
+        "@Forseti verify this decision",
+        {},
+        delegate,
+        user_id="operator-1",
+        session_id="conversation-1",
+        conversation_context=context,
+    )
+
+    assert prompts == [
+        "@Heimdall What have you been working on?",
+        "@Forseti verify this decision",
+    ]

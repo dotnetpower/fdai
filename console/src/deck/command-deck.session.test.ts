@@ -67,7 +67,7 @@ describe("Deck transcript search", () => {
 });
 
 describe("terminal reply attribution", () => {
-  test("keeps Bragi as the human-facing narrator after delegation", () => {
+  test("keeps the delegated specialist as the reply owner", () => {
     const delegation = { primary_agent: "Saga", contributors: [] };
     const verification = {
       authority: "client_snapshot",
@@ -78,10 +78,12 @@ describe("terminal reply attribution", () => {
     } as const;
 
     expect(replyAgent({ delegation, verification: { ...verification, status: "unverified" } }))
-      .toBe("Bragi");
+      .toBe("Saga");
     expect(replyAgent({ delegation, verification: { ...verification, status: "corrected" } }))
-      .toBe("Bragi");
+      .toBe("Saga");
     expect(replyAgent({ delegation, verification: { ...verification, status: "consistent" } }))
+      .toBe("Saga");
+    expect(replyAgent({ verification: { ...verification, status: "consistent" } }))
       .toBe("Bragi");
   });
 });

@@ -34,12 +34,14 @@ export function createBackendRequestPayload(
   requestId?: string,
   binding?: IncidentConversationBinding,
   attachments?: readonly ChatAttachment[],
+  targetAgent?: string,
 ): Record<string, unknown> {
   const normalizedBinding = normalizeIncidentBinding(binding);
   return {
     ...(requestId === undefined ? {} : { request_id: requestId }),
     prompt,
     session_id: sessionId,
+    ...(targetAgent ? { target_agent: targetAgent } : {}),
     ...(attachments && attachments.length > 0
       ? {
           attachments: attachments.map((attachment) => ({

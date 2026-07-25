@@ -262,6 +262,30 @@ describe("groundingStages", () => {
     expect(stages.some((stage) => stage.action === "infer")).toBe(false);
   });
 
+  it("shows a specialist handoff to Bragi", () => {
+    const stages = groundingStages({
+      sources: [],
+      source: "llm:narrator-mini",
+      verification: undefined,
+      agents: ["Heimdall"],
+      handoff: {
+        from: "Heimdall",
+        to: "Bragi",
+        reason: "insufficient_agent_evidence",
+      },
+    });
+
+    expect(stages.find((stage) => stage.action === "handoff")).toEqual({
+      action: "handoff",
+      label: "Agent handoff: Heimdall to Bragi",
+      detail: "insufficient_agent_evidence",
+      side: "route",
+      status: "complete",
+      from: "Heimdall",
+      to: "Bragi",
+    });
+  });
+
   it("marks an unverified answer check as requiring attention", () => {
     const verification = {
       ...manifestVerification([]),

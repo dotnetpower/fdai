@@ -73,6 +73,7 @@ export async function askBackend(
   history: readonly BackendTurn[],
   sessionId?: string,
   binding?: IncidentConversationBinding,
+  targetAgent?: string,
 ): Promise<ProgressiveAnswer> {
   let response: Response;
   try {
@@ -80,7 +81,16 @@ export async function askBackend(
       method: "POST",
       headers: await requestHeaders(true),
       body: JSON.stringify(
-        createBackendRequestPayload(prompt, snapshot, history, sessionId, undefined, binding),
+        createBackendRequestPayload(
+          prompt,
+          snapshot,
+          history,
+          sessionId,
+          undefined,
+          binding,
+          undefined,
+          targetAgent,
+        ),
       ),
       credentials: "omit",
     });

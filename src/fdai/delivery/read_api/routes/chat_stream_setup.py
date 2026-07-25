@@ -23,6 +23,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     _conversation_context,
     _request_id,
     _session_id,
+    _target_agent,
 )
 from fdai.delivery.read_api.routes.chat_stream_request import read_chat_stream_body
 from fdai.delivery.read_api.routes.chat_vision_evidence import parse_vision_attachments
@@ -38,6 +39,7 @@ class PreparedChatStreamRequest:
     clean_prompt: str
     view_context: dict[str, Any]
     conversation_context: dict[str, str] | None
+    target_agent: str | None
     history: list[dict[str, str]]
     answer_plan: AnswerPlan
     session_id: str
@@ -124,6 +126,7 @@ async def prepare_chat_stream_request(
         clean_prompt=clean_prompt,
         view_context=view_context,
         conversation_context=_conversation_context(body),
+        target_agent=_target_agent(body),
         history=history,
         answer_plan=answer_plan,
         session_id=_session_id(body),

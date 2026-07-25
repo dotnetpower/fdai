@@ -5,6 +5,7 @@ import {
   type AnswerPlanMetadata,
   type AnswerPlanningMetadata,
   type BackendHealth,
+  type DelegationMetadata,
   type GroundedCodeArtifact,
   type InvestigationActivity,
   type RouterSnapshot,
@@ -38,6 +39,7 @@ export interface Turn {
   readonly verificationProgress?: VerificationProgress;
   readonly answerPlan?: AnswerPlanMetadata;
   readonly answerPlanning?: AnswerPlanningMetadata;
+  readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly agent?: string;
   readonly at: string;
@@ -269,6 +271,7 @@ export function TurnBubble({
           verificationProgress={turn.verificationProgress}
           answerPlan={turn.answerPlan}
           answerPlanning={turn.answerPlanning}
+          delegation={turn.delegation}
           codeArtifacts={turn.codeArtifacts}
           {...(onRegenerate ? { onRegenerate } : {})}
         />

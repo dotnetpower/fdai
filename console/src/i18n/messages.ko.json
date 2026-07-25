@@ -1768,6 +1768,7 @@
         "infer": "{model}으로 추론 및 답변 구성",
         "deterministic": "결정론적 응답기 사용",
         "consult": "전문 에이전트 의견 조회",
+        "handoff": "에이전트 핸드오프: {from} -> {to}",
         "ground": "답변과 근거 연결",
         "verify": "답변 검사 수행"
       },

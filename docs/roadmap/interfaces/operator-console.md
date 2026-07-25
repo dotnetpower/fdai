@@ -105,12 +105,15 @@ flowchart TD
   `ConversationTurn`; no judgment lives here. A streamed read sends SSE comment heartbeats while the
   provider task is idle, without progress or evidence. Stream close cancels and awaits that task.
   Web, Slack, and Teams render the same ordered agent-activity contract: Bragi shows the handoff,
-  the accountable observer shows canonical command/result evidence, and Bragi remains the final
-  human-facing narrator. Vendor adapters change presentation only. Slack uses plain-text activity
+  and the accountable observer shows canonical command/result evidence. An agent selected by an
+  agent conversation target or incident binding, or addressed with `Ask <agent>` or `@<agent>`,
+  remains the response owner.
+  Bragi becomes the response owner only after that agent abstains and hands the turn back. Vendor
+  adapters change presentation only. Slack uses plain-text activity
   blocks for command and output bodies so markup characters cannot change the observed command,
   and preserves those blocks across posts, stream updates, and edits.
   Teams keeps the Adaptive Card under 24,000 bytes, counts omitted activities, and always retains
-  the final Bragi answer. Renderers distinguish producer-side partial evidence with
+  the final accountable-agent answer. Renderers distinguish producer-side partial evidence with
   `[UPSTREAM OUTPUT TRUNCATED]` from vendor-limit clipping with `[CHANNEL OUTPUT TRUNCATED]`.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
@@ -323,6 +326,15 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   general model knowledge. The `bragi-screen-t0` renderer answers supported fact, record, latest
   audit, action-summary, and promotion-row questions without a narrator-model call. JSON and SSE
   use the same renderer and verifier.
+  An agent-addressed turn and a turn with server-owned agent evidence also skip semantic public-web
+  classification. Public-web routing resumes only after the accountable agent explicitly hands the
+  turn back to Bragi and the remaining question independently meets web-search eligibility.
+  When semantic classification does run, progress identifies the selected classifier deployment as
+  a route source. Completed replies preserve the generation model, response owner, contributors,
+  explicit agent-to-Bragi handoff, verification result, and every recorded evidence reference.
+  Unverified evidence remains inspectable with an attention state instead of being hidden.
+  A deployment without a cross-process agent conversational port reports that unavailable reason
+  as an explicit handoff; it doesn't attribute Bragi-generated prose to the selected agent.
 - **Retrieval:** An eligible turn routes to a search-capable Azure Responses model candidate. The
   classifier converts multilingual public-search requests into a bounded English query; the search
   provider receives only that query and the domain allowlist, then returns a sanitized evidence

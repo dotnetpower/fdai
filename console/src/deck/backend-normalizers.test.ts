@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAnswerVerification, tokenSuffix } from "./backend-normalizers";
+import { parseAnswerVerification, parseDelegation, tokenSuffix } from "./backend-normalizers";
 
 function claim(overrides: Record<string, unknown> = {}) {
   return {
@@ -68,6 +68,24 @@ describe("tokenSuffix", () => {
     { prompt_tokens: -1, completion_tokens: 10 },
   ])("hides invalid negative token telemetry: %o", (usage) => {
     expect(tokenSuffix(usage)).toBe("");
+  });
+});
+
+describe("parseDelegation", () => {
+  it("keeps a bounded specialist-to-Bragi handoff", () => {
+    expect(parseDelegation({
+      primary_agent: "Bragi",
+      contributors: [],
+      trace_ref: "trace-handoff",
+      handoff_from: "Heimdall",
+      handoff_reason: "insufficient_agent_evidence",
+    })).toEqual({
+      primary_agent: "Bragi",
+      contributors: [],
+      trace_ref: "trace-handoff",
+      handoff_from: "Heimdall",
+      handoff_reason: "insufficient_agent_evidence",
+    });
   });
 });
 

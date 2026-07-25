@@ -124,11 +124,19 @@ def _with_screen_scope(
     prompt: str,
     view_context: dict[str, Any],
     delegate: AgentChatDelegate | None,
+    *,
+    conversation_context: Mapping[str, str] | None = None,
+    target_agent: str | None = None,
 ) -> dict[str, Any]:
     """Apply Bragi's screen-versus-agent authority decision before retrieval."""
 
     enriched = dict(view_context)
     enriched.pop("_screen_scope", None)
+    selected_agent = target_agent or (
+        conversation_context.get("selected_agent") if conversation_context is not None else None
+    )
+    if selected_agent in PANTHEON_NAMES or _explicit_agent_requested(prompt):
+        return enriched
     if delegate is None:
         return enriched
     should_delegate = getattr(delegate, "should_delegate", None)
@@ -211,6 +219,8 @@ async def _with_agent_evidence(
     *,
     user_id: str,
     session_id: str,
+    conversation_context: Mapping[str, str] | None = None,
+    target_agent: str | None = None,
     progress_observer: AgentProgressObserver | None = None,
 ) -> dict[str, Any]:
     """Replace client-supplied delegation data with a server-owned result."""
@@ -220,46 +230,101 @@ async def _with_agent_evidence(
     if "_screen_scope" in enriched:
         return enriched
     current_screen_tool = enriched.pop("_current_screen_tool", None)
+    selected_agent = _selected_agent(prompt, conversation_context, target_agent)
+    agent_owned = selected_agent is not None
     explicit_agent = _explicit_agent_requested(prompt)
     read_investigation = (
         classify_read_investigation_intent(prompt) is not None
         and resource_name_from_question(prompt) is not None
     )
     if (
-        delegate is None
-        or "_behavior_evidence" in enriched
-        or "_operational_evidence" in enriched
-        or ("_tool_evidence" in enriched and not read_investigation)
-        or current_screen_tool is not None
+        ("_behavior_evidence" in enriched and not agent_owned)
+        or ("_operational_evidence" in enriched and not agent_owned)
+        or ("_tool_evidence" in enriched and not read_investigation and not agent_owned)
+        or (current_screen_tool is not None and not agent_owned)
         or _uses_view_explanations(prompt, enriched)
         or (_is_concept_query(prompt) and _CONCEPT_DOMAIN.search(prompt) and not explicit_agent)
     ):
         return enriched
+    if delegate is None:
+        if selected_agent is not None:
+            enriched["_agent_evidence"] = _agent_handoff(
+                selected_agent,
+                reason="agent_conversational_port_unavailable",
+            )
+        return enriched
+    routed_prompt = _selected_agent_prompt(prompt, conversation_context, target_agent)
     progressive = getattr(delegate, "delegate_with_progress", None)
     evidence = (
         await progressive(
-            prompt=prompt,
+            prompt=routed_prompt,
             user_id=user_id,
             session_id=session_id,
             progress_observer=progress_observer,
         )
         if progress_observer is not None and callable(progressive)
         else await delegate.delegate(
-            prompt=prompt,
+            prompt=routed_prompt,
             user_id=user_id,
             session_id=session_id,
         )
     )
     if evidence is not None:
-        if read_investigation:
+        if read_investigation or agent_owned:
             enriched.pop("_tool_evidence", None)
+        if agent_owned:
+            enriched.pop("_behavior_evidence", None)
+            enriched.pop("_operational_evidence", None)
         enriched["_agent_evidence"] = dict(evidence)
+    elif selected_agent is not None:
+        enriched["_agent_evidence"] = _agent_handoff(
+            selected_agent,
+            reason="agent_abstained_without_evidence",
+        )
     return enriched
 
 
 def _explicit_agent_requested(prompt: str) -> bool:
     names = {name.lower() for name in PANTHEON_NAMES}
     return any(token.lower() in names for token in _AGENT_NAME_TOKEN.findall(prompt))
+
+
+def _selected_agent_prompt(
+    prompt: str,
+    conversation_context: Mapping[str, str] | None,
+    target_agent: str | None,
+) -> str:
+    selected_agent = _selected_agent(prompt, conversation_context, target_agent)
+    if selected_agent is None or _explicit_agent_requested(prompt):
+        return prompt
+    return f"@{selected_agent} {prompt}"
+
+
+def _selected_agent(
+    prompt: str,
+    conversation_context: Mapping[str, str] | None,
+    target_agent: str | None,
+) -> str | None:
+    canonical = {name.casefold(): name for name in PANTHEON_NAMES}
+    for token in _AGENT_NAME_TOKEN.findall(prompt):
+        explicit = canonical.get(token.casefold())
+        if explicit is not None:
+            return explicit
+    selected_agent = target_agent or (
+        conversation_context.get("selected_agent") if conversation_context is not None else None
+    )
+    return selected_agent if selected_agent in PANTHEON_NAMES else None
+
+
+def _agent_handoff(agent: str, *, reason: str) -> dict[str, Any]:
+    return {
+        "primary_agent": "Bragi",
+        "answer": None,
+        "facts": {},
+        "contributors": [],
+        "handoff_from": agent,
+        "handoff_reason": reason,
+    }
 
 
 async def _with_tool_evidence(
@@ -333,7 +398,13 @@ async def _with_web_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_web_evidence", None)
-    if resolver is None or "_behavior_evidence" in enriched or "_screen_scope" in enriched:
+    if (
+        resolver is None
+        or "_behavior_evidence" in enriched
+        or "_screen_scope" in enriched
+        or "_agent_evidence" in enriched
+        or _explicit_agent_requested(prompt)
+    ):
         return enriched
     progressive = getattr(resolver, "resolve_with_progress", None)
     evidence = (
@@ -387,6 +458,12 @@ def _delegation_summary(view_context: Mapping[str, Any]) -> dict[str, Any] | Non
     trace_ref = raw.get("trace_ref")
     if isinstance(trace_ref, str) and trace_ref:
         summary["trace_ref"] = trace_ref[:256]
+    handoff_from = raw.get("handoff_from")
+    handoff_reason = raw.get("handoff_reason")
+    if isinstance(handoff_from, str) and handoff_from in PANTHEON_NAMES:
+        summary["handoff_from"] = handoff_from
+    if isinstance(handoff_reason, str) and handoff_reason:
+        summary["handoff_reason"] = handoff_reason[:128]
     return summary
 
 

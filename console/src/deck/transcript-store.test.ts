@@ -61,6 +61,11 @@ describe("serializeTurns", () => {
           },
           reason: null,
         },
+        delegation: {
+          primary_agent: "Heimdall",
+          contributors: ["Forseti"],
+          trace_ref: "trace-agent-grounding",
+        },
         verification: {
           status: "corrected" as const,
           authority: "server_read_model",
@@ -120,6 +125,11 @@ describe("serializeTurns", () => {
     expect(parsed[1]!.terminal).toBe(true);
     expect(parsed[1]!.revision).toBe(1);
     expect(parsed[1]!.answerPlanning?.consulted_agents).toEqual(["Freyr", "Njord"]);
+    expect(parsed[1]!.delegation).toEqual({
+      primary_agent: "Heimdall",
+      contributors: ["Forseti"],
+      trace_ref: "trace-agent-grounding",
+    });
     expect(parsed[1]!.verification?.status).toBe("corrected");
     expect(parsed[1]!.verification?.claims?.[0]?.claim_id).toBe("c001");
     expect(parsed[1]!.verification?.evidence_manifest?.manifest_id).toBe("sha256:abc");

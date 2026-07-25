@@ -11,6 +11,7 @@ from starlette.testclient import TestClient
 
 from fdai.core.web_search import WebSearchQuery, WebSearchResult, WebSnippet
 from fdai.delivery.read_api.routes.chat import make_chat_stream_route
+from fdai.delivery.read_api.routes.chat_evidence_enrichment import _with_web_evidence
 from fdai.delivery.read_api.routes.chat_web_search import ChatWebSearchConfig, ChatWebSearchResolver
 
 
@@ -32,6 +33,9 @@ class _Provider:
 
 
 class _IntentClassifier:
+    def current_pick_name(self) -> str:
+        return "search-intent-test"
+
     async def classify_intent(self, prompt: str, *, budget_ms: int) -> dict[str, object]:
         del prompt, budget_ms
         return {
@@ -43,6 +47,12 @@ class _IntentClassifier:
             "subject": "",
             "capabilities": [],
         }
+
+
+class _FailIfCalledWebResolver:
+    async def resolve(self, prompt: str, view_context: dict[str, Any]) -> dict[str, Any]:
+        del prompt, view_context
+        raise AssertionError("agent-owned turns must not invoke web-search intent routing")
 
 
 class _Backend:
@@ -88,7 +98,15 @@ async def test_reports_model_routing_search_and_grounding_progress() -> None:
         "web_search_searching",
         "web_search_grounded",
     ]
-    assert "narrator model" in str(progress[0]["label"])
+    assert progress[0]["label"] == "Classifying web-search intent with search-intent-test"
+    assert progress[0]["sources"] == [
+        {
+            "kind": "model",
+            "label": "Search intent classifier",
+            "detail": "search-intent-test",
+            "side_effect_class": "route",
+        }
+    ]
     assert progress[-1]["completed"] == 1
     assert progress[-1]["total"] == 1
     assert progress[-1]["sources"] == [
@@ -128,3 +146,21 @@ def test_stream_surfaces_web_search_progress_before_answer() -> None:
     grounded = body.index('"phase": "web_search_grounded"')
     provisional = body.index("event: provisional")
     assert classifying < searching < grounded < provisional
+
+
+async def test_agent_owned_turn_does_not_escalate_to_web_search() -> None:
+    context = {
+        "_answer_plan": {"intent": "open_question"},
+        "_agent_evidence": {
+            "primary_agent": "Heimdall",
+            "answer": "Heimdall is idle.",
+        },
+    }
+
+    enriched = await _with_web_evidence(
+        "What has Heimdall been working on?",
+        context,
+        _FailIfCalledWebResolver(),
+    )
+
+    assert enriched == context
