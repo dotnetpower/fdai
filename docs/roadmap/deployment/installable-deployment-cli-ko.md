@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 6d80cbf89635fdfceb53f3fd7735446ffd815c59
+translation_source_sha: a82a1cab9811ff5e4ba46c5796a9943b1c2f8ce6
 translation_revised: 2026-07-25
 ---
 # 설치형 배포 CLI
@@ -522,6 +522,11 @@ existing claim과 receipt 부재를 검증하고 Terraform apply를 건너뛰며
 check를 다시 수행한 뒤 receipt를 기록합니다. Context 변경, missing claim, existing receipt는
 resume을 차단합니다. Targeted plan이 console hostname output을 비워 두면 Entra sync는 Terraform
 state의 exact Static Web App id를 사용해 Azure management plane에서 hostname을 읽습니다.
+
+Post-apply migration은 같은 workflow document가 서로 다른 action-catalog digest를 pin할 때 immutable
+built-in workflow definition이 coexist하도록 허용합니다. Unique database identity는 workflow name,
+workflow version, definition hash, action-catalog digest를 포함합니다. 이전 definition을 덮어쓰지
+않으면서 catalog release 간 startup idempotency를 유지합니다.
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \

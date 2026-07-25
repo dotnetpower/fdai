@@ -211,6 +211,11 @@ output "read_api_fqdn" {
   value       = length(module.read_api) > 0 ? module.read_api[0].fqdn : ""
 }
 
+output "read_api_name" {
+  description = "Console read-API Container App resource name."
+  value       = length(module.read_api) > 0 ? module.read_api[0].name : ""
+}
+
 output "read_api_migrate_job_name" {
   description = "Schema-migration Container Apps Job name (empty string when enable_read_api = false). Start it after apply to run `alembic upgrade head`."
   value       = length(module.read_api) > 0 ? module.read_api[0].migrate_job_name : ""
@@ -239,6 +244,11 @@ output "document_storage_dfs_endpoint" {
 output "ingestion_gateway_fqdn" {
   description = "Production ingestion gateway FQDN for VITE_INGESTION_API_BASE_URL."
   value       = length(module.ingestion_gateway) > 0 ? module.ingestion_gateway[0].fqdn : ""
+}
+
+output "ingestion_gateway_name" {
+  description = "Production ingestion gateway Container App resource name."
+  value       = length(module.ingestion_gateway) > 0 ? module.ingestion_gateway[0].name : ""
 }
 
 output "ingestion_migrate_job_name" {

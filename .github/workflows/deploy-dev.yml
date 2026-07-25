@@ -1029,13 +1029,33 @@ jobs:
         if: ${{ inputs.apply && (inputs.deploy_read_api || inputs.deploy_document_ingestion) }}
         run: |
           set -euo pipefail
+          rg="$(terraform output -raw resource_group_name)"
           targets=()
           if [ "${{ inputs.deploy_read_api }}" = "true" ]; then
+            apps=("$(terraform output -raw read_api_name)")
             targets+=("https://$(terraform output -raw read_api_fqdn)/healthz")
+          else
+            apps=()
           fi
           if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
+            apps+=("$(terraform output -raw ingestion_gateway_name)")
             targets+=("https://$(terraform output -raw ingestion_gateway_fqdn)/healthz")
           fi
+          for app in "${apps[@]}"; do
+            revision="$(az containerapp show --name "$app" --resource-group "$rg" \
+              --query properties.latestRevisionName -o tsv)"
+            ready=false
+            for _ in $(seq 1 24); do
+              state="$(az containerapp revision show --name "$app" --resource-group "$rg" \
+                --revision "$revision" \
+                --query '[properties.provisioningState, properties.healthState] | join(`:`, @)' \
+                -o tsv 2>/dev/null || true)"
+              echo "$app latest revision $revision state: $state"
+              if [ "$state" = "Provisioned:Healthy" ]; then ready=true; break; fi
+              sleep 5
+            done
+            [ "$ready" = "true" ] || { echo "$app latest revision is not healthy"; exit 1; }
+          done
           for target in "${targets[@]}"; do
             payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 \
               --retry-all-errors --connect-timeout 5 --max-time 10 "$target")"

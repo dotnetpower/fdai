@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -16,6 +17,7 @@ from fdai.delivery.persistence.postgres_workflow_definition import (
 from fdai.shared.providers.scheduled_continuation import ContinuationMode
 
 NOW = datetime(2026, 7, 20, 21, 0, tzinfo=UTC)
+_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.parametrize(
@@ -42,6 +44,18 @@ def test_postgres_user_automation_configs_reject_empty_dsn(config_type: type) ->
 def test_postgres_user_automation_configs_reject_bad_timeout(config_type: type) -> None:
     with pytest.raises(ValueError, match="timeouts"):
         config_type(dsn="postgresql://example", statement_timeout_ms=0)
+
+
+def test_workflow_definition_identity_includes_action_catalog_digest() -> None:
+    migration = (
+        _ROOT / "alembic" / "versions" / "20260725_0059_workflow_definition_catalog_identity.py"
+    ).read_text(encoding="utf-8")
+
+    assert "uq_workflow_definition_catalog_identity" in migration
+    assert "workflow_name," in migration
+    assert "workflow_version," in migration
+    assert "definition_hash," in migration
+    assert "action_catalog_digest" in migration
 
 
 def test_briefing_continuation_row_codecs_preserve_origin_and_digest() -> None:

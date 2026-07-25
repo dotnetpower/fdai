@@ -522,6 +522,11 @@ missing claim, or existing receipt blocks resume. Targeted plans may leave the c
 output empty; Entra sync then resolves the exact Static Web App id from Terraform state and reads
 its hostname through the Azure management plane.
 
+Post-apply migration permits immutable built-in workflow definitions for the same workflow document
+to coexist when they pin different action-catalog digests. The unique database identity includes
+workflow name, workflow version, definition hash, and action-catalog digest. This keeps startup
+idempotent across catalog releases without overwriting older definitions.
+
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
   --config .fdai/environments/dev.json \

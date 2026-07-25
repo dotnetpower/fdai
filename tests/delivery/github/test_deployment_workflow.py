@@ -358,6 +358,8 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "TF_VAR_stewardship_agent_bindings" in workflow
     assert "runner preflight profile must require all Azure live categories" in workflow
     assert "Run complete Azure live preflight" in workflow
+    assert "latest revision is not healthy" in workflow
+    assert "Provisioned:Healthy" in workflow
     assert "Reject destructive protected plan" in workflow
     assert 'if "delete" in change.get("change", {}).get("actions", [])' in workflow
     assert "Protected plans reject delete or replacement actions" in workflow
