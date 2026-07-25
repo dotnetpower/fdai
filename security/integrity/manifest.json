@@ -45,11 +45,11 @@
     "src/fdai/agents/bragi.py": "4e9057650eafb8325dac9938e7e1acf692f36895af605a55dac246af16122df9",
     "src/fdai/agents/forseti.py": "94f72fba25a6b7766a0119f05b96fa31157869bd18d202f91ca887e3c9591749",
     "src/fdai/agents/freyr.py": "e19853dd5c9abad5f71b23f982e9126d1c8e4cc56e13dd820cadaf0e03b2d598",
-    "src/fdai/agents/heimdall.py": "1c82c234b4a7926f3ff4a4c26e4b29403e37c7072d69ce41dd9d38c8f11e0749",
+    "src/fdai/agents/heimdall.py": "f3047a43e581d45cb7950228b767f34bc3869562952a211f22601c76ddd15531",
     "src/fdai/agents/huginn.py": "3974013c73c9ad5d4e5f738916cb1162772b49888757a96f8cf50f204fa60497",
     "src/fdai/agents/loki.py": "3f86fc45e180ba2ad8758c777537ac9876eda537e5e7786a5c98127b2998e09a",
     "src/fdai/agents/mimir.py": "b045594911db2c63196d6d77f227a0fd6b5d5827d5d166c2eb1762c2b75ff24f",
-    "src/fdai/agents/muninn.py": "95918bd4636ccb05d340dfee54bce0f024a6bdb6900977b067a9d0d172d34945",
+    "src/fdai/agents/muninn.py": "256a970c8de0af9a47771ae3d9f76397be6fd838f5436060d2166c6bd4869922",
     "src/fdai/agents/njord.py": "29cc79216c0ad3d1b7e48d34d0fb7b930712d469d63d55f637ab02ed94b928a2",
     "src/fdai/agents/norns.py": "7e1b7aa1ac5fa26800f23cd33cf75677950a78eaa7f7527cf65d2dbb66d79a73",
     "src/fdai/agents/odin.py": "8bcab7fba826e70761e9c95d6a6521d56199d96622d69ad06d3b6a28761a960c",
@@ -788,7 +788,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-24T11:16:31Z",
+  "generated_at": "2026-07-25T05:45:26Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
