@@ -41,7 +41,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -111,7 +111,7 @@ jobs:
           "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 
       - name: Upload SBOM evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: fdai-sbom-${{ github.sha }}
           path: sbom.cdx.json

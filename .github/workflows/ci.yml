@@ -23,7 +23,7 @@ jobs:
       docs: ${{ steps.scope.outputs.docs }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -48,10 +48,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
 
@@ -84,10 +84,10 @@ jobs:
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
 
@@ -124,10 +124,10 @@ jobs:
       FDAI_PYTEST_MODE: coverage
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
 
@@ -159,7 +159,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: coverage-xml
           path: coverage.xml
@@ -172,12 +172,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
 
@@ -195,7 +195,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -220,7 +220,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-translations.sh
         run: bash scripts/quality/localization/check-translations.sh
@@ -230,7 +230,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -263,7 +263,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-catalog-parity.sh
         run: bash scripts/quality/localization/check-catalog-parity.sh
@@ -273,7 +273,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-punctuation.sh
         run: bash scripts/quality/repository/check-punctuation.sh
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-readable-hangul.py
         run: python3 scripts/quality/localization/check-readable-hangul.py
@@ -293,7 +293,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-guids.sh
         run: bash scripts/quality/repository/check-guids.sh
@@ -303,7 +303,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Install PyYAML
         run: python3 -m pip install --quiet pyyaml
@@ -316,7 +316,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Install PyYAML
         run: python3 -m pip install --quiet pyyaml
@@ -329,7 +329,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -350,7 +350,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-core-imports.sh
         run: bash scripts/quality/architecture/check-core-imports.sh
@@ -364,7 +364,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-agents-imports.sh
         run: bash scripts/quality/architecture/check-agents-imports.sh
@@ -376,7 +376,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-file-loc.sh
         env:
@@ -390,7 +390,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-subsystem-fanout.sh
         env:
@@ -406,7 +406,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: check-doc-links.sh
         run: bash scripts/quality/repository/check-doc-links.sh
@@ -421,7 +421,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           # Full history so the diff range resolves.
           fetch-depth: 0
@@ -450,7 +450,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           # Full history so gitleaks scans every commit in a PR.
           fetch-depth: 0
@@ -465,7 +465,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: pip-audit against pyproject.toml
         # The action's `inputs` must be a project directory (which contains
@@ -481,10 +481,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
 
@@ -508,13 +508,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           # Full history so the base ref resolves for the before/after diff.
           fetch-depth: 0
 
       - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
 
@@ -547,7 +547,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           # Full history so we can diff against the base ref.
           fetch-depth: 0
@@ -599,10 +599,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
 
@@ -625,7 +625,7 @@ jobs:
         working-directory: infra
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -24,6 +25,12 @@ RUNNER_ENTRY_POINTS = (
     "Makefile",
     "scripts/verify.sh",
 )
+REQUIRED_ACTION_REFS = {
+    "actions/checkout": "v7.0.1",
+    "actions/download-artifact": "v8.0.1",
+    "actions/upload-artifact": "v7.0.1",
+    "astral-sh/setup-uv": "v8.3.2",
+}
 
 
 def _tracked_paths() -> set[str]:
@@ -131,6 +138,18 @@ def _validate_python_test_partitioning() -> list[str]:
     return errors
 
 
+def _validate_action_runtime_versions() -> list[str]:
+    errors: list[str] = []
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        content = path.read_text(encoding="utf-8")
+        for action, expected_ref in REQUIRED_ACTION_REFS.items():
+            for actual_ref in re.findall(rf"uses:\s*{re.escape(action)}@([^\s#]+)", content):
+                if actual_ref != expected_ref:
+                    relative = path.relative_to(REPO_ROOT)
+                    errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
+    return errors
+
+
 def _contains_guard_call(node: ast.AST) -> bool:
     return any(
         isinstance(child, ast.Call)
@@ -174,6 +193,7 @@ def main() -> int:
         *_validate_build_context(),
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
+        *_validate_action_runtime_versions(),
         *_validate_live_db_guards(),
     ]
     if errors:

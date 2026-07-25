@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 26f42fc97dec0c218e1d5d243754a586ae0d06d9
-translation_revised: 2026-07-25
+translation_source_sha: c969a8341c24e2022b9c1ed2190123c67a7880b0
+translation_revised: 2026-07-26
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -79,6 +79,9 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 step은 Azure C
 `Key Vault Secrets Officer` 로 만든다 - apply 중 DSN 시크릿을 write 한다. 배포는
 `[self-hosted, fdai-deploy]` 러너 위에서 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)
 로 실행한다(기본 plan-only; `apply` 입력이 enforce).
+Repository workflow는 checkout, artifact transfer, uv setup action을 exact Node 24 tag로 pin합니다.
+CI contract는 다른 ref를 거부하며 action upgrade는 pin 변경 전에 action runtime metadata와
+self-hosted runner compatibility를 모두 검증해야 합니다.
 Private networking이 enabled이면 PostgreSQL public access와 broad Azure-services firewall을
 비활성화합니다. Dev는 approved private endpoint를 사용하고 production은 delegated-subnet mode를
 계속 선택할 수 있습니다.
