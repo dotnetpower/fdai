@@ -58,6 +58,7 @@ async def test_submit_plan_dispatches_hashed_plan_only_context() -> None:
     async def handle(request: httpx.Request) -> httpx.Response:
         assert request.method == "POST"
         assert request.url.path.endswith("/actions/workflows/deploy-dev.yml/dispatches")
+        assert request.headers["X-GitHub-Api-Version"] == "2026-03-10"
         payload = request.read().decode("utf-8")
         assert str(_TENANT) not in payload
         assert str(_SUBSCRIPTION) not in payload

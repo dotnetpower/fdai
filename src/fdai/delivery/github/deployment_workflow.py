@@ -23,7 +23,7 @@ from fdai.deployment_cli.remote import (
     deployment_context_digest,
 )
 
-_API_VERSION: Final[str] = "2022-11-28"
+_API_VERSION: Final[str] = "2026-03-10"
 _NAME = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
 _REF = re.compile(r"^[A-Za-z0-9_./-]{1,200}$")
 _PLAN_ID = re.compile(r"^plan-([1-9][0-9]*)-([1-9][0-9]*)$")
