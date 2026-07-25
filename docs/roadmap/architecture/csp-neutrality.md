@@ -67,6 +67,10 @@ same code path serve every target.
 - The core produces/consumes with a **Kafka client only** (e.g. `librdkafka`, `kafka-python`,
   `KafkaJS`, `Sarama`); no `ServiceBusClient`, `SqsClient`, `PubSubClient`, or any other
   vendor SDK is imported.
+- The Azure adapter sets Kafka `connections.max.idle.ms` and `metadata.max.age.ms` equivalents to
+  180,000 ms and rejects values at or above 240,000 ms. This follows the
+  [Event Hubs Kafka client configuration](https://learn.microsoft.com/azure/event-hubs/apache-kafka-configurations)
+  constraint and prevents reuse of sockets the managed broker already closed.
 - The event schema uses **CloudEvents envelope** on top of JSON Schema
   ([tech-stack.md](tech-stack.md)); this stays identical across providers.
 - **Schema evolution** is guarded by `check_schema_compatibility`

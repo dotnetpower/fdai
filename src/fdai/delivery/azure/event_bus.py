@@ -22,7 +22,7 @@ import logging
 import ssl
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
@@ -97,6 +97,14 @@ class EventHubsKafkaBusConfig:
     """Initial position for a new consumer group. Durable worker groups use
     ``earliest`` so events published before their first replica starts are not lost."""
 
+    connections_max_idle_ms: int = 180_000
+    """Recycle idle sockets before Event Hubs closes them after 240 seconds."""
+
+    metadata_max_age_ms: int = 180_000
+    """Refresh metadata before the same Event Hubs 240-second connection window."""
+
+    _EVENT_HUBS_IDLE_CLOSE_MS: ClassVar[int] = 240_000
+
     def __post_init__(self) -> None:
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
@@ -108,6 +116,16 @@ class EventHubsKafkaBusConfig:
             raise ValueError("heartbeat_interval_ms MUST be less than session_timeout_ms")
         if not self.dlq_suffix:
             raise ValueError("dlq_suffix MUST NOT be empty")
+        if not 0 < self.connections_max_idle_ms < self._EVENT_HUBS_IDLE_CLOSE_MS:
+            raise ValueError(
+                "connections_max_idle_ms MUST be positive and below the "
+                "Event Hubs 240000 ms idle-close window"
+            )
+        if not 0 < self.metadata_max_age_ms < self._EVENT_HUBS_IDLE_CLOSE_MS:
+            raise ValueError(
+                "metadata_max_age_ms MUST be positive and below the "
+                "Event Hubs 240000 ms idle-close window"
+            )
 
 
 class _EntraTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
@@ -155,6 +173,8 @@ class EventHubsKafkaBus(EventBus):
                     enable_idempotence=True,
                     linger_ms=5,
                     acks="all",
+                    connections_max_idle_ms=self._config.connections_max_idle_ms,
+                    metadata_max_age_ms=self._config.metadata_max_age_ms,
                 )
                 try:
                     await producer.start()
@@ -265,6 +285,8 @@ async def _iter_consumer(
         heartbeat_interval_ms=config.heartbeat_interval_ms,
         enable_auto_commit=False,
         auto_offset_reset=config.auto_offset_reset,
+        connections_max_idle_ms=config.connections_max_idle_ms,
+        metadata_max_age_ms=config.metadata_max_age_ms,
     )
     try:
         await consumer.start()

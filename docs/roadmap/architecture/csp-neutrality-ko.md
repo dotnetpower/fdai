@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 94adf2a4212b86d666837a434fa1b90f6a9778a3
-translation_revised: 2026-07-25
+translation_source_sha: 817ebb347cd6851e26809bd273d0f685fb97fce0
+translation_revised: 2026-07-26
 ---
 
 # CSP-중립성 계약
@@ -69,6 +69,10 @@ seam):
 - 코어는 **Kafka 클라이언트로만** 프로듀스/컨슘 (예: `librdkafka`, `kafka-python`,
   `KafkaJS`, `Sarama`); `ServiceBusClient`, `SqsClient`, `PubSubClient`, 기타 어떤
   벤더 SDK 도 import 하지 않음.
+- Azure adapter는 Kafka `connections.max.idle.ms` 및 `metadata.max.age.ms` equivalent를
+  180,000 ms로 설정하고 240,000 ms 이상 값을 차단합니다. 이 값은
+  [Event Hubs Kafka client configuration](https://learn.microsoft.com/azure/event-hubs/apache-kafka-configurations)
+  제약을 따르며 managed broker가 이미 닫은 socket의 재사용을 방지합니다.
 - 이벤트 스키마는 JSON Schema 위에 **CloudEvents envelope** 사용
   ([tech-stack-ko.md](tech-stack-ko.md)); 모든 프로바이더에서 동일 유지.
 - **스키마 진화** 는 `check_schema_compatibility`

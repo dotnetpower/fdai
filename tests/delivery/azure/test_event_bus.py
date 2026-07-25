@@ -72,6 +72,10 @@ def test_config_rejects_invalid_auto_offset_reset() -> None:
             "less than session_timeout_ms",
         ),
         ({"dlq_suffix": ""}, "dlq_suffix"),
+        ({"connections_max_idle_ms": 0}, "connections_max_idle_ms"),
+        ({"connections_max_idle_ms": 240_000}, "connections_max_idle_ms"),
+        ({"metadata_max_age_ms": 0}, "metadata_max_age_ms"),
+        ({"metadata_max_age_ms": 240_000}, "metadata_max_age_ms"),
     ),
 )
 def test_config_rejects_unsafe_transport_values(
@@ -80,6 +84,13 @@ def test_config_rejects_unsafe_transport_values(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         _cfg(**overrides)
+
+
+def test_config_defaults_stay_below_event_hubs_idle_close_window() -> None:
+    config = _cfg()
+
+    assert config.connections_max_idle_ms == 180_000
+    assert config.metadata_max_age_ms == 180_000
 
 
 def test_encode_produces_deterministic_bytes() -> None:
@@ -237,6 +248,69 @@ async def test_publish_failure_discards_cached_producer_for_retry(
     assert instances[0].stopped is True
     assert receipt.partition == 1
     assert receipt.offset == 9
+
+
+@pytest.mark.asyncio
+async def test_producer_receives_event_hubs_safe_connection_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _RecordingProducer:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _RecordingProducer)
+    bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
+
+    await bus._get_producer()  # type: ignore[attr-defined]
+
+    assert captured["connections_max_idle_ms"] == 180_000
+    assert captured["metadata_max_age_ms"] == 180_000
+
+
+@pytest.mark.asyncio
+async def test_consumer_receives_event_hubs_safe_connection_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _RecordingConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        def __aiter__(self) -> _RecordingConsumer:
+            return self
+
+        async def __anext__(self) -> object:
+            raise StopAsyncIteration
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
+    iterator = _iter_consumer(
+        topic="aw.control.canary",
+        group_id="fdai-canary",
+        config=_cfg(),
+        identity=_StaticIdentity(),
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    with pytest.raises(StopAsyncIteration):
+        await anext(iterator)
+
+    assert captured["connections_max_idle_ms"] == 180_000
+    assert captured["metadata_max_age_ms"] == 180_000
 
 
 @pytest.mark.asyncio
