@@ -77,7 +77,7 @@ export function cameraWorldSize(camera: Camera): { width: number; height: number
 }
 
 export function architectureLegendReserveWidth(canvasWidth: number): number {
-  if (canvasWidth >= 700) return clamp(canvasWidth * .26, 240, 340);
+  if (canvasWidth >= 700) return clamp(canvasWidth * .38, 320, 460);
   return clamp(canvasWidth * .34, 96, 180);
 }
 

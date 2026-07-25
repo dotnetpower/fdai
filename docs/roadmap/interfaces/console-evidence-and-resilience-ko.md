@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d3a352152ee37306ddbb048d556d3e74dfc70c22
+translation_source_sha: 9508a1e85fe29978c72c304babb6851e3005738e
 translation_revised: 2026-07-25
 ---
 
@@ -321,9 +321,10 @@ unreachable일 때 redirect loop가 생기므로 자동 redirect는 시작하지
 Architecture route는 map 오른쪽 위에 떠 있는 compact panel에 scope selection만 배치합니다. Inventory
 count, 설명문 및 layer filter는 표시하지 않습니다. Truncated graph는 짧은 status badge 하나로
 알립니다. Resource-color legend는 floating 또는 bottom panel이 아니라 subscription boundary 옆 world
-floor에 직접 그립니다. Camera fit은 범례가 들어갈 floor 공간을 예약합니다. Localized title, type label
-및 color swatch는 pan과 함께 이동하고 읽을 수 있는 범위 안에서 map zoom에 비례해 조정됩니다. Resource
-glyph는 Microsoft Cloud Adoption Framework의
+floor에 직접 그립니다. Camera fit은 범례가 들어갈 floor 공간을 예약합니다. 고정된 legend box, title
+또는 color swatch 없이 resource type name을 해당 floor에 직접 표시합니다. Type name은 pan과 함께
+이동하고 읽을 수 있는 범위 안에서 map zoom에 비례해 조정됩니다. Resource glyph는 Microsoft Cloud
+Adoption Framework의
 [Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations)를
 사용합니다. 알려진 모든 canonical type은 명시적인 lowercase abbreviation을 가집니다. 일대일 CAF
 항목이 없는 abstract type은 자동 initialism 대신 문서화된 stable extension을 사용합니다. Relationship

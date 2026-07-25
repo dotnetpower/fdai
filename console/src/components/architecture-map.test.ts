@@ -144,9 +144,9 @@ describe("architecture resource legend", () => {
   });
 
   it("scales floor legend text with camera zoom inside readable bounds", () => {
-    expect(architectureFloorLegendFontSize(18)).toBe(8);
-    expect(architectureFloorLegendFontSize(42)).toBeCloseTo(10.4);
-    expect(architectureFloorLegendFontSize(132)).toBe(12);
+    expect(architectureFloorLegendFontSize(18)).toBe(13);
+    expect(architectureFloorLegendFontSize(42)).toBeCloseTo(18.28);
+    expect(architectureFloorLegendFontSize(132)).toBe(22);
   });
 });
 
@@ -160,8 +160,8 @@ describe("architecture map zoom", () => {
 
 describe("architecture floor legend space", () => {
   it("reserves a bounded right-side floor area at desktop and mobile widths", () => {
-    expect(architectureLegendReserveWidth(1200)).toBe(312);
-    expect(architectureLegendReserveWidth(700)).toBe(240);
+    expect(architectureLegendReserveWidth(1200)).toBe(456);
+    expect(architectureLegendReserveWidth(700)).toBe(320);
     expect(architectureLegendReserveWidth(390)).toBeCloseTo(132.6);
     expect(architectureLegendReserveWidth(200)).toBe(96);
   });

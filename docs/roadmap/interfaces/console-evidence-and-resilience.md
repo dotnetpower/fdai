@@ -327,8 +327,9 @@ The Architecture route keeps only scope selection in the compact panel that floa
 upper-right corner. It omits inventory counts, explanatory copy, and layer filters. A truncated
 graph uses one short status badge. The resource-color legend is drawn directly on the world floor
 beside the subscription boundary, not in a floating or bottom panel. Camera fitting reserves floor
-space for it. Its localized title, type labels, and color swatches move with pan and scale with map
-zoom inside bounded readable sizes. Resource glyphs use the Microsoft Cloud Adoption Framework
+space for it. Resource type names are written directly on that floor without a fixed legend box,
+title, or color swatches. The names move with pan and scale with map zoom inside bounded readable
+sizes. Resource glyphs use the Microsoft Cloud Adoption Framework
 [Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations).
 Every known canonical type has an explicit lowercase abbreviation. Abstract types without a
 one-to-one CAF row use a documented stable extension instead of a generated initialism. The
