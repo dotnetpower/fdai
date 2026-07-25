@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 8c20f2545e09f77d4b571e770da1522d9f3d560a
+translation_source_sha: a736658a7c6dd9be1478475560d2d8dd8bf552b8
 translation_revised: 2026-07-25
 ---
 
@@ -278,6 +278,11 @@ Verification metadata는 check counter가 nonnegative integer이고 completed ch
 크지 않을 때만 허용됩니다. Atomic claim span은 순서가 맞는 nonnegative integer이고 manifest schema
 version 1을 명시하며 claim, failed-claim 및 used-evidence reference에는 duplicate 또는 dangling
 identifier가 없어야 합니다. 잘못된 조합은 unverified malformed artifact가 됩니다.
+
+Browser는 producer cap인 claim 64개, evidence entry 512개 및 추가 document reference 8개를 동일하게
+적용합니다. Artifact identifier는 1 KiB, rendered value는 16 KiB, anchor 또는 alias list는 64개로
+제한됩니다. Live reply와 session replay는 동일한 parser를 사용하므로 reload 후 HTTP boundary가
+거부할 metadata를 복원하거나 다르게 해석하지 않습니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

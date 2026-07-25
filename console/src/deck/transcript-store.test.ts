@@ -231,4 +231,51 @@ describe("parseTurns", () => {
     expect(parsed).toHaveLength(1);
     expect(parsed[0]!.id).toBe("1");
   });
+
+  it("replays malformed verification counters as bounded unverified metadata", () => {
+    const raw = JSON.stringify([{
+      id: "1",
+      role: "deck",
+      text: "answer",
+      at: "10:00:00",
+      verification: {
+        status: "verified",
+        authority: "server_read_model",
+        checks_completed: 3,
+        checks_total: 1,
+        evidence_refs: [],
+        reason_code: null,
+      },
+    }]);
+
+    expect(parseTurns(raw)[0]?.verification).toMatchObject({
+      status: "unverified",
+      checks_completed: 0,
+      checks_total: 0,
+      reason_code: "malformed_verification_artifact",
+    });
+  });
+
+  it("does not restore an oversized verification claim array", () => {
+    const raw = JSON.stringify([{
+      id: "1",
+      role: "deck",
+      text: "answer",
+      at: "10:00:00",
+      verification: {
+        status: "verified",
+        authority: "server_read_model",
+        checks_completed: 1,
+        checks_total: 1,
+        evidence_refs: [],
+        reason_code: null,
+        claims: Array(65).fill({}),
+      },
+    }]);
+
+    const verification = parseTurns(raw)[0]?.verification;
+    expect(verification?.status).toBe("unverified");
+    expect(verification?.claims).toEqual([]);
+    expect(verification?.reason_code).toBe("malformed_verification_artifact");
+  });
 });

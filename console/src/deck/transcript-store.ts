@@ -22,6 +22,7 @@ import {
   type GroundedCodeArtifact,
   type InvestigationActivity,
 } from "./backend";
+import { parseAnswerVerification } from "./backend-normalizers";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 
@@ -80,6 +81,7 @@ export function serializeTurns(
     .slice(-maxTurns)
     .map((t) => {
       const base: PersistedTurn = { id: t.id, role: t.role, text: t.text, at: t.at };
+      const verification = parseAnswerVerification(t.verification);
       return {
         ...base,
         ...(t.source ? { source: t.source } : {}),
@@ -90,7 +92,7 @@ export function serializeTurns(
         ...(t.followUps ? { followUps: t.followUps } : {}),
         ...(t.terminal !== undefined ? { terminal: t.terminal } : {}),
         ...(typeof t.revision === "number" ? { revision: t.revision } : {}),
-        ...(validVerification(t.verification) ? { verification: t.verification } : {}),
+        ...(verification ? { verification } : {}),
         ...(t.answerPlan ? { answerPlan: t.answerPlan } : {}),
         ...(t.answerPlanning ? { answerPlanning: t.answerPlanning } : {}),
         ...(t.codeArtifacts && t.codeArtifacts.length > 0
@@ -122,6 +124,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const answerPlan = parseAnswerPlan(rec.answerPlan);
     const answerPlanning = parseAnswerPlanning(rec.answerPlanning);
     const codeArtifacts = parseGroundedCodeArtifacts(rec.codeArtifacts);
+    const verification = parseAnswerVerification(rec.verification);
     const turn: PersistedTurn = {
       id: rec.id,
       role: rec.role,
@@ -137,7 +140,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(typeof rec.revision === "number" && Number.isInteger(rec.revision)
         ? { revision: rec.revision }
         : {}),
-      ...(validVerification(rec.verification) ? { verification: rec.verification } : {}),
+      ...(verification ? { verification } : {}),
       ...(answerPlan ? { answerPlan } : {}),
       ...(answerPlanning ? { answerPlanning } : {}),
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
@@ -192,92 +195,6 @@ function validExecution(value: unknown): boolean {
       (typeof record.durationMs === "number" &&
         Number.isSafeInteger(record.durationMs) &&
         record.durationMs >= 0))
-  );
-}
-
-function validVerification(value: unknown): value is NonNullable<PersistedTurn["verification"]> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  const status = record.status;
-  const baseValid = (
-    (status === "verified" ||
-      status === "consistent" ||
-      status === "corrected" ||
-      status === "unverified") &&
-    typeof record.authority === "string" &&
-    typeof record.checks_completed === "number" &&
-    typeof record.checks_total === "number" &&
-    Array.isArray(record.evidence_refs) &&
-    record.evidence_refs.every((item) => typeof item === "string") &&
-    (record.reason_code === null || typeof record.reason_code === "string")
-  );
-  if (!baseValid) return false;
-  if (record.claims !== undefined && !validClaims(record.claims)) return false;
-  if (
-    record.failed_claim_ids !== undefined &&
-    !validStringArray(record.failed_claim_ids)
-  ) return false;
-  if (
-    record.evidence_manifest !== undefined &&
-    !validEvidenceManifest(record.evidence_manifest)
-  ) return false;
-  return true;
-}
-
-function validClaims(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  return value.every((item) => {
-    if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
-    const claim = item as Record<string, unknown>;
-    const span = claim.span;
-    const spanRecord =
-      typeof span === "object" && span !== null
-        ? (span as Record<string, unknown>)
-        : null;
-    return (
-      typeof claim.claim_id === "string" &&
-      typeof claim.kind === "string" &&
-      typeof claim.text === "string" &&
-      typeof spanRecord?.start === "number" &&
-      typeof spanRecord?.end === "number" &&
-      typeof claim.raw_value === "string" &&
-      typeof claim.normalized_value === "string" &&
-      (claim.unit === null || typeof claim.unit === "string") &&
-      validStringArray(claim.anchors) &&
-      (claim.status === "supported" ||
-        claim.status === "unsupported" ||
-        claim.status === "ambiguous") &&
-      validStringArray(claim.evidence_refs) &&
-      (claim.reason_code === null || typeof claim.reason_code === "string")
-    );
-  });
-}
-
-function validEvidenceManifest(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const manifest = value as Record<string, unknown>;
-  if (!Array.isArray(manifest.entries)) return false;
-  return (
-    typeof manifest.schema_version === "number" &&
-    typeof manifest.manifest_id === "string" &&
-    typeof manifest.authority === "string" &&
-    (manifest.route_id === null || typeof manifest.route_id === "string") &&
-    (manifest.captured_at === null || typeof manifest.captured_at === "string") &&
-    typeof manifest.complete === "boolean" &&
-    typeof manifest.source_entry_count === "number" &&
-    manifest.entries.every((item) => {
-      if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
-      const entry = item as Record<string, unknown>;
-      return (
-        typeof entry.ref === "string" &&
-        typeof entry.path === "string" &&
-        typeof entry.field === "string" &&
-        typeof entry.kind === "string" &&
-        typeof entry.raw_value === "string" &&
-        typeof entry.normalized_value === "string" &&
-        validStringArray(entry.anchors)
-      );
-    })
   );
 }
 

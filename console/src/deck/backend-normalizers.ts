@@ -26,6 +26,13 @@ const ACTIVITY_STATUSES = new Set<InvestigationActivityStatus>([
 const MAX_EXECUTION_TOOL_CHARS = 64;
 const MAX_EXECUTION_COMMAND_CHARS = 16 * 1024;
 const MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024;
+const MAX_VERIFICATION_CLAIMS = 64;
+const MAX_EVIDENCE_ENTRIES = 512;
+const MAX_VERIFICATION_REFS = MAX_EVIDENCE_ENTRIES + 8;
+const MAX_CLAIM_REFS = MAX_EVIDENCE_ENTRIES;
+const MAX_ARTIFACT_LIST_ITEMS = 64;
+const MAX_ARTIFACT_IDENTIFIER_CHARS = 1024;
+const MAX_ARTIFACT_VALUE_CHARS = 16 * 1024;
 
 function parseInvestigationExecution(raw: unknown): InvestigationActivity["execution"] {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
@@ -192,41 +199,53 @@ export function parseAnswerVerification(raw: unknown): AnswerVerification | unde
   if (typeof raw !== "object" || raw === null) return undefined;
   const record = raw as Record<string, unknown>;
   const status = parseVerificationStatus(record.status);
-  if (status === null || typeof record.authority !== "string") return undefined;
+  if (status === null || !boundedString(record.authority, MAX_ARTIFACT_IDENTIFIER_CHARS)) {
+    return undefined;
+  }
   const checksCompleted = nonnegativeSafeInteger(record.checks_completed);
   const checksTotal = nonnegativeSafeInteger(record.checks_total);
   const malformedCounters = checksCompleted === null ||
     checksTotal === null || checksCompleted > checksTotal;
-  const refs = Array.isArray(record.evidence_refs)
-    ? record.evidence_refs.filter((item): item is string => typeof item === "string")
-    : [];
-  const failedClaimIds = Array.isArray(record.failed_claim_ids)
-    ? record.failed_claim_ids.filter((item): item is string => typeof item === "string")
-    : [];
+  const refs = boundedStringArray(
+    record.evidence_refs,
+    MAX_VERIFICATION_REFS,
+    MAX_ARTIFACT_IDENTIFIER_CHARS,
+  );
+  const failedClaimIds = boundedStringArray(
+    record.failed_claim_ids ?? [],
+    MAX_VERIFICATION_CLAIMS,
+    MAX_ARTIFACT_IDENTIFIER_CHARS,
+  );
+  const reasonCode = record.reason_code === null || record.reason_code === undefined
+    ? null
+    : boundedString(record.reason_code, MAX_ARTIFACT_IDENTIFIER_CHARS)
+      ? record.reason_code
+      : undefined;
   const claims = parseAtomicClaims(record.claims);
   const manifest = parseEvidenceManifest(record.evidence_manifest);
   const artifactPresent = record.claims !== undefined || record.evidence_manifest !== undefined;
-  const malformedArtifact = malformedCounters ||
+  const malformedArtifact = malformedCounters || refs === null || failedClaimIds === null ||
+    reasonCode === undefined ||
     (artifactPresent && (claims === null || manifest === null)) ||
-    !verificationArtifactsAgree(claims, manifest, failedClaimIds);
+    !verificationArtifactsAgree(claims, manifest, failedClaimIds ?? []);
   return {
     status: malformedArtifact ? "unverified" : status,
     authority: record.authority,
     checks_completed: malformedCounters ? 0 : checksCompleted,
     checks_total: malformedCounters ? 0 : checksTotal,
-    evidence_refs: refs,
+    evidence_refs: refs ?? [],
     reason_code: malformedArtifact
       ? "malformed_verification_artifact"
-      : (typeof record.reason_code === "string" ? record.reason_code : null),
+      : reasonCode,
     claims: claims ?? [],
     ...(manifest ? { evidence_manifest: manifest } : {}),
-    failed_claim_ids: failedClaimIds,
+    failed_claim_ids: failedClaimIds ?? [],
   };
 }
 
 function parseAtomicClaims(raw: unknown): AtomicAnswerClaim[] | null {
   if (raw === undefined) return [];
-  if (!Array.isArray(raw)) return null;
+  if (!Array.isArray(raw) || raw.length > MAX_VERIFICATION_CLAIMS) return null;
   const claims: AtomicAnswerClaim[] = [];
   for (const item of raw) {
     if (typeof item !== "object" || item === null) return null;
@@ -243,21 +262,30 @@ function parseAtomicClaims(raw: unknown): AtomicAnswerClaim[] | null {
     const startValue = nonnegativeSafeInteger(start);
     const endValue = nonnegativeSafeInteger(end);
     if (
-      typeof claim.claim_id !== "string" ||
+      !boundedString(claim.claim_id, MAX_ARTIFACT_IDENTIFIER_CHARS) ||
       !["id", "number", "percentage", "timestamp", "causal", "scope"].includes(
         String(kind),
       ) ||
-      typeof claim.text !== "string" ||
+      !boundedString(claim.text, MAX_ARTIFACT_VALUE_CHARS) ||
       startValue === null ||
       endValue === null ||
       startValue > endValue ||
-      typeof claim.raw_value !== "string" ||
-      typeof claim.normalized_value !== "string" ||
-      (claim.unit !== null && typeof claim.unit !== "string") ||
-      !validStringArray(claim.anchors) ||
+      !boundedString(claim.raw_value, MAX_ARTIFACT_VALUE_CHARS) ||
+      !boundedString(claim.normalized_value, MAX_ARTIFACT_VALUE_CHARS) ||
+      (claim.unit !== null && !boundedString(claim.unit, MAX_ARTIFACT_IDENTIFIER_CHARS)) ||
+      !boundedStringArray(
+        claim.anchors,
+        MAX_ARTIFACT_LIST_ITEMS,
+        MAX_ARTIFACT_IDENTIFIER_CHARS,
+      ) ||
       !["supported", "unsupported", "ambiguous"].includes(String(status)) ||
-      !validStringArray(claim.evidence_refs) ||
-      (claim.reason_code !== null && typeof claim.reason_code !== "string")
+      !boundedStringArray(
+        claim.evidence_refs,
+        MAX_CLAIM_REFS,
+        MAX_ARTIFACT_IDENTIFIER_CHARS,
+      ) ||
+      (claim.reason_code !== null &&
+        !boundedString(claim.reason_code, MAX_ARTIFACT_IDENTIFIER_CHARS))
     ) return null;
     claims.push({
       claim_id: claim.claim_id,
@@ -280,20 +308,34 @@ function parseEvidenceManifest(raw: unknown): AnswerEvidenceManifest | null | un
   if (raw === undefined) return undefined;
   if (typeof raw !== "object" || raw === null) return null;
   const manifest = raw as Record<string, unknown>;
-  if (!Array.isArray(manifest.entries)) return null;
+  if (!Array.isArray(manifest.entries) || manifest.entries.length > MAX_EVIDENCE_ENTRIES) {
+    return null;
+  }
   const entries: EvidenceManifestEntry[] = [];
   for (const item of manifest.entries) {
     if (typeof item !== "object" || item === null) return null;
     const entry = item as Record<string, unknown>;
+    const anchors = boundedStringArray(
+      entry.anchors,
+      MAX_ARTIFACT_LIST_ITEMS,
+      MAX_ARTIFACT_IDENTIFIER_CHARS,
+    );
+    const aliases = entry.aliases === undefined
+      ? undefined
+      : boundedStringArray(
+          entry.aliases,
+          MAX_ARTIFACT_LIST_ITEMS,
+          MAX_ARTIFACT_IDENTIFIER_CHARS,
+        );
     if (
-      typeof entry.ref !== "string" ||
-      typeof entry.path !== "string" ||
-      typeof entry.field !== "string" ||
-      typeof entry.kind !== "string" ||
-      typeof entry.raw_value !== "string" ||
-      typeof entry.normalized_value !== "string" ||
-      !validStringArray(entry.anchors) ||
-      (entry.aliases !== undefined && !validStringArray(entry.aliases))
+      !boundedString(entry.ref, MAX_ARTIFACT_IDENTIFIER_CHARS) ||
+      !boundedString(entry.path, MAX_ARTIFACT_IDENTIFIER_CHARS) ||
+      !boundedString(entry.field, MAX_ARTIFACT_IDENTIFIER_CHARS) ||
+      !boundedString(entry.kind, MAX_ARTIFACT_IDENTIFIER_CHARS) ||
+      !boundedString(entry.raw_value, MAX_ARTIFACT_VALUE_CHARS) ||
+      !boundedString(entry.normalized_value, MAX_ARTIFACT_VALUE_CHARS) ||
+      anchors === null ||
+      aliases === null
     ) return null;
     entries.push({
       ref: entry.ref,
@@ -302,19 +344,22 @@ function parseEvidenceManifest(raw: unknown): AnswerEvidenceManifest | null | un
       kind: entry.kind,
       raw_value: entry.raw_value,
       normalized_value: entry.normalized_value,
-      anchors: entry.anchors,
-      ...(entry.aliases === undefined ? {} : { aliases: entry.aliases }),
+      anchors,
+      ...(aliases === undefined ? {} : { aliases }),
     });
   }
   const sourceEntryCount = nonnegativeSafeInteger(manifest.source_entry_count);
   if (
     manifest.schema_version !== 1 ||
-    typeof manifest.manifest_id !== "string" ||
-    typeof manifest.authority !== "string" ||
-    (manifest.route_id !== null && typeof manifest.route_id !== "string") ||
-    (manifest.captured_at !== null && typeof manifest.captured_at !== "string") ||
+    !boundedString(manifest.manifest_id, MAX_ARTIFACT_IDENTIFIER_CHARS) ||
+    !boundedString(manifest.authority, MAX_ARTIFACT_IDENTIFIER_CHARS) ||
+    (manifest.route_id !== null &&
+      !boundedString(manifest.route_id, MAX_ARTIFACT_IDENTIFIER_CHARS)) ||
+    (manifest.captured_at !== null &&
+      !boundedString(manifest.captured_at, MAX_ARTIFACT_IDENTIFIER_CHARS)) ||
     typeof manifest.complete !== "boolean" ||
     sourceEntryCount === null ||
+    sourceEntryCount > MAX_EVIDENCE_ENTRIES ||
     sourceEntryCount < entries.length
   ) return null;
   return {
@@ -351,8 +396,17 @@ function nonnegativeSafeInteger(raw: unknown): number | null {
   return typeof raw === "number" && Number.isSafeInteger(raw) && raw >= 0 ? raw : null;
 }
 
-function validStringArray(raw: unknown): raw is string[] {
-  return Array.isArray(raw) && raw.every((item) => typeof item === "string");
+function boundedString(raw: unknown, maxChars: number): raw is string {
+  return typeof raw === "string" && raw.length <= maxChars;
+}
+
+function boundedStringArray(
+  raw: unknown,
+  maxItems: number,
+  maxChars: number,
+): string[] | null {
+  if (!Array.isArray(raw) || raw.length > maxItems) return null;
+  return raw.every((item) => boundedString(item, maxChars)) ? raw : null;
 }
 
 export function extractString(payload: unknown, key: string): string | null {

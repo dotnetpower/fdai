@@ -116,4 +116,19 @@ describe("parseAnswerVerification", () => {
     expect(parsed?.status).toBe("unverified");
     expect(parsed?.reason_code).toBe("malformed_verification_artifact");
   });
+
+  it.each([
+    { evidence_refs: Array(521).fill("e-1") },
+    { claims: Array(65).fill(claim()) },
+    { evidence_manifest: manifest({ source_entry_count: 513 }) },
+    { evidence_manifest: manifest({ entries: Array(513).fill(manifest().entries[0]) }) },
+    { reason_code: "r".repeat(1025) },
+    { claims: [claim({ text: "x".repeat(16 * 1024 + 1) })] },
+  ])("bounds verification artifact payloads: %o", (artifact) => {
+    const parsed = parseAnswerVerification(verification(artifact));
+    expect(parsed?.status).toBe("unverified");
+    expect(parsed?.reason_code).toBe("malformed_verification_artifact");
+    expect(parsed?.claims?.length ?? 0).toBeLessThanOrEqual(64);
+    expect(parsed?.evidence_refs.length).toBeLessThanOrEqual(520);
+  });
 });

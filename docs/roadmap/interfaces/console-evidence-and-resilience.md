@@ -283,6 +283,11 @@ checks no greater than total checks. Atomic claim spans are ordered nonnegative 
 schema version 1 is explicit, and claim, failed-claim, and used-evidence references have no duplicate
 or dangling identifiers. Invalid combinations become an unverified malformed artifact.
 
+The browser mirrors the producer caps of 64 claims, 512 evidence entries, and eight additional
+document references. Artifact identifiers are limited to 1 KiB, rendered values to 16 KiB, and
+anchor or alias lists to 64 items. Live replies and session replay use the same parser, so reload
+can't restore metadata that the HTTP boundary would reject or interpret it differently.
+
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
 image source previews (name, media type, size) but never the base64 payload. The turn escalates to
