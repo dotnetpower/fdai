@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e716bf7645342a0cf62fb709599b19f68df46591
+translation_source_sha: 126530e320624765441ab583c8f8508db1cdf95f
 translation_revised: 2026-07-25
 ---
 
@@ -318,11 +318,13 @@ unreachable일 때 redirect loop가 생기므로 자동 redirect는 시작하지
 
 ## Architecture map resilience
 
-Architecture route는 scope selection과 compact resource-color legend만 map 오른쪽 위에 떠 있는 panel에
-배치합니다. Inventory count, 설명문 및 layer filter는 표시하지 않습니다. Truncated graph는 짧은 status
-badge 하나로 알립니다. Legend에는 authoritative graph에 실제로 있는 각 visual type의 color와 display
-label만 표시됩니다. 기본 isometric map은 Reflections와 Connections가 활성화된 상태로 시작합니다.
-Containment는 흐린 dashed link로,
+Architecture route는 map 오른쪽 위에 떠 있는 compact panel에 scope selection만 배치합니다. Inventory
+count, 설명문 및 layer filter는 표시하지 않습니다. Truncated graph는 짧은 status badge 하나로
+알립니다. Resource-color legend는 floating 또는 bottom panel이 아니라 subscription boundary 옆 world
+floor에 직접 그립니다. Camera fit은 범례가 들어갈 floor 공간을 예약합니다. Localized title, type label
+및 color swatch는 pan과 함께 이동하고 읽을 수 있는 범위 안에서 map zoom에 비례해 조정됩니다.
+Relationship legend는 compact canvas control로 유지합니다. 기본 isometric map은 Reflections와
+Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
 attachment 및 dependency는 각각의 directional style로 표시하고 resource shape을 렌더링합니다.
 Top 및 front view는 optional입니다. 단순 projection은 관찰된 child 수에 따라 각 resource-group
 panel 크기를 정하고 균형 잡힌 world에 panel을 배치합니다. Resource node는 표준 Event Grid topic

@@ -320,6 +320,7 @@ function ArchitectureBody({
             options={displayOptions}
             onZoomChange={onZoomChange}
             descriptionId="architecture-map-description"
+            legendLabel={t("resourceLegend")}
           />
           <ArchitectureOverviewPanel
             graph={graph}

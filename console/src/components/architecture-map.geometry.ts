@@ -76,6 +76,11 @@ export function cameraWorldSize(camera: Camera): { width: number; height: number
   };
 }
 
+export function architectureLegendReserveWidth(canvasWidth: number): number {
+  if (canvasWidth >= 700) return clamp(canvasWidth * .26, 240, 340);
+  return clamp(canvasWidth * .34, 96, 180);
+}
+
 export function fitCamera(
   camera: Camera,
   width: number,
@@ -90,11 +95,12 @@ export function fitCamera(
   const depthSpan = Math.abs(world.width * Math.sin(camera.yaw)) +
     Math.abs(world.height * Math.cos(camera.yaw));
   const verticalSpan = depthSpan * Math.sin(camera.pitch) + 1.2 * Math.cos(camera.pitch);
+  const legendReserve = architectureLegendReserveWidth(width);
   camera.scale = clamp(Math.min(
-    Math.max(1, width - 56) / Math.max(1, horizontalSpan),
+    Math.max(1, width - 56 - legendReserve) / Math.max(1, horizontalSpan),
     Math.max(1, height - 72) / Math.max(1, verticalSpan),
   ), 18, 64);
-  camera.panX = 0;
+  camera.panX = -legendReserve / 2;
   camera.panY = 6;
 }
 

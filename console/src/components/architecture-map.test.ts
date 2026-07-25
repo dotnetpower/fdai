@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { architectureResourceFromValue } from "./architecture-map";
-import { architectureResourceLegendEntries } from "./architecture-overview-panel";
 import { geometryOf } from "./architecture-map.model";
 import {
   architectureCanvasHeight,
+  architectureLegendReserveWidth,
   architectureZoomScale,
   architectureWorldSize,
   fitCamera,
@@ -17,6 +17,8 @@ import {
   architectureLinkIsDrawable,
   architectureLinkElevation,
   architectureOverlayOrder,
+  architectureFloorLegendEntries,
+  architectureFloorLegendFontSize,
   architectureLabelFontSize,
   fitArchitectureLabel,
 } from "./architecture-map-renderer";
@@ -93,25 +95,20 @@ describe("architecture resource legend", () => {
     expect(overviewPanelSource).not.toMatch(/entry\.(?:count|types)/);
   });
 
-  it("groups present resources into simple visual labels", () => {
-    const entries = architectureResourceLegendEntries([
+  it("groups present resources into simple visual tokens", () => {
+    const entries = architectureFloorLegendEntries([
       { id: "vm", type: "compute.vm" },
       { id: "db-1", type: "postgresql" },
       { id: "db-2", type: "postgresql-server" },
     ] as never);
 
-    expect(entries).toEqual([
-      {
-        token: "database",
-        label: "SQL and PostgreSQL",
-        color: "#005BA1",
-      },
-      {
-        token: "virtual-machine",
-        label: "Virtual machines",
-        color: "#0078D4",
-      },
-    ]);
+    expect(entries).toEqual(["database", "virtual-machine"]);
+  });
+
+  it("scales floor legend text with camera zoom inside readable bounds", () => {
+    expect(architectureFloorLegendFontSize(18)).toBe(8);
+    expect(architectureFloorLegendFontSize(42)).toBeCloseTo(10.4);
+    expect(architectureFloorLegendFontSize(132)).toBe(12);
   });
 });
 
@@ -120,6 +117,15 @@ describe("architecture map zoom", () => {
     const initial = 42;
     expect(architectureZoomScale(architectureZoomScale(initial, "in"), "out"))
       .toBeCloseTo(initial, 10);
+  });
+});
+
+describe("architecture floor legend space", () => {
+  it("reserves a bounded right-side floor area at desktop and mobile widths", () => {
+    expect(architectureLegendReserveWidth(1200)).toBe(312);
+    expect(architectureLegendReserveWidth(700)).toBe(240);
+    expect(architectureLegendReserveWidth(390)).toBeCloseTo(132.6);
+    expect(architectureLegendReserveWidth(200)).toBe(96);
   });
 });
 
@@ -238,19 +244,16 @@ describe("architecture responsive layout", () => {
     expect(styles).not.toMatch(/\.architecture-inspector\s*\{[^}]*overflow:\s*auto/s);
   });
 
-  it("floats a bounded overview over the map", () => {
+  it("keeps the resource legend out of the DOM overlay layer", () => {
     expect(styles).toMatch(
-      /\.architecture-overview-panel\s*\{[^}]*position:\s*absolute;[^}]*top:\s*12px;[^}]*right:\s*12px;[^}]*max-height:\s*calc\(100% - 88px\);[^}]*overflow:\s*auto/,
+      /\.architecture-overview-panel\s*\{[^}]*position:\s*absolute;[^}]*top:\s*12px;[^}]*right:\s*12px;[^}]*width:\s*min\(220px/,
+    );
+    expect(styles).not.toMatch(
+      /\.architecture-(?:resource-legend|legend-panel)\s*\{/,
     );
   });
 
   it("keeps the compact legend and resource index free of horizontal scrolling", () => {
-    expect(styles).toMatch(
-      /\.architecture-color-legend\s*\{[^}]*display:\s*grid;[^}]*repeat\(2, minmax\(0, 1fr\)\)/,
-    );
-    expect(styles).toMatch(
-      /@media \(max-width: 620px\)[\s\S]*?\.architecture-overview-panel\s*\{[^}]*width:\s*min\(220px, calc\(100% - 16px\)\);[^}]*max-height:\s*min\(300px, calc\(100% - 130px\)\)/,
-    );
     expect(styles).toMatch(
       /@media \(max-width: 620px\)[\s\S]*?\.architecture-index-table-wrap\s*\{[^}]*overflow-x:\s*visible/,
     );

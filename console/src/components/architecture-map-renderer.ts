@@ -14,12 +14,15 @@ import {
 import {
   geometryOf,
   isRegion,
+  RESOURCE_COLOR_TOKENS,
   resourceColorOf,
+  resourceColorTokenOf,
   resourceTypeLabelOf,
   shapeOf,
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   type ArchitectureDisplayOptions,
   type ArchitectureNodeGeometry,
+  type ArchitectureResourceColorToken,
   type InventoryGraphResponse,
   type InventoryLink,
   type InventoryResource,
@@ -60,6 +63,18 @@ export function architectureLabelFontSize(cameraScale: number, selected = false)
   return clamp(minimum + Math.max(0, cameraScale - 22) * growth, minimum, selected ? 22 : 20);
 }
 
+export function architectureFloorLegendFontSize(cameraScale: number): number {
+  return clamp(8 + Math.max(0, cameraScale - 22) * .12, 8, 12);
+}
+
+export function architectureFloorLegendEntries(
+  resources: readonly InventoryResource[],
+): readonly ArchitectureResourceColorToken[] {
+  return [...new Set(resources.map(resourceColorTokenOf))]
+    .sort((first, second) =>
+      RESOURCE_COLOR_TOKENS[first].label.localeCompare(RESOURCE_COLOR_TOKENS[second].label));
+}
+
 export function fitArchitectureLabel(
   text: string,
   maximumWidth: number,
@@ -87,6 +102,7 @@ export function renderMap(
   highlightedIds?: ReadonlySet<string>,
   options: ArchitectureDisplayOptions = DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   palette: ArchitectureMapPalette = DEFAULT_ARCHITECTURE_MAP_PALETTE,
+  legendLabel = "Resource legend",
 ): void {
   const showLabels = options.showLabels;
   context.clearRect(0, 0, width, height);
@@ -150,6 +166,7 @@ export function renderMap(
       );
     }
   }
+  drawFloorLegend(context, width, height, camera, graph.resources, palette, legendLabel);
 }
 
 export function architectureOverlayOrder(
@@ -171,6 +188,48 @@ function drawGrid(context: CanvasRenderingContext2D, width: number, height: numb
       context.arc(point.x, point.y, .7, 0, Math.PI * 2);
       context.fill();
     }
+  }
+  context.restore();
+}
+
+function drawFloorLegend(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  camera: Camera,
+  resources: readonly InventoryResource[],
+  palette: ArchitectureMapPalette,
+  legendLabel: string,
+): void {
+  const entries = architectureFloorLegendEntries(resources);
+  if (entries.length === 0) return;
+  const world = cameraWorldSize(camera);
+  const plate = rectangle(camera, width, height, 0, 0, world.width, world.height, 0);
+  const rightCorner = plate.reduce((rightmost, point) => point.x > rightmost.x ? point : rightmost);
+  const fontSize = architectureFloorLegendFontSize(camera.scale);
+  const rowHeight = fontSize * 1.5;
+  const columns = width >= 700 ? 2 : 1;
+  const rows = Math.ceil(entries.length / columns);
+  const columnWidth = fontSize * 13.5;
+  const originX = rightCorner.x + fontSize * 1.6;
+  const originY = rightCorner.y + fontSize * 1.8;
+
+  context.save();
+  context.textAlign = "left";
+  context.textBaseline = "middle";
+  context.fillStyle = palette.labelText;
+  context.font = `750 ${fontSize * .9}px Aptos, Segoe UI, sans-serif`;
+  context.fillText(legendLabel.toUpperCase(), originX, originY);
+  context.font = `600 ${fontSize}px Aptos, Segoe UI, sans-serif`;
+  for (const [index, token] of entries.entries()) {
+    const column = Math.floor(index / rows);
+    const row = index % rows;
+    const x = originX + column * columnWidth;
+    const y = originY + fontSize * 1.8 + row * rowHeight;
+    context.fillStyle = RESOURCE_COLOR_TOKENS[token].color;
+    context.fillRect(x, y - fontSize * .42, fontSize * .84, fontSize * .84);
+    context.fillStyle = palette.labelText;
+    context.fillText(RESOURCE_COLOR_TOKENS[token].label, x + fontSize * 1.35, y);
   }
   context.restore();
 }

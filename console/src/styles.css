@@ -20,7 +20,7 @@
 }
 .architecture-overview-panel {
   position: absolute; top: 12px; right: 12px; z-index: 5;
-  width: min(280px, calc(100% - 352px)); max-height: calc(100% - 88px); overflow: auto;
+  width: min(220px, calc(100% - 352px));
   border: 1px solid color-mix(in oklab, var(--border) 82%, var(--fg-muted)); border-radius: 7px;
   background: color-mix(in oklab, var(--bg-elevated) 96%, transparent);
   box-shadow: 0 8px 24px rgba(29,42,56,.13); backdrop-filter: blur(8px);
@@ -29,12 +29,6 @@
 .architecture-view-picker > span { color: var(--fg-muted); font-size: 11px; font-weight: 750; text-transform: uppercase; }
 .architecture-view-picker select { min-width: 0; min-height: 34px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-elevated); color: var(--fg); padding: 0 9px; font-size: 12px; font-weight: 650; }
 .architecture-partial-badge { display: block; margin: 0 10px 8px; padding: 4px 7px; border-radius: 4px; background: color-mix(in oklab, var(--warning) 12%, var(--bg-elevated)); color: var(--warning); font-size: 9px; font-weight: 700; }
-.architecture-resource-legend { border-top: 1px solid var(--border); padding: 9px 10px 10px; }
-.architecture-resource-legend > summary { font-size: 11px; font-weight: 750; cursor: pointer; }
-.architecture-color-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 9px; margin-top: 9px; }
-.architecture-legend-entry { display: grid; grid-template-columns: 11px minmax(0, 1fr); gap: 6px; align-items: center; min-width: 0; color: var(--fg-muted); font-size: 9px; line-height: 1.2; }
-.architecture-legend-entry > i { width: 11px; height: 11px; border-radius: 2px; outline: 1px solid color-mix(in oklab, currentColor 25%, transparent); }
-.architecture-legend-entry > span { overflow-wrap: anywhere; }
 .architecture-stage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
 .architecture-canvas-shell { position: relative; isolation: isolate; min-width: 0; min-height: 720px; overflow: hidden; background: var(--architecture-map-background); }
 .architecture-map-frame { position: relative; z-index: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; }
@@ -68,7 +62,6 @@
 .architecture-zoom-controls button { min-height: 44px; }
 .architecture-zoom-controls output { min-height: 24px; color: var(--fg-muted); font-size: 10px; white-space: nowrap; }
 .architecture-resource-picker select:focus-visible,
-.architecture-resource-legend > summary:focus-visible,
 .architecture-camera-control button:focus-visible,
 .architecture-zoom-controls button:focus-visible,
 .architecture-relation-index > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -222,14 +215,14 @@
 .finding-architecture-link:hover { text-decoration: underline; }
 
 @media (max-width: 1100px) {
-  .architecture-overview-panel { top: 56px; width: min(280px, calc(100% - 24px)); max-height: calc(100% - 132px); }
+  .architecture-overview-panel { top: 56px; width: min(220px, calc(100% - 24px)); }
   .architecture-stage { grid-template-columns: minmax(0, 1fr); }
   .architecture-inspector { grid-template-columns: minmax(0, 1fr); }
   .architecture-selection-section { min-height: 0; }
 }
 @media (max-width: 620px) {
   .architecture-workspace { border-inline: 0; border-radius: 0; }
-  .architecture-overview-panel { top: 54px; right: 8px; width: min(220px, calc(100% - 16px)); max-height: min(300px, calc(100% - 130px)); }
+  .architecture-overview-panel { top: 54px; right: 8px; width: min(200px, calc(100% - 16px)); }
   .architecture-resource-picker { width: calc(100% - 24px); }
   .architecture-edge-legend { right: 58px; max-width: none; }
   .architecture-edge-legend span:nth-child(3) { display: none; }

@@ -323,11 +323,14 @@ does not start an automatic redirect because an unreachable read API would cause
 
 ## Architecture-map resilience
 
-The Architecture route keeps only scope selection and a compact resource-color legend in a panel
-that floats over the map's upper-right corner. It omits inventory counts, explanatory copy, and
-layer filters. A truncated graph uses one short status badge. The legend lists each visual type
-present in the authoritative graph by color and display label. The default isometric map starts
-with Reflections and Connections enabled. It shows containment as subtle dashed links,
+The Architecture route keeps only scope selection in the compact panel that floats over the map's
+upper-right corner. It omits inventory counts, explanatory copy, and layer filters. A truncated
+graph uses one short status badge. The resource-color legend is drawn directly on the world floor
+beside the subscription boundary, not in a floating or bottom panel. Camera fitting reserves floor
+space for it. Its localized title, type labels, and color swatches move with pan and scale with map
+zoom inside bounded readable sizes. The relationship legend remains the compact canvas control.
+The default isometric map starts with Reflections and Connections enabled. It shows containment as
+subtle dashed links,
 shows attachment and dependency links with their directional styles, and renders each resource
 shape; top and front views are optional. Simple projections size each resource-group panel from its
 observed child count and pack those panels into a balanced world. A resource node never renders

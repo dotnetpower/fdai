@@ -25,6 +25,7 @@ interface Props {
   readonly options?: ArchitectureDisplayOptions;
   readonly onZoomChange?: (percent: number) => void;
   readonly descriptionId?: string;
+  readonly legendLabel?: string;
 }
 
 export interface ArchitectureMapHandle {
@@ -53,6 +54,7 @@ export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function
   options = DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   onZoomChange,
   descriptionId,
+  legendLabel,
 }, forwardedRef) {
   const canvasRef = useArchitectureMapController({
     graph,
@@ -61,6 +63,7 @@ export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function
     onSelect,
     options,
     onZoomChange,
+    legendLabel,
     forwardedRef,
   });
 

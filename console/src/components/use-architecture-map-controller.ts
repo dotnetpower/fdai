@@ -29,6 +29,7 @@ interface ControllerOptions {
   readonly onSelect: ((resource: InventoryResource | null) => void) | undefined;
   readonly options: ArchitectureDisplayOptions;
   readonly onZoomChange: ((percent: number) => void) | undefined;
+  readonly legendLabel: string | undefined;
   readonly forwardedRef: Ref<ArchitectureMapHandle>;
 }
 
@@ -39,6 +40,7 @@ export function useArchitectureMapController({
   onSelect,
   options,
   onZoomChange,
+  legendLabel,
   forwardedRef,
 }: ControllerOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,6 +66,7 @@ export function useArchitectureMapController({
     highlightedIds,
     onSelect,
     options,
+    legendLabel,
   });
   const drawRef = useRef<(() => void) | null>(null);
   stateRef.current = {
@@ -72,6 +75,7 @@ export function useArchitectureMapController({
     highlightedIds,
     onSelect,
     options,
+    legendLabel,
   };
 
   const notifyZoom = () => onZoomChange?.(
@@ -132,6 +136,7 @@ export function useArchitectureMapController({
         state.highlightedIds,
         architectureInteractionOptions(state.options, dragRef.current !== null),
         architectureMapPalette(canvas),
+        state.legendLabel,
       );
     };
     const scheduleDraw = () => {
