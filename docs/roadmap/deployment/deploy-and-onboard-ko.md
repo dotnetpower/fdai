@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 75b6dd5721d3a716812401f78723fbdf69810f4a
+translation_source_sha: 46bd819f916564aca13471d4fe5c4c30975ad77a
 translation_revised: 2026-07-25
 ---
 
@@ -70,6 +70,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   account에 `Storage Blob Data Contributor`, subscription scope에는 realtime inventory
   system topic과 subscription 관리용 `EventGrid Contributor`만 보유합니다. 각 workflow run은 managed
   identity login 전에 Azure CLI account cache를 지우며 앱 private endpoint에 시야를 확보합니다.
+Azure CLI state는 per-run temp directory에 고정합니다. Checkout 전 runner는 legacy generated
+`infra/None` cache path만 제거해 root-owned action residue가 exact-commit clean을 막지 않게 합니다.
 앱 config 는 spoke VNet 을 ops hub 에 (양방향) peering 하고 private DNS zone 을
 `extra_vnet_links` seam 으로 ops VNet 에 링크해, 러너가 앱 Key Vault 를 private 로 해석하게
 한다. 러너가 terraform apply 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 vault 의

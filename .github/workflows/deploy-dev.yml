@@ -116,6 +116,7 @@ jobs:
       # AAD auth for both the azurerm provider and the state backend blob,
       # using the runner's system-assigned managed identity (az login below).
       ARM_USE_AZUREAD: "true"
+      AZURE_CONFIG_DIR: ${{ runner.temp }}/azure-cli
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       # tfvars-equivalent inputs (non-secret via Variables, secret via Secrets).
       TF_VAR_env: ${{ inputs.environment }}
@@ -167,6 +168,14 @@ jobs:
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
     steps:
+      - name: Prepare self-hosted runner workspace
+        run: |
+          set -euo pipefail
+          legacy_cache="$GITHUB_WORKSPACE/infra/None"
+          if [[ -e "$legacy_cache" ]]; then
+            sudo -n rm -rf -- "$legacy_cache"
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:

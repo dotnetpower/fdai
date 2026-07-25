@@ -67,6 +67,9 @@ the durable hub that makes the deploy possible and survives app rebuilds:
   the ops RG, `Storage Blob Data Contributor` on the state account, and only `EventGrid
   Contributor` at subscription scope for realtime inventory system-topic and subscription delivery. Each
   workflow run clears the Azure CLI account cache before managed-identity login.
+  Azure CLI state is pinned under the per-run temp directory. Before checkout, the runner removes
+  only the legacy generated `infra/None` cache path so root-owned action residue cannot block the
+  exact-commit clean step.
 The app config peers its spoke VNet to the ops hub (both directions) and links its private
 DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's
 Key Vault privately. The runner is the terraform apply principal, so the existing

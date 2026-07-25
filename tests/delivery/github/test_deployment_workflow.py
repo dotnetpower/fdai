@@ -319,6 +319,10 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     ):
         assert field in workflow
     assert "Validate remote plan request" in workflow
+    assert "AZURE_CONFIG_DIR: ${{ runner.temp }}/azure-cli" in workflow
+    assert "Prepare self-hosted runner workspace" in workflow
+    assert 'legacy_cache="$GITHUB_WORKSPACE/infra/None"' in workflow
+    assert 'sudo -n rm -rf -- "$legacy_cache"' in workflow
     assert "resume_verification:" in workflow
     assert "ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}" in workflow
     assert '"$PLAN_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
