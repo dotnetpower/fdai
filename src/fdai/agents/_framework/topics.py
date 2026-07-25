@@ -13,6 +13,7 @@ these to enforce the contract before publish.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 # Envelope schema version stamped on every published record. Bumped only
@@ -119,6 +120,20 @@ def partition_key_for(topic: str, payload: dict[str, Any]) -> str:
     return str(payload.get("correlation_id", ""))
 
 
+def missing_mutation_envelope_fields(
+    topic: str,
+    payload: Mapping[str, object],
+) -> tuple[str, ...]:
+    """Return required mutation-envelope fields that are empty or absent."""
+    if topic not in MUTATION_TOPICS:
+        return ()
+    return tuple(
+        field_name
+        for field_name in ("correlation_id", "resource_id", "idempotency_key")
+        if not str(payload.get(field_name, "")).strip()
+    )
+
+
 def _kebab(name: str) -> str:
     out: list[str] = []
     for i, ch in enumerate(name):
@@ -133,6 +148,7 @@ __all__ = [
     "MUTATION_TOPICS",
     "CORRELATION_TOPICS",
     "ENVELOPE_SCHEMA_VERSION",
+    "missing_mutation_envelope_fields",
     "topic_for_object_type",
     "partition_key_for",
 ]

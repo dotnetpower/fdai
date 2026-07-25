@@ -425,16 +425,15 @@ principal is checked by the schema registry: only the owner may publish.
 
 ## 6. Communication contract
 
-The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process local adapter. Heimdall independently collects overlapping detection-readiness pass IDs and emits
-Drift only after one pass has all six dimensions; Muninn replaces readiness state only with a strictly newer snapshot. A best-effort `AgentHandlerObserver` reports actual handler lifecycle without
-changing delivery, judgment, or execution. Local composition publishes directly to the SSE sink;
-deployed composition publishes `started`, `completed`, and `failed` handler states onto the shared
-stage topic, where the read API relays them to Agent Activity.
+The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process local adapter. Heimdall emits Drift only after one readiness pass has all six dimensions; Muninn accepts only a strictly newer snapshot.
+A best-effort `AgentHandlerObserver` reports handler lifecycle without changing delivery, judgment, or execution. Local composition publishes to SSE; deployed composition publishes `started`, `completed`, and `failed` onto the shared stage topic for read API relay.
 
 ### 6.1 Typed port
 
-One topic per object type, named `object.<type>`. Every message carries `correlation_id`, `idempotency_key`,
-and `producer_principal`; Thor uses `correlation_id:state` for `object.action-run` retries without suppressing later transitions.
+One topic per object type, named `object.<type>`. Every message carries `correlation_id`, `idempotency_key`, and `producer_principal`; Thor uses `correlation_id:state` for retry-safe transitions.
+The bus stamps authenticated `producer_principal` and integer `envelope_schema_version` while preserving a payload's `schema_version`; mutations require non-empty `correlation_id`, `resource_id`, and `idempotency_key`.
+Owned-topic producer checks cannot be disabled, and unknown `object.*` subscriptions fail registration. Ordered mutation consumers stop after parking poison so later mutations cannot pass it.
+Dead-letter writes retry with bounded backoff before consumer restart. Operator redrive repeats owner, envelope, and schema checks and re-parks only the original payload.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|

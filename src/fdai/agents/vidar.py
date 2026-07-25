@@ -119,6 +119,7 @@ class Vidar(Agent):
                 {
                     "producer_principal": "Vidar",
                     "correlation_id": rec.correlation_id,
+                    "idempotency_key": (f"{rec.correlation_id}:rollback:{rec.state}"),
                     "action_type": rec.action_type,
                     "resource_id": rec.resource_id,
                     "contract": rec.contract,

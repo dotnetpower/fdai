@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 0d26adbcbb0dcf2d379d714f81b091ce6e4e9200
-translation_revised: 2026-07-24
+translation_source_sha: 1f250c52aa2693074448d2e28b0098e4a6869036
+translation_revised: 2026-07-25
 ---
 
 # 에이전트 판테온
@@ -403,16 +403,15 @@ properties:
 
 ## 6. 통신 계약
 
-판테온은 기존 `EventBus` wire를 사용합니다. Event Hubs `:9093`의 Kafka 또는 in-process local adapter를 사용합니다. Heimdall은 겹친 감지 준비도 pass ID를 독립적으로 수집하고 한 pass의
-6개 dimension이 모두 도착한 후에만 Drift를 게시하며, Muninn은 엄격히 더 새로운 snapshot으로만 준비도 state를 교체합니다. Best-effort `AgentHandlerObserver`는 delivery, judgment 또는
-execution을 변경하지 않고 실제 handler lifecycle을 보고합니다. Local composition은 SSE sink에
-직접 게시하고 deployed composition은 `started`, `completed`, `failed` handler state를 shared stage
-topic에 게시합니다. Read API는 이 state를 Agent Activity로 relay합니다.
+판테온은 Event Hubs `:9093`의 Kafka 또는 in-process local adapter인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 readiness pass의 6개 dimension이 모두 도착한 뒤 Drift를 게시하며 Muninn은 엄격히 더 새로운 snapshot만 수락합니다.
+Best-effort `AgentHandlerObserver`는 delivery, judgment, execution을 변경하지 않고 handler lifecycle을 보고합니다. Local composition은 SSE로, deployed composition은 shared stage topic으로 게시해 read API가 relay합니다.
 
 ### 6.1 Typed port
 
-Object type 당 topic 하나, `object.<type>` 로 명명. 모든 메시지는 `correlation_id`, `idempotency_key`,
-`producer_principal` 을 carry하며 Thor는 `correlation_id:state`로 재시도를 deduplicate하고 후속 transition을 유지합니다.
+Object type마다 `object.<type>` topic 하나를 사용합니다. 모든 메시지는 `correlation_id`, `idempotency_key`, `producer_principal`을 carry하며 Thor는 `correlation_id:state`로 retry-safe transition을 유지합니다.
+Bus는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 payload의 `schema_version`은 보존합니다. Mutation은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다.
+Owned-topic producer check는 끌 수 없고 알 수 없는 `object.*` subscription은 등록에 실패합니다. Ordered mutation consumer는 poison record를 보관한 뒤 중지해 후속 mutation의 추월을 막습니다.
+Dead-letter write는 제한된 backoff 후 consumer를 재시작합니다. 오퍼레이터 redrive도 owner, envelope, schema를 다시 검사하고 실패하면 원본 payload만 다시 보관합니다.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|

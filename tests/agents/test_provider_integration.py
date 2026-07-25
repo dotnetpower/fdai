@@ -60,7 +60,11 @@ def test_bridge_injects_producer_principal_in_payload() -> None:
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
     asyncio.run(
-        bridge.publish("Thor", "object.action-run", {"correlation_id": "c", "resource_id": "r"})
+        bridge.publish(
+            "Thor",
+            "object.action-run",
+            {"correlation_id": "c", "resource_id": "r", "idempotency_key": "idem-c"},
+        )
     )
 
     # Peek via a fresh consumer group
@@ -81,7 +85,11 @@ def test_bridge_partitions_mutation_by_resource_id() -> None:
         bridge.publish(
             "Thor",
             "object.action-run",
-            {"correlation_id": "c", "resource_id": "vm-1"},
+            {
+                "correlation_id": "c",
+                "resource_id": "vm-1",
+                "idempotency_key": "idem-c",
+            },
         )
     )
 
@@ -410,11 +418,14 @@ def test_bridge_stamps_schema_version() -> None:
     bridge = EventBusBridge(provider=provider, registry=reg)
     asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
     assert provider._records["object.verdict"][0][1]["schema_version"] == 1
-    # A caller-supplied version is not overwritten.
+    assert provider._records["object.verdict"][0][1]["envelope_schema_version"] == 1
+    # A domain contract keeps its own schema version while the transport
+    # version remains authoritative in a separate field.
     asyncio.run(
         bridge.publish("Forseti", "object.verdict", {"correlation_id": "d", "schema_version": 99})
     )
     assert provider._records["object.verdict"][1][1]["schema_version"] == 99
+    assert provider._records["object.verdict"][1][1]["envelope_schema_version"] == 1
 
 
 def test_bridge_counts_missing_correlation_id() -> None:
@@ -425,15 +436,20 @@ def test_bridge_counts_missing_correlation_id() -> None:
     assert bridge.metrics.missing_correlation_id == 1
 
 
-def test_bridge_counts_missing_idempotency_key_on_mutation_topic() -> None:
+def test_bridge_rejects_missing_idempotency_key_on_mutation_topic() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
-    # object.action-run is a mutation topic; no idempotency_key -> counted.
-    asyncio.run(
-        bridge.publish("Thor", "object.action-run", {"correlation_id": "c", "resource_id": "vm-1"})
-    )
+    with pytest.raises(ValueError, match="idempotency_key"):
+        asyncio.run(
+            bridge.publish(
+                "Thor",
+                "object.action-run",
+                {"correlation_id": "c", "resource_id": "vm-1"},
+            )
+        )
     assert bridge.metrics.missing_idempotency_key == 1
+    assert "object.action-run" not in provider._records
     # A judgment topic without idempotency_key is NOT counted (not required).
     asyncio.run(bridge.publish("Forseti", "object.verdict", {"correlation_id": "c"}))
     assert bridge.metrics.missing_idempotency_key == 1
@@ -520,10 +536,10 @@ def test_bridge_allows_authentic_producer_principal_on_consume() -> None:
     assert bridge.metrics.producer_principal_mismatch == 0
 
 
-def test_bridge_verify_producer_principal_can_be_disabled() -> None:
+def test_bridge_owned_topic_principal_verification_cannot_be_disabled() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
-    bridge = EventBusBridge(provider=provider, registry=reg, verify_producer_principal=False)
+    bridge = EventBusBridge(provider=provider, registry=reg)
 
     seen: list[dict] = []
 
@@ -540,8 +556,8 @@ def test_bridge_verify_producer_principal_can_be_disabled() -> None:
     )
     _drain(bridge)
 
-    assert len(seen) == 1  # delivered despite the mismatch
-    assert bridge.metrics.producer_principal_mismatch == 0
+    assert seen == []
+    assert bridge.metrics.producer_principal_mismatch == 1
 
 
 def test_bridge_retries_transient_handler_failure_before_delivery() -> None:
@@ -601,7 +617,7 @@ def test_bridge_skips_duplicate_subscription() -> None:
     assert len(bridge._subs["object.verdict"]) == 1
 
 
-def test_bridge_warns_on_unknown_object_topic(caplog: pytest.LogCaptureFixture) -> None:
+def test_bridge_rejects_unknown_object_topic() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
@@ -609,9 +625,8 @@ def test_bridge_warns_on_unknown_object_topic(caplog: pytest.LogCaptureFixture) 
     async def handler(_t: str, _p: dict) -> None:
         return None
 
-    with caplog.at_level("WARNING"):
+    with pytest.raises(ValueError, match="unknown pantheon object topic"):
         bridge.subscribe("object.verdit", "Thor", handler)  # typo
-    assert any("unknown_topic" in r.message for r in caplog.records)
 
 
 def test_bridge_fail_closed_on_empty_mutation_key() -> None:
@@ -619,22 +634,24 @@ def test_bridge_fail_closed_on_empty_mutation_key() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
     bridge = EventBusBridge(provider=provider, registry=reg)
-    with pytest.raises(ValueError, match="empty"):
+    with pytest.raises(ValueError, match="missing required"):
         asyncio.run(bridge.publish("Thor", "object.action-run", {}))
-    assert bridge.metrics.empty_partition_keys == 1
+    assert bridge.metrics.missing_correlation_id == 1
+    assert bridge.metrics.missing_resource_id == 1
+    assert bridge.metrics.missing_idempotency_key == 1
     assert bridge.metrics.publish_errors == 1
     assert "object.action-run" not in provider._records
 
 
-def test_bridge_empty_mutation_key_soft_mode_publishes() -> None:
+def test_bridge_empty_mutation_key_soft_mode_cannot_bypass_envelope() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()
-    bridge = EventBusBridge(
-        provider=provider, registry=reg, fail_closed_on_empty_mutation_key=False
-    )
-    asyncio.run(bridge.publish("Thor", "object.action-run", {}))
-    assert bridge.metrics.empty_partition_keys == 1
-    assert bridge.metrics.published == 1
+    with pytest.raises(TypeError, match="fail_closed_on_empty_mutation_key"):
+        EventBusBridge(
+            provider=provider,
+            registry=reg,
+            fail_closed_on_empty_mutation_key=False,  # type: ignore[call-arg]
+        )
 
 
 def test_bridge_halts_ordered_topic_on_poison() -> None:

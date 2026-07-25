@@ -25,6 +25,7 @@ from fdai.agents._framework.registry import PantheonRegistry
 from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
     OWNED_OBJECT_TOPICS,
+    missing_mutation_envelope_fields,
     partition_key_for,
 )
 
@@ -89,7 +90,7 @@ class InMemoryBus:
 
     registry: PantheonRegistry
     isolate_handlers: bool = True
-    handler_timeout: float | None = None
+    handler_timeout: float | None = 60.0
     subscribers: dict[str, list[tuple[str, Handler]]] = field(
         default_factory=lambda: defaultdict(list)
     )
@@ -100,12 +101,11 @@ class InMemoryBus:
 
     def subscribe(self, topic: str, agent_name: str, handler: Handler) -> None:
         if topic.startswith("object.") and topic not in OWNED_OBJECT_TOPICS:
-            # A typo'd object topic subscribes but never receives - a silent
-            # dead seam. Warn (mirrors the production bridge).
-            _LOG.warning(
+            _LOG.error(
                 "inmemory_bus_subscribe_unknown_topic",
                 extra={"topic": topic, "agent": agent_name},
             )
+            raise ValueError(f"unknown pantheon object topic {topic!r} for agent {agent_name!r}")
         existing = self.subscribers[topic]
         if any(name == agent_name and h == handler for name, h in existing):
             _LOG.warning(
@@ -118,8 +118,16 @@ class InMemoryBus:
     async def publish(self, principal: str, topic: str, payload: Payload) -> None:
         self.registry.assert_can_publish(principal, topic)
         enriched = dict(payload)
-        enriched.setdefault("producer_principal", principal)
+        enriched["producer_principal"] = principal
         enriched.setdefault("schema_version", ENVELOPE_SCHEMA_VERSION)
+        enriched["envelope_schema_version"] = ENVELOPE_SCHEMA_VERSION
+        missing = missing_mutation_envelope_fields(topic, enriched)
+        if missing:
+            fields = ", ".join(missing)
+            raise ValueError(
+                f"refusing to publish mutation topic {topic!r}: missing required "
+                f"envelope field(s): {fields}"
+            )
         key = partition_key_for(topic, enriched)
         if not key:
             self.empty_partition_keys += 1

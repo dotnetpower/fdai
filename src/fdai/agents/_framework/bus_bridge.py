@@ -36,6 +36,7 @@ from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
     MUTATION_TOPICS,
     OWNED_OBJECT_TOPICS,
+    missing_mutation_envelope_fields,
     partition_key_for,
 )
 from fdai.shared.providers.event_bus import EventBus, PublishReceipt
@@ -72,8 +73,8 @@ class AgentHandlerObserver(Protocol):
     ) -> None: ...
 
 
-def _warn_unknown_topic(topic: str, agent_name: str) -> None:
-    """Warn when an ``object.*`` subscription targets an unregistered topic.
+def _assert_known_topic(topic: str, agent_name: str) -> None:
+    """Reject an ``object.*`` subscription targeting an unregistered topic.
 
     A typo'd object topic (``object.verdit``) subscribes successfully but
     never receives a record - a silent dead seam. Non-object topics (the
@@ -81,10 +82,11 @@ def _warn_unknown_topic(topic: str, agent_name: str) -> None:
     so they are exempt from this check.
     """
     if topic.startswith("object.") and topic not in OWNED_OBJECT_TOPICS:
-        _LOG.warning(
+        _LOG.error(
             "pantheon_subscribe_unknown_topic",
             extra={"topic": topic, "agent": agent_name},
         )
+        raise ValueError(f"unknown pantheon object topic {topic!r} for agent {agent_name!r}")
 
 
 @dataclass
@@ -102,12 +104,12 @@ class EventBusBridge:
     restart_backoff_base: float = 0.5
     restart_backoff_max: float = 30.0
     shutdown_timeout: float = 5.0
-    verify_producer_principal: bool = True
     handler_max_retries: int = 0
     handler_retry_backoff: float = 0.05
-    fail_closed_on_empty_mutation_key: bool = True
-    halt_ordered_topic_on_poison: bool = False
-    handler_timeout: float | None = None
+    halt_ordered_topic_on_poison: bool = True
+    handler_timeout: float | None = 60.0
+    dead_letter_max_retries: int = 2
+    dead_letter_retry_backoff: float = 0.25
     payload_validator: PayloadValidator | None = None
     handler_observer: AgentHandlerObserver | None = None
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
@@ -117,7 +119,7 @@ class EventBusBridge:
     # ---- pantheon-style API --------------------------------------------
 
     def subscribe(self, topic: str, agent_name: str, handler: Handler) -> None:
-        _warn_unknown_topic(topic, agent_name)
+        _assert_known_topic(topic, agent_name)
         existing = self._subs[topic]
         if any(name == agent_name and h == handler for name, h in existing):
             # A duplicate (topic, agent, handler) registration would spin up
@@ -147,9 +149,12 @@ class EventBusBridge:
     ) -> PublishReceipt:
         self.registry.assert_can_publish(principal, topic)
         enriched = dict(payload)
-        enriched.setdefault("producer_principal", principal)
-        # Stamp the envelope version so a rolling upgrade can gate on it.
+        enriched["producer_principal"] = principal
+        # Keep a domain contract's schema_version intact. The transport
+        # version has its own field so a rolling upgrade cannot rewrite a
+        # payload such as ForecastOutcome schema "1.0.0" into integer 1.
         enriched.setdefault("schema_version", ENVELOPE_SCHEMA_VERSION)
+        enriched["envelope_schema_version"] = ENVELOPE_SCHEMA_VERSION
         self._check_envelope(topic, enriched, principal)
         if self.payload_validator is not None:
             try:
@@ -161,7 +166,11 @@ class EventBusBridge:
                 self.metrics.publish_errors += 1
                 _LOG.warning(
                     "pantheon_payload_schema_violation",
-                    extra={"topic": topic, "principal": principal, "error": str(exc)},
+                    extra={
+                        "topic": topic,
+                        "principal": principal,
+                        "error_type": type(exc).__name__,
+                    },
                 )
                 raise
         key = partition_key_for(topic, enriched)
@@ -174,7 +183,7 @@ class EventBusBridge:
                 "pantheon_empty_partition_key",
                 extra={"topic": topic, "principal": principal},
             )
-            if topic in MUTATION_TOPICS and self.fail_closed_on_empty_mutation_key:
+            if topic in MUTATION_TOPICS:
                 # Fail toward safety: a mutation record with no resource key
                 # would round-robin across partitions, so two concurrent
                 # mutations on the same resource could interleave (the
@@ -201,29 +210,41 @@ class EventBusBridge:
         return receipt
 
     def _check_envelope(self, topic: str, payload: Mapping[str, object], principal: str) -> None:
-        """Count (never block) missing shared-envelope fields.
+        """Count shared-envelope gaps and reject incomplete mutations.
 
         The wire contract (agent-pantheon.md 6.1) says every message carries
         ``correlation_id`` and ``idempotency_key``. A missing field is a
         data-quality signal - it breaks correlation (tracing) or dedup
         (at-least-once safety) downstream - so it is counted and warned
-        here rather than silently accepted. It is not a hard block: a bad
-        envelope MUST NOT stall the pipeline, and the consumer side still
-        fails toward safety.
+        here rather than silently accepted. Mutation records fail closed
+        because missing correlation, resource ordering, or idempotency can
+        turn at-least-once delivery into an unsafe duplicate or reorder.
         """
-        if not str(payload.get("correlation_id", "")):
+        missing = missing_mutation_envelope_fields(topic, payload)
+        if not str(payload.get("correlation_id", "")).strip():
             self.metrics.missing_correlation_id += 1
             _LOG.warning(
                 "pantheon_missing_correlation_id",
                 extra={"topic": topic, "principal": principal},
             )
-        # Only mutation topics strictly require an idempotency key (they
-        # are the records an at-least-once redelivery could double-apply).
-        if topic in MUTATION_TOPICS and not str(payload.get("idempotency_key", "")):
+        if topic in MUTATION_TOPICS and not str(payload.get("resource_id", "")).strip():
+            self.metrics.missing_resource_id += 1
+            _LOG.warning(
+                "pantheon_missing_resource_id",
+                extra={"topic": topic, "principal": principal},
+            )
+        if topic in MUTATION_TOPICS and not str(payload.get("idempotency_key", "")).strip():
             self.metrics.missing_idempotency_key += 1
             _LOG.warning(
                 "pantheon_missing_idempotency_key",
                 extra={"topic": topic, "principal": principal},
+            )
+        if missing:
+            self.metrics.publish_errors += 1
+            fields = ", ".join(missing)
+            raise ValueError(
+                f"refusing to publish mutation topic {topic!r}: missing required "
+                f"envelope field(s): {fields}"
             )
 
     # ---- consumer loop -------------------------------------------------
@@ -376,7 +397,7 @@ class EventBusBridge:
                             group_id=group_id,
                             topic=topic,
                             envelope=envelope,
-                            reason=f"handler error: {exc}",
+                            reason=f"handler error: {type(exc).__name__}",
                         )
                         if self.halt_ordered_topic_on_poison and topic in MUTATION_TOPICS:
                             # Ordering preservation for a per-resource
@@ -480,8 +501,6 @@ class EventBusBridge:
         allow it. An owned topic requires its declared principal; a missing or
         mismatched ``producer_principal`` is rejected and counted.
         """
-        if not self.verify_producer_principal:
-            return True
         owner = self.registry.owner_of_topic(topic)
         if owner is None:
             return True
@@ -536,28 +555,44 @@ class EventBusBridge:
         envelope: Any,
         reason: str,
     ) -> None:
-        """Route a poison record to the DLQ, isolating DLQ failures.
+        """Route a poison record to the DLQ with bounded retry.
 
-        A broker hiccup on the DLQ path MUST NOT crash the consumer (that
-        would turn one bad record into a dead subscription); it is
-        counted and logged instead.
+        A persistent DLQ failure propagates so the owning consumer restarts
+        without silently advancing beyond a record that was never parked.
         """
-        try:
-            await self.provider.dead_letter(
-                topic,
-                envelope.key,
-                envelope.payload,
-                reason=reason,
-            )
-            self.metrics.dead_lettered += 1
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.metrics.dead_letter_errors += 1
-            _LOG.exception(
-                "pantheon_dead_letter_failed",
-                extra={"group_id": group_id, "topic": topic},
-            )
+        await self._dead_letter_payload(
+            group_id=group_id,
+            topic=topic,
+            key=envelope.key,
+            payload=envelope.payload,
+            reason=reason,
+        )
+
+    async def _dead_letter_payload(
+        self,
+        *,
+        group_id: str,
+        topic: str,
+        key: str,
+        payload: Payload,
+        reason: str,
+    ) -> None:
+        for attempt in range(self.dead_letter_max_retries + 1):
+            try:
+                await self.provider.dead_letter(topic, key, payload, reason=reason)
+                self.metrics.dead_lettered += 1
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.metrics.dead_letter_errors += 1
+                if attempt >= self.dead_letter_max_retries:
+                    _LOG.exception(
+                        "pantheon_dead_letter_failed",
+                        extra={"group_id": group_id, "topic": topic, "attempt": attempt + 1},
+                    )
+                    raise
+                await asyncio.sleep(self.dead_letter_retry_backoff * (2**attempt))
 
     async def redrive(
         self,
@@ -581,6 +616,8 @@ class EventBusBridge:
         explicitly (a CLI / admin action) so a redrive is always a
         conscious decision, never automatic.
         """
+        if max_records is not None and max_records <= 0:
+            raise ValueError("max_records MUST be greater than zero when provided")
         dlq_topic = f"{topic}.dlq"
         gid = group_id or f"{self.consumer_group_prefix}.redrive.{topic}"
         redriven = 0
@@ -592,17 +629,23 @@ class EventBusBridge:
             original = wrapped.get("payload", wrapped)
             payload = dict(original) if isinstance(original, Mapping) else {}
             try:
+                if not self._producer_authorized(topic, payload):
+                    raise ValueError("redrive payload has an unauthorized producer principal")
+                self._check_envelope(topic, payload, str(payload.get("producer_principal", "")))
+                if self.payload_validator is not None:
+                    self.payload_validator(topic, payload)
                 await self._deliver(topic, handler, payload)
                 redriven += 1
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # noqa: BLE001 - re-park a still-failing record
                 failed += 1
-                await self._safe_dead_letter(
+                await self._dead_letter_payload(
                     group_id=gid,
                     topic=topic,
-                    envelope=envelope,
-                    reason=f"redrive failed: {exc}",
+                    key=envelope.key,
+                    payload=payload,
+                    reason=f"redrive failed: {type(exc).__name__}",
                 )
             if max_records is not None and (redriven + failed) >= max_records:
                 break

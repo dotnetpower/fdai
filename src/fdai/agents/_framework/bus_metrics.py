@@ -31,6 +31,7 @@ class BridgeMetrics:
     published: int = 0
     publish_errors: int = 0
     missing_correlation_id: int = 0
+    missing_resource_id: int = 0
     missing_idempotency_key: int = 0
     producer_principal_mismatch: int = 0
     ordered_poison_halts: int = 0
@@ -51,6 +52,7 @@ class BridgeMetrics:
             "published": self.published,
             "publish_errors": self.publish_errors,
             "missing_correlation_id": self.missing_correlation_id,
+            "missing_resource_id": self.missing_resource_id,
             "missing_idempotency_key": self.missing_idempotency_key,
             "producer_principal_mismatch": self.producer_principal_mismatch,
             "ordered_poison_halts": self.ordered_poison_halts,

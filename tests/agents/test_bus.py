@@ -25,14 +25,23 @@ def test_inmemory_bus_injects_producer_principal_and_schema_version() -> None:
     msg = bus.messages_on("object.verdict")[0]
     assert msg.payload["producer_principal"] == "Forseti"
     assert msg.payload["schema_version"] == 1
-    # A caller-supplied producer_principal is not overwritten.
+    assert msg.payload["envelope_schema_version"] == 1
+    # Caller-supplied envelope authority cannot impersonate another agent.
     asyncio.run(
         bus.publish(
             "Forseti",
             "object.verdict",
-            {"correlation_id": "d", "producer_principal": "Forseti"},
+            {
+                "correlation_id": "d",
+                "producer_principal": "Bragi",
+                "schema_version": 999,
+            },
         )
     )
+    forged = bus.messages_on("object.verdict")[1]
+    assert forged.payload["producer_principal"] == "Forseti"
+    assert forged.payload["schema_version"] == 999
+    assert forged.payload["envelope_schema_version"] == 1
 
 
 def test_inmemory_bus_computes_partition_key() -> None:
@@ -118,17 +127,14 @@ def test_inmemory_bus_skips_duplicate_subscription() -> None:
     assert seen == ["x"]  # delivered once, not twice
 
 
-def test_inmemory_bus_warns_on_unknown_object_topic(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_inmemory_bus_rejects_unknown_object_topic() -> None:
     bus = _bus()
 
     async def handler(_t: str, _p: dict) -> None:
         return None
 
-    with caplog.at_level("WARNING"):
+    with pytest.raises(ValueError, match="unknown pantheon object topic"):
         bus.subscribe("object.does-not-exist", "Heimdall", handler)
-    assert any("unknown_topic" in r.message for r in caplog.records)
 
 
 def test_inmemory_bus_handler_timeout_is_isolated() -> None:
