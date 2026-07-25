@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 930dc3897552851979a8b059fb7207625fa1c941
-translation_revised: 2026-07-25
+translation_source_sha: c99ffd27022ea7f3718ba595d4647b8fcdc51d32
+translation_revised: 2026-07-26
 ---
 # 코드 맵
 
@@ -169,7 +169,7 @@ shared 패키지를 커버한다.
 | gitops_pr | PR-native 리메디에이션 패키저 | [src/fdai/delivery/gitops_pr/](../../../src/fdai/delivery/gitops_pr/) |
 | chatops | Teams / Slack Adaptive Cards | [src/fdai/delivery/chatops/](../../../src/fdai/delivery/chatops/) |
 | notifications | 채널 dispatch와 PagerDuty/ServiceNow incident lifecycle 및 PagerDuty roster adapter | [notifications/](../../../src/fdai/delivery/notifications/), [incident_platform/](../../../src/fdai/delivery/incident_platform/) |
-| read_api | 콘솔 read-only HTTP 서피스, production optional-service builder, route-owned chat request, background, busy-input, skill, read-investigation payload/execution helper | [src/fdai/delivery/read_api/](../../../src/fdai/delivery/read_api/), [production/python_tasks.py](../../../src/fdai/delivery/read_api/production/python_tasks.py), [chat_stream_request.py](../../../src/fdai/delivery/read_api/routes/chat_stream_request.py), [chat_stream_setup.py](../../../src/fdai/delivery/read_api/routes/chat_stream_setup.py), [chat_vision_prompt.py](../../../src/fdai/delivery/read_api/routes/chat_vision_prompt.py), [chat_verification_text.py](../../../src/fdai/delivery/read_api/routes/chat_verification_text.py), [read_investigation_payload.py](../../../src/fdai/delivery/read_api/routes/read_investigation_payload.py), [read_investigation_execution.py](../../../src/fdai/delivery/read_api/routes/read_investigation_execution.py) |
+| read_api | 콘솔 read-only HTTP 서피스, production optional-service builder, route-owned chat request, verification rendering, background, busy-input, skill, read-investigation payload/execution helper | [src/fdai/delivery/read_api/](../../../src/fdai/delivery/read_api/), [production/python_tasks.py](../../../src/fdai/delivery/read_api/production/python_tasks.py), [chat_stream_request.py](../../../src/fdai/delivery/read_api/routes/chat_stream_request.py), [chat_stream_setup.py](../../../src/fdai/delivery/read_api/routes/chat_stream_setup.py), [chat_vision_prompt.py](../../../src/fdai/delivery/read_api/routes/chat_vision_prompt.py), [chat_verification_rendering.py](../../../src/fdai/delivery/read_api/routes/chat_verification_rendering.py), [chat_verification_text.py](../../../src/fdai/delivery/read_api/routes/chat_verification_text.py), [read_investigation_payload.py](../../../src/fdai/delivery/read_api/routes/read_investigation_payload.py), [read_investigation_execution.py](../../../src/fdai/delivery/read_api/routes/read_investigation_execution.py) |
 | provisioning | Terraform / IaC apply 드라이버 | [src/fdai/delivery/provisioning/](../../../src/fdai/delivery/provisioning/) |
 | persistence | Durable delivery, execution, metering, projection, receipt store와 함께 focused background-task completion/serialization 및 read-investigation run serialization 모듈을 포함하는 Postgres + pgvector store | [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/), [postgres_background_task_completion.py](../../../src/fdai/delivery/persistence/postgres_background_task_completion.py), [postgres_background_task_serialization.py](../../../src/fdai/delivery/persistence/postgres_background_task_serialization.py), [postgres_read_investigation_run_serialization.py](../../../src/fdai/delivery/persistence/postgres_read_investigation_run_serialization.py) |
 | document_index | Structure-aware document chunking과 로컬 embedding retrieval | [src/fdai/delivery/document_index/](../../../src/fdai/delivery/document_index/) |

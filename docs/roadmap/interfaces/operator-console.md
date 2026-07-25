@@ -200,7 +200,8 @@ flowchart TD
   - `chat_stream_setup.py` owns authenticated request, document, vision, history, and answer-plan
     validation before the busy-input state machine starts.
   - `chat_vision_prompt.py` projects validated inline images into narrator content, and
-    `chat_verification_text.py` owns Unicode normalization and answer-text integrity checks.
+    `chat_verification_text.py` owns Unicode normalization and answer-text integrity checks;
+    `chat_verification_rendering.py` owns bounded incident and agent-activity prose rendering.
 
 English and Korean presentation literals in these layers are authored as NFC UTF-8. The repository
 gate rejects escaped Hangul prose and matching tokens, with exact rationale-bearing exceptions only

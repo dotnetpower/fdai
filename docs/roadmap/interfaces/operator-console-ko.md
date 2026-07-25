@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: abe0c06c7542a877fffec4d397354827b00531c9
-translation_revised: 2026-07-25
+translation_source_sha: 9961d340bb59a22327f66dd98d897d859ab858c3
+translation_revised: 2026-07-26
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -195,7 +195,8 @@ flowchart TD
   - `chat_stream_setup.py`는 busy-input state machine 시작 전 authenticated request, document,
     vision, history, answer-plan validation을 소유합니다.
   - `chat_vision_prompt.py`는 검증된 inline image를 narrator content로 projection하고,
-    `chat_verification_text.py`는 Unicode normalization과 answer-text integrity 검사를 소유합니다.
+    `chat_verification_text.py`는 Unicode normalization과 answer-text integrity 검사를,
+    `chat_verification_rendering.py`는 bounded incident 및 agent-activity prose rendering을 소유합니다.
 
 이 layer의 영어 및 한국어 presentation literal은 NFC UTF-8로 작성합니다. Repository gate는 escape된
 Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만
