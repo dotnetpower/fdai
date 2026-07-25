@@ -278,6 +278,11 @@ badge remains width-bounded so malformed metadata can't displace the reply heade
 their prompt and completion components must each be finite and nonnegative before the browser
 renders token usage.
 
+Verification metadata is accepted only when check counters are nonnegative integers with completed
+checks no greater than total checks. Atomic claim spans are ordered nonnegative integers, manifest
+schema version 1 is explicit, and claim, failed-claim, and used-evidence references have no duplicate
+or dangling identifiers. Invalid combinations become an unverified malformed artifact.
+
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
 image source previews (name, media type, size) but never the base64 payload. The turn escalates to

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ffb15a92f8ac8d7a915751d04c4684a89f36c242
+translation_source_sha: 8c20f2545e09f77d4b571e770da1522d9f3d560a
 translation_revised: 2026-07-25
 ---
 
@@ -273,6 +273,11 @@ duplicate-metric 및 free-form metric value는 LLM escalation claim을 만들지
 badge는 width가 제한되므로 malformed metadata가 reply header를 밀어내지 않습니다. Browser가 token
 usage를 표시하려면 token total과 prompt 및 completion component가 각각 finite nonnegative value여야
 합니다.
+
+Verification metadata는 check counter가 nonnegative integer이고 completed check가 total check보다
+크지 않을 때만 허용됩니다. Atomic claim span은 순서가 맞는 nonnegative integer이고 manifest schema
+version 1을 명시하며 claim, failed-claim 및 used-evidence reference에는 duplicate 또는 dangling
+identifier가 없어야 합니다. 잘못된 조합은 unverified malformed artifact가 됩니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

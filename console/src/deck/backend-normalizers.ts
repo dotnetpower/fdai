@@ -193,6 +193,10 @@ export function parseAnswerVerification(raw: unknown): AnswerVerification | unde
   const record = raw as Record<string, unknown>;
   const status = parseVerificationStatus(record.status);
   if (status === null || typeof record.authority !== "string") return undefined;
+  const checksCompleted = nonnegativeSafeInteger(record.checks_completed);
+  const checksTotal = nonnegativeSafeInteger(record.checks_total);
+  const malformedCounters = checksCompleted === null ||
+    checksTotal === null || checksCompleted > checksTotal;
   const refs = Array.isArray(record.evidence_refs)
     ? record.evidence_refs.filter((item): item is string => typeof item === "string")
     : [];
@@ -202,13 +206,14 @@ export function parseAnswerVerification(raw: unknown): AnswerVerification | unde
   const claims = parseAtomicClaims(record.claims);
   const manifest = parseEvidenceManifest(record.evidence_manifest);
   const artifactPresent = record.claims !== undefined || record.evidence_manifest !== undefined;
-  const malformedArtifact = artifactPresent && (claims === null || manifest === null);
+  const malformedArtifact = malformedCounters ||
+    (artifactPresent && (claims === null || manifest === null)) ||
+    !verificationArtifactsAgree(claims, manifest, failedClaimIds);
   return {
     status: malformedArtifact ? "unverified" : status,
     authority: record.authority,
-    checks_completed:
-      typeof record.checks_completed === "number" ? record.checks_completed : 0,
-    checks_total: typeof record.checks_total === "number" ? record.checks_total : 0,
+    checks_completed: malformedCounters ? 0 : checksCompleted,
+    checks_total: malformedCounters ? 0 : checksTotal,
     evidence_refs: refs,
     reason_code: malformedArtifact
       ? "malformed_verification_artifact"
@@ -235,14 +240,17 @@ function parseAtomicClaims(raw: unknown): AtomicAnswerClaim[] | null {
         : null;
     const start = spanRecord?.start;
     const end = spanRecord?.end;
+    const startValue = nonnegativeSafeInteger(start);
+    const endValue = nonnegativeSafeInteger(end);
     if (
       typeof claim.claim_id !== "string" ||
       !["id", "number", "percentage", "timestamp", "causal", "scope"].includes(
         String(kind),
       ) ||
       typeof claim.text !== "string" ||
-      typeof start !== "number" ||
-      typeof end !== "number" ||
+      startValue === null ||
+      endValue === null ||
+      startValue > endValue ||
       typeof claim.raw_value !== "string" ||
       typeof claim.normalized_value !== "string" ||
       (claim.unit !== null && typeof claim.unit !== "string") ||
@@ -255,7 +263,7 @@ function parseAtomicClaims(raw: unknown): AtomicAnswerClaim[] | null {
       claim_id: claim.claim_id,
       kind: kind as AtomicAnswerClaim["kind"],
       text: claim.text,
-      span: { start, end },
+      span: { start: startValue, end: endValue },
       raw_value: claim.raw_value,
       normalized_value: claim.normalized_value,
       unit: claim.unit as string | null,
@@ -298,14 +306,16 @@ function parseEvidenceManifest(raw: unknown): AnswerEvidenceManifest | null | un
       ...(entry.aliases === undefined ? {} : { aliases: entry.aliases }),
     });
   }
+  const sourceEntryCount = nonnegativeSafeInteger(manifest.source_entry_count);
   if (
-    typeof manifest.schema_version !== "number" ||
+    manifest.schema_version !== 1 ||
     typeof manifest.manifest_id !== "string" ||
     typeof manifest.authority !== "string" ||
     (manifest.route_id !== null && typeof manifest.route_id !== "string") ||
     (manifest.captured_at !== null && typeof manifest.captured_at !== "string") ||
     typeof manifest.complete !== "boolean" ||
-    typeof manifest.source_entry_count !== "number"
+    sourceEntryCount === null ||
+    sourceEntryCount < entries.length
   ) return null;
   return {
     schema_version: manifest.schema_version,
@@ -314,9 +324,31 @@ function parseEvidenceManifest(raw: unknown): AnswerEvidenceManifest | null | un
     route_id: manifest.route_id as string | null,
     captured_at: manifest.captured_at as string | null,
     complete: manifest.complete,
-    source_entry_count: manifest.source_entry_count,
+    source_entry_count: sourceEntryCount,
     entries,
   };
+}
+
+function verificationArtifactsAgree(
+  claims: AtomicAnswerClaim[] | null,
+  manifest: AnswerEvidenceManifest | null | undefined,
+  failedClaimIds: readonly string[],
+): boolean {
+  if (claims === null || manifest === null) return false;
+  const claimIds = new Set(claims.map((claim) => claim.claim_id));
+  if (claimIds.size !== claims.length) return false;
+  if (new Set(failedClaimIds).size !== failedClaimIds.length) return false;
+  if (failedClaimIds.some((claimId) => !claimIds.has(claimId))) return false;
+  if (manifest === undefined) return true;
+  const manifestRefs = new Set(manifest.entries.map((entry) => entry.ref));
+  if (manifestRefs.size !== manifest.entries.length) return false;
+  const claimRefs = new Set(claims.flatMap((claim) => claim.evidence_refs));
+  if ([...claimRefs].some((ref) => !manifestRefs.has(ref))) return false;
+  return [...manifestRefs].every((ref) => claimRefs.has(ref));
+}
+
+function nonnegativeSafeInteger(raw: unknown): number | null {
+  return typeof raw === "number" && Number.isSafeInteger(raw) && raw >= 0 ? raw : null;
 }
 
 function validStringArray(raw: unknown): raw is string[] {
