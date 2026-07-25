@@ -67,6 +67,12 @@ from fdai.core.hil_resume.delegation import (
     DelegationRefusal,
     evaluate_hil_delegation,
 )
+from fdai.core.hil_resume.load_control import (
+    ApprovalDispatchMode,
+    ApprovalLoadController,
+    ApprovalReminderDispatcher,
+    approval_request_from_park,
+)
 from fdai.core.oncall import OnCallResolution, OnCallResolver
 from fdai.shared.contracts.models import (
     Action,
@@ -77,7 +83,6 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.hil_channel import (
     HilApprovalReceipt,
-    HilApprovalRequest,
     HilChannel,
     HilChannelError,
     HilDecision,
@@ -137,6 +142,10 @@ class RequestOutcome(StrEnum):
     """Action parked but the HilChannel push failed. The action stays
     pending (fail-toward-safety); a re-drive or a fallback channel can
     still deliver the card. Never auto-executes."""
+
+    PARKED_DEFERRED = "parked_deferred"
+    """Action is durably parked while grouping or quiet-hour policy defers
+    the channel notification. It remains independently decidable."""
 
     ALREADY_PARKED = "already_parked"
     """An exact replay found the same approval request already parked."""
@@ -217,6 +226,8 @@ class HilResumeCoordinator:
         on_call_resolver: OnCallResolver | None = None,
         on_call_rotation: str | None = None,
         pending_index_writer: Callable[[StateStore, str], Awaitable[None]] | None = None,
+        approval_load_controller: ApprovalLoadController | None = None,
+        approval_reminder_dispatcher: ApprovalReminderDispatcher | None = None,
     ) -> None:
         self._state_store = state_store
         self._executor = executor
@@ -231,6 +242,8 @@ class HilResumeCoordinator:
         self._on_call_resolver = on_call_resolver
         self._on_call_rotation = on_call_rotation
         self._pending_index_writer = pending_index_writer
+        self._approval_load_controller = approval_load_controller
+        self.reminder_dispatcher = approval_reminder_dispatcher
 
     async def _resolve_on_call(self) -> OnCallResolution | None:
         """Resolve the current on-call responder, or ``None`` when unconfigured.
@@ -312,6 +325,8 @@ class HilResumeCoordinator:
             "rule_id": rule.id,
             "rule": rule.model_dump(mode="json"),
             "action_type": action.action_type,
+            "severity": rule.severity.value,
+            "category": rule.category.value,
             "submitter_oid": normalized_submitter,
             "assignee_oid": resolved_assignee,
             "correlation_id": correlation_id,
@@ -374,16 +389,15 @@ class HilResumeCoordinator:
         if self._pending_index_writer is not None:
             await self._pending_index_writer(self._state_store, aid)
 
-        request = HilApprovalRequest(
-            approval_id=aid,
-            correlation_id=correlation_id,
-            action_id=str(action.action_id),
-            action_type=action.action_type,
-            rule_ids=tuple(action.citing_rules),
-            target_resource_ref=action.target_resource_ref,
-            blast_radius_summary=blast_radius_summary,
-            reasons=tuple(reasons),
-            ttl_seconds=ttl_seconds,
+        load_plan = None
+        if self._approval_load_controller is not None:
+            load_plan = await self._approval_load_controller.plan(
+                parked,
+                severity=rule.severity.value,
+            )
+        request = approval_request_from_park(
+            parked,
+            metadata=load_plan.metadata() if load_plan is not None else None,
         )
         if self._hil_channel is None:
             await self._audit(
@@ -395,6 +409,25 @@ class HilResumeCoordinator:
             )
             return RequestApprovalResult(
                 outcome=RequestOutcome.PARKED_DISPATCH_FAILED,
+                approval_id=aid,
+            )
+        if load_plan is not None and load_plan.mode is not ApprovalDispatchMode.SEND_NOW:
+            await self._audit(
+                action_kind="hil.request.delivery_deferred",
+                idempotency_key=f"{action.idempotency_key}:hil_delivery_deferred",
+                approval_id=aid,
+                correlation_id=correlation_id,
+                detail={
+                    "action_type": action.action_type,
+                    "dispatch_mode": load_plan.mode.value,
+                    "group_id": load_plan.group_id,
+                    "group_size": load_plan.group_size,
+                    "pending_for_assignee": load_plan.pending_for_assignee,
+                    "overloaded": load_plan.overloaded,
+                },
+            )
+            return RequestApprovalResult(
+                outcome=RequestOutcome.PARKED_DEFERRED,
                 approval_id=aid,
             )
         try:

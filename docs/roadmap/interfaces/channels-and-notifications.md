@@ -417,6 +417,18 @@ matrix:
 - **Rate policy stays deployment-owned** - tenant-specific approver rate, quiet-hour, and fatigue
   limits belong in authenticated ingress and routing configuration. They never weaken registry
   idempotency, expiry, quorum, or the no-self-approval checks.
+- **Approval load plans never drop work** - every A1 request is durably parked before a versioned
+  load policy (`config/approval-load.yaml`, optionally selected by `FDAI_APPROVAL_LOAD_POLICY`)
+  chooses `send_now`, `deferred`, or `grouped` delivery. Critical severities always
+  bypass quiet hours and grouping. Non-critical requests may share one deterministic action and
+  assignee group window or wait until quiet hours end, but every member remains independently
+  visible and decidable in the approval queue. An assignee fatigue ceiling changes a group's
+  notification mode; it never blocks parking or implies approval.
+- **Reminders are bounded attempts** - the policy declares deterministic offsets before the
+  original approval expiry. A runtime worker claims each reminder id once across replicas and
+  attempts the existing A1 channel. Success or failure is audited; neither extends TTL, removes
+  the pending item, or retries beyond the declared reminder count. Policy simulation must prove
+  that critical requests are never deferred or grouped and that no input request disappears.
 - **TTL fail-closed** - an A1 request with no decision by TTL is a no-op + A2 alert +
   audit entry ([security-and-identity.md](../architecture/security-and-identity.md#hil-approval-integrity)).
 

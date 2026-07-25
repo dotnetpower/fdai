@@ -1158,3 +1158,4 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
 
     loop = _build_control_loop(default_container(app_config), http_client=httpx.AsyncClient())
     assert loop._hil_resume_coordinator is not None
+    assert loop._hil_resume_coordinator.reminder_dispatcher is not None

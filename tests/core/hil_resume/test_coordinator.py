@@ -25,6 +25,9 @@ from fdai.core.executor import (
     TemplateRenderer,
 )
 from fdai.core.hil_resume import (
+    ApprovalLoadController,
+    ApprovalLoadPolicy,
+    ApprovalReminderDispatcher,
     HilResumeCoordinator,
     RequestOutcome,
     ResolveOutcome,
@@ -145,6 +148,119 @@ def _coordinator(
 
 def _audit_kinds(store: InMemoryStateStore) -> list[str]:
     return [str(e["entry"].get("action_kind")) for e in store.audit_entries]
+
+
+def _load_policy() -> ApprovalLoadPolicy:
+    return ApprovalLoadPolicy.from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "group_window_seconds": 300,
+            "max_pending_per_assignee": 2,
+            "reminder_offsets_seconds": [600],
+            "quiet_hours_utc": {"start": "22:00", "end": "06:00"},
+            "urgent_severities": ["critical"],
+            "scan_limit": 100,
+            "worker_interval_seconds": 30,
+        }
+    )
+
+
+def _load_controlled_coordinator(
+    *, now: datetime
+) -> tuple[HilResumeCoordinator, InMemoryStateStore, InMemoryHilChannel]:
+    publisher = RecordingRemediationPrPublisher()
+    store = InMemoryStateStore()
+    channel = InMemoryHilChannel()
+    policy = _load_policy()
+    controller = ApprovalLoadController(state_store=store, policy=policy, clock=lambda: now)
+    dispatcher = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=channel,
+        policy=policy,
+        clock=lambda: now,
+    )
+    coordinator = HilResumeCoordinator(
+        state_store=store,
+        executor=ShadowExecutor(
+            publisher=publisher,
+            audit_store=store,
+            renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+            resource_lock=ResourceLockManager(),
+        ),
+        hil_channel=channel,
+        rules_by_id={_RULE_ID: _rule()},
+        approval_load_controller=controller,
+        approval_reminder_dispatcher=dispatcher,
+    )
+    return coordinator, store, channel
+
+
+async def test_quiet_hour_defers_delivery_but_keeps_park() -> None:
+    now = datetime(2026, 7, 25, 23, 0, tzinfo=UTC)
+    coordinator, store, channel = _load_controlled_coordinator(now=now)
+
+    result = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="quiet-correlation",
+        approval_id="quiet-approval",
+        assignee_oid=_APPROVER,
+        ttl_seconds=30_000,
+    )
+
+    assert result.outcome is RequestOutcome.PARKED_DEFERRED
+    assert await store.read_state("hil_park:quiet-approval") is not None
+    assert channel.sent == []
+    assert coordinator.reminder_dispatcher is not None
+
+
+async def test_similar_approval_groups_without_dropping_member() -> None:
+    now = datetime(2026, 7, 25, 12, 0, tzinfo=UTC)
+    coordinator, store, channel = _load_controlled_coordinator(now=now)
+
+    first = await coordinator.request_approval(
+        action=_action(idempotency_key="group-one"),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="group-correlation-one",
+        approval_id="group-approval-one",
+        assignee_oid=_APPROVER,
+    )
+    second = await coordinator.request_approval(
+        action=_action(idempotency_key="group-two", target="resource:example/rg/stg2"),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="group-correlation-two",
+        approval_id="group-approval-two",
+        assignee_oid=_APPROVER,
+    )
+
+    assert first.outcome is RequestOutcome.PARKED
+    assert second.outcome is RequestOutcome.PARKED_DEFERRED
+    assert len(channel.sent) == 1
+    assert await store.read_state("hil_park:group-approval-one") is not None
+    assert await store.read_state("hil_park:group-approval-two") is not None
+
+
+async def test_critical_approval_bypasses_quiet_hour() -> None:
+    now = datetime(2026, 7, 25, 23, 0, tzinfo=UTC)
+    coordinator, store, channel = _load_controlled_coordinator(now=now)
+    critical_rule = _rule().model_copy(update={"severity": Severity.CRITICAL})
+
+    result = await coordinator.request_approval(
+        action=_action(idempotency_key="critical-idem"),
+        rule=critical_rule,
+        submitter_oid=_SUBMITTER,
+        correlation_id="critical-correlation",
+        approval_id="critical-approval",
+        assignee_oid=_APPROVER,
+    )
+
+    assert result.outcome is RequestOutcome.PARKED
+    assert len(channel.sent) == 1
+    assert channel.sent[0].metadata["approval_load_mode"] == "send_now"
+    assert await store.read_state("hil_park:critical-approval") is not None
 
 
 async def _park(

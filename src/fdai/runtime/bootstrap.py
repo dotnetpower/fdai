@@ -647,6 +647,7 @@ async def _run() -> int:
                     name="canary-consumer",
                 )
             hil_decision_task: asyncio.Task[None] | None = None
+            hil_reminder_task: asyncio.Task[None] | None = None
             if control_loop._hil_resume_coordinator is not None:
                 from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
@@ -666,6 +667,15 @@ async def _run() -> int:
                     ),
                     name="hil-decision-consumer",
                 )
+                reminder_dispatcher = hil_coordinator.reminder_dispatcher
+                if reminder_dispatcher is not None:
+                    hil_reminder_task = asyncio.create_task(
+                        startup_readiness_runtime.run_when_ready(
+                            stop,
+                            lambda: reminder_dispatcher.run(stop),
+                        ),
+                        name="hil-approval-reminders",
+                    )
             wait_task = asyncio.create_task(stop.wait())
 
             # Blast-radius isolation: the pantheon runs OUTSIDE the P1 wait
@@ -709,6 +719,8 @@ async def _run() -> int:
                 wait_set.add(canary_task)
             if hil_decision_task is not None:
                 wait_set.add(hil_decision_task)
+            if hil_reminder_task is not None:
+                wait_set.add(hil_reminder_task)
             if case_history_retention_task is not None:
                 wait_set.add(case_history_retention_task)
             done, _pending = await asyncio.wait(
@@ -724,6 +736,8 @@ async def _run() -> int:
                 canary_task.cancel()
             if hil_decision_task is not None:
                 hil_decision_task.cancel()
+            if hil_reminder_task is not None:
+                hil_reminder_task.cancel()
             if pantheon_task is not None:
                 pantheon_task.cancel()
             if runtime_state_task is not None:
@@ -746,6 +760,8 @@ async def _run() -> int:
                 cleanup_tasks.append(canary_task)
             if hil_decision_task is not None:
                 cleanup_tasks.append(hil_decision_task)
+            if hil_reminder_task is not None:
+                cleanup_tasks.append(hil_reminder_task)
             if pantheon_task is not None:
                 cleanup_tasks.append(pantheon_task)
             if runtime_state_task is not None:

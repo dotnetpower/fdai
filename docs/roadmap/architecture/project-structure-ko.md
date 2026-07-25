@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 24531edeab09e356af2cd8e9911f2cdc9149d5a7
-translation_revised: 2026-07-24
+translation_source_sha: eeffb0607050887abb8a4706d6b226ac97ee1a70
+translation_revised: 2026-07-25
 ---
 
 # 프로젝트 구조
@@ -45,7 +45,7 @@ fdai/
 │   │   ├── rca/                # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)
 │   │   ├── risk_gate/          # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 4개 안전 불변식 강제
 │   │   ├── rbac/               # 리드 API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)
-│   │   ├── hil_resume/         # HIL 승인 라운드트립: park, 채널로 push, 결정 시 resume
+│   │   ├── hil_resume/         # HIL park/resume + no-drop grouping, quiet-hour plan, fatigue metric, bounded reminder
 │   │   ├── executor/           # 리소스별 락, 딜리버리 어댑터로 멱등 적용
 │   │   ├── execution_backend/  # profile intersection, durable lifecycle coordination, shadow probe; 판단 authority 없음
 │   │   ├── audit/              # append-only 해시 체인 감사 로그 + KPI/메트릭 발행

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -25,7 +26,12 @@ from fdai.core.executor import ShadowExecutor
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
-from fdai.core.hil_resume import HilResumeCoordinator
+from fdai.core.hil_resume import (
+    ApprovalLoadController,
+    ApprovalLoadPolicy,
+    ApprovalReminderDispatcher,
+    HilResumeCoordinator,
+)
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.quality_gate import (
     HashedRuleEmbeddingIndex,
@@ -173,6 +179,20 @@ def _load_resource_types() -> ResourceTypeRegistry:
     vocabulary_file = _resolve_catalog_root() / "vocabulary" / "resource-types.yaml"
     with vocabulary_file.open("r", encoding="utf-8") as handle:
         return load_resource_type_registry_from_mapping(yaml.safe_load(handle))
+
+
+def _load_approval_load_policy(catalog_root: Path) -> ApprovalLoadPolicy | None:
+    configured = os.environ.get("FDAI_APPROVAL_LOAD_POLICY", "").strip()
+    path = Path(configured) if configured else catalog_root.parent / "config" / "approval-load.yaml"
+    if not path.is_file():
+        if configured:
+            raise ValueError("FDAI_APPROVAL_LOAD_POLICY does not reference a file")
+        return None
+    with path.open("r", encoding="utf-8") as handle:
+        decoded = yaml.safe_load(handle)
+    if not isinstance(decoded, Mapping):
+        raise ValueError("approval load policy MUST be a YAML object")
+    return ApprovalLoadPolicy.from_mapping(decoded)
 
 
 def _build_control_loop(
@@ -394,6 +414,21 @@ def _build_control_loop(
     # turns a HIL verdict into an execution - the coordinator holds the
     # no-self-approval + idempotency invariants.
     hil_channel = _build_hil_channel(http_client)
+    approval_load_policy = _load_approval_load_policy(catalog_root)
+    approval_load_controller = (
+        ApprovalLoadController(state_store=audit_store, policy=approval_load_policy)
+        if hil_channel is not None and approval_load_policy is not None
+        else None
+    )
+    approval_reminder_dispatcher = (
+        ApprovalReminderDispatcher(
+            state_store=audit_store,
+            channel=hil_channel,
+            policy=approval_load_policy,
+        )
+        if hil_channel is not None and approval_load_policy is not None
+        else None
+    )
     hil_resume_coordinator = HilResumeCoordinator(
         state_store=audit_store,
         executor=executor,
@@ -403,6 +438,8 @@ def _build_control_loop(
         tool_executor=tool_executor,
         action_types_by_name=action_types_by_name,
         pending_index_writer=_pending_index_writer,
+        approval_load_controller=approval_load_controller,
+        approval_reminder_dispatcher=approval_reminder_dispatcher,
     )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 52503c4b4b9380a85f5286906ba47235cdd34e0f
+translation_source_sha: 7b7c77e236cff861bbc66c39500660bd99119f2a
 translation_revised: 2026-07-25
 ---
 
@@ -407,6 +407,18 @@ matrix:
 - **Rate policy는 deployment가 소유** - tenant별 approver rate, quiet hour, fatigue 제한은 인증된
   ingress와 routing config에 둡니다. Registry idempotency, expiry, quorum, no-self-approval check를
   약화하지 않습니다.
+- **Approval load plan은 work를 drop하지 않음** - 모든 A1 request는 versioned load policy가
+  (`config/approval-load.yaml`, 선택적 `FDAI_APPROVAL_LOAD_POLICY`) `send_now`, `deferred`,
+  `grouped` delivery를 선택하기 전에 durable하게 park됩니다. Critical
+  severity는 항상 quiet hour와 grouping을 우회합니다. Non-critical request는 deterministic action
+  및 assignee group window를 공유하거나 quiet hour 종료까지 기다릴 수 있지만, 모든 member는
+  approval queue에서 독립적으로 확인하고 결정할 수 있습니다. Assignee fatigue ceiling은 group의
+  notification mode만 바꾸며 parking을 막거나 approval을 의미하지 않습니다.
+- **Reminder는 bounded attempt** - policy는 원래 approval expiry 이전의 deterministic offset을
+  선언합니다. Runtime worker는 replica 전체에서 각 reminder id를 한 번 claim하고 기존 A1 channel을
+  시도합니다. 성공과 실패를 모두 audit하며 TTL을 연장하거나 pending item을 제거하거나 선언된
+  reminder count를 넘어 retry하지 않습니다. Policy simulation은 critical request가 defer/group되지
+  않고 input request가 하나도 사라지지 않음을 증명해야 합니다.
 - **TTL fail-closed** - TTL까지 결정 없는 A1 요청은 no-op + A2 알림 + 감사 엔트리
   ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md#hil-approval-integrity)).
 

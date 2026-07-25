@@ -13,6 +13,14 @@ from fdai.core.hil_resume.coordinator import (
     ResolveOutcome,
     ResolveResult,
 )
+from fdai.core.hil_resume.load_control import (
+    ApprovalDispatchMode,
+    ApprovalLoadController,
+    ApprovalLoadPlan,
+    ApprovalLoadPolicy,
+    ApprovalLoadSnapshot,
+    ApprovalReminderDispatcher,
+)
 
 __all__ = [
     "HilResumeCoordinator",
@@ -20,4 +28,10 @@ __all__ = [
     "RequestOutcome",
     "ResolveOutcome",
     "ResolveResult",
+    "ApprovalDispatchMode",
+    "ApprovalLoadController",
+    "ApprovalLoadPlan",
+    "ApprovalLoadPolicy",
+    "ApprovalLoadSnapshot",
+    "ApprovalReminderDispatcher",
 ]
