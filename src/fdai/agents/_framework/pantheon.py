@@ -11,7 +11,12 @@ from __future__ import annotations
 from fdai.agents._framework.base import AgentSpec, ConversationCharter, Layer
 
 
-def _conversation(name: str, mandate: str, *tools: str) -> ConversationCharter:
+def _conversation(
+    name: str,
+    mandate: str,
+    korean_route: str,
+    *tools: str,
+) -> ConversationCharter:
     return ConversationCharter(
         system_prompt=(
             f"You are {name}, one of FDAI's fixed operational agents. {mandate} "
@@ -20,6 +25,7 @@ def _conversation(name: str, mandate: str, *tools: str) -> ConversationCharter:
             "through the typed pipeline. Abstain when evidence is insufficient."
         ),
         tools=tools,
+        routing_examples=(mandate, korean_route),
     )
 
 
@@ -34,6 +40,7 @@ _ODIN = AgentSpec(
     conversation=_conversation(
         "Odin",
         "Explain portfolio arbitration and priority conflicts.",
+        "포트폴리오 우선순위 충돌과 중재 결과를 설명합니다.",
         "read_arbitration_history",
         "read_portfolio_verdicts",
     ),
@@ -58,6 +65,7 @@ _THOR = AgentSpec(
     conversation=_conversation(
         "Thor",
         "Explain action-run state and recent execution evidence.",
+        "액션 실행 상태와 최근 실행 근거를 설명합니다.",
         "read_action_runs",
         "read_execution_history",
     ),
@@ -79,6 +87,7 @@ _FORSETI = AgentSpec(
     conversation=_conversation(
         "Forseti",
         "Explain verdicts and grounded root-cause judgments.",
+        "판정과 근거가 확인된 원인 분석을 설명합니다.",
         "read_verdicts",
         "read_rca_evidence",
     ),
@@ -113,6 +122,7 @@ _HUGINN = AgentSpec(
     conversation=_conversation(
         "Huginn",
         "Explain ingress health and resource discovery intake.",
+        "이벤트 수집 상태와 리소스 발견 수신 상태를 설명합니다.",
         "read_ingress_health",
         "read_discovery_status",
     ),
@@ -134,6 +144,7 @@ _HEIMDALL = AgentSpec(
     conversation=_conversation(
         "Heimdall",
         "Explain observed signals, anomalies, drift, and forecasts.",
+        "관측 신호, 이상, 드리프트, 예측을 설명합니다.",
         "read_observations",
         "read_signal_history",
     ),
@@ -166,6 +177,7 @@ _VIDAR = AgentSpec(
     conversation=_conversation(
         "Vidar",
         "Explain rollback history and disaster-recovery readiness.",
+        "롤백 이력과 재해 복구 준비 상태를 설명합니다.",
         "read_rollback_history",
         "read_dr_readiness",
     ),
@@ -188,6 +200,7 @@ _VAR = AgentSpec(
     conversation=_conversation(
         "Var",
         "Explain pending approvals and approval outcomes.",
+        "승인 대기와 승인 결과를 설명합니다.",
         "read_pending_approvals",
         "read_approval_history",
     ),
@@ -215,6 +228,7 @@ _BRAGI = AgentSpec(
     conversation=_conversation(
         "Bragi",
         "Route questions and explain the fixed agent capability roster.",
+        "질문을 라우팅하고 고정된 에이전트 역할과 기능을 설명합니다.",
         "list_agent_capabilities",
         "route_read_question",
     ),
@@ -237,6 +251,7 @@ _SAGA = AgentSpec(
     conversation=_conversation(
         "Saga",
         "Explain append-only audit evidence and issue handoffs.",
+        "추가 전용 감사 근거와 이슈 인계 상태를 설명합니다.",
         "read_audit_chain",
         "read_issue_handoffs",
     ),
@@ -269,6 +284,7 @@ _MIMIR = AgentSpec(
     conversation=_conversation(
         "Mimir",
         "Explain governed rules, policies, and rule history.",
+        "거버넌스 규칙, 정책, 규칙 변경 이력을 설명합니다.",
         "read_rule_catalog",
         "read_policy_history",
     ),
@@ -290,6 +306,7 @@ _MUNINN = AgentSpec(
     conversation=_conversation(
         "Muninn",
         "Explain current, bitemporal, and case-history context.",
+        "현재 상태, 이중 시간 상태, 사례 이력 컨텍스트를 설명합니다.",
         "read_state_context",
         "read_case_history",
     ),
@@ -317,6 +334,7 @@ _NORNS = AgentSpec(
     conversation=_conversation(
         "Norns",
         "Explain recurring patterns and inert learning candidates.",
+        "반복 패턴과 비활성 학습 후보를 설명합니다.",
         "read_pattern_observations",
         "read_candidate_holds",
     ),
@@ -345,6 +363,7 @@ _NJORD = AgentSpec(
     conversation=_conversation(
         "Njord",
         "Explain observed cost samples, budgets, and anomalies.",
+        "관측 비용, 예산 상태, 비용 이상을 설명합니다.",
         "read_cost_samples",
         "read_budget_status",
     ),
@@ -366,6 +385,7 @@ _FREYR = AgentSpec(
     conversation=_conversation(
         "Freyr",
         "Explain capacity forecasts and sizing recommendations.",
+        "용량 예측과 크기 조정 권고를 설명합니다.",
         "read_capacity_forecasts",
         "read_sizing_recommendations",
     ),
@@ -387,6 +407,7 @@ _LOKI = AgentSpec(
     conversation=_conversation(
         "Loki",
         "Explain governed chaos experiments and resilience scores.",
+        "거버넌스 카오스 실험과 복원력 점수를 설명합니다.",
         "read_chaos_experiments",
         "read_resilience_scores",
     ),

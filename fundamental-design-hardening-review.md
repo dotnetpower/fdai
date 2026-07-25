@@ -234,6 +234,7 @@ Low-or-higher finding before advancing.
 | Offline provisioning inspection | `77ce624d` | 107 deployment CLI tests; 445 exact-commit selected tests | Code complete; public trust root remains blocked |
 | Approval load intelligence | `ca0031d3` | No-drop simulation, quiet-hour/critical bypass, grouping, fatigue, and reminder tests | Complete |
 | Live inventory ordering proof | current main evidence | Six PostgreSQL migration/snapshot/delta integration cases in a dedicated temporary database | Complete |
+| Semantic agent routing | current main batch | Frozen multilingual charter vectors, zero-call T0 paths, threshold/margin abstention, provider-error fallback | Complete |
 
 Every unit passed `scripts/verify.sh --fast`, strict mypy, Ruff, bilingual translation, document
 size, punctuation, customer-scope, catalog, stewardship, architecture, and integrity gates.
@@ -246,7 +247,6 @@ FDAI should not be described as fully ready until these work units meet their ex
 |----------|-----------|----------------|--------------------------|
 | P0 | Public offline trust bootstrap | No production release root is packaged, so shipped inspection cannot authenticate a disconnected kit | Root ceremony completed outside CI; public root packaged in wheel; release-signed kit verifies on a disconnected host; tampered, expired, rollback, and wrong-platform kits fail |
 | P0 | Private-network onboarding acceptance | Component probes and runner IaC exist, but no single acceptance proves bootstrap to observe-ready on the actual isolated runner | Fresh subscription run completes policy preflight, private state bootstrap, exact plan, apply, DNS/TLS/identity/ARG/Event Hubs/PostgreSQL probes, inventory promotion, 15-agent startup, and sanitized handoff report |
-| P1 | Semantic agent routing | Explicit names and deterministic domain routing work; T1 semantic similarity remains a deterministic stub | Approved embedding provider binding; frozen multilingual query set; measured routing accuracy and latency; deterministic abstention threshold; no increase in typed hot-path model calls |
 | P1 | Agent read-tool implementation parity | All 15 charters declare bounded tool ids, while some agents answer only from process-local state or capability fallback when live providers are absent | Each tool id maps to a registered read-only implementation; startup reports availability; every agent has live-provider, unavailable, timeout, redaction, and citation tests |
 | P1 | Connected/offline recovery runbooks | Success-path onboarding is documented more deeply than plan expiry, rejected-kit replacement, and degraded-readiness recovery | Bilingual runbooks link each stable failure code to a safe retry or rollback; drills prove no stale plan apply, no trust-root override, and no synthetic readiness evidence |
 | P1 | Deterministic/model cost evidence | Tier targets are design goals, not current production measurements | Same frozen scenario set reports T0/T1/T2 share, model calls, latency, cost, abstentions, verifier failures, and outcome quality; regression thresholds gate release |

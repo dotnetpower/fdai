@@ -12,6 +12,10 @@ class RoutingDecision:
     scores: dict[str, float]
     tie_break: str | None
     contributors: tuple[str, ...] = ()
+    method: str = "t0_abstain"
+    semantic_score: float | None = None
+    semantic_margin: float | None = None
+    provider_status: str = "not_used"
 
 
 @dataclass

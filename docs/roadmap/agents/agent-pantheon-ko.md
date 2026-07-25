@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 31fc0bf2435a470052f6417f1a4f040a0cd70dd0
+translation_source_sha: f29ce7e85983e2806265792e1806f25c97fdf39b
 translation_revised: 2026-07-25
 ---
 
@@ -475,10 +475,10 @@ Bragi는 router이지 answerer가 아닙니다. 영어 및 한국어 Azure read 
    비교. Domain specificity, 참조된 object type 의 ownership, 상호작용
   recency 로 점수화. Prefix 기반 stemming은 짧은 활용 차이만 허용하며,
   `actiontype` 같은 복합 token은 일반 `action` domain과 매칭하지 않음.
-4. **T1 embedding similarity.** T0 가 abstain 하면 과거 해결된 query 와
-   similarity 매칭; 여전히 deterministic ranking, LLM 없음.
-5. **T2 intent classification.** T0/T1 모두 abstain 하면 LLM 이 intent 를
-   분류하고, Bragi 는 분류된 intent 로 scoring 을 재실행.
+4. **T1 embedding similarity.** T0 abstention/tie는 한 번의 question embedding을 cached 영/한
+  charter example과 비교합니다. Explicit/read/single-winner T0는 zero-call이며 threshold, margin,
+  provider failure는 추측 없이 deterministic result를 유지합니다.
+5. **T2 intent classification.** T0/T1이 abstain하면 intent를 분류하고 scoring을 재실행합니다.
 6. **Handoff.** Scoring margin 이 여전히 임계값 미만이면
   `HandoffEscalation` 발행 (§6.4). 시스템은 추측 대신 GitHub issue 를
    생성한다.

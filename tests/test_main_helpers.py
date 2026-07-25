@@ -1159,3 +1159,24 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
     loop = _build_control_loop(default_container(app_config), http_client=httpx.AsyncClient())
     assert loop._hil_resume_coordinator is not None
     assert loop._hil_resume_coordinator.reminder_dispatcher is not None
+
+
+def test_semantic_router_config_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD", "0.72")
+    monkeypatch.setenv("FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD", "0.11")
+    from fdai.runtime.bootstrap import _semantic_router_config_from_env
+
+    config = _semantic_router_config_from_env()
+
+    assert config.cosine_threshold == 0.72
+    assert config.margin_threshold == 0.11
+
+
+def test_semantic_router_config_rejects_invalid_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD", "not-a-number")
+    from fdai.runtime.bootstrap import _semantic_router_config_from_env
+
+    with pytest.raises(RuntimeError, match="MUST be a float"):
+        _semantic_router_config_from_env()

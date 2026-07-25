@@ -67,6 +67,7 @@ class ConversationCharter:
 
     system_prompt: str
     tools: tuple[str, ...]
+    routing_examples: tuple[str, ...]
 
     def __post_init__(self) -> None:
         if not self.system_prompt.strip():
@@ -77,6 +78,10 @@ class ConversationCharter:
             raise ValueError("conversation tools MUST be unique")
         if any(_TOOL_ID.fullmatch(tool) is None for tool in self.tools):
             raise ValueError("conversation tool ids MUST be bounded ASCII identifiers")
+        if len(self.routing_examples) < 2 or any(
+            not example.strip() for example in self.routing_examples
+        ):
+            raise ValueError("conversation routing_examples MUST contain English and Korean text")
 
 
 @dataclass(frozen=True, slots=True)

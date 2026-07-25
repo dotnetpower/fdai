@@ -36,6 +36,7 @@ def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
             scores={name: 10.0 for name in explicit},
             tie_break="explicit_agent",
             contributors=tuple(explicit_contributors[:max_contributors]),
+            method="explicit",
         )
     read_intent = classify_read_investigation_intent(question)
     if read_intent is not None and resource_name_from_question(question) is not None:
@@ -43,6 +44,7 @@ def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
             primary_agent="Heimdall",
             scores={"Heimdall": 3.0},
             tie_break=f"read_investigation:{read_intent.value}",
+            method="t0_read_intent",
         )
     tokens = _tokenize(question)
     scores: dict[str, float] = {}
@@ -54,13 +56,19 @@ def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
         if best_score > 0:
             scores[spec.name] = best_score
     if not scores:
-        return RoutingDecision(primary_agent=None, scores={}, tie_break=None)
+        return RoutingDecision(
+            primary_agent=None,
+            scores={},
+            tie_break=None,
+            method="t0_abstain",
+        )
     winner, tie_break = _pick_winner(scores)
     return RoutingDecision(
         primary_agent=winner,
         scores=scores,
         tie_break=tie_break,
         contributors=tuple(name for name in scores if name != winner),
+        method="t0_domain",
     )
 
 

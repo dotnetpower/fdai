@@ -41,6 +41,7 @@ from fdai.agents._framework.introspection import (
     is_action_intent,
 )
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 
 _LOG = logging.getLogger(__name__)
 
@@ -91,11 +92,12 @@ _CURRENT_SCREEN_DATA_INTENT = re.compile(
 class Bragi(Agent):
     """Wave-4 Bragi: routing + orchestration + session tracker."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, semantic_router: SemanticAgentRouter | None = None) -> None:
         super().__init__(spec=_BRAGI)
         self._sessions: dict[str, ConversationSession] = {}
         self._agent_responders: dict[str, AnswerFn] = {}
         self._proposal_sink: ProposalSink | None = None
+        self._semantic_router = semantic_router
         # Per-correlation pipeline progress, appended as verdict / action-run
         # states arrive on the typed port, so an operator can be told where
         # their submitted action is (submitted -> verdicted -> hil_pending ->
@@ -233,6 +235,16 @@ class Bragi(Agent):
     def route(self, question: str) -> RoutingDecision:
         return route_question(question, max_contributors=_MAX_CONTRIBUTORS)
 
+    async def route_with_semantic_fallback(self, question: str) -> RoutingDecision:
+        t0 = self.route(question)
+        if self._semantic_router is None:
+            return t0
+        return await self._semantic_router.route(
+            question,
+            t0=t0,
+            max_contributors=_MAX_CONTRIBUTORS,
+        )
+
     def should_delegate(self, question: str, view_context: dict[str, Any]) -> bool:
         """Return whether a question needs agent-owned state beyond the screen."""
         route_id = str(view_context.get("routeId") or "").strip()
@@ -303,7 +315,7 @@ class Bragi(Agent):
             )
             session.turns.append(turn)
             return turn
-        decision = self.route(question)
+        decision = await self.route_with_semantic_fallback(question)
         if decision.primary_agent is None:
             answer = {
                 "answer": None,
@@ -346,6 +358,10 @@ class Bragi(Agent):
                     answer["answer"] = "\n".join(lines)
                 answer["score_breakdown"] = decision.scores
                 answer["tie_break_reason"] = decision.tie_break
+                answer["routing_method"] = decision.method
+                answer["semantic_score"] = decision.semantic_score
+                answer["semantic_margin"] = decision.semantic_margin
+                answer["routing_provider_status"] = decision.provider_status
 
         turn = Turn(
             turn_index=len(session.turns),
@@ -411,6 +427,10 @@ class Bragi(Agent):
                 "score_breakdown": {
                     "scores": dict(turn.decision.scores),
                     "tie_break": turn.decision.tie_break,
+                    "method": turn.decision.method,
+                    "semantic_score": turn.decision.semantic_score,
+                    "semantic_margin": turn.decision.semantic_margin,
+                    "provider_status": turn.decision.provider_status,
                 },
                 "trace_ref": str(turn.answer.get("trace_ref") or session_id),
             },

@@ -498,10 +498,10 @@ Bragi is the router, not the answerer. English and Korean Azure read intents rou
   referenced object type, and recency of interaction. Prefix-based stemming
   is limited to short inflectional differences; a composite token such as
   `actiontype` does not match the generic `action` domain.
-4. **T1 embedding similarity.** If T0 abstains, similarity match against
-   past resolved queries; still deterministic ranking, no LLM.
-5. **T2 intent classification.** If T0/T1 both abstain, LLM classifies
-   intent, and Bragi re-runs the scoring with the classified intent.
+4. **T1 embedding similarity.** T0 abstention or ties compare one question embedding with cached
+  English/Korean charter examples. Explicit/read/single-winner T0 makes zero calls; threshold,
+  margin, or provider failure preserves the deterministic result instead of guessing.
+5. **T2 intent classification.** If T0/T1 abstain, classify intent and re-run scoring.
 6. **Handoff.** If scoring margin is still below threshold, emit
   `HandoffEscalation` (§6.4). The system files a GitHub issue rather than
    guess.

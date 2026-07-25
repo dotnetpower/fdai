@@ -261,6 +261,11 @@ the interval, publish timeout, and total attempt ceiling through
 `FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS`. Tests use the same registry contract with an in-memory
 store and publisher; interactive local never invents an approver or bypasses signed callback auth.
 
+Headless Bragi semantic routing uses the same bound embedding capability as T1. Deployments may set
+`FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD` and `FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD`; invalid values
+fail startup. Without an embedding binding the port keeps deterministic explicit, read-intent, and
+domain routing. Embedding is a conversational fallback only and never enters typed action traffic.
+
 ### Azure-backed integrations
 
 | Subsystem | Status | Gap |

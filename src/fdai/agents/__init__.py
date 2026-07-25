@@ -24,6 +24,7 @@ from fdai.agents._framework.pantheon import (
 from fdai.agents._framework.provider_adapters import StateStoreAuditChainAdapter
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.agents._framework.topics import (
     OWNED_OBJECT_TOPICS,
     partition_key_for,
@@ -49,6 +50,7 @@ __all__ = [
     "PantheonRegistry",
     "PantheonRuntime",
     "Saga",
+    "SemanticRouterConfig",
     "ShadowDivergenceLedger",
     "StateStoreAuditChainAdapter",
     "load_pantheon",

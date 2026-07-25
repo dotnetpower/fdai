@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1c79ea74a363bb43f1183408bc91ad9955c28645
+translation_source_sha: 35bdcc63a5bf264cfcc132b97d632814d67e0c3b
 translation_revised: 2026-07-25
 ---
 
@@ -263,6 +263,12 @@ loop에서 적격한 미전달 receipt를 drain합니다. Terminal delivered 또
 `FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS`로 interval, publish timeout, 전체 attempt ceiling을
 조정할 수 있습니다. Test는 in-memory store 및 publisher와 같은 registry contract를 사용합니다.
 Interactive local은 approver를 만들어 내거나 signed callback auth를 우회하지 않습니다.
+
+Headless Bragi semantic routing은 T1과 같은 bound embedding capability를 사용합니다. Deployment는
+`FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD`, `FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD`를 설정할 수 있으며
+invalid value는 startup을 실패시킵니다. Embedding binding이 없으면 explicit, read-intent, domain
+routing을 deterministic하게 유지합니다. Embedding은 conversational fallback이며 typed action
+traffic에 들어가지 않습니다.
 
 ### Azure-backed integration
 

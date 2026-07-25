@@ -62,7 +62,7 @@ This is the G-7 layout from tracker #14 and it is enforced by
 > **Machine-readable source of truth**: `PANTHEON_SPECS` in
 > [`src/fdai/agents/_framework/pantheon.py`](../../src/fdai/agents/_framework/pantheon.py).
 > Each `AgentSpec` there carries `name`, `layer`, `reports_to`, `owns`,
-> `executes`, `initiates`, `subscribes`, `question_domains`, `conversation`, and
+> `executes`, `initiates`, `subscribes`, `question_domains`, multilingual `conversation`, and
 > `owns_code_paths`. The tables in this file and in
 > [`docs/roadmap/agents/agent-pantheon.md`](../../docs/roadmap/agents/agent-pantheon.md)
 > paraphrase that data for human readers. If they disagree, the code

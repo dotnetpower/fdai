@@ -617,13 +617,12 @@ Configurable + observable seams:
   a real cross-domain conflict triggers arbitration without any inline
   hint. The runtime already subscribes both sides, so the loop is closed
   end to end.
-- **Conversational port (live, deterministic-first).** Runtime registers all 15 read-only responders,
-  including Bragi, and explicit canonical names precede domain scoring. Every `AgentSpec` carries a
-  unique server-owned system prompt and bounded read-tool manifest; responder context overwrites caller
-  policy, while answers expose only prompt SHA-256 and tool ids. Per-user session isolation, three-way
-  contributor fan-out, bounded timeout, and action-to-typed-pipeline routing remain enforced. A2A reads
-  publish digest-only Turn attribution with requester, target, and trace. Model-backed richer answers can
-  consume this same charter without adding model calls to deterministic owned-state responses.
+- **Conversational port (live, deterministic-first).** All 15 responders use server-owned prompts,
+  bounded read tools, principal-scoped sessions, bounded contributors, typed action re-entry, and
+  digest-only A2A attribution. T1 caches multilingual charter vectors from the bound `EmbeddingModel`
+  and embeds only T0 abstentions/ties behind cosine and margin thresholds. Explicit names, read intents,
+  action requests, and one-domain T0 decisions make zero embedding calls; richer answers reuse the
+  charter without changing deterministic owned-state responses.
 - **Self-healing consumers.** A crashed consumer restarts with
   exponential backoff (`max_consumer_restarts`, `restart_backoff_base`,
   `restart_backoff_max`) and gives up (counted + logged) only after the

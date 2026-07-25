@@ -15,6 +15,7 @@ from fdai.agents import (
     OWNED_OBJECT_TOPICS,
     PantheonRuntime,
     Saga,
+    SemanticRouterConfig,
     ShadowDivergenceLedger,
     StateStoreAuditChainAdapter,
 )
@@ -103,6 +104,22 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
+
+
+def _semantic_router_config_from_env() -> SemanticRouterConfig:
+    def setting(name: str, default: float) -> float:
+        raw = os.environ.get(name, "").strip()
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError as exc:
+            raise RuntimeError(f"{name} MUST be a float") from exc
+
+    return SemanticRouterConfig(
+        cosine_threshold=setting("FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD", 0.65),
+        margin_threshold=setting("FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD", 0.08),
+    )
 
 
 def _build_runtime_saga(state_store: StateStore) -> Saga:
@@ -522,6 +539,12 @@ async def _run() -> int:
                         topic=stage_topic,
                     ),
                     action_types=control_loop.action_types,
+                    conversation_embedding_model=(
+                        container.llm_bindings.embedding_model
+                        if container.llm_bindings is not None
+                        else None
+                    ),
+                    semantic_router_config=_semantic_router_config_from_env(),
                 )
                 runtime_state_publisher = AgentRuntimeStatePublisher(
                     event_bus=bus,

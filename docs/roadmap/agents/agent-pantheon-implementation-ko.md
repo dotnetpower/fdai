@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 8d263117469d4eac70aaf45e9887afb1623a44c6
+translation_source_sha: da05a1ee7fd4e84b973451c372433387dd236ada
 translation_revised: 2026-07-25
 ---
 
@@ -597,14 +597,11 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
   (`scale_down`)와 Freyr `object.capacity-forecast`(`scale_up`) - 이라
   실제 도메인 간 충돌이 인라인 힌트 없이도 arbitration 을 트리거한다.
   런타임이 이미 양쪽을 구독하므로 루프는 끝에서 끝까지 닫혀 있다.
-- **Conversational port (live, deterministic-first).** Runtime은 Bragi를 포함한 15개 read-only
-  responder를 모두 등록하며 canonical name 직접 지정이 domain scoring보다 우선합니다. 각
-  `AgentSpec`은 고유한 server-owned system prompt와 bounded read-tool manifest를 가집니다.
-  Responder context는 caller policy를 덮어쓰고 answer는 prompt SHA-256과 tool id만 노출합니다.
-  Per-user session isolation, 3-way contributor fan-out, bounded timeout, action의 typed-pipeline
-  재진입을 유지합니다. A2A read는 requester, target, trace를 담은 digest-only Turn attribution을
-  발행합니다. Model-backed richer answer는 deterministic owned-state response에 model call을
-  추가하지 않고 같은 charter를 사용할 수 있습니다.
+- **Conversational port (live, deterministic-first).** 15개 responder 모두 server-owned prompt,
+  bounded read tool, principal-scoped session, bounded contributor, typed action re-entry, digest-only
+  A2A attribution을 사용합니다. T1은 bound `EmbeddingModel`의 multilingual charter vector를 cache하고
+  cosine/margin threshold 뒤에서 T0 abstention/tie만 embed합니다. Explicit name, read intent, action
+  request, one-domain T0는 zero-call이며 richer answer도 deterministic owned-state response를 바꾸지 않습니다.
 - **자가치유 컨슈머.** 죽은 컨슈머는 지수 백오프
   (`max_consumer_restarts`, `restart_backoff_base`,
   `restart_backoff_max`)로 재시작하고, cap 초과 시에만 포기(카운트+로깅)

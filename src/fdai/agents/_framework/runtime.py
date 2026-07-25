@@ -41,8 +41,16 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
-from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
+from fdai.agents._framework.pantheon import (
+    HARD_DEPENDENCY_AGENTS,
+    PANTHEON_NAMES,
+    PANTHEON_SPECS,
+)
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
+from fdai.agents._framework.semantic_routing import (
+    SemanticAgentRouter,
+    SemanticRouterConfig,
+)
 from fdai.agents.bragi import Bragi, RoutingDecision, Turn
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall, IncidentCandidateHook, ReadInvestigationHook
@@ -62,6 +70,7 @@ from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
 from fdai.core.learning import PostTurnReviewCoordinator
+from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
@@ -126,6 +135,8 @@ class PantheonRuntime:
         case_deletion_days: int = 60,
         action_types: tuple[OntologyActionType, ...] = (),
         handler_observer: AgentHandlerObserver | None = None,
+        conversation_embedding_model: EmbeddingModel | None = None,
+        semantic_router_config: SemanticRouterConfig | None = None,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -189,6 +200,14 @@ class PantheonRuntime:
             handler_observer=handler_observer,
         )
         instantiated = instantiate_pantheon()
+        if conversation_embedding_model is not None:
+            instantiated["Bragi"] = Bragi(
+                semantic_router=SemanticAgentRouter(
+                    embedding_model=conversation_embedding_model,
+                    specs=PANTHEON_SPECS,
+                    config=semantic_router_config,
+                )
+            )
         if discovery_projector is not None:
             instantiated["Huginn"] = Huginn(discovery_projector=discovery_projector)
         action_semantics = (
