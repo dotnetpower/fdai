@@ -130,7 +130,7 @@
     {
       "label": "console: core runtime (Azure transport, local PostgreSQL)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-runtime.env && set +a && env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && env -u AZURE_CONFIG_DIR FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
       "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": [],
@@ -138,6 +138,9 @@
         "reveal": "silent",
         "panel": "dedicated",
         "group": "console-full-stack"
+      },
+      "runOptions": {
+        "instanceLimit": 1
       }
     },
     {
@@ -151,6 +154,9 @@
         "reveal": "silent",
         "panel": "dedicated",
         "group": "console-full-stack"
+      },
+      "runOptions": {
+        "instanceLimit": 1
       }
     },
     {
@@ -163,6 +169,9 @@
         "reveal": "silent",
         "panel": "dedicated",
         "group": "console-full-stack"
+      },
+      "runOptions": {
+        "instanceLimit": 1
       }
     }
   ]

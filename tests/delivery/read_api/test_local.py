@@ -171,6 +171,9 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert "FDAI_NARRATOR_AUTO_OPEN_AOAI" not in api_env
     assert "FDAI_NARRATOR_AUTO_OPEN_AOAI=0" not in tasks
     assert 'PYTHONPATH=\\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\\"' in tasks
+    assert 'FDAI_RUNTIME_LOCK_FILE=\\"$PWD/.fdai/core-runtime.lock\\"' in tasks
+    assert core_env["FDAI_RUNTIME_LOCK_FILE"] == "${workspaceFolder}/.fdai/core-runtime.lock"
+    assert tasks.count('"instanceLimit": 1') >= 5
     assert configs["Console Web: Read API"]["preLaunchTask"] == "console: prepare full stack"
     assert configs["Console Web: Read API"]["envFile"].endswith("/.fdai/local-runtime.env")
     assert frontend_env["VITE_DEV_MODE"] == "0"

@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 35bdcc63a5bf264cfcc132b97d632814d67e0c3b
-translation_revised: 2026-07-25
+translation_source_sha: 940260877f73a516435817083c50292ed1537a28
+translation_revised: 2026-07-26
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -85,6 +85,9 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 
 `Console Web: Full Stack` compound는 core runtime, Console SPA, read API를 시작합니다. 정적 design
 mock과 격리된 test ingestion gateway는 시작하지 않습니다.
+각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는
+`.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
+실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.
 Core, read API, debugger 및 local migration command는 현재 workspace의 `src` directory를 Python
 import path의 첫 위치에 명시합니다. 따라서 다른 worktree가 virtual environment의 editable-install
 metadata를 변경해도 오래된 FDAI source를 시작할 수 없습니다.

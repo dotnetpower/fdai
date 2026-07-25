@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import logging
 import os
 import signal
 from collections.abc import Callable, Coroutine
-from typing import Any
+from contextlib import contextmanager
+from pathlib import Path
+from typing import IO, Any
 
 from fdai.agents import Saga, SemanticRouterConfig, StateStoreAuditChainAdapter
 from fdai.core.control_loop import ControlLoop
@@ -100,6 +103,25 @@ def install_shutdown_signals() -> asyncio.Event:
     return stop
 
 
+@contextmanager
+def runtime_process_lock() -> Any:
+    raw_path = os.environ.get("FDAI_RUNTIME_LOCK_FILE", "").strip()
+    if not raw_path:
+        yield
+        return
+    path = Path(raw_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stream: IO[str] = path.open("a+", encoding="utf-8")
+    try:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RuntimeError(f"FDAI runtime is already active for lock file {path}") from exc
+        yield
+    finally:
+        stream.close()
+
+
 def run_main(run: Callable[[], Coroutine[Any, Any, int]]) -> int:
     logging.basicConfig(
         level=logging.INFO,
@@ -107,6 +129,7 @@ def run_main(run: Callable[[], Coroutine[Any, Any, int]]) -> int:
         force=True,
     )
     try:
-        return asyncio.run(run())
+        with runtime_process_lock():
+            return asyncio.run(run())
     except KeyboardInterrupt:
         return 0

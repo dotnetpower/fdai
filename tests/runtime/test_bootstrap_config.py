@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import httpx
 import pytest
@@ -14,6 +15,7 @@ from fdai.runtime.bootstrap import (
     _raise_required_task_failure,
     _run_main,
 )
+from fdai.runtime.bootstrap_lifecycle import runtime_process_lock
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -160,3 +162,15 @@ def test_runtime_main_maps_keyboard_interrupt_to_clean_exit() -> None:
         raise KeyboardInterrupt
 
     assert _run_main(interrupted) == 0
+
+
+def test_runtime_process_lock_rejects_duplicate_local_instance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_RUNTIME_LOCK_FILE", str(tmp_path / "runtime.lock"))
+
+    with runtime_process_lock():
+        with pytest.raises(RuntimeError, match="already active"):
+            with runtime_process_lock():
+                pass

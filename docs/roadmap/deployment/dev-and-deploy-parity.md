@@ -82,6 +82,9 @@ site is static and separate from the authenticated Console full stack.
 
 The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and read API. It does
 not start the static design mocks or the isolated test ingestion gateway.
+Each long-running Console task permits one VS Code instance. The core task and debug launch also
+share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
+prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.
 Core, read API, debugger, and local migration commands explicitly place the current workspace
 `src` directory first on the Python import path. A virtual environment whose editable-install
 metadata was changed by another worktree therefore cannot launch stale FDAI source.

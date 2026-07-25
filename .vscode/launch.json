@@ -23,7 +23,8 @@
       "preLaunchTask": "console: prepare full stack",
       "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "FDAI_RUNTIME_LOCK_FILE": "${workspaceFolder}/.fdai/core-runtime.lock"
       },
       "console": "integratedTerminal",
       "justMyCode": true,
