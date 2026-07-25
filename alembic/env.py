@@ -15,7 +15,7 @@ import os
 import sys
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 # Load alembic.ini config (available as ``context.config``).
 config = context.config
@@ -44,6 +44,7 @@ config.set_main_option("sqlalchemy.url", _url)
 
 # Migrations are raw SQL - no ORM metadata to introspect.
 target_metadata = None
+_MIGRATION_LOCK_KEY = 0x464441494D494752
 
 
 def run_migrations_offline() -> None:
@@ -71,6 +72,10 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
         )
         with context.begin_transaction():
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(:lock_key)"),
+                {"lock_key": _MIGRATION_LOCK_KEY},
+            )
             context.run_migrations()
 
 

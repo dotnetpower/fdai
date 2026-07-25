@@ -58,6 +58,24 @@ def test_workflow_definition_identity_includes_action_catalog_digest() -> None:
     assert "action_catalog_digest" in migration
 
 
+def test_workflow_definition_identity_migration_serializes_concurrent_upgrades() -> None:
+    migration = (
+        _ROOT / "alembic" / "versions" / "20260725_0059_workflow_definition_catalog_identity.py"
+    ).read_text(encoding="utf-8")
+
+    assert "LOCK TABLE workflow_definition IN ACCESS EXCLUSIVE MODE" in migration
+    assert "IF NOT EXISTS (" in migration
+    assert "conname = 'uq_workflow_definition_catalog_identity'" in migration
+
+
+def test_online_migrations_lock_before_revision_updates() -> None:
+    environment = (_ROOT / "alembic" / "env.py").read_text(encoding="utf-8")
+
+    lock = 'text("SELECT pg_advisory_xact_lock(:lock_key)")'
+    assert lock in environment
+    assert environment.index(lock) < environment.rindex("context.run_migrations()")
+
+
 def test_briefing_continuation_row_codecs_preserve_origin_and_digest() -> None:
     origin = {
         "audience": "direct",

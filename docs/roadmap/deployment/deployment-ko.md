@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: ceda61eb243d35b0062568c1b97d6d5775ba1594
-translation_revised: 2026-07-23
+translation_source_sha: afa25e4246dc3cfa4d23ba981a526a720e0a25f5
+translation_revised: 2026-07-26
 ---
 
 # 배포(Deployment)
@@ -155,7 +155,9 @@ canary publisher smoke를 실행하며, 실패 시 run을 중단하지만 이전
 - **DB 마이그레이션**: **expand/contract**, 전방향 전용. 추가 스키마 먼저 배포, 양쪽 형태를
   허용하는 코드 배포, 이후 릴리스에서 옛 형태 제거. 마이그레이션은 앱 revision이 트래픽 받기
   **전에** 게이트된 스텝으로 실행되고, revision 롤백이 스키마를 깨지 않도록 backward-compatible
-  유지.
+  상태를 유지합니다. Online Alembic run은 database-scoped transaction lock으로 revision 확인,
+  DDL 및 version-row update를 직렬화하므로 concurrent startup 또는 test worker가 같은 revision을
+  두 번 적용하지 않습니다.
 
 ## 릴리스와 롤백(Release and Rollback)
 

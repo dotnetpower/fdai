@@ -155,7 +155,9 @@ an earlier revision automatically.
 - **Database migrations**: **expand/contract**, forward-only. Ship additive schema first,
   deploy code that tolerates both shapes, then remove the old shape in a later release.
   Migrations run as a gated step **before** the app revision takes traffic and stay
-  backward-compatible so a revision rollback does not break the schema.
+  backward-compatible so a revision rollback does not break the schema. Online Alembic runs
+  serialize revision inspection, DDL, and version-row updates with a database-scoped transaction
+  lock, so concurrent startup or test workers cannot apply one revision twice.
 
 ## Release and Rollback
 

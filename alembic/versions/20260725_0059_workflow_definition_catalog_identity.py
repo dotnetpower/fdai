@@ -23,6 +23,8 @@ def upgrade() -> None:
         DO $$
         DECLARE constraint_name TEXT;
         BEGIN
+            LOCK TABLE workflow_definition IN ACCESS EXCLUSIVE MODE;
+
             SELECT conname INTO constraint_name
             FROM pg_constraint
             WHERE conrelid = 'workflow_definition'::regclass
@@ -35,15 +37,23 @@ def upgrade() -> None:
                     constraint_name
                 );
             END IF;
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conrelid = 'workflow_definition'::regclass
+                  AND conname = 'uq_workflow_definition_catalog_identity'
+            ) THEN
+                ALTER TABLE workflow_definition
+                    ADD CONSTRAINT uq_workflow_definition_catalog_identity
+                    UNIQUE (
+                        workflow_name,
+                        workflow_version,
+                        definition_hash,
+                        action_catalog_digest
+                    );
+            END IF;
         END $$;
-        ALTER TABLE workflow_definition
-            ADD CONSTRAINT uq_workflow_definition_catalog_identity
-            UNIQUE (
-                workflow_name,
-                workflow_version,
-                definition_hash,
-                action_catalog_digest
-            );
         """
     )
 
