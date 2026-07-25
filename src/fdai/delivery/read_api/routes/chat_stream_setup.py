@@ -118,6 +118,7 @@ async def prepare_chat_stream_request(
         preferences=answer_preferences,
     )
     view_context["_answer_plan"] = answer_plan.to_dict()
+    conversation_context = _conversation_context(body)
     return PreparedChatStreamRequest(
         user_id=user_id,
         preferred_model=preferred_model,
@@ -125,8 +126,8 @@ async def prepare_chat_stream_request(
         document_evidence_refs=document_evidence_refs,
         clean_prompt=clean_prompt,
         view_context=view_context,
-        conversation_context=_conversation_context(body),
-        target_agent=_target_agent(body),
+        conversation_context=conversation_context,
+        target_agent=_target_agent(body, conversation_context),
         history=history,
         answer_plan=answer_plan,
         session_id=_session_id(body),

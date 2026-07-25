@@ -315,7 +315,7 @@ def make_chat_route(
         if vision_attachments:
             view_context["_attachments"] = [a.to_view_dict() for a in vision_attachments]
         conversation_context = _conversation_context(body)
-        target_agent = _target_agent(body)
+        target_agent = _target_agent(body, conversation_context)
         history_raw = body.get("history", [])
         if not isinstance(history_raw, list):
             raise HTTPException(status_code=400, detail="history MUST be a list")

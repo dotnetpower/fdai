@@ -1371,6 +1371,37 @@ class TestChatRouteLatencySurface:
         assert response.status_code == 400
         assert delegate.calls == []
 
+    def test_plain_agent_conversation_rejects_conflicting_incident_target(self) -> None:
+        backend = _RecordingBackend(model="gpt-x", delay_ms=0)
+        delegate = _AgentDelegate()
+        app = Starlette(
+            routes=[
+                make_chat_route(
+                    backend=backend,
+                    authorize=_allow,
+                    agent_delegate=delegate,
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat",
+            json={
+                "prompt": "what have you been working on?",
+                "target_agent": "Forseti",
+                "conversation_context": {
+                    "kind": "incident",
+                    "incident_id": "INC-example",
+                    "correlation_id": "corr-example",
+                    "selected_agent": "Saga",
+                },
+                "view_context": {},
+            },
+        )
+
+        assert response.status_code == 400
+        assert delegate.calls == []
+
     def test_plain_agent_conversation_surfaces_unavailable_port_handoff(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)
         app = Starlette(routes=[make_chat_route(backend=backend, authorize=_allow)])

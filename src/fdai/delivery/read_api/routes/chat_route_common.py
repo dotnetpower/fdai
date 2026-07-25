@@ -57,12 +57,25 @@ def _conversation_context(body: Mapping[str, Any]) -> dict[str, str] | None:
     return context
 
 
-def _target_agent(body: Mapping[str, Any]) -> str | None:
+def _target_agent(
+    body: Mapping[str, Any],
+    conversation_context: Mapping[str, str] | None,
+) -> str | None:
     raw = body.get("target_agent")
     if raw is None:
         return None
     if not isinstance(raw, str) or raw not in PANTHEON_NAMES:
         raise HTTPException(status_code=400, detail="target_agent MUST name a Pantheon agent")
+    selected_agent = (
+        conversation_context.get("selected_agent")
+        if conversation_context is not None
+        else None
+    )
+    if selected_agent is not None and raw != selected_agent:
+        raise HTTPException(
+            status_code=400,
+            detail="target_agent MUST match conversation_context.selected_agent",
+        )
     return raw
 
 

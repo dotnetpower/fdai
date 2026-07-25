@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: e87b4a7a72b1e423f7ab3fe145eb9a3af616d574
+translation_source_sha: a5ac0fc2beb082717e8a9cbe8c8cc5ff567b6449
 translation_revised: 2026-07-25
 ---
 
@@ -106,6 +106,8 @@ flowchart TD
   책임 observer는 canonical command/result evidence를 표시합니다. Agent conversation target 또는
   incident binding에서 선택했거나 `Ask <agent>` 또는 `@<agent>`로 지정한 agent는 response owner로
   유지됩니다. 해당 agent가 판단을
+  요청에 일반 agent target과 incident binding이 모두 있으면 두 구조화된 agent 값이 일치해야 합니다.
+  값이 충돌하면 하나를 조용히 선택하지 않고 evidence retrieval 전에 요청을 차단합니다.
   보류하고 turn을 다시 handoff한 경우에만 Bragi가 response owner가 됩니다. Vendor adapter는
   presentation만 변경합니다. Slack은 command 및 output body에
   plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,

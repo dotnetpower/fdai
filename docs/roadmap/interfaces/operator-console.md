@@ -108,6 +108,9 @@ flowchart TD
   and the accountable observer shows canonical command/result evidence. An agent selected by an
   agent conversation target or incident binding, or addressed with `Ask <agent>` or `@<agent>`,
   remains the response owner.
+  When a request carries both a plain agent target and an incident binding, the two structured
+  agent values must match. A conflict is rejected before evidence retrieval instead of silently
+  choosing one owner.
   Bragi becomes the response owner only after that agent abstains and hands the turn back. Vendor
   adapters change presentation only. Slack uses plain-text activity
   blocks for command and output bodies so markup characters cannot change the observed command,
