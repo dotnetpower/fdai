@@ -22,7 +22,7 @@ def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> No
     assert "uv run bash scripts/verify.sh --all" in workflow
     assert "bash scripts/deployment/release/verify-productization.sh" in workflow
     assert "git diff --exit-code" in workflow
-    assert "pypa/gh-action-pip-audit@v1.0.8" in workflow
+    assert "pypa/gh-action-pip-audit@v1.1.0" in workflow
     assert "needs: [verify, dependency-audit]" in workflow
     assert workflow.count("runs-on: ubuntu-24.04") == 5
     assert "environment: release" in workflow
@@ -37,7 +37,7 @@ def test_release_workflow_is_approval_gated_reproducible_and_secret_safe() -> No
     assert "diff -qr first/bundle second/bundle" in workflow
     assert "cmp first/bundle.tar.gz second/bundle.tar.gz" in workflow
     assert "fdaictl bundle verify" in workflow
-    assert "actions/upload-artifact@v4" in workflow
+    assert "actions/upload-artifact@v7.0.1" in workflow
     assert "if: ${{ inputs.publish_release }}" in workflow
     assert "gh release create" in workflow
     assert "private-key" not in workflow.split("path: release-artifacts/", 1)[1]
@@ -60,7 +60,7 @@ def test_release_workflow_publishes_the_verified_python_artifact_with_oidc() -> 
     assert "needs: [python-package, bundle]" in workflow
     assert "environment:\n      name: pypi" in workflow
     assert "id-token: write" in workflow
-    assert "actions/download-artifact@v4" in workflow
+    assert "actions/download-artifact@v8.0.1" in workflow
     assert "pypa/gh-action-pypi-publish@v1.14.1" in workflow
     assert "if: ${{ inputs.publish_pypi }}" in workflow
     assert "PYPI_API_TOKEN" not in workflow

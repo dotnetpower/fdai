@@ -373,7 +373,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "preflight-evidence.json" in workflow
     assert "--overwrite false" in workflow
     assert '"expires_at": os.environ["EXPIRES_AT"]' in workflow
-    assert "actions/upload-artifact@v4" in workflow
+    assert "actions/upload-artifact@v7.0.1" in workflow
     assert "path: infra/plan-metadata.json" in workflow
     assert "path: infra/dev.plan" not in workflow
     assert "cleanup-deployment-plans.py" in workflow
@@ -405,7 +405,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "Publish exact development operations gateway source" in workflow
     assert "Verify exact development operations gateway source" in workflow
     assert "dev_operations_gateway_app_name" in workflow
-    assert "uses: Azure/functions-action@v1" in workflow
+    assert "uses: Azure/functions-action@v1.5.6" in workflow
     assert "remote-build: true" in workflow
     assert "functions?api-version=2024-04-01" in workflow
     assert "az functionapp function list" not in workflow
@@ -493,7 +493,7 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     assert workflow.index("verify-deployment-plan.py", deploy_step) < publish_step
     assert deploy_step < stale_setting_cleanup < publish_step < verify_step
     assert workflow.index("az functionapp restart", stale_setting_cleanup) < publish_step
-    assert "uses: Azure/functions-action@v1" in workflow[publish_step:verify_step]
+    assert "uses: Azure/functions-action@v1.5.6" in workflow[publish_step:verify_step]
     assert "remote-build: true" in workflow[publish_step:verify_step]
     assert "json.JSONDecoder().raw_decode" in workflow[verify_step:]
     assert 're.sub(r"(\\.\\d{6})\\d+"' in workflow[verify_step:]
@@ -637,5 +637,5 @@ def test_gateway_source_workflow_steps_are_structurally_executable() -> None:
     )
     assert separator
     compile(source, "<gateway-source-artifact>", "exec")
-    assert publish_step["uses"] == "Azure/functions-action@v1"
+    assert publish_step["uses"] == "Azure/functions-action@v1.5.6"
     assert publish_step["with"]["remote-build"] is True

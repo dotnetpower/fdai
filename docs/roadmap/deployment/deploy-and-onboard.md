@@ -76,9 +76,10 @@ Key Vault privately. The runner is the terraform apply principal, so the existin
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
 DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml)
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
-Repository workflows pin checkout, artifact transfer, and uv setup actions to exact Node 24 tags.
-The CI contract rejects other refs; action upgrades must verify both action runtime metadata and
-self-hosted runner compatibility before changing those pins.
+Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
+refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
+actions and mismatched refs. Upgrades must verify direct and composite action runtime metadata, and
+the self-hosted runner must remain at version 2.327.1 or newer.
 When private networking is enabled, PostgreSQL public access and the broad Azure-services firewall
 are disabled. Dev uses its approved private endpoint; delegated-subnet mode remains available for
 production.

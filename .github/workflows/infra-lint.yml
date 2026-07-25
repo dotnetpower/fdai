@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4.0.1
         with:
           # Match the version the deploy runner uses. An older pin (e.g. 1.9.x)
           # is stricter about dynamic-block for_each tuples than the terraform

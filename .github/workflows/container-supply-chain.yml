@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
 
       - name: Materialize resolved model manifest
         env:
@@ -79,7 +79,7 @@ jobs:
           PY
 
       - name: Build image for verification
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
         with:
           context: .
           file: ./Dockerfile
@@ -120,7 +120,7 @@ jobs:
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -141,7 +141,7 @@ jobs:
 
       - name: Generate build provenance attestation
         if: github.event_name != 'pull_request'
-        uses: actions/attest@v4
+        uses: actions/attest@v4.2.0
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
@@ -149,7 +149,7 @@ jobs:
 
       - name: Generate SBOM attestation
         if: github.event_name != 'pull_request'
-        uses: actions/attest@v4
+        uses: actions/attest@v4.2.0
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}

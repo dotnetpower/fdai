@@ -1,7 +1,7 @@
 ---
 translation_of: governed-skill-bundles.md
-translation_source_sha: 20c8bc2d643a433f28368aa96bedb0a77b708692
-translation_revised: 2026-07-21
+translation_source_sha: 0803249dafd1f0103b7cba1cc39c240dea03eccc
+translation_revised: 2026-07-26
 ---
 # Governed Skill Bundles
 
@@ -111,6 +111,9 @@ Focused coverage는 schema/parser parity, signature-domain separation, lifecycle
 missing/disabled/incompatible member, no-widening intersection, cycle/ambiguity, member-update invalidation,
 atomic prompt projection, replay/audit serialization, workshop review, durable restart, Command Deck
 invocation, typed RPC, console decoding을 포함합니다.
+Release workflow action upgrade는 canonical bundle byte, detached signature, digest verification,
+reproducibility check, approval boundary를 보존해야 하며 artifact transport implementation만 변경할 수
+있습니다.
 
 ## Related docs
 

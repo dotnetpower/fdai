@@ -113,6 +113,9 @@ Focused coverage includes schema/parser parity, signature-domain separation, lif
 rollback, missing/disabled/incompatible members, no-widening intersections, cycle/ambiguity,
 member-update invalidation, atomic prompt projection, replay/audit serialization, workshop review,
 durable restart, Command Deck invocation, typed RPC, and console decoding.
+Release workflow action upgrades must preserve the canonical bundle bytes, detached signature,
+digest verification, reproducibility check, and approval boundary; only the artifact transport
+implementation may change.
 
 ## Related docs
 

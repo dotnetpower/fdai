@@ -26,11 +26,27 @@ RUNNER_ENTRY_POINTS = (
     "scripts/verify.sh",
 )
 REQUIRED_ACTION_REFS = {
+    "Azure/functions-action": "v1.5.6",
+    "actions/attest": "v4.2.0",
     "actions/checkout": "v7.0.1",
+    "actions/configure-pages": "v6.0.0",
+    "actions/deploy-pages": "v5.0.0",
     "actions/download-artifact": "v8.0.1",
+    "actions/github-script": "v9.0.0",
+    "actions/setup-node": "v7.0.0",
+    "actions/setup-python": "v7.0.0",
     "actions/upload-artifact": "v7.0.1",
+    "actions/upload-pages-artifact": "v5.0.0",
     "astral-sh/setup-uv": "v8.3.2",
+    "docker/build-push-action": "53b7df96c91f9c12dcc8a07bcb9ccacbed38856a",
+    "docker/login-action": "abd2ef45e78c5afb21d64d4ca52ee8550d9572c7",
+    "docker/setup-buildx-action": "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+    "gitleaks/gitleaks-action": "v3.0.0",
+    "hashicorp/setup-terraform": "v4.0.1",
+    "pypa/gh-action-pip-audit": "v1.1.0",
+    "pypa/gh-action-pypi-publish": "v1.14.1",
 }
+ACTION_REF_RE = re.compile(r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(?P<ref>[^\s#]+)")
 
 
 def _tracked_paths() -> set[str]:
@@ -142,11 +158,15 @@ def _validate_action_runtime_versions() -> list[str]:
     errors: list[str] = []
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         content = path.read_text(encoding="utf-8")
-        for action, expected_ref in REQUIRED_ACTION_REFS.items():
-            for actual_ref in re.findall(rf"uses:\s*{re.escape(action)}@([^\s#]+)", content):
-                if actual_ref != expected_ref:
-                    relative = path.relative_to(REPO_ROOT)
-                    errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
+        relative = path.relative_to(REPO_ROOT)
+        for match in ACTION_REF_RE.finditer(content):
+            action = match.group("action")
+            actual_ref = match.group("ref")
+            expected_ref = REQUIRED_ACTION_REFS.get(action)
+            if expected_ref is None:
+                errors.append(f"{relative} uses unapproved remote action {action}@{actual_ref}")
+            elif actual_ref != expected_ref:
+                errors.append(f"{relative} uses {action}@{actual_ref}; expected {expected_ref}")
     return errors
 
 
