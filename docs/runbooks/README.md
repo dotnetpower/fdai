@@ -24,6 +24,7 @@ names, owners, paging integrations, and rollback implementations.
 
 | Procedure | Use it when |
 |-----------|-------------|
+| [Deployment recovery](deployment-recovery.md) | A protected plan, offline kit, or startup-readiness check blocks safe deployment |
 | [Deep DB-DR restore drill](db-dr-drill.md) | PostgreSQL restore evidence must be refreshed |
 | [Chaos game day](chaos-game-day.md) | A promoted fault scenario is exercised |
 | [Alert tuning](alert-tuning.md) | Noise, misses, or stale routing need measured correction |

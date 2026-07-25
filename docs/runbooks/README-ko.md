@@ -2,8 +2,8 @@
 title: SRE Runbook
 description: Incident response, recovery, governed automation을 위한 customer-neutral 운영자 절차와 템플릿입니다.
 translation_of: README.md
-translation_source_sha: dba5e386a1e6f3de67a84905abb6aaa6fe49da54
-translation_revised: 2026-07-22
+translation_source_sha: ec17d5e4c03a50d3e6cbccc7e5070ffdf555f2df
+translation_revised: 2026-07-25
 ---
 
 # SRE Runbook
@@ -26,6 +26,7 @@ resource name, owner, paging integration, rollback implementation을 제공합�
 
 | 절차 | 사용 시점 |
 |------|-----------|
+| [배포 복구](deployment-recovery-ko.md) | Protected plan, offline kit 또는 startup-readiness check가 안전한 배포를 차단할 때 |
 | [Deep DB-DR 복원 훈련](db-dr-drill-ko.md) | PostgreSQL restore evidence를 갱신할 때 |
 | [Chaos game day](chaos-game-day-ko.md) | 승격된 fault scenario를 훈련할 때 |
 | [Alert tuning](alert-tuning-ko.md) | Noise, miss, stale routing을 측정해 수정할 때 |
