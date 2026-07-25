@@ -55,6 +55,29 @@ def test_refreshes_inline_derived_source_sha(
     assert f"sha: {_sha(source)}" in doc.read_text(encoding="utf-8")
 
 
+def test_inline_sha_with_matching_edge_digits_is_not_treated_as_quoted(
+    refresh_module: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.md"
+    source.write_text("source\n", encoding="utf-8")
+    doc = tmp_path / "derived.md"
+    doc.write_text(
+        "---\nderives_from: [{ source: source.md, sha: 0abc0 }]\n---\nderived\n",
+        encoding="utf-8",
+    )
+    expected = "a" * 40
+    monkeypatch.setattr(refresh_module, "git_hash", lambda _path: expected)
+
+    changed, _message = refresh_module.process(tmp_path, doc)
+
+    refreshed = doc.read_text(encoding="utf-8")
+    assert changed is True
+    assert f"sha: {expected}" in refreshed
+    assert f"sha: 0{expected}0" not in refreshed
+
+
 def test_refreshes_multiline_derived_source_sha(
     tmp_path: Path,
     refresh_module: ModuleType,

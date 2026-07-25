@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 638836cbdb28dc25fe3acd5f99811b43709788a2
+translation_source_sha: 9fa9bc595f1b367e81e65485901f396d8d2b3645
 translation_revised: 2026-07-25
 ---
 
@@ -33,6 +33,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)를 사용해 프로비저닝
 
 먼저 미리보기하세요. 계획이 예상과 일치할 때만 적용하세요. 워크플로에 맞는 경로를
 선택하면 됩니다. 두 경로 모두 동일한 `infra/` Terraform 구성을 사용합니다.
+보호된 private-network 전환에서는 broad PostgreSQL Azure-services firewall rule의 순수
+retirement만 delete로 수락됩니다. 해당 주소의 replacement나 다른 delete가 있으면 apply를
+중단해야 합니다.
 
 <!-- fdai:tabs -->
 

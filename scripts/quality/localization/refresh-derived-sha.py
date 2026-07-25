@@ -125,7 +125,11 @@ def _replace_scalar(raw: str, value: str) -> str:
     leading = raw[: len(raw) - len(raw.lstrip())]
     trailing = raw[len(raw.rstrip()) :]
     scalar = raw.strip()
-    quote = scalar[0] if len(scalar) >= 2 and scalar[0] == scalar[-1] else ""
+    quote = (
+        scalar[0]
+        if len(scalar) >= 2 and scalar[0] in {"'", '"'} and scalar[0] == scalar[-1]
+        else ""
+    )
     return f"{leading}{quote}{value}{quote}{trailing}"
 
 
