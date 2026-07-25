@@ -13,17 +13,22 @@ RUNNER_USER="${4:-fdairunner}"
 
 echo "== minting registration token =="
 TOKEN=$(gh api -X POST "repos/${REPO}/actions/runners/registration-token" --jq .token)
+REMOVE_TOKEN=$(gh api -X POST "repos/${REPO}/actions/runners/remove-token" --jq .token)
 
 echo "== registering runner on ${VM} (via run-command) =="
 az vm run-command invoke -g "$OPS_RG" -n "$VM" --command-id RunShellScript --scripts "
 set -e
 cd /home/${RUNNER_USER}/actions-runner || cd \$(find /home -maxdepth 3 -name config.sh -printf '%h' -quit)
+if [ -f .runner ]; then
+  ./svc.sh stop || true
+  ./svc.sh uninstall || true
+  sudo -u ${RUNNER_USER} ./config.sh remove --token ${REMOVE_TOKEN}
+fi
 sudo -u ${RUNNER_USER} ./config.sh --unattended \
   --url https://github.com/${REPO} \
   --token ${TOKEN} \
   --name \$(hostname) \
-  --labels self-hosted,fdai-deploy \
-  --replace
+  --labels self-hosted,fdai-deploy
 ./svc.sh install ${RUNNER_USER}
 ./svc.sh start
 ./svc.sh status

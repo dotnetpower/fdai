@@ -385,6 +385,7 @@ no customer profile, laptop data-plane apply, public runner IP, or local Terrafo
 | 25 | Workflow definition identity omits action catalog digest | New catalog collided with an older immutable row | Critical | Migrate uniqueness to include the catalog digest |
 | 26 | Dev PostgreSQL keeps public access and broad Azure firewall | Private endpoint was already approved | High | Close public access whenever private networking is enabled |
 | 27 | Targeted gateway plans omit the inventory reconciliation Job | Live execution retained the old image and failed with eight missing runtime variables | Critical | Target the inventory Job with core, canary, and realtime publishers; pin the address in workflow tests |
+| 28 | Runner registration claims idempotency but leaves existing local configuration | `--replace` failed before contacting GitHub when `.runner` already existed | High | Mint a short-lived removal token, uninstall the service, remove local and remote registration, then configure and install cleanly |
 
 ### Verification evidence
 
@@ -397,9 +398,20 @@ no customer profile, laptop data-plane apply, public runner IP, or local Terrafo
 - Exact apply run `30157115500` produced a receipt after convergence, migration, latest-revision
 	health, and canary checks. A fresh inventory execution then proved that the gateway target set had
 	not converged the Job's shared runtime configuration, so acceptance remains open pending reapply.
+- Inventory-inclusive plan `plan-30157663698-1` reported 0 add, 2 change, and 0 destroy. Its apply
+	converged Terraform before a GitHub broker interruption, and mutation-free verification resume
+	run `30158410380` validated the existing claim, skipped apply, and completed gateway publication,
+	migration, latest-revision health, canary, and the immutable receipt.
+- The post-convergence inventory execution succeeded and logged `inventory snapshot promoted from
+	arm`. The core logged `pantheon_ready` with 15 agents, no disabled agents, 43 subscriptions, and
+	enforcement off. PostgreSQL reported Ready, public access disabled, and zero firewall resources.
+	The latest core, read API, and ingestion revisions each reported zero traceback, unique-constraint,
+	and authorization-error signatures in the acceptance window.
 - Exact-plan, topology, workflow transport, cleanup, and derivation tests pass with strict mypy,
 	Ruff, and the complete fast gate stack.
-- Exact apply receipt and post-apply runtime evidence are required before this unit is complete.
+- The live private-network acceptance is complete. Microsoft Graph read-only role assignment is
+	present for stewardship liveness; the existing managed-identity token predates consent and remains
+	a bounded propagation check until its platform-issued expiry.
 
 ## Remaining work units
 
@@ -423,6 +435,7 @@ Low-or-higher finding before advancing.
 | Connected/offline recovery runbooks | current main batch | Protected-plan, signed-kit, and startup-readiness statuses map to safe replacement, fresh evidence, and governed rollback drills | Complete |
 | Deterministic/model cost evidence | current main batch | Frozen runner reports tier share, calls, tokens, latency, cost, abstention, verifier failures, quality, and blocking thresholds | Complete; current evidence fails the release gate |
 | Offline trust ceremony readiness | current main batch | Bilingual role, threshold, expiry, packaging, rotation, and disconnected-drill procedure | Prepared; production root ceremony remains external |
+| Private-network onboarding acceptance | `2cc59eff` plus live receipt | Exact plan/apply, zero-destroy inventory convergence, migration, latest revisions, canary, inventory promotion, PostgreSQL private closure, and 15-agent startup | Complete |
 
 Every unit passed `scripts/verify.sh --fast`, strict mypy, Ruff, bilingual translation, document
 size, punctuation, customer-scope, catalog, stewardship, architecture, and integrity gates.
@@ -434,12 +447,13 @@ FDAI should not be described as fully ready until these work units meet their ex
 | Priority | Work unit | Why it remains | Observable exit criteria |
 |----------|-----------|----------------|--------------------------|
 | P0 | Public offline trust bootstrap | In-repo verifier and ceremony controls are ready, but no production root authority exists | Threshold ceremony completed outside CI; public TUF root packaged in wheel; delegated release metadata verifies on a disconnected host; tamper, expiry, rollback, mix-and-match, wrong-version, and wrong-platform drills fail |
-| P0 | Private-network onboarding acceptance | Component probes and runner IaC exist, but no single acceptance proves bootstrap to observe-ready on the actual isolated runner | Fresh subscription run completes policy preflight, private state bootstrap, exact plan, apply, DNS/TLS/identity/ARG/Event Hubs/PostgreSQL probes, inventory promotion, 15-agent startup, and sanitized handoff report |
 
 ## Readiness verdict
 
 The architecture is directionally sound and stronger than a typical agent demo: role separation,
 typed pub/sub, deterministic-first routing, fail-closed execution, durable state, approval identity,
 inventory generations, and audit evidence are real implementations. The project is not yet fully
-ready for the stated resident-operations-team promise. The remaining P0 items are operational proof
-and load-intelligence gaps, not reasons to weaken the current safety boundaries.
+ready for disconnected production distribution until the external trust ceremony is complete. The
+connected private-network deployment now proves the resident 15-agent observation posture. The
+remaining P0 item is the offline production trust authority, not a reason to weaken current safety
+boundaries.

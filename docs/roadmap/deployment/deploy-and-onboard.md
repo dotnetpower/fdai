@@ -147,7 +147,9 @@ Five helpers make the runner path repeatable (all customer-agnostic, parameteriz
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) sets the repo
   Variables + Secrets from the bootstrap outputs (password generated + piped, never printed).
 - [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) mints a runner token and
-  registers the VNet runner over `run-command`.
+  registers the VNet runner over `run-command`. Re-running it stops and uninstalls an existing
+  service, removes the stale local and GitHub registration with a short-lived removal token, and
+  then installs the fresh service. This recovers broker-session corruption without keeping a token.
 - [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) deallocates/starts the runner (cost) and
   guards a per-env `terraform destroy` that never touches the ops hub or state account.
 

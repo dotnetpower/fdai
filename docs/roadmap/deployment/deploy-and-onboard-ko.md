@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dd2c442dcb0918b9b66031b96f259dce00a6b506
+translation_source_sha: 26f42fc97dec0c218e1d5d243754a586ae0d06d9
 translation_revised: 2026-07-25
 ---
 
@@ -152,7 +152,9 @@ fallback합니다. 실패한 경로는 마지막 완전한 graph를 유지하고
 - [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) 는 bootstrap output 에서
   repo Variables + Secrets 를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
 - [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) 는 러너 토큰을 발급하고
-  `run-command` 로 VNet 러너를 등록.
+  `run-command` 로 VNet 러너를 등록합니다. 다시 실행하면 기존 service를 중지하고 uninstall한
+  뒤 short-lived removal token으로 stale local 및 GitHub registration을 제거하고 fresh service를
+  설치합니다. 따라서 token을 보관하지 않고 broker-session 손상을 복구합니다.
 - [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) 는 러너 deallocate/start(비용) 와 ops hub
   + state account 를 절대 건드리지 않는 env 별 `terraform destroy` 가드를 제공.
 
