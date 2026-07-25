@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9508a1e85fe29978c72c304babb6851e3005738e
+translation_source_sha: 7665c5ecbfba9892c2b16e43c55616623926b0e9
 translation_revised: 2026-07-25
 ---
 
@@ -150,6 +150,11 @@ screen-reader status가 loading을 알리고 decorative block은 숨깁니다. R
 공통 fallback은 heading, summary-card 및 body-panel placeholder를 사용합니다. 소유 route shape는 더
 정확한 최종 layout을 유지할 때만 이 fallback을 대체합니다.
 
+Vite development server는 CSS hot update를 transform하기 전에 Vite의 race-safe file reader로
+처리합니다. Editor가 큰 CSS 파일을 truncate한 후 다시 쓰는 동안 임시 empty snapshot이 전체
+stylesheet를 대체하는 문제를 방지합니다. 이 guard는 development에서만 적용되며 production CSS
+bundling은 변경하지 않습니다.
+
 ## Localization 경계
 
 SPA는 operator preference에서 표시 locale을 결정합니다. 재사용 문자열은 기본 영어 source
@@ -278,7 +283,6 @@ Verification metadata는 check counter가 nonnegative integer이고 completed ch
 크지 않을 때만 허용됩니다. Atomic claim span은 순서가 맞는 nonnegative integer이고 manifest schema
 version 1을 명시하며 claim, failed-claim 및 used-evidence reference에는 duplicate 또는 dangling
 identifier가 없어야 합니다. 잘못된 조합은 unverified malformed artifact가 됩니다.
-
 Browser는 producer cap인 claim 64개, evidence entry 512개 및 추가 document reference 8개를 동일하게
 적용합니다. Artifact identifier는 1 KiB, rendered value는 16 KiB, anchor 또는 alias list는 64개로
 제한됩니다. Live reply와 session replay는 동일한 parser를 사용하므로 reload 후 HTTP boundary가
@@ -323,13 +327,13 @@ count, 설명문 및 layer filter는 표시하지 않습니다. Truncated graph�
 알립니다. Resource-color legend는 floating 또는 bottom panel이 아니라 subscription boundary 옆 world
 floor에 직접 그립니다. Camera fit은 범례가 들어갈 floor 공간을 예약합니다. 고정된 legend box, title
 또는 color swatch 없이 resource type name을 해당 floor에 직접 표시합니다. Type name은 pan과 함께
-이동하고 읽을 수 있는 범위 안에서 map zoom에 비례해 조정됩니다. Resource glyph는 Microsoft Cloud
-Adoption Framework의
+이동하고 읽을 수 있는 범위 안에서 map zoom에 비례해 조정됩니다.
+Resource glyph는 Microsoft Cloud Adoption Framework의
 [Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations)를
 사용합니다. 알려진 모든 canonical type은 명시적인 lowercase abbreviation을 가집니다. 일대일 CAF
-항목이 없는 abstract type은 자동 initialism 대신 문서화된 stable extension을 사용합니다. Relationship
-legend는 compact canvas control로 유지합니다. 기본 isometric map은 Reflections와 Connections가
-활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
+항목이 없는 abstract type은 자동 initialism 대신 문서화된 stable extension을 사용합니다.
+Relationship legend는 compact canvas control로 유지합니다. 기본 isometric map은 Reflections와
+Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
 attachment 및 dependency는 각각의 directional style로 표시하고 resource shape을 렌더링합니다.
 Top 및 front view는 optional입니다. 단순 projection은 관찰된 child 수에 따라 각 resource-group
 panel 크기를 정하고 균형 잡힌 world에 panel을 배치합니다. Resource node는 표준 Event Grid topic

@@ -151,6 +151,11 @@ motion while the static skeleton remains visible.
 The shared fallback uses heading, summary-card, and body-panel placeholders; an owned route shape
 replaces that fallback only when it preserves a more accurate final layout.
 
+The Vite development server passes CSS hot updates through Vite's race-safe file reader before
+transforming them. This prevents a temporary empty snapshot from replacing the complete stylesheet
+when an editor truncates and rewrites a large CSS file. The guard applies only during development;
+production CSS bundling is unchanged.
+
 ## Localization boundary
 
 The SPA resolves display locale from the operator preference. Reusable strings come from the main
@@ -282,7 +287,6 @@ Verification metadata is accepted only when check counters are nonnegative integ
 checks no greater than total checks. Atomic claim spans are ordered nonnegative integers, manifest
 schema version 1 is explicit, and claim, failed-claim, and used-evidence references have no duplicate
 or dangling identifiers. Invalid combinations become an unverified malformed artifact.
-
 The browser mirrors the producer caps of 64 claims, 512 evidence entries, and eight additional
 document references. Artifact identifiers are limited to 1 KiB, rendered values to 16 KiB, and
 anchor or alias lists to 64 items. Live replies and session replay use the same parser, so reload
@@ -326,14 +330,15 @@ does not start an automatic redirect because an unreachable read API would cause
 The Architecture route keeps only scope selection in the compact panel that floats over the map's
 upper-right corner. It omits inventory counts, explanatory copy, and layer filters. A truncated
 graph uses one short status badge. The resource-color legend is drawn directly on the world floor
-beside the subscription boundary, not in a floating or bottom panel. Camera fitting reserves floor
-space for it. Resource type names are written directly on that floor without a fixed legend box,
-title, or color swatches. The names move with pan and scale with map zoom inside bounded readable
-sizes. Resource glyphs use the Microsoft Cloud Adoption Framework
+beside the subscription boundary,
+not in a floating or bottom panel. Camera fitting reserves floor space for it. Resource type names
+are written directly on that floor without a fixed legend box, title, or color swatches. The names
+move with pan and scale with map zoom inside bounded readable sizes.
+Resource glyphs use the Microsoft Cloud Adoption Framework
 [Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations).
 Every known canonical type has an explicit lowercase abbreviation. Abstract types without a
-one-to-one CAF row use a documented stable extension instead of a generated initialism. The
-relationship legend remains the compact canvas control. The default isometric map starts with
+one-to-one CAF row use a documented stable extension instead of a generated initialism.
+The relationship legend remains the compact canvas control. The default isometric map starts with
 Reflections and Connections enabled. It shows containment as subtle dashed links,
 shows attachment and dependency links with their directional styles, and renders each resource
 shape; top and front views are optional. Simple projections size each resource-group panel from its

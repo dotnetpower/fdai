@@ -50,8 +50,9 @@ that context is missing or stale. A more specific instruction wins a conflict.
 - For another author's issue, add `review-needed` and wait for confirmation before closing. A
   reopened issue loses `completed` until its exit criteria are satisfied again.
 
-English and Korean are both allowed in prose. Identifiers, paths, branches, punctuation, and
-machine-record keys stay ASCII/English as defined by
+English is the canonical/default language, and Korean is a fully supported localization language.
+Commit Korean prose as readable UTF-8, never as encoded escapes. Identifiers, paths, branches,
+punctuation, and machine-record keys stay ASCII/English as defined by
 [language.instructions.md](instructions/language.instructions.md). GitHub issues stay English.
 
 ## Routed Guides

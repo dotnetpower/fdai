@@ -19,10 +19,11 @@ It does not govern live maintainer chat. Related rules live in
 [coding-conventions.instructions.md](coding-conventions.instructions.md) (commits/PRs)
 and [generic-scope.instructions.md](generic-scope.instructions.md) (no customer data).
 
-## Bilingual policy (English + Korean)
+## Language baseline (English default + Korean support)
 
-FDAI is **fully bilingual: English and Korean are both first-class** and MAY be
-used in natural-language repository text - source comments, docstrings, string
+FDAI uses **English as the canonical source and mandatory fallback**, with Korean
+as a fully supported localization language. English and Korean MAY both be used
+in natural-language repository text - source comments, docstrings, string
 literals, logs, error messages, tests, fixtures, `.github/**`, and docs. **Korean
 is never a defect on the basis of being Korean; there is no repository-wide
 english-only gate.** GitHub issues are the narrow exception described below.
@@ -83,12 +84,15 @@ Emoji may appear in prose only when it adds meaning.
 ### Readable Korean source literals
 
 Korean prose, labels, matching tokens, tests, fixtures, and regular-expression alternatives MUST
-use readable NFC UTF-8 text instead of Hangul `\uXXXX` escapes. Escaped Korean makes debugging,
-review, search, and translation maintenance unnecessarily opaque without changing runtime value.
-
-An escape MAY remain only when the code explicitly reasons about Unicode code points, character
-block boundaries, malformed input, or normalization behavior. Every retained Hangul escape MUST
-be an exact, rationale-bearing entry in
+be committed as readable NFC UTF-8 text. Do not replace readable Korean with Hangul `\uXXXX`
+escapes, HTML numeric character references, percent-encoded UTF-8, or escaped byte sequences.
+Encoded Korean makes debugging, review, search, and translation maintenance unnecessarily opaque
+without changing the human-readable value. Serializers and generators that emit repository source
+or localization catalogs MUST preserve Korean characters rather than applying ASCII-only escaping.
+An encoded representation MAY remain only when required by a wire/storage format or when the code
+explicitly reasons about Unicode code points, character block boundaries, malformed input,
+normalization, or encoding behavior. Every retained Hangul escape MUST be an exact,
+rationale-bearing entry in
 `scripts/quality/localization/readable-hangul-allowlist.txt`. Generated artifacts MUST be fixed at
 their generator and regenerated, never hand-edited. Run
 `python3 scripts/quality/localization/check-readable-hangul.py --fix` for mechanical conversion.
@@ -97,7 +101,7 @@ their generator and regenerated, never hand-edited. Run
 
 User-facing Markdown documentation ships bilingually via `foo.md` + `foo-ko.md`
 sibling pairs. This is the **doc-pair convention** for structured bilingual docs;
-Korean is allowed elsewhere too (see the [Bilingual policy](#bilingual-policy-english--korean-everywhere)),
+Korean is allowed elsewhere too (see the [Language baseline](#language-baseline-english-default--korean-support)),
 but the paired-file mechanism below - with its freshness (SHA) gate - applies to
 the scope named here.
 
