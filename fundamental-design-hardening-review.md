@@ -317,6 +317,39 @@ current evidence is too small, incomplete, or below threshold.
   unmeasured latency, 0.111 routing quality, and `release_eligible=false`.
 - The blocking CLI returns exit code 3 for the current incomplete, undersized evidence.
 
+## Work unit 11: Public offline release trust bootstrap
+
+This unit reviews the boundary between shipped verification code and the external authority needed
+to create a production root. The repository can define and test the ceremony, but it must not mint
+authority with a generated test key or place a root private key in CI.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | No production root exists | CLI injects no verifier | Critical | Keep kits at candidate and publish explicit ceremony exit criteria |
+| 2 | A test key could be promoted for convenience | Tests generate ephemeral keys | Critical | Forbid test keys as authority |
+| 3 | One signer could control root authority | No ceremony policy existed | Critical | Require approved multi-key threshold and independent custody |
+| 4 | CI could receive a root private key | Release signing is not yet separated | Critical | Keep root private keys offline; CI receives delegated keys only |
+| 5 | Operators could substitute a root | CLI has no override | Pass | Preserve wheel-pinned bootstrap and forbid new overrides |
+| 6 | Signed metadata can expire unnoticed | Exact-content manifest has no expiry | Critical | Require expiring TUF timestamp and snapshot metadata |
+| 7 | An old valid release can roll back clients | Manifest versions are compatibility labels only | Critical | Require monotonic TUF metadata versions |
+| 8 | Metadata and targets can be mixed | Exact file hashes do not bind repository metadata | High | Require TUF snapshot/timestamp bindings |
+| 9 | Root rotation can lock out clients | No rotation drill existed | Critical | Update one version at a time under old and new thresholds |
+| 10 | Online signing compromise can persist | Roles were not operationally separated | High | Delegate targets, snapshot, and timestamp under offline root |
+| 11 | Artifact omission can survive repository authentication | TUF authenticates named targets | High | Retain exact file-set and digest verification after TUF |
+| 12 | Wrong CLI or platform can consume a valid kit | Exact bindings already exist | Pass | Preserve CLI and platform equality checks |
+| 13 | Symlink replacement can redirect hashing | No-follow descriptor hashing exists | Pass | Preserve and drill symlink rejection |
+| 14 | Ceremony evidence can leak private material | No evidence contract existed | High | Record public fingerprints and signatures only; scan output |
+| 15 | A deviation can be accepted informally | No stop decision owner existed | High | Name coordinator, reviewer, witness, and hard stop conditions |
+
+### Verification evidence
+
+- Offline-kit and provisioning inspection tests cover signatures, digests, file sets, symlinks,
+	compatibility, bounds, ready, candidate, and sanitized failure states.
+- The bilingual ceremony runbook defines role separation, TUF metadata, packaging, acceptance,
+	sequential rotation, evidence, and eight fail-closed negative drills.
+- Production root generation remains intentionally external. No private key or test authority was
+	created, committed, transferred, or placed in CI.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,
@@ -338,6 +371,7 @@ Low-or-higher finding before advancing.
 | Agent read-tool parity | current main batch | 30-tool exact-owner registry, timeout and error holds, bounded sensitivity-gated output, policy/evidence attribution, and health counters | Complete |
 | Connected/offline recovery runbooks | current main batch | Protected-plan, signed-kit, and startup-readiness statuses map to safe replacement, fresh evidence, and governed rollback drills | Complete |
 | Deterministic/model cost evidence | current main batch | Frozen runner reports tier share, calls, tokens, latency, cost, abstention, verifier failures, quality, and blocking thresholds | Complete; current evidence fails the release gate |
+| Offline trust ceremony readiness | current main batch | Bilingual role, threshold, expiry, packaging, rotation, and disconnected-drill procedure | Prepared; production root ceremony remains external |
 
 Every unit passed `scripts/verify.sh --fast`, strict mypy, Ruff, bilingual translation, document
 size, punctuation, customer-scope, catalog, stewardship, architecture, and integrity gates.
@@ -348,7 +382,7 @@ FDAI should not be described as fully ready until these work units meet their ex
 
 | Priority | Work unit | Why it remains | Observable exit criteria |
 |----------|-----------|----------------|--------------------------|
-| P0 | Public offline trust bootstrap | No production release root is packaged, so shipped inspection cannot authenticate a disconnected kit | Root ceremony completed outside CI; public root packaged in wheel; release-signed kit verifies on a disconnected host; tampered, expired, rollback, and wrong-platform kits fail |
+| P0 | Public offline trust bootstrap | In-repo verifier and ceremony controls are ready, but no production root authority exists | Threshold ceremony completed outside CI; public TUF root packaged in wheel; delegated release metadata verifies on a disconnected host; tamper, expiry, rollback, mix-and-match, wrong-version, and wrong-platform drills fail |
 | P0 | Private-network onboarding acceptance | Component probes and runner IaC exist, but no single acceptance proves bootstrap to observe-ready on the actual isolated runner | Fresh subscription run completes policy preflight, private state bootstrap, exact plan, apply, DNS/TLS/identity/ARG/Event Hubs/PostgreSQL probes, inventory promotion, 15-agent startup, and sanitized handoff report |
 
 ## Readiness verdict

@@ -33,6 +33,7 @@ names, owners, paging integrations, and rollback implementations.
 
 - [Exemption workflow](exemption-workflow.md)
 - [Entra app registration](entra-app-registration.md)
+- [Offline release trust ceremony](offline-trust-ceremony.md)
 
 ## Required runbook contract
 

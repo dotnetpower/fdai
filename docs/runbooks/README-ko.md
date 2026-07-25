@@ -2,7 +2,7 @@
 title: SRE Runbook
 description: Incident response, recovery, governed automation을 위한 customer-neutral 운영자 절차와 템플릿입니다.
 translation_of: README.md
-translation_source_sha: ec17d5e4c03a50d3e6cbccc7e5070ffdf555f2df
+translation_source_sha: 0d3e121ca39f44f7b8adfa0cc63ebbba5447d37c
 translation_revised: 2026-07-25
 ---
 
@@ -35,6 +35,7 @@ resource name, owner, paging integration, rollback implementation을 제공합�
 
 - [예외 workflow](exemption-workflow-ko.md)
 - [Entra 앱 등록](entra-app-registration-ko.md)
+- [Offline release trust ceremony](offline-trust-ceremony-ko.md)
 
 ## 필수 runbook 계약
 
