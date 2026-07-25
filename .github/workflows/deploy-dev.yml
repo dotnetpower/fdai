@@ -461,16 +461,30 @@ jobs:
 
           with open("dev.plan.review.json", encoding="utf-8") as stream:
             plan = json.load(stream)
+          permitted_retirements = {
+            "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
+            "allow_azure_services[0]",
+          }
           destructive = sorted(
-            str(change.get("address", "unknown"))
+            (
+              str(change.get("address", "unknown")),
+              tuple(change.get("change", {}).get("actions", [])),
+            )
             for change in plan.get("resource_changes", [])
             if "delete" in change.get("change", {}).get("actions", [])
           )
-          if destructive:
+          unexpected = [
+            address
+            for address, actions in destructive
+            if address not in permitted_retirements or actions != ("delete",)
+          ]
+          if unexpected:
             print("Protected plans reject delete or replacement actions:")
-            for address in destructive:
+            for address in unexpected:
               print(f"- {address}")
             raise SystemExit(1)
+          for address, _actions in destructive:
+            print(f"Protected plan permits bounded security retirement: {address}")
           PY
 
       - name: Install pinned uv for live preflight

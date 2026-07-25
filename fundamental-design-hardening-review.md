@@ -350,6 +350,53 @@ authority with a generated test key or place a root private key in CI.
 - Production root generation remains intentionally external. No private key or test authority was
 	created, committed, transferred, or placed in CI.
 
+## Work unit 12: Private-network onboarding acceptance
+
+This unit exercises the development environment through the VNet-integrated self-hosted runner.
+It uses the maintainer's default Azure CLI profile only after explicit subscription verification;
+no customer profile, laptop data-plane apply, public runner IP, or local Terraform apply is used.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | Azure extension and CLI auth contexts can differ | Extension context used another home tenant | Critical | Verify `az account show` before every Azure operation |
+| 2 | Same-named resources can exist in another profile | User memory records the duplicate-name trap | Critical | Keep `AZURE_CONFIG_DIR` unset and verify subscription id |
+| 3 | Private runner can be deallocated | VM was `deallocated` with no public IP | Pass | Start it and require online `fdai-deploy` label |
+| 4 | Laptop cannot reach private state or secrets | State and data services are private | Pass | Run all data-plane plan/apply work on the VNet runner |
+| 5 | Stopped PostgreSQL blocks provider refresh | First plan returned `ServerStoppedError` | Medium | Start the server, confirm `Ready`, and rerun plan |
+| 6 | Direct workflow dispatch skips protected evidence | Empty request id skipped guard, live preflight, and storage | High | Use `fdaictl deploy plan` for acceptance |
+| 7 | GitHub dispatch API returned no run details | Old API pin returned HTTP 204 | High | Pin the current API returning run id and URLs |
+| 8 | CLI plan omitted enabled topology flags | Protected guard found a broad delete plan | Critical | Add all four feature flags to plan, guided, and apply CLI |
+| 9 | Feature flags were outside the context digest | Plan and apply could disagree | Critical | Bind every flag into `DeploymentPlanContext` digest |
+| 10 | Apply could omit the plan's topology | Workflow inputs defaulted false | Critical | Send identical flags for plan and exact apply |
+| 11 | Moving `main` invalidated exact apply | Release automation advanced the branch | High | Checkout requested commit and compare actual `HEAD` |
+| 12 | Expiry cleanup omitted two artifacts | Source and Azure preflight evidence were absent | Medium | Add both to the strict cleanup allowlist |
+| 13 | Cleanup deleted one blob at a time | 120 expired blobs delayed plan publication | Medium | Delete at most 1000 with eight bounded workers |
+| 14 | Derived-doc refresh ignored inline YAML | Quickstart pin stayed stale after review | Low | Support inline and multiline entries with tests |
+| 15 | The delete gate cannot distinguish security retirement from destructive drift | Live plan blocked removal of the broad PostgreSQL Azure-services firewall | High | Permit only that exact address as a pure delete; reject its replacement and every other delete |
+| 16 | Plan can drift between approval and apply | Binary, source, context, evidence, commit, status, and expiry are bound | Pass | Restore and verify the exact immutable artifact set |
+| 17 | Existing private endpoints can be disconnected | Management snapshot covered eight endpoints | Pass | Require `Succeeded` and `Approved` before completion |
+| 18 | A successful apply can remain unconverged | Workflow reruns Terraform with detailed exit code | Pass | Block receipt unless post-apply plan is empty |
+| 19 | A post-apply check failure cannot safely rerun apply | Claim existed without a receipt | Critical | Verify claim, skip Terraform apply, and resume post-checks |
+| 20 | Targeted plans can leave console output empty | Static Web App remained in exact Terraform state | High | Resolve hostname from the state-bound resource id through ARM |
+| 21 | Root-owned action cache can block checkout | `infra/None/.cache` caused `EACCES` | High | Remove only that legacy path before checkout and isolate future cache |
+| 22 | `runner.temp` is invalid in job-level environment | GitHub rejected workflow parsing with HTTP 422 | High | Export `$RUNNER_TEMP` path through `GITHUB_ENV` in the prepare step |
+| 23 | Read API can deploy without real stewardship bindings | Latest revision failed at startup | Critical | Bind deployment Variables and enforce resource preconditions |
+| 24 | Inventory job omits required runtime config | Recovery delta failed with eight missing vars | Critical | Inherit the shared core config map in the job |
+| 25 | Workflow definition identity omits action catalog digest | New catalog collided with an older immutable row | Critical | Migrate uniqueness to include the catalog digest |
+| 26 | Dev PostgreSQL keeps public access and broad Azure firewall | Private endpoint was already approved | High | Close public access whenever private networking is enabled |
+
+### Verification evidence
+
+- Full-topology protected plan `plan-30154144825-1` completed with 4 add, 2 in-place change, and
+	0 destroy after managed-identity login, private state init, egress, live Azure preflight, and
+	destructive-plan checks.
+- Verified-image plan run `30156461386` stopped before artifact storage because the fail-closed
+	gate found the intended broad PostgreSQL firewall retirement. The hardened gate passes that one
+	pure delete and rejects an unrelated delete plus a replacement at the allowlisted address.
+- Exact-plan, topology, workflow transport, cleanup, and derivation tests pass with strict mypy,
+	Ruff, and the complete fast gate stack.
+- Exact apply receipt and post-apply runtime evidence are required before this unit is complete.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,

@@ -6,6 +6,7 @@ import io
 import json
 import re
 import subprocess
+import sys
 import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -550,6 +551,51 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
     )
     destructive_source = destructive_step["run"].split(marker, maxsplit=1)[1].partition("\nPY\n")[0]
     compile(destructive_source, "<protected-plan-delete-gate>", "exec")
+
+
+@pytest.mark.parametrize(
+    ("address", "actions", "expected_exit"),
+    (
+        (
+            "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
+            "allow_azure_services[0]",
+            ["delete"],
+            0,
+        ),
+        ("module.compute.azurerm_container_app.core", ["delete"], 1),
+        (
+            "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
+            "allow_azure_services[0]",
+            ["delete", "create"],
+            1,
+        ),
+    ),
+)
+def test_protected_plan_delete_gate_allows_only_bounded_security_retirement(
+    tmp_path: Path,
+    address: str,
+    actions: list[str],
+    expected_exit: int,
+) -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    step = next(
+        item
+        for item in workflow["jobs"]["terraform"]["steps"]
+        if item.get("name") == "Reject destructive protected plan"
+    )
+    marker = "python3 - <<'PY'\n"
+    source = step["run"].split(marker, maxsplit=1)[1].partition("\nPY\n")[0]
+    plan = {"resource_changes": [{"address": address, "change": {"actions": actions}}]}
+    (tmp_path / "dev.plan.review.json").write_text(json.dumps(plan), encoding="utf-8")
+
+    completed = subprocess.run(  # noqa: S603 - static repository-owned script
+        [sys.executable, "-c", source],
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert completed.returncode == expected_exit
 
 
 def test_gateway_source_workflow_steps_are_structurally_executable() -> None:

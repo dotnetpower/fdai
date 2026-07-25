@@ -101,6 +101,10 @@ that claim, skips Terraform apply, and reruns convergence and post-apply checks.
 recovery uses the exact Static Web App id from Terraform state, never an arbitrary resource search.
 Health acceptance requires each selected Container App's latest revision to be `Provisioned` and
 `Healthy` before the shared ingress `/healthz` response is trusted.
+The protected-plan delete gate permits one built-in security retirement: a pure delete of the
+broad PostgreSQL Azure-services firewall rule when private networking removes that public path.
+The same address as a replacement and every other delete remain blocked, so this transition does
+not create a general destruction bypass.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and

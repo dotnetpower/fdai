@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 0aea0178aeb08a5d61365cbed6610063f949f870
+translation_source_sha: a0f854535ba11e9104f62311f37b1d272970ba1f
 translation_revised: 2026-07-25
 ---
 
@@ -105,6 +105,10 @@ Terraform apply를 건너뛰며 convergence와 post-apply check를 다시 수행
 복구는 arbitrary resource search가 아니라 Terraform state의 exact Static Web App id를 사용합니다. 전체 런북:
 Health acceptance는 shared ingress `/healthz` response를 신뢰하기 전에 선택한 각 Container App의
 latest revision이 `Provisioned`와 `Healthy`인지 요구합니다.
+Protected-plan delete gate는 private networking이 public path를 제거할 때 broad PostgreSQL
+Azure-services firewall rule을 순수 삭제하는 내장 security retirement 한 건만 허용합니다.
+같은 주소의 replacement와 다른 모든 delete는 계속 차단되므로 이 전환은 일반적인 파괴 우회
+경로를 만들지 않습니다.
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및
 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 job을 설정하고, `forecast_tick_cron_expression`과
