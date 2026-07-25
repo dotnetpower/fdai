@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { architectureResourceFromValue } from "./architecture-map";
+import {
+  ARCHITECTURE_RESOURCE_ABBREVIATIONS,
+  architectureResourceAbbreviation,
+} from "./architecture-resource-abbreviations";
 import { geometryOf } from "./architecture-map.model";
 import {
   architectureCanvasHeight,
@@ -19,6 +23,7 @@ import {
   architectureOverlayOrder,
   architectureFloorLegendEntries,
   architectureFloorLegendFontSize,
+  architectureGlyphFontSize,
   architectureLabelFontSize,
   fitArchitectureLabel,
 } from "./architecture-map-renderer";
@@ -84,6 +89,39 @@ describe("architecture map labels", () => {
     ] as never;
     expect(architectureOverlayOrder(nodes, "selected").map((node) => node.id))
       .toEqual(["neighbor", "other", "selected"]);
+  });
+
+  it("fits long CAF abbreviations inside resource glyphs", () => {
+    expect(architectureGlyphFontSize(42, "vm")).toBeCloseTo(12.4);
+    expect(architectureGlyphFontSize(42, "evhns")).toBeLessThan(10);
+    expect(architectureGlyphFontSize(132, "domain")).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe("architecture CAF abbreviations", () => {
+  it.each([
+    ["compute.vm", "vm"],
+    ["compute.vm-scale-set", "vmss"],
+    ["compute.container-app", "ca"],
+    ["compute.container-app-environment", "cae"],
+    ["compute.container-app-job", "caj"],
+    ["network.vnet", "vnet"],
+    ["network.subnet", "snet"],
+    ["network.interface", "nic"],
+    ["network.private-endpoint", "pep"],
+    ["postgresql-server", "pgsql"],
+    ["application-insights", "appi"],
+    ["event-hub", "evhns"],
+  ] as const)("maps %s to %s", (type, expected) => {
+    expect(architectureResourceAbbreviation(type)).toBe(expected);
+  });
+
+  it("uses an explicit neutral fallback only for unknown resources", () => {
+    expect(architectureResourceAbbreviation("future-resource")).toBe("res");
+    expect(Object.values(ARCHITECTURE_RESOURCE_ABBREVIATIONS)).not.toContain("res");
+    expect(Object.values(ARCHITECTURE_RESOURCE_ABBREVIATIONS).every(
+      (abbreviation) => /^[a-z0-9]+$/.test(abbreviation),
+    )).toBe(true);
   });
 });
 

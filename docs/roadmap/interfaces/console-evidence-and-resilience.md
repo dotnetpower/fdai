@@ -328,9 +328,12 @@ upper-right corner. It omits inventory counts, explanatory copy, and layer filte
 graph uses one short status badge. The resource-color legend is drawn directly on the world floor
 beside the subscription boundary, not in a floating or bottom panel. Camera fitting reserves floor
 space for it. Its localized title, type labels, and color swatches move with pan and scale with map
-zoom inside bounded readable sizes. The relationship legend remains the compact canvas control.
-The default isometric map starts with Reflections and Connections enabled. It shows containment as
-subtle dashed links,
+zoom inside bounded readable sizes. Resource glyphs use the Microsoft Cloud Adoption Framework
+[Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations).
+Every known canonical type has an explicit lowercase abbreviation. Abstract types without a
+one-to-one CAF row use a documented stable extension instead of a generated initialism. The
+relationship legend remains the compact canvas control. The default isometric map starts with
+Reflections and Connections enabled. It shows containment as subtle dashed links,
 shows attachment and dependency links with their directional styles, and renders each resource
 shape; top and front views are optional. Simple projections size each resource-group panel from its
 observed child count and pack those panels into a balanced world. A resource node never renders

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { layoutArchitecturePresentation } from "./architecture-map-layout";
 import {
+  ARCHITECTURE_VISUAL_RESOURCE_TYPES,
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architecturePresentationGraph,
   architectureHref,
@@ -23,6 +24,7 @@ import {
   shapeOf,
   type InventoryGraphResponse,
 } from "./architecture-map.model";
+import { hasArchitectureResourceAbbreviation } from "./architecture-resource-abbreviations";
 
 describe("architecture display defaults", () => {
   test("shows resource reflections and connections by default", () => {
@@ -32,6 +34,12 @@ describe("architecture display defaults", () => {
 });
 
 describe("architecture Azure discovery mappings", () => {
+  test("predefines an abbreviation for every visual resource type", () => {
+    for (const type of ARCHITECTURE_VISUAL_RESOURCE_TYPES) {
+      expect(hasArchitectureResourceAbbreviation(type), `${type} needs an abbreviation`).toBe(true);
+    }
+  });
+
   test.each([
     ["compute.container-app-job", "runtime"],
     ["network.interface", "network"],
@@ -325,7 +333,10 @@ describe("architecture map model", () => {
       .map((match) => match[1]!);
     expect(canonicalTypes.length).toBeGreaterThan(0);
     for (const type of canonicalTypes) {
-      expect(hasExplicitVisualMapping(type), `${type} needs an explicit layer and color`).toBe(true);
+      expect(
+        hasExplicitVisualMapping(type),
+        `${type} needs an explicit layer, color, and abbreviation`,
+      ).toBe(true);
     }
   });
 

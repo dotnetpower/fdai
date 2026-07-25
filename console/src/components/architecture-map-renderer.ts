@@ -11,6 +11,7 @@ import {
   type Camera,
   type Point,
 } from "./architecture-map.geometry";
+import { architectureResourceAbbreviation } from "./architecture-resource-abbreviations";
 import {
   geometryOf,
   isRegion,
@@ -61,6 +62,11 @@ export function architectureLabelFontSize(cameraScale: number, selected = false)
   const minimum = selected ? 15 : 13;
   const growth = selected ? .16 : .14;
   return clamp(minimum + Math.max(0, cameraScale - 22) * growth, minimum, selected ? 22 : 20);
+}
+
+export function architectureGlyphFontSize(cameraScale: number, abbreviation: string): number {
+  const base = clamp(10 + Math.max(0, cameraScale - 22) * .12, 10, 16);
+  return Math.max(7, base * Math.min(1, 3.4 / abbreviation.length));
 }
 
 export function architectureFloorLegendFontSize(cameraScale: number): number {
@@ -163,6 +169,7 @@ export function renderMap(
         labelBounds,
         false,
         palette,
+        architectureResourceAbbreviation(region.type),
       );
     }
   }
@@ -694,14 +701,15 @@ function drawNodeOverlay(
   context.globalAlpha = highlightAlpha(node.id, highlightedIds);
   const center = project(camera, width, height, nodeX, nodeY, LIFT + geometry.height + .02);
   context.fillStyle = "#fff";
-  const glyphSize = clamp(10 + Math.max(0, camera.scale - 22) * .12, 10, 16);
+  const glyph = architectureResourceAbbreviation(node.type);
+  const glyphSize = architectureGlyphFontSize(camera.scale, glyph);
   context.font = `800 ${glyphSize}px Aptos, Segoe UI, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.strokeStyle = "rgba(28,39,51,.38)";
   context.lineWidth = 2.4;
-  context.strokeText(abbreviation(node.type), center.x, center.y);
-  context.fillText(abbreviation(node.type), center.x, center.y);
+  context.strokeText(glyph, center.x, center.y);
+  context.fillText(glyph, center.x, center.y);
   if ((node.collapsed_count ?? 0) > 0) {
     const badge = project(
       camera,
@@ -861,13 +869,6 @@ function labelsOverlap(first: LabelBounds, second: LabelBounds): boolean {
 function highlightAlpha(id: string, highlightedIds?: ReadonlySet<string>): number {
   if (!highlightedIds || highlightedIds.size === 0) return 1;
   return highlightedIds.has(id) ? 1 : .14;
-}
-
-function abbreviation(type: string): string {
-  if (type === "postgresql") return "DB";
-  if (type === "redis") return "RD";
-  if (type === "storage-account") return "ST";
-  return type.split("-").map((part) => part[0]).join("").slice(0, 3).toUpperCase();
 }
 
 function darken(color: string, factor: number): string {

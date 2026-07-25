@@ -1,4 +1,5 @@
 import { routeHref } from "../router";
+import { hasArchitectureResourceAbbreviation } from "./architecture-resource-abbreviations";
 
 export interface InventoryResource {
   readonly id: string;
@@ -447,8 +448,11 @@ export function relatedResourceIds(
 }
 
 export function hasExplicitVisualMapping(type: string): boolean {
-  return type in TYPE_LAYER && type in TYPE_COLOR_TOKEN;
+  return type in TYPE_LAYER && type in TYPE_COLOR_TOKEN
+    && hasArchitectureResourceAbbreviation(type);
 }
+
+export const ARCHITECTURE_VISUAL_RESOURCE_TYPES = Object.freeze(Object.keys(TYPE_LAYER));
 
 export function isRegion(resource: InventoryResource): boolean {
   return resource.w !== undefined && resource.h !== undefined;
