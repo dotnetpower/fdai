@@ -107,6 +107,10 @@ class Bragi(Agent):
     # ---- registration --------------------------------------------------
 
     def register_responder(self, agent_name: str, fn: AnswerFn) -> None:
+        if agent_name not in PANTHEON_NAMES:
+            raise ValueError(f"unknown responder agent: {agent_name!r}")
+        if agent_name in self._agent_responders:
+            raise ValueError(f"responder already registered: {agent_name!r}")
         self._agent_responders[agent_name] = fn
 
     def register_proposal_sink(self, fn: ProposalSink) -> None:
@@ -209,13 +213,20 @@ class Bragi(Agent):
             # audit trail (spoofed "who asked"). Reject at the boundary.
             raise ValueError(f"unknown requester agent: {requester!r}")
         ctx: dict[str, Any] = {**(context or {}), "requester": requester, "a2a": True}
-        return await call_introspection_responder(
+        response = await call_introspection_responder(
             self._agent_responders,
             agent_name,
             question,
             requester=requester,
             context=ctx,
         )
+        await self._publish_a2a_turn(
+            requester=requester,
+            target_agent=agent_name,
+            question=question,
+            response=response,
+        )
+        return response
 
     # ---- routing -------------------------------------------------------
 
@@ -402,6 +413,57 @@ class Bragi(Agent):
                     "tie_break": turn.decision.tie_break,
                 },
                 "trace_ref": str(turn.answer.get("trace_ref") or session_id),
+            },
+        )
+
+    async def _publish_a2a_turn(
+        self,
+        *,
+        requester: str,
+        target_agent: str,
+        question: str,
+        response: dict[str, Any],
+    ) -> None:
+        if self.bus is None:
+            return
+        question_digest = hashlib.sha256(question.encode()).hexdigest()
+        answer_json = json.dumps(
+            response,
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str,
+        )
+        answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
+        trace_ref = str(response.get("trace_ref") or "")
+        identity = hashlib.sha256(
+            f"{requester}\0{target_agent}\0{trace_ref}\0{question_digest}".encode()
+        ).hexdigest()
+        turn_id = f"turn-{identity[:32]}"
+        session_digest = hashlib.sha256(f"{requester}:{target_agent}".encode()).hexdigest()
+        session_id = f"a2a-{session_digest[:32]}"
+        await self.bus.publish(
+            "Bragi",
+            "object.turn",
+            {
+                "producer_principal": "Bragi",
+                "id": turn_id,
+                "turn_id": turn_id,
+                "correlation_id": trace_ref or turn_id,
+                "idempotency_key": f"a2a-turn:{identity}",
+                "session_id": session_id,
+                "turn_index": 0,
+                "question_ref": f"a2a:sha256:{question_digest}:question",
+                "question_sha256": question_digest,
+                "primary_agent": target_agent,
+                "contributors": [],
+                "answer_ref": f"a2a:sha256:{answer_digest}:answer",
+                "answer_sha256": answer_digest,
+                "score_breakdown": {
+                    "requester": requester,
+                    "routing": "direct_a2a",
+                },
+                "trace_ref": trace_ref or turn_id,
             },
         )
 

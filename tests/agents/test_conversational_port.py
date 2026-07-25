@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+from types import MethodType
 
 import pytest
 
+from fdai.agents._framework.introspection import IntrospectionResult
+from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents.bragi import Bragi
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 _RAW_TOPIC = "fdai.events"
@@ -24,6 +28,70 @@ def test_ask_routes_to_primary_agent() -> None:
     assert turn is not None
     assert turn.primary_agent == "Thor"  # Thor owns question_domain 'action_status'
     assert turn.answer["primary_agent"] == "Thor"
+
+
+def test_every_pantheon_agent_is_directly_reachable() -> None:
+    runtime = _runtime()
+
+    for index, spec in enumerate(PANTHEON_SPECS):
+        turn = asyncio.run(
+            runtime.ask(
+                session_id=f"direct-{index}",
+                user_id="operator-one",
+                question=f"{spec.name}, describe your current capability",
+            )
+        )
+        assert turn is not None
+        assert turn.primary_agent == spec.name
+        assert turn.answer["answer"]
+        assert turn.answer["abstain_reason"] is None
+
+
+def test_every_agent_has_unique_bounded_conversation_charter() -> None:
+    prompts = [spec.conversation.system_prompt for spec in PANTHEON_SPECS]
+
+    assert len(set(prompts)) == len(PANTHEON_SPECS)
+    for spec in PANTHEON_SPECS:
+        assert spec.conversation.system_prompt.strip()
+        assert 0 < len(spec.conversation.tools) <= 16
+        assert len(set(spec.conversation.tools)) == len(spec.conversation.tools)
+
+
+def test_conversation_policy_is_server_injected_and_attributed() -> None:
+    runtime = _runtime()
+    njord = runtime.agents["Njord"]
+    captured: dict[str, object] = {}
+
+    async def capture(_self, _question, context):  # type: ignore[no-untyped-def]
+        captured.update(context)
+        return IntrospectionResult(answer="captured", facts={})
+
+    njord.introspect = MethodType(capture, njord)  # type: ignore[method-assign]
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="policy-one",
+            user_id="operator-one",
+            question="Njord cost status",
+        )
+    )
+
+    assert turn is not None
+    assert captured["agent_system_prompt"] == njord.spec.conversation.system_prompt
+    assert captured["agent_allowed_tools"] == njord.spec.conversation.tools
+    policy = turn.answer["conversation_policy"]
+    assert len(policy["prompt_sha256"]) == 64
+    assert policy["tools"] == list(njord.spec.conversation.tools)
+    assert njord.spec.conversation.system_prompt not in str(turn.answer)
+
+
+def test_bragi_rejects_unknown_and_duplicate_responder_registration() -> None:
+    bragi = Bragi()
+    with pytest.raises(ValueError, match="unknown responder"):
+        bragi.register_responder("Unknown", bragi.on_conversation_turn)
+
+    bragi.register_responder("Thor", bragi.on_conversation_turn)
+    with pytest.raises(ValueError, match="already registered"):
+        bragi.register_responder("Thor", bragi.on_conversation_turn)
 
 
 def test_ask_tracks_session_turns() -> None:
@@ -235,6 +303,30 @@ def test_introspect_a2a_threads_correlation_trace() -> None:
     assert result["requester"] == "Odin"
 
 
+def test_introspect_a2a_publishes_digest_only_attribution() -> None:
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+
+    result = asyncio.run(
+        runtime.introspect(
+            "Saga",
+            "who executed correlation c-1",
+            requester="Odin",
+            correlation_id="c-1",
+        )
+    )
+    records = asyncio.run(_records(provider, "object.turn"))
+
+    assert result is not None
+    assert len(records) == 1
+    payload = records[0].payload
+    assert payload["primary_agent"] == "Saga"
+    assert payload["score_breakdown"]["requester"] == "Odin"
+    assert payload["trace_ref"] == "c-1"
+    assert "question" not in payload
+    assert "answer" not in payload
+
+
 def test_introspect_a2a_refuses_action_intent() -> None:
     runtime = _runtime()
     result = asyncio.run(runtime.introspect("Thor", "restart vm-1", requester="Odin"))
@@ -243,12 +335,13 @@ def test_introspect_a2a_refuses_action_intent() -> None:
     assert result["requester"] == "Odin"
 
 
-def test_introspect_a2a_unknown_agent_abstains() -> None:
+def test_introspect_a2a_reaches_bragi() -> None:
     runtime = _runtime()
-    result = asyncio.run(runtime.introspect("Bragi", "anything", requester="Odin"))
-    # Bragi does not register itself as a responder.
+    result = asyncio.run(runtime.introspect("Bragi", "describe your capability", requester="Odin"))
     assert result is not None
-    assert result["abstain_reason"] == "responder_not_registered"
+    assert result["primary_agent"] == "Bragi"
+    assert result["answer"]
+    assert result["abstain_reason"] is None
 
 
 def test_introspect_a2a_none_when_bragi_disabled() -> None:

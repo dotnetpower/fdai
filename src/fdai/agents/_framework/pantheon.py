@@ -8,7 +8,20 @@ enable / disable via config (see `agent-pantheon.md` \u00a710).
 
 from __future__ import annotations
 
-from fdai.agents._framework.base import AgentSpec, Layer
+from fdai.agents._framework.base import AgentSpec, ConversationCharter, Layer
+
+
+def _conversation(name: str, mandate: str, *tools: str) -> ConversationCharter:
+    return ConversationCharter(
+        system_prompt=(
+            f"You are {name}, one of FDAI's fixed operational agents. {mandate} "
+            "Answer only from owned state through the allowed tools. The conversational port is "
+            "read-only: never judge, approve, or execute from chat, and route action requests "
+            "through the typed pipeline. Abstain when evidence is insufficient."
+        ),
+        tools=tools,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Odin - Master Planner (governance)
@@ -18,6 +31,12 @@ _ODIN = AgentSpec(
     layer=Layer.GOVERNANCE,
     reports_to=None,
     owns=("ArbitrationDecision",),
+    conversation=_conversation(
+        "Odin",
+        "Explain portfolio arbitration and priority conflicts.",
+        "read_arbitration_history",
+        "read_portfolio_verdicts",
+    ),
     executes=("governance.arbitrate-domain-conflict",),
     initiates=(),
     subscribes=(
@@ -36,6 +55,12 @@ _THOR = AgentSpec(
     layer=Layer.PIPELINE,
     reports_to="Odin",
     owns=("ActionRun", "ActionAttempt"),
+    conversation=_conversation(
+        "Thor",
+        "Explain action-run state and recent execution evidence.",
+        "read_action_runs",
+        "read_execution_history",
+    ),
     executes=(),  # dispatches; specific action executors bind per ActionType
     initiates=(),
     subscribes=("object.verdict", "object.approval", "object.rollback"),
@@ -51,6 +76,12 @@ _FORSETI = AgentSpec(
     layer=Layer.PIPELINE,
     reports_to="Odin",
     owns=("Verdict", "RCA", "SecurityEvent", "ArbitrationRequest"),
+    conversation=_conversation(
+        "Forseti",
+        "Explain verdicts and grounded root-cause judgments.",
+        "read_verdicts",
+        "read_rca_evidence",
+    ),
     executes=(),
     initiates=(
         "governance.arbitrate-domain-conflict",
@@ -79,6 +110,12 @@ _HUGINN = AgentSpec(
     layer=Layer.PIPELINE,
     reports_to="Forseti",
     owns=("Event",),
+    conversation=_conversation(
+        "Huginn",
+        "Explain ingress health and resource discovery intake.",
+        "read_ingress_health",
+        "read_discovery_status",
+    ),
     executes=(),
     initiates=(),
     subscribes=(),  # ingested from external adapters, not from bus
@@ -94,6 +131,12 @@ _HEIMDALL = AgentSpec(
     layer=Layer.PIPELINE,
     reports_to="Forseti",
     owns=("Anomaly", "Drift", "Forecast", "ForecastOutcome"),
+    conversation=_conversation(
+        "Heimdall",
+        "Explain observed signals, anomalies, drift, and forecasts.",
+        "read_observations",
+        "read_signal_history",
+    ),
     executes=(),
     initiates=(
         "governance.notify-admin-privilege-violation",
@@ -120,6 +163,12 @@ _VIDAR = AgentSpec(
     layer=Layer.PIPELINE,
     reports_to="Thor",
     owns=("Rollback",),
+    conversation=_conversation(
+        "Vidar",
+        "Explain rollback history and disaster-recovery readiness.",
+        "read_rollback_history",
+        "read_dr_readiness",
+    ),
     executes=(),
     initiates=(),
     subscribes=("object.action-run",),  # picks up failures
@@ -136,6 +185,12 @@ _VAR = AgentSpec(
     layer=Layer.PIPELINE,
     reports_to="Thor",
     owns=("Approval",),
+    conversation=_conversation(
+        "Var",
+        "Explain pending approvals and approval outcomes.",
+        "read_pending_approvals",
+        "read_approval_history",
+    ),
     executes=("governance.notify-admin-privilege-violation",),
     initiates=(),
     subscribes=("object.action-run", "object.audit-entry"),  # action + document HIL
@@ -157,6 +212,12 @@ _BRAGI = AgentSpec(
         "HandoffEscalation",
         "PostTurnReview",
     ),
+    conversation=_conversation(
+        "Bragi",
+        "Route questions and explain the fixed agent capability roster.",
+        "list_agent_capabilities",
+        "route_read_question",
+    ),
     executes=(),
     initiates=("governance.escalate-to-github-issue",),
     subscribes=("object.verdict", "object.action-run"),  # for progress rendering
@@ -173,6 +234,12 @@ _SAGA = AgentSpec(
     layer=Layer.GOVERNANCE,
     reports_to="Odin",
     owns=("AuditEntry", "Issue"),
+    conversation=_conversation(
+        "Saga",
+        "Explain append-only audit evidence and issue handoffs.",
+        "read_audit_chain",
+        "read_issue_handoffs",
+    ),
     executes=("governance.escalate-to-github-issue",),
     initiates=(),
     subscribes=(
@@ -199,6 +266,12 @@ _MIMIR = AgentSpec(
     layer=Layer.GOVERNANCE,
     reports_to="Odin",
     owns=("Rule", "Policy"),
+    conversation=_conversation(
+        "Mimir",
+        "Explain governed rules, policies, and rule history.",
+        "read_rule_catalog",
+        "read_policy_history",
+    ),
     executes=("governance.propose-rule-candidate",),
     initiates=("governance.propose-rule-candidate",),
     subscribes=("object.rule-candidate", "object.issue"),
@@ -214,6 +287,12 @@ _MUNINN = AgentSpec(
     layer=Layer.GOVERNANCE,
     reports_to="Odin",
     owns=("StateSnapshot", "ContextIndex"),
+    conversation=_conversation(
+        "Muninn",
+        "Explain current, bitemporal, and case-history context.",
+        "read_state_context",
+        "read_case_history",
+    ),
     executes=(),
     initiates=(),
     subscribes=(
@@ -235,6 +314,12 @@ _NORNS = AgentSpec(
     layer=Layer.GOVERNANCE,
     reports_to="Odin",
     owns=("RuleCandidate", "PatternObservation"),
+    conversation=_conversation(
+        "Norns",
+        "Explain recurring patterns and inert learning candidates.",
+        "read_pattern_observations",
+        "read_candidate_holds",
+    ),
     executes=("governance.propose-rule-candidate",),
     initiates=("governance.propose-rule-candidate",),
     subscribes=(
@@ -257,6 +342,12 @@ _NJORD = AgentSpec(
     layer=Layer.DOMAIN,
     reports_to="Forseti",
     owns=("CostAnomaly", "Budget"),
+    conversation=_conversation(
+        "Njord",
+        "Explain observed cost samples, budgets, and anomalies.",
+        "read_cost_samples",
+        "read_budget_status",
+    ),
     executes=(),
     initiates=(),
     subscribes=(),  # cost signals ingested from adapter
@@ -272,6 +363,12 @@ _FREYR = AgentSpec(
     layer=Layer.DOMAIN,
     reports_to="Forseti",
     owns=("CapacityForecast", "SizingRecommendation"),
+    conversation=_conversation(
+        "Freyr",
+        "Explain capacity forecasts and sizing recommendations.",
+        "read_capacity_forecasts",
+        "read_sizing_recommendations",
+    ),
     executes=(),
     initiates=(),
     subscribes=(),  # utilization ingested from adapter
@@ -287,6 +384,12 @@ _LOKI = AgentSpec(
     layer=Layer.DOMAIN,
     reports_to="Forseti",
     owns=("ChaosExperiment", "ResilienceScore"),
+    conversation=_conversation(
+        "Loki",
+        "Explain governed chaos experiments and resilience scores.",
+        "read_chaos_experiments",
+        "read_resilience_scores",
+    ),
     executes=(),
     initiates=(),
     subscribes=(),  # schedule-driven

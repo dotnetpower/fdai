@@ -61,7 +61,11 @@ async def test_bragi_routes_to_composed_heimdall_read_responder() -> None:
     assert turn.primary_agent == "Heimdall"
     assert turn.answer["answer"] == "Investigated: Who stopped vm-01?"
     assert turn.answer["facts"]["status"] == "matched"
-    assert contexts == [{"session_id": "session-one", "user_id": "principal-one"}]
+    assert len(contexts) == 1
+    assert contexts[0]["session_id"] == "session-one"
+    assert contexts[0]["user_id"] == "principal-one"
+    assert contexts[0]["agent_system_prompt"] == heimdall.spec.conversation.system_prompt
+    assert contexts[0]["agent_allowed_tools"] == heimdall.spec.conversation.tools
 
 
 async def test_runtime_read_investigation_never_publishes_event_or_invokes_thor() -> None:

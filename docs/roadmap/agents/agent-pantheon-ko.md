@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 1f250c52aa2693074448d2e28b0098e4a6869036
+translation_source_sha: 31fc0bf2435a470052f6417f1a4f040a0cd70dd0
 translation_revised: 2026-07-25
 ---
 
@@ -445,25 +445,19 @@ Partitioning:
   incident 가 한 consumer 에 머묾.
 ### 6.2 Conversational port
 
-모든 에이전트는 Bragi 를 통해 도달 가능한 request-response NL 인터페이스를
-노출한다. 요청은 오퍼레이터의 `user_id` 와 `session_id` 를 carry. 응답은
-`primary_agent`, `contributors`, `answer`, `trace_ref` 를 carry.
-Conversational port 는 에이전트 간 NL introspection 이 일어나는 곳이기도
-하다 (예: typed 스키마가 맞지 않을 때 Bragi 가 Heimdall 에게 NL 로 질문).
+Bragi를 포함한 15개 에이전트 모두 canonical name 직접 지정 또는 domain routing으로 도달할 수
+있는 request-response interface를 제공합니다. Request는 `user_id`, `session_id`를 carry하고
+response는 `primary_agent`, contributor, structured fact, answer, trace, conversation-policy
+attribution을 carry합니다.
 
-두 port 는 correlation trace 외에는 아무것도 공유하지 않는다:
-conversational request 가 action 을 요청하면 반드시 typed 파이프라인에 다시
-진입해야 한다 (7.7).
+각 `AgentSpec`은 고유한 immutable `ConversationCharter`를 요구합니다. Charter는 server-owned
+system instruction과 bounded read-tool id를 가집니다. Runtime은 caller가 넣은 policy context를
+덮어쓰고 owning responder에 charter를 전달하며 raw prompt 대신 prompt SHA-256과 tool id만
+반환합니다. 각 agent의 `Agent.introspect`는 owned state에 근거하고 capability 설명으로 fallback합니다.
 
-구체적으로, 각 에이전트는 ``Agent.introspect`` 를 override 하여 자신이
-소유한 상태(cost 샘플, audit chain, action run, ...)에 근거해 답하고,
-spec 에서 파생한 capability 설명으로 fallback 한다. 응답은 구조화된
-``facts`` 맵도 carry 하므로 A2A 호출자가 산문을 파싱하지 않고 evidence 를
-소비할 수 있다. MUST-NOT-bypass 가드(7.7)는 ``is_action_intent`` 로
-강제된다: command 형태의 요청은 답하지 않고 ``requires_typed_pipeline`` 로
-abstain 한다. A2A introspection 은 ``PantheonRuntime.introspect(agent,
-question, requester=...)`` (``Bragi.introspect_agent`` 로 위임)로 도달하며,
-요청한 에이전트를 기록하고 공유 correlation trace 를 이어준다.
+`is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
+`PantheonRuntime.introspect(agent, question, requester=...)`는 A2A read를 제공하고 requester,
+target, trace를 담은 digest-only Bragi-owned Turn을 발행합니다. 두 port는 이 trace만 공유합니다.
 
 ### 6.3 NL query 오케스트레이션
 

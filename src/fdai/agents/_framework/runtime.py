@@ -299,18 +299,15 @@ class PantheonRuntime:
                 bridge.subscribe(topic, name, agent.on_typed_message)
                 subscription_count += 1
 
-        # Conversational port: wire Bragi (the narrator) to every other
-        # active agent's conversational handler, so an operator NL query
-        # routes to the right primary agent. Deterministic + LLM-free at
-        # this layer (routing is keyword/similarity); agents answer via
-        # their own on_conversation_turn. Absent when Bragi is disabled.
+        # Conversational port: wire Bragi (the narrator) to every active
+        # agent's read-only conversational handler, including Bragi itself.
+        # Routing is deterministic here; each agent owns its answer policy.
         bragi_ref: Bragi | None = None
         maybe_bragi = agents.get("Bragi")
         if isinstance(maybe_bragi, Bragi):
             bragi_ref = maybe_bragi
             for name, agent in agents.items():
-                if name != "Bragi":
-                    bragi_ref.register_responder(name, agent.on_conversation_turn)
+                bragi_ref.register_responder(name, agent.on_conversation_turn)
             # Conversational-port re-entry (agent-pantheon.md 7.7): an operator
             # command routes into the typed pipeline through Huginn (the sole
             # writer of object.event). Bragi builds the ActionProposal and

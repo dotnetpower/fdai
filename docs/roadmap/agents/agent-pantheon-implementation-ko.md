@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d4cd1b5aa0d96bb5f6468fd52201744723fd1e27
-translation_revised: 2026-07-24
+translation_source_sha: 8d263117469d4eac70aaf45e9887afb1623a44c6
+translation_revised: 2026-07-25
 ---
 
 # 에이전트 판테온 구현 계획
@@ -597,22 +597,14 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
   (`scale_down`)와 Freyr `object.capacity-forecast`(`scale_up`) - 이라
   실제 도메인 간 충돌이 인라인 힌트 없이도 arbitration 을 트리거한다.
   런타임이 이미 양쪽을 구독하므로 루프는 끝에서 끝까지 닫혀 있다.
-- **conversational 포트 (라이브, LLM-free 계층).** two-port 모델의 인간
-  절반이 배선된다: 런타임이 모든 활성 에이전트의 `on_conversation_turn`
-  을 Bragi responder 로 등록하고, `PantheonRuntime.ask(session_id, user_id,
-  question)` 이 운영자 NL 질의를 알맞은 primary 에이전트로 라우팅한다
-  (`question_domains` 기반 결정적 키워드 / 유사도 스코어링), per-user 세션
-  추적, Bragi 의 no-cross-user invariant 강제. Bragi 비활성화 시 포트가
-  꺼진다(`health()["conversational_port"]` 가 `False`, `ask` 는 `None`).
-  명시된 canonical agent 이름은 domain scoring보다 우선합니다. Bragi는 bounded
-  timeout으로 최대 3명의 matching contributor를 동시에 호출하고 contributor
-  failure를 격리하며, 결합된 prose와 structured contributor evidence를 함께
-  반환합니다. Web adapter는 client session id를 인증된 principal로 namespace하고
-  read-only 질문 route에서 action proposal 및 Saga handoff side effect를
-  비활성화합니다.
-  two-port 계약상, 액션을 원하는 conversational 요청은 typed 파이프라인으로
-  재진입해야 한다 - 포트가 이를 우회하지 않는다. narrator LLM(T2 intent +
-  풍부한 에이전트별 답변)은 추후 이 seam 위에 얹힙니다.
+- **Conversational port (live, deterministic-first).** Runtime은 Bragi를 포함한 15개 read-only
+  responder를 모두 등록하며 canonical name 직접 지정이 domain scoring보다 우선합니다. 각
+  `AgentSpec`은 고유한 server-owned system prompt와 bounded read-tool manifest를 가집니다.
+  Responder context는 caller policy를 덮어쓰고 answer는 prompt SHA-256과 tool id만 노출합니다.
+  Per-user session isolation, 3-way contributor fan-out, bounded timeout, action의 typed-pipeline
+  재진입을 유지합니다. A2A read는 requester, target, trace를 담은 digest-only Turn attribution을
+  발행합니다. Model-backed richer answer는 deterministic owned-state response에 model call을
+  추가하지 않고 같은 charter를 사용할 수 있습니다.
 - **자가치유 컨슈머.** 죽은 컨슈머는 지수 백오프
   (`max_consumer_restarts`, `restart_backoff_base`,
   `restart_backoff_max`)로 재시작하고, cap 초과 시에만 포기(카운트+로깅)

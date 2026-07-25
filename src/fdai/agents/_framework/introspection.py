@@ -21,6 +21,7 @@ narrator over the same ``facts`` without changing this contract.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -264,6 +265,10 @@ def capability_facts(spec: AgentSpec) -> dict[str, Any]:
         "hot_path_llm": spec.hot_path_llm,
         "off_path_llm": spec.off_path_llm,
         "hard_dependency": spec.hard_dependency,
+        "conversation_tools": list(spec.conversation.tools),
+        "conversation_prompt_sha256": hashlib.sha256(
+            spec.conversation.system_prompt.encode("utf-8")
+        ).hexdigest(),
     }
 
 

@@ -617,24 +617,13 @@ Configurable + observable seams:
   a real cross-domain conflict triggers arbitration without any inline
   hint. The runtime already subscribes both sides, so the loop is closed
   end to end.
-- **Conversational port (live, LLM-free layer).** The two-port model's
-  human half is wired: the runtime registers every active agent's
-  `on_conversation_turn` as a Bragi responder, and `PantheonRuntime.ask(
-  session_id, user_id, question)` routes an operator NL query to the
-  right primary agent (deterministic keyword / similarity scoring on
-  `question_domains`), tracks a per-user session, and enforces Bragi's
-  no-cross-user invariant. Disabling Bragi turns the port off
-  (`health()["conversational_port"]` is `False`, `ask` returns `None`).
-  An explicit canonical agent name takes precedence over domain scoring.
-  Bragi calls up to three matched contributors concurrently with bounded
-  timeouts, isolates contributor failures, and returns both combined prose and
-  structured contributor evidence. The web adapter namespaces client session
-  ids by the authenticated principal and disables action proposal plus Saga
-  handoff side effects on the read-only question route.
-  Per the two-port contract, a conversational request that wants an
-  action must re-enter the typed pipeline - the port never bypasses it.
-  The narrator LLM (T2 intent + richer per-agent answers) layers on top
-  of this seam later.
+- **Conversational port (live, deterministic-first).** Runtime registers all 15 read-only responders,
+  including Bragi, and explicit canonical names precede domain scoring. Every `AgentSpec` carries a
+  unique server-owned system prompt and bounded read-tool manifest; responder context overwrites caller
+  policy, while answers expose only prompt SHA-256 and tool ids. Per-user session isolation, three-way
+  contributor fan-out, bounded timeout, and action-to-typed-pipeline routing remain enforced. A2A reads
+  publish digest-only Turn attribution with requester, target, and trace. Model-backed richer answers can
+  consume this same charter without adding model calls to deterministic owned-state responses.
 - **Self-healing consumers.** A crashed consumer restarts with
   exponential backoff (`max_consumer_restarts`, `restart_backoff_base`,
   `restart_backoff_max`) and gives up (counted + logged) only after the

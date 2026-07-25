@@ -467,25 +467,18 @@ Partitioning:
   incident stays on one consumer.
 ### 6.2 Conversational port
 
-Every agent exposes a request-response NL interface reachable through
-Bragi. Requests carry the operator's `user_id` and `session_id`. Responses
-carry `primary_agent`, `contributors`, `answer`, and `trace_ref`. The
-conversational port is where agent-to-agent NL introspection also happens
-(e.g., Bragi asks Heimdall in NL when the typed schema isn't a fit).
+All 15 agents, including Bragi, expose a request-response interface reachable by explicit canonical
+name or domain routing. Requests carry `user_id` and `session_id`; responses carry `primary_agent`,
+contributors, structured facts, answer, trace, and conversation-policy attribution.
 
-The two ports share nothing except the correlation trace: a conversational
-request that asks for an action MUST re-enter the typed pipeline (7.7).
+Each `AgentSpec` requires a unique immutable `ConversationCharter`: server-owned system instructions
+and bounded read-tool ids. The runtime overwrites caller-supplied policy context, gives the charter to
+the owning responder, and returns only its prompt SHA-256 plus tool ids, never raw prompt text. Each
+agent grounds `Agent.introspect` in owned state and falls back to its capability description.
 
-Concretely, each agent overrides ``Agent.introspect`` to ground its answer
-in the state it owns (cost samples, audit chain, action runs, ...) and
-falls back to a spec-derived capability description; the response also
-carries a structured ``facts`` map so an A2A caller consumes the evidence
-without parsing prose. The MUST-NOT-bypass guard (7.7) is enforced by
-``is_action_intent``: a request phrased as a command abstains with
-``requires_typed_pipeline`` instead of being answered. A2A introspection
-is reached through ``PantheonRuntime.introspect(agent, question,
-requester=...)`` (delegating to ``Bragi.introspect_agent``), which records
-the requesting agent and threads the shared correlation trace.
+`is_action_intent` makes commands abstain with `requires_typed_pipeline`; chat never executes.
+`PantheonRuntime.introspect(agent, question, requester=...)` supports A2A reads and emits a digest-only
+Bragi-owned Turn carrying requester, target, and trace. The two ports share only that trace.
 
 ### 6.3 NL query orchestration
 

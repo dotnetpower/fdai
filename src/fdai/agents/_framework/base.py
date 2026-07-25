@@ -8,7 +8,9 @@ is the immutable declaration read by the registry - see
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -34,6 +36,8 @@ _LOG = logging.getLogger(__name__)
 # normal use. New keys past the cap fold into a single overflow sentinel.
 _MAX_BEHAVIOR_KEYS = 512
 _BEHAVIOR_OVERFLOW_KEY = "behavior:overflow"
+_MAX_CONVERSATION_TOOLS = 16
+_TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 
 
 class Layer(StrEnum):
@@ -58,6 +62,24 @@ class RateLimits:
 
 
 @dataclass(frozen=True, slots=True)
+class ConversationCharter:
+    """Server-owned system instructions and read-only tool manifest."""
+
+    system_prompt: str
+    tools: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.system_prompt.strip():
+            raise ValueError("conversation system_prompt MUST be non-empty")
+        if not self.tools or len(self.tools) > _MAX_CONVERSATION_TOOLS:
+            raise ValueError("conversation tools MUST contain between 1 and 16 items")
+        if len(set(self.tools)) != len(self.tools):
+            raise ValueError("conversation tools MUST be unique")
+        if any(_TOOL_ID.fullmatch(tool) is None for tool in self.tools):
+            raise ValueError("conversation tool ids MUST be bounded ASCII identifiers")
+
+
+@dataclass(frozen=True, slots=True)
 class AgentSpec:
     """Immutable declaration of one pantheon agent.
 
@@ -70,6 +92,7 @@ class AgentSpec:
     layer: Layer
     reports_to: str | None
     owns: tuple[str, ...]
+    conversation: ConversationCharter
     """ObjectType names this agent is the single writer of."""
     executes: tuple[str, ...] = ()
     """ActionType names this agent may execute as the sole mutation principal."""
@@ -270,17 +293,22 @@ class Agent:
         two ports share), and ``abstain_reason`` (set only when
         ``answer`` is ``None``).
         """
+        policy_context = {
+            **context,
+            "agent_system_prompt": self.spec.conversation.system_prompt,
+            "agent_allowed_tools": self.spec.conversation.tools,
+        }
         if is_action_intent(question):
             return self._conversation_envelope(
                 IntrospectionResult.abstain(
                     REQUIRES_TYPED_PIPELINE,
                     facts={"question": question},
                 ),
-                context,
+                policy_context,
                 requires_typed_pipeline=True,
             )
         try:
-            result = await self.introspect(question, context)
+            result = await self.introspect(question, policy_context)
         except Exception as exc:  # noqa: BLE001 - port availability guard
             # One agent's introspection bug MUST NOT crash the shared
             # conversational port (an operator ask or an A2A introspection
@@ -292,7 +320,7 @@ class Agent:
                 extra={"agent": self.spec.name, "error_type": type(exc).__name__},
             )
             result = IntrospectionResult.abstain(INTROSPECTION_ERROR)
-        return self._conversation_envelope(result, context)
+        return self._conversation_envelope(result, policy_context)
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         """Answer a read-only introspection question from owned state.
@@ -329,6 +357,12 @@ class Agent:
             "facts": result.facts,
             "trace_ref": trace_ref,
             "abstain_reason": result.abstain_reason,
+            "conversation_policy": {
+                "prompt_sha256": hashlib.sha256(
+                    self.spec.conversation.system_prompt.encode("utf-8")
+                ).hexdigest(),
+                "tools": list(self.spec.conversation.tools),
+            },
         }
         if requires_typed_pipeline:
             envelope["requires_typed_pipeline"] = True
@@ -357,4 +391,4 @@ def _kebab(name: str) -> str:
     return "".join(out)
 
 
-__all__ = ["Agent", "AgentSpec", "Layer", "RateLimits"]
+__all__ = ["Agent", "AgentSpec", "ConversationCharter", "Layer", "RateLimits"]

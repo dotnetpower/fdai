@@ -10,7 +10,7 @@ scaffolding only.
 Design authority: `docs/roadmap/agents/agent-pantheon.md`.
 """
 
-from fdai.agents._framework.base import Agent, AgentSpec, Layer
+from fdai.agents._framework.base import Agent, AgentSpec, ConversationCharter, Layer
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, AgentHandlerPhase
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
@@ -41,6 +41,7 @@ __all__ = [
     "AgentHandlerPhase",
     "AgentSpec",
     "Bragi",
+    "ConversationCharter",
     "Heimdall",
     "Layer",
     "Norns",

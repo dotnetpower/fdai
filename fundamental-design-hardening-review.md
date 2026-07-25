@@ -137,6 +137,47 @@ delta stream into proof of inventory completeness.
 - Six PostgreSQL integration cases are selected but skipped locally because
 	`FDAI_DATABASE_URL` is unset; CI remains the authoritative live-database check.
 
+## Work unit 4: Independent agent conversation charters
+
+This unit covers direct human selection of each fixed agent and the role/tool policy passed to its
+read-only conversational port. It does not grant any conversational path execution authority or
+increase model use in the typed hot path.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | The Pantheon contains exactly 15 agents | `PANTHEON_SPECS` and parity tests pin the set | Pass | Retain |
+| 2 | Explicit agent names override domain scoring | Router returns `explicit_agent` | Pass | Retain |
+| 3 | Every agent declares question domains | All 15 specs have non-empty domains | Pass | Retain |
+| 4 | Every concrete agent implements grounded introspection | All 15 classes override or own the deterministic fallback | Pass | Retain and test direct reachability |
+| 5 | Conversational action intent cannot execute directly | Base port returns `requires_typed_pipeline` | Pass | Retain |
+| 6 | Session ownership prevents cross-user reuse | Bragi compares the stored user id | Pass | Retain |
+| 7 | Bragi cannot be selected as its own responder | Runtime excludes Bragi from responder registration | High | Register Bragi's read-only turn responder too |
+| 8 | A2A introspection cannot target Bragi | Responder lookup returns `responder_not_registered` | High | Route Bragi through the same read-only responder map |
+| 9 | Agents have no independent system prompt contract | `AgentSpec` carries role metadata but no conversation instructions | High | Require a unique immutable conversation charter per agent |
+| 10 | Agents have no allowed conversational tool manifest | Owned-state methods are not declared for model-backed use | High | Require bounded ASCII tool ids per charter |
+| 11 | Prompt and tools are not injected into responder context | `on_conversation_turn` forwards caller context unchanged | Medium | Overwrite internal policy context from immutable spec |
+| 12 | Responses cannot attribute the policy version used | Envelope contains no prompt or tool policy digest | Medium | Return prompt SHA-256 and allowed tool ids, never raw prompt text |
+| 13 | Unknown A2A requesters are rejected | Bragi checks `PANTHEON_NAMES` | Pass | Retain |
+| 14 | Contributor fan-out and latency are bounded | Three contributors and two-second timeout | Pass | Retain |
+| 15 | Responder registration accepts unknown agent names | `register_responder` writes any key | Medium | Reject names outside the fixed Pantheon |
+| 16 | Responder registration silently overwrites an existing binding | Dictionary assignment has no duplicate guard | High | Reject duplicate registration |
+| 17 | A2A requester attribution is process-local only | Response carries requester but no durable Turn is published | Medium | Publish a digest-only Bragi-owned Turn with requester, target, and trace |
+
+### Discriminating checks
+
+- Explicitly naming each of the 15 agents returns that agent as primary with a non-empty answer.
+- Direct and A2A requests to Bragi use Bragi's own read-only responder without recursion.
+- Every agent has a unique non-empty prompt and a bounded non-empty tool manifest.
+- Responder context receives server-owned prompt and tool policy even if caller context is forged.
+- Responses expose only prompt SHA-256 and tool ids for attribution, never raw system prompts.
+- Unknown or duplicate responder bindings fail during composition.
+
+### Verification evidence
+
+- Complete Pantheon agent suite: 616 passed.
+- Strict mypy passes for all changed agent source modules.
+- Ruff, bilingual translation, document-size, punctuation, and diff checks pass.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,
