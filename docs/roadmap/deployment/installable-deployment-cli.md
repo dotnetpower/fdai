@@ -462,9 +462,11 @@ fdaictl release rollback \
 `fdaictl deploy plan` submits a plan-only workflow and currently returns the workflow run id and
 URL. It requires the same environment config to pass `doctor`, reads the GitHub credential only
 from `FDAI_GITHUB_TOKEN`, and sends `apply=false`, the environment, exact commit, and a SHA-256
-deployment-context fingerprint. Tenant, subscription, backend, and runner identifiers aren't sent
-in the dispatch body. The workflow validates the bounded request id, context digest, and exact
-checked-out commit before planning.
+deployment-context fingerprint. Console, read API, development gateway, and document-ingestion
+flags are included in that fingerprint and sent to both plan and apply. A changed flag invalidates
+the plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body.
+The workflow validates the bounded request id, context digest, and exact checked-out commit before
+planning.
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
@@ -472,6 +474,8 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
   --repository <owner>/<repository> \
   --bundle-digest <sha256> \
   --commit-sha <git-sha> \
+  --deploy-console \
+  --deploy-read-api \
   --output json
 ```
 

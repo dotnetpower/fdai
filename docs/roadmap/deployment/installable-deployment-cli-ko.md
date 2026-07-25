@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 2e1c34a09addb89cea77f36ede2820144ba6fafb
+translation_source_sha: dd877772f809e0ca166207b789fe2d3310f1d697
 translation_revised: 2026-07-25
 ---
 # 설치형 배포 CLI
@@ -464,9 +464,11 @@ fdaictl release rollback \
 `fdaictl deploy plan`은 plan-only workflow를 제출하고 현재 workflow run id와 URL을 반환합니다.
 같은 environment config가 `doctor`를 통과해야 하고 GitHub credential은
 `FDAI_GITHUB_TOKEN`에서만 읽습니다. Dispatch body에는 `apply=false`, environment, exact commit,
-SHA-256 deployment-context fingerprint만 전달합니다. Tenant, subscription, backend, runner
-identifier는 전달하지 않습니다. Workflow는 plan 전에 bounded request id, context digest, exact
-checked-out commit을 검증합니다.
+SHA-256 deployment-context fingerprint를 전달합니다. Console, read API, development gateway,
+document-ingestion flag는 fingerprint에 포함되며 plan과 apply에 동일하게 전달됩니다. Flag가
+달라지면 plan은 무효입니다. Tenant, subscription, backend, runner identifier는 전달하지
+않습니다. Workflow는 plan 전에 bounded request id, context digest, exact checked-out commit을
+검증합니다.
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
@@ -474,6 +476,8 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
   --repository <owner>/<repository> \
   --bundle-digest <sha256> \
   --commit-sha <git-sha> \
+  --deploy-console \
+  --deploy-read-api \
   --output json
 ```
 

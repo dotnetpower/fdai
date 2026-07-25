@@ -77,6 +77,13 @@ def _package_version() -> str:
         return "0.0.0"
 
 
+def _add_deployment_feature_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--deploy-console", action="store_true")
+    parser.add_argument("--deploy-read-api", action="store_true")
+    parser.add_argument("--deploy-dev-operations-gateway", action="store_true")
+    parser.add_argument("--deploy-document-ingestion", action="store_true")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="fdaictl",
@@ -163,6 +170,7 @@ def _build_parser() -> argparse.ArgumentParser:
     onboard_guided.add_argument("--commit-sha", required=True)
     onboard_guided.add_argument("--force-config", action="store_true")
     onboard_guided.add_argument("--output", choices=("text", "json"), default="text")
+    _add_deployment_feature_args(onboard_guided)
     deploy_parser = subcommands.add_parser("deploy", help="analyze or submit deployments")
     deploy_commands = deploy_parser.add_subparsers(dest="deploy_command", required=True)
     deploy_preflight = deploy_commands.add_parser(
@@ -182,6 +190,7 @@ def _build_parser() -> argparse.ArgumentParser:
     deploy_plan.add_argument("--bundle-digest", required=True)
     deploy_plan.add_argument("--commit-sha", required=True)
     deploy_plan.add_argument("--output", choices=("text", "json"), default="text")
+    _add_deployment_feature_args(deploy_plan)
     deploy_status = deploy_commands.add_parser(
         "status", help="read sanitized metadata for a protected deployment plan"
     )
@@ -197,6 +206,7 @@ def _build_parser() -> argparse.ArgumentParser:
     deploy_apply.add_argument("--bundle-digest", required=True)
     deploy_apply.add_argument("--commit-sha", required=True)
     deploy_apply.add_argument("--output", choices=("text", "json"), default="text")
+    _add_deployment_feature_args(deploy_apply)
     security_parser = subcommands.add_parser("security", help="inspect runtime security posture")
     security_commands = security_parser.add_subparsers(dest="security_command", required=True)
     security_audit = security_commands.add_parser("audit", help="run fail-closed security checks")
@@ -390,6 +400,10 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                         bundle_digest=args.bundle_digest,
                         commit_sha=args.commit_sha,
                         force_config=args.force_config,
+                        deploy_console=args.deploy_console,
+                        deploy_read_api=args.deploy_read_api,
+                        deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
+                        deploy_document_ingestion=args.deploy_document_ingestion,
                     )
                 )
             )
@@ -476,6 +490,10 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                     bundle_digest=args.bundle_digest,
                     commit_sha=args.commit_sha,
                     doctor_report=doctor_report,
+                    deploy_console=args.deploy_console,
+                    deploy_read_api=args.deploy_read_api,
+                    deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
+                    deploy_document_ingestion=args.deploy_document_ingestion,
                 )
             )
         except PlanSubmissionError as exc:
@@ -528,6 +546,10 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                     bundle_digest=args.bundle_digest,
                     commit_sha=args.commit_sha,
                     doctor_report=doctor_report,
+                    deploy_console=args.deploy_console,
+                    deploy_read_api=args.deploy_read_api,
+                    deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
+                    deploy_document_ingestion=args.deploy_document_ingestion,
                 )
             )
         except PlanSubmissionError as exc:

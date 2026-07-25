@@ -39,6 +39,10 @@ def _context() -> DeploymentPlanContext:
         commit_sha="b" * 40,
         backend_ref="backend:dev",
         runner_ref="runner:private",
+        deploy_console=True,
+        deploy_read_api=True,
+        deploy_dev_operations_gateway=True,
+        deploy_document_ingestion=True,
     )
 
 
@@ -67,6 +71,10 @@ async def test_submit_plan_dispatches_hashed_plan_only_context() -> None:
         parsed = json.loads(payload)
         assert parsed["inputs"]["apply"] is False
         assert parsed["inputs"]["commit_sha"] == "b" * 40
+        assert parsed["inputs"]["deploy_console"] is True
+        assert parsed["inputs"]["deploy_read_api"] is True
+        assert parsed["inputs"]["deploy_dev_operations_gateway"] is True
+        assert parsed["inputs"]["deploy_document_ingestion"] is True
         assert len(parsed["inputs"]["context_digest"]) == 64
         return httpx.Response(
             200,
@@ -107,6 +115,10 @@ async def test_submit_apply_dispatches_exact_opaque_plan_context() -> None:
         assert payload["inputs"]["plan_id"] == "plan-123-1"
         assert payload["inputs"]["plan_digest"] == "c" * 64
         assert payload["inputs"]["request_id"].startswith("apply-")
+        assert payload["inputs"]["deploy_console"] is True
+        assert payload["inputs"]["deploy_read_api"] is True
+        assert payload["inputs"]["deploy_dev_operations_gateway"] is True
+        assert payload["inputs"]["deploy_document_ingestion"] is True
         serialized = json.dumps(payload)
         assert str(_TENANT) not in serialized
         assert str(_SUBSCRIPTION) not in serialized

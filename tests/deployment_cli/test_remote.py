@@ -74,6 +74,26 @@ def test_apply_guard_rejects_any_context_mismatch() -> None:
         validate_exact_plan(_record(), expected_context=expected, now=_NOW)
 
 
+def test_apply_guard_rejects_feature_topology_mismatch() -> None:
+    expected = replace(_context(), deploy_read_api=True)
+
+    with pytest.raises(RemoteDeploymentError, match="context"):
+        validate_exact_plan(_record(), expected_context=expected, now=_NOW)
+
+
+def test_context_digest_binds_every_feature_flag() -> None:
+    baseline = deployment_context_digest(_context())
+
+    assert baseline != deployment_context_digest(replace(_context(), deploy_console=True))
+    assert baseline != deployment_context_digest(replace(_context(), deploy_read_api=True))
+    assert baseline != deployment_context_digest(
+        replace(_context(), deploy_dev_operations_gateway=True)
+    )
+    assert baseline != deployment_context_digest(
+        replace(_context(), deploy_document_ingestion=True)
+    )
+
+
 def test_apply_guard_accepts_matching_digest_only_metadata() -> None:
     record = _record(
         context=None,

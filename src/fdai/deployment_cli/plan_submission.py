@@ -118,6 +118,10 @@ async def submit_github_plan(
     bundle_digest: str,
     commit_sha: str,
     doctor_report: DoctorReport,
+    deploy_console: bool = False,
+    deploy_read_api: bool = False,
+    deploy_dev_operations_gateway: bool = False,
+    deploy_document_ingestion: bool = False,
     environ: Mapping[str, str] | None = None,
     http_client: httpx.AsyncClient | None = None,
 ) -> PlanSubmissionResult:
@@ -136,6 +140,10 @@ async def submit_github_plan(
             commit_sha=commit_sha,
             backend_ref="backend:remote-state",
             runner_ref="runner:fdai-deploy",
+            deploy_console=deploy_console,
+            deploy_read_api=deploy_read_api,
+            deploy_dev_operations_gateway=deploy_dev_operations_gateway,
+            deploy_document_ingestion=deploy_document_ingestion,
         )
         transport_config = GitHubDeploymentWorkflowConfig(
             repository=repository,
@@ -260,6 +268,10 @@ async def submit_github_apply(
     bundle_digest: str,
     commit_sha: str,
     doctor_report: DoctorReport,
+    deploy_console: bool = False,
+    deploy_read_api: bool = False,
+    deploy_dev_operations_gateway: bool = False,
+    deploy_document_ingestion: bool = False,
     now: datetime | None = None,
     environ: Mapping[str, str] | None = None,
     http_client: httpx.AsyncClient | None = None,
@@ -279,6 +291,10 @@ async def submit_github_apply(
             commit_sha=commit_sha,
             backend_ref="backend:remote-state",
             runner_ref="runner:fdai-deploy",
+            deploy_console=deploy_console,
+            deploy_read_api=deploy_read_api,
+            deploy_dev_operations_gateway=deploy_dev_operations_gateway,
+            deploy_document_ingestion=deploy_document_ingestion,
         )
         transport_config = GitHubDeploymentWorkflowConfig(repository=repository)
     except (OnboardingError, ValueError) as exc:

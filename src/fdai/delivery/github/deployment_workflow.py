@@ -81,6 +81,10 @@ class GitHubActionsDeploymentTransport:
                     "request_id": f"plan-{context_digest[:24]}",
                     "context_digest": context_digest,
                     "commit_sha": context.commit_sha,
+                    "deploy_console": context.deploy_console,
+                    "deploy_read_api": context.deploy_read_api,
+                    "deploy_dev_operations_gateway": context.deploy_dev_operations_gateway,
+                    "deploy_document_ingestion": context.deploy_document_ingestion,
                 },
             }
         )
@@ -140,6 +144,10 @@ class GitHubActionsDeploymentTransport:
                     "commit_sha": context.commit_sha,
                     "plan_id": plan_id,
                     "plan_digest": plan_digest,
+                    "deploy_console": context.deploy_console,
+                    "deploy_read_api": context.deploy_read_api,
+                    "deploy_dev_operations_gateway": context.deploy_dev_operations_gateway,
+                    "deploy_document_ingestion": context.deploy_document_ingestion,
                 },
             }
         )

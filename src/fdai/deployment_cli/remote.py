@@ -35,6 +35,10 @@ class DeploymentPlanContext:
     commit_sha: str
     backend_ref: str
     runner_ref: str
+    deploy_console: bool = False
+    deploy_read_api: bool = False
+    deploy_dev_operations_gateway: bool = False
+    deploy_document_ingestion: bool = False
 
     def __post_init__(self) -> None:
         if self.environment not in {"dev", "staging", "prod"}:
@@ -45,6 +49,8 @@ class DeploymentPlanContext:
             raise ValueError("commit_sha MUST be a lowercase 40-character git SHA")
         if not self.backend_ref or not self.runner_ref:
             raise ValueError("backend_ref and runner_ref MUST be non-empty")
+        if self.deploy_dev_operations_gateway and self.environment != "dev":
+            raise ValueError("the development operations gateway is dev-only")
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +144,10 @@ def deployment_context_digest(context: DeploymentPlanContext) -> str:
         "backend_ref": context.backend_ref,
         "bundle_digest": context.bundle_digest,
         "commit_sha": context.commit_sha,
+        "deploy_console": context.deploy_console,
+        "deploy_dev_operations_gateway": context.deploy_dev_operations_gateway,
+        "deploy_document_ingestion": context.deploy_document_ingestion,
+        "deploy_read_api": context.deploy_read_api,
         "environment": context.environment,
         "runner_ref": context.runner_ref,
         "subscription_id": str(context.subscription_id),
