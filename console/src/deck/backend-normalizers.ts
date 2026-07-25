@@ -347,8 +347,10 @@ function totalTokensOf(raw: unknown): number | null {
   if (
     typeof prompt === "number" &&
     Number.isFinite(prompt) &&
+    prompt >= 0 &&
     typeof completion === "number" &&
-    Number.isFinite(completion)
+    Number.isFinite(completion) &&
+    completion >= 0
   ) {
     return Math.round(prompt + completion);
   }
