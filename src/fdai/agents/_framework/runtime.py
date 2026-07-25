@@ -39,6 +39,10 @@ from typing import Any
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
+from fdai.agents._framework.conversation_tools import (
+    AgentConversationToolRegistry,
+    AgentToolResult,
+)
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import (
@@ -102,6 +106,7 @@ class PantheonRuntime:
     disabled: frozenset[str] = frozenset()
     divergence: ShadowDivergenceLedger | None = None
     _bragi: Bragi | None = None
+    _conversation_tools: AgentConversationToolRegistry | None = None
 
     @classmethod
     def build(
@@ -137,6 +142,7 @@ class PantheonRuntime:
         handler_observer: AgentHandlerObserver | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
         semantic_router_config: SemanticRouterConfig | None = None,
+        conversation_tool_timeout_seconds: float = 5.0,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -338,6 +344,11 @@ class PantheonRuntime:
                 bragi_ref.register_proposal_sink(maybe_huginn.ingest)
 
         huginn_active = _INGRESS_PRINCIPAL in agents
+        conversation_tools = AgentConversationToolRegistry(
+            agents=agents,
+            disabled_agents=disabled,
+            timeout_seconds=conversation_tool_timeout_seconds,
+        )
         runtime = cls(
             bridge=bridge,
             agents=agents,
@@ -347,6 +358,7 @@ class PantheonRuntime:
             disabled=disabled,
             divergence=divergence,
             _bragi=bragi_ref,
+            _conversation_tools=conversation_tools,
         )
 
         # Ingress: raw events on the P1 topic -> Huginn.ingest -> normalized
@@ -505,6 +517,25 @@ class PantheonRuntime:
             context={"correlation_id": correlation_id} if correlation_id else None,
         )
 
+    async def invoke_conversation_tool(
+        self,
+        *,
+        agent_name: str,
+        tool_id: str,
+        question: str,
+        trace_ref: str = "",
+    ) -> AgentToolResult:
+        """Invoke one exact-owner read tool through the agent's guarded port."""
+        registry = self._conversation_tools
+        if registry is None:
+            raise RuntimeError("agent conversation tool registry is unavailable")
+        return await registry.invoke(
+            agent_name=agent_name,
+            tool_id=tool_id,
+            question=question,
+            trace_ref=trace_ref,
+        )
+
     async def _rehydrate(self) -> None:
         """Restore durable agent state (in-flight ActionRuns) on startup.
 
@@ -537,6 +568,11 @@ class PantheonRuntime:
             },
             "divergence": self.divergence.report() if self.divergence else None,
             "conversational_port": self._bragi is not None,
+            "conversation_tools": (
+                self._conversation_tools.snapshot()
+                if self._conversation_tools is not None
+                else {"registered": 0, "available": 0, "disabled": 0, "by_agent": {}}
+            ),
             **snap,
         }
 

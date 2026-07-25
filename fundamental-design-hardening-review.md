@@ -12,7 +12,7 @@ recorded as partial or missing.
 | Pantheon event boundary | Independent agents exchange ordered, attributable, replayable records | Strict mutation envelopes, authenticated producers, ordered poison handling, bounded DLQ retry, and safe redrive are implemented and agent-tested | Hardened | P0 |
 | Resource discovery and drift | Agents discover resources, retain a complete graph, and detect changes without operator enumeration | Realtime ingress, inventory projection, analyzer jobs, tombstones, and restricted-egress design exist; durable fallback and restart proofs need consolidation | Partial | P0 |
 | Human approval intelligence | Approval requests are safe, grouped, rate-aware, and actionable without notification fatigue | Identity, expiry, HMAC, RBAC, fingerprint dedup, and fail-closed parking exist; durable delivery recovery and aggregation policy need focused review | Partial | P0 |
-| Fifteen-agent conversation | A human can select any agent and receive role-grounded answers with role-appropriate tools | Conversational routing and introspection exist; independent prompts, specialist live data paths, direct selection, and tool evidence vary by agent | Partial | P1 |
+| Fifteen-agent conversation | A human can select any agent and receive role-grounded answers with role-appropriate tools | Independent charters, semantic fallback, direct selection, and 30 exact-owner read tools are registered with bounded output and health evidence | Hardened | P1 |
 | Connected and isolated onboarding | One guided path validates prerequisites and reaches observe-ready state in either network posture | Terraform, private runner, offline kit, preflight, and readiness probes exist; operator recovery evidence and end-to-end isolated acceptance remain fragmented | Partial | P1 |
 | Deterministic-first safety | Routine cases avoid model inference and every mutation remains bounded, reversible, and auditable | Tiering, risk, quality, executor, rollback, and audit modules exist; durable authority and restart behavior need focused proof | Partial | P1 |
 
@@ -217,6 +217,46 @@ remains an explicit operational blocker rather than a generated test key committ
 - Strict mypy and Ruff pass for all deployment CLI source and tests.
 - Public pinned-root packaging remains explicitly incomplete; no test key is treated as authority.
 
+## Work unit 8: Agent read-tool implementation parity
+
+This unit turns the 30 tool ids declared by the 15 immutable conversation charters into a guarded
+runtime surface. Each call remains read-only and uses the owning agent's conversational port. It
+does not expose a new HTTP endpoint, call a cloud SDK directly, or bypass the typed action path.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | Declared tool ids can lack a runtime owner | Charters were metadata only | High | Build one fixed registry from every `PANTHEON_SPECS` charter |
+| 2 | Duplicate ids can create ambiguous ownership | No composition-time owner check existed | High | Reject owner conflicts during registry construction |
+| 3 | A caller can invoke a tool through the wrong agent | No tool invocation surface existed | High | Require exact declared owner before dispatch |
+| 4 | Unknown ids can fall through to general conversation | No explicit unknown result existed | Medium | Hold with stable `unknown_tool` reason |
+| 5 | Disabled agents can appear callable | Runtime disabled responders but had no tool availability report | High | Hold calls and report both unavailable tools in health |
+| 6 | A provider call can block indefinitely | Agent introspection can await injected providers | High | Apply a finite configurable timeout per invocation |
+| 7 | A provider exception can expose details or collapse the caller | No tool exception boundary existed | High | Convert exceptions to a detail-free `error` hold |
+| 8 | Runtime cancellation can be swallowed as an error | Broad exception handling is easy to misuse | High | Re-raise `CancelledError` before the provider error boundary |
+| 9 | An unbounded question can consume excess parsing or model budget | The tool entry had no local input cap | Medium | Reject questions over 2,000 characters before dispatch |
+| 10 | Caller trace values can leak secrets or expand records | Trace attribution was unconstrained | Medium | Cap trace ids, scan them, and return no rejected value |
+| 11 | Agent facts can produce unbounded or non-serializable output | Agent implementations return open mappings | High | Normalize to JSON and hold output above 64 KiB |
+| 12 | Answers can surface secrets or personal data | Existing introspection had no final sensitivity gate | Critical | Scan the complete serialized result and return only value-free labels on a hit |
+| 13 | Results cannot prove which charter authorized the tool | Prompt policy was only inside the response context | Medium | Return prompt SHA-256 and the immutable allowed-tool tuple |
+| 14 | Grounding references can be lost between agent and caller | No normalized tool result contract existed | Medium | Preserve bounded evidence refs and stable id/ref facts |
+| 15 | Startup and invocation health are invisible | Runtime health exposed only the conversational port boolean | Medium | Report 30-tool availability and per-agent status counters |
+| 16 | A read-tool API could accidentally gain mutation authority | The owning port already redirects action intent to the typed pipeline | Pass | Reuse that port; do not bind executors or cloud SDKs |
+| 17 | Delivery authorization could be duplicated inconsistently | The new API is internal and exposes no network route | Rejected | Keep authentication and RBAC at the delivery boundary when a route is added |
+
+### Discriminating checks
+
+- All 30 declared ids resolve through their exact owner across all 15 agents.
+- Unknown, wrong-owner, disabled, timed-out, and raising calls return stable held results.
+- Oversized questions, trace values, and outputs are rejected before they can escape the boundary.
+- Secret and personal-data findings return only detector labels, never matched values.
+- Successful results carry evidence references, trace attribution, prompt digest, and tool policy.
+- Runtime health reports registered, available, disabled, and per-agent invocation counters.
+
+### Verification evidence
+
+- Agent read-tool registry tests: 6 passed, including all 30 declared tools.
+- Strict mypy and Ruff pass for the registry, runtime wiring, exports, and tests.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,
@@ -235,6 +275,7 @@ Low-or-higher finding before advancing.
 | Approval load intelligence | `ca0031d3` | No-drop simulation, quiet-hour/critical bypass, grouping, fatigue, and reminder tests | Complete |
 | Live inventory ordering proof | current main evidence | Six PostgreSQL migration/snapshot/delta integration cases in a dedicated temporary database | Complete |
 | Semantic agent routing | current main batch | Frozen multilingual charter vectors, zero-call T0 paths, threshold/margin abstention, provider-error fallback | Complete |
+| Agent read-tool parity | current main batch | 30-tool exact-owner registry, timeout and error holds, bounded sensitivity-gated output, policy/evidence attribution, and health counters | Complete |
 
 Every unit passed `scripts/verify.sh --fast`, strict mypy, Ruff, bilingual translation, document
 size, punctuation, customer-scope, catalog, stewardship, architecture, and integrity gates.
@@ -247,7 +288,6 @@ FDAI should not be described as fully ready until these work units meet their ex
 |----------|-----------|----------------|--------------------------|
 | P0 | Public offline trust bootstrap | No production release root is packaged, so shipped inspection cannot authenticate a disconnected kit | Root ceremony completed outside CI; public root packaged in wheel; release-signed kit verifies on a disconnected host; tampered, expired, rollback, and wrong-platform kits fail |
 | P0 | Private-network onboarding acceptance | Component probes and runner IaC exist, but no single acceptance proves bootstrap to observe-ready on the actual isolated runner | Fresh subscription run completes policy preflight, private state bootstrap, exact plan, apply, DNS/TLS/identity/ARG/Event Hubs/PostgreSQL probes, inventory promotion, 15-agent startup, and sanitized handoff report |
-| P1 | Agent read-tool implementation parity | All 15 charters declare bounded tool ids, while some agents answer only from process-local state or capability fallback when live providers are absent | Each tool id maps to a registered read-only implementation; startup reports availability; every agent has live-provider, unavailable, timeout, redaction, and citation tests |
 | P1 | Connected/offline recovery runbooks | Success-path onboarding is documented more deeply than plan expiry, rejected-kit replacement, and degraded-readiness recovery | Bilingual runbooks link each stable failure code to a safe retry or rollback; drills prove no stale plan apply, no trust-root override, and no synthetic readiness evidence |
 | P1 | Deterministic/model cost evidence | Tier targets are design goals, not current production measurements | Same frozen scenario set reports T0/T1/T2 share, model calls, latency, cost, abstentions, verifier failures, and outcome quality; regression thresholds gate release |
 

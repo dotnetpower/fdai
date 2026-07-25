@@ -467,18 +467,18 @@ Partitioning:
   incident stays on one consumer.
 ### 6.2 Conversational port
 
-All 15 agents, including Bragi, expose a request-response interface reachable by explicit canonical
-name or domain routing. Requests carry `user_id` and `session_id`; responses carry `primary_agent`,
-contributors, structured facts, answer, trace, and conversation-policy attribution.
+All 15 agents, including Bragi, expose a request-response interface by canonical name or domain
+routing. Requests and responses carry user, session, answer, trace, facts, and policy attribution.
 
 Each `AgentSpec` requires a unique immutable `ConversationCharter`: server-owned system instructions
-and bounded read-tool ids. The runtime overwrites caller-supplied policy context, gives the charter to
-the owning responder, and returns only its prompt SHA-256 plus tool ids, never raw prompt text. Each
-agent grounds `Agent.introspect` in owned state and falls back to its capability description.
+and bounded read-tool ids. The runtime overwrites caller policy, gives the charter to its responder,
+and returns only prompt SHA-256 and tool ids. Each agent grounds answers in owned state.
 
 `is_action_intent` makes commands abstain with `requires_typed_pipeline`; chat never executes.
-`PantheonRuntime.introspect(agent, question, requester=...)` supports A2A reads and emits a digest-only
-Bragi-owned Turn carrying requester, target, and trace. The two ports share only that trace.
+`PantheonRuntime.introspect` supports attributed A2A reads and digest-only Bragi Turns.
+
+`AgentConversationToolRegistry` binds each of 30 ids to one owner, rejects invalid calls, bounds time
+and data, and holds errors or sensitive output without values. Health reports tool availability and counters. Calls use only the conversational port, so actions cannot reach an executor or cloud SDK.
 
 ### 6.3 NL query orchestration
 

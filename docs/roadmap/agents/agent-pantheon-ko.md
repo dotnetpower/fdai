@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f29ce7e85983e2806265792e1806f25c97fdf39b
+translation_source_sha: 7bb7ef2a4b941d430464f610915dd13d0ad16475
 translation_revised: 2026-07-25
 ---
 
@@ -445,19 +445,19 @@ Partitioning:
   incident 가 한 consumer 에 머묾.
 ### 6.2 Conversational port
 
-Bragi를 포함한 15개 에이전트 모두 canonical name 직접 지정 또는 domain routing으로 도달할 수
-있는 request-response interface를 제공합니다. Request는 `user_id`, `session_id`를 carry하고
-response는 `primary_agent`, contributor, structured fact, answer, trace, conversation-policy
-attribution을 carry합니다.
+Bragi를 포함한 15개 에이전트 모두 canonical name 또는 domain routing으로 도달할 수 있습니다.
+Request와 response는 user, session, answer, trace, fact, policy attribution을 carry합니다.
 
 각 `AgentSpec`은 고유한 immutable `ConversationCharter`를 요구합니다. Charter는 server-owned
-system instruction과 bounded read-tool id를 가집니다. Runtime은 caller가 넣은 policy context를
-덮어쓰고 owning responder에 charter를 전달하며 raw prompt 대신 prompt SHA-256과 tool id만
-반환합니다. 각 agent의 `Agent.introspect`는 owned state에 근거하고 capability 설명으로 fallback합니다.
+system instruction과 bounded read-tool id를 가집니다. Runtime은 caller policy를 덮어쓰고
+responder에 charter를 전달하며 prompt SHA-256과 tool id만 반환합니다. 답변은 owned state에 근거합니다.
 
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
-`PantheonRuntime.introspect(agent, question, requester=...)`는 A2A read를 제공하고 requester,
-target, trace를 담은 digest-only Bragi-owned Turn을 발행합니다. 두 port는 이 trace만 공유합니다.
+`PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공합니다.
+
+`AgentConversationToolRegistry`는 30개 id를 단일 owner에 bind하고 invalid call을 거부하며 time과
+data를 제한합니다. Error와 sensitive output은 값 없는 보류 결과가 됩니다. Health는 availability와
+counter를 보고합니다. Conversational port만 사용하므로 action은 executor 또는 cloud SDK에 도달하지 않습니다.
 
 ### 6.3 NL query 오케스트레이션
 
