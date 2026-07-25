@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a736658a7c6dd9be1478475560d2d8dd8bf552b8
+translation_source_sha: e716bf7645342a0cf62fb709599b19f68df46591
 translation_revised: 2026-07-25
 ---
 
@@ -318,8 +318,11 @@ unreachable일 때 redirect loop가 생기므로 자동 redirect는 시작하지
 
 ## Architecture map resilience
 
-Architecture route는 inventory provenance와 factual count를 먼저 표시합니다. 기본 isometric map은
-Reflections와 Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
+Architecture route는 scope selection과 compact resource-color legend만 map 오른쪽 위에 떠 있는 panel에
+배치합니다. Inventory count, 설명문 및 layer filter는 표시하지 않습니다. Truncated graph는 짧은 status
+badge 하나로 알립니다. Legend에는 authoritative graph에 실제로 있는 각 visual type의 color와 display
+label만 표시됩니다. 기본 isometric map은 Reflections와 Connections가 활성화된 상태로 시작합니다.
+Containment는 흐린 dashed link로,
 attachment 및 dependency는 각각의 directional style로 표시하고 resource shape을 렌더링합니다.
 Top 및 front view는 optional입니다. 단순 projection은 관찰된 child 수에 따라 각 resource-group
 panel 크기를 정하고 균형 잡힌 world에 panel을 배치합니다. Resource node는 표준 Event Grid topic
@@ -329,9 +332,9 @@ layout은 supplied geometry를 유지합니다. Map은 workspace 전체 너비�
 panning을 사용합니다. Selection은 inventory를 reload하지 않고 canonical deep link를 갱신하며
 technical identifier보다 directional relationship을 먼저 표시합니다. Selection 중에는 모든 공통
 resource coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 resource는 흐리게
-처리하지 않으며 선택된 outline과 inspection detail만 사용해 selection을 나타냅니다. 선택된 VM은
-의도적인 camera 예외입니다. Map은 VM을 fit scale의 180%로 가운데에 놓고 예약된 NIC 및 disk slot을
-다시 그립니다. 다른 resource selection은 현재 camera를 유지합니다.
+처리하지 않으며 선택된 outline과 inspection detail만 사용해 selection을 나타냅니다. Virtual
+machine을 포함한 모든 resource selection은 현재 camera scale과 position을 유지합니다. Zoom, fit,
+pan 및 camera-view control은 운영자가 명시적으로 조작할 때만 변경됩니다.
 
 Factual count와 inspection index는 계속 complete authoritative inventory를 사용합니다. Isometric
 overview는 network interface, managed disk, diagnostic, certificate 및 provider helper resource 같은

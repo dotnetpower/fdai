@@ -55,6 +55,7 @@
   "zoomOut": "축소",
   "fitMap": "지도 맞춤",
   "fit": "맞춤",
+  "mapOverview": "지도 개요 및 필터",
   "relationshipLegend": "관계 범례",
   "relationship": {
     "contains": "포함",

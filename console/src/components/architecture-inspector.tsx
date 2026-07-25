@@ -66,7 +66,6 @@ export function ArchitectureInspector({
   const relationships = selected
     ? graph.links.filter((link) => link.source === selected.id || link.target === selected.id)
     : [];
-  const colorTokens = [...new Set(graph.resources.map(resourceColorTokenOf))];
 
   return (
     <aside class="architecture-inspector" aria-label={t("details")}>
@@ -158,15 +157,6 @@ export function ArchitectureInspector({
             ["showGrid", "displayOption.gridPoints"],
           ] as const).map(([key, label]) => (
             <label><input type="checkbox" checked={displayOptions[key]} onChange={() => onToggleDisplay(key)} />{t(label)}</label>
-          ))}
-        </div>
-        <h4>{t("resourceLegend")}</h4>
-        <div class="architecture-color-legend" aria-label={t("resourceTypeColors")}>
-          {colorTokens.map((token) => (
-            <span>
-              <i style={{ backgroundColor: RESOURCE_COLOR_TOKENS[token].color }} aria-hidden="true" />
-              {RESOURCE_COLOR_TOKENS[token].label}
-            </span>
           ))}
         </div>
       </details>

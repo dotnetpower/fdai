@@ -6,7 +6,6 @@ import {
   architectureZoomScale,
   clamp,
   fitCamera,
-  focusCamera,
   pickResource,
   type Camera,
 } from "./architecture-map.geometry";
@@ -89,22 +88,6 @@ export function useArchitectureMapController({
         stateRef.current.graph,
       );
       fitScaleRef.current = cameraRef.current.scale;
-      drawRef.current?.();
-      notifyZoom();
-    },
-    focus(resourceId) {
-      const canvas = canvasRef.current;
-      const resource = stateRef.current.graph.resources.find(
-        (candidate) => candidate.id === resourceId,
-      );
-      if (!canvas || !resource) return;
-      focusCamera(
-        cameraRef.current,
-        canvas.clientWidth,
-        canvas.clientHeight,
-        resource,
-        fitScaleRef.current,
-      );
       drawRef.current?.();
       notifyZoom();
     },

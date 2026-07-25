@@ -55,6 +55,7 @@
   "zoomOut": "Zoom out",
   "fitMap": "Fit map",
   "fit": "Fit",
+  "mapOverview": "Map overview and filters",
   "relationshipLegend": "Relationship legend",
   "relationship": {
     "contains": "Contains",

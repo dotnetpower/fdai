@@ -2,22 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalReadApiUnavailable, ReadApiError, type ReadApiClient } from "../api";
 import { ArchitectureInspector } from "../components/architecture-inspector";
 import { ArchitectureMap, type ArchitectureMapHandle } from "../components/architecture-map";
+import { ArchitectureOverviewPanel } from "../components/architecture-overview-panel";
 import { architectureCanvasHeight } from "../components/architecture-map.geometry";
 import { layoutArchitecturePresentation } from "../components/architecture-map-layout";
 import { ArchitectureRelationIndex } from "../components/architecture-relation-index";
 import {
-  ARCHITECTURE_LAYERS,
   DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architectureHref,
   architectureViewFromHash,
-  graphSubset,
-  isRegion,
-  layerOf,
   selectedResourceIdFromHash,
   type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
-  type ArchitectureLayer,
   type InventoryGraphResponse,
   type InventoryResource,
 } from "../components/architecture-map.model";
@@ -28,16 +24,6 @@ import { navigate, replaceRouteState } from "../router";
 import { t } from "./i18n/architecture";
 
 interface Props { readonly client: ReadApiClient }
-
-const LAYER_LABELS: Readonly<Record<ArchitectureLayer, string>> = {
-  scope: "layer.scope",
-  network: "layer.network",
-  security: "layer.security",
-  runtime: "layer.runtime",
-  data: "layer.data",
-  messaging: "layer.messaging",
-  observability: "layer.observability",
-};
 
 export function architectureResourceExists(
   resources: readonly Pick<InventoryResource, "id">[],
@@ -91,7 +77,6 @@ export function architectureCachePollDelay(attempt: number): number {
 export function ArchitectureRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<InventoryGraphResponse>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(() => selectedResourceIdFromHash(window.location.search));
-  const [visibleLayers, setVisibleLayers] = useState<Set<ArchitectureLayer>>(new Set(ARCHITECTURE_LAYERS));
   const [viewScope, setViewScope] = useState<string | null>(() => architectureViewFromHash(window.location.search));
   const [cameraView, setCameraView] = useState<ArchitectureCameraView>(
     DEFAULT_ARCHITECTURE_CAMERA_VIEW,
@@ -165,15 +150,6 @@ export function ArchitectureRoute({ client }: Props) {
   function selectResource(resource: InventoryResource | null): void {
     setSelectedId(resource?.id ?? null);
     replaceRouteState(architectureHref(resource?.id, viewScope));
-    if (resource?.type === "compute.vm") mapRef.current?.focus(resource.id);
-  }
-
-  function toggleLayer(layer: ArchitectureLayer): void {
-    setVisibleLayers((previous) => {
-      const next = new Set(previous);
-      if (next.has(layer)) next.delete(layer); else next.add(layer);
-      return next;
-    });
   }
 
   function changeView(view: ArchitectureCameraView): void {
@@ -197,14 +173,11 @@ export function ArchitectureRoute({ client }: Props) {
             graph={data}
             requestedView={viewScope}
             selectedId={selectedId}
-            visibleLayers={visibleLayers}
             onSelect={selectResource}
-            onToggleLayer={toggleLayer}
             onViewScopeChange={(scope) => {
               mapRef.current?.setView(DEFAULT_ARCHITECTURE_CAMERA_VIEW);
               setCameraView(DEFAULT_ARCHITECTURE_CAMERA_VIEW);
               setSelectedId(null);
-              setVisibleLayers(new Set(ARCHITECTURE_LAYERS));
               setViewScope(scope);
               navigate(architectureHref(undefined, scope));
             }}
@@ -226,9 +199,7 @@ function ArchitectureBody({
   graph,
   requestedView,
   selectedId,
-  visibleLayers,
   onSelect,
-  onToggleLayer,
   onViewScopeChange,
   mapRef,
   cameraView,
@@ -241,9 +212,7 @@ function ArchitectureBody({
   readonly graph: InventoryGraphResponse;
   readonly requestedView: string | null;
   readonly selectedId: string | null;
-  readonly visibleLayers: ReadonlySet<ArchitectureLayer>;
   readonly onSelect: (resource: InventoryResource | null) => void;
-  readonly onToggleLayer: (layer: ArchitectureLayer) => void;
   readonly onViewScopeChange: (scope: string) => void;
   readonly mapRef: { current: ArchitectureMapHandle | null };
   readonly cameraView: ArchitectureCameraView;
@@ -253,42 +222,16 @@ function ArchitectureBody({
   readonly displayOptions: ArchitectureDisplayOptions;
   readonly onToggleDisplay: (key: keyof ArchitectureDisplayOptions) => void;
 }) {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const ageMs = Math.max(0, now - Date.parse(graph.snapshot_at));
-    const timer = window.setTimeout(
-      () => setNow(Date.now()),
-      ageMs < 60_000 ? 1_000 : 60_000,
-    );
-    return () => window.clearTimeout(timer);
-  }, [graph.snapshot_at, now]);
   const presentedGraph = useMemo(
     () => layoutArchitecturePresentation(graph, selectedId),
     [graph, selectedId],
   );
-  const filtered = useMemo(
-    () => graphSubset(presentedGraph, visibleLayers),
-    [presentedGraph, visibleLayers],
-  );
-  const layerCounts = useMemo(
-    () => new Map(ARCHITECTURE_LAYERS.map((layer) => [
-      layer,
-      graph.resources.filter((resource) => layerOf(resource) === layer).length,
-    ])),
-    [graph],
-  );
-  const visibleSelectedId = architectureResourceExists(filtered.resources, selectedId)
+  const visibleSelectedId = architectureResourceExists(presentedGraph.resources, selectedId)
     ? selectedId
     : null;
-  const selected = filtered.resources.find((resource) => resource.id === visibleSelectedId) ?? null;
+  const selected = presentedGraph.resources.find((resource) => resource.id === visibleSelectedId) ?? null;
   const requestedViewExists = architectureViewExists(graph, requestedView);
   const requestedResourceExists = architectureResourceExists(graph.resources, selectedId);
-  const dependencyCount = graph.links.filter((link) => link.type !== "contains").length;
-  const boundaryCount = graph.resources.filter(isRegion).length;
-  const unavailableStatusCount = graph.resources.filter(
-    (resource) => resource.status.trim().toLowerCase() === "unknown",
-  ).length;
-  const populatedLayers = ARCHITECTURE_LAYERS.filter((layer) => (layerCounts.get(layer) ?? 0) > 0);
   usePublishViewContext(
     () => ({
       routeId: "architecture",
@@ -358,93 +301,29 @@ function ArchitectureBody({
   }
   return (
     <div class="architecture-workspace">
-      <div class="architecture-toolbar">
-        <label class="architecture-view-picker">
-          <span>{t("scope")}</span>
-          <select
-            value={graph.active_view ?? graph.views?.[0]?.id ?? ""}
-            aria-describedby="architecture-view-description"
-            onChange={(event) => onViewScopeChange((event.target as HTMLSelectElement).value)}
-          >
-            {(["fdai", "service", "resource_group"] as const).map((kind) => {
-              const views = (graph.views ?? []).filter((view) => view.kind === kind);
-              if (views.length === 0) return null;
-              return (
-                <optgroup label={t(kind === "fdai" ? "viewGroup.fdai" : kind === "service" ? "viewGroup.service" : "viewGroup.resourceGroup")}>
-                  {views.map((view) => <option value={view.id}>{view.label}</option>)}
-                </optgroup>
-              );
-            })}
-          </select>
-          <small id="architecture-view-description">
-            {graph.views?.find((view) => view.id === graph.active_view)?.description}
-          </small>
-        </label>
-        <div class="architecture-provenance" aria-label={t("inventoryProvenance")}>
-          <div class={`inventory-freshness is-${graph.freshness}`}>
-            <span aria-hidden="true" />{t("snapshot", { freshness: graph.freshness })} <small>{formatAge(graph.snapshot_at, now)}</small>
-          </div>
-          <dl>
-            <div><dt>{t("source")}</dt><dd>{architectureSourceLabel(graph.source)}</dd></div>
-            <div><dt>{t("pendingChanges")}</dt><dd>{graph.realtime?.pending_changes ?? 0}</dd></div>
-          </dl>
-          {(graph.realtime?.pending_changes ?? 0) > 0 || architectureCacheRefreshPending(graph) ? (
-            <span class="architecture-pending-note">{t("refreshInProgress")}</span>
-          ) : null}
-        </div>
-      </div>
-      {graph.truncated ? (
-        <div class="architecture-partial-notice" role="status">
-          <strong>{t("partialTitle")}</strong>
-          <span>{t("partialDescription")}</span>
-        </div>
-      ) : null}
-      <section class="architecture-summary" aria-label={t("summary")}>
-        <div><strong>{graph.resources.length}</strong><span>{t("resources")}</span></div>
-        <div><strong>{dependencyCount}</strong><span>{t("dependencies")}</span></div>
-        <div><strong>{boundaryCount}</strong><span>{t("boundaries")}</span></div>
-        <div><strong>{unavailableStatusCount}</strong><span>{t("statusUnavailable")}</span></div>
-      </section>
-      <div class="architecture-layer-bar" role="group" aria-label={t("visibleLayers")}>
-        {populatedLayers.map((layer) => (
-          <button
-            type="button"
-            class={visibleLayers.has(layer) ? "is-active" : ""}
-            aria-pressed={visibleLayers.has(layer)}
-            onClick={() => onToggleLayer(layer)}
-          >
-            <span>{t(LAYER_LABELS[layer])}</span>
-            <small>{layerCounts.get(layer)}</small>
-          </button>
-        ))}
-        <output class="architecture-filter-summary" aria-live="polite">
-          {t("filterSummary", {
-            visibleResources: filtered.resources.length,
-            totalResources: graph.resources.length,
-            visibleLinks: filtered.links.length,
-            totalLinks: graph.links.length,
-          })}
-        </output>
-      </div>
       <div class={`architecture-stage${selected ? " has-selection" : ""}`}>
         <div
           class="architecture-canvas-shell"
-          style={{ minHeight: `${architectureCanvasHeight(filtered)}px` }}
+          style={{ minHeight: `${architectureCanvasHeight(presentedGraph)}px` }}
         >
           <p id="architecture-map-description" class="sr-only">
             {t("mapDescription", {
-              resources: filtered.resources.length,
-              links: filtered.links.length,
+              resources: presentedGraph.resources.length,
+              links: presentedGraph.links.length,
             })}
           </p>
           <ArchitectureMap
             ref={mapRef}
-            graph={filtered}
+            graph={presentedGraph}
             selectedId={visibleSelectedId}
             onSelect={onSelect}
             options={displayOptions}
             onZoomChange={onZoomChange}
             descriptionId="architecture-map-description"
+          />
+          <ArchitectureOverviewPanel
+            graph={graph}
+            onViewScopeChange={onViewScopeChange}
           />
           <div class="architecture-zoom-controls" role="group" aria-label={t("zoomControls")}>
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label={t("zoomIn")}>+</button>
@@ -468,7 +347,7 @@ function ArchitectureBody({
           onToggleDisplay={onToggleDisplay}
         />
       </div>
-      <ArchitectureRelationIndex graph={filtered} onSelect={onSelect} />
+      <ArchitectureRelationIndex graph={presentedGraph} onSelect={onSelect} />
     </div>
   );
 }

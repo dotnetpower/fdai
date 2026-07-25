@@ -2,13 +2,13 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { architectureResourceFromValue } from "./architecture-map";
+import { architectureResourceLegendEntries } from "./architecture-overview-panel";
 import { geometryOf } from "./architecture-map.model";
 import {
   architectureCanvasHeight,
   architectureZoomScale,
   architectureWorldSize,
   fitCamera,
-  focusCamera,
   pickResource,
   project,
   type Camera,
@@ -26,6 +26,10 @@ import {
 } from "./use-architecture-map-controller";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const overviewPanelSource = readFileSync(
+  fileURLToPath(new URL("./architecture-overview-panel.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("architecture resource navigator", () => {
   it("selects only an exact resource id", () => {
@@ -81,6 +85,36 @@ describe("architecture map labels", () => {
   });
 });
 
+describe("architecture resource legend", () => {
+  it("keeps the floating panel free of metrics, descriptions, and layer filters", () => {
+    expect(overviewPanelSource).not.toMatch(
+      /architecture-(?:provenance|summary|layer-bar|filter-summary)/,
+    );
+    expect(overviewPanelSource).not.toMatch(/entry\.(?:count|types)/);
+  });
+
+  it("groups present resources into simple visual labels", () => {
+    const entries = architectureResourceLegendEntries([
+      { id: "vm", type: "compute.vm" },
+      { id: "db-1", type: "postgresql" },
+      { id: "db-2", type: "postgresql-server" },
+    ] as never);
+
+    expect(entries).toEqual([
+      {
+        token: "database",
+        label: "SQL and PostgreSQL",
+        color: "#005BA1",
+      },
+      {
+        token: "virtual-machine",
+        label: "Virtual machines",
+        color: "#0078D4",
+      },
+    ]);
+  });
+});
+
 describe("architecture map zoom", () => {
   it("round-trips one zoom step without scale drift", () => {
     const initial = 42;
@@ -107,27 +141,6 @@ describe("architecture selection camera", () => {
     } as never;
 
     expect(architectureLayoutFrame(selected)).toBe(architectureLayoutFrame(overview));
-  });
-
-  it("zooms and centers an explicitly focused VM", () => {
-    const camera: Camera = {
-      yaw: Math.PI / 4, pitch: .58, scale: 24, panX: 0, panY: 0,
-      worldWidth: 18, worldHeight: 12,
-    };
-    const vm = {
-      id: "vm", type: "compute.vm", name: "vm", status: "healthy", x: 3, y: 4,
-    } as never;
-
-    focusCamera(camera, 1000, 780, vm, 24);
-
-    expect(camera.scale).toBe(46);
-    const point = project(camera, 1000, 780, 3, 4, .27);
-    expect(point.x).toBeCloseTo(500, 8);
-    expect(point.y).toBeCloseTo(780 * .44, 8);
-
-    camera.scale = 80;
-    focusCamera(camera, 1000, 780, vm, 24);
-    expect(camera.scale).toBe(46);
   });
 
   it("changes the camera frame when the owning region geometry changes", () => {
@@ -225,15 +238,18 @@ describe("architecture responsive layout", () => {
     expect(styles).not.toMatch(/\.architecture-inspector\s*\{[^}]*overflow:\s*auto/s);
   });
 
-  it("keeps the mobile summary compact", () => {
+  it("floats a bounded overview over the map", () => {
     expect(styles).toMatch(
-      /@media \(max-width: 620px\)[\s\S]*?\.architecture-summary\s*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)/,
+      /\.architecture-overview-panel\s*\{[^}]*position:\s*absolute;[^}]*top:\s*12px;[^}]*right:\s*12px;[^}]*max-height:\s*calc\(100% - 88px\);[^}]*overflow:\s*auto/,
     );
   });
 
-  it("keeps mobile filters and the resource index free of horizontal scrolling", () => {
+  it("keeps the compact legend and resource index free of horizontal scrolling", () => {
     expect(styles).toMatch(
-      /@media \(max-width: 620px\)[\s\S]*?\.architecture-layer-bar\s*\{[^}]*display:\s*grid;[^}]*repeat\(3, minmax\(0, 1fr\)\)/,
+      /\.architecture-color-legend\s*\{[^}]*display:\s*grid;[^}]*repeat\(2, minmax\(0, 1fr\)\)/,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 620px\)[\s\S]*?\.architecture-overview-panel\s*\{[^}]*width:\s*min\(220px, calc\(100% - 16px\)\);[^}]*max-height:\s*min\(300px, calc\(100% - 130px\)\)/,
     );
     expect(styles).toMatch(
       /@media \(max-width: 620px\)[\s\S]*?\.architecture-index-table-wrap\s*\{[^}]*overflow-x:\s*visible/,

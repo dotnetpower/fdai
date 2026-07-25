@@ -29,7 +29,6 @@ interface Props {
 
 export interface ArchitectureMapHandle {
   readonly setView: (view: ArchitectureCameraView) => void;
-  readonly focus: (resourceId: string) => void;
   readonly zoomIn: () => void;
   readonly zoomOut: () => void;
   readonly fit: () => void;
