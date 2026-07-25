@@ -87,8 +87,9 @@ Before storing a new plan, the runner selects only allowlisted plan, metadata, s
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.
 When the development operations gateway is selected, Terraform targets that Function, core, read API,
-ingestion, operational canary, realtime inventory publishers, and their dependency graphs. Unrelated
-runtime-resource changes stay outside the plan.
+ingestion, operational canary, inventory reconciliation Job, realtime inventory publishers, and their
+dependency graphs. This keeps the Job's image and required shared runtime configuration converged while
+unrelated runtime-resource changes stay outside the plan.
 Terraform uses the reader managed identity for host and deployment storage; the workflow removes
 Flex-generated shared-key overrides before publishing. It grants `Storage Blob Data Owner` for the host
 and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.

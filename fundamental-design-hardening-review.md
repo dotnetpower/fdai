@@ -384,6 +384,7 @@ no customer profile, laptop data-plane apply, public runner IP, or local Terrafo
 | 24 | Inventory job omits required runtime config | Recovery delta failed with eight missing vars | Critical | Inherit the shared core config map in the job |
 | 25 | Workflow definition identity omits action catalog digest | New catalog collided with an older immutable row | Critical | Migrate uniqueness to include the catalog digest |
 | 26 | Dev PostgreSQL keeps public access and broad Azure firewall | Private endpoint was already approved | High | Close public access whenever private networking is enabled |
+| 27 | Targeted gateway plans omit the inventory reconciliation Job | Live execution retained the old image and failed with eight missing runtime variables | Critical | Target the inventory Job with core, canary, and realtime publishers; pin the address in workflow tests |
 
 ### Verification evidence
 
@@ -393,6 +394,9 @@ no customer profile, laptop data-plane apply, public runner IP, or local Terrafo
 - Verified-image plan run `30156461386` stopped before artifact storage because the fail-closed
 	gate found the intended broad PostgreSQL firewall retirement. The hardened gate passes that one
 	pure delete and rejects an unrelated delete plus a replacement at the allowlisted address.
+- Exact apply run `30157115500` produced a receipt after convergence, migration, latest-revision
+	health, and canary checks. A fresh inventory execution then proved that the gateway target set had
+	not converged the Job's shared runtime configuration, so acceptance remains open pending reapply.
 - Exact-plan, topology, workflow transport, cleanup, and derivation tests pass with strict mypy,
 	Ruff, and the complete fast gate stack.
 - Exact apply receipt and post-apply runtime evidence are required before this unit is complete.
