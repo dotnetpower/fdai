@@ -75,6 +75,9 @@ DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
 source archive with separate SHA-256 digests. Exact apply downloads and verifies every artifact.
+Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
+claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
+eight workers, and fails the plan if selection is incomplete or any delete fails.
 When the development operations gateway is selected, Terraform targets that Function, core, read API,
 ingestion, operational canary, realtime inventory publishers, and their dependency graphs. Unrelated
 runtime-resource changes stay outside the plan.

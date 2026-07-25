@@ -13,7 +13,8 @@ from typing import Any
 
 _PLAN_BLOB = re.compile(
     r"^(?:dev|staging|prod)/plan-[1-9][0-9]*-[1-9][0-9]*/"
-    r"(?:terraform\.plan|metadata\.json|preflight-evidence\.json|"
+    r"(?:terraform\.plan|metadata\.json|source-artifact\.zip|"
+    r"preflight-evidence\.json|azure-preflight-evidence\.json|"
     r"apply-claim\.json|apply-receipt\.json)$"
 )
 

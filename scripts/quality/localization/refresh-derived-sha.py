@@ -37,6 +37,10 @@ from pathlib import Path
 
 SOURCE_RE = re.compile(r"^(?P<indent>\s*)-?\s*source:\s*(?P<val>\S.*?)\s*$")
 SHA_RE = re.compile(r"^(?P<prefix>\s*sha:\s*)(?P<val>\S+)\s*$")
+INLINE_ENTRY_RE = re.compile(
+    r"(?P<prefix>\{\s*source:\s*)(?P<source>[^,}]+)"
+    r"(?P<middle>,\s*sha:\s*)(?P<sha>[^,}]+)(?P<suffix>\s*\})"
+)
 
 
 def repo_root() -> Path:
@@ -71,6 +75,27 @@ def process(root: Path, doc: Path) -> tuple[bool, str]:
     _, close_idx = bounds
 
     changed = False
+
+    def replace_inline(match: re.Match[str]) -> str:
+        nonlocal changed
+        source = match.group("source").strip().strip("\"'")
+        source_path = root / source
+        if not source_path.is_file():
+            return match.group(0)
+        current = match.group("sha")
+        new_sha = git_hash(source_path)
+        replacement = _replace_scalar(current, new_sha)
+        if replacement == current:
+            return match.group(0)
+        changed = True
+        return (
+            f"{match.group('prefix')}{match.group('source')}"
+            f"{match.group('middle')}{replacement}{match.group('suffix')}"
+        )
+
+    for index in range(1, close_idx):
+        lines[index] = INLINE_ENTRY_RE.sub(replace_inline, lines[index])
+
     current_source: str | None = None
     for i in range(1, close_idx):
         line = lines[i]
@@ -94,6 +119,14 @@ def process(root: Path, doc: Path) -> tuple[bool, str]:
         return False, f"ok (unchanged): {rel}"
     doc.write_text("\n".join(lines), encoding="utf-8")
     return True, f"rewrote: {rel}"
+
+
+def _replace_scalar(raw: str, value: str) -> str:
+    leading = raw[: len(raw) - len(raw.lstrip())]
+    trailing = raw[len(raw.rstrip()) :]
+    scalar = raw.strip()
+    quote = scalar[0] if len(scalar) >= 2 and scalar[0] == scalar[-1] else ""
+    return f"{leading}{quote}{value}{quote}{trailing}"
 
 
 def declares_derives_from(doc: Path) -> bool:

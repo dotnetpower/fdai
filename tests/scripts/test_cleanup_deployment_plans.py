@@ -41,7 +41,9 @@ def test_selects_only_expired_allowlisted_plan_paths(cleanup_module: ModuleType)
         _row("dev/plan-123-1/metadata.json", age_hours=25),
         _row("dev/plan-123-1/apply-claim.json", age_hours=25),
         _row("dev/plan-123-1/apply-receipt.json", age_hours=25),
+        _row("dev/plan-123-1/azure-preflight-evidence.json", age_hours=25),
         _row("dev/plan-123-1/preflight-evidence.json", age_hours=25),
+        _row("dev/plan-123-1/source-artifact.zip", age_hours=25),
         _row("dev/plan-124-1/terraform.plan", age_hours=1),
         _row("tfstate/fdai-dev.tfstate", age_hours=100),
         _row("dev/unexpected/terraform.plan", age_hours=100),
@@ -58,8 +60,10 @@ def test_selects_only_expired_allowlisted_plan_paths(cleanup_module: ModuleType)
     assert selected == (
         "dev/plan-123-1/apply-claim.json",
         "dev/plan-123-1/apply-receipt.json",
+        "dev/plan-123-1/azure-preflight-evidence.json",
         "dev/plan-123-1/metadata.json",
         "dev/plan-123-1/preflight-evidence.json",
+        "dev/plan-123-1/source-artifact.zip",
         "dev/plan-123-1/terraform.plan",
     )
 

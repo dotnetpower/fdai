@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e21b8679bb1aa85f1bb13cb274e4809e74ed75e7
-translation_revised: 2026-07-24
+translation_source_sha: a0f9b8acdb78df031442d4a9ad839678f49f4176
+translation_revised: 2026-07-25
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -78,7 +78,10 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 로 실행한다(기본 plan-only; `apply` 입력이 enforce).
 Protected plan은 binary Terraform plan, bounded preflight evidence, Function source archive를
 각각 별도 SHA-256 digest와 함께 저장합니다. Exact apply는 모든 artifact를 download하고
-검증합니다. Development operations gateway를 선택하면 Terraform은 해당 Function, core, read API,
+검증합니다. 새 plan 저장 전 runner는 24시간이 지난 allowlisted plan, metadata, source,
+preflight, claim, receipt blob만 선택합니다. 1001개 미만을 scan하고 worker 8개로 최대 1000개를
+삭제하며 selection이 incomplete이거나 delete가 하나라도 실패하면 plan을 중지합니다.
+Development operations gateway를 선택하면 Terraform은 해당 Function, core, read API,
 ingestion, operational canary, realtime inventory publisher 및 해당 dependency graph를 target합니다.
 관련 없는 runtime resource 변경은 plan에서 제외됩니다. Terraform은 host와 deployment
 storage에 reader managed identity를 사용하며 workflow는 publish 전에 Flex-generated exact shared-key

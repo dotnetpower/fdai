@@ -577,15 +577,14 @@ jobs:
             --container-name deployment-plans --auth-mode login \
             --num-results 1001 --only-show-errors --output json > plan-blobs.json
           python3 ../scripts/deployment/azure/cleanup-deployment-plans.py plan-blobs.json > expired-plan-blobs.txt
-          deleted=0
-          while IFS= read -r blob_name; do
-            [ -z "$blob_name" ] && continue
-            az storage blob delete \
+          deleted="$(wc -l < expired-plan-blobs.txt)"
+          if [ "$deleted" -gt 0 ]; then
+            xargs -r -P 8 -I '{}' az storage blob delete \
               --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
-              --container-name deployment-plans --name "$blob_name" \
-              --auth-mode login --only-show-errors --output none
-            deleted=$((deleted + 1))
-          done < expired-plan-blobs.txt
+              --container-name deployment-plans --name '{}' \
+              --auth-mode login --only-show-errors --output none \
+              < expired-plan-blobs.txt
+          fi
           echo "Expired protected plan blobs deleted: $deleted" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Store protected plan artifact

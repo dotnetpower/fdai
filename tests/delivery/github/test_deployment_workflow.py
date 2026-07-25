@@ -335,7 +335,9 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "path: infra/dev.plan" not in workflow
     assert "cleanup-deployment-plans.py" in workflow
     assert "--num-results 1001" in workflow
-    assert '--container-name deployment-plans --name "$blob_name"' in workflow
+    assert "xargs -r -P 8" in workflow
+    assert "--container-name deployment-plans --name '{}'" in workflow
+    assert "< expired-plan-blobs.txt" in workflow
     assert "Validate exact apply request" in workflow
     assert workflow.index("az account clear") < workflow.index(
         "az login --identity --allow-no-subscriptions"
