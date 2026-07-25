@@ -67,9 +67,7 @@ def _target_agent(
     if not isinstance(raw, str) or raw not in PANTHEON_NAMES:
         raise HTTPException(status_code=400, detail="target_agent MUST name a Pantheon agent")
     selected_agent = (
-        conversation_context.get("selected_agent")
-        if conversation_context is not None
-        else None
+        conversation_context.get("selected_agent") if conversation_context is not None else None
     )
     if selected_agent is not None and raw != selected_agent:
         raise HTTPException(
