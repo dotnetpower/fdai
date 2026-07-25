@@ -116,7 +116,6 @@ jobs:
       # AAD auth for both the azurerm provider and the state backend blob,
       # using the runner's system-assigned managed identity (az login below).
       ARM_USE_AZUREAD: "true"
-      AZURE_CONFIG_DIR: ${{ runner.temp }}/azure-cli
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       # tfvars-equivalent inputs (non-secret via Variables, secret via Secrets).
       TF_VAR_env: ${{ inputs.environment }}
@@ -175,6 +174,9 @@ jobs:
           if [[ -e "$legacy_cache" ]]; then
             sudo -n rm -rf -- "$legacy_cache"
           fi
+          azure_config_dir="$RUNNER_TEMP/azure-cli"
+          mkdir -p "$azure_config_dir"
+          echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
 
       - name: Checkout
         uses: actions/checkout@v4
