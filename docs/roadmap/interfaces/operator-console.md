@@ -336,6 +336,8 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   a route source. Completed replies preserve the generation model, response owner, contributors,
   explicit agent-to-Bragi handoff, verification result, and every recorded evidence reference.
   Unverified evidence remains inspectable with an attention state instead of being hidden.
+  An evidence manifest marked incomplete uses the same attention treatment, reports retained versus
+  declared manifest sources, and labels the collapsed source summary as partial evidence.
   The browser accepts delegation attribution only for fixed Pantheon names. It limits primary,
   contributor, and handoff identities to 64 characters, contributors to eight entries, trace
   references to 256 characters, and handoff reasons to 128 characters before replay.

@@ -309,6 +309,41 @@ describe("groundingStages", () => {
     });
   });
 
+  it("marks an incomplete evidence manifest as partial grounding", () => {
+    const completeVerification = manifestVerification([
+      {
+        ref: "e-1",
+        path: "/incident/id",
+        field: "id",
+        kind: "id",
+        raw_value: "inc-1",
+        normalized_value: "inc-1",
+        anchors: [],
+      },
+    ]);
+    const verification: AnswerVerification = {
+      ...completeVerification,
+      evidence_manifest: {
+        ...completeVerification.evidence_manifest!,
+        complete: false,
+        source_entry_count: 3,
+      },
+    };
+
+    expect(
+      groundingStages({
+        sources: buildSources(verification, []),
+        source: "llm:gpt-4o-mini",
+        verification,
+        agents: [],
+      }).find((stage) => stage.action === "ground"),
+    ).toMatchObject({
+      action: "ground",
+      detail: "1/3 manifest sources available",
+      status: "attention",
+    });
+  });
+
   it("returns nothing when the reply carries no grounding metadata", () => {
     expect(
       groundingStages({ sources: [], source: undefined, verification: undefined, agents: [] }),

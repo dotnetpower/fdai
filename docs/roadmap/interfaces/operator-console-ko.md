@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 20bc082349045370533b57012df2a414df2e2377
+translation_source_sha: abe0c06c7542a877fffec4d397354827b00531c9
 translation_revised: 2026-07-25
 ---
 
@@ -327,6 +327,8 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   표시합니다. 완료된 reply는 generation model, response owner, contributor, 명시적인 agent-to-Bragi
   handoff, verification result 및 기록된 모든 evidence reference를 유지합니다. Unverified evidence도
   숨기지 않고 attention state로 확인할 수 있습니다.
+  Incomplete로 표시된 evidence manifest도 attention 상태를 사용하고 retained source와 declared
+  manifest source 수를 함께 보여주며, 접힌 source summary에 일부 근거임을 표시합니다.
   Browser는 고정 Pantheon 이름만 delegation attribution으로 허용합니다. Replay 전에 primary,
   contributor 및 handoff identity는 64자, contributor는 8개, trace reference는 256자, handoff reason은
   128자로 제한합니다.

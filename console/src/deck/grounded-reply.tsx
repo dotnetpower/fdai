@@ -75,6 +75,7 @@ export function GroundedReply({
   const evidenceReferences = cites.every((citation) =>
     citation.label.startsWith("evidence."));
   const sources = buildSources(verification, cites);
+  const groundingIncomplete = verification?.evidence_manifest?.complete === false;
   const marks = citationMarks(sources);
   const replyModel = parsedSource?.kind === "llm"
     ? parsedSource.timing
@@ -306,7 +307,9 @@ export function GroundedReply({
                 onClick={() => setOpen((v) => !v)}
                 aria-expanded={open}
               >
-                <span class="deck-gr-check" aria-hidden="true">{"\u2713"}</span>
+                <span class="deck-gr-check" aria-hidden="true">
+                  {groundingIncomplete ? "!" : "\u2713"}
+                </span>
                 {pillStats({
                   sourceCount: sources.length,
                   checksCompleted: verification?.checks_completed ?? 0,
@@ -318,6 +321,9 @@ export function GroundedReply({
                   </span>
                 ))}
                 {replyModel ? <span class="deck-gr-stat is-model">{replyModel}</span> : null}
+                {groundingIncomplete ? (
+                  <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
+                ) : null}
                 <span class="deck-gr-more">
                   {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
                 </span>

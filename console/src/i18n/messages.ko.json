@@ -1763,6 +1763,7 @@
       "llmContextSummary": "{model}을 사용해 대화 맥락을 추론하고 답변을 구성했습니다. 이 turn에는 별도 출처가 첨부되지 않았습니다.",
       "deterministicSummary": "LLM을 사용하지 않고 결정론적 응답기가 답변을 구성했습니다.",
       "deterministicReasonSummary": "LLM을 사용하지 않고 결정론적 응답기가 답변을 구성했습니다. 이유: {reason}.",
+      "partialEvidence": "일부 근거만 확인됨",
       "stage": {
         "retrieve": "근거 출처 조회",
         "infer": "{model}으로 추론 및 답변 구성",

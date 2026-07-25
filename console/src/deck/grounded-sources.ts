@@ -341,13 +341,17 @@ export function groundingStages(input: {
   const verification = input.verification;
   if (verification) {
     const refs = verification.evidence_refs.length;
-    if (refs > 0) {
+    const manifest = verification.evidence_manifest;
+    const incompleteManifest = manifest?.complete === false;
+    if (refs > 0 || incompleteManifest) {
       stages.push({
         action: "ground",
         label: "Bound answer to evidence",
-        detail: `${refs} reference${refs === 1 ? "" : "s"}`,
+        detail: incompleteManifest
+          ? `${manifest.entries.length}/${manifest.source_entry_count} manifest sources available`
+          : `${refs} reference${refs === 1 ? "" : "s"}`,
         side: "ground",
-        status: "complete",
+        status: incompleteManifest ? "attention" : "complete",
       });
     }
     if (verification.checks_total > 0) {
