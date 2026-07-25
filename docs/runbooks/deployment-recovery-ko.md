@@ -2,7 +2,7 @@
 title: 배포 복구
 summary: Protected plan 거부, offline kit 검증 실패 또는 runtime readiness 저하에서 안전하게 복구합니다.
 translation_of: deployment-recovery.md
-translation_source_sha: af3caf4fcc78b036cfbf6a41035b191f16355302
+translation_source_sha: 3ebb98e79c8f6c2db322a04ccefe739ca68e7c25
 translation_revised: 2026-07-25
 ---
 
@@ -73,7 +73,7 @@ machine status를 새 plan, 새 kit 또는 fresh evidence 복구 경로에 연�
 5. `fdaictl deploy apply`로 exact approved plan만 제출합니다. Runner-side verification은 binary
    plan, source artifact, preflight evidence, context, commit, status와 expiry를 계속 일치시켜야 합니다.
 
-Preflight command는 clear이면 `0`, 검토가 필요한 finding이면 `2`, deployment blocker이면 `3`으로
+Preflight command는 clear이면 `0`, 검토가 필요한 문제가 있으면 `2`, deployment blocker이면 `3`으로
 종료합니다. Exit code는 evidence이며 report를 우회할 권한이 아닙니다.
 
 ## 거부된 offline kit 교체

@@ -71,7 +71,7 @@ signed metadata or manufacturing readiness.
    still match the binary plan, source artifact, preflight evidence, context, commit, status, and
    expiry.
 
-The preflight command exits `0` for clear, `2` for findings that need review, and `3` for a deployment
+The preflight command exits `0` for clear, `2` for detected issues that need review, and `3` for a deployment
 blocker. An exit code is evidence, not permission to bypass the report.
 
 ## Replace a rejected offline kit
