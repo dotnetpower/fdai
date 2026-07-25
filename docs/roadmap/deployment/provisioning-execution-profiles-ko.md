@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: c7085b87b45c9adb0af8208531391f69e1b8d06b
-translation_revised: 2026-07-22
+translation_source_sha: 31d6f0b8ea78c689f3afcdcad27bacf586168bda
+translation_revised: 2026-07-25
 ---
 # Provisioning 실행 Profile
 
@@ -12,7 +12,8 @@ translation_revised: 2026-07-22
 
 > **구현 상태:** 읽기 전용 `fdaictl provision inspect`와 private `provision init` profile
 > persistence가 구현되었습니다. Injected release root를 사용하는 offline-kit manifest,
-> signature, compatibility, exact file-set verification이 구현되었습니다. Pinned root packaging,
+> signature, compatibility, exact file-set verification, inspection integration이 구현되었습니다.
+> Pinned root packaging,
 > kit construction, bootstrap plan/apply orchestration, temporary public-access cleanup,
 > post-provision verification은 목표 동작으로 남아 있습니다.
 >
@@ -50,12 +51,15 @@ Result는 다음 상태를 사용합니다.
 
 | 상태 | 의미 |
 |------|------|
-| `ready` | Existing host에 필요한 toolchain, connectivity, workload identity가 있습니다. |
-| `review` | Managed VM 또는 검증되지 않은 offline kit가 권장되며 operator review가 필요합니다. |
+| `ready` | Existing host에 toolchain, workload identity, online access 또는 verified offline kit가 있습니다. |
+| `review` | Managed VM 또는 pinned verifier가 없는 offline kit에 operator review가 필요합니다. |
 | `incomplete` | 명시적으로 요청한 profile에 필수 dependency 또는 access path가 없습니다. |
 
-Offline-kit directory는 이후 단계가 pinned release root로 manifest와 signature를 검증할 때까지
-`review`로 유지됩니다. File이 존재한다는 사실만으로 trust가 성립하지 않습니다.
+File 존재만으로 trust가 성립하지 않습니다. Composition-injected pinned verifier가 있으면 inspection은
+signature, compatibility, exact file, digest, bound를 검사하고 non-secret manifest metadata만
+반환합니다. Rejected content는 `incomplete`, verified content는 complete existing-host profile을
+`ready`로 만들 수 있습니다. Public root ceremony가 verifier를 package하기 전까지 shipped CLI는
+offline directory를 `candidate` / `review`로 유지합니다.
 
 ## Profile initialization
 
@@ -152,7 +156,8 @@ Offline mode는 PyPI, GitHub, public Terraform registry fallback을 차단합니
 `verify_offline_kit`은 manifest parsing 전에 Ed25519 signature를 검사하고 exact CLI 및 platform
 version을 binding하며 symlink와 extra file을 거부합니다. 모든 file digest를 streaming하고 wheel,
 signed deployment bundle, Terraform binary 및 provider mirror, OPA, SBOM을 요구합니다. Release
-root injection은 test와 release construction에서만 사용합니다. `fdaictl`은 `--release-root`
+root injection은 test, release construction, pinned inspection composition에서만 사용합니다.
+Artifact hashing은 no-follow descriptor open으로 path swap redirect를 막습니다. `fdaictl`은 `--release-root`
 override를 제공하지 않습니다. Public root가 wheel에 pin될 때까지 inspection은 `review`로
 유지됩니다.
 

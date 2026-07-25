@@ -178,6 +178,45 @@ increase model use in the typed hot path.
 - Strict mypy passes for all changed agent source modules.
 - Ruff, bilingual translation, document-size, punctuation, and diff checks pass.
 
+## Work unit 5: Offline provisioning inspection
+
+This unit connects signed offline-kit verification to the read-only provisioning inspection
+contract without allowing an operator-supplied trust root. The first public release-root ceremony
+remains an explicit operational blocker rather than a generated test key committed as authority.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | Connectivity mode is explicit or evidence-selected | `auto`, `online`, and `offline` are distinct | Pass | Retain |
+| 2 | Inspection performs no host or cloud mutation | Result always records `mutation_performed=false` | Pass | Retain |
+| 3 | Offline file presence does not establish trust | Candidate state remains review | Pass | Retain |
+| 4 | Inspection cannot consume a pinned verifier | Candidate existence is the only offline evidence | High | Add an injected verifier boundary |
+| 5 | Invalid signatures and digests look like valid candidates | Inspect never calls the verifier | High | Return a failed artifact check and incomplete status |
+| 6 | Verified kit metadata is absent from machine output | Result carries no digest, version, platform, or count | Medium | Add bounded non-secret verification metadata |
+| 7 | A verified offline existing host still cannot become ready | All offline selections unconditionally return review | Medium | Permit ready only when verifier succeeds and other host checks pass |
+| 8 | Missing pinned verifier is indistinguishable from verification failure | Both appear only as candidate | Medium | Keep `candidate` for missing authority and `fail` for rejected content |
+| 9 | Metadata files reject symlinks and size overflow | Verifier checks both before parsing | Pass | Retain |
+| 10 | Artifact path can change between scan and digest read | `_file_digest` follows the path after earlier checks | High | Open with no-follow and verify the opened file descriptor |
+| 11 | Manifest exact file set rejects missing and extra artifacts | Actual and listed sets must match | Pass | Retain |
+| 12 | CLI and platform compatibility are exact | Manifest must match both inputs | Pass | Retain |
+| 13 | File count and total bytes are bounded | Verifier enforces both ceilings | Pass | Retain |
+| 14 | Online mode prefers allowlisted TLS sources when reachable | Auto selection checks all required hosts | Pass | Retain |
+| 15 | Operator-supplied release roots would defeat trust pinning | Current design intentionally exposes no override | Rejected | Do not add an override; complete the release root ceremony separately |
+| 16 | Offline execution still requires workload identity and tools | Existing-host readiness does not weaken in offline mode | Pass | Retain |
+
+### Discriminating checks
+
+- A verified kit produces `verified` evidence and can make an otherwise complete offline profile ready.
+- A rejected kit produces `fail` evidence and an incomplete profile without leaking verifier details.
+- A kit with no pinned verifier remains a candidate requiring review.
+- Machine output includes only manifest digest, versions, platform, count, and total bytes.
+- Digesting a symlink fails even if a prior directory scan accepted the original path.
+
+### Verification evidence
+
+- Complete deployment CLI suite: 107 passed.
+- Strict mypy and Ruff pass for all deployment CLI source and tests.
+- Public pinned-root packaging remains explicitly incomplete; no test key is treated as authority.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,

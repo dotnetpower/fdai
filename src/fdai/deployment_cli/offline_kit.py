@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final, Literal
@@ -85,18 +87,21 @@ class OfflineKitVerification:
     file_count: int
     total_bytes: int
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "bundle_version": self.bundle_version,
+            "cli_version": self.cli_version,
+            "file_count": self.file_count,
+            "kit_version": self.kit_version,
+            "manifest_digest": self.manifest_digest,
+            "platform_tag": self.platform_tag,
+            "schema_version": OFFLINE_KIT_VERIFICATION_SCHEMA,
+            "total_bytes": self.total_bytes,
+        }
+
     def to_json(self) -> str:
         return json.dumps(
-            {
-                "bundle_version": self.bundle_version,
-                "cli_version": self.cli_version,
-                "file_count": self.file_count,
-                "kit_version": self.kit_version,
-                "manifest_digest": self.manifest_digest,
-                "platform_tag": self.platform_tag,
-                "schema_version": OFFLINE_KIT_VERIFICATION_SCHEMA,
-                "total_bytes": self.total_bytes,
-            },
+            self.to_dict(),
             sort_keys=True,
             separators=(",", ":"),
         )
@@ -217,7 +222,16 @@ def _validate_version(value: str) -> None:
 
 def _file_digest(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as stream:
+    no_follow = getattr(os, "O_NOFOLLOW", None)
+    if no_follow is None:
+        raise OfflineKitVerificationError("offline kit no-follow file open is unavailable")
+    try:
+        descriptor = os.open(path, os.O_RDONLY | no_follow)
+    except OSError as exc:
+        raise OfflineKitVerificationError("offline kit artifact MUST be a regular file") from exc
+    with os.fdopen(descriptor, "rb") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise OfflineKitVerificationError("offline kit artifact MUST be a regular file")
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()

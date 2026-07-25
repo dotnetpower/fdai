@@ -10,6 +10,10 @@ from pathlib import Path
 import pytest
 
 from fdai.deployment_cli.cli import main
+from fdai.deployment_cli.offline_kit import (
+    OfflineKitVerification,
+    OfflineKitVerificationError,
+)
 from fdai.deployment_cli.provision_inspect import (
     ACCESS_PREFERENCE,
     Connectivity,
@@ -103,6 +107,66 @@ def test_complete_offline_kit_requires_signature_review(tmp_path: Path) -> None:
         check for check in result.checks if check.check_id == "artifact.offline-kit"
     )
     assert offline_check.status == "candidate"
+    assert result.offline_kit_verified is False
+
+
+def test_verified_offline_kit_makes_complete_existing_host_ready(tmp_path: Path) -> None:
+    (tmp_path / "offline-kit.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "offline-kit.json.sig").write_bytes(b"candidate")
+
+    result = inspect_provisioning(
+        connectivity=Connectivity.OFFLINE,
+        execution_host=ExecutionHost.EXISTING,
+        offline_kit=tmp_path,
+        offline_kit_verifier=lambda _path: OfflineKitVerification(
+            kit_version="0.1.42",
+            cli_version="0.1.42",
+            bundle_version="0.1.42",
+            platform_tag="linux-x86_64",
+            manifest_digest="a" * 64,
+            file_count=8,
+            total_bytes=1024,
+        ),
+        resolve_executable=_resolver("az", "terraform"),
+        online_probe=lambda: False,
+        workload_identity_probe=lambda: True,
+    )
+
+    assert result.status == "ready"
+    assert result.offline_kit_verified is True
+    assert result.offline_kit_verification is not None
+    assert result.offline_kit_verification.manifest_digest == "a" * 64
+    offline_check = next(
+        check for check in result.checks if check.check_id == "artifact.offline-kit"
+    )
+    assert offline_check.status == "verified"
+
+
+def test_rejected_offline_kit_is_incomplete_and_sanitized(tmp_path: Path) -> None:
+    (tmp_path / "offline-kit.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "offline-kit.json.sig").write_bytes(b"candidate")
+
+    def reject(_path: Path) -> OfflineKitVerification:
+        raise OfflineKitVerificationError("sensitive/path/offline-kit digest mismatch")
+
+    result = inspect_provisioning(
+        connectivity=Connectivity.OFFLINE,
+        execution_host=ExecutionHost.EXISTING,
+        offline_kit=tmp_path,
+        offline_kit_verifier=reject,
+        resolve_executable=_resolver("az", "terraform"),
+        online_probe=lambda: False,
+        workload_identity_probe=lambda: True,
+    )
+
+    assert result.status == "incomplete"
+    assert result.offline_kit_verified is False
+    assert result.offline_kit_verification is None
+    offline_check = next(
+        check for check in result.checks if check.check_id == "artifact.offline-kit"
+    )
+    assert offline_check.status == "fail"
+    assert "sensitive" not in result.to_json()
 
 
 def test_explicit_existing_host_requires_workload_identity() -> None:

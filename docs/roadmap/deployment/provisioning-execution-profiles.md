@@ -8,8 +8,9 @@ transport, and access path. It also defines the human approval and workload-iden
 that applies before Terraform changes infrastructure or role assignments.
 
 > **Implementation status:** Read-only `fdaictl provision inspect` and private `provision init`
-> profile persistence are implemented. Offline-kit manifest, signature, compatibility, and exact
-> file-set verification are implemented behind an injected release root. Pinned root packaging,
+> profile persistence are implemented. Offline-kit manifest, signature, compatibility, exact
+> file-set verification, and inspection integration are implemented behind an injected release
+> root. Pinned root packaging,
 > kit construction, bootstrap plan/apply orchestration, temporary public-access cleanup, and
 > post-provision verification remain target behavior.
 >
@@ -47,12 +48,15 @@ The result uses these states:
 
 | State | Meaning |
 |-------|---------|
-| `ready` | An existing host has the required toolchain, connectivity, and workload identity |
-| `review` | A managed VM or unverified offline kit is recommended and requires operator review |
+| `ready` | An existing host has its toolchain, workload identity, and online access or a verified offline kit |
+| `review` | A managed VM or offline kit without a pinned verifier requires operator review |
 | `incomplete` | The explicitly requested profile is missing a required dependency or access path |
 
-An offline-kit directory remains `review` until a later stage verifies its manifest and signature
-against the pinned release root. File presence alone never establishes trust.
+File presence alone never establishes trust. With a composition-injected pinned verifier,
+inspection checks signature, compatibility, exact files, digests, and bounds, then returns only
+non-secret manifest metadata. Rejected content is `incomplete`; verified content can make a
+complete existing-host profile `ready`. Until the public root ceremony packages that verifier,
+the shipped CLI keeps offline directories at `candidate` / `review`.
 
 ## Profile initialization
 
@@ -148,7 +152,9 @@ the same pinned release root in both cases.
 `verify_offline_kit` checks an Ed25519 signature before parsing the manifest, binds exact CLI and
 platform versions, rejects symlinks and extra files, streams every file digest, and requires the
 wheel, signed deployment bundle, Terraform binary and provider mirror, OPA, and SBOM. The release
-root is injectable for tests and release construction only. `fdaictl` does not expose a
+root is injectable for tests, release construction, and pinned inspection composition only.
+Artifact hashing uses a no-follow descriptor open so a path swap cannot redirect it. `fdaictl`
+does not expose a
 `--release-root` override; inspection remains `review` until a public root is pinned in the wheel.
 
 ### Trust root and rotation

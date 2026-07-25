@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: e3af2b52784d972b08c26cc51794bd0e98d33e8a
-translation_revised: 2026-07-23
+translation_source_sha: 2e1c34a09addb89cea77f36ede2820144ba6fafb
+translation_revised: 2026-07-25
 ---
 # 설치형 배포 CLI
 
@@ -18,7 +18,9 @@ translation_revised: 2026-07-23
 > Resource Graph identity, value-blind Key Vault secret probe와 runner TLS egress evidence를
 > 사용할 수 있습니다. 읽기 전용 `provision inspect`, signed bundle build/verify/release
 > workflow, production exact-plan apply wiring, profile persistence, PyPI Trusted Publishing도
-> 구현됐습니다. 첫 PyPI publication, internal mirror/disconnected delivery, bootstrap
+> 구현됐습니다. Offline inspection은 composition-injected pinned verifier로 trusted 또는 rejected
+> kit evidence를 보고하며 operator trust-root override를 노출하지 않습니다. 첫 PyPI publication,
+> pinned offline root packaging, internal mirror/disconnected delivery, bootstrap
 > orchestration, teardown은 남았습니다.
 >
 > **실행 경계:** Terraform은 인프라 실행 엔진이자 source of truth로 유지됩니다. `fdaictl`은
@@ -99,7 +101,7 @@ tool을 보고합니다.
 |------|------|----------------|
 | `fdaictl version` | CLI, bundle, schema, compatibility version 표시 | 없음 |
 | `fdaictl doctor` | Python, Azure CLI, Terraform, GitHub CLI, 인증, local config 검사 | 없음 |
-| `fdaictl provision inspect` | Online/offline, existing/managed host, transport, access, workload-identity readiness 검사 | 없음 |
+| `fdaictl provision inspect` | Online/offline, signed-kit trust, existing/managed host, transport, access, workload-identity readiness 검사 | 없음 |
 | `fdaictl onboard init` | Schema-validated, untracked environment configuration 생성 | 없음 |
 | `fdaictl onboard guided` | Doctor, private config 생성, live preflight, plan-only runner 제출, sanitized status post-check를 순서대로 실행 | 없음 |
 | `fdaictl security audit` | Runtime flag 조합, local config hygiene, 요청된 sandbox 가용성 검사 | 없음, `--fix-permissions`를 명시한 경우 제외 |

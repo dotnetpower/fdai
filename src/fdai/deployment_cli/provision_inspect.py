@@ -14,6 +14,11 @@ from typing import Final
 
 import httpx
 
+from fdai.deployment_cli.offline_kit import (
+    OfflineKitVerification,
+    OfflineKitVerificationError,
+)
+
 PROVISION_INSPECT_SCHEMA: Final = "fdai.deployment-cli.provision-inspect.v1"
 ACCESS_PREFERENCE: Final[tuple[str, ...]] = (
     "internal_ssh",
@@ -71,6 +76,8 @@ class ProvisionInspectResult:
     require_distinct_executor_identity: bool = True
     managed_vm_lifecycle: str = "persistent_deallocated"
     mutation_performed: bool = False
+    offline_kit_verified: bool = False
+    offline_kit_verification: OfflineKitVerification | None = None
     schema_version: str = PROVISION_INSPECT_SCHEMA
 
     @property
@@ -86,6 +93,12 @@ class ProvisionInspectResult:
             "execution_host": self.execution_host.value,
             "managed_vm_lifecycle": self.managed_vm_lifecycle,
             "mutation_performed": self.mutation_performed,
+            "offline_kit_verified": self.offline_kit_verified,
+            "offline_kit_verification": (
+                self.offline_kit_verification.to_dict()
+                if self.offline_kit_verification is not None
+                else None
+            ),
             "required_human_approvers": self.required_human_approvers,
             "require_distinct_executor_identity": self.require_distinct_executor_identity,
             "schema_version": self.schema_version,
@@ -99,6 +112,7 @@ class ProvisionInspectResult:
 
 ExecutableResolver = Callable[[str], str | None]
 AvailabilityProbe = Callable[[], bool]
+OfflineKitVerifier = Callable[[Path], OfflineKitVerification]
 
 
 def inspect_provisioning(
@@ -113,12 +127,20 @@ def inspect_provisioning(
     resolve_executable: ExecutableResolver = shutil.which,
     online_probe: AvailabilityProbe | None = None,
     workload_identity_probe: AvailabilityProbe | None = None,
+    offline_kit_verifier: OfflineKitVerifier | None = None,
 ) -> ProvisionInspectResult:
     """Inspect local provisioning capabilities without changing host or cloud state."""
     tools = {name: resolve_executable(name) is not None for name in ("az", "terraform", "gh")}
     online_available = (online_probe or _probe_online_egress)()
     workload_identity_available = (workload_identity_probe or _probe_workload_identity)()
     offline_kit_available = _offline_kit_candidate_exists(offline_kit)
+    offline_verification: OfflineKitVerification | None = None
+    offline_verification_failed = False
+    if offline_kit_available and offline_kit is not None and offline_kit_verifier is not None:
+        try:
+            offline_verification = offline_kit_verifier(offline_kit)
+        except OfflineKitVerificationError:
+            offline_verification_failed = True
 
     selected_connectivity = _select_connectivity(
         requested=connectivity,
@@ -152,6 +174,8 @@ def inspect_provisioning(
         online_available=online_available,
         offline_kit=offline_kit,
         offline_kit_available=offline_kit_available,
+        offline_kit_verified=offline_verification is not None,
+        offline_kit_verification_failed=offline_verification_failed,
         workload_identity_available=workload_identity_available,
     )
     status = _status(
@@ -165,6 +189,8 @@ def inspect_provisioning(
         existing_host_ready=existing_host_ready,
         online_available=online_available,
         offline_kit_available=offline_kit_available,
+        offline_kit_verified=offline_verification is not None,
+        offline_kit_verification_failed=offline_verification_failed,
         github_actions_available=tools["gh"] and online_available,
     )
     return ProvisionInspectResult(
@@ -174,6 +200,8 @@ def inspect_provisioning(
         transport=selected_transport,
         access_method=access_method,
         checks=checks,
+        offline_kit_verified=offline_verification is not None,
+        offline_kit_verification=offline_verification,
     )
 
 
@@ -243,11 +271,15 @@ def _status(
     existing_host_ready: bool,
     online_available: bool,
     offline_kit_available: bool,
+    offline_kit_verified: bool,
+    offline_kit_verification_failed: bool,
     github_actions_available: bool,
 ) -> str:
     if selected_connectivity is Connectivity.ONLINE and not online_available:
         return "incomplete"
     if selected_connectivity is Connectivity.OFFLINE and not offline_kit_available:
+        return "incomplete"
+    if selected_connectivity is Connectivity.OFFLINE and offline_kit_verification_failed:
         return "incomplete"
     if requested_host is ExecutionHost.EXISTING and not existing_host_ready:
         return "incomplete"
@@ -257,9 +289,13 @@ def _status(
         return "incomplete"
     if selected_transport is ExecutionTransport.GITHUB_ACTIONS and not github_actions_available:
         return "incomplete"
-    if selected_connectivity is Connectivity.OFFLINE:
+    if selected_connectivity is Connectivity.OFFLINE and not offline_kit_verified:
         return "review"
-    if requested_connectivity is Connectivity.AUTO and not online_available:
+    if (
+        requested_connectivity is Connectivity.AUTO
+        and not online_available
+        and not offline_kit_verified
+    ):
         return "review"
     if selected_host is ExecutionHost.MANAGED_VM:
         return "review"
@@ -272,6 +308,8 @@ def _checks(
     online_available: bool,
     offline_kit: Path | None,
     offline_kit_available: bool,
+    offline_kit_verified: bool,
+    offline_kit_verification_failed: bool,
     workload_identity_available: bool,
 ) -> tuple[ProvisionInspectCheck, ...]:
     checks = [
@@ -301,14 +339,30 @@ def _checks(
             ),
             ProvisionInspectCheck(
                 check_id="artifact.offline-kit",
-                status="candidate" if offline_kit_available else "not-configured",
+                status=(
+                    "verified"
+                    if offline_kit_verified
+                    else "fail"
+                    if offline_kit_verification_failed
+                    else "candidate"
+                    if offline_kit_available
+                    else "not-configured"
+                ),
                 summary=(
-                    "Offline kit candidate is present and requires signature verification"
+                    "Offline kit signature, compatibility, and file set are verified"
+                    if offline_kit_verified
+                    else "Offline kit verification failed"
+                    if offline_kit_verification_failed
+                    else "Offline kit candidate is present and requires signature verification"
                     if offline_kit_available
                     else "Offline kit candidate is not configured"
                 ),
                 remediation=(
                     None
+                    if offline_kit_verified
+                    else "Replace the kit from the pinned release source and inspect again."
+                    if offline_kit_verification_failed
+                    else None
                     if offline_kit_available
                     else "Set --offline-kit to a signed offline kit directory."
                 ),

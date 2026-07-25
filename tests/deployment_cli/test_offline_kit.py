@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai.deployment_cli.offline_kit import (
     OfflineKitManifest,
     OfflineKitVerificationError,
+    _file_digest,
     verify_offline_kit,
 )
 
@@ -134,6 +135,16 @@ def test_rejects_symlink(tmp_path: Path) -> None:
             cli_version=_VERSION,
             platform_tag=_PLATFORM,
         )
+
+
+def test_digest_helper_never_follows_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.write_bytes(b"trusted")
+    link = tmp_path / "artifact"
+    link.symlink_to(target)
+
+    with pytest.raises(OfflineKitVerificationError, match="regular file"):
+        _file_digest(link)
 
 
 def test_rejects_symlinked_manifest(tmp_path: Path) -> None:
