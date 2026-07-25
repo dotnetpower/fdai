@@ -165,6 +165,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
 
       - name: Validate remote plan request
         if: ${{ !inputs.apply && inputs.request_id != '' }}
@@ -186,7 +188,7 @@ jobs:
             echo "commit_sha must be a lowercase git SHA." >&2
             exit 1
           fi
-          if [[ "$PLAN_COMMIT_SHA" != "$GITHUB_SHA" ]]; then
+          if [[ "$PLAN_COMMIT_SHA" != "$(git rev-parse HEAD)" ]]; then
             echo "requested commit does not match the workflow checkout." >&2
             exit 1
           fi
@@ -217,7 +219,7 @@ jobs:
             echo "apply commit_sha must be a lowercase git SHA." >&2
             exit 1
           fi
-          if [[ "$APPLY_COMMIT_SHA" != "$GITHUB_SHA" ]]; then
+          if [[ "$APPLY_COMMIT_SHA" != "$(git rev-parse HEAD)" ]]; then
             echo "requested apply commit does not match the workflow checkout." >&2
             exit 1
           fi

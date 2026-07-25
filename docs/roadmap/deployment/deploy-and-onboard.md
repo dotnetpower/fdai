@@ -73,6 +73,8 @@ Key Vault privately. The runner is the terraform apply principal, so the existin
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
 DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml)
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
+Protected requests checkout `commit_sha` explicitly and compare it with `git rev-parse HEAD`, so a
+release commit that advances `main` between dispatch and execution cannot change plan or apply code.
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
 source archive with separate SHA-256 digests. Exact apply downloads and verifies every artifact.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,

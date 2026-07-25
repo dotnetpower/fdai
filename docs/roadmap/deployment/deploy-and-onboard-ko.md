@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a0f9b8acdb78df031442d4a9ad839678f49f4176
+translation_source_sha: b40e71346079967d375627b90f69b8aa7e882ef0
 translation_revised: 2026-07-25
 ---
 
@@ -76,6 +76,9 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 `Key Vault Secrets Officer` 로 만든다 - apply 중 DSN 시크릿을 write 한다. 배포는
 `[self-hosted, fdai-deploy]` 러너 위에서 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)
 로 실행한다(기본 plan-only; `apply` 입력이 enforce).
+Protected request는 `commit_sha`를 명시적으로 checkout하고 `git rev-parse HEAD`와 비교합니다.
+따라서 dispatch와 execution 사이에 release commit이 `main`을 이동해도 plan 또는 apply code가
+바뀌지 않습니다.
 Protected plan은 binary Terraform plan, bounded preflight evidence, Function source archive를
 각각 별도 SHA-256 digest와 함께 저장합니다. Exact apply는 모든 artifact를 download하고
 검증합니다. 새 plan 저장 전 runner는 24시간이 지난 allowlisted plan, metadata, source,

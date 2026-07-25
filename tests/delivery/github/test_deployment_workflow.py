@@ -295,7 +295,9 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     ):
         assert field in workflow
     assert "Validate remote plan request" in workflow
-    assert '"$PLAN_COMMIT_SHA" != "$GITHUB_SHA"' in workflow
+    assert "ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}" in workflow
+    assert '"$PLAN_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
+    assert '"$APPLY_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
     assert "--name deployment-plans" in workflow
     assert "sha256sum dev.plan" in workflow
     assert "TF_CLI_ARGS_plan:" in workflow
