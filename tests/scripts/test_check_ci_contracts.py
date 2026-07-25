@@ -41,3 +41,31 @@ def test_action_refs_reject_stale_and_unknown_remote_actions(
         ".github/workflows/ci.yml uses actions/checkout@v4; expected v7.0.1",
         ".github/workflows/ci.yml uses unapproved remote action example/unreviewed-action@v1",
     ]
+
+
+def test_uv_cache_contract_allows_one_writer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    workflow = workflow_dir / "ci.yml"
+    setup = (
+        "      - name: Set up uv (Python 3.13)\n"
+        "        uses: astral-sh/setup-uv@v8.3.2\n"
+        "        with:\n"
+        "          enable-cache: true\n"
+    )
+    workflow.write_text(f"jobs:\n  first:\n{setup}  second:\n{setup}", encoding="utf-8")
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_uv_cache_writers() == [
+        "ci.yml must have exactly one setup-uv cache writer; found 2"
+    ]
+
+    workflow.write_text(
+        f"jobs:\n  first:\n{setup}  second:\n{setup}          save-cache: false\n",
+        encoding="utf-8",
+    )
+    assert module._validate_uv_cache_writers() == []

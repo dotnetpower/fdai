@@ -47,6 +47,7 @@ REQUIRED_ACTION_REFS = {
     "pypa/gh-action-pypi-publish": "v1.14.1",
 }
 ACTION_REF_RE = re.compile(r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(?P<ref>[^\s#]+)")
+UV_SETUP_BLOCK_RE = re.compile(r"(?ms)^\s+- name: Set up uv \(Python 3\.13\).*?(?=^\s+- name:|\Z)")
 
 
 def _tracked_paths() -> set[str]:
@@ -170,6 +171,22 @@ def _validate_action_runtime_versions() -> list[str]:
     return errors
 
 
+def _validate_uv_cache_writers() -> list[str]:
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    blocks = UV_SETUP_BLOCK_RE.findall(workflow)
+    if not blocks:
+        return ["ci.yml has no setup-uv cache blocks"]
+    errors = [
+        "every ci.yml setup-uv block must restore the shared cache"
+        for block in blocks
+        if "enable-cache: true" not in block
+    ]
+    writer_count = sum("save-cache: false" not in block for block in blocks)
+    if writer_count != 1:
+        errors.append(f"ci.yml must have exactly one setup-uv cache writer; found {writer_count}")
+    return errors
+
+
 def _contains_guard_call(node: ast.AST) -> bool:
     return any(
         isinstance(child, ast.Call)
@@ -214,6 +231,7 @@ def main() -> int:
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
         *_validate_action_runtime_versions(),
+        *_validate_uv_cache_writers(),
         *_validate_live_db_guards(),
     ]
     if errors:

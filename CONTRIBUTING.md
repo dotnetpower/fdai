@@ -93,6 +93,10 @@ seconds with the capped parallel configuration on the maintainer workstation.
 The command always reports the 25 slowest tests so fixture and I/O regressions
 remain visible.
 
+Parallel Python jobs restore one shared uv cache, but only the `ruff • mypy` job writes it.
+The other setup-uv steps set `save-cache: false`, preventing concurrent post-job cache
+reservations without disabling cache restores.
+
 Before running tests, `scripts/verify.sh` checks clean-checkout and Docker build
 context contracts. It catches untracked required guard inputs, missing
 Dockerfile `COPY` sources, a broken `tests/scenarios/` re-include, an invalid
