@@ -1,6 +1,6 @@
 {
   "name": "fdai-operator-console-cli",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "type": "module",
   "private": true,
   "description": "FDAI operator-console CLI (Ink). One presentation-neutral briefing view-model, many renderers (CLI / Slack / Teams / text). See app-shape.instructions.md - Operator console.",

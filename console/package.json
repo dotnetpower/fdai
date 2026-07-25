@@ -1,6 +1,6 @@
 {
   "name": "fdai-console",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "type": "module",
   "private": true,
   "description": "FDAI operator console - read-only SPA (KPI dashboard, audit log, HIL queue). See app-shape.instructions.md § Operator console.",
