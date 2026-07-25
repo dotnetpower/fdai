@@ -87,6 +87,24 @@ describe("parseDelegation", () => {
       handoff_reason: "insufficient_agent_evidence",
     });
   });
+
+  it("rejects unknown or oversized agent identities", () => {
+    expect(parseDelegation({
+      primary_agent: "UnknownAgent",
+      contributors: [],
+    })).toBeUndefined();
+    expect(parseDelegation({
+      primary_agent: "Bragi".repeat(20),
+      contributors: [],
+    })).toBeUndefined();
+    expect(parseDelegation({
+      primary_agent: "Bragi",
+      contributors: ["Heimdall", "UnknownAgent", "Forseti".repeat(20)],
+    })).toEqual({
+      primary_agent: "Bragi",
+      contributors: ["Heimdall"],
+    });
+  });
 });
 
 describe("parseAnswerVerification", () => {

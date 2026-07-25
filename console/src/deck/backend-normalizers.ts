@@ -14,6 +14,11 @@ import type {
   RouterCandidate,
   RouterSnapshot,
 } from "./backend-types";
+import { PANTHEON } from "../routes/agents.model";
+
+const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
+const MAX_AGENT_NAME_CHARS = 64;
+const MAX_TRACE_REF_CHARS = 256;
 
 const ACTIVITY_STATUSES = new Set<InvestigationActivityStatus>([
   "pending",
@@ -166,20 +171,30 @@ export function parseRetrievalSourcePreviews(
 export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const record = raw as Record<string, unknown>;
-  if (typeof record.primary_agent !== "string" || record.primary_agent.length === 0) {
+  if (
+    typeof record.primary_agent !== "string" ||
+    record.primary_agent.length === 0 ||
+    record.primary_agent.length > MAX_AGENT_NAME_CHARS ||
+    !PANTHEON_AGENT_NAMES.has(record.primary_agent)
+  ) {
     return undefined;
   }
   const contributors = Array.isArray(record.contributors)
-    ? record.contributors.filter((item): item is string => typeof item === "string").slice(0, 8)
+    ? record.contributors.filter(
+        (item): item is string =>
+          typeof item === "string" &&
+          item.length <= MAX_AGENT_NAME_CHARS &&
+          PANTHEON_AGENT_NAMES.has(item),
+      ).slice(0, 8)
     : [];
   return {
     primary_agent: record.primary_agent,
     contributors,
     ...(typeof record.trace_ref === "string" && record.trace_ref.length > 0
-      ? { trace_ref: record.trace_ref }
+      ? { trace_ref: record.trace_ref.slice(0, MAX_TRACE_REF_CHARS) }
       : {}),
-    ...(typeof record.handoff_from === "string" && record.handoff_from.length > 0
-      ? { handoff_from: record.handoff_from.slice(0, 64) }
+    ...(typeof record.handoff_from === "string" && PANTHEON_AGENT_NAMES.has(record.handoff_from)
+      ? { handoff_from: record.handoff_from }
       : {}),
     ...(typeof record.handoff_reason === "string" && record.handoff_reason.length > 0
       ? { handoff_reason: record.handoff_reason.slice(0, 128) }
