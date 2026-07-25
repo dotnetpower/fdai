@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: a8a26597fe7068758e0461a6d50179bc13034c3d
-translation_revised: 2026-07-21
+translation_source_sha: 68d11c0dd1aba645d3fe843c91cc806b76c7746d
+translation_revised: 2026-07-25
 ---
 
 # Phase 0 - 계측과 언블록
@@ -63,6 +63,11 @@ phase들이 이득을 증명할 기준 베이스라인을 **확립** ; 자체로
    false-positive, false-negative, rollback, policy-violation escape) 기록하여 이후 phase가
    성공뿐 아니라 가드 베이스라인도 가짐. 각 수치를 표본 크기, 신뢰구간, 시나리오 세트 버전과
    함께 보고.
+  Observation record는 tier, latency, model call, token, priced 또는 unpriced cost, abstention,
+  verifier outcome도 포함합니다. Report는 T0/T1/T2 economics를 집계합니다.
+  `--require-release-eligible`은 measured scenario 30개 미만, incomplete telemetry, routing
+  quality 0.98 미만, T2 share 0.15 초과, abstention 또는 verifier failure 0.15 초과,
+  policy-violation escape 발생 중 하나라도 있으면 release를 차단합니다.
 4. **아이덴티티 블로커**: 외부 IdP ↔ Entra ↔ Managed Identity 매핑 프로비저닝 및 테스트;
    최소권한 프로브로 검증 및 재인증 스케줄. 완료를
    [security-and-identity-ko.md#open-decisions](../architecture/security-and-identity-ko.md#open-decisions)

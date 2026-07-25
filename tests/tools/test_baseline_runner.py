@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from tools.baseline_run import _run
 from tools.reference_agent import AgentDecision, ReferenceAgent
 
@@ -74,6 +75,14 @@ def test_measured_observations_are_marked_but_small_sample_is_not_claim_eligible
                 "executed": False,
                 "rolled_back": False,
                 "policy_violation": False,
+                "latency_ms": 10.0,
+                "model_calls": 1 if scenario["expected"]["tier"] == "t2" else 0,
+                "input_tokens": 100 if scenario["expected"]["tier"] == "t2" else 0,
+                "output_tokens": 20 if scenario["expected"]["tier"] == "t2" else 0,
+                "cost_usd": 0.01 if scenario["expected"]["tier"] == "t2" else 0.0,
+                "verifier_outcome": (
+                    "eligible" if scenario["expected"]["tier"] == "t2" else "not_invoked"
+                ),
             }
             for scenario in scenarios
         ],
@@ -86,6 +95,10 @@ def test_measured_observations_are_marked_but_small_sample_is_not_claim_eligible
     assert summary["evidence"]["kind"] == "measured-observations"
     assert summary["evidence"]["claim_eligible"] is False
     assert summary["confidence_intervals_95"]["routed_correctly_rate"]["sample_size"] == 9
+    assert summary["tier_economics"]["t2"]["model_calls"] == 1
+    assert summary["model_economics"]["cost_usd"] == 0.01
+    assert summary["quality_evidence"]["verifier_failure_count"] == 0
+    assert summary["release_gate"]["checks"]["minimum_sample_size"] is False
 
 
 def test_cli_writes_report_and_json(tmp_path: Path) -> None:
@@ -113,6 +126,7 @@ def test_cli_writes_report_and_json(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert report.exists()
     assert payload.exists()
+    assert "unmeasured" in report.read_text(encoding="utf-8")
 
     parsed = json.loads(payload.read_text(encoding="utf-8"))
     assert parsed["scenario_count"] == 9
@@ -136,6 +150,54 @@ def test_cli_writes_report_and_json(tmp_path: Path) -> None:
         usedforsecurity=False,
     ).hexdigest()
     assert recorded_sha == expected_sha
+
+
+def test_release_gate_blocks_incomplete_small_baseline() -> None:
+    result = subprocess.run(  # noqa: S603 - controlled subprocess
+        [
+            sys.executable,
+            "-m",
+            "tools.baseline_run",
+            "--scenarios",
+            str(SCENARIOS),
+            "--require-release-eligible",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 3
+    assert json.loads(result.stdout)["release_gate"]["release_eligible"] is False
+
+
+def test_measured_observations_require_economics_fields(tmp_path: Path) -> None:
+    scenarios = [json.loads(path.read_text()) for path in sorted(SCENARIOS.glob("*.json"))]
+    path = tmp_path / "observations.json"
+    path.write_text(
+        json.dumps(
+            {
+                "reference_agent": "incomplete-observation@example",
+                "scenario_set_version": "v2026.07",
+                "outcomes": [
+                    {
+                        "scenario_id": scenario["id"],
+                        "predicted_tier": "t0",
+                        "predicted_decision": "hil",
+                        "executed": False,
+                        "rolled_back": False,
+                        "policy_violation": False,
+                    }
+                    for scenario in scenarios
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="latency_ms"):
+        _run(SCENARIOS, path)
 
 
 def test_committed_baseline_artifact_matches_a_fresh_run() -> None:

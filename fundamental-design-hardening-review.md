@@ -257,6 +257,66 @@ does not expose a new HTTP endpoint, call a cloud SDK directly, or bypass the ty
 - Agent read-tool registry tests: 6 passed, including all 30 declared tools.
 - Strict mypy and Ruff pass for the registry, runtime wiring, exports, and tests.
 
+## Work unit 9: Connected and offline deployment recovery
+
+This unit connects existing protected-plan, signed-kit, and startup-readiness machine statuses to
+one bilingual operator procedure. It adds no trust override, local apply path, or synthetic health.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | Expired plan recovery is spread across code and roadmap text | Exact apply rejects expiry | High | Map expiry to full replan and new approval |
+| 2 | Operators can be tempted to edit `expires_at` | Metadata is signed and digest-bound | Critical | Explicitly forbid metadata edits and plan-id reuse |
+| 3 | Context or digest mismatch lacks one recovery sequence | Verifier has distinct mismatch guards | High | Correct input and create a new protected plan |
+| 4 | A blocked plan can tempt local apply | Approved runner is part of the bound context | Critical | Require blocker repair and runner-side replan |
+| 5 | Offline kit presence can look trusted | `candidate` is not `verified` | High | Require overall ready, exit 0, and verified status |
+| 6 | A rejected kit can be repaired in place | Exact manifest file set and signature would be invalid | Critical | Quarantine and replace the complete kit |
+| 7 | An operator trust-root override would bypass release authority | No override exists by design | Critical | Forbid local roots and test keys as recovery |
+| 8 | CLI exit meanings are distributed | Inspect uses 0, 2, 4; preflight uses 0, 2, 3 | Medium | Document each exit as evidence, not permission |
+| 9 | `/live` can be mistaken for readiness | Liveness and readiness are separate endpoints | High | Require `/ready` plus startup report evidence |
+| 10 | `degraded` can be mistaken for full authority | Report carries per-capability ceilings | Critical | Keep operations at or below each authority ceiling |
+| 11 | Stale evidence can be relabeled as recovered | Readiness reducer checks expiry | Critical | Require a fresh unexpired probe result |
+| 12 | Manual consumer restarts can bypass lifecycle gating | Runtime suspends and resumes on readiness | High | Wait for periodic evaluation instead of manual restart |
+| 13 | Failure evidence can be lost during replacement | Existing contracts expose sanitized fields | Medium | Define one audit evidence checklist |
+| 14 | Recovery claims lack executable drills | Safety tests already pin each state transition | High | Define expired-plan, rejected-kit, and readiness-loss drills |
+| 15 | Recovery after an already-started action is ambiguous | Rollback has its own governed procedure | Medium | Hand off with original correlation and idempotency keys |
+
+### Verification evidence
+
+- Protected-plan, offline-kit, readiness reducer, and runtime readiness tests: 35 passed.
+- English and Korean runbooks pass translation, terminology, punctuation, and document gates.
+- Drills require a new verified artifact or fresh evidence; no status edit can complete recovery.
+
+## Work unit 10: Deterministic and model cost evidence
+
+This unit extends the frozen baseline runner rather than creating a second evaluation system. It
+records the economics and quality fields needed for a release decision and fails closed when the
+current evidence is too small, incomplete, or below threshold.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | Predicted tier is collected but discarded from the summary | `ScenarioOutcome` held both tiers | High | Aggregate T0/T1/T2 count and share |
+| 2 | Per-tier latency is absent | Observations had no latency field | High | Require measured latency and report sample count, p50, and p95 |
+| 3 | Model-call volume is absent | No observation counter existed | High | Require and aggregate non-negative model-call counts |
+| 4 | Token volume is absent | Pricing cannot be checked without usage | High | Require input and output token counts |
+| 5 | Cost can be guessed from illustrative catalog prices | Baseline had no measured cost field | Critical | Accept measured cost or explicit `null`; report unpriced calls |
+| 6 | Abstentions are mixed into general decisions | No explicit aggregate existed | Medium | Report abstention count and rate |
+| 7 | Verifier outcomes are invisible | No observation field existed | High | Require a bounded verifier outcome and aggregate failures |
+| 8 | Outcome quality omits tier correctness | Routing metric existed only in success metrics | Medium | Carry count and rate into quality evidence |
+| 9 | Nine synthetic cases can look release-ready | `claim_eligible=false` was informational | Critical | Require at least 30 measured scenarios |
+| 10 | Missing telemetry can appear as zero | Synthetic runner has no latency observations | Critical | Separate known zero calls/cost from unmeasured latency and block release |
+| 11 | T2 share has no release threshold | The 5-10 percent target was prose only | High | Block above 0.15, allowing a measured operating margin |
+| 12 | Quality and guard thresholds do not affect CLI status | Runner always exited zero | High | Add `--require-release-eligible` exit code 3 |
+| 13 | Unknown model pricing can disappear in total cost | Null cost was not represented | High | Count unpriced calls and make total cost null |
+| 14 | Generated reports omit the new evidence | JSON and bilingual Markdown share one generator | Medium | Render tier economics, model usage, quality, and every gate check |
+| 15 | Baseline regeneration can drift from committed artifacts | A reproducibility test compares exact content | Pass | Preserve and extend exact regeneration testing |
+
+### Verification evidence
+
+- Baseline runner and artifact reproducibility tests: 8 passed.
+- Frozen `v2026.07` reports 9 scenarios, 100 percent reference T2 routing, zero actual model calls,
+  unmeasured latency, 0.111 routing quality, and `release_eligible=false`.
+- The blocking CLI returns exit code 3 for the current incomplete, undersized evidence.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,
@@ -276,6 +336,8 @@ Low-or-higher finding before advancing.
 | Live inventory ordering proof | current main evidence | Six PostgreSQL migration/snapshot/delta integration cases in a dedicated temporary database | Complete |
 | Semantic agent routing | current main batch | Frozen multilingual charter vectors, zero-call T0 paths, threshold/margin abstention, provider-error fallback | Complete |
 | Agent read-tool parity | current main batch | 30-tool exact-owner registry, timeout and error holds, bounded sensitivity-gated output, policy/evidence attribution, and health counters | Complete |
+| Connected/offline recovery runbooks | current main batch | Protected-plan, signed-kit, and startup-readiness statuses map to safe replacement, fresh evidence, and governed rollback drills | Complete |
+| Deterministic/model cost evidence | current main batch | Frozen runner reports tier share, calls, tokens, latency, cost, abstention, verifier failures, quality, and blocking thresholds | Complete; current evidence fails the release gate |
 
 Every unit passed `scripts/verify.sh --fast`, strict mypy, Ruff, bilingual translation, document
 size, punctuation, customer-scope, catalog, stewardship, architecture, and integrity gates.
@@ -288,8 +350,6 @@ FDAI should not be described as fully ready until these work units meet their ex
 |----------|-----------|----------------|--------------------------|
 | P0 | Public offline trust bootstrap | No production release root is packaged, so shipped inspection cannot authenticate a disconnected kit | Root ceremony completed outside CI; public root packaged in wheel; release-signed kit verifies on a disconnected host; tampered, expired, rollback, and wrong-platform kits fail |
 | P0 | Private-network onboarding acceptance | Component probes and runner IaC exist, but no single acceptance proves bootstrap to observe-ready on the actual isolated runner | Fresh subscription run completes policy preflight, private state bootstrap, exact plan, apply, DNS/TLS/identity/ARG/Event Hubs/PostgreSQL probes, inventory promotion, 15-agent startup, and sanitized handoff report |
-| P1 | Connected/offline recovery runbooks | Success-path onboarding is documented more deeply than plan expiry, rejected-kit replacement, and degraded-readiness recovery | Bilingual runbooks link each stable failure code to a safe retry or rollback; drills prove no stale plan apply, no trust-root override, and no synthetic readiness evidence |
-| P1 | Deterministic/model cost evidence | Tier targets are design goals, not current production measurements | Same frozen scenario set reports T0/T1/T2 share, model calls, latency, cost, abstentions, verifier failures, and outcome quality; regression thresholds gate release |
 
 ## Readiness verdict
 

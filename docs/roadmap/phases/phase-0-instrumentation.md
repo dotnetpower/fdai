@@ -62,6 +62,11 @@ on day one.
    every guard metric (CFR, false-positive, false-negative, rollback, policy-violation escapes)
    so later phases have a guard baseline, not only a success baseline. Report each figure with
    its sample size, confidence interval, and scenario-set version.
+  The observation record also carries tier, latency, model calls, tokens, priced or unpriced
+  cost, abstention, and verifier outcome. Reports aggregate T0/T1/T2 economics.
+  `--require-release-eligible` blocks release below 30 measured scenarios, with incomplete
+  telemetry, routing quality below 0.98, T2 share above 0.15, abstention or verifier failures
+  above 0.15, or any policy-violation escape.
 4. **Identity blocker**: provision and test the external IdP ↔ Entra ↔ Managed Identity
    mapping; verify with a least-privilege probe and schedule recertification. Tie completion to
    the P0 rows in

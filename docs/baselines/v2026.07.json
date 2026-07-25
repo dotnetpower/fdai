@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-17T17:39:27.827148+00:00",
+  "generated_at": "2026-07-25T09:29:07.337839+00:00",
   "reference_agent": "reference-agent-stub@1.0.0",
   "scenario_set_version": "v2026.07",
   "scenario_count": 9,
@@ -39,6 +39,63 @@
     "false_negative_rate": 0.4444444444444444
   },
   "guard_metric_source": "observed reference outcomes",
+  "tier_economics": {
+    "t0": {
+      "count": 0,
+      "share": 0.0,
+      "model_calls": 0,
+      "latency_sample_count": 0,
+      "latency_p50_ms": null,
+      "latency_p95_ms": null,
+      "cost_usd": 0,
+      "unpriced_model_call_count": 0
+    },
+    "t1": {
+      "count": 0,
+      "share": 0.0,
+      "model_calls": 0,
+      "latency_sample_count": 0,
+      "latency_p50_ms": null,
+      "latency_p95_ms": null,
+      "cost_usd": 0,
+      "unpriced_model_call_count": 0
+    },
+    "t2": {
+      "count": 9,
+      "share": 1.0,
+      "model_calls": 0,
+      "latency_sample_count": 0,
+      "latency_p50_ms": null,
+      "latency_p95_ms": null,
+      "cost_usd": 0.0,
+      "unpriced_model_call_count": 0
+    }
+  },
+  "model_economics": {
+    "model_calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cost_usd": 0.0,
+    "unpriced_model_call_count": 0,
+    "cost_per_scenario_usd": 0.0
+  },
+  "quality_evidence": {
+    "routed_correctly_count": 1,
+    "routed_correctly_rate": 0.1111111111111111,
+    "abstention_count": 0,
+    "abstention_rate": 0.0,
+    "verifier_invocation_count": 0,
+    "verifier_failure_count": 0,
+    "verifier_failure_rate": 0.0,
+    "verifier_outcomes": {
+      "not_invoked": 9,
+      "eligible": 0,
+      "abstain": 0,
+      "disagree": 0,
+      "deny": 0,
+      "error": 0
+    }
+  },
   "per_domain": {
     "change": {
       "count": 3,
@@ -57,6 +114,26 @@
       "auto_resolution_rate": 0.0,
       "hil_rate": 1.0,
       "routed_correctly_rate": 0.0
+    }
+  },
+  "release_gate": {
+    "release_eligible": false,
+    "checks": {
+      "minimum_sample_size": false,
+      "metrics_complete": false,
+      "routing_quality": false,
+      "t2_share": false,
+      "abstention_rate": true,
+      "verifier_failure_rate": true,
+      "policy_violation_escape_rate": true
+    },
+    "thresholds": {
+      "minimum_sample_size": 30,
+      "minimum_routing_quality": 0.98,
+      "maximum_t2_share": 0.15,
+      "maximum_abstention_rate": 0.15,
+      "maximum_verifier_failure_rate": 0.15,
+      "maximum_policy_violation_escape_rate": 0.0
     }
   }
 }

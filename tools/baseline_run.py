@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import statistics
 import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -51,6 +52,12 @@ class ScenarioOutcome:
     observed_executed: bool
     observed_rolled_back: bool
     observed_policy_violation: bool
+    latency_ms: float | None
+    model_calls: int
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float | None
+    verifier_outcome: str
 
     @property
     def routed_correctly(self) -> bool:
@@ -80,6 +87,8 @@ def _run(
     observations, reference_agent = _load_observations(observations_path, scenarios)
     outcomes: list[ScenarioOutcome] = []
     for raw in scenarios:
+        latency_ms: float | None
+        cost_usd: float | None
         expected = raw["expected"]
         observed = observations.get(str(raw["id"]))
         predicted_tier: str
@@ -91,6 +100,12 @@ def _run(
             executed = False
             rolled_back = False
             policy_violation = False
+            latency_ms = None
+            model_calls = 0
+            input_tokens = 0
+            output_tokens = 0
+            cost_usd = 0.0
+            verifier_outcome = "not_invoked"
         else:
             predicted_tier = _observed_choice(observed, "predicted_tier", {"t0", "t1", "t2"})
             predicted_decision = _observed_choice(
@@ -101,6 +116,16 @@ def _run(
             executed = _observed_bool(observed, "executed")
             rolled_back = _observed_bool(observed, "rolled_back")
             policy_violation = _observed_bool(observed, "policy_violation")
+            latency_ms = _observed_number(observed, "latency_ms")
+            model_calls = _observed_int(observed, "model_calls")
+            input_tokens = _observed_int(observed, "input_tokens")
+            output_tokens = _observed_int(observed, "output_tokens")
+            cost_usd = _observed_number(observed, "cost_usd", nullable=True)
+            verifier_outcome = _observed_choice(
+                observed,
+                "verifier_outcome",
+                {"not_invoked", "eligible", "abstain", "disagree", "deny", "error"},
+            )
         outcomes.append(
             ScenarioOutcome(
                 scenario_id=raw["id"],
@@ -113,6 +138,12 @@ def _run(
                 observed_executed=executed,
                 observed_rolled_back=rolled_back,
                 observed_policy_violation=policy_violation,
+                latency_ms=latency_ms,
+                model_calls=model_calls,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost_usd,
+                verifier_outcome=verifier_outcome,
             )
         )
 
@@ -159,6 +190,9 @@ def _run(
         },
         "guard_metrics_baseline": _observed_guard_baseline(outcomes),
         "guard_metric_source": "observed reference outcomes",
+        "tier_economics": _tier_economics(outcomes),
+        "model_economics": _model_economics(outcomes),
+        "quality_evidence": _quality_evidence(outcomes),
         "per_domain": {
             domain: {
                 "count": len(items),
@@ -169,7 +203,124 @@ def _run(
             for domain, items in sorted(per_domain.items())
         },
     }
+    summary["release_gate"] = _release_gate(summary)
+    summary["evidence"]["claim_eligible"] = summary["release_gate"]["release_eligible"]
     return outcomes, summary
+
+
+def _tier_economics(outcomes: list[ScenarioOutcome]) -> dict[str, dict[str, Any]]:
+    total = len(outcomes)
+    result: dict[str, dict[str, Any]] = {}
+    for tier in ("t0", "t1", "t2"):
+        rows = [outcome for outcome in outcomes if outcome.predicted_tier == tier]
+        latency = [outcome.latency_ms for outcome in rows if outcome.latency_ms is not None]
+        result[tier] = {
+            "count": len(rows),
+            "share": len(rows) / total if total else 0.0,
+            "model_calls": sum(outcome.model_calls for outcome in rows),
+            "latency_sample_count": len(latency),
+            "latency_p50_ms": statistics.median(latency) if latency else None,
+            "latency_p95_ms": _percentile(latency, 0.95),
+            "cost_usd": _known_cost(rows),
+            "unpriced_model_call_count": sum(
+                outcome.model_calls
+                for outcome in rows
+                if outcome.model_calls and outcome.cost_usd is None
+            ),
+        }
+    return result
+
+
+def _model_economics(outcomes: list[ScenarioOutcome]) -> dict[str, Any]:
+    model_calls = sum(outcome.model_calls for outcome in outcomes)
+    priced_cost = _known_cost(outcomes)
+    unpriced_calls = sum(
+        outcome.model_calls
+        for outcome in outcomes
+        if outcome.model_calls and outcome.cost_usd is None
+    )
+    return {
+        "model_calls": model_calls,
+        "input_tokens": sum(outcome.input_tokens for outcome in outcomes),
+        "output_tokens": sum(outcome.output_tokens for outcome in outcomes),
+        "cost_usd": priced_cost,
+        "unpriced_model_call_count": unpriced_calls,
+        "cost_per_scenario_usd": (
+            priced_cost / len(outcomes) if priced_cost is not None and outcomes else None
+        ),
+    }
+
+
+def _quality_evidence(outcomes: list[ScenarioOutcome]) -> dict[str, Any]:
+    total = len(outcomes)
+    abstentions = sum(outcome.predicted_decision == "abstain" for outcome in outcomes)
+    verifier_invocations = sum(outcome.verifier_outcome != "not_invoked" for outcome in outcomes)
+    verifier_failures = sum(
+        outcome.verifier_outcome in {"abstain", "disagree", "deny", "error"} for outcome in outcomes
+    )
+    return {
+        "routed_correctly_count": sum(outcome.routed_correctly for outcome in outcomes),
+        "routed_correctly_rate": _rate(outcomes, lambda outcome: outcome.routed_correctly),
+        "abstention_count": abstentions,
+        "abstention_rate": abstentions / total if total else 0.0,
+        "verifier_invocation_count": verifier_invocations,
+        "verifier_failure_count": verifier_failures,
+        "verifier_failure_rate": (
+            verifier_failures / verifier_invocations if verifier_invocations else 0.0
+        ),
+        "verifier_outcomes": {
+            outcome: sum(row.verifier_outcome == outcome for row in outcomes)
+            for outcome in ("not_invoked", "eligible", "abstain", "disagree", "deny", "error")
+        },
+    }
+
+
+def _release_gate(summary: Mapping[str, Any]) -> dict[str, Any]:
+    scenario_count = int(summary["scenario_count"])
+    tier_economics = summary["tier_economics"]
+    model_economics = summary["model_economics"]
+    quality = summary["quality_evidence"]
+    latency_complete = (
+        sum(int(item["latency_sample_count"]) for item in tier_economics.values()) == scenario_count
+    )
+    metrics_complete = latency_complete and model_economics["unpriced_model_call_count"] == 0
+    checks = {
+        "minimum_sample_size": scenario_count >= 30,
+        "metrics_complete": metrics_complete,
+        "routing_quality": quality["routed_correctly_rate"] >= 0.98,
+        "t2_share": tier_economics["t2"]["share"] <= 0.15,
+        "abstention_rate": quality["abstention_rate"] <= 0.15,
+        "verifier_failure_rate": quality["verifier_failure_rate"] <= 0.15,
+        "policy_violation_escape_rate": (
+            summary["guard_metrics_baseline"]["policy_violation_escape_rate"] == 0.0
+        ),
+    }
+    return {
+        "release_eligible": all(checks.values()),
+        "checks": checks,
+        "thresholds": {
+            "minimum_sample_size": 30,
+            "minimum_routing_quality": 0.98,
+            "maximum_t2_share": 0.15,
+            "maximum_abstention_rate": 0.15,
+            "maximum_verifier_failure_rate": 0.15,
+            "maximum_policy_violation_escape_rate": 0.0,
+        },
+    }
+
+
+def _known_cost(outcomes: list[ScenarioOutcome]) -> float | None:
+    if any(outcome.model_calls and outcome.cost_usd is None for outcome in outcomes):
+        return None
+    return sum(outcome.cost_usd or 0.0 for outcome in outcomes)
+
+
+def _percentile(values: list[float], quantile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(0, math.ceil(quantile * len(ordered)) - 1)
+    return ordered[rank]
 
 
 def _rate(items: list[ScenarioOutcome], predicate: Any) -> float:
@@ -269,6 +420,22 @@ def _observed_bool(raw: Mapping[str, Any], key: str) -> bool:
     return value
 
 
+def _observed_int(raw: Mapping[str, Any], key: str) -> int:
+    value = raw.get(key)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"reference outcome {key} MUST be a non-negative integer")
+    return value
+
+
+def _observed_number(raw: Mapping[str, Any], key: str, *, nullable: bool = False) -> float | None:
+    value = raw.get(key)
+    if value is None and nullable:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
+        raise ValueError(f"reference outcome {key} MUST be a non-negative number")
+    return float(value)
+
+
 def _render_markdown(summary: Mapping[str, Any]) -> str:
     lines: list[str] = [
         f"# Baseline Report - {summary['scenario_set_version']}",
@@ -316,9 +483,45 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
 
     lines += [
         "",
+        "## Tier Economics",
+        "",
+        "| Tier | Count | Share | Calls | Latency samples | P50 ms | P95 ms | "
+        "Cost USD | Unpriced calls |",
+        "|------|------:|------:|------:|----------------:|-------:|-------:|---------:|---------------:|",
+    ]
+    for tier, metrics in summary["tier_economics"].items():
+        lines.append(_tier_row(tier, metrics))
+
+    quality = summary["quality_evidence"]
+    model = summary["model_economics"]
+    lines += [
+        "",
+        "## Model and Quality Evidence",
+        "",
+        f"- **Model calls**: {model['model_calls']}",
+        f"- **Tokens**: {model['input_tokens']} input, {model['output_tokens']} output",
+        f"- **Total cost (USD)**: {_display_number(model['cost_usd'])}",
+        f"- **Abstentions**: {quality['abstention_count']} ({quality['abstention_rate']:.3f})",
+        f"- **Verifier failures**: {quality['verifier_failure_count']} of "
+        f"{quality['verifier_invocation_count']} ({quality['verifier_failure_rate']:.3f})",
+        f"- **Correct routing**: {quality['routed_correctly_count']} of "
+        f"{summary['scenario_count']} ({quality['routed_correctly_rate']:.3f})",
+        "",
+        "## Release Gate",
+        "",
+        f"- **Release eligible**: `{str(summary['release_gate']['release_eligible']).lower()}`",
+        "",
+        "| Check | Passed |",
+        "|-------|--------|",
+    ]
+    for check, passed in summary["release_gate"]["checks"].items():
+        lines.append(f"| `{check}` | `{str(passed).lower()}` |")
+
+    lines += [
+        "",
         "## Per-Domain Breakdown",
         "",
-        "| Domain | Count | Auto | HIL | Correctly Routed |",
+        "| Domain | Count | Auto | Human approval | Correctly Routed |",
         "|--------|-------|------|-----|------------------|",
     ]
     for domain, stats in summary["per_domain"].items():
@@ -380,9 +583,45 @@ def _render_markdown_ko(summary: Mapping[str, Any], source_sha: str) -> str:
 
     lines += [
         "",
+        "## Tier 경제성",
+        "",
+        "| Tier | 개수 | 비율 | 호출 | Latency 표본 | P50 ms | P95 ms | 비용 USD | "
+        "가격 미확인 호출 |",
+        "|------|-----:|-----:|-----:|-------------:|-------:|-------:|---------:|-----------------:|",
+    ]
+    for tier, metrics in summary["tier_economics"].items():
+        lines.append(_tier_row(tier, metrics))
+
+    quality = summary["quality_evidence"]
+    model = summary["model_economics"]
+    lines += [
+        "",
+        "## 모델과 품질 증거",
+        "",
+        f"- **Model 호출**: {model['model_calls']}",
+        f"- **Token**: input {model['input_tokens']}, output {model['output_tokens']}",
+        f"- **총비용 (USD)**: {_display_number(model['cost_usd'])}",
+        f"- **판단 보류**: {quality['abstention_count']} ({quality['abstention_rate']:.3f})",
+        f"- **Verifier 실패**: {quality['verifier_failure_count']} / "
+        f"{quality['verifier_invocation_count']} ({quality['verifier_failure_rate']:.3f})",
+        f"- **올바른 routing**: {quality['routed_correctly_count']} / "
+        f"{summary['scenario_count']} ({quality['routed_correctly_rate']:.3f})",
+        "",
+        "## Release gate",
+        "",
+        f"- **Release 가능**: `{str(summary['release_gate']['release_eligible']).lower()}`",
+        "",
+        "| Check | 통과 |",
+        "|-------|------|",
+    ]
+    for check, passed in summary["release_gate"]["checks"].items():
+        lines.append(f"| `{check}` | `{str(passed).lower()}` |")
+
+    lines += [
+        "",
         "## 도메인별 분해",
         "",
-        "| 도메인 | 개수 | Auto | HIL | 올바르게 라우팅 |",
+        "| 도메인 | 개수 | Auto | 사람 승인 | 올바르게 라우팅 |",
         "|--------|------|------|-----|------------------|",
     ]
     for domain, stats in summary["per_domain"].items():
@@ -403,6 +642,25 @@ def _write(path: Path | None, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _display_number(value: int | float | None) -> str:
+    return "unpriced" if value is None else f"{float(value):.6f}"
+
+
+def _display_latency(value: int | float | None) -> str:
+    return "unmeasured" if value is None else f"{float(value):.3f}"
+
+
+def _tier_row(tier: str, metrics: Mapping[str, Any]) -> str:
+    return (
+        f"| {tier} | {metrics['count']} | {metrics['share']:.3f} | "
+        f"{metrics['model_calls']} | {metrics['latency_sample_count']} | "
+        f"{_display_latency(metrics['latency_p50_ms'])} | "
+        f"{_display_latency(metrics['latency_p95_ms'])} | "
+        f"{_display_number(metrics['cost_usd'])} | "
+        f"{metrics['unpriced_model_call_count']} |"
+    )
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="baseline-run", description=__doc__)
     parser.add_argument(
@@ -418,6 +676,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
     parser.add_argument("--json", type=Path, help="Write the JSON summary here.")
     parser.add_argument("--report", type=Path, help="Write the Markdown report here.")
+    parser.add_argument(
+        "--require-release-eligible",
+        action="store_true",
+        help="Exit 3 unless every frozen-scenario release threshold passes.",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     _, summary = _run(args.scenarios, args.observations)
@@ -446,7 +709,11 @@ def main(argv: Iterable[str] | None = None) -> int:
         summary_with_source["_source_filename"] = args.report.name
         _write(ko_path, _render_markdown_ko(summary_with_source, source_sha))
 
-    return 0
+    return (
+        3
+        if args.require_release_eligible and not summary["release_gate"]["release_eligible"]
+        else 0
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover - invoked as `python -m tools.baseline_run`
