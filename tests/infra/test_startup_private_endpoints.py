@@ -26,3 +26,5 @@ def test_public_mode_postgres_gets_additive_private_endpoint() -> None:
     assert "var.enable_private_networking && !var.enable_private_postgres" in root
     assert 'subresource_name      = "postgresqlServer"' in root
     assert 'private_dns_zone_name = "privatelink.postgres.database.azure.com"' in root
+    assert "public_network_access_enabled = !var.enable_private_networking" in root
+    assert "allow_azure_services_firewall = !var.enable_private_networking" in root

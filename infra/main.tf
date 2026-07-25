@@ -595,7 +595,8 @@ module "key_vault" {
   public_network_access_enabled = !var.enable_private_networking
   network_acls_default_action   = var.enable_private_networking ? "Deny" : "Allow"
 
-  # Hardening knobs (default to dev posture; tighten via tfvars for prod).
+  # Private networking always closes the public plane. Production can use a
+  # delegated subnet; dev keeps its existing private endpoint and private DNS.
   purge_protection_enabled   = var.kv_purge_protection_enabled
   soft_delete_retention_days = var.kv_soft_delete_retention_days
 }
@@ -1121,8 +1122,8 @@ module "state_store" {
   backup_retention_days         = var.postgres_backup_retention_days
   geo_redundant_backup_enabled  = var.postgres_geo_redundant_backup
   high_availability_mode        = var.postgres_high_availability_mode
-  public_network_access_enabled = !var.enable_private_postgres
-  allow_azure_services_firewall = !var.enable_private_postgres
+  public_network_access_enabled = !var.enable_private_networking
+  allow_azure_services_firewall = !var.enable_private_networking
   delegated_subnet_id           = var.enable_private_postgres ? module.network[0].postgres_subnet_id : null
   private_dns_zone_id           = var.enable_private_postgres ? azurerm_private_dns_zone.postgres[0].id : null
 

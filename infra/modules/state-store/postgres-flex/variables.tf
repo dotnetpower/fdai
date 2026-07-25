@@ -61,12 +61,9 @@ variable "tags" {
 
 variable "allow_azure_services_firewall" {
   description = <<-EOT
-    When true (day-zero default), install a firewall rule that lets any
-    Microsoft-owned outbound IP reach the server. Required for the
-    Container App we wire in `infra/main.tf` to open a connection at all;
-    turning this off without also wiring a `delegated_subnet_id` will make
-    every `FDAI_*_DSN` path fall back to in-memory silently. Flip to
-    false only after the VNet-integrated variant is in place.
+    When true, install a firewall rule that lets Microsoft-owned outbound IPs
+    reach the public server. Private endpoint and delegated-subnet deployments
+    keep this false.
   EOT
   type        = bool
   default     = true
@@ -77,7 +74,7 @@ variable "allow_azure_services_firewall" {
 # flip these once a private endpoint or VNet integration is in place.
 # ---------------------------------------------------------------------------
 variable "public_network_access_enabled" {
-  description = "When false, Postgres refuses every public-plane connection. Requires delegated_subnet_id and private_dns_zone_id."
+  description = "When false, Postgres refuses public-plane connections. Use a delegated subnet or approved private endpoint and private DNS."
   type        = bool
   default     = true
 }

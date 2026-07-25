@@ -76,6 +76,9 @@ Key Vault privately. The runner is the terraform apply principal, so the existin
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
 DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml)
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
+When private networking is enabled, PostgreSQL public access and the broad Azure-services firewall
+are disabled. Dev uses its approved private endpoint; delegated-subnet mode remains available for
+production.
 Protected requests checkout `commit_sha` explicitly and compare it with `git rev-parse HEAD`, so a
 release commit that advances `main` between dispatch and execution cannot change plan or apply code.
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function

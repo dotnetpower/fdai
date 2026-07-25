@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e6e136111c144b65db016fd062302d6ecabe97e5
+translation_source_sha: 0aea0178aeb08a5d61365cbed6610063f949f870
 translation_revised: 2026-07-25
 ---
 
@@ -79,6 +79,9 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 step은 Azure C
 `Key Vault Secrets Officer` 로 만든다 - apply 중 DSN 시크릿을 write 한다. 배포는
 `[self-hosted, fdai-deploy]` 러너 위에서 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)
 로 실행한다(기본 plan-only; `apply` 입력이 enforce).
+Private networking이 enabled이면 PostgreSQL public access와 broad Azure-services firewall을
+비활성화합니다. Dev는 approved private endpoint를 사용하고 production은 delegated-subnet mode를
+계속 선택할 수 있습니다.
 Protected request는 `commit_sha`를 명시적으로 checkout하고 `git rev-parse HEAD`와 비교합니다.
 따라서 dispatch와 execution 사이에 release commit이 `main`을 이동해도 plan 또는 apply code가
 바뀌지 않습니다.
