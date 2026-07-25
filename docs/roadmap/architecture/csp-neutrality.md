@@ -71,6 +71,13 @@ same code path serve every target.
   180,000 ms and rejects values at or above 240,000 ms. This follows the
   [Event Hubs Kafka client configuration](https://learn.microsoft.com/azure/event-hubs/apache-kafka-configurations)
   constraint and prevents reuse of sockets the managed broker already closed.
+- The same adapter sets the documented Event Hubs producer request timeout to 60,000 ms, caps
+  requests at 1,000,000 bytes, keeps the consumer heartbeat/session pair at 3,000/30,000 ms, and
+  uses a one-second retry backoff after transport failures. Because aiokafka's OAUTHBEARER seam
+  accepts only the token string, the adapter retains the injected `IdentityToken.expires_at` and
+  deterministically staggers consumer restarts 30-45 seconds before expiry. The restart occurs
+  between polls, never across caller processing, and preserves commit-after-yield at-least-once
+  delivery.
 - The event schema uses **CloudEvents envelope** on top of JSON Schema
   ([tech-stack.md](tech-stack.md)); this stays identical across providers.
 - **Schema evolution** is guarded by `check_schema_compatibility`

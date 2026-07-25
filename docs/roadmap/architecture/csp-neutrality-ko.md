@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 817ebb347cd6851e26809bd273d0f685fb97fce0
+translation_source_sha: c30461b78a134ad7de9dc29faf4274e525411177
 translation_revised: 2026-07-26
 ---
 
@@ -73,6 +73,12 @@ seam):
   180,000 ms로 설정하고 240,000 ms 이상 값을 차단합니다. 이 값은
   [Event Hubs Kafka client configuration](https://learn.microsoft.com/azure/event-hubs/apache-kafka-configurations)
   제약을 따르며 managed broker가 이미 닫은 socket의 재사용을 방지합니다.
+- 같은 adapter는 문서화된 Event Hubs producer request timeout을 60,000 ms로 설정하고 request를
+  1,000,000 byte로 제한하며 consumer heartbeat/session pair를 3,000/30,000 ms로 유지하고 transport
+  failure 후 1초 retry backoff를 적용합니다. aiokafka OAUTHBEARER seam은 token string만 받으므로
+  adapter가 주입된 `IdentityToken.expires_at`을 보존하고 expiry 30-45초 전에 consumer restart를
+  결정적으로 분산합니다. Restart는 poll 사이에서만 일어나 caller processing을 가로지르지 않으며
+  commit-after-yield at-least-once delivery를 보존합니다.
 - 이벤트 스키마는 JSON Schema 위에 **CloudEvents envelope** 사용
   ([tech-stack-ko.md](tech-stack-ko.md)); 모든 프로바이더에서 동일 유지.
 - **스키마 진화** 는 `check_schema_compatibility`

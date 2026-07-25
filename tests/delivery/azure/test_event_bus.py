@@ -13,6 +13,7 @@ exercise the wire-adapter code paths that do not need a broker:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -28,6 +29,7 @@ from fdai.delivery.azure.event_bus import (
     _encode,  # type: ignore[attr-defined]
     _EntraTokenProvider,  # type: ignore[attr-defined]
     _iter_consumer,  # type: ignore[attr-defined]
+    _token_refresh_delay,  # type: ignore[attr-defined]
 )
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
@@ -76,6 +78,15 @@ def test_config_rejects_invalid_auto_offset_reset() -> None:
         ({"connections_max_idle_ms": 240_000}, "connections_max_idle_ms"),
         ({"metadata_max_age_ms": 0}, "metadata_max_age_ms"),
         ({"metadata_max_age_ms": 240_000}, "metadata_max_age_ms"),
+        ({"request_timeout_ms": 59_999}, "request_timeout_ms"),
+        ({"retry_backoff_ms": 999}, "retry_backoff_ms"),
+        ({"max_request_size": 0}, "max_request_size"),
+        ({"max_request_size": 1_000_001}, "max_request_size"),
+        ({"token_refresh_margin_seconds": 0}, "token_refresh_margin_seconds"),
+        (
+            {"token_refresh_margin_seconds": 10, "token_refresh_jitter_seconds": 10},
+            "token_refresh_jitter_seconds",
+        ),
     ),
 )
 def test_config_rejects_unsafe_transport_values(
@@ -91,6 +102,10 @@ def test_config_defaults_stay_below_event_hubs_idle_close_window() -> None:
 
     assert config.connections_max_idle_ms == 180_000
     assert config.metadata_max_age_ms == 180_000
+    assert config.heartbeat_interval_ms == 3_000
+    assert config.request_timeout_ms == 60_000
+    assert config.retry_backoff_ms == 1_000
+    assert config.max_request_size == 1_000_000
 
 
 def test_encode_produces_deterministic_bytes() -> None:
@@ -133,6 +148,7 @@ async def test_entra_token_provider_delegates_to_workload_identity() -> None:
     provider = _EntraTokenProvider(identity, "https://evhns-test.servicebus.windows.net/.default")
     token = await provider.token()
     assert token == "entra-token-abc"
+    assert provider.expires_at is not None
     # Namespace-scoped audience - Event Hubs rejects a generic
     # `https://eventhubs.azure.net` aud with `Invalid tenant name`.
     assert identity.calls == ["https://evhns-test.servicebus.windows.net/.default"]
@@ -273,6 +289,9 @@ async def test_producer_receives_event_hubs_safe_connection_windows(
 
     assert captured["connections_max_idle_ms"] == 180_000
     assert captured["metadata_max_age_ms"] == 180_000
+    assert captured["request_timeout_ms"] == 60_000
+    assert captured["retry_backoff_ms"] == 1_000
+    assert captured["max_request_size"] == 1_000_000
 
 
 @pytest.mark.asyncio
@@ -284,18 +303,16 @@ async def test_consumer_receives_event_hubs_safe_connection_windows(
     class _RecordingConsumer:
         def __init__(self, *_args: object, **kwargs: object) -> None:
             captured.update(kwargs)
+            self.provider = kwargs["sasl_oauth_token_provider"]
 
         async def start(self) -> None:
-            return None
+            await self.provider.token()
 
         async def stop(self) -> None:
             return None
 
-        def __aiter__(self) -> _RecordingConsumer:
-            return self
-
-        async def __anext__(self) -> object:
-            raise StopAsyncIteration
+        async def getone(self) -> object:
+            raise RuntimeError("consumer complete")
 
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
     iterator = _iter_consumer(
@@ -306,11 +323,88 @@ async def test_consumer_receives_event_hubs_safe_connection_windows(
         audience="https://evhns.servicebus.windows.net/.default",
     )
 
-    with pytest.raises(StopAsyncIteration):
+    with pytest.raises(RuntimeError, match="consumer complete"):
         await anext(iterator)
 
     assert captured["connections_max_idle_ms"] == 180_000
     assert captured["metadata_max_age_ms"] == 180_000
+    assert captured["heartbeat_interval_ms"] == 3_000
+    assert captured["request_timeout_ms"] == 60_000
+    assert captured["retry_backoff_ms"] == 1_000
+
+
+def test_token_refresh_delay_is_stable_and_before_expiry() -> None:
+    provider = _EntraTokenProvider(_StaticIdentity(), "audience")
+    provider.expires_at = datetime.now(tz=UTC) + timedelta(minutes=10)
+    config = _cfg()
+
+    first = _token_refresh_delay(token_provider=provider, group_id="group-a", config=config)
+    second = _token_refresh_delay(token_provider=provider, group_id="group-a", config=config)
+
+    assert 555 <= first <= 570
+    assert abs(first - second) < 0.1
+
+
+@pytest.mark.asyncio
+async def test_consumer_restarts_before_token_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
+    instances: list[_RefreshingConsumer] = []
+
+    class _ExpiringIdentity(WorkloadIdentity):
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def get_token(self, audience: str) -> IdentityToken:
+            self.calls += 1
+            ttl = 0.05 if self.calls == 1 else 3_600
+            return IdentityToken(
+                token=f"token-{self.calls}",
+                expires_at=datetime.now(tz=UTC) + timedelta(seconds=ttl),
+                audience=audience,
+            )
+
+    class _RefreshingConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            self.provider = kwargs["sasl_oauth_token_provider"]
+            self.index = len(instances)
+            self.stopped = False
+            instances.append(self)
+
+        async def start(self) -> None:
+            await self.provider.token()
+
+        async def stop(self) -> None:
+            self.stopped = True
+
+        async def getone(self) -> object:
+            if self.index == 0:
+                await asyncio.Future()
+            return SimpleNamespace(
+                key=b"event-1",
+                value=b'{"event_id":"event-1"}',
+                topic="aw.control.canary",
+                offset=7,
+            )
+
+        async def commit(self) -> None:
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RefreshingConsumer)
+    identity = _ExpiringIdentity()
+    iterator = _iter_consumer(
+        topic="aw.control.canary",
+        group_id="fdai-canary",
+        config=_cfg(token_refresh_margin_seconds=0.04, token_refresh_jitter_seconds=0),
+        identity=identity,
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    envelope = await asyncio.wait_for(anext(iterator), timeout=1)
+    await iterator.aclose()
+
+    assert envelope.offset == 7
+    assert identity.calls == 2
+    assert len(instances) == 2
+    assert all(instance.stopped for instance in instances)
 
 
 @pytest.mark.asyncio

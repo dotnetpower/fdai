@@ -6,22 +6,22 @@ OAUTHBEARER with a token issued by an injected ``WorkloadIdentity``,
 so composition-root swaps between the Managed-Identity adapter (prod)
 and a fake (dev/tests).
 
-Note: aiokafka's OAUTHBEARER hook expects a synchronous ``token_provider``
-callable that returns a ``(token, expires_epoch)`` tuple. This adapter
-warms the token cache eagerly at ``start()`` and refreshes at each
-producer/consumer bootstrap. Long-running consumers rely on the SASL
-extension's built-in reconnect + reauth loop; the token endpoint is
-called again automatically when the broker rejects an expired token.
+Note: aiokafka's OAUTHBEARER hook returns only the token string, so it cannot
+schedule reauthentication from the token expiry. This adapter retains the
+injected ``IdentityToken.expires_at`` and recycles long-running consumers before
+expiry; each new connection calls the token source again.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import ssl
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, ClassVar, Final
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -82,7 +82,7 @@ class EventHubsKafkaBusConfig:
     """Advertised client id - no functional impact, aids broker logs."""
 
     session_timeout_ms: int = 30_000
-    heartbeat_interval_ms: int = 10_000
+    heartbeat_interval_ms: int = 3_000
     dlq_suffix: str = ".dlq"
     """Kafka has no native DLQ; ``<topic>.dlq`` is the convention documented
     in csp-neutrality.md § 1. MUST match ``KafkaConfig.topic_dlq_suffix``."""
@@ -103,7 +103,23 @@ class EventHubsKafkaBusConfig:
     metadata_max_age_ms: int = 180_000
     """Refresh metadata before the same Event Hubs 240-second connection window."""
 
+    request_timeout_ms: int = 60_000
+    """Event Hubs recommendation for idempotent producer requests."""
+
+    retry_backoff_ms: int = 1_000
+    """Bound reconnect retries after a broker or network interruption."""
+
+    max_request_size: int = 1_000_000
+    """Stay below the Event Hubs 1,046,528-byte request ceiling."""
+
+    token_refresh_margin_seconds: float = 45.0
+    token_refresh_jitter_seconds: float = 15.0
+    """Recycle consumers 30-45 seconds before their Entra token expires."""
+
     _EVENT_HUBS_IDLE_CLOSE_MS: ClassVar[int] = 240_000
+    _EVENT_HUBS_REQUEST_TIMEOUT_FLOOR_MS: ClassVar[int] = 60_000
+    _EVENT_HUBS_MAX_REQUEST_SIZE: ClassVar[int] = 1_000_000
+    _MIN_RETRY_BACKOFF_MS: ClassVar[int] = 1_000
 
     def __post_init__(self) -> None:
         if self.auto_offset_reset not in {"earliest", "latest"}:
@@ -126,6 +142,19 @@ class EventHubsKafkaBusConfig:
                 "metadata_max_age_ms MUST be positive and below the "
                 "Event Hubs 240000 ms idle-close window"
             )
+        if self.request_timeout_ms < self._EVENT_HUBS_REQUEST_TIMEOUT_FLOOR_MS:
+            raise ValueError("request_timeout_ms MUST be at least 60000 ms")
+        if self.retry_backoff_ms < self._MIN_RETRY_BACKOFF_MS:
+            raise ValueError("retry_backoff_ms MUST be at least 1000 ms")
+        if not 0 < self.max_request_size <= self._EVENT_HUBS_MAX_REQUEST_SIZE:
+            raise ValueError("max_request_size MUST be in [1, 1000000]")
+        if self.token_refresh_margin_seconds <= 0:
+            raise ValueError("token_refresh_margin_seconds MUST be positive")
+        if not 0 <= self.token_refresh_jitter_seconds < self.token_refresh_margin_seconds:
+            raise ValueError(
+                "token_refresh_jitter_seconds MUST be non-negative and less than "
+                "token_refresh_margin_seconds"
+            )
 
 
 class _EntraTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
@@ -134,9 +163,11 @@ class _EntraTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
     def __init__(self, identity: WorkloadIdentity, audience: str) -> None:
         self._identity = identity
         self._audience = audience
+        self.expires_at: datetime | None = None
 
     async def token(self) -> str:
         entra = await self._identity.get_token(self._audience)
+        self.expires_at = entra.expires_at
         return entra.token
 
 
@@ -175,6 +206,9 @@ class EventHubsKafkaBus(EventBus):
                     acks="all",
                     connections_max_idle_ms=self._config.connections_max_idle_ms,
                     metadata_max_age_ms=self._config.metadata_max_age_ms,
+                    request_timeout_ms=self._config.request_timeout_ms,
+                    retry_backoff_ms=self._config.retry_backoff_ms,
+                    max_request_size=self._config.max_request_size,
                 )
                 try:
                     await producer.start()
@@ -271,41 +305,74 @@ async def _iter_consumer(
     audience: str,
 ) -> AsyncIterator[EventEnvelope]:
     """Own its consumer lifecycle so the caller only sees the envelopes."""
-    consumer = AIOKafkaConsumer(
-        topic,
-        bootstrap_servers=config.bootstrap_servers,
-        group_id=group_id,
-        client_id=config.client_id,
-        security_protocol="SASL_SSL",
-        sasl_mechanism="OAUTHBEARER",
-        sasl_oauth_token_provider=_EntraTokenProvider(identity, audience),
-        ssl_context=_default_ssl_context(),
-        api_version="2.0.0",
-        session_timeout_ms=config.session_timeout_ms,
-        heartbeat_interval_ms=config.heartbeat_interval_ms,
-        enable_auto_commit=False,
-        auto_offset_reset=config.auto_offset_reset,
-        connections_max_idle_ms=config.connections_max_idle_ms,
-        metadata_max_age_ms=config.metadata_max_age_ms,
-    )
-    try:
-        await consumer.start()
-        async for message in consumer:
-            key = _decode_key(message.key)
-            payload = _decode(message.value, topic=message.topic, key=key)
-            yield EventEnvelope(
-                topic=message.topic,
-                key=key,
-                payload=payload,
-                offset=message.offset,
+    while True:
+        token_provider = _EntraTokenProvider(identity, audience)
+        consumer = AIOKafkaConsumer(
+            topic,
+            bootstrap_servers=config.bootstrap_servers,
+            group_id=group_id,
+            client_id=config.client_id,
+            security_protocol="SASL_SSL",
+            sasl_mechanism="OAUTHBEARER",
+            sasl_oauth_token_provider=token_provider,
+            ssl_context=_default_ssl_context(),
+            api_version="2.0.0",
+            session_timeout_ms=config.session_timeout_ms,
+            heartbeat_interval_ms=config.heartbeat_interval_ms,
+            enable_auto_commit=False,
+            auto_offset_reset=config.auto_offset_reset,
+            connections_max_idle_ms=config.connections_max_idle_ms,
+            metadata_max_age_ms=config.metadata_max_age_ms,
+            request_timeout_ms=config.request_timeout_ms,
+            retry_backoff_ms=config.retry_backoff_ms,
+        )
+        try:
+            await consumer.start()
+            refresh_at = asyncio.get_running_loop().time() + _token_refresh_delay(
+                token_provider=token_provider,
+                group_id=group_id,
+                config=config,
             )
-            # At-least-once: commit only after the caller finished iterating
-            # to the yield point. If the caller crashes mid-processing, the
-            # broker will redeliver the message and the ControlLoop's
-            # idempotency_key dedupe will make the retry a no-op.
-            await consumer.commit()
-    finally:
-        await consumer.stop()
+            while True:
+                remaining = refresh_at - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    break
+                try:
+                    message = await asyncio.wait_for(consumer.getone(), timeout=remaining)
+                except TimeoutError:
+                    break
+                key = _decode_key(message.key)
+                payload = _decode(message.value, topic=message.topic, key=key)
+                yield EventEnvelope(
+                    topic=message.topic,
+                    key=key,
+                    payload=payload,
+                    offset=message.offset,
+                )
+                # At-least-once: commit only after the caller finished iterating
+                # to the yield point. If the caller crashes mid-processing, the
+                # broker will redeliver the message and the ControlLoop's
+                # idempotency_key dedupe will make the retry a no-op.
+                await consumer.commit()
+            _LOGGER.debug("event_bus_consumer_token_refresh", extra={"group_id": group_id})
+        finally:
+            await consumer.stop()
+
+
+def _token_refresh_delay(
+    *,
+    token_provider: _EntraTokenProvider,
+    group_id: str,
+    config: EventHubsKafkaBusConfig,
+) -> float:
+    expires_at = token_provider.expires_at
+    if expires_at is None:
+        raise RuntimeError("OAUTHBEARER provider did not record token expiry during startup")
+    digest = hashlib.sha256(group_id.encode("utf-8")).digest()
+    fraction = int.from_bytes(digest[:8], "big") / ((1 << 64) - 1)
+    jitter = fraction * config.token_refresh_jitter_seconds
+    ttl = (expires_at - datetime.now(tz=UTC)).total_seconds()
+    return max(0.1, ttl - config.token_refresh_margin_seconds + jitter)
 
 
 async def _stop_after_failure(client: Any, *, operation: str) -> None:
