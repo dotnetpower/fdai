@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a633cea46dea3ee810aa4688782796f604a35d58
+translation_source_sha: a556d909445e3c3053d57bd86fdbc3bb6b5f0e18
 translation_revised: 2026-07-26
 ---
 # 코드 맵
@@ -116,6 +116,7 @@ shared 패키지를 커버한다.
 | rule_catalog_profiles | 프로파일 / 팩 레이어 + `extends` 오버라이드 | [src/fdai/core/rule_catalog_profiles/](../../../src/fdai/core/rule_catalog_profiles/) | [tests/core/rule_catalog_profiles/](../../../tests/core/rule_catalog_profiles/) |
 | deploy_preflight | 배포 전 실현성 프로브 | [src/fdai/core/deploy_preflight/](../../../src/fdai/core/deploy_preflight/) | [tests/core/deploy_preflight/](../../../tests/core/deploy_preflight/) |
 | onboarding | 테넌트 / 환경 온보딩 흐름 | [src/fdai/core/onboarding/](../../../src/fdai/core/onboarding/) | [tests/core/](../../../tests/core/) |
+| runtime_bootstrap | 프로세스 composition 및 long-running task orchestration, configuration, health-server, required-task, main, shutdown-signal boundary를 격리한 lifecycle helper | [src/fdai/runtime/bootstrap.py](../../../src/fdai/runtime/bootstrap.py), [src/fdai/runtime/bootstrap_lifecycle.py](../../../src/fdai/runtime/bootstrap_lifecycle.py) | [tests/runtime/test_bootstrap_config.py](../../../tests/runtime/test_bootstrap_config.py) |
 | readiness | 운영 handoff, deterministic startup probe, agent 소유 monitored-target readiness의 fail-closed reduction, evidence expiry, authority ceiling 및 durable transition ([설계](../operations/startup-and-lifecycle-ko.md)) | [src/fdai/core/readiness/](../../../src/fdai/core/readiness/), [src/fdai/runtime/readiness.py](../../../src/fdai/runtime/readiness.py), [src/fdai/delivery/startup_probe.py](../../../src/fdai/delivery/startup_probe.py) 및 [src/fdai/delivery/analyzer_tick_cli.py](../../../src/fdai/delivery/analyzer_tick_cli.py) | [tests/core/readiness/](../../../tests/core/readiness/), [tests/agents/test_detection_readiness.py](../../../tests/agents/test_detection_readiness.py), [tests/runtime/test_readiness.py](../../../tests/runtime/test_readiness.py) 및 [tests/delivery/test_analyzer_tick_cli.py](../../../tests/delivery/test_analyzer_tick_cli.py) |
 | assurance_twin | Read-only 온톨로지 트윈 (실행 금지) | [src/fdai/core/assurance_twin/](../../../src/fdai/core/assurance_twin/) | [tests/core/assurance_twin/](../../../tests/core/assurance_twin/) |
 | architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |

@@ -12,6 +12,7 @@ from fdai.runtime.bootstrap import (
     _build_runtime_workload_identity,
     _case_history_identity_client_id,
     _raise_required_task_failure,
+    _run_main,
 )
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -145,3 +146,17 @@ async def test_required_runtime_task_failure_is_not_swallowed() -> None:
         _raise_required_task_failure({task})
     assert isinstance(captured.value.__cause__, RuntimeError)
     assert str(captured.value.__cause__) == "retention publisher unavailable"
+
+
+def test_runtime_main_returns_async_result() -> None:
+    async def complete() -> int:
+        return 7
+
+    assert _run_main(complete) == 7
+
+
+def test_runtime_main_maps_keyboard_interrupt_to_clean_exit() -> None:
+    async def interrupted() -> int:
+        raise KeyboardInterrupt
+
+    assert _run_main(interrupted) == 0

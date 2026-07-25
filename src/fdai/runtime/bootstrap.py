@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import signal
 from pathlib import Path
 from typing import Any, cast
 
@@ -14,10 +13,7 @@ import httpx
 from fdai.agents import (
     OWNED_OBJECT_TOPICS,
     PantheonRuntime,
-    Saga,
-    SemanticRouterConfig,
     ShadowDivergenceLedger,
-    StateStoreAuditChainAdapter,
 )
 from fdai.composition import (
     LlmBindings,
@@ -48,6 +44,27 @@ from fdai.runtime.bootstrap_bindings import (
 )
 from fdai.runtime.bootstrap_bindings import (
     operational_event_bus as _operational_event_bus,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    build_runtime_saga as _build_runtime_saga,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    install_shutdown_signals as _install_shutdown_signals,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    raise_required_task_failure as _raise_required_task_failure,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    run_main as _run_main,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    runtime_positive_integer as _runtime_positive_integer,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    semantic_router_config_from_env as _semantic_router_config_from_env,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    start_health_server as _start_health_server,
 )
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
@@ -99,46 +116,10 @@ from fdai.runtime.readiness import (
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
-
-
-def _semantic_router_config_from_env() -> SemanticRouterConfig:
-    def setting(name: str, default: float) -> float:
-        raw = os.environ.get(name, "").strip()
-        if not raw:
-            return default
-        try:
-            return float(raw)
-        except ValueError as exc:
-            raise RuntimeError(f"{name} MUST be a float") from exc
-
-    return SemanticRouterConfig(
-        cosine_threshold=setting("FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD", 0.65),
-        margin_threshold=setting("FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD", 0.08),
-    )
-
-
-def _build_runtime_saga(state_store: StateStore) -> Saga:
-    return Saga(audit_chain=StateStoreAuditChainAdapter(store=state_store))
-
-
-def _raise_required_task_failure(done: set[asyncio.Task[Any]]) -> None:
-    for task in done:
-        if task.cancelled():
-            continue
-        failure = task.exception()
-        if failure is None:
-            continue
-        _LOGGER.error(
-            "required_runtime_task_failed",
-            extra={"task": task.get_name()},
-            exc_info=failure,
-        )
-        raise RuntimeError(f"required runtime task failed: {task.get_name()}") from failure
 
 
 async def _run() -> int:
@@ -583,34 +564,11 @@ async def _run() -> int:
             # than silently no-op so a miswired container is visible.
             _LOGGER.warning("pantheon_requested_without_consumer")
 
-        health_port_raw = os.environ.get("FDAI_HEALTH_PORT", "").strip()
-        if health_port_raw:
-            if control_loop is None:
-                raise RuntimeError(
-                    "FDAI_HEALTH_PORT requires a ready control loop; set FDAI_START_CONSUMER=1"
-                )
-            try:
-                health_port = int(health_port_raw)
-            except ValueError as port_error:
-                raise RuntimeError("FDAI_HEALTH_PORT MUST be an integer") from port_error
-            if startup_readiness_runtime is None:
-                raise RuntimeError("FDAI_HEALTH_PORT requires startup readiness composition")
-            health_server = RuntimeHealthServer(
-                port=health_port,
-                readiness=startup_readiness_runtime.state.is_ready,
-            )
-            await health_server.start()
-            _LOGGER.info("health_server_ready", extra={"port": health_port})
-
-        stop = asyncio.Event()
-        loop = asyncio.get_running_loop()
-
-        def _signal_stop(signame: str) -> None:
-            _LOGGER.info("shutdown_signal", extra={"signal": signame})
-            stop.set()
-
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, _signal_stop, sig.name)
+        health_server = await _start_health_server(
+            control_loop=control_loop,
+            startup_readiness=startup_readiness_runtime,
+        )
+        stop = _install_shutdown_signals()
 
         if bus is not None and control_loop is not None and startup_readiness_runtime is not None:
             readiness_refresh_task = asyncio.create_task(
@@ -832,27 +790,5 @@ async def _run() -> int:
                 _LOGGER.warning("http_client_close_failed", exc_info=True)
 
 
-def _runtime_positive_integer(values: dict[str, object], key: str) -> int:
-    value = values.get(key)
-    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
-        raise RuntimeError(f"effective runtime setting {key} is invalid")
-    return value
-
-
 def main() -> int:
-    # Bootstrap the plain-text formatter for the tiny window before
-    # `default_container_from_env()` swaps in the marked JSON handler via
-    # `configure_telemetry`. `force=True` guarantees that if the caller
-    # already installed a root handler (uvicorn, pytest fixtures) we
-    # override cleanly instead of stacking - otherwise every log line
-    # would emit twice, once as plain text and once as JSON, once the
-    # composition root wires the JSON formatter.
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)sZ %(levelname)s %(name)s :: %(message)s",
-        force=True,
-    )
-    try:
-        return asyncio.run(_run())
-    except KeyboardInterrupt:
-        return 0
+    return _run_main(_run)
