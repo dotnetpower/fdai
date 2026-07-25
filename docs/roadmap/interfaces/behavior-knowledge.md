@@ -61,7 +61,8 @@ Source bodies are not part of chat evidence. A normal answer may show the path, 
 blob hash, and indexed commit, but not raw code.
 
 When a cited test grows or moves, the seed updates its exact symbol line range in the same change;
-the freshness test rejects a stale range even when the path and blob are otherwise current.
+line-only movement still requires that update. The freshness test rejects a stale range even when
+the path and blob are otherwise current.
 
 ## Retrieval and authority
 
