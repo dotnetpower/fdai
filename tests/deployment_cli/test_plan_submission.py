@@ -268,8 +268,10 @@ def test_cli_apply_emits_opaque_submission(
 ) -> None:
     config_path = tmp_path / "environment.json"
     _write_environment(config_path)
+    apply_arguments: dict[str, object] = {}
 
-    async def fake_apply(**_: object) -> ApplySubmissionResult:
+    async def fake_apply(**arguments: object) -> ApplySubmissionResult:
+        apply_arguments.update(arguments)
         return ApplySubmissionResult(
             plan_id="plan-789-1",
             submission_id="790",
@@ -294,6 +296,7 @@ def test_cli_apply_emits_opaque_submission(
             "a" * 64,
             "--commit-sha",
             "b" * 40,
+            "--resume-verification",
             "--output",
             "json",
         ],
@@ -308,6 +311,7 @@ def test_cli_apply_emits_opaque_submission(
         "submission_id",
         "workflow_url",
     }
+    assert apply_arguments["resume_verification"] is True
 
 
 async def test_apply_expired_metadata_never_dispatches(tmp_path: Path) -> None:

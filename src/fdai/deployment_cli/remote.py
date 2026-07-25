@@ -106,6 +106,7 @@ class DeploymentWorkflowTransport(Protocol):
         plan_id: str,
         plan_digest: str,
         context: DeploymentPlanContext,
+        resume_verification: bool = False,
     ) -> DeploymentSubmission: ...
 
 
@@ -128,13 +129,20 @@ class RemoteDeploymentService:
         plan_id: str,
         expected_context: DeploymentPlanContext,
         now: datetime,
+        resume_verification: bool = False,
     ) -> DeploymentSubmission:
         record = await self._transport.get_plan(plan_id)
-        validate_exact_plan(record, expected_context=expected_context, now=now)
+        validate_exact_plan(
+            record,
+            expected_context=expected_context,
+            now=now,
+            resume_verification=resume_verification,
+        )
         return await self._transport.submit_apply(
             plan_id=record.plan_id,
             plan_digest=record.plan_digest,
             context=expected_context,
+            resume_verification=resume_verification,
         )
 
 
@@ -162,10 +170,15 @@ def validate_exact_plan(
     *,
     expected_context: DeploymentPlanContext,
     now: datetime,
+    resume_verification: bool = False,
 ) -> None:
     """Block apply unless the stored ready plan exactly matches current intent."""
-    if record.status is not PlanStatus.READY:
-        raise RemoteDeploymentError(f"plan is not ready for apply (status={record.status.value})")
+    required_status = PlanStatus.APPLYING if resume_verification else PlanStatus.READY
+    if record.status is not required_status:
+        operation = "verification resume" if resume_verification else "apply"
+        raise RemoteDeploymentError(
+            f"plan is not ready for {operation} (status={record.status.value})"
+        )
     if now >= record.expires_at:
         raise RemoteDeploymentError("plan has expired")
     expected_digest = deployment_context_digest(expected_context)

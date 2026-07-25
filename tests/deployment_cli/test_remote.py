@@ -110,10 +110,27 @@ def test_apply_guard_rejects_mismatched_digest_only_metadata() -> None:
         validate_exact_plan(record, expected_context=_context(), now=_NOW)
 
 
+def test_verification_resume_requires_matching_applying_claim() -> None:
+    validate_exact_plan(
+        _record(status=PlanStatus.APPLYING),
+        expected_context=_context(),
+        now=_NOW,
+        resume_verification=True,
+    )
+
+    with pytest.raises(RemoteDeploymentError, match="verification resume"):
+        validate_exact_plan(
+            _record(status=PlanStatus.READY),
+            expected_context=_context(),
+            now=_NOW,
+            resume_verification=True,
+        )
+
+
 class _Transport:
     def __init__(self, record: DeploymentPlanRecord) -> None:
         self.record = record
-        self.apply_calls: list[tuple[str, str, DeploymentPlanContext]] = []
+        self.apply_calls: list[tuple[str, str, DeploymentPlanContext, bool]] = []
 
     async def submit_plan(self, context: DeploymentPlanContext) -> DeploymentSubmission:
         return DeploymentSubmission("submission-plan", "https://example.com/workflows/plan")
@@ -128,8 +145,9 @@ class _Transport:
         plan_id: str,
         plan_digest: str,
         context: DeploymentPlanContext,
+        resume_verification: bool = False,
     ) -> DeploymentSubmission:
-        self.apply_calls.append((plan_id, plan_digest, context))
+        self.apply_calls.append((plan_id, plan_digest, context, resume_verification))
         return DeploymentSubmission("submission-apply", "https://example.com/workflows/apply")
 
 
@@ -144,7 +162,22 @@ async def test_service_submits_stored_digest_and_context_only_after_guard() -> N
     )
 
     assert result.submission_id == "submission-apply"
-    assert transport.apply_calls == [("plan-1", "c" * 64, _context())]
+    assert transport.apply_calls == [("plan-1", "c" * 64, _context(), False)]
+
+
+async def test_service_resumes_verification_without_requiring_ready_status() -> None:
+    transport = _Transport(_record(status=PlanStatus.APPLYING))
+    service = RemoteDeploymentService(transport=transport)
+
+    result = await service.submit_apply(
+        plan_id="plan-1",
+        expected_context=_context(),
+        now=_NOW,
+        resume_verification=True,
+    )
+
+    assert result.submission_id == "submission-apply"
+    assert transport.apply_calls == [("plan-1", "c" * 64, _context(), True)]
 
 
 async def test_service_never_submits_apply_when_guard_fails() -> None:

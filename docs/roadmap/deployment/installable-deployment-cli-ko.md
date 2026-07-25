@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: dd877772f809e0ca166207b789fe2d3310f1d697
+translation_source_sha: edd909dd730b524cd861c269b409ff939c7b2c07
 translation_revised: 2026-07-25
 ---
 # 설치형 배포 CLI
@@ -508,6 +508,13 @@ exact binary와 metadata를 복원해 모든 digest, id, status, timestamp, comm
 `terraform apply` 전에 immutable `apply-claim.json`을 생성합니다. Duplicate 또는 failed prior
 claim은 automatic retry를 차단합니다. 성공한 run은 immutable `apply-receipt.json`을 기록하며
 `deploy status`는 claim에서 `applying`, receipt에서 `applied`를 투영합니다.
+
+Terraform apply 성공 뒤 identity, migration, health 또는 canary check가 실패하면 동일 command에
+`--resume-verification`을 추가합니다. Resume은 exact plan이 `applying`으로 표시되어야 하며
+existing claim과 receipt 부재를 검증하고 Terraform apply를 건너뛰며 convergence와 post-apply
+check를 다시 수행한 뒤 receipt를 기록합니다. Context 변경, missing claim, existing receipt는
+resume을 차단합니다. Targeted plan이 console hostname output을 비워 두면 Entra sync는 Terraform
+state의 exact Static Web App id를 사용해 Azure management plane에서 hostname을 읽습니다.
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \

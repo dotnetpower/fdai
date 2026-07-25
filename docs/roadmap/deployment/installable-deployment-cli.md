@@ -507,6 +507,14 @@ failed prior claim blocks automatic retry. A successful run writes an immutable
 `apply-receipt.json`; `deploy status` projects `applying` from the claim and `applied` from the
 receipt.
 
+If Terraform apply succeeds but a later identity, migration, health, or canary check fails, run
+the same command with `--resume-verification`. Resume requires the exact plan to project
+`applying`, verifies the existing claim and absence of a receipt, skips Terraform apply, proves
+convergence, and reruns the post-apply checks before writing the receipt. A changed context,
+missing claim, or existing receipt blocks resume. Targeted plans may leave the console hostname
+output empty; Entra sync then resolves the exact Static Web App id from Terraform state and reads
+its hostname through the Azure management plane.
+
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
   --config .fdai/environments/dev.json \

@@ -272,6 +272,7 @@ async def submit_github_apply(
     deploy_read_api: bool = False,
     deploy_dev_operations_gateway: bool = False,
     deploy_document_ingestion: bool = False,
+    resume_verification: bool = False,
     now: datetime | None = None,
     environ: Mapping[str, str] | None = None,
     http_client: httpx.AsyncClient | None = None,
@@ -312,6 +313,7 @@ async def submit_github_apply(
             now=now or datetime.now(UTC),
             http_client=http_client,
             token_provider=token_provider,
+            resume_verification=resume_verification,
         )
     async with httpx.AsyncClient() as owned_client:
         return await _submit_apply(
@@ -321,6 +323,7 @@ async def submit_github_apply(
             now=now or datetime.now(UTC),
             http_client=owned_client,
             token_provider=token_provider,
+            resume_verification=resume_verification,
         )
 
 
@@ -332,6 +335,7 @@ async def _submit_apply(
     now: datetime,
     http_client: httpx.AsyncClient,
     token_provider: TokenProvider,
+    resume_verification: bool = False,
 ) -> ApplySubmissionResult:
     transport = GitHubActionsDeploymentTransport(
         config=transport_config,
@@ -343,6 +347,7 @@ async def _submit_apply(
             plan_id=plan_id,
             expected_context=context,
             now=now,
+            resume_verification=resume_verification,
         )
     except RuntimeError as exc:
         raise PlanSubmissionError(str(exc)) from exc

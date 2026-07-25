@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b40e71346079967d375627b90f69b8aa7e882ef0
+translation_source_sha: 75b6dd5721d3a716812401f78723fbdf69810f4a
 translation_revised: 2026-07-25
 ---
 
@@ -91,7 +91,10 @@ storage에 reader managed identity를 사용하며 workflow는 publish 전에 Fl
 override를 제거합니다. 해당 identity에는 host용 `Storage Blob Data Owner`와 idempotency용 contributor
 grant를 별도로 부여합니다. Function `site_config`는 Application Insights를 단독 관리하며 Easy Auth는
 gateway principal 검사 전에 core executor managed identity client만 허용합니다. Exact apply가 수렴하면 workflow가 검증된
-source를 official Flex One Deploy action으로 remote build하고 bounded trigger sync 후 두 Function trigger를 확인합니다. 전체 런북:
+source를 official Flex One Deploy action으로 remote build하고 bounded trigger sync 후 두 Function trigger를 확인합니다.
+Immutable claim 뒤 identity 또는 health check가 실패하면 verification resume이 claim을 검증하고
+Terraform apply를 건너뛰며 convergence와 post-apply check를 다시 수행합니다. Console hostname
+복구는 arbitrary resource search가 아니라 Terraform state의 exact Static Web App id를 사용합니다. 전체 런북:
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및
 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 job을 설정하고, `forecast_tick_cron_expression`과

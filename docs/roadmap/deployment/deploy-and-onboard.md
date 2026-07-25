@@ -88,6 +88,9 @@ Flex-generated shared-key overrides before publishing. It grants `Storage Blob D
 and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.
 After exact apply converges, the official Flex One Deploy action remote-builds the verified source,
 retries bounded trigger sync, and requires both Function triggers before recording the apply receipt.
+If a later identity or health check fails after the immutable claim, verification resume validates
+that claim, skips Terraform apply, and reruns convergence and post-apply checks. Console hostname
+recovery uses the exact Static Web App id from Terraform state, never an arbitrary resource search.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and

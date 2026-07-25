@@ -206,6 +206,7 @@ def _build_parser() -> argparse.ArgumentParser:
     deploy_apply.add_argument("--bundle-digest", required=True)
     deploy_apply.add_argument("--commit-sha", required=True)
     deploy_apply.add_argument("--output", choices=("text", "json"), default="text")
+    deploy_apply.add_argument("--resume-verification", action="store_true")
     _add_deployment_feature_args(deploy_apply)
     security_parser = subcommands.add_parser("security", help="inspect runtime security posture")
     security_commands = security_parser.add_subparsers(dest="security_command", required=True)
@@ -550,6 +551,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                     deploy_read_api=args.deploy_read_api,
                     deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
                     deploy_document_ingestion=args.deploy_document_ingestion,
+                    resume_verification=args.resume_verification,
                 )
             )
         except PlanSubmissionError as exc:

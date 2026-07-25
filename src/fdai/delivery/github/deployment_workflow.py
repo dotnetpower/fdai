@@ -131,6 +131,7 @@ class GitHubActionsDeploymentTransport:
         plan_id: str,
         plan_digest: str,
         context: DeploymentPlanContext,
+        resume_verification: bool = False,
     ) -> DeploymentSubmission:
         context_digest = deployment_context_digest(context)
         payload = await self._dispatch(
@@ -148,6 +149,7 @@ class GitHubActionsDeploymentTransport:
                     "deploy_read_api": context.deploy_read_api,
                     "deploy_dev_operations_gateway": context.deploy_dev_operations_gateway,
                     "deploy_document_ingestion": context.deploy_document_ingestion,
+                    "resume_verification": resume_verification,
                 },
             }
         )

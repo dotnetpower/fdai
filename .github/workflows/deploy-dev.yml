@@ -41,6 +41,10 @@ on:
         description: "Apply the plan (true) or plan-only (false, default)."
         type: boolean
         default: false
+      resume_verification:
+        description: "Resume post-apply verification from an existing exact apply claim."
+        type: boolean
+        default: false
       request_id:
         description: "Optional fdaictl plan request id."
         type: string
@@ -732,7 +736,7 @@ jobs:
             --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA"
 
       - name: Claim exact plan apply
-        if: ${{ inputs.apply }}
+        if: ${{ inputs.apply && !inputs.resume_verification }}
         env:
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
@@ -766,8 +770,66 @@ jobs:
             --file apply-claim.json --auth-mode login --overwrite false \
             --only-show-errors --content-type application/json --output none
 
+      - name: Verify existing exact apply claim
+        if: ${{ inputs.apply && inputs.resume_verification }}
+        env:
+          APPLY_PLAN_ID: ${{ inputs.plan_id }}
+          APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
+        run: |
+          set -euo pipefail
+          blob_prefix="${TF_VAR_env}/${APPLY_PLAN_ID}"
+          receipt_exists="$(az storage blob exists \
+            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            --container-name deployment-plans \
+            --name "${blob_prefix}/apply-receipt.json" \
+            --auth-mode login --only-show-errors --query exists -o tsv)"
+          if [[ "$receipt_exists" == "true" ]]; then
+            echo "apply receipt already exists; verification resume is not allowed." >&2
+            exit 1
+          fi
+          az storage blob download \
+            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            --container-name deployment-plans \
+            --name "${blob_prefix}/apply-claim.json" --file apply-claim.json \
+            --auth-mode login --overwrite --only-show-errors --output none
+          export APPLY_PLAN_ID APPLY_PLAN_DIGEST APPLY_CONTEXT_DIGEST
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime
+
+          with open("apply-claim.json", encoding="utf-8") as stream:
+              claim = json.load(stream)
+          expected_fields = {
+              "schema_version",
+              "plan_id",
+              "plan_digest",
+              "context_digest",
+              "workflow_run_id",
+              "workflow_run_attempt",
+              "claimed_at",
+          }
+          if not isinstance(claim, dict) or set(claim) != expected_fields:
+              raise SystemExit("existing apply claim schema is invalid")
+          expected = {
+              "schema_version": "fdai.deployment-apply-claim.v1",
+              "plan_id": os.environ["APPLY_PLAN_ID"],
+              "plan_digest": os.environ["APPLY_PLAN_DIGEST"],
+              "context_digest": os.environ["APPLY_CONTEXT_DIGEST"],
+          }
+          if any(claim.get(key) != value for key, value in expected.items()):
+              raise SystemExit("existing apply claim does not match the exact plan")
+          try:
+              datetime.fromisoformat(str(claim["claimed_at"]).replace("Z", "+00:00"))
+          except ValueError as exc:
+              raise SystemExit("existing apply claim timestamp is invalid") from exc
+          if not all(str(claim[key]).isdigit() for key in ("workflow_run_id", "workflow_run_attempt")):
+              raise SystemExit("existing apply claim workflow identity is invalid")
+          PY
+
       - name: Publish sanitized apply claim
-        if: ${{ inputs.apply }}
+        if: ${{ inputs.apply && !inputs.resume_verification }}
         uses: actions/upload-artifact@v4
         with:
           name: deployment-apply-claim-${{ inputs.plan_id }}
@@ -776,7 +838,7 @@ jobs:
           retention-days: 1
 
       - name: Terraform apply
-        if: ${{ inputs.apply }}
+        if: ${{ inputs.apply && !inputs.resume_verification }}
         run: terraform apply -input=false -lock-timeout=300s dev.plan
 
       - name: Verify Terraform convergence
@@ -900,7 +962,18 @@ jobs:
           fi
           hostname="$(terraform output -raw console_default_hostname)"
           if [[ -z "$hostname" ]]; then
-            echo "console_default_hostname is empty after console deployment." >&2
+            static_site_id="$(terraform state show -no-color \
+              'module.console[0].azurerm_static_web_app.console' 2>/dev/null \
+              | sed -n 's/^ *id *= *"\(.*\)"/\1/p' | head -1)"
+            if [[ -z "$static_site_id" ]]; then
+              echo "console state resource is unavailable after console deployment." >&2
+              exit 1
+            fi
+            hostname="$(az resource show --ids "$static_site_id" --api-version 2023-12-01 \
+              --query properties.defaultHostname -o tsv)"
+          fi
+          if [[ -z "$hostname" ]]; then
+            echo "console hostname is unavailable after console deployment." >&2
             exit 1
           fi
           python3 ../scripts/deployment/azure/sync-entra-spa-redirect.py \

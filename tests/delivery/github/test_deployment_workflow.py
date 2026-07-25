@@ -119,6 +119,7 @@ async def test_submit_apply_dispatches_exact_opaque_plan_context() -> None:
         assert payload["inputs"]["deploy_read_api"] is True
         assert payload["inputs"]["deploy_dev_operations_gateway"] is True
         assert payload["inputs"]["deploy_document_ingestion"] is True
+        assert payload["inputs"]["resume_verification"] is False
         serialized = json.dumps(payload)
         assert str(_TENANT) not in serialized
         assert str(_SUBSCRIPTION) not in serialized
@@ -139,6 +140,29 @@ async def test_submit_apply_dispatches_exact_opaque_plan_context() -> None:
     )
 
     assert submission.submission_id == "124"
+
+
+async def test_submit_apply_dispatches_verification_resume() -> None:
+    async def handle(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.read())
+        assert payload["inputs"]["apply"] is True
+        assert payload["inputs"]["resume_verification"] is True
+        return httpx.Response(
+            200,
+            json={
+                "workflow_run_id": 125,
+                "html_url": "https://github.com/example/fdai/actions/runs/125",
+            },
+        )
+
+    submission = await _transport(httpx.MockTransport(handle)).submit_apply(
+        plan_id="plan-123-1",
+        plan_digest="c" * 64,
+        context=_context(),
+        resume_verification=True,
+    )
+
+    assert submission.submission_id == "125"
 
 
 def _metadata_archive(metadata: dict[str, object]) -> bytes:
@@ -295,6 +319,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     ):
         assert field in workflow
     assert "Validate remote plan request" in workflow
+    assert "resume_verification:" in workflow
     assert "ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}" in workflow
     assert '"$PLAN_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
     assert '"$APPLY_COMMIT_SHA" != "$(git rev-parse HEAD)"' in workflow
@@ -315,6 +340,11 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert 'source = Path("../delivery/dev_operations_gateway")' in workflow
     assert "source_artifact_digest" in workflow
     assert "source-artifact.zip" in workflow
+    assert "module.console[0].azurerm_static_web_app.console" in workflow
+    assert 'az resource show --ids "$static_site_id"' in workflow
+    assert "Verify existing exact apply claim" in workflow
+    assert "existing apply claim does not match the exact plan" in workflow
+    assert "inputs.apply && !inputs.resume_verification" in workflow
     assert "--source-artifact fdai-dev-operations-gateway.zip" in workflow
     assert "check-runner-egress.py" in workflow
     assert "preflight_evidence_digest" in workflow
