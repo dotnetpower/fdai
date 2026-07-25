@@ -222,3 +222,39 @@ remains an explicit operational blocker rather than a generated test key committ
 The next unit starts only after every accepted finding in the current unit is implemented, tested,
 and committed. Later units add their own 10-or-more-point critique table and close every accepted
 Low-or-higher finding before advancing.
+
+## Completed hardening units
+
+| Unit | Commit | Executable evidence | Result |
+|------|--------|---------------------|--------|
+| Pantheon event boundary | `d83796ae` | 611 agent tests; 1,799 exact-commit selected tests | Complete |
+| Approval decision delivery | `3606aec6` | 132 focused tests; 10,231 exact-commit selected tests | Complete |
+| Ordered inventory delta projection | `44d32236` | 8 boundary tests; 2,037 exact-commit selected tests | Complete; live PostgreSQL cases await CI |
+| Independent conversation charters | `26bd1db8` | 616 agent tests; citation drift repaired by `3451377c` and 1,091 selected tests | Complete |
+| Offline provisioning inspection | `77ce624d` | 107 deployment CLI tests; 445 exact-commit selected tests | Code complete; public trust root remains blocked |
+
+Every unit passed `scripts/verify.sh --fast`, strict mypy, Ruff, bilingual translation, document
+size, punctuation, customer-scope, catalog, stewardship, architecture, and integrity gates.
+
+## Prioritized residual plan
+
+FDAI should not be described as fully ready until these work units meet their exit criteria.
+
+| Priority | Work unit | Why it remains | Observable exit criteria |
+|----------|-----------|----------------|--------------------------|
+| P0 | Public offline trust bootstrap | No production release root is packaged, so shipped inspection cannot authenticate a disconnected kit | Root ceremony completed outside CI; public root packaged in wheel; release-signed kit verifies on a disconnected host; tampered, expired, rollback, and wrong-platform kits fail |
+| P0 | Private-network onboarding acceptance | Component probes and runner IaC exist, but no single acceptance proves bootstrap to observe-ready on the actual isolated runner | Fresh subscription run completes policy preflight, private state bootstrap, exact plan, apply, DNS/TLS/identity/ARG/Event Hubs/PostgreSQL probes, inventory promotion, 15-agent startup, and sanitized handoff report |
+| P0 | Approval load intelligence | Exact deduplication and durable recovery exist; similarity grouping, fatigue budgets, quiet hours, and routing thresholds are deployment policy | Versioned policy schema; per-assignee and per-action grouping metrics; bounded reminders; quiet-hour exceptions for urgency; simulation proving no missed critical approvals and reduced duplicate notifications |
+| P0 | Live inventory ordering proof | Unit fences exist, but local PostgreSQL integration was skipped without `FDAI_DATABASE_URL` | CI PostgreSQL tests prove snapshot fence, future skew, delete-first tie, endpoint coverage, promotion overlap, and multi-replica replay using migrations at head |
+| P1 | Semantic agent routing | Explicit names and deterministic domain routing work; T1 semantic similarity remains a deterministic stub | Approved embedding provider binding; frozen multilingual query set; measured routing accuracy and latency; deterministic abstention threshold; no increase in typed hot-path model calls |
+| P1 | Agent read-tool implementation parity | All 15 charters declare bounded tool ids, while some agents answer only from process-local state or capability fallback when live providers are absent | Each tool id maps to a registered read-only implementation; startup reports availability; every agent has live-provider, unavailable, timeout, redaction, and citation tests |
+| P1 | Connected/offline recovery runbooks | Success-path onboarding is documented more deeply than plan expiry, rejected-kit replacement, and degraded-readiness recovery | Bilingual runbooks link each stable failure code to a safe retry or rollback; drills prove no stale plan apply, no trust-root override, and no synthetic readiness evidence |
+| P1 | Deterministic/model cost evidence | Tier targets are design goals, not current production measurements | Same frozen scenario set reports T0/T1/T2 share, model calls, latency, cost, abstentions, verifier failures, and outcome quality; regression thresholds gate release |
+
+## Readiness verdict
+
+The architecture is directionally sound and stronger than a typical agent demo: role separation,
+typed pub/sub, deterministic-first routing, fail-closed execution, durable state, approval identity,
+inventory generations, and audit evidence are real implementations. The project is not yet fully
+ready for the stated resident-operations-team promise. The remaining P0 items are operational proof
+and load-intelligence gaps, not reasons to weaken the current safety boundaries.
