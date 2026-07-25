@@ -327,6 +327,13 @@ scope with a neutral value. It installs the locked CLI, converts the exact binar
 runs all four read-only live categories, and accepts only a `clear` report with complete check
 coverage. Plan JSON, environment identifiers, and the input profile are removed at step exit.
 
+When `deploy_read_api` is enabled, configure non-secret `STEWARDSHIP_MAINTAINERS` and
+`STEWARDSHIP_AGENT_BINDINGS_JSON` repository Variables. The latter maps every non-autonomous
+Pantheon agent to one or more `user:<oid>` or `group:<oid>` tokens; Loki may retain its explicit
+autonomous acceptance. The workflow binds the Entra directory provider and these values into
+Terraform. Resource preconditions reject an empty maintainer or any missing agent binding before a
+broken read API revision can be created.
+
 Only the sanitized report is stored beside the protected plan. Metadata binds separate SHA-256
 digests for runner-egress evidence and Azure live evidence. Exact apply downloads both original
 files and recomputes their digests before claim or Terraform execution; changing either evidence

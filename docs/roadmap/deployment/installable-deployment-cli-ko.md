@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: edd909dd730b524cd861c269b409ff939c7b2c07
+translation_source_sha: 6d80cbf89635fdfceb53f3fd7735446ffd815c59
 translation_revised: 2026-07-25
 ---
 # 설치형 배포 CLI
@@ -328,6 +328,13 @@ Workflow는 mode를 `enforce`로 덮고 current timestamp를 설정하며 report
 교체합니다. Locked CLI를 설치하고 exact binary plan을 JSON으로 변환한 뒤 네 read-only live
 category를 모두 실행합니다. Complete check coverage가 있는 `clear` report만 수락합니다. Plan
 JSON, environment identifier, input profile은 step 종료 시 제거됩니다.
+
+`deploy_read_api`를 사용하면 non-secret `STEWARDSHIP_MAINTAINERS`와
+`STEWARDSHIP_AGENT_BINDINGS_JSON` repository Variable을 설정합니다. 후자는 Loki를 제외한 모든
+non-autonomous Pantheon agent를 하나 이상의 `user:<oid>` 또는 `group:<oid>` token에 매핑합니다.
+Loki는 explicit autonomous acceptance를 유지할 수 있습니다. Workflow는 Entra directory provider와
+이 값을 Terraform에 bind합니다. Resource precondition은 empty maintainer 또는 missing agent binding을
+broken read API revision 생성 전에 거부합니다.
 
 Sanitized report만 protected plan 옆에 저장됩니다. Metadata는 runner-egress evidence와 Azure live
 evidence의 SHA-256 digest를 별도로 binding합니다. Exact apply는 claim 또는 Terraform 실행 전에

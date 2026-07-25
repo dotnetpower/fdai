@@ -89,6 +89,8 @@ runtime-resource changes stay outside the plan.
 Terraform uses the reader managed identity for host and deployment storage; the workflow removes
 Flex-generated shared-key overrides before publishing. It grants `Storage Blob Data Owner` for the host
 and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.
+Read API deployment also requires non-secret maintainer and all non-autonomous agent stewardship
+bindings from repository Variables; Container App preconditions reject an incomplete map.
 After exact apply converges, the official Flex One Deploy action remote-builds the verified source,
 retries bounded trigger sync, and requires both Function triggers before recording the apply receipt.
 If a later identity or health check fails after the immutable claim, verification resume validates

@@ -269,6 +269,24 @@ resource "azurerm_container_app" "read_api" {
     }
   }
 
+  lifecycle {
+    precondition {
+      condition     = trimspace(var.stewardship_maintainers) != ""
+      error_message = "read API requires at least one real FDAI maintainer binding."
+    }
+    precondition {
+      condition     = var.iam_directory_provider == "entra"
+      error_message = "read API requires the Entra identity directory provider."
+    }
+    precondition {
+      condition = alltrue([
+        for agent in ["Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi", "Saga", "Mimir", "Muninn", "Norns", "Njord", "Freyr"] :
+        contains(keys(var.stewardship_agent_bindings), agent) && trimspace(var.stewardship_agent_bindings[agent]) != ""
+      ])
+      error_message = "read API requires stewardship bindings for every non-autonomous pantheon agent."
+    }
+  }
+
   tags = var.tags
 }
 

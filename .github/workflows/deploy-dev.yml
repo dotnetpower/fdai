@@ -144,6 +144,9 @@ jobs:
       TF_VAR_rbac_owners_group_id: ${{ vars.RBAC_OWNERS_GROUP_ID }}
       TF_VAR_rbac_break_glass_group_id: ${{ vars.RBAC_BREAK_GLASS_GROUP_ID }}
       TF_VAR_read_api_cors_allow_origins: ${{ vars.READ_API_CORS_ALLOW_ORIGINS }}
+      TF_VAR_read_api_iam_directory_provider: ${{ inputs.deploy_read_api && 'entra' || '' }}
+      TF_VAR_stewardship_maintainers: ${{ vars.STEWARDSHIP_MAINTAINERS }}
+      TF_VAR_stewardship_agent_bindings: "${{ vars.STEWARDSHIP_AGENT_BINDINGS_JSON || '{}' }}"
       TF_VAR_ingestion_image: ${{ vars.INGESTION_IMAGE }}
       TF_VAR_clamav_image: ${{ vars.CLAMAV_IMAGE || 'clamav/clamav:stable' }}
       TF_VAR_ingestion_cors_allow_origins: ${{ vars.INGESTION_CORS_ALLOW_ORIGINS }}

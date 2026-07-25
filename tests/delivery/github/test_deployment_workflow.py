@@ -354,6 +354,8 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "check-runner-egress.py" in workflow
     assert "preflight_evidence_digest" in workflow
     assert "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans" in workflow
+    assert "TF_VAR_stewardship_maintainers" in workflow
+    assert "TF_VAR_stewardship_agent_bindings" in workflow
     assert "runner preflight profile must require all Azure live categories" in workflow
     assert "Run complete Azure live preflight" in workflow
     assert "Reject destructive protected plan" in workflow

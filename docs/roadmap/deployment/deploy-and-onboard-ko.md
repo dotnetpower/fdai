@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fc590b331fbb79ca2d0f71d35f85f6f4e0ce353c
+translation_source_sha: 58a0b3d1a69b9d12aa482a9a50170d10704549b3
 translation_revised: 2026-07-25
 ---
 
@@ -93,7 +93,9 @@ ingestion, operational canary, realtime inventory publisher 및 해당 dependenc
 storage에 reader managed identity를 사용하며 workflow는 publish 전에 Flex-generated exact shared-key
 override를 제거합니다. 해당 identity에는 host용 `Storage Blob Data Owner`와 idempotency용 contributor
 grant를 별도로 부여합니다. Function `site_config`는 Application Insights를 단독 관리하며 Easy Auth는
-gateway principal 검사 전에 core executor managed identity client만 허용합니다. Exact apply가 수렴하면 workflow가 검증된
+gateway principal 검사 전에 core executor managed identity client만 허용합니다. Read API deployment는
+repository Variable의 non-secret maintainer와 모든 non-autonomous agent stewardship binding도 요구하며
+Container App precondition이 incomplete map을 거부합니다. Exact apply가 수렴하면 workflow가 검증된
 source를 official Flex One Deploy action으로 remote build하고 bounded trigger sync 후 두 Function trigger를 확인합니다.
 Immutable claim 뒤 identity 또는 health check가 실패하면 verification resume이 claim을 검증하고
 Terraform apply를 건너뛰며 convergence와 post-apply check를 다시 수행합니다. Console hostname
