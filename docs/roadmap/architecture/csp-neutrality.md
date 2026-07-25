@@ -320,6 +320,11 @@ use the same view-classification rules so local and deployed consoles keep the s
 - **Deltas flow through the event bus**, not through a separate side-channel. A provider
   change signal (Activity Log, Config item, Asset feed, apiserver watch) is forwarded into
   a Kafka topic and consumed exactly like any other `Signal` - same idempotency, same DLQ.
+- **Delta ordering is fenced by the active snapshot.** An observation at or before the active
+  generation's start is already covered and becomes a no-op; an observation beyond the configured
+  server-clock skew is rejected. Resource and link endpoint types must all belong to active
+  coverage, and each event has a bounded link count. At equal observation time, delete wins over
+  upsert so replay cannot resurrect a tombstoned resource; same-kind ties use event id.
 - **Huginn owns real-time discovery ingress** while provider adapters own cloud parsing and
   point enrichment. The inventory projector owns durable resource, link, and tombstone
   application. Heimdall monitors freshness, delivery lag, fallback, and coverage degradation;

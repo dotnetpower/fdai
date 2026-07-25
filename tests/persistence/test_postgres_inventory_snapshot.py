@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -58,6 +58,11 @@ def _manifest(source: str) -> InventoryCoverageManifest:
         started_at=datetime.now(tz=UTC),
         completed_at=datetime.now(tz=UTC),
     )
+
+
+def _after_snapshot(manifest: InventoryCoverageManifest, seconds: int) -> str:
+    assert manifest.started_at is not None
+    return (manifest.started_at + timedelta(seconds=seconds)).isoformat()
 
 
 async def test_failed_candidate_retains_last_active_snapshot() -> None:
@@ -172,7 +177,7 @@ async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> 
                     "type": "compute.vm",
                     "props": {"name": "new"},
                     "provider_ref": "/subscriptions/example/resourceGroups/rg/vm-new",
-                    "last_seen": "2026-07-18T02:00:00Z",
+                    "last_seen": _after_snapshot(manifest, 1),
                 },
                 "links": [
                     {
@@ -199,7 +204,7 @@ async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> 
                     "type": "compute.vm",
                     "props": {},
                     "provider_ref": "/subscriptions/example/resourceGroups/rg/vm-old",
-                    "last_seen": "2026-07-18T02:01:00Z",
+                    "last_seen": _after_snapshot(manifest, 2),
                 },
                 "links": [],
             },
@@ -234,19 +239,21 @@ async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> No
     )
     await store.promote(attempt, manifest)
 
-    async def project(event_id: str, name: str) -> None:
+    observed_at = _after_snapshot(manifest, 1)
+
+    async def project(event_id: str, name: str, *, kind: str = "upsert") -> None:
         await projector(
             {
                 "event_id": event_id,
                 "idempotency_key": f"inventory-tie-{event_id}",
                 "inventory_change": {
-                    "kind": "upsert",
+                    "kind": kind,
                     "resource": {
                         "resource_id": "rg-tie/vm",
                         "type": "compute.vm",
                         "props": {"name": name},
                         "provider_ref": None,
-                        "last_seen": "2026-07-18T02:00:00Z",
+                        "last_seen": observed_at,
                     },
                     "links": [],
                 },
@@ -259,6 +266,11 @@ async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> No
     context = await context_provider("rg-tie/vm")
     assert context is not None
     assert context["props"] == {"name": "winner"}
+
+    await project("event-a", "deleted", kind="delete")
+    assert await context_provider("rg-tie/vm") is None
+    await project("event-zz", "must-not-resurrect")
+    assert await context_provider("rg-tie/vm") is None
 
 
 async def test_realtime_overlay_makes_graph_freshness_unknown_until_reconciliation() -> None:
@@ -296,7 +308,7 @@ async def test_realtime_overlay_makes_graph_freshness_unknown_until_reconciliati
                     "type": "compute.vm",
                     "props": {"name": "changed"},
                     "provider_ref": None,
-                    "last_seen": "2026-07-18T02:00:00Z",
+                    "last_seen": (now + timedelta(seconds=1)).isoformat(),
                 },
                 "links": [],
             },
@@ -304,3 +316,46 @@ async def test_realtime_overlay_makes_graph_freshness_unknown_until_reconciliati
     )
 
     assert await age_provider("rg-fresh/vm") is None
+
+
+async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    context_provider = PostgresInventoryContextProvider(config=config)
+
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(ResourceRecord("rg-stale/vm", "compute.vm", {"name": "snapshot"}),),
+        ),
+    )
+    await store.promote(attempt, manifest)
+    assert manifest.started_at is not None
+
+    result = await projector(
+        {
+            "event_id": "event-before-snapshot",
+            "idempotency_key": "inventory-before-snapshot",
+            "inventory_change": {
+                "kind": "upsert",
+                "resource": {
+                    "resource_id": "rg-stale/vm",
+                    "type": "compute.vm",
+                    "props": {"name": "stale-event"},
+                    "provider_ref": None,
+                    "last_seen": (manifest.started_at - timedelta(seconds=1)).isoformat(),
+                },
+                "links": [],
+            },
+        }
+    )
+
+    assert result.resources == 0
+    assert result.links == 0
+    context = await context_provider("rg-stale/vm")
+    assert context is not None
+    assert context["props"] == {"name": "snapshot"}

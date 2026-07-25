@@ -97,6 +97,46 @@ destinations. Those remain configuration and routing policy.
 - Strict mypy passes for every changed production module.
 - Ruff passes for every changed source and test module.
 
+## Work unit 3: Ordered inventory delta projection
+
+This unit covers the PostgreSQL overlay that applies Huginn-normalized resource changes above the
+last complete inventory snapshot. It preserves Huginn's ingress ownership and does not turn the
+delta stream into proof of inventory completeness.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | Missing inventory changes are ignored | Projector returns a zero-row result | Pass | Retain |
+| 2 | Resource and link change kinds are allowlisted | Only `upsert` and `delete` are accepted | Pass | Retain |
+| 3 | Resource identity and type are mandatory | Boundary helpers reject empty values | Pass | Retain |
+| 4 | Properties must be JSON-object mappings | Resource and link props are checked | Pass | Retain |
+| 5 | Observation timestamps require timezone-aware RFC 3339 | `_timestamp` rejects malformed and naive values | Pass | Retain |
+| 6 | Arbitrarily future timestamps can block later real changes | No future-skew ceiling exists | Critical | Reject events beyond a configured server-clock skew |
+| 7 | Delta resource type must belong to active coverage | Active snapshot JSON coverage is queried | Pass | Retain |
+| 8 | A delayed pre-snapshot event can override the newer snapshot | Coverage query does not compare event time with active snapshot start | Critical | Ignore events at or before active snapshot start |
+| 9 | Promotion and delta writes share one advisory lock | Both use `_PROMOTION_LOCK` | Pass | Retain |
+| 10 | Older overlay rows cannot replace newer rows | Conflict update compares `observed_at` | Pass | Retain |
+| 11 | Equal-time delete and upsert are ordered by opaque event id | Lexical event id can resurrect a deleted resource | High | Make delete win before deterministic same-kind event-id tie-break |
+| 12 | Resource delete can carry link upserts | Mixed payload can leave live links for a tombstoned resource | High | Require every attached link change to be delete |
+| 13 | Link endpoint types bypass active coverage | Only the primary resource type is checked | High | Require resource and every endpoint type in active coverage |
+| 14 | One event can contain an unbounded link array | `_links` has no item ceiling | Medium | Apply a configurable bounded link count before database work |
+| 15 | Event and idempotency identities are mandatory | Both are read with `_required_str` | Pass | Retain |
+| 16 | Resource and link overlay writes are one transaction | Projector uses one transaction under the promotion lock | Pass | Retain |
+
+### Discriminating checks
+
+- Future-dated changes fail before opening a database connection.
+- Oversized link sets and delete-plus-upsert-link payloads fail before database work.
+- Coverage checks include every link endpoint type.
+- Events covered by the active snapshot start fence produce a zero-row no-op.
+- At equal observation time, delete beats upsert; same-kind ties remain deterministic by event id.
+
+### Verification evidence
+
+- Inventory delta boundary tests: 8 passed.
+- Strict mypy and Ruff pass for the projector and tests.
+- Six PostgreSQL integration cases are selected but skipped locally because
+	`FDAI_DATABASE_URL` is unset; CI remains the authoritative live-database check.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,

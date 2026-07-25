@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psycopg
+from psycopg.rows import dict_row
 
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
@@ -17,6 +18,8 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 
 _CHANGE_KINDS = frozenset({"upsert", "delete"})
 _LINK_TYPES = frozenset({"contains", "attached_to", "depends_on"})
+_DEFAULT_MAX_LINKS = 256
+_DEFAULT_MAX_FUTURE_SKEW_SECONDS = 300
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,8 +33,22 @@ class InventoryDeltaApplyResult:
 class PostgresInventoryDeltaProjector:
     """Apply one Huginn-normalized inventory change under the promotion lock."""
 
-    def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
+    def __init__(
+        self,
+        *,
+        config: PostgresInventorySnapshotStoreConfig,
+        clock: Callable[[], datetime] | None = None,
+        max_future_skew_seconds: int = _DEFAULT_MAX_FUTURE_SKEW_SECONDS,
+        max_links: int = _DEFAULT_MAX_LINKS,
+    ) -> None:
+        if max_future_skew_seconds < 0:
+            raise ValueError("max_future_skew_seconds MUST be non-negative")
+        if max_links < 0:
+            raise ValueError("max_links MUST be non-negative")
         self._config = config
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._max_future_skew_seconds = max_future_skew_seconds
+        self._max_links = max_links
 
     async def __call__(self, payload: Mapping[str, Any]) -> InventoryDeltaApplyResult:
         change = _inventory_change(payload)
@@ -42,6 +59,11 @@ class PostgresInventoryDeltaProjector:
         resource_id = _required_str(resource, "resource_id")
         resource_type = _required_str(resource, "type")
         observed_at = _timestamp(resource.get("last_seen"))
+        now = self._clock()
+        if now.tzinfo is None:
+            raise RuntimeError("inventory delta clock MUST be timezone-aware")
+        if observed_at > now.astimezone(UTC) + timedelta(seconds=self._max_future_skew_seconds):
+            raise ValueError("inventory change observation exceeds the allowed future skew")
         event_id = _required_str(payload, "event_id")
         idempotency_key = _required_str(payload, "idempotency_key")
         props = resource.get("props", {})
@@ -51,22 +73,32 @@ class PostgresInventoryDeltaProjector:
         if provider_ref is not None and not isinstance(provider_ref, str):
             raise ValueError("inventory_change.resource.provider_ref MUST be a string or null")
         links = _links(change.get("links", ()))
+        if len(links) > self._max_links:
+            raise ValueError(f"inventory_change.links exceeds cap ({self._max_links})")
+        link_kinds = tuple(_choice(link, "change_kind", _CHANGE_KINDS) for link in links)
+        if change_kind == "delete" and any(kind != "delete" for kind in link_kinds):
+            raise ValueError("inventory resource delete can carry only link deletes")
+        covered_resource_types = _covered_resource_types(resource_type, links)
 
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_PROMOTION_LOCK,))
                 coverage_cursor = await connection.execute(
-                    "SELECT 1 FROM inventory_active a "
+                    "SELECT s.started_at FROM inventory_active a "
                     "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                     "WHERE a.singleton=TRUE AND s.status='active' "
-                    "AND s.resource_types ? %s",
-                    (resource_type,),
+                    "AND s.resource_types ?& %s",
+                    (list(covered_resource_types),),
                 )
-                if await coverage_cursor.fetchone() is None:
+                coverage = await coverage_cursor.fetchone()
+                if coverage is None:
                     raise ValueError(
-                        "inventory change resource type is outside active snapshot coverage"
+                        "inventory change resource or link endpoint type is outside "
+                        "active snapshot coverage"
                     )
+                if observed_at <= coverage["started_at"]:
+                    return InventoryDeltaApplyResult(resources=0, links=0)
                 resource_cursor = await connection.execute(
                     "INSERT INTO inventory_realtime_resource "
                     "(resource_id, change_kind, resource_type, props, provider_ref, "
@@ -79,7 +111,10 @@ class PostgresInventoryDeltaProjector:
                     "idempotency_key=EXCLUDED.idempotency_key, applied_at=NOW() "
                     "WHERE inventory_realtime_resource.observed_at < EXCLUDED.observed_at "
                     "OR (inventory_realtime_resource.observed_at = EXCLUDED.observed_at "
-                    "AND inventory_realtime_resource.event_id < EXCLUDED.event_id)",
+                    "AND ((inventory_realtime_resource.change_kind <> 'delete' "
+                    "AND EXCLUDED.change_kind = 'delete') OR "
+                    "(inventory_realtime_resource.change_kind = EXCLUDED.change_kind "
+                    "AND inventory_realtime_resource.event_id < EXCLUDED.event_id)))",
                     (
                         resource_id,
                         change_kind,
@@ -92,8 +127,7 @@ class PostgresInventoryDeltaProjector:
                     ),
                 )
                 applied_links = 0
-                for link in links:
-                    link_kind = _choice(link, "change_kind", _CHANGE_KINDS)
+                for link, link_kind in zip(links, link_kinds, strict=True):
                     link_type = _choice(link, "link_type", _LINK_TYPES)
                     link_props = link.get("props", {})
                     if not isinstance(link_props, Mapping):
@@ -110,7 +144,10 @@ class PostgresInventoryDeltaProjector:
                         "idempotency_key=EXCLUDED.idempotency_key, applied_at=NOW() "
                         "WHERE inventory_realtime_link.observed_at < EXCLUDED.observed_at "
                         "OR (inventory_realtime_link.observed_at = EXCLUDED.observed_at "
-                        "AND inventory_realtime_link.event_id < EXCLUDED.event_id)",
+                        "AND ((inventory_realtime_link.change_kind <> 'delete' "
+                        "AND EXCLUDED.change_kind = 'delete') OR "
+                        "(inventory_realtime_link.change_kind = EXCLUDED.change_kind "
+                        "AND inventory_realtime_link.event_id < EXCLUDED.event_id)))",
                         (
                             _required_str(link, "from_id"),
                             _required_str(link, "from_type"),
@@ -133,6 +170,7 @@ class PostgresInventoryDeltaProjector:
     async def _connect(self) -> psycopg.AsyncConnection[Any]:
         return await psycopg.AsyncConnection.connect(
             self._config.dsn,
+            row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         )
 
@@ -197,6 +235,30 @@ def _links(value: object) -> Sequence[Mapping[str, Any]]:
     if not all(isinstance(link, Mapping) for link in value):
         raise ValueError("inventory_change.links MUST contain only objects")
     return value
+
+
+def _covered_resource_types(
+    resource_type: str,
+    links: Sequence[Mapping[str, Any]],
+) -> tuple[str, ...]:
+    types = {resource_type}
+    for link in links:
+        types.add(_required_str(link, "from_type"))
+        types.add(_required_str(link, "to_type"))
+    return tuple(sorted(types))
+
+
+def _prefer_incoming_change(
+    *,
+    current_kind: str,
+    current_event_id: str,
+    incoming_kind: str,
+    incoming_event_id: str,
+) -> bool:
+    """Mirror the equal-observation-time SQL ordering rule for tests and replay."""
+    if current_kind != incoming_kind:
+        return incoming_kind == "delete"
+    return current_event_id < incoming_event_id
 
 
 __all__ = ["InventoryDeltaApplyResult", "PostgresInventoryDeltaProjector"]

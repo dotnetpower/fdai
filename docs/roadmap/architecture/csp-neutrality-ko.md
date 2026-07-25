@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: e89f4bb2fae596c5c06a51e967ad78ad9ab9eb0d
-translation_revised: 2026-07-22
+translation_source_sha: 94adf2a4212b86d666837a434fa1b90f6a9778a3
+translation_revised: 2026-07-25
 ---
 
 # CSP-중립성 계약
@@ -312,6 +312,11 @@ local 및 deployed console의 의미를 일치시킵니다.
 - **Delta 는 별도 사이드-채널이 아니라 이벤트 버스를 통해 흐름**. Provider 변경 신호
   (Activity Log, Config item, Asset feed, apiserver watch) 는 Kafka 토픽으로 포워드되어
   다른 `Signal` 과 정확히 같이 소비 - 동일한 멱등성, 동일한 DLQ.
+- **Delta ordering은 active snapshot으로 fence합니다.** Active generation 시작 시각 이전 또는
+  같은 observation은 이미 반영된 것으로 보고 no-op 처리하며, 설정된 server-clock skew보다
+  미래인 observation은 거부합니다. Resource와 link endpoint type은 모두 active coverage에
+  속해야 하고 event별 link count를 제한합니다. Observation 시각이 같으면 delete가 upsert보다
+  우선하므로 replay가 tombstone resource를 되살리지 않으며 같은 kind는 event id로 결정합니다.
 - **Huginn은 실시간 discovery ingress를 소유**하고 provider adapter는 cloud parsing과
   point enrichment를 소유합니다. Inventory projector는 durable resource, link, tombstone
   적용을 소유합니다. Heimdall은 freshness, delivery lag, fallback, coverage degradation을
