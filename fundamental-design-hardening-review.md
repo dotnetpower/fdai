@@ -232,7 +232,8 @@ Low-or-higher finding before advancing.
 | Ordered inventory delta projection | `44d32236` | 8 boundary tests; 2,037 exact-commit selected tests | Complete; live PostgreSQL cases await CI |
 | Independent conversation charters | `26bd1db8` | 616 agent tests; citation drift repaired by `3451377c` and 1,091 selected tests | Complete |
 | Offline provisioning inspection | `77ce624d` | 107 deployment CLI tests; 445 exact-commit selected tests | Code complete; public trust root remains blocked |
-| Approval load intelligence | current main batch | No-drop simulation, quiet-hour/critical bypass, grouping, fatigue, and reminder tests | Complete |
+| Approval load intelligence | `ca0031d3` | No-drop simulation, quiet-hour/critical bypass, grouping, fatigue, and reminder tests | Complete |
+| Live inventory ordering proof | current main evidence | Six PostgreSQL migration/snapshot/delta integration cases in a dedicated temporary database | Complete |
 
 Every unit passed `scripts/verify.sh --fast`, strict mypy, Ruff, bilingual translation, document
 size, punctuation, customer-scope, catalog, stewardship, architecture, and integrity gates.
@@ -245,7 +246,6 @@ FDAI should not be described as fully ready until these work units meet their ex
 |----------|-----------|----------------|--------------------------|
 | P0 | Public offline trust bootstrap | No production release root is packaged, so shipped inspection cannot authenticate a disconnected kit | Root ceremony completed outside CI; public root packaged in wheel; release-signed kit verifies on a disconnected host; tampered, expired, rollback, and wrong-platform kits fail |
 | P0 | Private-network onboarding acceptance | Component probes and runner IaC exist, but no single acceptance proves bootstrap to observe-ready on the actual isolated runner | Fresh subscription run completes policy preflight, private state bootstrap, exact plan, apply, DNS/TLS/identity/ARG/Event Hubs/PostgreSQL probes, inventory promotion, 15-agent startup, and sanitized handoff report |
-| P0 | Live inventory ordering proof | Unit fences exist, but local PostgreSQL integration was skipped without `FDAI_DATABASE_URL` | CI PostgreSQL tests prove snapshot fence, future skew, delete-first tie, endpoint coverage, promotion overlap, and multi-replica replay using migrations at head |
 | P1 | Semantic agent routing | Explicit names and deterministic domain routing work; T1 semantic similarity remains a deterministic stub | Approved embedding provider binding; frozen multilingual query set; measured routing accuracy and latency; deterministic abstention threshold; no increase in typed hot-path model calls |
 | P1 | Agent read-tool implementation parity | All 15 charters declare bounded tool ids, while some agents answer only from process-local state or capability fallback when live providers are absent | Each tool id maps to a registered read-only implementation; startup reports availability; every agent has live-provider, unavailable, timeout, redaction, and citation tests |
 | P1 | Connected/offline recovery runbooks | Success-path onboarding is documented more deeply than plan expiry, rejected-kit replacement, and degraded-readiness recovery | Bilingual runbooks link each stable failure code to a safe retry or rollback; drills prove no stale plan apply, no trust-root override, and no synthetic readiness evidence |
