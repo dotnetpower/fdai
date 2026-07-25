@@ -61,6 +61,7 @@ def build_production_runtime(
     event_topic = ""
     http_client: httpx.AsyncClient | None = None
     incident_sla_stop: Callable[[], Awaitable[None]] | None = None
+    hil_decision_recovery_stop: Callable[[], Awaitable[None]] | None = None
     hil_secret = env.get(_env.HIL_SECRET_ENV, "").strip()
     kafka_bootstrap = env.get("FDAI_KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if hil_secret or kafka_bootstrap:
@@ -69,6 +70,8 @@ def build_production_runtime(
         from fdai.delivery.chatops.hil_decision import (
             DEFAULT_HIL_DECISION_TOPIC,
             EventBusHilDecisionPublisher,
+            HilDecisionDeliveryRecovery,
+            HilDecisionRecoveryConfig,
         )
         from fdai.delivery.read_api.streaming.agent_activity_broadcaster import (
             DEFAULT_GROUP_ID as DEFAULT_AGENT_ACTIVITY_GROUP_ID,
@@ -130,7 +133,21 @@ def build_production_runtime(
             )
 
         if hil_secret:
-            hil_callback = HilCallbackConfig(secret=hil_secret)
+            decision_publish_timeout = _parse_positive_int(
+                env,
+                _env.HIL_DECISION_PUBLISH_TIMEOUT_ENV,
+                10,
+            )
+            decision_max_attempts = _parse_positive_int(
+                env,
+                _env.HIL_DECISION_MAX_ATTEMPTS_ENV,
+                8,
+            )
+            hil_callback = HilCallbackConfig(
+                secret=hil_secret,
+                decision_publish_timeout_seconds=decision_publish_timeout,
+                decision_delivery_max_attempts=decision_max_attempts,
+            )
             hil_registry = PostgresHilApprovalRegistry(
                 store=state_store,
                 dsn=read_model._config.dsn,
@@ -141,6 +158,21 @@ def build_production_runtime(
                 bus=event_bus,
                 topic=env.get(_env.HIL_TOPIC_ENV, "").strip() or DEFAULT_HIL_DECISION_TOPIC,
             )
+            hil_decision_recovery = HilDecisionDeliveryRecovery(
+                registry=hil_registry,
+                publisher=hil_decision_publisher,
+                config=HilDecisionRecoveryConfig(
+                    interval_seconds=_parse_positive_int(
+                        env,
+                        _env.HIL_DECISION_RECOVERY_INTERVAL_ENV,
+                        30,
+                    ),
+                    publish_timeout_seconds=decision_publish_timeout,
+                    max_delivery_attempts=decision_max_attempts,
+                ),
+            )
+            startup_callbacks = (*startup_callbacks, hil_decision_recovery.start)
+            hil_decision_recovery_stop = hil_decision_recovery.stop
 
         event_topic = env.get(_env.EVENT_TOPIC_ENV, "").strip()
         if kafka_bootstrap and event_topic:
@@ -218,7 +250,9 @@ def build_production_runtime(
             await http_client.aclose()
 
         shutdown_callbacks = (
+            *((hil_decision_recovery_stop,) if hil_decision_recovery_stop is not None else ()),
             *((incident_sla_stop,) if incident_sla_stop is not None else ()),
+            *shutdown_callbacks,
             _close_event_transport,
         )
 

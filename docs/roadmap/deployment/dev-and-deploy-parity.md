@@ -251,6 +251,16 @@ the Azure reviewer only when two distinct model families resolve. PostgreSQL hol
 review and draft state; the production read API projects those rows without sharing process memory
 or adding an approval endpoint.
 
+Approval decision delivery also keeps one shape across restarts. Production records the signed A1
+decision in PostgreSQL before publishing it, checkpoints delivery attempts, and drains eligible
+undelivered receipts at startup and on a periodic loop. Terminal delivered or abandoned receipts
+never regress, and shutdown stops recovery before closing the event transport. Deployment can tune
+the interval, publish timeout, and total attempt ceiling through
+`FDAI_HIL_DECISION_RECOVERY_INTERVAL_SECONDS`,
+`FDAI_HIL_DECISION_PUBLISH_TIMEOUT_SECONDS`, and
+`FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS`. Tests use the same registry contract with an in-memory
+store and publisher; interactive local never invents an approver or bypasses signed callback auth.
+
 ### Azure-backed integrations
 
 | Subsystem | Status | Gap |

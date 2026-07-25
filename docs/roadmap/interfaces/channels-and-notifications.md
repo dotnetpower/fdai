@@ -404,6 +404,19 @@ matrix:
   unknown values fail at config load.
 - **Bounded retries** - each adapter declares its own retry budget; router escalates to
   the next channel or to `on_all_fail` on exhaustion.
+- **Durable A1 decisions** - `fdai-api` records the normalized approver, decision, and receipt
+  before event-bus publication. Publication uses a configured attempt count, per-attempt timeout,
+  and bounded backoff. Success checkpoints `delivered`; a resolved item leaves the pending queue.
+  A retry by the same actor and decision resumes an undelivered receipt or returns the delivered
+  receipt without republishing. A different actor or decision is a conflict. Startup and periodic
+  recovery drain undelivered receipts without another human action. Delivery attempts persist and
+  become `abandoned` at the configured ceiling; terminal delivery state never regresses.
+  `FDAI_HIL_DECISION_RECOVERY_INTERVAL_SECONDS`,
+  `FDAI_HIL_DECISION_PUBLISH_TIMEOUT_SECONDS`, and
+  `FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS` set the production bounds.
+- **Rate policy stays deployment-owned** - tenant-specific approver rate, quiet-hour, and fatigue
+  limits belong in authenticated ingress and routing configuration. They never weaken registry
+  idempotency, expiry, quorum, or the no-self-approval checks.
 - **TTL fail-closed** - an A1 request with no decision by TTL is a no-op + A2 alert +
   audit entry ([security-and-identity.md](../architecture/security-and-identity.md#hil-approval-integrity)).
 

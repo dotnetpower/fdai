@@ -79,8 +79,36 @@ async def test_registry_records_idempotent_decision_and_rejects_conflict() -> No
     )
 
     assert first.already_recorded is False
+    assert first.delivered is False
     assert replay.already_recorded is True
     assert replay.receipt_ref == first.receipt_ref
+    recovered = await registry.get_decision_by_approval_id("approval-1")
+    assert recovered is not None
+    assert recovered.idempotency_key == key
+    assert recovered.delivered is False
+
+    undelivered = await registry.list_undelivered()
+    assert tuple(item.idempotency_key for item in undelivered) == (key,)
+    delivered = await registry.record_delivery_attempt(
+        idempotency_key=key,
+        delivered=True,
+        max_attempts=8,
+    )
+    assert delivered.delivered is True
+    assert delivered.delivery_attempts == 1
+    assert await registry.list_undelivered() == ()
+    recovered_after_delivery = await registry.get_decision_by_approval_id("approval-1")
+    assert recovered_after_delivery is not None
+    assert recovered_after_delivery.delivered is True
+    stale_failure = await registry.record_delivery_attempt(
+        idempotency_key=key,
+        delivered=False,
+        error_code="publish:TimeoutError",
+        max_attempts=8,
+    )
+    assert stale_failure.delivered is True
+    assert stale_failure.delivery_attempts == 1
+    assert await registry.list_pending() == ()
     with pytest.raises(HilItemAlreadyResolvedError):
         await registry.record_decision(
             idempotency_key=key,

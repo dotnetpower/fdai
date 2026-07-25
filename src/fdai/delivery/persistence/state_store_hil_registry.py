@@ -44,7 +44,10 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                 continue
             park = await self._store.read_state(_park_key(approval_id))
             item = _pending_from_park(park)
-            if item is not None:
+            if item is None:
+                continue
+            decision = await self._store.read_state(_decision_key(item.idempotency_key))
+            if decision is None:
                 items.append(item)
         items.sort(
             key=lambda item: (
@@ -60,6 +63,30 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             if item.idempotency_key == idempotency_key:
                 return item
         return None
+
+    async def get_decision_by_approval_id(
+        self,
+        approval_id: str,
+    ) -> HilDecisionReceipt | None:
+        park = await self._store.read_state(_park_key(approval_id))
+        if park is None:
+            return None
+        idempotency_key = str(park.get("idempotency_key") or "")
+        if not idempotency_key:
+            return None
+        stored = await self._store.read_state(_decision_key(idempotency_key))
+        if stored is None:
+            return None
+        return _receipt_from_mapping(stored, already_recorded=True)
+
+    async def list_undelivered(self, *, limit: int = 100) -> Sequence[HilDecisionReceipt]:
+        stored, _total = await self._store.read_state_page(
+            _DECISION_PREFIX,
+            limit=max(1, limit),
+            field="delivery_state",
+            value="pending",
+        )
+        return tuple(_receipt_from_mapping(value, already_recorded=True) for value in stored)
 
     async def record_decision(
         self,
@@ -111,9 +138,35 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                 "decided_at": receipt.decided_at.isoformat(),
                 "receipt_ref": receipt.receipt_ref,
                 "justification": receipt.justification,
+                "delivered": False,
+                "delivery_attempts": 0,
+                "delivery_abandoned": False,
+                "last_delivery_error": "",
+                "delivery_state": "pending",
             },
         )
         return receipt
+
+    async def record_delivery_attempt(
+        self,
+        *,
+        idempotency_key: str,
+        delivered: bool,
+        error_code: str = "",
+        max_attempts: int,
+    ) -> HilDecisionReceipt:
+        key = _decision_key(idempotency_key)
+        stored = await self._store.read_state(key)
+        if stored is None:
+            raise HilItemNotFoundError(idempotency_key)
+        updated = _apply_delivery_attempt(
+            stored,
+            delivered=delivered,
+            error_code=error_code,
+            max_attempts=max_attempts,
+        )
+        await self._store.write_state(key, updated)
+        return _receipt_from_mapping(updated, already_recorded=True)
 
 
 class PostgresHilApprovalRegistry(StateStoreHilApprovalRegistry):
@@ -162,6 +215,11 @@ class PostgresHilApprovalRegistry(StateStoreHilApprovalRegistry):
             "decided_at": now.isoformat(),
             "receipt_ref": receipt_ref,
             "justification": justification,
+            "delivered": False,
+            "delivery_attempts": 0,
+            "delivery_abandoned": False,
+            "last_delivery_error": "",
+            "delivery_state": "pending",
         }
         key = _decision_key(idempotency_key)
         async with await psycopg.AsyncConnection.connect(
@@ -207,6 +265,47 @@ class PostgresHilApprovalRegistry(StateStoreHilApprovalRegistry):
                 prior_decision=prior.decision.value,
             )
         return prior
+
+    async def record_delivery_attempt(
+        self,
+        *,
+        idempotency_key: str,
+        delivered: bool,
+        error_code: str = "",
+        max_attempts: int,
+    ) -> HilDecisionReceipt:
+        key = _decision_key(idempotency_key)
+        async with await psycopg.AsyncConnection.connect(
+            self._dsn,
+            row_factory=dict_row,
+            connect_timeout=self._connect_timeout_s,
+        ) as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (str(self._statement_timeout_ms),),
+                )
+                cursor = await conn.execute(
+                    "SELECT value FROM state_kv WHERE key = %s FOR UPDATE",
+                    (key,),
+                )
+                row = await cursor.fetchone()
+                if row is None:
+                    raise HilItemNotFoundError(idempotency_key)
+                value = row["value"]
+                if not isinstance(value, Mapping):
+                    raise RuntimeError("stored HIL decision is not a JSON object")
+                updated = _apply_delivery_attempt(
+                    value,
+                    delivered=delivered,
+                    error_code=error_code,
+                    max_attempts=max_attempts,
+                )
+                await conn.execute(
+                    "UPDATE state_kv SET value = %s::jsonb WHERE key = %s",
+                    (json.dumps(updated), key),
+                )
+        return _receipt_from_mapping(updated, already_recorded=True)
 
 
 async def add_pending_approval(store: StateStore, approval_id: str) -> None:
@@ -283,7 +382,55 @@ def _receipt_from_mapping(
         receipt_ref=str(value.get("receipt_ref") or ""),
         already_recorded=already_recorded,
         justification=str(value.get("justification") or ""),
+        delivered=value.get("delivered") is True or value.get("delivery_state") == "delivered",
+        delivery_attempts=_non_negative_int(value.get("delivery_attempts")),
+        delivery_abandoned=(
+            value.get("delivery_abandoned") is True or value.get("delivery_state") == "abandoned"
+        ),
+        last_delivery_error=str(value.get("last_delivery_error") or ""),
     )
+
+
+def _non_negative_int(value: object) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        raise RuntimeError("stored HIL delivery_attempts MUST be a non-negative integer")
+    if isinstance(value, int) and value >= 0:
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    raise RuntimeError("stored HIL delivery_attempts MUST be a non-negative integer")
+
+
+def _apply_delivery_attempt(
+    stored: Mapping[str, object],
+    *,
+    delivered: bool,
+    error_code: str,
+    max_attempts: int,
+) -> dict[str, object]:
+    if max_attempts <= 0:
+        raise ValueError("max_attempts MUST be positive")
+    prior = _receipt_from_mapping(stored, already_recorded=True)
+    if prior.delivered or prior.delivery_abandoned:
+        return dict(stored)
+    attempts = prior.delivery_attempts + 1
+    updated = dict(stored)
+    updated.update(
+        {
+            "delivered": delivered,
+            "delivery_attempts": attempts,
+            "delivery_abandoned": not delivered and attempts >= max_attempts,
+            "last_delivery_error": "" if delivered else error_code,
+            "delivery_state": (
+                "delivered"
+                if delivered
+                else ("abandoned" if attempts >= max_attempts else "pending")
+            ),
+        }
+    )
+    return updated
 
 
 __all__ = [

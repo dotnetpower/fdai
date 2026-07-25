@@ -160,6 +160,12 @@ class HilDecisionReceipt:
     receipt_ref: str = ""
     already_recorded: bool = False
     justification: str = ""
+    delivered: bool = False
+    """Whether the recorded decision reached the typed decision transport."""
+
+    delivery_attempts: int = 0
+    delivery_abandoned: bool = False
+    last_delivery_error: str = ""
 
 
 class HilRegistryError(RuntimeError):
@@ -223,11 +229,21 @@ class HilApprovalRegistry(Protocol):
       calls ``record_decision`` writes exactly one
       ``console.approve_hil`` audit entry, and the registry's write is
       what the executor observes.
+        - persist delivery attempts and keep ``delivered`` / ``abandoned``
+            terminal. A stale failed attempt MUST NOT regress either state.
+            ``list_undelivered`` returns only retry-eligible receipts.
     """
 
     async def list_pending(self, *, limit: int = 50) -> Sequence[HilPendingItem]: ...
 
     async def get_pending(self, idempotency_key: str) -> HilPendingItem | None: ...
+
+    async def get_decision_by_approval_id(
+        self,
+        approval_id: str,
+    ) -> HilDecisionReceipt | None: ...
+
+    async def list_undelivered(self, *, limit: int = 100) -> Sequence[HilDecisionReceipt]: ...
 
     async def record_decision(
         self,
@@ -237,6 +253,15 @@ class HilApprovalRegistry(Protocol):
         approver_oid: str,
         justification: str = "",
         decided_at: datetime | None = None,
+    ) -> HilDecisionReceipt: ...
+
+    async def record_delivery_attempt(
+        self,
+        *,
+        idempotency_key: str,
+        delivered: bool,
+        error_code: str = "",
+        max_attempts: int,
     ) -> HilDecisionReceipt: ...
 
 

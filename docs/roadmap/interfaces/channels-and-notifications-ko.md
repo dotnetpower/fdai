@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 478c102a5f00876c87bda2e7d5090cdb0d4726fa
-translation_revised: 2026-07-24
+translation_source_sha: 52503c4b4b9380a85f5286906ba47235cdd34e0f
+translation_revised: 2026-07-25
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -394,6 +394,19 @@ matrix:
   알려지지 않은 값은 config 로드 실패.
 - **Bounded 재시도** - 각 어댑터는 자체 재시도 예산을 선언; 라우터는 소진 시 다음 채널 또는
   `on_all_fail`로 escalate.
+- **Durable A1 decision** - `fdai-api`는 정규화한 approver, decision, receipt를 event bus에
+  게시하기 전에 기록합니다. 게시에는 설정된 attempt count, per-attempt timeout, 제한된 backoff를
+  적용합니다. 성공하면 `delivered`를 checkpoint하고 resolved item을 pending queue에서 제거합니다.
+  같은 actor와 decision의 retry는 미전달 receipt를 이어서 보내거나 이미 전달된 receipt를 다시
+  게시하지 않고 반환합니다. 다른 actor 또는 decision은 conflict로 처리합니다. Startup 및 periodic
+  recovery는 사람의 추가 작업 없이 미전달 receipt를 drain합니다. Delivery attempt는 영구 저장되며
+  설정된 ceiling에서 `abandoned`가 됩니다. Terminal delivery state는 이전 상태로 돌아가지 않습니다.
+  Production bound는 `FDAI_HIL_DECISION_RECOVERY_INTERVAL_SECONDS`,
+  `FDAI_HIL_DECISION_PUBLISH_TIMEOUT_SECONDS`,
+  `FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS`로 설정합니다.
+- **Rate policy는 deployment가 소유** - tenant별 approver rate, quiet hour, fatigue 제한은 인증된
+  ingress와 routing config에 둡니다. Registry idempotency, expiry, quorum, no-self-approval check를
+  약화하지 않습니다.
 - **TTL fail-closed** - TTL까지 결정 없는 A1 요청은 no-op + A2 알림 + 감사 엔트리
   ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md#hil-approval-integrity)).
 

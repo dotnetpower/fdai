@@ -18,6 +18,7 @@ Test hooks:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from itertools import count
 
@@ -65,6 +66,15 @@ class InMemoryHilApprovalRegistry(HilApprovalRegistry):
     async def get_pending(self, idempotency_key: str) -> HilPendingItem | None:
         return self._pending.get(idempotency_key)
 
+    async def get_decision_by_approval_id(
+        self,
+        approval_id: str,
+    ) -> HilDecisionReceipt | None:
+        for receipt in self._resolved.values():
+            if receipt.approval_id == approval_id:
+                return replace(receipt, already_recorded=True)
+        return None
+
     async def record_decision(
         self,
         *,
@@ -96,6 +106,10 @@ class InMemoryHilApprovalRegistry(HilApprovalRegistry):
                 receipt_ref=prior.receipt_ref,
                 already_recorded=True,
                 justification=prior.justification,
+                delivered=prior.delivered,
+                delivery_attempts=prior.delivery_attempts,
+                delivery_abandoned=prior.delivery_abandoned,
+                last_delivery_error=prior.last_delivery_error,
             )
 
         pending = self._pending.get(idempotency_key)
@@ -118,6 +132,40 @@ class InMemoryHilApprovalRegistry(HilApprovalRegistry):
         # list_pending does not surface it.
         self._pending.pop(idempotency_key, None)
         return receipt
+
+    async def list_undelivered(self, *, limit: int = 100) -> Sequence[HilDecisionReceipt]:
+        receipts = tuple(
+            receipt
+            for receipt in self._resolved.values()
+            if not receipt.delivered and not receipt.delivery_abandoned
+        )
+        return receipts[: max(1, limit)]
+
+    async def record_delivery_attempt(
+        self,
+        *,
+        idempotency_key: str,
+        delivered: bool,
+        error_code: str = "",
+        max_attempts: int,
+    ) -> HilDecisionReceipt:
+        prior = self._resolved.get(idempotency_key)
+        if prior is None:
+            raise HilItemNotFoundError(idempotency_key)
+        if max_attempts <= 0:
+            raise ValueError("max_attempts MUST be positive")
+        if prior.delivered or prior.delivery_abandoned:
+            return prior
+        attempts = prior.delivery_attempts + 1
+        updated = replace(
+            prior,
+            delivered=delivered,
+            delivery_attempts=attempts,
+            delivery_abandoned=not delivered and attempts >= max_attempts,
+            last_delivery_error="" if delivered else error_code,
+        )
+        self._resolved[idempotency_key] = updated
+        return updated
 
     # ------------------------------------------------------------------
     # Test-only hooks

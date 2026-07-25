@@ -31,19 +31,21 @@ Security model
   Bearer-token path used by GET routes. Same route can never accept
   both (POSTs are routed only to this handler).
 
-The callback does NOT execute anything itself - it merely writes the
-decision into the registry. The executor observes the registry to
-release the corresponding HIL-pending action; that path already exists.
+The callback does NOT execute anything itself. It writes a durable
+decision receipt, publishes that receipt to the typed decision transport,
+and checkpoints delivery. A failed publish remains replayable by the same
+signed actor and decision without restoring the item to the pending queue.
 """
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -53,6 +55,7 @@ from starlette.routing import Route
 
 from fdai.core.hil_resume import HilResumeCoordinator, ResolveOutcome, ResolveResult
 from fdai.core.rbac.roles import Capability, Role, has_capability
+from fdai.delivery.chatops.hil_decision import attempt_hil_decision_delivery
 from fdai.shared.providers.hil_channel import HilDecision
 from fdai.shared.providers.hil_registry import (
     HilApprovalDecision,
@@ -68,6 +71,10 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_MAX_SKEW_SECONDS: int = 300
 DEFAULT_MAX_BODY_BYTES: int = 8 * 1024
+DEFAULT_DECISION_PUBLISH_MAX_ATTEMPTS: int = 3
+DEFAULT_DECISION_PUBLISH_TIMEOUT_SECONDS: float = 10.0
+DEFAULT_DECISION_PUBLISH_RETRY_SECONDS: float = 0.1
+DEFAULT_DECISION_DELIVERY_MAX_ATTEMPTS: int = 8
 HilDecisionPublisher = Callable[[HilDecisionReceipt], Awaitable[None]]
 
 
@@ -91,6 +98,11 @@ class HilCallbackConfig:
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES
     """Reject payloads larger than this. Cheap DoS ceiling."""
 
+    decision_publish_max_attempts: int = DEFAULT_DECISION_PUBLISH_MAX_ATTEMPTS
+    decision_publish_timeout_seconds: float = DEFAULT_DECISION_PUBLISH_TIMEOUT_SECONDS
+    decision_publish_retry_seconds: float = DEFAULT_DECISION_PUBLISH_RETRY_SECONDS
+    decision_delivery_max_attempts: int = DEFAULT_DECISION_DELIVERY_MAX_ATTEMPTS
+
     def __post_init__(self) -> None:
         if not self.secret:
             raise ValueError("HilCallbackConfig.secret MUST be non-empty")
@@ -98,6 +110,16 @@ class HilCallbackConfig:
             raise ValueError("max_skew_seconds MUST be positive")
         if self.max_body_bytes <= 0:
             raise ValueError("max_body_bytes MUST be positive")
+        if self.decision_publish_max_attempts <= 0:
+            raise ValueError("decision_publish_max_attempts MUST be positive")
+        if self.decision_publish_timeout_seconds <= 0:
+            raise ValueError("decision_publish_timeout_seconds MUST be positive")
+        if self.decision_publish_retry_seconds < 0:
+            raise ValueError("decision_publish_retry_seconds MUST be non-negative")
+        if self.decision_delivery_max_attempts < self.decision_publish_max_attempts:
+            raise ValueError(
+                "decision_delivery_max_attempts MUST be >= decision_publish_max_attempts"
+            )
 
 
 class HilCallbackError(RuntimeError):
@@ -191,6 +213,9 @@ def make_hil_callback_route(
     time-travel dance. Defaults to timezone-aware UTC ``datetime.now``.
     """
 
+    if decision_publisher is None:
+        raise ValueError("decision_publisher MUST be configured for the HIL callback route")
+
     clock = now or _default_clock
 
     async def handler(request: Request) -> Response:
@@ -230,50 +255,71 @@ def make_hil_callback_route(
             if resolve_result.outcome is not ResolveOutcome.NOT_FOUND:
                 return _coordinator_response(approval_id, resolve_result)
 
-        # Load the pending item so we can enforce no_self_approval BEFORE
-        # touching the registry write path.
-        pending = await _find_pending_by_approval_id(registry, approval_id)
-        if pending is None:
-            return _error(404, "not_found", f"no pending HIL item for approval_id={approval_id!r}")
+        receipt = await registry.get_decision_by_approval_id(approval_id)
+        if receipt is not None:
+            if (
+                receipt.decision is not payload.decision
+                or _normalize_oid(receipt.approver_oid) != payload.actor_oid
+            ):
+                return _error(
+                    409,
+                    "already_resolved",
+                    "approval was already resolved by a different decision or actor",
+                )
+            receipt = replace(receipt, already_recorded=True)
+        else:
+            pending = await _find_pending_by_approval_id(registry, approval_id)
+            if pending is None:
+                return _error(
+                    404,
+                    "not_found",
+                    f"no pending HIL item for approval_id={approval_id!r}",
+                )
 
-        if pending.submitter_oid and pending.submitter_oid == payload.actor_oid:
-            return _error(
-                403,
-                "self_approval_forbidden",
-                "no_self_approval - actor_oid equals submitter_oid",
-            )
+            if pending.submitter_oid and _normalize_oid(pending.submitter_oid) == payload.actor_oid:
+                return _error(
+                    403,
+                    "self_approval_forbidden",
+                    "no_self_approval - actor_oid equals submitter_oid",
+                )
+
+            try:
+                receipt = await registry.record_decision(
+                    idempotency_key=pending.idempotency_key,
+                    decision=payload.decision,
+                    approver_oid=payload.actor_oid,
+                    justification=payload.justification,
+                    decided_at=clock(),
+                )
+            except HilItemNotFoundError as exc:
+                return _error(404, "not_found", str(exc))
+            except HilItemAlreadyResolvedError as exc:
+                return _error(409, "already_resolved", str(exc))
+            except HilRegistryError as exc:
+                return _error(500, "registry_error", str(exc))
 
         try:
-            receipt = await registry.record_decision(
-                idempotency_key=pending.idempotency_key,
-                decision=payload.decision,
-                approver_oid=payload.actor_oid,
-                justification=payload.justification,
-                decided_at=clock(),
+            receipt = await _deliver_recorded_decision(
+                registry=registry,
+                publisher=decision_publisher,
+                receipt=receipt,
+                config=config,
             )
-        except HilItemNotFoundError as exc:
-            return _error(404, "not_found", str(exc))
-        except HilItemAlreadyResolvedError as exc:
-            return _error(409, "already_resolved", str(exc))
-        except HilRegistryError as exc:
-            return _error(500, "registry_error", str(exc))
-
-        if decision_publisher is not None:
-            try:
-                await decision_publisher(receipt)
-            except Exception:  # noqa: BLE001 - delivery boundary; receipt stays durable
-                _LOGGER.exception(
-                    "hil_decision_publish_failed",
-                    extra={
-                        "approval_id": receipt.approval_id or approval_id,
-                        "idempotency_key": receipt.idempotency_key,
-                    },
-                )
-                return _error(
-                    503,
-                    "decision_publish_failed",
-                    "decision was recorded but delivery failed; retry the same decision",
-                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - durable receipt remains replayable
+            _LOGGER.exception(
+                "hil_decision_publish_failed",
+                extra={
+                    "approval_id": receipt.approval_id or approval_id,
+                    "idempotency_key": receipt.idempotency_key,
+                },
+            )
+            return _error(
+                503,
+                "decision_publish_failed",
+                "decision was recorded but delivery failed; retry the same decision",
+            )
 
         _LOGGER.info(
             "hil_callback_recorded",
@@ -293,6 +339,7 @@ def make_hil_callback_route(
                 "already_recorded": receipt.already_recorded,
                 "receipt_ref": receipt.receipt_ref,
                 "decided_at": receipt.decided_at.astimezone(UTC).isoformat(),
+                "delivered": receipt.delivered,
             }
         )
 
@@ -404,8 +451,9 @@ async def _authenticate_and_parse(
         raise HilCallbackBadRequestError(f"unknown decision {decision_raw!r}") from exc
 
     actor_oid = parsed.get("actor_oid")
-    if not isinstance(actor_oid, str) or not actor_oid:
+    if not isinstance(actor_oid, str) or not actor_oid.strip():
         raise HilCallbackBadRequestError("'actor_oid' MUST be a non-empty string")
+    normalized_actor_oid = _normalize_oid(actor_oid)
 
     justification = parsed.get("justification", "")
     if not isinstance(justification, str):
@@ -417,7 +465,7 @@ async def _authenticate_and_parse(
 
     return _CallbackBody(
         decision=decision,
-        actor_oid=actor_oid,
+        actor_oid=normalized_actor_oid,
         justification=justification,
         actor_roles=tuple(roles_raw),
     )
@@ -472,6 +520,39 @@ async def _find_pending_by_approval_id(registry: HilApprovalRegistry, approval_i
         if item.approval_id == approval_id:
             return item
     return None
+
+
+async def _deliver_recorded_decision(
+    *,
+    registry: HilApprovalRegistry,
+    publisher: HilDecisionPublisher,
+    receipt: HilDecisionReceipt,
+    config: HilCallbackConfig,
+) -> HilDecisionReceipt:
+    if receipt.delivered:
+        return receipt
+    for attempt in range(config.decision_publish_max_attempts):
+        receipt, delivered = await attempt_hil_decision_delivery(
+            registry=registry,
+            publisher=publisher,
+            receipt=receipt,
+            timeout_seconds=config.decision_publish_timeout_seconds,
+            max_delivery_attempts=config.decision_delivery_max_attempts,
+        )
+        if delivered:
+            return receipt
+        if receipt.delivery_abandoned:
+            break
+        if attempt + 1 < config.decision_publish_max_attempts:
+            await asyncio.sleep(config.decision_publish_retry_seconds * (2**attempt))
+    raise RuntimeError(
+        "HIL decision delivery did not complete "
+        f"(attempts={receipt.delivery_attempts}, abandoned={receipt.delivery_abandoned})"
+    )
+
+
+def _normalize_oid(value: str) -> str:
+    return value.strip().casefold()
 
 
 # ---------------------------------------------------------------------------

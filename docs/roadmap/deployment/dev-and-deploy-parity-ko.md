@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 14caebd0ca9cceeec12167e7b336fdc3742828fc
-translation_revised: 2026-07-24
+translation_source_sha: 1c79ea74a363bb43f1183408bc91ad9955c28645
+translation_revised: 2026-07-25
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -253,6 +253,16 @@ analyzing, deciding, executing, approving, auditing, Incident 및 handoff frame�
 두 model family가 resolve된 경우에만 Azure reviewer를 사용합니다. PostgreSQL은 restart-safe review
 및 draft state를 보관하며 production read API는 process memory를 공유하거나 approval endpoint를
 추가하지 않고 해당 row를 projection합니다.
+
+Approval decision delivery도 restart 전후에 같은 shape을 유지합니다. Production은 서명된 A1
+decision을 게시하기 전에 PostgreSQL에 기록하고 delivery attempt를 checkpoint하며 startup 및 periodic
+loop에서 적격한 미전달 receipt를 drain합니다. Terminal delivered 또는 abandoned receipt는 이전
+상태로 돌아가지 않으며 shutdown은 event transport를 닫기 전에 recovery를 중지합니다. Deployment는
+`FDAI_HIL_DECISION_RECOVERY_INTERVAL_SECONDS`,
+`FDAI_HIL_DECISION_PUBLISH_TIMEOUT_SECONDS`,
+`FDAI_HIL_DECISION_MAX_DELIVERY_ATTEMPTS`로 interval, publish timeout, 전체 attempt ceiling을
+조정할 수 있습니다. Test는 in-memory store 및 publisher와 같은 registry contract를 사용합니다.
+Interactive local은 approver를 만들어 내거나 signed callback auth를 우회하지 않습니다.
 
 ### Azure-backed integration
 

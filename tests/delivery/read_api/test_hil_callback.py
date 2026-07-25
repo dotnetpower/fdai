@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from httpx import Response
 from starlette.testclient import TestClient
 
 from fdai.core.executor import (
@@ -23,6 +24,7 @@ from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.routes.hil_callback import (
     HilCallbackConfig,
+    make_hil_callback_route,
 )
 from fdai.shared.contracts.models import (
     Action,
@@ -51,6 +53,11 @@ from fdai.shared.providers.testing.hil_channel import InMemoryHilChannel
 from fdai.shared.providers.testing.hil_registry import InMemoryHilApprovalRegistry
 
 SECRET = "shared-secret-for-tests"
+_DEFAULT_PUBLISHER = object()
+
+
+async def _noop_decision_publisher(_receipt: object) -> None:
+    return None
 
 
 def _sign(secret: str, timestamp: str, body: bytes, *, approval_id: str) -> str:
@@ -91,7 +98,8 @@ def _build_app_with_callback(
     registry: InMemoryHilApprovalRegistry,
     *,
     coordinator: HilResumeCoordinator | None = None,
-    decision_publisher: object | None = None,
+    decision_publisher: object | None = _DEFAULT_PUBLISHER,
+    callback_config: HilCallbackConfig | None = None,
     now: datetime | None = None,
 ) -> object:
     del now  # composition-root wiring uses the default clock
@@ -100,11 +108,40 @@ def _build_app_with_callback(
         authenticator=auth,
         read_model=InMemoryConsoleReadModel(),
         config=ReadApiConfig(
-            hil_callback=HilCallbackConfig(secret=SECRET),
+            hil_callback=callback_config or HilCallbackConfig(secret=SECRET),
             hil_registry=registry,
             hil_coordinator=coordinator,
-            hil_decision_publisher=decision_publisher,
+            hil_decision_publisher=(
+                _noop_decision_publisher
+                if decision_publisher is _DEFAULT_PUBLISHER
+                else decision_publisher
+            ),
         ),
+    )
+
+
+def _post_decision(
+    client: TestClient,
+    *,
+    actor_oid: str,
+    decision: str = "approve",
+) -> Response:
+    body = json.dumps(
+        {
+            "decision": decision,
+            "actor_oid": actor_oid,
+            "justification": "Reviewed by the on-call approver.",
+        }
+    ).encode()
+    timestamp = datetime.now(UTC).isoformat()
+    return client.post(
+        "/hil/appr-1/decision",
+        content=body,
+        headers={
+            "x-fdai-timestamp": timestamp,
+            "x-fdai-signature": _sign(SECRET, timestamp, body, approval_id="appr-1"),
+            "content-type": "application/json",
+        },
     )
 
 
@@ -126,6 +163,15 @@ def test_config_max_skew_positive() -> None:
 def test_config_max_body_positive() -> None:
     with pytest.raises(ValueError, match="max_body_bytes"):
         HilCallbackConfig(secret=SECRET, max_body_bytes=0)
+
+
+def test_callback_route_requires_decision_publisher() -> None:
+    with pytest.raises(ValueError, match="decision_publisher"):
+        make_hil_callback_route(
+            registry=InMemoryHilApprovalRegistry(),
+            config=HilCallbackConfig(secret=SECRET),
+            decision_publisher=None,
+        )
 
 
 def test_app_factory_fails_fast_when_callback_set_without_registry() -> None:
@@ -249,12 +295,167 @@ def test_decision_publish_failure_returns_retryable_503() -> None:
     assert response.status_code == 503
     assert response.json()["error"]["kind"] == "decision_publish_failed"
     assert len(registry.resolved) == 1
+    assert registry.resolved[0].delivered is False
+    assert registry.resolved[0].delivery_attempts == 3
+
+
+def test_decision_publisher_retries_transient_failures_and_marks_delivered() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending()])
+    attempts = 0
+
+    async def publisher(_receipt):  # type: ignore[no-untyped-def]
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise RuntimeError("transient broker failure")
+
+    app = _build_app_with_callback(
+        registry,
+        decision_publisher=publisher,
+        callback_config=HilCallbackConfig(
+            secret=SECRET,
+            decision_publish_max_attempts=3,
+            decision_publish_retry_seconds=0,
+        ),
+    )
+    response = _post_decision(TestClient(app), actor_oid="user-approver")
+
+    assert response.status_code == 200
+    assert attempts == 3
+    assert registry.resolved[0].delivered is True
+    assert registry.resolved[0].delivery_attempts == 3
+
+
+def test_decision_publisher_timeout_is_bounded_and_retried() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending()])
+    attempts = 0
+
+    async def publisher(_receipt):  # type: ignore[no-untyped-def]
+        nonlocal attempts
+        attempts += 1
+        await asyncio.sleep(60)
+
+    app = _build_app_with_callback(
+        registry,
+        decision_publisher=publisher,
+        callback_config=HilCallbackConfig(
+            secret=SECRET,
+            decision_publish_max_attempts=2,
+            decision_publish_timeout_seconds=0.001,
+            decision_publish_retry_seconds=0,
+        ),
+    )
+    response = _post_decision(TestClient(app), actor_oid="user-approver")
+
+    assert response.status_code == 503
+    assert attempts == 2
+    assert registry.resolved[0].delivered is False
+    assert registry.resolved[0].delivery_attempts == 2
+
+
+def test_failed_delivery_replay_loads_receipt_and_recovers() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending()])
+    attempts = 0
+
+    async def publisher(_receipt):  # type: ignore[no-untyped-def]
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("broker unavailable")
+
+    app = _build_app_with_callback(
+        registry,
+        decision_publisher=publisher,
+        callback_config=HilCallbackConfig(
+            secret=SECRET,
+            decision_publish_max_attempts=1,
+            decision_publish_retry_seconds=0,
+        ),
+    )
+    client = TestClient(app)
+
+    first = _post_decision(client, actor_oid="user-approver")
+    replay = _post_decision(client, actor_oid="user-approver")
+
+    assert first.status_code == 503
+    assert replay.status_code == 200
+    assert replay.json()["already_recorded"] is True
+    assert attempts == 2
+    assert registry.resolved[0].delivered is True
+    assert registry.resolved[0].delivery_attempts == 2
+
+
+def test_delivered_replay_does_not_publish_again() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending()])
+    published = 0
+
+    async def publisher(_receipt):  # type: ignore[no-untyped-def]
+        nonlocal published
+        published += 1
+
+    app = _build_app_with_callback(registry, decision_publisher=publisher)
+    client = TestClient(app)
+
+    first = _post_decision(client, actor_oid="user-approver")
+    replay = _post_decision(client, actor_oid="user-approver")
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert replay.json()["already_recorded"] is True
+    assert published == 1
+    assert registry.resolved[0].delivery_attempts == 1
+
+
+def test_abandoned_delivery_does_not_publish_on_replay() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending()])
+    published = 0
+
+    async def publisher(_receipt):  # type: ignore[no-untyped-def]
+        nonlocal published
+        published += 1
+        raise RuntimeError("broker unavailable")
+
+    app = _build_app_with_callback(
+        registry,
+        decision_publisher=publisher,
+        callback_config=HilCallbackConfig(
+            secret=SECRET,
+            decision_publish_max_attempts=2,
+            decision_publish_retry_seconds=0,
+            decision_delivery_max_attempts=2,
+        ),
+    )
+    client = TestClient(app)
+
+    first = _post_decision(client, actor_oid="user-approver")
+    replay = _post_decision(client, actor_oid="user-approver")
+
+    assert first.status_code == 503
+    assert replay.status_code == 503
+    assert published == 2
+    assert registry.resolved[0].delivery_abandoned is True
+
+
+def test_same_decision_replay_from_different_actor_is_conflict() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending()])
+    app = _build_app_with_callback(registry)
+    client = TestClient(app)
+
+    assert _post_decision(client, actor_oid="approver-one").status_code == 200
+    replay = _post_decision(client, actor_oid="approver-two")
+
+    assert replay.status_code == 409
+    assert replay.json()["error"]["kind"] == "already_resolved"
 
 
 def test_second_call_after_resolution_returns_404() -> None:
-    """Once the approval is resolved, the pending item disappears from
-    the registry and subsequent callbacks to the same approval_id
-    return 404 - the approval is single-use, fail-closed."""
+    """A delivered same-decision callback is an idempotent success."""
 
     registry = InMemoryHilApprovalRegistry()
     registry.seed([_pending()])
@@ -277,7 +478,8 @@ def test_second_call_after_resolution_returns_404() -> None:
     r1 = client.post("/hil/appr-1/decision", content=body, headers=headers)
     r2 = client.post("/hil/appr-1/decision", content=body, headers=headers)
     assert r1.status_code == 200
-    assert r2.status_code == 404
+    assert r2.status_code == 200
+    assert r2.json()["already_recorded"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -495,6 +697,7 @@ def test_body_too_large_returns_400() -> None:
         config=ReadApiConfig(
             hil_callback=HilCallbackConfig(secret=SECRET, max_body_bytes=20),
             hil_registry=registry,
+            hil_decision_publisher=_noop_decision_publisher,
         ),
     )
     client = TestClient(app)
@@ -541,6 +744,17 @@ def test_self_approval_is_403() -> None:
             "content-type": "application/json",
         },
     )
+    assert response.status_code == 403
+    assert response.json()["error"]["kind"] == "self_approval_forbidden"
+
+
+def test_self_approval_normalizes_case_and_surrounding_whitespace() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending(submitter_oid="USER-ONE")])
+    app = _build_app_with_callback(registry)
+
+    response = _post_decision(TestClient(app), actor_oid="  user-one  ")
+
     assert response.status_code == 403
     assert response.json()["error"]["kind"] == "self_approval_forbidden"
 

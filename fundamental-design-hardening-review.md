@@ -54,6 +54,49 @@ Forseti the judge, Var the approver, Saga the auditor, and Vidar the rollback pr
 - Ruff and strict mypy checks pass for the touched slice.
 - Bilingual translation, punctuation, catalog, stewardship, architecture, and integrity gates pass.
 
+## Work unit 2: Approval decision delivery recovery
+
+This unit covers the registry-backed callback path that records an operator decision and publishes
+it to the typed runtime. It does not invent tenant-specific rate limits, quiet hours, or escalation
+destinations. Those remain configuration and routing policy.
+
+| # | Critique | Evidence | Severity | Decision and hardening |
+|---|----------|----------|----------|------------------------|
+| 1 | Callback authentication binds timestamp, approval id, and body | HMAC material includes all three | Pass | Retain existing tests |
+| 2 | Replay window rejects stale signed callbacks | `max_skew_seconds` is validated and enforced | Pass | Retain existing tests |
+| 3 | Callback payload and approval id are bounded before expensive work | Body and path caps run before parsing | Pass | Retain existing tests |
+| 4 | Registry writes a decision before attempting event delivery | `record_decision` precedes publisher invocation | Pass | Preserve durable-first ordering |
+| 5 | Registry rejects a different terminal decision for one key | Conflicting decisions raise `HilItemAlreadyResolvedError` | Pass | Preserve conflict semantics |
+| 6 | Self-approval comparison is raw-string equality | Callback does not trim or case-normalize OIDs | High | Normalize actor and submitter identities before comparison and storage |
+| 7 | Registry callback can start without a delivery publisher | Optional publisher returns success after record-only | High | Fail route construction when publisher is absent |
+| 8 | Publisher invocation has no timeout | One stuck broker call can occupy the request indefinitely | Medium | Apply a validated per-attempt timeout |
+| 9 | Transient publisher failure has no bounded retry | First failure returns 503 immediately | Medium | Retry with bounded exponential backoff |
+| 10 | The documented same-decision retry can return 404 | In-memory registry removes pending before publish | High | Retrieve durable receipts by approval id after resolution |
+| 11 | Successful delivery has no durable marker | A repeated callback republishes or cannot distinguish delivery | High | Persist a delivered marker on the decision receipt |
+| 12 | Same decision from a different actor can masquerade as replay | Registry idempotency keys only by action and decision | Medium | Require replay actor to match the recorded approver |
+| 13 | StateStore decisions remain visible in the pending queue | Decision rows do not change the parked record's `pending` status | High | Exclude parks with a durable decision row from pending projection |
+| 14 | Undelivered decisions wait for another human callback | Production has no background drain for durable undelivered receipts | High | Run a bounded startup and periodic recovery loop over the receipt outbox |
+| 15 | Event transport wiring discards existing shutdown callbacks | The final tuple replaces the callbacks passed into runtime wiring | High | Preserve existing callbacks and stop recovery before closing the bus |
+| 16 | Concurrent recovery can regress a delivered checkpoint | A stale failed attempt can overwrite a successful delivery state | High | Make terminal delivery states monotonic and update Postgres rows under lock |
+
+### Discriminating checks
+
+- A callback route without a decision publisher fails during composition.
+- Transient delivery failures retry within configured attempt and timeout bounds.
+- A persistent failure leaves one durable, undelivered receipt and returns retryable `503`.
+- Replaying the same signed decision loads that receipt, publishes it, and marks it delivered.
+- Replaying an already delivered receipt returns success without another event publication.
+- A conflicting decision or different replay actor returns `409` and never publishes.
+- Case or surrounding whitespace cannot bypass no-self-approval.
+- A durably resolved decision no longer appears in the pending approval queue.
+- Broker recovery or process restart drains undelivered receipts without another human action.
+
+### Verification evidence
+
+- Callback, registry, recovery, approval-tool, provider, and production tests: 132 passed.
+- Strict mypy passes for every changed production module.
+- Ruff passes for every changed source and test module.
+
 ## Remaining work units
 
 The next unit starts only after every accepted finding in the current unit is implemented, tested,
