@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 9961d340bb59a22327f66dd98d897d859ab858c3
+translation_source_sha: 833a71543c29a63741e07e73fa6b35a2158cebe7
 translation_revised: 2026-07-26
 ---
 
@@ -192,8 +192,8 @@ flowchart TD
   - injected aware clock과 principal IANA timezone에서 current-time 질문을 resolve합니다. Deterministic
     verification은 exact timestamp와 명시적 UTC fallback을 emit합니다.
 - [`src/fdai/delivery/read_api/routes/`](../../../src/fdai/delivery/read_api/routes)
-  - `chat_stream_setup.py`는 busy-input state machine 시작 전 authenticated request, document,
-    vision, history, answer-plan validation을 소유합니다.
+  - `chat_stream_setup.py`는 authenticated request, evidence, history, answer-plan validation을,
+    `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유합니다.
   - `chat_vision_prompt.py`는 검증된 inline image를 narrator content로 projection하고,
     `chat_verification_text.py`는 Unicode normalization과 answer-text integrity 검사를,
     `chat_verification_rendering.py`는 bounded incident 및 agent-activity prose rendering을 소유합니다.

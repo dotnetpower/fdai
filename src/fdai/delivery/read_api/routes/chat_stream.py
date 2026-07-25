@@ -18,7 +18,6 @@ from starlette.routing import Route
 from fdai.core.conversation.answer_planning import AnswerPlanningResult
 from fdai.core.conversation.busy_input_coordinator import BusyInputCoordinator
 from fdai.core.metering import InvocationScope, with_invocation_scope
-from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.read_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
@@ -56,7 +55,6 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     OperationalEvidenceResolverProtocol,
     _delegation_summary,
     _retrieval_source_previews,
-    _web_search_summary,
     _with_agent_evidence,
     _with_behavior_evidence,
     _with_operational_evidence,
@@ -95,6 +93,10 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
     _with_sse_heartbeats,
 )
 from fdai.delivery.read_api.routes.chat_stream_setup import prepare_chat_stream_request
+from fdai.delivery.read_api.routes.chat_stream_terminal import (
+    build_done_payload,
+    verification_events,
+)
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.delivery.read_api.routes.chat_vision_evidence import (
@@ -693,79 +695,31 @@ def make_chat_stream_route(
                     verification,
                     document_evidence_refs,
                 )
-                yield frame(
-                    "verification",
-                    {
-                        "phase": "verifying",
-                        "label": "Verifying answer against evidence",
-                        "completed": 0,
-                        "total": verification.checks_total,
-                    },
+                terminal_events, revision = verification_events(
+                    provisional_answer,
+                    verification,
+                    revision,
                 )
-                yield frame(
-                    "verification",
-                    {
-                        "phase": verification.status,
-                        "label": f"Verification {verification.status}",
-                        "completed": verification.checks_completed,
-                        "total": verification.checks_total,
-                        "authority": verification.authority,
-                        "evidence_refs": list(verification.evidence_refs),
-                        "reason_code": verification.reason_code,
-                    },
-                )
-                if verification.answer != provisional_answer:
-                    revision += 1
-                    yield frame(
-                        "revision",
-                        {
-                            "answer": verification.answer,
-                            "replaces_revision": revision - 1,
-                            "status": verification.status,
-                            "reason_code": verification.reason_code,
-                            "evidence_refs": list(verification.evidence_refs),
-                        },
-                    )
+                for event_name, payload in terminal_events:
+                    yield frame(event_name, payload)
                 answer_planning = await planning_metadata(planning_task)
-                done_payload = {
-                    "answer": verification.answer,
-                    "model": terminal_model,
-                    "router": terminal_router,
-                    "usage": terminal_usage,
-                    "source": (
-                        f"evidence:{verification.status}"
-                        if evidence_fast_path
-                        else (
-                            "evidence:ontology-snapshot"
-                            if ontology_answer is not None
-                            else (
-                                "evidence:system-health"
-                                if health_answer is not None
-                                else (
-                                    "evidence:current-screen"
-                                    if screen_answer is not None
-                                    else (
-                                        "evidence:fdai-glossary"
-                                        if concept_answer is not None
-                                        else None
-                                    )
-                                )
-                            )
-                        )
-                    ),
-                    "latency_ms": int((time.monotonic() - started) * 1000),
-                    "verification": verification.to_dict(),
-                    "delegation": delegation,
-                    "web_search": _web_search_summary(enriched_context),
-                    "answer_plan": answer_plan.to_dict(),
-                    "answer_planning": answer_planning,
-                    "code_artifacts": [
-                        artifact.to_dict()
-                        for artifact in extract_grounded_code(verification.answer)
-                    ],
-                }
-                if quality is not None:
-                    done_payload["answer_quality"] = quality.to_dict()
+                done_payload = build_done_payload(
+                    verification=verification,
+                    terminal_model=terminal_model,
+                    terminal_router=terminal_router,
+                    terminal_usage=terminal_usage,
+                    evidence_fast_path=evidence_fast_path,
+                    ontology_answer=ontology_answer,
+                    health_answer=health_answer,
+                    screen_answer=screen_answer,
+                    concept_answer=concept_answer,
+                    started=started,
+                    delegation=delegation,
+                    enriched_context=enriched_context,
+                    answer_plan=answer_plan,
+                    answer_planning=answer_planning,
+                    quality=quality,
+                )
                 if conversation_history_store is not None:
                     assistant_turn = await append_assistant_turn(
                         store=conversation_history_store,
