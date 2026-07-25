@@ -44,6 +44,14 @@ resource "azurerm_container_app_job" "inventory" {
       memory  = "1Gi"
       command = ["python", "-m", "fdai.delivery.inventory_sync_cli"]
 
+      dynamic "env" {
+        for_each = local.core_config_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
       env {
         name        = "FDAI_INVENTORY_DSN"
         secret_name = "inventory-dsn"

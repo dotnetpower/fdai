@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 58a0b3d1a69b9d12aa482a9a50170d10704549b3
+translation_source_sha: d73ce32d6873fb21a0f9da587230a05d352bc323
 translation_revised: 2026-07-25
 ---
 
@@ -105,6 +105,8 @@ Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSIO
 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 job을 설정하고, `forecast_tick_cron_expression`과
 `forecast_targets_json`은 forecast Job을 opt-in하고 `FDAI_FORECAST_TARGETS_JSON`을 주입합니다.
 Forecast Job은 raw tick만 publish하며 Huginn이 이를 Heimdall 평가 및 closure용으로 정규화합니다.
+Inventory reconciliation Job은 core와 같은 required non-secret runtime config를 상속해
+recovery-delta forwarding이 partial config 없이 typed Event Bus publisher를 열게 합니다.
 빈 cron은 해당 job을 비활성화합니다. 기존 scheduler 또는 analyzer job은 plan 전에 안전하게
 가져오고 이후 image와 configuration 변경은 같은 plan 및 apply 경로로 수렴합니다.
 Analyzer job은 기본 1분 shadow schedule을 사용합니다. 명시적 analyzer target이 비어 있으면

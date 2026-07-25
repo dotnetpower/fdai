@@ -101,6 +101,8 @@ Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and
 `forecast_targets_json` opt into the forecast Job and inject `FDAI_FORECAST_TARGETS_JSON`. The
 forecast Job publishes only a raw tick, which Huginn normalizes for Heimdall to evaluate and close.
+The inventory reconciliation Job inherits the same required non-secret runtime config as core so
+recovery-delta forwarding can open its typed Event Bus publisher without a partial config.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
 The analyzer job defaults to a one-minute shadow schedule. When explicit analyzer targets are
