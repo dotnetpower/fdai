@@ -192,7 +192,68 @@ async def test_deferred_initial_dispatch_waits_until_quiet_end() -> None:
     assert await dispatcher.drain_due() == 0
     current = datetime(2026, 7, 26, 6, 0, tzinfo=UTC)
     assert await dispatcher.drain_due() == 1
-    assert channel.sent[0].metadata["approval_load_mode"] == "reminder"
+    assert channel.sent[0].metadata["approval_load_mode"] == "deferred_initial"
+
+
+async def test_grouped_approvals_emit_one_anchor_digest_after_window() -> None:
+    current = _BASE
+    store = InMemoryStateStore()
+    channel = InMemoryHilChannel()
+    policy = _policy(max_pending_per_assignee=10)
+    controller = ApprovalLoadController(state_store=store, policy=policy, clock=lambda: current)
+    plans = []
+    for index in range(3):
+        parked = _park(f"grouped-{index}", at=current)
+        await _store_park(store, parked)
+        plans.append(await controller.plan(parked, severity="medium"))
+    dispatcher = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=channel,
+        policy=policy,
+        clock=lambda: current,
+    )
+
+    assert [plan.mode for plan in plans] == [
+        ApprovalDispatchMode.SEND_NOW,
+        ApprovalDispatchMode.GROUPED,
+        ApprovalDispatchMode.GROUPED,
+    ]
+    assert all(len(plan.due_at) == 1 for plan in plans[1:])
+    assert await dispatcher.drain_due() == 0
+
+    current = _BASE + timedelta(seconds=policy.group_window_seconds)
+    assert await dispatcher.drain_due() == 1
+    assert await dispatcher.drain_due() == 0
+    assert len(channel.sent) == 1
+    assert channel.sent[0].approval_id == "grouped-0"
+    assert channel.sent[0].metadata["approval_load_mode"] == "grouped_digest"
+    assert channel.sent[0].metadata["approval_group_size"] == "3"
+    assert len(await store.read_states("hil_park:", limit=10)) == 3
+
+
+async def test_quiet_group_uses_one_dispatch_for_deferred_anchor_and_members() -> None:
+    current = datetime(2026, 7, 25, 23, 0, tzinfo=UTC)
+    store = InMemoryStateStore()
+    channel = InMemoryHilChannel()
+    policy = _policy(max_pending_per_assignee=10)
+    controller = ApprovalLoadController(state_store=store, policy=policy, clock=lambda: current)
+    for index in range(3):
+        parked = _park(f"quiet-group-{index}", at=current, ttl_seconds=30_000)
+        await _store_park(store, parked)
+        await controller.plan(parked, severity="medium")
+    dispatcher = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=channel,
+        policy=policy,
+        clock=lambda: current,
+    )
+
+    current = datetime(2026, 7, 26, 6, 0, tzinfo=UTC)
+    assert await dispatcher.drain_due() == 1
+    assert len(channel.sent) == 1
+    assert channel.sent[0].approval_id == "quiet-group-0"
+    assert channel.sent[0].metadata["approval_load_mode"] == "grouped_digest"
+    assert channel.sent[0].metadata["approval_group_size"] == "3"
 
 
 async def test_failed_reminder_does_not_retry_or_remove_pending() -> None:

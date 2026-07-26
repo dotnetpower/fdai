@@ -423,7 +423,11 @@ matrix:
   bypass quiet hours and grouping. Non-critical requests may share one deterministic action and
   assignee group window or wait until quiet hours end, but every member remains independently
   visible and decidable in the approval queue. An assignee fatigue ceiling changes a group's
-  notification mode; it never blocks parking or implies approval.
+  notification mode; it never blocks parking or implies approval. At the group-window or quiet-hour
+  boundary, the runtime claims one stable group dispatch id and sends one anchor digest with the
+  current pending member count. A deferred group and its members share that claim, so they cannot
+  produce duplicate initial cards across replicas. Initial delivery and reminders use distinct
+  metadata and audit kinds.
 - **Reminders are bounded attempts** - the policy declares deterministic offsets before the
   original approval expiry. A runtime worker claims each reminder id once across replicas and
   attempts the existing A1 channel. Success or failure is audited; neither extends TTL, removes

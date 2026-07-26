@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 7b7c77e236cff861bbc66c39500660bd99119f2a
-translation_revised: 2026-07-25
+translation_source_sha: b30d09bf717e5499dc7ffff43e9d65fa667635ff
+translation_revised: 2026-07-27
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -413,7 +413,11 @@ matrix:
   severity는 항상 quiet hour와 grouping을 우회합니다. Non-critical request는 deterministic action
   및 assignee group window를 공유하거나 quiet hour 종료까지 기다릴 수 있지만, 모든 member는
   approval queue에서 독립적으로 확인하고 결정할 수 있습니다. Assignee fatigue ceiling은 group의
-  notification mode만 바꾸며 parking을 막거나 approval을 의미하지 않습니다.
+  notification mode만 바꾸며 parking을 막거나 approval을 의미하지 않습니다. Group window 또는
+  quiet hour boundary에서 runtime은 stable group dispatch id 하나를 claim하고 현재 pending member
+  count를 포함한 anchor digest 하나만 보냅니다. Deferred group과 member는 같은 claim을 사용하므로
+  replica 간 duplicate initial card를 만들 수 없습니다. Initial delivery와 reminder는 서로 다른
+  metadata 및 audit kind를 사용합니다.
 - **Reminder는 bounded attempt** - policy는 원래 approval expiry 이전의 deterministic offset을
   선언합니다. Runtime worker는 replica 전체에서 각 reminder id를 한 번 claim하고 기존 A1 channel을
   시도합니다. 성공과 실패를 모두 audit하며 TTL을 연장하거나 pending item을 제거하거나 선언된

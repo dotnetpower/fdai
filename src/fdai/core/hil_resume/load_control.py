@@ -23,6 +23,7 @@ _POLICY_SCHEMA: Final = "1.0.0"
 _PARK_PREFIX: Final = "hil_park:"
 _PLAN_PREFIX: Final = "hil_load_plan:"
 _GROUP_PREFIX: Final = "hil_load_group:"
+_INITIAL_DISPATCH_PREFIX: Final = "hil_load_initial_dispatch:"
 _REMINDER_ATTEMPT_PREFIX: Final = "hil_load_reminder_attempt:"
 _TIME = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 
@@ -219,8 +220,17 @@ class ApprovalLoadController:
         else:
             mode = ApprovalDispatchMode.SEND_NOW
 
+        due_at: tuple[datetime, ...]
         if mode is ApprovalDispatchMode.GROUPED:
-            due_at: tuple[datetime, ...] = ()
+            group_due = (
+                self.policy.next_quiet_end(now)
+                if self.policy.in_quiet_hours(now)
+                else datetime.fromtimestamp(
+                    (bucket + 1) * self.policy.group_window_seconds,
+                    tz=UTC,
+                )
+            )
+            due_at = (group_due,) if group_due < expires_at else ()
         else:
             base = self.policy.next_quiet_end(now) if mode is ApprovalDispatchMode.DEFERRED else now
             candidates = ((base,) if mode is ApprovalDispatchMode.DEFERRED else ()) + tuple(
@@ -295,8 +305,9 @@ class ApprovalReminderDispatcher:
             approval_id = str(plan.get("approval_id") or "")
             if not approval_id:
                 continue
-            park = await self._state_store.read_state(f"{_PARK_PREFIX}{approval_id}")
-            if park is None or park.get("status") != "pending" or _expires_at(park) <= now:
+            try:
+                mode = ApprovalDispatchMode(str(plan.get("mode") or ""))
+            except ValueError:
                 continue
             due_raw = plan.get("due_at", ())
             if not isinstance(due_raw, Sequence) or isinstance(due_raw, str | bytes):
@@ -305,27 +316,71 @@ class ApprovalReminderDispatcher:
                 due = _timestamp(raw, "approval reminder due_at")
                 if due > now:
                     continue
-                dispatch_id = f"{approval_id}:{index}"
+                is_initial = index == 0 and mode in {
+                    ApprovalDispatchMode.DEFERRED,
+                    ApprovalDispatchMode.GROUPED,
+                }
+                group_id = str(plan.get("group_id") or "")
+                group_size = int(plan.get("group_size") or 1)
+                if is_initial:
+                    grouped = await _pending_group_dispatch(
+                        self._state_store,
+                        plans,
+                        group_id=group_id,
+                        now=now,
+                    )
+                    if grouped is None:
+                        continue
+                    dispatch_park, group_size = grouped
+                    dispatch_id = f"group:{group_id}:initial"
+                    attempt_key = f"{_INITIAL_DISPATCH_PREFIX}{dispatch_id}"
+                    attempt_kind = "hil.load.initial_attempted"
+                else:
+                    individual_park = await self._state_store.read_state(
+                        f"{_PARK_PREFIX}{approval_id}"
+                    )
+                    if (
+                        individual_park is None
+                        or individual_park.get("status") != "pending"
+                        or _expires_at(individual_park) <= now
+                    ):
+                        continue
+                    dispatch_park = individual_park
+                    dispatch_id = f"{approval_id}:{index}"
+                    attempt_key = f"{_REMINDER_ATTEMPT_PREFIX}{dispatch_id}"
+                    attempt_kind = "hil.load.reminder_attempted"
+                dispatch_approval_id = _required_str(dispatch_park, "approval_id")
                 claimed = await self._state_store.write_state_with_audit_if_absent(
-                    f"{_REMINDER_ATTEMPT_PREFIX}{dispatch_id}",
-                    {"approval_id": approval_id, "index": index, "attempted_at": now.isoformat()},
+                    attempt_key,
+                    {
+                        "approval_id": dispatch_approval_id,
+                        "index": index,
+                        "attempted_at": now.isoformat(),
+                    },
                     _audit(
-                        kind="hil.load.reminder_attempted",
-                        key=f"hil-load-reminder:{dispatch_id}",
-                        approval_id=approval_id,
+                        kind=attempt_kind,
+                        key=f"hil-load-dispatch:{dispatch_id}",
+                        approval_id=dispatch_approval_id,
                         at=now,
                     ),
                 )
                 if not claimed:
                     continue
                 attempts += 1
+                dispatch_mode = (
+                    "grouped_digest"
+                    if is_initial and group_size > 1
+                    else "deferred_initial"
+                    if is_initial
+                    else "reminder"
+                )
                 request = approval_request_from_park(
-                    park,
+                    dispatch_park,
                     metadata={
                         "approval_load_policy": str(plan.get("policy_version") or ""),
-                        "approval_load_mode": "reminder",
-                        "approval_group_id": str(plan.get("group_id") or ""),
-                        "approval_group_size": str(plan.get("group_size") or 1),
+                        "approval_load_mode": dispatch_mode,
+                        "approval_group_id": group_id,
+                        "approval_group_size": str(group_size),
                         "approval_reminder_index": str(index),
                         "approval_dispatch_id": dispatch_id,
                     },
@@ -335,18 +390,24 @@ class ApprovalReminderDispatcher:
                 except HilChannelError:
                     await self._state_store.append_audit_entry(
                         _audit(
-                            kind="hil.load.reminder_failed",
-                            key=f"hil-load-reminder-failed:{dispatch_id}",
-                            approval_id=approval_id,
+                            kind=(
+                                "hil.load.initial_failed"
+                                if is_initial
+                                else "hil.load.reminder_failed"
+                            ),
+                            key=f"hil-load-dispatch-failed:{dispatch_id}",
+                            approval_id=dispatch_approval_id,
                             at=now,
                         )
                     )
                 else:
                     await self._state_store.append_audit_entry(
                         _audit(
-                            kind="hil.load.reminder_sent",
-                            key=f"hil-load-reminder-sent:{dispatch_id}",
-                            approval_id=approval_id,
+                            kind=(
+                                "hil.load.initial_sent" if is_initial else "hil.load.reminder_sent"
+                            ),
+                            key=f"hil-load-dispatch-sent:{dispatch_id}",
+                            approval_id=dispatch_approval_id,
                             at=now,
                         )
                     )
@@ -384,6 +445,37 @@ def approval_request_from_park(
         ttl_seconds=_positive_int(context.get("ttl_seconds"), "approval ttl_seconds"),
         metadata=dict(metadata or {}),
     )
+
+
+async def _pending_group_dispatch(
+    state_store: StateStore,
+    plans: Sequence[Mapping[str, Any]],
+    *,
+    group_id: str,
+    now: datetime,
+) -> tuple[Mapping[str, Any], int] | None:
+    if not group_id:
+        return None
+    group = await state_store.read_state(f"{_GROUP_PREFIX}{group_id}")
+    anchor_id = str(group.get("approval_id") or "") if group is not None else ""
+    member_ids = tuple(
+        dict.fromkeys(
+            approval_id
+            for plan in plans
+            if str(plan.get("group_id") or "") == group_id
+            if (approval_id := str(plan.get("approval_id") or ""))
+        )
+    )
+    ordered_ids = tuple(dict.fromkeys((anchor_id, *member_ids)))
+    pending: list[Mapping[str, Any]] = []
+    for approval_id in ordered_ids:
+        if not approval_id:
+            continue
+        park = await state_store.read_state(f"{_PARK_PREFIX}{approval_id}")
+        if park is None or park.get("status") != "pending" or _expires_at(park) <= now:
+            continue
+        pending.append(park)
+    return (pending[0], len(pending)) if pending else None
 
 
 def _same_group(
