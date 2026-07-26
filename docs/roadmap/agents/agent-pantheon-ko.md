@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: a0d362e5d1c5c76993102aaf1acf443f7042d858
+translation_source_sha: 1c32be9c729279d39455557e62eac926b3cecf16
 translation_revised: 2026-07-26
 ---
 
@@ -446,7 +446,7 @@ Partitioning:
 ### 6.2 Conversational port
 
 Bragi를 포함한 15개 에이전트 모두 canonical name 또는 domain routing으로 도달할 수 있습니다.
-Unknown A2A requester 또는 target name은 거부합니다. Port 간에는 correlation trace만 전달하며 response는 operator answer와 같은 owner, size, sensitivity normalization을 거칩니다.
+Unknown A2A requester 또는 target name은 거부합니다. Port 간에는 correlation trace만 전달하며 primary response는 bounded timeout과 contributor answer와 같은 owner, size, sensitivity normalization을 거칩니다.
 
 각 `AgentSpec`은 고유하고 immutable하며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 bounded server-owned system instruction, 영어/한국어 query example, purpose 및 owned-fact scope가 있는 read tool을 가집니다. Semantic parity test는 15개 role boundary를 모두 pin합니다. Runtime은 caller policy를 덮어쓰고 각 tool을 고유한 fact scope로 projection하며 instruction을 노출하지 않고 version과 별도의 prompt 및 full-charter SHA-256 digest를 attribution합니다. 답변은 owned state에 근거하며 typed policy가 권위를 유지합니다.
 

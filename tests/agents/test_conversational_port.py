@@ -609,6 +609,48 @@ def test_introspect_a2a_holds_owner_mismatch() -> None:
     assert result["requester"] == "Forseti"
 
 
+def test_primary_responder_timeout_becomes_handoff() -> None:
+    bragi = Bragi(responder_timeout_seconds=0.001)
+
+    async def slow(_question: str, _context: dict) -> dict:
+        await asyncio.sleep(60)
+        return {"primary_agent": "Njord", "answer": "late", "facts": {}}
+
+    bragi.register_responder("Njord", slow)
+    turn = asyncio.run(bragi.ask(session_id="timeout", user_id="operator", question="cost status"))
+
+    assert turn.answer["primary_agent"] == "Njord"
+    assert turn.answer["answer"] is None
+    assert turn.answer["facts"] == {}
+    assert turn.answer["abstain_reason"] == "timeout"
+    assert turn.answer["handoff_needed"] is True
+
+
+def test_primary_responder_timeout_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="timeout MUST be positive"):
+        Bragi(responder_timeout_seconds=0)
+
+
+def test_a2a_responder_exception_becomes_abstention() -> None:
+    bragi = Bragi(responder_timeout_seconds=0.1)
+
+    async def fail(_question: str, _context: dict) -> dict:
+        raise RuntimeError("password=supersecretvalue")
+
+    bragi.register_responder("Njord", fail)
+    result = asyncio.run(bragi.introspect_agent("Njord", "cost", requester="Forseti"))
+
+    assert result == {
+        "primary_agent": "Njord",
+        "answer": None,
+        "facts": {},
+        "abstain_reason": "responder_error",
+        "requester": "Forseti",
+        "trace_ref": "",
+    }
+    assert "supersecretvalue" not in repr(result)
+
+
 def test_introspect_a2a_does_not_mutate_responder_dict() -> None:
     # Bragi must not mutate a dict a fork responder may still own (H4).
     from fdai.agents.bragi import Bragi

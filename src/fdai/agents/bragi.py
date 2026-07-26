@@ -15,6 +15,7 @@ conversational-port smoke tests.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -29,9 +30,6 @@ from fdai.agents._framework.bragi_contributors import (
     ask_contributors,
     evidence_conflicts,
     normalize_responder_answer,
-)
-from fdai.agents._framework.bragi_contributors import (
-    introspect_agent as call_introspection_responder,
 )
 from fdai.agents._framework.bragi_models import ConversationSession, RoutingDecision, Turn
 from fdai.agents._framework.bragi_progress import append_submitted, evict_oldest, record_progress
@@ -71,6 +69,7 @@ _MAX_PROGRESS_KEYS = 5_000
 _MAX_PROGRESS_STEPS = 64
 _MAX_CONTRIBUTORS = 3
 _CONTRIBUTOR_TIMEOUT_SECONDS = 2.0
+_RESPONDER_TIMEOUT_SECONDS = 2.0
 
 _CURRENT_SCREEN_DATA_INTENT = re.compile(
     r"\b(?:how many|count|share|rate|eps|attention|failed|mode|terminal\s+stage|"
@@ -94,12 +93,20 @@ _CURRENT_SCREEN_DATA_INTENT = re.compile(
 class Bragi(Agent):
     """Wave-4 Bragi: routing + orchestration + session tracker."""
 
-    def __init__(self, *, semantic_router: SemanticAgentRouter | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        semantic_router: SemanticAgentRouter | None = None,
+        responder_timeout_seconds: float = _RESPONDER_TIMEOUT_SECONDS,
+    ) -> None:
+        if responder_timeout_seconds <= 0:
+            raise ValueError("responder timeout MUST be positive")
         super().__init__(spec=_BRAGI)
         self._sessions: dict[str, ConversationSession] = {}
         self._agent_responders: dict[str, AnswerFn] = {}
         self._proposal_sink: ProposalSink | None = None
         self._semantic_router = semantic_router
+        self._responder_timeout_seconds = responder_timeout_seconds
         # Per-correlation pipeline progress, appended as verdict / action-run
         # states arrive on the typed port, so an operator can be told where
         # their submitted action is (submitted -> verdicted -> hil_pending ->
@@ -125,6 +132,31 @@ class Bragi(Agent):
         is unchanged where the pantheon is not wired.
         """
         self._proposal_sink = fn
+
+    async def _call_responder(
+        self,
+        agent_name: str,
+        question: str,
+        context: dict[str, Any],
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        responder = self._agent_responders.get(agent_name)
+        if responder is None:
+            return None, "responder_not_registered"
+        try:
+            raw_response = await asyncio.wait_for(
+                responder(question, context),
+                timeout=self._responder_timeout_seconds,
+            )
+        except TimeoutError:
+            _LOG.warning("bragi_responder_timeout", extra={"agent": agent_name})
+            return None, "timeout"
+        except Exception as exc:  # noqa: BLE001 - isolate one primary responder
+            _LOG.warning(
+                "bragi_responder_failed",
+                extra={"agent": agent_name, "error_type": type(exc).__name__},
+            )
+            return None, "responder_error"
+        return normalize_responder_answer(agent_name, raw_response)
 
     # ---- action proposal (conversational-port re-entry, 7.7) -----------
 
@@ -222,14 +254,11 @@ class Bragi(Agent):
         correlation_id = (context or {}).get("correlation_id")
         if isinstance(correlation_id, str) and 0 < len(correlation_id) <= 256:
             ctx["correlation_id"] = correlation_id
-        raw_response = await call_introspection_responder(
-            self._agent_responders,
+        normalized, response_error = await self._call_responder(
             agent_name,
             question,
-            requester=requester,
-            context=ctx,
+            ctx,
         )
-        normalized, response_error = normalize_responder_answer(agent_name, raw_response)
         trace_ref = str(ctx.get("correlation_id") or "")
         response = (
             normalized
@@ -345,32 +374,21 @@ class Bragi(Agent):
                 "handoff_needed": True,
             }
         else:
-            responder = self._agent_responders.get(decision.primary_agent)
-            if responder is None:
+            normalized_answer, response_error = await self._call_responder(
+                decision.primary_agent,
+                question,
+                {"session_id": session_id, "user_id": user_id},
+            )
+            if normalized_answer is None:
                 answer = {
                     "answer": None,
+                    "facts": {},
                     "primary_agent": decision.primary_agent,
-                    "abstain_reason": "responder_not_registered",
+                    "abstain_reason": response_error or "response_invalid",
+                    "handoff_needed": True,
                 }
             else:
-                raw_answer = await responder(
-                    question,
-                    {"session_id": session_id, "user_id": user_id},
-                )
-                normalized_answer, response_error = normalize_responder_answer(
-                    decision.primary_agent,
-                    raw_answer,
-                )
-                if normalized_answer is None:
-                    answer = {
-                        "answer": None,
-                        "facts": {},
-                        "primary_agent": decision.primary_agent,
-                        "abstain_reason": response_error or "response_invalid",
-                        "handoff_needed": True,
-                    }
-                else:
-                    answer = normalized_answer
+                answer = normalized_answer
                 contributor_answers, contributor_errors = await self._ask_contributors(
                     decision.contributors,
                     question=question,
