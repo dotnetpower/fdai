@@ -56,6 +56,29 @@ describe("openDeckWithPrompt", () => {
 });
 
 describe("openDeckWithContext", () => {
+  it("dispatches a fresh agent-conversation request", () => {
+    const dispatched: FakeCustomEvent<Record<string, unknown>>[] = [];
+    vi.stubGlobal("CustomEvent", FakeCustomEvent);
+    vi.stubGlobal("window", {
+      dispatchEvent: (event: FakeCustomEvent<Record<string, unknown>>) =>
+        dispatched.push(event),
+    });
+
+    openDeckWithContext({
+      sessionLabel: "Heimdall",
+      newConversation: true,
+      targetAgent: "Heimdall",
+      prompt: "What has Heimdall been working on?",
+    });
+
+    expect(dispatched[0]?.detail).toMatchObject({
+      sessionLabel: "Heimdall",
+      newConversation: true,
+      targetAgent: "Heimdall",
+    });
+    expect(dispatched[0]?.detail.sessionKey).toBeUndefined();
+  });
+
   it("dispatches a structured incident binding", () => {
     const dispatched: FakeCustomEvent<Record<string, unknown>>[] = [];
     vi.stubGlobal("CustomEvent", FakeCustomEvent);

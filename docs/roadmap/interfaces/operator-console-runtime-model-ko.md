@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: bd34967a66263990f8b05a0e7fb7025ccdde8ef2
+translation_source_sha: f5da14dd7cd0eafde9bcfae2bd24aba50df90e91
 translation_revised: 2026-07-26
 ---
 
@@ -317,7 +317,11 @@ class ConversationSession:
   narrator는 **Bragi**이며 reply header와 conversation row 모두 generic
   Deck label 대신 Bragi agent icon을 사용. **캐시 지우기**와 **캐시된
   대화 제거**는 browser copy만 삭제하며 durable server history는 삭제하지
-  않는다. 이 browser index는 탐색 상태일 뿐이다. Cache miss 시 Command Deck은
+  않습니다. Agent card에서 `Ask <agent>`를 선택하면 클릭할 때마다 새 user-scoped
+  conversation을 만들고 첫 turn 전에 해당 agent를 target으로 저장합니다. 이전 agent transcript를
+  복원하거나 이어 쓰지 않으며, 이전 conversation은 history에서 계속 선택할 수 있습니다.
+  Incident-bound conversation은 명시적으로 재개할 수 있도록 stable incident identity를 유지합니다.
+  이 browser index는 탐색 상태일 뿐이다. Cache miss 시 Command Deck은
   principal 범위 turn을 server에서 다시 로드하고 `sessionStorage`에 mirror한다.
   Floating Deck은 route 탐색과 live 화면 re-render 중에도 유지된다.
   Full-workspace에서 Activity Bar group을 선택하면 Deck을 닫고 해당 group의 첫 visible

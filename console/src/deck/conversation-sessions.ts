@@ -15,6 +15,10 @@ export const GENERAL_CONVERSATION_KEY = "screen";
 const DEFAULT_MAX_CONVERSATIONS = 24;
 const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 
+function newId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 /** Produce a stable, non-identifying browser scope for one signed-in user. */
 export function conversationUserScope(identity: string | null, devMode: boolean): string {
   const normalized = (identity?.trim().toLowerCase() || (devMode ? "dev" : "anonymous"));
@@ -47,6 +51,23 @@ export function isScreenConversationKey(key: string): boolean {
 export function userConversationKey(userScope: string, key: string): string {
   const prefix = `user:${userScope}:`;
   return key.startsWith(prefix) ? key : `${prefix}${key}`;
+}
+
+/** Allocate a unique manual or agent-bound conversation key. */
+export function newConversationKey(
+  userScope: string,
+  agent: string | null = null,
+  nonce: string = newId(),
+): string {
+  const namespace = agent ? `agent:${agent}:conversation` : "conversation";
+  return userConversationKey(userScope, `${namespace}:${nonce}`);
+}
+
+/** Accept only fixed Pantheon names as browser-side agent target hints. */
+export function normalizeAgentTarget(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return PANTHEON_AGENT_NAMES.has(normalized) ? normalized : null;
 }
 
 /** Keep the browser conversation index isolated when accounts change in one tab. */

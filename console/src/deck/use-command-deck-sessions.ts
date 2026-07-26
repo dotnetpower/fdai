@@ -9,6 +9,7 @@ import {
   conversationFallbackForRoute,
   conversationPath,
   manualConversationSummary,
+  newConversationKey,
   parseConversationIndex,
   screenConversationKey,
   screenConversationSummary,
@@ -20,10 +21,6 @@ import {
 import { EMPTY_HISTORY } from "./draft-history";
 import { parseTurns, serializeTurns, transcriptKeyFor } from "./transcript-store";
 import type { IncidentConversationBinding } from "./open-deck";
-
-function newId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 export function sessionStore(): Storage | null {
   try {
@@ -185,6 +182,7 @@ export function useCommandDeckSessionController({
     register = true,
     metadata?: ConversationSummary,
     binding?: IncidentConversationBinding,
+    hydrate = register,
   ) => {
     if (key !== sessionKeyRef.current) cancelActiveRequest();
     if (key !== sessionKeyRef.current) resetComposerAttachments();
@@ -210,7 +208,7 @@ export function useCommandDeckSessionController({
     setSessionKey(key);
     setSessionLabel(conversationLabel ?? agent);
     setTurns(next);
-    if (shouldHydrateServerTurns(register, next.length)) void hydrateDurableTurns(key);
+    if (shouldHydrateServerTurns(hydrate, next.length)) void hydrateDurableTurns(key);
     setSearchQuery("");
     setActiveSearchMatch(0);
     historyRef.current = EMPTY_HISTORY;
@@ -253,7 +251,7 @@ export function useCommandDeckSessionController({
   ]);
 
   const startNewConversation = useCallback(() => {
-    const key = userConversationKey(userScope, `conversation:${newId()}`);
+    const key = newConversationKey(userScope);
     const summary = manualConversationSummary(
       key,
       currentPathname(),

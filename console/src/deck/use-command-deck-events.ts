@@ -10,6 +10,8 @@ import {
   type IncidentConversationBinding,
 } from "./open-deck";
 import {
+  newConversationKey,
+  normalizeAgentTarget,
   normalizeIncidentBinding,
   screenConversationKey,
   userConversationKey,
@@ -54,7 +56,41 @@ interface EventsOptions {
     register?: boolean,
     metadata?: ConversationSummary,
     binding?: IncidentConversationBinding,
+    hydrate?: boolean,
   ) => void;
+}
+
+export function resolveDeckOpenSession(
+  detail: DeckOpenDetail | undefined,
+  userScope: string,
+  pathname: string,
+  nonce?: string,
+) {
+  const requestedKey = typeof detail?.sessionKey === "string" && detail.sessionKey
+    ? detail.sessionKey
+    : null;
+  const targetAgent = normalizeAgentTarget(detail?.targetAgent);
+  const invalidFreshTarget = detail?.newConversation === true &&
+    detail.targetAgent !== undefined && targetAgent === null;
+  const key = detail?.newConversation === true && targetAgent
+    ? newConversationKey(userScope, targetAgent, nonce)
+    : requestedKey
+      ? userConversationKey(userScope, requestedKey)
+      : screenConversationKey(userScope, pathname);
+  const label = !invalidFreshTarget && typeof detail?.sessionLabel === "string"
+    ? detail.sessionLabel
+    : null;
+  return {
+    key,
+    label,
+    contextAgent: detail?.binding
+      ? DEFAULT_NARRATOR
+      : invalidFreshTarget ? null : (targetAgent ?? label),
+    kind: targetAgent || requestedKey?.startsWith("agent:")
+      ? "agent" as const
+      : "screen-thread" as const,
+    hydrateDurable: detail?.newConversation !== true,
+  };
 }
 
 export function useCommandDeckEvents(options: EventsOptions) {
@@ -205,24 +241,22 @@ export function useCommandDeckEvents(options: EventsOptions) {
     const onOpenDeck = (event: Event) => {
       const detail = (event as CustomEvent<DeckOpenDetail>).detail;
       const note = typeof detail?.contextNote === "string" ? detail.contextNote.trim() : "";
-      const requestedKey = typeof detail?.sessionKey === "string" && detail.sessionKey
-        ? detail.sessionKey
-        : null;
-      const key = requestedKey
-        ? userConversationKey(userScope, requestedKey)
-        : screenConversationKey(userScope, currentPathname());
-      const label = typeof detail?.sessionLabel === "string" ? detail.sessionLabel : null;
-      const contextAgent = detail.binding ? DEFAULT_NARRATOR : label;
+      const { key, label, contextAgent, kind, hydrateDurable } = resolveDeckOpenSession(
+        detail,
+        userScope,
+        currentPathname(),
+      );
       if (key !== sessionKeyRef.current) {
         switchSession(
           key,
           contextAgent,
           note,
           label ?? undefined,
-          requestedKey?.startsWith("agent:") ? "agent" : "screen-thread",
+          kind,
           true,
           undefined,
           normalizeIncidentBinding(detail.binding) ?? undefined,
+          hydrateDurable,
         );
       } else if (note && turnsRef.current.length === 0) {
         streamContextTurn(contextAgent, note);

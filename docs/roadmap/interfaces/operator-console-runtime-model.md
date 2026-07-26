@@ -329,7 +329,11 @@ class ConversationSession:
   **Bragi**, and both its reply header and conversation row use the Bragi agent
   icon rather than the generic Deck label. **Clear cache** and **Remove cached
   conversation** delete browser copies only; they never delete durable server
-  history. This browser index is navigation state only. On a cache miss, the
+  history. Selecting `Ask <agent>` from an agent card creates a new user-scoped
+  conversation on every click and stores that agent as the target before the first turn. It never
+  restores or appends to an earlier agent transcript. Earlier conversations remain selectable from
+  history. An incident-bound conversation keeps its stable incident identity for explicit resume.
+  This browser index is navigation state only. On a cache miss, the
   Command Deck reloads principal-scoped turns from the server and mirrors them
   back into `sessionStorage`. A floating Deck remains open across route navigation and
   live screen re-renders. In full-workspace mode, an Activity Bar group closes it and

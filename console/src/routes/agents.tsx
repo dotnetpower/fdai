@@ -494,8 +494,9 @@ export function AgentsRoute({ client }: Props) {
               onClose={() => openFocus(null, selectedId)}
               onChat={() =>
                 openDeckWithContext({
-                  sessionKey: `agent:${selectedAgentNode.name}`,
                   sessionLabel: selectedAgentNode.name,
+                  newConversation: true,
+                  targetAgent: selectedAgentNode.name,
                   contextNote: agentChatContext(selectedAgentNode, selectedAgentIncidents),
                   prompt: `What has ${selectedAgentNode.name} been working on?`,
                 })

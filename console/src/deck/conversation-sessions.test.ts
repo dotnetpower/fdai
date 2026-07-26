@@ -4,6 +4,8 @@ import {
   conversationGroups,
   conversationIndexKeyFor,
   conversationFallbackForRoute,
+  newConversationKey,
+  normalizeAgentTarget,
   conversationPath,
   conversationUserScope,
   conversationTitle,
@@ -165,6 +167,16 @@ describe("user and route conversation ownership", () => {
 
     expect(userConversationKey(scope, key)).toBe(key);
     expect(key).toContain("agent:Forseti");
+  });
+
+  it("allocates distinct agent-bound sessions without losing the target", () => {
+    const first = newConversationKey("scope", "Heimdall", "first");
+    const second = newConversationKey("scope", "Heimdall", "second");
+
+    expect(first).toBe("user:scope:agent:Heimdall:conversation:first");
+    expect(second).not.toBe(first);
+    expect(normalizeAgentTarget(" Heimdall ")).toBe("Heimdall");
+    expect(normalizeAgentTarget("Unknown")).toBeNull();
   });
 });
 

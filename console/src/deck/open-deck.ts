@@ -42,6 +42,10 @@ export interface DeckOpenDetail {
   readonly sessionKey?: string;
   /** Human label for a non-general session, shown in the deck header (e.g. `Forseti`). */
   readonly sessionLabel?: string;
+  /** Create a fresh conversation instead of restoring `sessionKey`. */
+  readonly newConversation?: boolean;
+  /** Pantheon agent bound to a fresh agent conversation. */
+  readonly targetAgent?: string;
   /** Structured, untrusted selection hint that the server must verify against its read model. */
   readonly binding?: IncidentConversationBinding;
 }

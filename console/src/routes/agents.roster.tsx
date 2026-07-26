@@ -191,8 +191,9 @@ export function AgentRoster({
                     class="is-primary"
                     onClick={() =>
                       openDeckWithContext({
-                        sessionKey: `agent:${node.name}`,
                         sessionLabel: node.name,
+                        newConversation: true,
+                        targetAgent: node.name,
                         contextNote: agentChatContext(node, agentIncidents),
                         prompt: `What has ${node.name} been working on?`,
                       })

@@ -19,6 +19,10 @@ event, then activates its transcript. The Deck remains open without a transient 
 switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the
 sessionStorage transcript over newer in-memory turns.
+An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key.
+The new summary carries the selected agent immediately, so the first submit sends the same agent
+target to the read API. Existing agent conversations are preserved as separate history entries and
+are restored only when the operator selects one explicitly.
 Removing the active cached conversation selects only a current-route default (including the legacy
 `screen` key) or current-route thread. If neither exists, the console creates a new current-route
 default instead of activating an unrelated-route or agent transcript.
