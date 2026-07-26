@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 18637264172287b9eae18a6b6ec4c94ccdaf1778
+translation_source_sha: 1a1af416e648a91b3ad1eccbb556600c2d0d99c7
 translation_revised: 2026-07-26
 ---
 
@@ -88,12 +88,18 @@ mock과 격리된 test ingestion gateway는 시작하지 않습니다.
 각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
 실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.
+표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로,
+`python -m fdai`를 직접 실행해도 singleton guard를 우회할 수 없습니다. Production runtime은 deployment에서
+명시적으로 구성한 경우에만 process lock을 계속 사용합니다.
 Core runtime만 Pantheon을 소유합니다. `FDAI_READ_API_EMBED_PANTHEON=0`일 때 read API는 기존
 `aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
 port에 접근합니다. Startup probe로 response consumer 준비를 확인한 후 traffic을 받습니다. Client는
 retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Request는
 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
 answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
+Local 및 deployed console 모두 agent card의 Ask action에서 새 user-scoped conversation key를
+할당하고 submit 전에 선택한 agent를 conversation summary에 저장합니다. Browser는 stable per-agent
+key를 사용해 이전 transcript를 묵시적으로 재개하지 않습니다.
 Core, read API, debugger 및 local migration command는 현재 workspace의 `src` directory를 Python
 import path의 첫 위치에 명시합니다. 따라서 다른 worktree가 virtual environment의 editable-install
 metadata를 변경해도 오래된 FDAI source를 시작할 수 없습니다.

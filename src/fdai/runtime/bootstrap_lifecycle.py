@@ -106,6 +106,12 @@ def install_shutdown_signals() -> asyncio.Event:
 @contextmanager
 def runtime_process_lock() -> Any:
     raw_path = os.environ.get("FDAI_RUNTIME_LOCK_FILE", "").strip()
+    if (
+        not raw_path
+        and os.environ.get("RUNTIME_ENV", "").strip().lower() == "dev"
+        and os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip() == "1"
+    ):
+        raw_path = ".fdai/core-runtime.lock"
     if not raw_path:
         yield
         return

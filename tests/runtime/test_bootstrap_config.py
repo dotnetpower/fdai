@@ -174,3 +174,31 @@ def test_runtime_process_lock_rejects_duplicate_local_instance(
         with pytest.raises(RuntimeError, match="already active"):
             with runtime_process_lock():
                 pass
+
+
+def test_runtime_process_lock_defaults_for_local_azure_runtime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("FDAI_RUNTIME_LOCK_FILE", raising=False)
+    monkeypatch.setenv("RUNTIME_ENV", "dev")
+    monkeypatch.setenv("FDAI_RUNTIME_LOCAL_AZURE_CLI", "1")
+
+    with runtime_process_lock():
+        assert (tmp_path / ".fdai/core-runtime.lock").is_file()
+        with pytest.raises(RuntimeError, match="already active"):
+            with runtime_process_lock():
+                pass
+
+
+def test_runtime_process_lock_remains_optional_outside_local_azure_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_RUNTIME_LOCK_FILE", raising=False)
+    monkeypatch.setenv("RUNTIME_ENV", "production")
+    monkeypatch.setenv("FDAI_RUNTIME_LOCAL_AZURE_CLI", "1")
+
+    with runtime_process_lock():
+        with runtime_process_lock():
+            pass
