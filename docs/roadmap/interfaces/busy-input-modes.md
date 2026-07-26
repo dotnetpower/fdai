@@ -58,6 +58,8 @@ An agent-targeted active turn keeps its selected agent while the read API waits 
 cross-process conversational bridge. Interrupt cancellation removes the pending response future and
 does not cancel an agent action or typed pipeline event. A bridge timeout returns an explicit
 agent-to-Bragi handoff; queued input starts a new request with its own idempotency identity.
+Queue, interrupt, and steer preserve Bragi's narrator identity. Versioned agent-charter metadata
+remains provenance only and never becomes evidence or authority during a rerun.
 
 ## Durable arbitration
 

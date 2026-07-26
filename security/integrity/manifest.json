@@ -30,7 +30,7 @@
     "src/fdai/agents/_framework/bus_bridge.py": "630725dd26ad245b316da109d36ebb65a4c9a4bb11238caa930e8c7caa1076db",
     "src/fdai/agents/_framework/bus_metrics.py": "7f1cc31a939da501608ba0804113a3a53c087f59ea4a54a4c6f8277446cd32ac",
     "src/fdai/agents/_framework/candidate_guard.py": "df471cd77e522e28284dac04966fb51739ef00812f01f0f7dbb727524fae2cee",
-    "src/fdai/agents/_framework/conversation_tools.py": "7e9d71420da2ab0abf0c5cca113f04760a208853ba4ed3e4e7c4ae17a2ea5a99",
+    "src/fdai/agents/_framework/conversation_tools.py": "fcde6decef5b46d0c9770775f8987480e43aaf5faf68f4a553bf4b1e056a2140",
     "src/fdai/agents/_framework/divergence.py": "0304d6e035bf126bf02893794bef8453df40c042c264e89ceb7946254ddd8d0a",
     "src/fdai/agents/_framework/factory.py": "741ea0783f1e1ecbfd5d218f0a5ee68e3f5788e300b8468355abc826178c4765",
     "src/fdai/agents/_framework/introspection.py": "39334f8185b7344f2e387e48a08c09b60d35fc58815c0998fe5a90cab0b4def6",
@@ -791,7 +791,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-26T05:14:25Z",
+  "generated_at": "2026-07-26T05:18:37Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

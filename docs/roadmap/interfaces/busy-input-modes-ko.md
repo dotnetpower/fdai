@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 4cf34ef348b478019f6aadd38bc4c5bd577d2362
+translation_source_sha: 9056236e56a75990ecccd39d362f3fa0a212678d
 translation_revised: 2026-07-26
 ---
 
@@ -62,6 +62,8 @@ Agent-targeted active turn은 read API가 bounded cross-process conversational b
 선택한 agent를 유지합니다. Interrupt cancellation은 pending response future를 제거하며 agent action 또는
 typed pipeline event를 취소하지 않습니다. Bridge timeout은 명시적인 agent-to-Bragi handoff를 반환하고,
 queued input은 자체 idempotency identity를 가진 새 request를 시작합니다.
+Queue, interrupt 및 steer는 Bragi narrator identity를 유지합니다. Versioned agent-charter
+metadata는 provenance로만 유지되며 rerun 중 evidence 또는 authority가 되지 않습니다.
 
 ## 영구 arbitration
 

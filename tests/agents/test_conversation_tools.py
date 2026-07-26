@@ -40,6 +40,8 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
             assert len(result.charter_sha256) == 64
             assert result.prompt_sha256
             assert result.allowed_tools == spec.conversation.tools
+            assert result.evidence_refs
+            assert all(not ref.startswith("agent-spec:") for ref in result.evidence_refs)
 
     health = runtime.health()["conversation_tools"]
     assert health["registered"] == 30
@@ -65,6 +67,41 @@ def test_each_agent_tool_projects_a_distinct_owned_fact_scope() -> None:
         assert all(result.status is AgentToolStatus.OK for result in results), spec.name
         assert len({result.answer for result in results}) == len(results), spec.name
         assert len({tuple(sorted(result.facts)) for result in results}) == len(results), spec.name
+
+
+def test_agent_state_evidence_ref_is_stable_and_changes_with_owned_facts() -> None:
+    from fdai.agents.njord import Njord
+
+    runtime = _runtime()
+    njord = runtime.agents["Njord"]
+    assert isinstance(njord, Njord)
+
+    first = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+    replay = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+    asyncio.run(njord.ingest_cost_sample(scope="scope-1", amount_usd=10.0))
+    changed = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+
+    assert first.evidence_refs == replay.evidence_refs
+    assert first.evidence_refs != changed.evidence_refs
+    assert first.evidence_refs[0].startswith("agent-state:Njord:sha256:")
 
 
 def test_unknown_wrong_owner_and_disabled_tools_abstain() -> None:

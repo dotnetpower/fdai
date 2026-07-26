@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2bc1ccd7155caab81cc022506a1b4602b2f1b63a
+translation_source_sha: 9878a8232687fd3a35c4709ff626e1dc1ac396df
 translation_revised: 2026-07-26
 ---
 
@@ -189,6 +189,9 @@ Read-source provenance, ontology browse, cross-screen operational 및 inventory 
 evidence에서 결정론적으로 렌더링됩니다. Ontology browse는 target과 browse verb를 요구하고,
 allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복되거나 malformed인 count와
 selection을 unavailable로 표시합니다.
+Agent answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로 표시합니다.
+Charter version, hash 및 tool id는 hidden provenance로 유지합니다. Runtime grounding은 제공된
+evidence ref 또는 normalized agent fact의 content-addressed hash를 사용하며 static agent spec을 사용하지 않습니다.
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching

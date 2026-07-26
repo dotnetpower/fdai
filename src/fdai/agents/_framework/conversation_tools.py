@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -213,7 +214,15 @@ def _evidence_refs(facts: Mapping[str, Any], *, agent_name: str) -> tuple[str, .
         if (key.endswith("_ref") or key.endswith("_id")) and isinstance(value, str) and value:
             refs.append(f"{key}:{value}")
     if not refs:
-        refs.append(f"agent-spec:{agent_name}")
+        canonical = json.dumps(
+            dict(facts),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        refs.append(f"agent-state:{agent_name}:sha256:{digest}")
     return tuple(dict.fromkeys(refs))
 
 

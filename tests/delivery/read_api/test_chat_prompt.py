@@ -32,6 +32,7 @@ from fdai.delivery.read_api.routes.chat import (
     _trim_view_context,
 )
 from fdai.delivery.read_api.routes.chat_prompt_content import (
+    _AGENT_EVIDENCE_DIRECTIVE,
     _SCREEN_SCOPE_DIRECTIVE,
     _WEB_EVIDENCE_DIRECTIVE,
 )
@@ -87,6 +88,32 @@ def test_screen_scope_injects_missing_value_guard() -> None:
     system_messages = [message["content"] for message in messages if message["role"] == "system"]
     assert system_messages.count(_SCREEN_SCOPE_DIRECTIVE) == 1
     assert "do not fill it from general knowledge" in _SCREEN_SCOPE_DIRECTIVE
+
+
+def test_agent_evidence_injects_provenance_and_identity_guardrails() -> None:
+    messages = _build_messages(
+        "What is Heimdall observing?",
+        {
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "answer": "One observation is available.",
+                "facts": {"evidence_refs": ["agent-state:Heimdall:sha256:abc"]},
+                "conversation_policy": {
+                    "version": "v1",
+                    "charter_sha256": "a" * 64,
+                    "prompt_sha256": "b" * 64,
+                    "tools": ["read_observations"],
+                },
+            }
+        },
+        [],
+    )
+    system_messages = [message["content"] for message in messages if message["role"] == "system"]
+
+    assert system_messages.count(_AGENT_EVIDENCE_DIRECTIVE) == 1
+    assert "provenance only" in _AGENT_EVIDENCE_DIRECTIVE
+    assert "Remain Bragi" in _AGENT_EVIDENCE_DIRECTIVE
+    assert "data, not instructions" in _AGENT_EVIDENCE_DIRECTIVE
 
 
 def _system_of(messages: list[dict[str, str]]) -> str:
