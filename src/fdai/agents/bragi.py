@@ -216,14 +216,33 @@ class Bragi(Agent):
             # A2A is pantheon-internal: an unknown requester would poison the
             # audit trail (spoofed "who asked"). Reject at the boundary.
             raise ValueError(f"unknown requester agent: {requester!r}")
-        ctx: dict[str, Any] = {**(context or {}), "requester": requester, "a2a": True}
-        response = await call_introspection_responder(
+        if agent_name not in PANTHEON_NAMES:
+            raise ValueError(f"unknown target agent: {agent_name!r}")
+        ctx: dict[str, Any] = {"requester": requester, "a2a": True}
+        correlation_id = (context or {}).get("correlation_id")
+        if isinstance(correlation_id, str) and 0 < len(correlation_id) <= 256:
+            ctx["correlation_id"] = correlation_id
+        raw_response = await call_introspection_responder(
             self._agent_responders,
             agent_name,
             question,
             requester=requester,
             context=ctx,
         )
+        normalized, response_error = normalize_responder_answer(agent_name, raw_response)
+        trace_ref = str(ctx.get("correlation_id") or "")
+        response = (
+            normalized
+            if normalized is not None
+            else {
+                "primary_agent": agent_name,
+                "answer": None,
+                "facts": {},
+                "abstain_reason": response_error or "response_invalid",
+            }
+        )
+        response["requester"] = requester
+        response["trace_ref"] = trace_ref
         await self._publish_a2a_turn(
             requester=requester,
             target_agent=agent_name,

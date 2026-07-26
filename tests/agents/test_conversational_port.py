@@ -495,6 +495,7 @@ def test_introspect_a2a_refuses_action_intent() -> None:
     result = asyncio.run(runtime.introspect("Thor", "restart vm-1", requester="Odin"))
     assert result is not None
     assert result["abstain_reason"] == "requires_typed_pipeline"
+    assert result["requires_typed_pipeline"] is True
     assert result["requester"] == "Odin"
 
 
@@ -519,6 +520,71 @@ def test_introspect_a2a_rejects_unknown_requester() -> None:
     runtime = _runtime()
     with pytest.raises(ValueError, match="unknown requester"):
         asyncio.run(runtime.introspect("Njord", "cost", requester="Sauron"))
+
+
+def test_introspect_a2a_rejects_unknown_target() -> None:
+    runtime = _runtime()
+
+    with pytest.raises(ValueError, match="unknown target"):
+        asyncio.run(runtime.introspect("Sauron", "cost", requester="Forseti"))
+
+
+def test_introspect_a2a_sanitizes_context_and_holds_sensitive_output() -> None:
+    bragi = Bragi()
+    captured: dict[str, object] = {}
+
+    async def responder(_question: str, context: dict) -> dict:
+        captured.update(context)
+        return {
+            "primary_agent": "Njord",
+            "answer": "password=supersecretvalue",
+            "facts": {"owner": "user@example.com"},
+            "trace_ref": context.get("correlation_id", ""),
+        }
+
+    bragi.register_responder("Njord", responder)
+    result = asyncio.run(
+        bragi.introspect_agent(
+            "Njord",
+            "cost",
+            requester="Forseti",
+            context={
+                "correlation_id": "correlation-one",
+                "conversation_tool": "read_cost_model",
+                "untrusted_key": "untrusted-value",
+            },
+        )
+    )
+
+    assert captured == {
+        "correlation_id": "correlation-one",
+        "requester": "Forseti",
+        "a2a": True,
+    }
+    assert result == {
+        "primary_agent": "Njord",
+        "answer": None,
+        "facts": {},
+        "abstain_reason": "sensitive_output",
+        "requester": "Forseti",
+        "trace_ref": "correlation-one",
+    }
+
+
+def test_introspect_a2a_holds_owner_mismatch() -> None:
+    bragi = Bragi()
+
+    async def responder(_question: str, _context: dict) -> dict:
+        return {"primary_agent": "Thor", "answer": "forged", "facts": {}}
+
+    bragi.register_responder("Njord", responder)
+    result = asyncio.run(bragi.introspect_agent("Njord", "cost", requester="Forseti"))
+
+    assert result["primary_agent"] == "Njord"
+    assert result["answer"] is None
+    assert result["facts"] == {}
+    assert result["abstain_reason"] == "owner_mismatch"
+    assert result["requester"] == "Forseti"
 
 
 def test_introspect_a2a_does_not_mutate_responder_dict() -> None:

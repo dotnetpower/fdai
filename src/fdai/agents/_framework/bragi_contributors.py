@@ -42,6 +42,8 @@ def normalize_responder_answer(
         "conversation_policy": raw.get("conversation_policy"),
         "trace_ref": raw.get("trace_ref"),
     }
+    if raw.get("requires_typed_pipeline") is True:
+        normalized_input["requires_typed_pipeline"] = True
     try:
         encoded = json.dumps(
             normalized_input,
