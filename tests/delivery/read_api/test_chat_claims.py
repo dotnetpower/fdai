@@ -313,22 +313,30 @@ def test_collects_server_tool_evidence_with_server_authority() -> None:
     assert result.claims[0].evidence_refs == ("tool:result:event_count",)
 
 
-def test_collects_agent_answer_and_contributor_evidence() -> None:
-    correlation = "conv-00000000-0000-0000-0000-000000000000"
+def test_collects_agent_fact_and_contributor_evidence() -> None:
+    thor_ref = f"agent-state:Thor:sha256:{'1' * 64}"
+    njord_ref = f"agent-state:Njord:sha256:{'2' * 64}"
     result = verify_screen_claims(
-        f"Run {correlation} is complete; the anomaly ratio is 1.5.",
+        "Thor completed 3 runs with 2 pending; Njord's anomaly ratio is 1.5.",
         {
             "routeId": "live",
             "facts": [],
             "_agent_evidence": {
                 "primary_agent": "Thor",
-                "answer": f"Run {correlation} is complete.",
-                "facts": {"correlation_id": correlation},
+                "answer": "Thor completed 3 runs.",
+                "facts": {
+                    "completed_runs": 3,
+                    "pending_runs": 2,
+                    "evidence_refs": [thor_ref],
+                },
                 "contributor_answers": [
                     {
                         "agent": "Njord",
                         "answer": "The anomaly ratio is 1.5.",
-                        "facts": {"anomaly_ratio": 1.5},
+                        "facts": {
+                            "anomaly_ratio": 1.5,
+                            "evidence_refs": [njord_ref],
+                        },
                     }
                 ],
             },
@@ -337,6 +345,14 @@ def test_collects_agent_answer_and_contributor_evidence() -> None:
 
     assert result.supported is True
     assert result.manifest.authority == "pantheon_runtime"
+    refs_by_value = {claim.raw_value: claim.evidence_refs for claim in result.claims}
+    assert refs_by_value == {
+        "3": (f"{thor_ref}#/_agent_evidence/facts/completed_runs",),
+        "2": (f"{thor_ref}#/_agent_evidence/facts/pending_runs",),
+        "1.5": (f"{njord_ref}#/_agent_evidence/contributor_answers/0/facts/anomaly_ratio",),
+    }
+    manifest_refs = [entry.ref for entry in result.manifest.entries]
+    assert len(manifest_refs) == len(set(manifest_refs)) == 3
 
 
 def test_collects_canonical_glossary_number_and_scope_evidence() -> None:

@@ -60,6 +60,8 @@ does not cancel an agent action or typed pipeline event. A bridge timeout return
 agent-to-Bragi handoff; queued input starts a new request with its own idempotency identity.
 Queue, interrupt, and steer preserve Bragi's narrator identity. Versioned agent-charter metadata
 remains provenance only and never becomes evidence or authority during a rerun.
+Atomic-claim verification likewise excludes generated agent narration and preserves unique fact
+leaf pointers rooted at the agent's durable evidence refs across queued or steered reruns.
 
 ## Durable arbitration
 

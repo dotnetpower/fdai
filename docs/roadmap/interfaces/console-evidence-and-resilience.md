@@ -194,6 +194,8 @@ duplicate or malformed counts and selections unavailable.
 Agent answers keep Bragi as narrator while displaying the verified specialist as response owner.
 Charter version, hashes, and tool ids remain hidden provenance. Runtime grounding uses supplied
 evidence refs or a content-addressed hash of normalized agent facts, never the static agent spec.
+Agent narration is not an evidence source: atomic claims bind agent fact leaves to unique JSON
+pointers rooted at those runtime-supplied refs, including separately attributed contributor facts.
 
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without

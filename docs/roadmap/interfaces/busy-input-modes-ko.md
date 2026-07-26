@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 9056236e56a75990ecccd39d362f3fa0a212678d
+translation_source_sha: 9054358525217993baa95ab6f15d65f3c6be7cf5
 translation_revised: 2026-07-26
 ---
 
@@ -64,6 +64,8 @@ typed pipeline event를 취소하지 않습니다. Bridge timeout은 명시적�
 queued input은 자체 idempotency identity를 가진 새 request를 시작합니다.
 Queue, interrupt 및 steer는 Bragi narrator identity를 유지합니다. Versioned agent-charter
 metadata는 provenance로만 유지되며 rerun 중 evidence 또는 authority가 되지 않습니다.
+Atomic-claim verification도 생성된 agent narration을 제외하고 queued 또는 steered rerun 전반에서
+agent의 durable evidence ref에 rooted된 고유 fact leaf pointer를 유지합니다.
 
 ## 영구 arbitration
 

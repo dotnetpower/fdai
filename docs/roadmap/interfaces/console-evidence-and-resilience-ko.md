@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 04c1b3460a10f28f4f36947fc5c41aef0448ff48
+translation_source_sha: 73e9ee3915d266c8aaa9eff1f0049582f731ff87
 translation_revised: 2026-07-26
 ---
 
@@ -193,6 +193,8 @@ selection을 unavailable로 표시합니다.
 Agent answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로 표시합니다.
 Charter version, hash 및 tool id는 hidden provenance로 유지합니다. Runtime grounding은 제공된
 evidence ref 또는 normalized agent fact의 content-addressed hash를 사용하며 static agent spec을 사용하지 않습니다.
+Agent narration 자체는 evidence source가 아닙니다. Atomic claim은 별도로 귀속된 contributor
+fact를 포함한 agent fact leaf를 runtime 제공 ref에 rooted된 고유 JSON pointer에 연결합니다.
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching

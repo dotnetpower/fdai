@@ -122,7 +122,6 @@ def _collect_server_evidence(
 ) -> None:
     sources = (
         ("_tool_evidence", "result", "tool:result", "/_tool_evidence/result"),
-        ("_agent_evidence", None, "agent", "/_agent_evidence"),
         ("_concept_evidence", "entries", "glossary:entries", "/_concept_evidence/entries"),
     )
     for context_key, child_key, ref_prefix, path_prefix in sources:
@@ -136,6 +135,9 @@ def _collect_server_evidence(
             ref_prefix=ref_prefix,
             path_prefix=path_prefix,
         )
+    agent = view_context.get("_agent_evidence")
+    if isinstance(agent, Mapping):
+        _collect_agent_evidence(entries, agent)
     web = view_context.get("_web_evidence")
     if isinstance(web, Mapping) and web.get("status") == "matched":
         collect_nested_evidence(
@@ -146,12 +148,66 @@ def _collect_server_evidence(
         )
 
 
+def _collect_agent_evidence(
+    entries: list[EvidenceEntry],
+    evidence: Mapping[str, Any],
+) -> None:
+    _collect_agent_facts(
+        entries,
+        evidence.get("facts"),
+        ref_prefix="agent:facts",
+        path_prefix="/_agent_evidence/facts",
+    )
+    contributors = evidence.get("contributor_answers")
+    if not isinstance(contributors, Sequence) or isinstance(contributors, (str, bytes)):
+        return
+    for index, contributor in enumerate(contributors[:8]):
+        if not isinstance(contributor, Mapping):
+            continue
+        _collect_agent_facts(
+            entries,
+            contributor.get("facts"),
+            ref_prefix=f"agent:contributors:{index}:facts",
+            path_prefix=f"/_agent_evidence/contributor_answers/{index}/facts",
+        )
+
+
+def _collect_agent_facts(
+    entries: list[EvidenceEntry],
+    value: object,
+    *,
+    ref_prefix: str,
+    path_prefix: str,
+) -> None:
+    if not isinstance(value, Mapping):
+        return
+    raw_refs = value.get("evidence_refs")
+    refs = (
+        tuple(
+            dict.fromkeys(
+                ref for ref in raw_refs[:32] if isinstance(ref, str) and 0 < len(ref) <= 1_024
+            )
+        )
+        if isinstance(raw_refs, Sequence) and not isinstance(raw_refs, (str, bytes))
+        else ()
+    )
+    facts = {key: item for key, item in value.items() if key != "evidence_refs"}
+    collect_nested_evidence(
+        entries,
+        facts,
+        ref_prefix=ref_prefix,
+        path_prefix=path_prefix,
+        source_refs=refs,
+    )
+
+
 def collect_nested_evidence(
     entries: list[EvidenceEntry],
     value: Any,
     *,
     ref_prefix: str,
     path_prefix: str,
+    source_refs: tuple[str, ...] = (),
 ) -> None:
     if len(entries) >= MAX_EVIDENCE_ENTRIES:
         return
@@ -163,6 +219,7 @@ def collect_nested_evidence(
                     item,
                     ref_prefix=f"{ref_prefix}:{key}",
                     path_prefix=f"{path_prefix}/{key}",
+                    source_refs=source_refs,
                 )
         return
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
@@ -172,16 +229,18 @@ def collect_nested_evidence(
                 item,
                 ref_prefix=f"{ref_prefix}:{index}",
                 path_prefix=f"{path_prefix}/{index}",
+                source_refs=source_refs,
             )
         return
-    append_entry(
-        entries,
-        ref=ref_prefix,
-        path=path_prefix,
-        field=ref_prefix.rsplit(":", 1)[-1],
-        value=value,
-        extra_anchors=(),
-    )
+    for evidence_ref in source_refs or (ref_prefix,):
+        append_entry(
+            entries,
+            ref=f"{evidence_ref}#{path_prefix}" if source_refs else evidence_ref,
+            path=path_prefix,
+            field=ref_prefix.rsplit(":", 1)[-1],
+            value=value,
+            extra_anchors=(),
+        )
 
 
 def append_entry(
