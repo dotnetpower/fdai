@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7bb7ef2a4b941d430464f610915dd13d0ad16475
+translation_source_sha: 51807b48770c58468fa2321b26de81e712eac126
 translation_revised: 2026-07-26
 ---
 
@@ -448,9 +448,7 @@ Partitioning:
 Bragi를 포함한 15개 에이전트 모두 canonical name 또는 domain routing으로 도달할 수 있습니다.
 Request와 response는 user, session, answer, trace, fact, policy attribution을 carry합니다.
 
-각 `AgentSpec`은 고유한 immutable `ConversationCharter`를 요구합니다. Charter는 server-owned
-system instruction과 bounded read-tool id를 가집니다. Runtime은 caller policy를 덮어쓰고
-responder에 charter를 전달하며 prompt SHA-256과 tool id만 반환합니다. 답변은 owned state에 근거합니다.
+각 `AgentSpec`은 고유하고 immutable하며 versioned된 `ConversationCharter`를 요구합니다. Charter는 bounded server-owned system instruction, 영어/한국어 query example, purpose 및 owned-fact scope가 있는 read tool을 가집니다. Runtime은 caller policy를 덮어쓰고 각 tool을 고유한 fact scope로 projection하며 instruction을 노출하지 않고 policy attribution을 반환합니다. 답변은 owned state에 근거합니다.
 
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
 `PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공합니다.

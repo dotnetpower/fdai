@@ -45,6 +45,26 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
     assert health["disabled"] == 0
 
 
+def test_each_agent_tool_projects_a_distinct_owned_fact_scope() -> None:
+    runtime = _runtime()
+
+    for spec in PANTHEON_SPECS:
+        results = [
+            asyncio.run(
+                runtime.invoke_conversation_tool(
+                    agent_name=spec.name,
+                    tool_id=tool_id,
+                    question=f"{spec.name}, describe your current capability",
+                )
+            )
+            for tool_id in spec.conversation.tools
+        ]
+
+        assert all(result.status is AgentToolStatus.OK for result in results), spec.name
+        assert len({result.answer for result in results}) == len(results), spec.name
+        assert len({tuple(sorted(result.facts)) for result in results}) == len(results), spec.name
+
+
 def test_unknown_wrong_owner_and_disabled_tools_abstain() -> None:
     runtime = _runtime(disabled=frozenset({"Njord"}))
 

@@ -361,6 +361,8 @@ class Saga(Agent):
         facts = {
             **capability_facts(self.spec),
             "audit_entries": len(entries),
+            "issues_total": len(self.github.issues),
+            "issues_open": sum(1 for issue in self.github.issues.values() if issue.open),
         }
         known = {e.correlation_id for e in entries if e.correlation_id}
         corr = mentioned(question, known)

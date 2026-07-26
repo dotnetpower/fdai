@@ -37,7 +37,11 @@ _LOG = logging.getLogger(__name__)
 _MAX_BEHAVIOR_KEYS = 512
 _BEHAVIOR_OVERFLOW_KEY = "behavior:overflow"
 _MAX_CONVERSATION_TOOLS = 16
+_MAX_CONVERSATION_PROMPT_CHARS = 4_096
+_MAX_TOOL_PURPOSE_CHARS = 160
 _TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
+_CHARTER_VERSION = re.compile(r"^v[1-9][0-9]*$")
+_FACT_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 class Layer(StrEnum):
@@ -62,26 +66,60 @@ class RateLimits:
 
 
 @dataclass(frozen=True, slots=True)
-class ConversationCharter:
-    """Server-owned system instructions and read-only tool manifest."""
+class ConversationTool:
+    """One read-only, fact-scoped conversational tool."""
 
+    tool_id: str
+    purpose: str
+    fact_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if _TOOL_ID.fullmatch(self.tool_id) is None:
+            raise ValueError("conversation tool id MUST be a bounded ASCII identifier")
+        if not self.purpose.strip() or len(self.purpose) > _MAX_TOOL_PURPOSE_CHARS:
+            raise ValueError("conversation tool purpose MUST be bounded and non-empty")
+        if not self.fact_keys or len(set(self.fact_keys)) != len(self.fact_keys):
+            raise ValueError("conversation tool fact_keys MUST be non-empty and unique")
+        if any(_FACT_KEY.fullmatch(key) is None for key in self.fact_keys):
+            raise ValueError("conversation tool fact_keys MUST be bounded ASCII identifiers")
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationCharter:
+    """Server-owned, versioned instructions and read-only tool manifest."""
+
+    version: str
     system_prompt: str
-    tools: tuple[str, ...]
+    tool_specs: tuple[ConversationTool, ...]
     routing_examples: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.system_prompt.strip():
-            raise ValueError("conversation system_prompt MUST be non-empty")
-        if not self.tools or len(self.tools) > _MAX_CONVERSATION_TOOLS:
+        if _CHARTER_VERSION.fullmatch(self.version) is None:
+            raise ValueError("conversation version MUST be a canonical vN identifier")
+        if (
+            not self.system_prompt.strip()
+            or len(self.system_prompt) > _MAX_CONVERSATION_PROMPT_CHARS
+        ):
+            raise ValueError("conversation system_prompt MUST be bounded and non-empty")
+        if not self.tool_specs or len(self.tool_specs) > _MAX_CONVERSATION_TOOLS:
             raise ValueError("conversation tools MUST contain between 1 and 16 items")
         if len(set(self.tools)) != len(self.tools):
             raise ValueError("conversation tools MUST be unique")
-        if any(_TOOL_ID.fullmatch(tool) is None for tool in self.tools):
-            raise ValueError("conversation tool ids MUST be bounded ASCII identifiers")
         if len(self.routing_examples) < 2 or any(
             not example.strip() for example in self.routing_examples
         ):
             raise ValueError("conversation routing_examples MUST contain English and Korean text")
+        if not any(re.search(r"[A-Za-z]", example) for example in self.routing_examples) or not any(
+            re.search(r"[가-힣]", example) for example in self.routing_examples
+        ):
+            raise ValueError("conversation routing_examples MUST contain English and Korean text")
+
+    @property
+    def tools(self) -> tuple[str, ...]:
+        return tuple(tool.tool_id for tool in self.tool_specs)
+
+    def tool(self, tool_id: str) -> ConversationTool | None:
+        return next((tool for tool in self.tool_specs if tool.tool_id == tool_id), None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,6 +363,14 @@ class Agent:
                 extra={"agent": self.spec.name, "error_type": type(exc).__name__},
             )
             result = IntrospectionResult.abstain(INTROSPECTION_ERROR)
+        tool_id = policy_context.get("conversation_tool")
+        if isinstance(tool_id, str):
+            tool = self.spec.conversation.tool(tool_id)
+            result = (
+                _project_tool_result(result, tool)
+                if tool is not None
+                else IntrospectionResult.abstain("unknown_tool")
+            )
         return self._conversation_envelope(result, policy_context)
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
@@ -396,4 +442,30 @@ def _kebab(name: str) -> str:
     return "".join(out)
 
 
-__all__ = ["Agent", "AgentSpec", "ConversationCharter", "Layer", "RateLimits"]
+def _project_tool_result(
+    result: IntrospectionResult,
+    tool: ConversationTool,
+) -> IntrospectionResult:
+    """Project a broad owned-state answer onto one declared tool scope."""
+    if result.answer is None:
+        return result
+    allowed = {"agent", "evidence_refs", *tool.fact_keys}
+    facts = {
+        key: value for key, value in result.facts.items() if key in allowed or key.endswith("_ref")
+    }
+    if not any(key in facts for key in tool.fact_keys):
+        return IntrospectionResult.abstain("no_tool_data", facts=facts)
+    return IntrospectionResult(
+        answer=f"{tool.purpose} {result.answer}",
+        facts=facts,
+    )
+
+
+__all__ = [
+    "Agent",
+    "AgentSpec",
+    "ConversationCharter",
+    "ConversationTool",
+    "Layer",
+    "RateLimits",
+]

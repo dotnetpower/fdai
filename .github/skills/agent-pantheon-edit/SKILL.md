@@ -101,7 +101,7 @@ Each `AgentSpec` in `pantheon.py` carries:
 | `initiates` | ActionTypes this agent MAY initiate. |
 | `subscribes` | Topics this agent reads. |
 | `question_domains` | Bragi introspection scopes this agent answers. |
-| `conversation` | Immutable system prompt, bounded read-tool ids, and multilingual semantic routing examples. |
+| `conversation` | Versioned bounded system prompt, purpose/fact-scoped read tools, and English/Korean semantic routing examples. |
 | `owns_code_paths` | Files this agent is authoritative over. |
 | `hard_dependency` | Boolean; hard-dep agents (Saga, Vidar) fail-safe closed. |
 

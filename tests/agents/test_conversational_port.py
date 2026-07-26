@@ -7,6 +7,7 @@ from types import MethodType
 
 import pytest
 
+from fdai.agents._framework.base import ConversationCharter, ConversationTool
 from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
@@ -55,6 +56,36 @@ def test_every_agent_has_unique_bounded_conversation_charter() -> None:
         assert spec.conversation.system_prompt.strip()
         assert 0 < len(spec.conversation.tools) <= 16
         assert len(set(spec.conversation.tools)) == len(spec.conversation.tools)
+
+
+def test_conversation_charter_rejects_unversioned_unbounded_or_monolingual_policy() -> None:
+    tool = ConversationTool(
+        tool_id="read_status",
+        purpose="Read status.",
+        fact_keys=("status",),
+    )
+
+    with pytest.raises(ValueError, match="canonical vN"):
+        ConversationCharter(
+            version="latest",
+            system_prompt="Bounded.",
+            tool_specs=(tool,),
+            routing_examples=("What is the status?", "상태가 무엇인가요?"),
+        )
+    with pytest.raises(ValueError, match="bounded and non-empty"):
+        ConversationCharter(
+            version="v1",
+            system_prompt="x" * 4_097,
+            tool_specs=(tool,),
+            routing_examples=("What is the status?", "상태가 무엇인가요?"),
+        )
+    with pytest.raises(ValueError, match="English and Korean"):
+        ConversationCharter(
+            version="v1",
+            system_prompt="Bounded.",
+            tool_specs=(tool,),
+            routing_examples=("First status question", "Second status question"),
+        )
 
 
 def test_conversation_policy_is_server_injected_and_attributed() -> None:
