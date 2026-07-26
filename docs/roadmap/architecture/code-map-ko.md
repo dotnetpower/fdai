@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f035ac66dd1ca63bdec74ae9495d9283fce5fc51
+translation_source_sha: f3ec28948d758bede059d6303d722e74a5d82554
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -43,7 +43,7 @@ shared 패키지를 커버한다.
 | tiers/t2_reasoning | 프론티어 모델 추론 (신규 케이스만) | [src/fdai/core/tiers/t2_reasoning/](../../../src/fdai/core/tiers/t2_reasoning/) | [tests/core/tiers/](../../../tests/core/tiers/) | [llm-strategy-ko.md](llm-strategy-ko.md) |
 | quality_gate | 혼합 모델 + verifier + grounding (T2 가드) | [src/fdai/core/quality_gate/](../../../src/fdai/core/quality_gate/) | [tests/core/quality_gate/](../../../tests/core/quality_gate/) | [architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2) |
 | risk_gate | 통합 auto vs HIL vs deny 권위 | [src/fdai/core/risk_gate/](../../../src/fdai/core/risk_gate/) | [tests/core/risk_gate/](../../../tests/core/risk_gate/) | [decisioning/](../decisioning/) |
-| hil_resume | 사람 결정까지 park/resume하며 no-drop load plan, group당 initial dispatch 1개, bounded reminder, durable decision-delivery recovery 제공 | [src/fdai/core/hil_resume/](../../../src/fdai/core/hil_resume/), [hil_registry.py](../../../src/fdai/shared/providers/hil_registry.py), [hil_decision.py](../../../src/fdai/delivery/chatops/hil_decision.py) | [tests/core/hil_resume/](../../../tests/core/hil_resume/), [test_hil_callback.py](../../../tests/delivery/read_api/test_hil_callback.py), [test_hil_decision.py](../../../tests/delivery/test_hil_decision.py) | [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) |
+| hil_resume | 사람 결정까지 park/resume하며 no-drop load plan, group당 initial dispatch 1개, atomic expiry reaping, bounded reminder, durable decision-delivery recovery 제공 | [src/fdai/core/hil_resume/](../../../src/fdai/core/hil_resume/), [hil_registry.py](../../../src/fdai/shared/providers/hil_registry.py), [hil_decision.py](../../../src/fdai/delivery/chatops/hil_decision.py) | [tests/core/hil_resume/](../../../tests/core/hil_resume/), [test_hil_callback.py](../../../tests/delivery/read_api/test_hil_callback.py), [test_hil_decision.py](../../../tests/delivery/test_hil_decision.py) | [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) |
 | executor | 리소스별 lock, 멱등 적용 | [src/fdai/core/executor/](../../../src/fdai/core/executor/) | [tests/core/](../../../tests/core/) (executor 관련) | project-structure-ko.md |
 | execution_backend | Profile intersection, durable reconciliation, shadow health probe를 제공하며 eligibility authority는 없음 ([설계](../interfaces/execution-backends-ko.md)) | [src/fdai/core/execution_backend/](../../../src/fdai/core/execution_backend/) | [tests/core/execution_backend/](../../../tests/core/execution_backend/) | [execution-backends-ko.md](../interfaces/execution-backends-ko.md) |
 | audit | append-only 해시체인 로그, nullable-stage correlation trace 및 KPI 방출 | [src/fdai/core/audit/](../../../src/fdai/core/audit/) | [tests/core/audit/](../../../tests/core/audit/) | [security-and-identity-ko.md](security-and-identity-ko.md) |

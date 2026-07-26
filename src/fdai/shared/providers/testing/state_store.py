@@ -106,7 +106,7 @@ class InMemoryStateStore(StateStore):
     ) -> bool:
         with self._lock:
             existing = self._state.get(key)
-            current_revision = existing.get("revision") if existing is not None else 0
+            current_revision = existing.get("revision", 0) if existing is not None else 0
             if current_revision != expected_revision:
                 return False
             self._state[key] = deepcopy(dict(value))

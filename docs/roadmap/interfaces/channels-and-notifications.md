@@ -433,8 +433,11 @@ matrix:
   attempts the existing A1 channel. Success or failure is audited; neither extends TTL, removes
   the pending item, or retries beyond the declared reminder count. Policy simulation must prove
   that critical requests are never deferred or grouped and that no input request disappears.
-- **TTL fail-closed** - an A1 request with no decision by TTL is a no-op + A2 alert +
-  audit entry ([security-and-identity.md](../architecture/security-and-identity.md#hil-approval-integrity)).
+- **TTL fail-closed without expiry spam** - the runtime worker atomically changes an expired
+  pending park to terminal `timeout` and appends one audit entry across replicas. Late callbacks
+  return the existing timeout and never execute. The load controller does not emit one A2 message
+  per expired item; a notification layer can aggregate the audit signals into a bounded A2/A4
+  summary ([security-and-identity.md](../architecture/security-and-identity.md#hil-approval-integrity)).
 
 ## 7. Channel-Specific Notes
 

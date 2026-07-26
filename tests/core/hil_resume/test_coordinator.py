@@ -215,6 +215,31 @@ async def test_quiet_hour_defers_delivery_but_keeps_park() -> None:
     assert coordinator.reminder_dispatcher is not None
 
 
+async def test_reaped_timeout_returns_idempotent_timed_out_to_late_approval() -> None:
+    coordinator, _, store, _ = _coordinator()
+    await store.write_state(
+        "hil_park:expired-reaped",
+        {
+            "status": "resolved",
+            "decision": HilDecision.TIMEOUT.value,
+            "approval_id": "expired-reaped",
+            "correlation_id": "corr-expired-reaped",
+            "idempotency_key": "idem-expired-reaped",
+            "submitter_oid": _SUBMITTER,
+            "approver_oid": "system:approval-expiry",
+        },
+    )
+
+    result = await coordinator.resolve(
+        approval_id="expired-reaped",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.TIMED_OUT
+    assert result.reason == "approval_expired"
+
+
 async def test_similar_approval_groups_without_dropping_member() -> None:
     now = datetime(2026, 7, 25, 12, 0, tzinfo=UTC)
     coordinator, store, channel = _load_controlled_coordinator(now=now)

@@ -295,10 +295,59 @@ class ApprovalReminderDispatcher:
         self._policy = policy
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
+    async def expire_due(self) -> int:
+        """Atomically terminalize expired pending parks across replicas."""
+        now = self._clock()
+        if now.tzinfo is None:
+            raise RuntimeError("approval expiry clock MUST be timezone-aware")
+        parks = await self._state_store.read_states(
+            _PARK_PREFIX,
+            limit=self._policy.scan_limit,
+        )
+        expired = 0
+        for park in parks:
+            if park.get("status") != "pending" or not _park_expired(park, now=now):
+                continue
+            approval_id = str(park.get("approval_id") or "")
+            if not approval_id:
+                continue
+            revision_value = park.get("revision")
+            expected_revision = (
+                revision_value
+                if isinstance(revision_value, int) and not isinstance(revision_value, bool)
+                else 0
+            )
+            updated = dict(park)
+            updated.update(
+                {
+                    "status": "resolved",
+                    "decision": "timeout",
+                    "approver_oid": "system:approval-expiry",
+                    "resolved_at": now.isoformat(),
+                    "revision": expected_revision + 1,
+                }
+            )
+            applied = await self._state_store.compare_and_set_state_with_audit(
+                f"{_PARK_PREFIX}{approval_id}",
+                updated,
+                expected_revision=expected_revision,
+                audit_entry=_audit(
+                    kind="hil.timeout",
+                    key=f"{str(park.get('idempotency_key') or approval_id)}:hil_timeout",
+                    approval_id=approval_id,
+                    correlation_id=str(park.get("correlation_id") or approval_id),
+                    detail={"reason": "approval_expired"},
+                    at=now,
+                ),
+            )
+            expired += int(applied)
+        return expired
+
     async def drain_due(self) -> int:
         now = self._clock()
         if now.tzinfo is None:
             raise RuntimeError("approval reminder clock MUST be timezone-aware")
+        await self.expire_due()
         plans = await self._state_store.read_states(_PLAN_PREFIX, limit=self._policy.scan_limit)
         attempts = 0
         for plan in plans:
@@ -494,6 +543,13 @@ def _expires_at(parked: Mapping[str, Any]) -> datetime:
     return _timestamp(context.get("expires_at"), "approval expires_at")
 
 
+def _park_expired(parked: Mapping[str, Any], *, now: datetime) -> bool:
+    try:
+        return _expires_at(parked) <= now
+    except ValueError:
+        return True
+
+
 def _timestamp(value: object, field: str) -> datetime:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{field} MUST be an RFC 3339 string")
@@ -526,15 +582,24 @@ def _required_str(value: Mapping[str, Any], key: str) -> str:
     return item.strip()
 
 
-def _audit(*, kind: str, key: str, approval_id: str, at: datetime) -> dict[str, Any]:
+def _audit(
+    *,
+    kind: str,
+    key: str,
+    approval_id: str,
+    at: datetime,
+    correlation_id: str | None = None,
+    detail: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "actor": "fdai.core.hil_resume.load_control",
         "action_kind": kind,
         "mode": "shadow",
         "idempotency_key": key,
         "approval_id": approval_id,
-        "correlation_id": approval_id,
+        "correlation_id": correlation_id or approval_id,
         "recorded_at": at.isoformat(),
+        **dict(detail or {}),
     }
 
 

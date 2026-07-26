@@ -499,6 +499,12 @@ class HilResumeCoordinator:
 
         if parked.get("status") == _STATUS_RESOLVED:
             prior = str(parked.get("decision") or "")
+            if prior == HilDecision.TIMEOUT.value:
+                return ResolveResult(
+                    outcome=ResolveOutcome.TIMED_OUT,
+                    approval_id=approval_id,
+                    reason="approval_expired",
+                )
             if prior and prior != decision.value:
                 await self._audit(
                     action_kind="hil.resolve.conflict",

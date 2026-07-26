@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: b30d09bf717e5499dc7ffff43e9d65fa667635ff
+translation_source_sha: 53bc7d646339b7e55db290bd10501ba29c618ee2
 translation_revised: 2026-07-27
 ---
 
@@ -423,7 +423,11 @@ matrix:
   시도합니다. 성공과 실패를 모두 audit하며 TTL을 연장하거나 pending item을 제거하거나 선언된
   reminder count를 넘어 retry하지 않습니다. Policy simulation은 critical request가 defer/group되지
   않고 input request가 하나도 사라지지 않음을 증명해야 합니다.
-- **TTL fail-closed** - TTL까지 결정 없는 A1 요청은 no-op + A2 알림 + 감사 엔트리
+- **Expiry spam 없는 TTL fail-closed** - runtime worker는 만료된 pending park를 terminal
+  `timeout`으로 atomically 변경하고 replica 전체에서 audit entry 하나만 append합니다. Late
+  callback은 기존 timeout을 반환하며 실행하지 않습니다. Load controller는 expired item마다
+  A2 message를 보내지 않습니다. Notification layer는 audit signal을 bounded A2/A4 summary로
+  aggregate할 수 있습니다
   ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md#hil-approval-integrity)).
 
 ## 7. 채널 특이 노트

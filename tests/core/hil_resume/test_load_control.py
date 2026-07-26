@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -279,3 +280,59 @@ async def test_failed_reminder_does_not_retry_or_remove_pending() -> None:
     assert await dispatcher.drain_due() == 0
     assert await store.read_state("hil_park:failure-one") is not None
     assert channel.sent == []
+
+
+async def test_expired_park_is_atomically_reaped_once_across_workers() -> None:
+    current = _BASE + timedelta(seconds=10)
+    store = InMemoryStateStore()
+    policy = _policy()
+    parked = _park("expired-one", at=_BASE, ttl_seconds=5)
+    await _store_park(store, parked)
+    first = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=InMemoryHilChannel(),
+        policy=policy,
+        clock=lambda: current,
+    )
+    second = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=InMemoryHilChannel(),
+        policy=policy,
+        clock=lambda: current,
+    )
+
+    results = await asyncio.gather(first.expire_due(), second.expire_due())
+
+    assert sum(results) == 1
+    reaped = await store.read_state("hil_park:expired-one")
+    assert reaped is not None
+    assert reaped["status"] == "resolved"
+    assert reaped["decision"] == "timeout"
+    assert reaped["approver_oid"] == "system:approval-expiry"
+    assert reaped["revision"] == 1
+    timeout_audits = [
+        item for item in store.audit_entries if item["entry"].get("action_kind") == "hil.timeout"
+    ]
+    assert len(timeout_audits) == 1
+
+
+async def test_malformed_expiry_fails_closed_to_timeout() -> None:
+    current = _BASE
+    store = InMemoryStateStore()
+    parked = _park("malformed-expiry", at=current)
+    parked["approval_context"] = {
+        **parked["approval_context"],  # type: ignore[dict-item]
+        "expires_at": "not-a-timestamp",
+    }
+    await _store_park(store, parked)
+    dispatcher = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=InMemoryHilChannel(),
+        policy=_policy(),
+        clock=lambda: current,
+    )
+
+    assert await dispatcher.expire_due() == 1
+    reaped = await store.read_state("hil_park:malformed-expiry")
+    assert reaped is not None
+    assert reaped["decision"] == "timeout"
