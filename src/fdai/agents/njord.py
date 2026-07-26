@@ -20,6 +20,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _NJORD
+from fdai.agents._framework.specialist_ingress import COST_SAMPLE_EVENT, parse_cost_sample
 
 #: Rolling baseline window (samples). The anomaly baseline only ever reads
 #: the last :data:`_BASELINE_WINDOW` samples, so anything older is dead
@@ -64,6 +65,21 @@ class Njord(Agent):
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic != "object.event" or payload.get("event_type") != COST_SAMPLE_EVENT:
+            return
+        signal = parse_cost_sample(payload)
+        if signal is None:
+            self.record_behavior("cost_sample:invalid")
+            return
+        self.record_behavior("cost_sample:accepted")
+        await self.ingest_cost_sample(
+            scope=signal.scope,
+            amount_usd=signal.amount_usd,
+            correlation_id=signal.correlation_id,
+            resource_id=signal.resource_id,
+        )
 
     # ---- ingestion -----------------------------------------------------
 

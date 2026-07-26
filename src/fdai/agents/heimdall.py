@@ -28,6 +28,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _HEIMDALL
+from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
@@ -159,6 +160,9 @@ class Heimdall(Agent):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.event":
+            if str(payload.get("event_type") or "").startswith(SPECIALIST_EVENT_PREFIX):
+                self.record_behavior("specialist_signal:deferred")
+                return
             if payload.get("event_type") == _DETECTION_READINESS_EVENT:
                 await self._observe_detection_readiness(payload)
                 return

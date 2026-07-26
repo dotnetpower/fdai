@@ -654,7 +654,7 @@ _NJORD = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=(),  # cost signals ingested from adapter
+    subscribes=("object.event",),  # canonical cost samples from an adapter
     question_domains=("cost_breakdown", "budget_status", "cost_anomaly"),
     owns_code_paths=("src/fdai/agents/njord.py",),
 )
@@ -691,7 +691,7 @@ _FREYR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=(),  # utilization ingested from adapter
+    subscribes=("object.event",),  # canonical utilization samples from an adapter
     question_domains=("capacity_status", "sizing_recommendation"),
     owns_code_paths=("src/fdai/agents/freyr.py",),
 )
@@ -729,7 +729,7 @@ _LOKI = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=(),  # schedule-driven
+    subscribes=("object.event",),  # canonical schedule triggers
     question_domains=(
         "chaos_experiment_status",
         "resilience_score",

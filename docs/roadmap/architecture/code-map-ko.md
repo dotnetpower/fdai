@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f3ec28948d758bede059d6303d722e74a5d82554
+translation_source_sha: ed7e17ad7036e1f76bd309d4872e9237018d6ac7
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -139,6 +139,8 @@ shared 패키지를 커버한다.
 Conversation charter는 `_framework/pantheon.py`에 있고 bounded T1/T2 discussion contract는
 `_framework/deliberation.py`에 있으며 Bragi가 `PantheonRuntime.deliberate`를 통해 orchestrate합니다.
 [conversational-deliberation-ko.md](../agents/conversational-deliberation-ko.md)를 참조하세요.
+Bounded cost, capacity, chaos trigger parsing은 `_framework/specialist_ingress.py`에 있고 domain
+agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 consume합니다.
 
 | 에이전트 | 역할 | 소스 | 설계 문서 |
 |---------|------|------|----------|

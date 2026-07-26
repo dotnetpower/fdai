@@ -28,6 +28,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _FORSETI
+from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 
 # ---------------------------------------------------------------------------
@@ -107,6 +108,11 @@ class Forseti(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.event" and str(payload.get("event_type") or "").startswith(
+            SPECIALIST_EVENT_PREFIX
+        ):
+            self.record_behavior("specialist_signal:deferred")
+            return
         if topic == "object.event" and payload.get("event_type") == (
             "detection.readiness.observed"
         ):

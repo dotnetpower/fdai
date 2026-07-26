@@ -88,9 +88,9 @@ MAY publish that object type's topic.
 | **Mimir** | Rule Steward - promote/revoke rules through the quality gate | governance | Rule, Policy | `object.rule` | `object.rule-candidate`, `object.issue` | no | no |
 | **Muninn** | Memory - state snapshots + case-history/context index (RAG) | governance | StateSnapshot, ContextIndex | `object.state-snapshot`, `object.context-index` | `object.turn`, `object.audit-entry`, `object.drift` (detection readiness), `object.forecast-outcome`, `object.event` (retention tick) | no | no |
 | **Norns** | Learner - proposes inert RuleCandidates (never mutates catalog) | governance | RuleCandidate, PatternObservation | `object.rule-candidate` | `object.audit-entry`, `object.issue`, `object.approval`, `object.context-index`, consent-filtered `object.post-turn-review` | off-path batch only | no |
-| **Njord** | Cost specialist - advisory to Forseti | domain | CostAnomaly, Budget | `object.cost-anomaly` | (cost adapter) | no | no |
-| **Freyr** | Capacity specialist - advisory to Forseti | domain | CapacityForecast, SizingRecommendation | `object.capacity-forecast` | (utilization adapter) | no | no |
-| **Loki** | Chaos specialist - proposes experiments (always HIL) | domain | ChaosExperiment, ResilienceScore | `object.chaos-experiment` | (schedule) | no | no |
+| **Njord** | Cost specialist - advisory to Forseti | domain | CostAnomaly, Budget | `object.cost-anomaly` | `object.event` (bounded cost samples) | no | no |
+| **Freyr** | Capacity specialist - advisory to Forseti | domain | CapacityForecast, SizingRecommendation | `object.capacity-forecast` | `object.event` (bounded utilization samples) | no | no |
+| **Loki** | Chaos specialist - proposes experiments (always HIL) | domain | ChaosExperiment, ResilienceScore | `object.chaos-experiment` | `object.event` (bounded schedule triggers) | no | no |
 
 > `object.override` is **not** a registered topic and no agent owns `Override`.
 > Do not publish or subscribe it. Override events flow through the exemption /

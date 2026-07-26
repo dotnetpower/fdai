@@ -19,6 +19,10 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _LOKI
+from fdai.agents._framework.specialist_ingress import (
+    CHAOS_SCHEDULE_EVENT,
+    parse_chaos_schedule,
+)
 
 #: Cap on the retained proposal log. Loki appends one entry per proposal for
 #: the process lifetime; the log is only read for recent-accepted diagnostics,
@@ -53,6 +57,21 @@ class Loki(Agent):
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic != "object.event" or payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
+            return
+        signal = parse_chaos_schedule(payload)
+        if signal is None:
+            self.record_behavior("chaos_schedule:invalid")
+            return
+        self.record_behavior("chaos_schedule:accepted")
+        await self.propose_experiment(
+            experiment_id=signal.experiment_id,
+            action_type=signal.action_type,
+            targets=signal.targets,
+            correlation_id=signal.correlation_id,
+        )
 
     # ---- experiment scheduling ----------------------------------------
 

@@ -138,6 +138,8 @@ for the fork-locked role bindings and change contract.
 Conversation charters live in `_framework/pantheon.py`; bounded T1/T2 discussion contracts live in
 `_framework/deliberation.py` and are orchestrated by Bragi through `PantheonRuntime.deliberate`.
 See [conversational-deliberation.md](../agents/conversational-deliberation.md).
+Bounded cost, capacity, and chaos trigger parsing lives in `_framework/specialist_ingress.py`;
+domain agents consume those canonical Events before publishing their owned advisory topics.
 
 | Agent | Role | Source | Design doc |
 |-------|------|--------|------------|

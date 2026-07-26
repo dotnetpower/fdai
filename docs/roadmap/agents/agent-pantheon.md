@@ -305,9 +305,9 @@ and self-improvement. **X**-agent participates in the workflows named in
 | Mimir | rule-source polling, regression suite, deprecation cycle | promote / revoke rule, cache-invalidation broadcast | freshness-score, stale-rule detection | 4, 6 (Handoff -> Capability), 8, 11 |
 | Muninn | snapshot rotation, RAG index rebuild, cache eviction, case-history retention | context fetch for Forseti, state query for Bragi, retention tick apply | trending-query pre-warm, ontology cross-check | supports every judgment-touching workflow |
 | Norns | hourly batch audit analysis, streaming pattern extraction | pattern signal, RuleCandidate publish, close_issue signal | model performance drift detection | 4, 6, 8 (Judgment coherence), 10 |
-| Njord | cost ingestion (daily), budget monitor, cost forecasting | cost anomaly, budget breach alert, cost-advisor query | RI / SP optimization proposals | 1, 2 |
-| Freyr | utilization sampling, capacity forecasting, sizing analysis | scale proposal, capacity advisor query | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | chaos-experiment scheduling, resilience-score refresh | experiment execution proposal (always HIL), blast-radius calc | adversarial scenario generation (T2, off-path) | 3, 9 |
+| Njord | cost ingestion (daily), budget monitor, cost forecasting | bounded cost sample -> anomaly; budget breach alert; cost-advisor query | RI / SP optimization proposals | 1, 2 |
+| Freyr | utilization sampling, capacity forecasting, sizing analysis | bounded utilization sample -> forecast; scale proposal; capacity advisor query | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
+| Loki | chaos-experiment scheduling, resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal; blast-radius calc | adversarial scenario generation (T2, off-path) | 3, 9 |
 
 ### 4.2 Per-agent KPI (success and degradation signals)
 
@@ -437,7 +437,7 @@ Dead-letter writes retry with bounded backoff before consumer restart. Operator 
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall, Muninn (case-history retention ticks only) |
+| object.event | Huginn | Heimdall, Muninn (retention ticks), Njord/Freyr/Loki (bounded specialist signals) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn reads detection-readiness drift only |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.security-event | Forseti | Heimdall (correlation), Saga |

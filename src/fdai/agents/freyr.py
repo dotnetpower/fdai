@@ -18,6 +18,10 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _FREYR
+from fdai.agents._framework.specialist_ingress import (
+    CAPACITY_SAMPLE_EVENT,
+    parse_capacity_sample,
+)
 
 #: Hard cap on retained per-resource utilization samples. The EWMA forecast
 #: lives in ``_smoothed``; ``_samples`` is only read for its last value, its
@@ -56,6 +60,20 @@ class Freyr(Agent):
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic != "object.event" or payload.get("event_type") != CAPACITY_SAMPLE_EVENT:
+            return
+        signal = parse_capacity_sample(payload)
+        if signal is None:
+            self.record_behavior("capacity_sample:invalid")
+            return
+        self.record_behavior("capacity_sample:accepted")
+        await self.ingest_utilization(
+            resource_id=signal.resource_id,
+            utilization=signal.utilization,
+            correlation_id=signal.correlation_id,
+        )
 
     async def ingest_utilization(
         self,

@@ -365,16 +365,16 @@ defaults and never invokes the privileged executor.
 
 **Scope**
 
-- **Njord (`src/fdai/agents/njord.py`)** - subscribe to cost-signal
-  ingestion (Azure Cost Management adapter; in-memory in tests).
+- **Njord (`src/fdai/agents/njord.py`)** - consume bounded cost samples from canonical
+  `object.event` (Azure Cost Management adapter; in-memory in tests).
   Emit `CostAnomaly` when spend deviates from forecast by threshold.
   Provide advisory hook on Forseti verdict for cost-impact
   attribution.
-- **Freyr (`src/fdai/agents/freyr.py`)** - subscribe to utilization
-  metrics. Emit `CapacityForecast`, `SizingRecommendation`. Advisory
+- **Freyr (`src/fdai/agents/freyr.py`)** - consume bounded utilization samples from canonical
+  `object.event`. Emit `CapacityForecast`, `SizingRecommendation`. Advisory
   hook on Forseti verdict.
-- **Loki (`src/fdai/agents/loki.py`)** - chaos scheduler. Every
-  experiment is proposed as an `ActionRun` with `blast_radius`
+- **Loki (`src/fdai/agents/loki.py`)** - consume bounded schedule triggers from canonical
+  `object.event`; every experiment is proposed as an `ActionRun` with `blast_radius`
   bounded and `default_mode: shadow`. Loki NEVER auto-executes an
   experiment: the ActionType routes through Forseti + Var per §7.6
   of pantheon.

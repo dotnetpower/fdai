@@ -3,14 +3,36 @@
 from __future__ import annotations
 
 import asyncio
+import math
 
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import _MAX_SAMPLES as _FREYR_MAX_SAMPLES
 from fdai.agents.freyr import Freyr
+from fdai.agents.heimdall import Heimdall
 from fdai.agents.loki import Loki
 from fdai.agents.njord import _MAX_SAMPLES as _NJORD_MAX_SAMPLES
 from fdai.agents.njord import Njord
+
+
+def _specialist_event(event_type: str, **attributes: object) -> dict[str, object]:
+    return {
+        "producer_principal": "Huginn",
+        "correlation_id": "specialist-correlation",
+        "idempotency_key": f"specialist:{event_type}",
+        "event_id": f"event:{event_type}",
+        "event_type": event_type,
+        "resource_id": "resource-1",
+        "attributes": attributes,
+    }
+
+
+def test_specialists_subscribe_to_canonical_event_ingress() -> None:
+    for name in ("Njord", "Freyr", "Loki"):
+        spec = load_pantheon().get(name)
+        assert "object.event" in spec.subscribes
+
 
 # ---------------------------------------------------------------------------
 # Njord
@@ -40,6 +62,45 @@ def test_njord_no_anomaly_within_baseline() -> None:
     for _ in range(10):
         asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=100.0))
     asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=120.0))
+    assert bus.messages_on("object.cost-anomaly") == []
+
+
+def test_njord_consumes_bounded_cost_sample_events() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    for amount in (100.0, 100.0, 100.0, 200.0):
+        asyncio.run(
+            njord.on_typed_message(
+                "object.event",
+                _specialist_event(
+                    "specialist.cost_sample",
+                    scope="scope-1",
+                    amount_usd=amount,
+                ),
+            )
+        )
+
+    anomalies = bus.messages_on("object.cost-anomaly")
+    assert len(anomalies) == 1
+    assert anomalies[0].payload["scope"] == "scope-1"
+
+
+def test_njord_rejects_nonfinite_cost_sample() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    njord = Njord(bus=bus)
+
+    asyncio.run(
+        njord.on_typed_message(
+            "object.event",
+            _specialist_event(
+                "specialist.cost_sample",
+                scope="scope-1",
+                amount_usd=math.inf,
+            ),
+        )
+    )
+
+    assert njord.behavior_snapshot()["cost_sample:invalid"] == 1
     assert bus.messages_on("object.cost-anomaly") == []
 
 
@@ -164,6 +225,45 @@ def test_freyr_publishes_capacity_forecast_events() -> None:
     assert events[-1].payload["resource_id"] == "vm-3"
 
 
+def test_freyr_consumes_bounded_capacity_sample_events() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    freyr = Freyr(bus=bus)
+
+    asyncio.run(
+        freyr.on_typed_message(
+            "object.event",
+            _specialist_event(
+                "specialist.capacity_sample",
+                resource_id="vm-1",
+                utilization=0.85,
+            ),
+        )
+    )
+
+    forecasts = bus.messages_on("object.capacity-forecast")
+    assert len(forecasts) == 1
+    assert forecasts[0].payload["resource_id"] == "vm-1"
+
+
+def test_freyr_rejects_out_of_range_capacity_sample() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    freyr = Freyr(bus=bus)
+
+    asyncio.run(
+        freyr.on_typed_message(
+            "object.event",
+            _specialist_event(
+                "specialist.capacity_sample",
+                resource_id="vm-1",
+                utilization=1.5,
+            ),
+        )
+    )
+
+    assert freyr.behavior_snapshot()["capacity_sample:invalid"] == 1
+    assert bus.messages_on("object.capacity-forecast") == []
+
+
 def test_freyr_sample_history_is_bounded() -> None:
     # The EWMA forecast is the real state; _samples is only read for its tail
     # and length, so a long-lived capacity watcher must not accumulate a
@@ -195,6 +295,44 @@ def test_loki_respects_blast_radius_cap() -> None:
     assert len(proposal.targets) == 2
     events = bus.messages_on("object.chaos-experiment")
     assert events[0].payload["blast_radius_used"] == 2
+
+
+def test_loki_consumes_bounded_scheduled_trigger_events() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    loki = Loki(bus=bus, blast_radius_cap=2)
+
+    asyncio.run(
+        loki.on_typed_message(
+            "object.event",
+            _specialist_event(
+                "specialist.chaos_schedule",
+                experiment_id="experiment-1",
+                action_type="tool.run-chaos-experiment",
+                targets=["resource-1", "resource-2", "resource-3"],
+            ),
+        )
+    )
+
+    experiments = bus.messages_on("object.chaos-experiment")
+    assert len(experiments) == 1
+    assert experiments[0].payload["targets"] == ["resource-1", "resource-2"]
+
+
+def test_sensing_and_judgment_defer_specialist_source_events() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    heimdall = Heimdall(bus=bus, rate_threshold=1)
+    forseti = Forseti(bus=bus)
+    event = _specialist_event(
+        "specialist.capacity_sample",
+        resource_id="vm-1",
+        utilization=0.85,
+    )
+
+    asyncio.run(heimdall.on_typed_message("object.event", event))
+    asyncio.run(forseti.on_typed_message("object.event", event))
+
+    assert bus.messages_on("object.anomaly") == []
+    assert bus.messages_on("object.verdict") == []
 
 
 def test_loki_refuses_further_proposals_when_radius_full() -> None:

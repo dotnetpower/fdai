@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 51c04cef099b13bb949c085820c1866eede915b6
+translation_source_sha: 00e62bec0356cab890c36c71c69ac9fa65877799
 translation_revised: 2026-07-27
 ---
 
@@ -284,9 +284,9 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 | Mimir | rule-source 폴링, regression suite, deprecation cycle | rule promote / revoke, cache-invalidation broadcast | freshness-score, stale-rule 감지 | 4, 6 (Handoff -> Capability), 8, 11 |
 | Muninn | 스냅샷 rotation, RAG index rebuild, cache eviction, case-history retention | Forseti 를 위한 context fetch, Bragi 를 위한 state query, retention tick 적용 | trending-query pre-warm, ontology cross-check | 판단을 touch 하는 모든 워크플로우 지원 |
 | Norns | 시간당 배치 audit 분석, 스트리밍 pattern extraction | pattern signal, RuleCandidate publish, close_issue signal | 모델 성능 drift 감지 | 4, 6, 8 (Judgment coherence), 10 |
-| Njord | cost ingestion (daily), budget 모니터, cost forecasting | cost anomaly, budget breach alert, cost-advisor query | RI / SP 최적화 proposal | 1, 2 |
-| Freyr | utilization 샘플링, capacity forecasting, sizing 분석 | scale proposal, capacity advisor query | 다차원 capacity (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | chaos-experiment 스케줄, resilience-score 리프레시 | 실험 실행 proposal (항상 HIL), blast-radius 계산 | adversarial 시나리오 생성 (T2, off-path) | 3, 9 |
+| Njord | cost ingestion (daily), budget 모니터, cost forecasting | bounded cost sample -> anomaly, budget breach alert, cost-advisor query | RI / SP 최적화 proposal | 1, 2 |
+| Freyr | utilization 샘플링, capacity forecasting, sizing 분석 | bounded utilization sample -> forecast, scale proposal, capacity advisor query | 다차원 capacity (CPU + IOPS + net + mem) | 2, 3 |
+| Loki | chaos-experiment 스케줄, resilience-score 리프레시 | bounded schedule trigger -> 항상-HIL experiment proposal, blast-radius 계산 | adversarial 시나리오 생성 (T2, off-path) | 3, 9 |
 
 ### 4.2 Per-agent KPI (성공과 degradation signal)
 
@@ -415,7 +415,7 @@ Dead-letter write는 제한된 backoff 후 consumer를 재시작합니다. 오�
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall, Muninn (case-history retention tick만) |
+| object.event | Huginn | Heimdall, Muninn(retention tick), Njord/Freyr/Loki(bounded specialist signal) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn은 감지 준비도 drift만 읽음 |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.security-event | Forseti | Heimdall (correlation), Saga |

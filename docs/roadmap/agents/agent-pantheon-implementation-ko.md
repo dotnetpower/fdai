@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 408beae7bd80d30c36a2bda3dbe5bd3cd015f7cb
+translation_source_sha: 0bd492d33dd42169f1343021d9bd8338a48c81ac
 translation_revised: 2026-07-27
 ---
 
@@ -355,14 +355,14 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 **Scope**
 
-- **Njord (`src/fdai/agents/njord.py`)** - cost-signal ingestion 구독
-  (Azure Cost Management adapter; 테스트에서 in-memory). spend 가
+- **Njord (`src/fdai/agents/njord.py`)** - canonical `object.event`에서 bounded cost sample을
+  consume합니다(Azure Cost Management adapter; 테스트에서 in-memory). spend 가
   forecast 에서 threshold 만큼 편차 시 `CostAnomaly` emit. cost-impact
   attribution 을 위한 Forseti verdict advisory hook 제공.
-- **Freyr (`src/fdai/agents/freyr.py`)** - utilization metric 구독.
+- **Freyr (`src/fdai/agents/freyr.py`)** - canonical `object.event`에서 bounded utilization sample을 consume.
   `CapacityForecast`, `SizingRecommendation` emit. Forseti verdict
   advisory hook.
-- **Loki (`src/fdai/agents/loki.py`)** - chaos 스케줄러. 모든 실험은
+- **Loki (`src/fdai/agents/loki.py`)** - canonical `object.event`에서 bounded schedule trigger를 consume. 모든 실험은
   `blast_radius` 가 bounded 되고 `default_mode: shadow` 인 `ActionRun`
   으로 propose. Loki 는 절대 실험을 auto-execute 하지 않는다:
   ActionType 은 판테온 §7.6 별 Forseti + Var 를 통과.
