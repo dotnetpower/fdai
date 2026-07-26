@@ -476,7 +476,7 @@ Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: b
 `PantheonRuntime.introspect` supports attributed A2A reads and digest-only Bragi Turns.
 
 `AgentConversationToolRegistry` binds every declared id to one owner, rejects invalid calls, bounds time
-and data, and holds errors or sensitive output without values. Direct and tool-routed results without durable refs receive the same content-addressed `agent-state` ref over normalized facts, never an `agent-spec` runtime claim. Unbound owned projections expose false availability and an unavailable answer instead of unrelated state. Health reports tool availability and counters. Calls use only the conversational port, so actions cannot reach an executor or cloud SDK.
+and data, and holds errors or sensitive output without values. Tool results expose only `agent`, `evidence_refs`, and declared fact keys, with no undeclared `_ref` exception. Direct and tool-routed results without durable refs receive the same content-addressed `agent-state` ref over normalized facts, never an `agent-spec` runtime claim. Unbound projections state unavailable instead of exposing unrelated facts. Health reports tool availability and counters. Calls use only the conversational port, so actions cannot reach an executor or cloud SDK.
 
 ### 6.3 NL query orchestration
 

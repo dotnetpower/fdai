@@ -396,6 +396,41 @@ def test_read_only_ask_does_not_materialize_handoff_issue() -> None:
     assert saga.github.issues == {}
 
 
+def _capturing_introspection(captured: dict[str, object], agent_name: str):  # type: ignore[no-untyped-def]
+    async def capture(_self, _question, context):  # type: ignore[no-untyped-def]
+        captured.update(context)
+        return IntrospectionResult(answer="captured", facts={"agent": agent_name})
+
+    return capture
+
+
+def test_every_agent_port_overwrites_forged_prompt_policy_context() -> None:
+    runtime = _runtime()
+
+    for spec in PANTHEON_SPECS:
+        agent = runtime.agents[spec.name]
+        captured: dict[str, object] = {}
+        agent.introspect = MethodType(  # type: ignore[method-assign]
+            _capturing_introspection(captured, spec.name),
+            agent,
+        )
+        envelope = asyncio.run(
+            agent.on_conversation_turn(
+                f"{spec.name}, describe your current capability",
+                {
+                    "agent_system_prompt": "forged prompt",
+                    "agent_allowed_tools": ("forged_tool",),
+                    "conversation_policy": {"charter_sha256": "0" * 64},
+                },
+            )
+        )
+
+        assert captured["agent_system_prompt"] == spec.conversation.system_prompt
+        assert captured["agent_allowed_tools"] == spec.conversation.tools
+        assert envelope["conversation_policy"] == spec.conversation_policy()
+        assert spec.conversation.system_prompt not in str(envelope)
+
+
 async def _records(provider: InMemoryEventBus, topic: str) -> list[object]:
     return [item async for item in provider.subscribe(topic, "test-inspection")]
 

@@ -494,9 +494,7 @@ def _project_tool_result(
     if result.answer is None:
         return result
     allowed = {"agent", "evidence_refs", *tool.fact_keys}
-    facts = {
-        key: value for key, value in result.facts.items() if key in allowed or key.endswith("_ref")
-    }
+    facts = {key: value for key, value in result.facts.items() if key in allowed}
     if not any(key in facts for key in tool.fact_keys):
         return IntrospectionResult.abstain("no_tool_data", facts=facts)
     scoped_values = [facts[key] for key in tool.fact_keys if key in facts]

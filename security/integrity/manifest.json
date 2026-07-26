@@ -19,7 +19,7 @@
     "src/fdai/agents/_framework/action_semantics.py": "137db18054e56073c7fbe905e0beada26e0bd51215d5a5837d3f28791707ccc6",
     "src/fdai/agents/_framework/adapters.py": "56625df432e00042dcf100f3713703a85f82633d117b5ffcc3d2ce434097367d",
     "src/fdai/agents/_framework/arbitration.py": "1c7c88606e8aaf4fffa8bbc33daf3f3ad5ff9f3f0ad5a9d7ee5b0a6f0358868b",
-    "src/fdai/agents/_framework/base.py": "ab2bf3085a81774dcf53ec26e41494d332b93748a80ca6c12bf37daacb81778c",
+    "src/fdai/agents/_framework/base.py": "bd0b9d94def15bc416aa50c29889a3656a013146c8637f785ce05a2c79ab8a9d",
     "src/fdai/agents/_framework/bounded.py": "5753ce93e706044ebd92331c1a48d5b5919d185e505d45028b54fdb5a60459a7",
     "src/fdai/agents/_framework/bragi_contributors.py": "c835c7c75f861643e4f6bbf4488792168395c69b7e09653b08d14c568506fb00",
     "src/fdai/agents/_framework/bragi_models.py": "5defd2ee122422c520b239c9fc5b492276201f41f0cbc0ee55560769e4f38a32",
@@ -791,7 +791,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-26T05:42:04Z",
+  "generated_at": "2026-07-26T11:19:56Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

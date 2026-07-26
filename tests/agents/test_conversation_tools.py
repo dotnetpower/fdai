@@ -6,6 +6,7 @@ import asyncio
 from types import MethodType
 
 from fdai.agents import AgentToolStatus
+from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -24,6 +25,7 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
     runtime = _runtime()
 
     for spec in PANTHEON_SPECS:
+        expected_policy = spec.conversation_policy()
         for tool_id in spec.conversation.tools:
             result = asyncio.run(
                 runtime.invoke_conversation_tool(
@@ -37,8 +39,8 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
             assert result.tool_id == tool_id
             assert result.status in {AgentToolStatus.OK, AgentToolStatus.ABSTAIN}
             assert result.charter_version == spec.conversation.version
-            assert len(result.charter_sha256) == 64
-            assert result.prompt_sha256
+            assert result.charter_sha256 == expected_policy["charter_sha256"]
+            assert result.prompt_sha256 == expected_policy["prompt_sha256"]
             assert result.allowed_tools == spec.conversation.tools
             assert result.evidence_refs
             assert all(not ref.startswith("agent-spec:") for ref in result.evidence_refs)
@@ -48,6 +50,15 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
     assert health["registered"] == declared_tool_count
     assert health["available"] == declared_tool_count
     assert health["disabled"] == 0
+
+
+def test_all_charter_digests_are_deterministic_and_unique() -> None:
+    first = {spec.name: spec.conversation_policy() for spec in PANTHEON_SPECS}
+    replay = {spec.name: spec.conversation_policy() for spec in PANTHEON_SPECS}
+
+    assert first == replay
+    assert len({policy["charter_sha256"] for policy in first.values()}) == len(PANTHEON_SPECS)
+    assert len({policy["prompt_sha256"] for policy in first.values()}) == len(PANTHEON_SPECS)
 
 
 def test_each_agent_tool_projects_a_distinct_owned_fact_scope() -> None:
@@ -68,6 +79,37 @@ def test_each_agent_tool_projects_a_distinct_owned_fact_scope() -> None:
         assert all(result.status is AgentToolStatus.OK for result in results), spec.name
         assert len({result.answer for result in results}) == len(results), spec.name
         assert len({tuple(sorted(result.facts)) for result in results}) == len(results), spec.name
+
+
+def test_tool_projection_rejects_undeclared_reference_facts() -> None:
+    runtime = _runtime()
+    njord = runtime.agents["Njord"]
+
+    async def broad_facts(_self, _question, _context):  # type: ignore[no-untyped-def]
+        return IntrospectionResult(
+            answer="One cost scope is tracked.",
+            facts={
+                "tracked_scopes": ["scope-1"],
+                "evidence_refs": ["cost-snapshot:one"],
+                "internal_runtime_ref": "internal-state",
+                "unrelated_state": "not-owned-by-this-tool",
+            },
+        )
+
+    njord.introspect = MethodType(broad_facts, njord)  # type: ignore[method-assign]
+    result = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+
+    assert result.status is AgentToolStatus.OK
+    assert result.facts == {
+        "tracked_scopes": ["scope-1"],
+        "evidence_refs": ["cost-snapshot:one"],
+    }
 
 
 def test_agent_state_evidence_ref_is_stable_and_changes_with_owned_facts() -> None:
