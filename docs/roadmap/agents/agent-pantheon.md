@@ -231,19 +231,19 @@ creates no candidate, training run, or promotion from consumption alone.
 > The table below paraphrases those `AgentSpec` entries for humans. If
 > they disagree, the code wins - and
 > [`tests/agents/test_pantheon_doc_parity.py`](../../../tests/agents/test_pantheon_doc_parity.py)
-> pins the 15 agent names in this doc against `PANTHEON_NAMES` so drift
-> is caught in CI.
+> pins all 15 names plus catalog layer and ownership against `PANTHEON_SPECS`
+> in both English and Korean so drift is caught in CI.
 
 Layer: `1` = domain specialist, `2` = pipeline (sensing / judgment /
 operations / interface), `3` = governance staff.
 
-| Name | Role | Layer | Owns object types | Executes action types | LLM in hot-path? |
+| Name | Role | Layer | Owns object types | Primary behavior | LLM in hot-path? |
 |------|------|-------|-------------------|-----------------------|-------------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA | (produces verdicts; no executor role) | yes (T2 abstain only) |
+| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | (produces verdicts; no executor role) | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event | ingest_event | no |
-| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, SecurityEvent | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
+| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator only) |
