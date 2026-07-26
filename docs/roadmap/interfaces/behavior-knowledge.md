@@ -155,7 +155,9 @@ The current implementation is intentionally split so deployed claims remain accu
 Focused tests cover exact alias priority, normalized subject ranking, idempotent reindexing, stale
 hashes, implemented and test-backed authority, source citation shape and symbol precision, source
 body exclusion, client evidence replacement, prompt-injection isolation, comparisons, localization,
-and PostgreSQL/in-memory top-hit and exact-class parity. A frozen set of 20 holdout architecture paraphrases scores
+and PostgreSQL/in-memory top-hit and exact-class parity. The narrator translator-only seed tracks the
+exact conversational typed-pipeline regression symbol, so inserting charter tests refreshes that
+line range in the same change. A frozen set of 20 holdout architecture paraphrases scores
 routing, status, current citations, precise symbols, authority, structure, facts, exclusions and
 safety, localization, and directness. The measured 2026-07-20 result is `10.0/10`: 20 of 20 route
 correctly, cold initialization is 46.6 ms, and 200 warm samples measure 8.4 ms p50 and 20.5 ms p95.
