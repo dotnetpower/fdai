@@ -715,7 +715,7 @@ irreversible: false
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 
 The conversational port CAN start an action but MUST NOT execute one on
-its own. When an operator says "restart vm-1" to Bragi, Bragi translates
+its own. When an operator says "restart vm-1" or the Korean equivalent to Bragi, Bragi translates
 the intent into an `ActionProposal` whose `initiator_principal` is the
 operator (not Bragi) and hands it to the typed pipeline. Forseti, Var,
 and Thor run their normal steps. Bragi only renders progress back to the
@@ -725,7 +725,7 @@ a defect.
 **Implementation.** Bragi holds a `proposal_sink` DI seam wired at the
 composition root to `Huginn.ingest` (the sole writer of `object.event`), so
 Bragi never publishes a mutation topic itself. `Bragi.submit_action_proposal`
-maps the leading command verb to an ActionType, builds the proposal with
+maps a deterministic English or Korean command phrase to an ActionType, builds the proposal with
 `initiator_principal = operator` and `operator_initiated = true`, and submits
 it through the sink; it returns a `correlation_id` the operator can track and
 renders pipeline progress from `object.verdict` / `object.action-run`, never

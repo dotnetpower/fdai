@@ -165,6 +165,46 @@ _QUESTION_MARKERS: frozenset[str] = frozenset(
     }
 )
 
+_KOREAN_ACTION_VERBS: tuple[tuple[str, str], ...] = (
+    ("권한 부여", "grant"),
+    ("권한 회수", "revoke"),
+    ("장애 조치", "failover"),
+    ("프로비저닝", "provision"),
+    ("비활성화", "disable"),
+    ("재시작", "restart"),
+    ("재부팅", "reboot"),
+    ("장애조치", "failover"),
+    ("페일오버", "failover"),
+    ("암호화", "encrypt"),
+    ("되돌리기", "revert"),
+    ("업데이트", "update"),
+    ("활성화", "enable"),
+    ("재정의", "override"),
+    ("삭제", "delete"),
+    ("제거", "remove"),
+    ("파기", "destroy"),
+    ("확장", "scale"),
+    ("축소", "scale"),
+    ("실행", "execute"),
+    ("적용", "apply"),
+    ("배포", "deploy"),
+    ("롤백", "rollback"),
+    ("승인", "approve"),
+    ("거부", "reject"),
+    ("생성", "create"),
+    ("종료", "terminate"),
+    ("시작", "start"),
+    ("중지", "stop"),
+    ("승격", "promote"),
+    ("폐기", "retire"),
+    ("플러시", "flush"),
+    ("할당", "assign"),
+)
+_KOREAN_COMMAND_SUFFIX = re.compile(
+    r"\s*(?:(?:해|하여|시켜)\s*(?:줘|주세요|주십시오)|"
+    r"달라|하라|해라|부탁해|부탁합니다|부탁드립니다)(?:[.!]|\s|$)"
+)
+
 #: Defensive cap on how much of a question is tokenized. The conversational
 #: port is an operator / agent input boundary; an unbounded question would let
 #: a caller inflate tokenization cost. A real NL query is far shorter.
@@ -195,6 +235,8 @@ def is_action_intent(question: str) -> bool:
     ("set of rules?", "run status?") is a command only when phrased
     imperatively - no question mark and no interrogative marker.
     """
+    if korean_action_verb(question) is not None:
+        return True
     verb = leading_verb(question)
     if verb is None:
         return False
@@ -218,6 +260,16 @@ def leading_verb(question: str) -> str | None:
         if token in _FILLER_PREFIX:
             continue
         return str(token)
+    return None
+
+
+def korean_action_verb(question: str) -> str | None:
+    """Return the canonical verb for one explicit Korean mutation command."""
+    bounded = question[:_MAX_QUESTION_LEN]
+    for phrase, canonical in _KOREAN_ACTION_VERBS:
+        for match in re.finditer(re.escape(phrase), bounded):
+            if _KOREAN_COMMAND_SUFFIX.match(bounded, match.end()) is not None:
+                return canonical
     return None
 
 
@@ -305,6 +357,7 @@ __all__ = [
     "INTROSPECTION_ERROR",
     "is_action_intent",
     "leading_verb",
+    "korean_action_verb",
     "mentioned",
     "capped_list",
     "agent_state_evidence_ref",

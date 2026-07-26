@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 4cb0c6b3e939db09ef9f1cd6d9ac2986283a1cd2
+translation_source_sha: a0d362e5d1c5c76993102aaf1acf443f7042d858
 translation_revised: 2026-07-26
 ---
 
@@ -698,7 +698,7 @@ Bragi 는 오퍼레이터에게 진행 상황만 render. Bragi 가 executor 를 
 **구현.** Bragi 는 composition root 에서 `Huginn.ingest`(`object.event` 의
 단독 writer)에 연결되는 `proposal_sink` DI seam 을 가지며, Bragi 자신은
 mutation 토픽을 절대 publish 하지 않는다. `Bragi.submit_action_proposal` 은
-선행 명령 동사를 ActionType 으로 매핑하고, `initiator_principal = operator`
+결정론적 영어 또는 한국어 명령 구문을 ActionType 으로 매핑하고, `initiator_principal = operator`
 와 `operator_initiated = true` 로 proposal 을 만들어 sink 로 제출한다;
 오퍼레이터가 추적할 `correlation_id` 를 반환하고 `object.verdict` /
 `object.action-run` 에서 파이프라인 진행을 render 할 뿐, 실행하지 않는다.

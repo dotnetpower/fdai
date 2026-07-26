@@ -45,6 +45,17 @@ class TestActionIntentGuard:
         assert is_action_intent("can you delete rg-abc") is True
         assert is_action_intent("could you tell me the cost") is False
 
+    def test_korean_imperatives_are_action_intent(self) -> None:
+        assert is_action_intent("vm-1 재시작해줘") is True
+        assert is_action_intent("storage-1을 삭제해 주세요") is True
+        assert is_action_intent("db-1을 재부팅해 주십시오") is True
+        assert is_action_intent("재시작 상태를 확인하고 vm-1을 재시작해줘") is True
+
+    def test_korean_action_questions_remain_introspection(self) -> None:
+        assert is_action_intent("vm-1 재시작 상태가 뭐야?") is False
+        assert is_action_intent("storage-1 삭제 이력을 보여줘") is False
+        assert is_action_intent("장애 조치 결과를 설명해줘") is False
+
     def test_empty_question_is_not_action_intent(self) -> None:
         assert is_action_intent("") is False
         assert is_action_intent("???") is False

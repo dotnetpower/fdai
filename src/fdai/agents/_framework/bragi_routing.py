@@ -6,7 +6,7 @@ import re
 from collections.abc import Collection
 
 from fdai.agents._framework.bragi_models import RoutingDecision
-from fdai.agents._framework.introspection import leading_verb
+from fdai.agents._framework.introspection import korean_action_verb, leading_verb
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.core.read_investigation import (
     classify_read_investigation_intent,
@@ -84,6 +84,8 @@ def translate_action_intent(
     action_type = _catalog_action_intent(question, action_type_names)
     if action_type is None:
         action_type = INTENT_ACTION.get(leading_verb(question) or "")
+    if action_type is None:
+        action_type = INTENT_ACTION.get(korean_action_verb(question) or "")
     if action_type is None:
         return None, None
     return action_type, _resource_of(question, action_type=action_type)

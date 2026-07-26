@@ -257,6 +257,28 @@ def test_ask_refuses_action_intent_and_routes_to_typed_pipeline() -> None:
     assert turn.answer["initiator_principal"] == "u1"
 
 
+def test_korean_action_intent_routes_to_typed_pipeline() -> None:
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="ko-action",
+            user_id="operator-one",
+            question="svc-1 재시작해줘",
+        )
+    )
+    records = asyncio.run(_records(provider, "object.event"))
+
+    assert turn is not None
+    assert turn.answer["requires_typed_pipeline"] is True
+    assert turn.answer["submitted"] is True
+    assert turn.answer["action_type"] == "ops.restart-service"
+    assert len(records) == 1
+    assert records[0].payload["resource_id"] == "svc-1"
+    assert records[0].payload["initiator_principal"] == "operator-one"
+
+
 def test_every_direct_agent_turn_carries_content_addressed_state_evidence() -> None:
     runtime = _runtime()
 
