@@ -70,6 +70,7 @@ _MAX_PROGRESS_STEPS = 64
 _MAX_CONTRIBUTORS = 3
 _CONTRIBUTOR_TIMEOUT_SECONDS = 2.0
 _RESPONDER_TIMEOUT_SECONDS = 2.0
+_PROPOSAL_TIMEOUT_SECONDS = 5.0
 
 _CURRENT_SCREEN_DATA_INTENT = re.compile(
     r"\b(?:how many|count|share|rate|eps|attention|failed|mode|terminal\s+stage|"
@@ -98,15 +99,19 @@ class Bragi(Agent):
         *,
         semantic_router: SemanticAgentRouter | None = None,
         responder_timeout_seconds: float = _RESPONDER_TIMEOUT_SECONDS,
+        proposal_timeout_seconds: float = _PROPOSAL_TIMEOUT_SECONDS,
     ) -> None:
         if responder_timeout_seconds <= 0:
             raise ValueError("responder timeout MUST be positive")
+        if proposal_timeout_seconds <= 0:
+            raise ValueError("proposal timeout MUST be positive")
         super().__init__(spec=_BRAGI)
         self._sessions: dict[str, ConversationSession] = {}
         self._agent_responders: dict[str, AnswerFn] = {}
         self._proposal_sink: ProposalSink | None = None
         self._semantic_router = semantic_router
         self._responder_timeout_seconds = responder_timeout_seconds
+        self._proposal_timeout_seconds = proposal_timeout_seconds
         # Per-correlation pipeline progress, appended as verdict / action-run
         # states arrive on the typed port, so an operator can be told where
         # their submitted action is (submitted -> verdicted -> hil_pending ->
@@ -187,7 +192,23 @@ class Bragi(Agent):
         )
         if proposal is None or self._proposal_sink is None:
             return status
-        await self._proposal_sink(proposal)
+        try:
+            await asyncio.wait_for(
+                self._proposal_sink(proposal),
+                timeout=self._proposal_timeout_seconds,
+            )
+        except TimeoutError:
+            _LOG.warning("bragi_proposal_timeout", extra={"action_type": status["action_type"]})
+            return {**status, "submitted": False, "abstain_reason": "proposal_timeout"}
+        except Exception as exc:  # noqa: BLE001 - isolate typed-pipeline handoff
+            _LOG.warning(
+                "bragi_proposal_failed",
+                extra={
+                    "action_type": status["action_type"],
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return {**status, "submitted": False, "abstain_reason": "proposal_sink_error"}
         correlation_id = str(status["correlation_id"])
         action_type = str(status["action_type"])
         append_submitted(

@@ -631,6 +631,46 @@ def test_primary_responder_timeout_must_be_positive() -> None:
         Bragi(responder_timeout_seconds=0)
 
 
+def test_proposal_sink_timeout_fails_closed() -> None:
+    bragi = Bragi(proposal_timeout_seconds=0.001)
+
+    async def slow(_proposal: dict) -> dict:
+        await asyncio.sleep(60)
+        return {}
+
+    bragi.register_proposal_sink(slow)
+    turn = asyncio.run(
+        bragi.ask(session_id="proposal-timeout", user_id="operator", question="restart svc-1")
+    )
+
+    assert turn.answer["requires_typed_pipeline"] is True
+    assert turn.answer["submitted"] is False
+    assert turn.answer["abstain_reason"] == "proposal_timeout"
+    assert bragi.progress_for(turn.answer["correlation_id"]) == []
+
+
+def test_proposal_sink_exception_fails_closed_without_detail() -> None:
+    bragi = Bragi(proposal_timeout_seconds=0.1)
+
+    async def fail(_proposal: dict) -> dict:
+        raise RuntimeError("password=supersecretvalue")
+
+    bragi.register_proposal_sink(fail)
+    turn = asyncio.run(
+        bragi.ask(session_id="proposal-error", user_id="operator", question="restart svc-1")
+    )
+
+    assert turn.answer["requires_typed_pipeline"] is True
+    assert turn.answer["submitted"] is False
+    assert turn.answer["abstain_reason"] == "proposal_sink_error"
+    assert "supersecretvalue" not in repr(turn.answer)
+
+
+def test_proposal_sink_timeout_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="proposal timeout MUST be positive"):
+        Bragi(proposal_timeout_seconds=0)
+
+
 def test_a2a_responder_exception_becomes_abstention() -> None:
     bragi = Bragi(responder_timeout_seconds=0.1)
 
