@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ff69aa51f60766d43fc115a431b58a95a9d0c132
+translation_source_sha: 2117c9f57757443b466436b722eb84f45d2f5525
 translation_revised: 2026-07-26
 ---
 
@@ -699,7 +699,7 @@ Bragi 는 오퍼레이터에게 진행 상황만 render. Bragi 가 executor 를 
 단독 writer)에 연결되는 `proposal_sink` DI seam 을 가지며, Bragi 자신은
 mutation 토픽을 절대 publish 하지 않는다. `Bragi.submit_action_proposal` 은
 결정론적 영어 또는 한국어 명령 구문을 ActionType 으로 매핑하고, `initiator_principal = operator`
-와 `operator_initiated = true` 로 proposal 을 만들어 bounded sink call로 제출한다. Timeout 또는 failure는 error detail 없이 `submitted=false`를 반환한다.
+와 `operator_initiated = true` 로 proposal 을 만들어 bounded sink call로 제출한다. Timeout 또는 failure는 error detail 없이 `submitted=false`를 반환하며 모든 command는 proposal correlation에 digest-only `object.turn`을 emit한다.
 오퍼레이터가 추적할 `correlation_id` 를 반환하고 `object.verdict` /
 `object.action-run` 에서 파이프라인 진행을 render 할 뿐, 실행하지 않는다.
 Forseti 는 `initiator_principal` 을 verdict 에, Thor 는 ActionRun 에 전파하고,

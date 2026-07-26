@@ -279,6 +279,31 @@ def test_korean_action_intent_routes_to_typed_pipeline() -> None:
     assert records[0].payload["initiator_principal"] == "operator-one"
 
 
+def test_action_command_publishes_digest_only_correlated_turn() -> None:
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="action-turn",
+            user_id="operator-one",
+            question="restart svc-1",
+        )
+    )
+    records = asyncio.run(_records(provider, "object.turn"))
+
+    assert turn is not None
+    assert len(records) == 1
+    payload = records[0].payload
+    assert payload["producer_principal"] == "Bragi"
+    assert payload["primary_agent"] == "Bragi"
+    assert payload["turn_index"] == 0
+    assert payload["correlation_id"] == turn.answer["correlation_id"]
+    assert payload["trace_ref"] == turn.answer["correlation_id"]
+    assert "question" not in payload
+    assert "answer" not in payload
+
+
 def test_every_direct_agent_turn_carries_content_addressed_state_evidence() -> None:
     runtime = _runtime()
 

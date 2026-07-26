@@ -727,7 +727,7 @@ composition root to `Huginn.ingest` (the sole writer of `object.event`), so
 Bragi never publishes a mutation topic itself. `Bragi.submit_action_proposal`
 maps a deterministic English or Korean command phrase to an ActionType, builds the proposal with
 `initiator_principal = operator` and `operator_initiated = true`, and submits
-it through a bounded sink call; timeout or failure returns `submitted=false` without error detail. It returns a `correlation_id` the operator can track and
+it through a bounded sink call; timeout or failure returns `submitted=false` without error detail. Every command emits a digest-only `object.turn` on that proposal correlation. It returns a `correlation_id` the operator can track and
 renders pipeline progress from `object.verdict` / `object.action-run`, never
 executing. Forseti propagates `initiator_principal` onto the verdict, Thor onto
 the ActionRun, and Var enforces no-self-approval (the initiator can never

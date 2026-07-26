@@ -44,7 +44,7 @@
     "src/fdai/agents/_framework/semantic_routing.py": "6718048db4bd459050336189d86ca1068e0844660f326aa4e540103193b90d4a",
     "src/fdai/agents/_framework/topics.py": "86c8aafe27517f19d78b1f0a0cd68ddc321392707ac91f8e662b11484f66b488",
     "src/fdai/agents/_framework/workflows.py": "a44335c08495c1cc7177d89abf0ef72d56ad3e32ebc1d9b39c913bacb1e8878a",
-    "src/fdai/agents/bragi.py": "d6f9c95bfc1c2cf956044445b496411bf81f49eea6a9bf614c462059167d1857",
+    "src/fdai/agents/bragi.py": "099ec91b453f4dcd7ea156d33e1fb56a48d59a9bf726ba22d231b5f731a1cf77",
     "src/fdai/agents/forseti.py": "e5b3600f5b34a2d3677409aea9eff71829195f3dabd064b79741513e548c763f",
     "src/fdai/agents/freyr.py": "e19853dd5c9abad5f71b23f982e9126d1c8e4cc56e13dd820cadaf0e03b2d598",
     "src/fdai/agents/heimdall.py": "7701cefcba30d11b069b1fb311558223282d2f73d34b7dc120cafab223429c58",
@@ -791,7 +791,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-26T11:46:04Z",
+  "generated_at": "2026-07-26T11:54:21Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

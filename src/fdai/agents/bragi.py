@@ -389,6 +389,7 @@ class Bragi(Agent):
                 decision=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
             )
             _append_turn(session, turn)
+            await self._publish_turn(session_id=session_id, turn=turn)
             return turn
         decision = await self.route_with_semantic_fallback(question)
         if decision.primary_agent is None:
@@ -481,6 +482,9 @@ class Bragi(Agent):
             default=str,
         )
         answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
+        trace_ref = str(
+            turn.answer.get("trace_ref") or turn.answer.get("correlation_id") or session_id
+        )
         turn_key = f"{session_digest}:{turn.turn_index}"
         turn_id = f"turn-{hashlib.sha256(turn_key.encode()).hexdigest()[:32]}"
         primary_agent = turn.primary_agent or "Bragi"
@@ -497,7 +501,7 @@ class Bragi(Agent):
                 "producer_principal": "Bragi",
                 "id": turn_id,
                 "turn_id": turn_id,
-                "correlation_id": str(turn.answer.get("trace_ref") or session_id),
+                "correlation_id": trace_ref,
                 "idempotency_key": f"turn:{session_digest}:{turn.turn_index}",
                 "session_id": session_id,
                 "turn_index": turn.turn_index,
@@ -519,7 +523,7 @@ class Bragi(Agent):
                     "semantic_margin": turn.decision.semantic_margin,
                     "provider_status": turn.decision.provider_status,
                 },
-                "trace_ref": str(turn.answer.get("trace_ref") or session_id),
+                "trace_ref": trace_ref,
             },
         )
 
