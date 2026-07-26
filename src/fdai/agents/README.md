@@ -60,6 +60,7 @@ agents/
 - `tests/agents/test_wave8_kpi_degradation.py` - KPI collector, promotion gate, degradation drills
 - `tests/agents/test_introspection.py` - conversational-port primitives (action-intent guard, token match, capability, base fallback)
 - `tests/agents/test_conversational_port.py` - `PantheonRuntime.ask` routing + agent-to-agent (A2A) `introspect`
+- `tests/agents/test_pantheon_concurrency_proof.py` - all 15 runtime consumer identities + concurrent multi-message fan-out without subscriber stealing
 
 Run just the pantheon suite: `pytest tests/agents/ -q`.
 

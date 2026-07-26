@@ -13,7 +13,7 @@
     "rule-catalog/schema/README.md": "430c3b119a0f6a78d1517fcfc5642a4c344a0186f6f1778eadc5a1548ec9882d",
     "rule-catalog/schema/extension-kit.schema.json": "e1d4250973b4f21115b313a5c7bddaba2df2db5af831cb1cae3628170b7ae08a",
     "rule-catalog/schema/skill-bundle.schema.json": "45dbd3b41a03fcf62a7cde47ff3f95e2fa720a8899ac2895445d41c596dbe550",
-    "src/fdai/agents/README.md": "4466dd9e6314f1be320c1bacad62743a1d744522c2af7a7bdcf00109c69a60f1",
+    "src/fdai/agents/README.md": "aa8b0f2af4c428fb695ccec0363931de922f1494555028fc5b8adacfdcfec171",
     "src/fdai/agents/__init__.py": "5f2ddbfecc70f15f2e4ab323541954ebb9f4e535b5c02583d1d65931854e8a91",
     "src/fdai/agents/_framework/__init__.py": "0b42a7672bae9f19312f54a570edd139da6e1462f5e42f48ff49cc485aafd346",
     "src/fdai/agents/_framework/action_semantics.py": "137db18054e56073c7fbe905e0beada26e0bd51215d5a5837d3f28791707ccc6",
@@ -793,7 +793,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-26T18:02:52Z",
+  "generated_at": "2026-07-26T18:11:41Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 467abf87af3cd20a8220dff254fa2ad6d1f4db62
+translation_source_sha: 81789ab7ff587df046b1cbdc768a668a1f3b5530
 translation_revised: 2026-07-27
 ---
 
@@ -343,7 +343,7 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 
 공통 규칙:
 
-- **Saga와 Vidar는 mutation의 hard dependency**입니다. Terminal consumer/health failure는 restart 전까지 sticky shadow를 강제합니다. Noncritical terminal consumer는 해당 agent만 degrade하고 sibling은 계속 실행하며 health는 false heartbeat 대신 exact agent/topic state를 기록합니다.
+- **Saga와 Vidar는 mutation의 hard dependency**입니다. Terminal consumer/health failure는 restart 전까지 sticky shadow를 강제합니다. Noncritical terminal consumer는 해당 agent만 degrade하고 sibling은 계속 실행하며 health는 false heartbeat 대신 exact agent/topic state를 기록합니다. Unified concurrency test는 15개 consumer identity와 same-topic non-stealing fan-out을 pin합니다.
 - **판단자 / 실행자 / 감사자 triad 중 하나라도 누락** 시 새 mutation 을
   shadow 로 강등.
 - **Sensing degradation (Heimdall / Var / Vidar 실패)** 는 파이프라인이
