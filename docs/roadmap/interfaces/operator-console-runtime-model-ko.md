@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 1c25176a2a5d864ad1a0199d36aadb70801c0d73
+translation_source_sha: b161da15267dfd962387a505437d2c0095eef367
 translation_revised: 2026-07-26
 ---
 
@@ -72,7 +72,7 @@ prompt와 분리됩니다.
 Core runtime만 Pantheon을 소유합니다. 분리된 read API는 두 번째 agent runtime을 내장하지 않고
 `aw.pantheon.objects`에 multiplex한 bounded logical service topic 두 개로 Bragi에 접근합니다.
 Server-echo probe로 response consumer를 확인하고 retry 중 같은 joining consumer를 재사용하며 최초
-Event Hubs group join을 최대 20초 허용합니다. Request는 최대 4 KiB question과 process-secret salted
+Event Hubs group join을 최대 20초 허용합니다. Request는 silent truncation 없이 최대 2,000자 question과 process-secret salted
 SHA-256 user/session reference를 전달합니다. Response는 answer 16 KiB, 전체 result 64 KiB, 대기 20초,
 pending request 256개로 제한합니다. 고정 agent 이름과 정확한 target ownership을 검증하고 전체 normalized
 result에서 sensitive value를 검사하며, 고정 target `AgentSpec`과 일치하는 charter hash 및 tool manifest만

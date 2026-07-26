@@ -71,7 +71,7 @@ The core runtime remains the only Pantheon owner. A separate read API reaches Br
 bounded logical service topics multiplexed over `aw.pantheon.objects`; it never embeds another
 agent runtime. A server-echo probe confirms the response consumer, reuses the same joining consumer
 across retries, and allows 20 seconds for the initial Event Hubs group join. A request carries a
-4 KiB maximum question plus process-secret salted SHA-256 user/session references. The response is
+2,000-character maximum question with no silent truncation plus process-secret salted SHA-256 user/session references. The response is
 limited to a 16 KiB answer and a 64 KiB result, waits at most 20 seconds, validates fixed agent
 names and exact target ownership, scans the complete normalized result for sensitive values, and
 retains only a charter hash and tool manifest that match the fixed target `AgentSpec`.

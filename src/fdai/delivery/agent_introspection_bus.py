@@ -29,7 +29,7 @@ AGENT_INTROSPECTION_TOPICS = frozenset(
 _WIRE_VERSION = 1
 _MAX_ID_CHARS = 128
 _MAX_AGENT_CHARS = 64
-_MAX_QUESTION_CHARS = 4_000
+_MAX_QUESTION_CHARS = 2_000
 _MAX_ANSWER_CHARS = 16_000
 _MAX_RESULT_BYTES = 64 * 1024
 _MAX_CONTRIBUTORS = 8
@@ -451,6 +451,8 @@ class EventBusAgentIntrospectionClient:
                 )
                 return dict(fallback_result) if isinstance(fallback_result, Mapping) else None
             return None
+        if len(prompt) > _MAX_QUESTION_CHARS:
+            return _handoff(target_agent, "agent_question_too_long")
         if self._consumer_task is None or self._consumer_task.done() or not self._ready.is_set():
             await self.start()
         if not self._ready.is_set():
@@ -469,7 +471,7 @@ class EventBusAgentIntrospectionClient:
                     "request_id": request_id,
                     "reply_to": self.instance_id,
                     "target_agent": target_agent,
-                    "question": prompt[:_MAX_QUESTION_CHARS],
+                    "question": prompt,
                     "user_ref": _salted_ref(self._privacy_salt, user_id),
                     "session_ref": _salted_ref(
                         self._privacy_salt,

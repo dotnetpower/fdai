@@ -154,6 +154,41 @@ async def test_pending_capacity_fails_closed_without_publishing() -> None:
     assert result["handoff_reason"] == "agent_request_capacity_exceeded"
 
 
+async def test_oversized_question_fails_before_publish_or_runtime() -> None:
+    bus = _bus()
+    runtime = SimpleNamespace(ask=AsyncMock())
+    client = EventBusAgentIntrospectionClient(
+        event_bus=bus,
+        instance_id="read-api-test",
+        startup_timeout_seconds=0.01,
+    )
+
+    result = await client.delegate(
+        prompt="@Huginn " + "x" * 2_001,
+        user_id="operator-1",
+        session_id="conversation-1",
+    )
+    await client.stop()
+
+    assert result is not None
+    assert result["handoff_reason"] == "agent_question_too_long"
+    assert client._consumer_task is None  # noqa: SLF001 - rejected before startup
+
+    server = EventBusAgentIntrospectionServer(event_bus=bus, runtime=runtime)
+    await server.handle_request(
+        {
+            "v": 1,
+            "request_id": "oversized-request",
+            "reply_to": "read-api-test",
+            "target_agent": "Huginn",
+            "question": "@Huginn " + "x" * 2_001,
+            "user_ref": "a" * 64,
+            "session_ref": "b" * 64,
+        }
+    )
+    assert runtime.ask.await_count == 0
+
+
 async def test_duplicate_request_is_replayed_without_reinvoking_runtime() -> None:
     bus = _bus()
     runtime = SimpleNamespace(
