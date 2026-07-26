@@ -103,6 +103,41 @@ def test_partial_subscription_health_answer_fails_closed() -> None:
     assert backend.calls == 0
 
 
+def test_matched_subscription_health_answer_completes_verification() -> None:
+    async def matched(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del progress_observer
+        result = await _provider(lookback_seconds)
+        return {**result, "status": "matched", "metric_unavailable": 0}
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(matched),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={"prompt": "Azure subscription health check", "view_context": {}},
+        )
+
+    verification = response.json()["verification"]
+    assert verification["status"] == "verified"
+    assert verification["checks_completed"] == 1
+    assert verification["checks_total"] == 1
+    assert verification["reason_code"] == "subscription_health_grounded"
+    assert backend.calls == 0
+
+
 def test_subscription_health_provider_failure_fails_closed() -> None:
     async def unavailable(lookback_seconds: int) -> dict[str, Any]:
         del lookback_seconds

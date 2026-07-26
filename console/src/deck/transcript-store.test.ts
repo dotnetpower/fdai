@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   parseTurns,
   serializeTurns,
+  MAX_TRANSCRIPT_JSON_CHARS,
+  MAX_TRANSCRIPT_TURNS,
   transcriptKeyFor,
   TRANSCRIPT_KEY,
   type PersistedTurn,
@@ -220,6 +222,36 @@ describe("serializeTurns", () => {
     const parsed = parseTurns(serializeTurns(turns, 2));
     expect(parsed.map((t) => t.id)).toEqual(["3", "4"]);
   });
+
+  it("uses the default cap when maxTurns is invalid and honors zero", () => {
+    const turns: PersistedTurn[] = Array.from({ length: 45 }, (_, index) => ({
+      id: String(index),
+      role: "operator",
+      text: `q${index}`,
+      at: "10:00:00",
+    }));
+
+    expect(parseTurns(serializeTurns(turns, -1))).toHaveLength(MAX_TRANSCRIPT_TURNS);
+    expect(parseTurns(serializeTurns(turns, Number.POSITIVE_INFINITY))).toHaveLength(
+      MAX_TRANSCRIPT_TURNS,
+    );
+    expect(parseTurns(serializeTurns(turns, 0))).toEqual([]);
+  });
+
+  it("drops oldest turns until the serialized transcript fits the aggregate cap", () => {
+    const turns: PersistedTurn[] = Array.from({ length: 40 }, (_, index) => ({
+      id: String(index),
+      role: "deck",
+      text: "x".repeat(200_000),
+      at: "10:00:00",
+    }));
+
+    const serialized = serializeTurns(turns);
+    expect(serialized.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_JSON_CHARS);
+    const parsed = parseTurns(serialized);
+    expect(parsed.length).toBeLessThan(40);
+    expect(parsed.at(-1)?.id).toBe("39");
+  });
 });
 
 describe("parseTurns", () => {
@@ -228,6 +260,7 @@ describe("parseTurns", () => {
     expect(parseTurns("")).toEqual([]);
     expect(parseTurns("not json")).toEqual([]);
     expect(parseTurns("{}")).toEqual([]);
+    expect(parseTurns(" ".repeat(MAX_TRANSCRIPT_JSON_CHARS + 1))).toEqual([]);
   });
 
   it("skips entries missing required fields or with a bad role", () => {
@@ -287,5 +320,45 @@ describe("parseTurns", () => {
     expect(verification?.status).toBe("unverified");
     expect(verification?.claims).toEqual([]);
     expect(verification?.reason_code).toBe("malformed_verification_artifact");
+  });
+
+  it("bounds replay turn count and text", () => {
+    const turns = Array.from({ length: MAX_TRANSCRIPT_TURNS + 5 }, (_, index) => ({
+      id: String(index),
+      role: "deck",
+      text: index === MAX_TRANSCRIPT_TURNS + 4 ? "x".repeat(256 * 1024 + 1) : `a${index}`,
+      at: "10:00:00",
+    }));
+
+    const parsed = parseTurns(JSON.stringify(turns));
+    expect(parsed).toHaveLength(MAX_TRANSCRIPT_TURNS - 1);
+    expect(parsed[0]?.id).toBe("5");
+    expect(parsed.at(-1)?.id).toBe(String(MAX_TRANSCRIPT_TURNS + 3));
+  });
+
+  it("drops oversized optional replay collections", () => {
+    const raw = JSON.stringify([{
+      id: "1",
+      role: "deck",
+      text: "answer",
+      at: "10:00:00",
+      agent: "A".repeat(65),
+      citations: Array(513).fill({ label: "source" }),
+      followUps: Array(9).fill("next"),
+      activities: [{
+        activityId: "activity",
+        kind: "read",
+        status: "running",
+        label: "x".repeat(513),
+        completed: 2,
+        total: 1,
+      }],
+    }]);
+
+    const turn = parseTurns(raw)[0];
+    expect(turn?.agent).toBeUndefined();
+    expect(turn?.citations).toBeUndefined();
+    expect(turn?.followUps).toBeUndefined();
+    expect(turn?.activities).toBeUndefined();
   });
 });

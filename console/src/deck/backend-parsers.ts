@@ -9,6 +9,9 @@ const CODE_SHA256 = /^[0-9a-f]{64}$/;
 const CODE_LANGUAGE = /^[A-Za-z0-9_+#.-]{1,32}$/;
 const MAX_CODE_ARTIFACTS = 8;
 const MAX_CODE_CHARS = 64 * 1024;
+const MAX_CODE_VALIDATION_DETAIL_CHARS = 4 * 1024;
+const MAX_ANSWER_PLAN_SECTION_CHARS = 64;
+const MAX_ANSWER_PLAN_OVERRIDE_CHARS = 128;
 
 export function parseGroundedCodeArtifacts(raw: unknown): GroundedCodeArtifact[] {
   if (!Array.isArray(raw)) return [];
@@ -27,7 +30,10 @@ export function parseGroundedCodeArtifacts(raw: unknown): GroundedCodeArtifact[]
     if (typeof language !== "string" || !CODE_LANGUAGE.test(language)) continue;
     if (typeof content !== "string" || content.length > MAX_CODE_CHARS) continue;
     if (status !== "valid" && status !== "invalid" && status !== "not_checked") continue;
-    if (detail !== null && typeof detail !== "string") continue;
+    if (
+      detail !== null &&
+      (typeof detail !== "string" || detail.length > MAX_CODE_VALIDATION_DETAIL_CHARS)
+    ) continue;
     artifacts.push({
       artifact_ref: artifactRef,
       language,
@@ -57,15 +63,18 @@ export function parseAnswerPlan(raw: unknown): AnswerPlanMetadata | undefined {
     return undefined;
   }
   if (typeof record.max_words !== "number" || !Number.isInteger(record.max_words) || record.max_words < 1 || record.max_words > 2000) return undefined;
-  if (!Array.isArray(record.sections) || !record.sections.every((item) => typeof item === "string") || record.sections.length > 12) return undefined;
-  const overrides = Array.isArray(record.explicit_overrides)
-    ? record.explicit_overrides.filter((item): item is string => typeof item === "string").slice(0, 8)
-    : [];
+  const sections = boundedStringArray(record.sections, 12, MAX_ANSWER_PLAN_SECTION_CHARS);
+  const overrides = boundedStringArray(
+    record.explicit_overrides ?? [],
+    8,
+    MAX_ANSWER_PLAN_OVERRIDE_CHARS,
+  );
+  if (sections === undefined || overrides === undefined) return undefined;
   return {
     intent: record.intent as AnswerPlanMetadata["intent"],
     detail_level: record.detail_level as AnswerPlanMetadata["detail_level"],
     format: record.format as AnswerPlanMetadata["format"],
-    sections: record.sections,
+    sections,
     evidence_requirement: record.evidence_requirement as AnswerPlanMetadata["evidence_requirement"],
     max_words: record.max_words,
     discuss: record.discuss as AnswerPlanMetadata["discuss"],

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseInvestigationActivity } from "./backend-normalizers";
+import {
+  parseInvestigationActivity,
+  parseInvestigationMilestone,
+  parseRetrievalSourcePreviews,
+} from "./backend-normalizers";
 
 function activity(execution: Record<string, unknown>) {
   return {
@@ -50,5 +54,43 @@ describe("parseInvestigationActivity execution evidence", () => {
     }));
 
     expect(parsed?.execution).toBeUndefined();
+  });
+
+  it("rejects oversized or contradictory activity metadata", () => {
+    expect(parseInvestigationActivity({
+      ...activity({}),
+      label: "x".repeat(513),
+    })).toBeNull();
+    expect(parseInvestigationActivity({
+      ...activity({}),
+      completed: 2,
+      total: 1,
+    })).toBeNull();
+  });
+});
+
+describe("bounded investigation presentation metadata", () => {
+  it("rejects oversized milestones", () => {
+    expect(parseInvestigationMilestone({
+      message_id: "milestone",
+      text: "x".repeat(16 * 1024 + 1),
+    })).toBeNull();
+  });
+
+  it("drops an oversized milestone agent identity", () => {
+    expect(parseInvestigationMilestone({
+      message_id: "milestone",
+      text: "done",
+      agent: "A".repeat(65),
+    })).toEqual({ messageId: "milestone", text: "done" });
+  });
+
+  it("drops oversized retrieval previews", () => {
+    expect(parseRetrievalSourcePreviews([{
+      kind: "source",
+      label: "x".repeat(513),
+      detail: "detail",
+      side_effect_class: "read",
+    }])).toEqual([]);
   });
 });

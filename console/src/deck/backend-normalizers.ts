@@ -31,6 +31,17 @@ const ACTIVITY_STATUSES = new Set<InvestigationActivityStatus>([
 const MAX_EXECUTION_TOOL_CHARS = 64;
 const MAX_EXECUTION_COMMAND_CHARS = 16 * 1024;
 const MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024;
+const MAX_ACTIVITY_ID_CHARS = 128;
+const MAX_ACTIVITY_KIND_CHARS = 128;
+const MAX_ACTIVITY_LABEL_CHARS = 512;
+const MAX_ACTIVITY_DETAIL_CHARS = 16 * 1024;
+const MAX_ACTIVITY_AUTHORITY_CHARS = 1024;
+const MAX_ACTIVITY_TIMESTAMP_CHARS = 64;
+const MAX_MILESTONE_ID_CHARS = 128;
+const MAX_MILESTONE_TEXT_CHARS = 16 * 1024;
+const MAX_RETRIEVAL_KIND_CHARS = 128;
+const MAX_RETRIEVAL_LABEL_CHARS = 512;
+const MAX_RETRIEVAL_DETAIL_CHARS = 16 * 1024;
 const MAX_VERIFICATION_CLAIMS = 64;
 const MAX_EVIDENCE_ENTRIES = 512;
 const MAX_VERIFICATION_REFS = MAX_EVIDENCE_ENTRIES + 8;
@@ -86,17 +97,15 @@ export function parseInvestigationActivity(raw: unknown): InvestigationActivity 
   const record = raw as Record<string, unknown>;
   const status = record.status;
   if (
-    typeof record.activity_id !== "string" ||
-    record.activity_id.length === 0 ||
-    typeof record.kind !== "string" ||
-    record.kind.length === 0 ||
+    !nonemptyBoundedString(record.activity_id, MAX_ACTIVITY_ID_CHARS) ||
+    !nonemptyBoundedString(record.kind, MAX_ACTIVITY_KIND_CHARS) ||
     typeof status !== "string" ||
     !ACTIVITY_STATUSES.has(status as InvestigationActivityStatus) ||
-    typeof record.label !== "string" ||
-    record.label.length === 0
+    !nonemptyBoundedString(record.label, MAX_ACTIVITY_LABEL_CHARS)
   ) return null;
   const completed = finiteProgress(record.completed);
   const total = finiteProgress(record.total);
+  if (completed !== null && total !== null && completed > total) return null;
   const execution = parseInvestigationExecution(record.execution);
   return {
     activityId: record.activity_id,
@@ -106,15 +115,15 @@ export function parseInvestigationActivity(raw: unknown): InvestigationActivity 
     ...(typeof record.agent === "string" && record.agent.length > 0 && record.agent.length <= 64
       ? { agent: record.agent }
       : {}),
-    ...(typeof record.detail === "string" && record.detail.length > 0
+    ...(nonemptyBoundedString(record.detail, MAX_ACTIVITY_DETAIL_CHARS)
       ? { detail: record.detail }
       : {}),
     completed,
     total,
-    ...(typeof record.authority === "string" && record.authority.length > 0
+    ...(nonemptyBoundedString(record.authority, MAX_ACTIVITY_AUTHORITY_CHARS)
       ? { authority: record.authority }
       : {}),
-    ...(typeof record.observed_at === "string" && record.observed_at.length > 0
+    ...(nonemptyBoundedString(record.observed_at, MAX_ACTIVITY_TIMESTAMP_CHARS)
       ? { observedAt: record.observed_at }
       : {}),
     ...(execution ? { execution } : {}),
@@ -125,22 +134,21 @@ export function parseInvestigationMilestone(raw: unknown): InvestigationMileston
   if (typeof raw !== "object" || raw === null) return null;
   const record = raw as Record<string, unknown>;
   if (
-    typeof record.message_id !== "string" ||
-    record.message_id.length === 0 ||
-    typeof record.text !== "string" ||
+    !nonemptyBoundedString(record.message_id, MAX_MILESTONE_ID_CHARS) ||
+    !nonemptyBoundedString(record.text, MAX_MILESTONE_TEXT_CHARS) ||
     record.text.trim().length === 0
   ) return null;
   return {
     messageId: record.message_id,
     text: record.text,
-    ...(typeof record.agent === "string" && record.agent.length > 0
+    ...(nonemptyBoundedString(record.agent, MAX_AGENT_NAME_CHARS)
       ? { agent: record.agent }
       : {}),
   };
 }
 
 function finiteProgress(raw: unknown): number | null {
-  return typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? raw : null;
+  return typeof raw === "number" && Number.isSafeInteger(raw) && raw >= 0 ? raw : null;
 }
 
 export function parseRetrievalSourcePreviews(
@@ -153,9 +161,9 @@ export function parseRetrievalSourcePreviews(
     const record = item as Record<string, unknown>;
     const side = record.side_effect_class;
     if (
-      typeof record.kind !== "string" ||
-      typeof record.label !== "string" ||
-      typeof record.detail !== "string" ||
+      !nonemptyBoundedString(record.kind, MAX_RETRIEVAL_KIND_CHARS) ||
+      !nonemptyBoundedString(record.label, MAX_RETRIEVAL_LABEL_CHARS) ||
+      !nonemptyBoundedString(record.detail, MAX_RETRIEVAL_DETAIL_CHARS) ||
       (side !== "read" && side !== "route" && side !== "simulate" && side !== "ground")
     ) continue;
     sources.push({
@@ -458,6 +466,10 @@ function nonnegativeSafeInteger(raw: unknown): number | null {
 
 function boundedString(raw: unknown, maxChars: number): raw is string {
   return typeof raw === "string" && raw.length <= maxChars;
+}
+
+function nonemptyBoundedString(raw: unknown, maxChars: number): raw is string {
+  return boundedString(raw, maxChars) && raw.length > 0;
 }
 
 function boundedStringArray(

@@ -33,6 +33,10 @@ describe("parseGroundedCodeArtifacts", () => {
     expect(parseGroundedCodeArtifacts([{ ...base, artifact_ref: "code:sha256:bad" }])).toEqual([]);
     expect(parseGroundedCodeArtifacts([{ ...base, validation_status: "executed" }])).toEqual([]);
     expect(parseGroundedCodeArtifacts([{ ...base, content: "x".repeat(64 * 1024 + 1) }])).toEqual([]);
+    expect(parseGroundedCodeArtifacts([{
+      ...base,
+      validation_detail: "x".repeat(4 * 1024 + 1),
+    }])).toEqual([]);
   });
 
   it("caps the response to eight artifacts", () => {

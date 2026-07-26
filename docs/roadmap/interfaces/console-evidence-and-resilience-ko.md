@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 90dd88fe33a15fddb5618e6eb65e92e9c5430b36
+translation_source_sha: 9e784b074e79663f26b853386c3cbb6810d43bac
 translation_revised: 2026-07-26
 ---
 
@@ -259,7 +259,8 @@ emit 전에 credential과 민감한 identifier를 제거하고 `redacted=true`�
 authority 및 완료 상태를 표시할 수 있습니다. 출력 로그와 timestamp는 기본적으로 접힌 상태를
 유지합니다. Intermediate progress detail과 milestone은 parsed resource name 대신 opaque resource
 placeholder를 사용합니다. Command는 16 KiB, output preview는 64 KiB로 제한되며 잘림 여부를
-명시합니다. Browser는
+명시합니다. Activity 및 retrieval label은 512자, detail 및 milestone text는 16 KiB로 제한되며
+completed/total progress가 모순되면 거부합니다. Browser는
 표시된 command를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 evidence는 권한 있는
 runtime이 수행한 work를 read-only로 관찰한 것이며, console이 executor identity 또는 임시 권한을
 보유한다는 증거가 아닙니다.
@@ -300,6 +301,13 @@ Browser는 producer cap인 claim 64개, evidence entry 512개 및 추가 documen
 적용합니다. Artifact identifier는 1 KiB, rendered value는 16 KiB, anchor 또는 alias list는 64개로
 제한됩니다. Live reply와 session replay는 동일한 parser를 사용하므로 reload 후 HTTP boundary가
 거부할 metadata를 복원하거나 다르게 해석하지 않습니다.
+
+Session replay는 4 MiB JSON envelope 안에 최신 turn을 최대 40개 유지합니다. Turn 하나에는 text
+256 KiB, bounded citation 512개, bounded follow-up 8개 및 bounded activity record 64개까지 포함할 수
+있습니다. Serialization이 envelope을 초과하면 browser는 가장 오래된 turn부터 제거합니다. Oversized
+또는 내부 정합성이 없는 optional collection은 renderer로 복원하지 않습니다. Answer-plan section 및
+override label은 64자와 128자, code validation detail은 4 KiB, milestone agent identity는 64자로
+제한합니다.
 
 Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source

@@ -139,7 +139,8 @@ The initial metric map covers VM CPU, AKS node CPU, Storage availability, Postgr
 and Application Gateway healthy-host count. Unsupported resource types remain counted and visible.
 A metric failure produces `partial`, never a healthy conclusion. The terminal answer keeps the
 bounded evidence but reports verification as `unverified` with zero completed checks. The response
-is deterministic and does not call the narrator model.
+is deterministic and does not call the narrator model. A complete `matched` result reports one of
+one checks completed and retains the grounded terminal status.
 
 ## Evidence contract
 

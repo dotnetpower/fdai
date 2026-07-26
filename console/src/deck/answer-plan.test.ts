@@ -32,6 +32,8 @@ describe("AnswerPlan boundary parser", () => {
     { ...validPlan, intent: "execute" },
     { ...validPlan, max_words: 100_000 },
     { ...validPlan, sections: Array.from({ length: 13 }, (_, index) => `s${index}`) },
+    { ...validPlan, sections: ["s".repeat(65)] },
+    { ...validPlan, explicit_overrides: ["x".repeat(129)] },
     { ...validPlan, discuss: "recursive" },
   ])("rejects malformed metadata", (value) => {
     expect(parseAnswerPlan(value)).toBeUndefined();

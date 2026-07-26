@@ -261,7 +261,8 @@ drops command evidence without that attestation. An accepted activity can show a
 tool label, exit code, authority, and completion state. Output logs and timestamps stay collapsed by
 default. Intermediate progress detail and milestones use an opaque resource placeholder rather
 than the parsed resource name. The command is limited to 16 KiB and the output preview to 64 KiB;
-truncation is explicit.
+truncation is explicit. Activity and retrieval labels are limited to 512 characters, detail and
+milestone text to 16 KiB, and contradictory completed/total progress is rejected.
 The browser can copy the displayed command but can't run or retry it. This evidence remains a
 read-only observation of work performed by an authorized runtime, not proof that the console owns
 an executor identity or temporary permission.
@@ -304,6 +305,13 @@ The browser mirrors the producer caps of 64 claims, 512 evidence entries, and ei
 document references. Artifact identifiers are limited to 1 KiB, rendered values to 16 KiB, and
 anchor or alias lists to 64 items. Live replies and session replay use the same parser, so reload
 can't restore metadata that the HTTP boundary would reject or interpret it differently.
+
+Session replay retains at most 40 recent turns in a 4 MiB JSON envelope. One turn contains at most
+256 KiB of text, 512 bounded citations, eight bounded follow-ups, and 64 bounded activity records.
+When serialization exceeds the envelope, the browser removes the oldest turns first. Oversized or
+internally inconsistent optional collections are omitted rather than restored into the renderer.
+Answer-plan section and override labels are limited to 64 and 128 characters, code validation
+detail to 4 KiB, and milestone agent identities to 64 characters.
 
 When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with

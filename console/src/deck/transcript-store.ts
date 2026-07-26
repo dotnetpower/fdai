@@ -26,6 +26,26 @@ import {
 import { parseAnswerVerification, parseDelegation } from "./backend-normalizers";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
+export const MAX_TRANSCRIPT_JSON_CHARS = 4 * 1024 * 1024;
+export const MAX_TRANSCRIPT_TURNS = 40;
+
+const MAX_TURN_TEXT_CHARS = 256 * 1024;
+const MAX_TURN_ID_CHARS = 256;
+const MAX_TURN_SOURCE_CHARS = 1024;
+const MAX_TURN_TIME_CHARS = 64;
+const MAX_AGENT_NAME_CHARS = 64;
+const MAX_CITATIONS = 512;
+const MAX_CITATION_LABEL_CHARS = 1024;
+const MAX_CITATION_VALUE_CHARS = 16 * 1024;
+const MAX_FOLLOW_UPS = 8;
+const MAX_FOLLOW_UP_CHARS = 512;
+const MAX_ACTIVITIES = 64;
+const MAX_ACTIVITY_ID_CHARS = 128;
+const MAX_ACTIVITY_KIND_CHARS = 128;
+const MAX_ACTIVITY_LABEL_CHARS = 512;
+const MAX_ACTIVITY_DETAIL_CHARS = 16 * 1024;
+const MAX_ACTIVITY_AUTHORITY_CHARS = 1024;
+const MAX_ACTIVITY_TIMESTAMP_CHARS = 64;
 
 /**
  * Per-session storage key. The deck keeps distinct conversations - the general
@@ -36,8 +56,6 @@ export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 export function transcriptKeyFor(sessionKey: string): string {
   return sessionKey === "screen" ? TRANSCRIPT_KEY : `${TRANSCRIPT_KEY}::${sessionKey}`;
 }
-
-const DEFAULT_MAX_TURNS = 40;
 
 /** The persisted shape - a lean subset of the in-memory turn. */
 export interface PersistedTurn {
@@ -71,44 +89,58 @@ interface MaybeStreamingTurn extends PersistedTurn {
  */
 export function serializeTurns(
   turns: readonly MaybeStreamingTurn[],
-  maxTurns: number = DEFAULT_MAX_TURNS,
+  maxTurns: number = MAX_TRANSCRIPT_TURNS,
 ): string {
+  const turnLimit = Number.isSafeInteger(maxTurns) && maxTurns >= 0
+    ? Math.min(maxTurns, MAX_TRANSCRIPT_TURNS)
+    : MAX_TRANSCRIPT_TURNS;
+  if (turnLimit === 0) return "[]";
   const persisted: PersistedTurn[] = turns
     .filter(
       (t) =>
         t.streaming !== true &&
+        boundedString(t.id, MAX_TURN_ID_CHARS) &&
+        boundedString(t.text, MAX_TURN_TEXT_CHARS) &&
         t.text.trim().length > 0 &&
+        boundedString(t.at, MAX_TURN_TIME_CHARS) &&
         (t.role === "operator" || t.terminal !== false),
     )
-    .slice(-maxTurns)
+    .slice(-turnLimit)
     .map((t) => {
       const base: PersistedTurn = { id: t.id, role: t.role, text: t.text, at: t.at };
       const verification = parseAnswerVerification(t.verification);
+      const answerPlan = parseAnswerPlan(t.answerPlan);
+      const answerPlanning = parseAnswerPlanning(t.answerPlanning);
+      const delegation = parseDelegation(t.delegation);
+      const codeArtifacts = parseGroundedCodeArtifacts(t.codeArtifacts);
       return {
         ...base,
-        ...(t.source ? { source: t.source } : {}),
+        ...(boundedString(t.source, MAX_TURN_SOURCE_CHARS) ? { source: t.source } : {}),
         ...(t.kind ? { kind: t.kind } : {}),
         ...(validActivities(t.activities) ? { activities: t.activities } : {}),
-        ...(t.agent ? { agent: t.agent } : {}),
-        ...(t.citations ? { citations: t.citations } : {}),
-        ...(t.followUps ? { followUps: t.followUps } : {}),
+        ...(boundedString(t.agent, MAX_AGENT_NAME_CHARS) ? { agent: t.agent } : {}),
+        ...(validCitations(t.citations) ? { citations: t.citations } : {}),
+        ...(validFollowUps(t.followUps) ? { followUps: t.followUps } : {}),
         ...(t.terminal !== undefined ? { terminal: t.terminal } : {}),
-        ...(typeof t.revision === "number" ? { revision: t.revision } : {}),
+        ...(nonnegativeSafeInteger(t.revision) ? { revision: t.revision } : {}),
         ...(verification ? { verification } : {}),
-        ...(t.answerPlan ? { answerPlan: t.answerPlan } : {}),
-        ...(t.answerPlanning ? { answerPlanning: t.answerPlanning } : {}),
-        ...(t.delegation ? { delegation: t.delegation } : {}),
-        ...(t.codeArtifacts && t.codeArtifacts.length > 0
-          ? { codeArtifacts: t.codeArtifacts }
-          : {}),
+        ...(answerPlan ? { answerPlan } : {}),
+        ...(answerPlanning ? { answerPlanning } : {}),
+        ...(delegation ? { delegation } : {}),
+        ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
       };
     });
-  return JSON.stringify(persisted);
+  let serialized = JSON.stringify(persisted);
+  while (serialized.length > MAX_TRANSCRIPT_JSON_CHARS && persisted.length > 0) {
+    persisted.shift();
+    serialized = JSON.stringify(persisted);
+  }
+  return serialized;
 }
 
 /** Parse a persisted transcript defensively. Any malformed input yields ``[]``. */
 export function parseTurns(raw: string | null): PersistedTurn[] {
-  if (!raw) return [];
+  if (!raw || raw.length > MAX_TRANSCRIPT_JSON_CHARS) return [];
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -117,13 +149,13 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
   }
   if (!Array.isArray(parsed)) return [];
   const out: PersistedTurn[] = [];
-  for (const item of parsed) {
+  for (const item of parsed.slice(-MAX_TRANSCRIPT_TURNS)) {
     if (typeof item !== "object" || item === null) continue;
     const rec = item as Record<string, unknown>;
-    if (typeof rec.id !== "string") continue;
+    if (!boundedString(rec.id, MAX_TURN_ID_CHARS)) continue;
     if (rec.role !== "operator" && rec.role !== "deck") continue;
-    if (typeof rec.text !== "string") continue;
-    if (typeof rec.at !== "string") continue;
+    if (!boundedString(rec.text, MAX_TURN_TEXT_CHARS) || rec.text.trim().length === 0) continue;
+    if (!boundedString(rec.at, MAX_TURN_TIME_CHARS)) continue;
     const answerPlan = parseAnswerPlan(rec.answerPlan);
     const answerPlanning = parseAnswerPlanning(rec.answerPlanning);
     const delegation = parseDelegation(rec.delegation);
@@ -134,14 +166,14 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       role: rec.role,
       text: rec.text,
       at: rec.at,
-      ...(typeof rec.source === "string" ? { source: rec.source } : {}),
+      ...(boundedString(rec.source, MAX_TURN_SOURCE_CHARS) ? { source: rec.source } : {}),
       ...(rec.kind === "message" || rec.kind === "activity" ? { kind: rec.kind } : {}),
       ...(validActivities(rec.activities) ? { activities: rec.activities } : {}),
-      ...(typeof rec.agent === "string" ? { agent: rec.agent } : {}),
+      ...(boundedString(rec.agent, MAX_AGENT_NAME_CHARS) ? { agent: rec.agent } : {}),
       ...(validCitations(rec.citations) ? { citations: rec.citations } : {}),
-      ...(validStringArray(rec.followUps) ? { followUps: rec.followUps } : {}),
+      ...(validFollowUps(rec.followUps) ? { followUps: rec.followUps } : {}),
       ...(typeof rec.terminal === "boolean" ? { terminal: rec.terminal } : {}),
-      ...(typeof rec.revision === "number" && Number.isInteger(rec.revision)
+      ...(nonnegativeSafeInteger(rec.revision)
         ? { revision: rec.revision }
         : {}),
       ...(verification ? { verification } : {}),
@@ -157,22 +189,27 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
 
 function validActivities(value: unknown): value is readonly InvestigationActivity[] {
   if (!Array.isArray(value)) return false;
-  return value.length <= 64 && value.every((item) => {
+  return value.length <= MAX_ACTIVITIES && value.every((item) => {
     if (typeof item !== "object" || item === null) return false;
     const record = item as Record<string, unknown>;
+    const completed = nullableNonnegativeSafeInteger(record.completed);
+    const total = nullableNonnegativeSafeInteger(record.total);
     return (
-      typeof record.activityId === "string" &&
-      typeof record.kind === "string" &&
+      boundedString(record.activityId, MAX_ACTIVITY_ID_CHARS) &&
+      boundedString(record.kind, MAX_ACTIVITY_KIND_CHARS) &&
       ["pending", "running", "completed", "unavailable", "failed"].includes(
         String(record.status),
       ) &&
-      typeof record.label === "string" &&
-      (record.agent === undefined || typeof record.agent === "string") &&
-      (record.detail === undefined || typeof record.detail === "string") &&
-      (record.completed === null || typeof record.completed === "number") &&
-      (record.total === null || typeof record.total === "number") &&
-      (record.authority === undefined || typeof record.authority === "string") &&
-      (record.observedAt === undefined || typeof record.observedAt === "string") &&
+      boundedString(record.label, MAX_ACTIVITY_LABEL_CHARS) &&
+      (record.agent === undefined || boundedString(record.agent, MAX_AGENT_NAME_CHARS)) &&
+      (record.detail === undefined || boundedString(record.detail, MAX_ACTIVITY_DETAIL_CHARS)) &&
+      completed !== undefined &&
+      total !== undefined &&
+      !(completed !== null && total !== null && completed > total) &&
+      (record.authority === undefined ||
+        boundedString(record.authority, MAX_ACTIVITY_AUTHORITY_CHARS)) &&
+      (record.observedAt === undefined ||
+        boundedString(record.observedAt, MAX_ACTIVITY_TIMESTAMP_CHARS)) &&
       (record.execution === undefined || validExecution(record.execution))
     );
   });
@@ -194,8 +231,8 @@ function validExecution(value: unknown): boolean {
     (record.outputTruncated === undefined || typeof record.outputTruncated === "boolean") &&
     (record.exitCode === undefined ||
       (typeof record.exitCode === "number" && Number.isSafeInteger(record.exitCode))) &&
-    (record.startedAt === undefined || typeof record.startedAt === "string") &&
-    (record.completedAt === undefined || typeof record.completedAt === "string") &&
+    (record.startedAt === undefined || boundedString(record.startedAt, 64)) &&
+    (record.completedAt === undefined || boundedString(record.completedAt, 64)) &&
     (record.durationMs === undefined ||
       (typeof record.durationMs === "number" &&
         Number.isSafeInteger(record.durationMs) &&
@@ -203,17 +240,31 @@ function validExecution(value: unknown): boolean {
   );
 }
 
-function validStringArray(value: unknown): value is readonly string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+function validFollowUps(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.length <= MAX_FOLLOW_UPS &&
+    value.every((item) => boundedString(item, MAX_FOLLOW_UP_CHARS));
 }
 
 function validCitations(
   value: unknown,
 ): value is readonly { readonly label: string; readonly value?: string }[] {
-  return Array.isArray(value) && value.every((item) => {
+  return Array.isArray(value) && value.length <= MAX_CITATIONS && value.every((item) => {
     if (item === null || typeof item !== "object" || Array.isArray(item)) return false;
     const record = item as Record<string, unknown>;
-    return typeof record.label === "string" &&
-      (record.value === undefined || typeof record.value === "string");
+    return boundedString(record.label, MAX_CITATION_LABEL_CHARS) &&
+      (record.value === undefined || boundedString(record.value, MAX_CITATION_VALUE_CHARS));
   });
+}
+
+function boundedString(value: unknown, maxChars: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maxChars;
+}
+
+function nonnegativeSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function nullableNonnegativeSafeInteger(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return nonnegativeSafeInteger(value) ? value : undefined;
 }

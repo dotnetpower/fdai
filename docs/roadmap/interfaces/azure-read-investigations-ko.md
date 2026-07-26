@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 7d82d4bfaf9aa9783757728f9ea699544bc5929e
+translation_source_sha: a915d468b0f47935fcc8a1637e93c565fc116c75
 translation_revised: 2026-07-26
 ---
 
@@ -139,7 +139,8 @@ input은 이를 넓힐 수 없습니다. Provider는 다음 bounded step을 수�
 Application Gateway healthy-host count를 다룹니다. Unsupported resource type은 count에 남아
 표시됩니다. Metric failure는 healthy 결론이 아니라 `partial`을 생성합니다. Terminal answer는 bounded
 evidence를 유지하지만 verification을 completed check 0건의 `unverified`로 보고합니다. 응답은
-결정적이며 narrator model을 호출하지 않습니다.
+결정적이며 narrator model을 호출하지 않습니다. Complete `matched` result는 check 1건 중 1건을
+완료했다고 보고하고 grounded terminal status를 유지합니다.
 
 ## Evidence 계약
 
