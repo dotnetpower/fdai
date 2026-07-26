@@ -65,6 +65,19 @@ documentation indexes, and duplicate product identities are removed before evide
 Invalid, low-confidence, or unavailable output stays `none`; it cannot override local or
 sensitive-data denials. This classifier prompt is separate from Bragi's answer-generation prompt.
 
+### 4.1.1 Cross-process agent introspection
+
+The core runtime remains the only Pantheon owner. A separate read API reaches Bragi through two
+bounded logical service topics multiplexed over `aw.pantheon.objects`; it never embeds another
+agent runtime. A server-echo probe confirms the response consumer, reuses the same joining consumer
+across retries, and allows 20 seconds for the initial Event Hubs group join. A request carries a
+4 KiB maximum question plus process-secret salted SHA-256 user/session references. The response is
+limited to a 16 KiB answer and a 64 KiB result, waits at most 20 seconds, validates fixed agent
+names, caps pending requests at 256, rejects conflicting request-id replay, expires cached replay
+after five minutes, and ignores late or unmatched responses. Failure produces an attention-state
+handoff to Bragi and never claims that the selected agent contributed evidence. These service
+topics grant no action, judgment, approval, or executor authority.
+
 ### 4.2 Escalation triggers (T1 -> T2)
 
 The coordinator escalates to Chat T2 on any of:

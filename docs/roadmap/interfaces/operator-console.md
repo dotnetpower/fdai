@@ -342,8 +342,8 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   The browser accepts delegation attribution only for fixed Pantheon names. It limits primary,
   contributor, and handoff identities to 64 characters, contributors to eight entries, trace
   references to 256 characters, and handoff reasons to 128 characters before replay.
-  A deployment without a cross-process agent conversational port reports that unavailable reason
-  as an explicit handoff; it doesn't attribute Bragi-generated prose to the selected agent.
+  Cross-process failures render an attention-state handoff without claiming the selected agent
+  contributed or attributing Bragi-generated prose to that agent.
 - **Retrieval:** An eligible turn routes to a search-capable Azure Responses model candidate. The
   classifier converts multilingual public-search requests into a bounded English query; the search
   provider receives only that query and the domain allowlist, then returns a sanitized evidence

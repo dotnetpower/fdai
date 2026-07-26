@@ -31,7 +31,9 @@ import { relevantCitations, type Citation } from "./citations";
 import {
   buildSources,
   citationMarks,
+  groundingAgents,
   groundingStages,
+  handoffReasonKey,
   parseReplySource,
   pillStats,
   type GroundedSource,
@@ -86,12 +88,7 @@ export function GroundedReply({
     sources,
     source,
     verification,
-    agents: [
-      ...(delegation
-        ? [delegation.handoff_from ?? delegation.primary_agent, ...delegation.contributors]
-        : []),
-      ...(answerPlanning?.consulted_agents ?? []),
-    ].filter((agent, index, agents) => agents.indexOf(agent) === index),
+    agents: groundingAgents(delegation, answerPlanning),
     ...(delegation?.handoff_from
       ? {
           handoff: {
@@ -113,6 +110,7 @@ export function GroundedReply({
   const showProcessingDisclosure = !streaming && (
     parsedSource?.kind === "llm" || parsedSource?.kind === "deterministic"
   );
+  const successfulPlanningAgents = answerPlanning?.contributions.map((item) => item.agent) ?? [];
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(
@@ -144,10 +142,10 @@ export function GroundedReply({
           </div>
         </Tooltip>
       ) : null}
-      {answerPlanning && answerPlanning.consulted_agents.length > 0 ? (
+      {answerPlanning && successfulPlanningAgents.length > 0 ? (
         <div class="deck-answer-plan">
           <span>
-            {t("deck.answerPlanning.consulted")}: {answerPlanning.consulted_agents.join(", ")}
+            {t("deck.answerPlanning.consulted")}: {successfulPlanningAgents.join(", ")}
           </span>
           <span aria-hidden="true">·</span>
           <span>
@@ -348,18 +346,22 @@ function shortVerificationStatus(
   verification: AnswerVerification,
   boundedCorrection: boolean,
 ): string {
-  if (verification.reason_code === "ambiguous_incident") return "Needs selection";
-  if (verification.reason_code === "recorded_failure_reason") return "Recorded failure";
-  if (boundedCorrection) return "Verified";
+  if (verification.reason_code === "ambiguous_incident") {
+    return t("deck.grounded.verificationStatus.needsSelection");
+  }
+  if (verification.reason_code === "recorded_failure_reason") {
+    return t("deck.grounded.verificationStatus.recordedFailure");
+  }
+  if (boundedCorrection) return t("deck.grounded.verificationStatus.verified");
   switch (verification.status) {
     case "verified":
-      return "Verified";
+      return t("deck.grounded.verificationStatus.verified");
     case "consistent":
-      return "Consistent";
+      return t("deck.grounded.verificationStatus.consistent");
     case "corrected":
-      return "Corrected";
+      return t("deck.grounded.verificationStatus.corrected");
     case "unverified":
-      return "Unverified";
+      return t("deck.grounded.verificationStatus.unverified");
   }
 }
 
@@ -383,7 +385,9 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
                 to: stage.to ?? "",
               })}
             </span>
-            <span class="deck-gr-trace-detail">{stage.detail}</span>
+            <span class="deck-gr-trace-detail">
+              {stage.reasonCode ? t(handoffReasonKey(stage.reasonCode)) : stage.detail}
+            </span>
           </span>
           <span class={`deck-gr-trace-side is-${stage.side}`}>
             {t(`deck.grounded.side.${stage.side}`)}
@@ -480,38 +484,49 @@ export function verificationLabel(verification: AnswerVerification): string {
   const claims = verification.claims ?? [];
   const supportedClaims = claims.filter((claim) => claim.status === "supported").length;
   const claimSummary = claims.length > 0
-    ? ` (${supportedClaims}/${claims.length} claims supported)`
+    ? t("deck.grounded.verificationLabel.claimSummary", {
+        supported: supportedClaims,
+        total: claims.length,
+      })
     : "";
   const supportedSummary = supportedClaims > 0
-    ? ` (${supportedClaims} ${supportedClaims === 1 ? "claim" : "claims"} supported)`
+    ? t("deck.grounded.verificationLabel.supportedSummary", { supported: supportedClaims })
     : "";
   if (verification.reason_code === "ambiguous_incident") {
-    return "Server evidence confirms that multiple incidents match; select one to continue.";
+    return t("deck.grounded.verificationLabel.ambiguousIncident");
   }
   if (verification.reason_code === "recorded_failure_reason") {
-    return "Audit evidence confirms the displayed failure reason; no complete RCA is recorded.";
+    return t("deck.grounded.verificationLabel.recordedFailure");
   }
   switch (verification.status) {
     case "verified":
-      return `Verified against ${verification.evidence_refs.length} evidence reference(s)${claimSummary}`;
+      return t("deck.grounded.verificationLabel.verified", {
+        references: verification.evidence_refs.length,
+        claims: claimSummary,
+      });
     case "corrected":
       if (
         verification.reason_code === "screen_unsupported_sentences_removed" ||
         verification.reason_code === "concept_scope_claims_removed"
       ) {
-        return `Verified after removing unsupported statements${supportedSummary}`;
+        return t("deck.grounded.verificationLabel.correctedBounded", {
+          claims: supportedSummary,
+        });
       }
-      return `Corrected after evidence verification${claimSummary}`;
+      return t("deck.grounded.verificationLabel.corrected", { claims: claimSummary });
     case "consistent":
       const evidenceScope = verification.authority === "client_snapshot"
-        ? "the current screen"
+        ? t("deck.grounded.verificationLabel.scope.currentScreen")
         : verification.authority === "server_read_model"
-          ? "server evidence"
-          : "grounded evidence";
+          ? t("deck.grounded.verificationLabel.scope.serverEvidence")
+          : t("deck.grounded.verificationLabel.scope.groundedEvidence");
       return claims.length > 0
-        ? `Consistent with ${evidenceScope}${claimSummary}`
-        : `Consistent with ${evidenceScope} (no structured claims)`;
+        ? t("deck.grounded.verificationLabel.consistent", {
+            scope: evidenceScope,
+            claims: claimSummary,
+          })
+        : t("deck.grounded.verificationLabel.consistentNoClaims", { scope: evidenceScope });
     case "unverified":
-      return `Verification could not be completed${claimSummary}`;
+      return t("deck.grounded.verificationLabel.unverified", { claims: claimSummary });
   }
 }

@@ -82,6 +82,7 @@ fdai/
 │   │   ├── telemetry/          # structured logging, tracing, metric helpers
 │   │   └── config/             # config schema + startup validation (fail-fast)
 │   ├── delivery/              # action delivery adapters (behind one shared interface)
+│   │   ├── agent_introspection_bus.py # bounded cross-process Bragi request/reply over the shared EventBus; no executor identity
 │   │   ├── gitops_pr/          # remediation-pr adapter: GitHub App / Azure DevOps, Checks API
 │   │   ├── chatops/            # channel adapters (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # per-channel senders; sibling `incident_platform/` provides PagerDuty/ServiceNow lifecycle and PagerDuty roster adapters

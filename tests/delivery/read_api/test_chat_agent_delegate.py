@@ -234,8 +234,17 @@ async def test_selected_agent_binding_persists_until_operator_explicitly_overrid
         session_id="conversation-1",
         conversation_context=context,
     )
+    await _with_agent_evidence(
+        "Compare Thor with the current observer",
+        {},
+        delegate,
+        user_id="operator-1",
+        session_id="conversation-1",
+        conversation_context=context,
+    )
 
     assert prompts == [
         "@Heimdall What have you been working on?",
         "@Forseti verify this decision",
+        "@Heimdall Compare Thor with the current observer",
     ]

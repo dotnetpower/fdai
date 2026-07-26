@@ -13,6 +13,7 @@ from fdai.core.read_investigation import (
     classify_read_investigation_intent,
     resource_name_from_question,
 )
+from fdai.delivery.agent_introspection_bus import addressed_agent
 from fdai.delivery.read_api.routes.chat_data_sources import needs_read_source_evidence
 from fdai.delivery.read_api.routes.chat_evidence import needs_operational_evidence
 from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
@@ -295,7 +296,7 @@ def _selected_agent_prompt(
     target_agent: str | None,
 ) -> str:
     selected_agent = _selected_agent(prompt, conversation_context, target_agent)
-    if selected_agent is None or _explicit_agent_requested(prompt):
+    if selected_agent is None or addressed_agent(prompt) is not None:
         return prompt
     return f"@{selected_agent} {prompt}"
 
@@ -305,15 +306,20 @@ def _selected_agent(
     conversation_context: Mapping[str, str] | None,
     target_agent: str | None,
 ) -> str | None:
+    addressed = addressed_agent(prompt)
+    if addressed is not None:
+        return addressed
+    selected_agent = target_agent or (
+        conversation_context.get("selected_agent") if conversation_context is not None else None
+    )
+    if selected_agent in PANTHEON_NAMES:
+        return selected_agent
     canonical = {name.casefold(): name for name in PANTHEON_NAMES}
     for token in _AGENT_NAME_TOKEN.findall(prompt):
         explicit = canonical.get(token.casefold())
         if explicit is not None:
             return explicit
-    selected_agent = target_agent or (
-        conversation_context.get("selected_agent") if conversation_context is not None else None
-    )
-    return selected_agent if selected_agent in PANTHEON_NAMES else None
+    return None
 
 
 def _agent_handoff(agent: str, *, reason: str) -> dict[str, Any]:

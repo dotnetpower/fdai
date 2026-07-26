@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -404,6 +405,7 @@ def build_local_app(
             action_types=tuple(action_types),
         )
     )
+    remote_agent_delegate = None
     if enforce_workflows and command_transport is not None and command_transport.kind != "azure":
         raise RuntimeError("FDAI_WORKFLOW_ENFORCE_ALLOWLIST requires local Azure event transport")
     if workflow_execution is not None and command_transport is not None:
@@ -429,6 +431,28 @@ def build_local_app(
         "no",
         "off",
     }
+    if command_transport is not None and command_transport.kind == "azure" and not embed_pantheon:
+        from fdai.delivery.agent_introspection_bus import (
+            AGENT_INTROSPECTION_TOPICS,
+            EventBusAgentIntrospectionClient,
+        )
+
+        remote_agent_delegate = EventBusAgentIntrospectionClient(
+            event_bus=MultiplexedEventBus(
+                bus=command_transport.event_bus,
+                logical_topics=AGENT_INTROSPECTION_TOPICS,
+                physical_topic=os.environ.get(
+                    "FDAI_PANTHEON_OBJECT_TOPIC",
+                    "aw.pantheon.objects",
+                ).strip(),
+            ),
+            instance_id=f"read-api-{uuid.uuid4().hex[:16]}",
+            fallback_delegate=(
+                local_read_investigation.chat_delegate
+                if local_read_investigation is not None
+                else None
+            ),
+        )
     if test_fixtures:
         live_stream_config, agent_activity_config = _build_agent_streams()
         local_operator_oid = (
@@ -664,7 +688,9 @@ def build_local_app(
             chat_web_search=models.web_search,
             chat_probe_interval_seconds=_chat_probe_interval_seconds(),
             chat_agent_delegate=(
-                local_read_investigation.chat_delegate
+                remote_agent_delegate
+                if remote_agent_delegate is not None
+                else local_read_investigation.chat_delegate
                 if local_read_investigation is not None
                 else PantheonChatDelegate(runtime.pantheon_runtime)
                 if runtime is not None
@@ -694,6 +720,7 @@ def build_local_app(
             )
             + user_context_startup_callbacks
             + (open_narrator_endpoint,)
+            + ((remote_agent_delegate.start,) if remote_agent_delegate is not None else ())
             + ((runtime.start_pantheon_runtime,) if runtime is not None else ())
             + (
                 (runtime.operator_runtime.start,)
@@ -701,6 +728,7 @@ def build_local_app(
                 else ()
             ),
             shutdown_callbacks=((runtime.stop_pantheon_runtime,) if runtime is not None else ())
+            + ((remote_agent_delegate.stop,) if remote_agent_delegate is not None else ())
             + ((post_turn_review_queue.close,) if post_turn_review_queue is not None else ())
             + (
                 (runtime.operator_runtime.stop,)
@@ -715,6 +743,15 @@ def build_local_app(
         ),
     )
     application.state.pantheon_runtime = runtime.pantheon_runtime if runtime is not None else None
+    application.state.chat_agent_delegate = (
+        remote_agent_delegate
+        if remote_agent_delegate is not None
+        else local_read_investigation.chat_delegate
+        if local_read_investigation is not None
+        else PantheonChatDelegate(runtime.pantheon_runtime)
+        if runtime is not None
+        else None
+    )
     application.state.local_operator_runtime = (
         runtime.operator_runtime if runtime is not None else None
     )

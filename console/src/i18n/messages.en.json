@@ -1764,6 +1764,40 @@
       "deterministicSummary": "No LLM was used. The deterministic answerer composed this answer.",
       "deterministicReasonSummary": "No LLM was used. The deterministic answerer composed this answer. Reason: {reason}.",
       "partialEvidence": "partial evidence",
+      "handoffReason": {
+        "portUnavailable": "The agent conversational port is unavailable.",
+        "portError": "The agent conversational port failed.",
+        "noEvidence": "The agent returned no grounded answer.",
+        "invalidResponse": "The agent response failed validation.",
+        "responseTooLarge": "The agent response exceeded the evidence limit.",
+        "capacityExceeded": "The agent request queue is at capacity.",
+        "default": "The specialist handed the question back to Bragi."
+      },
+      "verificationStatus": {
+        "needsSelection": "Needs selection",
+        "recordedFailure": "Recorded failure",
+        "verified": "Verified",
+        "consistent": "Consistent",
+        "corrected": "Corrected",
+        "unverified": "Unverified"
+      },
+      "verificationLabel": {
+        "claimSummary": " ({supported}/{total} claims supported)",
+        "supportedSummary": " ({supported} claim(s) supported)",
+        "ambiguousIncident": "Server evidence confirms that multiple incidents match; select one to continue.",
+        "recordedFailure": "Audit evidence confirms the displayed failure reason; no complete RCA is recorded.",
+        "verified": "Verified against {references} evidence reference(s){claims}",
+        "correctedBounded": "Verified after removing unsupported statements{claims}",
+        "corrected": "Corrected after evidence verification{claims}",
+        "consistent": "Consistent with {scope}{claims}",
+        "consistentNoClaims": "Consistent with {scope} (no structured claims)",
+        "unverified": "Verification could not be completed{claims}",
+        "scope": {
+          "currentScreen": "the current screen",
+          "serverEvidence": "server evidence",
+          "groundedEvidence": "grounded evidence"
+        }
+      },
       "stage": {
         "retrieve": "Retrieved grounding sources",
         "infer": "Reasoned with {model}",

@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 9086f402923b4559bc45ee06f7caebe9e498ccb7
-translation_revised: 2026-07-23
+translation_source_sha: 4cf34ef348b478019f6aadd38bc4c5bd577d2362
+translation_revised: 2026-07-26
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -57,6 +57,11 @@ Session 하나는 최대 32개의 pending input과 32,000 bytes의 pending conte
 
 Idempotency는 session 안에서 unique합니다. 같은 전체 입력을 replay하면 원래 record와 sequence를
 반환합니다. Input 또는 idempotency ID를 다른 content와 함께 재사용하면 conflict입니다.
+
+Agent-targeted active turn은 read API가 bounded cross-process conversational bridge를 기다리는 동안
+선택한 agent를 유지합니다. Interrupt cancellation은 pending response future를 제거하며 agent action 또는
+typed pipeline event를 취소하지 않습니다. Bridge timeout은 명시적인 agent-to-Bragi handoff를 반환하고,
+queued input은 자체 idempotency identity를 가진 새 request를 시작합니다.
 
 ## 영구 arbitration
 

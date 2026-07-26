@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 833a71543c29a63741e07e73fa6b35a2158cebe7
+translation_source_sha: 53f3b39503faf33714174f6fda830e5a04d4ca25
 translation_revised: 2026-07-26
 ---
 
@@ -105,11 +105,11 @@ flowchart TD
   Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 handoff를 표시하고,
   책임 observer는 canonical command/result evidence를 표시합니다. Agent conversation target 또는
   incident binding에서 선택했거나 `Ask <agent>` 또는 `@<agent>`로 지정한 agent는 response owner로
-  유지됩니다. 해당 agent가 판단을
+  유지됩니다. 해당 agent가 판단을 보류하고 turn을 다시 handoff한 경우에만 Bragi가 response owner가
+  됩니다.
   요청에 일반 agent target과 incident binding이 모두 있으면 두 구조화된 agent 값이 일치해야 합니다.
   값이 충돌하면 하나를 조용히 선택하지 않고 evidence retrieval 전에 요청을 차단합니다.
-  보류하고 turn을 다시 handoff한 경우에만 Bragi가 response owner가 됩니다. Vendor adapter는
-  presentation만 변경합니다. Slack은 command 및 output body에
+  Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에
   plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
   post, stream update 및 edit에서 해당 block을 보존합니다.
   Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 책임 agent
@@ -333,8 +333,8 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   Browser는 고정 Pantheon 이름만 delegation attribution으로 허용합니다. Replay 전에 primary,
   contributor 및 handoff identity는 64자, contributor는 8개, trace reference는 256자, handoff reason은
   128자로 제한합니다.
-  Cross-process agent conversational port가 없는 deployment는 unavailable reason을 명시적인 handoff로
-  표시하며, Bragi가 생성한 prose를 선택한 agent의 답변으로 표시하지 않습니다.
+  Cross-process failure는 attention 상태 handoff로 표시하며 선택한 agent가 contribution을 제공했다고
+  주장하거나 Bragi가 생성한 prose를 해당 agent 답변으로 표시하지 않습니다.
 - **검색:** 대상 turn은 검색 가능한 Azure Responses model candidate로 route됩니다. Provider는
   multilingual public-search 요청을 bounded English query로 변환합니다. Search provider는 해당 query와
   domain allowlist만 받고 정제된 evidence snapshot을 반환합니다. Bragi는 source URL과 함께 답변하며

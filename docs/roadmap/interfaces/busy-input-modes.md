@@ -54,6 +54,11 @@ an older accepted record.
 Idempotency is unique within a session. Replaying the same complete input returns the original
 record and sequence. Reusing an input or idempotency ID with different content is a conflict.
 
+An agent-targeted active turn keeps its selected agent while the read API waits on the bounded
+cross-process conversational bridge. Interrupt cancellation removes the pending response future and
+does not cancel an agent action or typed pipeline event. A bridge timeout returns an explicit
+agent-to-Bragi handoff; queued input starts a new request with its own idempotency identity.
+
 ## Durable arbitration
 
 PostgreSQL stores session state and pending inputs separately. Submit, mode/active-turn update,

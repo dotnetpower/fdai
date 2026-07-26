@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 1a09180225e1236637cd3f578497c327e93b90bf
-translation_revised: 2026-07-24
+translation_source_sha: bd34967a66263990f8b05a0e7fb7025ccdde8ef2
+translation_revised: 2026-07-26
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -66,6 +66,18 @@ blog page, documentation index 및 duplicate product identity는 evidence가 Bra
 Invalid, low-confidence 또는 unavailable output은 `none`을 유지하며
 local 또는 sensitive-data denial을 override할 수 없습니다. 이 classifier prompt는 Bragi answer-generation
 prompt와 분리됩니다.
+
+### 4.1.1 Cross-process agent introspection
+
+Core runtime만 Pantheon을 소유합니다. 분리된 read API는 두 번째 agent runtime을 내장하지 않고
+`aw.pantheon.objects`에 multiplex한 bounded logical service topic 두 개로 Bragi에 접근합니다.
+Server-echo probe로 response consumer를 확인하고 retry 중 같은 joining consumer를 재사용하며 최초
+Event Hubs group join을 최대 20초 허용합니다. Request는 최대 4 KiB question과 process-secret salted
+SHA-256 user/session reference를 전달합니다. Response는 answer 16 KiB, 전체 result 64 KiB, 대기 20초,
+pending request 256개로 제한합니다. 고정 agent 이름 검증, conflicting request-id replay 거부, 5분 cache
+expiry, late/unmatched response 무시를 적용합니다. Failure는 attention 상태로 Bragi에 handoff하며 선택한
+agent가 evidence를 제공했다고 주장하지 않습니다. Service topic은 action, judgment, approval 또는
+executor authority를 부여하지 않습니다.
 
 ### 4.2 Escalation trigger (T1 -> T2)
 

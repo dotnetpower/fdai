@@ -13,6 +13,7 @@ from typing import Final
 import pytest
 from starlette.applications import Starlette
 
+from fdai.delivery.agent_introspection_bus import EventBusAgentIntrospectionClient
 from fdai.delivery.persistence import PostgresReadInvestigationRunStore
 from fdai.delivery.read_api.prod import (
     ProdReadApiConfigError,
@@ -225,6 +226,36 @@ def test_build_prod_app_wires_singleton_read_investigation_run_store(
     startup_callbacks = captured_config.startup_callbacks  # type: ignore[attr-defined]
     assert getattr(startup_callbacks[0], "__name__", "") == "verify_connection"
     assert getattr(startup_callbacks[1], "__name__", "") == "verify_schema"
+
+
+def test_build_prod_app_wires_remote_agent_delegate_with_kafka(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_config = None
+
+    def capture_build_app(**kwargs: object) -> Starlette:
+        nonlocal captured_config
+        captured_config = kwargs["config"]
+        return Starlette()
+
+    monkeypatch.setattr(
+        "fdai.delivery.read_api.production.factory.build_app",
+        capture_build_app,
+    )
+    env = dict(_GOOD_ENV)
+    env["FDAI_KAFKA_BOOTSTRAP_SERVERS"] = "example.servicebus.windows.net:9093"
+    env["IDENTITY_ENDPOINT"] = "http://localhost/identity"
+    env["IDENTITY_HEADER"] = "test-header"
+
+    build_prod_app(env)
+
+    assert captured_config is not None
+    delegate = captured_config.chat_agent_delegate  # type: ignore[attr-defined]
+    assert isinstance(delegate, EventBusAgentIntrospectionClient)
+    startup_callbacks = captured_config.startup_callbacks  # type: ignore[attr-defined]
+    shutdown_callbacks = captured_config.shutdown_callbacks  # type: ignore[attr-defined]
+    assert any(getattr(callback, "__self__", None) is delegate for callback in startup_callbacks)
+    assert any(getattr(callback, "__self__", None) is delegate for callback in shutdown_callbacks)
 
 
 def test_build_prod_app_rejects_unimplemented_identity_provider() -> None:

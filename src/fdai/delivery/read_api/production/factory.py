@@ -54,6 +54,7 @@ Optional (respect defaults):
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -583,6 +584,26 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 policy=read_investigation_routes.execution_policy,
             )
         )
+    remote_agent_delegate = None
+    if runtime.event_bus is not None:
+        from fdai.delivery.agent_introspection_bus import (
+            AGENT_INTROSPECTION_TOPICS,
+            EventBusAgentIntrospectionClient,
+        )
+
+        remote_agent_delegate = EventBusAgentIntrospectionClient(
+            event_bus=MultiplexedEventBus(
+                bus=runtime.event_bus,
+                logical_topics=AGENT_INTROSPECTION_TOPICS,
+                physical_topic=env.get(
+                    "FDAI_PANTHEON_OBJECT_TOPIC",
+                    "aw.pantheon.objects",
+                ).strip(),
+            ),
+            instance_id=f"read-api-{uuid.uuid4().hex[:16]}",
+            fallback_delegate=read_investigation_chat_delegate,
+        )
+        shutdown_callbacks = (remote_agent_delegate.stop, *shutdown_callbacks)
     busy_input_runtime = (
         build_postgres_busy_input_runtime(
             dsn=read_model._config.dsn,
@@ -659,7 +680,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 )
             )
         ),
-        chat_agent_delegate=read_investigation_chat_delegate,
+        chat_agent_delegate=remote_agent_delegate or read_investigation_chat_delegate,
         skill_disclosure=skill_runtime.disclosure,
         skill_sources=skill_sources.routes,
         busy_input_runtime=busy_input_runtime,
@@ -733,6 +754,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 else ()
             ),
             *runtime.startup_callbacks,
+            *((remote_agent_delegate.start,) if remote_agent_delegate is not None else ()),
             *stewardship_startup_callbacks,
         ),
         shutdown_callbacks=shutdown_callbacks,

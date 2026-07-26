@@ -4,7 +4,9 @@ import type { Citation } from "./citations";
 import {
   buildSources,
   citationMarks,
+  groundingAgents,
   groundingStages,
+  handoffReasonKey,
   parseReplySource,
   pillStats,
 } from "./grounded-sources";
@@ -280,10 +282,32 @@ describe("groundingStages", () => {
       label: "Agent handoff: Heimdall to Bragi",
       detail: "insufficient_agent_evidence",
       side: "route",
-      status: "complete",
+      status: "attention",
       from: "Heimdall",
       to: "Bragi",
+      reasonCode: "insufficient_agent_evidence",
     });
+  });
+
+  it("does not claim a failed handoff agent was consulted", () => {
+    expect(groundingAgents({
+      primary_agent: "Bragi",
+      contributors: [],
+      handoff_from: "Huginn",
+      handoff_reason: "agent_conversational_port_unavailable",
+    }, undefined)).toEqual([]);
+    expect(groundingAgents({
+      primary_agent: "Huginn",
+      contributors: [],
+    }, undefined)).toEqual(["Huginn"]);
+    expect(groundingAgents(undefined, { contributions: [] })).toEqual([]);
+  });
+
+  it("maps handoff machine reasons to bounded display keys", () => {
+    expect(handoffReasonKey("agent_conversational_port_unavailable"))
+      .toBe("deck.grounded.handoffReason.portUnavailable");
+    expect(handoffReasonKey("unrecognized"))
+      .toBe("deck.grounded.handoffReason.default");
   });
 
   it("marks an unverified answer check as requiring attention", () => {

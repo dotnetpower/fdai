@@ -15,6 +15,7 @@ from starlette.testclient import TestClient
 from fdai.core.control_loop import ControlLoopOutcome
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
+from fdai.delivery.agent_introspection_bus import EventBusAgentIntrospectionClient
 from fdai.delivery.read_api.dev import factory as _local_factory
 from fdai.delivery.read_api.dev import local as _local
 from fdai.delivery.read_api.dev.azure_cli_identity import LocalAzureCliIdentity
@@ -576,6 +577,10 @@ class TestLocalEntraLoginHarness:
         paths = {route.path for route in application.routes}
 
         assert application.state.pantheon_runtime is None
+        assert isinstance(
+            application.state.chat_agent_delegate,
+            EventBusAgentIntrospectionClient,
+        )
         assert "/agents/stream" in paths
         assert "/live/stream" in paths
         assert captured["runtime_streams_configured"] is True

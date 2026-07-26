@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { setLocale } from "../i18n";
 import type { AnswerVerification } from "./backend";
 import { verificationLabel } from "./grounded-reply";
 
@@ -59,5 +60,16 @@ describe("verificationLabel", () => {
     })).toBe(
       "Audit evidence confirms the displayed failure reason; no complete RCA is recorded.",
     );
+  });
+
+  it("localizes verification labels for Korean assistive text", () => {
+    setLocale("ko");
+    try {
+      expect(verificationLabel(verification("server_read_model"))).toBe(
+        "서버 근거와 일치 (claim 1개 중 1개 근거 있음)",
+      );
+    } finally {
+      setLocale("en");
+    }
   });
 });

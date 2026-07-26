@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: eeffb0607050887abb8a4706d6b226ac97ee1a70
-translation_revised: 2026-07-25
+translation_source_sha: 958e26e796f2bbfd9533ef851599464fcf85fdb0
+translation_revised: 2026-07-26
 ---
 
 # 프로젝트 구조
@@ -87,6 +87,7 @@ fdai/
 │   │   ├── telemetry/          # 구조화 로깅, 트레이싱, 메트릭 헬퍼
 │   │   └── config/             # config 스키마 + 시작 시 검증 (fail-fast)
 │   ├── delivery/              # 액션 딜리버리 어댑터 (공유 인터페이스 뒤)
+│   │   ├── agent_introspection_bus.py # shared EventBus를 사용하는 bounded cross-process Bragi request/reply; executor identity 없음
 │   │   ├── gitops_pr/          # remediation-pr 어댑터: GitHub App / Azure DevOps, Checks API
 │   │   ├── chatops/            # 채널 어댑터 (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # 채널별 sender; sibling `incident_platform/`은 PagerDuty/ServiceNow lifecycle 및 PagerDuty roster adapter 제공

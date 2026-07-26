@@ -14,7 +14,7 @@
  * rich-content.tsx consume these builders.
  */
 
-import type { AnswerVerification } from "./backend";
+import type { AnswerPlanningMetadata, AnswerVerification, DelegationMetadata } from "./backend";
 import type { Citation } from "./citations";
 
 const MAX_MODEL_DESCRIPTOR_CHARS = 128;
@@ -76,6 +76,41 @@ export interface TraceStage {
   readonly model?: string;
   readonly from?: string;
   readonly to?: string;
+  readonly reasonCode?: string;
+}
+
+export function groundingAgents(
+  delegation: DelegationMetadata | undefined,
+  planning: Pick<AnswerPlanningMetadata, "contributions"> | undefined,
+): string[] {
+  const delegated = delegation?.handoff_from
+    ? delegation.contributors
+    : delegation
+      ? [delegation.primary_agent, ...delegation.contributors]
+      : [];
+  return [...delegated, ...(planning?.contributions.map((item) => item.agent) ?? [])]
+    .filter((agent) => agent !== "Bragi")
+    .filter((agent, index, agents) => agents.indexOf(agent) === index);
+}
+
+export function handoffReasonKey(reason: string | undefined): string {
+  switch (reason) {
+    case "agent_conversational_port_unavailable":
+      return "deck.grounded.handoffReason.portUnavailable";
+    case "agent_conversational_port_error":
+      return "deck.grounded.handoffReason.portError";
+    case "agent_abstained_without_evidence":
+    case "insufficient_agent_evidence":
+      return "deck.grounded.handoffReason.noEvidence";
+    case "agent_response_invalid":
+      return "deck.grounded.handoffReason.invalidResponse";
+    case "agent_response_too_large":
+      return "deck.grounded.handoffReason.responseTooLarge";
+    case "agent_request_capacity_exceeded":
+      return "deck.grounded.handoffReason.capacityExceeded";
+    default:
+      return "deck.grounded.handoffReason.default";
+  }
 }
 
 /** Parsed reply source descriptor. */
@@ -333,9 +368,10 @@ export function groundingStages(input: {
       label: `Agent handoff: ${input.handoff.from} to ${input.handoff.to}`,
       detail: input.handoff.reason ?? "specialist abstained",
       side: "route",
-      status: "complete",
+      status: "attention",
       from: input.handoff.from,
       to: input.handoff.to,
+      ...(input.handoff.reason ? { reasonCode: input.handoff.reason } : {}),
     });
   }
   const verification = input.verification;

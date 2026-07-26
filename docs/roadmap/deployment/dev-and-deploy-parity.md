@@ -85,6 +85,13 @@ not start the static design mocks or the isolated test ingestion gateway.
 Each long-running Console task permits one VS Code instance. The core task and debug launch also
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.
+The core runtime remains the only Pantheon owner. With `FDAI_READ_API_EMBED_PANTHEON=0`, the read
+API reaches Bragi's conversational port through bounded request and response logical topics on the
+existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before
+traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second
+initial Event Hubs group join. Requests carry salted SHA-256 user and session references rather than raw identities;
+timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
+specialist answer.
 Core, read API, debugger, and local migration commands explicitly place the current workspace
 `src` directory first on the Python import path. A virtual environment whose editable-install
 metadata was changed by another worktree therefore cannot launch stale FDAI source.

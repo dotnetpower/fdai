@@ -132,6 +132,7 @@ async def _run() -> int:
     bus: EventBus | None = None
     auxiliary_bus: EventBus | None = None
     pantheon_runtime: PantheonRuntime | None = None
+    agent_introspection_server: Any = None
     runtime_state_publisher: AgentRuntimeStatePublisher | None = None
     pantheon_heartbeat: float | None = None
     divergence_ledger: ShadowDivergenceLedger | None = None
@@ -204,11 +205,15 @@ async def _run() -> int:
                     dlq_suffix=container.config.kafka.topic_dlq_suffix,
                 ),
             )
+            from fdai.delivery.agent_introspection_bus import (
+                AGENT_INTROSPECTION_TOPICS,
+                EventBusAgentIntrospectionServer,
+            )
             from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 
             bus = MultiplexedEventBus(
                 bus=bus,
-                logical_topics=OWNED_OBJECT_TOPICS,
+                logical_topics=OWNED_OBJECT_TOPICS | AGENT_INTROSPECTION_TOPICS,
                 physical_topic=os.environ.get(
                     "FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects"
                 ).strip(),
@@ -527,6 +532,10 @@ async def _run() -> int:
                     ),
                     semantic_router_config=_semantic_router_config_from_env(),
                 )
+                agent_introspection_server = EventBusAgentIntrospectionServer(
+                    event_bus=bus,
+                    runtime=pantheon_runtime,
+                )
                 runtime_state_publisher = AgentRuntimeStatePublisher(
                     event_bus=bus,
                     snapshot_factory=lambda: runtime_agent_state_snapshot(
@@ -665,6 +674,7 @@ async def _run() -> int:
             # in turn. The pantheon is a shadow overlay, never a dependency
             # of the primary pipeline.
             pantheon_task: asyncio.Task[None] | None = None
+            agent_introspection_task: asyncio.Task[None] | None = None
             runtime_state_task: asyncio.Task[None] | None = None
             case_history_retention_task: asyncio.Task[None] | None = None
             if pantheon_runtime is not None:
@@ -676,6 +686,14 @@ async def _run() -> int:
                     name="pantheon-runtime",
                 )
                 pantheon_task.add_done_callback(_log_pantheon_exit)
+            if agent_introspection_server is not None:
+                agent_introspection_task = asyncio.create_task(
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        agent_introspection_server.run,
+                    ),
+                    name="agent-introspection-server",
+                )
             if runtime_state_publisher is not None:
                 runtime_state_task = asyncio.create_task(
                     startup_readiness_runtime.run_when_ready(
@@ -721,6 +739,8 @@ async def _run() -> int:
                 hil_reminder_task.cancel()
             if pantheon_task is not None:
                 pantheon_task.cancel()
+            if agent_introspection_task is not None:
+                agent_introspection_task.cancel()
             if runtime_state_task is not None:
                 runtime_state_task.cancel()
             if case_history_retention_task is not None:
@@ -745,6 +765,8 @@ async def _run() -> int:
                 cleanup_tasks.append(hil_reminder_task)
             if pantheon_task is not None:
                 cleanup_tasks.append(pantheon_task)
+            if agent_introspection_task is not None:
+                cleanup_tasks.append(agent_introspection_task)
             if runtime_state_task is not None:
                 cleanup_tasks.append(runtime_state_task)
             if case_history_retention_task is not None:
