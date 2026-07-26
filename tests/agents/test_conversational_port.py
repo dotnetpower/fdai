@@ -418,6 +418,45 @@ def test_read_only_ask_does_not_materialize_handoff_issue() -> None:
     assert saga.github.issues == {}
 
 
+def test_operator_and_a2a_questions_are_bounded_before_responder_calls() -> None:
+    bragi = Bragi()
+    calls = 0
+
+    async def responder(_question: str, _context: dict) -> dict:
+        nonlocal calls
+        calls += 1
+        return {"primary_agent": "Njord", "answer": "cost", "facts": {}}
+
+    bragi.register_responder("Njord", responder)
+    oversized = "cost " + "x" * 2_001
+
+    with pytest.raises(ValueError, match="question MUST be at most 2000 characters"):
+        asyncio.run(bragi.ask(session_id="bounded", user_id="operator", question=oversized))
+    with pytest.raises(ValueError, match="question MUST be at most 2000 characters"):
+        asyncio.run(bragi.introspect_agent("Njord", oversized, requester="Forseti"))
+    assert calls == 0
+
+
+def test_session_turns_are_bounded_with_monotonic_indices() -> None:
+    bragi = Bragi()
+
+    async def responder(_question: str, _context: dict) -> dict:
+        return {"primary_agent": "Njord", "answer": "cost", "facts": {}}
+
+    bragi.register_responder("Njord", responder)
+
+    async def fill_session() -> None:
+        for _ in range(105):
+            await bragi.ask(session_id="bounded", user_id="operator", question="cost status")
+
+    asyncio.run(fill_session())
+    turns = bragi.prior_turns("bounded", limit=1_000)
+
+    assert len(turns) == 100
+    assert turns[0].turn_index == 5
+    assert turns[-1].turn_index == 104
+
+
 def _capturing_introspection(captured: dict[str, object], agent_name: str):  # type: ignore[no-untyped-def]
     async def capture(_self, _question, context):  # type: ignore[no-untyped-def]
         captured.update(context)

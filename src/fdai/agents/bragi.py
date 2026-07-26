@@ -61,6 +61,8 @@ ProposalSink = Callable[[dict[str, Any]], Awaitable[dict[str, Any] | None]]
 #: runs for weeks cannot leak one entry per session / correlation forever or let
 #: one large value bloat the pipeline + audit.
 _MAX_SESSIONS = 1_000
+_MAX_SESSION_TURNS = 100
+_MAX_QUESTION_CHARS = 2_000
 _MAX_PROGRESS_KEYS = 5_000
 #: Cap on progress steps retained per correlation. A pipeline has a handful of
 #: lifecycle states, but at-least-once redelivery (or a chatty retry) could
@@ -265,6 +267,7 @@ class Bragi(Agent):
         only thing the two ports share; the response carries ``requester``
         so the audit trail shows which agent asked.
         """
+        _validate_question(question)
         if requester not in PANTHEON_NAMES:
             # A2A is pantheon-internal: an unknown requester would poison the
             # audit trail (spoofed "who asked"). Reject at the boundary.
@@ -344,6 +347,7 @@ class Bragi(Agent):
         utterance is redirected to the dedicated proposal route without
         publishing anything from the conversational port.
         """
+        _validate_question(question)
         session = self._sessions.setdefault(
             session_id,
             ConversationSession(session_id=session_id, user_id=user_id),
@@ -378,13 +382,13 @@ class Bragi(Agent):
                 **result,
             }
             turn = Turn(
-                turn_index=len(session.turns),
+                turn_index=_next_turn_index(session),
                 question=question,
                 primary_agent=None,
                 answer=answer,
                 decision=RoutingDecision(primary_agent=None, scores={}, tie_break=None),
             )
-            session.turns.append(turn)
+            _append_turn(session, turn)
             return turn
         decision = await self.route_with_semantic_fallback(question)
         if decision.primary_agent is None:
@@ -447,13 +451,13 @@ class Bragi(Agent):
                 answer["routing_provider_status"] = decision.provider_status
 
         turn = Turn(
-            turn_index=len(session.turns),
+            turn_index=_next_turn_index(session),
             question=question,
             primary_agent=decision.primary_agent,
             answer=answer,
             decision=decision,
         )
-        session.turns.append(turn)
+        _append_turn(session, turn)
         await self._publish_turn(session_id=session_id, turn=turn)
         if answer.get("handoff_needed") and materialize_handoff:
             await self._publish_handoff(
@@ -640,6 +644,21 @@ class Bragi(Agent):
             "cost, capacity, anomalies, action status, audit history, or rules."
         )
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+def _validate_question(question: str) -> None:
+    if len(question) > _MAX_QUESTION_CHARS:
+        raise ValueError("question MUST be at most 2000 characters")
+
+
+def _next_turn_index(session: ConversationSession) -> int:
+    return session.turns[-1].turn_index + 1 if session.turns else 0
+
+
+def _append_turn(session: ConversationSession, turn: Turn) -> None:
+    session.turns.append(turn)
+    if len(session.turns) > _MAX_SESSION_TURNS:
+        del session.turns[:-_MAX_SESSION_TURNS]
 
 
 __all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession", "translate_action_intent"]
