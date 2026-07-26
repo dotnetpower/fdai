@@ -1,7 +1,7 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 588350b6be1318cee0cb4ce1cd31dd16af7bf545
+translation_source_sha: aa39139c4c299f4dcead92f04f4979858b142fb3
 translation_revised: 2026-07-26
 ---
 
@@ -115,7 +115,7 @@ Built-in seed set은 13개 contract를 포함합니다. 초기 3개에 architect
 | 사람 승인 및 shadow promotion | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/core implementation과 regression test |
 | Executor safety, event deduplication, rollback | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent implementation과 idempotency test |
 | Console identity boundary 및 local evidence parity | Read API composition과 `Thor` | Configuration contract와 local read-API test |
-| Narrator translator-only path | `Bragi` | Agent implementation과 typed-pipeline re-entry test |
+| Narrator translator-only path | `Bragi` | Agent implementation, typed-pipeline re-entry 및 primary/contributor normalization test |
 
 Odin 계약은 single-domain 및 unanimous recommendation을 명시적으로 제외합니다. Portfolio review는
 designed-only로, temporal fairness는 선택적 dependency-injected behavior로 표시합니다.

@@ -522,8 +522,8 @@ from the Quality Gate Debate. In Phase C, typed contributions are measured but
 never injected into the narrator context or terminal answer.
 
 - **Bragi** owns the final answer plan and remains the displayed narrator.
-- **Contributors** expose facts and evidence references from their owned state.
-  They cannot call tools, recurse into another round, judge, approve, or execute.
+- **Contributors** expose owned facts and evidence refs after owner, JSON, size, and sensitivity checks.
+  Same-identity state/status/verdict/mode/health/outcome conflicts abstain and hand off; contributors never recurse, judge, approve, or execute.
 - **Norns** never participates synchronously. It can analyze opted-in aggregate
   metadata off-path after the turn.
 - **Odin** is excluded from routine collection. A later Phase E can consult it

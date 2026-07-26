@@ -164,6 +164,117 @@ def test_bragi_calls_and_aggregates_real_contributors() -> None:
     assert "Njord: Njord evidence" in turn.answer["answer"]
 
 
+def test_bragi_holds_same_identity_contributor_conflicts() -> None:
+    bragi = Bragi()
+
+    async def freyr(_question: str, _context: dict) -> dict:
+        return {
+            "primary_agent": "Freyr",
+            "answer": "Capacity is constrained.",
+            "facts": {"resource_id": "vm-1", "status": "constrained"},
+        }
+
+    async def njord(_question: str, _context: dict) -> dict:
+        return {
+            "primary_agent": "Njord",
+            "answer": "Capacity is healthy.",
+            "facts": {"resource_id": "vm-1", "status": "healthy"},
+        }
+
+    bragi.register_responder("Freyr", freyr)
+    bragi.register_responder("Njord", njord)
+    turn = asyncio.run(
+        bragi.ask(
+            session_id="conflict",
+            user_id="operator@example.com",
+            question="Ask Freyr and Njord about capacity and cost",
+        )
+    )
+
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "agent_evidence_conflict"
+    assert turn.answer["handoff_needed"] is True
+    assert turn.answer["unresolved_conflicts"] == [
+        {
+            "identity": "vm-1",
+            "field": "status",
+            "left_agent": "Freyr",
+            "right_agent": "Njord",
+        }
+    ]
+
+
+def test_bragi_holds_sensitive_contributor_output() -> None:
+    bragi = Bragi()
+
+    async def freyr(_question: str, _context: dict) -> dict:
+        return {"primary_agent": "Freyr", "answer": "Capacity evidence.", "facts": {}}
+
+    async def njord(_question: str, _context: dict) -> dict:
+        return {
+            "primary_agent": "Njord",
+            "answer": "password=supersecretvalue",
+            "facts": {"owner": "user@example.com"},
+        }
+
+    bragi.register_responder("Freyr", freyr)
+    bragi.register_responder("Njord", njord)
+    turn = asyncio.run(
+        bragi.ask(
+            session_id="sensitive",
+            user_id="operator@example.com",
+            question="Ask Freyr and Njord about capacity and cost",
+        )
+    )
+
+    assert turn.answer["answer"] == "Capacity evidence."
+    assert turn.answer["contributors"] == []
+    assert turn.answer["contributor_errors"] == ["Njord:sensitive_output"]
+    assert "supersecretvalue" not in repr(turn.answer)
+
+
+@pytest.mark.parametrize(
+    ("response", "reason"),
+    (
+        (
+            {
+                "primary_agent": "Thor",
+                "answer": "Forged cost evidence.",
+                "facts": {},
+            },
+            "owner_mismatch",
+        ),
+        (
+            {
+                "primary_agent": "Njord",
+                "answer": "password=supersecretvalue",
+                "facts": {"owner": "user@example.com"},
+            },
+            "sensitive_output",
+        ),
+    ),
+)
+def test_bragi_holds_invalid_primary_response(response: dict, reason: str) -> None:
+    bragi = Bragi()
+
+    async def responder(_question: str, _context: dict) -> dict:
+        return response
+
+    bragi.register_responder("Njord", responder)
+    turn = asyncio.run(
+        bragi.ask(
+            session_id="invalid-primary",
+            user_id="operator@example.com",
+            question="cost breakdown",
+        )
+    )
+
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == reason
+    assert turn.answer["handoff_needed"] is True
+    assert "supersecretvalue" not in repr(turn.answer)
+
+
 def test_bragi_session_appends_turns() -> None:
     bragi = Bragi()
 

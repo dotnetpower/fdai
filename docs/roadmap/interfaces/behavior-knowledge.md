@@ -111,7 +111,7 @@ The built-in seed set contains 13 contracts. Ten architecture contracts extend t
 | Human approval and shadow promotion | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/core implementation and regression tests |
 | Executor safety, event deduplication, and rollback | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent implementation and idempotency tests |
 | Console identity boundary and local evidence parity | Read API composition and `Thor` | Configuration contract plus local read-API tests |
-| Narrator translator-only path | `Bragi` | Agent implementation and typed-pipeline re-entry tests |
+| Narrator translator-only path | `Bragi` | Agent implementation, typed-pipeline re-entry, and primary/contributor normalization tests |
 
 The Odin contract explicitly excludes single-domain and unanimous recommendations. It also marks
 portfolio review as designed-only and temporal fairness as optional dependency-injected behavior.

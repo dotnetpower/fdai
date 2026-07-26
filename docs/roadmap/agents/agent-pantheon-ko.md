@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 97fc0225ff5cf3e0eb7cc91d5bbff2f02fea28db
+translation_source_sha: b00390fb559395773c9c905a16d1a1aa41030e45
 translation_revised: 2026-07-26
 ---
 
@@ -500,8 +500,8 @@ round는 Bragi의 기존 terminal multi-agent aggregation 및 Quality Gate Debat
 terminal answer에 주입하지 않습니다.
 
 - **Bragi**는 최종 answer plan을 소유하고 표시되는 narrator로 유지됩니다.
-- **Contributor**는 소유 상태의 fact와 evidence reference를 제공합니다. Tool 호출,
-  다른 round 재귀 호출, judgment, approval 또는 execution은 허용되지 않습니다.
+- **Contributor**는 owner, JSON, size, sensitivity 검사를 거친 owned fact와 evidence ref를 제공합니다.
+  같은 identity의 state/status/verdict/mode/health/outcome 충돌은 abstain 및 handoff하며 contributor는 재귀, judgment, approval, execution을 하지 않습니다.
 - **Norns**는 synchronous하게 참여하지 않습니다. Turn 이후 opt-in aggregate
   metadata를 off-path로 분석할 수 있습니다.
 - **Odin**은 routine collection에서 제외됩니다. 이후 Phase E에서 진짜 cross-domain

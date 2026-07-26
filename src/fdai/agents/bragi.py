@@ -27,6 +27,8 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bragi_contributors import (
     AnswerFn,
     ask_contributors,
+    evidence_conflicts,
+    normalize_responder_answer,
 )
 from fdai.agents._framework.bragi_contributors import (
     introspect_agent as call_introspection_responder,
@@ -332,11 +334,24 @@ class Bragi(Agent):
                     "abstain_reason": "responder_not_registered",
                 }
             else:
-                answer = await responder(
+                raw_answer = await responder(
                     question,
                     {"session_id": session_id, "user_id": user_id},
                 )
-                answer.setdefault("primary_agent", decision.primary_agent)
+                normalized_answer, response_error = normalize_responder_answer(
+                    decision.primary_agent,
+                    raw_answer,
+                )
+                if normalized_answer is None:
+                    answer = {
+                        "answer": None,
+                        "facts": {},
+                        "primary_agent": decision.primary_agent,
+                        "abstain_reason": response_error or "response_invalid",
+                        "handoff_needed": True,
+                    }
+                else:
+                    answer = normalized_answer
                 contributor_answers, contributor_errors = await self._ask_contributors(
                     decision.contributors,
                     question=question,
@@ -348,7 +363,17 @@ class Bragi(Agent):
                 if contributor_errors:
                     answer["contributor_errors"] = contributor_errors
                 primary_text = answer.get("answer")
-                if isinstance(primary_text, str) and contributor_answers:
+                conflicts = evidence_conflicts(
+                    decision.primary_agent,
+                    answer,
+                    contributor_answers,
+                )
+                if conflicts:
+                    answer["answer"] = None
+                    answer["abstain_reason"] = "agent_evidence_conflict"
+                    answer["handoff_needed"] = True
+                    answer["unresolved_conflicts"] = conflicts
+                elif isinstance(primary_text, str) and contributor_answers:
                     lines = [f"{decision.primary_agent}: {primary_text}"]
                     lines.extend(
                         f"{item['agent']}: {item['answer']}"

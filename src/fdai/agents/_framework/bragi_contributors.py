@@ -3,11 +3,62 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
+from fdai.agents._framework.pantheon import PANTHEON_NAMES
+from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
+
 AnswerFn = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
+_MAX_RESPONSE_BYTES = 64 * 1024
+_MAX_ANSWER_CHARS = 16_000
+_IDENTITY_KEYS = ("resource_id", "scope_ref", "id", "correlation_id")
+_HIGH_SIGNAL_KEYS = ("state", "status", "verdict", "mode", "health", "outcome")
+_MAX_CONFLICTS = 8
+
+
+def normalize_responder_answer(
+    agent_name: str,
+    raw: object,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Return one bounded, owner-attributed, sensitivity-screened response."""
+    if agent_name not in PANTHEON_NAMES or not isinstance(raw, Mapping):
+        return None, "response_invalid"
+    primary = raw.get("primary_agent", agent_name)
+    if primary != agent_name:
+        return None, "owner_mismatch"
+    answer = raw.get("answer")
+    if answer is not None and (not isinstance(answer, str) or len(answer) > _MAX_ANSWER_CHARS):
+        return None, "answer_invalid"
+    facts = raw.get("facts")
+    safe_facts = dict(facts) if isinstance(facts, Mapping) else {}
+    normalized_input = {
+        "primary_agent": agent_name,
+        "answer": answer,
+        "facts": safe_facts,
+        "abstain_reason": raw.get("abstain_reason"),
+        "conversation_policy": raw.get("conversation_policy"),
+        "trace_ref": raw.get("trace_ref"),
+    }
+    try:
+        encoded = json.dumps(
+            normalized_input,
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return None, "response_invalid"
+    if len(encoded) > _MAX_RESPONSE_BYTES:
+        return None, "response_too_large"
+    if scan_text(encoded.decode("utf-8")):
+        return None, "sensitive_output"
+    normalized = json.loads(encoded)
+    return (
+        (dict(normalized), None) if isinstance(normalized, Mapping) else (None, "response_invalid")
+    )
 
 
 async def introspect_agent(
@@ -51,7 +102,7 @@ async def ask_contributors(
         if responder is None:
             return agent_name, None, "responder_not_registered"
         try:
-            result = await asyncio.wait_for(
+            raw_result = await asyncio.wait_for(
                 responder(question, {"session_id": session_id, "contributor": True}),
                 timeout=timeout_seconds,
             )
@@ -63,7 +114,8 @@ async def ask_contributors(
                 extra={"agent": agent_name, "error_type": type(exc).__name__},
             )
             return agent_name, None, "responder_error"
-        return agent_name, result, None
+        result, normalization_error = normalize_responder_answer(agent_name, raw_result)
+        return agent_name, result, normalization_error
 
     results = await asyncio.gather(*(call(name) for name in contributors[:limit]))
     answers: list[dict[str, Any]] = []
@@ -75,14 +127,73 @@ async def ask_contributors(
             errors.append(f"{agent_name}:abstained")
         else:
             facts = result.get("facts")
-            answers.append(
-                {
-                    "agent": agent_name,
-                    "answer": result["answer"],
-                    "facts": dict(facts) if isinstance(facts, dict) else {},
-                }
-            )
+            evidence_refs = _evidence_refs(facts)
+            contribution = {
+                "agent": agent_name,
+                "answer": result["answer"],
+                "facts": dict(facts) if isinstance(facts, dict) else {},
+            }
+            if evidence_refs:
+                contribution["evidence_refs"] = evidence_refs
+            answers.append(contribution)
     return answers, errors
 
 
-__all__ = ["AnswerFn", "ask_contributors", "introspect_agent"]
+def evidence_conflicts(
+    primary_agent: str,
+    primary: Mapping[str, Any],
+    contributors: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    """Return bounded conflicts for equal identities and high-signal fields."""
+    rows = [(primary_agent, primary.get("facts"))] + [
+        (str(item.get("agent") or ""), item.get("facts")) for item in contributors
+    ]
+    conflicts: list[dict[str, str]] = []
+    for left_index, (left_agent, left_raw) in enumerate(rows):
+        if not isinstance(left_raw, Mapping):
+            continue
+        for right_agent, right_raw in rows[left_index + 1 :]:
+            if not isinstance(right_raw, Mapping):
+                continue
+            identity = next(
+                (
+                    str(left_raw[key])
+                    for key in _IDENTITY_KEYS
+                    if key in left_raw and left_raw.get(key) == right_raw.get(key)
+                ),
+                None,
+            )
+            if identity is None:
+                continue
+            for key in _HIGH_SIGNAL_KEYS:
+                left_value = left_raw.get(key)
+                right_value = right_raw.get(key)
+                if left_value is None or right_value is None or left_value == right_value:
+                    continue
+                conflicts.append(
+                    {
+                        "identity": identity,
+                        "field": key,
+                        "left_agent": left_agent,
+                        "right_agent": right_agent,
+                    }
+                )
+                if len(conflicts) >= _MAX_CONFLICTS:
+                    return conflicts
+    return conflicts
+
+
+def _evidence_refs(facts: object) -> list[str]:
+    if not isinstance(facts, Mapping):
+        return []
+    raw = facts.get("evidence_refs")
+    return [str(item) for item in raw[:20] if str(item)] if isinstance(raw, list | tuple) else []
+
+
+__all__ = [
+    "AnswerFn",
+    "ask_contributors",
+    "evidence_conflicts",
+    "introspect_agent",
+    "normalize_responder_answer",
+]

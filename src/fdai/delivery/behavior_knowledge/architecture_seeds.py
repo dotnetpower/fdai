@@ -652,7 +652,7 @@ def build_architecture_behavior_specs(
                 ),
             ),
             sources=(
-                _source(blob_shas, "code", "src/fdai/agents/bragi.py", "Bragi.ask", 235, 356),
+                _source(blob_shas, "code", "src/fdai/agents/bragi.py", "Bragi.ask", 260, 407),
                 _source(
                     blob_shas,
                     "test",
