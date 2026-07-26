@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 5c28e32ff086073ffa728815cd5aaa4cba4cde61
+translation_source_sha: 5952d63c36d5f57dd71711bee7c8c0bdd9fe52f6
 translation_revised: 2026-07-26
 ---
 
@@ -453,9 +453,9 @@ Request와 response는 user, session, answer, trace, fact, policy attribution을
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
 `PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공합니다.
 
-`AgentConversationToolRegistry`는 30개 id를 단일 owner에 bind하고 invalid call을 거부하며 time과
+`AgentConversationToolRegistry`는 모든 declared id를 단일 owner에 bind하고 invalid call을 거부하며 time과
 data를 제한합니다. Durable ref가 없는 result는 normalized fact snapshot의 content-addressed `agent-state` ref를 사용하며 `agent-spec`을 runtime claim으로 표시하지 않습니다. Error와 sensitive output은 값 없는 보류 결과가 됩니다. Health는 availability와
-counter를 보고합니다. Conversational port만 사용하므로 action은 executor 또는 cloud SDK에 도달하지 않습니다.
+counter를 보고합니다. Retained runtime data에 bind되지 않은 owned projection은 unrelated state 대신 false availability와 unavailable answer를 명시합니다. Conversational port만 사용하므로 action은 executor 또는 cloud SDK에 도달하지 않습니다.
 
 ### 6.3 NL query 오케스트레이션
 

@@ -179,7 +179,13 @@ class Odin(Agent):
             "priority_order": list(self._priority),
             "temporal_policy": self._temporal_policy.name if self._temporal_policy else None,
             "history_window": self._history_window,
+            "arbitration_history_available": False,
         }
+        if "history" in question.casefold():
+            return IntrospectionResult(
+                answer="No retained arbitration history is bound to this conversational port.",
+                facts=facts,
+            )
         policy_note = (
             f" with {self._temporal_policy.name} temporal fairness"
             if self._temporal_policy is not None

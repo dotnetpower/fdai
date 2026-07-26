@@ -481,7 +481,14 @@ class Forseti(Agent):
             "known_action_verdicts": dict(_RISK_VERDICT),
             "rule_matches": dict(_RULE_MATCH),
             "arbitrations_recorded": len(self.arbitrations),
+            "rca_evidence_available": False,
         }
+        normalized_question = question.casefold()
+        if "rca" in normalized_question or "root cause" in normalized_question:
+            return IntrospectionResult(
+                answer="No grounded RCA record is retained by this conversational projection.",
+                facts=facts,
+            )
         actions = mentioned(question, _RISK_VERDICT)
         if actions:
             action = actions[0]

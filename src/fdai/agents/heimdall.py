@@ -521,7 +521,20 @@ class Heimdall(Agent):
             "watched_resources_count": len(self._recent_events),
             "security_events_window": len(self._security_recent),
             "rate_threshold": self._rate_threshold,
+            "forecast_evidence_available": False,
+            "drift_evidence_available": False,
         }
+        normalized_question = question.casefold()
+        if "forecast" in normalized_question:
+            return IntrospectionResult(
+                answer="No retained forecast episode is bound to this conversational projection.",
+                facts=facts,
+            )
+        if "drift" in normalized_question:
+            return IntrospectionResult(
+                answer="No retained drift finding is bound to this conversational projection.",
+                facts=facts,
+            )
         resources = mentioned(question, self._recent_events)
         if resources:
             rid = resources[0]

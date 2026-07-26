@@ -127,7 +127,14 @@ class Loki(Agent):
             "in_flight_targets": sorted(self._in_flight_targets),
             "proposals_total": len(self.proposals),
             "proposals_accepted": len(accepted),
+            "resilience_score_available": False,
         }
+        normalized_question = question.casefold()
+        if "resilience" in normalized_question and "score" in normalized_question:
+            return IntrospectionResult(
+                answer="No retained resilience score is bound to this conversational projection.",
+                facts=facts,
+            )
         if not self.proposals:
             answer = (
                 "No chaos experiments proposed yet; every experiment I raise is "

@@ -44,8 +44,9 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
             assert all(not ref.startswith("agent-spec:") for ref in result.evidence_refs)
 
     health = runtime.health()["conversation_tools"]
-    assert health["registered"] == 30
-    assert health["available"] == 30
+    declared_tool_count = sum(len(spec.conversation.tools) for spec in PANTHEON_SPECS)
+    assert health["registered"] == declared_tool_count
+    assert health["available"] == declared_tool_count
     assert health["disabled"] == 0
 
 
@@ -133,7 +134,8 @@ def test_unknown_wrong_owner_and_disabled_tools_abstain() -> None:
     assert wrong.reason == "wrong_owner"
     assert disabled.reason == "agent_disabled"
     health = runtime.health()["conversation_tools"]
-    assert health["disabled"] == 2
+    njord = next(spec for spec in PANTHEON_SPECS if spec.name == "Njord")
+    assert health["disabled"] == len(njord.conversation.tools)
 
 
 def test_tool_timeout_and_exception_become_abstentions() -> None:

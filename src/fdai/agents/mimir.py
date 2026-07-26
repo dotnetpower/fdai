@@ -100,7 +100,13 @@ class Mimir(Agent):
             "tracked_rules_count": len(self._promotions),
             "pending_candidates": len(self._pending_candidates),
             "quarantined_candidates": len(self._quarantined_candidates),
+            "policy_history_available": False,
         }
+        if "policy history" in question.casefold():
+            return IntrospectionResult(
+                answer="No governed policy history is bound to this conversational projection.",
+                facts=facts,
+            )
         rules = mentioned(question, self._promotions)
         if rules:
             promo = self._promotions[rules[0]]

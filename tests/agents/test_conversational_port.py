@@ -306,6 +306,37 @@ def test_every_agent_prompt_pins_its_role_specific_safety_boundary() -> None:
         ), spec.name
 
 
+@pytest.mark.parametrize(
+    ("question", "agent", "availability_key"),
+    (
+        ("arbitration history", "Odin", "arbitration_history_available"),
+        ("why rca", "Forseti", "rca_evidence_available"),
+        ("forecast status", "Heimdall", "forecast_evidence_available"),
+        ("policy history", "Mimir", "policy_history_available"),
+        ("budget status", "Njord", "budget_data_available"),
+        ("resilience score", "Loki", "resilience_score_available"),
+    ),
+)
+def test_unbound_owned_projection_reports_unavailable(
+    question: str,
+    agent: str,
+    availability_key: str,
+) -> None:
+    runtime = _runtime()
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"unbound-{agent}",
+            user_id="operator",
+            question=question,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == agent
+    assert turn.answer["facts"][availability_key] is False
+    assert "No " in turn.answer["answer"]
+
+
 def test_read_only_ask_never_submits_action_proposal() -> None:
     provider = InMemoryEventBus()
     runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)

@@ -134,7 +134,13 @@ class Njord(Agent):
             "tracked_scopes_count": len(self._samples),
             "anomaly_ratio": self._anomaly_ratio,
             "known_action_costs": dict(self._cost_table),
+            "budget_data_available": False,
         }
+        if "budget" in question.casefold():
+            return IntrospectionResult(
+                answer="No budget projection is bound to this conversational port.",
+                facts=facts,
+            )
         scopes = mentioned(question, self._samples)
         if scopes:
             scope = scopes[0]

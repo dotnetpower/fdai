@@ -78,9 +78,8 @@ _ODIN = AgentSpec(
         "포트폴리오 우선순위 충돌과 중재 결과를 설명합니다.",
         _tool(
             "read_arbitration_history",
-            "Arbitration history configuration.",
-            "history_window",
-            "temporal_policy",
+            "Recorded arbitration history.",
+            "arbitration_history_available",
         ),
         _tool(
             "read_portfolio_policy",
@@ -161,6 +160,11 @@ _FORSETI = AgentSpec(
             "rule_matches",
             "arbitrations_recorded",
         ),
+        _tool(
+            "read_rca_evidence",
+            "Grounded root-cause evidence.",
+            "rca_evidence_available",
+        ),
     ),
     executes=(),
     initiates=(
@@ -236,6 +240,16 @@ _HEIMDALL = AgentSpec(
             "read_security_window",
             "Observed security-signal window.",
             "security_events_window",
+        ),
+        _tool(
+            "read_forecast_status",
+            "Retained forecast episode evidence.",
+            "forecast_evidence_available",
+        ),
+        _tool(
+            "read_drift_status",
+            "Retained drift finding evidence.",
+            "drift_evidence_available",
         ),
     ),
     executes=(),
@@ -439,6 +453,11 @@ _MIMIR = AgentSpec(
             "pending_candidates",
             "quarantined_candidates",
         ),
+        _tool(
+            "read_policy_history",
+            "Governed policy history.",
+            "policy_history_available",
+        ),
     ),
     executes=("governance.propose-rule-candidate",),
     initiates=("governance.propose-rule-candidate",),
@@ -569,6 +588,11 @@ _NJORD = AgentSpec(
             "Known action cost model.",
             "known_action_costs",
         ),
+        _tool(
+            "read_budget_status",
+            "Bound budget projection status.",
+            "budget_data_available",
+        ),
     ),
     executes=(),
     initiates=(),
@@ -638,6 +662,11 @@ _LOKI = AgentSpec(
             "Chaos impact-scope safety status.",
             "blast_radius_cap",
             "in_flight_targets",
+        ),
+        _tool(
+            "read_resilience_scores",
+            "Retained resilience score evidence.",
+            "resilience_score_available",
         ),
     ),
     executes=(),
