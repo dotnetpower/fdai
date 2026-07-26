@@ -364,8 +364,7 @@ behaviors. Anti-pattern §11 forbids collapsing these to nothing.
 
 Common rules:
 
-- **Saga and Vidar are hard dependencies** for any mutation. Their
-  degradation is fail-safe closed: no execution proceeds without them.
+- **Saga and Vidar are hard dependencies** for mutation: terminal consumer or health failure forces sticky shadow until restart. Noncritical terminal consumers degrade only their agent; siblings continue and health records exact agent/topic state instead of a false live heartbeat.
 - **Any judge / executor / auditor triad missing** demotes new mutation to
   shadow.
 - **Sensing degradation (Heimdall / Var / Vidar failure)** allows the

@@ -123,7 +123,8 @@ MAY publish that object type's topic.
    NOT import a cloud SDK or write an inventory database directly.
 7. **Hard dependencies fail safe (MUST).** Saga and Vidar are hard dependencies.
    A change MUST NOT allow a mutation to proceed when Saga (audit) or Vidar
-   (rollback) is unavailable; degrade to shadow, never fail open.
+   (rollback) is unavailable; a terminal consumer or failed health probe forces
+   sticky shadow until restart. Degrade to shadow, never fail open.
 8. **Fork-locked ActionType bindings (MUST).** The five role fields on every
    ActionType - `initiators`, `judge`, `approver`, `executor`, `auditor` - plus
    `compensating_action`, `irreversible`, and `rollback_contract` are pantheon

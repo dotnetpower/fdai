@@ -333,6 +333,9 @@ def runtime_agent_state_snapshot(health: Mapping[str, Any]) -> tuple[AgentStateE
     agent_health = health.get("agent_health")
     if not isinstance(agent_health, Mapping):
         return ()
+    unavailable = {
+        str(agent) for agent in health.get("unavailable_agents", ()) if isinstance(agent, str)
+    }
     ts = iso_ts_utc()
     sensing_agents = {"Huginn", "Heimdall"}
     return tuple(
@@ -344,7 +347,11 @@ def runtime_agent_state_snapshot(health: Mapping[str, Any]) -> tuple[AgentStateE
             source=ObservationSource.RUNTIME_OBSERVED,
         )
         for agent, snapshot in agent_health.items()
-        if isinstance(snapshot, Mapping) and snapshot.get("status") != "error"
+        if (
+            isinstance(snapshot, Mapping)
+            and snapshot.get("status") != "error"
+            and agent not in unavailable
+        )
     )
 
 

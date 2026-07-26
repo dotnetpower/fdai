@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 657dc3158d7bd69b7574721382edccf611a02e31
+translation_source_sha: 393527c83ba888d91b4491ed7c820c789621d1a7
 translation_revised: 2026-07-27
 ---
 
@@ -329,8 +329,10 @@ Agent stream은 local 및 deployed profile에서 같은 shared stage transport�
 증명하지만 work로 분류되지 않습니다. 누락되거나 malformed인 health frame은 선언된 subscriber
 binding을 observed state로 승격하지 않습니다. 각 read API replica는 instance-scoped consumer
 group을 사용하므로 연결된 모든 console이 완전한 heartbeat set을 수신합니다. Deployed Pantheon도
-handler `started`, `completed`, `failed` transition을 이 transport로 게시합니다. 이 transition은
-runtime activity이며 durable audit evidence가 아닙니다.
+handler `started`, `completed`, `failed` transition을 이 transport로 게시합니다. Give up 또는 halt된
+consumer는 sibling을 유지한 채 health-derived heartbeat에서 빠지고 terminal agent/topic은 runtime
+health에 남습니다. Saga 또는 Vidar failure는 sticky shadow를 강제합니다. 이 transition은 runtime
+activity이며 durable audit evidence가 아닙니다.
 
 Command Deck은 complete 또는 pending SSE frame이 256 KiB를 넘으면 `data:` line 누적이나 JSON parse
 전에 거부하고 deterministic interrupted-stream fallback을 사용합니다. Correlation-filtered action

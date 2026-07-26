@@ -56,6 +56,30 @@ async def test_does_not_publish_when_consumers_are_not_live() -> None:
     assert await publisher.publish_once() == 0
 
 
+async def test_does_not_publish_agents_with_terminal_consumers() -> None:
+    event_bus = InMemoryEventBus()
+    publisher = AgentRuntimeStatePublisher(
+        event_bus=event_bus,
+        snapshot_factory=lambda: runtime_agent_state_snapshot(
+            {
+                "consumers_live": 2,
+                "unavailable_agents": ["Huginn"],
+                "agent_health": {
+                    "Odin": {"status": "ok"},
+                    "Huginn": {"status": "ok"},
+                },
+            }
+        ),
+    )
+
+    assert await publisher.publish_once() == 1
+    payloads = [
+        envelope.payload
+        async for envelope in event_bus.subscribe("aw.pipeline.stages", "test-reader")
+    ]
+    assert [payload["agent"] for payload in payloads] == ["Odin"]
+
+
 async def test_publishes_real_handler_lifecycle_to_shared_stage_topic() -> None:
     event_bus = InMemoryEventBus()
     observer = EventBusPantheonActivityObserver(event_bus=event_bus)

@@ -2,7 +2,7 @@
   "algorithm": "sha256",
   "file_count": 790,
   "files": {
-    ".github/instructions/agent-pantheon.instructions.md": "86c19da630bea4a25d7ea3c81a99b13656cd1b8af7956de0f42962ff067e499c",
+    ".github/instructions/agent-pantheon.instructions.md": "cba78e067f8786a959a14cfeaf4e6c6912a3765e36aaa460433f049829f010b5",
     ".github/instructions/agent-stewardship.instructions.md": "a1d3657f05323259023fbb1abf304495ec923f6bb917be739ed49647171195ba",
     ".github/instructions/app-shape.instructions.md": "ef97e57b796c3a580687a0494cc38f01d0a8b84b915a565bbe374b8ba7346080",
     ".github/instructions/architecture.instructions.md": "1fa8a6c75682b1c51af2c9ac5c1514814eb74268b8179875d40ad0052c68e40d",
@@ -27,7 +27,7 @@
     "src/fdai/agents/_framework/bragi_proposal.py": "a149dbd78f5b354a9808285819b962ab346f44ed6f4235fc72fd783831513ab9",
     "src/fdai/agents/_framework/bragi_routing.py": "fffaf4aa2b39f2e4ae103ebca4230513b787e51f6c8aa69e9d463d0071ada609",
     "src/fdai/agents/_framework/bus.py": "6b62471c8f2c6e324ff971e92677eb509b3ed4ca21d8e0bc8f6014d24130d12a",
-    "src/fdai/agents/_framework/bus_bridge.py": "630725dd26ad245b316da109d36ebb65a4c9a4bb11238caa930e8c7caa1076db",
+    "src/fdai/agents/_framework/bus_bridge.py": "ccc0c1545ac31874eb780abf95360c3e50b871e343bc52dba61a945925050ef5",
     "src/fdai/agents/_framework/bus_metrics.py": "7f1cc31a939da501608ba0804113a3a53c087f59ea4a54a4c6f8277446cd32ac",
     "src/fdai/agents/_framework/candidate_guard.py": "df471cd77e522e28284dac04966fb51739ef00812f01f0f7dbb727524fae2cee",
     "src/fdai/agents/_framework/conversation_tools.py": "206210de20b66d9df1eb40d4577435bf44b48a8e9f3b4270f6fc9b63ff20605c",
@@ -41,7 +41,7 @@
     "src/fdai/agents/_framework/provider_adapters.py": "d4d9f3fcca05c70388f5877953097efae2c3a03ecb3f774dfcb5126aaf49a156",
     "src/fdai/agents/_framework/rate_limiter.py": "4d6bdf97c04dd1c46c6cc840b6e83719a821f0fc30f6da49645a12d22e025a1a",
     "src/fdai/agents/_framework/registry.py": "c25d7e1a75e5ffb3072e099b240a182498551e5d09a85cb8a26e525d0f1859f5",
-    "src/fdai/agents/_framework/runtime.py": "d2e88f29f9b66c26894b6c3768a12d11d4c18d2958115f7e11b8502c7c0baf42",
+    "src/fdai/agents/_framework/runtime.py": "63e7b00014ff992b2b101c7a6af4124039c2b45ef7a271f33b227b125725948b",
     "src/fdai/agents/_framework/semantic_routing.py": "6718048db4bd459050336189d86ca1068e0844660f326aa4e540103193b90d4a",
     "src/fdai/agents/_framework/specialist_ingress.py": "7f29260f0ba0834496112136251050b8c6855a40b8c399bb4bb48f57752e3d00",
     "src/fdai/agents/_framework/topics.py": "86c8aafe27517f19d78b1f0a0cd68ddc321392707ac91f8e662b11484f66b488",
@@ -793,7 +793,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-26T16:47:24Z",
+  "generated_at": "2026-07-26T18:02:52Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

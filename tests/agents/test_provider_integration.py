@@ -848,6 +848,10 @@ def test_consumer_gives_up_after_max_restarts() -> None:
         restart_backoff_base=0.0,
         restart_backoff_max=0.0,
     )
+    terminal: list[tuple[str, str, str]] = []
+    bridge.consumer_state_observer = lambda agent, topic, state: terminal.append(
+        (agent, topic, state)
+    )
 
     async def handler(_t: str, _p: dict) -> None:  # pragma: no cover - never reached
         return None
@@ -856,6 +860,11 @@ def test_consumer_gives_up_after_max_restarts() -> None:
     asyncio.run(_spin(bridge))
     assert bridge.metrics.consumers_restarted == 3
     assert bridge.metrics.consumers_crashed == 4  # 3 restarts + final give-up
+    snapshot = bridge.snapshot()
+    assert snapshot["status"] == "degraded"
+    assert snapshot["unavailable_agents"] == ["Heimdall"]
+    assert snapshot["consumer_states"]["Heimdall:object.event"] == "gave_up"
+    assert terminal == [("Heimdall", "object.event", "gave_up")]
 
 
 def test_stop_is_bounded_and_clears_tasks() -> None:

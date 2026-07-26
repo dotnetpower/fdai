@@ -335,7 +335,9 @@ for a live agent but isn't classified as work. Missing or malformed health frame
 declared subscriber binding into an observed state. Each read API replica uses an instance-scoped
 consumer group so every connected console receives the complete heartbeat set. The deployed
 Pantheon also publishes handler `started`, `completed`, and `failed` transitions through this
-transport; these transitions are runtime activity, not durable audit evidence.
+transport. A consumer that gives up or halts is removed from health-derived heartbeats while its
+siblings continue; the terminal agent/topic remains in runtime health. Saga or Vidar failure forces
+sticky shadow. These transitions are runtime activity, not durable audit evidence.
 
 The Command Deck rejects a complete or pending SSE frame above 256 KiB before accumulating `data:`
 lines or parsing JSON, then uses the deterministic interrupted-stream fallback. Correlation-filtered

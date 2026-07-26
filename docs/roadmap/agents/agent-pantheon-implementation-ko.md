@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d5a4afae885ae29d2d525ec6625c7802454eb41d
+translation_source_sha: 4a96fb1d1354914c77cc3f7cb310a705d9fe1946
 translation_revised: 2026-07-27
 ---
 
@@ -605,9 +605,9 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
 - **자가치유 컨슈머.** 죽은 컨슈머는 지수 백오프
   (`max_consumer_restarts`, `restart_backoff_base`,
   `restart_backoff_max`)로 재시작하고, cap 초과 시에만 포기(카운트+로깅)
-  하며 형제를 끌어내리지 않는다. 재시작은 committed offset 에서 재개된다.
-  `stop()` 은 `shutdown_timeout` 으로 bounded 되어 wedged 컨슈머가 종료를
-  막지 못한다.
+  하며 형제를 끌어내리지 않습니다. Terminal agent/topic state는 false heartbeat를
+  억제하고 Saga/Vidar terminal 또는 health failure는 sticky shadow를 강제합니다.
+  재시작은 committed offset에서 재개되고 bounded `stop()`은 hang하지 않습니다.
 - `EventBusBridge` 는 `BridgeMetrics`(delivered / handler_errors /
   handler_retries / dead_lettered / dead_letter_errors / consumers_crashed /
   consumers_restarted / empty_partition_keys / published / publish_errors /
@@ -615,8 +615,8 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
   producer_principal_mismatch / ordered_poison_halts / schema_violations)를
   `snapshot()` 으로 노출하고, `PantheonRuntime.health()` 가 Heimdall
   프로브와 KPI collector 용으로 이를 표면화한다. `health()` 는 per-agent
-  `agent_health` 맵(활성 ActionRun, dedup 압박, forced-shadow 플래그)도
-  담아 개별 에이전트 상태까지 보이게 한다 - bridge 집계 지표만이 아니라.
+  `agent_health`, `consumer_states`, `unavailable_agents`, continuity map을 담아
+  active run, terminal subscription, effective enforcement를 표시합니다.
 - **Pub/sub 하드닝 (버스 계약).** bridge 와 `InMemoryBus` 테스트 더블은
   하나의 계약을 공유해 테스트가 프로덕션과 조용히 어긋나지 못하게 한다:
   - **파티션 키 단일 출처.** 두 버스 모두 `topics.partition_key_for`

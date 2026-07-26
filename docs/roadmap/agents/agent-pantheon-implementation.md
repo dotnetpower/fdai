@@ -626,9 +626,9 @@ Configurable + observable seams:
 - **Self-healing consumers.** A crashed consumer restarts with
   exponential backoff (`max_consumer_restarts`, `restart_backoff_base`,
   `restart_backoff_max`) and gives up (counted + logged) only after the
-  cap - never dragging siblings down. Restarts resume from the committed
-  offset. `stop()` is bounded by `shutdown_timeout` so a wedged consumer
-  cannot hang shutdown.
+  cap - never dragging siblings down. Terminal agent/topic state suppresses
+  false heartbeats; Saga/Vidar terminal or health failure forces sticky shadow.
+  Restarts resume from the committed offset, and bounded `stop()` cannot hang.
 - `EventBusBridge` exposes `BridgeMetrics` (delivered / handler_errors /
   handler_retries / dead_lettered / dead_letter_errors / consumers_crashed /
   consumers_restarted / empty_partition_keys / published / publish_errors /
@@ -636,9 +636,8 @@ Configurable + observable seams:
   producer_principal_mismatch / ordered_poison_halts / schema_violations)
   via `snapshot()`, surfaced by `PantheonRuntime.health()` for Heimdall's
   probe and the KPI collectors. `health()` also carries a per-agent
-  `agent_health` map (active ActionRuns, dedup pressure, forced-shadow
-  flag) so individual agent state is visible, not just bridge-level
-  counters.
+  `agent_health`, `consumer_states`, `unavailable_agents`, and continuity maps
+  so active runs, terminal subscriptions, and effective enforcement are visible.
 - **Pub/sub hardening (bus contract).** The bridge and the `InMemoryBus`
   test double share one contract so a test cannot silently diverge from
   production:

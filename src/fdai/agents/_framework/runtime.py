@@ -108,6 +108,7 @@ class PantheonRuntime:
     divergence: ShadowDivergenceLedger | None = None
     _bragi: Bragi | None = None
     _conversation_tools: AgentConversationToolRegistry | None = None
+    _continuity_failures: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def build(
@@ -385,6 +386,7 @@ class PantheonRuntime:
         # the real subscribers (Thor / Saga / Odin / Var).
         bridge.subscribe("object.verdict", _OBSERVER_PRINCIPAL, runtime._observe_verdict)
         bridge.subscribe("object.action-run", _OBSERVER_PRINCIPAL, runtime._observe_action_run)
+        bridge.consumer_state_observer = runtime._observe_consumer_state
 
         _LOG.info(
             "pantheon_wired",
@@ -586,15 +588,31 @@ class PantheonRuntime:
         ActionRuns, dedup pressure, etc. - not just bridge-level counters.
         """
         snap = self.bridge.snapshot()
+        agent_health = {
+            name: self._safe_agent_health(name, agent) for name, agent in self.agents.items()
+        }
+        for agent_name in HARD_DEPENDENCY_AGENTS:
+            health = agent_health.get(agent_name)
+            if isinstance(health, dict) and health.get("status") == "error":
+                self._continuity_failures.setdefault(f"{agent_name}:health", "error")
+                thor = self.agents.get("Thor")
+                if isinstance(thor, Thor):
+                    thor.set_shadow(True)
+        hard_dependency_failures = {
+            consumer: state
+            for consumer, state in self._continuity_failures.items()
+            if consumer.split(":", 1)[0] in HARD_DEPENDENCY_AGENTS
+        }
         return {
             "agents": len(self.agents),
             "disabled": sorted(self.disabled),
             "enforce": self.enforce,
+            "effective_enforce": self.enforce and not hard_dependency_failures,
+            "continuity_failures": dict(sorted(self._continuity_failures.items())),
+            "hard_dependency_failures": dict(sorted(hard_dependency_failures.items())),
             "ingress_dropped": self._ingress_dropped,
             "shadow_decisions": dict(self.shadow_decisions),
-            "agent_health": {
-                name: self._safe_agent_health(name, a) for name, a in self.agents.items()
-            },
+            "agent_health": agent_health,
             "divergence": self.divergence.report() if self.divergence else None,
             "conversational_port": self._bragi is not None,
             "conversation_tools": (
@@ -604,6 +622,19 @@ class PantheonRuntime:
             ),
             **snap,
         }
+
+    def _observe_consumer_state(self, agent: str, topic: str, state: str) -> None:
+        consumer = f"{agent}:{topic}"
+        self._continuity_failures[consumer] = state
+        if agent not in HARD_DEPENDENCY_AGENTS:
+            return
+        thor = self.agents.get("Thor")
+        if isinstance(thor, Thor):
+            thor.set_shadow(True)
+        _LOG.error(
+            "pantheon_hard_dependency_consumer_terminal",
+            extra={"agent": agent, "topic": topic, "state": state},
+        )
 
     @staticmethod
     def _safe_agent_health(name: str, agent: Agent) -> dict[str, Any]:

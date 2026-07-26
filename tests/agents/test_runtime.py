@@ -675,3 +675,49 @@ def test_health_isolates_a_raising_agent(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(agent, "health", _boom)
     health = runtime.health()  # must not raise
     assert health["agent_health"][name]["status"] == "error"
+
+
+def test_hard_dependency_consumer_failure_forces_sticky_shadow() -> None:
+    runtime, _ = _build()
+    thor = runtime.agents["Thor"]
+    assert isinstance(thor, Thor)
+    thor.set_shadow(False)
+
+    runtime.bridge._mark_consumer_terminal("Saga:object.audit-entry", "gave_up")
+
+    health = runtime.health()
+    assert thor.health()["shadow_forced"] is True
+    assert health["hard_dependency_failures"] == {"Saga:object.audit-entry": "gave_up"}
+    assert health["effective_enforce"] is False
+
+
+def test_noncritical_consumer_failure_degrades_without_forcing_shadow() -> None:
+    runtime, _ = _build()
+    thor = runtime.agents["Thor"]
+    assert isinstance(thor, Thor)
+    thor.set_shadow(False)
+
+    runtime.bridge._mark_consumer_terminal("Heimdall:object.event", "halted")
+
+    assert thor.health()["shadow_forced"] is False
+    assert runtime.health()["continuity_failures"] == {"Heimdall:object.event": "halted"}
+
+
+def test_hard_dependency_health_error_forces_sticky_shadow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime, _ = _build()
+    thor = runtime.agents["Thor"]
+    saga = runtime.agents["Saga"]
+    assert isinstance(thor, Thor)
+    thor.set_shadow(False)
+
+    def _boom() -> dict[str, object]:
+        raise RuntimeError("audit probe unavailable")
+
+    monkeypatch.setattr(saga, "health", _boom)
+    health = runtime.health()
+
+    assert thor.health()["shadow_forced"] is True
+    assert health["hard_dependency_failures"] == {"Saga:health": "error"}
+    assert health["effective_enforce"] is False

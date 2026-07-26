@@ -46,6 +46,7 @@ _LOG = logging.getLogger(__name__)
 Payload = Mapping[str, object]
 Handler = Callable[[str, dict[str, object]], Awaitable[None]]
 PayloadValidator = Callable[[str, Mapping[str, object]], None]
+ConsumerStateObserver = Callable[[str, str, str], None]
 """Optional publish-side contract check (topic, payload) -> None; raises on
 an invalid payload. Wire a ContractValidator-backed callable here to reject
 a malformed record at the publish boundary (fail closed)."""
@@ -112,8 +113,10 @@ class EventBusBridge:
     dead_letter_retry_backoff: float = 0.25
     payload_validator: PayloadValidator | None = None
     handler_observer: AgentHandlerObserver | None = None
+    consumer_state_observer: ConsumerStateObserver | None = None
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
+    _consumer_states: dict[str, str] = field(default_factory=dict)
     metrics: BridgeMetrics = field(default_factory=BridgeMetrics)
 
     # ---- pantheon-style API --------------------------------------------
@@ -135,9 +138,20 @@ class EventBusBridge:
     def snapshot(self) -> dict[str, object]:
         """Return a health snapshot (metrics + live consumer count)."""
         live = sum(1 for t in self._tasks if not t.done())
+        terminal_states = {"gave_up", "halted"}
+        unavailable_agents = sorted(
+            {
+                consumer_id.split(":", 1)[0]
+                for consumer_id, state in self._consumer_states.items()
+                if state in terminal_states
+            }
+        )
         return {
             "subscriptions": sum(len(v) for v in self._subs.values()),
             "consumers_live": live,
+            "consumer_states": dict(sorted(self._consumer_states.items())),
+            "unavailable_agents": unavailable_agents,
+            "status": "degraded" if unavailable_agents else "healthy",
             "metrics": self.metrics.as_dict(),
         }
 
@@ -267,8 +281,15 @@ class EventBusBridge:
         for topic, subs in self._subs.items():
             for agent_name, handler in subs:
                 group_id = f"{self.consumer_group_prefix}.{agent_name}"
+                consumer_id = f"{agent_name}:{topic}"
+                self._consumer_states[consumer_id] = "starting"
                 task = asyncio.create_task(
-                    self._consume(topic=topic, group_id=group_id, handler=handler),
+                    self._consume(
+                        topic=topic,
+                        group_id=group_id,
+                        consumer_id=consumer_id,
+                        handler=handler,
+                    ),
                     name=f"pantheon-consumer.{agent_name}.{topic}",
                 )
                 self._tasks.append(task)
@@ -325,6 +346,7 @@ class EventBusBridge:
         *,
         topic: str,
         group_id: str,
+        consumer_id: str,
         handler: Handler,
     ) -> None:
         # Self-healing: a subscribe-loop crash restarts THIS consumer with
@@ -336,7 +358,9 @@ class EventBusBridge:
         attempt = 0
         while True:
             try:
+                self._consumer_states[consumer_id] = "connecting"
                 async for envelope in self.provider.subscribe(topic, group_id):
+                    self._consumer_states[consumer_id] = "running"
                     if not self._producer_authorized(topic, envelope.payload):
                         # Consumer-side single-writer check: a record whose
                         # producer_principal is not the topic owner is an
@@ -409,6 +433,7 @@ class EventBusBridge:
                             # Halt this consumer so an operator intervenes;
                             # siblings (other topics) keep running.
                             self.metrics.ordered_poison_halts += 1
+                            self._mark_consumer_terminal(consumer_id, "halted")
                             _LOG.error(
                                 "pantheon_ordered_topic_halted",
                                 extra={
@@ -419,14 +444,17 @@ class EventBusBridge:
                             )
                             return
                 # Iterator ended normally (finite in-memory drain): done.
+                self._consumer_states[consumer_id] = "stopped"
                 return
             except asyncio.CancelledError:
+                self._consumer_states[consumer_id] = "stopped"
                 raise
             except Exception:
                 self.metrics.consumers_crashed += 1
                 attempt += 1
                 if attempt > self.max_consumer_restarts:
                     self.metrics.consumers_gave_up += 1
+                    self._mark_consumer_terminal(consumer_id, "gave_up")
                     _LOG.exception(
                         "pantheon_consumer_gave_up",
                         extra={
@@ -436,6 +464,7 @@ class EventBusBridge:
                         },
                     )
                     return
+                self._consumer_states[consumer_id] = "restarting"
                 backoff = min(
                     self.restart_backoff_base * (2 ** (attempt - 1)),
                     self.restart_backoff_max,
@@ -488,6 +517,25 @@ class EventBusBridge:
                     "agent": agent,
                     "topic": topic,
                     "phase": phase.value,
+                    "error_type": type(exc).__name__,
+                },
+            )
+
+    def _mark_consumer_terminal(self, consumer_id: str, state: str) -> None:
+        self._consumer_states[consumer_id] = state
+        observer = self.consumer_state_observer
+        if observer is None:
+            return
+        agent, topic = consumer_id.split(":", 1)
+        try:
+            observer(agent, topic, state)
+        except Exception as exc:  # noqa: BLE001 - observer must not break isolation
+            _LOG.warning(
+                "pantheon_consumer_state_observer_failed",
+                extra={
+                    "agent": agent,
+                    "topic": topic,
+                    "state": state,
                     "error_type": type(exc).__name__,
                 },
             )
