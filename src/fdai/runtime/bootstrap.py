@@ -530,6 +530,11 @@ async def _run() -> int:
                         if container.llm_bindings is not None
                         else None
                     ),
+                    conversation_t2_synthesizer=(
+                        container.llm_bindings.conversation_t2_synthesizer
+                        if container.llm_bindings is not None
+                        else None
+                    ),
                     semantic_router_config=_semantic_router_config_from_env(),
                 )
                 agent_introspection_server = EventBusAgentIntrospectionServer(

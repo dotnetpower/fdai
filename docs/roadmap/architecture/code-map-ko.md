@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ed6da60b6a9649195f5891647a6d4332f1efa0b6
-translation_revised: 2026-07-26
+translation_source_sha: c94d828604b8893bd50b09a22f520c75ecf90ce0
+translation_revised: 2026-07-27
 ---
 # 코드 맵
 
@@ -136,6 +136,10 @@ shared 패키지를 커버한다.
 [.github/instructions/agent-pantheon.instructions.md](../../../.github/instructions/agent-pantheon.instructions.md)
 참조.
 
+Conversation charter는 `_framework/pantheon.py`에 있고 bounded T1/T2 discussion contract는
+`_framework/deliberation.py`에 있으며 Bragi가 `PantheonRuntime.deliberate`를 통해 orchestrate합니다.
+[conversational-deliberation-ko.md](../agents/conversational-deliberation-ko.md)를 참조하세요.
+
 | 에이전트 | 역할 | 소스 | 설계 문서 |
 |---------|------|------|----------|
 | Odin | 마스터 플래너 + 타이 브레이커 | [odin.py](../../../src/fdai/agents/odin.py) | [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) |
@@ -207,7 +211,7 @@ shared 패키지를 커버한다.
 | 경로 | 목적 |
 |------|------|
 | [src/fdai/composition/\_\_init\_\_.py](../../../src/fdai/composition/__init__.py) | 파사드 + `default_container` + `default_container_from_env`. |
-| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, `LlmBindings`, `LlmBindingsUnavailableError`. |
+| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, optional conversation T2 synthesis를 포함한 `LlmBindings`, `LlmBindingsUnavailableError`. |
 | [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM 바인더 (컴포지션 타임 모델 해석). |
 | [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire 컨테이너 + `AzureWireOverrides`. |
 | [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | change-feed 팩토리 wiring (Azure DevOps / GitHub 변경 생산자). |

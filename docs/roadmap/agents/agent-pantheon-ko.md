@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 2117c9f57757443b466436b722eb84f45d2f5525
-translation_revised: 2026-07-26
+translation_source_sha: 51c04cef099b13bb949c085820c1866eede915b6
+translation_revised: 2026-07-27
 ---
 
 # 에이전트 판테온
@@ -451,7 +451,7 @@ Question은 2,000자로 제한하고 session마다 monotonic turn 100개를 보�
 각 `AgentSpec`은 고유하고 immutable하며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 bounded server-owned system instruction, 영어/한국어 query example, purpose 및 owned-fact scope가 있는 read tool을 가집니다. Semantic parity test는 15개 role boundary를 모두 pin합니다. Runtime은 caller policy를 덮어쓰고 각 tool을 고유한 fact scope로 projection하며 instruction을 노출하지 않고 version과 별도의 prompt 및 full-charter SHA-256 digest를 attribution합니다. 답변은 owned state에 근거하며 typed policy가 권위를 유지합니다.
 
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
-`PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공합니다.
+`PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공하며 bounded multi-agent discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 owner에 bind하고 invalid call을 거부하며 time과
 data를 제한합니다. Tool result는 `agent`, `evidence_refs`, declared fact key만 노출하며 undeclared `_ref` 예외가 없습니다. Direct 및 tool-routed result는 durable ref가 없으면 normalized fact 기반 content-addressed `agent-state` ref를 사용하며 `agent-spec`을 runtime claim으로 표시하지 않습니다.

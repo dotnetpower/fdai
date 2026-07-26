@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..agents import T2ConversationSynthesizer
 from ..core.browser_evidence.service import BrowserEvidenceCaptureService
 from ..core.browser_evidence.surfaces import (
     BrowserEvidenceConsoleTool,
@@ -111,6 +112,7 @@ class LlmBindings:
     rca_reasoner: RcaReasoner | None = None
     rubric_evaluator: RubricEvaluator | None = None
     t2_proposer: T2Proposer | None = None
+    conversation_t2_synthesizer: T2ConversationSynthesizer | None = None
 
     def __post_init__(self) -> None:
         if not self.cross_check_models:

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: da05a1ee7fd4e84b973451c372433387dd236ada
-translation_revised: 2026-07-25
+translation_source_sha: 408beae7bd80d30c36a2bda3dbe5bd3cd015f7cb
+translation_revised: 2026-07-27
 ---
 
 # 에이전트 판테온 구현 계획
@@ -747,14 +747,12 @@ grounding 은 `LlmBindings` seam 뒤에서 이후 웨이브에 착지한다. 그
 novel 케이스는 모델 verdict 이 아니라 HIL 로 라우팅된다 - fail toward
 safety.
 
-**Conversational-port narrator.** Two-port 모델의 human 절반은 upstream 에서
-**deterministic, LLM-free renderer** 로 ship 된다: 모든 에이전트는
-introspection turn 을 자기 불변 `AgentSpec` 과 소유 데이터(공유 `facts`,
-`src/fdai/agents/_framework/introspection.py`)로 답한다. fork - 또는 이후
-narrator 웨이브 - 는 계약을 바꾸지 않고 *같은* `facts` 위에 LLM 기반
-narrator 를 swap 한다(소유 데이터 + `owns_code_paths` 에 대한 RAG);
-narrator 는 오퍼레이터 locale(L3)로 렌더하고, 그 밑의 intent, verdict,
-audit 는 L0 영어로 유지된다 (language.instructions.md).
+**Conversational-port 숙의.** 모든 agent는 계속 immutable `AgentSpec`과 owned `facts`에서
+답합니다. 명시적 discussion path는 T1 semantic participant selection을 요구한 다음 primary
+position 하나와 bounded peer critique를 실행합니다. `LlmBindings`의 optional
+`T2ConversationSynthesizer`가 owner-attributed claim을 렌더할 수 있지만 default Azure adapter를
+의미하지 않습니다. T2 failure는 T1을 보존하고 모든 result는 presentation-only입니다. Typed
+verdict, approval, execution, rollback, audit 및 promotion owner는 변경되지 않습니다.
 
 **Metering (측정값, 추정 아님).** Metering 대상 T1, T2, narrator 호출은
 provider가 측정한 `usage`를 `MeteringSink`로 기록합니다. narrator는

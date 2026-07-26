@@ -20,6 +20,11 @@ from fdai.agents._framework.base import (
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, AgentHandlerPhase
 from fdai.agents._framework.conversation_tools import AgentToolResult, AgentToolStatus
+from fdai.agents._framework.deliberation import (
+    DeliberationClaim,
+    DeliberationRequest,
+    T2ConversationSynthesizer,
+)
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.introspection import agent_state_evidence_ref
@@ -55,6 +60,8 @@ __all__ = [
     "Bragi",
     "ConversationCharter",
     "ConversationTool",
+    "DeliberationClaim",
+    "DeliberationRequest",
     "Heimdall",
     "Layer",
     "Norns",
@@ -65,6 +72,7 @@ __all__ = [
     "SemanticRouterConfig",
     "ShadowDivergenceLedger",
     "StateStoreAuditChainAdapter",
+    "T2ConversationSynthesizer",
     "load_pantheon",
     "instantiate_pantheon",
     "PANTHEON_SPECS",

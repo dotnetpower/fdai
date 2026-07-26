@@ -35,6 +35,10 @@ from fdai.agents._framework.bragi_models import ConversationSession, RoutingDeci
 from fdai.agents._framework.bragi_progress import append_submitted, evict_oldest, record_progress
 from fdai.agents._framework.bragi_proposal import build_action_proposal
 from fdai.agents._framework.bragi_routing import route_question, translate_action_intent
+from fdai.agents._framework.deliberation import (
+    ConversationDeliberator,
+    T2ConversationSynthesizer,
+)
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -100,6 +104,7 @@ class Bragi(Agent):
         self,
         *,
         semantic_router: SemanticAgentRouter | None = None,
+        t2_synthesizer: T2ConversationSynthesizer | None = None,
         responder_timeout_seconds: float = _RESPONDER_TIMEOUT_SECONDS,
         proposal_timeout_seconds: float = _PROPOSAL_TIMEOUT_SECONDS,
     ) -> None:
@@ -114,6 +119,12 @@ class Bragi(Agent):
         self._semantic_router = semantic_router
         self._responder_timeout_seconds = responder_timeout_seconds
         self._proposal_timeout_seconds = proposal_timeout_seconds
+        self._deliberator = ConversationDeliberator(
+            specs=PANTHEON_SPECS,
+            semantic_router=semantic_router,
+            t2_synthesizer=t2_synthesizer,
+            call_responder=self._call_responder,
+        )
         # Per-correlation pipeline progress, appended as verdict / action-run
         # states arrive on the typed port, so an operator can be told where
         # their submitted action is (submitted -> verdicted -> hil_pending ->
@@ -303,6 +314,20 @@ class Bragi(Agent):
             response=response,
         )
         return response
+
+    async def deliberate(
+        self,
+        *,
+        question: str,
+        requester: str,
+        correlation_id: str = "",
+    ) -> dict[str, Any]:
+        """Delegate one bounded read-only discussion to the framework orchestrator."""
+        return await self._deliberator.deliberate(
+            question=question,
+            requester=requester,
+            correlation_id=correlation_id,
+        )
 
     # ---- routing -------------------------------------------------------
 

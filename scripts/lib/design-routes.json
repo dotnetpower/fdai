@@ -110,9 +110,13 @@
       "must_read": [
         ".github/instructions/agent-pantheon.instructions.md",
         ".github/skills/agent-pantheon-edit/SKILL.md",
-        "docs/roadmap/agents/agent-pantheon.md"
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/agents/conversational-deliberation.md"
       ],
-      "docs_update": ["docs/roadmap/agents/agent-pantheon.md"]
+      "docs_update": [
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/agents/conversational-deliberation.md"
+      ]
     },
     {
       "id": "prediction-case-history",

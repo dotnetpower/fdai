@@ -6,6 +6,7 @@ import asyncio
 from types import MethodType
 
 from fdai.agents import AgentToolStatus
+from fdai.agents._framework.bragi_contributors import normalize_responder_answer
 from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
@@ -59,6 +60,24 @@ def test_all_charter_digests_are_deterministic_and_unique() -> None:
     assert first == replay
     assert len({policy["charter_sha256"] for policy in first.values()}) == len(PANTHEON_SPECS)
     assert len({policy["prompt_sha256"] for policy in first.values()}) == len(PANTHEON_SPECS)
+
+
+def test_content_addressed_digest_is_not_misclassified_as_card_number() -> None:
+    digest = "4111111111111111" + "a" * 48
+
+    normalized, error = normalize_responder_answer(
+        "Bragi",
+        {
+            "primary_agent": "Bragi",
+            "answer": "One grounded capability record is available.",
+            "facts": {"evidence_refs": [f"agent-state:Bragi:sha256:{digest}"]},
+            "conversation_policy": {"prompt_sha256": digest},
+        },
+    )
+
+    assert error is None
+    assert normalized is not None
+    assert normalized["facts"]["evidence_refs"] == [f"agent-state:Bragi:sha256:{digest}"]
 
 
 def test_each_agent_tool_projects_a_distinct_owned_fact_scope() -> None:
@@ -278,7 +297,7 @@ def test_tool_result_preserves_evidence_trace_and_policy() -> None:
         "snapshot_ref:snapshot-three",
     )
     assert len(result.prompt_sha256) == 64
-    assert result.charter_version == "v1"
+    assert result.charter_version == "v2"
     assert len(result.charter_sha256) == 64
     assert result.allowed_tools == heimdall.spec.conversation.tools
     counters = runtime.health()["conversation_tools"]["by_agent"]["Heimdall"]["counters"]

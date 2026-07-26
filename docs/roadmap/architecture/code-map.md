@@ -135,6 +135,10 @@ framework helpers live under `_framework/`. See
 [.github/instructions/agent-pantheon.instructions.md](../../../.github/instructions/agent-pantheon.instructions.md)
 for the fork-locked role bindings and change contract.
 
+Conversation charters live in `_framework/pantheon.py`; bounded T1/T2 discussion contracts live in
+`_framework/deliberation.py` and are orchestrated by Bragi through `PantheonRuntime.deliberate`.
+See [conversational-deliberation.md](../agents/conversational-deliberation.md).
+
 | Agent | Role | Source | Design doc |
 |-------|------|--------|------------|
 | Odin | Master planner + tie-breaker | [odin.py](../../../src/fdai/agents/odin.py) | [agent-pantheon.md](../agents/agent-pantheon.md) |
@@ -206,7 +210,7 @@ for the fork-locked role bindings and change contract.
 | Path | Purpose |
 |------|---------|
 | [src/fdai/composition/\_\_init\_\_.py](../../../src/fdai/composition/__init__.py) | Facade + `default_container` + `default_container_from_env`. |
-| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, `LlmBindings`, `LlmBindingsUnavailableError`. |
+| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, `LlmBindings` including optional conversation T2 synthesis, `LlmBindingsUnavailableError`. |
 | [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM binder (composition-time model resolution). |
 | [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire container + `AzureWireOverrides`. |
 | [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | Change-feed factory wiring (Azure DevOps / GitHub change producers). |

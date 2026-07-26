@@ -43,6 +43,7 @@ from fdai.agents._framework.conversation_tools import (
     AgentConversationToolRegistry,
     AgentToolResult,
 )
+from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import (
@@ -141,6 +142,7 @@ class PantheonRuntime:
         action_types: tuple[OntologyActionType, ...] = (),
         handler_observer: AgentHandlerObserver | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
+        conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
         semantic_router_config: SemanticRouterConfig | None = None,
         conversation_tool_timeout_seconds: float = 5.0,
     ) -> PantheonRuntime:
@@ -206,13 +208,18 @@ class PantheonRuntime:
             handler_observer=handler_observer,
         )
         instantiated = instantiate_pantheon()
-        if conversation_embedding_model is not None:
+        if conversation_embedding_model is not None or conversation_t2_synthesizer is not None:
             instantiated["Bragi"] = Bragi(
-                semantic_router=SemanticAgentRouter(
-                    embedding_model=conversation_embedding_model,
-                    specs=PANTHEON_SPECS,
-                    config=semantic_router_config,
-                )
+                semantic_router=(
+                    SemanticAgentRouter(
+                        embedding_model=conversation_embedding_model,
+                        specs=PANTHEON_SPECS,
+                        config=semantic_router_config,
+                    )
+                    if conversation_embedding_model is not None
+                    else None
+                ),
+                t2_synthesizer=conversation_t2_synthesizer,
             )
         if discovery_projector is not None:
             instantiated["Huginn"] = Huginn(discovery_projector=discovery_projector)
@@ -515,6 +522,28 @@ class PantheonRuntime:
             question,
             requester=requester,
             context={"correlation_id": correlation_id} if correlation_id else None,
+        )
+
+    async def deliberate(
+        self,
+        *,
+        question: str,
+        requester: str,
+        correlation_id: str = "",
+    ) -> dict[str, Any]:
+        """Run bounded read-only T1/T2 discussion through Bragi."""
+        if self._bragi is None:
+            return {
+                "status": "abstain",
+                "reason": "conversational_port_unavailable",
+                "authority": "presentation_only",
+                "rounds": [],
+                "trace_ref": correlation_id,
+            }
+        return await self._bragi.deliberate(
+            question=question,
+            requester=requester,
+            correlation_id=correlation_id,
         )
 
     async def invoke_conversation_tool(

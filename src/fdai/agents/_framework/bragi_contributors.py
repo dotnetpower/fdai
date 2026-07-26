@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
@@ -17,6 +18,8 @@ _MAX_ANSWER_CHARS = 16_000
 _IDENTITY_KEYS = ("resource_id", "scope_ref", "id", "correlation_id")
 _HIGH_SIGNAL_KEYS = ("state", "status", "verdict", "mode", "health", "outcome")
 _MAX_CONFLICTS = 8
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_REF_SHA256 = re.compile(r"(?<=:sha256:)[0-9a-f]{64}")
 
 
 def normalize_responder_answer(
@@ -55,7 +58,13 @@ def normalize_responder_answer(
         return None, "response_invalid"
     if len(encoded) > _MAX_RESPONSE_BYTES:
         return None, "response_too_large"
-    if scan_text(encoded.decode("utf-8")):
+    sensitivity_input = json.dumps(
+        _mask_structured_digests(normalized_input),
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+    if scan_text(sensitivity_input):
         return None, "sensitive_output"
     normalized = json.loads(encoded)
     return (
@@ -190,6 +199,22 @@ def _evidence_refs(facts: object) -> list[str]:
         return []
     raw = facts.get("evidence_refs")
     return [str(item) for item in raw[:20] if str(item)] if isinstance(raw, list | tuple) else []
+
+
+def _mask_structured_digests(value: object, *, key: str = "") -> object:
+    if isinstance(value, Mapping):
+        return {
+            str(item_key): _mask_structured_digests(item, key=str(item_key))
+            for item_key, item in value.items()
+        }
+    if isinstance(value, list | tuple):
+        return [_mask_structured_digests(item, key=key) for item in value]
+    if isinstance(value, str):
+        if key.endswith("sha256") and _SHA256.fullmatch(value):
+            return "<sha256>"
+        if key == "evidence_refs":
+            return _REF_SHA256.sub("<digest>", value)
+    return value
 
 
 __all__ = [

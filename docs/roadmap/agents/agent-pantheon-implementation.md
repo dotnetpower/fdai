@@ -776,14 +776,12 @@ returns a **stub abstain** for T2; the mixed-model cross-check and grounding
 land in a later wave behind the `LlmBindings` seam. Until then a novel case
 routes to HIL rather than to a model verdict - fail toward safety.
 
-**Conversational-port narrator.** The two-port model's human half ships with a
-**deterministic, LLM-free renderer** upstream: every agent answers an
-introspection turn from its immutable `AgentSpec` and owned data (the shared
-`facts` in `src/fdai/agents/_framework/introspection.py`). A fork - or the later
-narrator wave - swaps an LLM-backed narrator over the *same* `facts` (RAG over
-owned data plus `owns_code_paths`) without changing the contract; the narrator
-renders in the operator's locale (L3) while the intent, verdict, and audit
-underneath stay L0 English (language.instructions.md).
+**Conversational-port deliberation.** Every agent still answers from its immutable
+`AgentSpec` and owned `facts`. The explicit discussion path requires T1 semantic participant
+selection, then runs one primary position plus bounded peer critiques. An optional
+`T2ConversationSynthesizer` on `LlmBindings` can render those owner-attributed claims; no default
+Azure adapter is implied. T2 failure preserves T1, and every result is presentation-only. The
+typed verdict, approval, execution, rollback, audit, and promotion owners remain unchanged.
 
 **Metering (measured, never estimated).** Every metered T1, T2, and narrator call
 records the provider's measured `usage` through a `MeteringSink`. The narrator
