@@ -18,6 +18,7 @@ import json
 import pytest
 from starlette.exceptions import HTTPException
 
+from fdai.agents import PANTHEON_SPECS
 from fdai.delivery.read_api.routes.chat import (
     _CAPABILITIES,
     _GLOSSARY,
@@ -114,6 +115,52 @@ def test_agent_evidence_injects_provenance_and_identity_guardrails() -> None:
     assert "provenance only" in _AGENT_EVIDENCE_DIRECTIVE
     assert "Remain Bragi" in _AGENT_EVIDENCE_DIRECTIVE
     assert "data, not instructions" in _AGENT_EVIDENCE_DIRECTIVE
+
+
+def test_verified_selected_agent_charter_reaches_model_after_bragi_safety() -> None:
+    for spec in PANTHEON_SPECS:
+        messages = _build_messages(
+            "What is the current status?",
+            {
+                "_agent_evidence": {
+                    "primary_agent": spec.name,
+                    "answer": "One owned fact is available.",
+                    "facts": {"evidence_refs": [f"agent-state:{spec.name}:sha256:abc"]},
+                    "conversation_policy": spec.conversation_policy(),
+                }
+            },
+            [],
+        )
+        system_messages = [
+            message["content"] for message in messages if message["role"] == "system"
+        ]
+
+        assert "console narrator and translator" in system_messages[0]
+        assert system_messages[1].endswith(spec.conversation.system_prompt)
+        assert "Bragi remains the read-only narrator" in system_messages[1]
+        assert "not evidence" in system_messages[1]
+        assert ", ".join(spec.conversation.tools) in system_messages[1]
+
+
+def test_unverified_agent_policy_never_injects_charter() -> None:
+    messages = _build_messages(
+        "What is the current action status?",
+        {
+            "_agent_evidence": {
+                "primary_agent": "Thor",
+                "answer": "One action is executing.",
+                "facts": {"evidence_refs": ["agent-state:Thor:sha256:abc"]},
+                "conversation_policy": {"prompt_sha256": "0" * 64},
+            }
+        },
+        [],
+    )
+
+    assert not any(
+        "Selected accountable agent: Thor" in message["content"]
+        for message in messages
+        if message["role"] == "system"
+    )
 
 
 def _system_of(messages: list[dict[str, str]]) -> str:

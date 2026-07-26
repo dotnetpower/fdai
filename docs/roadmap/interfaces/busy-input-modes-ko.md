@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 9054358525217993baa95ab6f15d65f3c6be7cf5
-translation_revised: 2026-07-26
+translation_source_sha: 3c438d172cec6d63abd3036070b421883d1172cd
+translation_revised: 2026-07-27
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -63,7 +63,8 @@ Agent-targeted active turn은 read API가 bounded cross-process conversational b
 typed pipeline event를 취소하지 않습니다. Bridge timeout은 명시적인 agent-to-Bragi handoff를 반환하고,
 queued input은 자체 idempotency identity를 가진 새 request를 시작합니다.
 Queue, interrupt 및 steer는 Bragi narrator identity를 유지합니다. Versioned agent-charter
-metadata는 provenance로만 유지되며 rerun 중 evidence 또는 authority가 되지 않습니다.
+metadata는 provenance로만 유지되며 rerun 중 evidence 또는 authority가 되지 않습니다. 각 rerun은
+fresh exact policy match 후에만 selected charter를 주입하고 Bragi global safety prompt를 먼저 유지합니다.
 Atomic-claim verification도 생성된 agent narration을 제외하고 queued 또는 steered rerun 전반에서
 agent의 durable evidence ref에 rooted된 고유 fact leaf pointer를 유지합니다.
 

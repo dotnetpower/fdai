@@ -6,7 +6,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from fdai.agents import PantheonRuntime
+from fdai.agents import PANTHEON_SPECS, PantheonRuntime
 from fdai.delivery.read_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.delivery.read_api.routes.chat_evidence_enrichment import _with_agent_evidence
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -32,6 +32,8 @@ def test_routes_question_to_owning_agent() -> None:
     assert result is not None
     assert result["primary_agent"] == "Njord"
     assert result["facts"]["agent"] == "Njord"
+    njord = next(spec for spec in PANTHEON_SPECS if spec.name == "Njord")
+    assert result["conversation_policy"] == njord.conversation_policy()
 
 
 def test_same_client_session_is_isolated_between_users() -> None:

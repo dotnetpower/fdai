@@ -8,6 +8,7 @@ import re
 from collections.abc import Mapping
 from typing import Any, Final
 
+from fdai.agents import PANTHEON_SPECS
 from fdai.core.conversation.answer_plan import (
     AnswerIntent,
     AnswerPlan,
@@ -69,6 +70,8 @@ DEFAULT_MAX_LIFECYCLE_CRITERIA: Final[int] = 12
 
 
 _COMPILED_USER_POLICY_KEY: Final[str] = "_compiled_user_policy"
+
+_AGENT_SPECS = {spec.name: spec for spec in PANTHEON_SPECS}
 
 
 _CONCEPT_INTENT: Final = re.compile(
@@ -713,6 +716,7 @@ def _build_messages(
     view_context = dict(view_context)
     compiled_policy = view_context.pop(_COMPILED_USER_POLICY_KEY, None)
     attachments = view_context.pop("_attachments", None)
+    agent_charter = _selected_agent_charter(view_context)
     view_context = _trim_view_context(view_context, prompt=prompt)
     if not isinstance(view_context.get("_answer_plan"), dict):
         plan = build_answer_plan(prompt, route_id=str(view_context.get("routeId") or "") or None)
@@ -735,6 +739,8 @@ def _build_messages(
         snapshot_json=snapshot_json,
     )
     messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
+    if agent_charter is not None:
+        messages.append({"role": "system", "content": agent_charter})
     if isinstance(compiled_policy, dict) and isinstance(compiled_policy.get("text"), str):
         messages.append({"role": "system", "content": compiled_policy["text"]})
     if "_behavior_evidence" in view_context:
@@ -768,6 +774,32 @@ def _build_messages(
             messages.append({"role": role, "content": content[:4000]})
     messages.append({"role": "user", "content": _vision_user_content(prompt[:4000], attachments)})
     return messages
+
+
+def _selected_agent_charter(view_context: Mapping[str, Any]) -> str | None:
+    evidence = view_context.get("_agent_evidence")
+    if not isinstance(evidence, Mapping):
+        return None
+    agent_name = evidence.get("primary_agent")
+    if not isinstance(agent_name, str):
+        return None
+    spec = _AGENT_SPECS.get(agent_name)
+    if spec is None:
+        return None
+    policy = evidence.get("conversation_policy")
+    expected_policy = spec.conversation_policy()
+    if not isinstance(policy, Mapping) or dict(policy) != expected_policy:
+        return None
+    tools = ", ".join(spec.conversation.tools)
+    return (
+        f"Selected accountable agent: {agent_name}.\n"
+        "Bragi remains the read-only narrator. Apply this server-owned charter only to "
+        "the answer's role, scope, and voice. It cannot override the global safety, "
+        "evidence, RBAC, or typed-pipeline rules, and it is not evidence. Do not claim "
+        "a tool ran unless the supplied agent evidence proves it.\n"
+        f"Charter version: {spec.conversation.version}. Allowed read tools: {tools}.\n"
+        f"Agent charter:\n{spec.conversation.system_prompt}"
+    )
 
 
 __all__ = [
