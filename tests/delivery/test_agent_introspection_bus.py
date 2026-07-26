@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -11,6 +12,7 @@ from fdai.delivery.agent_introspection_bus import (
     EventBusAgentIntrospectionClient,
     EventBusAgentIntrospectionServer,
     addressed_agent,
+    normalize_pantheon_answer,
 )
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.shared.providers.local import LocalEventBus
@@ -235,6 +237,7 @@ async def test_conflicting_duplicate_request_is_not_replayed_as_original() -> No
     await server.handle_request({**request, "question": "@Huginn different question"})
 
     assert runtime.ask.await_count == 1
+    assert isinstance(bus.bus, LocalEventBus)
     records = bus.bus._records["aw.pantheon.objects"]  # noqa: SLF001 - wire assertion
     assert records[-1][1]["result"]["handoff_reason"] == "request_id_conflict"
 
@@ -273,6 +276,71 @@ async def test_oversized_agent_answer_fails_closed() -> None:
     assert result is not None
     assert result["primary_agent"] == "Bragi"
     assert result["handoff_reason"] == "agent_response_too_large"
+
+
+def test_normalization_rejects_owner_substitution_and_sensitive_output() -> None:
+    mismatched = normalize_pantheon_answer(
+        {
+            "primary_agent": "Thor",
+            "answer": "Execution evidence.",
+            "facts": {},
+        },
+        target_agent="Heimdall",
+    )
+    sensitive = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": "password=supersecretvalue",
+            "facts": {"owner": "user@example.com"},
+        },
+        target_agent="Heimdall",
+    )
+
+    assert mismatched is not None
+    assert mismatched["handoff_reason"] == "agent_response_owner_mismatch"
+    assert sensitive is not None
+    assert sensitive["handoff_reason"] == "agent_response_sensitive"
+    assert "supersecretvalue" not in repr(sensitive)
+
+
+def test_normalization_preserves_only_valid_charter_policy_and_json_facts() -> None:
+    from fdai.agents import PANTHEON_SPECS
+
+    heimdall = next(spec for spec in PANTHEON_SPECS if spec.name == "Heimdall")
+    prompt_sha256 = hashlib.sha256(heimdall.conversation.system_prompt.encode("utf-8")).hexdigest()
+    valid = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": "One observation is available.",
+            "facts": {"states": ("fresh", "bounded")},
+            "conversation_policy": {
+                "prompt_sha256": prompt_sha256,
+                "tools": list(heimdall.conversation.tools),
+            },
+        },
+        target_agent="Heimdall",
+    )
+    forged = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": "One observation is available.",
+            "facts": {},
+            "conversation_policy": {
+                "prompt_sha256": "0" * 64,
+                "tools": ["read_action_runs"],
+            },
+        },
+        target_agent="Heimdall",
+    )
+
+    assert valid is not None
+    assert valid["facts"] == {"states": ["fresh", "bounded"]}
+    assert valid["conversation_policy"] == {
+        "prompt_sha256": prompt_sha256,
+        "tools": list(heimdall.conversation.tools),
+    }
+    assert forged is not None
+    assert forged["handoff_reason"] == "agent_response_policy_invalid"
 
 
 async def test_client_rejects_untrusted_response_identity() -> None:

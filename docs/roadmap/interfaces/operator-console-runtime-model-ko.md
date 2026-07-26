@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: f5da14dd7cd0eafde9bcfae2bd24aba50df90e91
+translation_source_sha: fdf4f8c27c8750744b67480be84bed7ce28edbe1
 translation_revised: 2026-07-26
 ---
 
@@ -74,8 +74,10 @@ Core runtime만 Pantheon을 소유합니다. 분리된 read API는 두 번째 ag
 Server-echo probe로 response consumer를 확인하고 retry 중 같은 joining consumer를 재사용하며 최초
 Event Hubs group join을 최대 20초 허용합니다. Request는 최대 4 KiB question과 process-secret salted
 SHA-256 user/session reference를 전달합니다. Response는 answer 16 KiB, 전체 result 64 KiB, 대기 20초,
-pending request 256개로 제한합니다. 고정 agent 이름 검증, conflicting request-id replay 거부, 5분 cache
-expiry, late/unmatched response 무시를 적용합니다. Failure는 attention 상태로 Bragi에 handoff하며 선택한
+pending request 256개로 제한합니다. 고정 agent 이름과 정확한 target ownership을 검증하고 전체 normalized
+result에서 sensitive value를 검사하며, 고정 target `AgentSpec`과 일치하는 charter hash 및 tool manifest만
+유지합니다. Facts는 process boundary를 넘기 전에 bounded JSON으로 round-trip합니다. Conflicting request-id
+replay 거부, 5분 cache expiry, late/unmatched response 무시를 적용합니다. Failure는 attention 상태로 Bragi에 handoff하며 선택한
 agent가 evidence를 제공했다고 주장하지 않습니다. Service topic은 action, judgment, approval 또는
 executor authority를 부여하지 않습니다.
 

@@ -14,7 +14,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from fdai.agents import PANTHEON_NAMES
+from fdai.agents import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 from fdai.shared.providers.event_bus import EventBus
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,6 +41,15 @@ _SAFE_ID = re.compile(r"^[A-Za-z0-9._:-]+$")
 _AGENT_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
 _AT_AGENT = re.compile(r"@([A-Za-z][A-Za-z0-9-]*)")
 _ASK_AGENT = re.compile(r"\bask\s+([A-Za-z][A-Za-z0-9-]*)\b", re.IGNORECASE)
+_EXPECTED_CONVERSATION_POLICY = {
+    spec.name: {
+        "prompt_sha256": hashlib.sha256(
+            spec.conversation.system_prompt.encode("utf-8")
+        ).hexdigest(),
+        "tools": list(spec.conversation.tools),
+    }
+    for spec in PANTHEON_SPECS
+}
 
 
 class PantheonConversationRuntime(Protocol):
@@ -120,6 +130,8 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
         )
     if len(answer) > _MAX_ANSWER_CHARS:
         return _handoff(target_agent, "agent_response_too_large")
+    if primary != target_agent:
+        return _handoff(target_agent, "agent_response_owner_mismatch")
     facts = raw.get("facts")
     safe_facts = dict(facts) if isinstance(facts, Mapping) else {}
     contributors = raw.get("contributors")
@@ -138,6 +150,12 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
         "facts": safe_facts,
         "contributors": safe_contributors,
     }
+    raw_policy = raw.get("conversation_policy")
+    if raw_policy is not None:
+        expected_policy = _EXPECTED_CONVERSATION_POLICY[target_agent]
+        if not isinstance(raw_policy, Mapping) or dict(raw_policy) != expected_policy:
+            return _handoff(target_agent, "agent_response_policy_invalid")
+        result["conversation_policy"] = dict(expected_policy)
     trace_ref = raw.get("trace_ref")
     if isinstance(trace_ref, str) and trace_ref:
         result["trace_ref"] = trace_ref[:256]
@@ -147,7 +165,10 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
         return _handoff(target_agent, "agent_response_invalid")
     if len(encoded) > _MAX_RESULT_BYTES:
         return _handoff(target_agent, "agent_response_too_large")
-    return result
+    if scan_text(encoded.decode("utf-8")):
+        return _handoff(target_agent, "agent_response_sensitive")
+    normalized = json.loads(encoded)
+    return dict(normalized) if isinstance(normalized, Mapping) else None
 
 
 @dataclass(slots=True)
