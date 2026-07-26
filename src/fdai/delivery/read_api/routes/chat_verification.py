@@ -294,19 +294,25 @@ def verify_answer(
         result = tool.get("result")
         state = result.get("status") if isinstance(result, Mapping) else None
         health_refs = subscription_health_evidence_refs(tool)
-        if state in {"matched", "partial"}:
+        if state == "matched":
             return AnswerVerification(
                 status=_changed(provisional, health_answer),
                 answer=health_answer,
                 authority="server_subscription_health",
-                checks_completed=1 if state == "matched" else 0,
+                checks_completed=1,
                 checks_total=1,
                 evidence_refs=health_refs,
-                reason_code=(
-                    "subscription_health_grounded"
-                    if state == "matched"
-                    else "subscription_health_partial"
-                ),
+                reason_code="subscription_health_grounded",
+            )
+        if state == "partial":
+            return AnswerVerification(
+                status="unverified",
+                answer=health_answer,
+                authority="server_subscription_health",
+                checks_completed=0,
+                checks_total=1,
+                evidence_refs=health_refs,
+                reason_code="subscription_health_partial",
             )
         return AnswerVerification(
             status="unverified",

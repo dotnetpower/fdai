@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 99f8fe5592a5dc3086b190d0dee0b76a6d203521
-translation_revised: 2026-07-24
+translation_source_sha: 7d82d4bfaf9aa9783757728f9ea699544bc5929e
+translation_revised: 2026-07-26
 ---
 
 # Azure 읽기 조사
@@ -137,8 +137,9 @@ input은 이를 넓힐 수 없습니다. Provider는 다음 bounded step을 수�
 
 초기 metric map은 VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU 및
 Application Gateway healthy-host count를 다룹니다. Unsupported resource type은 count에 남아
-표시됩니다. Metric failure는 healthy 결론이 아니라 `partial`을 생성합니다. 응답은 결정적이며
-narrator model을 호출하지 않습니다.
+표시됩니다. Metric failure는 healthy 결론이 아니라 `partial`을 생성합니다. Terminal answer는 bounded
+evidence를 유지하지만 verification을 completed check 0건의 `unverified`로 보고합니다. 응답은
+결정적이며 narrator model을 호출하지 않습니다.
 
 ## Evidence 계약
 

@@ -296,7 +296,10 @@ renders token usage.
 Verification metadata is accepted only when check counters are nonnegative integers with completed
 checks no greater than total checks. Atomic claim spans are ordered nonnegative integers, manifest
 schema version 1 is explicit, and claim, failed-claim, and used-evidence references have no duplicate
-or dangling identifiers. Invalid combinations become an unverified malformed artifact.
+or dangling identifiers. A non-`unverified` terminal status has all declared checks completed;
+partial evidence remains visible but terminal verification stays `unverified`. Invalid combinations
+become an unverified malformed artifact. Failed-claim identifiers exactly match unsupported or
+ambiguous claims, and a manifest has the same authority as its verification envelope.
 The browser mirrors the producer caps of 64 claims, 512 evidence entries, and eight additional
 document references. Artifact identifiers are limited to 1 KiB, rendered values to 16 KiB, and
 anchor or alias lists to 64 items. Live replies and session replay use the same parser, so reload

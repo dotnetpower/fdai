@@ -248,7 +248,16 @@ export function parseAnswerVerification(raw: unknown): AnswerVerification | unde
   const malformedArtifact = malformedCounters || refs === null || failedClaimIds === null ||
     reasonCode === undefined ||
     (artifactPresent && (claims === null || manifest === null)) ||
-    !verificationArtifactsAgree(claims, manifest, failedClaimIds ?? []);
+    !verificationArtifactsAgree({
+      status,
+      authority: record.authority,
+      checksCompleted,
+      checksTotal,
+      refs,
+      claims,
+      manifest,
+      failedClaimIds: failedClaimIds ?? [],
+    });
   return {
     status: malformedArtifact ? "unverified" : status,
     authority: record.authority,
@@ -395,22 +404,52 @@ function parseEvidenceManifest(raw: unknown): AnswerEvidenceManifest | null | un
   };
 }
 
-function verificationArtifactsAgree(
-  claims: AtomicAnswerClaim[] | null,
-  manifest: AnswerEvidenceManifest | null | undefined,
-  failedClaimIds: readonly string[],
-): boolean {
-  if (claims === null || manifest === null) return false;
-  const claimIds = new Set(claims.map((claim) => claim.claim_id));
-  if (claimIds.size !== claims.length) return false;
-  if (new Set(failedClaimIds).size !== failedClaimIds.length) return false;
-  if (failedClaimIds.some((claimId) => !claimIds.has(claimId))) return false;
-  if (manifest === undefined) return true;
-  const manifestRefs = new Set(manifest.entries.map((entry) => entry.ref));
-  if (manifestRefs.size !== manifest.entries.length) return false;
-  const claimRefs = new Set(claims.flatMap((claim) => claim.evidence_refs));
+function verificationArtifactsAgree(input: {
+  readonly status: AnswerVerificationStatus;
+  readonly authority: string;
+  readonly checksCompleted: number | null;
+  readonly checksTotal: number | null;
+  readonly refs: readonly string[] | null;
+  readonly claims: AtomicAnswerClaim[] | null;
+  readonly manifest: AnswerEvidenceManifest | null | undefined;
+  readonly failedClaimIds: readonly string[];
+}): boolean {
+  if (
+    input.checksCompleted === null ||
+    input.checksTotal === null ||
+    input.refs === null ||
+    input.claims === null ||
+    input.manifest === null
+  ) return false;
+  if (new Set(input.refs).size !== input.refs.length) return false;
+  if (input.status !== "unverified" && input.checksCompleted !== input.checksTotal) return false;
+  const claimIds = new Set(input.claims.map((claim) => claim.claim_id));
+  const actualFailedClaimIds = input.claims
+    .filter((claim) => claim.status !== "supported")
+    .map((claim) => claim.claim_id);
+  if (claimIds.size !== input.claims.length) return false;
+  if (new Set(input.failedClaimIds).size !== input.failedClaimIds.length) return false;
+  if (!sameStringSet(input.failedClaimIds, actualFailedClaimIds)) return false;
+  if (input.claims.some((claim) => new Set(claim.evidence_refs).size !== claim.evidence_refs.length)) {
+    return false;
+  }
+  if (input.claims.length > 0) {
+    const supported = input.claims.length - actualFailedClaimIds.length;
+    if (input.checksTotal !== input.claims.length || input.checksCompleted !== supported) return false;
+  }
+  if (input.manifest === undefined) return true;
+  if (input.authority !== input.manifest.authority) return false;
+  const manifestRefs = new Set(input.manifest.entries.map((entry) => entry.ref));
+  if (manifestRefs.size !== input.manifest.entries.length) return false;
+  const claimRefs = new Set(input.claims.flatMap((claim) => claim.evidence_refs));
   if ([...claimRefs].some((ref) => !manifestRefs.has(ref))) return false;
   return [...manifestRefs].every((ref) => claimRefs.has(ref));
+}
+
+function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((value) => rightSet.has(value));
 }
 
 function nonnegativeSafeInteger(raw: unknown): number | null {

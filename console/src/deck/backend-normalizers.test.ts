@@ -167,4 +167,25 @@ describe("parseAnswerVerification", () => {
     expect(parsed?.claims?.length ?? 0).toBeLessThanOrEqual(64);
     expect(parsed?.evidence_refs.length).toBeLessThanOrEqual(520);
   });
+
+  it.each([
+    { status: "verified", checks_completed: 0, checks_total: 1, claims: [], evidence_manifest: undefined },
+    { evidence_refs: ["e-1", "e-1"] },
+    { failed_claim_ids: ["c001"] },
+    {
+      claims: [claim({ status: "unsupported" })],
+      failed_claim_ids: [],
+      checks_completed: 0,
+    },
+    {
+      claims: [claim({ status: "unsupported", evidence_refs: ["e-1", "e-1"] })],
+      failed_claim_ids: ["c001"],
+      checks_completed: 0,
+    },
+    { evidence_manifest: manifest({ authority: "other_authority" }) },
+  ])("downgrades semantically contradictory verification metadata: %o", (artifact) => {
+    const parsed = parseAnswerVerification(verification(artifact));
+    expect(parsed?.status).toBe("unverified");
+    expect(parsed?.reason_code).toBe("malformed_verification_artifact");
+  });
 });

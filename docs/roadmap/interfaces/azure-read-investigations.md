@@ -137,8 +137,9 @@ allowlist. Browser input cannot widen it. The provider performs these bounded st
 
 The initial metric map covers VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU,
 and Application Gateway healthy-host count. Unsupported resource types remain counted and visible.
-A metric failure produces `partial`, never a healthy conclusion. The response is deterministic and
-does not call the narrator model.
+A metric failure produces `partial`, never a healthy conclusion. The terminal answer keeps the
+bounded evidence but reports verification as `unverified` with zero completed checks. The response
+is deterministic and does not call the narrator model.
 
 ## Evidence contract
 

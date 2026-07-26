@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 73e9ee3915d266c8aaa9eff1f0049582f731ff87
+translation_source_sha: 90dd88fe33a15fddb5618e6eb65e92e9c5430b36
 translation_revised: 2026-07-26
 ---
 
@@ -292,7 +292,10 @@ usage를 표시하려면 token total과 prompt 및 completion component가 각�
 Verification metadata는 check counter가 nonnegative integer이고 completed check가 total check보다
 크지 않을 때만 허용됩니다. Atomic claim span은 순서가 맞는 nonnegative integer이고 manifest schema
 version 1을 명시하며 claim, failed-claim 및 used-evidence reference에는 duplicate 또는 dangling
-identifier가 없어야 합니다. 잘못된 조합은 unverified malformed artifact가 됩니다.
+identifier가 없어야 합니다. `unverified`가 아닌 terminal status는 선언된 check를 모두 완료하며,
+partial evidence는 표시하되 terminal verification은 `unverified`로 유지합니다. 잘못된 조합은
+unverified malformed artifact가 됩니다. Failed-claim identifier는 unsupported 또는 ambiguous claim과
+정확히 일치하며 manifest는 verification envelope과 동일한 authority를 사용합니다.
 Browser는 producer cap인 claim 64개, evidence entry 512개 및 추가 document reference 8개를 동일하게
 적용합니다. Artifact identifier는 1 KiB, rendered value는 16 KiB, anchor 또는 alias list는 64개로
 제한됩니다. Live reply와 session replay는 동일한 parser를 사용하므로 reload 후 HTTP boundary가

@@ -71,7 +71,7 @@ async def _provider(
     }
 
 
-def test_subscription_health_question_uses_verified_deterministic_answer() -> None:
+def test_partial_subscription_health_answer_fails_closed() -> None:
     backend = _Backend()
     app = Starlette(
         routes=[
@@ -92,8 +92,9 @@ def test_subscription_health_question_uses_verified_deterministic_answer() -> No
     assert response.status_code == 200
     payload = response.json()
     assert payload["verification"]["authority"] == "server_subscription_health"
-    assert payload["verification"]["status"] == "verified"
+    assert payload["verification"]["status"] == "unverified"
     assert payload["verification"]["checks_completed"] == 0
+    assert payload["verification"]["checks_total"] == 1
     assert payload["verification"]["reason_code"] == "subscription_health_partial"
     assert "리소스 12개" in payload["answer"]
     assert "vm-app" in payload["answer"]
