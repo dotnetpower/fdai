@@ -1807,6 +1807,11 @@
         "ground": "답변과 근거 연결",
         "verify": "답변 검사 수행"
       },
+      "stageDetail": {
+        "manifestSourcesAvailable": "manifest source {available}/{total}개 사용 가능",
+        "reference": "근거 reference {count}개",
+        "references": "근거 reference {count}개"
+      },
       "side": {
         "read": "조회",
         "route": "추론",

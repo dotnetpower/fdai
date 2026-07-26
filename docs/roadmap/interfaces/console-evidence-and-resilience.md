@@ -165,7 +165,8 @@ production CSS bundling is unchanged.
 The SPA resolves display locale from the operator preference. Reusable strings come from the main
 English-source catalog or a complete route-local English/Korean pair with mandatory English
 fallback. Static key coverage, catalog parity, route fallback tests, and the console suite prevent
-untranslated display text from returning.
+untranslated display text from returning. Grounding trace labels and manifest/reference count
+details use the same catalog rather than embedding English in reconstructed evidence metadata.
 
 Localization changes presentation labels only. Machine values, workflow ids, serialized records,
 provider payloads, and validation results remain unchanged.

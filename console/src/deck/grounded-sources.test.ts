@@ -364,6 +364,8 @@ describe("groundingStages", () => {
     ).toMatchObject({
       action: "ground",
       detail: "1/3 manifest sources available",
+      detailKey: "deck.grounded.stageDetail.manifestSourcesAvailable",
+      detailParams: { available: 1, total: 3 },
       status: "attention",
     });
   });

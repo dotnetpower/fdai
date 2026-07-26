@@ -1807,6 +1807,11 @@
         "ground": "Bound answer to evidence",
         "verify": "Checked answer"
       },
+      "stageDetail": {
+        "manifestSourcesAvailable": "{available}/{total} manifest sources available",
+        "reference": "{count} evidence reference",
+        "references": "{count} evidence references"
+      },
       "side": {
         "read": "retrieve",
         "route": "inference",

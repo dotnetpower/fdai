@@ -386,7 +386,11 @@ function GroundingTrace({ stages }: { readonly stages: readonly TraceStage[] }) 
               })}
             </span>
             <span class="deck-gr-trace-detail">
-              {stage.reasonCode ? t(handoffReasonKey(stage.reasonCode)) : stage.detail}
+              {stage.reasonCode
+                ? t(handoffReasonKey(stage.reasonCode))
+                : stage.detailKey
+                  ? t(stage.detailKey, stage.detailParams)
+                  : stage.detail}
             </span>
           </span>
           <span class={`deck-gr-trace-side is-${stage.side}`}>

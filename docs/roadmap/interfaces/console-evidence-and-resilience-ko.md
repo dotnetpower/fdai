@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9878a8232687fd3a35c4709ff626e1dc1ac396df
+translation_source_sha: 04c1b3460a10f28f4f36947fc5c41aef0448ff48
 translation_revised: 2026-07-26
 ---
 
@@ -164,7 +164,8 @@ bundling은 변경하지 않습니다.
 SPA는 operator preference에서 표시 locale을 결정합니다. 재사용 문자열은 기본 영어 source
 catalog 또는 완전한 route-local 영어/한국어 쌍에서 가져오며 영어 fallback은 필수입니다. Static
 key coverage, catalog parity, route fallback test 및 console suite가 번역되지 않은 표시 text의
-재유입을 막습니다.
+재유입을 막습니다. Grounding trace label과 manifest/reference count detail도 reconstructed evidence
+metadata에 영어를 직접 넣지 않고 같은 catalog를 사용합니다.
 
 Localization은 presentation label만 바꿉니다. Machine value, workflow id, serialized record,
 provider payload 및 validation result는 변경하지 않습니다.

@@ -77,6 +77,8 @@ export interface TraceStage {
   readonly from?: string;
   readonly to?: string;
   readonly reasonCode?: string;
+  readonly detailKey?: string;
+  readonly detailParams?: Readonly<Record<string, string | number>>;
 }
 
 export function groundingAgents(
@@ -386,6 +388,14 @@ export function groundingStages(input: {
         detail: incompleteManifest
           ? `${manifest.entries.length}/${manifest.source_entry_count} manifest sources available`
           : `${refs} reference${refs === 1 ? "" : "s"}`,
+        detailKey: incompleteManifest
+          ? "deck.grounded.stageDetail.manifestSourcesAvailable"
+          : refs === 1
+            ? "deck.grounded.stageDetail.reference"
+            : "deck.grounded.stageDetail.references",
+        detailParams: incompleteManifest
+          ? { available: manifest.entries.length, total: manifest.source_entry_count }
+          : { count: refs },
         side: "ground",
         status: incompleteManifest ? "attention" : "complete",
       });
