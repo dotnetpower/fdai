@@ -85,6 +85,30 @@ def test_bragi_tie_break_prefers_governance_layer() -> None:
     assert winner_layer == "governance"
 
 
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    (
+        ("portfolio priority conflict", "Odin"),
+        ("execution history recent", "Thor"),
+        ("why was this denied", "Forseti"),
+        ("resource discovery status", "Huginn"),
+        ("security alert history", "Heimdall"),
+        ("rollback dependency health", "Vidar"),
+        ("approval backlog", "Var"),
+        ("capability list", "Bragi"),
+        ("audit log", "Saga"),
+        ("rule history", "Mimir"),
+        ("case history", "Muninn"),
+        ("rule candidate status", "Norns"),
+        ("cost breakdown", "Njord"),
+        ("sizing recommendation", "Freyr"),
+        ("chaos execution policy", "Loki"),
+    ),
+)
+def test_every_agent_has_a_deterministic_domain_route(question: str, expected: str) -> None:
+    assert Bragi().route(question).primary_agent == expected
+
+
 # ---------------------------------------------------------------------------
 # Bragi ask (routing + responder + session)
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 38c6304ef20051fc97f7800b6d64b56382ed6dfb
+translation_source_sha: faba3ff46ce3f1299b3d0ef8b1ea883609bb47f0
 translation_revised: 2026-07-26
 ---
 
@@ -362,7 +362,7 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 | Heimdall forecast | T1 (ARIMA / smoothing) | 통계로 충분, 재현 가능 |
 | Norns streaming pattern | T1 (clustering) | live signal 은 deterministic ranking 필요 |
 | Norns batch summary | T2 (off-path only) | 주간 리포트에 LLM OK, hot-path 절대 안 됨 |
-| Bragi intent classify | T0 keyword + T1 embedding, T2 fallback | hot-path 대화가 T2 지연 못 감당 |
+| Bragi intent classify | T0 keyword + T1 embedding 후 handoff | hot-path 대화는 T2로 추측하지 않음 |
 | Mimir rule 초안 | T2 (off-path, human-reviewed) | novel rule 은 LLM OK; sign-off 는 사람 |
 | Forseti verdict coherence | T0 (SQL) + T1 (embedding) | 과거 verdict 는 구조화된 audit log |
 | Var assisted decision | T0 (link 유사 case) + T2 (요약, off-path) | 카드는 요약 carry; 사람이 결정 |
@@ -470,28 +470,24 @@ Bragi는 router이지 answerer가 아닙니다. 영어 및 한국어 Azure read 
   `ActionType` 또는 한국어 조사가 붙은 `ActionType이`는 단순히 같은 어간을 가진
   agent domain으로 delegate하지 않음.
 3. **T0 keyword / regex 매칭.** Intent 토큰을 `Agent.question_domains` 와
-   비교. Domain specificity, 참조된 object type 의 ownership, 상호작용
-  recency 로 점수화. Prefix 기반 stemming은 짧은 활용 차이만 허용하며,
-  `actiontype` 같은 복합 token은 일반 `action` domain과 매칭하지 않음.
+  owned ObjectType token과 비교합니다. 완전한 multi-token domain은 partial match보다 우선하며,
+  일반적인 `status`, `history`, `health` token만으로는 route하지 않습니다. Prefix matching은
+  high-signal word로 제한하며 `actiontype`은 `action`과 매칭하지 않습니다.
 4. **T1 embedding similarity.** T0 abstention/tie는 한 번의 question embedding을 cached 영/한
   charter example과 비교합니다. Explicit/read/single-winner T0는 zero-call이며 threshold, margin,
   provider failure는 추측 없이 deterministic result를 유지합니다.
-5. **T2 intent classification.** T0/T1이 abstain하면 intent를 분류하고 scoring을 재실행합니다.
-6. **Handoff.** Scoring margin 이 여전히 임계값 미만이면
+5. **Handoff.** T0와 T1이 모두 threshold 미만이면
   `HandoffEscalation` 발행 (§6.4). 시스템은 추측 대신 GitHub issue 를
    생성한다.
 
 여러 에이전트가 매칭될 때 승자 선택은 first-match 가 아니라 점수제:
 
 ```
-score = w1 * domain_specificity
-      + w2 * ownership_bonus
-      + w3 * recency_bonus
-      + w4 * confidence_bid
+score = domain_specificity + ownership_bonus
 ```
 
-Tie-break 순서 (deterministic): specificity > ownership > recency > 판테온
-precedence (governance > pipeline > domain). 승자는 `primary_agent`, 나머지는
+Tie-break 순서 (deterministic): total score > 판테온 precedence
+(governance > pipeline > domain) > canonical agent name. 승자는 `primary_agent`, 나머지는
 `contributors`. 모든 라우팅 결정은 사후 검토를 위해 `Turn.score_breakdown` 에
 기록된다.
 
@@ -527,8 +523,8 @@ handler를 직접 호출하지 않습니다. 모든 contribution은 계속 Bragi
 
 ### 6.4 Handoff 에스컬레이션 프로토콜
 
-에이전트가 소유 데이터, T0, T1, T2 (§8 의 LLM policy 에 따라) 로 대화 요청을
-해결할 수 없으면 Bragi에 abstention을 반환합니다. Bragi는 single writer로서
+에이전트가 소유 데이터, T0 또는 T1으로 대화 요청을 해결할 수 없으면 T2로 추측하지 않고
+Bragi에 abstention을 반환합니다. Bragi는 single writer로서
 `HandoffEscalation` object를 발행합니다. Saga는 이 event를 구독하고
 `escalate_to_github_issue` action을 통해 GitHub issue로 materialize합니다.
 

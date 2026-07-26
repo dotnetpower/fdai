@@ -178,7 +178,11 @@ _HUGINN = AgentSpec(
     executes=(),
     initiates=(),
     subscribes=(),  # ingested from external adapters, not from bus
-    question_domains=("event_source_health", "resource_discovery"),
+    question_domains=(
+        "event_source_health",
+        "resource_discovery",
+        "resource_discovery_status",
+    ),
     owns_code_paths=("src/fdai/agents/huginn.py",),
 )
 
@@ -225,6 +229,7 @@ _HEIMDALL = AgentSpec(
         "external_actor",
         "security_alert_history",
         "privilege_escalation_status",
+        "discovery_health",
     ),
     owns_code_paths=("src/fdai/agents/heimdall.py",),
 )
@@ -260,7 +265,7 @@ _VIDAR = AgentSpec(
     executes=(),
     initiates=(),
     subscribes=("object.action-run",),  # picks up failures
-    question_domains=("rollback_status", "dr_readiness"),
+    question_domains=("rollback_status", "dr_readiness", "rollback_dependency_health"),
     owns_code_paths=("src/fdai/agents/vidar.py",),
     hard_dependency=True,
 )
@@ -457,7 +462,12 @@ _MUNINN = AgentSpec(
         "object.forecast-outcome",
         "object.event",
     ),
-    question_domains=("current_state", "bitemporal_state", "resource_context"),
+    question_domains=(
+        "current_state",
+        "bitemporal_state",
+        "resource_context",
+        "case_history",
+    ),
     owns_code_paths=("src/fdai/agents/muninn.py",),
 )
 
@@ -497,7 +507,12 @@ _NORNS = AgentSpec(
         "object.post-turn-review",
         "object.context-index",
     ),
-    question_domains=("pattern", "recurring_issue", "discovery_status"),
+    question_domains=(
+        "pattern",
+        "recurring_issue",
+        "learning_discovery_status",
+        "rule_candidate_status",
+    ),
     owns_code_paths=("src/fdai/agents/norns.py",),
     off_path_llm=True,
 )
@@ -605,7 +620,11 @@ _LOKI = AgentSpec(
     executes=(),
     initiates=(),
     subscribes=(),  # schedule-driven
-    question_domains=("chaos_experiment_status", "resilience_score"),
+    question_domains=(
+        "chaos_experiment_status",
+        "resilience_score",
+        "chaos_execution_policy",
+    ),
     owns_code_paths=("src/fdai/agents/loki.py",),
 )
 

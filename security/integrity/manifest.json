@@ -25,7 +25,7 @@
     "src/fdai/agents/_framework/bragi_models.py": "5defd2ee122422c520b239c9fc5b492276201f41f0cbc0ee55560769e4f38a32",
     "src/fdai/agents/_framework/bragi_progress.py": "03029f8a023594caa33e7686482b84c8e95572213865224fc0ad3be0aeccc5dc",
     "src/fdai/agents/_framework/bragi_proposal.py": "a149dbd78f5b354a9808285819b962ab346f44ed6f4235fc72fd783831513ab9",
-    "src/fdai/agents/_framework/bragi_routing.py": "c64dbd551e5d32c595b003d53ea33297201c94b8b31136a9e14eba6a4a108f47",
+    "src/fdai/agents/_framework/bragi_routing.py": "f9c69f48c2a4ba04b3554325fda495301c18a8a959bf60fca2297df588d2baef",
     "src/fdai/agents/_framework/bus.py": "6b62471c8f2c6e324ff971e92677eb509b3ed4ca21d8e0bc8f6014d24130d12a",
     "src/fdai/agents/_framework/bus_bridge.py": "630725dd26ad245b316da109d36ebb65a4c9a4bb11238caa930e8c7caa1076db",
     "src/fdai/agents/_framework/bus_metrics.py": "7f1cc31a939da501608ba0804113a3a53c087f59ea4a54a4c6f8277446cd32ac",
@@ -36,7 +36,7 @@
     "src/fdai/agents/_framework/introspection.py": "39334f8185b7344f2e387e48a08c09b60d35fc58815c0998fe5a90cab0b4def6",
     "src/fdai/agents/_framework/kpi.py": "6217a0d326c79db1b015b85d5e8884a3e767f61a79cb6bb25ab90629d39d8ead",
     "src/fdai/agents/_framework/norns_consensus.py": "f7e63d32df134c92d66caaa12c30d4f3078debec16cd150be91961fc7b4b3bfa",
-    "src/fdai/agents/_framework/pantheon.py": "42a9f3dd596e7325235636233da871019d2b3568628899903e129d99fd239358",
+    "src/fdai/agents/_framework/pantheon.py": "7ff8652f1c78e689ced5b904e0934351707df41c231f2522c597da219eb472da",
     "src/fdai/agents/_framework/provider_adapters.py": "d4d9f3fcca05c70388f5877953097efae2c3a03ecb3f774dfcb5126aaf49a156",
     "src/fdai/agents/_framework/rate_limiter.py": "4d6bdf97c04dd1c46c6cc840b6e83719a821f0fc30f6da49645a12d22e025a1a",
     "src/fdai/agents/_framework/registry.py": "c25d7e1a75e5ffb3072e099b240a182498551e5d09a85cb8a26e525d0f1859f5",
@@ -791,7 +791,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-26T05:01:18Z",
+  "generated_at": "2026-07-26T05:05:39Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

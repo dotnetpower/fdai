@@ -383,7 +383,7 @@ promote to T2.
 | Heimdall forecast | T1 (ARIMA / smoothing) | statistical is enough, reproducible |
 | Norns streaming pattern | T1 (clustering) | live signal needs deterministic ranking |
 | Norns batch summary | T2 (off-path only) | LLM ok for weekly report, never hot-path |
-| Bragi intent classify | T0 keyword + T1 embedding, T2 fallback | hot-path dialog cannot afford T2 latency |
+| Bragi intent classify | T0 keyword + T1 embedding, then handoff | hot-path dialog does not guess through T2 |
 | Mimir rule draft | T2 (off-path, human-reviewed) | novel rule OK to LLM; sign-off is human |
 | Forseti verdict coherence | T0 (SQL) + T1 (embedding) | past verdicts are structured audit log |
 | Var assisted decision | T0 (linked similar cases) + T2 (summary, off-path) | card carries summary; humans decide |
@@ -492,29 +492,24 @@ Bragi is the router, not the answerer. English and Korean Azure read intents rou
   before agent scoring. It is not delegated to an agent whose domain merely
   shares a word stem.
 3. **T0 keyword / regex match.** Compare intent tokens against
-   `Agent.question_domains`. Score by domain specificity, ownership of the
-  referenced object type, and recency of interaction. Prefix-based stemming
-  is limited to short inflectional differences; a composite token such as
-  `actiontype` does not match the generic `action` domain.
+  `Agent.question_domains` and owned ObjectType tokens. Complete multi-token domains outrank
+  partial matches, while generic `status`, `history`, or `health` tokens cannot route alone.
+  Prefix matching is limited to high-signal words; `actiontype` does not match `action`.
 4. **T1 embedding similarity.** T0 abstention or ties compare one question embedding with cached
   English/Korean charter examples. Explicit/read/single-winner T0 makes zero calls; threshold,
   margin, or provider failure preserves the deterministic result instead of guessing.
-5. **T2 intent classification.** If T0/T1 abstain, classify intent and re-run scoring.
-6. **Handoff.** If scoring margin is still below threshold, emit
+5. **Handoff.** If T0 and T1 remain below threshold, emit
   `HandoffEscalation` (§6.4). The system files a GitHub issue rather than
    guess.
 
 Winner selection is scored, not first-match, when several agents match:
 
 ```
-score = w1 * domain_specificity
-      + w2 * ownership_bonus
-      + w3 * recency_bonus
-      + w4 * confidence_bid
+score = domain_specificity + ownership_bonus
 ```
 
-Tie-break order (deterministic): specificity > ownership > recency >
-pantheon precedence (governance > pipeline > domain). The winner is
+Tie-break order (deterministic): total score > pantheon precedence
+(governance > pipeline > domain) > canonical agent name. The winner is
 `primary_agent`; the runners-up become `contributors`. Every routing
 decision is written to `Turn.score_breakdown` for later inspection.
 
@@ -551,7 +546,7 @@ boundary for every contribution.
 ### 6.4 Handoff escalation protocol
 
 When an agent cannot resolve a conversational request through its owned data,
-T0, T1, or T2 (per its LLM policy in §8), it returns an abstention to Bragi.
+T0, or T1, it returns an abstention to Bragi instead of guessing through T2.
 Bragi is the single writer that publishes the `HandoffEscalation` object.
 Saga consumes the event and materializes it into a GitHub issue via the
 `escalate_to_github_issue` action.

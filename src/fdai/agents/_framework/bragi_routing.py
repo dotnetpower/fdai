@@ -24,7 +24,9 @@ INTENT_ACTION: dict[str, str] = {
 }
 
 _WORD = re.compile(r"[a-z0-9]+")
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _PANTHEON_PRECEDENCE = {"governance": 0, "pipeline": 1, "domain": 2}
+_LOW_SIGNAL_TOKENS = frozenset({"current", "explain", "health", "history", "read", "status"})
 
 
 def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
@@ -49,12 +51,14 @@ def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
     tokens = _tokenize(question)
     scores: dict[str, float] = {}
     for spec in PANTHEON_SPECS:
-        best_score = max(
+        domain_score = max(
             (_domain_score(domain, tokens) for domain in spec.question_domains),
             default=0,
         )
-        if best_score > 0:
-            scores[spec.name] = best_score
+        ownership_score = _ownership_score(spec.owns, tokens)
+        score = domain_score + ownership_score
+        if score > 0:
+            scores[spec.name] = score
     if not scores:
         return RoutingDecision(
             primary_agent=None,
@@ -139,16 +143,17 @@ def _domain_score(domain: str, tokens: set[str]) -> float:
     domain_tokens = set(re.split(r"[_\W]+", domain.lower())) - {""}
     if not domain_tokens:
         return 0.0
-    exact = len(tokens & domain_tokens)
-    if exact == len(domain_tokens):
-        return 2.0
-    if exact:
-        return float(exact)
+    matched = tokens & domain_tokens
+    if matched == domain_tokens:
+        return 3.0 + min(len(domain_tokens), 4) * 0.2
+    high_signal = matched - _LOW_SIGNAL_TOKENS
+    if high_signal:
+        return 2.0 * len(high_signal) / len(domain_tokens)
     partial = 0
-    for token in tokens:
+    for token in tokens - _LOW_SIGNAL_TOKENS:
         if len(token) < 4:
             continue
-        for domain_token in domain_tokens:
+        for domain_token in domain_tokens - _LOW_SIGNAL_TOKENS:
             if (
                 len(domain_token) >= 4
                 and abs(len(token) - len(domain_token)) <= 3
@@ -157,6 +162,14 @@ def _domain_score(domain: str, tokens: set[str]) -> float:
                 partial += 1
                 break
     return 0.6 * partial if partial else 0.0
+
+
+def _ownership_score(object_types: tuple[str, ...], tokens: set[str]) -> float:
+    owned_tokens: set[str] = set()
+    for object_type in object_types:
+        owned_tokens.update(_tokenize(_CAMEL_BOUNDARY.sub(" ", object_type)))
+    matched = (tokens & owned_tokens) - _LOW_SIGNAL_TOKENS
+    return min(len(matched), 2) * 0.75
 
 
 def _pick_winner(scores: dict[str, float]) -> tuple[str, str | None]:
