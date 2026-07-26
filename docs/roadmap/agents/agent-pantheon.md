@@ -470,7 +470,7 @@ Partitioning:
 All 15 agents, including Bragi, expose a request-response interface by canonical name or domain
 routing. Requests and responses carry user, session, answer, trace, facts, and policy attribution.
 
-Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: bounded server-owned system instructions, English/Korean query examples, and read tools with purpose and owned-fact scopes. The runtime overwrites caller policy, projects each tool onto its distinct fact scope, and returns policy attribution without exposing instructions. Each agent grounds answers in owned state.
+Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: bounded server-owned system instructions, English/Korean query examples, and read tools with purpose and owned-fact scopes. The runtime overwrites caller policy, projects each tool onto its distinct fact scope, and attributes the version plus separate prompt and full-charter SHA-256 digests without exposing instructions. Each agent grounds answers in owned state.
 
 `is_action_intent` makes commands abstain with `requires_typed_pipeline`; chat never executes.
 `PantheonRuntime.introspect` supports attributed A2A reads and digest-only Bragi Turns.

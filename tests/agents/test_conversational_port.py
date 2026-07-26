@@ -257,6 +257,29 @@ def test_ask_refuses_action_intent_and_routes_to_typed_pipeline() -> None:
     assert turn.answer["initiator_principal"] == "u1"
 
 
+def test_charter_digest_covers_tool_scope_and_routing_examples() -> None:
+    from dataclasses import replace
+
+    original = next(spec for spec in PANTHEON_SPECS if spec.name == "Njord")
+    original_policy = original.conversation_policy()
+    assert original_policy["version"] == "v1"
+    assert len(original_policy["charter_sha256"]) == 64
+    first_tool, *remaining_tools = original.conversation.tool_specs
+    changed_tool = replace(first_tool, purpose=f"{first_tool.purpose} Revised.")
+    changed_charter = replace(
+        original.conversation,
+        tool_specs=(changed_tool, *remaining_tools),
+        routing_examples=(
+            *original.conversation.routing_examples[:-1],
+            "비용 근거를 다시 설명해 주세요.",
+        ),
+    )
+    changed_policy = replace(original, conversation=changed_charter).conversation_policy()
+
+    assert changed_policy["prompt_sha256"] == original_policy["prompt_sha256"]
+    assert changed_policy["charter_sha256"] != original_policy["charter_sha256"]
+
+
 def test_read_only_ask_never_submits_action_proposal() -> None:
     provider = InMemoryEventBus()
     runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)

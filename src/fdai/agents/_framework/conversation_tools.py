@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -34,6 +33,8 @@ class AgentToolResult:
     evidence_refs: tuple[str, ...]
     reason: str | None
     trace_ref: str
+    charter_version: str
+    charter_sha256: str
     prompt_sha256: str
     allowed_tools: tuple[str, ...]
     sensitivity_labels: tuple[str, ...] = ()
@@ -130,6 +131,7 @@ class AgentConversationToolRegistry:
                 trace_ref,
             )
         agent.record_behavior(f"conversation_tool:{tool_id}:ok")
+        charter_version, charter_sha256, prompt_sha256 = _policy_attribution(agent)
         return AgentToolResult(
             agent=agent_name,
             tool_id=tool_id,
@@ -139,7 +141,9 @@ class AgentConversationToolRegistry:
             evidence_refs=_evidence_refs(safe_facts, agent_name=agent_name),
             reason=None,
             trace_ref=result_trace_ref,
-            prompt_sha256=_prompt_digest(agent),
+            charter_version=charter_version,
+            charter_sha256=charter_sha256,
+            prompt_sha256=prompt_sha256,
             allowed_tools=agent.spec.conversation.tools,
         )
 
@@ -172,6 +176,9 @@ class AgentConversationToolRegistry:
         trace_ref: str,
     ) -> AgentToolResult:
         agent = self._agents.get(agent_name)
+        charter_version, charter_sha256, prompt_sha256 = (
+            _policy_attribution(agent) if agent is not None else ("", "", "")
+        )
         return AgentToolResult(
             agent=agent_name,
             tool_id=tool_id,
@@ -181,13 +188,20 @@ class AgentConversationToolRegistry:
             evidence_refs=(),
             reason=reason,
             trace_ref=trace_ref,
-            prompt_sha256=_prompt_digest(agent) if agent is not None else "",
+            charter_version=charter_version,
+            charter_sha256=charter_sha256,
+            prompt_sha256=prompt_sha256,
             allowed_tools=agent.spec.conversation.tools if agent is not None else (),
         )
 
 
-def _prompt_digest(agent: Agent) -> str:
-    return hashlib.sha256(agent.spec.conversation.system_prompt.encode("utf-8")).hexdigest()
+def _policy_attribution(agent: Agent) -> tuple[str, str, str]:
+    policy = agent.spec.conversation_policy()
+    return (
+        str(policy["version"]),
+        str(policy["charter_sha256"]),
+        str(policy["prompt_sha256"]),
+    )
 
 
 def _evidence_refs(facts: Mapping[str, Any], *, agent_name: str) -> tuple[str, ...]:

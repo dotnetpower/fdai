@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -16,6 +15,13 @@ from fdai.delivery.agent_introspection_bus import (
 )
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.shared.providers.local import LocalEventBus
+
+
+def _policy(agent_name: str) -> dict[str, object]:
+    from fdai.agents import PANTHEON_SPECS
+
+    spec = next(item for item in PANTHEON_SPECS if item.name == agent_name)
+    return spec.conversation_policy()
 
 
 def _bus() -> MultiplexedEventBus:
@@ -42,6 +48,7 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
                     "facts": {"dedup_size": 7, "dedup_capacity": 10000},
                     "contributors": [],
                     "trace_ref": "trace-huginn",
+                    "conversation_policy": _policy("Huginn"),
                 }
             )
         )
@@ -292,6 +299,7 @@ def test_normalization_rejects_owner_substitution_and_sensitive_output() -> None
             "primary_agent": "Heimdall",
             "answer": "password=supersecretvalue",
             "facts": {"owner": "user@example.com"},
+            "conversation_policy": _policy("Heimdall"),
         },
         target_agent="Heimdall",
     )
@@ -304,19 +312,13 @@ def test_normalization_rejects_owner_substitution_and_sensitive_output() -> None
 
 
 def test_normalization_preserves_only_valid_charter_policy_and_json_facts() -> None:
-    from fdai.agents import PANTHEON_SPECS
-
-    heimdall = next(spec for spec in PANTHEON_SPECS if spec.name == "Heimdall")
-    prompt_sha256 = hashlib.sha256(heimdall.conversation.system_prompt.encode("utf-8")).hexdigest()
+    policy = _policy("Heimdall")
     valid = normalize_pantheon_answer(
         {
             "primary_agent": "Heimdall",
             "answer": "One observation is available.",
             "facts": {"states": ("fresh", "bounded")},
-            "conversation_policy": {
-                "prompt_sha256": prompt_sha256,
-                "tools": list(heimdall.conversation.tools),
-            },
+            "conversation_policy": policy,
         },
         target_agent="Heimdall",
     )
@@ -335,12 +337,23 @@ def test_normalization_preserves_only_valid_charter_policy_and_json_facts() -> N
 
     assert valid is not None
     assert valid["facts"] == {"states": ["fresh", "bounded"]}
-    assert valid["conversation_policy"] == {
-        "prompt_sha256": prompt_sha256,
-        "tools": list(heimdall.conversation.tools),
-    }
+    assert valid["conversation_policy"] == policy
     assert forged is not None
     assert forged["handoff_reason"] == "agent_response_policy_invalid"
+
+
+def test_normalization_requires_charter_policy_for_answered_turn() -> None:
+    result = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": "One observation is available.",
+            "facts": {},
+        },
+        target_agent="Heimdall",
+    )
+
+    assert result is not None
+    assert result["handoff_reason"] == "agent_response_policy_invalid"
 
 
 async def test_client_rejects_untrusted_response_identity() -> None:

@@ -9,6 +9,7 @@ is the immutable declaration read by the registry - see
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 from collections import Counter
@@ -162,6 +163,47 @@ class AgentSpec:
             "publishes",
             tuple(f"object.{_kebab(o)}" for o in self.owns),
         )
+
+    def conversation_policy(self) -> dict[str, Any]:
+        """Return public attribution for the complete immutable charter."""
+        charter = {
+            "version": self.conversation.version,
+            "agent": self.name,
+            "layer": self.layer.value,
+            "reports_to": self.reports_to,
+            "owns": list(self.owns),
+            "executes": list(self.executes),
+            "initiates": list(self.initiates),
+            "subscribes": list(self.subscribes),
+            "question_domains": list(self.question_domains),
+            "hot_path_llm": self.hot_path_llm,
+            "off_path_llm": self.off_path_llm,
+            "hard_dependency": self.hard_dependency,
+            "system_prompt": self.conversation.system_prompt,
+            "tools": [
+                {
+                    "id": tool.tool_id,
+                    "purpose": tool.purpose,
+                    "fact_keys": list(tool.fact_keys),
+                }
+                for tool in self.conversation.tool_specs
+            ],
+            "routing_examples": list(self.conversation.routing_examples),
+        }
+        canonical = json.dumps(
+            charter,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return {
+            "version": self.conversation.version,
+            "charter_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "prompt_sha256": hashlib.sha256(
+                self.conversation.system_prompt.encode("utf-8")
+            ).hexdigest(),
+            "tools": list(self.conversation.tools),
+        }
 
 
 class Agent:
@@ -409,10 +451,7 @@ class Agent:
             "trace_ref": trace_ref,
             "abstain_reason": result.abstain_reason,
             "conversation_policy": {
-                "prompt_sha256": hashlib.sha256(
-                    self.spec.conversation.system_prompt.encode("utf-8")
-                ).hexdigest(),
-                "tools": list(self.spec.conversation.tools),
+                **self.spec.conversation_policy(),
             },
         }
         if requires_typed_pipeline:

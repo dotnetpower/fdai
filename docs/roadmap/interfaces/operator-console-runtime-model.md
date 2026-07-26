@@ -74,7 +74,9 @@ across retries, and allows 20 seconds for the initial Event Hubs group join. A r
 4 KiB maximum question plus process-secret salted SHA-256 user/session references. The response is
 limited to a 16 KiB answer and a 64 KiB result, waits at most 20 seconds, validates fixed agent
 names and exact target ownership, scans the complete normalized result for sensitive values, and
-retains only a charter hash and tool manifest that match the fixed target `AgentSpec`. Facts are
+retains only a charter hash and tool manifest that match the fixed target `AgentSpec`.
+The full-charter hash covers role fields, tool purpose/fact scopes, and multilingual routing
+examples; answered turns without exact versioned policy attribution fail closed. Facts are
 round-tripped through bounded JSON before crossing the process boundary. The client caps pending
 requests at 256, rejects conflicting request-id replay, expires cached replay after five minutes,
 and ignores late or unmatched responses. Failure produces an attention-state

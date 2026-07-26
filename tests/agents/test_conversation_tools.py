@@ -36,6 +36,8 @@ def test_every_declared_agent_tool_is_registered_and_callable() -> None:
             assert result.agent == spec.name
             assert result.tool_id == tool_id
             assert result.status in {AgentToolStatus.OK, AgentToolStatus.ABSTAIN}
+            assert result.charter_version == spec.conversation.version
+            assert len(result.charter_sha256) == 64
             assert result.prompt_sha256
             assert result.allowed_tools == spec.conversation.tools
 
@@ -195,6 +197,8 @@ def test_tool_result_preserves_evidence_trace_and_policy() -> None:
         "snapshot_ref:snapshot-three",
     )
     assert len(result.prompt_sha256) == 64
+    assert result.charter_version == "v1"
+    assert len(result.charter_sha256) == 64
     assert result.allowed_tools == heimdall.spec.conversation.tools
     counters = runtime.health()["conversation_tools"]["by_agent"]["Heimdall"]["counters"]
     assert counters["conversation_tool:read_observations:ok"] == 1

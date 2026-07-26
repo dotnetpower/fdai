@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: fdf4f8c27c8750744b67480be84bed7ce28edbe1
+translation_source_sha: 36a6fd636cbab4697d0381fc4e7a673ae13efdbd
 translation_revised: 2026-07-26
 ---
 
@@ -76,7 +76,8 @@ Event Hubs group join을 최대 20초 허용합니다. Request는 최대 4 KiB q
 SHA-256 user/session reference를 전달합니다. Response는 answer 16 KiB, 전체 result 64 KiB, 대기 20초,
 pending request 256개로 제한합니다. 고정 agent 이름과 정확한 target ownership을 검증하고 전체 normalized
 result에서 sensitive value를 검사하며, 고정 target `AgentSpec`과 일치하는 charter hash 및 tool manifest만
-유지합니다. Facts는 process boundary를 넘기 전에 bounded JSON으로 round-trip합니다. Conflicting request-id
+유지합니다. Full-charter hash는 role field, tool purpose/fact scope 및 multilingual routing example을
+포함하며 정확한 versioned policy attribution이 없는 answered turn은 fail closed합니다. Facts는 process boundary를 넘기 전에 bounded JSON으로 round-trip합니다. Conflicting request-id
 replay 거부, 5분 cache expiry, late/unmatched response 무시를 적용합니다. Failure는 attention 상태로 Bragi에 handoff하며 선택한
 agent가 evidence를 제공했다고 주장하지 않습니다. Service topic은 action, judgment, approval 또는
 executor authority를 부여하지 않습니다.
