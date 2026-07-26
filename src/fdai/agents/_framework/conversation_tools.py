@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -11,6 +10,7 @@ from enum import StrEnum
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.introspection import agent_state_evidence_ref
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
@@ -214,15 +214,7 @@ def _evidence_refs(facts: Mapping[str, Any], *, agent_name: str) -> tuple[str, .
         if (key.endswith("_ref") or key.endswith("_id")) and isinstance(value, str) and value:
             refs.append(f"{key}:{value}")
     if not refs:
-        canonical = json.dumps(
-            dict(facts),
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            default=str,
-        )
-        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        refs.append(f"agent-state:{agent_name}:sha256:{digest}")
+        refs.append(agent_state_evidence_ref(agent_name, dict(facts)))
     return tuple(dict.fromkeys(refs))
 
 

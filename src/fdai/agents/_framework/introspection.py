@@ -21,6 +21,8 @@ narrator over the same ``facts`` without changing this contract.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -246,6 +248,20 @@ def capped_list(items: Any) -> list[str]:
     return out
 
 
+def agent_state_evidence_ref(agent_name: str, facts: dict[str, Any]) -> str:
+    """Return a deterministic reference for one normalized agent fact snapshot."""
+    canonical_facts = {key: value for key, value in facts.items() if key != "evidence_refs"}
+    canonical = json.dumps(
+        canonical_facts,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"agent-state:{agent_name}:sha256:{digest}"
+
+
 # ---------------------------------------------------------------------------
 # Default capability self-description (every agent, from its AgentSpec)
 # ---------------------------------------------------------------------------
@@ -291,6 +307,7 @@ __all__ = [
     "leading_verb",
     "mentioned",
     "capped_list",
+    "agent_state_evidence_ref",
     "capability_facts",
     "capability_sentence",
 ]

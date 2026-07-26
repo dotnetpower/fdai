@@ -14,7 +14,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from fdai.agents import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents import PANTHEON_NAMES, PANTHEON_SPECS, agent_state_evidence_ref
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 from fdai.shared.providers.event_bus import EventBus
 
@@ -126,6 +126,9 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
         return _handoff(target_agent, "agent_response_owner_mismatch")
     facts = raw.get("facts")
     safe_facts = dict(facts) if isinstance(facts, Mapping) else {}
+    refs = safe_facts.get("evidence_refs")
+    if not isinstance(refs, list | tuple) or not any(str(ref) for ref in refs):
+        safe_facts["evidence_refs"] = [agent_state_evidence_ref(target_agent, safe_facts)]
     contributors = raw.get("contributors")
     safe_contributors = (
         [

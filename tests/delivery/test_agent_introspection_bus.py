@@ -74,7 +74,9 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
 
     assert result is not None
     assert result["primary_agent"] == "Huginn"
-    assert result["facts"] == {"dedup_size": 7, "dedup_capacity": 10000}
+    assert result["facts"]["dedup_size"] == 7
+    assert result["facts"]["dedup_capacity"] == 10000
+    assert result["facts"]["evidence_refs"][0].startswith("agent-state:Huginn:sha256:")
     assert runtime.ask.await_count == 1
     call = runtime.ask.await_args.kwargs
     assert call["allow_action_proposal"] is False
@@ -336,7 +338,8 @@ def test_normalization_preserves_only_valid_charter_policy_and_json_facts() -> N
     )
 
     assert valid is not None
-    assert valid["facts"] == {"states": ["fresh", "bounded"]}
+    assert valid["facts"]["states"] == ["fresh", "bounded"]
+    assert valid["facts"]["evidence_refs"][0].startswith("agent-state:Heimdall:sha256:")
     assert valid["conversation_policy"] == policy
     assert forged is not None
     assert forged["handoff_reason"] == "agent_response_policy_invalid"

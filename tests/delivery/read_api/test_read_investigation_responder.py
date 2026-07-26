@@ -191,13 +191,12 @@ async def test_chat_delegate_reports_active_direct_run_without_provider_recall()
     )
 
     assert result is not None
-    assert result["facts"] == {
-        "status": "unavailable",
-        "reason": "idempotency_rejected",
-        "retry_after_seconds": 3,
-        "intent": "resource_state",
-        "resource_name": "vm-01",
-    }
+    assert result["facts"]["status"] == "unavailable"
+    assert result["facts"]["reason"] == "idempotency_rejected"
+    assert result["facts"]["retry_after_seconds"] == 3
+    assert result["facts"]["intent"] == "resource_state"
+    assert result["facts"]["resource_name"] == "vm-01"
+    assert result["facts"]["evidence_refs"][0].startswith("agent-state:Heimdall:sha256:")
     assert executor.calls == 0
 
 

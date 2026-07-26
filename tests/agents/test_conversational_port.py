@@ -257,6 +257,23 @@ def test_ask_refuses_action_intent_and_routes_to_typed_pipeline() -> None:
     assert turn.answer["initiator_principal"] == "u1"
 
 
+def test_every_direct_agent_turn_carries_content_addressed_state_evidence() -> None:
+    runtime = _runtime()
+
+    for index, spec in enumerate(PANTHEON_SPECS):
+        turn = asyncio.run(
+            runtime.ask(
+                session_id=f"evidence-{index}",
+                user_id="operator-one",
+                question=f"{spec.name}, describe your current capability",
+            )
+        )
+        assert turn is not None
+        assert turn.answer["facts"]["evidence_refs"][0].startswith(
+            f"agent-state:{spec.name}:sha256:"
+        )
+
+
 def test_charter_digest_covers_tool_scope_and_routing_examples() -> None:
     from dataclasses import replace
 

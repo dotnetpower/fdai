@@ -22,6 +22,7 @@ from fdai.agents._framework.bus_bridge import AgentHandlerObserver, AgentHandler
 from fdai.agents._framework.conversation_tools import AgentToolResult, AgentToolStatus
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
+from fdai.agents._framework.introspection import agent_state_evidence_ref
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     LLM_HOT_PATH_ALLOWLIST,
@@ -50,6 +51,7 @@ __all__ = [
     "AgentSpec",
     "AgentToolResult",
     "AgentToolStatus",
+    "agent_state_evidence_ref",
     "Bragi",
     "ConversationCharter",
     "ConversationTool",

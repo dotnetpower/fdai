@@ -21,6 +21,7 @@ from fdai.agents._framework.introspection import (
     INTROSPECTION_ERROR,
     REQUIRES_TYPED_PIPELINE,
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     capability_sentence,
     is_action_intent,
@@ -444,10 +445,14 @@ class Agent:
             or context.get("session_id")
             or ""
         )
+        facts = dict(result.facts)
+        refs = facts.get("evidence_refs")
+        if not isinstance(refs, list | tuple) or not any(str(ref) for ref in refs):
+            facts["evidence_refs"] = [agent_state_evidence_ref(self.spec.name, facts)]
         envelope: dict[str, Any] = {
             "primary_agent": self.spec.name,
             "answer": result.answer,
-            "facts": result.facts,
+            "facts": facts,
             "trace_ref": trace_ref,
             "abstain_reason": result.abstain_reason,
             "conversation_policy": {

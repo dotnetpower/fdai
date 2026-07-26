@@ -83,7 +83,8 @@ and ignores late or unmatched responses. Failure produces an attention-state
 handoff to Bragi and never claims that the selected agent contributed evidence. These service
 topics grant no action, judgment, approval, or executor authority. Final narration treats charter
 metadata as provenance only, keeps Bragi's identity, and uses content-addressed agent-state refs
-instead of presenting the static agent specification as runtime evidence.
+from direct or tool-routed normalized facts instead of presenting the static agent specification
+as runtime evidence.
 
 ### 4.2 Escalation triggers (T1 -> T2)
 

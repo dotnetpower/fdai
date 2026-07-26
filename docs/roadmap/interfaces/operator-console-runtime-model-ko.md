@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 0ed34a04a09d513155f16368d4152ce22ab456b5
+translation_source_sha: 1c25176a2a5d864ad1a0199d36aadb70801c0d73
 translation_revised: 2026-07-26
 ---
 
@@ -82,7 +82,7 @@ replay 거부, 5분 cache expiry, late/unmatched response 무시를 적용합니
 agent가 evidence를 제공했다고 주장하지 않습니다. Service topic은 action, judgment, approval 또는
 executor authority를 부여하지 않습니다. Final narration은 charter metadata를 provenance로만 사용하고
 Bragi identity를 유지하며 static agent spec을 runtime evidence로 표시하지 않고 content-addressed
-agent-state ref를 사용합니다.
+agent-state ref를 direct 또는 tool-routed normalized fact에서 생성합니다.
 
 ### 4.2 Escalation trigger (T1 -> T2)
 
