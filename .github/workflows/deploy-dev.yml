@@ -301,6 +301,11 @@ jobs:
           az account clear
           az login --identity --allow-no-subscriptions
 
+      - name: Verify exact Azure context
+        run: |
+          bash scripts/deployment/azure/verify-azure-context.sh \
+            "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
+
       - name: Ensure protected storage containers
         # Created data-plane from the runner (inside the VNet, over the blob
         # private endpoint) since the account is private + key-auth is

@@ -66,7 +66,8 @@ the durable hub that makes the deploy possible and survives app rebuilds:
   holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on
   the ops RG, `Storage Blob Data Contributor` on the state account, and only `EventGrid
   Contributor` at subscription scope for realtime inventory system-topic and subscription delivery. Each
-  workflow run clears the Azure CLI account cache before managed-identity login.
+  workflow run clears the Azure CLI account cache before managed-identity login, then proves the
+  exact repository-configured subscription and tenant before any storage, plan, or apply step.
   Before checkout, the runner removes only the legacy generated `infra/None` cache path so
   root-owned action residue cannot block the exact-commit clean step. That step creates the Azure
   CLI config under `RUNNER_TEMP` and exports it through `GITHUB_ENV` for subsequent steps.
@@ -141,7 +142,15 @@ coverage manifest, and autonomy degradation rules are defined in
 
 #### Onboarding automation
 
-Five helpers make the runner path repeatable (all customer-agnostic, parameterized):
+Six helpers make the runner path repeatable (all customer-agnostic, parameterized):
+
+Set `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` to the approved deployment target before running
+any helper. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)
+requires both axes, selects the expected subscription only after it proves the tenant, and fails
+before mutation when the identity cannot access that exact pair.
+
+- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure
+  CLI and `azd` entry points to the approved subscription and tenant pair.
 
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) probes a
   throwaway KV + storage to tell you up front whether the tenant forces private-everything

@@ -6,8 +6,8 @@
 # Usage (from repo root or infra/bootstrap):
 #   OPS_RG=rg-fdai-ops-krc REGION=koreacentral ./onboard.sh
 #
-# Requires: az (logged in to the target subscription), terraform, a
-# bootstrap.tfvars filled in (see bootstrap.tfvars.example).
+# Requires: az, terraform, explicit AZURE_SUBSCRIPTION_ID/AZURE_TENANT_ID,
+# and a bootstrap.tfvars filled in (see bootstrap.tfvars.example).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,11 +15,16 @@ cd "$HERE"
 
 OPS_RG="${OPS_RG:-rg-fdai-ops-krc}"
 REGION="${REGION:-koreacentral}"
+EXPECTED_SUBSCRIPTION="${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID}"
+EXPECTED_TENANT="${AZURE_TENANT_ID:?set AZURE_TENANT_ID}"
 
 if [ ! -f bootstrap.tfvars ]; then
   echo "ERROR: bootstrap.tfvars not found. Copy bootstrap.tfvars.example and fill it." >&2
   exit 1
 fi
+
+"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+  "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 echo "== 1/3 state storage account (control plane) =="
 SA_LINE=$(OPS_RG="$OPS_RG" REGION="$REGION" ./create-state-account.sh | tail -1)

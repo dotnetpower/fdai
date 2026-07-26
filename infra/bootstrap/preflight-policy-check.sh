@@ -4,8 +4,16 @@
 # path). Creates two throwaway probes, reads their effective network posture,
 # deletes them, and prints a verdict. Read-only to your real resources.
 #
-# Usage:  RG=rg-fdai-preflight REGION=koreacentral ./preflight-policy-check.sh
+# Usage: AZURE_SUBSCRIPTION_ID=<expected> AZURE_TENANT_ID=<expected> \
+#   RG=rg-fdai-preflight REGION=koreacentral ./preflight-policy-check.sh
 set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXPECTED_SUBSCRIPTION="${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID}"
+EXPECTED_TENANT="${AZURE_TENANT_ID:?set AZURE_TENANT_ID}"
+
+"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+  "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 RG="${RG:-rg-fdai-preflight}"
 REGION="${REGION:-koreacentral}"

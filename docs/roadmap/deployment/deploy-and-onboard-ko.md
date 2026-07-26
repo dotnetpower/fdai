@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f4ca75eff0bcfad119a8fbdb31abb4fe52def1e5
+translation_source_sha: de6ccbd0c9c0d1a46ee29f2fbfc654941e6342df
 translation_revised: 2026-07-27
 ---
 
@@ -69,7 +69,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, state
   account에 `Storage Blob Data Contributor`, subscription scope에는 realtime inventory
   system topic과 subscription 관리용 `EventGrid Contributor`만 보유합니다. 각 workflow run은 managed
-  identity login 전에 Azure CLI account cache를 지우며 앱 private endpoint에 시야를 확보합니다.
+  identity login 전에 Azure CLI account cache를 지운 뒤 storage, plan, apply 전에 repository에
+  설정된 exact subscription과 tenant를 증명하며 앱 private endpoint에 시야를 확보합니다.
 Checkout 전 runner는 legacy generated `infra/None` cache path만 제거해 root-owned action
 residue가 exact-commit clean을 막지 않게 합니다. 해당 step은 Azure CLI config를
 `RUNNER_TEMP` 아래에 만들고 subsequent step용 `GITHUB_ENV`로 export합니다.
@@ -146,7 +147,15 @@ fallback합니다. 실패한 경로는 마지막 완전한 graph를 유지하고
 
 #### 온보딩 자동화
 
-러너 경로를 반복 가능하게 만드는 5개 헬퍼(전부 customer-agnostic, 파라미터화):
+러너 경로를 반복 가능하게 만드는 6개 헬퍼(전부 customer-agnostic, 파라미터화):
+
+Helper 실행 전 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 승인된 deployment target으로
+설정합니다. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는
+두 axis를 모두 요구하고 tenant를 증명한 뒤에만 expected subscription을 선택하며, identity가
+exact pair에 access할 수 없으면 mutation 전에 fail합니다.
+
+- [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 Azure
+  CLI와 `azd` entry point를 approved subscription/tenant pair에 bind합니다.
 
 - [`preflight-policy-check.sh`](../../../infra/bootstrap/preflight-policy-check.sh) 는 throwaway
   KV + storage 를 프로브해 테난트가 private-everything 를 강제하는지(러너 경로 필수 여부)

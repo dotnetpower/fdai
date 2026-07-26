@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 85750225e2a59c680d85e0fbbb2c584e70ded131
+translation_source_sha: 8298da39d6092104bd17d8fb206d92c09c3e96c2
 translation_revised: 2026-07-27
 ---
 
@@ -20,6 +20,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)를 사용해 프로비저닝
 - [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md)을 완료해야 합니다.
    이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
 - 환경별 값을 `*.tfvars` 파일에 입력합니다. 이 파일은 **커밋하지 마세요**.
+- Approved target을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 명시적으로 export합니다.
+   Bootstrap 및 turnkey helper는 active identity 또는 선택된 `azd` environment가 exact pair를
+   증명하지 못하면 mutation 전에 fail합니다.
 - 저장소 `Dockerfile`로 빌드한 FDAI runtime image가 필요합니다.
    `container-supply-chain.yml`이 생성한 commit tag를 `core_image`에 설정하고 production에서는
    attested digest를 사용하세요. Terraform은 이전 Azure CLI placeholder를 차단합니다.
@@ -44,6 +47,8 @@ retirement만 delete로 수락됩니다. 해당 주소의 replacement나 다른 
 ```bash
 azd auth login
 azd env new fdai-dev
+export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
+export AZURE_TENANT_ID="<expected-tenant-id>"
 # 안전한 미리보기 - `azd provision --preview` 실행, 아무것도 적용하지 않음
 scripts/deployment/azure/azd-up.sh
 # 실제 프로비저닝 - 두 번째 게이트가 실수로 적용하는 일을 막음
@@ -54,6 +59,10 @@ FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
 
 ```bash
 az login
+export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
+export AZURE_TENANT_ID="<expected-tenant-id>"
+scripts/deployment/azure/verify-azure-context.sh \
+   "$AZURE_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
 terraform -chdir=infra init
 # 템플릿을 복사해 값을 채웁니다 (tfvars는 커밋하지 않음)
 cp infra/envs/dev.tfvars.example infra/envs/dev.tfvars

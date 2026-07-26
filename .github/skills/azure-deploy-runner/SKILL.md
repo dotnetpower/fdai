@@ -104,7 +104,10 @@ Two Terraform layers plus a runner VM.
 ## Standard Deploy Flow
 
 1. **Preflight (from the laptop)**: run `scripts/deployment/local/dev-status.sh` and
-   confirm the correct `az account show` subscription. When two
+  set explicit `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID`, then confirm the
+  exact `az account show` subscription. Every mutating bootstrap helper calls
+  `scripts/deployment/azure/verify-azure-context.sh` and refuses an inaccessible
+  or mismatched pair. When two
    profiles are present (default + a customer profile under
    `$HOME/.azure-customer`), check the customer one with
    `AZURE_CONFIG_DIR=$HOME/.azure-customer az account show`.

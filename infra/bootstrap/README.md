@@ -26,6 +26,8 @@ Secrets Officer** on the app vault.
 
 ```bash
 cp bootstrap.tfvars.example bootstrap.tfvars   # fill in, gitignored
+export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
+export AZURE_TENANT_ID="<expected-tenant-id>"
 
 # 1. Create the state storage account with `az` (control plane only). A
 #    private + key-disabled account cannot complete terraform's data-plane
@@ -49,6 +51,10 @@ their metadata carries a one-hour logical expiry and never includes target ids
 or secret values. Each new CLI plan run deletes allowlisted plan blobs older
 than 24 hours under a bounded scan/delete cap; it never targets `tfstate` or an
 unknown blob path.
+
+Every bootstrap helper verifies both expected Azure identity axes before its
+first mutation. It never infers a deployment target from whichever subscription
+the current CLI profile happens to select.
 
 ## Runner registration
 

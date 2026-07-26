@@ -3,13 +3,20 @@
 # a short-lived registration token minted via the gh CLI and applied over
 # `az vm run-command` (the VM has no public IP). Idempotent (--replace).
 #
-# Usage:  ./register-runner.sh <owner>/<repo> [ops_rg] [vm_name] [runner_user]
+# Usage: AZURE_SUBSCRIPTION_ID=<expected> AZURE_TENANT_ID=<expected> \
+#   ./register-runner.sh <owner>/<repo> [ops_rg] [vm_name] [runner_user]
 set -euo pipefail
 
 REPO="${1:?usage: register-runner.sh <owner>/<repo> [ops_rg] [vm_name] [runner_user]}"
 OPS_RG="${2:-rg-fdai-ops-krc}"
 VM="${3:-vm-runner-fdai-dev-krc}"
 RUNNER_USER="${4:-fdairunner}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXPECTED_SUBSCRIPTION="${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID}"
+EXPECTED_TENANT="${AZURE_TENANT_ID:?set AZURE_TENANT_ID}"
+
+"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+  "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 echo "== minting registration token =="
 TOKEN=$(gh api -X POST "repos/${REPO}/actions/runners/registration-token" --jq .token)

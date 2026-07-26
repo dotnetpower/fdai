@@ -3,14 +3,18 @@
 # reading the non-secret values from the applied infra/bootstrap outputs. The
 # postgres password is generated here and piped via stdin so it never prints.
 #
-# Usage:  ./scripts/deployment/azure/set-gh-actions-config.sh <owner>/<repo> [subscription_id] [tenant_id] [region] [region_short]
+# Usage: ./scripts/deployment/azure/set-gh-actions-config.sh \
+#   <owner>/<repo> <subscription_id> <tenant_id> [region] [region_short]
 set -euo pipefail
 
 REPO="${1:?usage: set-gh-actions-config.sh <owner>/<repo> [sub_id] [tenant_id] [region] [region_short]}"
-SUB="${2:-$(az account show --query id -o tsv)}"
-TENANT="${3:-$(az account show --query tenantId -o tsv)}"
+SUB="${2:-${AZURE_SUBSCRIPTION_ID:-}}"
+TENANT="${3:-${AZURE_TENANT_ID:-}}"
 REGION="${4:-koreacentral}"
 REGION_SHORT="${5:-krc}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+"$HERE/verify-azure-context.sh" "$SUB" "$TENANT"
 
 BS="infra/bootstrap"
 out() { terraform -chdir="$BS" output -raw "$1"; }

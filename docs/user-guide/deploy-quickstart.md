@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: f4ca75eff0bcfad119a8fbdb31abb4fe52def1e5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: de6ccbd0c9c0d1a46ee29f2fbfc654941e6342df }]
 ---
 
 # Deploy Quickstart
@@ -21,6 +21,9 @@ apply step.
   collects quota, permission, connectivity, and rollback blockers before the
   control loop starts.
 - Per-environment values in a `*.tfvars` file, which is **never committed**.
+- The approved target exported explicitly as `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID`.
+   Bootstrap and turnkey helpers fail before mutation when the active identity or selected `azd`
+   environment does not prove that exact pair.
 - A FDAI runtime image built from the repository `Dockerfile`. Set `core_image`
    to the commit tag emitted by `container-supply-chain.yml`; production uses
    the attested digest. Terraform rejects the former Azure CLI placeholder.
@@ -47,6 +50,8 @@ delete should stop the apply.
 ```bash
 azd auth login
 azd env new fdai-dev
+export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
+export AZURE_TENANT_ID="<expected-tenant-id>"
 # safe preview - runs `azd provision --preview`, applies nothing
 scripts/deployment/azure/azd-up.sh
 # provision for real - second gate prevents an accidental apply
@@ -57,6 +62,10 @@ FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
 
 ```bash
 az login
+export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
+export AZURE_TENANT_ID="<expected-tenant-id>"
+scripts/deployment/azure/verify-azure-context.sh \
+   "$AZURE_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
 terraform -chdir=infra init
 # copy a template and fill in your values (tfvars are never committed)
 cp infra/envs/dev.tfvars.example infra/envs/dev.tfvars

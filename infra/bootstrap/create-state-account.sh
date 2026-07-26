@@ -9,13 +9,20 @@
 # and the deploy workflow (STATE_STORAGE_ACCOUNT variable).
 #
 # Usage:
-#   OPS_RG=rg-fdai-ops-krc REGION=koreacentral \
+#   AZURE_SUBSCRIPTION_ID=<expected> AZURE_TENANT_ID=<expected> \
+#     OPS_RG=rg-fdai-ops-krc REGION=koreacentral \
 #     ./create-state-account.sh [existing-or-new-account-name]
 set -euo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPS_RG="${OPS_RG:?set OPS_RG (e.g. rg-fdai-ops-krc)}"
 REGION="${REGION:?set REGION (e.g. koreacentral)}"
+EXPECTED_SUBSCRIPTION="${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID}"
+EXPECTED_TENANT="${AZURE_TENANT_ID:?set AZURE_TENANT_ID}"
 NAME="${1:-st$(openssl rand -hex 8 | cut -c1-16)}"
+
+"$HERE/../../scripts/deployment/azure/verify-azure-context.sh" \
+  "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 # Ensure the ops RG exists (control plane).
 az group show -n "$OPS_RG" >/dev/null 2>&1 ||

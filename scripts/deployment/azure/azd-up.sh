@@ -19,6 +19,10 @@
 
 set -euo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXPECTED_SUBSCRIPTION="${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID}"
+EXPECTED_TENANT="${AZURE_TENANT_ID:?set AZURE_TENANT_ID}"
+
 log() { printf 'azd-up: %s\n' "$*" >&2; }
 fail() { log "ERROR: $*"; exit 1; }
 
@@ -28,6 +32,13 @@ command -v azd >/dev/null 2>&1 || fail "azd (Azure Developer CLI) is not install
 if ! azd env list >/dev/null 2>&1; then
   fail "no azd environment. Run: azd env new <name>"
 fi
+
+AZD_SUBSCRIPTION="$(azd env get-value AZURE_SUBSCRIPTION_ID --no-prompt 2>/dev/null || true)"
+if [[ -z "$AZD_SUBSCRIPTION" || "$AZD_SUBSCRIPTION" != "$EXPECTED_SUBSCRIPTION" ]]; then
+  fail "selected azd environment does not match AZURE_SUBSCRIPTION_ID"
+fi
+
+"$HERE/verify-azure-context.sh" "$EXPECTED_SUBSCRIPTION" "$EXPECTED_TENANT"
 
 # Confirm an Azure login exists (azd uses the same auth as az).
 if ! azd auth login --check-status >/dev/null 2>&1; then
