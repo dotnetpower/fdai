@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: c30461b78a134ad7de9dc29faf4274e525411177
-translation_revised: 2026-07-26
+translation_source_sha: c1b092af16ef09a53c8a9ed75124327affecaeb4
+translation_revised: 2026-07-27
 ---
 
 # CSP-중립성 계약
@@ -334,6 +334,9 @@ local 및 deployed console의 의미를 일치시킵니다.
 - **Periodic reconciliation은 계속 필요합니다.** Inventory sync job은 기본 6시간 주기로
   완전한 ARG/ARM generation을 만들고 원자적으로 promote하며, 해당 generation에 이미
   반영된 overlay entry를 정리합니다. Delta stream만으로 completeness를 증명하지 않습니다.
+  Job은 10분마다 durable attempt state를 확인하지만 6시간 interval이 due이거나 newer attempt가
+  실패 또는 abandon된 경우에만 scan합니다. Read-only inventory identity를 유지하며 Heimdall은 provider를
+  직접 query하거나 job을 시작하지 않습니다.
 - **미인식 `ResourceType` 또는 LinkType** 은 이슈를 열고 드롭됨; 어댑터는 런타임에 새
   온톨로지 타입을 자동 등록하지 않음
   ([llm-strategy-ko.md § 포크 확장](llm-strategy-ko.md#포크-확장-self-extending-온톨로지)).

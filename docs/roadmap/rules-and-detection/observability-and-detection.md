@@ -490,7 +490,11 @@ resource, link, and tombstone deltas to the durable inventory overlay in partiti
 Inventory job separately promotes a complete ARG/ARM reconciliation snapshot every six hours by
 default and retires overlay entries covered by the new generation. Heimdall detects stale
 snapshots, cursor lag, fallback spikes, and coverage loss. A missing, degraded, or stale freshness
-lookup routes graph-dependent actions to human review.
+lookup routes graph-dependent actions to human review. Inventory-backed readiness probes preserve
+that freshness state instead of asserting discovery success. Heimdall remains an observer. The
+Inventory job checks durable attempt state every 10 minutes, runs the normal six-hour scan only
+when due, and retries a newer failed or abandoned attempt on the next tick without granting job-start authority
+to the core runtime.
 
 ## Open Decisions
 

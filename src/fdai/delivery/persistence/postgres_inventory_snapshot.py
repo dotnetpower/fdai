@@ -436,6 +436,71 @@ class PostgresInventoryAgeProvider:
         return max(0, int(row["age_seconds"]))
 
 
+class PostgresInventoryReconciliationGate:
+    """Decide whether a scheduled Inventory Job should run a full scan."""
+
+    def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
+        self._config = config
+
+    async def __call__(self, interval_seconds: int) -> bool:
+        if interval_seconds < 60:
+            raise ValueError("inventory reconciliation interval MUST be >= 60 seconds")
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            await connection.execute(
+                "SELECT set_config('statement_timeout', %s, true)",
+                (str(self._config.statement_timeout_ms),),
+            )
+            cursor = await connection.execute(
+                "WITH active AS (SELECT s.completed_at FROM inventory_active a "
+                "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
+                "WHERE a.singleton=TRUE AND s.status='active') "
+                "SELECT (SELECT EXTRACT(EPOCH FROM (NOW() - completed_at)) FROM active) "
+                "AS age_seconds, EXISTS (SELECT 1 FROM inventory_snapshot "
+                "WHERE status='collecting' AND started_at >= NOW() - INTERVAL '30 minutes') "
+                "AS in_progress, EXISTS (SELECT 1 FROM inventory_snapshot "
+                "WHERE status='failed' AND started_at > COALESCE("
+                "(SELECT completed_at FROM active), '-infinity'::timestamptz)) "
+                "AS newer_failure, EXISTS (SELECT 1 FROM inventory_snapshot "
+                "WHERE status='collecting' AND "
+                "started_at < NOW() - INTERVAL '30 minutes' AND "
+                "started_at > COALESCE((SELECT completed_at FROM active), "
+                "'-infinity'::timestamptz)) AS abandoned_attempt"
+            )
+            row = await cursor.fetchone()
+        if row is None:
+            raise RuntimeError("inventory reconciliation gate returned no state")
+        age = row["age_seconds"]
+        return inventory_reconciliation_due(
+            age_seconds=float(age) if age is not None else None,
+            in_progress=bool(row["in_progress"]),
+            newer_failure=bool(row["newer_failure"]),
+            abandoned_attempt=bool(row["abandoned_attempt"]),
+            interval_seconds=interval_seconds,
+        )
+
+
+def inventory_reconciliation_due(
+    *,
+    age_seconds: float | None,
+    in_progress: bool,
+    newer_failure: bool,
+    abandoned_attempt: bool,
+    interval_seconds: int,
+) -> bool:
+    """Reduce durable attempt state to one deterministic run/skip decision."""
+    if interval_seconds < 60:
+        raise ValueError("inventory reconciliation interval MUST be >= 60 seconds")
+    if in_progress:
+        return False
+    if newer_failure or abandoned_attempt or age_seconds is None:
+        return True
+    return age_seconds >= interval_seconds
+
+
 class PostgresInventoryContextProvider:
     """Return trusted properties for one resource in the active snapshot."""
 

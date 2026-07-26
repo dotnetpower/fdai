@@ -277,8 +277,8 @@ ingress and Huginn normalizes, deduplicates, correlates, and publishes them as
 projection remain injected delivery responsibilities; Huginn never imports an
 Azure SDK or writes the inventory database directly. The scheduled Inventory
 sync job remains the periodic reconciliation backstop that repairs missed
-signals with a complete ARG/ARM snapshot. Heimdall observes discovery health,
-freshness, cursor lag, and coverage anomalies; it does not acquire resources.
+signals with a complete ARG/ARM snapshot. Stale or degraded inventory remains unavailable;
+Heimdall publishes the finding and never acquires resources or starts reconciliation.
 
 The 15 agents are jointly sufficient to cover SRE, ARB (change safety), and
 FinOps workflows through composition; see §6 for the topic contract and

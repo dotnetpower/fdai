@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: cacaecb4e5330d8cad05e8c6071a6e4a618ee271
-translation_revised: 2026-07-24
+translation_source_sha: d5b1c2dc827a5073db89f574129097aa81912136
+translation_revised: 2026-07-27
 ---
 
 # 근실시간 감지 경로
@@ -162,6 +162,11 @@ Saga는 전환을 감사하고, Forseti는 스냅샷을 권한 상한으로 사�
 변경을 실행할 수 없습니다. Read API와 콘솔은 Muninn 판정을 projection하며 다시 계산하지 않습니다.
 Muninn은 `generated_at`이 엄격히 더 새로운 경우에만 대상의 최신 snapshot을 교체하므로 순서가 바뀌거나
 재전달된 Drift가 durable 준비도를 과거로 되돌릴 수 없습니다.
+Inventory 기반 target은 graph freshness와 coverage evidence를 discovery dimension에 전달합니다.
+Stale snapshot 또는 degraded coverage는 passed가 아니라 unavailable이 됩니다. Heimdall은
+Drift를 publish하지만 repair를 실행하지 않습니다. Inventory job은 10분마다 wake하고 다른
+candidate가 collecting 중이거나 마지막 성공이 6시간 이내이면 skip하며, newer attempt가
+실패 또는 abandon되면 다음 tick에 retry합니다. 정상 상태의 full ARG/ARM scan cadence는 6시간입니다.
 
 ## 조합 규칙
 

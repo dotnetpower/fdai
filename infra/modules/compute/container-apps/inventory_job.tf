@@ -1,5 +1,6 @@
-// Periodic Azure inventory reconciliation. The job shares the VNet-integrated
-// environment but uses a dedicated read-only identity, never the executor MI.
+// Periodic Azure inventory reconciliation. The short cron checks durable state;
+// the CLI scans only when the prior success is due or a newer attempt failed.
+// The job uses a dedicated read-only identity, never the executor MI.
 resource "azurerm_container_app_job" "inventory" {
   count = var.inventory_cron_expression == "" ? 0 : 1
 
@@ -67,6 +68,10 @@ resource "azurerm_container_app_job" "inventory" {
       env {
         name  = "FDAI_INVENTORY_FRESHNESS_SECONDS"
         value = tostring(var.inventory_freshness_seconds)
+      }
+      env {
+        name  = "FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS"
+        value = tostring(var.inventory_reconciliation_interval_seconds)
       }
       env {
         name  = "FDAI_MI_CLIENT_ID"

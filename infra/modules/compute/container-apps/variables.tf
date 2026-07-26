@@ -103,7 +103,7 @@ variable "inventory_dsn_secret_id" {
 }
 
 variable "inventory_cron_expression" {
-  description = "Cron for inventory reconciliation. Empty disables the job."
+  description = "Cron for inventory due checks and failed-attempt retries. Empty disables the job."
   type        = string
   default     = ""
 }
@@ -118,6 +118,12 @@ variable "inventory_freshness_seconds" {
   description = "Inventory freshness budget in seconds."
   type        = number
   default     = 86400
+}
+
+variable "inventory_reconciliation_interval_seconds" {
+  description = "Minimum successful snapshot age before a routine full reconciliation."
+  type        = number
+  default     = 21600
 }
 
 variable "extra_identity_ids" {

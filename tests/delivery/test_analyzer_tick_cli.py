@@ -7,11 +7,13 @@ import logging
 
 import pytest
 
+from fdai.core.readiness import DetectionObservationStatus
 from fdai.delivery.analyzer_tick_cli import (
     _ENV_BUDGET,
     _ENV_TARGETS,
     _ENV_WINDOW,
     _finding_event,
+    _inventory_discovery_evidence,
     _load_targets,
     _positive_float,
     _publish_detection_readiness,
@@ -100,6 +102,58 @@ def test_inventory_resources_map_to_reference_analyzer_kinds() -> None:
         ("aks-1", "aks_cluster"),
         ("mysql-1", "mysql_flexible_server"),
     ]
+
+
+@pytest.mark.parametrize(
+    ("graph", "detail"),
+    [
+        ({"freshness": "stale", "degraded": True}, "inventory_snapshot_stale"),
+        ({"freshness": "fresh", "degraded": True}, "inventory_coverage_degraded"),
+    ],
+)
+def test_inventory_discovery_evidence_fails_closed(
+    graph: dict[str, object],
+    detail: str,
+) -> None:
+    status, observed_detail = _inventory_discovery_evidence(graph)
+
+    assert status is DetectionObservationStatus.UNAVAILABLE
+    assert observed_detail == detail
+
+
+async def test_stale_inventory_never_publishes_discovery_passed() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.delivery.analyzer_tick_cli import _Target
+    from fdai.shared.providers.metric import StaticMetricProvider
+    from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+
+    now = datetime(2026, 7, 24, 1, 0, tzinfo=UTC)
+    bus = InMemoryEventBus()
+    await _publish_detection_readiness(
+        targets=(
+            _Target(
+                resource_ref="aks-1",
+                resource_kind="aks_cluster",
+                discovery_status=DetectionObservationStatus.UNAVAILABLE,
+                discovery_source="inventory.snapshot",
+                discovery_detail="inventory_snapshot_stale",
+            ),
+        ),
+        metric_provider=StaticMetricProvider(()),
+        event_bus=bus,
+        topic="events",
+        state_store=None,
+        observed_at=now,
+    )
+
+    discovered = next(
+        record[1]["payload"]["detection_readiness"]
+        for record in bus._records["events"]
+        if record[1]["payload"]["detection_readiness"]["dimension"] == "discovered"
+    )
+    assert discovered["status"] == "unavailable"
+    assert discovered["detail_code"] == "inventory_snapshot_stale"
 
 
 async def test_readiness_publisher_emits_six_passed_observations_with_prior_snapshot() -> None:

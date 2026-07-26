@@ -343,9 +343,9 @@ variable "forecast_targets_json" {
 # ---------------------------------------------------------------------------
 
 variable "inventory_cron_expression" {
-  description = "Cron for full Azure inventory reconciliation. Empty disables the job."
+  description = "Cron for inventory due checks and failed-attempt retries. Empty disables the job."
   type        = string
-  default     = "0 */6 * * *"
+  default     = "*/10 * * * *"
 }
 
 variable "enable_realtime_inventory_discovery" {
@@ -368,6 +368,17 @@ variable "inventory_freshness_seconds" {
   validation {
     condition     = var.inventory_freshness_seconds >= 1
     error_message = "inventory_freshness_seconds must be >= 1."
+  }
+}
+
+variable "inventory_reconciliation_interval_seconds" {
+  description = "Minimum age of the last successful inventory snapshot before a routine full reconciliation."
+  type        = number
+  default     = 21600
+
+  validation {
+    condition     = var.inventory_reconciliation_interval_seconds >= 60
+    error_message = "inventory_reconciliation_interval_seconds must be >= 60."
   }
 }
 

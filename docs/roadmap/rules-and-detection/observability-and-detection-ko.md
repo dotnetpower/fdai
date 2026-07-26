@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 9157c70fa9a68cffe33259b6ba069ddbef560927
-translation_revised: 2026-07-23
+translation_source_sha: e078b86b5c4aabf12c81833bf578d311f5245824
+translation_revised: 2026-07-27
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -461,6 +461,10 @@ link, tombstone delta를 durable inventory overlay에 적용합니다. Inventory
 완전한 ARG/ARM reconciliation snapshot을 promote하고 새 generation에 포함된 overlay entry를
 정리합니다. Heimdall은 stale snapshot, cursor lag, fallback spike, coverage loss를 감지합니다.
 Freshness lookup이 없거나 degraded 또는 stale이면 graph-dependent action을 사람 검토로 보냅니다.
+Inventory 기반 readiness probe는 discovery success를 단정하지 않고 해당 freshness state를
+보존하며 Heimdall은 observer로 유지됩니다. Inventory job은 10분마다 durable attempt state를
+확인하고 due일 때만 정상 6시간 scan을 실행하며, newer failed/abandoned attempt는 다음 tick에 retry합니다.
+Core runtime에는 job-start authority를 부여하지 않습니다.
 
 ## Open Decisions
 

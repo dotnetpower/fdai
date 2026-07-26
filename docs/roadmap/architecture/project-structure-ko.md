@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 016a4079f293f66dba377fd73e9a4650e215d217
+translation_source_sha: 7888d8e03cbdb9ce96042c676b88d35ac022638f
 translation_revised: 2026-07-27
 ---
 
@@ -239,7 +239,9 @@ fdai/
   I/O를 agent 내부에 넣지 않은 채 enrichment와 ordered inventory delta 적용을 담당합니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한
   reconciliation snapshot을 원자적으로 promote합니다. Heimdall은 discovery freshness, lag,
-  coverage를 관찰하며 로컬 harness는 Azure discovery를 실행하지 않습니다.
+  coverage를 관찰하며 repair를 시작하지 않습니다. Job은 10분마다 durable attempt state를 확인하고
+  정상 6시간 scan interval을 유지하며 newer failed/abandoned attempt는 다음 tick에 retry합니다. 로컬 harness는
+  Azure discovery를 실행하지 않습니다.
   Organization은 Directory와 Org chart 보기를 제공하며, `?view=org`는 실시간 보고 계층의 직접
   링크를 유지하고 각 노드는 해당 에이전트의 런타임 상세 포커스를 엽니다.
   Activity 링크는 선택한 에이전트를 route query에 유지합니다. Activity는 영구 audit timeline보다

@@ -118,6 +118,9 @@ class _Target:
 
     resource_ref: str
     resource_kind: str
+    discovery_status: DetectionObservationStatus = DetectionObservationStatus.PASSED
+    discovery_source: str = "target.configuration"
+    discovery_detail: str | None = None
 
 
 def _load_targets() -> tuple[_Target, ...]:
@@ -256,7 +259,7 @@ async def _publish_detection_readiness(
         if target.resource_kind != KIND_AKS:
             continue
         observations = await _aks_detection_observations(
-            target.resource_ref,
+            target,
             metric_provider=metric_provider,
             state_store=state_store,
             observed_at=observed_at,
@@ -302,7 +305,7 @@ async def _publish_detection_readiness(
 
 
 async def _aks_detection_observations(
-    resource_ref: str,
+    target: _Target,
     *,
     metric_provider: MetricProvider,
     state_store: StateStore | None,
@@ -313,9 +316,9 @@ async def _aks_detection_observations(
         tuple[DetectionObservationStatus, str, str | None],
     ] = {
         DetectionReadinessDimension.DISCOVERED: (
-            DetectionObservationStatus.PASSED,
-            "inventory.target",
-            None,
+            target.discovery_status,
+            target.discovery_source,
+            target.discovery_detail,
         ),
         DetectionReadinessDimension.DETECTOR_BOUND: (
             DetectionObservationStatus.PASSED,
@@ -341,7 +344,7 @@ async def _aks_detection_observations(
         try:
             query = MetricQuery(
                 metric_name=METRIC_POD_RESTARTS,
-                labels={"resource_id": resource_ref},
+                labels={"resource_id": target.resource_ref},
                 since=observed_at - timedelta(seconds=_READINESS_EVIDENCE_SECONDS),
                 until=observed_at,
                 aggregation="max",
@@ -377,7 +380,7 @@ async def _aks_detection_observations(
     pipeline_status = DetectionObservationStatus.UNAVAILABLE
     pipeline_detail: str | None = "prior_snapshot_missing"
     if state_store is not None:
-        prior = await state_store.read_state(detection_readiness_state_key(resource_ref))
+        prior = await state_store.read_state(detection_readiness_state_key(target.resource_ref))
         prior_generated = prior.get("generated_at") if prior is not None else None
         if isinstance(prior_generated, str):
             try:
@@ -403,7 +406,7 @@ async def _aks_detection_observations(
 
     expires_at = observed_at + timedelta(seconds=_READINESS_EVIDENCE_SECONDS)
     observations: list[DetectionReadinessObservation] = []
-    resource_digest = hashlib.sha256(resource_ref.encode("utf-8")).hexdigest()
+    resource_digest = hashlib.sha256(target.resource_ref.encode("utf-8")).hexdigest()
     for dimension in DetectionReadinessDimension:
         status, source, detail = statuses[dimension]
         material = "|".join(
@@ -417,7 +420,7 @@ async def _aks_detection_observations(
         )
         observations.append(
             DetectionReadinessObservation(
-                resource_ref=resource_ref,
+                resource_ref=target.resource_ref,
                 dimension=dimension,
                 status=status,
                 observed_at=observed_at,
@@ -568,10 +571,30 @@ async def _load_inventory_targets() -> tuple[_Target, ...]:
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
     )(None, 0, ())
     resources = graph.get("resources")
-    return _targets_from_inventory(resources if isinstance(resources, list) else [])
+    discovery_status, discovery_detail = _inventory_discovery_evidence(graph)
+    return _targets_from_inventory(
+        resources if isinstance(resources, list) else [],
+        discovery_status=discovery_status,
+        discovery_detail=discovery_detail,
+    )
 
 
-def _targets_from_inventory(resources: list[object]) -> tuple[_Target, ...]:
+def _inventory_discovery_evidence(
+    graph: Mapping[str, object],
+) -> tuple[DetectionObservationStatus, str | None]:
+    if graph.get("freshness") != "fresh":
+        return DetectionObservationStatus.UNAVAILABLE, "inventory_snapshot_stale"
+    if graph.get("degraded") is True:
+        return DetectionObservationStatus.UNAVAILABLE, "inventory_coverage_degraded"
+    return DetectionObservationStatus.PASSED, None
+
+
+def _targets_from_inventory(
+    resources: list[object],
+    *,
+    discovery_status: DetectionObservationStatus = DetectionObservationStatus.PASSED,
+    discovery_detail: str | None = None,
+) -> tuple[_Target, ...]:
     kind_by_type = {
         "kubernetes-cluster": "aks_cluster",
         "network.application-gateway": "application_gateway",
@@ -587,7 +610,15 @@ def _targets_from_inventory(resources: list[object]) -> tuple[_Target, ...]:
         resource_type = item.get("type")
         kind = kind_by_type.get(str(resource_type))
         if isinstance(resource_ref, str) and resource_ref and kind is not None:
-            targets.append(_Target(resource_ref=resource_ref, resource_kind=kind))
+            targets.append(
+                _Target(
+                    resource_ref=resource_ref,
+                    resource_kind=kind,
+                    discovery_status=discovery_status,
+                    discovery_source="inventory.snapshot",
+                    discovery_detail=discovery_detail,
+                )
+            )
     return tuple(targets)
 
 

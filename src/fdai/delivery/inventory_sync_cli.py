@@ -30,6 +30,7 @@ from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_sync import InventorySyncCoordinator
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventoryReconciliationGate,
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
@@ -64,6 +65,7 @@ class InventoryJobConfig:
     management_endpoint: str
     management_audience: str
     freshness_budget_seconds: int
+    reconciliation_interval_seconds: int
     recovery_delta_enabled: bool = False
     declarative_path: Path | None = None
     declarative_sha256: str | None = None
@@ -98,6 +100,14 @@ class InventoryJobConfig:
                 freshness = int(source.get("FDAI_INVENTORY_FRESHNESS_SECONDS", "86400"))
             except ValueError as exc:
                 raise ValueError("FDAI_INVENTORY_FRESHNESS_SECONDS MUST be an integer") from exc
+        try:
+            reconciliation_interval = int(
+                source.get("FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS", "21600")
+            )
+        except ValueError as exc:
+            raise ValueError(
+                "FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS MUST be an integer"
+            ) from exc
         path_value = source.get("FDAI_INVENTORY_DECLARATIVE_PATH", "").strip()
         sha = source.get("FDAI_INVENTORY_DECLARATIVE_SHA256", "").strip() or None
         recovery_delta = _bool_env(source, "FDAI_INVENTORY_RECOVERY_DELTA", False)
@@ -109,6 +119,8 @@ class InventoryJobConfig:
             raise ValueError("FDAI_INVENTORY_SOURCES supports arg, arm, declarative")
         if freshness < 1:
             raise ValueError("FDAI_INVENTORY_FRESHNESS_SECONDS MUST be >= 1")
+        if reconciliation_interval < 60:
+            raise ValueError("FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS MUST be >= 60")
         if "declarative" in source_order and (not path_value or sha is None):
             raise ValueError(
                 "declarative fallback requires FDAI_INVENTORY_DECLARATIVE_PATH and SHA256"
@@ -121,6 +133,7 @@ class InventoryJobConfig:
             management_endpoint=endpoint,
             management_audience=audience,
             freshness_budget_seconds=freshness,
+            reconciliation_interval_seconds=reconciliation_interval,
             recovery_delta_enabled=recovery_delta,
             declarative_path=Path(path_value) if path_value else None,
             declarative_sha256=sha,
@@ -335,6 +348,20 @@ async def _main() -> None:
 
     runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
     config = InventoryJobConfig.from_env(runtime_values=runtime_values)
+    snapshot_config = PostgresInventorySnapshotStoreConfig(
+        dsn=config.dsn,
+        freshness_budget_seconds=config.freshness_budget_seconds,
+    )
+    due = await PostgresInventoryReconciliationGate(config=snapshot_config)(
+        config.reconciliation_interval_seconds
+    )
+    if not due:
+        _LOGGER.info(
+            "inventory_reconciliation_not_due",
+            extra={"interval_seconds": config.reconciliation_interval_seconds},
+        )
+        print("inventory reconciliation not due")
+        return
     source = await run(config)
     print(f"inventory snapshot promoted from {source}")
 

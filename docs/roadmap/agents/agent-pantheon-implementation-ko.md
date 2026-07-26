@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 0bd492d33dd42169f1343021d9bd8338a48c81ac
+translation_source_sha: d5a4afae885ae29d2d525ec6625c7802454eb41d
 translation_revised: 2026-07-27
 ---
 
@@ -253,7 +253,7 @@ discovery loop 를 닫는다.
   detector (Muninn snapshot 비교를 통한 declared vs actual state),
   forecast (statistical time-series; ARIMA 또는 exponential smoothing).
   `Anomaly`, `Drift`, `Forecast` 발행. `SecurityEvent` 구독은 W6 로
-  예약.
+  예약. Stale/degraded inventory는 fail closed하며 Heimdall은 reconciliation job을 시작하지 않습니다.
 - **Forseti (`src/fdai/agents/forseti.py`)** - `object.anomaly`,
   `object.drift`, `object.event` 구독. 3-tier trust router 를 로컬 구현:
   Mimir 를 통한 T0 rule match; Muninn 을 통한 T1 similarity; T2 는 W7

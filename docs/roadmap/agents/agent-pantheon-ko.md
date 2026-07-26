@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 00e62bec0356cab890c36c71c69ac9fa65877799
+translation_source_sha: 620f1eadc5dcfc08003d27d65b84c1e97b1545ba
 translation_revised: 2026-07-27
 ---
 
@@ -256,8 +256,8 @@ update, delete signal은 canonical Event Hubs Kafka ingress로 들어오며 Hugi
 point enrichment, durable inventory projection은 주입된 delivery 책임으로 유지합니다.
 Huginn은 Azure SDK를 import하거나 inventory database를 직접 쓰지 않습니다. Scheduled
 Inventory sync job은 누락된 signal을 완전한 ARG/ARM snapshot으로 복구하는 주기적
-reconciliation backstop으로 남습니다. Heimdall은 discovery health, freshness, cursor
-lag, coverage anomaly를 관찰하며 resource를 직접 acquire하지 않습니다.
+reconciliation backstop입니다. Stale/degraded inventory는 unavailable이며 Heimdall은 finding만
+publish하고 resource를 acquire하거나 reconciliation을 시작하지 않습니다.
 
 15개 에이전트는 조합을 통해 SRE, ARB (change safety), FinOps 워크플로우를
 공동으로 커버한다. Topic 계약은 §6, 처리 불가 요청(handoff)이 동일 파이프라인에

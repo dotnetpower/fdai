@@ -174,7 +174,10 @@ A subscription-scoped Event Grid subscription delivers with the inventory
 user-assigned managed identity, while Event Hubs local authentication remains
 disabled. The core normalizes that raw stream into the canonical change topic
 for Huginn. The Inventory Container Apps Job still performs the complete
-ARG/ARM reconciliation every six hours by default.
+ARG/ARM reconciliation every six hours by default. Its 10-minute cron checks
+PostgreSQL attempt state first, skips while healthy work is not due or another
+candidate is collecting, and retries a newer failed attempt on the next tick.
+The job keeps the inventory read-only identity; the core receives no job-start role.
 Terraform exposes primary and auxiliary Event Hub names separately through
 `event_bus_topics` and `event_bus_auxiliary_topics`; local runtime preparation
 uses the auxiliary output to bind `FDAI_INVENTORY_RAW_TOPIC` only after that

@@ -166,6 +166,11 @@ ready. New readiness capability remains `shadow` even when all six dimensions pa
 promote an ActionType or execute a change. The read API and console project Muninn's decision and
 do not recompute it. Muninn replaces the latest target snapshot only when `generated_at` is
 strictly newer, so reordered or replayed Drift delivery cannot roll durable readiness backward.
+An inventory-backed target carries graph freshness and coverage evidence into the discovery
+dimension. A stale snapshot or degraded coverage becomes unavailable, never passed. Heimdall
+publishes the Drift but does not execute repair. The Inventory job wakes every 10 minutes, skips
+while another candidate is collecting or the last success is under six hours old, and retries on
+the next tick when a newer attempt failed or was abandoned. Full ARG/ARM scan cadence remains six hours when healthy.
 
 ## Composition rules
 

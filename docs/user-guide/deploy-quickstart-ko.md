@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 438bec04ec063e53d5fd24140bb894c1814a29d5
-translation_revised: 2026-07-26
+translation_source_sha: 85750225e2a59c680d85e0fbbb2c584e70ded131
+translation_revised: 2026-07-27
 ---
 
 # 배포 빠른 시작
@@ -70,8 +70,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 1. **인벤토리 검증.** 리소스가 프로비저닝됐는지, 실행자(executor) 아이덴티티가 지정된
    범위에서 최소 권한만 갖는지 확인합니다. Subscription Event Grid delivery가 inventory
    managed identity로 operational Event Hubs shard의 `aw.inventory.raw`에 도달하는지, primary
-   shard가 Standard entity 10개 제한 안에 있는지, Huginn이 test resource change를 project하는지,
-   6시간 ARG/ARM reconciliation Job이 예약되어 있는지 확인합니다. Private networking을
+   shard가 Standard entity 10개 제한 안에 있는지, Huginn이 test resource change를 project하는지
+   확인합니다. Inventory Job이 10분마다 wake하고 PostgreSQL이 정상 full scan을 6시간으로
+   유지하며 failed 또는 abandoned attempt가 다음 tick에 retry되는지 확인합니다. Core에는
+   job-start role을 부여하지 않습니다. Private networking을
    활성화했으면 PostgreSQL과 두 Event Hubs shard가 runtime subnet 또는 peered runner에서 private
    address로 resolve되고 protocol TLS check를 완료하는지, Event Hubs public access가 비활성화됐는지
    확인합니다.

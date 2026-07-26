@@ -1345,10 +1345,11 @@ module "compute" {
   chatops_webhook_secret_id = (
     var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_secret[0].id : ""
   )
-  inventory_dsn_secret_id     = azurerm_key_vault_secret.state_store_dsn.id
-  inventory_cron_expression   = var.inventory_cron_expression
-  inventory_sources           = var.inventory_sources
-  inventory_freshness_seconds = var.inventory_freshness_seconds
+  inventory_dsn_secret_id                   = azurerm_key_vault_secret.state_store_dsn.id
+  inventory_cron_expression                 = var.inventory_cron_expression
+  inventory_sources                         = var.inventory_sources
+  inventory_freshness_seconds               = var.inventory_freshness_seconds
+  inventory_reconciliation_interval_seconds = var.inventory_reconciliation_interval_seconds
 
   # DB-DR drill (opt-in; the fork toggles dr_drill_enabled + supplies the
   # source server ARM id once the runbook in docs/runbooks/db-dr-drill.md
