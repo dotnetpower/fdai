@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 8bd266def32f5a9829e9c454f37cc416e035c227
+translation_source_sha: 9e99b331b471d712cf5f0c343f5d2c442e3b3b65
 translation_revised: 2026-07-27
 ---
 
@@ -189,7 +189,8 @@ conversation을 삭제하지 않고 폐기합니다. Agent activity는 bounded h
 Read-source provenance, ontology browse, cross-screen operational 및 inventory answer는 typed
 evidence에서 결정론적으로 렌더링됩니다. Ontology browse는 target과 browse verb를 요구하고,
 allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복되거나 malformed인 count와
-selection을 unavailable로 표시합니다.
+selection을 unavailable로 표시합니다. Ontology projection과 결정론적 browse answer는 일반 prompt
+assembly와 분리된 자체 prompt module에 위치합니다.
 Agent answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로 표시합니다.
 Charter version, hash 및 tool id는 hidden provenance로 유지합니다. Exact policy match일 때 model은
 Bragi global safety prompt 뒤에서 server-owned charter를 받으며, charter는 role과 voice를 제한하지만

@@ -190,7 +190,8 @@ the server record, so a normal first-open state is not reported as a missing-his
 Read-source provenance, ontology browse, cross-screen operational, and inventory answers are
 rendered deterministically from typed evidence. Ontology browse requires a target and browse verb,
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
-duplicate or malformed counts and selections unavailable.
+duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
+browse answer stay in their own prompt module, separate from general prompt assembly.
 Agent answers keep Bragi as narrator while displaying the verified specialist as response owner.
 Charter version, hashes, and tool ids remain hidden provenance. An exact policy match lets the
 model receive that server-owned charter after Bragi's global safety prompt; it scopes role and

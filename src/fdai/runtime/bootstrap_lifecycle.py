@@ -7,7 +7,7 @@ import fcntl
 import logging
 import os
 import signal
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any
@@ -61,6 +61,28 @@ def runtime_positive_integer(values: dict[str, object], key: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
         raise RuntimeError(f"effective runtime setting {key} is invalid")
     return value
+
+
+async def supervise_runtime_tasks(
+    required: Sequence[asyncio.Task[Any] | None],
+    background: Sequence[asyncio.Task[Any] | None],
+) -> None:
+    """Wait on the required tasks, then cancel and drain every runtime task.
+
+    Blast-radius isolation: ``background`` tasks (the pantheon overlay) stay
+    out of the wait set so their exit cannot terminate the primary pipeline.
+    Every task is still cancelled and awaited, so a consumer's ``async for``
+    plus ``finally`` drains before the caller tears down the bus and HTTP
+    client. A required task that failed re-raises after the drain.
+    """
+
+    wait_set = {task for task in required if task is not None}
+    done, _pending = await asyncio.wait(wait_set, return_when=asyncio.FIRST_COMPLETED)
+    tracked = [task for task in (*required, *background) if task is not None]
+    for task in tracked:
+        task.cancel()
+    await asyncio.gather(*tracked, return_exceptions=True)
+    raise_required_task_failure(done)
 
 
 async def start_health_server(

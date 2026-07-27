@@ -12,8 +12,10 @@ from fdai.runtime.bootstrap import (
     _build_runtime_saga,
     _build_runtime_workload_identity,
     _case_history_identity_client_id,
-    _raise_required_task_failure,
     _run_main,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    raise_required_task_failure as _raise_required_task_failure,
 )
 from fdai.runtime.bootstrap_lifecycle import runtime_process_lock
 from fdai.shared.config.runtime_flags import pantheon_start_enabled

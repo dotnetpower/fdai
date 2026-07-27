@@ -52,9 +52,6 @@ from fdai.runtime.bootstrap_lifecycle import (
     install_shutdown_signals as _install_shutdown_signals,
 )
 from fdai.runtime.bootstrap_lifecycle import (
-    raise_required_task_failure as _raise_required_task_failure,
-)
-from fdai.runtime.bootstrap_lifecycle import (
     run_main as _run_main,
 )
 from fdai.runtime.bootstrap_lifecycle import (
@@ -65,6 +62,9 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.runtime.bootstrap_lifecycle import (
     start_health_server as _start_health_server,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    supervise_runtime_tasks as _supervise_runtime_tasks,
 )
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
@@ -716,68 +716,23 @@ async def _run() -> int:
                     name="case-history-retention-ticks",
                 )
 
-            wait_set = {consumer_task, readiness_refresh_task, wait_task}
-            if resource_change_task is not None:
-                wait_set.add(resource_change_task)
-            if canary_task is not None:
-                wait_set.add(canary_task)
-            if hil_decision_task is not None:
-                wait_set.add(hil_decision_task)
-            if hil_reminder_task is not None:
-                wait_set.add(hil_reminder_task)
-            if case_history_retention_task is not None:
-                wait_set.add(case_history_retention_task)
-            done, _pending = await asyncio.wait(
-                wait_set,
-                return_when=asyncio.FIRST_COMPLETED,
+            await _supervise_runtime_tasks(
+                required=(
+                    consumer_task,
+                    readiness_refresh_task,
+                    wait_task,
+                    resource_change_task,
+                    canary_task,
+                    hil_decision_task,
+                    hil_reminder_task,
+                    case_history_retention_task,
+                ),
+                background=(
+                    pantheon_task,
+                    agent_introspection_task,
+                    runtime_state_task,
+                ),
             )
-            consumer_task.cancel()
-            readiness_refresh_task.cancel()
-            wait_task.cancel()
-            if resource_change_task is not None:
-                resource_change_task.cancel()
-            if canary_task is not None:
-                canary_task.cancel()
-            if hil_decision_task is not None:
-                hil_decision_task.cancel()
-            if hil_reminder_task is not None:
-                hil_reminder_task.cancel()
-            if pantheon_task is not None:
-                pantheon_task.cancel()
-            if agent_introspection_task is not None:
-                agent_introspection_task.cancel()
-            if runtime_state_task is not None:
-                runtime_state_task.cancel()
-            if case_history_retention_task is not None:
-                case_history_retention_task.cancel()
-            # Await the cancels so cleanup can drain the consumer's
-            # ``async for`` + finally (which stops the AIOKafkaConsumer)
-            # before we tear down the bus / HTTP client in the outer
-            # ``finally``. Without this a cancelled consumer can be
-            # racing the aiokafka close and log noisy warnings on exit.
-            cleanup_tasks: list[asyncio.Task[Any]] = [
-                consumer_task,
-                readiness_refresh_task,
-                wait_task,
-            ]
-            if resource_change_task is not None:
-                cleanup_tasks.append(resource_change_task)
-            if canary_task is not None:
-                cleanup_tasks.append(canary_task)
-            if hil_decision_task is not None:
-                cleanup_tasks.append(hil_decision_task)
-            if hil_reminder_task is not None:
-                cleanup_tasks.append(hil_reminder_task)
-            if pantheon_task is not None:
-                cleanup_tasks.append(pantheon_task)
-            if agent_introspection_task is not None:
-                cleanup_tasks.append(agent_introspection_task)
-            if runtime_state_task is not None:
-                cleanup_tasks.append(runtime_state_task)
-            if case_history_retention_task is not None:
-                cleanup_tasks.append(case_history_retention_task)
-            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-            _raise_required_task_failure(done)
         else:
             await stop.wait()
 
