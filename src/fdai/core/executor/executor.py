@@ -49,6 +49,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Final
 
+from fdai.core.executor.blast_radius import blast_radius_refusal
 from fdai.core.executor.renderer import (
     RenderError,
     RenderRequest,
@@ -335,19 +336,7 @@ class ShadowExecutor:
         )
 
     def _check_blast_radius(self, action: Action) -> str | None:
-        count = action.blast_radius.count
-        if count is not None and count > self._config.max_affected_resources:
-            return (
-                f"blast-radius count {count} exceeds executor cap "
-                f"{self._config.max_affected_resources}"
-            )
-        rpm = action.blast_radius.rate_per_minute
-        if rpm is not None and rpm > self._config.max_rate_per_minute:
-            return (
-                f"blast-radius rate {rpm}/min exceeds executor cap "
-                f"{self._config.max_rate_per_minute}/min"
-            )
-        return None
+        return blast_radius_refusal(action, self._config)
 
     async def _finish(
         self,

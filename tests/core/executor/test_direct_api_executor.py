@@ -297,9 +297,24 @@ class TestBlastRadius:
         assert adapter.records == ()
 
     @pytest.mark.asyncio
-    async def test_count_and_rate_none_never_trips_cap(self) -> None:
+    async def test_an_undeclared_blast_radius_is_refused_not_waved_through(self) -> None:
+        """Previously asserted the opposite: that an undeclared count "never
+        trips the cap". Every autonomous action is required to carry a
+        blast-radius limit, so an action that declares none is not a small
+        action - it is one whose reach cannot be evaluated, at the last gate
+        before a real mutation. The action builder always fills count, so a
+        None here means the Action came from somewhere that did not.
+        """
         exec_, adapter, _ = _executor(max_affected_resources=1, max_rate_per_minute=1)
         result = await exec_.execute(action=_action(count=None, rate=None))
+        assert result.outcome is DirectApiExecutionOutcome.ABSTAINED_BLAST_RADIUS
+        assert adapter.records == ()
+
+    @pytest.mark.asyncio
+    async def test_a_declared_count_without_a_rate_still_dispatches(self) -> None:
+        """A rate is optional: an action already bounded by count is bounded."""
+        exec_, adapter, _ = _executor(max_affected_resources=1, max_rate_per_minute=1)
+        result = await exec_.execute(action=_action(count=1, rate=None))
         assert result.outcome is DirectApiExecutionOutcome.DISPATCHED
         assert len(adapter.records) == 1
 

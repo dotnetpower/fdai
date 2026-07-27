@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 801,
+  "file_count": 802,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "cba78e067f8786a959a14cfeaf4e6c6912a3765e36aaa460433f049829f010b5",
     ".github/instructions/agent-stewardship.instructions.md": "a1d3657f05323259023fbb1abf304495ec923f6bb917be739ed49647171195ba",
@@ -238,12 +238,13 @@
     "src/fdai/core/executor/README.md": "a651974331d1ea67cf378650fb2f233f061f1ad847886666afa79fbf2a4cea71",
     "src/fdai/core/executor/__init__.py": "52152ff35a829eeccdbfcc542ac95438605e0db75a3cfbbda8f23e41a83d0cb2",
     "src/fdai/core/executor/action_builder.py": "aa7b57b40be70cfeebef13fe8c339e86962cde68561250fedad0b84c7da0870e",
-    "src/fdai/core/executor/direct_api.py": "15744895860d1d8d41d8ccfe1311527488ff998c5933bcc660a8cae9350acbd3",
-    "src/fdai/core/executor/executor.py": "309bb3459b6269910b05b80fa5cddbfcbaaa97af7a9606627deee322103e18e9",
+    "src/fdai/core/executor/blast_radius.py": "02cf9c6c420f3ba9cb61c9f10af9ca33d6849f444d507dc32538a1cdb6f45d71",
+    "src/fdai/core/executor/direct_api.py": "500b97e1eccc6c9d89571f09d066b4c428324d45e94ff7b6dccb4afc1981a4f6",
+    "src/fdai/core/executor/executor.py": "1a5a48c8bef72ccc9970ae53f06a860d7ecc6a403f7e584c2a80f8ab46aaaf8e",
     "src/fdai/core/executor/lock.py": "8393ac4ecdd1701af105d38b46bedb6d86673707a449c0203441e0c6be8eba1e",
     "src/fdai/core/executor/path_selection.py": "7754782c19f29db1a235688893eda1f53ae1107ef50066e329a2dd67873c61c7",
     "src/fdai/core/executor/renderer.py": "9f87c695aba42442a6bc7027cc007a4ed52c0b8cfd8748a02a1d4ccd150b7556",
-    "src/fdai/core/executor/tool_call.py": "aae4c0e8cbb08af251b09d6865273c64aa7d759c9f72deac66c9a4c4a995e5a3",
+    "src/fdai/core/executor/tool_call.py": "c68d7cefc2f7b0616f72442671662358acdbdf716cbf7d3ff00ec103716748df",
     "src/fdai/core/hil_resume/__init__.py": "f1ef3d58e7c2d19b48d296eed5cae3263442e34886aea790565e13d8a7ff224a",
     "src/fdai/core/hil_resume/coordinator.py": "c0fd07ff4d0e25f31525e15c60456e98d003fcc747306f4464cacf68564d0364",
     "src/fdai/core/hil_resume/delegation.py": "0ab805bb50fda4373d4ec31c05ee31583d7a4f94d6a056a8b49c1fe5749a6dfe",
@@ -804,7 +805,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T19:49:28Z",
+  "generated_at": "2026-07-27T20:14:22Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
