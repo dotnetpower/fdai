@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 32b4c232e1370e053367e26dcc00328ec78c7804
+translation_source_sha: a4afd26dae1d55215514fe8b6ce4c478b1dd7acb
 translation_revised: 2026-07-27
 ---
 
@@ -113,6 +113,9 @@ Private networking이 enabled이면 PostgreSQL public access와 broad Azure-serv
 Protected request는 `commit_sha`를 명시적으로 checkout하고 `git rev-parse HEAD`와 비교합니다.
 따라서 dispatch와 execution 사이에 release commit이 `main`을 이동해도 plan 또는 apply code가
 바뀌지 않습니다.
+배포 job은 `infra/`에서 실행되므로, repository root script를 호출하는 step은 `../scripts/`로
+접근하거나 working directory를 override합니다. 맨 `scripts/...` 경로는 `infra/` 아래로 해석되어
+Terraform이 검사할 결과를 만들기도 전에 runner에서 127로 종료됩니다.
 Protected plan은 binary Terraform plan, bounded preflight evidence, Function source archive를
 각각 별도 SHA-256 digest와 함께 저장합니다. Exact apply는 모든 artifact를 download하고
 검증합니다. 새 plan 저장 전 runner는 24시간이 지난 allowlisted plan, metadata, source,

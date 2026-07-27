@@ -109,6 +109,9 @@ are disabled. Dev uses its approved private endpoint; delegated-subnet mode rema
 production.
 Protected requests checkout `commit_sha` explicitly and compare it with `git rev-parse HEAD`, so a
 release commit that advances `main` between dispatch and execution cannot change plan or apply code.
+The deploy job runs from `infra/`, so a step that invokes a repository-root script reaches it with
+`../scripts/` or overrides the working directory. A bare `scripts/...` path resolves under `infra/`
+and exits 127 on the runner, before Terraform has produced anything to inspect.
 Protected plans store the binary Terraform plan, bounded preflight evidence, and the Function
 source archive with separate SHA-256 digests. Exact apply downloads and verifies every artifact.
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
