@@ -138,6 +138,46 @@ def test_short_signature_is_rejected() -> None:
         parse_license_token(f"{segment}.{truncated}")
 
 
+@pytest.mark.parametrize("filler", ["\n\n\n\n", "    ", "\t\t\t\t", "\r\n\r\n"])
+def test_one_license_cannot_be_presented_as_a_second_token_string(filler: str) -> None:
+    """Base64 decoding drops non-alphabet characters, so a padded-out segment
+    would decode to the same signed bytes and stay valid. Accepting those would
+    give one license unlimited distinct token strings, and every control keyed
+    on the token - revocation, reuse detection, audit correlation - would be
+    evaded by adding whitespace.
+    """
+    document, signature = _token(_claims()).split(".")
+    midpoint = len(document) // 2
+
+    for variant in (
+        f"{document[:midpoint]}{filler}{document[midpoint:]}.{signature}",
+        f"{document}.{signature[:30]}{filler}{signature[30:]}",
+    ):
+        with pytest.raises(LicenseTokenError, match="base64url"):
+            parse_license_token(variant)
+
+
+def test_a_padded_segment_is_not_a_second_spelling_of_the_same_token() -> None:
+    document, signature = _token(_claims()).split(".")
+
+    with pytest.raises(LicenseTokenError, match="base64url"):
+        parse_license_token(f"{document}==.{signature}")
+
+
+def test_a_final_group_with_dirty_unused_bits_is_rejected() -> None:
+    """Two encodings can decode to the same bytes when the last group's unused
+    bits are not zero. Only the encoding this codec emits is accepted.
+    """
+    document, signature = _token(_claims()).split(".")
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    dirty = alphabet[alphabet.index(signature[-1]) + 1]
+    variant = f"{document}.{signature[:-1]}{dirty}"
+
+    assert variant != f"{document}.{signature}"
+    with pytest.raises(LicenseTokenError, match="canonically encoded"):
+        parse_license_token(variant)
+
+
 def test_expired_window_is_rejected_at_construction() -> None:
     with pytest.raises(LicenseTokenError, match="not_after MUST be later"):
         _claims(not_after=_NOW - timedelta(days=2))

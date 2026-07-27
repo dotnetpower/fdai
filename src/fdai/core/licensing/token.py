@@ -34,6 +34,7 @@ _MAX_CAPABILITY_IDS: Final = 512
 _SIGNATURE_BYTES: Final = 64
 _ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{2,127}$")
 _SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+_B64URL_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 _FIELDS: Final = frozenset(
     {
         "schema_version",
@@ -203,11 +204,27 @@ def _b64encode(payload: bytes) -> str:
 
 
 def _b64decode(segment: str, label: str) -> bytes:
+    """Decode one segment, accepting only its canonical unpadded encoding.
+
+    Base64 decoding in the standard library silently drops characters outside
+    the alphabet, so a whitespace run inserted into a segment decodes to the
+    same bytes and keeps the signature valid. That would make one license
+    presentable as unlimited distinct token strings, and anything that
+    identifies a license by its token - a revocation list, a reuse check, an
+    audit correlation - would be trivially evaded. Re-encoding the decoded
+    bytes and demanding the original segment back rejects every such variant,
+    including a final group whose unused bits are not zero.
+    """
+    if _B64URL_PATTERN.fullmatch(segment) is None:
+        raise LicenseTokenError(f"license {label} is not unpadded base64url")
     padding = "=" * (-len(segment) % 4)
     try:
-        return base64.urlsafe_b64decode(segment + padding)
+        decoded = base64.urlsafe_b64decode(segment + padding)
     except (binascii.Error, ValueError) as exc:
         raise LicenseTokenError(f"license {label} is not valid base64url") from exc
+    if _b64encode(decoded) != segment:
+        raise LicenseTokenError(f"license {label} is not canonically encoded")
+    return decoded
 
 
 __all__ = [
