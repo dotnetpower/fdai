@@ -1,7 +1,8 @@
 ---
 title: Resilience
-description: How FDAI proves recovery before you need it, using scheduled DR
-drills, bounded chaos experiments, and self-healing for known failure patterns.
+description: >-
+  How FDAI proves recovery before you need it, using scheduled DR drills,
+  bounded chaos experiments, and self-healing for known failure patterns.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
     sha: eddf9552f2f88f4e1bec24b2521b7656ed87d103
