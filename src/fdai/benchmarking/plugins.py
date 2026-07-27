@@ -60,10 +60,16 @@ def load_benchmark_plugin(
     if len(matches) > 1:
         raise BenchmarkPluginError(f"benchmark plugin {name!r} has duplicate entry points")
 
-    factory = matches[0].load()
+    try:
+        factory = matches[0].load()
+    except Exception as exc:
+        raise BenchmarkPluginError(f"benchmark plugin {name!r} failed to load") from exc
     if not callable(factory):
         raise BenchmarkPluginError(f"benchmark plugin {name!r} does not expose a factory")
-    plugin = factory()
+    try:
+        plugin = factory()
+    except Exception as exc:
+        raise BenchmarkPluginError(f"benchmark plugin {name!r} factory failed") from exc
     if not isinstance(plugin, BenchmarkPlugin):
         raise BenchmarkPluginError(f"benchmark plugin {name!r} has an invalid contract")
     if plugin.plugin_id != name:
