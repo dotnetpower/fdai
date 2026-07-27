@@ -300,6 +300,8 @@ async def test_routes_authenticated_turn_back_to_same_thread() -> None:
     assert adapter.sent[0].thread_id == "thread-1"
     assert adapter.sent[0].in_reply_to == "message-1"
     assert adapter.sent[0].text == "found storage"
+    assert [update.revision for update in adapter.sent[0].progress_updates] == [0, 1, 2]
+    assert adapter.sent[0].progress_updates[-1].text == "found storage"
 
 
 async def test_channel_gateway_emits_stable_handled_transition() -> None:
@@ -334,6 +336,7 @@ async def test_gateway_persists_complete_reply_once_before_provider_delivery() -
     response = durable.calls[0]["response"]
     assert isinstance(response, OutboundResponse)
     assert response.text == "found storage"
+    assert response.progress_updates[-1].activity_count == len(response.activities)
     assert _ReadTool.calls == [{"query": "storage"}]
 
 

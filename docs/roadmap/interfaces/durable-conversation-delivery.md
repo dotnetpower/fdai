@@ -62,6 +62,9 @@ The complete `OutboundResponse`, response digest, destination, operation, princi
 conversation, binding, origin reference, freshness deadline, and retention deadline are stored
 before send. The stable origin plus destination and operation derive one deterministic idempotency
 key. Reusing that key with different response content is rejected.
+Typed channel progress snapshots are part of that one immutable response. Durable replay validates
+contiguous revisions, monotonic activity counts, and a final confirmed snapshot equal to the
+canonical answer before a provider call. It never regenerates snapshots or reruns the coordinator.
 Replay decoding rejects scalar coercion in agent activities. Booleans and integers retain their
 JSON types, timestamps use RFC 3339 with a timezone, and completion cannot precede start.
 
@@ -108,6 +111,9 @@ even a crash immediately before the provider call cannot prove whether send occu
 reconciliation conservatively exposes an `ambiguous` terminal row. Crashes during send, after
 provider receipt, or before local acknowledgement have the same outcome.
 FDAI does not claim exactly-once behavior from a provider that cannot support it.
+The same rule applies after a progressive initial post: any later edit failure is `ambiguous`, even
+when the provider returned a definitive error for that edit, because the first message is already
+visible. The ledger never retries the complete response as another post.
 
 ## Adapter health
 

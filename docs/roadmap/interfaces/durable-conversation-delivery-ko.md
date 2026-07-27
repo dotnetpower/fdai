@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 12760fe6e1dff1e1f8f043f1edc4357a3a40f505
-translation_revised: 2026-07-24
+translation_source_sha: 2a6ccf2dce33da706a4d5144791aa16d1fc5533c
+translation_revised: 2026-07-27
 ---
 # 영구 대화 전송
 
@@ -63,6 +63,9 @@ Complete `OutboundResponse`, response digest, destination, operation, principal,
 conversation, binding, origin reference, freshness deadline, retention deadline을 send 전에
 저장합니다. Stable origin과 destination 및 operation으로 deterministic idempotency key를
 만듭니다. 동일 key를 다른 response content에 재사용하면 차단됩니다.
+Typed channel progress snapshot은 이 immutable response 하나에 포함됩니다. Durable replay는
+provider 호출 전에 contiguous revision, monotonic activity count 및 canonical answer와 동일한 final
+confirmed snapshot을 검증합니다. Snapshot을 다시 생성하거나 coordinator를 다시 실행하지 않습니다.
 Replay decode는 agent activity의 scalar coercion을 차단합니다. Boolean 및 integer는 JSON type을
 유지하고 timestamp는 timezone이 있는 RFC 3339를 사용하며 completion은 start보다 빠를 수 없습니다.
 
@@ -109,6 +112,9 @@ provider 호출 직전 crash도 실제 send 여부를 증명할 수 없으므로
 보수적으로 `ambiguous` terminal row로 표시합니다. Send 중, provider receipt 후 또는 local
 acknowledgement 전 crash도 같은 결과입니다.
 FDAI는 provider가 지원하지 않는 exactly-once 동작을 주장하지 않습니다.
+Progressive initial post 이후에도 같은 규칙을 적용합니다. 첫 message가 이미 표시되므로 이후 edit에서
+provider가 definitive error를 반환해도 failure는 `ambiguous`입니다. Ledger는 complete response를
+다른 post로 다시 시도하지 않습니다.
 
 ## Adapter health
 

@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 585e3fba2d88533693d350ba664d461d29e4c659
+translation_source_sha: 1c65fd6e96c52534ff2bcae87a72ccfbd06fd73e
 translation_revised: 2026-07-27
 ---
 
@@ -152,6 +152,9 @@ Slack과 Teams는 `ConversationChannelGateway`를 사용합니다. Gateway는 �
 turn이 active인지 확인한 후 같은 coordinator를 호출합니다. Busy input은 concurrent turn을 시작하는
 대신 같은 channel-neutral acknowledgement를 반환합니다. Idle channel input은 shared begin/finish
 의미로 감쌉니다. Vendor adapter는 자체 state machine을 구현하지 않습니다.
+Busy acknowledgement는 progressive snapshot을 전달하지 않습니다. Idle 상태에서 완료된 tool result는
+실제 redacted activity를 monotonic presentation update로 표시할 수 있지만, 이 update는 두 번째 active
+turn을 만들거나 queue, interrupt, steer arbitration을 변경하지 않습니다.
 
 ## Metric 및 운영
 

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: efd29897ddef9a1107a53b9b35e4ef716b8065fc
+translation_source_sha: 896dac7cd9125165833294101efe6c5ecb988b63
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -81,7 +81,7 @@ shared 패키지를 커버한다.
 | read_investigation | Exact-resource-first Azure VM 및 network read, bounded parallel evidence, RG-scoped subscription health, durable latency profile, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation ([설계](../interfaces/azure-read-investigations-ko.md)) | [src/fdai/core/read_investigation/](../../../src/fdai/core/read_investigation/), [src/fdai/shared/providers/read_investigation.py](../../../src/fdai/shared/providers/read_investigation.py) 및 [src/fdai/delivery/azure/subscription_health.py](../../../src/fdai/delivery/azure/subscription_health.py) | [tests/core/read_investigation/](../../../tests/core/read_investigation/), [tests/delivery/azure/read_investigation/](../../../tests/delivery/azure/read_investigation/) 및 focused Azure/read API/persistence test |
 | briefing | Report feed 기반 결정적 opening 및 scheduled briefing | [src/fdai/core/briefing/](../../../src/fdai/core/briefing/) | [tests/core/briefing/](../../../tests/core/briefing/) |
 | busy_input | Web, Slack, Teams conversation이 공유하는 영구 queue, interrupt, safe-boundary steer arbitration ([설계](../interfaces/busy-input-modes-ko.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) |
-| durable_delivery | Verified principal binding, persisted outbound response, bounded recovery 및 adapter breaker ([설계](../interfaces/durable-conversation-delivery-ko.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) 및 [tests/persistence/](../../../tests/persistence/) |
+| durable_delivery | Verified principal binding, persisted outbound response와 typed cumulative channel update, bounded recovery 및 adapter breaker ([설계](../interfaces/durable-conversation-delivery-ko.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) 및 [tests/persistence/](../../../tests/persistence/) |
 | user_context_projection | 사용자 context 및 workflow binding metadata만 runtime ontology에 projection | [src/fdai/core/user_context_projection.py](../../../src/fdai/core/user_context_projection.py) | [tests/core/test_user_context_projection.py](../../../tests/core/test_user_context_projection.py) |
 | working_context | 턴당 프롬프트 조립, invariant validation, capability-gated policy lifecycle, bounded shadow 비교 및 approved-fixture replay ([설계](../decisioning/context-selection-policy-ko.md)) | [src/fdai/core/working_context/](../../../src/fdai/core/working_context/) | [tests/core/working_context/](../../../tests/core/working_context/) |
 | prompts | catalog-as-code 프롬프트 컴포저 | [src/fdai/core/prompts/](../../../src/fdai/core/prompts/) | [tests/core/](../../../tests/core/) |

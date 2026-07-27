@@ -28,6 +28,8 @@ from fdai.shared.providers.conversation_channel import (
     ChannelDeliveryOperation,
     ChannelDeliveryReceipt,
     ChannelMention,
+    ChannelProgressStatus,
+    ChannelProgressUpdate,
     ChannelThreadMode,
     ConversationChannelKind,
     ConversationExecutionStatus,
@@ -449,6 +451,87 @@ async def test_slack_stream_and_edit_updates_preserve_activity_blocks() -> None:
     assert "corrected" in str(update_bodies[1]["blocks"])
 
 
+async def test_slack_progress_snapshots_post_once_then_edit_canonical_answer() -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+    activities = (
+        AgentHandoffActivity(from_agent="Bragi", to_agent="Heimdall", task="Inspect evidence"),
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label="Inspect health",
+            tool="query_resource_health",
+            command="query_resource_health --scope <redacted>",
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+        ),
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.url.path, json.loads(request.content)))
+        return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(),
+            token="app-token",
+            http_client=client,
+        )
+        await publisher.publish(
+            _response(
+                ConversationChannelKind.SLACK,
+                text="Canonical answer",
+                activities=activities,
+                progress_updates=(
+                    ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Inspect evidence", 1),
+                    ChannelProgressUpdate(
+                        1, ChannelProgressStatus.CONFIRMED, "Canonical answer", 2
+                    ),
+                ),
+            )
+        )
+
+    assert [path for path, _body in calls] == ["/api/chat.postMessage", "/api/chat.update"]
+    assert "Inspect health" not in str(calls[0][1]["blocks"])
+    assert "Inspect health" in str(calls[1][1]["blocks"])
+    assert "Canonical answer" in str(calls[1][1]["blocks"])
+
+
+async def test_slack_progress_update_failure_is_ambiguous_after_initial_ack() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if request.url.path.endswith("chat.postMessage"):
+            return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+        return httpx.Response(500, json={"ok": False})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(),
+            token="app-token",
+            http_client=client,
+        )
+        with pytest.raises(ChannelDeliveryError) as raised:
+            await publisher.publish(
+                _response(
+                    ConversationChannelKind.SLACK,
+                    text="Canonical answer",
+                    progress_updates=(
+                        ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Checking", 0),
+                        ChannelProgressUpdate(
+                            1,
+                            ChannelProgressStatus.CONFIRMED,
+                            "Canonical answer",
+                            0,
+                        ),
+                    ),
+                )
+            )
+
+    assert calls == 2
+    assert raised.value.acknowledgement_ambiguous is True
+
+
 async def test_slack_rich_features_degrade_to_thread_text() -> None:
     bodies: list[dict[str, object]] = []
 
@@ -558,6 +641,87 @@ async def test_teams_native_rich_operations_return_acknowledgements() -> None:
     )
     assert streamed.message_id == edited.message_id == "activity-2"
     assert reacted.operation is ChannelDeliveryOperation.REACTION
+
+
+async def test_teams_progress_snapshots_post_once_then_edit_canonical_answer() -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+    endpoint = "https://bot.example.com/conversations/1/activities"
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Inspect health",
+        tool="query_resource_health",
+        command="query_resource_health --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, json.loads(request.content)))
+        return httpx.Response(201 if request.method == "POST" else 200, json={"id": "activity-2"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: endpoint,
+            http_client=client,
+        )
+        await publisher.publish(
+            _response(
+                ConversationChannelKind.TEAMS,
+                text="Canonical answer",
+                activities=(activity,),
+                progress_updates=(
+                    ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Inspecting", 0),
+                    ChannelProgressUpdate(
+                        1, ChannelProgressStatus.CONFIRMED, "Canonical answer", 1
+                    ),
+                ),
+            )
+        )
+
+    assert [method for method, _body in calls] == ["POST", "PUT"]
+    assert "Inspect health" not in str(calls[0][1])
+    assert "Inspect health" in str(calls[1][1])
+    assert "Canonical answer" in str(calls[1][1])
+
+
+async def test_teams_progress_update_failure_is_ambiguous_after_initial_ack() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if request.method == "POST":
+            return httpx.Response(201, json={"id": "activity-2"})
+        return httpx.Response(500, json={"error": "rejected"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+        )
+        with pytest.raises(ChannelDeliveryError) as raised:
+            await publisher.publish(
+                _response(
+                    ConversationChannelKind.TEAMS,
+                    text="Canonical answer",
+                    progress_updates=(
+                        ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Checking", 0),
+                        ChannelProgressUpdate(
+                            1,
+                            ChannelProgressStatus.CONFIRMED,
+                            "Canonical answer",
+                            0,
+                        ),
+                    ),
+                )
+            )
+
+    assert calls == 2
+    assert raised.value.acknowledgement_ambiguous is True
 
 
 async def test_teams_rich_features_degrade_to_thread_text() -> None:

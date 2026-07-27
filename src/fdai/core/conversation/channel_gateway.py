@@ -20,8 +20,12 @@ from fdai.core.conversation.session import ConversationSession, Principal
 from fdai.core.conversation.tools import AbstainResult, ToolResult
 from fdai.shared.contracts import DocumentPurpose
 from fdai.shared.providers.conversation_channel import (
+    AgentHandoffActivity,
+    ChannelProgressStatus,
+    ChannelProgressUpdate,
     ConversationChannelAdapter,
     InboundTurn,
+    ObservedExecutionActivity,
     OutboundResponse,
 )
 from fdai.shared.providers.conversation_delivery import OutboundDeliveryRecord
@@ -467,6 +471,7 @@ def _to_response(
             data=result.data,
             evidence_refs=tuple(dict.fromkeys((*result.evidence_refs, *attachment_evidence))),
             activities=result.activities,
+            progress_updates=_progress_updates(result),
         )
     return OutboundResponse(
         channel_kind=turn.channel_kind,
@@ -477,6 +482,37 @@ def _to_response(
         text=result.reason,
         data={"tool_inventory": list(result.tool_inventory)},
     )
+
+
+def _progress_updates(result: ToolResult) -> tuple[ChannelProgressUpdate, ...]:
+    if not result.activities:
+        return ()
+    updates = tuple(
+        ChannelProgressUpdate(
+            revision=index,
+            status=ChannelProgressStatus.RUNNING,
+            text=_activity_progress_text(activity),
+            activity_count=index + 1,
+        )
+        for index, activity in enumerate(result.activities)
+    )
+    return (
+        *updates,
+        ChannelProgressUpdate(
+            revision=len(updates),
+            status=ChannelProgressStatus.CONFIRMED,
+            text=result.preview,
+            activity_count=len(result.activities),
+        ),
+    )
+
+
+def _activity_progress_text(
+    activity: AgentHandoffActivity | ObservedExecutionActivity,
+) -> str:
+    if isinstance(activity, AgentHandoffActivity):
+        return f"{activity.from_agent} -> {activity.to_agent}: {activity.task}"
+    return f"{activity.agent}: {activity.label} [{activity.status.value}]"
 
 
 def _attachment_error(turn: InboundTurn, reason: str) -> OutboundResponse:

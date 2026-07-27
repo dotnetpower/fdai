@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -16,6 +16,7 @@ from fdai.shared.providers.conversation_channel import (
     ChannelDeliveryError,
     ChannelDeliveryOperation,
     ChannelDeliveryReceipt,
+    ChannelProgressUpdate,
     ChannelThreadMode,
     ConversationActivity,
     ConversationChannelKind,
@@ -88,6 +89,8 @@ class SlackWebApiReplyPublisher:
         return _receipt(response, message_id, degraded_to_text=degraded)
 
     async def _publish_stream(self, response: OutboundResponse) -> ChannelDeliveryReceipt:
+        if response.progress_updates:
+            return await self._publish_progress_updates(response)
         visible = response.stream_chunks[0]
         message_id = await self._post_message(
             response,
@@ -99,7 +102,7 @@ class SlackWebApiReplyPublisher:
         )
         for chunk in response.stream_chunks[1:]:
             visible += chunk
-            await self._call(
+            await self._acknowledged_update(
                 self._config.update_api_url,
                 _slack_update_body(
                     response,
@@ -109,7 +112,7 @@ class SlackWebApiReplyPublisher:
                 ),
             )
         if visible != response.text:
-            await self._call(
+            await self._acknowledged_update(
                 self._config.update_api_url,
                 _slack_update_body(
                     response,
@@ -123,6 +126,51 @@ class SlackWebApiReplyPublisher:
             message_id,
             degraded_to_text=bool(response.mentions and not self._config.supports_mentions),
         )
+
+    async def _publish_progress_updates(
+        self,
+        response: OutboundResponse,
+    ) -> ChannelDeliveryReceipt:
+        snapshots = tuple(
+            _progress_response(response, update) for update in response.progress_updates
+        )
+        message_id = await self._post_message(
+            snapshots[0],
+            text=_render_slack_text(
+                snapshots[0],
+                snapshots[0].text,
+                native_mentions=self._config.supports_mentions,
+            ),
+        )
+        for snapshot in snapshots[1:]:
+            await self._acknowledged_update(
+                self._config.update_api_url,
+                _slack_update_body(
+                    snapshot,
+                    message_id=message_id,
+                    text=snapshot.text,
+                    native_mentions=self._config.supports_mentions,
+                ),
+            )
+        return _receipt(
+            response,
+            message_id,
+            degraded_to_text=bool(response.mentions and not self._config.supports_mentions),
+        )
+
+    async def _acknowledged_update(
+        self,
+        endpoint: str,
+        body: Mapping[str, object],
+    ) -> Mapping[str, Any]:
+        try:
+            return await self._call(endpoint, body)
+        except ChannelDeliveryError as exc:
+            raise ChannelDeliveryError(
+                "Slack update failed after the initial message was acknowledged",
+                code=exc.code,
+                acknowledgement_ambiguous=True,
+            ) from exc
 
     async def _publish_edit(self, response: OutboundResponse) -> ChannelDeliveryReceipt:
         message_id = response.edit_message_id
@@ -277,6 +325,12 @@ class TeamsBotFrameworkReplyPublisher:
         endpoint: str,
         token: str,
     ) -> ChannelDeliveryReceipt:
+        if response.progress_updates:
+            return await self._publish_progress_updates(
+                response,
+                endpoint=endpoint,
+                token=token,
+            )
         visible = response.stream_chunks[0]
         initial = _teams_message_body(
             response,
@@ -290,7 +344,7 @@ class TeamsBotFrameworkReplyPublisher:
         update_endpoint = _activity_endpoint(endpoint, message_id)
         for chunk in response.stream_chunks[1:]:
             visible += chunk
-            await self._request(
+            await self._acknowledged_update(
                 "PUT",
                 update_endpoint,
                 _teams_message_body(
@@ -301,7 +355,7 @@ class TeamsBotFrameworkReplyPublisher:
                 token=token,
             )
         if visible != response.text:
-            await self._request(
+            await self._acknowledged_update(
                 "PUT",
                 update_endpoint,
                 _teams_message_body(
@@ -316,6 +370,60 @@ class TeamsBotFrameworkReplyPublisher:
             message_id,
             degraded_to_text=bool(response.mentions and not self._config.supports_mentions),
         )
+
+    async def _publish_progress_updates(
+        self,
+        response: OutboundResponse,
+        *,
+        endpoint: str,
+        token: str,
+    ) -> ChannelDeliveryReceipt:
+        snapshots = tuple(
+            _progress_response(response, update) for update in response.progress_updates
+        )
+        initial = _teams_message_body(
+            snapshots[0],
+            snapshots[0].text,
+            native_mentions=self._config.supports_mentions,
+        )
+        initial["replyToId"] = response.in_reply_to
+        message_id = _teams_acknowledgement(
+            await self._request("POST", endpoint, initial, token=token)
+        )
+        update_endpoint = _activity_endpoint(endpoint, message_id)
+        for snapshot in snapshots[1:]:
+            await self._acknowledged_update(
+                "PUT",
+                update_endpoint,
+                _teams_message_body(
+                    snapshot,
+                    snapshot.text,
+                    native_mentions=self._config.supports_mentions,
+                ),
+                token=token,
+            )
+        return _receipt(
+            response,
+            message_id,
+            degraded_to_text=bool(response.mentions and not self._config.supports_mentions),
+        )
+
+    async def _acknowledged_update(
+        self,
+        method: str,
+        endpoint: str,
+        body: Mapping[str, Any],
+        *,
+        token: str,
+    ) -> Mapping[str, Any] | None:
+        try:
+            return await self._request(method, endpoint, body, token=token)
+        except ChannelDeliveryError as exc:
+            raise ChannelDeliveryError(
+                "Teams update failed after the initial message was acknowledged",
+                code=exc.code,
+                acknowledgement_ambiguous=True,
+            ) from exc
 
     async def _publish_edit(
         self,
@@ -714,6 +822,19 @@ def _receipt(
         operation=response.operation,
         message_id=message_id,
         degraded_to_text=degraded_to_text,
+    )
+
+
+def _progress_response(
+    response: OutboundResponse,
+    update: ChannelProgressUpdate,
+) -> OutboundResponse:
+    return replace(
+        response,
+        text=update.text,
+        activities=response.activities[: update.activity_count],
+        stream_chunks=(),
+        progress_updates=(),
     )
 
 

@@ -228,6 +228,14 @@ Concrete publishers map that intent as follows:
 | Reaction | `reactions.add` against the inbound message | `messageReaction` activity against the inbound message | New thread reply with a `Reaction:` label |
 | Agent activity | Block Kit sections in handoff, plain-text command/result, Bragi-answer order; posts, stream updates, and edits preserve the same blocks | Adaptive Card blocks in the same order under a 24,000-byte card budget; omitted activities are counted | Bounded text with the same agent attribution and redaction markers |
 
+Progressive conversation delivery uses typed cumulative `ChannelProgressUpdate` snapshots rather
+than splitting a completed answer into artificial token chunks. The gateway derives snapshots only
+from ordered coordinator activities and the canonical final preview. Revisions are contiguous,
+activity counts never decrease, and the last snapshot is `confirmed` only when its text and activity
+count exactly match the durable `OutboundResponse`. Slack and Teams post revision 0 once, then edit
+the same acknowledged message for later revisions. A response without observed activities remains
+a single final post. A channel with streaming disabled sends the same canonical final text fallback.
+
 Observed output uses explicit provenance markers. `[UPSTREAM OUTPUT TRUNCATED]` means the evidence
 producer supplied partial output; `[CHANNEL OUTPUT TRUNCATED]` means the adapter clipped output to
 the vendor presentation limit. Both markers appear when both conditions apply.
@@ -243,6 +251,8 @@ id, and whether the request degraded to text. Slack requires an `ok=true` respon
 timestamp for posts. Teams requires the Bot Framework resource id for message creation. Missing or
 malformed acknowledgements fail the send rather than reporting delivery. The adapters forward the
 receipt to the caller; transport failures still raise and follow the existing retry/audit path.
+After the initial post is acknowledged, any later update failure is classified as ambiguous
+duplicate risk. Durable delivery does not retry the complete stream and create a second message.
 
 ### 4.3 Durable reply delivery and adapter controls
 

@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 53bc7d646339b7e55db290bd10501ba29c618ee2
+translation_source_sha: 586584454200de9ab5d9c8aaa70857ed3c5435df
 translation_revised: 2026-07-27
 ---
 
@@ -228,6 +228,14 @@ Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
 | Reaction | inbound message에 `reactions.add` | inbound message에 `messageReaction` activity | `Reaction:` label이 있는 새 thread reply |
 | Agent activity | handoff, plain-text command/result, Bragi answer 순서의 Block Kit section; post, stream update, edit에서 같은 block을 보존 | 24,000-byte card budget 안의 같은 순서 Adaptive Card block; 생략된 activity 수를 표시 | 같은 agent attribution 및 redaction marker가 있는 bounded text |
 
+점진적 대화 전달은 완료된 answer를 인위적인 token chunk로 나누는 대신 typed cumulative
+`ChannelProgressUpdate` snapshot을 사용합니다. Gateway는 ordered coordinator activity와 canonical
+final preview에서만 snapshot을 파생합니다. Revision은 연속적이고 activity count는 감소하지 않으며,
+마지막 snapshot은 text와 activity count가 durable `OutboundResponse`와 정확히 일치할 때만
+`confirmed`입니다. Slack과 Teams는 revision 0을 한 번 게시한 후 동일한 acknowledged message를
+이후 revision으로 edit합니다. Observed activity가 없는 response는 final post 하나로 유지됩니다.
+Streaming이 비활성화된 channel은 같은 canonical final text fallback을 전송합니다.
+
 Observed output은 명시적인 provenance marker를 사용합니다. `[UPSTREAM OUTPUT TRUNCATED]`는
 evidence producer가 partial output을 제공했다는 뜻이고, `[CHANNEL OUTPUT TRUNCATED]`는 adapter가
 vendor presentation limit에 맞춰 output을 잘랐다는 뜻입니다. 두 조건이 모두 적용되면 두 marker를
@@ -244,6 +252,8 @@ Accepted send는 요청한 operation, vendor message id, text degradation 여부
 요구합니다. Teams message 생성은 Bot Framework resource id를 요구합니다. Acknowledgement가
 누락되거나 malformed이면 delivery를 보고하지 않고 send를 실패시킵니다. Adapter는 receipt를
 caller에게 전달하며 transport failure는 계속 raise되어 기존 retry/audit path를 따릅니다.
+Initial post가 acknowledged된 후의 update failure는 ambiguous duplicate risk로 분류됩니다. Durable
+delivery는 complete stream을 다시 시도하여 두 번째 message를 만들지 않습니다.
 
 ### 4.3 Durable reply delivery 및 adapter control
 

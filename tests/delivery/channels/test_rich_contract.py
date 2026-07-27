@@ -11,6 +11,8 @@ from fdai.shared.providers.conversation_channel import (
     AgentHandoffActivity,
     ChannelDeliveryOperation,
     ChannelMention,
+    ChannelProgressStatus,
+    ChannelProgressUpdate,
     ConversationChannelKind,
     ConversationExecutionStatus,
     ObservedExecutionActivity,
@@ -207,6 +209,12 @@ def test_execution_activity_rejects_unredacted_or_sensitive_content(
     (
         {"stream_chunks": ("chunk",), "edit_message_id": "message-2"},
         {"stream_chunks": ("chunk",), "reaction": "thumbsup"},
+        {
+            "stream_chunks": ("chunk",),
+            "progress_updates": (
+                ChannelProgressUpdate(0, ChannelProgressStatus.CONFIRMED, "fallback reply", 0),
+            ),
+        },
         {"edit_message_id": "message-2", "reaction": "thumbsup"},
         {
             "reaction": "thumbsup",
@@ -226,3 +234,50 @@ def test_outbound_response_rejects_ambiguous_or_unbounded_rich_intent(
 ) -> None:
     with pytest.raises(ValueError):
         _response(**changes)
+
+
+def test_progress_updates_require_monotonic_canonical_final_snapshot() -> None:
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Query metric evidence",
+        tool="query_metric",
+        command="query_metric --metric <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+    )
+    response = _response(
+        activities=(activity,),
+        progress_updates=(
+            ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Checking evidence", 1),
+            ChannelProgressUpdate(1, ChannelProgressStatus.CONFIRMED, "fallback reply", 1),
+        ),
+    )
+
+    assert response.operation is ChannelDeliveryOperation.STREAM
+    assert outbound_response_from_json(outbound_response_to_json(response)) == response
+
+    with pytest.raises(ValueError, match="canonical response"):
+        _response(
+            progress_updates=(
+                ChannelProgressUpdate(0, ChannelProgressStatus.CONFIRMED, "not final", 0),
+            ),
+        )
+    with pytest.raises(ValueError, match="contiguous"):
+        _response(
+            progress_updates=(
+                ChannelProgressUpdate(1, ChannelProgressStatus.CONFIRMED, "fallback reply", 0),
+            ),
+        )
+
+
+def test_durable_progress_rejects_scalar_coercion() -> None:
+    response = _response(
+        progress_updates=(
+            ChannelProgressUpdate(0, ChannelProgressStatus.CONFIRMED, "fallback reply", 0),
+        ),
+    )
+    serialized = outbound_response_to_json(response)
+    serialized["progress_updates"][0]["revision"] = True
+
+    with pytest.raises(ValueError, match="scalar types"):
+        outbound_response_from_json(serialized)

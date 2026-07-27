@@ -21,6 +21,7 @@ MAX_ATTACHMENT_NAME_CHARS = 512
 MAX_MEDIA_TYPE_CHARS = 256
 MAX_MENTION_COUNT = 20
 MAX_STREAM_CHUNKS = 128
+MAX_PROGRESS_UPDATES = 128
 MAX_ACTIVITY_COUNT = 16
 MAX_ACTIVITY_AGENT_CHARS = 64
 MAX_ACTIVITY_LABEL_CHARS = 256
@@ -66,6 +67,11 @@ class ConversationExecutionStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     UNAVAILABLE = "unavailable"
+
+
+class ChannelProgressStatus(StrEnum):
+    RUNNING = "running"
+    CONFIRMED = "confirmed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +139,23 @@ class ObservedExecutionActivity:
 
 
 ConversationActivity = AgentHandoffActivity | ObservedExecutionActivity
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelProgressUpdate:
+    """One cumulative coordinator snapshot for monotonic provider editing."""
+
+    revision: int
+    status: ChannelProgressStatus
+    text: str
+    activity_count: int
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.revision < MAX_PROGRESS_UPDATES:
+            raise ValueError("channel progress revision is outside the bounded range")
+        _safe_bounded("channel progress text", self.text, MAX_TEXT_CHARS)
+        if not 0 <= self.activity_count <= MAX_ACTIVITY_COUNT:
+            raise ValueError("channel progress activity_count is outside the bounded range")
 
 
 class ChannelDeliveryError(RuntimeError):
@@ -239,6 +262,7 @@ class OutboundResponse:
     mentions: tuple[ChannelMention, ...] = ()
     activities: tuple[ConversationActivity, ...] = ()
     stream_chunks: tuple[str, ...] = ()
+    progress_updates: tuple[ChannelProgressUpdate, ...] = ()
     edit_message_id: str | None = None
     reaction: str | None = None
     thread_mode: ChannelThreadMode = ChannelThreadMode.ORIGIN
@@ -266,6 +290,34 @@ class OutboundResponse:
             raise ValueError("OutboundResponse.stream_chunks MUST be non-empty")
         if sum(len(chunk) for chunk in self.stream_chunks) > MAX_TEXT_CHARS:
             raise ValueError("OutboundResponse.stream_chunks exceeds text cap")
+        if len(self.progress_updates) > MAX_PROGRESS_UPDATES:
+            raise ValueError("OutboundResponse.progress_updates exceeds cap")
+        if self.progress_updates:
+            if tuple(update.revision for update in self.progress_updates) != tuple(
+                range(len(self.progress_updates))
+            ):
+                raise ValueError("OutboundResponse progress revisions MUST be contiguous")
+            if any(
+                current.activity_count > following.activity_count
+                for current, following in zip(
+                    self.progress_updates,
+                    self.progress_updates[1:],
+                    strict=False,
+                )
+            ):
+                raise ValueError("OutboundResponse progress activity counts MUST be monotonic")
+            if any(
+                update.status is not ChannelProgressStatus.RUNNING
+                for update in self.progress_updates[:-1]
+            ):
+                raise ValueError("only the final channel progress update can be confirmed")
+            final_update = self.progress_updates[-1]
+            if (
+                final_update.status is not ChannelProgressStatus.CONFIRMED
+                or final_update.text != self.text
+                or final_update.activity_count != len(self.activities)
+            ):
+                raise ValueError("final channel progress update MUST match the canonical response")
         if self.edit_message_id is not None:
             _bounded("edit_message_id", self.edit_message_id, MAX_MESSAGE_ID_CHARS)
         if self.reaction is not None:
@@ -277,6 +329,7 @@ class OutboundResponse:
         rich_modes = sum(
             (
                 bool(self.stream_chunks),
+                bool(self.progress_updates),
                 self.edit_message_id is not None,
                 self.reaction is not None,
             )
@@ -286,7 +339,7 @@ class OutboundResponse:
 
     @property
     def operation(self) -> ChannelDeliveryOperation:
-        if self.stream_chunks:
+        if self.stream_chunks or self.progress_updates:
             return ChannelDeliveryOperation.STREAM
         if self.edit_message_id is not None:
             return ChannelDeliveryOperation.EDIT
@@ -323,6 +376,15 @@ def outbound_response_to_json(response: OutboundResponse) -> dict[str, Any]:
         ],
         "activities": [_activity_to_json(activity) for activity in response.activities],
         "stream_chunks": list(response.stream_chunks),
+        "progress_updates": [
+            {
+                "revision": update.revision,
+                "status": update.status.value,
+                "text": update.text,
+                "activity_count": update.activity_count,
+            }
+            for update in response.progress_updates
+        ],
         "edit_message_id": response.edit_message_id,
         "reaction": response.reaction,
         "thread_mode": response.thread_mode.value,
@@ -342,6 +404,11 @@ def outbound_response_from_json(value: object) -> OutboundResponse:
     activities = value.get("activities", [])
     if not isinstance(activities, list):
         raise ValueError("stored outbound response activities MUST be objects")
+    progress_updates = value.get("progress_updates", [])
+    if not isinstance(progress_updates, list) or any(
+        not isinstance(item, Mapping) for item in progress_updates
+    ):
+        raise ValueError("stored outbound response progress_updates MUST be objects")
     return OutboundResponse(
         channel_kind=ConversationChannelKind(str(value["channel_kind"])),
         channel_id=str(value["channel_id"]),
@@ -360,11 +427,37 @@ def outbound_response_from_json(value: object) -> OutboundResponse:
         ),
         activities=tuple(_activity_from_json(item) for item in activities),
         stream_chunks=tuple(str(item) for item in value.get("stream_chunks", ())),
+        progress_updates=tuple(
+            _progress_update_from_json(item)
+            for item in cast(list[Mapping[str, object]], progress_updates)
+        ),
         edit_message_id=(
             str(value["edit_message_id"]) if value.get("edit_message_id") is not None else None
         ),
         reaction=str(value["reaction"]) if value.get("reaction") is not None else None,
         thread_mode=ChannelThreadMode(str(value.get("thread_mode", "origin"))),
+    )
+
+
+def _progress_update_from_json(value: Mapping[str, object]) -> ChannelProgressUpdate:
+    revision = value.get("revision")
+    activity_count = value.get("activity_count")
+    text = value.get("text")
+    status = value.get("status")
+    if (
+        not isinstance(revision, int)
+        or isinstance(revision, bool)
+        or not isinstance(activity_count, int)
+        or isinstance(activity_count, bool)
+        or not isinstance(text, str)
+        or not isinstance(status, str)
+    ):
+        raise ValueError("stored channel progress update has invalid scalar types")
+    return ChannelProgressUpdate(
+        revision=revision,
+        status=ChannelProgressStatus(status),
+        text=text,
+        activity_count=activity_count,
     )
 
 
@@ -524,6 +617,8 @@ __all__ = [
     "ChannelDeliveryError",
     "ChannelDeliveryReceipt",
     "ChannelMention",
+    "ChannelProgressStatus",
+    "ChannelProgressUpdate",
     "ChannelThreadMode",
     "ConversationChannelAdapter",
     "ConversationChannelKind",
@@ -534,6 +629,7 @@ __all__ = [
     "MAX_ACTIVITY_COUNT",
     "MAX_ACTIVITY_TOTAL_CHARS",
     "MAX_MENTION_COUNT",
+    "MAX_PROGRESS_UPDATES",
     "MAX_STREAM_CHUNKS",
     "OutboundResponse",
     "ObservedExecutionActivity",

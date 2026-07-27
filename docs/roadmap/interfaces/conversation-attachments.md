@@ -193,6 +193,11 @@ the resulting ingestor to an attachment-aware `ConversationChannelGateway` befor
 Teams consumers. A runtime configured with attachments and a gateway that cannot bind them fails
 startup.
 
+After protected ingestion completes, the gateway can project actual redacted coordinator
+activities into typed channel progress snapshots. This changes presentation only. Attachment bytes,
+purpose, authorization, scanning, terminal citation checks, and agent ownership remain unchanged;
+no progress text becomes an instruction or evidence authority.
+
 The repository currently ships these composition components as a library boundary. It does not yet
 ship a standalone channel ASGI factory or Terraform channel workload that instantiates
 `ProductionChannelRuntime`; the read API and headless core do not mount channel ingress routes.

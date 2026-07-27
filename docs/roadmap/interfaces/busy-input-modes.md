@@ -152,6 +152,9 @@ checks whether a turn is active, and calls the same coordinator. Busy input retu
 channel-neutral acknowledgement instead of starting a concurrent turn. Idle channel input is
 wrapped with shared begin/finish semantics. Vendor adapters do not implement their own state
 machine.
+Busy acknowledgements carry no progressive snapshots. An idle completed tool result can expose its
+actual redacted activities as monotonic presentation updates, but those updates do not create a
+second active turn or change queue, interrupt, or steer arbitration.
 
 ## Metrics and operations
 
