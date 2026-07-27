@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import stat
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -193,3 +194,57 @@ def test_cli_reports_an_unreadable_token_without_claiming_entitlement(tmp_path: 
 
     assert code == 4
     assert payload["active"] is False
+
+
+def _cli_arguments(private_key: Path, public_key: Path, output: Path) -> list[str]:
+    return [
+        "--private-key",
+        str(private_key),
+        "--public-key",
+        str(public_key),
+        "--license-id",
+        "lic-0001",
+        "--distribution-id",
+        "example-distribution",
+        "--capability",
+        "cost.metering",
+        "--output",
+        str(output),
+    ]
+
+
+def _key_files(tmp_path: Path) -> tuple[Path, Path]:
+    key = Ed25519PrivateKey.generate()
+    private_key = tmp_path / "license-key.pem"
+    public_key = tmp_path / "license-key.pub"
+    private_key.write_bytes(_private_pem(key))
+    public_key.write_bytes(_public_pem(key))
+    return private_key, public_key
+
+
+def test_the_issued_token_is_readable_only_by_its_owner(issuer: ModuleType, tmp_path: Path) -> None:
+    """A license without an image or deployment binding is a bearer credential.
+    The default file mode leaves it readable by every account on the issuing
+    host.
+    """
+    private_key, public_key = _key_files(tmp_path)
+    output = tmp_path / "license.token"
+
+    exit_code = issuer.main(_cli_arguments(private_key, public_key, output))
+
+    assert exit_code == 0
+    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+
+
+def test_a_link_at_the_output_path_does_not_place_the_token_elsewhere(
+    issuer: ModuleType, tmp_path: Path
+) -> None:
+    private_key, public_key = _key_files(tmp_path)
+    elsewhere = tmp_path / "elsewhere.token"
+    output = tmp_path / "license.token"
+    output.symlink_to(elsewhere)
+
+    exit_code = issuer.main(_cli_arguments(private_key, public_key, output))
+
+    assert exit_code == 1
+    assert not elsewhere.exists()

@@ -22,6 +22,7 @@ Fail-closed properties:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -125,8 +126,28 @@ def main(argv: list[str] | None = None) -> int:
     if args.output is None:
         print(token)
     else:
-        args.output.write_text(token + "\n", encoding="ascii")
+        try:
+            _write_private_text(args.output, token + "\n")
+        except OSError as exc:
+            print(f"license issue failed: {exc}", file=sys.stderr)
+            return 1
     return 0
+
+
+def _write_private_text(path: Path, content: str) -> None:
+    """Write the token readable only by its owner, and never through a link.
+
+    A license token is a bearer credential. One issued without an image digest
+    or a deployment binding is usable by anyone who can read it, and the
+    default file mode leaves it readable by every account on the host that
+    issued it. Creating the file with O_NOFOLLOW also stops a link planted at
+    the output path from placing the token somewhere the operator did not
+    choose.
+    """
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "w", encoding="ascii") as stream:
+        stream.write(content)
+    path.chmod(0o600)
 
 
 if __name__ == "__main__":
