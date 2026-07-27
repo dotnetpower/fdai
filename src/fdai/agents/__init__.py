@@ -27,6 +27,7 @@ from fdai.agents._framework.conversation_tools import AgentToolResult, AgentTool
 from fdai.agents._framework.deliberation import (
     DeliberationClaim,
     DeliberationRequest,
+    EscalationBudget,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
@@ -68,6 +69,7 @@ __all__ = [
     "ConversationTool",
     "DeliberationClaim",
     "DeliberationRequest",
+    "EscalationBudget",
     "Heimdall",
     "Layer",
     "Norns",

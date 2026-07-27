@@ -19,12 +19,84 @@ _MAX_ANSWER_CHARS = 16_000
 _MAX_CLAIMS = 3
 _MAX_PARTICIPANTS = 3
 _MAX_T2_CONCLUSION_CHARS = 4_000
+_MAX_TRACKED_CORRELATIONS = 1_024
 _LOG = logging.getLogger(__name__)
 
 CallResponder = Callable[
     [str, str, dict[str, Any]],
     Awaitable[tuple[dict[str, Any] | None, str | None]],
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class EscalationBudget:
+    """Pre-declared ceiling on conversational model escalation.
+
+    ``cost-model.md`` requires the model budget to be a ceiling: overflow
+    degrades to a cheaper path, never to uncapped inference. The
+    conversational port had no such ceiling - T1 routing is free, but T2
+    synthesis calls a model and nothing bounded how often.
+
+    Both limits are deliberately small. A second synthesis on the same
+    correlation re-reads the same bounded claims, so it buys presentation
+    polish rather than evidence; the process-wide limit contains a
+    runaway caller regardless of correlation.
+    """
+
+    max_calls_per_correlation: int = 1
+    max_calls_total: int = 64
+
+    def __post_init__(self) -> None:
+        if self.max_calls_per_correlation < 0 or self.max_calls_total < 0:
+            raise ValueError("escalation budget limits MUST be non-negative")
+        if self.max_calls_per_correlation > self.max_calls_total:
+            raise ValueError("per-correlation escalation budget MUST fit the total budget")
+
+
+class EscalationLedger:
+    """Deterministic, bounded accounting of conversational model calls.
+
+    Pure in-process bookkeeping: the same call sequence always yields the
+    same allow/deny decisions, so a recorded conversation replays. The
+    correlation map is capped, because it is keyed by a value the caller
+    supplies and would otherwise grow without bound.
+    """
+
+    def __init__(self, budget: EscalationBudget | None = None) -> None:
+        self._budget = budget or EscalationBudget()
+        self._per_correlation: dict[str, int] = {}
+        self._total = 0
+
+    @property
+    def budget(self) -> EscalationBudget:
+        return self._budget
+
+    def allows(self, correlation_id: str) -> bool:
+        if self._total >= self._budget.max_calls_total:
+            return False
+        spent = self._per_correlation.get(correlation_id, 0)
+        return spent < self._budget.max_calls_per_correlation
+
+    def record(self, correlation_id: str) -> None:
+        """Charge one escalation, before the call rather than after.
+
+        A provider call that then fails still consumed the budget it was
+        granted; charging on success would let a failing provider be
+        retried without limit.
+        """
+        self._total += 1
+        if len(self._per_correlation) >= _MAX_TRACKED_CORRELATIONS:
+            self._per_correlation.pop(next(iter(self._per_correlation)))
+        self._per_correlation[correlation_id] = self._per_correlation.get(correlation_id, 0) + 1
+
+    def snapshot(self, correlation_id: str) -> dict[str, int]:
+        """Return the bound an answer may state, with no provider detail."""
+        return {
+            "spent_for_correlation": self._per_correlation.get(correlation_id, 0),
+            "max_per_correlation": self._budget.max_calls_per_correlation,
+            "spent_total": self._total,
+            "max_total": self._budget.max_calls_total,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +158,7 @@ class ConversationDeliberator:
         semantic_router: SemanticAgentRouter | None,
         t2_synthesizer: T2ConversationSynthesizer | None,
         call_responder: CallResponder,
+        escalation_budget: EscalationBudget | None = None,
     ) -> None:
         if not specs:
             raise ValueError("conversation deliberator requires agent specs")
@@ -93,6 +166,7 @@ class ConversationDeliberator:
         self._semantic_router = semantic_router
         self._t2_synthesizer = t2_synthesizer
         self._call_responder = call_responder
+        self._ledger = EscalationLedger(escalation_budget)
 
     async def deliberate(
         self,
@@ -150,6 +224,10 @@ class ConversationDeliberator:
                 "correlation_id": correlation_id,
                 "deliberation_phase": "position",
                 "deliberation_tier": "T1",
+                # Whether a model escalation is still affordable this turn.
+                # The agent states the bound rather than implying a deeper
+                # pass ran when the budget already refused it.
+                "escalation_available": self._ledger.allows(correlation_id),
             },
         )
         primary_claim = _claim(decision.primary_agent, primary_raw)
@@ -232,6 +310,10 @@ class ConversationDeliberator:
                 "deliberation_phase": "critique",
                 "deliberation_tier": "T1",
                 "peer_claims": (_claim_dict(primary_claim),),
+                "escalation_available": self._ledger.allows(correlation_id),
+                # The primary owns the conclusion; a critic contributes
+                # owned evidence and hands the answer back to that owner.
+                "handoff_owner": primary_claim.agent,
             },
         )
         return _claim(agent_name, response)
@@ -249,6 +331,14 @@ class ConversationDeliberator:
         synthesizer = self._t2_synthesizer
         if synthesizer is None:
             return result
+        # The budget is a ceiling, not a target: when it is spent the round
+        # stays at T1 rather than calling a model anyway. The bound is
+        # reported so the answer can say the deeper pass did not run.
+        if not self._ledger.allows(correlation_id):
+            result["t2_status"] = "budget_denied"
+            result["escalation_budget"] = self._ledger.snapshot(correlation_id)
+            return result
+        self._ledger.record(correlation_id)
         request = DeliberationRequest(
             question=question,
             requester=requester,

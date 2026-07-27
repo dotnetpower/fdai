@@ -18,7 +18,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.conversation_prompt import (
-    MAX_COMPOSED_PROMPT_CHARS,
+    MAX_CHARTER_PROMPT_CHARS,
     MAX_ROLE_DIRECTIVE_CHARS,
     ComposedConversationPrompt,
     ConversationSituation,
@@ -113,7 +113,7 @@ class ConversationCharter:
     def __post_init__(self) -> None:
         if _CHARTER_VERSION.fullmatch(self.version) is None:
             raise ValueError("conversation version MUST be a canonical vN identifier")
-        if not self.system_prompt.strip() or len(self.system_prompt) > MAX_COMPOSED_PROMPT_CHARS:
+        if not self.system_prompt.strip() or len(self.system_prompt) > MAX_CHARTER_PROMPT_CHARS:
             raise ValueError("conversation system_prompt MUST be bounded and non-empty")
         if self.role_directive and (
             len(self.role_directive) > MAX_ROLE_DIRECTIVE_CHARS

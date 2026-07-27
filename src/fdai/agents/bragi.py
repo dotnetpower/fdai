@@ -37,6 +37,7 @@ from fdai.agents._framework.bragi_proposal import build_action_proposal
 from fdai.agents._framework.bragi_routing import route_question, translate_action_intent
 from fdai.agents._framework.deliberation import (
     ConversationDeliberator,
+    EscalationBudget,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.introspection import (
@@ -105,6 +106,7 @@ class Bragi(Agent):
         *,
         semantic_router: SemanticAgentRouter | None = None,
         t2_synthesizer: T2ConversationSynthesizer | None = None,
+        escalation_budget: EscalationBudget | None = None,
         responder_timeout_seconds: float = _RESPONDER_TIMEOUT_SECONDS,
         proposal_timeout_seconds: float = _PROPOSAL_TIMEOUT_SECONDS,
     ) -> None:
@@ -124,6 +126,7 @@ class Bragi(Agent):
             semantic_router=semantic_router,
             t2_synthesizer=t2_synthesizer,
             call_responder=self._call_responder,
+            escalation_budget=escalation_budget,
         )
         # Per-correlation pipeline progress, appended as verdict / action-run
         # states arrive on the typed port, so an operator can be told where

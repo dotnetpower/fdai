@@ -10,6 +10,7 @@ import pytest
 from fdai.agents._framework.charters import conversation_prompt_layers
 from fdai.agents._framework.deliberation import (
     DeliberationRequest,
+    EscalationBudget,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
@@ -74,6 +75,14 @@ _CRITIQUE_ROUNDS: tuple[tuple[str, tuple[PromptCheck, ...]], ...] = (
         ),
     ),
     (
+        "handoff",
+        (
+            ("owner named", lambda prompt: "name that owner" in prompt),
+            ("llm-free routing", lambda prompt: "deterministic and needs no model" in prompt),
+            ("no impersonation", lambda prompt: "never answer in the owner's name" in prompt),
+        ),
+    ),
+    (
         "disagreement",
         (
             ("claim challenge", lambda prompt: "challenge peer claims" in prompt),
@@ -88,6 +97,15 @@ _CRITIQUE_ROUNDS: tuple[tuple[str, tuple[PromptCheck, ...]], ...] = (
         ),
     ),
     (
+        "economy",
+        (
+            ("owned facts first", lambda prompt: "owned facts first" in prompt),
+            ("model call is last", lambda prompt: "last resort" in prompt),
+            ("declared budget", lambda prompt: "pre-declared budget" in prompt),
+            ("state the bound", lambda prompt: "state the bound" in prompt),
+        ),
+    ),
+    (
         "security_output",
         (
             ("untrusted content", lambda prompt: 'trusted="false"' in prompt),
@@ -98,9 +116,9 @@ _CRITIQUE_ROUNDS: tuple[tuple[str, tuple[PromptCheck, ...]], ...] = (
 )
 
 
-def test_each_agent_prompt_passes_twenty_four_checks_across_ten_rounds() -> None:
-    assert len(_CRITIQUE_ROUNDS) == 10
-    assert sum(len(checks) for _, checks in _CRITIQUE_ROUNDS) >= 24
+def test_each_agent_prompt_passes_every_check_across_twelve_rounds() -> None:
+    assert len(_CRITIQUE_ROUNDS) == 12
+    assert sum(len(checks) for _, checks in _CRITIQUE_ROUNDS) >= 31
 
     failures: list[str] = []
     for spec in PANTHEON_SPECS:
@@ -113,17 +131,17 @@ def test_each_agent_prompt_passes_twenty_four_checks_across_ten_rounds() -> None
     assert failures == []
 
 
-def test_each_agent_improves_monotonically_over_ten_critique_rounds() -> None:
+def test_each_agent_improves_monotonically_over_twelve_critique_rounds() -> None:
     for spec in PANTHEON_SPECS:
         mandate = spec.conversation.system_prompt.splitlines()[1].removeprefix("Mandate: ")
         layers = conversation_prompt_layers(spec.name, mandate)
-        assert len(layers) == 10
+        assert len(layers) == 12
 
         scores: list[int] = []
-        for round_index in range(1, 11):
+        for round_index in range(1, 13):
             snapshot = "\n".join(layers[:round_index]).casefold()
             results = [check(snapshot) for _, checks in _CRITIQUE_ROUNDS for _, check in checks]
-            assert len(results) >= 24
+            assert len(results) >= 31
             scores.append(sum(results))
 
         assert all(after > before for before, after in zip(scores, scores[1:], strict=False))
@@ -281,3 +299,102 @@ def test_deliberation_action_intent_requires_typed_pipeline() -> None:
     assert result["status"] == "abstain"
     assert result["reason"] == "requires_typed_pipeline"
     assert result["requires_typed_pipeline"] is True
+
+
+# ---------------------------------------------------------------------------
+# Pre-declared escalation budget (cost-model.md: the cap is a ceiling)
+# ---------------------------------------------------------------------------
+
+
+def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() -> None:
+    synthesizer = _T2Synthesizer()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        conversation_embedding_model=_CrossDomainEmbedding(),
+        semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
+        conversation_t2_synthesizer=synthesizer,
+        conversation_escalation_budget=EscalationBudget(max_calls_per_correlation=1),
+    )
+
+    first = asyncio.run(
+        runtime.deliberate(
+            question="Compare the cost and capacity evidence for this resource.",
+            requester="Forseti",
+            correlation_id="corr-budget",
+        )
+    )
+    second = asyncio.run(
+        runtime.deliberate(
+            question="Compare the cost and capacity evidence for this resource.",
+            requester="Forseti",
+            correlation_id="corr-budget",
+        )
+    )
+
+    assert first["t2_status"] == "completed"
+    assert second["t2_status"] == "budget_denied"
+    # The ceiling holds: the provider was called once, not twice.
+    assert len(synthesizer.requests) == 1
+    # The bound is reportable, so the answer can say the deeper pass did
+    # not run instead of implying it did.
+    assert second["escalation_budget"] == {
+        "spent_for_correlation": 1,
+        "max_per_correlation": 1,
+        "spent_total": 1,
+        "max_total": 64,
+    }
+    # Denying escalation degrades to the T1 result, never to an error.
+    assert second["status"] == "completed"
+    assert second["tier"] == "T1"
+
+
+def test_a_zero_budget_never_calls_the_model_at_all() -> None:
+    synthesizer = _T2Synthesizer()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        conversation_embedding_model=_CrossDomainEmbedding(),
+        semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
+        conversation_t2_synthesizer=synthesizer,
+        conversation_escalation_budget=EscalationBudget(
+            max_calls_per_correlation=0,
+            max_calls_total=0,
+        ),
+    )
+
+    result = asyncio.run(
+        runtime.deliberate(
+            question="Compare the cost and capacity evidence for this resource.",
+            requester="Forseti",
+            correlation_id="corr-zero",
+        )
+    )
+
+    assert synthesizer.requests == []
+    assert result["t2_status"] == "budget_denied"
+    assert result["tier"] == "T1"
+
+
+def test_escalation_budget_rejects_an_incoherent_ceiling() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        EscalationBudget(max_calls_per_correlation=-1)
+    with pytest.raises(ValueError, match="fit the total budget"):
+        EscalationBudget(max_calls_per_correlation=4, max_calls_total=2)
+
+
+def test_a_denied_budget_reaches_the_agent_prompt_for_the_turn() -> None:
+    """The agent is told the budget is spent, so it cannot imply a deeper pass."""
+    from fdai.agents.odin import Odin
+
+    odin = Odin()
+
+    allowed = asyncio.run(odin.on_conversation_turn("portfolio status", {}))
+    denied = asyncio.run(
+        odin.on_conversation_turn("portfolio status", {"escalation_available": False})
+    )
+
+    assert "budget_denied" not in allowed["prompt_composition"]["layers"]
+    assert "escalation=available" in allowed["prompt_composition"]["situation"]
+    assert "budget_denied" in denied["prompt_composition"]["layers"]
+    assert "escalation=denied" in denied["prompt_composition"]["situation"]

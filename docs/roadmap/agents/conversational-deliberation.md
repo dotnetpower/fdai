@@ -13,9 +13,9 @@ an agent's typed authority.
 ## Design at a glance
 
 Each agent has one server-owned `ConversationCharter`. Its baseline prompt is assembled from
-eleven layers: identity, mandate, authority, grounding, epistemics, human dialogue, peer protocol,
-disagreement, tiering, security/output, and the agent's own role directive. The charter also owns
-bilingual routing examples and fact-scoped read tools.
+thirteen layers: identity, mandate, authority, grounding, epistemics, human dialogue, peer
+protocol, handoff, disagreement, tiering, economy, security/output, and the agent's own role
+directive. The charter also owns bilingual routing examples and fact-scoped read tools.
 
 The baseline is the composition floor, not the whole prompt. Each turn composes its own prompt from
 the baseline plus the situational layers that the turn selects. See
@@ -40,6 +40,8 @@ baseline plus the layers a `ConversationSituation` selects.
 | `tier_t2` | The turn runs at T2 synthesis. |
 | `tool_scope` | A declared read tool scopes the turn to its fact keys. |
 | `evidence_gap` | The agent reports that no owned runtime evidence backs the turn. |
+| `budget_denied` | The escalation budget leaves no model call for this turn. |
+| `handoff_pending` | Another agent owns the conclusion for this turn. |
 | `action_intent` | The request reads as a command. |
 | `locale_<tag>` | The operator locale is not English. |
 
@@ -47,9 +49,11 @@ Two invariants keep the dynamic path inside the port contract:
 
 - **Additive only.** A situation may add a constraint; it can never drop or rewrite a baseline
   layer. Every composed prompt is a superset of the baseline, so no situation can weaken an
-  authority, grounding, or security instruction. When the composed prompt would exceed its 4,096
-  character bound, the least important situational layers are dropped and recorded; the baseline is
-  never trimmed.
+  authority, grounding, or security instruction. The baseline is bounded at 4,096 characters and
+  the situational layers share a separate 1,024 character budget. When a situation cannot afford
+  every layer, the lowest-priority layers are dropped and recorded; a constraint layer
+  (`action_intent`, `tool_scope`, `budget_denied`, `evidence_gap`) always outranks presentation
+  framing, and the baseline never pays.
 - **Server-owned text.** The situation is parsed from an untrusted turn context, but that context
   only selects layers. Free-form values are dropped or reduced to a bounded identifier, so a forged
   context cannot inject instructions.
@@ -117,6 +121,26 @@ select a confident primary and at least one relevant peer. The runtime then appl
 Missing embeddings, provider failure, low confidence, one relevant agent, unknown requester,
 action intent, or responder failure results in an abstention. The path never substitutes T0 to
 manufacture a discussion.
+
+## Escalation economy
+
+T0 answers and T1 routing are deterministic and free of model calls: routing matches a request to
+the owner's declared question domains, and a handoff between agents carries the requester, the
+correlation trace, and the evidence already held. Only T2 synthesis calls a model.
+
+`cost-model.md` requires the model budget to be a ceiling - overflow degrades to a cheaper path,
+never to uncapped inference. `EscalationBudget` declares that ceiling and `EscalationLedger`
+enforces it before the synthesizer is called:
+
+| Limit | Default | Why |
+|-------|---------|-----|
+| `max_calls_per_correlation` | 1 | A second synthesis re-reads the same bounded claims, so it buys presentation polish rather than evidence. |
+| `max_calls_total` | 64 | Contains a runaway caller regardless of correlation. |
+
+The budget is charged before the call, not after, so a provider failure cannot be retried without
+limit. When it is spent the round stays at T1 and records `t2_status: budget_denied` with the
+bound, and the turn composes the `budget_denied` prompt layer so the answer states that the deeper
+pass did not run instead of implying it did. Denial degrades the result; it never raises.
 
 ## Optional T2 synthesis
 

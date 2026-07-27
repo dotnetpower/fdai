@@ -40,10 +40,21 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
-#: Hard bound on any composed conversational prompt. Shared with
-#: :class:`~fdai.agents._framework.base.ConversationCharter` so the
-#: baseline and the composed prompt are held to one budget.
-MAX_COMPOSED_PROMPT_CHARS: Final[int] = 4_096
+#: Hard bound on the immutable charter baseline - the contract every turn
+#: starts from. Kept tight so the floor stays readable and cheap.
+MAX_CHARTER_PROMPT_CHARS: Final[int] = 4_096
+
+#: Hard bound on one composed prompt. Larger than the charter bound because
+#: composition adds situational layers on top of it, but still fixed, so a
+#: turn's prompt cost can never grow without limit.
+MAX_COMPOSED_PROMPT_CHARS: Final[int] = 6_144
+
+#: Budget the situational layers share. Deliberately tighter than the sum
+#: of every layer: the same economy the escalation budget applies to model
+#: calls applies to the prompt itself, so an unusual situation sheds
+#: presentation framing rather than paying for all of it at once. The
+#: priority order decides what survives; the baseline never pays.
+MAX_SITUATIONAL_PROMPT_CHARS: Final[int] = 1_024
 
 #: Bound on an agent's role directive (the eleventh baseline layer).
 MAX_ROLE_DIRECTIVE_CHARS: Final[int] = 640
@@ -58,8 +69,10 @@ BASELINE_LAYER_IDS: Final[tuple[str, ...]] = (
     "epistemics",
     "human_dialogue",
     "peer_protocol",
+    "handoff",
     "disagreement",
     "tiering",
+    "economy",
     "security_output",
     "role",
 )
@@ -110,6 +123,8 @@ class ConversationSituation:
     tool_fact_keys: tuple[str, ...] = ()
     evidence_available: bool = True
     action_intent: bool = False
+    escalation_available: bool = True
+    handoff_owner: str | None = None
 
     def __post_init__(self) -> None:
         if self.audience not in {_AUDIENCE_OPERATOR, _AUDIENCE_PEER}:
@@ -122,6 +137,8 @@ class ConversationSituation:
             raise ValueError("conversation locale MUST be a supported locale")
         if self.requester is not None and _AGENT_NAME.fullmatch(self.requester) is None:
             raise ValueError("conversation requester MUST be a bounded agent name")
+        if self.handoff_owner is not None and _AGENT_NAME.fullmatch(self.handoff_owner) is None:
+            raise ValueError("conversation handoff owner MUST be a bounded agent name")
         if self.tool_id is not None and _TOOL_ID.fullmatch(self.tool_id) is None:
             raise ValueError("conversation tool id MUST be a bounded ASCII identifier")
 
@@ -150,6 +167,7 @@ class ConversationSituation:
         raw_phase = context.get("deliberation_phase")
         raw_tier = context.get("deliberation_tier")
         raw_requester = context.get("requester")
+        raw_owner = context.get("handoff_owner")
         raw_tool = context.get("conversation_tool")
         tool_id = raw_tool if isinstance(raw_tool, str) and raw_tool in set(allowed_tools) else None
         return cls(
@@ -170,6 +188,14 @@ class ConversationSituation:
             tool_fact_keys=tuple(tool_fact_keys) if tool_id is not None else (),
             evidence_available=evidence_available,
             action_intent=action_intent,
+            # Absence means "not stated", which MUST NOT read as "denied":
+            # only an explicit False from the runtime closes escalation.
+            escalation_available=context.get("escalation_available") is not False,
+            handoff_owner=(
+                raw_owner
+                if isinstance(raw_owner, str) and _AGENT_NAME.fullmatch(raw_owner)
+                else None
+            ),
         )
 
     @property
@@ -181,7 +207,10 @@ class ConversationSituation:
             f"tier={self.tier}",
             f"locale={self.locale}",
             f"evidence={'present' if self.evidence_available else 'absent'}",
+            f"escalation={'available' if self.escalation_available else 'denied'}",
         ]
+        if self.handoff_owner is not None:
+            parts.append(f"handoff={self.handoff_owner}")
         if self.tool_id is not None:
             parts.append(f"tool={self.tool_id}")
         if self.action_intent:
@@ -233,11 +262,14 @@ def compose_conversation_prompt(
     """
     if not baseline_prompt.strip():
         raise ValueError("baseline conversation prompt MUST be non-empty")
-    if len(baseline_prompt) > MAX_COMPOSED_PROMPT_CHARS:
-        raise ValueError("baseline conversation prompt MUST fit the composed prompt budget")
+    if len(baseline_prompt) > MAX_CHARTER_PROMPT_CHARS:
+        raise ValueError("baseline conversation prompt MUST fit the charter budget")
     kept, dropped = _fit_budget(
         _situational_layers(situation),
-        MAX_COMPOSED_PROMPT_CHARS - len(baseline_prompt),
+        min(
+            MAX_SITUATIONAL_PROMPT_CHARS,
+            MAX_COMPOSED_PROMPT_CHARS - len(baseline_prompt),
+        ),
     )
     return ComposedConversationPrompt(
         text="\n".join([baseline_prompt, *(layer.text for _, layer in kept)]),
@@ -354,6 +386,34 @@ def _situational_layers(
                 ),
             )
         )
+    if not situation.escalation_available:
+        layers.append(
+            (
+                2,
+                PromptLayer(
+                    "budget_denied",
+                    (
+                        "Escalation budget: the pre-declared budget leaves no model escalation "
+                        "for this turn. Answer from owned facts and allowed tools only, and say "
+                        "plainly that the deeper pass was not run rather than implying it was."
+                    ),
+                ),
+            )
+        )
+    if situation.handoff_owner is not None:
+        layers.append(
+            (
+                3,
+                PromptLayer(
+                    "handoff_pending",
+                    (
+                        f"Handoff in progress: {situation.handoff_owner} owns this request. "
+                        "Contribute only your owned evidence and hand the conclusion back to "
+                        "that owner; do not restate their answer as your own."
+                    ),
+                ),
+            )
+        )
     if situation.locale != "en":
         language = _LOCALE_NAMES.get(situation.locale, situation.locale)
         layers.append(
@@ -404,8 +464,10 @@ def _normalize_locale(raw: Any) -> str:
 
 __all__ = [
     "BASELINE_LAYER_IDS",
+    "MAX_CHARTER_PROMPT_CHARS",
     "MAX_COMPOSED_PROMPT_CHARS",
     "MAX_ROLE_DIRECTIVE_CHARS",
+    "MAX_SITUATIONAL_PROMPT_CHARS",
     "SUPPORTED_LOCALES",
     "ComposedConversationPrompt",
     "ConversationSituation",

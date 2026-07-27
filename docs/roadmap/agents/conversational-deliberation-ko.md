@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: d4b99323dcecf6bba0075dfa882b24d4f2aa7399
+translation_source_sha: 2c744234c78952e14a925ae77a9760715c3959f8
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -16,9 +16,9 @@ agent의 typed authority를 변경하지 않습니다.
 ## 설계 개요
 
 각 agent는 server-owned `ConversationCharter` 하나를 가집니다. Baseline prompt는 identity,
-mandate, authority, grounding, epistemics, human dialogue, peer protocol, disagreement, tiering,
-security/output 및 해당 agent 고유의 role directive까지 11개 layer로 조립합니다. Charter는
-bilingual routing example과 fact-scoped read tool도 소유합니다.
+mandate, authority, grounding, epistemics, human dialogue, peer protocol, handoff, disagreement,
+tiering, economy, security/output 및 해당 agent 고유의 role directive까지 13개 layer로
+조립합니다. Charter는 bilingual routing example과 fact-scoped read tool도 소유합니다.
 
 Baseline은 prompt 전체가 아니라 조립의 바닥면입니다. 각 turn은 baseline에 그 turn이 선택한
 situational layer를 더해 자신의 prompt를 조립합니다.
@@ -43,6 +43,8 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
 | `tier_t2` | Turn이 T2 synthesis에서 실행됩니다. |
 | `tool_scope` | 선언된 read tool이 turn을 fact key로 한정합니다. |
 | `evidence_gap` | Agent가 turn을 뒷받침하는 owned runtime evidence가 없다고 보고합니다. |
+| `budget_denied` | Escalation 예산에 이번 turn에 쓸 model 호출이 남지 않았습니다. |
+| `handoff_pending` | 다른 agent가 이번 turn의 결론을 소유합니다. |
 | `action_intent` | 요청이 command로 읽힙니다. |
 | `locale_<tag>` | Operator locale이 English가 아닙니다. |
 
@@ -50,9 +52,11 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
 
 - **가산만 허용.** Situation은 constraint를 더할 수 있을 뿐 baseline layer를 제거하거나 고쳐
   쓸 수 없습니다. 조립된 모든 prompt는 baseline의 superset이므로 어떤 situation도 authority,
-  grounding, security instruction을 약화시킬 수 없습니다. 조립 결과가 4,096자 한도를 넘으면
-  중요도가 가장 낮은 situational layer부터 제거하고 그 사실을 기록하며, baseline은 절대
-  잘라내지 않습니다.
+  grounding, security instruction을 약화시킬 수 없습니다. Baseline은 4,096자, situational
+  layer는 별도의 1,024자 예산을 공유합니다. 모든 layer를 감당할 수 없는 situation은
+  중요도가 가장 낮은 layer부터 제거하고 그 사실을 기록합니다. Constraint layer
+  (`action_intent`, `tool_scope`, `budget_denied`, `evidence_gap`)는 항상 presentation framing보다
+  우선하며, baseline은 절대 비용을 치르지 않습니다.
 - **Server-owned text.** Situation은 신뢰할 수 없는 turn context에서 파싱하지만 그 context는
   layer를 선택만 합니다. 자유 형식 값은 제거되거나 bounded identifier로 축약되므로 위조된
   context가 instruction을 주입할 수 없습니다.
@@ -121,6 +125,26 @@ primary와 관련 peer 한 명 이상을 선택해야 합니다. Runtime은 다�
 Embedding 부재, provider failure, 낮은 confidence, 관련 agent 1개, unknown requester, action
 intent 또는 responder failure는 abstention을 반환합니다. Discussion을 만들기 위해 T0를
 대체하지 않습니다.
+
+## Escalation 경제성
+
+T0 답변과 T1 routing은 deterministic하며 model 호출이 없습니다. Routing은 요청을 owner가
+선언한 question domain에 매칭하고, agent 간 handoff는 requester, correlation trace, 이미
+보유한 evidence를 그대로 실어 나릅니다. Model을 호출하는 것은 T2 synthesis뿐입니다.
+
+`cost-model.md`는 model 예산을 천장으로 요구합니다. 초과분은 더 싼 경로로 강등할 뿐 절대
+uncapped inference로 가지 않습니다. `EscalationBudget`이 그 천장을 선언하고
+`EscalationLedger`가 synthesizer 호출 전에 집행합니다.
+
+| 한도 | 기본값 | 이유 |
+|------|--------|------|
+| `max_calls_per_correlation` | 1 | 두 번째 synthesis는 같은 bounded claim을 다시 읽을 뿐이라 evidence가 아니라 표현을 샴니다. |
+| `max_calls_total` | 64 | Correlation과 무관하게 폭주하는 caller를 가둡니다. |
+
+예산은 호출 후가 아니라 호출 전에 차감하므로 provider 실패를 무제한 재시도할 수 없습니다.
+예산이 소진되면 round는 T1에 머물고 `t2_status: budget_denied`와 한도를 기록하며, 해당
+turn은 `budget_denied` prompt layer를 조립해서 답변이 더 깊은 분석을 한 것처럼 암시하지 않고
+실행되지 않았다고 밝히도록 합니다. 거부는 결과를 강등시킬 뿐 예외를 일으키지 않습니다.
 
 ## Optional T2 synthesis
 

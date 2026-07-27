@@ -18,6 +18,7 @@ import pytest
 from fdai.agents._framework.base import Agent, ConversationCharter, ConversationTool
 from fdai.agents._framework.conversation_prompt import (
     BASELINE_LAYER_IDS,
+    MAX_CHARTER_PROMPT_CHARS,
     MAX_COMPOSED_PROMPT_CHARS,
     ConversationSituation,
     compose_conversation_prompt,
@@ -36,12 +37,15 @@ _SITUATIONS = tuple(
         requester="Forseti" if audience == "peer" else None,
         evidence_available=evidence,
         action_intent=action_intent,
+        escalation_available=escalation,
+        handoff_owner="Odin" if audience == "peer" else None,
     )
-    for audience, phase, tier, locale, evidence, action_intent in product(
+    for audience, phase, tier, locale, evidence, action_intent, escalation in product(
         ("operator", "peer"),
         ("direct", "position", "critique"),
         ("T0", "T1", "T2"),
         ("en", "ko"),
+        (True, False),
         (True, False),
         (True, False),
     )
@@ -57,6 +61,11 @@ def test_baseline_situation_reproduces_the_charter_prompt_exactly() -> None:
         assert composed.dropped_layer_ids == ()
 
 
+#: Layers that carry a safety or grounding constraint. The situational
+#: budget may shed presentation framing, never one of these.
+_PROTECTED_LAYERS = ("action_intent", "tool_scope", "budget_denied", "evidence_gap")
+
+
 def test_every_situation_only_adds_to_the_baseline() -> None:
     """No situation may weaken an authority, grounding, or security layer."""
     for spec in PANTHEON_SPECS:
@@ -66,8 +75,12 @@ def test_every_situation_only_adds_to_the_baseline() -> None:
 
             assert composed.text.startswith(baseline), (spec.name, situation.key)
             assert composed.layer_ids[: len(BASELINE_LAYER_IDS)] == BASELINE_LAYER_IDS
-            assert composed.dropped_layer_ids == ()
             assert len(composed.text) <= MAX_COMPOSED_PROMPT_CHARS
+            # The situational budget sheds framing, never a constraint.
+            assert not set(composed.dropped_layer_ids) & set(_PROTECTED_LAYERS), (
+                spec.name,
+                situation.key,
+            )
 
 
 def test_every_situation_still_passes_every_prompt_quality_check() -> None:
@@ -182,11 +195,45 @@ def test_untrusted_context_cannot_inject_prompt_text(forged: dict[str, Any]) -> 
         assert str(value) not in composed.text
 
 
+def test_situational_budget_sheds_framing_and_keeps_every_constraint() -> None:
+    """The tightest situation exceeds the layer budget; safety survives it."""
+    spec = next(spec for spec in PANTHEON_SPECS if spec.name == "Odin")
+    composed = spec.conversation.compose_prompt(
+        ConversationSituation(
+            audience="peer",
+            phase="critique",
+            tier="T2",
+            locale="ko",
+            requester="Forseti",
+            handoff_owner="Thor",
+            tool_id="read_portfolio_policy",
+            tool_fact_keys=("priority_order",),
+            evidence_available=False,
+            action_intent=True,
+            escalation_available=False,
+        )
+    )
+    situational = [layer for layer in composed.layer_ids if layer not in BASELINE_LAYER_IDS]
+
+    assert composed.text.startswith(spec.conversation.system_prompt)
+    assert len(composed.text) <= MAX_COMPOSED_PROMPT_CHARS
+    # The budget is real: this situation cannot afford every layer.
+    assert composed.dropped_layer_ids
+    # What it keeps is every constraint; what it sheds is framing.
+    assert set(_PROTECTED_LAYERS) <= set(situational)
+    assert set(composed.dropped_layer_ids) <= {
+        "audience_peer",
+        "phase_critique",
+        "tier_t2",
+        "handoff_pending",
+        "locale_ko",
+    }
+
+
 def test_budget_overflow_drops_optional_layers_and_never_the_baseline() -> None:
-    """A near-limit baseline sheds situational layers, lowest priority first."""
+    """A charter at its own ceiling still pays nothing toward the layer budget."""
     filler = "Filler layer sentence. " * 10
-    # Headroom for exactly one layer, so the drop order is observable.
-    baseline = (filler * 17)[: MAX_COMPOSED_PROMPT_CHARS - 210]
+    baseline = (filler * 20)[:MAX_CHARTER_PROMPT_CHARS]
     composed = compose_conversation_prompt(
         baseline_prompt=baseline,
         situation=ConversationSituation(
@@ -202,16 +249,9 @@ def test_budget_overflow_drops_optional_layers_and_never_the_baseline() -> None:
 
     assert composed.text.startswith(baseline)
     assert len(composed.text) <= MAX_COMPOSED_PROMPT_CHARS
-    # Priority order: the command-intent refusal outranks every
-    # presentation nicety, so it is the one layer that survives.
-    assert composed.layer_ids == (*BASELINE_LAYER_IDS, "action_intent")
-    assert set(composed.dropped_layer_ids) == {
-        "audience_peer",
-        "phase_critique",
-        "tier_t2",
-        "evidence_gap",
-        "locale_ko",
-    }
+    # The baseline is never the thing that gets cut, however large it is.
+    assert set(composed.dropped_layer_ids) <= {"audience_peer", "phase_critique", "tier_t2"}
+    assert set(_PROTECTED_LAYERS) & set(composed.layer_ids) == {"action_intent", "evidence_gap"}
 
 
 def test_conversational_port_composes_the_prompt_for_the_turn() -> None:
@@ -252,9 +292,8 @@ def test_conversational_port_composes_the_prompt_for_the_turn() -> None:
     assert prompt.startswith(odin.spec.conversation.system_prompt)
     assert "forged prompt" not in prompt
     assert composition["layers"][-3:] == ["audience_peer", "phase_critique", "locale_ko"]
-    assert (
-        composition["situation"]
-        == "audience=peer;phase=critique;tier=T1;locale=ko;evidence=present"
+    assert composition["situation"] == (
+        "audience=peer;phase=critique;tier=T1;locale=ko;evidence=present;escalation=available"
     )
     # The composed instructions themselves never leave the server.
     assert odin.spec.conversation.system_prompt not in str(envelope)

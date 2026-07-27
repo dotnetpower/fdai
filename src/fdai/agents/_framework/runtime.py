@@ -43,7 +43,7 @@ from fdai.agents._framework.conversation_tools import (
     AgentConversationToolRegistry,
     AgentToolResult,
 )
-from fdai.agents._framework.deliberation import T2ConversationSynthesizer
+from fdai.agents._framework.deliberation import EscalationBudget, T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import (
@@ -144,6 +144,7 @@ class PantheonRuntime:
         handler_observer: AgentHandlerObserver | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
         conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
+        conversation_escalation_budget: EscalationBudget | None = None,
         semantic_router_config: SemanticRouterConfig | None = None,
         conversation_tool_timeout_seconds: float = 5.0,
     ) -> PantheonRuntime:
@@ -221,6 +222,7 @@ class PantheonRuntime:
                     else None
                 ),
                 t2_synthesizer=conversation_t2_synthesizer,
+                escalation_budget=conversation_escalation_budget,
             )
         if discovery_projector is not None:
             instantiated["Huginn"] = Huginn(discovery_projector=discovery_projector)
