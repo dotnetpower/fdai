@@ -43,6 +43,7 @@ def normalize_responder_answer(
         "facts": safe_facts,
         "abstain_reason": raw.get("abstain_reason"),
         "conversation_policy": raw.get("conversation_policy"),
+        "prompt_composition": raw.get("prompt_composition"),
         "trace_ref": raw.get("trace_ref"),
     }
     if raw.get("requires_typed_pipeline") is True:

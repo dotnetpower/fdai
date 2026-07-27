@@ -25,6 +25,7 @@ downstream consumer of :class:`Odin` changes shape.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
@@ -39,6 +40,11 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _ODIN
+
+#: Bounded outcome vocabulary for the portfolio monitor. Anything a
+#: producer sends outside it folds into ``unknown`` rather than growing
+#: the counter's key space.
+_PORTFOLIO_OUTCOMES = frozenset({"auto", "hil", "deny", "admit", "hold", "unknown"})
 
 
 @runtime_checkable
@@ -119,14 +125,39 @@ class Odin(Agent):
         self._temporal_policy = temporal_policy
         self._history: DecisionHistory = history or NoopDecisionHistory()
         self._history_window = history_window
+        # Conversational grounding for the arbitration and portfolio tools.
+        # Last decision only (not a log): the durable record is Saga's audit
+        # chain, and retaining more here would duplicate it without the
+        # append-only guarantees.
+        self._last_decision: ArbitrationDecision | None = None
+        self._verdicts_observed = 0
+        self._verdict_outcomes: Counter[str] = Counter()
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic != "object.arbitration-request":
+        if topic == "object.arbitration-request":
+            await self.arbitrate(payload)
             return
-        await self.arbitrate(payload)
+        if topic == "object.verdict":
+            self._observe_verdict(payload)
+
+    def _observe_verdict(self, payload: dict[str, Any]) -> None:
+        """Record one portfolio outcome observation.
+
+        Odin subscribes ``object.verdict`` as the portfolio outcome
+        monitor (``agent-pantheon.md`` 2). Observing is read-only
+        bookkeeping: it counts what Forseti decided and never re-judges
+        it. The outcome key space is bounded so a malformed producer
+        cannot grow the counter without limit.
+        """
+        outcome = str(payload.get("risk_verdict") or payload.get("decision") or "unknown")
+        if outcome not in _PORTFOLIO_OUTCOMES:
+            outcome = "unknown"
+        self._verdicts_observed += 1
+        self._verdict_outcomes[outcome] += 1
+        self.record_behavior(f"portfolio_outcome:{outcome}")
 
     async def arbitrate(self, request: dict[str, Any]) -> ArbitrationDecision:
         domains = tuple(str(d) for d in request.get("domains_in_conflict", ()))
@@ -153,6 +184,7 @@ class Odin(Agent):
             margin=outcome.margin,
             escalate_hil=outcome.escalate_hil,
         )
+        self._last_decision = decision
         if self.bus is not None:
             await self.bus.publish(
                 "Odin",
@@ -174,12 +206,24 @@ class Odin(Agent):
         return decision
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
+        last = self._last_decision
         facts = {
             **capability_facts(self.spec),
             "priority_order": list(self._priority),
             "temporal_policy": self._temporal_policy.name if self._temporal_policy else None,
             "history_window": self._history_window,
             "arbitration_history_available": False,
+            # Latest arbitration grounding. Present-but-``None`` when nothing
+            # has been arbitrated yet, so the tool projection reports "no owned
+            # data" instead of abstaining on a missing key or implying an
+            # empty loser set is a real outcome.
+            "winning_domain": last.winning_domain if last else None,
+            "losing_domains": list(last.losing_domains) if last else None,
+            "objective_scores": dict(last.objective_scores) if last else None,
+            "margin": last.margin if last else None,
+            "escalate_hil": last.escalate_hil if last else None,
+            "verdicts_observed": self._verdicts_observed,
+            "verdict_outcomes": dict(self._verdict_outcomes),
         }
         if "history" in question.casefold():
             return IntrospectionResult(
@@ -192,10 +236,15 @@ class Odin(Agent):
             else ""
         )
         answer = (
-            "I arbitrate cross-vertical conflicts by priority "
+            "I arbitrate cross-vertical conflicts by weighted objective score over priority "
             f"({' > '.join(self._priority)}){policy_note}, "
             "escalating near-ties to HIL."
         )
+        if last is not None:
+            answer += (
+                f" The last decision gave {last.winning_domain} the win "
+                f"by a margin of {last.margin:.3f}."
+            )
         return IntrospectionResult(answer=answer, facts=facts)
 
 

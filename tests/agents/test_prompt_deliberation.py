@@ -7,11 +7,12 @@ from collections.abc import Callable, Sequence
 
 import pytest
 
+from fdai.agents._framework.charters import conversation_prompt_layers
 from fdai.agents._framework.deliberation import (
     DeliberationRequest,
     T2ConversationSynthesizer,
 )
-from fdai.agents._framework.pantheon import PANTHEON_SPECS, _conversation_prompt_layers
+from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -115,7 +116,7 @@ def test_each_agent_prompt_passes_twenty_four_checks_across_ten_rounds() -> None
 def test_each_agent_improves_monotonically_over_ten_critique_rounds() -> None:
     for spec in PANTHEON_SPECS:
         mandate = spec.conversation.system_prompt.splitlines()[1].removeprefix("Mandate: ")
-        layers = _conversation_prompt_layers(spec.name, mandate)
+        layers = conversation_prompt_layers(spec.name, mandate)
         assert len(layers) == 10
 
         scores: list[int] = []

@@ -1084,3 +1084,83 @@ def test_odin_rejects_weights_and_weight_fn_together() -> None:
             weights={"cost": 0.5, "capacity": 0.5},
             weight_fn=lambda p: {"cost": 0.5, "capacity": 0.5},
         )
+
+
+# ---------------------------------------------------------------------------
+# Conversational grounding: the arbitration and portfolio outcome tools
+# ---------------------------------------------------------------------------
+
+
+def test_odin_grounds_the_arbitration_decision_tool_in_the_last_outcome() -> None:
+    odin = Odin()
+    asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "corr-ground",
+                "resource_id": "rg-1",
+                "domains_in_conflict": ["resilience", "cost"],
+                "impacts": {"resilience": 0.9, "cost": 0.2},
+            }
+        )
+    )
+
+    envelope = asyncio.run(
+        odin.on_conversation_turn(
+            "Which domain won the last conflict?",
+            {"conversation_tool": "read_arbitration_decision"},
+        )
+    )
+    facts = envelope["facts"]
+
+    assert envelope["abstain_reason"] is None
+    assert facts["winning_domain"] == "resilience"
+    assert facts["losing_domains"] == ["cost"]
+    assert facts["objective_scores"]["resilience"] > facts["objective_scores"]["cost"]
+    assert facts["escalate_hil"] is False
+    # The projection exposes only this tool's declared fact scope.
+    assert "priority_order" not in facts
+
+
+def test_odin_arbitration_decision_tool_reports_unavailable_before_any_conflict() -> None:
+    envelope = asyncio.run(
+        Odin().on_conversation_turn(
+            "Which domain won the last conflict?",
+            {"conversation_tool": "read_arbitration_decision"},
+        )
+    )
+
+    assert envelope["abstain_reason"] is None
+    assert "No owned data is currently available." in envelope["answer"]
+
+
+def test_odin_observes_portfolio_verdicts_without_re_judging_them() -> None:
+    odin = Odin()
+
+    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
+    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "hil"}))
+    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
+    # An unrecognized outcome folds into a bounded sentinel rather than
+    # growing the counter's key space.
+    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "../etc/passwd"}))
+
+    envelope = asyncio.run(
+        odin.on_conversation_turn(
+            "What portfolio outcomes have you observed?",
+            {"conversation_tool": "read_portfolio_outcomes"},
+        )
+    )
+    facts = envelope["facts"]
+
+    assert facts["verdicts_observed"] == 4
+    assert facts["verdict_outcomes"] == {"auto": 2, "hil": 1, "unknown": 1}
+    assert odin.behavior_snapshot()["portfolio_outcome:auto"] == 2
+
+
+def test_odin_verdict_observation_never_publishes() -> None:
+    """The portfolio monitor is read-only: observing MUST NOT emit."""
+    bus = InMemoryBus(load_pantheon())
+    odin = Odin(bus=bus)
+
+    asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
+
+    assert bus.messages_on("object.arbitration-decision") == []

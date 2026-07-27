@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d8326bebeeb4553031429eec07fb2f71d41562d8
+translation_source_sha: cf0750e9541dcada10fc65b49c1890c753747cab
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -137,8 +137,10 @@ shared 패키지를 커버한다.
 [.github/instructions/agent-pantheon.instructions.md](../../../.github/instructions/agent-pantheon.instructions.md)
 참조.
 
-Conversation charter는 `_framework/pantheon.py`에 있고 bounded T1/T2 discussion contract는
-`_framework/deliberation.py`에 있으며 Bragi가 `PantheonRuntime.deliberate`를 통해 orchestrate합니다.
+Conversation charter text는 `_framework/charters.py`에 있고 `_framework/pantheon.py`가 각 agent에
+binding합니다. Turn별 상황 조립은 `_framework/conversation_prompt.py`에 있습니다. Bounded T1/T2
+discussion contract는 `_framework/deliberation.py`에 있으며 Bragi가 `PantheonRuntime.deliberate`를
+통해 orchestrate합니다.
 [conversational-deliberation-ko.md](../agents/conversational-deliberation-ko.md)를 참조하세요.
 Bounded cost, capacity, chaos trigger parsing은 `_framework/specialist_ingress.py`에 있고 domain
 agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 consume합니다.

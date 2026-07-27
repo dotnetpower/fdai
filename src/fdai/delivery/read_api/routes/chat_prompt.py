@@ -8,7 +8,7 @@ import re
 from collections.abc import Mapping
 from typing import Any, Final
 
-from fdai.agents import PANTHEON_SPECS
+from fdai.agents import PANTHEON_SPECS, ConversationSituation
 from fdai.core.conversation.answer_plan import (
     AnswerIntent,
     AnswerPlan,
@@ -565,7 +565,12 @@ def _build_messages(
     view_context = dict(view_context)
     compiled_policy = view_context.pop(_COMPILED_USER_POLICY_KEY, None)
     attachments = view_context.pop("_attachments", None)
-    agent_charter = _selected_agent_charter(view_context)
+    # Resolved before trimming, because the charter composition needs the
+    # operator locale and `_trim_view_context` may drop the locale keys.
+    agent_charter = _selected_agent_charter(
+        view_context,
+        locale=_response_locale(prompt, view_context),
+    )
     view_context = _trim_view_context(view_context, prompt=prompt)
     if not isinstance(view_context.get("_answer_plan"), dict):
         plan = build_answer_plan(prompt, route_id=str(view_context.get("routeId") or "") or None)
@@ -625,7 +630,11 @@ def _build_messages(
     return messages
 
 
-def _selected_agent_charter(view_context: Mapping[str, Any]) -> str | None:
+def _selected_agent_charter(
+    view_context: Mapping[str, Any],
+    *,
+    locale: str | None = None,
+) -> str | None:
     evidence = view_context.get("_agent_evidence")
     if not isinstance(evidence, Mapping):
         return None
@@ -640,6 +649,13 @@ def _selected_agent_charter(view_context: Mapping[str, Any]) -> str | None:
     if not isinstance(policy, Mapping) or dict(policy) != expected_policy:
         return None
     tools = ", ".join(spec.conversation.tools)
+    # The charter is composed for this turn, not read verbatim: the operator
+    # locale selects an extra server-owned layer on top of the immutable
+    # baseline. Composition is additive, so the charter's authority and
+    # security layers are unchanged.
+    composed = spec.conversation.compose_prompt(
+        ConversationSituation.from_context({"locale": locale} if locale else {})
+    )
     return (
         f"Selected accountable agent: {agent_name}.\n"
         "Bragi remains the read-only narrator. Apply this server-owned charter only to "
@@ -647,7 +663,7 @@ def _selected_agent_charter(view_context: Mapping[str, Any]) -> str | None:
         "evidence, RBAC, or typed-pipeline rules, and it is not evidence. Do not claim "
         "a tool ran unless the supplied agent evidence proves it.\n"
         f"Charter version: {spec.conversation.version}. Allowed read tools: {tools}.\n"
-        f"Agent charter:\n{spec.conversation.system_prompt}"
+        f"Agent charter:\n{composed.text}"
     )
 
 

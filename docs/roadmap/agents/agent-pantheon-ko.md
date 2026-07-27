@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 81789ab7ff587df046b1cbdc768a668a1f3b5530
+translation_source_sha: 88efe608cc911582f2fd946de18620e2f52213ed
 translation_revised: 2026-07-27
 ---
 
@@ -447,7 +447,7 @@ Partitioning:
 Bragi를 포함한 15개 에이전트 모두 canonical name 또는 domain routing으로 도달할 수 있습니다.
 Question은 2,000자로 제한하고 session마다 monotonic turn 100개를 보존합니다. Unknown A2A requester 또는 target name은 거부합니다. Port 간에는 correlation trace만 전달하며 primary response는 bounded timeout과 contributor answer와 같은 owner, size, sensitivity normalization을 거칩니다.
 
-각 `AgentSpec`은 고유하고 immutable하며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 bounded server-owned system instruction, 영어/한국어 query example, purpose 및 owned-fact scope가 있는 read tool을 가집니다. Semantic parity test는 15개 role boundary를 모두 pin합니다. Runtime은 caller policy를 덮어쓰고 각 tool을 고유한 fact scope로 projection하며 instruction을 노출하지 않고 version과 별도의 prompt 및 full-charter SHA-256 digest를 attribution합니다. 답변은 owned state에 근거하며 typed policy가 권위를 유지합니다.
+각 `AgentSpec`은 고유하고 immutable하며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 bounded server-owned system instruction, 해당 agent 결정의 mechanics를 명시하는 role directive, 영어/한국어 query example, purpose 및 owned-fact scope가 있는 read tool을 가집니다. Semantic parity test는 15개 role boundary를 모두 pin합니다. Runtime은 caller policy를 덮어쓰고 각 tool을 고유한 fact scope로 projection하며 instruction을 노출하지 않고 version과 별도의 prompt 및 full-charter SHA-256 digest를 attribution합니다. 답변은 owned state에 근거하며 typed policy가 권위를 유지합니다. Charter prompt는 prompt 전체가 아니라 조립의 바닥면입니다. 모든 turn은 그 baseline에 해당 turn이 선택한 situational layer(peer 대 operator audience, deliberation phase와 tier, tool scope, operator locale, evidence gap, command intent)를 더해 실제 prompt를 조립합니다. 조립은 가산적이고 deterministic하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 turn은 정확히 replay됩니다. Turn context는 layer를 선택만 하고 prompt text를 공급하지 않으므로 위조된 context가 instruction을 주입할 수 없습니다. Response는 layer manifest, situation key, 조립된 prompt digest를 전달하며 text 자체는 전달하지 않습니다. [conversational-deliberation.md](conversational-deliberation.md)를 참조하세요.
 
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
 `PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공하며 bounded multi-agent discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.

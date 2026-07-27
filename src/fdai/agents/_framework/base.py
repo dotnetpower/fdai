@@ -17,6 +17,13 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from fdai.agents._framework.conversation_prompt import (
+    MAX_COMPOSED_PROMPT_CHARS,
+    MAX_ROLE_DIRECTIVE_CHARS,
+    ComposedConversationPrompt,
+    ConversationSituation,
+    compose_conversation_prompt,
+)
 from fdai.agents._framework.introspection import (
     INTROSPECTION_ERROR,
     REQUIRES_TYPED_PIPELINE,
@@ -39,7 +46,6 @@ _LOG = logging.getLogger(__name__)
 _MAX_BEHAVIOR_KEYS = 512
 _BEHAVIOR_OVERFLOW_KEY = "behavior:overflow"
 _MAX_CONVERSATION_TOOLS = 16
-_MAX_CONVERSATION_PROMPT_CHARS = 4_096
 _MAX_TOOL_PURPOSE_CHARS = 160
 _TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 _CHARTER_VERSION = re.compile(r"^v[1-9][0-9]*$")
@@ -88,21 +94,35 @@ class ConversationTool:
 
 @dataclass(frozen=True, slots=True)
 class ConversationCharter:
-    """Server-owned, versioned instructions and read-only tool manifest."""
+    """Server-owned, versioned instructions and read-only tool manifest.
+
+    ``system_prompt`` is the immutable **baseline**: the layers every
+    turn runs with. One turn's effective prompt is composed from it by
+    :func:`~fdai.agents._framework.conversation_prompt.compose_conversation_prompt`,
+    which may only add situational layers on top - see
+    :meth:`compose_prompt`.
+    """
 
     version: str
     system_prompt: str
     tool_specs: tuple[ConversationTool, ...]
     routing_examples: tuple[str, ...]
+    role_directive: str = ""
+    """Agent-specific mechanics layer; MUST also appear in ``system_prompt``."""
 
     def __post_init__(self) -> None:
         if _CHARTER_VERSION.fullmatch(self.version) is None:
             raise ValueError("conversation version MUST be a canonical vN identifier")
-        if (
-            not self.system_prompt.strip()
-            or len(self.system_prompt) > _MAX_CONVERSATION_PROMPT_CHARS
-        ):
+        if not self.system_prompt.strip() or len(self.system_prompt) > MAX_COMPOSED_PROMPT_CHARS:
             raise ValueError("conversation system_prompt MUST be bounded and non-empty")
+        if self.role_directive and (
+            len(self.role_directive) > MAX_ROLE_DIRECTIVE_CHARS
+            # The baseline is the composition floor, so a directive that is
+            # declared but not baked into it would silently never reach a
+            # model. Pin the two together instead of trusting the caller.
+            or self.role_directive not in self.system_prompt
+        ):
+            raise ValueError("conversation role_directive MUST be bounded and part of the baseline")
         if not self.tool_specs or len(self.tool_specs) > _MAX_CONVERSATION_TOOLS:
             raise ValueError("conversation tools MUST contain between 1 and 16 items")
         if len(set(self.tools)) != len(self.tools):
@@ -122,6 +142,20 @@ class ConversationCharter:
 
     def tool(self, tool_id: str) -> ConversationTool | None:
         return next((tool for tool in self.tool_specs if tool.tool_id == tool_id), None)
+
+    def compose_prompt(
+        self,
+        situation: ConversationSituation | None = None,
+    ) -> ComposedConversationPrompt:
+        """Compose this turn's prompt for ``situation``.
+
+        ``None`` composes the baseline, so a caller with no situational
+        signal gets exactly the charter prompt.
+        """
+        return compose_conversation_prompt(
+            baseline_prompt=self.system_prompt,
+            situation=situation or ConversationSituation.baseline(),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -378,13 +412,34 @@ class Agent:
         ``trace_ref`` (the shared correlation trace - the only thing the
         two ports share), and ``abstain_reason`` (set only when
         ``answer`` is ``None``).
+
+        The prompt handed to the answering layer is composed per turn:
+        the immutable charter baseline plus the situational layers the
+        turn context selects (peer vs operator audience, deliberation
+        phase and tier, tool scope, locale, evidence gap, command
+        intent). Composition is additive, so the situation can tighten
+        the charter but never loosen it.
         """
+        charter = self.spec.conversation
+        action_intent = is_action_intent(question)
+        tool_id = context.get("conversation_tool")
+        tool = charter.tool(tool_id) if isinstance(tool_id, str) else None
+        composed = charter.compose_prompt(
+            ConversationSituation.from_context(
+                context,
+                allowed_tools=charter.tools,
+                tool_fact_keys=tool.fact_keys if tool is not None else (),
+                action_intent=action_intent,
+                evidence_available=context.get("evidence_available") is not False,
+            )
+        )
         policy_context = {
             **context,
-            "agent_system_prompt": self.spec.conversation.system_prompt,
-            "agent_allowed_tools": self.spec.conversation.tools,
+            "agent_system_prompt": composed.text,
+            "agent_allowed_tools": charter.tools,
+            "agent_prompt_composition": composed.attribution(),
         }
-        if is_action_intent(question):
+        if action_intent:
             return self._conversation_envelope(
                 IntrospectionResult.abstain(
                     REQUIRES_TYPED_PIPELINE,
@@ -406,9 +461,7 @@ class Agent:
                 extra={"agent": self.spec.name, "error_type": type(exc).__name__},
             )
             result = IntrospectionResult.abstain(INTROSPECTION_ERROR)
-        tool_id = policy_context.get("conversation_tool")
-        if isinstance(tool_id, str):
-            tool = self.spec.conversation.tool(tool_id)
+        if tool_id is not None and isinstance(tool_id, str):
             result = (
                 _project_tool_result(result, tool)
                 if tool is not None
@@ -459,6 +512,12 @@ class Agent:
                 **self.spec.conversation_policy(),
             },
         }
+        # Which layers actually ran this turn, by id and digest only. The
+        # charter policy above stays the immutable contract identity; this
+        # is the per-turn replay record, and it never carries prompt text.
+        composition = context.get("agent_prompt_composition")
+        if isinstance(composition, dict):
+            envelope["prompt_composition"] = composition
         if requires_typed_pipeline:
             envelope["requires_typed_pipeline"] = True
         return envelope

@@ -19,6 +19,10 @@ from fdai.agents._framework.base import (
 )
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, AgentHandlerPhase
+from fdai.agents._framework.conversation_prompt import (
+    ComposedConversationPrompt,
+    ConversationSituation,
+)
 from fdai.agents._framework.conversation_tools import AgentToolResult, AgentToolStatus
 from fdai.agents._framework.deliberation import (
     DeliberationClaim,
@@ -58,7 +62,9 @@ __all__ = [
     "AgentToolStatus",
     "agent_state_evidence_ref",
     "Bragi",
+    "ComposedConversationPrompt",
     "ConversationCharter",
+    "ConversationSituation",
     "ConversationTool",
     "DeliberationClaim",
     "DeliberationRequest",

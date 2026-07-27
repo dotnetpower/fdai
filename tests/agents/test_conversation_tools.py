@@ -297,7 +297,7 @@ def test_tool_result_preserves_evidence_trace_and_policy() -> None:
         "snapshot_ref:snapshot-three",
     )
     assert len(result.prompt_sha256) == 64
-    assert result.charter_version == "v2"
+    assert result.charter_version == "v3"
     assert len(result.charter_sha256) == 64
     assert result.allowed_tools == heimdall.spec.conversation.tools
     counters = runtime.health()["conversation_tools"]["by_agent"]["Heimdall"]["counters"]

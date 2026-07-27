@@ -326,7 +326,7 @@ def test_charter_digest_covers_tool_scope_and_routing_examples() -> None:
 
     original = next(spec for spec in PANTHEON_SPECS if spec.name == "Njord")
     original_policy = original.conversation_policy()
-    assert original_policy["version"] == "v2"
+    assert original_policy["version"] == "v3"
     assert len(original_policy["charter_sha256"]) == 64
     first_tool, *remaining_tools = original.conversation.tool_specs
     changed_tool = replace(first_tool, purpose=f"{first_tool.purpose} Revised.")
