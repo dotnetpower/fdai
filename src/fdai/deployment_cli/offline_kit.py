@@ -172,7 +172,12 @@ def build_offline_kit_manifest(
         sbom_path=sbom_path,
         files={relative: _file_digest(root / relative) for relative in sorted(staged)},
     )
-    return canonical_manifest_bytes(manifest)
+    manifest_bytes = canonical_manifest_bytes(manifest)
+    if len(manifest_bytes) > _MAX_MANIFEST_BYTES:
+        raise OfflineKitVerificationError(
+            "offline kit manifest exceeds the size limit; stage fewer or shallower artifacts"
+        )
+    return manifest_bytes
 
 
 def canonical_manifest_bytes(manifest: OfflineKitManifest) -> bytes:

@@ -10,6 +10,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from fdai.deployment_cli import offline_kit
 from fdai.deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
@@ -283,6 +284,22 @@ def test_build_rejects_unstaged_required_artifact(tmp_path: Path) -> None:
     (tmp_path / "bin/opa").unlink()
 
     with pytest.raises(ValueError, match="opa"):
+        _build(tmp_path)
+
+
+def test_build_rejects_a_manifest_the_verifier_could_not_parse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A manifest over the verifier's size bound would sign an unverifiable kit.
+
+    Verification reads the manifest before it can check anything, so an
+    oversized manifest is rejected at the disconnected site - after the kit has
+    already been signed and shipped. The builder MUST fail first.
+    """
+    _stage(tmp_path)
+    monkeypatch.setattr(offline_kit, "_MAX_MANIFEST_BYTES", 64)
+
+    with pytest.raises(OfflineKitVerificationError, match="manifest exceeds the size limit"):
         _build(tmp_path)
 
 
