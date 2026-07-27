@@ -288,29 +288,53 @@ def _scan_kit_files(
     max_files: int,
     max_total_bytes: int,
 ) -> tuple[set[str], int]:
-    """Enumerate payload files under ``root`` without following any symlink."""
+    """Enumerate payload files under ``root`` without following any symlink.
+
+    The walk refuses to skip anything. Path globbing swallows a directory it
+    cannot read, which would let the builder sign a manifest that silently
+    omits whatever was underneath it - a kit carrying artifacts no signature
+    covers - and would let the verifier read a truncated tree as a complete
+    one. A directory that cannot be listed is an error, not an empty result.
+    """
     found: set[str] = set()
     total_bytes = 0
-    for path in root.rglob("*"):
-        relative = path.relative_to(root).as_posix()
-        if relative in _METADATA_NAMES:
-            continue
-        if path.is_symlink():
-            raise OfflineKitVerificationError(
-                f"offline kit file {relative!r} MUST NOT be a symlink"
-            )
-        if path.is_dir():
-            continue
-        if not path.is_file():
-            raise OfflineKitVerificationError(
-                f"offline kit entry {relative!r} is not a regular file"
-            )
-        found.add(relative)
-        if len(found) > max_files:
-            raise OfflineKitVerificationError("offline kit exceeds the file-count limit")
-        total_bytes += path.stat().st_size
-        if total_bytes > max_total_bytes:
-            raise OfflineKitVerificationError("offline kit exceeds the total-size limit")
+
+    def _unreadable(error: OSError) -> None:
+        raise OfflineKitVerificationError(f"offline kit tree could not be read: {error}")
+
+    for directory, subdirectories, names in os.walk(root, onerror=_unreadable, followlinks=False):
+        base = Path(directory)
+        for name in subdirectories:
+            entry = base / name
+            if entry.is_symlink():
+                relative = entry.relative_to(root).as_posix()
+                raise OfflineKitVerificationError(
+                    f"offline kit file {relative!r} MUST NOT be a symlink"
+                )
+        for name in names:
+            entry = base / name
+            relative = entry.relative_to(root).as_posix()
+            if relative in _METADATA_NAMES:
+                continue
+            if entry.is_symlink():
+                raise OfflineKitVerificationError(
+                    f"offline kit file {relative!r} MUST NOT be a symlink"
+                )
+            if not entry.is_file():
+                raise OfflineKitVerificationError(
+                    f"offline kit entry {relative!r} is not a regular file"
+                )
+            found.add(relative)
+            if len(found) > max_files:
+                raise OfflineKitVerificationError("offline kit exceeds the file-count limit")
+            try:
+                total_bytes += entry.stat().st_size
+            except OSError as exc:
+                raise OfflineKitVerificationError(
+                    f"offline kit file {relative!r} could not be measured: {exc}"
+                ) from exc
+            if total_bytes > max_total_bytes:
+                raise OfflineKitVerificationError("offline kit exceeds the total-size limit")
     return found, total_bytes
 
 

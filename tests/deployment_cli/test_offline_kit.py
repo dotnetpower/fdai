@@ -17,6 +17,7 @@ from fdai.deployment_cli.offline_kit import (
     OfflineKitManifest,
     OfflineKitVerificationError,
     _file_digest,
+    _scan_kit_files,
     build_offline_kit_manifest,
     verify_offline_kit,
 )
@@ -139,6 +140,56 @@ def test_rejects_symlink(tmp_path: Path) -> None:
             cli_version=_VERSION,
             platform_tag=_PLATFORM,
         )
+
+
+def test_rejects_a_symlinked_directory_rather_than_walking_past_it(tmp_path: Path) -> None:
+    _private_key, release_root = _write_kit(tmp_path)
+    outside = tmp_path.parent / "outside"
+    outside.mkdir()
+    (tmp_path / "extra-tree").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(OfflineKitVerificationError, match="MUST NOT be a symlink"):
+        verify_offline_kit(
+            tmp_path,
+            release_root_pem=release_root,
+            cli_version=_VERSION,
+            platform_tag=_PLATFORM,
+        )
+
+
+def test_a_directory_that_cannot_be_listed_is_never_read_as_empty(tmp_path: Path) -> None:
+    """Globbing swallows an unreadable directory. Building on that result would
+    sign a manifest that omits whatever was underneath it, shipping artifacts
+    inside a signed kit that no signature covers.
+    """
+    _private_key, release_root = _write_kit(tmp_path)
+    closed = tmp_path / "bin"
+    closed.chmod(0o000)
+    try:
+        with pytest.raises(OfflineKitVerificationError, match="could not be read"):
+            verify_offline_kit(
+                tmp_path,
+                release_root_pem=release_root,
+                cli_version=_VERSION,
+                platform_tag=_PLATFORM,
+            )
+    finally:
+        closed.chmod(0o755)
+
+
+def test_a_builder_never_signs_a_manifest_over_a_tree_it_could_not_list(tmp_path: Path) -> None:
+    staged = tmp_path / "kit"
+    staged.mkdir()
+    (staged / "artifact.whl").write_bytes(b"wheel")
+    hidden = staged / "providers"
+    hidden.mkdir()
+    (hidden / "provider.zip").write_bytes(b"provider")
+    hidden.chmod(0o000)
+    try:
+        with pytest.raises(OfflineKitVerificationError, match="could not be read"):
+            _scan_kit_files(staged, max_files=100, max_total_bytes=1_000_000)
+    finally:
+        hidden.chmod(0o755)
 
 
 def test_digest_helper_never_follows_symlink(tmp_path: Path) -> None:
