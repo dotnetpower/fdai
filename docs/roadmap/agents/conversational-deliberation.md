@@ -153,6 +153,12 @@ before the synthesizer is called.
 | `max_cost_microusd_total` | undeclared | A fleet ceiling exists only when a deployment declares one. |
 | `max_calls_total` | undeclared | Same. A total that never resets is a kill switch, not a budget: every later turn would degrade to a human forever, and nobody asked for that. |
 
+Spend is charged to the correlation id when the caller supplies one. When it does not, the round
+falls back to a stable digest of the question and its primary owner: every deliberation would
+otherwise share the empty string, so the first synthesis would spend the budget of every unrelated
+question after it. Re-asking the same question of the same owner is the same unit of work and
+still costs nothing more.
+
 Either bound denies, and both are checked before the call. Spend is charged in two steps:
 
 1. **Estimate, before the call.** The estimate prices the whole composed input plus a full-length

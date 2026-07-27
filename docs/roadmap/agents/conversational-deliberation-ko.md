@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 066b8af531b6f71c05cf15347c3417e86c14648c
+translation_source_sha: 30ec462c27b135f151fd5a6dafb411177ce403a6
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -155,6 +155,11 @@ uncapped inference로 가지 않습니다. `EscalationBudget`은 그 천장을 m
 | `max_calls_per_correlation` | 1 | 항상 적용되는 fail-safe. 가격이 없는 model은 비용이 0이므로, 비용만 보는 천장은 하필 아무도 가격을 매기지 않은 model에 대해 천장이 아닙니다. |
 | `max_cost_microusd_total` | 미선언 | Fleet 천장은 배포가 선언했을 때만 존재합니다. |
 | `max_calls_total` | 미선언 | 마찬가지입니다. 리셋되지 않는 총량은 예산이 아니라 kill switch입니다. 이후 모든 turn이 영원히 사람에게 넘어가며, 아무도 그것을 요청하지 않았습니다. |
+
+지출은 caller가 correlation id를 제공하면 그 id에 차감합니다. 제공하지 않으면 질문과 primary
+owner의 안정적 digest로 대체합니다. 그렇지 않으면 모든 deliberation이 빈 문자열 하나를
+공유해서, 첫 synthesis가 그 뒤의 무관한 모든 질문의 예산까지 써버립니다. 같은 owner에게 같은
+질문을 다시 하는 것은 같은 작업 단위이므로 추가 비용이 들지 않습니다.
 
 두 한도 중 하나만 걸려도 거부하며, 호출 전에 둘 다 검사합니다. 지출은 두 단계로 차감합니다.
 

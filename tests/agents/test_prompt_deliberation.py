@@ -598,3 +598,23 @@ def test_an_estimate_is_charged_before_a_provider_can_fail() -> None:
 
     assert first["t2_status"] == "error"
     assert second["t2_status"] == "budget_denied"
+
+
+def test_unattributed_rounds_do_not_share_one_budget() -> None:
+    """An absent correlation id MUST NOT make every question spend the first one's budget."""
+    synthesizer = _T2Synthesizer()
+    runtime = _priced_runtime(synthesizer, budget=ModelBudget())
+
+    statuses = [
+        asyncio.run(runtime.deliberate(question=question, requester="Forseti"))["t2_status"]
+        for question in (
+            "Compare cost and capacity for the first scope.",
+            "Compare cost and capacity for the second scope.",
+            # The same question again is the same unit of work, so it is
+            # the one round the ceiling denies.
+            "Compare cost and capacity for the first scope.",
+        )
+    ]
+
+    assert statuses == ["completed", "completed", "budget_denied"]
+    assert len(synthesizer.requests) == 2

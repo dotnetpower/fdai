@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -312,9 +313,10 @@ class ConversationDeliberator:
         # The budget is a ceiling, not a target: when it is spent the round
         # stays at T1 rather than calling a model anyway. The bound is
         # reported so the answer can say the deeper pass did not run.
-        if not await self._ledger.allows(correlation_id):
+        budget_key = _budget_key(correlation_id, question=question, primary=primary_agent)
+        if not await self._ledger.allows(budget_key):
             result["t2_status"] = "budget_denied"
-            result["escalation_budget"] = await self._budget_snapshot(correlation_id)
+            result["escalation_budget"] = await self._budget_snapshot(budget_key)
             return result
         request = DeliberationRequest(
             question=question,
@@ -331,7 +333,7 @@ class ConversationDeliberator:
         # fails still consumed the budget it was granted, so charging on
         # success would let a failing provider be retried without limit.
         estimate = self._estimated_cost_microusd(request)
-        await self._ledger.charge(correlation_id, calls=1, cost_microusd=estimate)
+        await self._ledger.charge(budget_key, calls=1, cost_microusd=estimate)
         try:
             outcome = await synthesizer.synthesize(request)
         except Exception as exc:  # noqa: BLE001 - optional presentation degradation
@@ -343,7 +345,12 @@ class ConversationDeliberator:
             return result
         conclusion = outcome.conclusion if isinstance(outcome, SynthesisOutcome) else None
         if isinstance(outcome, SynthesisOutcome):
-            await self._settle(outcome, correlation_id=correlation_id, estimate=estimate)
+            await self._settle(
+                outcome,
+                budget_key=budget_key,
+                correlation_id=correlation_id,
+                estimate=estimate,
+            )
         if not isinstance(conclusion, str) or not conclusion.strip():
             result["t2_status"] = "abstained"
         elif len(conclusion) > _MAX_T2_CONCLUSION_CHARS:
@@ -354,7 +361,7 @@ class ConversationDeliberator:
             result["tier"] = "T2"
             result["t2_status"] = "completed"
             result["conclusion"] = conclusion.strip()
-        result["escalation_budget"] = await self._budget_snapshot(correlation_id)
+        result["escalation_budget"] = await self._budget_snapshot(budget_key)
         return result
 
     async def _budget_snapshot(self, correlation_id: str) -> dict[str, int]:
@@ -392,6 +399,7 @@ class ConversationDeliberator:
         self,
         outcome: SynthesisOutcome,
         *,
+        budget_key: str,
         correlation_id: str,
         estimate: int,
     ) -> None:
@@ -411,7 +419,7 @@ class ConversationDeliberator:
         )
         if measured > estimate:
             await self._ledger.charge(
-                correlation_id,
+                budget_key,
                 calls=0,
                 cost_microusd=measured - estimate,
             )
@@ -474,3 +482,20 @@ __all__ = [
     "DeliberationRequest",
     "T2ConversationSynthesizer",
 ]
+
+
+def _budget_key(correlation_id: str, *, question: str, primary: str) -> str:
+    """Return the unit of work a deliberation charges its budget to.
+
+    A correlation id is the right key when the caller supplies one. When
+    it does not, every deliberation would otherwise share the empty
+    string, so one synthesis would spend the budget of every unrelated
+    question that followed it. Fall back to a stable digest of what the
+    round is actually about: re-asking the same question of the same
+    owner still costs nothing more, and a different question gets its own
+    ceiling. Deterministic, so a recorded conversation replays.
+    """
+    if correlation_id:
+        return correlation_id
+    digest = hashlib.sha256(f"{primary}\n{question}".encode()).hexdigest()
+    return f"unattributed:{digest[:32]}"
