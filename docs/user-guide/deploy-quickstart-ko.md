@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 89b7c3b7716c5ef2504e5a4b10d0085f0c6f72ec
+translation_source_sha: f5eb67da7f92d4376ef12ccf47085f6dde1090ce
 translation_revised: 2026-07-27
 ---
 
@@ -102,7 +102,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      삭제 주기와 일치합니다.
    - **예측 학습**: 옵트인 Job이 원시 tick만 발행하고, 코어에 검토된
      `FDAI_FORECAST_TARGETS_JSON` 문서가 있습니다.
-3. **개발 운영 게이트웨이 검증.** 이 게이트웨이를 켰다면 아래를 확인합니다.
+3. **개발 운영 게이트웨이 검증.** 이것은 개발 도구입니다. Easy Auth 뒤에서 public
+   inbound endpoint를 종단하며, Terraform은 `env=dev`가 아니면 plan 자체를 거부합니다.
+   폐쇄망에서는 꺼둔 채로 두십시오. 이 게이트웨이를 켰다면 아래를 확인합니다.
    - 보호된 소스 아카이브가 Terraform apply 뒤에 배포됐고, 현재 원격 빌드 배포가
      성공했습니다.
    - 두 Function 트리거가 등록됐고, 호스트와 idempotency 저장소가 reader 관리 자격 증명을

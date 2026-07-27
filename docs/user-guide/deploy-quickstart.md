@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 841bfceed2c6a1af59caf1058fe512db26049251 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 58ac7904ff027d5b6cde6e619a0b0cd53a34ca42 }]
 ---
 
 # Deploy Quickstart
@@ -107,7 +107,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      cadence.
    - **Forecast learning**: its opt-in Job publishes raw ticks only, and the core
      has the reviewed `FDAI_FORECAST_TARGETS_JSON` document.
-3. **Verify the development operations gateway.** If you enabled it, confirm:
+3. **Verify the development operations gateway.** It is a development tool: it
+   terminates a public inbound endpoint behind Easy Auth, and Terraform refuses
+   to plan it outside `env=dev`. Leave it off on a closed network. If you
+   enabled it, confirm:
    - The protected source archive was deployed after the Terraform apply, and the
      current remote-build deployment succeeded.
    - Both Function triggers are registered, host and idempotency storage use the
