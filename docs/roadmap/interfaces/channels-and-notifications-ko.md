@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 228013a1dffb40d19788c918b424ad6577cbd688
+translation_source_sha: 52a7e1cbde2cc32f9b8dc574ec7c85031ce85973
 translation_revised: 2026-07-27
 ---
 
@@ -218,6 +218,10 @@ Durable activity decode는 type-strict하며 publisher가 response를 받기 전
 timestamp를 검증합니다.
 
 Concrete publisher는 해당 intent를 다음과 같이 mapping합니다.
+
+Publisher transport 및 acknowledgement 처리는 `publishers.py`에 유지되고, pure bounded Slack
+Block Kit 및 Teams Adaptive Card rendering은 `publisher_rendering.py`에 있습니다. 이 분리는 wire
+payload 또는 fallback behavior를 변경하지 않으며 vendor presentation을 독립적으로 test할 수 있게 합니다.
 
 | Behavior | Slack | Teams | Text fallback |
 |----------|-------|-------|---------------|

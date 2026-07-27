@@ -201,6 +201,8 @@ Running revisions show summary text only. Canonical redacted activity evidence a
 final confirmed revision after protected ingestion and coordinator completion.
 Progress metrics can count truncation and terminal delivery, but they contain no filename, document
 id, citation, source reference, collection, channel id, or extracted content.
+The channel publisher keeps transport and acknowledgement handling separate from pure rendering;
+this structural split does not change protected ingestion or the redaction boundary.
 
 The repository currently ships these composition components as a library boundary. It does not yet
 ship a standalone channel ASGI factory or Terraform channel workload that instantiates

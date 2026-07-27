@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 2b64d4739268370f2ba6416c8f1ee979f109e2be
+translation_source_sha: e038c682646a5bdcadc44ae455cae7cef4e82cbb
 translation_revised: 2026-07-27
 title: 대화 첨부파일
 ---
@@ -209,6 +209,8 @@ Running revision은 summary text만 표시합니다. Canonical redacted activity
 ingestion 및 coordinator 완료 후 final confirmed revision에 표시됩니다.
 Progress metric은 truncation 및 terminal delivery를 집계할 수 있지만 filename, document id,
 citation, source reference, collection, channel id 또는 extracted content를 포함하지 않습니다.
+Channel publisher는 transport 및 acknowledgement 처리를 pure rendering과 분리합니다. 이 구조적
+분리는 protected ingestion 또는 redaction boundary를 변경하지 않습니다.
 
 Repository는 현재 이 composition component를 library boundary로 제공합니다. 아직
 `ProductionChannelRuntime`을 instantiate하는 standalone channel ASGI factory 또는 Terraform

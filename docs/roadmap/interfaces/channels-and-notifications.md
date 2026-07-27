@@ -219,6 +219,10 @@ publisher receives the response.
 
 Concrete publishers map that intent as follows:
 
+Publisher transport and acknowledgement handling stay in `publishers.py`; pure bounded Slack Block
+Kit and Teams Adaptive Card rendering lives in `publisher_rendering.py`. This split changes no wire
+payload or fallback behavior and keeps vendor presentation independently testable.
+
 | Behavior | Slack | Teams | Text fallback |
 |----------|-------|-------|---------------|
 | Thread reply | `chat.postMessage` with `thread_ts` | Message activity with `replyToId` | Same originating thread |
