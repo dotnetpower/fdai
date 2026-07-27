@@ -339,6 +339,69 @@ async def test_complete_relationship_set_tombstones_missing_owned_link() -> None
         assert await cursor.fetchone() == ("delete",)
 
 
+async def test_stale_resource_delete_does_not_tombstone_current_relationships() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("rg-ordering", "resource-group"),
+                ResourceRecord("rg-ordering/vm", "compute.vm"),
+            ),
+            links=(
+                LinkRecord(
+                    from_id="rg-ordering",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="rg-ordering/vm",
+                    to_type="compute.vm",
+                ),
+            ),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    async def project(event_id: str, kind: str, seconds: int) -> None:
+        await projector(
+            {
+                "event_id": event_id,
+                "idempotency_key": f"inventory-stale-{event_id}",
+                "inventory_change": {
+                    "kind": kind,
+                    "resource": {
+                        "resource_id": "rg-ordering/vm",
+                        "type": "compute.vm",
+                        "props": {},
+                        "provider_ref": None,
+                        "last_seen": _after_snapshot(manifest, seconds),
+                    },
+                    "links": [],
+                },
+            }
+        )
+
+    await project("event-newer", "upsert", 2)
+    await project("event-stale", "delete", 1)
+
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        resource_cursor = await connection.execute(
+            "SELECT change_kind FROM inventory_realtime_resource WHERE resource_id=%s",
+            ("rg-ordering/vm",),
+        )
+        assert await resource_cursor.fetchone() == ("upsert",)
+        link_cursor = await connection.execute(
+            "SELECT change_kind FROM inventory_realtime_link "
+            "WHERE from_id=%s AND link_type='contains' AND to_id=%s",
+            ("rg-ordering", "rg-ordering/vm"),
+        )
+        assert await link_cursor.fetchone() is None
+
+
 async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())

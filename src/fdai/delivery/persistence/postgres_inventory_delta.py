@@ -116,20 +116,9 @@ class PostgresInventoryDeltaProjector:
                     )
                 if observed_at <= coverage["started_at"]:
                     return InventoryDeltaApplyResult(resources=0, links=0)
-                effective_links = await _reconcile_links(
-                    connection,
-                    snapshot_id=str(coverage["id"]),
-                    resource_id=resource_id,
-                    change_kind=change_kind,
-                    links_complete=links_complete,
-                    incoming=links,
-                    max_links=self._max_links,
-                )
-                effective_link_kinds = tuple(
-                    _choice(link, "change_kind", _CHANGE_KINDS) for link in effective_links
-                )
                 await _acquire_resource_locks(
-                    connection, _lock_resource_ids(resource_id, effective_links)
+                    connection,
+                    (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
                 )
                 resource_cursor = await connection.execute(
                     "INSERT INTO inventory_realtime_resource "
@@ -157,6 +146,24 @@ class PostgresInventoryDeltaProjector:
                         event_id,
                         idempotency_key,
                     ),
+                )
+                if resource_cursor.rowcount <= 0:
+                    return InventoryDeltaApplyResult(resources=0, links=0)
+                effective_links = await _reconcile_links(
+                    connection,
+                    snapshot_id=str(coverage["id"]),
+                    resource_id=resource_id,
+                    change_kind=change_kind,
+                    links_complete=links_complete,
+                    incoming=links,
+                    max_links=self._max_links,
+                )
+                if reconcile_graph:
+                    await _acquire_resource_locks(
+                        connection, _lock_resource_ids(resource_id, effective_links)
+                    )
+                effective_link_kinds = tuple(
+                    _choice(link, "change_kind", _CHANGE_KINDS) for link in effective_links
                 )
                 applied_links = 0
                 for link, link_kind in zip(effective_links, effective_link_kinds, strict=True):
