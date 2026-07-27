@@ -169,11 +169,57 @@ def test_justification_newlines_collapse_in_metadata_comment() -> None:
 
 
 def test_path_traversal_in_override_id_rejected() -> None:
-    with pytest.raises(OverrideWriterError, match="'\\.\\.'"):
+    with pytest.raises(OverrideWriterError, match="MUST match"):
         render_override_rego(_valid_request(override_id="../evil"))
 
 
-def test_slashes_in_override_id_are_sanitised() -> None:
-    overlay = render_override_rego(_valid_request(override_id="a/b/c"))
-    filename = overlay.path.rsplit("/", 1)[-1]
-    assert "/" not in filename
+def test_slashes_in_override_id_are_rejected_rather_than_sanitised() -> None:
+    """The id is a filename, a Rego package segment, and a string literal.
+    Rewriting a separator into something safe leaves the caller believing an id
+    they never supplied; refusing it keeps the written path the one requested.
+    """
+    with pytest.raises(OverrideWriterError, match="MUST match"):
+        render_override_rego(_valid_request(override_id="a/b/c"))
+
+
+def test_an_override_id_cannot_become_rego_syntax() -> None:
+    """The id is interpolated into a Rego string literal. A quote ends that
+    literal and everything after it is parsed as policy, so a request could
+    rewrite the verdict it was supposed to describe.
+    """
+    with pytest.raises(OverrideWriterError, match="MUST match"):
+        render_override_rego(_valid_request(override_id='ovr-1", "level": "autonomous'))
+
+
+def test_an_override_id_cannot_define_a_new_rule() -> None:
+    """A newline escapes the literal entirely. This exact input rendered a
+    working `allow := true` into a ceiling overlay whose whole purpose is that
+    it can only narrow autonomy.
+    """
+    with pytest.raises(OverrideWriterError, match="MUST match"):
+        render_override_rego(_valid_request(override_id='ovr-1"\n}\nallow := true\nx := {"y": "'))
+
+
+@pytest.mark.parametrize("field", ["requester_id", "approver_id"])
+def test_an_identity_cannot_escape_the_metadata_comment(field: str) -> None:
+    """Identities are rendered as `# key: value` comments. A newline ends the
+    comment and the next line is policy.
+    """
+    with pytest.raises(OverrideWriterError, match="line break"):
+        render_override_rego(_valid_request(**{field: "alice\nallow := true\n# x"}))
+
+
+def test_a_unicode_lookalike_cannot_stand_in_for_an_action_type() -> None:
+    """str.isalnum() accepts every Unicode letter, so a Cyrillic 'с' passed as
+    an ASCII 'c' and named a different action type than a reviewer read.
+    """
+    with pytest.raises(OverrideWriterError, match="MUST match"):
+        render_override_rego(_valid_request(action_type_id="ops.restart-servi\u0441e"))
+
+
+def test_a_legitimate_override_still_renders_one_verdict() -> None:
+    overlay = render_override_rego(_valid_request(override_id="ovr-2026-001"))
+
+    assert '"override_id": "ovr-2026-001",' in overlay.content
+    assert [line for line in overlay.content.splitlines() if line.startswith("allow")] == []
+    assert overlay.content.count('"level":') == 1

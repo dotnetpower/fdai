@@ -477,7 +477,7 @@
     "src/fdai/core/risk_gate/evaluator.py": "78d8d15ffe0e0bb7f47fac4a3dc6793a4ae81199a4cf0bbe5235771b066852b4",
     "src/fdai/core/risk_gate/feature.py": "e28ef89e5424bb2fe8a884e4a883d01a45e086f575d83fe8e3edd9fa1ff8ab23",
     "src/fdai/core/risk_gate/gate.py": "0f22537491fa2a97f2fac86021326f3799a74dde28bdb532a05b1785e81f92b0",
-    "src/fdai/core/risk_gate/override_writer.py": "68117f831cfc5c6410247df161f1805f1c2fd60c9fa8db52eeb7ac05a39ecc0d",
+    "src/fdai/core/risk_gate/override_writer.py": "6323def5c6e07ed183a9f6a3c13e37c7fc8d83eeca088ea4a3afe1e76a0428ca",
     "src/fdai/core/risk_gate/precedence.py": "a977b3d9d33a7a23087c9906581102bdd35f97668389b3eaa60f334ae52d41c3",
     "src/fdai/core/risk_gate/risk_table.py": "d5a9d37bd7c203bc5a5878eecedfe891130c27418604a7d4b0208f6eeba26b0f",
     "src/fdai/core/rpc/__init__.py": "5c2e8704df1cec574b701676ab71b1c915180fea407007e32f9b27ff27697150",
@@ -804,7 +804,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T18:02:04Z",
+  "generated_at": "2026-07-27T19:13:35Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

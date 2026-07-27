@@ -31,6 +31,7 @@ Design invariants
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -49,6 +50,15 @@ _ALLOWED_TARGET_LEVELS: frozenset[str] = frozenset({"enforce_hil", "shadow_only"
 
 # Bounded ``action_type_id`` pattern (matches OntologyActionType.name).
 _ACTION_TYPE_ID_MAX_LEN: int = 80
+
+# Identifiers are rendered into Rego - as a package segment, a string literal,
+# and a metadata comment - so they are constrained to characters that cannot
+# mean anything in that grammar. A quote or a newline in an identifier is not a
+# stylistic problem here: it ends the literal or the comment and everything
+# after it becomes policy.
+_OVERRIDE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
+_ONTOLOGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_.-]*$")
+_PRINCIPAL_ID_MAX_LEN: int = 256
 
 
 class OverrideWriterError(ValueError):
@@ -129,8 +139,11 @@ def render_override_rego(request: OverrideRequest) -> RegoOverlay:
 def _validate(request: OverrideRequest) -> None:
     if not request.override_id:
         raise OverrideWriterError("override_id MUST be non-empty")
-    if ".." in request.override_id:
-        raise OverrideWriterError("override_id MUST NOT contain '..' (path traversal)")
+    if _OVERRIDE_ID_PATTERN.fullmatch(request.override_id) is None:
+        raise OverrideWriterError(
+            f"override_id {request.override_id!r} MUST match ^[a-z0-9][a-z0-9._-]*"
+            " (it is rendered into Rego)"
+        )
     if not request.action_type_id:
         raise OverrideWriterError("action_type_id MUST be non-empty")
     if len(request.action_type_id) > _ACTION_TYPE_ID_MAX_LEN:
@@ -162,6 +175,14 @@ def _validate(request: OverrideRequest) -> None:
         raise OverrideWriterError("requester_id MUST be non-empty")
     if not request.approver_id:
         raise OverrideWriterError("approver_id MUST be non-empty")
+    for label, principal in (
+        ("requester_id", request.requester_id),
+        ("approver_id", request.approver_id),
+    ):
+        if len(principal) > _PRINCIPAL_ID_MAX_LEN:
+            raise OverrideWriterError(f"{label} MUST be at most {_PRINCIPAL_ID_MAX_LEN} chars")
+        if any(character in principal for character in "\n\r"):
+            raise OverrideWriterError(f"{label} MUST NOT contain a line break")
     if request.requester_id == request.approver_id:
         raise OverrideWriterError("no self-approval - requester_id and approver_id MUST differ")
 
@@ -177,11 +198,10 @@ def _validate_iso_expiry(value: str) -> None:
 
 
 def _is_ontology_id(value: str) -> bool:
-    if not value:
-        return False
-    if not (value[0].isalpha() and value[0].islower()):
-        return False
-    return all(c.isalnum() or c in {"_", ".", "-"} for c in value)
+    # A character class, not str.isalnum(): the latter accepts every Unicode
+    # letter, so a Greek omicron would pass as an ASCII 'o' and name a different
+    # action type than the one a reviewer read.
+    return _ONTOLOGY_ID_PATTERN.fullmatch(value) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -200,15 +220,15 @@ def _render(*, request: OverrideRequest, package: str) -> str:
         f"#   Expires: {request.expires_at}.",
         f"#   Justification: {_escape_comment(request.justification)}",
         "# custom:",
-        f"#   override_id: {request.override_id}",
-        f"#   action_type_id: {request.action_type_id}",
+        f"#   override_id: {_escape_comment(request.override_id)}",
+        f"#   action_type_id: {_escape_comment(request.action_type_id)}",
         f"#   axis: {request.axis.value}",
         f"#   target_level: {request.target_level.value}",
         f"#   scope: {request.scope.value}",
         f"#   scope_ref: {_escape_comment(request.scope_ref)}",
-        f"#   expires_at: {request.expires_at}",
-        f"#   requester_id: {request.requester_id}",
-        f"#   approver_id: {request.approver_id}",
+        f"#   expires_at: {_escape_comment(request.expires_at)}",
+        f"#   requester_id: {_escape_comment(request.requester_id)}",
+        f"#   approver_id: {_escape_comment(request.approver_id)}",
         f"package {package}",
         "",
         "import rego.v1",
@@ -219,17 +239,17 @@ def _render(*, request: OverrideRequest, package: str) -> str:
         "default applies := false",
         "",
         "applies if {",
-        f'  input.action_type == "{request.action_type_id}"',
+        f'  input.action_type == "{_rego_string(request.action_type_id)}"',
         f'  input.scope.kind == "{request.scope.value}"',
         f'  input.scope.ref == "{_rego_string(request.scope_ref)}"',
-        f'  input.now <= "{request.expires_at}"',
+        f'  input.now <= "{_rego_string(request.expires_at)}"',
         "}",
         "",
         "verdict := {",
         f'  "axis": "{request.axis.value}",',
         f'  "level": "{request.target_level.value}",',
-        f'  "override_id": "{request.override_id}",',
-        f'  "expires_at": "{request.expires_at}",',
+        f'  "override_id": "{_rego_string(request.override_id)}",',
+        f'  "expires_at": "{_rego_string(request.expires_at)}",',
         "} if applies",
         "",
     ]
@@ -269,9 +289,14 @@ def _escape_comment(value: str) -> str:
 
 
 def _rego_string(value: str) -> str:
-    """Escape a value for use inside a Rego double-quoted string."""
+    """Escape a value for use inside a Rego double-quoted string.
 
-    return value.replace("\\", "\\\\").replace('"', '\\"')
+    Applied to every interpolated field, including ones a validator already
+    constrains. Defence here does not depend on remembering which validator
+    covers which field, and the next field someone adds inherits it.
+    """
+
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r")
 
 
 __all__ = [
