@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 1c65fd6e96c52534ff2bcae87a72ccfbd06fd73e
+translation_source_sha: fe8ebd93414ee674c98c24597354ad1610054387
 translation_revised: 2026-07-27
 ---
 
@@ -161,6 +161,9 @@ turn을 만들거나 queue, interrupt, steer arbitration을 변경하지 않습�
 Runtime은 queued, interrupting, steered, rejected, duplicate, overflow, expiry, steer fallback,
 race-recovery counter를 기록합니다. Pending inspection은 cross-owner state를 노출하지 않습니다.
 Authorization은 입력 도착 시점과 consume 시점에 모두 확인합니다.
+별도 progressive-conversation collector는 aggregate branch, confirmation, correction, truncation,
+terminal, saturation, replay 및 latency metric을 기록합니다. Busy-input mode를 변경하거나 input
+content를 보관하지 않습니다.
 
 ## 실패 동작
 

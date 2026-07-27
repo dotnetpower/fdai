@@ -36,6 +36,22 @@ export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
 export const MAX_DECK_SSE_FRAME_CHARS = 256 * 1024;
 
+let sequenceGapCount = 0;
+let confirmedSegmentCount = 0;
+let partialTerminalCount = 0;
+
+export function streamProtocolMetricsSnapshot(): {
+  readonly sequenceGaps: number;
+  readonly confirmedSegments: number;
+  readonly partialTerminals: number;
+} {
+  return {
+    sequenceGaps: sequenceGapCount,
+    confirmedSegments: confirmedSegmentCount,
+    partialTerminals: partialTerminalCount,
+  };
+}
+
 function chunksForTypewriter(text: string): string[] {
   const chunks: string[] = [];
   const pattern = /\s*\S{1,4}|\s+$/g;
@@ -268,6 +284,7 @@ export async function askBackendStream(
       const confirmed = parseConfirmedAnswerSegment(object, revision);
       if (confirmed !== null && confirmed.revision >= (confirmedSegment?.revision ?? -1)) {
         confirmedSegment = confirmed;
+        confirmedSegmentCount += 1;
       }
     } else if (event === "done") {
       doneData = object;
@@ -314,6 +331,7 @@ export async function askBackendStream(
 
   if (errored && answerText === "") return fallback("stream error");
   if (errored || interrupted) {
+    partialTerminalCount += 1;
     const why = errored ? "stream error" : "stream interrupted";
     return {
       text: answerText,
@@ -323,6 +341,8 @@ export async function askBackendStream(
     };
   }
   if (sequenceGap) {
+    sequenceGapCount += 1;
+    partialTerminalCount += 1;
     const gapDone: Record<string, unknown> = doneData ?? {};
     const terminalAnswer = typeof gapDone.answer === "string" ? gapDone.answer : "";
     return {
@@ -333,6 +353,7 @@ export async function askBackendStream(
     };
   }
   if (!terminalSeen && answerText !== "") {
+    partialTerminalCount += 1;
     return {
       text: answerText,
       citations: snapshotCitations(snapshot),

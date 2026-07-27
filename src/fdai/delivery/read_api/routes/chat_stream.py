@@ -108,7 +108,7 @@ from fdai.delivery.read_api.routes.post_turn_review import (
 )
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.user_context import ConversationHistoryStore, UserContextConflictError
-from fdai.shared.telemetry.correlation import with_correlation
+from fdai.shared.telemetry import ConversationProgressMetrics, with_correlation
 
 _LOG = logging.getLogger(__name__)
 
@@ -134,6 +134,7 @@ def make_chat_stream_route(
     post_turn_review_submitter: PostTurnReviewSubmitter | None = None,
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
+    progress_metrics: ConversationProgressMetrics | None = None,
     path: str = DEFAULT_STREAM_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -223,6 +224,7 @@ def make_chat_stream_route(
             revision = 0
             planning_task: asyncio.Task[AnswerPlanningResult] | None = None
             cleanup_complete = False
+            first_progress_recorded = False
 
             def frame(event: str, payload: dict[str, Any]) -> bytes:
                 nonlocal sequence
@@ -261,6 +263,8 @@ def make_chat_stream_route(
 
             try:
                 if completed_payload is not None:
+                    if progress_metrics is not None:
+                        progress_metrics.increment("replays")
                     await cleanup()
                     yield frame("done", completed_payload)
                     return
@@ -312,6 +316,39 @@ def make_chat_stream_route(
                 progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=128)
 
                 async def observe_evidence_progress(event: Mapping[str, Any]) -> None:
+                    nonlocal first_progress_recorded
+                    if progress_metrics is not None:
+                        if not first_progress_recorded:
+                            progress_metrics.observe_latency(
+                                "time_to_first_progress",
+                                max(0, int((time.monotonic() - started) * 1000)),
+                            )
+                            first_progress_recorded = True
+                        if progress_queue.full():
+                            progress_metrics.increment("queue_saturation")
+                        status = event.get("status")
+                        kind = event.get("branch_kind")
+                        duration_ms = event.get("duration_ms")
+                        if (
+                            event.get("event") == "branch"
+                            and isinstance(status, str)
+                            and status
+                            in {"completed", "unavailable", "failed", "timed_out", "cancelled"}
+                            and isinstance(kind, str)
+                            and isinstance(duration_ms, int)
+                            and not isinstance(duration_ms, bool)
+                        ):
+                            progress_metrics.record_branch(
+                                kind=kind,
+                                outcome=status,
+                                duration_ms=duration_ms,
+                            )
+                        execution = event.get("execution")
+                        if (
+                            isinstance(execution, Mapping)
+                            and execution.get("output_truncated") is True
+                        ):
+                            progress_metrics.increment("truncations")
                     await progress_queue.put(dict(event))
 
                 evidence_task = asyncio.create_task(
@@ -629,6 +666,8 @@ def make_chat_stream_route(
                     verification,
                     document_evidence_refs,
                 )
+                if progress_metrics is not None and verification.answer != provisional_answer:
+                    progress_metrics.increment("corrections")
                 terminal_events, revision = verification_events(
                     provisional_answer,
                     verification,
@@ -637,6 +676,11 @@ def make_chat_stream_route(
                 for event_name, payload in terminal_events:
                     yield frame(event_name, payload)
                 if verification.status != "unverified":
+                    if progress_metrics is not None:
+                        progress_metrics.observe_latency(
+                            "time_to_first_confirmed",
+                            max(0, int((time.monotonic() - started) * 1000)),
+                        )
                     confirmed_payload: dict[str, Any] = {
                         "segment_index": 0,
                         "text": verification.answer,
@@ -699,6 +743,8 @@ def make_chat_stream_route(
                             ),
                         )
                 await cleanup()
+                if progress_metrics is not None:
+                    progress_metrics.increment("terminal_completed")
                 yield frame(
                     "done",
                     done_payload,

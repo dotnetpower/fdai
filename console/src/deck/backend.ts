@@ -48,7 +48,12 @@ export {
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
 } from "./backend-parsers";
-export { askBackendStream, fallbackTypewriter, streamBurstPacer } from "./backend-stream";
+export {
+  askBackendStream,
+  fallbackTypewriter,
+  streamBurstPacer,
+  streamProtocolMetricsSnapshot,
+} from "./backend-stream";
 export type * from "./backend-types";
 
 /**

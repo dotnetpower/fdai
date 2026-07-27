@@ -7,6 +7,7 @@ import pytest
 from fdai.shared.providers.conversation_channel import (
     MAX_ACTIVITY_TOTAL_CHARS,
     MAX_MENTION_COUNT,
+    MAX_PROGRESS_UPDATES,
     MAX_STREAM_CHUNKS,
     AgentHandoffActivity,
     ChannelDeliveryOperation,
@@ -281,3 +282,22 @@ def test_durable_progress_rejects_scalar_coercion() -> None:
 
     with pytest.raises(ValueError, match="scalar types"):
         outbound_response_from_json(serialized)
+
+
+def test_progress_update_count_is_bounded_before_revision_validation() -> None:
+    updates = tuple(
+        ChannelProgressUpdate(
+            min(index, MAX_PROGRESS_UPDATES - 1),
+            (
+                ChannelProgressStatus.CONFIRMED
+                if index == MAX_PROGRESS_UPDATES
+                else ChannelProgressStatus.RUNNING
+            ),
+            "fallback reply" if index == MAX_PROGRESS_UPDATES else "Checking",
+            0,
+        )
+        for index in range(MAX_PROGRESS_UPDATES + 1)
+    )
+
+    with pytest.raises(ValueError, match="progress_updates exceeds cap"):
+        _response(progress_updates=updates)

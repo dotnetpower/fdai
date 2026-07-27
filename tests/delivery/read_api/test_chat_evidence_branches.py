@@ -139,6 +139,27 @@ async def test_cancelling_parent_cancels_and_awaits_every_branch() -> None:
     assert all(event.is_set() for event in cancelled)
 
 
+async def test_branch_count_above_fixed_parallel_limit_is_rejected() -> None:
+    async def resolve(_observe):  # type: ignore[no-untyped-def]
+        return {}
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    specs = tuple(
+        EvidenceBranchSpec(kind, resolve, (f"_{kind.value}_evidence",))
+        for kind in EvidenceBranchKind
+    )
+
+    with pytest.raises(ValueError, match="between 1 and 4"):
+        await resolve_evidence_branches(
+            request_id="request-overflow",
+            base_context={},
+            specs=(*specs, specs[0]),
+            progress_observer=observe,
+        )
+
+
 def _result(
     kind: EvidenceBranchKind,
     context: Mapping[str, Any],

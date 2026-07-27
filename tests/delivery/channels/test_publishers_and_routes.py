@@ -37,6 +37,7 @@ from fdai.shared.providers.conversation_channel import (
     OutboundResponse,
 )
 from fdai.shared.providers.workload_identity import IdentityToken
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 
 class _Identity:
@@ -469,11 +470,13 @@ async def test_slack_progress_snapshots_post_once_then_edit_canonical_answer() -
         calls.append((request.url.path, json.loads(request.content)))
         return httpx.Response(200, json={"ok": True, "ts": "2.0"})
 
+    metrics = ConversationProgressMetrics()
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         publisher = SlackWebApiReplyPublisher(
             config=SlackReplyPublisherConfig(),
             token="app-token",
             http_client=client,
+            progress_metrics=metrics,
         )
         await publisher.publish(
             _response(
@@ -493,6 +496,10 @@ async def test_slack_progress_snapshots_post_once_then_edit_canonical_answer() -
     assert "blocks" not in calls[0][1]
     assert "Inspect health" in str(calls[1][1]["blocks"])
     assert "Canonical answer" in str(calls[1][1]["blocks"])
+    snapshot = metrics.snapshot()
+    assert snapshot.counts["terminal_completed"] == 1
+    assert snapshot.latency_ms["time_to_first_progress"].count == 1
+    assert snapshot.latency_ms["time_to_first_confirmed"].count == 1
 
 
 async def test_slack_progress_update_failure_is_ambiguous_after_initial_ack() -> None:
@@ -505,11 +512,13 @@ async def test_slack_progress_update_failure_is_ambiguous_after_initial_ack() ->
             return httpx.Response(200, json={"ok": True, "ts": "2.0"})
         return httpx.Response(500, json={"ok": False})
 
+    metrics = ConversationProgressMetrics()
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         publisher = SlackWebApiReplyPublisher(
             config=SlackReplyPublisherConfig(),
             token="app-token",
             http_client=client,
+            progress_metrics=metrics,
         )
         with pytest.raises(ChannelDeliveryError) as raised:
             await publisher.publish(
@@ -530,6 +539,7 @@ async def test_slack_progress_update_failure_is_ambiguous_after_initial_ack() ->
 
     assert calls == 2
     assert raised.value.acknowledgement_ambiguous is True
+    assert metrics.snapshot().counts["channel_update_ambiguous"] == 1
 
 
 async def test_slack_rich_features_degrade_to_thread_text() -> None:
@@ -659,12 +669,14 @@ async def test_teams_progress_snapshots_post_once_then_edit_canonical_answer() -
         calls.append((request.method, json.loads(request.content)))
         return httpx.Response(201 if request.method == "POST" else 200, json={"id": "activity-2"})
 
+    metrics = ConversationProgressMetrics()
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         publisher = TeamsBotFrameworkReplyPublisher(
             config=TeamsReplyPublisherConfig(),
             identity=_Identity(),
             endpoint_resolver=lambda _: endpoint,
             http_client=client,
+            progress_metrics=metrics,
         )
         await publisher.publish(
             _response(
@@ -684,6 +696,7 @@ async def test_teams_progress_snapshots_post_once_then_edit_canonical_answer() -
     assert "attachments" not in calls[0][1]
     assert "Inspect health" in str(calls[1][1])
     assert "Canonical answer" in str(calls[1][1])
+    assert metrics.snapshot().counts["terminal_completed"] == 1
 
 
 async def test_teams_progress_update_failure_is_ambiguous_after_initial_ack() -> None:
@@ -696,12 +709,14 @@ async def test_teams_progress_update_failure_is_ambiguous_after_initial_ack() ->
             return httpx.Response(201, json={"id": "activity-2"})
         return httpx.Response(500, json={"error": "rejected"})
 
+    metrics = ConversationProgressMetrics()
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         publisher = TeamsBotFrameworkReplyPublisher(
             config=TeamsReplyPublisherConfig(),
             identity=_Identity(),
             endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
             http_client=client,
+            progress_metrics=metrics,
         )
         with pytest.raises(ChannelDeliveryError) as raised:
             await publisher.publish(
@@ -722,6 +737,7 @@ async def test_teams_progress_update_failure_is_ambiguous_after_initial_ack() ->
 
     assert calls == 2
     assert raised.value.acknowledgement_ambiguous is True
+    assert metrics.snapshot().counts["channel_update_ambiguous"] == 1
 
 
 async def test_teams_rich_features_degrade_to_thread_text() -> None:

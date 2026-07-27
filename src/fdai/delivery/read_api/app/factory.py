@@ -298,6 +298,7 @@ def build_app(
             ConversationDeliveryPanel(
                 store=resolved_config.conversation_delivery_store,
                 source=resolved_config.conversation_delivery_source,
+                progress_metrics=resolved_config.conversation_progress_metrics,
             ),
         )
     seen_panel_paths = append_read_panels(

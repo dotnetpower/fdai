@@ -55,6 +55,7 @@ from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewSubmitt
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.conversation_search import ConversationSearch
 from fdai.shared.providers.user_context import ConversationHistoryStore, UserPreferenceStore
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 
 def append_chat_routes(
@@ -63,6 +64,7 @@ def append_chat_routes(
     backend: ChatBackend | None,
     skill_disclosure: RuntimeSkillDisclosure | None = None,
     busy_input_runtime: BusyInputRuntime | None = None,
+    progress_metrics: ConversationProgressMetrics | None = None,
     agent_delegate: AgentChatDelegate | None,
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
     conversation_policy_store: ConversationPolicyStore | None = None,
@@ -185,6 +187,7 @@ def append_chat_routes(
                 busy_input_coordinator=(
                     busy_input_runtime.coordinator if busy_input_runtime is not None else None
                 ),
+                progress_metrics=progress_metrics,
             ),
             make_chat_health_route(
                 backend=backend,

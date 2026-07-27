@@ -632,6 +632,7 @@ describe("askBackendStream fallback typewriter", () => {
     const mod = await import("./backend");
     const calls: string[] = [];
 
+    const before = mod.streamProtocolMetricsSnapshot();
     const reply = await mod.askBackendStream("q", snap(), [], {
       onToken: () => calls.push("token"),
       onBranch: (branch) => calls.push(`branch:${branch.status}`),
@@ -640,6 +641,9 @@ describe("askBackendStream fallback typewriter", () => {
 
     expect(calls).toEqual(["branch:running", "token", "confirmed:consistent"]);
     expect(reply.confirmed?.text).toBe("Draft");
+    expect(mod.streamProtocolMetricsSnapshot().confirmedSegments).toBe(
+      before.confirmedSegments + 1,
+    );
   });
 
   test("fails closed when a terminal stream has a sequence gap", async () => {
@@ -649,11 +653,15 @@ describe("askBackendStream fallback typewriter", () => {
     ].join("");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
     const mod = await import("./backend");
+    const before = mod.streamProtocolMetricsSnapshot();
 
     const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
 
     expect(reply.source).toBe("partial (sequence gap)");
     expect(reply.verification).toBeUndefined();
+    const after = mod.streamProtocolMetricsSnapshot();
+    expect(after.sequenceGaps).toBe(before.sequenceGaps + 1);
+    expect(after.partialTerminals).toBe(before.partialTerminals + 1);
   });
 
 });

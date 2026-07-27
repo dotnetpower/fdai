@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 2a6ccf2dce33da706a4d5144791aa16d1fc5533c
+translation_source_sha: b8e0fe20b3c47af12ca4f24719480cf6a3c60bc2
 translation_revised: 2026-07-27
 ---
 # 영구 대화 전송
@@ -158,6 +158,8 @@ thread mode를 사용합니다. Web continuation은 idempotent conversation turn
 - State count, duplicate-risk count, retry 및 abandonment입니다.
 - Attempt 및 acknowledgement count입니다.
 - Adapter breaker state count입니다.
+- Composition이 bounded collector를 Web 또는 channel publisher와 공유할 때 optional aggregate
+    progressive-conversation count와 first-progress, first-confirmed, branch latency입니다.
 
 Payload는 `read_only=true` 및 `mutations_available=false`를 설정합니다. Console에는 pause, resume,
 retry, duplicate-risk override 또는 resend control이 없습니다.

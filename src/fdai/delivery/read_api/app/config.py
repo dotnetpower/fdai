@@ -18,6 +18,7 @@ from fdai.delivery.read_api.streaming.live_stream import LiveStreamConfig
 from fdai.delivery.read_api.streaming.provision_stream import ProvisionStreamConfig
 from fdai.shared.providers.conversation_delivery import ConversationDeliveryStore
 from fdai.shared.providers.hil_registry import HilApprovalRegistry
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +79,9 @@ class ReadApiConfig:
 
     conversation_delivery_source: str = "postgres"
     """Source label emitted by the delivery metrics panel."""
+
+    conversation_progress_metrics: ConversationProgressMetrics | None = None
+    """Optional bounded Web/channel progress metrics shared with the delivery panel."""
 
     trajectory_datasets: Any = None
     """Optional Owner-only GET projection for governed trajectory metadata.

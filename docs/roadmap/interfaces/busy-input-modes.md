@@ -161,6 +161,9 @@ second active turn or change queue, interrupt, or steer arbitration.
 The runtime records queued, interrupting, steered, rejected, duplicate, overflow, expiry, steer
 fallback, and race-recovery counters. Pending inspection exposes no cross-owner state. Authorization
 is checked both when input arrives and when it is consumed.
+The separate progressive-conversation collector records aggregate branch, confirmation, correction,
+truncation, terminal, saturation, replay, and latency metrics. It does not change busy-input mode or
+retain input content.
 
 ## Failure behavior
 

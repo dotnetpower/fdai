@@ -24,6 +24,7 @@ from fdai.shared.providers.conversation_delivery import (
     OutboundDeliveryState,
     new_delivery_record,
 )
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 NOW = datetime(2026, 7, 20, 21, 0, tzinfo=UTC)
 
@@ -107,6 +108,29 @@ async def test_panel_projects_delivery_reliability_without_mutation_controls() -
     assert result["retry_count"] == 4
     assert result["abandonment_count"] == 1
     assert result["breaker_states"] == {"open": 1}
+
+
+async def test_panel_projects_bounded_progressive_conversation_metrics() -> None:
+    store = InMemoryConversationDeliveryStore()
+    metrics = ConversationProgressMetrics()
+    metrics.observe_latency("time_to_first_progress", 25)
+    metrics.record_branch(kind="tool", outcome="completed", duration_ms=40)
+    metrics.increment("terminal_completed")
+
+    result = await ConversationDeliveryPanel(
+        store=store,
+        source="postgres",
+        progress_metrics=metrics,
+    ).render(params={})
+
+    progressive = result["progressive_conversation"]
+    assert progressive["counts"]["branch.tool.completed"] == 1
+    assert progressive["counts"]["terminal_completed"] == 1
+    assert progressive["latency_ms"]["time_to_first_progress"] == {
+        "count": 1,
+        "average": 25.0,
+        "max": 25,
+    }
 
 
 async def test_read_api_registers_get_only_delivery_panel(

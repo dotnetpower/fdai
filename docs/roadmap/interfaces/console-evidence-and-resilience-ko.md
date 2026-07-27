@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9e99b331b471d712cf5f0c343f5d2c442e3b3b65
+translation_source_sha: 1b401a386072c8c7764caf0c195220d1075e4508
 translation_revised: 2026-07-27
 ---
 
@@ -309,6 +309,14 @@ bounded 상태를 유지합니다. Command 및 output evidence에는 `redacted=t
 summary는 credential, tenant identifier, customer resource identifier 또는 raw untrusted web content를
 노출하지 않습니다. Durable replay는 canonical terminal answer와 revision state를 저장하며 completed
 read를 다시 실행하거나 provider message를 중복 전송하지 않습니다.
+
+Progress metric은 aggregate count와 latency만 유지합니다. Time to first progress 및 confirmed
+content, branch kind/outcome/duration, correction, truncation, terminal completion, replay, queue
+saturation, sequence gap, suppressed branch retry, ambiguous channel update를 기록합니다. Prompt,
+answer, branch id, channel id, principal id 또는 resource identifier는 보관하지 않습니다. Failed 및
+timed-out read branch는 turn 안에서 retry하지 않으며 operator가 fresh scope로 새 turn을 시작할 수
+있습니다. Server는 client frame 누락을 관찰할 수 없으므로 browser가 sequence gap과 partial terminal을
+local에서 계산합니다.
 
 ## Stream recovery 및 authentication
 

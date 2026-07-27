@@ -5,6 +5,11 @@ from the sub-modules directly - so the module surface can change without
 touching consumers.
 """
 
+from .conversation_progress import (
+    ConversationProgressMetrics,
+    ConversationProgressMetricsSnapshot,
+    LatencyAggregate,
+)
 from .correlation import current_correlation_id, with_correlation
 from .logging import JsonFormatter, configure_logging, get_logger, log_extra
 from .metrics import configure_metrics, get_meter, in_memory_reader
@@ -21,8 +26,11 @@ from .transitions import (
 )
 
 __all__ = [
+    "ConversationProgressMetrics",
+    "ConversationProgressMetricsSnapshot",
     "DashboardMetrics",
     "JsonFormatter",
+    "LatencyAggregate",
     "InMemoryRoutingTransitionSink",
     "RoutingTransition",
     "RoutingTransitionEmitter",

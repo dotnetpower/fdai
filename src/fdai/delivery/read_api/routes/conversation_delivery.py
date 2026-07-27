@@ -12,15 +12,23 @@ from fdai.shared.providers.conversation_delivery import (
     ConversationDeliveryStore,
     OutboundDeliveryState,
 )
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 
 class ConversationDeliveryPanel:
     path = "/conversation-delivery"
     name = "conversation-delivery"
 
-    def __init__(self, *, store: ConversationDeliveryStore, source: str) -> None:
+    def __init__(
+        self,
+        *,
+        store: ConversationDeliveryStore,
+        source: str,
+        progress_metrics: ConversationProgressMetrics | None = None,
+    ) -> None:
         self._store = store
         self._source = source
+        self._progress_metrics = progress_metrics
 
     async def render(self, *, params: Mapping[str, str]) -> Mapping[str, Any]:
         unknown = set(params) - {"limit"}
@@ -32,7 +40,21 @@ class ConversationDeliveryPanel:
             raise PanelQueryError("limit MUST be an integer") from exc
         if not 1 <= limit <= 500:
             raise PanelQueryError("limit MUST be in [1, 500]")
-        return _metrics(await self._store.snapshot(limit=limit), source=self._source)
+        result = _metrics(await self._store.snapshot(limit=limit), source=self._source)
+        if self._progress_metrics is not None:
+            progress = self._progress_metrics.snapshot()
+            result["progressive_conversation"] = {
+                "counts": progress.counts,
+                "latency_ms": {
+                    name: {
+                        "count": aggregate.count,
+                        "average": aggregate.average_ms if aggregate.count else None,
+                        "max": aggregate.max_ms if aggregate.count else None,
+                    }
+                    for name, aggregate in progress.latency_ms.items()
+                },
+            }
+        return result
 
 
 def _metrics(snapshot: ConversationDeliverySnapshot, *, source: str) -> dict[str, object]:

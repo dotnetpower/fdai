@@ -45,6 +45,7 @@ from fdai.delivery.channels.teams_auth import (
 from fdai.shared.providers.conversation_channel import ConversationChannelAdapter
 from fdai.shared.providers.secret_provider import SecretProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 
 class ChannelGatewayRunner(Protocol):
@@ -109,6 +110,7 @@ class ProductionChannelRuntime:
         adapter_health_authenticator: AdapterHealthCommandAuthenticator | None = None,
         attachment_ingestor: ChannelAttachmentIngestor | None = None,
         http_client: httpx.AsyncClient | None = None,
+        progress_metrics: ConversationProgressMetrics | None = None,
         environ: Mapping[str, str] | None = None,
     ) -> None:
         self._config = config
@@ -127,6 +129,7 @@ class ProductionChannelRuntime:
         self._adapter_health_authenticator = adapter_health_authenticator
         self._attachment_ingestor = attachment_ingestor
         self._http = http_client
+        self._progress_metrics = progress_metrics
         self._owns_http = http_client is None
         self._environ = environ
         self._channels: list[ConversationChannelAdapter] = []
@@ -179,6 +182,7 @@ class ProductionChannelRuntime:
                         config=SlackReplyPublisherConfig(),
                         token=bot_token,
                         http_client=http_client,
+                        progress_metrics=self._progress_metrics,
                     ),
                     queue_capacity=self._config.queue_capacity,
                 )
@@ -199,6 +203,7 @@ class ProductionChannelRuntime:
                         identity=self._teams_identity,
                         endpoint_resolver=self._teams_endpoint_resolver,
                         http_client=http_client,
+                        progress_metrics=self._progress_metrics,
                     ),
                     queue_capacity=self._config.queue_capacity,
                 )

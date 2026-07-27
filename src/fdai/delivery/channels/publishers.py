@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Any, Final
@@ -25,6 +26,7 @@ from fdai.shared.providers.conversation_channel import (
     OutboundResponse,
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 _SAFE_ACTIVITY_ID: Final = re.compile(r"^[A-Za-z0-9._:-]+$")
 _TEAMS_CARD_MAX_BYTES: Final = 24_000
@@ -58,12 +60,14 @@ class SlackWebApiReplyPublisher:
         config: SlackReplyPublisherConfig,
         token: str,
         http_client: httpx.AsyncClient,
+        progress_metrics: ConversationProgressMetrics | None = None,
     ) -> None:
         if not token:
             raise ValueError("Slack reply token MUST be non-empty")
         self._config = config
         self._token: Final = token
         self._http = http_client
+        self._progress_metrics = progress_metrics
 
     async def publish(self, response: OutboundResponse) -> ChannelDeliveryReceipt:
         if response.channel_kind is not ConversationChannelKind.SLACK:
@@ -132,6 +136,7 @@ class SlackWebApiReplyPublisher:
         self,
         response: OutboundResponse,
     ) -> ChannelDeliveryReceipt:
+        started = time.monotonic()
         snapshots = tuple(
             _progress_response(response, update) for update in response.progress_updates
         )
@@ -143,6 +148,7 @@ class SlackWebApiReplyPublisher:
                 native_mentions=self._config.supports_mentions,
             ),
         )
+        self._record_progress_latency("time_to_first_progress", started)
         for snapshot in snapshots[1:]:
             await self._acknowledged_update(
                 self._config.update_api_url,
@@ -153,6 +159,11 @@ class SlackWebApiReplyPublisher:
                     native_mentions=self._config.supports_mentions,
                 ),
             )
+        self._record_progress_latency("time_to_first_confirmed", started)
+        if self._progress_metrics is not None:
+            self._progress_metrics.increment("terminal_completed")
+            if _response_truncated(response, 2_800):
+                self._progress_metrics.increment("truncations")
         return _receipt(
             response,
             message_id,
@@ -167,11 +178,20 @@ class SlackWebApiReplyPublisher:
         try:
             return await self._call(endpoint, body)
         except ChannelDeliveryError as exc:
+            if self._progress_metrics is not None:
+                self._progress_metrics.increment("channel_update_ambiguous")
             raise ChannelDeliveryError(
                 "Slack update failed after the initial message was acknowledged",
                 code=exc.code,
                 acknowledgement_ambiguous=True,
             ) from exc
+
+    def _record_progress_latency(self, name: str, started: float) -> None:
+        if self._progress_metrics is not None:
+            self._progress_metrics.observe_latency(
+                name,
+                max(0, int((time.monotonic() - started) * 1000)),
+            )
 
     async def _publish_edit(self, response: OutboundResponse) -> ChannelDeliveryReceipt:
         message_id = response.edit_message_id
@@ -286,11 +306,13 @@ class TeamsBotFrameworkReplyPublisher:
         identity: WorkloadIdentity,
         endpoint_resolver: Callable[[str], str],
         http_client: httpx.AsyncClient,
+        progress_metrics: ConversationProgressMetrics | None = None,
     ) -> None:
         self._config = config
         self._identity = identity
         self._endpoint_resolver = endpoint_resolver
         self._http = http_client
+        self._progress_metrics = progress_metrics
 
     async def publish(self, response: OutboundResponse) -> ChannelDeliveryReceipt:
         if response.channel_kind is not ConversationChannelKind.TEAMS:
@@ -379,6 +401,7 @@ class TeamsBotFrameworkReplyPublisher:
         endpoint: str,
         token: str,
     ) -> ChannelDeliveryReceipt:
+        started = time.monotonic()
         snapshots = tuple(
             _progress_response(response, update) for update in response.progress_updates
         )
@@ -391,6 +414,7 @@ class TeamsBotFrameworkReplyPublisher:
         message_id = _teams_acknowledgement(
             await self._request("POST", endpoint, initial, token=token)
         )
+        self._record_progress_latency("time_to_first_progress", started)
         update_endpoint = _activity_endpoint(endpoint, message_id)
         for snapshot in snapshots[1:]:
             await self._acknowledged_update(
@@ -403,6 +427,11 @@ class TeamsBotFrameworkReplyPublisher:
                 ),
                 token=token,
             )
+        self._record_progress_latency("time_to_first_confirmed", started)
+        if self._progress_metrics is not None:
+            self._progress_metrics.increment("terminal_completed")
+            if _response_truncated(response, 4_000):
+                self._progress_metrics.increment("truncations")
         return _receipt(
             response,
             message_id,
@@ -420,11 +449,20 @@ class TeamsBotFrameworkReplyPublisher:
         try:
             return await self._request(method, endpoint, body, token=token)
         except ChannelDeliveryError as exc:
+            if self._progress_metrics is not None:
+                self._progress_metrics.increment("channel_update_ambiguous")
             raise ChannelDeliveryError(
                 "Teams update failed after the initial message was acknowledged",
                 code=exc.code,
                 acknowledgement_ambiguous=True,
             ) from exc
+
+    def _record_progress_latency(self, name: str, started: float) -> None:
+        if self._progress_metrics is not None:
+            self._progress_metrics.observe_latency(
+                name,
+                max(0, int((time.monotonic() - started) * 1000)),
+            )
 
     async def _publish_edit(
         self,
@@ -840,6 +878,14 @@ def _progress_response(
         ),
         stream_chunks=(),
         progress_updates=(),
+    )
+
+
+def _response_truncated(response: OutboundResponse, output_limit: int) -> bool:
+    return any(
+        isinstance(activity, ObservedExecutionActivity)
+        and (activity.output_truncated or len(activity.output) > output_limit)
+        for activity in response.activities
     )
 
 

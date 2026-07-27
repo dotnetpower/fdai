@@ -238,6 +238,9 @@ a single final post. A channel with streaming disabled sends the same canonical 
 Running revisions contain the bounded progress summary only. The final confirmed revision adds the
 canonical redacted activity blocks, so command and output evidence does not expand while work is in
 progress but remains inspectable after completion.
+Production composition can inject the shared progressive-conversation collector into both
+publishers. It records aggregate first-progress/confirmed latency, truncation, terminal completion,
+and post-acknowledgement ambiguity without retaining message, destination, or identity values.
 
 Observed output uses explicit provenance markers. `[UPSTREAM OUTPUT TRUNCATED]` means the evidence
 producer supplied partial output; `[CHANNEL OUTPUT TRUNCATED]` means the adapter clipped output to

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 896dac7cd9125165833294101efe6c5ecb988b63
+translation_source_sha: d8326bebeeb4553031429eec07fb2f71d41562d8
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -82,6 +82,7 @@ shared 패키지를 커버한다.
 | briefing | Report feed 기반 결정적 opening 및 scheduled briefing | [src/fdai/core/briefing/](../../../src/fdai/core/briefing/) | [tests/core/briefing/](../../../tests/core/briefing/) |
 | busy_input | Web, Slack, Teams conversation이 공유하는 영구 queue, interrupt, safe-boundary steer arbitration ([설계](../interfaces/busy-input-modes-ko.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) |
 | durable_delivery | Verified principal binding, persisted outbound response와 typed cumulative channel update, bounded recovery 및 adapter breaker ([설계](../interfaces/durable-conversation-delivery-ko.md)) | [src/fdai/core/conversation/](../../../src/fdai/core/conversation/) | [tests/conversation/](../../../tests/conversation/) 및 [tests/persistence/](../../../tests/persistence/) |
+| conversation_progress | Request 또는 identity payload를 저장하지 않는 bounded aggregate Web/Slack/Teams progress counter 및 latency | [conversation_progress.py](../../../src/fdai/shared/telemetry/conversation_progress.py) | [test_conversation_progress_metrics.py](../../../tests/shared/test_conversation_progress_metrics.py) 및 focused Web/channel delivery test |
 | user_context_projection | 사용자 context 및 workflow binding metadata만 runtime ontology에 projection | [src/fdai/core/user_context_projection.py](../../../src/fdai/core/user_context_projection.py) | [tests/core/test_user_context_projection.py](../../../tests/core/test_user_context_projection.py) |
 | working_context | 턴당 프롬프트 조립, invariant validation, capability-gated policy lifecycle, bounded shadow 비교 및 approved-fixture replay ([설계](../decisioning/context-selection-policy-ko.md)) | [src/fdai/core/working_context/](../../../src/fdai/core/working_context/) | [tests/core/working_context/](../../../tests/core/working_context/) |
 | prompts | catalog-as-code 프롬프트 컴포저 | [src/fdai/core/prompts/](../../../src/fdai/core/prompts/) | [tests/core/](../../../tests/core/) |

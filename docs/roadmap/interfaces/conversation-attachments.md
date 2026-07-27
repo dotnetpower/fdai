@@ -199,6 +199,8 @@ purpose, authorization, scanning, terminal citation checks, and agent ownership 
 no progress text becomes an instruction or evidence authority.
 Running revisions show summary text only. Canonical redacted activity evidence appears with the
 final confirmed revision after protected ingestion and coordinator completion.
+Progress metrics can count truncation and terminal delivery, but they contain no filename, document
+id, citation, source reference, collection, channel id, or extracted content.
 
 The repository currently ships these composition components as a library boundary. It does not yet
 ship a standalone channel ASGI factory or Terraform channel workload that instantiates

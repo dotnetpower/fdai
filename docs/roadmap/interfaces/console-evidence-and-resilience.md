@@ -315,6 +315,14 @@ never expose credentials, tenant identifiers, customer resource identifiers, or 
 content. Durable replay stores the canonical terminal answer and revision state. It never re-runs a
 completed read or duplicates the provider message.
 
+Progress metrics retain aggregate counts and latency only: time to first progress and confirmed
+content, branch kind/outcome/duration, correction, truncation, terminal completion, replay, queue
+saturation, sequence gap, suppressed branch retry, and ambiguous channel update. They retain no
+prompt, answer, branch id, channel id, principal id, or resource identifier. Failed and timed-out
+read branches are not retried inside the turn; the operator can start a new turn with fresh scope.
+The browser counts sequence gaps and partial terminals locally because the server cannot observe
+missing client frames.
+
 ## Stream recovery and authentication
 
 Authenticated live, agent, and provisioning SSE readers cancel after 45 seconds without bytes,

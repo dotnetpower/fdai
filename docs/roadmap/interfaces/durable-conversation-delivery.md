@@ -157,6 +157,8 @@ conversation reference, and thread mode. Web continuations remain idempotent con
 - State counts, duplicate-risk count, retries, and abandonment.
 - Attempt and acknowledgement counts.
 - Adapter breaker state counts.
+- Optional aggregate progressive-conversation counts and first-progress, first-confirmed, and branch
+    latency when composition shares the bounded collector with Web or channel publishers.
 
 The payload sets `read_only=true` and `mutations_available=false`. The console exposes no pause,
 resume, retry, duplicate-risk override, or resend control.

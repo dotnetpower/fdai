@@ -11,6 +11,7 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.read_api.routes.chat import make_chat_route, make_chat_stream_route
+from fdai.shared.telemetry.conversation_progress import ConversationProgressMetrics
 
 
 async def _allow(_request: Request) -> str:
@@ -96,7 +97,16 @@ def test_stream_route_revises_visible_draft_after_quality_rewrite() -> None:
         "현재 춯저귀죤은 postgres-audit입니다.",
         "현재 저장 위치는 {token}입니다.",
     )
-    app = Starlette(routes=[make_chat_stream_route(backend=backend, authorize=_allow)])
+    metrics = ConversationProgressMetrics()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                progress_metrics=metrics,
+            )
+        ]
+    )
 
     response = TestClient(app).post(
         "/chat/stream",
@@ -119,6 +129,12 @@ def test_stream_route_revises_visible_draft_after_quality_rewrite() -> None:
     assert done["answer_quality"]["status"] == "rewritten"
     assert done["revision"] == 1
     assert backend.calls == 2
+    snapshot = metrics.snapshot()
+    assert snapshot.counts["corrections"] == 1
+    assert snapshot.counts["terminal_completed"] == 1
+    assert snapshot.counts["branch.agent.unavailable"] == 1
+    assert snapshot.latency_ms["time_to_first_progress"].count == 1
+    assert snapshot.latency_ms["time_to_first_confirmed"].count == 1
 
 
 def _parse_sse(raw: str) -> list[tuple[str, dict[str, Any]]]:
