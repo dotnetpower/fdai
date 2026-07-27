@@ -302,6 +302,9 @@ jobs:
           az login --identity --allow-no-subscriptions
 
       - name: Verify exact Azure context
+        # The job defaults to `infra`, so a repository-root script path only
+        # resolves from the workspace root.
+        working-directory: ${{ github.workspace }}
         run: |
           bash scripts/deployment/azure/verify-azure-context.sh \
             "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"

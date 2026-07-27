@@ -505,6 +505,31 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     )
 
 
+def test_repository_root_scripts_resolve_from_the_workspace() -> None:
+    """The terraform job defaults to `infra`, so a bare root script path breaks.
+
+    `bash scripts/...` inside that job resolves to `infra/scripts/...` and exits
+    127 at deploy time, after the runner has already started. A step that
+    invokes a repository-root script MUST either reach it with `../scripts/` or
+    override the working directory.
+    """
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    job = workflow["jobs"]["terraform"]
+    assert job["defaults"]["run"]["working-directory"] == "infra"
+
+    bare_reference = re.compile(r"(?<!\.\./)(?<![\w./$-])scripts/")
+    offenders = [
+        step.get("name")
+        for step in job["steps"]
+        if "working-directory" not in step and bare_reference.search(str(step.get("run", "")))
+    ]
+
+    assert offenders == [], (
+        f"steps invoke a repository-root script from the infra directory: {offenders}"
+    )
+
+
 def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
     workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
     workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
