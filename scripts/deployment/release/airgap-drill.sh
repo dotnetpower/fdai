@@ -25,7 +25,11 @@
 #   6. `terraform test` evaluates the plan graph through mocked providers;
 #   7. the same init FAILS without the mirror, so step 4 is not a cached
 #      plugin directory quietly doing the work;
-#   8. `fdaictl license inspect` resolves entitlement offline.
+#   8. `fdaictl license inspect` resolves entitlement offline;
+#   9. `fdaictl provision plan` drives the whole disconnected sequence itself -
+#      kit verification, mirror-pinned CLI configuration, and `terraform init` -
+#      and gets far enough that the only thing still missing is deployment
+#      input, not a provider and not a network.
 #
 # What it does NOT prove: a real `terraform apply` still needs the tenant's
 # approved private path to the Azure management plane. This drill stops at plan
@@ -102,7 +106,13 @@ provider_installation {
   }
 }
 EOF
+}
 
+# Always unpacked, never reused. The verify phase runs Terraform inside the
+# bundle tree, which leaves a .terraform directory behind; reusing that tree
+# would make the next run's bundle verification fail on files the drill itself
+# created. A drill that only passes once is not a regression check.
+unpack_bundle() {
   rm -rf "$WORKDIR/work" "$WORKDIR/negative"
   mkdir -p "$WORKDIR/work"
   tar -xzf "$KIT/$BUNDLE_IN_KIT" -C "$WORKDIR/work"
@@ -114,6 +124,7 @@ if [[ "$SKIP_STAGE" -eq 0 ]]; then
 else
   [[ -d "$KIT" ]] || { echo "airgap-drill: --skip-stage needs an existing kit." >&2; exit 2; }
 fi
+unpack_bundle
 
 # The kit declares which CLI it was built for; verification binds that exact
 # value, so read it rather than assume the local environment matches.
@@ -186,6 +197,33 @@ cd "$REPO_ROOT"
 PYTHONPATH=src "$PYTHON" -m fdai.deployment_cli license inspect \
   --token "$WORKDIR/license.token" --public-key "$WORKDIR/release-root.pub" --output json \
   || fail "license inspection did not report an active entitlement"
+
+echo "-- 9. fdaictl provision plan (the operator-facing disconnected path)"
+# Steps 4-6 drive Terraform by hand. This step proves the command an operator
+# actually runs reaches the same place on its own. It stops where the drill has
+# always stopped - short of the tenant management plane - so the pass condition
+# is that the ONLY remaining obstacle is deployment input. A provider that could
+# not be resolved, or any attempt to reach the public registry, fails the drill.
+rm -rf "$WORKDIR/provision"
+set +e
+plan_output="$(PYTHONPATH=src "$PYTHON" -m fdai.deployment_cli provision plan \
+  --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
+  --infra-dir "$BUNDLE/infra" --work-dir "$WORKDIR/provision" \
+  --cli-version "$CLI_VERSION" --platform-tag "$PLATFORM_TAG" --output json 2>&1)"
+set -e
+case "$plan_output" in
+  *"No value for required variable"*) ;;
+  *) fail "provision plan stopped somewhere other than missing deployment input: $plan_output" ;;
+esac
+case "$plan_output" in
+  *registry.terraform.io*|*"Failed to install provider"*|*"could not query provider"*)
+    fail "provision plan tried to reach the public registry: $plan_output" ;;
+esac
+grep -q '"\*/\*"' "$WORKDIR/provision/offline.tfrc" \
+  || fail "provision plan did not pin provider installation to the kit mirror"
+grep -q "exclude" "$WORKDIR/provision/offline.tfrc" \
+  || fail "provision plan left a direct installation path open"
+echo "   kit verified, mirror pinned, init resolved every provider offline"
 '
 
 echo "== airgap-drill: OK - every disconnected step passed with no network =="
