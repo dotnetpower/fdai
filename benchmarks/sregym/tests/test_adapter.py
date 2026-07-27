@@ -239,6 +239,31 @@ async def test_rejects_response_over_byte_limit() -> None:
     await client.aclose()
 
 
+async def test_normalizes_invalid_application_payload() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "x" * 3_000,
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+
+    with pytest.raises(BenchmarkAdapterError, match="application payload is invalid") as error:
+        await adapter.next_task()
+
+    assert isinstance(error.value.__cause__, ValueError)
+    await client.aclose()
+
+
 async def test_rejects_submit_response_over_byte_limit() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/status":

@@ -97,14 +97,17 @@ class SregymAdapter:
         namespace = _required_text(app, "namespace")
         app_name = _required_text(app, "app_name")
         descriptions = _required_text(app, "descriptions")
-        task = BenchmarkTask(
-            run_id=self._config.artifact_id,
-            task_id=self._config.artifact_id,
-            stage=stage,
-            objective=_objective(stage, app_name=app_name, descriptions=descriptions),
-            target_ref=f"kubernetes.namespace/{namespace}",
-            metadata={"application": app_name, "namespace": namespace},
-        )
+        try:
+            task = BenchmarkTask(
+                run_id=self._config.artifact_id,
+                task_id=self._config.artifact_id,
+                stage=stage,
+                objective=_objective(stage, app_name=app_name, descriptions=descriptions),
+                target_ref=f"kubernetes.namespace/{namespace}",
+                metadata={"application": app_name, "namespace": namespace},
+            )
+        except ValueError as exc:
+            raise BenchmarkAdapterError("SREGym application payload is invalid") from exc
         self._issued_identity = (task.run_id, task.task_id, task.stage)
         return task
 
