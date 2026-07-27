@@ -69,3 +69,28 @@ def test_submission_preserves_task_identity_and_evidence() -> None:
 def test_metadata_is_bounded() -> None:
     with pytest.raises(ValueError, match="at most 64"):
         _task(metadata={f"key-{index}": "value" for index in range(65)})
+
+
+def test_submission_evidence_refs_are_bounded() -> None:
+    with pytest.raises(ValueError, match="at most 256"):
+        BenchmarkSubmission(
+            run_id="run-1",
+            task_id="task-1",
+            stage="diagnosis",
+            status=BenchmarkStatus.COMPLETED,
+            summary="Evidence-backed result.",
+            evidence_refs=tuple(f"audit/{index}" for index in range(257)),
+        )
+
+
+def test_submission_accepts_evidence_ref_limit() -> None:
+    submission = BenchmarkSubmission(
+        run_id="run-1",
+        task_id="task-1",
+        stage="diagnosis",
+        status=BenchmarkStatus.COMPLETED,
+        summary="Evidence-backed result.",
+        evidence_refs=tuple(f"audit/{index}" for index in range(256)),
+    )
+
+    assert len(submission.evidence_refs) == 256

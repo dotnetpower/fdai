@@ -58,8 +58,8 @@ bounded metadata. The stage stays open rather than using a diagnosis-specific en
 can support code repair, operational recovery, security assessment, and future benchmark shapes.
 
 `BenchmarkSubmission` returns the same identity, a terminal `completed`, `held`, or `failed`
-status, a bounded summary, evidence references, and an optional audit reference. The runner rejects
-a submission whose identity differs from its task.
+status, a bounded summary, at most 256 evidence references, and an optional audit reference. The
+runner rejects a submission whose identity differs from its task.
 
 ### Harness adapter
 

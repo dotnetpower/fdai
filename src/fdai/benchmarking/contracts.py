@@ -11,6 +11,7 @@ _MAX_ID_LENGTH = 256
 _MAX_TEXT_LENGTH = 20_000
 _MAX_METADATA_ENTRIES = 64
 _MAX_METADATA_VALUE_LENGTH = 2_048
+_MAX_EVIDENCE_REFS = 256
 
 
 class BenchmarkStatus(StrEnum):
@@ -60,6 +61,8 @@ class BenchmarkSubmission:
         _validate_identifier("task_id", self.task_id)
         _validate_identifier("stage", self.stage)
         _validate_text("summary", self.summary)
+        if len(self.evidence_refs) > _MAX_EVIDENCE_REFS:
+            raise ValueError(f"evidence_refs MUST contain at most {_MAX_EVIDENCE_REFS} entries")
         for evidence_ref in self.evidence_refs:
             _validate_identifier("evidence_ref", evidence_ref)
         if self.audit_ref is not None:

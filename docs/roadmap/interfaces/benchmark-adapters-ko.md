@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ed3179c7dec65572ef517603f4d7d0a95cdde16c
+translation_source_sha: 9f01b197cdfdc323744140524faa13070f3138b4
 translation_revised: 2026-07-28
 ---
 
@@ -62,8 +62,8 @@ metadata를 전달합니다. 하나의 runner가 code repair, operational recove
 유지합니다.
 
 `BenchmarkSubmission`은 같은 identity, terminal `completed`, `held` 또는 `failed` status,
-bounded summary, evidence reference 및 선택적 audit reference를 반환합니다. Runner는 task와
-identity가 다른 submission을 차단합니다.
+bounded summary, 최대 256개의 evidence reference 및 선택적 audit reference를 반환합니다.
+Runner는 task와 identity가 다른 submission을 차단합니다.
 
 ### Harness adapter
 
