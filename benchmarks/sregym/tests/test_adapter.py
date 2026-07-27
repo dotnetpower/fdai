@@ -9,6 +9,7 @@ import pytest
 from fdai_bench_sregym import SregymAdapter, SregymAdapterConfig
 
 from fdai.benchmarking import BenchmarkStatus, BenchmarkSubmission
+from fdai.benchmarking.adapter import BenchmarkAdapterError
 
 
 def _adapter(handler) -> tuple[SregymAdapter, httpx.AsyncClient]:  # type: ignore[no-untyped-def]
@@ -65,6 +66,31 @@ async def test_translates_diagnosis_and_submits_result() -> None:
     )
 
     assert submitted == [{"solution": "The backend dependency is unavailable."}]
+    await client.aclose()
+
+
+async def test_submit_normalizes_transport_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/submit":
+            raise httpx.ReadTimeout("submit timed out", request=request)
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+    submission = BenchmarkSubmission(
+        run_id="attempt-1",
+        task_id="attempt-1",
+        stage="diagnosis",
+        status=BenchmarkStatus.COMPLETED,
+        summary="Evidence-backed result.",
+    )
+
+    with pytest.raises(BenchmarkAdapterError, match="submit request failed") as error:
+        await adapter.submit(submission)
+
+    assert isinstance(error.value.__cause__, httpx.ReadTimeout)
     await client.aclose()
 
 

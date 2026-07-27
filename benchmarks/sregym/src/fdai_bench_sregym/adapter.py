@@ -98,11 +98,14 @@ class SregymAdapter:
     async def submit(self, submission: BenchmarkSubmission) -> None:
         if submission.run_id != self._config.artifact_id:
             raise BenchmarkAdapterError("submission run_id does not match SREGym artifact identity")
-        response = await self._http.post(
-            f"{self._config.conductor_url.rstrip('/')}/submit",
-            json={"solution": submission.summary},
-            timeout=self._config.request_timeout_seconds,
-        )
+        try:
+            response = await self._http.post(
+                f"{self._config.conductor_url.rstrip('/')}/submit",
+                json={"solution": submission.summary},
+                timeout=self._config.request_timeout_seconds,
+            )
+        except httpx.HTTPError as exc:
+            raise BenchmarkAdapterError(f"SREGym submit request failed: {exc}") from exc
         _raise_for_status(response, operation="submit")
         self._submitted_stage = submission.stage
 
