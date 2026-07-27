@@ -363,7 +363,10 @@
         "src/fdai/core/supply_chain/skill_bundle_loader.py",
         "rule-catalog/schema/skill-bundle.schema.json",
         "alembic/versions/*skill_bundle*.py",
-        "tests/**/*bundle*.py"
+        "tests/core/skills/test_bundle_*.py",
+        "tests/core/supply_chain/test_skill_bundle*.py",
+        "tests/core/prompts/test_skill_bundle_*.py",
+        "tests/rule_catalog/schema/test_skill_bundle_schema.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
