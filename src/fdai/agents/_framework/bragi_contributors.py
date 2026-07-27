@@ -106,16 +106,31 @@ async def ask_contributors(
     limit: int,
     timeout_seconds: float,
     logger: logging.Logger,
+    primary_agent: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Call bounded secondary responders without risking the primary reply."""
+    """Call bounded secondary responders without risking the primary reply.
+
+    A contributor is answering Bragi, not the operator, and the primary
+    owns the conclusion (``agent-pantheon.md`` 6.3.1). Both facts are put
+    in the turn context so the contributor composes the peer-audience and
+    handoff layers instead of narrating to a human it is not talking to.
+    """
 
     async def call(agent_name: str) -> tuple[str, dict[str, Any] | None, str | None]:
         responder = responders.get(agent_name)
         if responder is None:
             return agent_name, None, "responder_not_registered"
+        context: dict[str, Any] = {
+            "session_id": session_id,
+            "contributor": True,
+            "a2a": True,
+            "requester": "Bragi",
+        }
+        if primary_agent is not None:
+            context["handoff_owner"] = primary_agent
         try:
             raw_result = await asyncio.wait_for(
-                responder(question, {"session_id": session_id, "contributor": True}),
+                responder(question, context),
                 timeout=timeout_seconds,
             )
         except TimeoutError:

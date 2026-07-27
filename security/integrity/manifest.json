@@ -21,7 +21,7 @@
     "src/fdai/agents/_framework/arbitration.py": "1c7c88606e8aaf4fffa8bbc33daf3f3ad5ff9f3f0ad5a9d7ee5b0a6f0358868b",
     "src/fdai/agents/_framework/base.py": "f0ec072ebcf29b0cb9e54c359ebeef67631e9fc9f05267520e3a8c022c63e6c9",
     "src/fdai/agents/_framework/bounded.py": "5753ce93e706044ebd92331c1a48d5b5919d185e505d45028b54fdb5a60459a7",
-    "src/fdai/agents/_framework/bragi_contributors.py": "4ff6ec77663467987de1e8d8dc4408a820eab864ee80e7fa4a6e8df6f3825ac9",
+    "src/fdai/agents/_framework/bragi_contributors.py": "2b69690de5448f57033e29afa660f5d445f9eca9009bfca23aa3b486e09d2415",
     "src/fdai/agents/_framework/bragi_models.py": "5defd2ee122422c520b239c9fc5b492276201f41f0cbc0ee55560769e4f38a32",
     "src/fdai/agents/_framework/bragi_progress.py": "03029f8a023594caa33e7686482b84c8e95572213865224fc0ad3be0aeccc5dc",
     "src/fdai/agents/_framework/bragi_proposal.py": "a149dbd78f5b354a9808285819b962ab346f44ed6f4235fc72fd783831513ab9",
@@ -48,7 +48,7 @@
     "src/fdai/agents/_framework/specialist_ingress.py": "7f29260f0ba0834496112136251050b8c6855a40b8c399bb4bb48f57752e3d00",
     "src/fdai/agents/_framework/topics.py": "86c8aafe27517f19d78b1f0a0cd68ddc321392707ac91f8e662b11484f66b488",
     "src/fdai/agents/_framework/workflows.py": "a44335c08495c1cc7177d89abf0ef72d56ad3e32ebc1d9b39c913bacb1e8878a",
-    "src/fdai/agents/bragi.py": "be4a8628907f56f25dfb5316738716a3d98c2ca57858036f616523d417571d64",
+    "src/fdai/agents/bragi.py": "245f408c7dc53eb14f7fb019d865881cc9861fe21d73281049d306c3b0016c4d",
     "src/fdai/agents/forseti.py": "608d66de848f864f9557f5fdc2216e8fbd2d28fa0c09c781c846ceaed13c0027",
     "src/fdai/agents/freyr.py": "c66b1c3d81b8612009aacb045d491438c2455368c77082c623f2b0617f310816",
     "src/fdai/agents/heimdall.py": "2aa69abc6af1c1945643b571ca4dc548c500d5574b9675c9fc194370b7104096",
@@ -795,7 +795,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T09:14:24Z",
+  "generated_at": "2026-07-27T09:17:43Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

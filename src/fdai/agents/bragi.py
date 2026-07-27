@@ -447,6 +447,7 @@ class Bragi(Agent):
                     decision.contributors,
                     question=question,
                     session_id=session_id,
+                    primary_agent=decision.primary_agent,
                 )
                 successful = [item["agent"] for item in contributor_answers]
                 answer["contributors"] = successful
@@ -644,6 +645,7 @@ class Bragi(Agent):
         *,
         question: str,
         session_id: str,
+        primary_agent: str | None = None,
     ) -> tuple[list[dict[str, Any]], list[str]]:
         return await ask_contributors(
             self._agent_responders,
@@ -653,6 +655,7 @@ class Bragi(Agent):
             limit=_MAX_CONTRIBUTORS,
             timeout_seconds=_CONTRIBUTOR_TIMEOUT_SECONDS,
             logger=_LOG,
+            primary_agent=primary_agent,
         )
 
     def prior_turns(self, session_id: str, *, limit: int = 5) -> tuple[Turn, ...]:

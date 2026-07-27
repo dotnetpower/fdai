@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: fd69be83da3f7e5e80c3b9e81ad863e7a028d2fa
+translation_source_sha: adc37260cfc123db48ca951030294c99a5d6233b
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -37,7 +37,7 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
 
 | Layer | 선택 조건 |
 |-------|-----------|
-| `audience_peer` | Turn이 agent-to-agent port로 도착했습니다. |
+| `audience_peer` | Turn이 agent-to-agent port로 도착했습니다. Bragi의 contributor 호출도 포함합니다. |
 | `phase_position` | Deliberation이 primary position round입니다. |
 | `phase_critique` | Deliberation이 peer critique round입니다. |
 | `tier_t2` | Turn이 T2 synthesis에서 실행됩니다. |
@@ -131,6 +131,10 @@ intent 또는 responder failure는 abstention을 반환합니다. Discussion을 
 T0 답변과 T1 routing은 deterministic하며 model 호출이 없습니다. Routing은 요청을 owner가
 선언한 question domain에 매칭하고, agent 간 handoff는 requester, correlation trace, 이미
 보유한 evidence를 그대로 실어 나릅니다. Model을 호출하는 것은 T2 synthesis뿐입니다.
+
+Operator 경로의 contributor는 사람과의 대화가 아니라 handoff입니다. Bragi가 자신을 requester로,
+primary agent를 handoff owner로 전달하므로 contributor는 peer-audience와 handoff layer를
+조립하고, 소유하지 않은 답변을 서술하는 대신 owned evidence를 반환합니다.
 
 `cost-model.md`는 model 예산을 천장으로 요구합니다. 초과분은 더 싼 경로로 강등할 뿐 절대
 uncapped inference로 가지 않습니다. `EscalationBudget`이 그 천장을 선언하고

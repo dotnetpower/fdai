@@ -34,7 +34,7 @@ baseline plus the layers a `ConversationSituation` selects.
 
 | Layer | Selected when |
 |-------|---------------|
-| `audience_peer` | The turn arrives through the agent-to-agent port. |
+| `audience_peer` | The turn arrives through the agent-to-agent port, including a Bragi contributor call. |
 | `phase_position` | The deliberation is in its primary position round. |
 | `phase_critique` | The deliberation is in its peer critique round. |
 | `tier_t2` | The turn runs at T2 synthesis. |
@@ -127,6 +127,11 @@ manufacture a discussion.
 T0 answers and T1 routing are deterministic and free of model calls: routing matches a request to
 the owner's declared question domains, and a handoff between agents carries the requester, the
 correlation trace, and the evidence already held. Only T2 synthesis calls a model.
+
+A contributor on the operator path is a handoff, not a conversation with a human. Bragi supplies
+itself as the requester and the primary agent as the handoff owner, so the contributor composes
+the peer-audience and handoff layers and returns owned evidence instead of narrating an answer it
+does not own.
 
 `cost-model.md` requires the model budget to be a ceiling - overflow degrades to a cheaper path,
 never to uncapped inference. `EscalationBudget` declares that ceiling and `EscalationLedger`

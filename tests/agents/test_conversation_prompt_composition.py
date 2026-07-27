@@ -9,6 +9,7 @@ context may only *select* server-owned layers, never supply text.
 from __future__ import annotations
 
 import asyncio
+import logging
 from itertools import product
 from types import MethodType
 from typing import Any
@@ -352,3 +353,40 @@ def test_tool_scoped_turn_composes_the_declared_fact_scope() -> None:
 
     assert "read_portfolio_policy" in prompt
     assert "priority_order, temporal_policy, history_window" in prompt
+
+
+async def test_a_contributor_is_told_it_answers_bragi_for_another_owner() -> None:
+    """The operator path MUST NOT let a contributor think it faces a human."""
+    from fdai.agents._framework.bragi_contributors import ask_contributors
+
+    captured: dict[str, Any] = {}
+    odin = Odin()
+
+    async def capture(_self: Agent, _question: str, context: dict[str, Any]) -> IntrospectionResult:
+        captured.update(context)
+        return IntrospectionResult(answer="captured", facts={"priority_order": ["resilience"]})
+
+    odin.introspect = MethodType(capture, odin)  # type: ignore[method-assign]
+
+    answers, errors = await ask_contributors(
+        {"Odin": odin.on_conversation_turn},
+        ("Odin",),
+        question="who wins a cost and capacity conflict",
+        session_id="s1",
+        limit=2,
+        timeout_seconds=2.0,
+        logger=logging.getLogger(__name__),
+        primary_agent="Njord",
+    )
+    composition = captured["agent_prompt_composition"]
+
+    assert errors == []
+    assert answers[0]["agent"] == "Odin"
+    assert captured["a2a"] is True
+    assert captured["requester"] == "Bragi"
+    assert captured["handoff_owner"] == "Njord"
+    # The contributor composes the peer audience and the handoff owner, so
+    # it contributes owned evidence instead of narrating to the operator.
+    assert "audience_peer" in composition["layers"]
+    assert "handoff_pending" in composition["layers"]
+    assert "handoff=Njord" in composition["situation"]
