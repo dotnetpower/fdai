@@ -151,6 +151,7 @@ before the synthesizer is called.
 | `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | Always on. The real ceiling: what one conversation may spend. |
 | `max_calls_per_correlation` | 1 | Always on, fail-safe. An unpriced model yields no cost, so a cost-only ceiling would be no ceiling for exactly the model nobody priced. |
 | `max_cost_microusd_total` | undeclared | A fleet ceiling exists only when a deployment declares one. |
+| `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | Money is the bound an operator actually cares about. It is `None` for a caller that cannot observe cost, because a limb that can never be spent reads like a ceiling without being one. |
 | `max_calls_total` | undeclared | Same. A total that never resets is a kill switch, not a budget: every later turn would degrade to a human forever, and nobody asked for that. |
 
 Spend is charged to the correlation id when the caller supplies one. When it does not, the round

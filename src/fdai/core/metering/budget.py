@@ -56,14 +56,17 @@ class ModelBudget:
     """
 
     max_calls_per_correlation: int = 1
-    max_cost_microusd_per_correlation: int = 50_000
+    max_cost_microusd_per_correlation: int | None = 50_000
     max_calls_total: int | None = None
     max_cost_microusd_total: int | None = None
 
     def __post_init__(self) -> None:
         if self.max_calls_per_correlation < 0:
             raise ValueError("model budget call limits MUST be non-negative")
-        if self.max_cost_microusd_per_correlation < 0:
+        if (
+            self.max_cost_microusd_per_correlation is not None
+            and self.max_cost_microusd_per_correlation < 0
+        ):
             raise ValueError("model budget cost limits MUST be non-negative")
         if self.max_calls_total is not None:
             if self.max_calls_total < 0:
@@ -81,7 +84,10 @@ class ModelBudget:
         if self.max_cost_microusd_total is not None:
             if self.max_cost_microusd_total < 0:
                 raise ValueError("model budget cost limits MUST be non-negative")
-            if self.max_cost_microusd_per_correlation > self.max_cost_microusd_total:
+            if (
+                self.max_cost_microusd_per_correlation is not None
+                and self.max_cost_microusd_per_correlation > self.max_cost_microusd_total
+            ):
                 raise ValueError("per-correlation cost budget MUST fit the total cost budget")
 
 
@@ -146,9 +152,15 @@ class InMemoryBudgetLedger:
             and self._total.cost_microusd >= budget.max_cost_microusd_total
         ):
             return False
+        if spent.calls >= budget.max_calls_per_correlation:
+            return False
+        # ``None`` means the deployment did not declare a per-correlation
+        # money limb. A caller that cannot observe cost (the pipeline
+        # tier meters through its provider, not through this ledger)
+        # would otherwise carry a ceiling that can never fire.
         return (
-            spent.calls < budget.max_calls_per_correlation
-            and spent.cost_microusd < budget.max_cost_microusd_per_correlation
+            budget.max_cost_microusd_per_correlation is None
+            or spent.cost_microusd < budget.max_cost_microusd_per_correlation
         )
 
     async def charge(self, correlation_id: str, *, calls: int, cost_microusd: int) -> None:

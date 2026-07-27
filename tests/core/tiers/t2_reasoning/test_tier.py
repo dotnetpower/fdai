@@ -296,3 +296,37 @@ async def test_every_event_of_one_incident_still_reaches_the_proposer() -> None:
 
     assert outcomes == [T2Outcome.PROPOSED] * 3
     assert proposer.calls == 3
+
+
+async def test_the_tier_never_carries_a_money_limb_it_cannot_observe() -> None:
+    """A ceiling that can never fire reads like one, so it must not exist.
+
+    The proposer meters its own usage straight to the metering sink, so
+    no cost ever lands on the tier's ledger. A declared per-correlation
+    money limb would therefore sit at zero spend forever while looking
+    like an enforced bound.
+    """
+    proposer = _Proposer(_candidate())
+    tier = T2Tier(
+        proposer=proposer,
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        # A one-microUSD limb would deny immediately if it were live.
+        budget=ModelBudget(
+            max_calls_per_correlation=8,
+            max_cost_microusd_per_correlation=1,
+        ),
+    )
+
+    for index in range(4):
+        event = _event().model_copy(
+            update={"event_id": f"00000000-0000-0000-0000-00000000000{index}"}
+        )
+        context = T2ProposalContext(
+            event=event,
+            target_resource_ref="resource:example/rg/x",
+            target_resource_type="compute.vm",
+            allowed_rules=(),
+        )
+        assert (await tier.evaluate(context=context)).reason != "t2_budget_exhausted"
+
+    assert proposer.calls == 4

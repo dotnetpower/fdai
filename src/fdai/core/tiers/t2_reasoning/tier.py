@@ -39,7 +39,7 @@ DI seams
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -141,7 +141,19 @@ class T2Tier:
     ) -> None:
         self._proposer = proposer
         self._quality_gate = quality_gate
-        self._budget = budget or ModelBudget()
+        # Call-denominated on purpose. The proposer meters its own
+        # usage straight to the metering sink, so no cost ever lands on
+        # this ledger: a money limb here would be a ceiling that can
+        # never fire, which is worse than no ceiling because it reads
+        # like one. The pipeline's money ceiling lives at the metering
+        # write (``BudgetChargingMeteringSink``). An injected ledger is
+        # used as given, so a deployment that does share one with
+        # metering keeps its money limb.
+        self._budget = replace(
+            budget if budget is not None else ModelBudget(),
+            max_cost_microusd_per_correlation=None,
+            max_cost_microusd_total=None,
+        )
         self._ledger: BudgetLedger = budget_ledger or InMemoryBudgetLedger(self._budget)
 
     async def evaluate(self, *, context: T2ProposalContext) -> T2Decision:

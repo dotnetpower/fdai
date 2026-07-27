@@ -370,12 +370,18 @@ class ConversationDeliberator:
     async def _budget_snapshot(self, correlation_id: str) -> dict[str, int]:
         """Return the bound an answer may state, with no provider detail."""
         spend = await self._ledger.spend(correlation_id)
-        return {
+        snapshot = {
             "spent_for_correlation": spend.calls,
             "max_per_correlation": self._budget.max_calls_per_correlation,
             "cost_microusd_for_correlation": spend.cost_microusd,
-            "max_cost_microusd_per_correlation": (self._budget.max_cost_microusd_per_correlation),
         }
+        # An undeclared money limb is absent, not zero: reporting a bound
+        # nobody declared would let an answer state a ceiling that does
+        # not exist.
+        cost_bound = self._budget.max_cost_microusd_per_correlation
+        if cost_bound is not None:
+            snapshot["max_cost_microusd_per_correlation"] = cost_bound
+        return snapshot
 
     async def _meter(self, outcome: SynthesisOutcome, *, correlation_id: str) -> None:
         """Record the measured call so the spend is auditable and charged.
