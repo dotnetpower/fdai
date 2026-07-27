@@ -50,10 +50,11 @@ Two invariants keep the dynamic path inside the port contract:
 - **Additive only.** A situation may add a constraint; it can never drop or rewrite a baseline
   layer. Every composed prompt is a superset of the baseline, so no situation can weaken an
   authority, grounding, or security instruction. The baseline is bounded at 4,096 characters and
-  the situational layers share a separate 1,024 character budget. When a situation cannot afford
-  every layer, the lowest-priority layers are dropped and recorded; a constraint layer
-  (`action_intent`, `tool_scope`, `budget_denied`, `evidence_gap`) always outranks presentation
-  framing, and the baseline never pays.
+  the *framing* situational layers share a separate 1,024 character budget. Constraint layers
+  (`action_intent`, `tool_scope`, `budget_denied`, `evidence_gap`, `handoff_pending`) are exempt
+  from that budget by construction, not by ranking: a budget that can shed a constraint makes the
+  prompt less safe under load, which is backwards. Only framing competes, and the baseline never
+  pays.
 - **Server-owned text.** The situation is parsed from an untrusted turn context, but that context
   only selects layers. Free-form values are dropped or reduced to a bounded identifier, so a forged
   context cannot inject instructions.
@@ -153,7 +154,9 @@ raises.
 
 The ledger tracks per-correlation spend in a capped map, so a total budget larger than that cap is
 rejected at construction: an eviction would drop a spent correlation and silently refund it, and a
-ceiling that refunds itself is not a ceiling.
+ceiling that refunds itself is not a ceiling. The ledger is process-scoped in-memory state, so a
+restart resets it; a deployment that needs a ceiling across restarts binds a durable ledger at the
+composition root.
 
 ## Optional T2 synthesis
 

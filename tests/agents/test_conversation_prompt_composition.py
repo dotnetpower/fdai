@@ -19,6 +19,7 @@ import pytest
 from fdai.agents._framework.base import Agent, ConversationCharter, ConversationTool
 from fdai.agents._framework.conversation_prompt import (
     BASELINE_LAYER_IDS,
+    CONSTRAINT_LAYER_IDS,
     MAX_CHARTER_PROMPT_CHARS,
     MAX_COMPOSED_PROMPT_CHARS,
     ConversationSituation,
@@ -62,11 +63,6 @@ def test_baseline_situation_reproduces_the_charter_prompt_exactly() -> None:
         assert composed.dropped_layer_ids == ()
 
 
-#: Layers that carry a safety or grounding constraint. The situational
-#: budget may shed presentation framing, never one of these.
-_PROTECTED_LAYERS = ("action_intent", "tool_scope", "budget_denied", "evidence_gap")
-
-
 def test_every_situation_only_adds_to_the_baseline() -> None:
     """No situation may weaken an authority, grounding, or security layer."""
     for spec in PANTHEON_SPECS:
@@ -78,7 +74,7 @@ def test_every_situation_only_adds_to_the_baseline() -> None:
             assert composed.layer_ids[: len(BASELINE_LAYER_IDS)] == BASELINE_LAYER_IDS
             assert len(composed.text) <= MAX_COMPOSED_PROMPT_CHARS
             # The situational budget sheds framing, never a constraint.
-            assert not set(composed.dropped_layer_ids) & set(_PROTECTED_LAYERS), (
+            assert not set(composed.dropped_layer_ids) & set(CONSTRAINT_LAYER_IDS), (
                 spec.name,
                 situation.key,
             )
@@ -221,7 +217,7 @@ def test_situational_budget_sheds_framing_and_keeps_every_constraint() -> None:
     # The budget is real: this situation cannot afford every layer.
     assert composed.dropped_layer_ids
     # What it keeps is every constraint; what it sheds is framing.
-    assert set(_PROTECTED_LAYERS) <= set(situational)
+    assert set(CONSTRAINT_LAYER_IDS) <= set(situational)
     assert set(composed.dropped_layer_ids) <= {
         "audience_peer",
         "phase_critique",
@@ -252,7 +248,7 @@ def test_budget_overflow_drops_optional_layers_and_never_the_baseline() -> None:
     assert len(composed.text) <= MAX_COMPOSED_PROMPT_CHARS
     # The baseline is never the thing that gets cut, however large it is.
     assert set(composed.dropped_layer_ids) <= {"audience_peer", "phase_critique", "tier_t2"}
-    assert set(_PROTECTED_LAYERS) & set(composed.layer_ids) == {"action_intent", "evidence_gap"}
+    assert set(CONSTRAINT_LAYER_IDS) & set(composed.layer_ids) == {"action_intent", "evidence_gap"}
 
 
 def test_conversational_port_composes_the_prompt_for_the_turn() -> None:
@@ -390,3 +386,39 @@ async def test_a_contributor_is_told_it_answers_bragi_for_another_owner() -> Non
     assert "audience_peer" in composition["layers"]
     assert "handoff_pending" in composition["layers"]
     assert "handoff=Njord" in composition["situation"]
+
+
+def test_a_constraint_layer_is_never_subject_to_the_situational_budget() -> None:
+    """Structural, not arithmetic: the budget can only shed framing."""
+    spec = next(spec for spec in PANTHEON_SPECS if spec.name == "Thor")
+    # The widest tool scope in the pantheon plus every other constraint.
+    tool = max(spec.conversation.tool_specs, key=lambda item: len(item.fact_keys))
+    composed = compose_conversation_prompt(
+        baseline_prompt=spec.conversation.system_prompt,
+        situation=ConversationSituation(
+            audience="peer",
+            phase="critique",
+            tier="T2",
+            locale="ko",
+            requester="Bragi",
+            handoff_owner="Forseti",
+            tool_id=tool.tool_id,
+            tool_fact_keys=tool.fact_keys,
+            evidence_available=False,
+            action_intent=True,
+            escalation_available=False,
+            escalation_spent=1,
+            escalation_limit=1,
+        ),
+    )
+
+    assert set(CONSTRAINT_LAYER_IDS) <= set(composed.layer_ids)
+    assert not set(composed.dropped_layer_ids) & set(CONSTRAINT_LAYER_IDS)
+
+
+def test_the_framing_budget_is_the_only_thing_that_can_be_spent() -> None:
+    """Every dropped layer is framing, for every agent and every situation."""
+    for spec in PANTHEON_SPECS:
+        for situation in _SITUATIONS:
+            dropped = set(spec.conversation.compose_prompt(situation).dropped_layer_ids)
+            assert not dropped & set(CONSTRAINT_LAYER_IDS), (spec.name, situation.key)

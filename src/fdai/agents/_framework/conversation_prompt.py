@@ -49,12 +49,23 @@ MAX_CHARTER_PROMPT_CHARS: Final[int] = 4_096
 #: turn's prompt cost can never grow without limit.
 MAX_COMPOSED_PROMPT_CHARS: Final[int] = 6_144
 
-#: Budget the situational layers share. Deliberately tighter than the sum
-#: of every layer: the same economy the escalation budget applies to model
-#: calls applies to the prompt itself, so an unusual situation sheds
-#: presentation framing rather than paying for all of it at once. The
-#: priority order decides what survives; the baseline never pays.
+#: Budget the *framing* situational layers share. Constraint layers are
+#: exempt: a budget that can shed a constraint is a budget that can make
+#: the prompt less safe under load, which is exactly backwards. Only the
+#: layers that shape presentation compete for this allowance.
 MAX_SITUATIONAL_PROMPT_CHARS: Final[int] = 1_024
+
+#: Layers that carry a constraint rather than framing. They are always
+#: composed, in full, whatever else the situation asks for.
+CONSTRAINT_LAYER_IDS: Final[frozenset[str]] = frozenset(
+    {
+        "action_intent",
+        "tool_scope",
+        "budget_denied",
+        "evidence_gap",
+        "handoff_pending",
+    }
+)
 
 #: Bound on an agent's role directive (the eleventh baseline layer).
 MAX_ROLE_DIRECTIVE_CHARS: Final[int] = 640
@@ -457,16 +468,23 @@ def _fit_budget(
     layers: Sequence[tuple[int, PromptLayer]],
     budget: int,
 ) -> tuple[tuple[tuple[int, PromptLayer], ...], tuple[tuple[int, PromptLayer], ...]]:
-    """Drop the least important layers until the addition fits ``budget``.
+    """Fit the framing layers into ``budget``; never touch a constraint.
 
-    Deterministic: candidates are dropped by descending priority value,
+    Constraint layers are kept whatever the budget says, so an unusual
+    situation can only ever cost presentation quality, never safety. The
+    framing layers that remain are dropped by descending priority value,
     ties broken by reverse render order, so the same overflow always
     yields the same kept set.
     """
     kept = list(layers)
     dropped: list[tuple[int, PromptLayer]] = []
-    while kept and _rendered_length(kept) > budget:
-        victim = max(enumerate(kept), key=lambda item: (item[1][0], item[0]))[0]
+    while True:
+        framing = [
+            index for index, (_, layer) in enumerate(kept) if layer.id not in CONSTRAINT_LAYER_IDS
+        ]
+        if not framing or _rendered_length(kept) <= budget:
+            break
+        victim = max(framing, key=lambda index: (kept[index][0], index))
         dropped.append(kept.pop(victim))
     return tuple(kept), tuple(dropped)
 
@@ -493,6 +511,7 @@ def _bounded_count(raw: Any) -> int:
 
 __all__ = [
     "BASELINE_LAYER_IDS",
+    "CONSTRAINT_LAYER_IDS",
     "MAX_CHARTER_PROMPT_CHARS",
     "MAX_COMPOSED_PROMPT_CHARS",
     "MAX_ROLE_DIRECTIVE_CHARS",

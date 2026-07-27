@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 9da4ca8802cde0f5289627519369ff42b50842cf
+translation_source_sha: 562faf79fdadb5a9086c3e20898dd21f22f68e04
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -52,11 +52,12 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
 
 - **가산만 허용.** Situation은 constraint를 더할 수 있을 뿐 baseline layer를 제거하거나 고쳐
   쓸 수 없습니다. 조립된 모든 prompt는 baseline의 superset이므로 어떤 situation도 authority,
-  grounding, security instruction을 약화시킬 수 없습니다. Baseline은 4,096자, situational
-  layer는 별도의 1,024자 예산을 공유합니다. 모든 layer를 감당할 수 없는 situation은
-  중요도가 가장 낮은 layer부터 제거하고 그 사실을 기록합니다. Constraint layer
-  (`action_intent`, `tool_scope`, `budget_denied`, `evidence_gap`)는 항상 presentation framing보다
-  우선하며, baseline은 절대 비용을 치르지 않습니다.
+  grounding, security instruction을 약화시킬 수 없습니다. Baseline은 4,096자이고 *framing*
+  situational layer가 별도의 1,024자 예산을 공유합니다. Constraint layer(`action_intent`,
+  `tool_scope`, `budget_denied`, `evidence_gap`, `handoff_pending`)는 순위가 아니라 구조적으로
+  이 예산에서 면제됩니다. Constraint를 떨어뜨릴 수 있는 예산은 부하가 걸릴수록 prompt를 덜
+  안전하게 만들며, 그것은 거꾸로 된 설계이기 때문입니다. 경쟁하는 것은 framing뿐이고 baseline은
+  절대 비용을 치르지 않습니다.
 - **Server-owned text.** Situation은 신뢰할 수 없는 turn context에서 파싱하지만 그 context는
   layer를 선택만 합니다. 자유 형식 값은 제거되거나 bounded identifier로 축약되므로 위조된
   context가 instruction을 주입할 수 없습니다.
@@ -155,7 +156,9 @@ turn은 같은 한도를 담은 `budget_denied` prompt layer를 조립하므로 
 
 Ledger는 correlation별 지출을 상한이 있는 map으로 추적하므로, 그 상한보다 큰 총 예산은
 생성 시점에 거부합니다. 축출이 일어나면 이미 소모한 correlation이 조용히 환불되고,
-스스로 환불하는 천장은 천장이 아니기 때문입니다.
+스스로 환불하는 천장은 천장이 아니기 때문입니다. Ledger는 프로세스 범위의 in-memory
+상태이므로 재시작하면 초기화됩니다. 재시작을 넘어서는 천장이 필요한 배포는 composition
+root에서 durable ledger를 바인딩합니다.
 
 ## Optional T2 synthesis
 
