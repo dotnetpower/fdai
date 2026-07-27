@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 393527c83ba888d91b4491ed7c820c789621d1a7
+translation_source_sha: 89e2123abfa6030c999f17f71d69d76f96da5bd0
 translation_revised: 2026-07-27
 ---
 
@@ -247,6 +247,55 @@ Browser는 receipt URL이 embedded credential 없는 absolute HTTPS URL일 때�
 Content upload는 same-origin ingestion proxy target에만 API bearer token을 유지합니다.
 Cross-origin direct-upload target에는 content header를 보내지만 read API credential은 전달하지
 않습니다.
+
+## 점진적 병렬 대화
+
+Command Deck과 pull-direction ChatOps는 하나의 channel-neutral 점진적 대화 모델을 사용합니다.
+결정론적 scope 및 authority routing 이후 coordinator는 조건을 충족한 독립 read branch를 동시에
+시작할 수 있습니다. Branch는 immutable evidence operation이며 nested narrator session이나 direct
+agent call이 아닙니다. Bragi는 presentation translator로 유지됩니다. 책임 tool 또는 agent가 branch
+evidence를 소유하고, 결정론적 verification이 확인된 모든 answer segment를 소유합니다.
+
+각 branch event는 다음 bounded field를 전달합니다.
+
+| Field | Contract |
+|-------|----------|
+| `branch_id` | Request 안에서 안정적이며 request id와 canonical branch kind에서 파생됩니다. |
+| `branch_kind` | `tool`, `operational`, `agent`, `public_web`과 같은 allowlisted read source 하나입니다. |
+| `parent_branch_id` | Optional dependency reference입니다. 독립 top-level branch는 `null`을 사용합니다. |
+| `status` | Monotonic `pending`, `running` 이후 `completed`, `unavailable`, `failed`, `timed_out`, `cancelled` 중 하나입니다. |
+| `summary` | Bounded 및 redacted operator-facing progress 또는 terminal summary이며 evidence authority가 아닙니다. |
+| `started_at`, `completed_at`, `duration_ms` | Optional observed timing입니다. Completed time은 started time보다 앞설 수 없습니다. |
+| `evidence_refs` | Terminal branch state에서만 내보내는 bounded canonical reference입니다. |
+
+Server는 request `seq` 순서로 branch lifecycle frame을 내보냅니다. Branch completion 순서는 달라질
+수 있지만 join은 항상 immutable result를 canonical branch-kind 순서로 병합합니다. 하나의 독립 read가
+unavailable, failed 또는 timed out 상태여도 성공한 sibling evidence를 지우지 않습니다. Authoritative
+fact conflict는 다르게 처리합니다. Join은 양쪽 evidence set을 보존하고 answer를 unverified로 표시하며
+Bragi가 한쪽을 선택하지 못하게 합니다. Concurrent branch는 shared mutable context를 변경하지 않습니다.
+
+Draft `token` frame은 provisional narration으로 유지됩니다. `confirmed` frame에는 결정론적 verifier를
+이미 통과한 evidence에서 렌더링한 complete segment만 포함됩니다. Monotonic segment index, answer
+revision, evidence reference와 이후 verified result가 앞선 segment를 수정할 때의 replacement range를
+포함합니다. Confirmed segment는 running branch를 인용하지 않습니다. Terminal `done` frame은 계속
+canonical이며 conversation history에 저장되는 유일한 answer입니다. Client는 terminal frame 없이
+중단된 stream을 partial로 표시하며 draft text를 confirmed content로 승격하지 않습니다.
+
+Web, Teams 및 Slack은 동일한 ordered event reduction을 사용합니다.
+
+- **Web**은 in-progress answer 옆에 compact branch summary를 유지합니다. 상세 정보와 canonical
+	redacted command 또는 output evidence는 operator가 펼칠 때까지 접어 둡니다.
+- **Teams 및 Slack**은 originating thread에 response 하나를 게시하고 monotonic edit를 적용합니다.
+	Final edit에는 canonical verified answer와 bounded folded branch summary가 포함됩니다.
+- **Capability fallback**은 vendor가 edit을 지원하지 않을 때 complete terminal response 하나를
+	전송합니다. Precomputed text chunk를 streaming이라고 부르지 않으며 answer authority를 바꾸지 않습니다.
+
+Stream close, operator interruption 또는 request deadline은 모든 child branch를 cancel하고 await합니다.
+Per-branch deadline, queue capacity, branch count, event size, activity count, text byte 및 vendor payload는
+bounded 상태를 유지합니다. Command 및 output evidence에는 `redacted=true`가 필요합니다. Branch
+summary는 credential, tenant identifier, customer resource identifier 또는 raw untrusted web content를
+노출하지 않습니다. Durable replay는 canonical terminal answer와 revision state를 저장하며 completed
+read를 다시 실행하거나 provider message를 중복 전송하지 않습니다.
 
 ## Stream recovery 및 authentication
 

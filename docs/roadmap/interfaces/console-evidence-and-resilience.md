@@ -250,6 +250,58 @@ credentials; otherwise it displays the PR reference as non-clickable text.
 Content upload keeps the API bearer token only for same-origin ingestion proxy targets. A
 cross-origin direct-upload target receives the content headers but never the read API credential.
 
+## Progressive parallel conversations
+
+Command Deck and pull-direction ChatOps use one channel-neutral progressive conversation model.
+After deterministic scope and authority routing, the coordinator can start eligible independent
+read branches concurrently. A branch is an immutable evidence operation, not a nested narrator
+session and not a direct agent call. Bragi remains the presentation translator. The accountable
+tool or agent owns the branch evidence, while deterministic verification owns every confirmed
+answer segment.
+
+Each branch event carries these bounded fields:
+
+| Field | Contract |
+|-------|----------|
+| `branch_id` | Stable within the request and derived from the request id plus canonical branch kind. |
+| `branch_kind` | One allowlisted read source such as `tool`, `operational`, `agent`, or `public_web`. |
+| `parent_branch_id` | Optional dependency reference; independent top-level branches use `null`. |
+| `status` | Monotonic `pending`, `running`, then one of `completed`, `unavailable`, `failed`, `timed_out`, or `cancelled`. |
+| `summary` | Bounded, redacted operator-facing progress or terminal summary. It is not evidence authority. |
+| `started_at`, `completed_at`, `duration_ms` | Optional observed timing. Completed time never precedes started time. |
+| `evidence_refs` | Bounded canonical references emitted only at a terminal branch state. |
+
+The server emits branch lifecycle frames in request `seq` order. Branch completion order can vary,
+but the join always merges immutable results in canonical branch-kind order. One unavailable,
+failed, or timed-out independent read does not erase successful sibling evidence. A conflict in
+authoritative facts is different: the join preserves both evidence sets, marks the answer
+unverified, and does not let Bragi choose a winner. Shared mutable context is never written by
+concurrent branches.
+
+Draft `token` frames remain provisional narration. A `confirmed` frame contains only a complete
+segment rendered from evidence that has already passed its deterministic verifier. It includes a
+monotonic segment index, answer revision, evidence references, and replacement range when a later
+verified result corrects an earlier segment. A confirmed segment never cites a running branch.
+The terminal `done` frame remains canonical and is the only answer persisted to conversation
+history. Clients label an interrupted stream without a terminal frame as partial and never promote
+draft text to confirmed content.
+
+Web, Teams, and Slack consume the same ordered event reduction:
+
+- **Web** keeps compact branch summaries beside the in-progress answer. Details and canonical
+	redacted command or output evidence are collapsed until the operator expands them.
+- **Teams and Slack** post one response in the originating thread and apply monotonic edits. The
+	final edit contains the canonical verified answer and a bounded folded branch summary.
+- **Capability fallback** sends one complete terminal response when a vendor cannot edit. It does
+	not call precomputed text chunks streaming and does not change answer authority.
+
+Stream close, operator interruption, or request deadline cancels and awaits every child branch.
+Per-branch deadlines, queue capacity, branch count, event size, activity count, text bytes, and
+vendor payloads stay bounded. Command and output evidence requires `redacted=true`; branch summaries
+never expose credentials, tenant identifiers, customer resource identifiers, or raw untrusted web
+content. Durable replay stores the canonical terminal answer and revision state. It never re-runs a
+completed read or duplicates the provider message.
+
 ## Stream recovery and authentication
 
 Authenticated live, agent, and provisioning SSE readers cancel after 45 seconds without bytes,
