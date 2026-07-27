@@ -258,7 +258,9 @@ Given a `Workflow`, the planner produces a deterministic, read-only
 
 The plan supplies the role and channel assignment. At runtime, an approval step
 parks the Process, records `approval.requested`, validates distinct principals and
-no-self-approval, and resumes only after its declared quorum. A decision step accepts
+no-self-approval, and resumes only after its declared quorum. Distinctness is decided on
+normalised identities - Azure UPNs and object ids are case-insensitive - so one operator
+cannot fill a quorum under two spellings, nor approve a step they requested. A decision step accepts
 only one of its catalog-declared outcomes and records `decision.recorded`. The
 specific on-call OID and pushed channel card remain integrations of
 [`HilResumeCoordinator`](../../../src/fdai/core/hil_resume/coordinator.py) and

@@ -29,6 +29,17 @@ from fdai.shared.providers.process_runtime import (
 from fdai.shared.providers.state_store import StateStore
 
 
+def _normalized_principal(value: object) -> str:
+    """Canonical form of a principal identifier for identity comparison.
+
+    Azure UPNs and object ids are case-insensitive, so two spellings name one
+    operator. Comparing raw strings would let that operator count twice toward
+    a quorum, or approve a step they requested.
+    """
+
+    return str(value or "").strip().casefold()
+
+
 class ShadowWorkflowStepExecutor:
     """Judge and log workflow steps without exposing a mutation path."""
 
@@ -242,11 +253,19 @@ class ShadowWorkflowStepExecutor:
             decisions = approval_decisions(self._context, step.id)
             if not decisions:
                 return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_approval")
-            requester = self._context.get("requester.principal")
+            # Normalised before counting. Azure UPNs and object ids are
+            # case-insensitive, so raw keys let the same operator satisfy a
+            # quorum twice under two spellings, and let a requester's own
+            # approval count despite no_self_approval.
+            requester = _normalized_principal(self._context.get("requester.principal"))
             approved_by = {
-                principal
-                for principal, decision in decisions.items()
-                if decision == "approved" and (not step.no_self_approval or principal != requester)
+                approver
+                for approver in (
+                    _normalized_principal(principal)
+                    for principal, decision in decisions.items()
+                    if decision == "approved"
+                )
+                if approver and not (step.no_self_approval and approver == requester)
             }
             if len(approved_by) >= step.quorum:
                 return step_result(step, RunbookStepOutcome.SUCCESS, "approval_recorded")

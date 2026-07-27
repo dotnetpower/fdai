@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: f5cf03ca353e6028862601865dda17a19712eba0
+translation_source_sha: 3003d51024981042d190bce3ef5440e1781ab0ff
 translation_revised: 2026-07-23
 ---
 
@@ -250,7 +250,7 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
 
 플랜은 role 및 channel assignment 를 제공합니다. 런타임에서 approval step 은
 Process 를 park 하고 `approval.requested` 를 기록하며, 서로 다른 principal 과
-no-self-approval 을 검증하고 선언된 quorum 뒤에만 resume 합니다. Decision step 은
+no-self-approval 을 검증하고 선언된 quorum 뒤에만 resume 합니다. 서로 다름은 정규화된 identity 로 판정합니다. Azure UPN 과 object id 는 대소문자를 구분하지 않으므로, 한 운영자가 두 표기로 quorum 을 채우거나 자신이 요청한 step 을 승인할 수 없습니다. Decision step 은
 catalog 에 선언된 outcome 중 하나만 허용하고 `decision.recorded` 를 기록합니다.
 구체 on-call OID 와 channel card push 는 기존
 [`HilResumeCoordinator`](../../../src/fdai/core/hil_resume/coordinator.py) 및

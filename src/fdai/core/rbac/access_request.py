@@ -283,7 +283,10 @@ class AccessRequestService:
         request = await self._find_request(normalized_request_id)
         if request is None:
             raise AccessRequestError("access request was not found")
-        if request.requester_oid == principal.oid:
+        # Case-insensitive: an object id is the same principal however it is
+        # cased, so a raw comparison would let a requester approve their own
+        # request by presenting a differently-cased id.
+        if request.requester_oid.strip().casefold() == principal.oid.strip().casefold():
             raise AccessRequestPermissionError("requester MUST NOT approve their own request")
         reviewed_at = now or datetime.now(UTC)
         if reviewed_at.tzinfo is None:

@@ -680,3 +680,91 @@ async def test_wait_timeout_terminates_process() -> None:
     assert next(item for item in timed_out.step_results if item.step_id == "evidence").reason == (
         "wait_timed_out"
     )
+
+
+async def _approval_step_result(context: dict[str, str]) -> object:
+    """Run one approval-gated step against a supplied approval context."""
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    snapshot, _ = await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id="p-approval",
+            workflow_ref="wf",
+            workflow_version="1.0.0",
+            status=ProcessStatus.RUNNING,
+            current_step="gated_step",
+            target_resource_id="res-1",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="corr-approval",
+        ),
+        event=ProcessEvent(
+            event_id="event-create",
+            process_id="p-approval",
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="p-approval:create",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="corr-approval",
+        ),
+    )
+    executor = ShadowWorkflowStepExecutor(
+        process_id="p-approval",
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        approvals={},
+        process_store=process_store,
+        snapshot=snapshot,
+        context=context,
+    )
+    return await executor.execute(
+        runbook_id="wf",
+        step=RunbookStep(
+            id="gated_step",
+            action_type="ops.gated",
+            kind=WorkflowStepKind.APPROVAL,
+            quorum=2,
+            no_self_approval=True,
+        ),
+    )
+
+
+async def test_one_operator_cannot_satisfy_a_quorum_under_two_spellings() -> None:
+    """Azure UPNs and object ids are case-insensitive, so counting raw keys let
+    a single operator meet a two-approver quorum alone.
+    """
+    result = await _approval_step_result(
+        {
+            "requester.principal": "operator-z",
+            "approval.gated_step.operator-a": "approved",
+            "approval.gated_step.OPERATOR-A": "approved",
+        }
+    )
+
+    assert result.outcome is RunbookStepOutcome.WAITING
+
+
+async def test_a_recased_requester_does_not_approve_their_own_step() -> None:
+    """no_self_approval compared raw strings, so the requester's own approval
+    counted toward the quorum under a different case.
+    """
+    result = await _approval_step_result(
+        {
+            "requester.principal": "operator-a",
+            "approval.gated_step.OPERATOR-A": "approved",
+            "approval.gated_step.operator-b": "approved",
+        }
+    )
+
+    assert result.outcome is RunbookStepOutcome.WAITING
+
+
+async def test_two_distinct_operators_still_meet_the_quorum() -> None:
+    result = await _approval_step_result(
+        {
+            "requester.principal": "operator-z",
+            "approval.gated_step.operator-a": "approved",
+            "approval.gated_step.operator-b": "approved",
+        }
+    )
+
+    assert result.outcome is RunbookStepOutcome.SUCCESS

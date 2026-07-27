@@ -248,3 +248,22 @@ async def test_owner_can_review_request_older_than_two_hundred_records(
     )
 
     assert reviewed.status.value == "approved"
+
+
+async def test_a_recased_object_id_cannot_approve_its_own_request(
+    service: AccessRequestService,
+) -> None:
+    """An object id is the same principal however it is cased, so a raw string
+    comparison let a requester approve their own request under another
+    spelling.
+    """
+    request = await submit(service, actor=principal("requester-1", Role.CONTRIBUTOR))
+
+    with pytest.raises(AccessRequestPermissionError, match="own request"):
+        await service.review(
+            principal=principal("REQUESTER-1", Role.OWNER),
+            request_id=request.request_id,
+            decision=AccessReviewDecision.APPROVE,
+            justification="Reviewed against the support access policy.",
+            now=datetime(2026, 7, 16, 1, tzinfo=UTC),
+        )

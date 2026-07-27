@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7afc67b33db016633eca8e7891f04a05eae844a0
+translation_source_sha: b4c6fcfc6e2e6cbc01919613222c90a2f81508fb
 translation_revised: 2026-07-28
 ---
 # 코드 맵
@@ -108,7 +108,7 @@ shared 패키지를 커버한다.
 | report_feed | 렌더된 리포트 구독 | [src/fdai/core/report_feed/](../../../src/fdai/core/report_feed/) | [tests/core/report_feed/](../../../tests/core/report_feed/) |
 | reporting | 리포트 컴포저 + 포매터 | [src/fdai/core/reporting/](../../../src/fdai/core/reporting/) | [tests/core/reporting/](../../../tests/core/reporting/) |
 | views | Workflow-matched ViewSpec -> bounded RenderedView 및 deterministic inventory architecture projection | [src/fdai/core/views/](../../../src/fdai/core/views/) | [tests/core/views/](../../../tests/core/views/) 및 read-API architecture-view test |
-| rbac | Read API 인간 RBAC | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
+| rbac | Read API 인간 RBAC. Principal identity를 대소문자 구분 없이 비교하므로 요청자가 다른 표기로 자기 요청을 승인할 수 없습니다. | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
 | stewardship | 사람 <-> agent handover map, authoritative structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) 및 [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) 및 [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
 
 `conversation` 행의 owner-tool 세부 동작은 후처리 첨부가 아니라 인과적 경로입니다. Bragi가
@@ -128,7 +128,7 @@ fallback 없이 handoff합니다. Delivery adapter는 완료된 답변에 무관
 | readiness | 운영 handoff, deterministic startup probe, agent 소유 monitored-target readiness, due-gated scheduled discovery repair의 fail-closed reduction, evidence expiry, authority ceiling 및 durable transition ([설계](../operations/startup-and-lifecycle-ko.md)) | [src/fdai/core/readiness/](../../../src/fdai/core/readiness/), [src/fdai/runtime/readiness.py](../../../src/fdai/runtime/readiness.py), [src/fdai/delivery/startup_probe.py](../../../src/fdai/delivery/startup_probe.py), [src/fdai/delivery/analyzer_tick_cli.py](../../../src/fdai/delivery/analyzer_tick_cli.py), [src/fdai/delivery/inventory_sync_cli.py](../../../src/fdai/delivery/inventory_sync_cli.py) 및 [src/fdai/delivery/persistence/postgres_inventory_snapshot.py](../../../src/fdai/delivery/persistence/postgres_inventory_snapshot.py) | [tests/core/readiness/](../../../tests/core/readiness/), [tests/agents/test_detection_readiness.py](../../../tests/agents/test_detection_readiness.py), [tests/runtime/test_readiness.py](../../../tests/runtime/test_readiness.py), [tests/delivery/test_inventory_reconciliation_gate.py](../../../tests/delivery/test_inventory_reconciliation_gate.py) 및 [tests/delivery/test_analyzer_tick_cli.py](../../../tests/delivery/test_analyzer_tick_cli.py) |
 | assurance_twin | Read-only 온톨로지 트윈 (실행 금지) | [src/fdai/core/assurance_twin/](../../../src/fdai/core/assurance_twin/) | [tests/core/assurance_twin/](../../../tests/core/assurance_twin/) |
 | architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |
-| workflow | Version-pinned WorkflowDefinition과 principal binding을 컴파일 및 실행하고 Process journal과 projection retry 관리 | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
+| workflow | Version-pinned WorkflowDefinition을 컴파일 및 실행합니다. 승인 quorum은 정규화된 principal을 세므로 한 운영자가 두 표기로 quorum을 채우거나 자신이 요청한 step을 승인할 수 없습니다. Principal binding과 Process journal과 projection retry 관리 | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
 | scheduler | Create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation ([설계](../interfaces/scheduled-result-continuations-ko.md)) | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
 | metering | 사용량 미터링 카운터와 모든 LLM 경로가 측정되는 공유 model budget. 호출이 기록되는 단일 지점에서 차감하며, 총량은 ledger 축출을 견디지만 correlation별 한도는 그렇지 않으며, metering 기록이 실패해도 차감은 수행. 관문은 읽고 쓰기가 아니라 exact prospective call 및 microUSD increment를 검증하는 원자적 예약. Ledger는 microUSD로 계산하며 다른 통화 가격은 차감하지 않음 | [src/fdai/core/metering/](../../../src/fdai/core/metering/) | [tests/core/metering/](../../../tests/core/metering/) |
 | measurement | MTTR 및 네 가지 DORA measure를 포함한 Phase-4 연속 측정 | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |

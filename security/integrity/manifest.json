@@ -387,7 +387,7 @@
     "src/fdai/core/quality_gate/self_consistency.py": "b4daca451c4326282fd56508514a5ef4e37f7295dd5c33ee44cc517aee30c470",
     "src/fdai/core/quality_gate/testing.py": "69cafc37030839d408fe5768351dadceaba8facd15cf14e02612b30fc425989a",
     "src/fdai/core/rbac/__init__.py": "3cfdd24db06e5880ac7a5e3721f61048557b0b42874102d2583f8cdc110214bc",
-    "src/fdai/core/rbac/access_request.py": "eb606b2a21373dfbf782d5639806061205ed740372c1d647a9686f29060b2b61",
+    "src/fdai/core/rbac/access_request.py": "28a52caf2e12ee2062fa99a076fdcce201a61a649415371ef601aca7197e1735",
     "src/fdai/core/rbac/enforcer.py": "deca02d4d2c7c320fb5553ac1b0e19993c6ff5a4a559bd2342f7e745f335b1d2",
     "src/fdai/core/rbac/kill_switch_command.py": "2c18809d81a16b7120734dfc72549ba13093a7d91cfd96f8f443e83f54d579aa",
     "src/fdai/core/rbac/resolver.py": "bd150c6a3c3a85b25c4891b8e4c04a56673b366f6c64840c7521531e3396d48c",
@@ -638,7 +638,7 @@
     "src/fdai/core/workflow/schedule.py": "423a373d9046a3b5a5d23c2bd80ff10c914e62e5278093d5ae708f81ca78b469",
     "src/fdai/core/workflow/trigger_index.py": "b1a8ae6ee4ebeaf885a60c4cc3ab3a3a2a9236c86d1e0374b167423611038d7d",
     "src/fdai/core/workflow/workflow_runtime.py": "b4e2f9c7ad2f28fde5908c3855bb23bf3324c520ff0ab8e6a0a8c090b45a6a9a",
-    "src/fdai/core/workflow/workflow_step_executor.py": "6e9301f485ca34a6077522ec6d8bd7aaea5712a3e98707d59e05c8a3cc88d96f",
+    "src/fdai/core/workflow/workflow_step_executor.py": "4f64661160d5fa18fe802ff5f3751a4879ad184bffb983f6c3d5c6b7b13b6299",
     "src/fdai/core/working_context/__init__.py": "86f8d29533bd81340310e3626081ecf27436472ba48b491f26873c05058e0b68",
     "src/fdai/core/working_context/composer.py": "5760043f2cb3d1ea255067360972db247763ed96490b458aee6ac13cf92467c7",
     "src/fdai/core/working_context/evidence.py": "745c2d26e6740db256a4d5ec72c5e5abc6a226da49ffe9494a12f61ad27ed89f",
@@ -804,7 +804,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T19:24:00Z",
+  "generated_at": "2026-07-27T19:39:06Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
