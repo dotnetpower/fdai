@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 802,
+  "file_count": 803,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "cba78e067f8786a959a14cfeaf4e6c6912a3765e36aaa460433f049829f010b5",
     ".github/instructions/agent-stewardship.instructions.md": "a1d3657f05323259023fbb1abf304495ec923f6bb917be739ed49647171195ba",
@@ -683,6 +683,7 @@
     "src/fdai/shared/contracts/workflow/schema.json": "1710086c1683e79b81d1a0cc8fc20fe6a7e2cf91ec36a0d5c86317c5ce683ce8",
     "src/fdai/shared/providers/README.md": "37cd99211824aec6e1de682eeed6241858d20e4b0746493c3fc4f6d7cccdf45f",
     "src/fdai/shared/providers/__init__.py": "beed1a36b215e4cff8825130e502713e5dddd0f6615a0c3fd24f94669618513f",
+    "src/fdai/shared/providers/audit_hash.py": "fd56fc5ce10e56c3e54b76ea7e2951082699fbda124d4bd0760042c6f7935cec",
     "src/fdai/shared/providers/behavior_knowledge.py": "6c126481c3df5cc5e63c6de579a6dd07d57e0f11bc70aed36c08fe59f77f9bbb",
     "src/fdai/shared/providers/blast_probe.py": "3bc59de452c3d53aabe7304884870016086bc927e9170e0017d10396da66cff8",
     "src/fdai/shared/providers/break_glass_pager.py": "60f1a159254bf014e44525fc4153409bd0a080e50bec7c919018e5624eac3d21",
@@ -791,7 +792,7 @@
     "src/fdai/shared/providers/testing/secret_provider.py": "2c86a3aeaa1c2dfa0b122efdfbb4fe9a2871b6931f6f434470cb99aa774b4934",
     "src/fdai/shared/providers/testing/sse.py": "9048c0336b6084a9db8458f72c50c6671e863ff09a03f10e66e881aea53e7a0b",
     "src/fdai/shared/providers/testing/stage_publisher.py": "ec5849236bd73d61362d2ae3d6058ca9644e551a242f5d245eded13e428e067f",
-    "src/fdai/shared/providers/testing/state_store.py": "cc545dad1d8b646543f84faf491c5eb589ae7beb811f1a626ae62e4711171057",
+    "src/fdai/shared/providers/testing/state_store.py": "7f31a453d553e1695f195e98ffffa4d077870e3fa4bbf1bd36bec66ef046add8",
     "src/fdai/shared/providers/testing/tool.py": "c35d28be9e94871c730f10cd9033d9f6391840c625f997ab4fc6efc202f86b9b",
     "src/fdai/shared/providers/testing/user_context.py": "cb86fd6ac75e168cc007664e90787d94d924816297158f0893a0342d4fa16c7d",
     "src/fdai/shared/providers/testing/vm_task.py": "74d34c5d045fb0dd2be8cc6094ea9918a27456bbbe0b1397de2ceb662f6995a9",
@@ -805,7 +806,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T20:20:41Z",
+  "generated_at": "2026-07-27T20:47:16Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -30,13 +30,14 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
     StateStore,
     classify_incident_append,
 )
 
-_GENESIS_HASH: Final[str] = "0" * 64
+_GENESIS_HASH: Final[str] = GENESIS_HASH
 
 # Deterministic 63-bit signed key for `pg_advisory_xact_lock`. Chosen once
 # so every FDAI process contends on the same lock when appending to the
@@ -45,13 +46,8 @@ _GENESIS_HASH: Final[str] = "0" * 64
 _AUDIT_APPEND_LOCK_KEY: Final[int] = 0x0FDA10AAAAAA01
 
 
-def _canonical(entry: Mapping[str, Any]) -> str:
-    """Deterministic JSON serialization matching :class:`InMemoryStateStore`."""
-    return json.dumps(dict(entry), sort_keys=True, separators=(",", ":"), default=str)
-
-
-def _next_hash(previous: str, entry: Mapping[str, Any]) -> str:
-    return hashlib.sha256((previous + _canonical(entry)).encode("utf-8")).hexdigest()
+_next_hash = next_hash
+_canonical = canonical_entry
 
 
 @dataclass(frozen=True, slots=True)

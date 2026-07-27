@@ -7,30 +7,20 @@ suitable for production - mutations vanish on process restart.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from threading import Lock
 from typing import Any
 
+from fdai.shared.providers.audit_hash import GENESIS_HASH, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
     StateStore,
     classify_incident_append,
 )
 
-_GENESIS_HASH = "0" * 64
-
-
-def _canonical(entry: Mapping[str, Any]) -> str:
-    """Deterministic JSON serialization (sorted keys, no whitespace)."""
-    return json.dumps(dict(entry), sort_keys=True, separators=(",", ":"), default=str)
-
-
-def _next_hash(previous: str, entry: Mapping[str, Any]) -> str:
-    body = previous + _canonical(entry)
-    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+_GENESIS_HASH = GENESIS_HASH
+_next_hash = next_hash
 
 
 class InMemoryStateStore(StateStore):
