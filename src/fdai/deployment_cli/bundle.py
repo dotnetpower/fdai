@@ -1,9 +1,16 @@
-"""Verify signed deployment bundles before any Terraform command runs."""
+"""Verify signed deployment bundles before any Terraform command runs.
+
+Everything here runs on input that has not been trusted yet, so the reads are
+bounded before the signature is checked rather than after. The same rules apply
+as in :mod:`fdai.deployment_cli.offline_kit`; the two verifiers guard the same
+handover and a gap in either one is a gap in both.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from enum import StrEnum
@@ -20,6 +27,9 @@ BUNDLE_VERIFICATION_SCHEMA: Final = "fdai.deployment-cli.bundle-verification.v1"
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 _DEFAULT_MAX_TOTAL_BYTES = 256 * 1024 * 1024
+_MAX_MANIFEST_BYTES: Final = 4 * 1024 * 1024
+_MAX_SIGNATURE_BYTES: Final = 4 * 1024
+_METADATA_NAMES: Final = frozenset({"manifest.json", "manifest.json.sig"})
 
 
 class ReleaseChannel(StrEnum):
@@ -94,7 +104,15 @@ def verify_deployment_bundle(
     _version_tuple(cli_version)
     manifest_path = root / "manifest.json"
     signature_path = root / "manifest.json.sig"
+    if root.is_symlink() or not root.is_dir():
+        raise BundleVerificationError("bundle root MUST be a regular directory")
+    if any(path.is_symlink() or not path.is_file() for path in (manifest_path, signature_path)):
+        raise BundleVerificationError("bundle metadata MUST be regular files")
     try:
+        if manifest_path.stat().st_size > _MAX_MANIFEST_BYTES:
+            raise BundleVerificationError("bundle manifest exceeds the size limit")
+        if signature_path.stat().st_size > _MAX_SIGNATURE_BYTES:
+            raise BundleVerificationError("bundle signature exceeds the size limit")
         manifest_bytes = manifest_path.read_bytes()
         signature = signature_path.read_bytes()
     except OSError as exc:
@@ -109,20 +127,35 @@ def verify_deployment_bundle(
     listed = set(manifest.files)
     actual: set[str] = set()
     total_bytes = 0
-    for path in root.rglob("*"):
-        relative = path.relative_to(root).as_posix()
-        if relative in {"manifest.json", "manifest.json.sig"}:
-            continue
-        if path.is_symlink():
-            raise BundleVerificationError(f"bundle file {relative!r} MUST NOT be a symlink")
-        if path.is_dir():
-            continue
-        if not path.is_file():
-            raise BundleVerificationError(f"bundle entry {relative!r} is not a regular file")
-        actual.add(relative)
-        total_bytes += path.stat().st_size
-        if total_bytes > max_total_bytes:
-            raise BundleVerificationError("bundle exceeds the configured total size cap")
+
+    def _unreadable(error: OSError) -> None:
+        raise BundleVerificationError(f"bundle tree could not be read: {error}")
+
+    for directory, subdirectories, names in os.walk(root, onerror=_unreadable, followlinks=False):
+        base = Path(directory)
+        for name in subdirectories:
+            entry = base / name
+            if entry.is_symlink():
+                relative = entry.relative_to(root).as_posix()
+                raise BundleVerificationError(f"bundle file {relative!r} MUST NOT be a symlink")
+        for name in names:
+            entry = base / name
+            relative = entry.relative_to(root).as_posix()
+            if relative in _METADATA_NAMES:
+                continue
+            if entry.is_symlink():
+                raise BundleVerificationError(f"bundle file {relative!r} MUST NOT be a symlink")
+            if not entry.is_file():
+                raise BundleVerificationError(f"bundle entry {relative!r} is not a regular file")
+            actual.add(relative)
+            try:
+                total_bytes += entry.stat().st_size
+            except OSError as exc:
+                raise BundleVerificationError(
+                    f"bundle file {relative!r} could not be measured: {exc}"
+                ) from exc
+            if total_bytes > max_total_bytes:
+                raise BundleVerificationError("bundle exceeds the configured total size cap")
     if actual != listed:
         missing = sorted(listed - actual)
         extra = sorted(actual - listed)

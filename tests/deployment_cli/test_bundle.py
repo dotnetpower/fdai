@@ -124,3 +124,59 @@ def test_cli_bundle_verify_emits_stable_json(tmp_path: Path) -> None:
     assert payload["schema_version"] == "fdai.deployment-cli.bundle-verification.v1"
     assert payload["release_channel"] == "stable"
     assert payload["file_count"] == 2
+
+
+def test_an_oversized_manifest_is_refused_before_it_is_read(tmp_path: Path) -> None:
+    """The manifest is untrusted until its signature verifies, so its size has
+    to be bounded first. Reading it whole and deciding afterwards lets an
+    unverified bundle choose how much memory the verifier allocates.
+    """
+    root, public_key = _bundle(tmp_path)
+    (root / "manifest.json").write_bytes(b"{" + b" " * (5 * 1024 * 1024))
+
+    with pytest.raises(BundleVerificationError, match="manifest exceeds the size limit"):
+        verify_deployment_bundle(root, public_key_pem=public_key, cli_version="1.5.0")
+
+
+def test_an_oversized_signature_is_refused_before_it_is_read(tmp_path: Path) -> None:
+    root, public_key = _bundle(tmp_path)
+    (root / "manifest.json.sig").write_bytes(b"\x00" * (8 * 1024))
+
+    with pytest.raises(BundleVerificationError, match="signature exceeds the size limit"):
+        verify_deployment_bundle(root, public_key_pem=public_key, cli_version="1.5.0")
+
+
+def test_a_symlinked_manifest_is_refused(tmp_path: Path) -> None:
+    root, public_key = _bundle(tmp_path)
+    manifest = root / "manifest.json"
+    elsewhere = tmp_path / "elsewhere.json"
+    elsewhere.write_bytes(manifest.read_bytes())
+    manifest.unlink()
+    manifest.symlink_to(elsewhere)
+
+    with pytest.raises(BundleVerificationError, match="metadata MUST be regular files"):
+        verify_deployment_bundle(root, public_key_pem=public_key, cli_version="1.5.0")
+
+
+def test_a_directory_that_cannot_be_listed_is_never_read_as_empty(tmp_path: Path) -> None:
+    """Globbing swallows an unreadable directory, which would let a truncated
+    tree pass as a complete one.
+    """
+    root, public_key = _bundle(tmp_path)
+    closed = root / "infra"
+    closed.chmod(0o000)
+    try:
+        with pytest.raises(BundleVerificationError, match="could not be read"):
+            verify_deployment_bundle(root, public_key_pem=public_key, cli_version="1.5.0")
+    finally:
+        closed.chmod(0o755)
+
+
+def test_a_symlinked_directory_is_rejected_by_name(tmp_path: Path) -> None:
+    root, public_key = _bundle(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (root / "extra-tree").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(BundleVerificationError, match="MUST NOT be a symlink"):
+        verify_deployment_bundle(root, public_key_pem=public_key, cli_version="1.5.0")
