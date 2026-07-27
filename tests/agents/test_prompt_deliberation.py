@@ -485,6 +485,7 @@ def _priced_runtime(
     *,
     budget: ModelBudget,
     metering: InMemoryMeteringSink | None = None,
+    pricing: PricingTable | None = None,
 ) -> PantheonRuntime:
     """Wire the runtime the way a composition root does.
 
@@ -501,7 +502,7 @@ def _priced_runtime(
         conversation_t2_synthesizer=synthesizer,
         conversation_escalation_budget=budget,
         conversation_escalation_ledger=ledger,
-        conversation_pricing=_PRICING,
+        conversation_pricing=pricing if pricing is not None else _PRICING,
         # A plain sink on purpose: the deliberator wraps it with the
         # charging sink itself, so no composition root can forget to.
         conversation_metering=metering if metering is not None else InMemoryMeteringSink(),
@@ -712,3 +713,31 @@ async def test_a_failed_provider_still_reports_the_bound_it_spent() -> None:
 
     assert result["t2_status"] == "error"
     assert result["escalation_budget"]["spent_for_correlation"] == 1
+
+
+async def test_a_recorded_call_states_the_currency_its_price_was_set_in() -> None:
+    """A fork may price in its own currency; the record must say so.
+
+    Stamping USD on a KRW price puts a number in the audit trail that
+    means something else, and every rollup built on it inherits the lie.
+    """
+    from fdai.core.metering.pricing import PricingTable
+
+    sink = InMemoryMeteringSink()
+    runtime = _priced_runtime(
+        _T2Synthesizer(model_key="gpt-test", usage=TokenUsage(1_000, 500)),
+        budget=ModelBudget(),
+        metering=sink,
+        pricing=PricingTable.from_mapping(
+            {"gpt-test": {"input_per_1k": "1500", "output_per_1k": "3000", "currency": "KRW"}}
+        ),
+    )
+
+    await runtime.deliberate(
+        question="Compare cost and capacity.",
+        requester="Forseti",
+        correlation_id="corr-krw",
+    )
+
+    invocation = (await sink.invocations())[0]
+    assert invocation.currency == "KRW"

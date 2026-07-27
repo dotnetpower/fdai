@@ -35,7 +35,6 @@ _MAX_T2_CONCLUSION_CHARS = 4_000
 #: a layer budget there speak in one unit.
 _CHARS_PER_TOKEN = 4
 _T2_CONVERSATION_CAPABILITY = "t2.conversation.synthesis"
-_CURRENCY = "USD"
 _LOG = logging.getLogger(__name__)
 
 CallResponder = Callable[
@@ -403,6 +402,12 @@ class ConversationDeliberator:
         sink = self._metering
         if sink is None or outcome.usage is None or not outcome.model_key:
             return
+        # The currency is whatever the price list says it is. A fork may
+        # price in its own currency, so stamping USD on a KRW price would
+        # put a number in the audit trail that means something else.
+        pricing = (
+            self._pricing.pricing_for(outcome.model_key) if self._pricing is not None else None
+        )
         invocation = LlmInvocation(
             occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
@@ -412,12 +417,8 @@ class ConversationDeliberator:
             mode=InvocationMode.SHADOW,
             usage=outcome.usage,
             usage_scope=InvocationScope.OPERATOR_CHAT,
-            cost=(
-                self._pricing.cost_of(model_key=outcome.model_key, usage=outcome.usage)
-                if self._pricing is not None
-                else None
-            ),
-            currency=_CURRENCY if self._pricing is not None else None,
+            cost=pricing.cost_of(outcome.usage) if pricing is not None else None,
+            currency=pricing.currency if pricing is not None else None,
         )
         try:
             await sink.record(invocation)

@@ -33,7 +33,7 @@
     "src/fdai/agents/_framework/charters.py": "89b615a87a85d0ef61e411827b1d4c606538d8bbcc3ff406e5b70f421f2b7621",
     "src/fdai/agents/_framework/conversation_prompt.py": "0a43dca1911c2b988d3c5979e98eeedaff4d32d85347b2450cae20fb9d9f5289",
     "src/fdai/agents/_framework/conversation_tools.py": "206210de20b66d9df1eb40d4577435bf44b48a8e9f3b4270f6fc9b63ff20605c",
-    "src/fdai/agents/_framework/deliberation.py": "5588ca559256fd42a04e1f447034429ae1f723c90e459d8316c66f08c602fcf1",
+    "src/fdai/agents/_framework/deliberation.py": "103d0bbca80a4c7f551e3f50927c427f53e744a8083b314bca677fa9ae219226",
     "src/fdai/agents/_framework/divergence.py": "0304d6e035bf126bf02893794bef8453df40c042c264e89ceb7946254ddd8d0a",
     "src/fdai/agents/_framework/factory.py": "741ea0783f1e1ecbfd5d218f0a5ee68e3f5788e300b8468355abc826178c4765",
     "src/fdai/agents/_framework/introspection.py": "b2c27b14df76643cef9a70ce07bd37d2e252dfb9bc7aff3a2885573cc8e5bf69",
@@ -302,7 +302,7 @@
     "src/fdai/core/measurement/runners_cli.py": "680687ed83a31cde700cf6ee1631d9462d8e5f929ad07acef49caf6058bc1959",
     "src/fdai/core/metering/__init__.py": "34124a28a9e2cd747a5a70f4095026aea34703c15b9423128d003db331bfa6ea",
     "src/fdai/core/metering/aggregate.py": "1bfcf46d084a5e9fc5222032f0de8f38618bdf19cd387a4f3440092f995a85a4",
-    "src/fdai/core/metering/budget.py": "817ceff762185f57768d454753b88ec43c07b03431f7c72941d9068b8ddbb225",
+    "src/fdai/core/metering/budget.py": "ad2709b2f81e6096463c3feadffb0151994ded01d90eaea2aae6ee774182bd28",
     "src/fdai/core/metering/context.py": "27ea7879ea5b87f08be7d923fd76f1e809dcfdabee8f8e4c3d841843106a60c8",
     "src/fdai/core/metering/emitter.py": "33d48d8e78366ea753dd8991b848121f8cc9d18e29cafdb6753c7dda02af189a",
     "src/fdai/core/metering/pricing.py": "2dc693119feb239d1864205c6e22aa7b865cb02d3533602953a35698fa530413",
@@ -796,7 +796,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T12:49:40Z",
+  "generated_at": "2026-07-27T12:54:00Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

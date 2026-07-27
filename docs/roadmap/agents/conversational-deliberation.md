@@ -170,8 +170,11 @@ and it is not the deliberator:
    consumed the attempt it was granted, so a failing provider cannot be retried without limit.
 2. **Charge the money where the call is recorded.** `SynthesisOutcome` reports the measured
    `TokenUsage` and model key, because a budget cannot meter what its provider never tells it. The
-   priced `LlmInvocation` is written to metering with `usage_scope: operator_chat`, and
-   `BudgetChargingMeteringSink` charges the ledger the same cost it just recorded.
+   priced `LlmInvocation` is written to metering with `usage_scope: operator_chat`, stating the
+   currency the price list set rather than an assumed one, and `BudgetChargingMeteringSink` charges
+   the ledger the same cost it just recorded. The ledger accounts in microUSD, so a record priced in
+   another currency is recorded but left uncharged: converting it would need a rate nobody declared,
+   and charging the number as dollars would say a KRW price is a USD one.
 
 Cost is therefore never estimated and never charged twice: what the budget spends is exactly what
 the audit trail shows, so the ceiling is auditable rather than merely asserted. A provider that

@@ -251,3 +251,42 @@ async def test_a_reservation_refuses_to_refund() -> None:
 
     with pytest.raises(ValueError, match="MUST be non-negative"):
         await ledger.reserve("corr-1", calls=-1, cost_microusd=0)
+
+
+async def test_a_price_in_another_currency_is_never_charged_as_dollars() -> None:
+    """The ledger holds microUSD; a KRW price is not a USD price.
+
+    The pricing catalog allows any ISO 4217 currency, so a fork may price
+    in its own. Charging that number to a microUSD ledger would overstate
+    the spend by whatever the exchange rate happens to be.
+    """
+    from datetime import UTC, datetime
+
+    from fdai.core.metering.budget import BudgetChargingMeteringSink
+    from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
+    from fdai.core.metering.sink import InMemoryMeteringSink
+    from fdai.core.metering.usage import TokenUsage
+
+    inner = InMemoryMeteringSink()
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=4))
+    sink = BudgetChargingMeteringSink(inner, ledger)
+
+    await sink.record(
+        LlmInvocation(
+            occurred_at=datetime.now(UTC),
+            correlation_id="corr-1",
+            capability_id="t2.conversation.synthesis",
+            model_key="gpt-test",
+            tier="T2",
+            mode=InvocationMode.SHADOW,
+            usage=TokenUsage(1_000, 500),
+            usage_scope=InvocationScope.OPERATOR_CHAT,
+            cost=Decimal("3000"),
+            currency="KRW",
+        )
+    )
+
+    # Recorded for the audit trail, but not charged to a ledger that
+    # cannot hold it. The call caps remain the bound.
+    assert len(await inner.invocations()) == 1
+    assert (await ledger.spend("corr-1")).cost_microusd == 0

@@ -38,6 +38,10 @@ MAX_TRACKED_CORRELATIONS: Final[int] = 1_024
 
 _MICROS_PER_UNIT: Final[Decimal] = Decimal(1_000_000)
 
+#: The currency the ledger accounts in. A record priced in anything
+#: else is left uncharged rather than converted at a rate nobody set.
+_LEDGER_CURRENCY: Final[str] = "USD"
+
 
 @dataclass(frozen=True, slots=True)
 class ModelBudget:
@@ -282,6 +286,20 @@ class BudgetChargingMeteringSink:
             await self._charge(invocation)
 
     async def _charge(self, invocation: LlmInvocation) -> None:
+        # The ledger holds microUSD. A record priced in another currency
+        # cannot be charged to it without an exchange rate nobody
+        # declared, and charging the number anyway would say a KRW price
+        # is a USD one. Leave it honestly uncharged: the call caps remain
+        # the bound, exactly as for a provider that reports no usage.
+        if invocation.cost is not None and invocation.currency != _LEDGER_CURRENCY:
+            _LOG.warning(
+                "budget_charge_skipped_foreign_currency",
+                extra={
+                    "correlation_id": invocation.correlation_id,
+                    "currency": invocation.currency,
+                },
+            )
+            return
         try:
             await self._ledger.charge(
                 invocation.correlation_id,

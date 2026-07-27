@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: aa1ffccf93a4fdaa04fa736e8cd887e3ea7638a7
+translation_source_sha: 948ff790c5554d69b9418aab6ba361dd88975391
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -172,8 +172,11 @@ owner의 안정적 digest로 대체합니다. 그렇지 않으면 모든 deliber
    무제한 재시도할 수 없습니다.
 2. **호출이 기록되는 곳에서 금액 차감.** `SynthesisOutcome`이 실측 `TokenUsage`와 model key를
    보고합니다. Provider가 알려주지 않는 것을 예산이 계량할 수는 없기 때문입니다. 가격이 매겨진
-   `LlmInvocation`이 `usage_scope: operator_chat`으로 metering에 기록되고,
-   `BudgetChargingMeteringSink`가 방금 기록한 그 비용을 ledger에 차감합니다.
+   `LlmInvocation`이 `usage_scope: operator_chat`으로, 가정한 통화가 아니라 가격표가 정한 통화를
+   명시해 metering에 기록되고, `BudgetChargingMeteringSink`가 방금 기록한 그 비용을 ledger에
+   차감합니다. Ledger는 microUSD로 계산하므로 다른 통화로 매겨진 기록은 기록만 되고 차감되지
+   않습니다. 환산하려면 아무도 선언하지 않은 환율이 필요하고, 그 숫자를 달러로 차감하면 원화
+   가격을 달러 가격이라고 말하는 셈이기 때문입니다.
 
 따라서 비용은 추정되지도, 두 번 차감되지도 않습니다. 예산이 쓴 금액이 곧 감사 기록에 남은
 금액이므로 천장이 주장이 아니라 감사 가능해집니다. Usage를 보고하지 않는 provider는 정직하게
