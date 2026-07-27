@@ -72,6 +72,13 @@ a license naming only acting capabilities would leave an operator seeing strictl
 expired license would, and renewing an entitlement could remove dashboards. The available set of an
 `active` license is therefore always a superset of the degraded set.
 
+## Handling the token
+
+The token is not a secret in the sense the private key is - it cannot be forged - but it **is** a
+bearer credential. A license issued without an `image_digest` or a `tenant_binding` works for anyone
+who can read it. The issuer therefore writes it owner-only and never through a symlink, and a
+distribution that expects tokens to travel should bind them.
+
 ## Token canonicality
 
 A license has exactly one valid spelling. Base64 decoding in most standard libraries drops

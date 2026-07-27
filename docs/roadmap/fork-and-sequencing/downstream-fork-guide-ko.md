@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: cd0ebaa59a52377a31816b499ba3cef5c330a9f3
+translation_source_sha: 3283f382ef075aa565e2cadd1e17c0b1f78a58fc
 translation_revised: 2026-07-23
 ---
 
@@ -389,6 +389,7 @@ root 또는 어댑터로 이동, sync 재실행.
   distribution이 entitlement를 활성화하는 방법: 이미지 안의 public key,
   배포 설정의 서명된 token, available 축 전용 권한. License는 읽기 전용
   capability를 회수할 수 없으므로, fork는 운영자가 무엇을 볼 수 있는지는
-  전혀 막지 않으면서 무엇을 할 수 있는지만 통제할 수 있습니다.
+  전혀 막지 않으면서 무엇을 할 수 있는지만 통제할 수 있습니다. Token은 image digest나
+  배포에 binding하십시오. Binding 없는 token은 그것을 읽을 수 있는 누구에게나 동작합니다.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   모든 fork가 준수하는 customer-agnostic 스코프 계약.

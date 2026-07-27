@@ -196,6 +196,15 @@ whatever sat under an unreadable directory, and let a verifier accept a truncate
 The two verifiers are deliberately symmetric. They guard the same handover, so a gap in either one
 is a gap in both.
 
+## The tooling does not reach out
+
+`fdaictl provision inspect` decides connectivity by opening TLS connections to three public hosts.
+With `--connectivity offline` it skips that entirely, because the operator has already answered the
+question. On a closed network an unnecessary probe is three outbound attempts to explain to a
+security team, three entries in an egress log, and - where DNS accepts the query but never answers -
+a long stall in what was supposed to be a quick local inspection. `auto` still probes, because it
+genuinely has not been told.
+
 The drill stops at plan evaluation on purpose. A real `terraform apply` still needs the tenant's
 approved private path to the management plane, and pretending to simulate that locally would be the
 kind of claim this design is built to avoid. Its signing keys are throwaway keys under the work

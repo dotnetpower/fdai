@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 75290634d3f39261ce491b160dfea7ca9f89544b
+translation_source_sha: fe55a838b07fa3954931dc0b7d6c5e4c7355e755
 translation_revised: 2026-07-28
 ---
 # 폐쇄망 배포
@@ -185,6 +185,14 @@ provider나 public registry로 향하는 어떤 시도든 드릴을 실패시키
 드릴은 반복 실행할 수 있습니다. `--skip-stage`는 기존 kit으로 재검증하고, bundle 트리는 매 실행마다
 다시 풉니다. Terraform이 그 안에 쓰기 때문입니다. 한 번만 통과하는 드릴은 회귀 검사가 아니라
 시연입니다.
+
+## 도구가 먼저 손을 뻗지 않습니다
+
+`fdaictl provision inspect`는 공용 호스트 세 곳에 TLS 연결을 열어 connectivity를 판정합니다.
+`--connectivity offline`이면 그 판정을 아예 건너뜁니다. 운영자가 이미 답을 줬기 때문입니다.
+폐쇄망에서 불필요한 probe는 보안팀에 설명해야 할 outbound 시도 세 건이고, egress 로그의 항목
+세 개이며, DNS가 질의를 받고 응답하지 않는 환경에서는 빠른 로컬 점검이어야 할 명령의 긴 정지입니다.
+`auto`는 여전히 probe합니다. 정말로 듣지 못했기 때문입니다.
 
 ## 검증기가 거부하는 것
 

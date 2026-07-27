@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: d8946659ccf83a3eb2b201286ebd10c16a117bc8
+translation_source_sha: 8dc4c70159a21aa49c0d323d7c80097768955cc5
 translation_revised: 2026-07-27
 ---
 # Capability 라이선싱
@@ -69,6 +69,13 @@ Entitlement는 배포된 catalog와의 교집합이기도 하므로, token이 di
 `active` license도 나열 여부와 무관하게 부여합니다. 그렇지 않으면 조치 capability만 나열한
 license를 쓰는 운영자가 만료된 license보다 더 적게 보게 되고, entitlement를 갱신했더니 대시보드가
 사라지는 일이 생깁니다. 따라서 `active`의 가용 집합은 항상 저하 집합의 상위 집합입니다.
+
+## Token 취급
+
+Token은 private key 같은 의미의 비밀은 아닙니다. 위조할 수 없기 때문입니다. 하지만 **bearer
+credential**입니다. `image_digest`나 `tenant_binding` 없이 발급된 license는 그것을 읽을 수 있는
+누구에게나 동작합니다. 그래서 발급기는 소유자 전용으로, symlink를 따르지 않고 기록하며, token이
+이동할 것을 전제하는 distribution은 binding을 걸어야 합니다.
 
 ## Token 정규성
 

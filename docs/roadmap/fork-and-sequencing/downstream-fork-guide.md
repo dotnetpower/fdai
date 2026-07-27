@@ -401,6 +401,7 @@ Hard don'ts. Any of these is a merge-blocker:
   ships an image activates entitlement: a public key inside the image, a signed
   token in deployment configuration, and availability-only authority. A license
   cannot withdraw read-only capabilities, so a fork can gate what an operator
-  may do without ever gating what they can see.
+  may do without ever gating what they can see. Bind tokens to an image digest
+  or a deployment; an unbound one works for whoever can read it.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.
