@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 76c8170bcd6859267a2958fe7980fd2a813f1883
+translation_source_sha: 39ae7f41513d42706b511438e04a576f2278c6a4
 translation_revised: 2026-07-28
 ---
 # 폐쇄망 배포
@@ -136,18 +136,30 @@ deployment bundle, pinned Terraform 바이너리 및 provider mirror, 정책 엔
 | 2 | Deployment bundle 검증 | `fdaictl bundle verify` | 구현됨 |
 | 3 | 런타임 이미지 load 후 테난트 registry에 push | VNet 호스트의 컨테이너 도구 | 운영자 단계 |
 | 4 | Ops hub 구축: state account, VNet, 배포 호스트 | `infra/bootstrap` | 구현됨. 테난트당 1회 |
-| 5 | Bundle에서 app 계층 plan | Kit의 pinned Terraform + bundle `infra/` | 운영자 주도. CLI가 orchestration하지 않음 |
+| 5 | Bundle에서 app 계층 plan | `fdaictl provision plan` | 구현됨. Kit의 pinned Terraform으로 bundle `infra/` 를 실행 |
 | 6 | Apply 전에 plan 분석 | `fdaictl deploy preflight --terraform-plan` | 구현됨, 네트워크 불필요 |
 | 7 | Apply | 배포 호스트의 Terraform | 운영자 주도 |
 | 8 | State store 마이그레이션 | 같은 이미지를 실행하는 일회성 job | 구현됨 |
 | 9 | License token 주입 및 확인 | Secret 경로 + `fdaictl license inspect` | 구현됨 ([capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)) |
 | 10 | 컨트롤 플레인 시작 | 이미지 진입점 | 구현됨 |
 
-인계를 계획하기 전에 짚어야 할 결과가 둘 있습니다. `fdaictl deploy plan`과 `deploy apply`는 GitHub
-workflow에 작업을 제출하므로, 그 도달성이 없는 테난트는 `manual` transport를 쓰고 배포 호스트에서
-Terraform을 직접 실행합니다. 그리고 5단계와 7단계는 CLI가 아니라 운영자의 몫입니다. Bootstrap
-plan/apply orchestration이 목표 동작으로 남아 있어, 위 순서는 한 개의 명령이 아니라 사람이 따라가는
-체크리스트입니다.
+5단계는 예전에 체크리스트였습니다. Kit을 풀고, Terraform 바이너리를 찾고, provider mirror 설정을
+손으로 쓰고, public registry fallback을 닫는 것을 잊지 않아야 했습니다. 이제 `fdaictl provision plan`이
+그 단계를 소유합니다. Terraform 바이너리와 mirror를 **서명된 manifest**에서 해석하므로 kit 옆에 추가된
+트리가 실행 대상을 결정할 수 없습니다. 생성되는 CLI 설정의 `direct` 블록은 모든 provider를 제외하므로,
+mirror에 없는 항목은 public registry로 가는 대신 plan을 실패시킵니다. 자격증명 형태의 환경 변수만
+통과시키며, binary plan 과 그 SHA-256 digest, 6단계가 소비하는 plan JSON 을 산출합니다.
+
+Kit의 내용을 **실행**하는 일은 그것을 **보고**하는 일보다 강한 증거를 요구합니다. `provision inspect`는
+여전히 trust-root override가 없고 검증되지 않은 kit을 `candidate`로 보고합니다. 운영자가 그 판단을
+저울질할 수 있기 때문입니다. `provision plan`은 그럴 수 없습니다. 공급된 release root로 kit을 검증하고,
+검증이 실패하면 plan을 거부합니다. Root가 wheel에 pinned 상태로 배포되면 `--release-root`는 planning은
+수락하고 inspection은 여전히 수락하지 않는 override가 됩니다.
+
+인계를 계획하기 전에 짚어야 할 결과가 하나 있습니다. `fdaictl deploy plan`과 `deploy apply`는 GitHub
+workflow에 작업을 제출하므로, 그 도달성이 없는 테난트는 `manual` transport를 씁니다. 5단계는
+`provision plan`, 7단계는 배포 호스트의 Terraform이며, 7단계의 exact-plan 승인 바인딩은 목표 동작으로
+남아 있습니다.
 
 ## 네트워크 없이 전 경로 예행연습
 
@@ -189,7 +201,7 @@ residency 검토를 추가로 요구합니다
 |-----|-------------|-----------|
 | Trust-root 의식이 실행되지 않아 wheel에 pinned public root가 없음 | inspection이 offline kit을 verified로 보고할 수 없고 `candidate` 또는 `review`로 남음 | [offline-trust-ceremony-ko.md](../../runbooks/offline-trust-ceremony-ko.md) |
 | Kit staging이 release workflow에 연결되지 않음 | `stage-offline-kit.sh`가 kit을 조립하고 서명하지만, release는 여전히 operator 보관 key로 수동 실행 | [provisioning-execution-profiles-ko.md](provisioning-execution-profiles-ko.md) |
-| Bootstrap plan/apply orchestration과 teardown이 목표 동작으로 남음 | 운영자가 순서를 수동으로 진행 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
+| Bootstrap apply orchestration과 teardown이 목표 동작으로 남음 | 운영자가 exact-plan 승인과 apply를 수동으로 진행 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
 | Self-hosted model 어댑터 없음 | 클라우드 도달성이 없는 사이트는 적응형 경로가 아예 없음 | [tech-stack-ko.md](../architecture/tech-stack-ko.md) |
 
 서명과 검증은 이미 네트워크와 무관합니다. Framework-surface manifest와 offline kit 모두 커밋된

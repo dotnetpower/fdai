@@ -200,6 +200,32 @@ def verify_offline_kit(
     max_files: int = _DEFAULT_MAX_FILES,
 ) -> OfflineKitVerification:
     """Verify one unpacked offline kit without executing or following its contents."""
+    return verify_offline_kit_contents(
+        root,
+        release_root_pem=release_root_pem,
+        cli_version=cli_version,
+        platform_tag=platform_tag,
+        max_total_bytes=max_total_bytes,
+        max_files=max_files,
+    )[1]
+
+
+def verify_offline_kit_contents(
+    root: Path,
+    *,
+    release_root_pem: bytes,
+    cli_version: str,
+    platform_tag: str,
+    max_total_bytes: int = _DEFAULT_MAX_TOTAL_BYTES,
+    max_files: int = _DEFAULT_MAX_FILES,
+) -> tuple[OfflineKitManifest, OfflineKitVerification]:
+    """Verify one kit and return the signed manifest beside the summary.
+
+    A caller that resolves an artifact inside the kit - the Terraform binary,
+    the provider mirror - MUST take that path from the manifest this function
+    returns rather than from a directory convention, so a renamed or added
+    tree cannot redirect what gets executed.
+    """
     _validate_version(cli_version)
     if _PLATFORM.fullmatch(platform_tag) is None:
         raise ValueError("platform_tag is invalid")
@@ -245,7 +271,7 @@ def verify_offline_kit(
     for relative, expected in manifest.files.items():
         if _file_digest(root / relative) != expected:
             raise OfflineKitVerificationError(f"offline kit file digest mismatch for {relative!r}")
-    return OfflineKitVerification(
+    return manifest, OfflineKitVerification(
         kit_version=manifest.kit_version,
         cli_version=manifest.cli_version,
         bundle_version=manifest.bundle_version,
@@ -342,4 +368,5 @@ __all__ = [
     "build_offline_kit_manifest",
     "canonical_manifest_bytes",
     "verify_offline_kit",
+    "verify_offline_kit_contents",
 ]

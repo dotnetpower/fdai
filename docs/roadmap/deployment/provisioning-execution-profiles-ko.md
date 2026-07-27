@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 5afd7908f3448d726dc895b688e4c74abc97e303
+translation_source_sha: 6b25f834768673a789b69a9684153d2a59657e9a
 translation_revised: 2026-07-25
 ---
 # Provisioning 실행 Profile
@@ -160,6 +160,12 @@ root injection은 test, release construction, pinned inspection composition에�
 Artifact hashing은 no-follow descriptor open으로 path swap redirect를 막습니다. `fdaictl`은 `--release-root`
 override를 제공하지 않습니다. Public root가 wheel에 pin될 때까지 inspection은 `review`로
 유지됩니다.
+
+Kit 내용을 **실행**하는 일은 그것을 **보고**하는 일보다 강한 증거를 요구합니다. `provision plan`은
+kit의 Terraform 바이너리를 실행하므로, 운영자가 공급한 release root로 kit을 검증하고 검증이 실패하면
+plan을 거부합니다. 두 경로 모두 artifact를 디렉터리 관례가 아니라 서명된 manifest에서 해석합니다.
+Pinned root가 배포되면 `--release-root`는 planning은 수락하고 inspection은 여전히 수락하지 않는
+override가 됩니다.
 
 `build_offline_kit_manifest`는 그 verifier의 release-side 역방향입니다. Staged kit을 verifier와
 동일한 scan으로 읽으므로 symlink, 비정규 file, 한계 초과 tree를 기술하는 대신 거부하며, file

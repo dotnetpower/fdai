@@ -133,18 +133,31 @@ provider mirror, the policy engine, and the bill of materials.
 | 2 | Verify the deployment bundle | `fdaictl bundle verify` | implemented |
 | 3 | Load the runtime image and push it to the tenant registry | container tooling on the VNet host | operator step |
 | 4 | Stand up the ops hub: state account, VNet, and the deploy host | `infra/bootstrap` | implemented; run once per tenant |
-| 5 | Plan the app layer from the bundle | the kit's pinned Terraform against the bundle `infra/` | operator-driven; the CLI does not orchestrate it |
+| 5 | Plan the app layer from the bundle | `fdaictl provision plan` | implemented; runs the kit's pinned Terraform against the bundle `infra/` |
 | 6 | Analyze the plan before applying it | `fdaictl deploy preflight --terraform-plan` | implemented and network-free |
 | 7 | Apply | Terraform on the deploy host | operator-driven |
 | 8 | Migrate the state store | a one-off job running the same image | implemented |
 | 9 | Inject and check the license token | secret path plus `fdaictl license inspect` | implemented ([capability-licensing.md](../fork-and-sequencing/capability-licensing.md)) |
 | 10 | Start the control plane | the image entry point | implemented |
 
-Two consequences are worth stating before an operator plans a handover. `fdaictl deploy plan` and
+Step five used to be a checklist: unpack the kit, find the Terraform binary, hand-write a provider
+mirror configuration, and remember to close the public-registry fallback. `fdaictl provision plan`
+owns it instead. It resolves the Terraform binary and the mirror from the *signed manifest*, so a
+tree added beside the kit cannot decide what executes; it generates a CLI configuration whose
+`direct` block excludes every provider, so a missing mirror entry fails the plan rather than
+reaching the public registry; it passes only credential-shaped environment variables through; and
+it emits the binary plan, its SHA-256 digest, and the plan JSON that step six consumes.
+
+Executing content from a kit demands stronger evidence than reporting on one. `provision inspect`
+still has no trust-root override and still reports `candidate` for an unverified kit, because an
+operator can weigh that judgement. `provision plan` cannot: it verifies the kit against a supplied
+release root and refuses to plan when that fails. Once the root ships pinned in the wheel,
+`--release-root` becomes an override that planning accepts and inspection still does not.
+
+One consequence is worth stating before an operator plans a handover. `fdaictl deploy plan` and
 `deploy apply` submit work to a GitHub workflow, so a tenant without that reachability uses the
-`manual` transport and runs Terraform on the deploy host directly. And steps 5 and 7 are the
-operator's, not the CLI's: bootstrap plan and apply orchestration remain target behavior, so the
-sequence above is a checklist a person follows rather than one command.
+`manual` transport: `provision plan` for step five, and Terraform on the deploy host for step
+seven, whose exact-plan approval binding remains target behavior.
 
 ## Rehearsing the whole path with no network
 
@@ -188,7 +201,7 @@ deployment additionally requires its own regulatory and residency review
 |-----|--------------|-----------------|
 | The trust-root ceremony has not run, so no pinned public root ships in the wheel | inspection can never report a verified offline kit; it stays `candidate` or `review` | [offline-trust-ceremony.md](../../runbooks/offline-trust-ceremony.md) |
 | Kit staging is not wired into the release workflow | `stage-offline-kit.sh` assembles and signs a kit, but a release still runs it by hand with operator-held keys | [provisioning-execution-profiles.md](provisioning-execution-profiles.md) |
-| Bootstrap plan and apply orchestration and teardown remain target behavior | the operator drives the sequence by hand | [installable-deployment-cli.md](installable-deployment-cli.md) |
+| Bootstrap apply orchestration and teardown remain target behavior | the operator drives the exact-plan approval and apply by hand | [installable-deployment-cli.md](installable-deployment-cli.md) |
 | No self-hosted model adapter | a site with no cloud reachability has no adaptive path at all | [tech-stack.md](../architecture/tech-stack.md) |
 
 Signing and verification are already independent of the network. The framework-surface manifest and

@@ -18,8 +18,9 @@ machine.
 > production exact-plan apply wiring, profile persistence, and PyPI Trusted Publishing are
 > implemented. Offline inspection accepts a composition-injected pinned verifier and reports
 > trusted or rejected kit evidence without an operator trust-root override. Offline-kit build,
-> signing, and verification are implemented. First PyPI publication, pinned offline root
-> packaging, internal mirror/disconnected delivery, bootstrap orchestration, and teardown remain.
+> signing, and verification are implemented. `provision plan` orchestrates the disconnected app
+> layer plan from a verified kit. First PyPI publication, pinned offline root packaging, internal
+> mirror/disconnected delivery, apply orchestration, and teardown remain.
 >
 > **Execution boundary:** Terraform remains the infrastructure execution engine and source of
 > truth. `fdaictl` is a thin orchestration layer over validation, plan analysis, workflow
@@ -100,6 +101,7 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl version` | Show CLI, bundle, schema, and compatibility versions | No |
 | `fdaictl doctor` | Check Python, Azure CLI, Terraform, GitHub CLI, authentication, and local config | No |
 | `fdaictl provision inspect` | Inspect online/offline, signed-kit trust, existing/managed host, transport, access, and workload-identity readiness | No |
+| `fdaictl provision plan` | Plan the app layer from a verified offline kit using its pinned Terraform binary and provider mirror | No |
 | `fdaictl onboard init` | Create a schema-validated, untracked environment configuration | No |
 | `fdaictl onboard guided` | Run doctor, private config creation, live preflight, plan-only runner submission, and a sanitized status post-check in order | No |
 | `fdaictl security audit` | Check runtime flag combinations, local config hygiene, and requested sandbox availability | No, unless `--fix-permissions` is explicit |

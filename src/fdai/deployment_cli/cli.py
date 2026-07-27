@@ -57,6 +57,10 @@ from fdai.deployment_cli.provision_inspect import (
     ExecutionTransport,
     inspect_provisioning,
 )
+from fdai.deployment_cli.provision_plan import (
+    ProvisionPlanError,
+    run_provision_plan,
+)
 from fdai.deployment_cli.provision_profile import (
     DEFAULT_PROFILE_PATH,
     PROVISION_PROFILE_RESULT_SCHEMA,
@@ -152,6 +156,18 @@ def _build_parser() -> argparse.ArgumentParser:
     provision_init.add_argument("--config", type=Path, default=DEFAULT_PROFILE_PATH)
     provision_init.add_argument("--force", action="store_true")
     provision_init.add_argument("--output", choices=("text", "json"), default="text")
+    provision_plan = provision_commands.add_parser(
+        "plan", help="plan the app layer from a signed offline kit with no public egress"
+    )
+    provision_plan.add_argument("--offline-kit", type=Path, required=True)
+    provision_plan.add_argument("--release-root", type=Path, required=True)
+    provision_plan.add_argument("--infra-dir", type=Path, required=True)
+    provision_plan.add_argument("--work-dir", type=Path, required=True)
+    provision_plan.add_argument("--cli-version", required=True)
+    provision_plan.add_argument("--platform-tag", required=True)
+    provision_plan.add_argument("--var-file", type=Path, action="append", default=[])
+    provision_plan.add_argument("--backend-config", type=Path, action="append", default=[])
+    provision_plan.add_argument("--output", choices=("text", "json"), default="text")
     onboard_parser = subcommands.add_parser("onboard", help="prepare local deployment config")
     onboard_commands = onboard_parser.add_subparsers(dest="onboard_command", required=True)
     onboard_init = onboard_commands.add_parser("init", help="create an environment config")
@@ -398,6 +414,46 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                 f"Created {profile_result.connectivity} / "
                 f"{profile_result.execution_host} / {profile_result.transport} profile "
                 f"at {profile_result.path}",
+                file=output,
+            )
+            print("No Azure resources were changed.", file=output)
+        return 0
+    if args.command == "provision" and args.provision_command == "plan":
+        try:
+            provision_plan_result = run_provision_plan(
+                kit_root=args.offline_kit,
+                infra_dir=args.infra_dir,
+                work_dir=args.work_dir,
+                release_root_pem=args.release_root.read_bytes(),
+                cli_version=args.cli_version,
+                platform_tag=args.platform_tag,
+                var_files=tuple(args.var_file),
+                backend_config_files=tuple(args.backend_config),
+            )
+        except (ProvisionPlanError, OSError) as exc:
+            if args.output == "json":
+                print(
+                    exc.to_json()
+                    if isinstance(exc, ProvisionPlanError)
+                    else ProvisionPlanError(str(exc)).to_json(),
+                    file=output,
+                )
+            else:
+                print(f"PLAN BLOCKED: {exc}", file=output)
+            return 4
+        if args.output == "json":
+            print(provision_plan_result.to_json(), file=output)
+        else:
+            highlighted = provision_plan_result.highlighted
+            print(
+                f"Planned from kit {provision_plan_result.kit_version} "
+                f"into {provision_plan_result.plan_path}",
+                file=output,
+            )
+            print(f"Plan digest {provision_plan_result.plan_digest}", file=output)
+            print(
+                f"destroy={highlighted.destroy} replace={highlighted.replace} "
+                f"role-change={highlighted.role_change}",
                 file=output,
             )
             print("No Azure resources were changed.", file=output)

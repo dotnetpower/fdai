@@ -157,6 +157,12 @@ Artifact hashing uses a no-follow descriptor open so a path swap cannot redirect
 does not expose a
 `--release-root` override; inspection remains `review` until a public root is pinned in the wheel.
 
+Executing kit content demands stronger evidence than reporting on it. `provision plan` runs the
+kit's Terraform binary, so it verifies the kit against a release root the operator supplies and
+refuses to plan when that verification fails. Both paths resolve every artifact from the signed
+manifest rather than from a directory convention. When the pinned root ships, `--release-root`
+becomes a planning override that inspection still does not accept.
+
 `build_offline_kit_manifest` is the release-side inverse of that verifier. It reads the staged kit
 with the same scan, so it refuses to describe a symlink, a non-regular entry, or an out-of-bound
 tree, and it derives the file list from the stage rather than from an operator-supplied list. A
