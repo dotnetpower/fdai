@@ -502,6 +502,25 @@ class PantheonRuntime:
             return None
         return self._bragi.route(question)
 
+    async def route_conversation_owner(self, question: str) -> str | None:
+        """Return the agent that owns this question, or ``None`` if none does.
+
+        The deterministic route first, then Bragi's semantic router for
+        what keywords could not settle - the same path the answering turn
+        takes, so a caller that acts on this route acts on the same
+        owner the answer will.
+
+        Whether *any* agent owns the question is the point. The semantic
+        router already answers that with a tuned cosine floor and margin,
+        and reusing it keeps one such judgement in the system rather than
+        two that can disagree.
+        """
+        if self._bragi is None:
+            return None
+        decision = await self._bragi.route_with_semantic_fallback(question)
+        primary = getattr(decision, "primary_agent", None)
+        return primary if isinstance(primary, str) and primary else None
+
     def should_delegate_conversation(
         self,
         question: str,

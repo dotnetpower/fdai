@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.agents import AgentToolStatus, PantheonRuntime
+from fdai.agents import ROUTE_BUDGET_SECONDS, AgentToolStatus, PantheonRuntime
 from fdai.core.conversation.answer_plan import AnswerIntent, AnswerSection, build_answer_plan
 from fdai.core.conversation.answer_planning import (
     AnswerContribution,
@@ -116,18 +117,33 @@ class PantheonChatDelegate:
     async def _prefetch_tool_evidence(self, prompt: str) -> list[dict[str, Any]]:
         """Return scoped read-tool results the question asked for.
 
-        Narrowed to the deterministically routed owner, so tool
-        selection refines the route instead of reading across agents
-        that were never asked. No route means no prefetch: dispatching
-        against the whole pantheon would spend reads on owners the
-        answer will not come from.
+        Narrowed to the owning agent, so tool selection refines the
+        route instead of reading across agents that were never asked.
+
+        The owner comes from the same route the answering turn takes -
+        keywords first, then the semantic router - because the keyword
+        route alone settles few real questions, and requiring it would
+        leave this path almost never running. It is also the gate that
+        keeps a question nobody owns from spending reads: similarity
+        alone cannot tell "why did the bill go up" from "tell me a
+        joke", since a ranker always ranks and the nearest tool to an
+        unrelated question still scores like a match. The router already
+        decides ownership against a tuned floor and margin, so no route
+        means no prefetch.
 
         Supplementary by design. A tool that abstains, times out, or
         finds nothing contributes nothing, and the turn proceeds.
         """
-        decision = self.runtime.route_conversation(prompt)
-        primary = getattr(decision, "primary_agent", None) if decision is not None else None
-        if not isinstance(primary, str) or not primary:
+        # Bounded, because this runs before the answering turn: an
+        # embedding provider that stops responding would otherwise hold
+        # the operator's answer, not just the evidence beside it. Giving
+        # up here costs the prefetch and nothing else.
+        try:
+            async with asyncio.timeout(ROUTE_BUDGET_SECONDS):
+                primary = await self.runtime.route_conversation_owner(prompt)
+        except Exception:  # noqa: BLE001 - the route is best-effort
+            return []
+        if not primary:
             return []
         results = await self.runtime.prefetch_conversation_tools(prompt, agents=(primary,))
         return [

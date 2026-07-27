@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 273637c80e82dc5fedeff8eafffa2b10f2b20c75
+translation_source_sha: d3455f947d5f8846a0ab30646b51a77fa912bbfd
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -186,6 +186,14 @@ Dispatch는 네 가지로 유계입니다. 운영자 질문 하나가 열 수 �
 Prefetch된 증거는 보조적입니다. Abstain하거나 timeout되거나 예산에 의해 취소된 도구는 아무것도
 기여하지 않고 답변 turn은 그대로 진행됩니다. Abstain 경로에서도 함께 전달되는데, 답이 없는 turn이
 바로 미리 모아둔 범위 한정 증거가 가장 값진 경우이기 때문입니다.
+
+소유 판정은 선택보다 먼저 이루어지며, 유사도로 하지 않습니다. 랭커는 언제나 순위를 매깁니다. 시스템이
+전혀 소유하지 않은 질문에도 가장 가까운 도구는 매칭처럼 점수가 나오며, 그런 질문 8개로 측정했을 때 의미
+계층은 매번 도구 3개를 골랐습니다. 절대 점수, margin, 상위 3개의 agent 합의를 모두 측정했지만 소유한 질문과
+소유하지 않은 질문을 가르는 지표는 없었습니다. 그래서 판정은 route가 합니다. 답변 turn이 타는 것과 같은
+route이며, 키워드 우선 후 튜닝된 floor와 margin을 가진 semantic router로 이어집니다. Owner가 없으면 prefetch도
+없습니다. 이 route도 유계입니다. Turn 전에 돌기 때문에, 응답하지 않는 임베딩 provider는 곁의 증거가 아니라
+답변 자체를 붙잡게 되기 때문입니다.
 
 ## T1 discussion
 

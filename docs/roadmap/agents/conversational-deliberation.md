@@ -188,6 +188,15 @@ Prefetched evidence is supplementary. A tool that abstains, times out, or is can
 budget contributes nothing and the answering turn proceeds, including on the abstain path - the
 turn with no answer is exactly the one where scoped evidence gathered up front is worth the most.
 
+Ownership is decided before selection, and not by similarity. A ranker always ranks: the nearest
+tool to a question the system owns nothing about still scores like a match, and measured against
+eight such questions the semantic tier selected three tools every time. Absolute score, margin, and
+top-three agreement were all measured and none of them separate an owned question from an unowned
+one. So the route decides - the same route the answering turn takes, keyword first and then the
+semantic router with its tuned floor and margin - and no owner means no prefetch. That route is
+bounded too: it runs before the turn, so an embedding provider that stops responding would hold the
+answer rather than only the evidence beside it.
+
 ## T1 discussion
 
 The discussion path deliberately does not reuse a clear T0 route. T1 embedding similarity must

@@ -40,6 +40,13 @@ MAX_TOOL_PLANS: Final[int] = 3
 #: timeouts to the answer an operator is waiting for.
 PREFETCH_BUDGET_SECONDS: Final[float] = 5.0
 
+#: Wall-clock seconds the ownership route may take before the caller gives
+#: up on it. The route runs *before* the answering turn, so an unbounded
+#: one does not merely lose the prefetch - it holds the whole answer. No
+#: owner in time means no prefetch, which is the same outcome as a
+#: question nobody owns.
+ROUTE_BUDGET_SECONDS: Final[float] = 2.0
+
 #: Question characters the planner reads. Matches the tool registry's own
 #: question ceiling so a question it would refuse cannot be planned for.
 MAX_PLANNED_QUESTION_CHARS: Final[int] = 2_000
@@ -266,6 +273,7 @@ __all__ = [
     "MAX_PLANNED_QUESTION_CHARS",
     "MAX_TOOL_PLANS",
     "PREFETCH_BUDGET_SECONDS",
+    "ROUTE_BUDGET_SECONDS",
     "ConversationToolPlan",
     "plan_conversation_tools",
 ]

@@ -47,6 +47,7 @@ from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.agents._framework.tool_planner import (
     MAX_TOOL_PLANS,
+    ROUTE_BUDGET_SECONDS,
     ConversationToolPlan,
     plan_conversation_tools,
 )
@@ -70,6 +71,7 @@ __all__ = [
     "AgentHandlerPhase",
     "AgentSpec",
     "MAX_TOOL_PLANS",
+    "ROUTE_BUDGET_SECONDS",
     "AgentToolResult",
     "AgentToolStatus",
     "ConversationToolPlan",

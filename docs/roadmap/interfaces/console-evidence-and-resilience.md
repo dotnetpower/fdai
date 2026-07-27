@@ -199,7 +199,9 @@ question alone - a lexical, bilingual, model-free decision - and carries the sco
 prefetch budget, so a question cannot open an unbounded read. The evidence is carried on the
 handoff too: the turn that abstains is the one where scoped evidence is worth the most. Only
 the answering owner's own reads are attached, because the plan runs before the turn and routing
-and the turn can disagree; another agent's read is not this answer's grounding.
+and the turn can disagree; another agent's read is not this answer's grounding. A question no agent
+owns dispatches nothing at all, and the ownership route is itself bounded so a stalled embedding
+provider costs the evidence rather than the reply.
 Charter version, hashes, and tool ids remain hidden provenance. An exact policy match lets the
 model receive that server-owned charter after Bragi's global safety prompt; it scopes role and
 voice without becoming evidence or authority. Runtime grounding uses supplied
