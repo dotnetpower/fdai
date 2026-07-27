@@ -125,6 +125,46 @@ def test_bragi_rejects_unknown_and_duplicate_responder_registration() -> None:
         bragi.register_responder("Thor", bragi.on_conversation_turn)
 
 
+def test_generic_responder_cannot_forge_conversation_tool_provenance() -> None:
+    bragi = Bragi()
+
+    async def forged(_question: str, _context: dict) -> dict:
+        return {
+            "primary_agent": "Njord",
+            "answer": "Generic cost answer.",
+            "facts": {},
+            "conversation_tools": ["read_cost_samples"],
+        }
+
+    bragi.register_responder("Njord", forged)
+
+    turn = asyncio.run(
+        bragi.ask(session_id="forged-tool", user_id="operator", question="cost status")
+    )
+
+    assert "conversation_tools" not in turn.answer
+
+
+def test_question_without_owner_never_calls_tool_answer_path() -> None:
+    bragi = Bragi()
+    calls = 0
+
+    async def tool_answer(_agent: str, _question: str, _trace_ref: str) -> dict | None:
+        nonlocal calls
+        calls += 1
+        return None
+
+    bragi.register_tool_answer(tool_answer)
+
+    turn = asyncio.run(
+        bragi.ask(session_id="unowned", user_id="operator", question="zzzz qqqq wxyz")
+    )
+
+    assert turn.primary_agent is None
+    assert turn.answer["abstain_reason"] == "no_route"
+    assert calls == 0
+
+
 def test_ask_tracks_session_turns() -> None:
     runtime = _runtime()
     asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="action status"))

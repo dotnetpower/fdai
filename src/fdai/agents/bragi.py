@@ -58,6 +58,7 @@ _LOG = logging.getLogger(__name__)
 #: ``None`` when the collector deduplicated it. Bragi NEVER calls an executor
 #: (agent-pantheon.md 7.7); it only submits through this sink.
 ProposalSink = Callable[[dict[str, Any]], Awaitable[dict[str, Any] | None]]
+ToolAnswerFn = Callable[[str, str, str], Awaitable[dict[str, Any] | None]]
 
 #: Deterministic verb -> ActionType mapping for operator conversational
 #: requests (Wave 4, LLM-free). The verb is the leading imperative token that
@@ -124,6 +125,7 @@ class Bragi(Agent):
         self._sessions: dict[str, ConversationSession] = {}
         self._agent_responders: dict[str, AnswerFn] = {}
         self._proposal_sink: ProposalSink | None = None
+        self._tool_answer: ToolAnswerFn | None = None
         self._semantic_router = semantic_router
         self._responder_timeout_seconds = responder_timeout_seconds
         self._proposal_timeout_seconds = proposal_timeout_seconds
@@ -163,6 +165,13 @@ class Bragi(Agent):
         is unchanged where the pantheon is not wired.
         """
         self._proposal_sink = fn
+
+    def register_tool_answer(self, fn: ToolAnswerFn) -> None:
+        """Bind one mechanical owner-tool answer path at composition time."""
+
+        if self._tool_answer is not None:
+            raise ValueError("tool answer dispatcher already registered")
+        self._tool_answer = fn
 
     async def _call_responder(
         self,
@@ -438,11 +447,26 @@ class Bragi(Agent):
                 "handoff_needed": True,
             }
         else:
-            normalized_answer, response_error = await self._call_responder(
-                decision.primary_agent,
-                question,
-                {"session_id": session_id, "user_id": user_id},
+            tool_answer = (
+                await self._tool_answer(decision.primary_agent, question, session_id)
+                if self._tool_answer is not None
+                else None
             )
+            if tool_answer is None:
+                normalized_answer, response_error = await self._call_responder(
+                    decision.primary_agent,
+                    question,
+                    {"session_id": session_id, "user_id": user_id},
+                )
+            else:
+                normalized_answer, response_error = normalize_responder_answer(
+                    decision.primary_agent,
+                    tool_answer,
+                )
+                if normalized_answer is not None:
+                    normalized_answer["conversation_tools"] = list(
+                        tool_answer.get("conversation_tools", [])
+                    )
             if normalized_answer is None:
                 answer = {
                     "answer": None,
@@ -453,12 +477,17 @@ class Bragi(Agent):
                 }
             else:
                 answer = normalized_answer
-                contributor_answers, contributor_errors = await self._ask_contributors(
-                    decision.contributors,
-                    question=question,
-                    session_id=session_id,
-                    primary_agent=decision.primary_agent,
-                )
+                if not isinstance(answer.get("answer"), str):
+                    answer["handoff_needed"] = True
+                    contributor_answers: list[dict[str, Any]] = []
+                    contributor_errors: list[str] = []
+                else:
+                    contributor_answers, contributor_errors = await self._ask_contributors(
+                        decision.contributors,
+                        question=question,
+                        session_id=session_id,
+                        primary_agent=decision.primary_agent,
+                    )
                 successful = [item["agent"] for item in contributor_answers]
                 answer["contributors"] = successful
                 answer["contributor_answers"] = contributor_answers

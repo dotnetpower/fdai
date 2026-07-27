@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import time
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from fdai.agents import PANTHEON_SPECS, PantheonRuntime
@@ -35,6 +34,90 @@ def test_routes_question_to_owning_agent() -> None:
     assert result["facts"]["agent"] == "Njord"
     njord = next(spec for spec in PANTHEON_SPECS if spec.name == "Njord")
     assert result["conversation_policy"] == njord.conversation_policy()
+
+
+async def test_owner_tool_result_produces_answer_instead_of_posthoc_evidence() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+    )
+    njord = runtime.agents["Njord"]
+    contexts: list[dict[str, object]] = []
+
+    async def answer(_self, _question, context):  # type: ignore[no-untyped-def]
+        contexts.append(dict(context))
+        if context.get("conversation_tool") == "read_cost_samples":
+            return SimpleNamespace(
+                answer="The owned cost sample is 17 USD.",
+                facts={
+                    "tracked_scopes": ["scope-one"],
+                    "latest_amount_usd": 17.0,
+                    "evidence_refs": ["cost-sample:one"],
+                },
+                abstain_reason=None,
+            )
+        return SimpleNamespace(
+            answer="Generic responder answer without the scoped read.",
+            facts={"generic": True},
+            abstain_reason=None,
+        )
+
+    njord.introspect = MethodType(answer, njord)  # type: ignore[method-assign]
+
+    result = await PantheonChatDelegate(runtime).delegate(
+        prompt="show cost samples and tracked scopes",
+        user_id="operator-one",
+        session_id="grounded-one",
+    )
+
+    assert result is not None
+    assert result["primary_agent"] == "Njord"
+    assert result["answer"].endswith("The owned cost sample is 17 USD.")
+    assert result["facts"] == {
+        "tracked_scopes": ["scope-one"],
+        "evidence_refs": ["cost-sample:one"],
+    }
+    assert "tool_evidence" not in result
+    assert [context.get("conversation_tool") for context in contexts] == ["read_cost_samples"]
+
+
+async def test_owner_tool_timeout_does_not_fall_back_to_generic_answer() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        conversation_tool_timeout_seconds=0.001,
+    )
+    var = runtime.agents["Var"]
+    contexts: list[dict[str, object]] = []
+
+    async def answer(_self, _question, context):  # type: ignore[no-untyped-def]
+        contexts.append(dict(context))
+        if context.get("conversation_tool") == "read_pending_approvals":
+            await asyncio.sleep(60)
+        return SimpleNamespace(
+            answer="Unsafe generic fallback.",
+            facts={"fallback": True},
+            abstain_reason=None,
+        )
+
+    var.introspect = MethodType(answer, var)  # type: ignore[method-assign]
+
+    result = await PantheonChatDelegate(runtime).delegate(
+        prompt="show pending approvals and correlations",
+        user_id="operator-one",
+        session_id="grounded-timeout",
+    )
+
+    assert result is not None
+    assert result["primary_agent"] == "Bragi"
+    assert result["answer"] is None
+    assert result["facts"] == {}
+    assert result["contributors"] == []
+    assert result["contributor_answers"] == []
+    assert result["trace_ref"].startswith("web-")
+    assert result["handoff_from"] == "Var"
+    assert result["handoff_reason"] == "tool_evidence_incomplete"
+    assert [context.get("conversation_tool") for context in contexts] == ["read_pending_approvals"]
 
 
 def test_same_client_session_is_isolated_between_users() -> None:
@@ -134,9 +217,6 @@ def test_specialist_abstention_becomes_an_explicit_handoff_to_bragi() -> None:
         "trace_ref": "trace-handoff",
         "handoff_from": "Heimdall",
         "handoff_reason": "insufficient_agent_evidence",
-        # Prefetched before the turn, so a handoff still carries whatever
-        # scoped evidence the question asked for.
-        "tool_evidence": [],
     }
 
 
@@ -257,32 +337,9 @@ async def test_selected_agent_binding_persists_until_operator_explicitly_overrid
 
 
 async def test_evidence_from_another_owner_never_rides_on_this_answer() -> None:
-    """The plan runs before the turn, so routing and the turn can disagree.
-
-    When they do, the prefetched reads belong to an agent that did not
-    answer. Presenting them beside this answer would offer a read that
-    had nothing to do with it as if it were its grounding.
-    """
-    from fdai.agents import AgentToolStatus
+    """The delivery adapter never decorates a completed answer with another read."""
 
     class _MismatchedRuntime:
-        async def route_conversation_owner(self, prompt: str) -> str | None:
-            return "Njord"
-
-        async def prefetch_conversation_tools(
-            self, prompt: str, *, agents: tuple[str, ...] = (), **kwargs: object
-        ) -> tuple[object, ...]:
-            return (
-                SimpleNamespace(
-                    agent=agents[0] if agents else "?",
-                    tool_id="read_cost_samples",
-                    answer="observed cost samples",
-                    facts={"tracked_scopes_count": 2},
-                    evidence_refs=("agent:Njord/state",),
-                    status=AgentToolStatus.OK,
-                ),
-            )
-
         async def ask(self, **kwargs: object) -> object:
             return SimpleNamespace(
                 answer={
@@ -299,152 +356,4 @@ async def test_evidence_from_another_owner_never_rides_on_this_answer() -> None:
 
     assert result is not None
     assert result["primary_agent"] == "Freyr"
-    assert result["tool_evidence"] == []
-
-
-async def test_a_question_nobody_owns_spends_no_reads() -> None:
-    """A ranker always ranks, so ownership must be decided elsewhere.
-
-    Similarity alone cannot tell "why did the bill go up" from "tell me
-    a joke": the nearest tool to an unrelated question still scores like
-    a match, and the tier would dispatch three reads and attach evidence
-    for a question the system owns nothing about. The route decides
-    ownership against a tuned floor; no owner means no prefetch.
-    """
-    dispatched: list[str] = []
-
-    class _UnownedRuntime:
-        async def route_conversation_owner(self, prompt: str) -> str | None:
-            return None
-
-        async def prefetch_conversation_tools(
-            self, prompt: str, **kwargs: object
-        ) -> tuple[object, ...]:
-            dispatched.append(prompt)  # pragma: no cover - must not happen
-            return ()
-
-        async def ask(self, **kwargs: object) -> object:
-            return SimpleNamespace(
-                answer={
-                    "answer": "I can help with operations questions.",
-                    "primary_agent": "Bragi",
-                    "facts": {},
-                    "trace_ref": "trace-1",
-                }
-            )
-
-    delegate = PantheonChatDelegate(runtime=_UnownedRuntime())  # type: ignore[arg-type]
-
-    result = await delegate.delegate(prompt="tell me a joke", user_id="u", session_id="s")
-
-    assert result is not None
-    assert result["tool_evidence"] == []
-    assert dispatched == []
-
-
-async def test_the_owner_that_answers_is_the_owner_that_was_read() -> None:
-    """Keywords settle few real questions, so the route must be the full one."""
-    asked: list[tuple[str, ...]] = []
-
-    class _OwnedRuntime:
-        async def route_conversation_owner(self, prompt: str) -> str | None:
-            return "Njord"
-
-        async def prefetch_conversation_tools(
-            self, prompt: str, *, agents: tuple[str, ...] = (), **kwargs: object
-        ) -> tuple[object, ...]:
-            asked.append(agents)
-            return ()
-
-        async def ask(self, **kwargs: object) -> object:
-            return SimpleNamespace(
-                answer={
-                    "answer": "Spend is within budget.",
-                    "primary_agent": "Njord",
-                    "facts": {},
-                    "trace_ref": "trace-1",
-                }
-            )
-
-    delegate = PantheonChatDelegate(runtime=_OwnedRuntime())  # type: ignore[arg-type]
-
-    await delegate.delegate(prompt="why did we get billed so much", user_id="u", session_id="s")
-
-    assert asked == [("Njord",)]
-
-
-async def test_a_stalled_route_costs_the_evidence_not_the_answer() -> None:
-    """The route runs before the turn, so an unbounded one holds the answer.
-
-    Prefetch was already bounded, but the gate that decides whether to
-    prefetch was not, and it is awaited first. An embedding provider that
-    stops responding would have stalled the operator's reply rather than
-    just the evidence beside it.
-    """
-    from fdai.delivery.read_api.routes import chat_agent_delegate as delegate_module
-
-    class _StalledRuntime:
-        async def route_conversation_owner(self, prompt: str) -> str | None:
-            await asyncio.sleep(300)
-            raise AssertionError("unreachable")
-
-        async def prefetch_conversation_tools(
-            self, prompt: str, **kwargs: object
-        ) -> tuple[object, ...]:
-            raise AssertionError("must not dispatch without an owner")
-
-        async def ask(self, **kwargs: object) -> object:
-            return SimpleNamespace(
-                answer={
-                    "answer": "Spend is within budget.",
-                    "primary_agent": "Njord",
-                    "facts": {},
-                    "trace_ref": "trace-1",
-                }
-            )
-
-    original = delegate_module.ROUTE_BUDGET_SECONDS
-    delegate_module.ROUTE_BUDGET_SECONDS = 0.05
-    try:
-        delegate = PantheonChatDelegate(runtime=_StalledRuntime())  # type: ignore[arg-type]
-        started = time.perf_counter()
-        result = await delegate.delegate(
-            prompt="우리 돈 얼마나 쓰고 있어?", user_id="u", session_id="s"
-        )
-        elapsed = time.perf_counter() - started
-    finally:
-        delegate_module.ROUTE_BUDGET_SECONDS = original
-
-    assert result is not None
-    assert result["answer"] == "Spend is within budget."
-    assert result["tool_evidence"] == []
-    assert elapsed < 1.0
-
-
-async def test_a_broken_route_provider_costs_the_evidence_not_the_answer() -> None:
-    class _BrokenRouteRuntime:
-        async def route_conversation_owner(self, prompt: str) -> str | None:
-            raise RuntimeError("embedding provider down")
-
-        async def prefetch_conversation_tools(
-            self, prompt: str, **kwargs: object
-        ) -> tuple[object, ...]:
-            raise AssertionError("must not dispatch without an owner")
-
-        async def ask(self, **kwargs: object) -> object:
-            return SimpleNamespace(
-                answer={
-                    "answer": "Spend is within budget.",
-                    "primary_agent": "Njord",
-                    "facts": {},
-                    "trace_ref": "trace-1",
-                }
-            )
-
-    delegate = PantheonChatDelegate(runtime=_BrokenRouteRuntime())  # type: ignore[arg-type]
-
-    result = await delegate.delegate(prompt="비용", user_id="u", session_id="s")
-
-    assert result is not None
-    assert result["answer"] == "Spend is within budget."
-    assert result["tool_evidence"] == []
+    assert "tool_evidence" not in result

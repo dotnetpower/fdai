@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: d3455f947d5f8846a0ab30646b51a77fa912bbfd
+translation_source_sha: 350ef4d96daee0318cdf08f74138a2fd94cd5b89
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -169,9 +169,14 @@ key - 과 대조하고 선택 근거가 된 용어와 함께 반환합니다. �
 예문은 검색 앵커일 뿐입니다. Charter digest에 포함되지 않으므로 검색을 튜닝해도 감사 기록이 흔들리지
 않고, prompt나 답변에도 들어가지 않습니다.
 
-도구 선택은 누가 답할지를 정하지 않습니다. 계획은 turn 전에 결정론적으로 라우팅된 owner를 기준으로
-돌지만 turn은 다른 에이전트에게 갈 수 있으며, 답변에는 답한 owner 자신의 읽기만 첨부됩니다. 답하지
-않은 에이전트의 증거는 그 답변의 근거가 아니기 때문입니다.
+도구 선택은 누가 답할지를 정하지 않습니다. Bragi가 먼저 turn과 같은 T0/T1 owner route를
+완료한 다음, 도구 planner는 그 owner의 선언만 검토합니다. 일반 turn은 점수가 유일하게 가장 높은
+도구 하나만 실행합니다. 상위 점수가 같으면 catalog 순서로 고르지 않고 도구를 선택하지 않습니다.
+이렇게 owner 결정을 한 번만 수행하고 한 에이전트의 읽기를 다른 에이전트의 근거로 제시하지 않습니다.
+
+일반 primary-answer path는 lexical selector를 사용하며 explicit 또는 T0 agent route에 embedding
+호출을 추가하지 않습니다. Semantic tool planner는 별도 read stage를 선택한 caller를 위한 explicit
+prefetch API에서 계속 사용할 수 있습니다.
 
 Dispatch는 네 가지로 유계입니다. 운영자 질문 하나가 열 수 있는 읽기 표면은 이 중 하나라도 없으면
 서비스 거부 표면이 되기 때문입니다.
@@ -181,11 +186,13 @@ Dispatch는 네 가지로 유계입니다. 운영자 질문 하나가 열 수 �
 | 질문당 plan | `MAX_TOOL_PLANS` (3) | 수십 건의 읽기를 원하는 질문은 보고서를 원하는 것입니다. |
 | 깊이 | 1단계 | 에이전트는 registry 참조를 갖지 않으므로 turn이 도구를 부를 수 없습니다. Registry가 중첩 호출을 거부하는 것이 두 번째 잠금입니다. |
 | 단일 dispatch | registry timeout, 출력 상한, 민감도 스캔 | Registry가 그대로 소유합니다. |
-| 전체 prefetch | `PREFETCH_BUDGET_SECONDS` (5) | 도구별 timeout은 합계를 제한하지 못합니다. 다음 도구를 *시작하지 않는* 것만으로는 dispatch 하나만큼 초과하므로, 예산은 취소하고 완료된 것만 반환합니다. |
+| 전체 gather | `PREFETCH_BUDGET_SECONDS` (5) | 도구별 timeout은 planning과 dispatch의 합계를 제한하지 못합니다. Gather는 timeout 여부와 완료된 plan 수를 보존합니다. |
 
-Prefetch된 증거는 보조적입니다. Abstain하거나 timeout되거나 예산에 의해 취소된 도구는 아무것도
-기여하지 않고 답변 turn은 그대로 진행됩니다. Abstain 경로에서도 함께 전달되는데, 답이 없는 turn이
-바로 미리 모아둔 범위 한정 증거가 가장 값진 경우이기 때문입니다.
+일반 routed answer에서는 완료된 도구 결과가 generic response 뒤에 붙는 evidence가 아니라 primary
+response가 됩니다. 범위 한정 fact와 runtime evidence ref는 기존 agent-evidence manifest로
+들어갑니다. 유일한 도구가 없으면 owner가 일반 owned-state port로 답합니다. 도구를 선택한 뒤의
+abstention, timeout, sensitivity hold, partial completion 또는 budget expiry는 handoff를 만들며, 더
+넓은 generic answer나 contributor synthesis로 fallback하지 않습니다.
 
 소유 판정은 선택보다 먼저 이루어지며, 유사도로 하지 않습니다. 랭커는 언제나 순위를 매깁니다. 시스템이
 전혀 소유하지 않은 질문에도 가장 가까운 도구는 매칭처럼 점수가 나오며, 그런 질문 8개로 측정했을 때 의미

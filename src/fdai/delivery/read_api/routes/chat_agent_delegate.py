@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import re
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.agents import ROUTE_BUDGET_SECONDS, AgentToolStatus, PantheonRuntime
+from fdai.agents import PantheonRuntime
 from fdai.core.conversation.answer_plan import AnswerIntent, AnswerSection, build_answer_plan
 from fdai.core.conversation.answer_planning import (
     AnswerContribution,
@@ -39,12 +38,6 @@ class PantheonChatDelegate:
         user_id: str,
         session_id: str,
     ) -> dict[str, Any] | None:
-        # Before the turn, not after it. The route is deterministic, so
-        # the owning agent is known without asking it anything, and its
-        # tools can gather scoped evidence while the question is still a
-        # question. Planning after the answer would only decorate a
-        # conclusion that was already reached without the evidence.
-        tool_evidence = await self._prefetch_tool_evidence(prompt)
         turn = await self.runtime.ask(
             session_id=_scoped_session_id(user_id, session_id),
             user_id=user_id,
@@ -71,11 +64,6 @@ class PantheonChatDelegate:
                 "trace_ref": str(turn.answer.get("trace_ref") or "")[:256],
                 "handoff_from": primary,
                 "handoff_reason": abstain_reason[:128],
-                # Carried onto the handoff too: an abstain is the turn
-                # that has no answer, which is exactly when scoped
-                # evidence gathered up front is worth the most. Still the
-                # abstaining owner's own evidence - the handoff names it.
-                "tool_evidence": _owned_by(tool_evidence, primary),
             }
         facts = turn.answer.get("facts")
         conversation_policy = turn.answer.get("conversation_policy")
@@ -107,56 +95,7 @@ class PantheonChatDelegate:
                 else []
             ),
             "trace_ref": str(turn.answer.get("trace_ref") or "")[:256],
-            # Only the answering owner's own reads. The plan plays before
-            # the turn, from the routed owner, and routing and the turn
-            # can disagree; attaching another agent's evidence to this
-            # answer would present a read that had nothing to do with it.
-            "tool_evidence": _owned_by(tool_evidence, primary),
         }
-
-    async def _prefetch_tool_evidence(self, prompt: str) -> list[dict[str, Any]]:
-        """Return scoped read-tool results the question asked for.
-
-        Narrowed to the owning agent, so tool selection refines the
-        route instead of reading across agents that were never asked.
-
-        The owner comes from the same route the answering turn takes -
-        keywords first, then the semantic router - because the keyword
-        route alone settles few real questions, and requiring it would
-        leave this path almost never running. It is also the gate that
-        keeps a question nobody owns from spending reads: similarity
-        alone cannot tell "why did the bill go up" from "tell me a
-        joke", since a ranker always ranks and the nearest tool to an
-        unrelated question still scores like a match. The router already
-        decides ownership against a tuned floor and margin, so no route
-        means no prefetch.
-
-        Supplementary by design. A tool that abstains, times out, or
-        finds nothing contributes nothing, and the turn proceeds.
-        """
-        # Bounded, because this runs before the answering turn: an
-        # embedding provider that stops responding would otherwise hold
-        # the operator's answer, not just the evidence beside it. Giving
-        # up here costs the prefetch and nothing else.
-        try:
-            async with asyncio.timeout(ROUTE_BUDGET_SECONDS):
-                primary = await self.runtime.route_conversation_owner(prompt)
-        except Exception:  # noqa: BLE001 - the route is best-effort
-            return []
-        if not primary:
-            return []
-        results = await self.runtime.prefetch_conversation_tools(prompt, agents=(primary,))
-        return [
-            {
-                "agent": result.agent,
-                "tool_id": result.tool_id,
-                "answer": result.answer,
-                "facts": dict(result.facts),
-                "evidence_refs": list(result.evidence_refs),
-            }
-            for result in results
-            if result.status is AgentToolStatus.OK and result.answer
-        ]
 
     def route_answer_planning(self, prompt: str) -> AnswerPlanningRoute:
         """Return a deterministic, read-only contributor route for shadow planning."""
@@ -214,11 +153,6 @@ class PantheonChatDelegate:
             evidence_refs=evidence_refs,
             confidence=_contribution_confidence(facts),
         )
-
-
-def _owned_by(evidence: list[dict[str, Any]], agent: str) -> list[dict[str, Any]]:
-    """Keep only the evidence the answering agent produced itself."""
-    return [item for item in evidence if item.get("agent") == agent]
 
 
 def _scoped_session_id(user_id: str, session_id: str) -> str:

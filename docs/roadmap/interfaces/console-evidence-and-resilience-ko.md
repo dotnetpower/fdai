@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e09c4291fb4c5be2b18b864a1dfecedf7fa896c4
+translation_source_sha: b95da0d6435ce707617d73e0c5a1261b8924ba6c
 translation_revised: 2026-07-28
 ---
 
@@ -192,14 +192,14 @@ allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복
 selection을 unavailable로 표시합니다. Ontology projection과 결정론적 browse answer는 일반 prompt
 assembly와 분리된 자체 prompt module에 위치합니다.
 Agent answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로 표시합니다.
-그 답변 turn 전에 delegate는 질문만으로 라우팅된 owner의 선언된 read tool을 계획합니다. 어휘
-기반의 이중언어 판단이며 모델이 필요 없습니다. 범위 한정 결과는 `tool_evidence`로 전달됩니다.
-Dispatch는 도구 3개, 깊이 1단계로 제한되고 단일 prefetch 예산으로 유계이므로 질문 하나가 무제한
-읽기를 열 수 없습니다. Handoff에도 함께 전달됩니다. Abstain하는 turn이야말로 범위 한정 증거가
-가장 값진 경우이기 때문입니다. 첨부되는 것은 답한 owner 자신의 읽기뿐입니다. 계획은 turn 전에
-돌고 라우팅과 turn이 어긋날 수 있으며, 다른 에이전트의 읽기는 이 답변의 근거가 아니기
-때문입니다. 어떤 에이전트도 소유하지 않는 질문은 아무것도 실행하지 않으며, 소유 판정 route
-자체도 유계여서 멈춘 임베딩 provider는 답변이 아니라 증거만 잃게 합니다.
+Bragi가 T0/T1 owner route를 한 번 완료한 뒤, 일반 answer path는 그 owner에서 점수가 유일하게
+가장 높은 read tool 하나를 선택합니다. 완료된 tool result가 primary specialist answer가 되고,
+범위 한정 fact는 기존 agent-evidence manifest로 들어갑니다. 동점이거나 일치 항목이 없으면 owner의
+일반 response를 유지합니다. 선택된 read가 abstain, timeout, sensitivity hold 또는 partial completion
+상태이면 generic 또는 contributor fallback 없이 명시적으로 handoff합니다. Planning과 dispatch는
+깊이 1단계를 유지하며 하나의 bounded gather budget을 공유합니다. 이 일반 path는 lexical이며 agent
+route에 embedding 호출을 추가하지 않습니다.
+어떤 에이전트도 소유하지 않는 질문은 tool-answer path에 들어가지 않습니다.
 Charter version, hash 및 tool id는 hidden provenance로 유지합니다. Exact policy match일 때 model은
 Bragi global safety prompt 뒤에서 server-owned charter를 받으며, charter는 role과 voice를 제한하지만
 evidence 또는 authority가 되지 않습니다. Runtime grounding은 제공된

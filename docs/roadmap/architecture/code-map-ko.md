@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 76c6c7a234c4f4ded84f5f54c2347fc532954a71
+translation_source_sha: 931bf918184bf9b387926ffa5748c3b493cf332d
 translation_revised: 2026-07-28
 ---
 # 코드 맵
@@ -110,6 +110,12 @@ shared 패키지를 커버한다.
 | views | Workflow-matched ViewSpec -> bounded RenderedView 및 deterministic inventory architecture projection | [src/fdai/core/views/](../../../src/fdai/core/views/) | [tests/core/views/](../../../tests/core/views/) 및 read-API architecture-view test |
 | rbac | Read API 인간 RBAC | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
 | stewardship | 사람 <-> agent handover map, authoritative structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) 및 [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) 및 [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
+
+`conversation` 행의 owner-tool 세부 동작은 후처리 첨부가 아니라 인과적 경로입니다. Bragi가
+최종 T0/T1 owner route를 완료하고, 점수가 유일하게 가장 높은 owned read 하나를 실행한 다음,
+완료된 결과를 primary answer로 사용합니다. 선택된 read가 실패하면 generic 또는 contributor
+fallback 없이 handoff합니다. Delivery adapter는 완료된 답변에 무관한 tool evidence를 추가하지
+않습니다.
 
 ## 룰 카탈로그, 배포, 플랫폼
 

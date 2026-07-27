@@ -110,6 +110,11 @@ the safety-core modules held to the >= 90% coverage floor.
 | rbac | Human RBAC for the read API | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
 | stewardship | Human <-> agent handover map, authoritative structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, and signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) and [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) and [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
 
+The `conversation` owner-tool detail is causal, not a post-processing attachment. Bragi completes
+the final T0/T1 owner route, runs one uniquely highest-scoring owned read, and uses that completed
+result as the primary answer. A selected read failure hands off without generic or contributor
+fallback. The delivery adapter never adds unrelated tool evidence to a completed answer.
+
 ## Rule catalog, deploy, and platform
 
 | Subsystem | Responsibility | Source | Tests |

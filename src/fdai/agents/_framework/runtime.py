@@ -58,6 +58,7 @@ from fdai.agents._framework.semantic_routing import (
     SemanticAgentRouter,
     SemanticRouterConfig,
 )
+from fdai.agents._framework.tool_answer import answer_from_owned_tools
 from fdai.agents._framework.tool_planner import (
     MAX_TOOL_PLANS,
     ConversationToolPlan,
@@ -355,6 +356,17 @@ class PantheonRuntime:
                 bridge.subscribe(topic, name, agent.on_typed_message)
                 subscription_count += 1
 
+        conversation_tools = AgentConversationToolRegistry(
+            agents=agents,
+            disabled_agents=disabled,
+            timeout_seconds=conversation_tool_timeout_seconds,
+        )
+        semantic_tool_planner = (
+            SemanticToolPlanner(embedding_model=conversation_embedding_model, specs=PANTHEON_SPECS)
+            if conversation_embedding_model is not None
+            else None
+        )
+
         # Conversational port: wire Bragi (the narrator) to every active
         # agent's read-only conversational handler, including Bragi itself.
         # Routing is deterministic here; each agent owns its answer policy.
@@ -364,6 +376,21 @@ class PantheonRuntime:
             bragi_ref = maybe_bragi
             for name, agent in agents.items():
                 bragi_ref.register_responder(name, agent.on_conversation_turn)
+
+            async def answer_with_owned_tools(
+                agent_name: str,
+                question: str,
+                trace_ref: str,
+            ) -> dict[str, Any] | None:
+                return await answer_from_owned_tools(
+                    agent_name=agent_name,
+                    question=question,
+                    trace_ref=trace_ref,
+                    registry=conversation_tools,
+                    semantic=None,
+                )
+
+            bragi_ref.register_tool_answer(answer_with_owned_tools)
             # Conversational-port re-entry (agent-pantheon.md 7.7): an operator
             # command routes into the typed pipeline through Huginn (the sole
             # writer of object.event). Bragi builds the ActionProposal and
@@ -375,18 +402,6 @@ class PantheonRuntime:
                 bragi_ref.register_proposal_sink(maybe_huginn.ingest)
 
         huginn_active = _INGRESS_PRINCIPAL in agents
-        conversation_tools = AgentConversationToolRegistry(
-            agents=agents,
-            disabled_agents=disabled,
-            timeout_seconds=conversation_tool_timeout_seconds,
-        )
-        # Bound to the same embedding the agent router uses. Absent it,
-        # tool selection stays exactly the lexical decision it was.
-        semantic_tool_planner = (
-            SemanticToolPlanner(embedding_model=conversation_embedding_model, specs=PANTHEON_SPECS)
-            if conversation_embedding_model is not None
-            else None
-        )
         runtime = cls(
             bridge=bridge,
             agents=agents,
@@ -501,25 +516,6 @@ class PantheonRuntime:
         if self._bragi is None:
             return None
         return self._bragi.route(question)
-
-    async def route_conversation_owner(self, question: str) -> str | None:
-        """Return the agent that owns this question, or ``None`` if none does.
-
-        The deterministic route first, then Bragi's semantic router for
-        what keywords could not settle - the same path the answering turn
-        takes, so a caller that acts on this route acts on the same
-        owner the answer will.
-
-        Whether *any* agent owns the question is the point. The semantic
-        router already answers that with a tuned cosine floor and margin,
-        and reusing it keeps one such judgement in the system rather than
-        two that can disagree.
-        """
-        if self._bragi is None:
-            return None
-        decision = await self._bragi.route_with_semantic_fallback(question)
-        primary = getattr(decision, "primary_agent", None)
-        return primary if isinstance(primary, str) and primary else None
 
     def should_delegate_conversation(
         self,

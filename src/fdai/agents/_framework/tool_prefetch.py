@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fdai.agents._framework.tool_planner import (
@@ -27,6 +28,16 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 
 _LOG = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolGatherResult:
+    """One bounded plan and the results that completed under its deadline."""
+
+    plans: tuple[ConversationToolPlan, ...]
+    results: tuple[AgentToolResult, ...]
+    timed_out: bool
+    ambiguous: bool = False
 
 
 async def plan_tools(
@@ -78,11 +89,44 @@ async def prefetch_tools(
     instead and returns what finished: partial supplementary evidence
     beats a slow answer, and no evidence beats a stalled one.
     """
+    gathered = await gather_tools(
+        question,
+        registry=registry,
+        semantic=semantic,
+        agents=agents,
+        limit=limit,
+        trace_ref=trace_ref,
+    )
+    return gathered.results
+
+
+async def gather_tools(
+    question: str,
+    *,
+    registry: AgentConversationToolRegistry,
+    semantic: SemanticToolPlanner | None,
+    agents: Sequence[str],
+    limit: int,
+    trace_ref: str,
+    execute_limit: int | None = None,
+    require_unique_top: bool = False,
+) -> ToolGatherResult:
+    """Plan and execute owner tools while preserving timeout completeness."""
+
+    plans: tuple[ConversationToolPlan, ...] = ()
     results: list[AgentToolResult] = []
     try:
         async with asyncio.timeout(PREFETCH_BUDGET_SECONDS):
             plans = await plan_tools(question, semantic=semantic, agents=agents, limit=limit)
-            for plan in plans:
+            if require_unique_top and len(plans) > 1 and plans[0].score == plans[1].score:
+                return ToolGatherResult(
+                    plans=plans,
+                    results=(),
+                    timed_out=False,
+                    ambiguous=True,
+                )
+            selected = plans[:execute_limit] if execute_limit is not None else plans
+            for plan in selected:
                 results.append(
                     await registry.invoke(
                         agent_name=plan.agent,
@@ -94,9 +138,10 @@ async def prefetch_tools(
     except TimeoutError:
         _LOG.warning(
             "pantheon_tool_prefetch_budget_exhausted",
-            extra={"completed": len(results)},
+            extra={"completed": len(results), "planned": len(plans)},
         )
-    return tuple(results)
+        return ToolGatherResult(plans=plans, results=tuple(results), timed_out=True)
+    return ToolGatherResult(plans=plans, results=tuple(results), timed_out=False)
 
 
-__all__ = ["plan_tools", "prefetch_tools"]
+__all__ = ["ToolGatherResult", "gather_tools", "plan_tools", "prefetch_tools"]

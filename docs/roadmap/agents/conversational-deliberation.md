@@ -169,10 +169,15 @@ that mean nothing.
 The examples are retrieval anchors only. They are not part of the charter digest, so tuning
 retrieval never churns the audit trail, and they never reach a prompt or an answer.
 
-Tool selection also does not decide who answers. The plan runs before the turn, from the
-deterministically routed owner, and the turn can still land on a different agent; only the
-answering owner's own reads are attached to its answer, because evidence from an agent that did
-not answer is not that answer's grounding.
+Tool selection does not decide who answers. Bragi first completes the same T0/T1 owner route used
+by the turn. The tool planner then considers only that owner's declarations. An ordinary turn runs
+one uniquely highest-scoring tool; a tied top score selects no tool instead of resolving by catalog
+order. This keeps one owner decision and prevents a read from one agent being presented as another
+agent's grounding.
+
+The ordinary primary-answer path uses the lexical selector and adds no embedding call to an
+explicit or T0 agent route. The semantic tool planner remains available through the explicit
+prefetch API for callers that opt into that separate read stage.
 
 Dispatch is bounded in four ways, because a read surface that an operator question can open is a
 denial-of-service surface if any of them is missing.
@@ -182,11 +187,13 @@ denial-of-service surface if any of them is missing.
 | Plans per question | `MAX_TOOL_PLANS` (3) | A question that wants dozens of reads wants a report. |
 | Depth | one level | An agent holds no reference to the registry, so no turn can call a tool. The registry refuses a nested call as the second lock. |
 | One dispatch | registry timeout, output ceiling, sensitivity scan | Owned by the registry, unchanged. |
-| The whole prefetch | `PREFETCH_BUDGET_SECONDS` (5) | A per-tool timeout does not bound the sum. A budget that only refused to *start* the next tool would still overrun by one full dispatch, so it cancels instead and returns what completed. |
+| The whole gather | `PREFETCH_BUDGET_SECONDS` (5) | A per-tool timeout does not bound planning plus dispatch. The gather retains whether it timed out and how many planned reads completed. |
 
-Prefetched evidence is supplementary. A tool that abstains, times out, or is cancelled by the
-budget contributes nothing and the answering turn proceeds, including on the abstain path - the
-turn with no answer is exactly the one where scoped evidence gathered up front is worth the most.
+For an ordinary routed answer, a completed tool result is the primary response, not evidence added
+after a generic response. Its scoped facts and runtime evidence refs enter the normal agent-evidence
+manifest. If no unique tool matches, the owner answers through its ordinary owned-state port. Once
+a tool is selected, an abstention, timeout, sensitivity hold, partial completion, or budget expiry
+produces a handoff and never falls back to a broader generic answer or contributor synthesis.
 
 Ownership is decided before selection, and not by similarity. A ranker always ranks: the nearest
 tool to a question the system owns nothing about still scores like a match, and measured against
