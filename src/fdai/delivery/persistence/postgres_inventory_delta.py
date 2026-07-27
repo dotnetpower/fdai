@@ -31,6 +31,16 @@ _EFFECTIVE_LINKS_CTE = (
     "UNION ALL SELECT d.from_id, d.from_type, d.link_type, d.to_id, d.to_type, d.props "
     "FROM inventory_realtime_link d WHERE d.change_kind='upsert') "
 )
+_EFFECTIVE_RESOURCE_TYPES_QUERY = (
+    "WITH effective_resources AS ("
+    "SELECT r.resource_id, r.resource_type FROM inventory_snapshot_resource r "
+    "WHERE r.snapshot_id=%s AND NOT EXISTS ("
+    "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=r.resource_id) "
+    "UNION ALL SELECT d.resource_id, d.resource_type FROM inventory_realtime_resource d "
+    "WHERE d.change_kind='upsert') "
+    "SELECT resource_id, resource_type FROM effective_resources "
+    "WHERE resource_id=ANY(%s::text[])"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +174,11 @@ class PostgresInventoryDeltaProjector:
                     )
                 effective_link_kinds = tuple(
                     _choice(link, "change_kind", _CHANGE_KINDS) for link in effective_links
+                )
+                await _validate_upsert_link_endpoints(
+                    connection,
+                    snapshot_id=str(coverage["id"]),
+                    links=effective_links,
                 )
                 applied_links = 0
                 for link, link_kind in zip(effective_links, effective_link_kinds, strict=True):
@@ -351,6 +366,42 @@ def _link_owned_by(resource_id: str, link: Mapping[str, Any]) -> bool:
     if _choice(link, "link_type", _LINK_TYPES) == "contains":
         return _required_str(link, "to_id") == resource_id
     return _required_str(link, "from_id") == resource_id
+
+
+def _declared_upsert_endpoint_types(
+    links: Sequence[Mapping[str, Any]],
+) -> dict[str, str]:
+    declared: dict[str, str] = {}
+    for link in links:
+        if _choice(link, "change_kind", _CHANGE_KINDS) != "upsert":
+            continue
+        for id_key, type_key in (("from_id", "from_type"), ("to_id", "to_type")):
+            resource_id = _required_str(link, id_key)
+            resource_type = _required_str(link, type_key)
+            previous = declared.setdefault(resource_id, resource_type)
+            if previous != resource_type:
+                raise ValueError("inventory relationship endpoint declares conflicting types")
+    return declared
+
+
+async def _validate_upsert_link_endpoints(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    snapshot_id: str,
+    links: Sequence[Mapping[str, Any]],
+) -> None:
+    declared = _declared_upsert_endpoint_types(links)
+    if not declared:
+        return
+    cursor = await connection.execute(
+        _EFFECTIVE_RESOURCE_TYPES_QUERY,
+        (snapshot_id, list(declared)),
+    )
+    actual = {str(row["resource_id"]): str(row["resource_type"]) for row in await cursor.fetchall()}
+    if declared.keys() - actual.keys():
+        raise ValueError("inventory relationship endpoint is missing")
+    if any(actual[resource_id] != resource_type for resource_id, resource_type in declared.items()):
+        raise ValueError("inventory relationship endpoint type does not match resource type")
 
 
 async def _reconcile_links(

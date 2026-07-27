@@ -402,6 +402,113 @@ async def test_stale_resource_delete_does_not_tombstone_current_relationships() 
         assert await link_cursor.fetchone() is None
 
 
+async def test_realtime_overlay_rejects_dangling_relationship() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(ResourceRecord("rg-dangling/vm", "compute.vm"),),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    with pytest.raises(ValueError, match="relationship endpoint is missing"):
+        await projector(
+            {
+                "event_id": "event-dangling-link",
+                "idempotency_key": "inventory-dangling-link",
+                "inventory_change": {
+                    "kind": "upsert",
+                    "resource": {
+                        "resource_id": "rg-dangling/vm",
+                        "type": "compute.vm",
+                        "props": {"candidate": True},
+                        "provider_ref": None,
+                        "last_seen": _after_snapshot(manifest, 1),
+                    },
+                    "links": [
+                        {
+                            "change_kind": "upsert",
+                            "from_id": "rg-dangling/vm",
+                            "from_type": "compute.vm",
+                            "link_type": "depends_on",
+                            "to_id": "database-missing",
+                            "to_type": "resource-group",
+                            "props": {},
+                        }
+                    ],
+                },
+            }
+        )
+
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        cursor = await connection.execute(
+            "SELECT 1 FROM inventory_realtime_resource WHERE resource_id=%s",
+            ("rg-dangling/vm",),
+        )
+        assert await cursor.fetchone() is None
+
+
+async def test_realtime_overlay_rejects_relationship_endpoint_type_mismatch() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("rg-type-check", "resource-group"),
+                ResourceRecord("rg-type-check/vm", "compute.vm"),
+            ),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    with pytest.raises(ValueError, match="endpoint type does not match"):
+        await projector(
+            {
+                "event_id": "event-link-type-mismatch",
+                "idempotency_key": "inventory-link-type-mismatch",
+                "inventory_change": {
+                    "kind": "upsert",
+                    "resource": {
+                        "resource_id": "rg-type-check/vm",
+                        "type": "compute.vm",
+                        "props": {"candidate": True},
+                        "provider_ref": None,
+                        "last_seen": _after_snapshot(manifest, 1),
+                    },
+                    "links": [
+                        {
+                            "change_kind": "upsert",
+                            "from_id": "rg-type-check/vm",
+                            "from_type": "compute.vm",
+                            "link_type": "depends_on",
+                            "to_id": "rg-type-check",
+                            "to_type": "compute.vm",
+                            "props": {},
+                        }
+                    ],
+                },
+            }
+        )
+
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        cursor = await connection.execute(
+            "SELECT 1 FROM inventory_realtime_resource WHERE resource_id=%s",
+            ("rg-type-check/vm",),
+        )
+        assert await cursor.fetchone() is None
+
+
 async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())

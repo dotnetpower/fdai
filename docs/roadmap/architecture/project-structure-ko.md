@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b566dd1c3411954b3429679dd97b4e88fa68e530
+translation_source_sha: 57089637188bb7ca626b25631a5e4da6d12df7fd
 translation_revised: 2026-07-28
 ---
 
@@ -245,6 +245,9 @@ fdai/
   사용하므로 양수 global promotion 및 reconciliation gate와 key 범위가 분리됩니다. 일반 patch는 graph gate를 공유하므로 관련 없는 리소스는 동시에
   처리할 수 있습니다. 리소스 삭제와 `links_complete: true` 관계 교체는 graph gate를 독점하고,
   유효 관계 집합을 읽은 뒤 누락된 관계를 commit 전에 tombstone으로 기록합니다.
+  모든 relationship upsert는 effective resource graph에서 양쪽 endpoint를 확인하고 선언된 endpoint
+  type이 해당 리소스와 일치해야 합니다. Endpoint가 없거나 모순되면 리소스와 관계 변경을 함께
+  rollback합니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은
   exclusive promotion gate를 유지하므로 어떤 delta transaction과도 동시에 실행되지 않습니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한
