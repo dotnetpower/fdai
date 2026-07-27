@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a2628a42128e32cbc8678feb4563dd4a04ebc24c
+translation_source_sha: c4261c315129e52f895c5aba957212798aa58318
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -40,7 +40,7 @@ shared 패키지를 커버한다.
 | trust_router | 신뢰도 계산, T0/T1/T2 라우팅 | [src/fdai/core/trust_router/](../../../src/fdai/core/trust_router/) | [tests/core/trust_router/](../../../tests/core/trust_router/) | [architecture.instructions.md § Trust Routing](../../../.github/instructions/architecture.instructions.md#trust-routing-3-tier) |
 | tiers/t0_deterministic | 정책 + 체크리스트 + what-if + drift | [src/fdai/core/tiers/t0_deterministic/](../../../src/fdai/core/tiers/t0_deterministic/) | [tests/core/tiers/](../../../tests/core/tiers/) | project-structure-ko.md |
 | tiers/t1_lightweight | 유사도 재사용 + 소형 모델 분류 | [src/fdai/core/tiers/t1_lightweight/](../../../src/fdai/core/tiers/t1_lightweight/) | [tests/core/tiers/](../../../tests/core/tiers/) | project-structure-ko.md |
-| tiers/t2_reasoning | 프론티어 모델 추론 (신규 케이스만) | [src/fdai/core/tiers/t2_reasoning/](../../../src/fdai/core/tiers/t2_reasoning/) | [tests/core/tiers/](../../../tests/core/tiers/) | [llm-strategy-ko.md](llm-strategy-ko.md) |
+| tiers/t2_reasoning | 프론티어 모델 추론 (신규 케이스만). 선언된 model budget이 이벤트 단위로 제한하며 소진 시 HIL로 escalate | [src/fdai/core/tiers/t2_reasoning/](../../../src/fdai/core/tiers/t2_reasoning/) | [tests/core/tiers/](../../../tests/core/tiers/) | [llm-strategy-ko.md](llm-strategy-ko.md) |
 | quality_gate | 혼합 모델 + verifier + grounding (T2 가드) | [src/fdai/core/quality_gate/](../../../src/fdai/core/quality_gate/) | [tests/core/quality_gate/](../../../tests/core/quality_gate/) | [architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2) |
 | risk_gate | 통합 auto vs HIL vs deny 권위 | [src/fdai/core/risk_gate/](../../../src/fdai/core/risk_gate/) | [tests/core/risk_gate/](../../../tests/core/risk_gate/) | [decisioning/](../decisioning/) |
 | hil_resume | 사람 결정까지 park/resume하며 no-drop load plan, group당 initial dispatch 1개, atomic expiry reaping, bounded reminder, durable decision-delivery recovery 제공 | [src/fdai/core/hil_resume/](../../../src/fdai/core/hil_resume/), [hil_registry.py](../../../src/fdai/shared/providers/hil_registry.py), [hil_decision.py](../../../src/fdai/delivery/chatops/hil_decision.py) | [tests/core/hil_resume/](../../../tests/core/hil_resume/), [test_hil_callback.py](../../../tests/delivery/read_api/test_hil_callback.py), [test_hil_decision.py](../../../tests/delivery/test_hil_decision.py) | [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) |

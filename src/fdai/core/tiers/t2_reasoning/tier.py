@@ -157,16 +157,22 @@ class T2Tier:
         overflow degrades to a human, never to uncapped inference. The
         call is charged before the proposer runs, so a failing provider
         cannot be retried without limit.
+
+        The budget is keyed by ``event_id``, not ``correlation_id``: a
+        correlation id is the key a storm of related events *shares*
+        (``core/event_ingest/correlator.py``), so keying by it would
+        reason about the first event of an incident and escalate every
+        later one. The pipeline's unit of work is the event.
         """
-        correlation_id = str(context.event.correlation_id or context.event.event_id)
-        if not await self._ledger.allows(correlation_id):
+        budget_key = str(context.event.event_id)
+        if not await self._ledger.allows(budget_key):
             return T2Decision(
                 outcome=T2Outcome.ESCALATE,
                 candidate=None,
                 quality_decision=None,
                 reason="t2_budget_exhausted",
             )
-        await self._ledger.charge(correlation_id, calls=1, cost_microusd=0)
+        await self._ledger.charge(budget_key, calls=1, cost_microusd=0)
         try:
             candidate = await self._proposer.propose(context=context)
         except Exception as exc:  # noqa: BLE001 - model/provider boundary

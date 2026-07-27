@@ -266,3 +266,33 @@ async def test_a_shared_ledger_bounds_every_tier_that_binds_it() -> None:
 
     assert (await first_tier.evaluate(context=_context())).outcome is T2Outcome.PROPOSED
     assert (await second_tier.evaluate(context=_context())).reason == "t2_budget_exhausted"
+
+
+async def test_every_event_of_one_incident_still_reaches_the_proposer() -> None:
+    """A correlation id is shared by a storm; the unit of work is the event."""
+    proposer = _Proposer(_candidate())
+    tier = T2Tier(
+        proposer=proposer,
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        budget=ModelBudget(max_calls_per_correlation=1),
+    )
+    incident = "00000000-0000-0000-0000-0000000000aa"
+
+    outcomes = []
+    for index in range(3):
+        event = _event().model_copy(
+            update={
+                "event_id": f"00000000-0000-0000-0000-00000000000{index}",
+                "correlation_id": incident,
+            }
+        )
+        context = T2ProposalContext(
+            event=event,
+            target_resource_ref="resource:example/rg/x",
+            target_resource_type="compute.vm",
+            allowed_rules=(),
+        )
+        outcomes.append((await tier.evaluate(context=context)).outcome)
+
+    assert outcomes == [T2Outcome.PROPOSED] * 3
+    assert proposer.calls == 3
