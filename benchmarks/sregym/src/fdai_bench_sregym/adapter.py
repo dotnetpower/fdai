@@ -85,6 +85,8 @@ class SregymAdapter:
     async def next_task(self) -> BenchmarkTask | None:
         if not self._started:
             raise BenchmarkAdapterError("SREGym adapter MUST be started before reading tasks")
+        if self._issued_identity is not None:
+            raise BenchmarkAdapterError("a SREGym task is already awaiting submission")
         stage = await self._wait_for_next_stage()
         if stage in _TERMINAL_STAGES:
             return None

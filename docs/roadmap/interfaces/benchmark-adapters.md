@@ -142,6 +142,7 @@ The adapter accepts a submission only for the exact run, task, and stage identit
 latest `next_task()` call. It clears that identity only after the conductor accepts the submission,
 so a transport failure can retry the same result without permitting an unissued or wrong-stage
 submission.
+While that identity is outstanding, another `next_task()` call fails before polling the conductor.
 
 SREGym metric, log, trace, and Kubernetes MCP transports are not implemented in this slice. Until
 they bind through the existing providers and governed execution contracts, this plugin alone is not

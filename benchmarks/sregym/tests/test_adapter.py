@@ -140,6 +140,37 @@ async def test_submit_rejects_mismatched_issued_task() -> None:
     await client.aclose()
 
 
+async def test_next_task_rejects_outstanding_task() -> None:
+    status_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal status_calls
+        if request.url.path == "/status":
+            status_calls += 1
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "example-shop",
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+    task = await adapter.next_task()
+    assert task is not None
+
+    with pytest.raises(BenchmarkAdapterError, match="task is already awaiting submission"):
+        await adapter.next_task()
+
+    assert status_calls == 2
+    await client.aclose()
+
+
 async def test_submit_normalizes_transport_failure() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/status":
