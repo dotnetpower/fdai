@@ -114,10 +114,17 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl release upgrade` / `rollback` | Verify and atomically switch the signed-bundle active pointer | No |
 | `fdaictl extension validate` | Check extension manifest/archive compatibility and security offline | No |
 | `fdaictl trajectory validate` | Check governed dataset checksums, schema, order, and source mapping | No |
+| `fdaictl license inspect` | Verify a capability license token against the packaged public key and report entitlement status | No |
 
 The C1 commands use stable JSON schemas for automation. `onboard init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode
 default in a gitignored mode-`0600` file. Human output never prints the account identifiers.
+
+`license inspect` is offline in the same sense as bundle and kit verification: the public key ships
+with the distribution, so no network call, revocation lookup, or certificate chain is involved. It
+reports status and non-secret metadata only and never echoes the token, document, or signature. The
+entitlement contract itself lives in
+[capability-licensing.md](../fork-and-sequencing/capability-licensing.md).
 
 ## Local security audit
 

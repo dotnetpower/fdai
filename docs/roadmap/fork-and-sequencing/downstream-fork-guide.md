@@ -397,5 +397,8 @@ Hard don'ts. Any of these is a merge-blocker:
   fork's on-call runs (exemption workflow, HIL escalation,
   rollback, incident replay). Fork-specific runbooks live under
   `fork/runbooks/` and reference these upstream templates.
+- [capability-licensing.md](capability-licensing.md) - how a distribution that
+  ships an image activates entitlement: a public key inside the image, a signed
+  token in deployment configuration, and availability-only authority.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.

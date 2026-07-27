@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 6f7c7319051e1e9d1e6b98d6542a8c581f453beb
+translation_source_sha: be06a1789a5fcf1fd75f107928d4103fb175c7f4
 translation_revised: 2026-07-25
 ---
 # 설치형 배포 CLI
@@ -116,10 +116,16 @@ tool을 보고합니다.
 | `fdaictl release upgrade` / `rollback` | 서명된 bundle active pointer를 검증 후 atomic 전환 | 없음 |
 | `fdaictl extension validate` | Extension manifest/archive compatibility 및 security offline 검사 | 없음 |
 | `fdaictl trajectory validate` | Governed trajectory dataset checksum/schema/order/source mapping 검사 | 없음 |
+| `fdaictl license inspect` | Capability license token을 packaged public key로 검증하고 entitlement 상태 보고 | 없음 |
 
 C1 명령은 자동화를 위해 안정적인 JSON schema를 사용합니다. `onboard init`은 활성 subscription
 및 tenant identifier, environment, region, remote-runner 경계, shadow-mode 기본값만 gitignored
 mode-`0600` 파일에 기록합니다. 사람용 출력에는 account identifier가 표시되지 않습니다.
+
+`license inspect`는 bundle 및 kit 검증과 같은 의미에서 오프라인입니다. Public key가 distribution과
+함께 배포되므로 네트워크 호출, revocation 조회, 인증서 체인이 관여하지 않습니다. 상태와 비밀이
+아닌 metadata만 보고하며 token, document, signature를 절대 출력하지 않습니다. Entitlement contract
+자체는 [capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)에 있습니다.
 
 ## Local security audit
 

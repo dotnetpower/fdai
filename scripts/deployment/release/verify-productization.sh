@@ -38,6 +38,7 @@ python_paths=(
   scripts/deployment/azure/check-runner-egress.py
   scripts/deployment/release/build-deployment-bundle.py
   scripts/deployment/release/build-offline-kit.py
+  scripts/deployment/release/issue-license.py
   scripts/deployment/azure/verify-deployment-plan.py
   src/fdai/shared/providers/conversation_channel.py
   src/fdai/shared/providers/document_converter.py
@@ -85,6 +86,7 @@ test_paths=(
   tests/scripts/test_check_runner_egress.py
   tests/scripts/test_build_deployment_bundle.py
   tests/scripts/test_build_offline_kit.py
+  tests/scripts/test_issue_license.py
   tests/scripts/test_release_deployment_bundle_workflow.py
   tests/scripts/test_verify_deployment_plan.py
   tests/core/document_ingestion/test_document_ingestion.py

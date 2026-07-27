@@ -91,6 +91,7 @@ the safety-core modules held to the >= 90% coverage floor.
 | tools | T2 tool registry + ToolExecutor + typed command catalog | [src/fdai/core/tools/](../../../src/fdai/core/tools/) | [tests/core/tools/](../../../tests/core/tools/) |
 | web_search | Last-resort web-search seam | [src/fdai/core/web_search/](../../../src/fdai/core/web_search/) | [tests/core/web_search/](../../../tests/core/web_search/) |
 | capability_catalog | What each agent knows how to do | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
+| licensing | Signed capability entitlement for an image-delivered distribution: crypto-free token contract, availability-only resolution, and fail-safe degradation ([design](../fork-and-sequencing/capability-licensing.md)) | [src/fdai/core/licensing/](../../../src/fdai/core/licensing/) | [tests/core/licensing/](../../../tests/core/licensing/) and [tests/scripts/test_issue_license.py](../../../tests/scripts/test_issue_license.py) |
 | ontology_explorer | Deterministic Mermaid renderer for the loaded ObjectType / LinkType catalog (single module, not a package) | [src/fdai/core/ontology_explorer.py](../../../src/fdai/core/ontology_explorer.py) | [tests/core/](../../../tests/core/) |
 
 ## Operator surfaces and notifications

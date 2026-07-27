@@ -705,6 +705,27 @@
       ]
     },
     {
+      "id": "capability-licensing",
+      "paths": [
+        "src/fdai/core/licensing/**",
+        "tests/core/licensing/**",
+        "src/fdai/deployment_cli/license_inspect.py",
+        "scripts/deployment/release/issue-license.py",
+        "docs/roadmap/fork-and-sequencing/capability-licensing*.md"
+      ],
+      "must_read": [
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/fork-and-sequencing/capability-licensing.md",
+        "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update": ["docs/roadmap/fork-and-sequencing/capability-licensing.md"],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/licensing tests/scripts/test_issue_license.py",
+        "uv run mypy src/fdai/core/licensing"
+      ]
+    },
+    {
       "id": "deployment-cli",
       "paths": [
         "src/fdai/deployment_cli/**",

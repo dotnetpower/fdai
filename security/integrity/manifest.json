@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 793,
+  "file_count": 796,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "cba78e067f8786a959a14cfeaf4e6c6912a3765e36aaa460433f049829f010b5",
     ".github/instructions/agent-stewardship.instructions.md": "a1d3657f05323259023fbb1abf304495ec923f6bb917be739ed49647171195ba",
@@ -284,6 +284,9 @@
     "src/fdai/core/learning/routing.py": "c418739ce2d8dbc83e49468b6b0914f44487545986e7610148ef7af5853b8266",
     "src/fdai/core/learning/serialization.py": "87fb65d478334e9b8d5043b09926bafe4aa377c0960638f1b3718aa58c33f278",
     "src/fdai/core/learning/service.py": "92aa600827f8ff52a7efab373fdcd06eff7649a5a4a842129e58440d58dad2bf",
+    "src/fdai/core/licensing/__init__.py": "2106b8bf7740fa7b85bf18f1939841a7b0f16873f1a38858cd61b8871eaaba64",
+    "src/fdai/core/licensing/entitlement.py": "04dc3b71b7ec7f680e42e3b1b71bb58c5017298f577cdb2131651bffa284b959",
+    "src/fdai/core/licensing/token.py": "c817bf8dc4889305b9e9baa9d1ce2888cbf3762c596b2acd685b39f0535131ca",
     "src/fdai/core/measurement/__init__.py": "d2efc9dbf51bf9a9f3924faea71d35ad7aeba4c74b6f0f7de4b7adfc021f2631",
     "src/fdai/core/measurement/dora.py": "75c027f9dec9a92190a6f2bb3999afaae611b6085beaeea468b2faddd825b7e3",
     "src/fdai/core/measurement/latency_budget.py": "9ca0f9540a3f4b938871835c12202a8c808f40cad3ce1b0a4b9e3907951cc28f",
@@ -796,7 +799,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T13:23:19Z",
+  "generated_at": "2026-07-27T14:42:46Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

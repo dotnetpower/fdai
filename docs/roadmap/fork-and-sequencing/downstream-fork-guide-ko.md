@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: c9a452fcb384d7b608e82e008fa5a9fc8a28a216
+translation_source_sha: 23416701d57c0accadd01e5b2036c169b96d6aa5
 translation_revised: 2026-07-23
 ---
 
@@ -385,5 +385,8 @@ root 또는 어댑터로 이동, sync 재실행.
   절차 (exemption workflow, HIL escalation, rollback, incident replay).
   Fork-specific runbook은 `fork/runbooks/` 아래 두고 upstream 템플릿을
   참조.
+- [capability-licensing-ko.md](capability-licensing-ko.md) - 이미지로 배포하는
+  distribution이 entitlement를 활성화하는 방법: 이미지 안의 public key,
+  배포 설정의 서명된 token, available 축 전용 권한.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   모든 fork가 준수하는 customer-agnostic 스코프 계약.

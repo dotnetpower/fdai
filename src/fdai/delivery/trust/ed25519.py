@@ -199,6 +199,23 @@ class Ed25519ModelEndpointRegistrationVerifier:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class Ed25519LicenseVerifier:
+    """Verify a capability license against the key packaged in the image.
+
+    The public key is not a secret: it ships inside the runtime image so a
+    disconnected deployment can check entitlement with no network, no
+    revocation lookup, and no certificate chain. The signature covers the exact
+    canonical license document, which already carries its own schema version,
+    so no additional domain prefix is applied.
+    """
+
+    public_key_pem: bytes
+
+    def verify(self, document: bytes, signature: bytes) -> bool:
+        return _verify(self.public_key_pem, signature, document)
+
+
 def extension_signature_payload(manifest: ExtensionManifest) -> bytes:
     """Canonical domain-separated extension signature payload."""
     return _payload(
@@ -262,6 +279,7 @@ def _verify(public_key_pem: bytes | None, signature: bytes, payload: bytes) -> b
 
 __all__ = [
     "Ed25519ExtensionTrustVerifier",
+    "Ed25519LicenseVerifier",
     "Ed25519ModelEndpointRegistrationVerifier",
     "Ed25519SkillCatalogVerifier",
     "Ed25519SkillBundleTrustVerifier",

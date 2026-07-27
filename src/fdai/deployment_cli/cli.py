@@ -26,6 +26,11 @@ from fdai.deployment_cli.guided_onboarding import (
     GuidedOnboardingRequest,
     run_guided_onboarding,
 )
+from fdai.deployment_cli.license_inspect import (
+    LicenseInspectionError,
+    inspect_license,
+    inspection_exit_code,
+)
 from fdai.deployment_cli.onboarding import OnboardingError, initialize_environment
 from fdai.deployment_cli.plan_submission import (
     PlanSubmissionError,
@@ -286,6 +291,18 @@ def _build_parser() -> argparse.ArgumentParser:
     trajectory_validate.add_argument("--purpose", required=True)
     trajectory_validate.add_argument("--access-scope", required=True)
     trajectory_validate.add_argument("--output", choices=("text", "json"), default="text")
+    license_parser = subcommands.add_parser(
+        "license", help="inspect capability entitlement offline"
+    )
+    license_commands = license_parser.add_subparsers(dest="license_command", required=True)
+    license_inspect = license_commands.add_parser(
+        "inspect", help="verify a license token against the packaged public key"
+    )
+    license_inspect.add_argument("--token", type=Path, required=True)
+    license_inspect.add_argument("--public-key", type=Path, required=True)
+    license_inspect.add_argument("--image-digest", default=None)
+    license_inspect.add_argument("--tenant-binding", default=None)
+    license_inspect.add_argument("--output", choices=("text", "json"), default="text")
     return parser
 
 
@@ -607,6 +624,33 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                 file=output,
             )
         return 0
+    if args.command == "license" and args.license_command == "inspect":
+        try:
+            license_result = inspect_license(
+                token_path=args.token,
+                public_key_path=args.public_key,
+                image_digest=args.image_digest,
+                tenant_binding=args.tenant_binding,
+            )
+        except (OSError, LicenseInspectionError, ValueError) as exc:
+            if args.output == "json":
+                print(json.dumps({"error": str(exc), "active": False}), file=output)
+            else:
+                print(f"UNREADABLE: {exc}", file=output)
+            return 4
+        if args.output == "json":
+            print(license_result.to_json(), file=output)
+        else:
+            entitlement = license_result.entitlement
+            print(
+                f"{entitlement.status.value.upper()}: "
+                f"{license_result.available_count}/{license_result.catalog_count} "
+                "capabilities available",
+                file=output,
+            )
+            if entitlement.reason:
+                print(entitlement.reason, file=output)
+        return inspection_exit_code(license_result)
     if args.command == "bundle" and args.bundle_command == "verify":
         try:
             public_key = args.public_key.read_bytes()

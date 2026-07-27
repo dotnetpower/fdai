@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f922a944e4ef8283d1a60719675c92b550842492
+translation_source_sha: 57fc7611e50a350bf5e635f28de11a96a788448e
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -92,6 +92,7 @@ shared 패키지를 커버한다.
 | tools | T2 툴 레지스트리 + ToolExecutor + typed command catalog | [src/fdai/core/tools/](../../../src/fdai/core/tools/) | [tests/core/tools/](../../../tests/core/tools/) |
 | web_search | 최후 수단 웹 검색 seam | [src/fdai/core/web_search/](../../../src/fdai/core/web_search/) | [tests/core/web_search/](../../../tests/core/web_search/) |
 | capability_catalog | 각 에이전트가 아는 것 | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
+| licensing | 이미지로 전달되는 distribution을 위한 서명된 capability entitlement: crypto-free token contract, available 축 전용 해석, 안전 저하 ([design](../fork-and-sequencing/capability-licensing-ko.md)) | [src/fdai/core/licensing/](../../../src/fdai/core/licensing/) | [tests/core/licensing/](../../../tests/core/licensing/)와 [tests/scripts/test_issue_license.py](../../../tests/scripts/test_issue_license.py) |
 | ontology_explorer | 로드된 ObjectType / LinkType 카탈로그의 결정론적 Mermaid 렌더러 (단일 모듈, 패키지 아님) | [src/fdai/core/ontology_explorer.py](../../../src/fdai/core/ontology_explorer.py) | [tests/core/](../../../tests/core/) |
 
 ## 오퍼레이터 서피스와 알림
