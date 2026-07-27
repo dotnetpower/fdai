@@ -482,3 +482,60 @@ def test_cli_refuses_a_missing_release_root_without_a_traceback(tmp_path: Path) 
     assert json.loads(stdout.getvalue())["schema_version"] == (
         "fdai.deployment-cli.provision-plan.v1"
     )
+
+
+def test_an_unreadable_infra_directory_is_reported_as_a_plan_error(tmp_path: Path) -> None:
+    release_root = _write_kit(tmp_path / "kit")
+    infra = _write_infra(tmp_path / "infra")
+    infra.chmod(0o000)
+    try:
+        with pytest.raises(ProvisionPlanError, match="could not be read"):
+            _plan(tmp_path, release_root, runner=_RecordingRunner())
+    finally:
+        infra.chmod(0o700)
+
+
+def test_a_work_directory_that_cannot_be_restricted_stops_the_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_root = _write_kit(tmp_path / "kit")
+    _write_infra(tmp_path / "infra")
+    work = tmp_path / "work"
+    work.mkdir()
+    original = Path.chmod
+
+    def refuse(self: Path, mode: int, **kwargs: object) -> None:
+        if self == work:
+            raise PermissionError("not the owner")
+        original(self, mode)
+
+    monkeypatch.setattr(Path, "chmod", refuse)
+
+    with pytest.raises(ProvisionPlanError, match="restricted to its owner"):
+        _plan(tmp_path, release_root, runner=_RecordingRunner())
+
+
+def test_a_plan_path_swapped_for_a_link_is_refused_before_it_is_digested(
+    tmp_path: Path,
+) -> None:
+    release_root = _write_kit(tmp_path / "kit")
+    _write_infra(tmp_path / "infra")
+    secret = tmp_path / "secret"
+    secret.write_bytes(b"not-the-plan")
+
+    class _LinkingRunner(_RecordingRunner):
+        def __call__(
+            self,
+            command: Sequence[str],
+            cwd: Path,
+            env: Mapping[str, str],
+            timeout: int,
+        ) -> CommandResult:
+            if command[1] == "plan":
+                out = next(item for item in command if item.startswith("-out="))
+                Path(out.removeprefix("-out=")).symlink_to(secret)
+                return CommandResult(returncode=0, stdout="", stderr="")
+            return super().__call__(command, cwd, env, timeout)
+
+    with pytest.raises(ProvisionPlanError, match="wrote no plan file"):
+        _plan(tmp_path, release_root, runner=_LinkingRunner())

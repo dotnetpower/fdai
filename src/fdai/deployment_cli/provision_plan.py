@@ -220,9 +220,12 @@ def run_provision_plan(
         success_codes=(0, 2),
     )
     changes_present = plan_result.returncode == 2
-    if not plan_path.is_file():
+    if plan_path.is_symlink() or not plan_path.is_file():
         raise ProvisionPlanError("terraform plan reported success but wrote no plan file")
-    plan_path.chmod(0o600)
+    try:
+        plan_path.chmod(0o600)
+    except OSError as exc:
+        raise ProvisionPlanError(f"plan file could not be restricted to its owner: {exc}") from exc
 
     show_result = _run_step(
         execute,
@@ -316,7 +319,13 @@ def _resolve_provider_mirror(kit_root: Path, manifest: OfflineKitManifest) -> Pa
 def _resolve_infra_dir(infra_dir: Path) -> Path:
     if infra_dir.is_symlink() or not infra_dir.is_dir():
         raise ProvisionPlanError("infrastructure directory MUST be a regular directory")
-    if not any(child.suffix == ".tf" for child in infra_dir.iterdir() if child.is_file()):
+    try:
+        has_configuration = any(
+            child.suffix == ".tf" for child in infra_dir.iterdir() if child.is_file()
+        )
+    except OSError as exc:
+        raise ProvisionPlanError(f"infrastructure directory could not be read: {exc}") from exc
+    if not has_configuration:
         raise ProvisionPlanError(
             "infrastructure directory contains no Terraform configuration; "
             "point at the 'infra' directory unpacked from the signed deployment bundle"
@@ -330,10 +339,15 @@ def _prepare_work_dir(work_dir: Path) -> Path:
     try:
         work_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as exc:
-        raise ProvisionPlanError("work directory could not be created") from exc
+        raise ProvisionPlanError(f"work directory could not be created: {exc}") from exc
     if not work_dir.is_dir():
         raise ProvisionPlanError("work directory MUST be a regular directory")
-    work_dir.chmod(0o700)
+    try:
+        work_dir.chmod(0o700)
+    except OSError as exc:
+        raise ProvisionPlanError(
+            f"work directory could not be restricted to its owner: {exc}"
+        ) from exc
     return work_dir.resolve()
 
 
@@ -424,10 +438,20 @@ def _write_private_text(path: Path, content: str) -> None:
 
 
 def _file_digest(path: Path) -> str:
+    """Digest the plan through a link-refusing descriptor.
+
+    The digest is what an apply is later matched against, so it has to describe
+    the file Terraform wrote. Opening by path would let a link swapped in after
+    the write decide what gets digested.
+    """
     digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError as exc:
+        raise ProvisionPlanError(f"plan file could not be digested: {exc}") from exc
     return digest.hexdigest()
 
 
