@@ -6,42 +6,43 @@ derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: de6
 
 # Deploy Quickstart
 
-FDAI is provisioned from infrastructure-as-code under `infra/`, with Terraform as
-the execution engine and source of truth. Two equivalent paths stand up the same
-minimum-set Azure inventory: a turnkey `azd` wrapper, or Terraform directly.
-Both support a preview-first workflow. Review the plan before you run the separate
-apply step.
+FDAI is provisioned from infrastructure-as-code under `infra/`. Terraform is the
+execution engine and the source of truth. Two paths stand up the same minimum
+Azure inventory: a turnkey `azd` wrapper, or Terraform on its own. Both preview
+first, so you can review the plan before you run the separate apply step.
 
 ## Before you start
 
 - An **Azure subscription** you can create resources in, and the **Azure CLI**
-  (`az`) - plus the **Azure Developer CLI** (`azd`) for the turnkey path.
+  (`az`). The turnkey path also needs the **Azure Developer CLI** (`azd`).
 - A completed
-  [deployment preflight](../roadmap/deployment/deployment-preflight.md) - it
+  [deployment preflight](../roadmap/deployment/deployment-preflight.md). It
   collects quota, permission, connectivity, and rollback blockers before the
   control loop starts.
-- Per-environment values in a `*.tfvars` file, which is **never committed**.
-- The approved target exported explicitly as `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID`.
-   Bootstrap and turnkey helpers fail before mutation when the active identity or selected `azd`
-   environment does not prove that exact pair.
-- A FDAI runtime image built from the repository `Dockerfile`. Set `core_image`
-   to the commit tag emitted by `container-supply-chain.yml`; production uses
-   the attested digest. Terraform rejects the former Azure CLI placeholder.
+- Per-environment values in a `*.tfvars` file. Never commit that file.
+- The approved target exported as `AZURE_SUBSCRIPTION_ID` and
+  `AZURE_TENANT_ID`. Bootstrap and turnkey helpers stop before making any change
+  if the active identity or the selected `azd` environment does not match that
+  exact pair.
+- An FDAI runtime image built from the repository `Dockerfile`. Set `core_image`
+  to the commit tag that `container-supply-chain.yml` emits. Production uses the
+  attested digest, and Terraform rejects the old Azure CLI placeholder.
 - Network access from the deployment host to every private endpoint. In a
-   private-only environment, run Terraform from the VNet-connected deployment
-   runner instead of an operator workstation.
-- For a protected remote plan, configure the non-secret
-   `DEPLOY_PREFLIGHT_INPUT_JSON` repository variable with all required live categories. A missing
-   profile stops before Azure login, and a blocked probe logs only sanitized check results and
-   detected issues.
+  private-only environment, run Terraform from the VNet-connected deployment
+  runner rather than an operator workstation.
+- For a protected remote plan, set the non-secret `DEPLOY_PREFLIGHT_INPUT_JSON`
+  repository variable with every required live category. A missing profile stops
+  the run before Azure login, and a blocked probe logs only sanitized check
+  results and detected issues.
 
-## Provision the minimum-set inventory
+## Provision the minimum inventory
 
-Preview first. Apply only when the plan matches what you expect. Pick whichever
-path fits your workflow - they provision the same `infra/` Terraform.
-For a protected private-network transition, the only accepted delete is the pure retirement of
-the broad PostgreSQL Azure-services firewall rule. A replacement at that address or any other
-delete should stop the apply.
+Preview first, and apply only when the plan matches what you expect. Both paths
+provision the same `infra/` Terraform, so pick whichever fits your workflow.
+
+During a protected move to private networking, the only delete FDAI accepts is
+retiring the broad PostgreSQL Azure-services firewall rule. If the plan shows a
+replacement at that address, or any other delete, stop the apply.
 
 <!-- fdai:tabs -->
 
@@ -79,40 +80,48 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 
 <!-- fdai:steps -->
 
-1. **Verify the inventory.** Confirm the resources provisioned and the executor
-   identity has only its scoped, least-privilege permissions. Confirm the
-   subscription Event Grid delivery uses the inventory managed identity to
-   reach `aw.inventory.raw` on the operational Event Hubs shard, the primary shard stays within
-   its ten-entity Standard limit, and Huginn projects a test resource change. Confirm the Inventory
-   Job wakes every 10 minutes, PostgreSQL keeps healthy full scans at six hours, and a failed or
-   abandoned attempt retries on the next tick without granting the core a job-start role. With
-   private networking enabled, verify PostgreSQL and
-   both Event Hubs shards resolve to private addresses from the runtime subnet or peered runner,
-   complete their protocol TLS checks, and keep Event Hubs public access disabled.
-2. **Verify runtime health and identity.** Confirm the internal core probes are healthy, all 15
-   agents report through the Pantheon health snapshot, and the immediate canary publisher Job
-   completed. When the read API is enabled, verify browser Entra App Roles and confirm its
-   read/command credentials remain distinct from Thor's executor Managed Identity. When document
-   OCR is enabled, confirm the ingestion identity has `Cognitive Services User` only on the
-   configured Document Intelligence resource. When case history is enabled, confirm its dedicated
-   managed identity alone has Blob data access, the executor has no case-history Blob role, and
-   `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` matches the approved deletion cadence. When forecast
-   learning is enabled, confirm its opt-in Job publishes only raw ticks and the core has the
-   reviewed `FDAI_FORECAST_TARGETS_JSON` document.
-3. **Verify the development operations gateway.** When enabled, confirm the protected source
-   archive was deployed after Terraform apply, the current remote-build deployment succeeded,
-   both Function triggers are registered, host and idempotency storage use the reader managed
-   identity, and registered network reads succeed. With the executor principal, plan one bounded
-   mutation, submit it with the returned one-time receipt, verify replay doesn't make a second ARM
-   call, and poll the idempotency key when ARM reports `submitted`.
-4. **Onboard one bounded scope.** Start with a single resource-group-equivalent
-   scope and name its owner.
-5. **Observe in observation mode.** Let FDAI judge and audit without mutating, and
-   review its would-be actions.
+1. **Verify the inventory.** Check that the resources exist and that the executor
+   identity holds only its scoped, minimum permissions (least privilege). Then
+   confirm each of these:
+   - Subscription Event Grid delivery uses the inventory managed identity to
+     reach `aw.inventory.raw` on the operational Event Hubs shard.
+   - The primary shard stays inside its ten-entity Standard limit, and Huginn
+     projects a test resource change.
+   - The Inventory Job wakes every 10 minutes, PostgreSQL keeps healthy full
+     scans at six hours, and a failed or abandoned attempt retries on the next
+     tick without giving the core a job-start role.
+   - With private networking on, PostgreSQL and both Event Hubs shards resolve to
+     private addresses from the runtime subnet or a peered runner, pass their TLS
+     checks, and keep Event Hubs public access disabled.
+2. **Verify runtime health and identity.** Confirm the internal core probes are
+   healthy, all 15 agents report through the health snapshot, and the first canary
+   publisher Job finished. Then check the features you enabled:
+   - **Read API**: browser Entra App Roles work, and its read and command
+     credentials stay separate from Thor's executor managed identity.
+   - **Document OCR**: the ingestion identity has `Cognitive Services User` only
+     on the configured Document Intelligence resource.
+   - **Case history**: only its dedicated managed identity has Blob data access,
+     the executor has no case-history Blob role, and
+     `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` matches the approved deletion
+     cadence.
+   - **Forecast learning**: its opt-in Job publishes raw ticks only, and the core
+     has the reviewed `FDAI_FORECAST_TARGETS_JSON` document.
+3. **Verify the development operations gateway.** If you enabled it, confirm:
+   - The protected source archive was deployed after the Terraform apply, and the
+     current remote-build deployment succeeded.
+   - Both Function triggers are registered, host and idempotency storage use the
+     reader managed identity, and registered network reads succeed.
+   - With the executor principal, plan one bounded change, submit it with the
+     returned one-time receipt, replay it to prove no second ARM call happens, and
+     poll the idempotency key while ARM reports `submitted`.
+4. **Onboard one bounded scope.** Start with a single resource-group-sized scope
+   and name its owner.
+5. **Watch it in observation mode.** Let FDAI judge and audit without changing
+   anything, and review the actions it would have taken.
 6. **Promote one action.** Turn on enforcement only for an action that clears its
-   promotion gate, and leave the rest in shadow.
+   promotion gate, and leave the rest in observation mode.
 
-The [Get started](get-started.md) guide covers this first safe rollout in
+The [Get started](get-started.md) guide walks through this first safe rollout in
 depth, and [deploy and onboard](../roadmap/deployment/deploy-and-onboard.md) is
 the full deployment reference.
 

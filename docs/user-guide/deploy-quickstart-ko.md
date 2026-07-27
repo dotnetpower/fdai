@@ -1,44 +1,45 @@
 ---
 title: 배포 빠른 시작
-description: FDAI 최소 세트 인벤토리를 Azure에 프로비저닝하는 방법. 동등한 두 경로(azd 턴키 또는 Terraform 직접 실행) 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
+description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8298da39d6092104bd17d8fb206d92c09c3e96c2
+translation_source_sha: 6fedfb2fad6f9f9e76a3570a93c817dfa03c6807
 translation_revised: 2026-07-27
 ---
 
 # 배포 빠른 시작
 
-FDAI는 `infra/` 아래의 코드형 인프라(IaC)를 사용해 프로비저닝하며, Terraform을 실행
-엔진이자 단일 기준으로 사용합니다. 턴키 `azd` 래퍼를 사용하거나 Terraform을 직접 실행하는 두
-가지 동등한 경로로 동일한 최소 세트 Azure 인벤토리를 구성할 수 있습니다. 두 경로 모두
-미리보기 우선 워크플로를 지원합니다. 별도의 apply 단계를 실행하기 전에 plan을 검토하세요.
+FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Terraform이 실행 엔진이자 단일
+기준입니다. 턴키 `azd` 래퍼를 쓰거나 Terraform을 직접 실행하는 두 경로로 동일한 최소 Azure
+인벤토리를 구성할 수 있습니다. 두 경로 모두 먼저 미리보기를 제공하므로, 별도의 apply 단계를
+실행하기 전에 plan을 검토할 수 있습니다.
 
 ## 시작하기 전에
 
 - 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 턴키
-   경로에는 **Azure Developer CLI**(`azd`)도 필요합니다.
+  경로에는 **Azure Developer CLI**(`azd`)도 필요합니다.
 - [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md)을 완료해야 합니다.
-   이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
-- 환경별 값을 `*.tfvars` 파일에 입력합니다. 이 파일은 **커밋하지 마세요**.
-- Approved target을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 명시적으로 export합니다.
-   Bootstrap 및 turnkey helper는 active identity 또는 선택된 `azd` environment가 exact pair를
-   증명하지 못하면 mutation 전에 fail합니다.
-- 저장소 `Dockerfile`로 빌드한 FDAI runtime image가 필요합니다.
-   `container-supply-chain.yml`이 생성한 commit tag를 `core_image`에 설정하고 production에서는
-   attested digest를 사용하세요. Terraform은 이전 Azure CLI placeholder를 차단합니다.
-- 배포 호스트에서 모든 private endpoint로 연결할 수 있어야 합니다. Private-only 환경에서는
-   운영자 워크스테이션 대신 VNet에 연결된 배포 runner에서 Terraform을 실행하세요.
-- Protected remote plan은 non-secret `DEPLOY_PREFLIGHT_INPUT_JSON` repository variable에
-   required live category를 모두 설정해야 합니다. Profile이 없으면 Azure login 전에 중단하며,
-   probe가 차단되면 정제된 점검 결과만 로그에 출력합니다.
+  이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
+- 환경별 값을 `*.tfvars` 파일에 입력합니다. 이 파일은 커밋하지 마세요.
+- 승인된 대상을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 export합니다. 현재 자격
+  증명이나 선택된 `azd` 환경이 이 조합과 다르면, 부트스트랩과 턴키 헬퍼가 아무것도 바꾸기
+  전에 중단합니다.
+- 저장소 `Dockerfile`로 빌드한 FDAI 런타임 이미지가 필요합니다.
+  `container-supply-chain.yml`이 생성한 커밋 태그를 `core_image`에 설정하세요. 프로덕션은
+  증명된 다이제스트를 사용하며, Terraform은 예전 Azure CLI 자리표시자를 거부합니다.
+- 배포 호스트에서 모든 private endpoint로 연결할 수 있어야 합니다. 프라이빗 전용 환경에서는
+  운영자 워크스테이션 대신 VNet에 연결된 배포 러너에서 Terraform을 실행하세요.
+- 보호된 원격 plan을 쓰려면 비밀이 아닌 `DEPLOY_PREFLIGHT_INPUT_JSON` 저장소 변수에 필요한
+  라이브 카테고리를 모두 설정하세요. 프로필이 없으면 Azure 로그인 전에 중단하고, 프로브가
+  차단되면 정제된 점검 결과와 발견된 문제만 로그에 남습니다.
 
-## 최소 세트 인벤토리 프로비저닝
+## 최소 인벤토리 프로비저닝
 
-먼저 미리보기하세요. 계획이 예상과 일치할 때만 적용하세요. 워크플로에 맞는 경로를
-선택하면 됩니다. 두 경로 모두 동일한 `infra/` Terraform 구성을 사용합니다.
-보호된 private-network 전환에서는 broad PostgreSQL Azure-services firewall rule의 순수
-retirement만 delete로 수락됩니다. 해당 주소의 replacement나 다른 delete가 있으면 apply를
-중단해야 합니다.
+먼저 미리보기하고, 계획이 예상과 일치할 때만 적용하세요. 두 경로 모두 동일한 `infra/`
+Terraform 구성을 사용하므로 워크플로에 맞는 쪽을 고르면 됩니다.
+
+프라이빗 네트워킹으로 전환하는 보호된 작업에서 허용되는 delete는 광범위한 PostgreSQL
+Azure-services 방화벽 규칙을 없애는 것 하나뿐입니다. plan에 같은 주소의 교체나 다른 delete가
+보이면 apply를 중단하세요.
 
 <!-- fdai:tabs -->
 
@@ -76,38 +77,44 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 
 <!-- fdai:steps -->
 
-1. **인벤토리 검증.** 리소스가 프로비저닝됐는지, 실행자(executor) 아이덴티티가 지정된
-   범위에서 최소 권한만 갖는지 확인합니다. Subscription Event Grid delivery가 inventory
-   managed identity로 operational Event Hubs shard의 `aw.inventory.raw`에 도달하는지, primary
-   shard가 Standard entity 10개 제한 안에 있는지, Huginn이 test resource change를 project하는지
-   확인합니다. Inventory Job이 10분마다 wake하고 PostgreSQL이 정상 full scan을 6시간으로
-   유지하며 failed 또는 abandoned attempt가 다음 tick에 retry되는지 확인합니다. Core에는
-   job-start role을 부여하지 않습니다. Private networking을
-   활성화했으면 PostgreSQL과 두 Event Hubs shard가 runtime subnet 또는 peered runner에서 private
-   address로 resolve되고 protocol TLS check를 완료하는지, Event Hubs public access가 비활성화됐는지
+1. **인벤토리 검증.** 리소스가 만들어졌는지, 실행기 자격 증명이 지정된 범위에서 최소
+   권한만 갖는지 확인합니다. 그런 다음 아래 항목을 확인합니다.
+   - 구독 Event Grid 전달이 인벤토리 관리 자격 증명으로 운영 Event Hubs 샤드의
+     `aw.inventory.raw`에 도달합니다.
+   - 기본 샤드가 Standard 엔터티 10개 제한 안에 있고, Huginn이 테스트 리소스 변경을
+     투영합니다.
+   - Inventory Job이 10분마다 깨어나고, PostgreSQL이 정상 전체 스캔을 6시간으로 유지하며,
+     실패하거나 중단된 시도가 다음 tick에 재시도됩니다. 이때 코어에는 job-start 역할을
+     주지 않습니다.
+   - 프라이빗 네트워킹을 켰다면 PostgreSQL과 두 Event Hubs 샤드가 런타임 서브넷이나 피어링된
+     러너에서 프라이빗 주소로 확인되고, TLS 점검을 통과하며, Event Hubs 공개 접근이 꺼져
+     있습니다.
+2. **런타임 상태와 자격 증명 검증.** 내부 코어 프로브가 정상인지, 15개 에이전트가 모두 상태
+   스냅샷에 보고되는지, 첫 canary publisher Job이 완료됐는지 확인합니다. 이어서 켜 둔 기능만
    확인합니다.
-2. **Runtime health 및 identity 검증.** 내부 core probe가 정상인지, 15개 agent가 모두 Pantheon
-   health snapshot에 보고되는지, 즉시 실행한 canary publisher Job이 완료됐는지 확인합니다.
-   Read API를 사용하면 browser Entra App Role을 검증하고 read/command credential이 Thor의
-   executor Managed Identity와 분리됐는지 확인합니다. Document OCR을 사용하면 ingestion
-   identity가 configured Document Intelligence resource에만 `Cognitive Services User` role을
-   갖는지 확인합니다. Case history를 사용하면 전용 managed identity만 Blob data access를
-   갖는지, executor에 case-history Blob role이 없는지, 그리고
-   `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`가 승인된 deletion cadence와 일치하는지 확인합니다.
-   Forecast learning을 사용하면 opt-in Job이 raw tick만 publish하고 core에 검토된
-   `FDAI_FORECAST_TARGETS_JSON` 문서가 있는지 확인합니다.
-3. **Development operations gateway 검증.** 이 gateway를 사용하면 보호된 source archive가
-   Terraform apply 후에 배포됐는지, 현재 remote-build deployment가 성공했는지, 두 Function
-   trigger가 등록됐는지, host 및 idempotency storage가 reader managed identity를 사용하는지,
-   registered network read가 성공하는지 확인합니다. Executor principal로 bounded mutation 하나를
-   plan하고 반환된 일회용 receipt로 제출한 다음 replay가 두 번째 ARM 호출을 만들지 않는지 확인합니다.
-   ARM이 `submitted`를 반환하면 idempotency key로 상태를 조회합니다.
-4. **제한된 범위 하나 온보딩.** 리소스 그룹 수준과 동등한 범위 하나로 시작하고
-   소유자를 지정합니다.
-5. **shadow 모드로 관찰.** FDAI가 변경을 적용하지 않고 판단과 감사만 수행하도록 두고,
-   실행됐을 액션을 검토합니다.
-6. **하나의 액션 승격.** 승격 게이트를 통과한 액션만 적용 모드로 전환하고, 나머지는
-   shadow로 둡니다.
+   - **읽기 API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
+     관리 자격 증명과 분리돼 있습니다.
+   - **문서 OCR**: 수집 자격 증명이 지정된 Document Intelligence 리소스에만
+     `Cognitive Services User` 역할을 갖습니다.
+   - **케이스 히스토리**: 전용 관리 자격 증명만 Blob 데이터에 접근하고, 실행기에는
+     케이스 히스토리 Blob 역할이 없으며, `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`가 승인된
+     삭제 주기와 일치합니다.
+   - **예측 학습**: 옵트인 Job이 원시 tick만 발행하고, 코어에 검토된
+     `FDAI_FORECAST_TARGETS_JSON` 문서가 있습니다.
+3. **개발 운영 게이트웨이 검증.** 이 게이트웨이를 켰다면 아래를 확인합니다.
+   - 보호된 소스 아카이브가 Terraform apply 뒤에 배포됐고, 현재 원격 빌드 배포가
+     성공했습니다.
+   - 두 Function 트리거가 등록됐고, 호스트와 idempotency 저장소가 reader 관리 자격 증명을
+     사용하며, 등록된 네트워크 읽기가 성공합니다.
+   - 실행기 주체로 제한된 변경 하나를 plan하고, 반환된 일회용 receipt로 제출한 뒤, 재실행이
+     두 번째 ARM 호출을 만들지 않는지 확인하고, ARM이 `submitted`를 반환하는 동안 idempotency
+     키로 상태를 조회합니다.
+4. **제한된 범위 하나 온보딩.** 리소스 그룹 크기의 범위 하나로 시작하고 소유자를
+   지정합니다.
+5. **관찰 모드로 지켜보기.** FDAI가 아무것도 바꾸지 않고 판단과 감사만 하도록 두고, 실행했을
+   법한 작업을 검토합니다.
+6. **하나의 작업 승격.** 승격 기준을 통과한 작업만 적용 모드로 바꾸고, 나머지는 관찰 모드로
+   둡니다.
 
 [시작하기](get-started-ko.md) 가이드에서는 이 첫 번째 안전한 롤아웃을 자세히 다룹니다.
 [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md)은 전체 배포 참고 자료입니다.
