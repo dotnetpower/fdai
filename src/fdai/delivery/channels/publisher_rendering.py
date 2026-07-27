@@ -184,6 +184,12 @@ def teams_activity_omission_count(response: OutboundResponse, answer: str) -> in
     return omitted
 
 
+def teams_answer_truncated(answer: str) -> bool:
+    """Return whether the Teams answer block clips the canonical answer."""
+
+    return len(answer) > TEAMS_FALLBACK_MAX_CHARS
+
+
 def _teams_activity_card_result(
     response: OutboundResponse,
     answer: str,
@@ -306,5 +312,6 @@ __all__ = [
     "slack_activity_blocks",
     "slack_update_body",
     "teams_activity_omission_count",
+    "teams_answer_truncated",
     "teams_message_body",
 ]

@@ -203,6 +203,8 @@ Progress metrics can count truncation and terminal delivery, but they contain no
 id, citation, source reference, collection, channel id, or extracted content.
 Teams card-budget activity omission counts as truncation without adding the omitted activity count
 or content to metrics.
+Teams canonical-answer clipping also counts as truncation without adding answer text or length to
+metrics. Neither presentation limit changes attachment evidence authority or durable response data.
 The channel publisher keeps transport and acknowledgement handling separate from pure rendering;
 this structural split does not change protected ingestion or the redaction boundary.
 

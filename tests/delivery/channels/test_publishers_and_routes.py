@@ -750,6 +750,50 @@ async def test_teams_progress_counts_card_budget_activity_omission_as_truncation
     assert metrics.snapshot().counts["truncations"] == 1
 
 
+async def test_teams_progress_counts_canonical_answer_clipping_as_truncation() -> None:
+    answer = "a" * 5_000
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Inspect health",
+        tool="query_resource_health",
+        command="query_resource_health --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+    )
+    metrics = ConversationProgressMetrics()
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(
+            201 if request.method == "POST" else 200,
+            json={"id": "activity-answer-clipping"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+            progress_metrics=metrics,
+        )
+        await publisher.publish(
+            _response(
+                ConversationChannelKind.TEAMS,
+                text=answer,
+                activities=(activity,),
+                progress_updates=(
+                    ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Checking", 0),
+                    ChannelProgressUpdate(1, ChannelProgressStatus.CONFIRMED, answer, 1),
+                ),
+            )
+        )
+
+    assert "[TRUNCATED]" in str(captured["attachments"])
+    assert metrics.snapshot().counts["truncations"] == 1
+
+
 async def test_teams_progress_update_failure_is_ambiguous_after_initial_ack() -> None:
     calls = 0
 
