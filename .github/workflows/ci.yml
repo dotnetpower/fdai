@@ -624,7 +624,7 @@ jobs:
         run: bash scripts/quality/ci/run-python-tests.sh
 
   terraform-validate:
-    name: Terraform fmt + validate
+    name: Terraform fmt + validate + config tests
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -647,3 +647,9 @@ jobs:
 
       - name: terraform validate
         run: terraform validate
+
+      # Plan-level configuration contracts. `mock_provider` supplies synthetic
+      # provider responses, so these run with no subscription, no credentials,
+      # and no network - the same posture a disconnected tenant has.
+      - name: terraform test (mocked providers)
+        run: terraform test

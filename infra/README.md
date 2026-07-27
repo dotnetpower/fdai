@@ -201,6 +201,23 @@ private-everything tenants lives under `bootstrap/`. Keep this README and the de
 roadmap synchronized whenever a module, environment parameter, or bootstrap stage changes
 ([coding-conventions.instructions.md § Documentation Workflow](../.github/instructions/coding-conventions.instructions.md#documentation-workflow)).
 
+## Configuration tests
+
+`tests/*.tftest.hcl` assert the **planned configuration**, not the source text. Each file declares
+`mock_provider` blocks, so the plan graph is evaluated with synthetic provider responses and no
+subscription, credentials, or network are required - the same posture a disconnected tenant has.
+
+```bash
+terraform -chdir=infra init -backend=false
+terraform -chdir=infra test
+```
+
+CI runs the same command in the `terraform-validate` job. Use a configuration test whenever a
+`count`, `for_each`, or conditional expression decides whether a resource exists: a Python test can
+only prove the text is present, while a run block proves the resource is planned. Keep every value
+in a test file synthetic
+([generic-scope.instructions.md](../.github/instructions/generic-scope.instructions.md)).
+
 ## Security scan baseline
 
 `infra-lint.yml` runs Trivy and Checkov as blocking checks. `infra/.checkov.baseline` records
