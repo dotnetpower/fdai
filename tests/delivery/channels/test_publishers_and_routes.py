@@ -490,7 +490,7 @@ async def test_slack_progress_snapshots_post_once_then_edit_canonical_answer() -
         )
 
     assert [path for path, _body in calls] == ["/api/chat.postMessage", "/api/chat.update"]
-    assert "Inspect health" not in str(calls[0][1]["blocks"])
+    assert "blocks" not in calls[0][1]
     assert "Inspect health" in str(calls[1][1]["blocks"])
     assert "Canonical answer" in str(calls[1][1]["blocks"])
 
@@ -681,7 +681,7 @@ async def test_teams_progress_snapshots_post_once_then_edit_canonical_answer() -
         )
 
     assert [method for method, _body in calls] == ["POST", "PUT"]
-    assert "Inspect health" not in str(calls[0][1])
+    assert "attachments" not in calls[0][1]
     assert "Inspect health" in str(calls[1][1])
     assert "Canonical answer" in str(calls[1][1])
 

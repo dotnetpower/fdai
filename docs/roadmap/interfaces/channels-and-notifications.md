@@ -235,6 +235,9 @@ activity counts never decrease, and the last snapshot is `confirmed` only when i
 count exactly match the durable `OutboundResponse`. Slack and Teams post revision 0 once, then edit
 the same acknowledged message for later revisions. A response without observed activities remains
 a single final post. A channel with streaming disabled sends the same canonical final text fallback.
+Running revisions contain the bounded progress summary only. The final confirmed revision adds the
+canonical redacted activity blocks, so command and output evidence does not expand while work is in
+progress but remains inspectable after completion.
 
 Observed output uses explicit provenance markers. `[UPSTREAM OUTPUT TRUNCATED]` means the evidence
 producer supplied partial output; `[CHANNEL OUTPUT TRUNCATED]` means the adapter clipped output to

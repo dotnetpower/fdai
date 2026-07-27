@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 586584454200de9ab5d9c8aaa70857ed3c5435df
+translation_source_sha: 6b05590c26168a876738db9794f2cc03291cb264
 translation_revised: 2026-07-27
 ---
 
@@ -235,6 +235,9 @@ final preview에서만 snapshot을 파생합니다. Revision은 연속적이고 
 `confirmed`입니다. Slack과 Teams는 revision 0을 한 번 게시한 후 동일한 acknowledged message를
 이후 revision으로 edit합니다. Observed activity가 없는 response는 final post 하나로 유지됩니다.
 Streaming이 비활성화된 channel은 같은 canonical final text fallback을 전송합니다.
+Running revision에는 bounded progress summary만 포함됩니다. Final confirmed revision에서 canonical
+redacted activity block을 추가하므로 작업 진행 중 command 및 output evidence가 펼쳐지지 않으며 완료
+후에는 확인할 수 있습니다.
 
 Observed output은 명시적인 provenance marker를 사용합니다. `[UPSTREAM OUTPUT TRUNCATED]`는
 evidence producer가 partial output을 제공했다는 뜻이고, `[CHANNEL OUTPUT TRUNCATED]`는 adapter가

@@ -16,6 +16,7 @@ from fdai.shared.providers.conversation_channel import (
     ChannelDeliveryError,
     ChannelDeliveryOperation,
     ChannelDeliveryReceipt,
+    ChannelProgressStatus,
     ChannelProgressUpdate,
     ChannelThreadMode,
     ConversationActivity,
@@ -832,7 +833,11 @@ def _progress_response(
     return replace(
         response,
         text=update.text,
-        activities=response.activities[: update.activity_count],
+        activities=(
+            response.activities[: update.activity_count]
+            if update.status is ChannelProgressStatus.CONFIRMED
+            else ()
+        ),
         stream_chunks=(),
         progress_updates=(),
     )

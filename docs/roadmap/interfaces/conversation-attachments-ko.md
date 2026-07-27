@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 7bc5be23cde1dde5e0eebe32336efb4af46e46aa
+translation_source_sha: 57ac2b2d86674e023c32b77aaf97246e4da8b54d
 translation_revised: 2026-07-27
 title: 대화 첨부파일
 ---
@@ -205,6 +205,8 @@ Protected ingestion 완료 후 gateway는 실제 redacted coordinator activity�
 snapshot으로 projection할 수 있습니다. 이는 presentation만 변경합니다. Attachment byte, purpose,
 authorization, scanning, terminal citation check 및 agent ownership은 변경되지 않으며 progress text는
 instruction 또는 evidence authority가 되지 않습니다.
+Running revision은 summary text만 표시합니다. Canonical redacted activity evidence는 protected
+ingestion 및 coordinator 완료 후 final confirmed revision에 표시됩니다.
 
 Repository는 현재 이 composition component를 library boundary로 제공합니다. 아직
 `ProductionChannelRuntime`을 instantiate하는 standalone channel ASGI factory 또는 Terraform
