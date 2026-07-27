@@ -344,3 +344,24 @@ async def test_fails_closed_on_unknown_stage() -> None:
         await adapter.start()
 
     await client.aclose()
+
+
+async def test_fails_closed_when_stage_becomes_unknown_after_start() -> None:
+    status_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal status_calls
+        if request.url.path != "/status":
+            raise AssertionError(request.url.path)
+        status_calls += 1
+        stage = "diagnosis" if status_calls == 1 else "unknown-stage"
+        return httpx.Response(200, json={"stage": stage})
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+
+    with pytest.raises(BenchmarkAdapterError, match="unsupported SREGym stage 'unknown-stage'"):
+        await adapter.next_task()
+
+    assert status_calls == 2
+    await client.aclose()

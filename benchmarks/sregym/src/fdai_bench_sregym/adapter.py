@@ -82,9 +82,7 @@ class SregymAdapter:
         self._started = False
 
     async def start(self) -> None:
-        stage = await self._read_stage()
-        if stage not in _TASK_STAGES | _TERMINAL_STAGES:
-            raise BenchmarkAdapterError(f"unsupported SREGym stage {stage!r}")
+        await self._read_stage()
         self._started = True
 
     async def next_task(self) -> BenchmarkTask | None:
@@ -152,7 +150,10 @@ class SregymAdapter:
 
     async def _read_stage(self) -> str:
         payload = await self._get_json("/status")
-        return _required_text(payload, "stage")
+        stage = _required_text(payload, "stage")
+        if stage not in _TASK_STAGES | _TERMINAL_STAGES:
+            raise BenchmarkAdapterError(f"unsupported SREGym stage {stage!r}")
+        return stage
 
     async def _get_json(self, path: str) -> Mapping[str, Any]:
         try:
