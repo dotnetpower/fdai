@@ -215,7 +215,7 @@ domain agents consume those canonical Events before publishing their owned advis
 | Path | Purpose |
 |------|---------|
 | [src/fdai/composition/\_\_init\_\_.py](../../../src/fdai/composition/__init__.py) | Facade + `default_container` + `default_container_from_env`. |
-| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, `LlmBindings` including optional conversation T2 synthesis, `LlmBindingsUnavailableError`. |
+| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, `LlmBindings` including optional conversation T2 synthesis bound together with the metering, pricing, and model key its spend is charged against, `LlmBindingsUnavailableError`. |
 | [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM binder (composition-time model resolution). |
 | [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire container + `AzureWireOverrides`. |
 | [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | Change-feed factory wiring (Azure DevOps / GitHub change producers). |

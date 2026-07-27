@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dd6288d508c2c210b7690e460350502272a62ad1
+translation_source_sha: 6fa29f1a061bf357ca28872286e05ff7f52d642e
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -216,7 +216,7 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | 경로 | 목적 |
 |------|------|
 | [src/fdai/composition/\_\_init\_\_.py](../../../src/fdai/composition/__init__.py) | 파사드 + `default_container` + `default_container_from_env`. |
-| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, optional conversation T2 synthesis를 포함한 `LlmBindings`, `LlmBindingsUnavailableError`. |
+| [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, 지출이 차감되는 metering, pricing, model key와 함께 바인딩되는 optional conversation T2 synthesis를 포함한 `LlmBindings`, `LlmBindingsUnavailableError`. |
 | [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM 바인더 (컴포지션 타임 모델 해석). |
 | [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire 컨테이너 + `AzureWireOverrides`. |
 | [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | change-feed 팩토리 wiring (Azure DevOps / GitHub 변경 생산자). |

@@ -177,6 +177,11 @@ remain the bound. Because the charge point is the metering write rather than one
 composition root that binds the charging sink puts every metered model call under the same ceiling
 without teaching each seam about budgets.
 
+The deliberator wraps whatever sink it is given with the charging sink itself, so a composition
+root cannot bind metering and forget the ceiling. The binding is fail-loud in the other direction
+too: `LlmBindings` rejects a conversational synthesizer bound without metering, pricing, and a
+model key, because a call nobody can price is a call nobody can bound.
+
 When the budget is spent the round stays at T1 and records `t2_status: budget_denied` with the
 bound, and the turn composes the `budget_denied` prompt layer carrying that same bound, so the
 answer can state it rather than implying the deeper pass ran. Denial degrades the result; it never

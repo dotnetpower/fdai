@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 4ff4dc48004c1e10f048f8af8c9f29f6e57dcb5e
+translation_source_sha: a8d108ec0472a808339ee0c15be7766f0b581c76
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -178,6 +178,11 @@ owner의 안정적 digest로 대체합니다. 그렇지 않으면 모든 deliber
 남습니다. 차감 지점이 개별 호출 지점이 아니라 metering 기록이므로, composition root가 이 charging
 sink를 바인딩하면 각 seam에 예산을 가르치지 않고도 metering되는 모든 model 호출이 같은 천장 아래
 놓입니다.
+
+Deliberator는 전달받은 sink를 스스로 charging sink로 감싸므로, composition root가 metering만
+바인딩하고 천장을 잊는 일이 생길 수 없습니다. 반대 방향도 fail-loud입니다. `LlmBindings`는 metering,
+pricing, model key 없이 바인딩된 대화 synthesizer를 거부합니다. 가격을 매길 수 없는 호출은 한도를
+걸 수도 없기 때문입니다.
 
 예산이 소진되면 round는 T1에 머물고 `t2_status: budget_denied`와 한도를 기록하며, 해당 turn은
 같은 한도를 담은 `budget_denied` prompt layer를 조립하므로 답변이 그 한도를 직접 밝힐 수

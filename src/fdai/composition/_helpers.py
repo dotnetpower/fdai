@@ -20,6 +20,8 @@ from ..core.browser_evidence.surfaces import (
 )
 from ..core.capability_catalog import CapabilityRuntime
 from ..core.execution_backend import ExecutionBackendCoordinator
+from ..core.metering.pricing import PricingTable
+from ..core.metering.sink import MeteringSink
 from ..core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
@@ -113,6 +115,16 @@ class LlmBindings:
     rubric_evaluator: RubricEvaluator | None = None
     t2_proposer: T2Proposer | None = None
     conversation_t2_synthesizer: T2ConversationSynthesizer | None = None
+    conversation_metering: MeteringSink | None = None
+    conversation_pricing: PricingTable | None = None
+    conversation_t2_model_key: str = ""
+    """Metering seams the conversational T2 leg spends against.
+
+    Bound together with ``conversation_t2_synthesizer`` because a
+    synthesizer without them spends real money that no rollup records
+    and no ceiling bounds: the deliberator can only charge the cost of
+    an invocation it was able to price and record. ``__post_init__``
+    rejects the half-wired combination rather than degrading quietly."""
 
     def __post_init__(self) -> None:
         if not self.cross_check_models:
@@ -127,6 +139,19 @@ class LlmBindings:
             raise ValueError(
                 "LlmBindings.debate_orchestrator requires both critic_model "
                 "and judge_model to be bound"
+            )
+        # A metered call is a bounded call: the conversational
+        # budget charges what metering records, so an unmetered
+        # synthesizer would spend without a money ceiling.
+        if self.conversation_t2_synthesizer is not None and (
+            self.conversation_metering is None
+            or self.conversation_pricing is None
+            or not self.conversation_t2_model_key
+        ):
+            raise ValueError(
+                "LlmBindings.conversation_t2_synthesizer requires "
+                "conversation_metering, conversation_pricing, and "
+                "conversation_t2_model_key so its spend is metered and bounded"
             )
 
     def require_t2_proposer(self) -> T2Proposer:

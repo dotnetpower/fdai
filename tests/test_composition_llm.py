@@ -1568,3 +1568,51 @@ def test_primary_not_routed_when_pool_below_two(tmp_path: Path) -> None:
     bindings = _bind_with_pool(tmp_path, flag=True, pool_size=1)
     assert isinstance(bindings.cross_check_models[0], AzureOpenAICrossCheckModel)
     assert not isinstance(bindings.cross_check_models[0], LatencyRoutedCrossCheckModel)
+
+
+def test_a_conversational_synthesizer_without_metering_is_a_wiring_error() -> None:
+    """An unmetered synthesizer spends money no ceiling can bound.
+
+    The conversational budget charges what metering records, so a
+    synthesizer bound without a sink, a price list, and a model key
+    would call a paid model with only the call cap left standing.
+    """
+
+    from fdai.core.quality_gate.testing import MatchTypeCrossCheckModel
+    from fdai.core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
+
+    class _FakeSynthesizer:
+        async def synthesize(self, *args, **kwargs):  # pragma: no cover - never called
+            raise NotImplementedError
+
+    with pytest.raises(ValueError, match="conversation_metering"):
+        LlmBindings(
+            embedding_model=DeterministicEmbeddingModel(),
+            cross_check_models=(MatchTypeCrossCheckModel(model_id="x"),),
+            conversation_t2_synthesizer=_FakeSynthesizer(),  # type: ignore[arg-type]
+        )
+
+
+def test_a_fully_metered_conversational_synthesizer_binds() -> None:
+    """The positive half: all three seams present is a legal binding."""
+    from fdai.core.metering.pricing import PricingTable
+    from fdai.core.metering.sink import InMemoryMeteringSink
+    from fdai.core.quality_gate.testing import MatchTypeCrossCheckModel
+    from fdai.core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
+
+    class _FakeSynthesizer:
+        async def synthesize(self, *args, **kwargs):  # pragma: no cover - never called
+            raise NotImplementedError
+
+    bindings = LlmBindings(
+        embedding_model=DeterministicEmbeddingModel(),
+        cross_check_models=(MatchTypeCrossCheckModel(model_id="x"),),
+        conversation_t2_synthesizer=_FakeSynthesizer(),  # type: ignore[arg-type]
+        conversation_metering=InMemoryMeteringSink(),
+        conversation_pricing=PricingTable.from_mapping(
+            {"gpt-test": {"input_per_1k": "1.00", "output_per_1k": "2.00", "currency": "USD"}}
+        ),
+        conversation_t2_model_key="gpt-test",
+    )
+
+    assert bindings.conversation_t2_model_key == "gpt-test"

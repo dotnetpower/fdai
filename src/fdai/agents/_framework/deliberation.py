@@ -15,6 +15,7 @@ from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.introspection import is_action_intent
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 from fdai.core.metering.budget import (
+    BudgetChargingMeteringSink,
     BudgetLedger,
     InMemoryBudgetLedger,
     ModelBudget,
@@ -133,7 +134,14 @@ class ConversationDeliberator:
         self._budget = escalation_budget or ModelBudget()
         self._ledger: BudgetLedger = escalation_ledger or InMemoryBudgetLedger(self._budget)
         self._pricing = pricing
-        self._metering = metering
+        # Wrap here, not at the caller: the ledger is built inside this
+        # constructor, so a composition root cannot share it without
+        # reaching into the deliberator. Wrapping internally makes the
+        # metering write the single charge point by construction, and a
+        # plain sink handed in from outside still bounds the money.
+        self._metering: MeteringSink | None = (
+            BudgetChargingMeteringSink(metering, self._ledger) if metering is not None else None
+        )
         self._t2_model_key = t2_model_key
 
     async def deliberate(
