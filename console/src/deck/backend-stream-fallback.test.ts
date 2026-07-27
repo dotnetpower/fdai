@@ -646,6 +646,33 @@ describe("askBackendStream fallback typewriter", () => {
     );
   });
 
+  test("ignores a conflicting confirmed frame with the same revision", async () => {
+    const body = [
+      'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
+      'event: confirmed\ndata: {"seq":2,"revision":0,"segment_index":0,' +
+        '"text":"Canonical","status":"consistent","evidence_refs":[]}\n\n',
+      'event: confirmed\ndata: {"seq":3,"revision":0,"segment_index":0,' +
+        '"text":"Conflicting duplicate","status":"consistent","evidence_refs":[]}\n\n',
+      'event: done\ndata: {"seq":4,"revision":0,"answer":"Canonical",' +
+        '"model":"gpt-test"}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    const confirmations: string[] = [];
+    const before = mod.streamProtocolMetricsSnapshot();
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onConfirmed: (segment) => confirmations.push(segment.text),
+    });
+
+    expect(confirmations).toEqual(["Canonical"]);
+    expect(reply.confirmed?.text).toBe("Canonical");
+    expect(mod.streamProtocolMetricsSnapshot().confirmedSegments).toBe(
+      before.confirmedSegments + 1,
+    );
+  });
+
   test("fails closed when a terminal stream has a sequence gap", async () => {
     const body = [
       'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',

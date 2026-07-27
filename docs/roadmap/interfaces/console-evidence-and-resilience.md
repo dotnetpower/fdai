@@ -296,7 +296,9 @@ draft text to confirmed content.
 The Web reducer validates branch kind, monotonic status, timing, evidence-reference, and text bounds
 before rendering. It shows compact branch summaries and keeps observed execution details collapsed
 by default. It applies a confirmed segment only after queued token paint and any correction revision
-have drained. A missing `seq` value between frames makes the turn partial even if a later `done`
+have drained. Confirmed revisions advance strictly; another frame with the same or an older revision
+is a stale replay and cannot replace canonical text or increment confirmation metrics. A missing
+`seq` value between frames makes the turn partial even if a later `done`
 arrives, so an incomplete stream cannot inherit terminal verification.
 
 Web, Teams, and Slack consume the same ordered event reduction:

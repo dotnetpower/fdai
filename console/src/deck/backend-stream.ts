@@ -282,7 +282,7 @@ export async function askBackendStream(
       }
     } else if (event === "confirmed") {
       const confirmed = parseConfirmedAnswerSegment(object, revision);
-      if (confirmed !== null && confirmed.revision >= (confirmedSegment?.revision ?? -1)) {
+      if (confirmed !== null && confirmed.revision > (confirmedSegment?.revision ?? -1)) {
         confirmedSegment = confirmed;
         confirmedSegmentCount += 1;
       }

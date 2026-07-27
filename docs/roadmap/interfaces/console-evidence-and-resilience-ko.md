@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fc82bb761bf0ce6d75c73cef414e61515021c151
+translation_source_sha: 92063056adab9c79ecc39e865f99a479a710946d
 translation_revised: 2026-07-27
 ---
 
@@ -290,9 +290,11 @@ canonical이며 conversation history에 저장되는 유일한 answer입니다. 
 
 Web reducer는 rendering 전에 branch kind, monotonic status, timing, evidence-reference 및 text bound를
 검증합니다. Compact branch summary를 표시하고 observed execution detail은 기본적으로 접어 둡니다.
-Queued token paint와 correction revision이 모두 drain된 후에만 confirmed segment를 적용합니다. Frame
-사이에 `seq` 값이 누락되면 이후 `done`이 도착해도 turn을 partial로 표시하므로 incomplete stream이
-terminal verification을 상속하지 않습니다.
+Queued token paint와 correction revision이 모두 drain된 후에만 confirmed segment를 적용합니다.
+Confirmed revision은 strictly advance하며 같은 revision 또는 이전 revision의 다른 frame은 stale
+replay이므로 canonical text를 바꾸거나 confirmation metric을 증가시킬 수 없습니다. Frame 사이에
+`seq` 값이 누락되면 이후 `done`이 도착해도 turn을 partial로 표시하므로 incomplete stream이 terminal
+verification을 상속하지 않습니다.
 
 Web, Teams 및 Slack은 동일한 ordered event reduction을 사용합니다.
 
