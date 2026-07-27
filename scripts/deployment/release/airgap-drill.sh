@@ -63,63 +63,26 @@ PYTHON="$repo_root/.venv/bin/python"
 
 KIT="$WORKDIR/kit"
 BUNDLE_VERSION="0.1.0"
-CLI_VERSION="$("$PYTHON" -c 'from importlib.metadata import version; print(version("fdai"))')"
 PLATFORM_TAG="linux-x86_64"
-WHEEL="python/fdai-${CLI_VERSION}-py3-none-any.whl"
 BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
 stage() {
   echo "== stage (network allowed) =="
   rm -rf "$WORKDIR"
-  mkdir -p "$WORKDIR" "$KIT"/{python,deployment,terraform,bin,sbom}
+  mkdir -p "$WORKDIR"
 
   openssl genpkey -algorithm ed25519 -out "$WORKDIR/bundle-key.pem" 2>/dev/null
   openssl genpkey -algorithm ed25519 -out "$WORKDIR/release-key.pem" 2>/dev/null
-  openssl pkey -in "$WORKDIR/release-key.pem" -pubout -out "$WORKDIR/release-root.pub"
   chmod 600 "$WORKDIR"/*.pem
 
-  echo "-- signed deployment bundle"
-  SOURCE_DATE_EPOCH=1700000000 PYTHONPATH=src "$PYTHON" \
-    scripts/deployment/release/build-deployment-bundle.py \
-    --destination "$WORKDIR/bundle" --archive "$WORKDIR/bundle.tar.gz" \
-    --private-key "$WORKDIR/bundle-key.pem" --public-key-output "$WORKDIR/bundle-key.pub" \
-    --bundle-version "$BUNDLE_VERSION" --release-channel development \
-    --min-cli-version 0.1.0 >/dev/null
-
-  echo "-- terraform provider mirror"
-  # Mirror from a scratch copy so `terraform init` never writes .terraform into
-  # the signed bundle directory.
-  rm -rf "$WORKDIR/mirror-src"
-  cp -r "$WORKDIR/bundle/infra" "$WORKDIR/mirror-src"
-  (cd "$WORKDIR/mirror-src" && terraform init -backend=false -input=false >/dev/null)
-  (cd "$WORKDIR/mirror-src" && terraform providers mirror -platform=linux_amd64 "$WORKDIR/mirror" >/dev/null)
-  rm -rf "$WORKDIR/mirror-src"
-
-  echo "-- fdai wheel"
-  uv build --wheel --out-dir "$WORKDIR/wheels" >/dev/null
-
-  echo "-- assemble kit"
-  cp "$WORKDIR/wheels/fdai-${CLI_VERSION}-py3-none-any.whl" "$KIT/python/"
-  cp "$WORKDIR/bundle.tar.gz" "$KIT/$BUNDLE_IN_KIT"
-  cp "$(command -v terraform)" "$KIT/terraform/terraform"
-  cp -r "$WORKDIR/mirror" "$KIT/terraform/providers"
-  command -v opa >/dev/null 2>&1 || {
-    echo "airgap-drill: BLOCKED - opa is required to assemble a representative kit." >&2
-    exit 2
-  }
-  cp "$(command -v opa)" "$KIT/bin/opa"
-  printf '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1,"components":[]}\n' \
-    > "$KIT/sbom/offline-kit.cdx.json"
-
-  echo "-- sign kit"
-  PYTHONPATH=src "$PYTHON" scripts/deployment/release/build-offline-kit.py \
-    --kit "$KIT" --private-key "$WORKDIR/release-key.pem" \
-    --release-root "$WORKDIR/release-root.pub" \
-    --kit-version "$CLI_VERSION" --cli-version "$CLI_VERSION" \
-    --bundle-version "$BUNDLE_VERSION" --platform-tag "$PLATFORM_TAG" \
-    --python-wheel "$WHEEL" --deployment-bundle "$BUNDLE_IN_KIT" \
-    --terraform-binary terraform/terraform --provider-mirror-prefix terraform/providers \
-    --opa-binary bin/opa --sbom-path sbom/offline-kit.cdx.json >/dev/null
+  # The drill runs the real release staging script, so a green drill exercises
+  # the release path itself rather than a second copy of it.
+  bash scripts/deployment/release/stage-offline-kit.sh \
+    --out "$WORKDIR" \
+    --release-key "$WORKDIR/release-key.pem" \
+    --bundle-key "$WORKDIR/bundle-key.pem" \
+    --bundle-version "$BUNDLE_VERSION" \
+    --platform-tag "$PLATFORM_TAG" >/dev/null
 
   echo "-- issue a drill license"
   PYTHONPATH=src "$PYTHON" scripts/deployment/release/issue-license.py \
@@ -151,6 +114,10 @@ if [[ "$SKIP_STAGE" -eq 0 ]]; then
 else
   [[ -d "$KIT" ]] || { echo "airgap-drill: --skip-stage needs an existing kit." >&2; exit 2; }
 fi
+
+# The kit declares which CLI it was built for; verification binds that exact
+# value, so read it rather than assume the local environment matches.
+CLI_VERSION="$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["cli_version"])' "$KIT/offline-kit.json")"
 
 echo "== verify (network namespace, no route, no DNS) =="
 REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" \

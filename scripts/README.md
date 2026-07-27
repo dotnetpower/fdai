@@ -17,7 +17,7 @@ entry point; place other scripts in the domain directories below.
 | `catalog/` | Rule and chaos-scenario ingestion, generation, validation, execution, and evidence tools. |
 | `deployment/local/` | Local pgvector and Redpanda development stack lifecycle. |
 | `deployment/azure/` | Azure provisioning, deployment-plan, runner, and environment operations. |
-| `deployment/release/` | Deployment bundle and offline kit construction, license issuing, the air-gap drill, and productization verification. |
+| `deployment/release/` | Deployment bundle and offline kit staging, signing, license issuing, the air-gap drill, and productization verification. |
 | `automation/` | Session, workflow, Git auto-pull, and diff-scoped test helpers. |
 | `lib/` | Stable machine-readable support data shared by repository scripts. |
 

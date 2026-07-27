@@ -73,9 +73,10 @@ hardcodes a registry host, so the mirror seam cannot decay into an unpinned pull
 
 ### 4. Deliver the CLI and bundle as a signed offline kit
 
-Release engineering stages the kit on a connected host - the `fdai` wheel and every transitive
-wheel, the signed deployment bundle, the pinned Terraform binary and provider mirror, the policy
-engine binary, and the software bill of materials - then signs it with
+Release engineering stages the kit on a connected host with
+`scripts/deployment/release/stage-offline-kit.sh`, which collects the `fdai` wheel and every
+transitive wheel, the signed deployment bundle, the pinned Terraform binary and provider mirror,
+the policy engine binary, and the software bill of materials, then signs the result with
 `scripts/deployment/release/build-offline-kit.py`. The manifest is minted from the staged tree, so
 it cannot attest to content the verifier would reject, and the release private key never enters the
 kit.
@@ -142,10 +143,10 @@ sequence above is a checklist a person follows rather than one command.
 ## Rehearsing the whole path with no network
 
 `scripts/deployment/release/airgap-drill.sh` runs the handover in the two phases a customer
-receives it, so the disconnected path is exercised rather than asserted. The stage phase builds the
-wheel, the signed deployment bundle, and a Terraform provider mirror, then assembles and signs one
-real offline kit. The verify phase re-runs every disconnected step inside a network namespace that
-has no route and no name resolution.
+receives it, so the disconnected path is exercised rather than asserted. The stage phase runs the
+real `stage-offline-kit.sh` with throwaway keys, so a green drill exercises the release path itself
+rather than a second copy of it. The verify phase re-runs every disconnected step inside a network
+namespace that has no route and no name resolution.
 
 ```bash
 bash scripts/deployment/release/airgap-drill.sh
@@ -180,7 +181,7 @@ deployment additionally requires its own regulatory and residency review
 | Gap | Effect today | Owning document |
 |-----|--------------|-----------------|
 | The trust-root ceremony has not run, so no pinned public root ships in the wheel | inspection can never report a verified offline kit; it stays `candidate` or `review` | [offline-trust-ceremony.md](../../runbooks/offline-trust-ceremony.md) |
-| Kit staging is a manual release task | no automated job collects the wheels, bundle, Terraform binary, provider mirror, policy engine, and bill of materials | [provisioning-execution-profiles.md](provisioning-execution-profiles.md) |
+| Kit staging is not wired into the release workflow | `stage-offline-kit.sh` assembles and signs a kit, but a release still runs it by hand with operator-held keys | [provisioning-execution-profiles.md](provisioning-execution-profiles.md) |
 | Bootstrap plan and apply orchestration and teardown remain target behavior | the operator drives the sequence by hand | [installable-deployment-cli.md](installable-deployment-cli.md) |
 | No self-hosted model adapter | a site with no cloud reachability has no adaptive path at all | [tech-stack.md](../architecture/tech-stack.md) |
 

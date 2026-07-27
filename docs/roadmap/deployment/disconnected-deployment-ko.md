@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 3cfd2f614a5a6c8ae3410f83dfe442f65bb75ec8
-translation_revised: 2026-07-27
+translation_source_sha: 4f9c6a4a1a428c5f68b4aaf9ca240bcc42c390f6
+translation_revised: 2026-07-28
 ---
 # 폐쇄망 배포
 
@@ -77,9 +77,9 @@ Base image가 digest pin을 잃거나 registry host를 하드코딩하면
 
 ### 4. CLI와 bundle을 서명된 offline kit으로 전달
 
-Release 엔지니어링이 connected host에서 kit을 staging합니다. `fdai` wheel과 모든 transitive
-wheel, 서명된 deployment bundle, pinned Terraform binary 및 provider mirror, 정책 엔진 binary,
-software bill of materials입니다. 그다음
+Release 엔지니어링이 connected host에서 `scripts/deployment/release/stage-offline-kit.sh`로 kit을
+staging합니다. 이 스크립트가 `fdai` wheel과 모든 transitive wheel, 서명된 deployment bundle,
+pinned Terraform binary 및 provider mirror, 정책 엔진 binary, software bill of materials를 모으고
 `scripts/deployment/release/build-offline-kit.py`로 서명합니다. Manifest는 staged tree에서
 생성되므로 verifier가 거부할 내용을 증언할 수 없고, release private key는 kit에 들어가지
 않습니다.
@@ -146,8 +146,8 @@ plan/apply orchestration이 목표 동작으로 남아 있어, 위 순서는 한
 ## 네트워크 없이 전 경로 예행연습
 
 `scripts/deployment/release/airgap-drill.sh`는 고객이 받는 것과 같은 두 단계로 인계를 실행합니다.
-그래서 폐쇄망 경로가 주장이 아니라 실증됩니다. Stage 단계는 wheel, 서명된 deployment bundle,
-Terraform provider mirror를 만들고 실제 offline kit 하나를 조립해 서명합니다. Verify 단계는 route도
+그래서 폐쇄망 경로가 주장이 아니라 실증됩니다. Stage 단계는 실제 `stage-offline-kit.sh`를
+일회용 key로 실행하므로, 드릴 통과는 release 경로 자체를 실증합니다. Verify 단계는 route도
 name resolution도 없는 network namespace 안에서 모든 폐쇄망 단계를 다시 실행합니다.
 
 ```bash
@@ -182,7 +182,7 @@ residency 검토를 추가로 요구합니다
 | Gap | 오늘의 영향 | 소유 문서 |
 |-----|-------------|-----------|
 | Trust-root 의식이 실행되지 않아 wheel에 pinned public root가 없음 | inspection이 offline kit을 verified로 보고할 수 없고 `candidate` 또는 `review`로 남음 | [offline-trust-ceremony-ko.md](../../runbooks/offline-trust-ceremony-ko.md) |
-| Kit staging이 수동 release 작업 | wheel, bundle, Terraform binary, provider mirror, 정책 엔진, bill of materials를 모으는 자동 job이 없음 | [provisioning-execution-profiles-ko.md](provisioning-execution-profiles-ko.md) |
+| Kit staging이 release workflow에 연결되지 않음 | `stage-offline-kit.sh`가 kit을 조립하고 서명하지만, release는 여전히 operator 보관 key로 수동 실행 | [provisioning-execution-profiles-ko.md](provisioning-execution-profiles-ko.md) |
 | Bootstrap plan/apply orchestration과 teardown이 목표 동작으로 남음 | 운영자가 순서를 수동으로 진행 | [installable-deployment-cli-ko.md](installable-deployment-cli-ko.md) |
 | Self-hosted model 어댑터 없음 | 클라우드 도달성이 없는 사이트는 적응형 경로가 아예 없음 | [tech-stack-ko.md](../architecture/tech-stack-ko.md) |
 
