@@ -67,6 +67,14 @@ class _StartFailingAdapter(_Adapter):
         raise RuntimeError("startup failed")
 
 
+class _DoubleFailingAdapter(_Adapter):
+    async def next_task(self) -> BenchmarkTask | None:
+        raise RuntimeError("primary failed")
+
+    async def close(self) -> None:
+        raise RuntimeError("cleanup failed")
+
+
 async def test_runner_processes_and_submits_each_task_once() -> None:
     adapter = _Adapter((_task("task-1"), _task("task-2")))
 
@@ -86,6 +94,15 @@ async def test_runner_closes_adapter_when_start_fails() -> None:
         await BenchmarkRunner(adapter=adapter, processor=_Processor()).run()
 
     assert adapter.closed is True
+
+
+async def test_runner_preserves_primary_failure_when_cleanup_fails() -> None:
+    adapter = _DoubleFailingAdapter(())
+
+    with pytest.raises(RuntimeError, match="primary failed") as error:
+        await BenchmarkRunner(adapter=adapter, processor=_Processor()).run()
+
+    assert error.value.__notes__ == ["benchmark adapter cleanup also failed (RuntimeError)"]
 
 
 async def test_runner_rejects_duplicate_task_before_second_processing() -> None:

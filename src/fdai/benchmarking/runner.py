@@ -56,6 +56,7 @@ class BenchmarkRunner:
 
         seen: set[tuple[str, str, str]] = set()
         counts = {status: 0 for status in BenchmarkStatus}
+        primary_error: BaseException | None = None
         try:
             await self._adapter.start()
             while True:
@@ -76,8 +77,18 @@ class BenchmarkRunner:
                     )
                 await self._adapter.submit(submission)
                 counts[submission.status] += 1
+        except BaseException as exc:
+            primary_error = exc
+            raise
         finally:
-            await self._adapter.close()
+            try:
+                await self._adapter.close()
+            except BaseException as cleanup_error:
+                if primary_error is None:
+                    raise
+                primary_error.add_note(
+                    f"benchmark adapter cleanup also failed ({type(cleanup_error).__name__})"
+                )
 
         return BenchmarkRunSummary(
             adapter_id=self._adapter.adapter_id,
