@@ -92,6 +92,12 @@ manifest, binds the exact CLI and platform version, rejects symlinks and extra f
 every digest. Presence is never trust: an unverified kit stays `candidate`, and rejected content is
 `incomplete`.
 
+The kit's CycloneDX document names every file it carries with a SHA-256, which is the half of the
+handover that carries the outside supply chain: the Terraform binary, the policy engine binary, and
+every mirrored provider with its exact version. A signature proves the document was not altered but
+cannot notice a document that describes nothing, so the drill asserts that the SBOM accounts for
+every file the manifest lists.
+
 ### 5. Keep the rule catalog fresh without public egress
 
 The signed deployment bundle already carries the rule-catalog schema, the deployment profiles, and

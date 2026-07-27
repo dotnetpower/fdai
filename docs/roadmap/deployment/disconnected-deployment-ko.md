@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: fe55a838b07fa3954931dc0b7d6c5e4c7355e755
+translation_source_sha: c15a58bc0e48ba24d84aad8c7052f42957410063
 translation_revised: 2026-07-28
 ---
 # 폐쇄망 배포
@@ -94,6 +94,12 @@ pinned Terraform binary 및 provider mirror, 정책 엔진 binary, software bill
 CLI 및 platform version을 binding하며, symlink와 추가 file을 거부하고, 모든 digest를 streaming
 합니다. 존재는 결코 신뢰가 아닙니다. 검증되지 않은 kit은 `candidate`로 남고, 거부된 내용은
 `incomplete`입니다.
+
+Kit의 CycloneDX 문서는 kit이 담은 모든 file을 SHA-256과 함께 나열합니다. Kit은 handover에서
+외부 공급망을 담는 쪽입니다. Terraform binary, 정책 엔진 binary, 그리고 mirror된 모든
+provider와 그 정확한 version이 여기 있습니다. Signature는 문서가 변조되지 않았음을 증명하지만
+아무것도 기술하지 않는 문서를 알아채지는 못합니다. 그래서 drill은 SBOM이 manifest가 나열한
+모든 file을 설명하는지 단정합니다.
 
 ### 5. 공용 egress 없이 rule catalog 최신화
 

@@ -113,8 +113,69 @@ cp "$OUT/bundle.tar.gz" "$KIT/$BUNDLE_IN_KIT"
 cp "$(command -v terraform)" "$KIT/terraform/terraform"
 cp -r "$OUT/mirror" "$KIT/terraform/providers"
 cp "$(command -v opa)" "$KIT/bin/opa"
-printf '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1,"components":[]}\n' \
-  > "$KIT/sbom/offline-kit.cdx.json"
+
+echo "-- kit SBOM"
+# The deployment bundle already ships a real CycloneDX document listing every
+# file it carries with a SHA-256. The kit shipped an empty components array,
+# which reads as compliant while describing nothing - and the kit is the half
+# that carries the outside supply chain: the Terraform binary, the OPA binary,
+# and every mirrored provider. A recipient who cannot enumerate those has no
+# supply-chain visibility at all.
+"$PYTHON" - "$KIT" "sbom/offline-kit.cdx.json" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+sbom_relative = sys.argv[2]
+
+
+def digest(path: Path) -> str:
+    checksum = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            checksum.update(chunk)
+    return checksum.hexdigest()
+
+
+components = []
+for directory, _subdirectories, names in os.walk(root):
+    for name in names:
+        entry = Path(directory) / name
+        relative = entry.relative_to(root).as_posix()
+        # The SBOM cannot contain its own digest; the kit manifest covers it.
+        if relative == sbom_relative:
+            continue
+        components.append(
+            {
+                "type": "file",
+                "name": relative,
+                "hashes": [{"alg": "SHA-256", "content": digest(entry)}],
+            }
+        )
+components.sort(key=lambda component: component["name"])
+if not components:
+    raise SystemExit("stage-offline-kit: refusing to write an SBOM describing nothing")
+sbom_path = root / sbom_relative
+sbom_path.parent.mkdir(parents=True, exist_ok=True)
+sbom_path.write_text(
+    json.dumps(
+        {
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.5",
+            "version": 1,
+            "components": components,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    + "\n",
+    encoding="utf-8",
+)
+print(f"   {len(components)} components")
+PY
 
 echo "-- sign kit"
 PYTHONPATH=src "$PYTHON" scripts/deployment/release/build-offline-kit.py \

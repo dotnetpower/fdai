@@ -163,6 +163,23 @@ result = verify_offline_kit(
 )
 print(f\"   verified {result.file_count} files, {result.total_bytes} bytes\")
 " "$KIT" "$WORKDIR/release-root.pub" "$CLI_VERSION" "$PLATFORM_TAG"
+# Kit verification proves the SBOM has not been tampered with; it cannot notice
+# that the SBOM describes nothing. An empty components array reads as compliant
+# and gives a recipient no supply-chain visibility, so assert the content too.
+"$PYTHON" - "$KIT" <<'"'"'PY'"'"'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+manifest = json.loads((root / "offline-kit.json").read_text(encoding="utf-8"))
+sbom = json.loads((root / manifest["sbom_path"]).read_text(encoding="utf-8"))
+described = {component["name"] for component in sbom["components"]}
+missing = sorted(set(manifest["files"]) - described - {manifest["sbom_path"]})
+if missing:
+    raise SystemExit(f"airgap-drill: FAIL - the kit SBOM omits {missing}")
+print(f"   SBOM describes {len(described)} kit files")
+PY
 
 echo "-- 3. signed deployment bundle"
 PYTHONPATH=src "$PYTHON" -m fdai.deployment_cli bundle verify \
