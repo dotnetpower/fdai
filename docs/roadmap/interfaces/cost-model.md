@@ -128,7 +128,11 @@ tokens:
 Rules that hold regardless of model choice:
 
 - The **budget cap is the ceiling**; exceeding it does not spend more, it queues findings to
-  HIL.
+  HIL. `ModelBudget` in `core/metering/budget.py` declares that ceiling in microUSD for every
+  LLM path, and `BudgetLedger` enforces it before the call: the T2 tier escalates to HIL with
+  `t2_budget_exhausted`, and the conversational port stays at T1 with `budget_denied`. The
+  per-unit bounds are always on; a fleet-wide total exists only when a deployment declares one,
+  because a total that never resets is a kill switch rather than a budget.
 - Model choice is **configuration**, not code
   ([llm-strategy.md](../architecture/llm-strategy.md)); a swap by measured cost/quality is safe.
 - Provider-side rate limits and per-request timeout keep any single event from blowing the

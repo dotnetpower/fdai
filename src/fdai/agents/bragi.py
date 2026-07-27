@@ -37,8 +37,6 @@ from fdai.agents._framework.bragi_proposal import build_action_proposal
 from fdai.agents._framework.bragi_routing import route_question, translate_action_intent
 from fdai.agents._framework.deliberation import (
     ConversationDeliberator,
-    EscalationBudget,
-    EscalationLedger,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.introspection import (
@@ -48,6 +46,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
+from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
 
@@ -109,8 +108,8 @@ class Bragi(Agent):
         *,
         semantic_router: SemanticAgentRouter | None = None,
         t2_synthesizer: T2ConversationSynthesizer | None = None,
-        escalation_budget: EscalationBudget | None = None,
-        escalation_ledger: EscalationLedger | None = None,
+        escalation_budget: ModelBudget | None = None,
+        escalation_ledger: BudgetLedger | None = None,
         pricing: PricingTable | None = None,
         metering: MeteringSink | None = None,
         t2_model_key: str = "",

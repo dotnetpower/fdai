@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.quality_gate.gate import (
     QualityCandidate,
     QualityDecision,
@@ -51,9 +52,11 @@ def _candidate(*, confidence: dict[str, float] | None = None) -> QualityCandidat
 class _Proposer:
     def __init__(self, candidate: QualityCandidate | None) -> None:
         self._candidate = candidate
+        self.calls = 0
 
     async def propose(self, *, context: T2ProposalContext) -> QualityCandidate | None:
         del context
+        self.calls += 1
         return self._candidate
 
 
@@ -180,3 +183,86 @@ async def test_real_gate_escalates_on_low_confidence() -> None:
     tier = T2Tier(proposer=_Proposer(_candidate(confidence={"a": 0.2})), quality_gate=gate)
     decision = await tier.evaluate(context=_context())
     assert decision.outcome is T2Outcome.ESCALATE
+
+
+# ---------------------------------------------------------------------------
+# Declared model ceiling (cost-model.md: overflow degrades to a human)
+# ---------------------------------------------------------------------------
+
+
+async def test_a_spent_budget_escalates_instead_of_reasoning_past_the_ceiling() -> None:
+    """Overflow degrades to HIL, never to uncapped inference."""
+    proposer = _Proposer(_candidate())
+    tier = T2Tier(
+        proposer=proposer,
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        budget=ModelBudget(max_calls_per_correlation=1, max_calls_total=4),
+    )
+
+    first = await tier.evaluate(context=_context())
+    second = await tier.evaluate(context=_context())
+
+    assert first.outcome is T2Outcome.PROPOSED
+    assert second.outcome is T2Outcome.ESCALATE
+    assert second.reason == "t2_budget_exhausted"
+    assert second.candidate is None
+    # The ceiling held: the model was consulted once, not twice.
+    assert proposer.calls == 1
+
+
+async def test_a_zero_budget_never_reaches_the_proposer() -> None:
+    proposer = _Proposer(_candidate())
+    tier = T2Tier(
+        proposer=proposer,
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        budget=ModelBudget(max_calls_per_correlation=0, max_calls_total=0),
+    )
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.ESCALATE
+    assert decision.reason == "t2_budget_exhausted"
+    assert proposer.calls == 0
+
+
+async def test_a_failing_proposer_still_consumed_the_budget_it_was_granted() -> None:
+    """A failing provider MUST NOT be retriable without limit."""
+
+    class _BrokenProposer:
+        calls = 0
+
+        async def propose(self, *, context: T2ProposalContext) -> QualityCandidate | None:
+            self.calls += 1
+            raise RuntimeError("provider down")
+
+    proposer = _BrokenProposer()
+    tier = T2Tier(
+        proposer=proposer,
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        budget=ModelBudget(max_calls_per_correlation=1, max_calls_total=4),
+    )
+
+    first = await tier.evaluate(context=_context())
+    second = await tier.evaluate(context=_context())
+
+    assert first.reason.startswith("t2_proposer_error")
+    assert second.reason == "t2_budget_exhausted"
+    assert proposer.calls == 1
+
+
+async def test_a_shared_ledger_bounds_every_tier_that_binds_it() -> None:
+    """One declared ceiling, not one per construction site."""
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=1, max_calls_total=1))
+    first_tier = T2Tier(
+        proposer=_Proposer(_candidate()),
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        budget_ledger=ledger,
+    )
+    second_tier = T2Tier(
+        proposer=_Proposer(_candidate()),
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        budget_ledger=ledger,
+    )
+
+    assert (await first_tier.evaluate(context=_context())).outcome is T2Outcome.PROPOSED
+    assert (await second_tier.evaluate(context=_context())).reason == "t2_budget_exhausted"

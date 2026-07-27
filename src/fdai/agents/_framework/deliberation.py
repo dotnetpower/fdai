@@ -7,13 +7,18 @@ import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 from fdai.agents._framework.base import AgentSpec
 from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.introspection import is_action_intent
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
+from fdai.core.metering.budget import (
+    BudgetLedger,
+    InMemoryBudgetLedger,
+    ModelBudget,
+    to_microusd,
+)
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
 from fdai.core.metering.sink import MeteringSink
@@ -25,145 +30,17 @@ _MAX_ANSWER_CHARS = 16_000
 _MAX_CLAIMS = 3
 _MAX_PARTICIPANTS = 3
 _MAX_T2_CONCLUSION_CHARS = 4_000
-_MAX_TRACKED_CORRELATIONS = 1_024
 #: Same rough tokenizer the prompt composer uses, so an estimate here and
 #: a layer budget there speak in one unit.
 _CHARS_PER_TOKEN = 4
 _T2_CONVERSATION_CAPABILITY = "t2.conversation.synthesis"
 _CURRENCY = "USD"
-_MICROS_PER_UNIT = Decimal(1_000_000)
 _LOG = logging.getLogger(__name__)
 
 CallResponder = Callable[
     [str, str, dict[str, Any]],
     Awaitable[tuple[dict[str, Any] | None, str | None]],
 ]
-
-
-@dataclass(frozen=True, slots=True)
-class EscalationBudget:
-    """Pre-declared ceiling on conversational model escalation.
-
-    ``cost-model.md`` requires the model budget to be a ceiling: overflow
-    degrades to a cheaper path, never to uncapped inference. The budget
-    is denominated in microUSD, the same unit
-    :class:`~fdai.core.task_worker.models.TaskWorkerBudget` already uses,
-    and is measured against the shipped pricing table.
-
-    The call caps are the fail-safe, not the point. A model with no
-    configured price yields no cost, so a cost-only ceiling would be no
-    ceiling at all for exactly the model nobody priced. Both bounds are
-    checked and either one denies.
-    """
-
-    max_calls_per_correlation: int = 1
-    max_calls_total: int = 64
-    max_cost_microusd_per_correlation: int = 50_000
-    max_cost_microusd_total: int = 2_000_000
-
-    def __post_init__(self) -> None:
-        if self.max_calls_per_correlation < 0 or self.max_calls_total < 0:
-            raise ValueError("escalation budget limits MUST be non-negative")
-        if self.max_calls_per_correlation > self.max_calls_total:
-            raise ValueError("per-correlation escalation budget MUST fit the total budget")
-        if self.max_calls_total > _MAX_TRACKED_CORRELATIONS:
-            # The ledger tracks per-correlation spend in a capped map. A
-            # total budget larger than that cap would let an eviction drop
-            # a spent correlation and silently refund its budget, so the
-            # ceiling would not be a ceiling. Reject it instead.
-            raise ValueError(
-                "total escalation budget MUST NOT exceed "
-                f"{_MAX_TRACKED_CORRELATIONS} tracked correlations"
-            )
-        if self.max_cost_microusd_per_correlation < 0 or self.max_cost_microusd_total < 0:
-            raise ValueError("escalation budget cost limits MUST be non-negative")
-        if self.max_cost_microusd_per_correlation > self.max_cost_microusd_total:
-            raise ValueError("per-correlation cost budget MUST fit the total cost budget")
-
-
-@dataclass(frozen=True, slots=True)
-class EscalationSpend:
-    """What one correlation has consumed against the declared ceiling."""
-
-    calls: int = 0
-    cost_microusd: int = 0
-
-
-@runtime_checkable
-class EscalationLedger(Protocol):
-    """Account for conversational model escalation against a budget.
-
-    A DI seam, like every other durable-state seam in the pantheon: the
-    upstream default is process-local, and a deployment that needs the
-    ceiling to survive a restart binds a durable implementation at the
-    composition root.
-
-    Async by contract because a durable implementation is I/O-bound.
-    Implementations MUST be deterministic for a given charge sequence so
-    a recorded conversation replays to the same allow / deny decisions.
-    """
-
-    async def allows(self, correlation_id: str) -> bool:
-        """Return whether another escalation fits every declared bound."""
-        ...
-
-    async def charge(self, correlation_id: str, *, calls: int, cost_microusd: int) -> None:
-        """Add consumption. MUST NOT refund: both arguments are non-negative."""
-        ...
-
-    async def spend(self, correlation_id: str) -> EscalationSpend:
-        """Return what ``correlation_id`` has consumed so far."""
-        ...
-
-
-class InMemoryEscalationLedger:
-    """Upstream default: process-local, deterministic, bounded accounting.
-
-    Non-durable on purpose, like :class:`InMemoryMeteringSink`: it makes
-    the ceiling work out of the box and a restart resets it. The
-    correlation map cannot overflow while budget remains, because each
-    charge adds at most one key and the total call budget is capped at
-    the map's size.
-    """
-
-    def __init__(self, budget: EscalationBudget | None = None) -> None:
-        self._budget = budget or EscalationBudget()
-        self._per_correlation: dict[str, EscalationSpend] = {}
-        self._total = EscalationSpend()
-
-    @property
-    def budget(self) -> EscalationBudget:
-        return self._budget
-
-    async def allows(self, correlation_id: str) -> bool:
-        spent = self._per_correlation.get(correlation_id, EscalationSpend())
-        return (
-            self._total.calls < self._budget.max_calls_total
-            and self._total.cost_microusd < self._budget.max_cost_microusd_total
-            and spent.calls < self._budget.max_calls_per_correlation
-            and spent.cost_microusd < self._budget.max_cost_microusd_per_correlation
-        )
-
-    async def charge(self, correlation_id: str, *, calls: int, cost_microusd: int) -> None:
-        if calls < 0 or cost_microusd < 0:
-            raise ValueError("escalation charges MUST be non-negative")
-        self._total = EscalationSpend(
-            calls=self._total.calls + calls,
-            cost_microusd=self._total.cost_microusd + cost_microusd,
-        )
-        if (
-            correlation_id not in self._per_correlation
-            and len(self._per_correlation) >= _MAX_TRACKED_CORRELATIONS
-        ):
-            self._per_correlation.pop(next(iter(self._per_correlation)))
-        prior = self._per_correlation.get(correlation_id, EscalationSpend())
-        self._per_correlation[correlation_id] = EscalationSpend(
-            calls=prior.calls + calls,
-            cost_microusd=prior.cost_microusd + cost_microusd,
-        )
-
-    async def spend(self, correlation_id: str) -> EscalationSpend:
-        return self._per_correlation.get(correlation_id, EscalationSpend())
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,8 +118,8 @@ class ConversationDeliberator:
         semantic_router: SemanticAgentRouter | None,
         t2_synthesizer: T2ConversationSynthesizer | None,
         call_responder: CallResponder,
-        escalation_budget: EscalationBudget | None = None,
-        escalation_ledger: EscalationLedger | None = None,
+        escalation_budget: ModelBudget | None = None,
+        escalation_ledger: BudgetLedger | None = None,
         pricing: PricingTable | None = None,
         metering: MeteringSink | None = None,
         t2_model_key: str = "",
@@ -253,8 +130,8 @@ class ConversationDeliberator:
         self._semantic_router = semantic_router
         self._t2_synthesizer = t2_synthesizer
         self._call_responder = call_responder
-        self._budget = escalation_budget or EscalationBudget()
-        self._ledger: EscalationLedger = escalation_ledger or InMemoryEscalationLedger(self._budget)
+        self._budget = escalation_budget or ModelBudget()
+        self._ledger: BudgetLedger = escalation_ledger or InMemoryBudgetLedger(self._budget)
         self._pricing = pricing
         self._metering = metering
         self._t2_model_key = t2_model_key
@@ -509,7 +386,7 @@ class ConversationDeliberator:
             prompt_tokens=prompt_chars // _CHARS_PER_TOKEN,
             completion_tokens=_MAX_T2_CONCLUSION_CHARS // _CHARS_PER_TOKEN,
         )
-        return _to_microusd(self._pricing.cost_of(model_key=self._t2_model_key, usage=usage))
+        return to_microusd(self._pricing.cost_of(model_key=self._t2_model_key, usage=usage))
 
     async def _settle(
         self,
@@ -527,7 +404,7 @@ class ConversationDeliberator:
         """
         if outcome.usage is None or not outcome.model_key:
             return
-        measured = _to_microusd(
+        measured = to_microusd(
             self._pricing.cost_of(model_key=outcome.model_key, usage=outcome.usage)
             if self._pricing is not None
             else None
@@ -597,17 +474,3 @@ __all__ = [
     "DeliberationRequest",
     "T2ConversationSynthesizer",
 ]
-
-
-def _to_microusd(cost: Decimal | None) -> int:
-    """Convert a priced cost to whole microUSD, rounding up.
-
-    Rounding up keeps the ceiling conservative: a fraction of a microUSD
-    that rounded to zero would let an unbounded number of tiny calls
-    through a cost budget.
-    """
-    if cost is None:
-        return 0
-    micros = cost * _MICROS_PER_UNIT
-    whole = int(micros)
-    return whole + 1 if micros > whole else whole

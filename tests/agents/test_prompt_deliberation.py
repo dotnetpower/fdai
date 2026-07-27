@@ -11,13 +11,13 @@ import pytest
 from fdai.agents._framework.charters import conversation_prompt_layers
 from fdai.agents._framework.deliberation import (
     DeliberationRequest,
-    EscalationBudget,
     SynthesisOutcome,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
+from fdai.core.metering.budget import ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.records import InvocationScope
 from fdai.core.metering.sink import InMemoryMeteringSink
@@ -331,7 +331,7 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
         conversation_embedding_model=_CrossDomainEmbedding(),
         semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
         conversation_t2_synthesizer=synthesizer,
-        conversation_escalation_budget=EscalationBudget(max_calls_per_correlation=1),
+        conversation_escalation_budget=ModelBudget(max_calls_per_correlation=1),
     )
 
     first = asyncio.run(
@@ -374,7 +374,7 @@ def test_a_zero_budget_never_calls_the_model_at_all() -> None:
         conversation_embedding_model=_CrossDomainEmbedding(),
         semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
         conversation_t2_synthesizer=synthesizer,
-        conversation_escalation_budget=EscalationBudget(
+        conversation_escalation_budget=ModelBudget(
             max_calls_per_correlation=0,
             max_calls_total=0,
         ),
@@ -395,9 +395,9 @@ def test_a_zero_budget_never_calls_the_model_at_all() -> None:
 
 def test_escalation_budget_rejects_an_incoherent_ceiling() -> None:
     with pytest.raises(ValueError, match="non-negative"):
-        EscalationBudget(max_calls_per_correlation=-1)
-    with pytest.raises(ValueError, match="fit the total budget"):
-        EscalationBudget(max_calls_per_correlation=4, max_calls_total=2)
+        ModelBudget(max_calls_per_correlation=-1)
+    with pytest.raises(ValueError, match="fit the total call budget"):
+        ModelBudget(max_calls_per_correlation=4, max_calls_total=2)
 
 
 def test_a_denied_budget_reaches_the_agent_prompt_for_the_turn() -> None:
@@ -419,29 +419,26 @@ def test_a_denied_budget_reaches_the_agent_prompt_for_the_turn() -> None:
 
 def test_a_total_budget_larger_than_the_ledger_is_rejected() -> None:
     """An evictable ledger would refund spent budget, so the ceiling would leak."""
-    from fdai.agents._framework.deliberation import _MAX_TRACKED_CORRELATIONS
+    from fdai.core.metering.budget import MAX_TRACKED_CORRELATIONS
 
     with pytest.raises(ValueError, match="tracked correlations"):
-        EscalationBudget(
+        ModelBudget(
             max_calls_per_correlation=1,
-            max_calls_total=_MAX_TRACKED_CORRELATIONS + 1,
+            max_calls_total=MAX_TRACKED_CORRELATIONS + 1,
         )
 
 
 def test_spent_budget_is_never_refunded_by_ledger_eviction() -> None:
-    from fdai.agents._framework.deliberation import (
-        _MAX_TRACKED_CORRELATIONS,
-        InMemoryEscalationLedger,
-    )
+    from fdai.core.metering.budget import MAX_TRACKED_CORRELATIONS, InMemoryBudgetLedger
 
-    ledger = InMemoryEscalationLedger(
-        EscalationBudget(max_calls_per_correlation=1, max_calls_total=_MAX_TRACKED_CORRELATIONS)
+    ledger = InMemoryBudgetLedger(
+        ModelBudget(max_calls_per_correlation=1, max_calls_total=MAX_TRACKED_CORRELATIONS)
     )
     asyncio.run(ledger.charge("victim", calls=1, cost_microusd=0))
 
     # Fill the ledger with every other correlation the budget can pay for.
     async def fill() -> None:
-        for index in range(_MAX_TRACKED_CORRELATIONS - 1):
+        for index in range(MAX_TRACKED_CORRELATIONS - 1):
             await ledger.charge(f"c{index}", calls=1, cost_microusd=0)
 
     asyncio.run(fill())
@@ -483,7 +480,7 @@ _PRICING = PricingTable.from_mapping(
 def _priced_runtime(
     synthesizer: _T2Synthesizer,
     *,
-    budget: EscalationBudget,
+    budget: ModelBudget,
     metering: InMemoryMeteringSink | None = None,
 ) -> PantheonRuntime:
     return PantheonRuntime.build(
@@ -504,7 +501,7 @@ def test_a_spent_cost_ceiling_denies_the_next_escalation() -> None:
     synthesizer = _T2Synthesizer(model_key="gpt-test", usage=TokenUsage(1_000, 500))
     runtime = _priced_runtime(
         synthesizer,
-        budget=EscalationBudget(
+        budget=ModelBudget(
             max_calls_per_correlation=8,
             max_calls_total=8,
             # One call prices well above this, so the money runs out first.
@@ -532,7 +529,7 @@ def test_a_measured_call_is_metered_for_replay() -> None:
     """A budget that cannot be audited is not evidence-governed."""
     sink = InMemoryMeteringSink()
     synthesizer = _T2Synthesizer(model_key="gpt-test", usage=TokenUsage(2_000, 1_000))
-    runtime = _priced_runtime(synthesizer, budget=EscalationBudget(), metering=sink)
+    runtime = _priced_runtime(synthesizer, budget=ModelBudget(), metering=sink)
 
     asyncio.run(
         runtime.deliberate(
@@ -559,7 +556,7 @@ def test_an_unpriced_model_still_hits_the_call_ceiling() -> None:
     synthesizer = _T2Synthesizer(model_key="unpriced", usage=TokenUsage(9_000, 9_000))
     runtime = _priced_runtime(
         synthesizer,
-        budget=EscalationBudget(max_calls_per_correlation=1, max_calls_total=1),
+        budget=ModelBudget(max_calls_per_correlation=1, max_calls_total=1),
     )
 
     first = asyncio.run(
@@ -578,7 +575,7 @@ def test_an_estimate_is_charged_before_a_provider_can_fail() -> None:
     """A failing provider MUST NOT be retriable without limit."""
     runtime = _priced_runtime(
         _T2Synthesizer(model_key="gpt-test"),
-        budget=EscalationBudget(max_calls_per_correlation=1, max_calls_total=4),
+        budget=ModelBudget(max_calls_per_correlation=1, max_calls_total=4),
     )
     runtime.agents["Bragi"]._deliberator._t2_synthesizer = _T2FailureSynthesizer(  # noqa: SLF001
         RuntimeError("provider down")

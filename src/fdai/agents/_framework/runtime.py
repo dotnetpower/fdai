@@ -44,8 +44,6 @@ from fdai.agents._framework.conversation_tools import (
     AgentToolResult,
 )
 from fdai.agents._framework.deliberation import (
-    EscalationBudget,
-    EscalationLedger,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
@@ -79,6 +77,7 @@ from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
 from fdai.core.learning import PostTurnReviewCoordinator
+from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
@@ -150,8 +149,8 @@ class PantheonRuntime:
         handler_observer: AgentHandlerObserver | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
         conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
-        conversation_escalation_budget: EscalationBudget | None = None,
-        conversation_escalation_ledger: EscalationLedger | None = None,
+        conversation_escalation_budget: ModelBudget | None = None,
+        conversation_escalation_ledger: BudgetLedger | None = None,
         conversation_pricing: PricingTable | None = None,
         conversation_metering: MeteringSink | None = None,
         conversation_t2_model_key: str = "",

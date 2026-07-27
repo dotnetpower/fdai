@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 30df710ee87ec6e519964bff79a90d72690f4dd3
+translation_source_sha: 066b8af531b6f71c05cf15347c3417e86c14648c
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -151,10 +151,10 @@ uncapped inference로 가지 않습니다. `EscalationBudget`은 그 천장을 m
 
 | 한도 | 기본값 | 이유 |
 |------|--------|------|
-| `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | 실제 천장. 대화 하나가 쓸 수 있는 금액입니다. |
-| `max_cost_microusd_total` | 2,000,000 (2 USD) | Correlation과 무관하게 폭주하는 caller를 가둡니다. |
-| `max_calls_per_correlation` | 1 | Fail-safe. 두 번째 synthesis는 같은 bounded claim을 다시 읽을 뿐입니다. |
-| `max_calls_total` | 64 | Fail-safe. 가격이 없는 model은 비용이 0이므로, 비용만 보는 천장은 하필 아무도 가격을 매기지 않은 model에 대해 천장이 아닙니다. |
+| `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | 항상 적용. 실제 천장이며 대화 하나가 쓸 수 있는 금액입니다. |
+| `max_calls_per_correlation` | 1 | 항상 적용되는 fail-safe. 가격이 없는 model은 비용이 0이므로, 비용만 보는 천장은 하필 아무도 가격을 매기지 않은 model에 대해 천장이 아닙니다. |
+| `max_cost_microusd_total` | 미선언 | Fleet 천장은 배포가 선언했을 때만 존재합니다. |
+| `max_calls_total` | 미선언 | 마찬가지입니다. 리셋되지 않는 총량은 예산이 아니라 kill switch입니다. 이후 모든 turn이 영원히 사람에게 넘어가며, 아무도 그것을 요청하지 않았습니다. |
 
 두 한도 중 하나만 걸려도 거부하며, 호출 전에 둘 다 검사합니다. 지출은 두 단계로 차감합니다.
 

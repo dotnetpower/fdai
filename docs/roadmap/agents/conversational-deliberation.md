@@ -148,10 +148,10 @@ before the synthesizer is called.
 
 | Limit | Default | Why |
 |-------|---------|-----|
-| `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | The real ceiling: what one conversation may spend. |
-| `max_cost_microusd_total` | 2,000,000 (2 USD) | Contains a runaway caller regardless of correlation. |
-| `max_calls_per_correlation` | 1 | Fail-safe. A second synthesis re-reads the same bounded claims. |
-| `max_calls_total` | 64 | Fail-safe. An unpriced model yields no cost, so a cost-only ceiling would be no ceiling for exactly the model nobody priced. |
+| `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | Always on. The real ceiling: what one conversation may spend. |
+| `max_calls_per_correlation` | 1 | Always on, fail-safe. An unpriced model yields no cost, so a cost-only ceiling would be no ceiling for exactly the model nobody priced. |
+| `max_cost_microusd_total` | undeclared | A fleet ceiling exists only when a deployment declares one. |
+| `max_calls_total` | undeclared | Same. A total that never resets is a kill switch, not a budget: every later turn would degrade to a human forever, and nobody asked for that. |
 
 Either bound denies, and both are checked before the call. Spend is charged in two steps:
 

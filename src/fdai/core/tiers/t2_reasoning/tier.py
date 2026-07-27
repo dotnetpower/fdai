@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
+from fdai.core.metering.budget import BudgetLedger, InMemoryBudgetLedger, ModelBudget
 from fdai.core.quality_gate.gate import (
     QualityCandidate,
     QualityDecision,
@@ -58,7 +59,7 @@ class T2Outcome(StrEnum):
     """Quality gate cleared the candidate; eligible for the risk-gate."""
 
     ESCALATE = "escalate"
-    """Gate abstained or the cross-check disagreed; route to HIL."""
+    """Gate abstained, cross-check disagreed, or the budget is spent; route to HIL."""
 
     DENIED = "denied"
     """Verifier explicitly rejected the candidate; no execution."""
@@ -128,16 +129,20 @@ _OUTCOME_MAP = {
 class T2Tier:
     """Frontier-model reasoning tier - propose, quality-gate, map."""
 
-    __slots__ = ("_proposer", "_quality_gate")
+    __slots__ = ("_budget", "_ledger", "_proposer", "_quality_gate")
 
     def __init__(
         self,
         *,
         proposer: T2Proposer,
         quality_gate: QualityGateProtocol,
+        budget: ModelBudget | None = None,
+        budget_ledger: BudgetLedger | None = None,
     ) -> None:
         self._proposer = proposer
         self._quality_gate = quality_gate
+        self._budget = budget or ModelBudget()
+        self._ledger: BudgetLedger = budget_ledger or InMemoryBudgetLedger(self._budget)
 
     async def evaluate(self, *, context: T2ProposalContext) -> T2Decision:
         """Propose a candidate for ``event`` and gate it.
@@ -145,7 +150,23 @@ class T2Tier:
         Fail-closed: an abstaining proposer or any non-eligible gate outcome
         yields a non-executing decision. Only a gate ``ELIGIBLE`` verdict
         makes the candidate eligible for the risk-gate.
+
+        The declared model budget is checked first. An event that cannot
+        be reasoned about within the ceiling escalates to HIL rather than
+        spending past it, which is what ``cost-model.md`` requires:
+        overflow degrades to a human, never to uncapped inference. The
+        call is charged before the proposer runs, so a failing provider
+        cannot be retried without limit.
         """
+        correlation_id = str(context.event.correlation_id or context.event.event_id)
+        if not await self._ledger.allows(correlation_id):
+            return T2Decision(
+                outcome=T2Outcome.ESCALATE,
+                candidate=None,
+                quality_decision=None,
+                reason="t2_budget_exhausted",
+            )
+        await self._ledger.charge(correlation_id, calls=1, cost_microusd=0)
         try:
             candidate = await self._proposer.propose(context=context)
         except Exception as exc:  # noqa: BLE001 - model/provider boundary
