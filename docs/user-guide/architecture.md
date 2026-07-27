@@ -7,50 +7,52 @@ sidebar:
 
 # FDAI Architecture
 
-FDAI uses an agent-driven architecture: independently runnable agents own
-bounded responsibilities and coordinate through schema-validated events. It is
-a headless, event-driven control plane with a thin read-only console,
-pull-request-native delivery, and ChatOps approval. The architecture separates
-the components that observe, decide, approve, execute, and audit so no single
-surface can silently turn a suggestion into a privileged change.
+FDAI is built from independent agents. Each agent owns one job and talks to the
+others only through schema-checked events, so the parts that observe, decide,
+approve, execute, and audit never collapse into a single component. The control
+plane runs headless, the console stays read-only, fixes arrive as pull requests,
+and approvals happen in chat.
 
-A fixed organization of 15 agents makes those responsibilities explicit. The
-agents own typed objects and lifecycle roles inside the control plane; they do
-not replace the control loop or bypass its deterministic safety gates.
+A fixed organization of 15 agents makes those responsibilities explicit. Each
+agent owns typed objects and a lifecycle role inside the control plane. Agents
+add ownership on top of the control loop. They never replace it and never skip
+its deterministic safety checks.
 
-> Azure is the implemented target. Cloud access stays behind provider contracts
-> so the core does not import Azure SDKs or depend on one hosting product.
+> Azure is the implemented target. Every cloud call goes through a provider
+> contract, so the core never imports an Azure SDK and you can move to another
+> host without rewriting decision logic.
 
 ## Design at a glance
 
-Five loosely coupled layers communicate through typed events, versioned
-contracts, and Git rather than sharing one application process or identity.
+FDAI has five loosely coupled layers. They share typed events, versioned
+contracts, and Git. They do not share one process or one identity.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-system-overview.manifest.json" locale="en" style="display:block">
   <img src="../diagrams/generated/fdai-system-overview.en.svg" alt="Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane selects a trust tier and verifies evidence and risk. Eligible actions reach the privileged executor, insufficient evidence is held for review, failed actions enter rollback, and every outcome reaches the audit store. human approval, remediation pull requests, and the read-only console stay outside the control-plane boundary." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-The console reads projections from the state and audit stores. It does not
-share the executor identity, approve changes, or call Azure mutation APIs.
+The console reads projections from the state and audit stores. It does not use
+the executor identity, it cannot approve a change, and it never calls an Azure
+API that changes anything.
 
 ## The five architecture layers
 
 | Layer | Responsibility | Primary boundary |
 |-------|----------------|------------------|
-| Headless control plane | Normalize events, select a trust tier, verify proposals, classify risk, and coordinate execution | No UI logic and no direct cloud SDK imports |
-| Action delivery | Render approved actions as fix pull requests or registered provider calls | Every action keeps its typed safety contract and rollback reference |
-| Operator console | Show state, evidence, audit history, shadow results, and pending approvals | Read-only identity with no execution permission |
-| Human channel | Deliver approval requests and operational alerts through ChatOps | Approval principal stays distinct from the executor |
-| Rule catalog | Version rules, policies, action types, prompts, and promotion evidence as code | Catalog changes pass review, regression, and shadow evaluation |
+| Headless control plane | Normalize events, pick a trust tier, verify proposals, classify risk, and coordinate execution | No UI logic and no direct cloud SDK imports |
+| Action delivery | Turn approved actions into fix pull requests or registered provider calls | Every action keeps its typed safety contract and rollback reference |
+| Operator console | Show state, evidence, audit history, observation-mode results, and pending approvals | Read-only identity with no permission to execute |
+| Human channel | Deliver approval requests and operational alerts through ChatOps | The approver is never the executor |
+| Rule catalog | Keep rules, policies, action types, prompts, and promotion evidence versioned as code | Catalog changes go through review, regression tests, and observation-mode evaluation |
 
-These layers can fail or scale independently. A console outage does not stop
-event processing, and a ChatOps outage queues high-risk work rather than
-allowing it to execute without approval.
+These layers fail and scale independently. If the console goes down, event
+processing keeps running. If ChatOps goes down, high-risk work waits in a queue
+instead of executing without approval.
 
 ## How one event moves through the system
 
-Every event follows the same control loop, whether it comes from an Azure
-resource change, an SLO burn detector, a scheduled job, or an operator request.
+Every event takes the same path, whether it comes from an Azure resource change,
+an SLO burn detector, a scheduled job, or an operator request.
 
 ```mermaid
 flowchart TD
@@ -73,34 +75,36 @@ flowchart TD
   N --> A
 ```
 
-1. **Ingest and correlate**: FDAI validates the event schema, deduplicates by a
-   stable idempotency key, and groups related signals into an incident.
-2. **Choose the lowest competent tier**: T0 uses deterministic rules, T1 reuses
-   evidence-backed incident patterns, and T2 handles only novel or ambiguous
-   cases.
-3. **Verify before risk classification**: T2 proposals pass mixed-model
-   agreement, evidence check, schema, policy, security, and what-if checks.
-4. **Apply the autonomy ceiling**: The safety check combines action risk, scope,
-   system health, and policy. It returns auto, approval required, or deny.
-5. **Execute once and record every path**: The executor takes a per-resource
-   lock, applies an idempotent action, and writes the result. Reject, timeout,
-   hold, rollback, and no-op outcomes are audited too.
+1. **Ingest and correlate**: FDAI checks the event schema, drops repeats using a
+   stable idempotency key (a key that makes a retry safe), and groups related
+   signals into one incident.
+2. **Pick the lowest tier that can decide**: T0 (deterministic rules) handles the
+   repeatable majority, T1 (lightweight reuse of similar past incidents) handles
+   known patterns, and T2 (grounded LLM reasoning) handles only the new or
+   ambiguous cases.
+3. **Verify before you classify risk**: a T2 proposal has to pass mixed-model
+   agreement, an evidence check, and schema, policy, security, and what-if
+   checks. A plausible answer is not enough.
+4. **Apply the autonomy ceiling**: the safety check weighs action risk, impact
+   scope, system health, and policy. It answers auto, approval required, or deny.
+5. **Execute once, record every path**: the executor takes a per-resource lock,
+   applies an action that is safe to retry, and writes the result. Rejections,
+   timeouts, holds, rollbacks, and no-ops are audited the same way.
 
 Read [Deterministic first](concepts/deterministic-first.md) for the tier
 boundaries and [Trust tiers](concepts/risk-tiers.md) for the autonomy decision.
 
 ## The agent organization inside the control plane
 
-FDAI's 15 named agents are an **organizational ownership layer over the control
-loop**. They are not 15 independent Azure services, and they are not a group of
-chatbots making free-form decisions. Each agent is a first-class runtime object
-with one mandate, owned object types, declared topic subscriptions, and bounded
-permissions.
+FDAI's 15 named agents are an **ownership layer over the control loop**. They
+are not 15 separate Azure services, and they are not chatbots making free-form
+decisions. Each agent is a runtime object with one mandate, a set of object
+types it owns, the topics it subscribes to, and bounded permissions.
 
-Physically, the agents run inside the modular Python control-plane process and
-communicate through an injected event bus. Logically, their ownership boundaries
-remain strict even when they share one runtime. Moving them into separate
-processes later would not change the typed topics or authority model.
+All agents run inside the same Python control-plane process and talk through an
+injected event bus. Sharing a process does not soften the boundaries: an agent
+still publishes only what it owns. If you later split them into separate
+processes, the topics and the authority model stay the same.
 
 ### How the 15 roles fit together
 
@@ -112,15 +116,15 @@ processes later would not change the typed topics or authority model.
 | Govern evidence and knowledge | Saga, Mimir, Norns, Muninn | Saga owns append-only audit. Mimir owns rules. Norns proposes inert learning candidates. Muninn owns state snapshots and context indexes. |
 | Supply domain evidence | Njord, Freyr, Loki | Cost, capacity, and chaos specialists advise judgment. They never execute. |
 
-The pantheon is fixed upstream so a fork cannot collapse incompatible roles or
-rename an authority boundary. A fork can bind providers, configure thresholds,
-disable optional agents, and add catalog entries, but Saga and Vidar are hard
-dependencies and cannot be disabled.
+The 15 roles are fixed upstream, so a fork cannot merge two conflicting roles or
+rename an authority boundary. A fork can bind providers, tune thresholds, turn
+off optional agents, and add catalog entries. Saga and Vidar are hard
+dependencies, so you cannot turn off audit or rollback.
 
 ### Runtime data flow
 
-The organization chart describes reporting lines. The diagram below describes
-the authoritative data flow between agent-owned object types.
+The table above is the organization chart. The diagram below is the data flow:
+which agent-owned object moves where.
 
 ```mermaid
 flowchart LR
@@ -163,11 +167,11 @@ flowchart LR
   BRA -->|typed action proposal| HUG
 ```
 
-The Mermaid view keeps topic ownership easy to scan. The detailed view below
-uses the same topology to show the runtime invariant: agents run as
-independent subscribers, work can fan out concurrently, and only the owning
-agent publishes each authoritative object. Gateways and workers relay events;
-they do not become hidden decision makers.
+The Mermaid view above makes topic ownership easy to scan. The detailed view
+below shows the same topology at runtime: agents subscribe independently, work
+can fan out in parallel, and only the owning agent publishes each authoritative
+object. Gateways and workers relay events. They never become hidden decision
+makers.
 
 #### Agent-driven runtime
 
@@ -175,37 +179,39 @@ they do not become hidden decision makers.
   <img src="../diagrams/generated/fdai-agent-driven-runtime.en.svg" alt="External signals enter the shared typed event bus and reach Huginn. Huginn publishes normalized events that fan out to Heimdall and Forseti. Heimdall, Njord, Freyr, Loki, Mimir, and Muninn contribute findings, domain evidence, rules, and context without calling one another directly. Forseti owns decisions and asks Odin to arbitrate cross-domain conflicts. Eligible decisions reach Thor, while Var owns human approval and Vidar owns rollback. Forseti, Thor, Var, and Vidar publish audit evidence to Saga. Saga outcomes reach Norns, which proposes inert rule candidates to Mimir. Bragi reads context from Muninn and returns typed action proposals to Huginn so conversations use the same governed path." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-This flow preserves a simple rule: information may fan out to many readers,
-but each authoritative object type has one writer. For example, several agents
-can consume a decision, but only Forseti can publish `object.verdict`. The
-publish-side registry checks ownership, and the event-bus bridge dead-letters a
-record whose declared producer principal conflicts with the topic owner.
-Missing principals are surfaced separately for boundary hardening. A topic name
-alone is not authority.
+The flow follows one simple rule: information can fan out to many readers, but
+each authoritative object type has exactly one writer. Many agents can read a
+decision, for example, and only Forseti can publish `object.verdict`. The
+publish-side registry checks that ownership. If a record declares a producer
+that does not match the topic owner, the event-bus bridge sends it to the dead
+letter queue. Records with no declared producer are reported separately so the
+boundary can be tightened. Knowing a topic name is not the same as holding
+authority over it.
 
 ### Single-writer topic ownership
 
-Single-writer ownership makes an agent role enforceable rather than descriptive.
+Single-writer ownership turns an agent role into something the runtime can
+enforce, not just something the docs describe.
 
 | Object or topic | Single writer | Architectural effect |
 |-----------------|---------------|----------------------|
-| `Event` / `object.event` | Huginn | Cloud adapters cannot impersonate normalized control-plane ingress. |
-| `Verdict` / `object.verdict` | Forseti | Specialists and models can advise but cannot grant execution eligibility. |
-| `ArbitrationDecision` | Odin | Cross-vertical trade-offs have one deterministic tie-break authority. |
-| `ActionRun` / `object.action-run` | Thor | Only the executor can claim and report a mutation attempt. |
-| `Approval` / `object.approval` | Var | An approval cannot be fabricated by the executor. |
-| `Rollback` / `object.rollback` | Vidar | Recovery remains a distinct, testable path. |
-| `AuditEntry` / `object.audit-entry` | Saga | Terminal evidence has one append-only authority. |
-| `RuleCandidate` / `object.rule-candidate` | Norns | Learning proposes inert data and cannot edit the catalog directly. |
-| `Rule` and `Policy` | Mimir | Promotion and revocation remain governed catalog operations. |
+| `Event` / `object.event` | Huginn | A cloud adapter cannot pretend to be normalized control-plane ingress. |
+| `Verdict` / `object.verdict` | Forseti | Specialists and models can advise, but they cannot make an action eligible to run. |
+| `ArbitrationDecision` | Odin | Cross-vertical trade-offs have one deterministic tie-breaker. |
+| `ActionRun` / `object.action-run` | Thor | Only the executor can claim an attempted change and report how it ended. |
+| `Approval` / `object.approval` | Var | The executor cannot fabricate its own approval. |
+| `Rollback` / `object.rollback` | Vidar | Recovery stays a separate path you can test on its own. |
+| `AuditEntry` / `object.audit-entry` | Saga | Final evidence has one append-only owner. |
+| `RuleCandidate` / `object.rule-candidate` | Norns | Learning proposes inactive data and cannot edit the catalog directly. |
+| `Rule` and `Policy` | Mimir | Turning a rule on or off stays a governed catalog operation. |
 
-Agent modules do not import one another to call handlers directly. They publish
-owned objects and subscribe to declared topics, which keeps runtime wiring
-consistent with the authority table.
+Agent modules never import one another to call a handler directly. They publish
+the objects they own and subscribe to the topics they declared, so the runtime
+wiring always matches the table above.
 
 ### ActionType role binding
 
-Every registered `ActionType` binds the lifecycle to named principals:
+Every registered `ActionType` ties the action lifecycle to named agents:
 
 ```text
 initiator -> Forseti (judge) -> Thor (executor) -> Var (approver when required)
@@ -213,71 +219,76 @@ initiator -> Forseti (judge) -> Thor (executor) -> Var (approver when required)
                                             -> Vidar (compensation when required)
 ```
 
-The initiator can vary by action, but the judge, executor, approver, and auditor
-boundaries are fixed upstream. The binding also carries the rollback contract,
-irreversibility flag, and compensating action. This prevents a downstream fork
-from making a domain specialist self-approve or replacing the auditor with the
-component that executed the change.
+The initiator changes from action to action. The judge, executor, approver, and
+auditor roles are fixed upstream. The binding also carries the rollback
+contract, the irreversibility flag, and the compensating action. That is what
+stops a fork from letting a domain specialist approve its own work, or from
+naming the component that made the change as its own auditor.
 
 ### Two ports, one authority path
 
-Every agent exposes two separate ports:
+Every agent exposes two ports:
 
-- **Typed pub/sub port**: The authoritative machine path. It uses registered
-  topics, schema-checked payloads, producer-principal verification, and the
+- **Typed pub/sub port**: the authoritative machine path. It uses registered
+  topics, schema-checked payloads, producer verification, and the
   deterministic-first control loop.
-- **Conversational port**: A bounded natural-language path for operator questions
-  and agent-to-agent introspection. Bragi routes the question and renders the
-  answer, but does not judge or execute.
+- **Conversational port**: a bounded natural-language path for operator
+  questions and agent-to-agent lookups. Bragi routes the question and writes the
+  answer. Bragi never judges and never executes.
 
-The two ports share only the correlation trace. If an operator asks Bragi to
-perform an action, Bragi creates a typed proposal and sends it through Huginn so
-it re-enters validation, judgment, risk, approval, execution, and audit. A
-conversation can explain authority, but it cannot become authority.
+The two ports share only the correlation trace. If you ask Bragi to perform an
+action, Bragi builds a typed proposal and sends it through Huginn, so the
+request goes through validation, judgment, risk, approval, execution, and audit
+like any other event. A conversation can explain authority. It cannot become
+authority.
 
 ### Runtime placement and promotion
 
-The current runtime wires the pantheon as a measurable shadow overlay beside
-the established control-loop consumer:
+The runtime starts the agent organization beside the established control-loop
+consumer and measures the two against each other.
 
-> **Current implementation status:** The pantheon is opt-in and shadow by
-> default. Named ownership describes the fixed authority contract; it does not
-> mean every agent has been promoted for live mutation. Enforcement mode remains
-> blocked until all durable safety bindings are present.
+> **Current implementation status:** The agents start with the control plane and
+> run in observation mode, where they judge and log but apply no changes. Named
+> ownership describes the authority contract. It does not mean every agent is
+> cleared to make live changes. Enforcement mode stays blocked until every
+> durable safety binding is in place.
 
-- **Shared ingress, distinct consumers**: Both paths consume the same raw Kafka
-  topic through separate consumer groups, so the pantheon does not steal events.
-- **Shadow by default**: Thor records what the agents would do but cannot mutate,
-  which prevents duplicate execution while parity is measured.
-- **Explicit enforce promotion**: Enforce startup requires a live Thor executor,
-  durable ActionRun storage, a durable Saga audit chain, and registered Vidar
-  rollback executors. Missing any binding blocks startup.
-- **Failure isolation**: The pantheon task is monitored separately from the
-  established consumer. A shadow-runtime failure is surfaced without terminating
-  the primary event consumer.
+- **Shared ingress, separate consumers**: both paths read the same Kafka topic
+  under different consumer groups, so the agents observe events instead of
+  taking them away from the established loop.
+- **Observation mode by default**: Thor records what the agents would have done
+  but cannot change anything, so nothing executes twice while you compare the
+  two paths. Set `FDAI_START_PANTHEON=0` only when you need to stop the agent
+  runtime for maintenance.
+- **Enforcement is a separate promotion**: starting in enforcement mode requires
+  a live Thor executor, durable action-run storage, a durable Saga audit chain,
+  registered Vidar rollback executors, and a deployment-level authority ceiling
+  in the startup readiness report. If any one is missing, startup stops.
+- **Failure isolation**: the agent runtime is watched separately. If it fails,
+  the failure is reported and the established event consumer keeps running.
 
-This placement lets FDAI compare stage-level and agent-owned outcomes before
-moving execution authority. It also keeps the logical architecture stable while
-the implementation is promoted incrementally.
+This layout lets you compare stage-level and agent-owned outcomes before you
+move execution authority. The architecture stays stable while the
+implementation is promoted step by step.
 
 ## Trust and authority boundaries
 
-FDAI treats separation of authority as an architecture property, not a user
-interface convention.
+In FDAI, separation of authority is an architecture property. It is not a user
+interface convention that a later change can quietly undo.
 
 | Boundary | Why it exists | Enforced behavior |
 |----------|---------------|-------------------|
-| Judgment vs execution | A component that proposes or judges a change should not apply it | Forseti judges; Thor executes the accepted typed action |
+| Judgment vs execution | Whoever proposes or judges a change should not apply it | Forseti judges, and Thor executes the accepted typed action |
 | Approval vs execution | A privileged executor cannot approve its own work | Var carries approval through a separately authorized channel |
-| Console vs control plane | A browser session should not hold mutation permission | The console reads projections and evidence only |
-| Model proposal vs eligibility | Plausible model output is not execution evidence | Deterministic verification decides whether a T2 proposal can proceed |
-| Shadow vs enforce | New capability should prove behavior before mutation | New actions observe and audit first; enforcement is promoted separately |
-| Replay vs re-execution | Investigation should not repeat a production mutation | Audit replay reconstructs judgment without running the action again |
+| Console vs control plane | A browser session should not hold permission to change anything | The console reads projections and evidence only |
+| Model proposal vs eligibility | A plausible model answer is not evidence | Deterministic verification decides whether a T2 proposal may proceed |
+| Observation vs enforcement | A new capability should prove itself before it changes anything | New actions observe and audit first, and enforcement is promoted separately |
+| Replay vs re-execution | Investigating an incident should not repeat a production change | Audit replay rebuilds the judgment without running the action again |
 
 The [agent organization](concepts/agents-and-self-healing.md) assigns these
-roles to named agents, but agents do not bypass the typed control loop. A
-conversational request must re-enter the same event, verification, risk, and
-audit path as any other request.
+roles to named agents, and no agent may skip the typed control loop. A request
+that arrives through a conversation re-enters the same event, verification,
+risk, and audit path as any other request.
 
 ## Code and data boundaries
 
@@ -295,24 +306,25 @@ flowchart TB
   AZURE[Azure SDK implementations] --> DELIVERY
 ```
 
-- **`core/`** contains decision and coordination logic. It depends on shared
-  contracts, not Azure SDKs or UI components.
+- **`core/`** holds decision and coordination logic. It depends on shared
+  contracts, never on Azure SDKs or UI components.
 - **`shared/`** defines versioned event, action, rule, workflow, and provider
-  contracts. It does not import the core.
+  contracts. It never imports the core.
 - **`delivery/`** implements persistence, Azure access, GitOps, notifications,
   ChatOps, and read APIs behind those contracts.
-- **`rule-catalog/` and `policies/`** hold governed data. Adding a rule or
-  action type does not require rewriting the control loop.
-- **The composition root** selects concrete providers from validated
-  configuration and injects them at startup.
+- **`rule-catalog/` and `policies/`** hold governed data. You can add a rule or
+  an action type without rewriting the control loop.
+- **The composition root** reads validated configuration, picks the concrete
+  providers, and injects them at startup.
 
 For the complete dependency map, read [Project
 Structure](../roadmap/architecture/project-structure.md).
 
 ## Azure implementation
 
-The first implementation maps portable contracts to a minimum Azure resource
-set. Provider-specific calls remain in adapters.
+The first implementation maps each portable contract to a small Azure resource
+set. Provider-specific calls stay inside adapters, so swapping a resource does
+not touch decision logic.
 
 | Portable concern | Contract | Azure implementation |
 |------------------|----------|----------------------|
@@ -325,66 +337,70 @@ set. Provider-specific calls remain in adapters.
 | Inventory | Resource graph contract | Azure Resource Graph plus activity deltas |
 | Observability | OpenTelemetry-compatible signals | Log Analytics and Application Insights |
 | Console | Static read-only application | Azure Static Web Apps |
-| human approval | Typed approval message | Teams bot and Adaptive Cards |
+| Console read API | HTTP read contract | Container App with its own read-only identity |
+| Document ingestion | Upload and chunking contract | Container App plus Data Lake Storage |
+| Human approval | Typed approval message | Teams bot and Adaptive Cards |
 
-The continuously running core currently keeps one replica until a
-credential-free Kafka-lag scaler is verified. Scheduled jobs and static
-surfaces can scale to zero. See [CSP-neutrality
-contracts](../roadmap/architecture/csp-neutrality.md) for the complete provider
-surface.
+The core runs continuously with a floor of one replica and a ceiling of three.
+The floor stays at one because scale-to-zero needs a credential-free Kafka-lag
+scale rule, and without that rule an incoming event would never wake the app.
+Scheduled jobs and static surfaces can still scale to zero. For the full
+provider surface, read [CSP-neutrality
+contracts](../roadmap/architecture/csp-neutrality.md).
 
 ## Safety built into every action
 
-An action is incomplete unless its type declares four controls:
+An action type is incomplete until it declares four controls:
 
 - **Stop condition**: the measurable signal that halts execution.
-- **Rollback path**: the tested way to restore or move state forward safely.
-- **Impact scope limit**: the maximum scope, batch, concurrency, or rate the
-  action can affect.
-- **Audit record**: the evidence needed to reconstruct the event, decision,
-  authority, execution, and outcome.
+- **Rollback path**: the tested way to restore the old state or move forward
+  safely.
+- **Impact scope limit**: the largest scope, batch size, concurrency, or rate
+  the action may touch.
+- **Audit record**: the evidence needed to reconstruct the event, the decision,
+  who authorized it, what ran, and how it ended.
 
-Execution also requires policy and what-if checks, a per-resource lock, and an
-idempotency key. When a required dependency such as the audit store is
-unavailable, the system lowers autonomy to shadow or holds for review instead
-of failing open.
+Execution also needs policy and what-if checks, a per-resource lock, and an
+idempotency key. If a required dependency such as the audit store is
+unavailable, FDAI drops autonomy to observation mode or holds the work for
+review. It does not fail open.
 
 ## Example: configuration drift
 
-Consider a resource change that opens network access beyond policy:
+Consider a resource change that opens network access wider than policy allows:
 
-1. Azure emits a resource-change event through the Kafka-compatible event bus.
+1. Azure emits a resource-change event onto the Kafka-compatible event bus.
 2. Event ingest normalizes the payload, attaches inventory context, and finds
    the resource's correlation key.
-3. T0 matches a versioned network policy and proposes a typed fix.
-4. What-if confirms the intended diff, while the safety check detects that the
-   scope requires approval.
-5. ChatOps sends an approval card containing the rule, evidence, scope, stop
-   condition, and rollback reference.
-6. After approval, the executor opens a fix pull request rather than
-   mutating the resource from the console.
-7. Delivery, approval, and terminal outcome are linked in the append-only audit
-   trail and appear in the console as read-only evidence.
+3. T0 matches a versioned network rule and proposes a typed fix.
+4. What-if confirms the exact diff. The safety check sees that the impact scope
+   needs approval.
+5. ChatOps sends an approval card with the rule, the evidence, the impact scope,
+   the stop condition, and the rollback reference.
+6. After approval, the executor opens a fix pull request instead of changing the
+   resource from the console.
+7. Delivery, approval, and the final outcome are linked in the append-only audit
+   trail, and the console shows them as read-only evidence.
 
-The same path handles a denial, rejection, timeout, or rollback. Only the
-terminal branch changes.
+A denial, rejection, timeout, or rollback follows the same path. Only the last
+step differs.
 
 ## Failure isolation
 
 | Failure | System response |
 |---------|-----------------|
-| Console unavailable | Core processing, Git delivery, and ChatOps continue |
-| ChatOps unavailable | Approval-required actions queue; they do not auto-execute |
-| Event backlog grows | Backpressure bounds concurrency and retains work for retry or dead-letter handling |
-| Audit or critical provider unavailable | Autonomy is capped to shadow or the action is held |
-| Duplicate delivery | Idempotency and resource locks prevent duplicate mutation |
-| T2 models disagree | The competing evidence is preserved and the case moves to human review |
-| Rollback verification fails | The incident remains open and recovery escalates through the typed pipeline |
-| Forseti unavailable | No new agent decision is issued; work remains held for review |
-| Thor unavailable | Detection, judgment, and audit can continue, but no mutation runs |
-| Var unavailable | Approval-required work remains queued and timeout becomes an audited no-op |
-| Saga or Vidar unavailable | Enforce startup or mutation is blocked because audit and rollback are hard dependencies |
-| Shadow pantheon task fails | The failure is logged without terminating the established primary consumer |
+| Console unavailable | Core processing, Git delivery, and ChatOps keep running |
+| ChatOps unavailable | Work that needs approval waits in a queue and never auto-executes |
+| Event backlog grows | Backpressure caps concurrency and keeps work for retry or dead-letter handling |
+| Audit or critical provider unavailable | Autonomy drops to observation mode, or the action is held |
+| Duplicate delivery | Idempotency keys and resource locks stop a second change |
+| T2 models disagree | The competing evidence is kept and the case goes to human review |
+| Rollback verification fails | The incident stays open and recovery escalates through the typed pipeline |
+| Forseti unavailable | No new agent decision is issued, and work is held for review |
+| Thor unavailable | Detection, judgment, and audit continue, but nothing changes |
+| Var unavailable | Work that needs approval stays queued, and a timeout becomes an audited no-op |
+| Saga or Vidar unavailable | Enforcement startup and changes are blocked, because audit and rollback are hard dependencies |
+| Agent runtime fails | The failure is logged and the established primary consumer keeps running |
 
 ## Next steps
 

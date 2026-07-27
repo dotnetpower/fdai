@@ -1,58 +1,59 @@
 ---
 title: FDAI 아키텍처
-description: FDAI의 15-agent organization이 event-driven control plane에서 sensing, judgment, approval, execution, delivery, audit를 분리하는 방식입니다.
+description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플레인에서 감지, 판단, 승인, 실행, 전달, 감사를 어떻게 분리하는지 설명합니다.
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 47b4c35acfee0062c4943a4ed93e6d104bf008b8
-translation_revised: 2026-07-23
+translation_source_sha: 95a4604e1e203567d1aa4f247d7b3ed400841a6f
+translation_revised: 2026-07-27
 ---
 
 # FDAI 아키텍처
 
-FDAI는 에이전트 주도 아키텍처를 사용합니다. 독립 실행 가능한 agent가 bounded
-responsibility를 소유하고 schema-validated event를 통해 협업합니다. FDAI는 thin read-only
-console, pull-request-native delivery, ChatOps approval을 갖춘 headless event-driven control
-plane입니다. Architecture는 관찰, 판단, 승인, 실행, 감사를 담당하는 component를 분리하여
-하나의 surface가 제안을 privileged change로 조용히 바꾸지 못하게 합니다.
+FDAI는 독립적인 에이전트로 구성됩니다. 각 에이전트는 한 가지 역할만 맡고 스키마가 검증된
+이벤트로만 서로 대화합니다. 그래서 관찰, 판단, 승인, 실행, 감사가 하나의 컴포넌트로
+뭉치지 않습니다. 컨트롤 플레인은 화면 없이 동작하고, 콘솔은 읽기 전용이며, 수정은 pull
+request로 도착하고, 승인은 채팅에서 이루어집니다.
 
-고정된 15-agent organization은 이러한 responsibility를 명시적으로 만듭니다. Agent는
-control plane 안에서 typed object와 lifecycle role을 소유하며 control loop를 대체하거나
-deterministic safety gate를 우회하지 않습니다.
+15개로 고정된 에이전트 조직이 이 책임 분담을 명확하게 만듭니다. 각 에이전트는 컨트롤
+플레인 안에서 타입이 정의된 객체와 생애주기 역할을 소유합니다. 에이전트는 컨트롤 루프
+위에 소유권을 더할 뿐입니다. 컨트롤 루프를 대신하지도, 결정론적 안전성 검토를 건너뛰지도
+않습니다.
 
-> Azure가 구현된 target입니다. Cloud access는 provider contract 뒤에 있으므로 core는
-> Azure SDK를 import하거나 하나의 hosting product에 의존하지 않습니다.
+> 구현 대상은 Azure입니다. 모든 클라우드 호출은 provider contract를 거치므로 core는 Azure
+> SDK를 직접 가져오지 않고, 나중에 다른 호스트로 옮겨도 판단 로직을 다시 쓸 필요가
+> 없습니다.
 
 ## 전체 구조
 
-느슨하게 결합된 5개 layer는 하나의 application process 또는 identity를 공유하는 대신
-typed event, versioned contract, Git을 통해 통신합니다.
+FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어끼리는 타입이 정의된 이벤트,
+버전이 관리되는 contract, Git을 공유합니다. 하나의 프로세스나 하나의 자격 증명을 공유하지는
+않습니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-system-overview.manifest.json" locale="ko" style="display:block">
   <img src="../../diagrams/generated/fdai-system-overview.ko.svg" alt="Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 결정 수준을 선택하고 근거와 위험을 검토합니다. 실행 가능한 작업은 권한 있는 실행기로 보내고, 근거가 부족하면 검토 대기로 보관하며, 실행 실패는 롤백 경로로 보냅니다. 모든 결과는 감사 저장소에 기록됩니다. 사람 승인, 수정 pull request, 읽기 전용 콘솔은 컨트롤 플레인 경계 밖에 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-Console은 state 및 audit store의 projection을 읽습니다. Executor identity를 공유하거나
-change를 승인하거나 Azure mutation API를 호출하지 않습니다.
+콘솔은 상태 저장소와 감사 저장소의 조회용 데이터만 읽습니다. 실행기 자격 증명을 사용하지
+않고, 변경을 승인할 수 없으며, 무언가를 바꾸는 Azure API를 호출하지도 않습니다.
 
-## 5개 architecture layer
+## 5개 아키텍처 레이어
 
-| Layer | 책임 | 주요 boundary |
-|-------|------|---------------|
-| Headless control plane | Event를 normalize하고 trust tier를 선택하며 proposal을 검증하고 risk를 분류하며 execution을 coordinate합니다. | UI logic과 direct cloud SDK import가 없습니다. |
-| Action delivery | Approved action을 수정 pull request 또는 registered provider call로 render합니다. | 모든 action은 typed safety contract와 rollback reference를 유지합니다. |
-| Operator console | State, evidence, audit history, shadow result, pending approval을 표시합니다. | Execution permission이 없는 read-only identity입니다. |
-| Human channel | ChatOps를 통해 approval request와 operational alert를 전달합니다. | Approval principal은 executor와 구분됩니다. |
-| Rule catalog | Rule, policy, action type, prompt, promotion evidence를 code로 versioning합니다. | Catalog change는 review, regression, shadow evaluation을 통과합니다. |
+| 레이어 | 책임 | 주요 경계 |
+|--------|------|-----------|
+| 화면 없는 컨트롤 플레인 | 이벤트를 정규화하고, 결정 수준을 고르고, 제안을 검증하고, 위험을 분류하고, 실행을 조율합니다. | UI 로직이 없고 클라우드 SDK를 직접 가져오지 않습니다. |
+| 작업 전달 | 승인된 작업을 수정 pull request나 등록된 provider 호출로 바꿉니다. | 모든 작업이 안전성 contract와 롤백 참조를 그대로 유지합니다. |
+| 운영자 콘솔 | 상태, 근거, 감사 이력, 관찰 모드 결과, 승인 대기 항목을 보여 줍니다. | 실행 권한이 없는 읽기 전용 자격 증명입니다. |
+| 사람 채널 | ChatOps로 승인 요청과 운영 알림을 전달합니다. | 승인자는 절대 실행자가 되지 않습니다. |
+| 룰 카탈로그 | 룰, 정책, 작업 유형, 프롬프트, 승격 근거를 코드로 버전 관리합니다. | 카탈로그 변경은 리뷰, 회귀 테스트, 관찰 모드 평가를 거칩니다. |
 
-이러한 layer는 독립적으로 실패하거나 scale할 수 있습니다. Console outage는 event processing을
-중지하지 않으며 ChatOps outage는 high-risk work를 approval 없이 실행하는 대신 queue에
-보관합니다.
+각 레이어는 따로 실패하고 따로 확장됩니다. 콘솔이 멈춰도 이벤트 처리는 계속됩니다.
+ChatOps가 멈추면 위험도가 높은 작업은 승인 없이 실행되는 대신 대기열에서 기다립니다.
 
-## 하나의 event가 system을 통과하는 방식
+## 하나의 이벤트가 시스템을 통과하는 방식
 
-Azure resource change, SLO burn detector, scheduled job, operator request 중 어디에서
-시작하든 모든 event는 동일한 control loop를 따릅니다.
+Azure 리소스 변경, SLO 소진 감지, 예약 작업, 운영자 요청 중 어디에서 시작하든 모든
+이벤트는 같은 경로를 따릅니다.
 
 ```mermaid
 flowchart TD
@@ -75,52 +76,52 @@ flowchart TD
   N --> A
 ```
 
-1. **Ingest 및 correlate**: FDAI는 event schema를 검증하고 stable idempotency key로
-   deduplicate하며 관련 signal을 incident로 그룹화합니다.
-2. **결정 가능한 가장 낮은 tier 선택**: T0는 deterministic rule을 사용하고 T1은
-   evidence-backed incident pattern을 재사용하며 T2는 novel 또는 ambiguous case만 처리합니다.
-3. **Risk 분류 전 검증**: T2 proposal은 mixed-model agreement, 근거 확인, schema,
-   policy, security, what-if check를 통과합니다.
-4. **Autonomy ceiling 적용**: 안전성 검토는 action risk, scope, system health, policy를
-   결합합니다. Auto, approval required 또는 deny를 반환합니다.
-5. **한 번 실행하고 모든 path 기록**: Executor는 per-resource lock을 획득하고 idempotent
-   action을 적용한 뒤 result를 기록합니다. Reject, timeout, hold, rollback, no-op outcome도
-   audit됩니다.
+1. **수집과 상관관계 연결**: FDAI는 이벤트 스키마를 확인하고, 재시도를 안전하게 만드는
+   idempotency key로 중복을 걸러낸 뒤, 관련된 신호를 하나의 인시던트로 묶습니다.
+2. **판단할 수 있는 가장 낮은 수준 선택**: T0(결정론적 룰)은 반복되는 대다수를 처리하고,
+   T1(비슷한 과거 사례를 가볍게 재사용)은 이미 알려진 패턴을 처리하며, T2(근거 기반 LLM
+   추론)는 새롭거나 모호한 사례만 맡습니다.
+3. **위험을 분류하기 전에 먼저 검증**: T2 제안은 서로 다른 모델의 합의, 근거 확인, 스키마,
+   정책, 보안, what-if 검사를 모두 통과해야 합니다. 그럴듯한 답변만으로는 부족합니다.
+4. **자율성 상한 적용**: 안전성 검토는 작업의 위험도, 영향 범위, 시스템 상태, 정책을 함께
+   저울질합니다. 결과는 자동 실행, 승인 필요, 거부 중 하나입니다.
+5. **한 번만 실행하고 모든 경로를 기록**: 실행기는 리소스별 잠금을 잡고, 재시도해도 안전한
+   작업을 적용한 뒤 결과를 기록합니다. 거부, 시간 초과, 보류, 롤백, 미실행도 똑같이
+   감사됩니다.
 
-Tier boundary는 [결정론 우선](concepts/deterministic-first-ko.md)을, autonomy decision은
-[신뢰 tier](concepts/risk-tiers-ko.md)를 참조하세요.
+수준을 나누는 기준은 [결정론 우선](concepts/deterministic-first-ko.md), 자율성 결정은
+[신뢰 수준](concepts/risk-tiers-ko.md)을 참조하세요.
 
-## Control plane 내부의 agent organization
+## 컨트롤 플레인 안의 에이전트 조직
 
-FDAI의 15개 named agent는 **control loop 위의 organizational ownership layer**입니다.
-15개의 독립 Azure service가 아니며 free-form decision을 내리는 chatbot group도 아닙니다.
-각 agent는 하나의 mandate, owned object type, declared topic subscription, bounded
-permission을 가진 first-class runtime object입니다.
+FDAI의 15개 에이전트는 **컨트롤 루프 위에 얹혀진 소유권 레이어**입니다. 15개의 별도 Azure
+서비스도 아니고, 자유롭게 결정을 내리는 챗봇도 아닙니다. 각 에이전트는 하나의 임무,
+자신이 소유하는 객체 유형, 구독하는 토픽, 제한된 권한을 가진 런타임 객체입니다.
 
-물리적으로 agent는 modular Python control-plane process 안에서 실행되며 injected event
-bus를 통해 통신합니다. 하나의 runtime을 공유하더라도 논리적인 ownership boundary는
-엄격하게 유지됩니다. 나중에 별도 process로 이동하더라도 typed topic 또는 authority
-model은 변경되지 않습니다.
+모든 에이전트는 같은 Python 컨트롤 플레인 프로세스 안에서 실행되며 주입된 이벤트 버스로
+통신합니다. 프로세스를 공유한다고 경계가 느슨해지지는 않습니다. 에이전트는 여전히 자신이
+소유한 객체만 발행합니다. 나중에 별도 프로세스로 분리하더라도 토픽과 권한 모델은
+그대로입니다.
 
 ### 15개 역할의 결합 방식
 
-| Architecture function | Agent | Control loop ownership |
-|-----------------------|-------|------------------------|
-| Sense 및 observe | Huginn, Heimdall | Huginn은 normalized event와 real-time resource discovery ingress를 소유합니다. Heimdall은 anomaly, drift, forecast 발견된 문제를 소유합니다. |
-| Judge 및 arbitrate | Forseti, Odin | Forseti가 결정을 발행합니다. Odin은 Forseti가 결정을 확정하기 전에 cross-vertical conflict를 해결합니다. |
-| Execute, approve, recover, explain | Thor, Var, Vidar, Bragi | Thor는 sole privileged executor입니다. Var는 human approval을 전달합니다. Vidar는 rollback을 소유합니다. Bragi는 operator conversation을 번역합니다. |
-| Evidence 및 knowledge govern | Saga, Mimir, Norns, Muninn | Saga는 append-only audit을 소유합니다. Mimir는 rule을 관리합니다. Norns는 inert learning candidate를 propose합니다. Muninn은 state snapshot과 context index를 소유합니다. |
-| Domain evidence 공급 | Njord, Freyr, Loki | Cost, capacity, chaos specialist는 judgment에 조언하며 실행하지 않습니다. |
+| 아키텍처 기능 | 에이전트 | 컨트롤 루프에서의 소유권 |
+|-----------------|-----------|--------------------------|
+| 감지와 관찰 | Huginn, Heimdall | Huginn은 정규화된 이벤트와 실시간 리소스 탐색 유입을 소유합니다. Heimdall은 이상 징후, 드리프트, 예측으로 발견된 문제를 소유합니다. |
+| 판단과 조정 | Forseti, Odin | Forseti가 결정을 발행합니다. Odin은 Forseti가 결정을 확정하기 전에 영역 간 충돌을 정리합니다. |
+| 실행, 승인, 복구, 설명 | Thor, Var, Vidar, Bragi | Thor는 유일한 권한 실행기입니다. Var는 사람 승인을 전달합니다. Vidar는 롤백을 소유합니다. Bragi는 운영자와의 대화를 옮깁니다. |
+| 근거와 지식 관리 | Saga, Mimir, Norns, Muninn | Saga는 추가 전용 감사 기록을 소유합니다. Mimir는 룰을 관리합니다. Norns는 아직 작동하지 않는 학습 후보를 제안합니다. Muninn은 상태 스냅샷과 맥락 색인을 소유합니다. |
+| 도메인 근거 공급 | Njord, Freyr, Loki | 비용, 용량, 카오스 전문 에이전트는 판단에 조언할 뿐 직접 실행하지 않습니다. |
 
-Pantheon은 upstream에서 고정되므로 fork가 incompatible role을 합치거나 authority boundary의
-이름을 변경할 수 없습니다. Fork는 provider binding, threshold configuration, optional agent
-disable, catalog entry 추가를 할 수 있지만 Saga와 Vidar는 hard dependency이므로 disable할
-수 없습니다.
+15개 역할은 상위 프로젝트에서 고정되므로, 포크가 서로 충돌하는 역할을 합치거나 권한 경계의
+이름을 바꿀 수 없습니다. 포크는 provider를 연결하고, 임계값을 조정하고, 선택적인 에이전트를
+끄고, 카탈로그 항목을 추가할 수 있습니다. 다만 Saga와 Vidar는 필수 의존 항목이므로 감사와
+롤백은 끕 수 없습니다.
 
-### Runtime data flow
+### 런타임 데이터 흐름
 
-Organization chart는 reporting line을 설명합니다. 다음 diagram은 agent-owned object type
-사이의 authoritative data flow를 설명합니다.
+위 표는 조직도입니다. 아래 다이어그램은 데이터 흐름, 즉 에이전트가 소유한 객체가 어디로
+이동하는지를 보여 줍니다.
 
 ```mermaid
 flowchart LR
@@ -163,10 +164,10 @@ flowchart LR
   BRA -->|typed action proposal| HUG
 ```
 
-Mermaid view를 사용하면 topic ownership을 빠르게 확인할 수 있습니다. 아래 상세 view는 같은
-topology를 사용하여 runtime invariant를 보여 줍니다. Agent는 independent subscriber로
-실행되고 work는 동시에 fan-out될 수 있으며 authoritative object는 이를 소유한 agent만
-publish합니다. Gateway와 worker는 event를 relay하며 숨겨진 decision maker가 되지 않습니다.
+위 Mermaid 도해로 토픽 소유권을 빠르게 훑어볼 수 있습니다. 아래 상세 도해는 같은 구조를 런타임
+관점에서 보여 줍니다. 에이전트는 각자 독립적으로 구독하고, 작업은 동시에 여러 곳으로 퍼질 수
+있으며, 권위 있는 객체는 그것을 소유한 에이전트만 발행합니다. 게이트웨이와 워커는 이벤트를
+중계할 뿐, 숨은 의사 결정자가 되지 않습니다.
 
 #### 에이전트 주도 런타임
 
@@ -174,35 +175,36 @@ publish합니다. Gateway와 worker는 event를 relay하며 숨겨진 decision m
   <img src="../../diagrams/generated/fdai-agent-driven-runtime.ko.svg" alt="외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-이 flow는 간단한 rule을 유지합니다. Information은 여러 reader로 fan out할 수 있지만 각
-authoritative object type에는 writer가 하나뿐입니다. 예를 들어 여러 agent가 결정을
-consume할 수 있지만 `object.verdict`는 Forseti만 publish할 수 있습니다. Publish-side
-registry는 ownership을 검사하고 event-bus bridge는 declared producer principal이 topic
-owner와 충돌하는 record를 dead-letter 처리합니다. Missing principal은 boundary hardening을
-위해 별도로 surface됩니다. Topic name만으로는 authority가 되지 않습니다.
+이 흐름은 한 가지 간단한 규칙을 따릅니다. 정보는 여러 독자에게 퍼질 수 있지만, 권위 있는 객체
+유형은 쓰는 주체가 딱 하나입니다. 여러 에이전트가 결정을 읽을 수 있지만 `object.verdict`는
+Forseti만 발행합니다. 발행 측 레지스트리가 이 소유권을 검사합니다. 선언된 발행 주체가 토픽
+소유자와 다르면 이벤트 버스 브리지가 해당 레코드를 dead-letter로 보냅니다. 발행 주체가 아예
+없는 레코드는 경계를 더 조이기 위해 따로 보고됩니다. 토픽 이름을 안다고 권한이 생기지는
+않습니다.
 
-### Single-writer topic ownership
+### 단일 쓰기 주체 소유권
 
-Single-writer ownership은 agent role을 설명이 아니라 enforce 가능한 boundary로 만듭니다.
+단일 쓰기 주체 소유권은 에이전트 역할을 문서 설명이 아니라 런타임이 강제할 수 있는 경계로
+만듭니다.
 
-| Object 또는 topic | Single writer | Architecture effect |
-|--------------------|---------------|---------------------|
-| `Event` / `object.event` | Huginn | Cloud adapter가 normalized control-plane ingress를 impersonate할 수 없습니다. |
-| `Verdict` / `object.verdict` | Forseti | Specialist와 model은 조언할 수 있지만 execution eligibility를 부여할 수 없습니다. |
-| `ArbitrationDecision` | Odin | Cross-vertical trade-off에 하나의 deterministic tie-break authority가 있습니다. |
-| `ActionRun` / `object.action-run` | Thor | Executor만 mutation attempt를 claim하고 report할 수 있습니다. |
-| `Approval` / `object.approval` | Var | Executor가 approval을 fabricate할 수 없습니다. |
-| `Rollback` / `object.rollback` | Vidar | Recovery가 distinct하고 test 가능한 path로 유지됩니다. |
-| `AuditEntry` / `object.audit-entry` | Saga | Terminal evidence에 하나의 append-only authority가 있습니다. |
-| `RuleCandidate` / `object.rule-candidate` | Norns | Learning은 inert data를 propose하며 catalog를 직접 편집할 수 없습니다. |
-| `Rule` 및 `Policy` | Mimir | Promotion과 revocation이 governed catalog operation으로 유지됩니다. |
+| 객체 또는 토픽 | 단일 쓰기 주체 | 아키텍처적 효과 |
+|-------------------|-----------------|-------------------|
+| `Event` / `object.event` | Huginn | 클라우드 어댑터가 정규화된 컨트롤 플레인 유입인 체할 수 없습니다. |
+| `Verdict` / `object.verdict` | Forseti | 전문 에이전트와 모델은 조언할 수 있지만 작업을 실행 가능하게 만들 수는 없습니다. |
+| `ArbitrationDecision` | Odin | 영역 간 트레이드오프에 결정론적 중재자가 하나만 존재합니다. |
+| `ActionRun` / `object.action-run` | Thor | 실행기만 변경 시도를 점유하고 결과를 보고할 수 있습니다. |
+| `Approval` / `object.approval` | Var | 실행기가 자기 승인을 지어낼 수 없습니다. |
+| `Rollback` / `object.rollback` | Vidar | 복구가 따로 테스트할 수 있는 별도 경로로 남습니다. |
+| `AuditEntry` / `object.audit-entry` | Saga | 최종 근거의 추가 전용 소유자가 하나입니다. |
+| `RuleCandidate` / `object.rule-candidate` | Norns | 학습은 아직 작동하지 않는 데이터를 제안할 뿐 카탈로그를 직접 고칠 수 없습니다. |
+| `Rule` 및 `Policy` | Mimir | 룰을 켜고 끄는 일은 관리되는 카탈로그 작업으로 남습니다. |
 
-Agent module은 handler를 직접 호출하기 위해 서로 import하지 않습니다. Owned object를
-publish하고 declared topic을 subscribe하므로 runtime wiring이 authority table과 일치합니다.
+에이전트 모듈은 핸들러를 직접 호출하려고 서로를 import하지 않습니다. 자신이 소유한 객체를
+발행하고 선언한 토픽을 구독하므로 런타임 구성이 위 권한 표와 항상 일치합니다.
 
-### ActionType role binding
+### ActionType 역할 바인딩
 
-등록된 모든 `ActionType`은 lifecycle을 named principal에 bind합니다.
+등록된 모든 `ActionType`은 작업 생애주기를 지정된 에이전트에 연결합니다.
 
 ```text
 initiator -> Forseti (judge) -> Thor (executor) -> Var (필요한 경우 approver)
@@ -210,71 +212,71 @@ initiator -> Forseti (judge) -> Thor (executor) -> Var (필요한 경우 approve
                                             -> Vidar (필요한 경우 compensation)
 ```
 
-Initiator는 action마다 달라질 수 있지만 judge, executor, approver, auditor boundary는
-upstream에서 고정됩니다. Binding에는 rollback contract, irreversibility flag,
-compensating action도 포함됩니다. 따라서 downstream fork가 domain specialist를
-self-approve하게 만들거나 change를 실행한 component로 auditor를 대체할 수 없습니다.
+시작 주체는 작업마다 달라집니다. 반면 판단자, 실행자, 승인자, 감사자 역할은 상위
+프로젝트에서 고정됩니다. 바인딩에는 롤백 contract, 비가역성 표시, 보상 작업도 함께
+담깁니다. 덕분에 포크가 도메인 전문 에이전트에게 자기 승인을 허용하거나, 변경을 실행한
+컴포넌트를 그 변경의 감사자로 지정하는 일을 막을 수 있습니다.
 
-### 두 port와 하나의 authority path
+### 두 개의 포트와 하나의 권한 경로
 
-모든 agent는 분리된 두 port를 노출합니다.
+모든 에이전트는 두 개의 포트를 노출합니다.
 
-- **Typed pub/sub port**: Authoritative machine path입니다. Registered topic,
-  schema-checked payload, producer-principal verification, deterministic-first control loop를
-  사용합니다.
-- **Conversational port**: Operator question 및 agent-to-agent introspection을 위한 bounded
-  natural-language path입니다. Bragi는 question을 route하고 answer를 render하지만 judge하거나
-  execute하지 않습니다.
+- **타입 기반 pub/sub 포트**: 권위 있는 기계 경로입니다. 등록된 토픽, 스키마가 검증된
+  페이로드, 발행 주체 확인, 결정론 우선 컨트롤 루프를 사용합니다.
+- **대화 포트**: 운영자 질문과 에이전트 간 조회를 위한 제한된 자연어 경로입니다. Bragi가
+  질문을 전달하고 답변을 작성합니다. Bragi는 판단하지도, 실행하지도 않습니다.
 
-두 port는 correlation trace만 공유합니다. Operator가 Bragi에게 action 수행을 요청하면
-Bragi는 typed proposal을 만들고 Huginn을 통해 전송하여 validation, judgment, risk,
-approval, execution, audit에 다시 진입시킵니다. Conversation은 authority를 설명할 수 있지만
-authority 자체가 될 수 없습니다.
+두 포트는 상관관계 추적 정보만 공유합니다. 운영자가 Bragi에게 작업 수행을 요청하면
+Bragi는 타입이 정의된 제안을 만들어 Huginn으로 보냅니다. 그래서 다른 이벤트와 똑같이 검증,
+판단, 위험 평가, 승인, 실행, 감사를 다시 거칩니다. 대화는 권한을 설명할 수는 있지만
+권한 자체가 될 수는 없습니다.
 
-### Runtime placement와 promotion
+### 런타임 배치와 승격
 
-현재 runtime은 pantheon을 established control-loop consumer 옆의 measurable shadow overlay로
-wire합니다.
+런타임은 기존 컨트롤 루프 소비자 옆에서 에이전트 조직을 함께 실행하고 둘을 서로
+비교합니다.
 
-> **현재 구현 상태:** Pantheon은 opt-in이며 기본값은 shadow입니다. Named ownership은
-> fixed authority contract를 설명하며 모든 agent가 live mutation으로 promote됐다는 의미가
-> 아닙니다. Durable safety binding이 모두 준비될 때까지 적용 모드는 차단됩니다.
+> **현재 구현 상태:** 에이전트는 컨트롤 플레인과 함께 시작하며, 판단과 기록만 하고 실제
+> 변경은 하지 않는 관찰 모드로 동작합니다. 역할 이름은 권한 contract를 설명할 뿐, 모든
+> 에이전트가 실제 변경 권한을 받았다는 뜻은 아닙니다. 지속 저장 기반 안전 연결이 모두
+> 갖춰질 때까지 적용 모드는 차단됩니다.
 
-- **Shared ingress와 distinct consumer**: 두 path는 separate consumer group을 통해 같은 raw
-  Kafka topic을 consume하므로 pantheon이 event를 가져가 버리지 않습니다.
-- **기본값은 shadow**: Thor는 agent가 수행할 동작을 기록하지만 mutate할 수 없습니다.
-  Parity를 측정하는 동안 duplicate execution을 방지합니다.
-- **명시적인 enforce promotion**: Enforce startup에는 live Thor executor, durable ActionRun
-  storage, durable Saga audit chain, registered Vidar rollback executor가 필요합니다. Binding이
-  하나라도 없으면 startup이 차단됩니다.
-- **Failure isolation**: Pantheon task는 established consumer와 별도로 monitoring됩니다.
-  Shadow-runtime failure는 primary event consumer를 종료하지 않고 surface됩니다.
+- **유입은 공유, 소비자는 분리**: 두 경로는 서로 다른 소비자 그룹으로 같은 Kafka 토픽을
+  읽습니다. 따라서 에이전트는 기존 루프의 이벤트를 가로채지 않고 같이 관찰합니다.
+- **기본값은 관찰 모드**: Thor는 에이전트가 했을 법한 작업을 기록하지만 아무것도 변경할 수
+  없습니다. 두 경로를 비교하는 동안 같은 작업이 두 번 실행되지 않습니다. 유지보수 때문에
+  에이전트 런타임을 멈춰야 할 때만 `FDAI_START_PANTHEON=0`을 설정하세요.
+- **적용은 별도 승격 절차**: 적용 모드로 시작하려면 동작 중인 Thor 실행기, 지속 저장되는
+  작업 실행 기록, 지속 저장되는 Saga 감사 체인, 등록된 Vidar 롤백 실행기, 그리고 시작
+  준비 보고서의 배포 단계 권한 상한이 모두 필요합니다. 하나라도 없으면 시작이
+  중단됩니다.
+- **장애 격리**: 에이전트 런타임은 따로 감시됩니다. 이쪽이 실패해도 장애만 보고되고 기존
+  이벤트 소비자는 계속 동작합니다.
 
-이 placement를 통해 FDAI는 execution authority를 이동하기 전에 stage-level outcome과
-agent-owned outcome을 비교할 수 있습니다. Implementation을 점진적으로 promote하는 동안에도
-logical architecture를 안정적으로 유지합니다.
+이 배치 덕분에 실행 권한을 옮기기 전에 단계별 결과와 에이전트 소유 결과를 비교할 수
+있습니다. 구현을 단계적으로 승격하는 동안에도 아키텍처는 그대로 유지됩니다.
 
-## Trust와 authority boundary
+## 신뢰와 권한 경계
 
-FDAI는 authority 분리를 user interface convention이 아니라 architecture property로
-취급합니다.
+FDAI에서 권한 분리는 아키텍처 속성입니다. 나중에 손쉬운 변경으로 되돌릴 수 있는 UI
+관례가 아닙니다.
 
-| Boundary | 존재 이유 | 적용되는 동작 |
-|----------|-----------|---------------|
-| Judgment와 execution | Change를 propose하거나 judge하는 component가 직접 적용하지 않아야 합니다. | Forseti가 판단하고 Thor가 accepted typed action을 실행합니다. |
-| Approval과 execution | Privileged executor가 자신의 작업을 승인할 수 없어야 합니다. | Var가 별도로 authorized된 channel을 통해 approval을 전달합니다. |
-| Console과 control plane | Browser session이 mutation permission을 보유하지 않아야 합니다. | Console은 projection과 evidence만 읽습니다. |
-| Model proposal과 eligibility | 그럴듯한 model output은 execution evidence가 아닙니다. | Deterministic verification이 T2 proposal의 진행 가능 여부를 결정합니다. |
-| Shadow와 enforce | 새 capability는 mutation 전에 동작을 입증하는 것이 좋습니다. | New action은 먼저 관찰하고 audit되며 enforcement는 별도로 promote됩니다. |
-| Replay와 re-execution | Investigation이 production mutation을 반복하지 않아야 합니다. | Audit replay는 action을 다시 실행하지 않고 judgment를 재구성합니다. |
+| 경계 | 존재 이유 | 적용되는 동작 |
+|------|-----------|-------------------|
+| 판단과 실행 | 변경을 제안하거나 판단한 쪽이 직접 적용하지 않는 것이 좋습니다. | Forseti가 판단하고 Thor가 승인된 작업을 실행합니다. |
+| 승인과 실행 | 권한 실행기가 자신의 작업을 승인할 수 없어야 합니다. | Var가 별도로 권한이 부여된 채널로 승인을 전달합니다. |
+| 콘솔과 컨트롤 플레인 | 브라우저 세션이 변경 권한을 가지지 않아야 합니다. | 콘솔은 조회용 데이터와 근거만 읽습니다. |
+| 모델 제안과 실행 자격 | 그럴듯한 모델 답변은 근거가 아닙니다. | 결정론적 검증이 T2 제안의 진행 가능 여부를 결정합니다. |
+| 관찰과 적용 | 새 기능은 무언가를 바꾸기 전에 스스로를 증명하는 것이 좋습니다. | 새 작업은 먼저 관찰하고 감사되며 적용은 별도로 승격됩니다. |
+| 재생과 재실행 | 조사 작업이 운영 변경을 다시 일으키지 않아야 합니다. | 감사 재생은 작업을 다시 실행하지 않고 판단 과정만 재구성합니다. |
 
-[Agent 조직](concepts/agents-and-self-healing-ko.md)은 이러한 역할을 named agent에
-할당하지만 agent는 typed control loop를 우회하지 않습니다. Conversational request도 다른
-request와 동일한 event, verification, risk, audit path로 다시 들어가야 합니다.
+[에이전트 조직](concepts/agents-and-self-healing-ko.md)은 이러한 역할을 각 에이전트에
+할당하며, 어느 에이전트도 컨트롤 루프를 건너뛸 수 없습니다. 대화로 들어온 요청도 다른
+요청과 똑같은 이벤트, 검증, 위험 평가, 감사 경로를 다시 거칩니다.
 
-## Code와 data boundary
+## 코드와 데이터 경계
 
-Repository는 runtime system과 동일한 dependency direction을 따릅니다.
+리포지토리는 런타임 시스템과 같은 의존 방향을 따릅니다.
 
 ```mermaid
 flowchart TB
@@ -288,101 +290,100 @@ flowchart TB
   AZURE[Azure SDK implementation] --> DELIVERY
 ```
 
-- **`core/`**에는 decision 및 coordination logic이 있습니다. Azure SDK 또는 UI
-  component가 아니라 shared contract에 의존합니다.
-- **`shared/`**는 versioned event, action, rule, workflow, provider contract를 정의합니다.
-  Core를 import하지 않습니다.
-- **`delivery/`**는 contract 뒤에서 persistence, Azure access, GitOps, notification,
-  ChatOps, read API를 구현합니다.
-- **`rule-catalog/` 및 `policies/`**에는 governed data가 있습니다. Rule 또는 action
-  type을 추가할 때 control loop를 다시 작성하지 않습니다.
-- **Composition root**는 validated configuration에서 concrete provider를 선택하고
-  startup에 inject합니다.
+- **`core/`**에는 판단과 조율 로직이 들어 있습니다. Azure SDK나 UI 컴포넌트가 아니라 공유
+  contract에만 의존합니다.
+- **`shared/`**는 버전이 관리되는 이벤트, 작업, 룰, 워크플로, provider contract를
+  정의합니다. core를 가져오지 않습니다.
+- **`delivery/`**는 contract 뒤에서 영속화, Azure 접근, GitOps, 알림, ChatOps, 조회
+  API를 구현합니다.
+- **`rule-catalog/` 및 `policies/`**에는 관리 대상 데이터가 들어 있습니다. 룰이나 작업
+  유형을 추가할 때 컨트롤 루프를 다시 쓸 필요가 없습니다.
+- **컴포지션 루트**는 검증된 설정을 읽고 실제 provider를 골라 시작 시점에 주입합니다.
 
-전체 dependency map은 [Project Structure](../roadmap/architecture/project-structure-ko.md)를
+전체 의존 관계 지도는 [Project Structure](../roadmap/architecture/project-structure-ko.md)를
 참조하세요.
 
 ## Azure 구현
 
-첫 번째 구현은 portable contract를 minimum Azure resource set에 매핑합니다.
-Provider-specific call은 adapter 안에 유지됩니다.
+첫 번째 구현은 각 이식 가능한 contract를 작은 Azure 리소스 집합에 매핑합니다. provider에
+종속적인 호출은 어댑터 안에만 머물므로, 리소스를 바꿔도 판단 로직은 건들지 않습니다.
 
-| Portable concern | Contract | Azure 구현 |
-|------------------|----------|-----------|
-| Event stream | Kafka wire protocol | Kafka endpoint를 통한 Event Hubs |
-| Core runtime | OCI image와 portable manifest | Azure Container Apps |
-| Scheduled work | Job 또는 cron contract | Container Apps Jobs |
-| State, audit, T1 vector | PostgreSQL과 pgvector | Azure Database for PostgreSQL Flexible Server |
-| Secret | Environment 또는 mounted secret | Container Apps가 inject하는 Key Vault reference |
-| Workload identity | OIDC token | User-assigned Managed Identity |
-| Inventory | Resource graph contract | Azure Resource Graph와 activity delta |
-| Observability | OpenTelemetry-compatible signal | Log Analytics와 Application Insights |
-| Console | Static read-only application | Azure Static Web Apps |
-| human approval | Typed approval message | Teams bot와 Adaptive Cards |
+| 이식 가능한 요소 | Contract | Azure 구현 |
+|-------------------|----------|-----------|
+| 이벤트 스트림 | Kafka wire protocol | Kafka endpoint를 통한 Event Hubs |
+| 코어 런타임 | OCI 이미지와 이식 가능한 매니페스트 | Azure Container Apps |
+| 예약 작업 | Job 또는 cron contract | Container Apps Jobs |
+| 상태, 감사, T1 벡터 | PostgreSQL과 pgvector | Azure Database for PostgreSQL Flexible Server |
+| 시크릿 | 환경 변수 또는 마운트된 시크릿 | Container Apps가 주입하는 Key Vault 참조 |
+| 워크로드 자격 증명 | OIDC 토큰 | 사용자 할당 관리 자격 증명 |
+| 인벤토리 | Resource graph contract | Azure Resource Graph와 활동 로그 변화량 |
+| 관측 | OpenTelemetry 호환 신호 | Log Analytics와 Application Insights |
+| 콘솔 | 정적 읽기 전용 앱 | Azure Static Web Apps |
+| 콘솔 조회 API | HTTP 조회 contract | 자체 읽기 전용 자격 증명을 가진 Container App |
+| 문서 수집 | 업로드와 분할 contract | Container App과 Data Lake Storage |
+| 사람 승인 | 타입이 정의된 승인 메시지 | Teams 봇과 Adaptive Cards |
 
-Continuously running core는 credential-free Kafka-lag scaler를 검증할 때까지 현재 하나의
-replica를 유지합니다. Scheduled job과 static surface는 scale to zero할 수 있습니다. 전체
-provider surface는 [CSP-neutrality contract](../roadmap/architecture/csp-neutrality-ko.md)를
-참조하세요.
+코어는 최소 복제본 1개, 최대 3개로 상시 실행됩니다. 0개까지 줄이려면 자격 증명 없이
+동작하는 Kafka 지연 기반 스케일 규칙이 필요합니다. 그 규칙 없이 0으로 내리면 들어오는
+이벤트가 앱을 깨우지 못하므로 최소값을 1로 유지합니다. 예약 작업과 정적 서비스는 0까지
+줄일 수 있습니다. 전체 provider 목록은
+[CSP-neutrality contract](../roadmap/architecture/csp-neutrality-ko.md)를 참조하세요.
 
-## 모든 action에 포함된 safety
+## 모든 작업에 들어 있는 안전장치
 
-Action type이 다음 4개 control을 선언하지 않으면 action은 완전하지 않습니다.
+작업 유형은 다음 4가지를 선언해야 비로소 완성됩니다.
 
-- **Stop condition**: Execution을 중지하는 measurable signal입니다.
-- **Rollback path**: State를 복원하거나 안전하게 forward하는 검증된 방법입니다.
-- **영향 범위 limit**: Action이 영향을 줄 수 있는 maximum scope, batch, concurrency
-  또는 rate입니다.
-- **Audit record**: Event, 결정, authority, execution, outcome을 재구성하는 데 필요한
-  evidence입니다.
+- **중단 조건**: 실행을 멈추는 측정 가능한 신호입니다.
+- **롤백 경로**: 이전 상태로 되돌리거나 안전하게 앞으로 나아가는 검증된 방법입니다.
+- **영향 범위 제한**: 작업이 건드릴 수 있는 최대 범위, 배치 크기, 동시성, 속도입니다.
+- **감사 기록**: 이벤트, 결정, 권한을 부여한 주체, 실행 내용, 최종 결과를 다시 구성하는 데
+  필요한 근거입니다.
 
-Execution에는 policy 및 what-if check, per-resource lock, idempotency key도 필요합니다.
-Audit store와 같은 required dependency를 사용할 수 없으면 system은 fail open하지 않고
-autonomy를 shadow로 낮추거나 review를 위해 hold합니다.
+실행에는 정책 검사와 what-if 검사, 리소스별 잠금, idempotency key도 필요합니다. 감사
+저장소처럼 필수적인 의존 항목을 쓰지 못하면 FDAI는 자율성을 관찰 모드로 낮추거나 작업을
+검토 대기로 둘니다. 위험한 쪽으로 열어 두지 않습니다.
 
-## 예시: Configuration drift
+## 예시: 설정 드리프트
 
-Network access를 policy보다 넓게 여는 resource change를 예로 들어 보겠습니다.
+네트워크 접근을 정책보다 넓게 여는 리소스 변경을 예로 들어 보겠습니다.
 
-1. Azure가 Kafka-compatible event bus를 통해 resource-change event를 생성합니다.
-2. Event ingest가 payload를 normalize하고 inventory context를 연결하며 resource의
-   correlation key를 찾습니다.
-3. T0가 versioned network policy를 match하고 typed 수정을 propose합니다.
-4. What-if가 intended diff를 확인하고 안전성 검토는 scope에 approval이 필요함을 감지합니다.
-5. ChatOps가 rule, evidence, scope, stop condition, rollback reference가 포함된 approval
-   card를 보냅니다.
-6. Approval 후 executor는 console에서 resource를 mutate하는 대신 수정 pull
-   request를 생성합니다.
-7. Delivery, approval, terminal outcome이 append-only audit trail에서 연결되고 console에
-   read-only evidence로 표시됩니다.
+1. Azure가 Kafka 호환 이벤트 버스로 리소스 변경 이벤트를 보냅니다.
+2. 이벤트 수집이 페이로드를 정규화하고 인벤토리 맥락을 붙인 뒤 리소스의 상관관계 키를
+   찾습니다.
+3. T0가 버전 관리되는 네트워크 룰을 찾아 타입이 정의된 수정을 제안합니다.
+4. what-if가 정확한 변경 내용을 확인하고, 안전성 검토는 영향 범위상 승인이 필요하다고
+   판단합니다.
+5. ChatOps가 룰, 근거, 영향 범위, 중단 조건, 롤백 참조가 담긴 승인 카드를 보냅니다.
+6. 승인 후 실행기는 콘솔에서 리소스를 직접 바꾸는 대신 수정 pull request를 엽니다.
+7. 전달, 승인, 최종 결과가 추가 전용 감사 기록에서 연결되고 콘솔에 읽기 전용 근거로
+   표시됩니다.
 
-동일한 path가 denial, rejection, timeout, rollback도 처리합니다. Terminal branch만
-달라집니다.
+거부, 반려, 시간 초과, 롤백도 같은 경로를 따릅니다. 마지막 단계만 달라집니다.
 
-## Failure isolation
+## 장애 격리
 
-| Failure | System response |
-|---------|-----------------|
-| Console을 사용할 수 없음 | Core processing, Git delivery, ChatOps가 계속됩니다. |
-| ChatOps를 사용할 수 없음 | Approval-required action이 queue에 보관되며 auto-execute되지 않습니다. |
-| Event backlog가 증가함 | Backpressure가 concurrency를 제한하고 retry 또는 dead-letter 처리를 위해 work를 보존합니다. |
-| Audit 또는 critical provider를 사용할 수 없음 | Autonomy가 shadow로 제한되거나 action이 hold됩니다. |
-| Duplicate delivery | Idempotency와 resource lock이 duplicate mutation을 방지합니다. |
-| T2 model이 disagreement함 | Competing evidence가 보존되고 case가 human review로 이동합니다. |
-| Rollback verification이 실패함 | Incident가 open 상태로 유지되고 typed pipeline을 통해 recovery가 escalate됩니다. |
-| Forseti를 사용할 수 없음 | New agent 결정이 발행되지 않으며 work는 review를 위해 hold됩니다. |
-| Thor를 사용할 수 없음 | Detection, judgment, audit은 계속될 수 있지만 mutation은 실행되지 않습니다. |
-| Var를 사용할 수 없음 | Approval-required work가 queue에 유지되고 timeout은 audited no-op이 됩니다. |
-| Saga 또는 Vidar를 사용할 수 없음 | Audit과 rollback이 hard dependency이므로 enforce startup 또는 mutation이 차단됩니다. |
-| Shadow pantheon task가 실패함 | Established primary consumer를 종료하지 않고 failure가 log됩니다. |
+| 장애 | 시스템 대응 |
+|------|-------------|
+| 콘솔을 사용할 수 없음 | 코어 처리, Git 전달, ChatOps가 계속 동작합니다. |
+| ChatOps를 사용할 수 없음 | 승인이 필요한 작업은 대기열에 남으며 자동 실행되지 않습니다. |
+| 이벤트 백로그가 늘어남 | 백프레셔가 동시성을 제한하고 재시도 또는 dead-letter 처리를 위해 작업을 보관합니다. |
+| 감사나 핵심 provider를 사용할 수 없음 | 자율성이 관찰 모드로 낮춰지거나 작업이 보류됩니다. |
+| 중복 전달 | idempotency key와 리소스 잠금이 두 번째 변경을 막습니다. |
+| T2 모델의 의견이 갈림 | 상반된 근거를 보관하고 사례를 사람 검토로 보냅니다. |
+| 롤백 검증 실패 | 인시던트가 열린 상태로 유지되고 복구가 타입 기반 파이프라인을 통해 에스컬레이션됩니다. |
+| Forseti를 사용할 수 없음 | 새 에이전트 결정이 발행되지 않고 작업은 검토 대기로 보관됩니다. |
+| Thor를 사용할 수 없음 | 감지, 판단, 감사는 계속되지만 아무것도 변경되지 않습니다. |
+| Var를 사용할 수 없음 | 승인이 필요한 작업은 대기열에 남고 시간 초과는 감사된 미실행으로 처리됩니다. |
+| Saga나 Vidar를 사용할 수 없음 | 감사와 롤백은 필수 의존 항목이므로 적용 모드 시작과 변경이 차단됩니다. |
+| 에이전트 런타임 실패 | 장애를 기록하고 기존 주 소비자는 계속 동작합니다. |
 
 ## 다음 단계
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| Tier가 decision method를 선택하는 방식 | [결정론 우선](concepts/deterministic-first-ko.md) |
-| Action이 auto, approval required 또는 deny가 되는 방식 | [신뢰 tier](concepts/risk-tiers-ko.md) |
-| Typed action과 workflow가 loop에 맞는 방식 | [Ontology 기반 자동화](concepts/ontology-driven-automation-ko.md) |
-| Named agent가 responsibility를 나누는 방식 | [Agent와 self-healing](concepts/agents-and-self-healing-ko.md) |
-| Azure resource를 안전하게 준비하는 방식 | [Deployment preflight](../roadmap/deployment/deployment-preflight-ko.md) |
-| Operator가 incident에 대응하는 방식 | [SRE runbook](../runbooks/README-ko.md) |
+| 수준별로 판단 방식을 고르는 기준 | [결정론 우선](concepts/deterministic-first-ko.md) |
+| 작업이 자동 실행, 승인 필요, 거부로 나뉘는 기준 | [신뢰 수준](concepts/risk-tiers-ko.md) |
+| 타입이 정의된 작업과 워크플로의 위치 | [온톨로지 기반 자동화](concepts/ontology-driven-automation-ko.md) |
+| 각 에이전트가 책임을 나누는 방식 | [에이전트와 자가 복구](concepts/agents-and-self-healing-ko.md) |
+| Azure 리소스를 안전하게 준비하는 방법 | [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md) |
+| 운영자가 인시던트에 대응하는 방법 | [SRE 런북](../runbooks/README-ko.md) |
