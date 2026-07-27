@@ -302,7 +302,7 @@
     "src/fdai/core/measurement/runners_cli.py": "680687ed83a31cde700cf6ee1631d9462d8e5f929ad07acef49caf6058bc1959",
     "src/fdai/core/metering/__init__.py": "34124a28a9e2cd747a5a70f4095026aea34703c15b9423128d003db331bfa6ea",
     "src/fdai/core/metering/aggregate.py": "1bfcf46d084a5e9fc5222032f0de8f38618bdf19cd387a4f3440092f995a85a4",
-    "src/fdai/core/metering/budget.py": "796511e758e5212949697b6dbef5b069a00cd88ff5a74561600ebe377a17ddfc",
+    "src/fdai/core/metering/budget.py": "a3240d342736d238d9c39a11444f7a4745e57ab1cddc72fac4d7db9132fccb00",
     "src/fdai/core/metering/context.py": "27ea7879ea5b87f08be7d923fd76f1e809dcfdabee8f8e4c3d841843106a60c8",
     "src/fdai/core/metering/emitter.py": "33d48d8e78366ea753dd8991b848121f8cc9d18e29cafdb6753c7dda02af189a",
     "src/fdai/core/metering/pricing.py": "2dc693119feb239d1864205c6e22aa7b865cb02d3533602953a35698fa530413",
@@ -796,7 +796,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T11:24:34Z",
+  "generated_at": "2026-07-27T11:31:17Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

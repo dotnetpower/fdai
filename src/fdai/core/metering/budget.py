@@ -126,9 +126,17 @@ class InMemoryBudgetLedger:
 
     Non-durable on purpose, like
     :class:`~fdai.core.metering.sink.InMemoryMeteringSink`: it makes the
-    ceiling work out of the box and a restart resets it. The correlation
-    map cannot overflow while budget remains, because each charge adds at
-    most one key and the total call budget is capped at the map's size.
+    ceiling work out of the box and a restart resets it.
+
+    The correlation map is bounded, so it evicts. A declared *total*
+    survives eviction because totals are counted separately and never
+    evicted, which is why a total call budget above the map size is
+    rejected at construction. A *per-correlation* limb does not: a
+    correlation evicted behind ``MAX_TRACKED_CORRELATIONS`` others comes
+    back with a fresh allowance. That is the intended reading of a
+    per-unit-of-work ceiling, and it matters here because cost-only
+    charges from the metering write add keys without consuming call
+    budget, so keys can grow faster than calls.
     """
 
     __slots__ = ("_budget", "_per_correlation", "_total")
@@ -199,17 +207,6 @@ def to_microusd(cost: Decimal | None) -> int:
     return whole + 1 if micros > whole else whole
 
 
-__all__ = [
-    "MAX_TRACKED_CORRELATIONS",
-    "BudgetChargingMeteringSink",
-    "BudgetLedger",
-    "BudgetSpend",
-    "InMemoryBudgetLedger",
-    "ModelBudget",
-    "to_microusd",
-]
-
-
 class BudgetChargingMeteringSink:
     """Charge the budget with what metering actually recorded.
 
@@ -250,3 +247,14 @@ class BudgetChargingMeteringSink:
                 extra={"correlation_id": invocation.correlation_id},
                 exc_info=True,
             )
+
+
+__all__ = [
+    "MAX_TRACKED_CORRELATIONS",
+    "BudgetChargingMeteringSink",
+    "BudgetLedger",
+    "BudgetSpend",
+    "InMemoryBudgetLedger",
+    "ModelBudget",
+    "to_microusd",
+]
