@@ -245,6 +245,37 @@ async def test_a_denied_reservation_charges_nothing() -> None:
     assert (await ledger.spend("corr-1")) == BudgetSpend(calls=1, cost_microusd=10)
 
 
+@pytest.mark.parametrize(
+    ("calls", "cost_microusd"),
+    (
+        (2, 0),
+        (0, 101),
+    ),
+)
+async def test_a_reservation_rejects_an_increment_larger_than_the_remaining_budget(
+    calls: int,
+    cost_microusd: int,
+) -> None:
+    ledger = InMemoryBudgetLedger(
+        ModelBudget(
+            max_calls_per_correlation=1,
+            max_cost_microusd_per_correlation=100,
+            max_calls_total=1,
+            max_cost_microusd_total=100,
+        )
+    )
+
+    assert (
+        await ledger.reserve(
+            "corr-1",
+            calls=calls,
+            cost_microusd=cost_microusd,
+        )
+        is False
+    )
+    assert await ledger.spend("corr-1") == BudgetSpend()
+
+
 async def test_a_reservation_refuses_to_refund() -> None:
     """Same non-negative contract as ``charge``."""
     ledger = InMemoryBudgetLedger(ModelBudget())

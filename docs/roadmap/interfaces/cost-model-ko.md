@@ -1,7 +1,7 @@
 ---
 title: 비용 모델 (예시)
 translation_of: cost-model.md
-translation_source_sha: 365b22c481232ee6ba500141eff0d98073a1cdc7
+translation_source_sha: 6c77bb278a9517139d7be7c17b6c779fa5773645
 translation_revised: 2026-07-27
 ---
 
@@ -124,7 +124,7 @@ Reasoning-tier (T2) 추론은 고정 인프라 합계와 분리하는 **usage �
 
 모델 선택과 무관하게 성립하는 규칙:
 
-- **예산 상한이 천장**; 초과해도 더 지출되지 않고 finding을 HIL 큐로 보냄. `core/metering/budget.py`의 `ModelBudget`이 모든 LLM 경로에 대해 그 천장을 microUSD로 선언하고 `BudgetLedger`가 호출 전에 집행합니다. T2 tier는 `t2_budget_exhausted`로 HIL에 escalate하고 대화 포트는 `budget_denied`로 T1에 머뭅니다. 단위별 한도는 항상 적용되며, fleet 전체 총량은 배포가 선언했을 때만 존재합니다. 리셋되지 않는 총량은 예산이 아니라 kill switch이기 때문입니다.
+- **예산 상한이 천장**; 초과해도 더 지출되지 않고 finding을 HIL 큐로 보냄. `core/metering/budget.py`의 `ModelBudget`이 모든 LLM 경로에 대해 그 천장을 microUSD로 선언하고 `BudgetLedger`가 호출 전에 집행합니다. T2 tier는 `t2_budget_exhausted`로 HIL에 escalate하고 대화 포트는 `budget_denied`로 T1에 머뭅니다. 단위별 한도는 항상 적용되며, fleet 전체 총량은 배포가 선언했을 때만 존재합니다. 리셋되지 않는 총량은 예산이 아니라 kill switch이기 때문입니다. Atomic reservation은 spend를 변경하기 전에 요청된 call 및 microUSD increment를 포함한 prospective total을 평가합니다. 단독으로 남은 예산보다 큰 reservation은 allowance를 소비하지 않고 거부됩니다.
 - 모델 선택은 **설정**, 코드가 아님 ([llm-strategy-ko.md](../architecture/llm-strategy-ko.md)); 측정된
   비용/품질로 스왑은 안전.
 - Provider-side rate limit과 요청당 timeout이 단일 이벤트가 상한을 격리적으로 폭파하지 않도록

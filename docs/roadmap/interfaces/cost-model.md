@@ -132,7 +132,9 @@ Rules that hold regardless of model choice:
   LLM path, and `BudgetLedger` enforces it before the call: the T2 tier escalates to HIL with
   `t2_budget_exhausted`, and the conversational port stays at T1 with `budget_denied`. The
   per-unit bounds are always on; a fleet-wide total exists only when a deployment declares one,
-  because a total that never resets is a kill switch rather than a budget.
+  because a total that never resets is a kill switch rather than a budget. Atomic reservation
+  evaluates the prospective total, including the exact requested call and microUSD increments,
+  before it mutates spend. A single oversized reservation is denied without consuming allowance.
 - Model choice is **configuration**, not code
   ([llm-strategy.md](../architecture/llm-strategy.md)); a swap by measured cost/quality is safe.
 - Provider-side rate limits and per-request timeout keep any single event from blowing the
