@@ -1,83 +1,82 @@
 ---
 title: 근본 원인 분석
-description: FDAI가 티어별 인용 가능한 근본 원인 가설을 만들고 증거가 부족할 때 판단 보류하는 방법입니다.
+description: FDAI가 티어별로 인용 가능한 근본 원인 가설을 만들고, 근거가 부족하면 판단을 보류하는 방법입니다.
 translation_of: root-cause-analysis.md
 translation_source_sha: 37b022db392263a2253f76fca23238acfbe7accb
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 근본 원인 분석
 
-근본 원인 분석(Root-Cause Analysis, RCA)은 인시던트가 발생했을 수 있는 이유를
-설명합니다. FDAI는 RCA를 citation, confidence, tier, 근거 확인 state가 있는 hypothesis로
-저장합니다. RCA는 판단을 위한 증거이며 변경 실행 권한이 아닙니다.
+근본 원인 분석(Root-Cause Analysis, RCA)은 인시던트가 왜 일어났을 수 있는지 설명합니다.
+FDAI는 분석 결과를 인용, 신뢰도, 티어, 근거 확인 상태를 갖춘 가설로 저장합니다. 분석
+결과는 판단에 쓰는 근거일 뿐, 변경을 실행할 권한이 아닙니다.
 
-## Trust tier별 RCA
+## 신뢰 티어별 근본 원인 분석
 
-| 티어 | 역할 | 일반적인 증거 |
-|------|------|---------------|
-| T0 | 직접적인 결정론적 원인 | 일치한 rule, 위반된 control, 선언된 수정 |
-| T1 | 과거 incident 재사용 또는 결정론적 causal chain | 해결된 incident, 순서가 있는 change 및 symptom event, resource dependency |
-| T2 | 신규 또는 모호한 사례의 grounded reasoning | 검증된 telemetry, event, rule, knowledge chunk, scenario evidence |
+| 티어 | 역할 | 흔히 쓰는 근거 |
+|------|------|----------------|
+| T0 | 결정론적으로 바로 드러나는 원인 | 일치한 룰, 위반된 통제 항목, 선언된 수정 방법 |
+| T1 | 과거 인시던트 재사용 또는 결정론적 인과 사슬 | 해결된 인시던트, 순서가 있는 변경과 증상 이벤트, 리소스 의존 관계 |
+| T2 | 새롭거나 모호한 사례에 대한 근거 기반 추론 | 검증된 관측 데이터, 이벤트, 룰, 지식 조각, 시나리오 근거 |
 
-T1 reuse는 과거 원인과 learned action이 현재 증거에도 적용되는지 다시 검증합니다. T1
-causal chain은 선행 change를 root로 요구합니다. Symptom만 있는 window는 원인을 만들지
-않고 판단 보류합니다.
+T1 재사용은 과거의 원인과 그때 쓴 작업이 지금 근거에도 들어맞는지 다시 확인합니다. T1 인과
+사슬은 앞선 변경이 뿌리로 있어야 성립합니다. 증상만 모여 있는 구간에서는 원인을 지어내지
+않고 판단을 보류합니다.
 
-Reuse가 재검증에 실패하면 FDAI는 learned action을 replay하지 않습니다. 현재 evidence set으로
-구성된 T2 reasoner를 시도하거나 사람 검토로 보류할 수 있습니다. 어느 경로든 T1 reject 이유를
-기록하므로 similarity hit가 stale scope, 변경된 dependency, 대체된 수정을 숨길 수
-없습니다.
+재확인에 실패하면 FDAI는 과거 작업을 그대로 되풀이하지 않습니다. 현재 근거로 구성한 T2
+추론을 시도하거나 사람 검토로 넘깁니다. 어느 쪽이든 T1을 거절한 이유를 기록하므로, 유사도만
+높은 결과가 낡은 범위나 바뀐 의존 관계, 이미 대체된 수정 방법을 가리는 일이 없습니다.
 
-## 근거 확인 gate
+## 근거 확인 관문
 
-모든 citation은 reasoner에 제공된 evidence set에서 나와야 합니다. Malformed response,
-fabricated citation, unsupported claim, 설정 threshold 미만 confidence는 판단 보류
-hypothesis가 되어 사람 검토로 이동합니다.
+모든 인용은 추론기에 전달된 근거 묶음 안에서 나와야 합니다. 형식이 깨진 응답, 지어낸 인용,
+뒷받침되지 않는 주장, 설정된 임계값에 못 미치는 신뢰도는 모두 판단 보류 가설이 되어 사람
+검토로 넘어갑니다.
 
-Telemetry와 operator document는 untrusted input입니다. Model text는 policy, what-if 결과,
-deterministic verifier를 덮어쓸 수 없습니다.
+관측 데이터와 운영자가 쓴 문서는 신뢰할 수 없는 입력으로 다룹니다. 모델이 쓴 문장이 정책,
+what-if 결과, 결정론적 검증기를 덮어쓸 수는 없습니다.
 
-Confidence는 reasoner의 self-reported confidence가 아니라 verifier, cross-check, 근거 확인
-signal에서 계산됩니다. T2 quality gate는 독립적인 cross-check, deterministic verification,
-supplied evidence allowlist 안에서 resolve되는 citation을 요구합니다. Rubric 또는 cross-check는
-eligibility를 낮출 수만 있고 근거 없는 candidate를 구제할 수 없습니다.
+신뢰도는 추론기가 스스로 매긴 점수가 아니라 검증기, 교차 검증, 근거 확인 신호에서
+계산합니다. T2 품질 검토는 독립적인 교차 검증, 결정론적 검증, 그리고 제공된 근거 목록
+안에서 확인되는 인용을 요구합니다. 채점 기준이나 교차 검증은 자격을 낮출 수만 있고, 근거가
+없는 후보를 구제하지는 못합니다.
 
-| RCA outcome | 저장 결과 | 대응 경로 |
-|-------------|-----------|-----------|
-| Grounded 및 configured threshold 이상 | Citation이 있는 hypothesis | Typed proposal의 근거로 사용 가능 |
-| Ambiguous alternative | Confidence가 제한된 hypothesis | 사람 검토 |
-| Stale T1 reuse | Provenance가 있는 rejected reuse | Current-evidence T2 또는 사람 검토 |
-| Malformed 또는 fabricated citation | 판단 보류 hypothesis | Action 없음, audit 및 검토 |
+| 분석 결과 | 저장되는 형태 | 이어지는 경로 |
+|-----------|---------------|---------------|
+| 근거가 있고 설정 임계값 이상 | 인용이 붙은 가설 | 타입이 정의된 제안의 근거로 쓸 수 있음 |
+| 대안이 여럿이라 모호함 | 신뢰도가 제한된 가설 | 사람 검토 |
+| 오래된 T1 재사용 | 출처가 남은 거절 기록 | 현재 근거 기반 T2 또는 사람 검토 |
+| 형식이 깨졌거나 지어낸 인용 | 판단 보류 가설 | 실행 없음, 감사와 검토만 |
 
-## Causal chain
+## 인과 사슬
 
-Structured T1 chain은 root 및 failure event ID와 ordered hop을 보존합니다. 각 hop은 cause
-및 effect reference, lead time, relationship, confidence를 기록합니다. Resource dependency
-data가 있으면 관련 경로를 강화하고 무관한 연결을 차단합니다.
+구조화된 T1 사슬은 뿌리 이벤트 ID와 장애 이벤트 ID, 그리고 순서가 있는 연결 고리를
+보존합니다. 각 고리에는 원인과 결과 참조, 시간 간격, 관계, 신뢰도를 기록합니다. 리소스 의존
+데이터가 있으면 관련 있는 경로를 강화하고 무관한 연결은 차단합니다.
 
-시간 순서만으로 확실한 원인이 되지 않습니다. Confidence는 제한되며 여러 root가 비슷하게
-failure를 설명하면 낮아지고, 가장 약한 supported link를 기준으로 결정됩니다.
+시간 순서만으로는 원인이 확정되지 않습니다. 여러 뿌리가 장애를 비슷하게 설명하면 신뢰도는
+낮아지며, 최종 신뢰도는 가장 약한 연결 고리를 기준으로 정해집니다.
 
-## RCA dossier 읽기
+## 분석 결과 읽기
 
-다음 요소를 함께 확인하세요.
+다음 항목을 함께 확인하세요.
 
-1. Incident 및 correlation ID.
-2. Tier, outcome, confidence, 근거 확인 state.
-3. Citation과 evidence freshness.
-4. Alternative 또는 ambiguous hypothesis.
-5. 존재하는 경우 structured causal hop.
-6. 연결된 response plan, 결정, mode, rollback reference.
+1. 인시던트 ID와 상관관계 ID.
+2. 티어, 결과, 신뢰도, 근거 확인 상태.
+3. 인용과 근거의 최신성.
+4. 대안 가설이나 모호한 가설.
+5. 있다면 구조화된 인과 고리.
+6. 연결된 대응 계획, 결정, 모드, 롤백 참조.
 
-Chain data나 evidence가 없으면 unavailable로 표시합니다. Browser는 audit record보다 더
-확신도 높은 설명을 재구성하지 않습니다.
+사슬 데이터나 근거가 없으면 확인 불가로 표시합니다. 브라우저가 감사 기록보다 더 확신에 찬
+설명을 지어내는 일은 없습니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| 증거 범위를 제한하는 방법 | [분류와 조사](triage-and-investigation-ko.md) |
-| Mitigation을 제안하는 방법 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 근거 범위를 제한하는 방법 | [분류와 조사](triage-and-investigation-ko.md) |
+| 완화 조치를 제안하는 방법 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) |
 | 판단을 감사하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |
-| 상세 RCA 계약 | [관측성과 감지](../../roadmap/rules-and-detection/observability-and-detection-ko.md) |
+| 상세 분석 계약 | [관측성과 감지](../../roadmap/rules-and-detection/observability-and-detection-ko.md) |

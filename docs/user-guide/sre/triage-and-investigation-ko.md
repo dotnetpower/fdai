@@ -1,84 +1,83 @@
 ---
 title: 분류와 조사
-description: FDAI가 범위가 제한된 cross-resource 증거를 수집하고 감사 가능한 investigation report를 만드는 방법입니다.
+description: FDAI가 범위를 정해 여러 리소스의 근거를 모으고, 감사할 수 있는 조사 보고서를 만드는 방법입니다.
 translation_of: triage-and-investigation.md
 translation_source_sha: 749debc12028111a458999366aa1073a593b10b4
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 분류와 조사
 
-Triage는 ownership, impact, urgency를 확정합니다. Investigation은 read operation을 숨겨진
-mutation path로 만들지 않으면서 incident를 설명할 수 있는 최소 증거 세트를 수집합니다.
+분류는 소유자, 영향, 시급성을 확정하는 단계입니다. 조사는 인시던트를 설명할 수 있는 최소한의
+근거를 모으는 단계이며, 이때 읽기 작업이 몰래 변경 경로로 바뀌는 일은 없습니다.
 
 ## 조사 계약
 
-Investigation request는 incident, target resource, time range, latency budget을 지정합니다.
-Resource analyzer는 provider evidence를 읽고 structured 발견된 문제를 반환합니다. Coordinator는
-timeline, correlation, optional root-cause hypothesis, prioritized recommendation을 만듭니다.
+조사 요청에는 인시던트, 대상 리소스, 시간 범위, 허용 지연 시간을 적습니다. 리소스 분석기는
+provider가 가진 근거를 읽어 구조화된 발견 결과를 돌려줍니다. 조정자는 이를 모아 타임라인,
+상관관계, 필요하면 근본 원인 가설, 우선순위가 매겨진 권고안을 만듭니다.
 
-Report는 read-only입니다. 수정을 지정하는 recommendation도 제안일 뿐이며 typed
-action pipeline에 다시 들어가야 합니다.
+보고서는 읽기 전용입니다. 수정 방법을 짚어 주는 권고안이라도 제안일 뿐이며, 타입이 정의된
+작업 파이프라인을 다시 거쳐야 합니다.
 
-## 범위가 제한된 증거 수집
+## 범위를 정한 근거 수집
 
-- **Resource scope**는 analyzer가 검사할 수 있는 resource를 제한합니다.
-- **Time range**는 무제한 history query를 방지합니다.
-- **Latency budget**은 조사가 정해진 시간 안에 완료됐는지 기록합니다.
-- **Provider failure**는 unavailable evidence가 되며 사실을 만들어내지 않습니다.
-- **Priority**는 recommendation을 P1, P2, P3로 정렬하지만 실행 권한을 주지 않습니다.
+- **리소스 범위**는 분석기가 살펴볼 수 있는 리소스를 제한합니다.
+- **시간 범위**는 끝없이 과거를 뒤지는 조회를 막습니다.
+- **허용 지연 시간**은 조사가 정해진 시간 안에 끝났는지 기록합니다.
+- **provider 실패**는 근거 없음으로 남을 뿐, 사실을 지어내지 않습니다.
+- **우선순위**는 권고안을 P1, P2, P3로 정렬할 뿐 실행 권한을 주지 않습니다.
 
-Evidence availability는 누락된 field에서 추론하지 않고 명시적으로 기록합니다. Priority는
-report 내부의 local ordering입니다. 별도 policy가 정의하지 않는 한 severity, confidence,
-autonomy 결정이 아닙니다.
+근거가 있는지 없는지는 빠진 필드로 짐작하지 않고 명시적으로 기록합니다. 우선순위는 보고서
+안에서만 쓰는 정렬 기준입니다. 별도 정책이 없다면 심각도나 신뢰도, 자율성 결정과는 무관합니다.
 
-| Evidence state | 의미 | Downstream 동작 |
-|----------------|------|-----------------|
-| Available | Provider가 범위가 제한된 fresh data 반환 | 발견된 문제 및 hypothesis 근거로 사용 가능 |
-| Empty | Query 성공, 일치하는 record 없음 | Query scope와 함께 부재 보고 |
-| Unavailable | Provider 실패 또는 dependency unhealthy | Gap 표시 및 의존 claim 억제 |
-| Stale | Data는 있지만 freshness policy 초과 | 의존 conclusion을 검토 보류 |
+| 근거 상태 | 의미 | 이후 처리 |
+|-----------|------|-----------|
+| 있음 | provider가 범위 안의 최신 데이터를 돌려줬습니다 | 발견 결과와 가설의 근거로 쓸 수 있습니다 |
+| 비어 있음 | 조회는 성공했지만 맞는 기록이 없습니다 | 조회 범위와 함께 없다는 사실을 보고합니다 |
+| 확인 불가 | provider가 실패했거나 의존 요소가 비정상입니다 | 공백으로 표시하고 그 근거에 기댄 주장을 막습니다 |
+| 오래됨 | 데이터는 있지만 최신성 기준을 넘겼습니다 | 그 근거에 기댄 결론을 보류합니다 |
 
-## 분류 워크플로
+## 분류 절차
 
-1. Incident severity, owner, affected resource, user impact를 확인합니다.
-2. Telemetry와 inventory가 조사에 충분히 최신인지 확인합니다.
-3. 선언된 resource type에 해당하는 analyzer만 실행합니다.
-4. 인과관계를 주장하기 전에 ordered timeline을 만듭니다.
-5. Correlated observation과 grounded root-cause hypothesis를 구분합니다.
-6. Actionable recommendation을 incident response plan 또는 일반 action proposal로 보냅니다.
+1. 인시던트 심각도, 소유자, 영향받는 리소스, 사용자 영향을 확인합니다.
+2. 관측 데이터와 인벤토리가 조사에 쓸 만큼 최신인지 확인합니다.
+3. 선언된 리소스 유형에 해당하는 분석기만 실행합니다.
+4. 인과관계를 주장하기 전에 순서가 있는 타임라인부터 만듭니다.
+5. 함께 움직인 관측과 근거가 뒷받침하는 근본 원인 가설을 구분합니다.
+6. 실행할 만한 권고안은 인시던트 대응 계획이나 일반 작업 제안으로 보냅니다.
 
-## 리포트 읽기
+## 보고서 읽기
 
-| 섹션 | 답하는 질문 |
+| 항목 | 답하는 질문 |
 |------|-------------|
-| 발견된 문제 | 각 resource analyzer가 무엇을 관찰했나요? |
-| Timeline | Change와 symptom이 어떤 순서로 발생했나요? |
-| Correlations | 어떤 observation이 함께 움직이나요? |
-| RCA hypothesis | 인용된 증거가 어떤 원인을 뒷받침하나요? |
-| Recommendations | 다음에 무엇을 검사, simulate, propose해야 하나요? |
-| Budget result | 증거 수집이 선언된 제한 안에 완료됐나요? |
+| 발견된 문제 | 각 리소스 분석기가 무엇을 관찰했나요? |
+| 타임라인 | 변경과 증상이 어떤 순서로 일어났나요? |
+| 상관관계 | 어떤 관측 값들이 함께 움직이나요? |
+| 근본 원인 가설 | 인용된 근거가 어떤 원인을 뒷받침하나요? |
+| 권고안 | 다음으로 무엇을 확인하고, 시뮬레이션하고, 제안해야 하나요? |
+| 예산 결과 | 근거 수집이 정해진 시간 안에 끝났나요? |
 
-## 실패 동작
+## 실패했을 때의 동작
 
-멈춘 analyzer는 시간 제한을 받고 no-action 결과를 생성합니다. Exception은 unavailable
-evidence로 기록되며 response를 crash시켜 audit trail을 잃지 않습니다. Cancellation은
-조사를 정상적으로 중단합니다.
+멈춘 분석기는 시간 제한에 걸려 아무 작업도 하지 않은 결과를 남깁니다. 예외는 근거 확인 불가로
+기록될 뿐, 응답 전체를 무너뜨려 감사 기록을 잃게 하지 않습니다. 취소 요청은 조사를 깔끔하게
+중단합니다.
 
-Analyzer는 서로 독립적으로 실패합니다. 완료된 analyzer result는 partial report에 남고,
-실패하거나 timeout된 analyzer는 명시적인 gap을 추가합니다. 전체 latency budget이 만료되면
-coordinator는 새 evidence 수집을 중지하고 budget 충족 여부를 기록하며 근거가 있는 observation만
-반환합니다. 누락된 section을 model prose로 채우거나 partial report를 action으로 바꾸지 않습니다.
+분석기는 서로 독립적으로 실패합니다. 완료된 분석기의 결과는 부분 보고서에 그대로 남고,
+실패하거나 시간이 초과된 분석기는 공백으로 명시됩니다. 전체 허용 시간이 다 되면 조정자는 새
+근거 수집을 멈추고, 시간 예산을 지켰는지 기록하며, 근거가 있는 관측만 돌려줍니다. 빠진 부분을
+모델이 쓴 문장으로 채우거나, 부분 보고서를 실행으로 바꾸는 일은 없습니다.
 
-Recommendation을 사용하기 전에 supporting analyzer가 완료됐는지, cited evidence가 fresh인지,
-recommendation이 선언된 resource 및 time scope 안에 있는지 확인합니다. 높은 report priority는
-검토를 앞당길 수 있지만 RCA 근거 확인, risk classification, approval을 우회할 수 없습니다.
+권고안을 쓰기 전에 그것을 뒷받침하는 분석기가 끝났는지, 인용한 근거가 최신인지, 권고안이
+선언된 리소스와 시간 범위 안에 있는지 확인하세요. 보고서 우선순위가 높으면 검토를 앞당길 수는
+있지만, 근본 원인의 근거 확인이나 위험 분류, 승인을 건너뛸 수는 없습니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| Incident record가 변경되는 방법 | [인시던트 관리](incident-management-ko.md) |
-| 인용된 hypothesis가 gate를 통과하는 방법 | [근본 원인 분석](root-cause-analysis-ko.md) |
-| Recommendation이 proposal이 되는 방법 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) |
-| Supporting record를 검사하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 인시던트 기록이 바뀌는 방법 | [인시던트 관리](incident-management-ko.md) |
+| 인용이 붙은 가설이 관문을 통과하는 방법 | [근본 원인 분석](root-cause-analysis-ko.md) |
+| 권고안이 제안이 되는 방법 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) |
+| 뒷받침 기록을 확인하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |
