@@ -6149,6 +6149,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   outline-offset: 2px;
   border-radius: 8px;
 }
+.deck-answer-state {
+  display: inline-flex;
+  margin-bottom: 5px;
+  color: var(--fg-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.deck-answer-state.is-confirmed,
+.deck-answer-state.is-complete {
+  color: var(--tier-t0, #237a4b);
+}
+.deck-answer-state.is-corrected { color: var(--warning, #8a5a00); }
+.deck-answer-state.is-partial { color: var(--danger, #b3261e); }
 /* Timestamp: shown quietly beneath each message instead of in the header. */
 .deck-turn-foot {
   display: flex;
@@ -6234,6 +6247,45 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.deck-branch-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.deck-branch-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 7px;
+  border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--bg-subtle) 55%, transparent);
+}
+.deck-branch-item.is-running .deck-investigation-state,
+.deck-branch-item.is-pending .deck-investigation-state {
+  box-sizing: border-box;
+  border: 2px solid color-mix(in oklab, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
+  background: transparent;
+  animation: deck-rt-rot 0.8s linear infinite;
+}
+.deck-investigation-activity-disclosure {
+  margin-top: 5px;
+  border-top: 1px solid var(--border);
+}
+.deck-investigation-activity-disclosure > summary {
+  padding: 7px 2px;
+  cursor: pointer;
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+.deck-investigation-activity-disclosure[open] > summary {
+  color: var(--fg);
 }
 .deck-investigation-item {
   min-height: 34px;
@@ -6412,6 +6464,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   margin: 0;
   overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (max-width: 640px) {
+  .deck-branch-item {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+  .deck-branch-item .deck-investigation-meta {
+    grid-column: 2;
+    white-space: normal;
+  }
 }
 
 /* Retrieval trace (deck/retrieval-trace.tsx) - the pending "preparing

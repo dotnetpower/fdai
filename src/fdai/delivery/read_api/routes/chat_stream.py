@@ -636,6 +636,21 @@ def make_chat_stream_route(
                 )
                 for event_name, payload in terminal_events:
                     yield frame(event_name, payload)
+                if verification.status != "unverified":
+                    confirmed_payload: dict[str, Any] = {
+                        "segment_index": 0,
+                        "text": verification.answer,
+                        "status": verification.status,
+                        "evidence_refs": list(verification.evidence_refs),
+                    }
+                    if verification.answer != provisional_answer:
+                        confirmed_payload.update(
+                            {
+                                "replace_start": 0,
+                                "replace_end": len(provisional_answer),
+                            }
+                        )
+                    yield frame("confirmed", confirmed_payload)
                 answer_planning = await planning_metadata(planning_task)
                 done_payload = build_done_payload(
                     verification=verification,

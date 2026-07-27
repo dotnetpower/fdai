@@ -1,7 +1,28 @@
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
-import type { InvestigationActivity, InvestigationExecutionEvidence } from "./backend";
+import type {
+  EvidenceBranch,
+  EvidenceBranchStatus,
+  InvestigationActivity,
+  InvestigationExecutionEvidence,
+} from "./backend";
+
+export function upsertEvidenceBranch(
+  branches: readonly EvidenceBranch[],
+  incoming: EvidenceBranch,
+): readonly EvidenceBranch[] {
+  const index = branches.findIndex((branch) => branch.branchId === incoming.branchId);
+  if (index < 0) return [...branches, incoming];
+  const existing = branches[index];
+  if (existing && !canAdvanceBranch(existing.status, incoming.status)) return branches;
+  return branches.map((branch, branchIndex) => branchIndex === index ? incoming : branch);
+}
+
+function canAdvanceBranch(current: EvidenceBranchStatus, incoming: EvidenceBranchStatus): boolean {
+  if (!["pending", "running"].includes(current)) return false;
+  return current !== "running" || incoming !== "pending";
+}
 
 export function upsertInvestigationActivity(
   activities: readonly InvestigationActivity[],
@@ -32,6 +53,17 @@ function statusMark(status: InvestigationActivity["status"]): string {
 }
 
 function statusLabel(status: InvestigationActivity["status"]): string {
+  return t(`deck.investigation.${status}`);
+}
+
+function branchStatusMark(status: EvidenceBranchStatus): string {
+  if (status === "completed") return "\u2713";
+  if (status === "failed" || status === "timed_out" || status === "cancelled") return "\u00d7";
+  if (status === "unavailable") return "!";
+  return "";
+}
+
+function branchStatusLabel(status: EvidenceBranchStatus): string {
   return t(`deck.investigation.${status}`);
 }
 
@@ -128,9 +160,11 @@ function ExecutionEvidence({
 
 export function InvestigationTimeline({
   activities,
+  branches,
   running,
 }: {
   readonly activities: readonly InvestigationActivity[];
+  readonly branches: readonly EvidenceBranch[];
   readonly running: boolean;
 }) {
   return (
@@ -141,7 +175,32 @@ export function InvestigationTimeline({
           {running ? t("deck.investigation.running") : t("deck.investigation.finished")}
         </span>
       </header>
-      <ol class="deck-investigation-list">
+      {branches.length > 0 ? (
+        <ol class="deck-branch-list" aria-label={t("deck.investigation.branches")}>
+          {branches.map((branch) => (
+            <li key={branch.branchId} class={`deck-branch-item is-${branch.status}`}>
+              <span class="deck-investigation-state" aria-hidden="true">
+                {branchStatusMark(branch.status)}
+              </span>
+              <span class="deck-investigation-copy">
+                <strong>{t(`deck.investigation.kind.${branch.kind}`)}</strong>
+                <small>{branch.summary}</small>
+              </span>
+              <span class="deck-investigation-meta muted">
+                {branch.durationMs !== undefined
+                  ? formatDuration(branch.durationMs)
+                  : branchStatusLabel(branch.status)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      {activities.length > 0 ? (
+        <details class="deck-investigation-activity-disclosure">
+          <summary>
+            {t("deck.investigation.executionDetails", { count: activities.length })}
+          </summary>
+          <ol class="deck-investigation-list">
         {activities.map((activity) => {
           const progress = activity.completed !== null && activity.total !== null
             ? `${activity.completed}/${activity.total}`
@@ -174,7 +233,9 @@ export function InvestigationTimeline({
             </li>
           );
         })}
-      </ol>
+          </ol>
+        </details>
+      ) : null}
     </section>
   );
 }

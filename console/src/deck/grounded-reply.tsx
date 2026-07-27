@@ -21,6 +21,7 @@ import { t } from "../i18n";
 import type {
   AnswerPlanMetadata,
   AnswerPlanningMetadata,
+  ConfirmedAnswerSegment,
   AnswerVerification,
   DelegationMetadata,
   GroundedCodeArtifact,
@@ -47,6 +48,7 @@ export function GroundedReply({
   source,
   streaming,
   verification,
+  confirmed,
   verificationProgress,
   answerPlan,
   answerPlanning,
@@ -61,6 +63,7 @@ export function GroundedReply({
   /** True while the answer is still streaming tokens in from the backend. */
   readonly streaming: boolean;
   readonly verification: AnswerVerification | undefined;
+  readonly confirmed: ConfirmedAnswerSegment | undefined;
   readonly verificationProgress: VerificationProgress | undefined;
   readonly answerPlan: AnswerPlanMetadata | undefined;
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
@@ -111,6 +114,17 @@ export function GroundedReply({
     parsedSource?.kind === "llm" || parsedSource?.kind === "deterministic"
   );
   const successfulPlanningAgents = answerPlanning?.contributions.map((item) => item.agent) ?? [];
+  const answerState = source?.startsWith("partial")
+    ? "partial"
+    : streaming
+    ? confirmed
+      ? "confirmed"
+      : "draft"
+    : verification?.status === "corrected"
+    ? "corrected"
+    : confirmed
+    ? "confirmed"
+    : "complete";
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(
@@ -166,6 +180,9 @@ export function GroundedReply({
         </div>
       ) : null}
       <div class="deck-turn-body">
+        <span class={`deck-answer-state is-${answerState}`} role="status">
+          {t(`deck.answerState.${answerState}`)}
+        </span>
         <RichContent
           text={text}
           streaming={streaming}

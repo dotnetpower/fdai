@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseConfirmedAnswerSegment,
+  parseEvidenceBranch,
   parseInvestigationActivity,
   parseInvestigationMilestone,
   parseRetrievalSourcePreviews,
@@ -92,5 +94,62 @@ describe("bounded investigation presentation metadata", () => {
       detail: "detail",
       side_effect_class: "read",
     }])).toEqual([]);
+  });
+});
+
+describe("progressive branch and confirmed segment boundaries", () => {
+  it("accepts a bounded terminal branch and confirmed replacement", () => {
+    expect(parseEvidenceBranch({
+      branch_id: "request-1:tool",
+      branch_kind: "tool",
+      parent_branch_id: null,
+      status: "completed",
+      summary: "tool evidence ready",
+      started_at: "2026-07-27T01:00:00Z",
+      completed_at: "2026-07-27T01:00:01Z",
+      duration_ms: 1000,
+      evidence_refs: ["tool:result:1"],
+    })).toEqual(expect.objectContaining({
+      branchId: "request-1:tool",
+      status: "completed",
+      evidenceRefs: ["tool:result:1"],
+    }));
+    expect(parseConfirmedAnswerSegment({
+      segment_index: 0,
+      text: "Verified answer",
+      status: "corrected",
+      evidence_refs: ["tool:result:1"],
+      replace_start: 0,
+      replace_end: 5,
+    }, 1)).toEqual(expect.objectContaining({
+      text: "Verified answer",
+      revision: 1,
+      status: "corrected",
+    }));
+  });
+
+  it("rejects premature evidence, reversed time, and unverified confirmation", () => {
+    const running = {
+      branch_id: "request-1:tool",
+      branch_kind: "tool",
+      parent_branch_id: null,
+      status: "running",
+      summary: "checking",
+      started_at: "2026-07-27T01:00:01Z",
+      evidence_refs: ["premature"],
+    };
+    expect(parseEvidenceBranch(running)).toBeNull();
+    expect(parseEvidenceBranch({
+      ...running,
+      status: "completed",
+      completed_at: "2026-07-27T01:00:00Z",
+      evidence_refs: [],
+    })).toBeNull();
+    expect(parseConfirmedAnswerSegment({
+      segment_index: 0,
+      text: "Draft",
+      status: "unverified",
+      evidence_refs: [],
+    }, 0)).toBeNull();
   });
 });

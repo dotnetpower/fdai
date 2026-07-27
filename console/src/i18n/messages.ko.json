@@ -1832,6 +1832,13 @@
       "groundingReadOnly": "읽기 전용 출처로 근거 확인 중",
       "readingSources": "출처 읽는 중"
     },
+    "answerState": {
+      "draft": "초안",
+      "confirmed": "확인됨",
+      "corrected": "수정됨",
+      "partial": "일부 응답",
+      "complete": "완료"
+    },
     "investigation": {
       "label": "조사 활동",
       "title": "조사",
@@ -1840,7 +1847,17 @@
       "completed": "완료",
       "unavailable": "사용할 수 없음",
       "failed": "실패",
+      "timed_out": "시간 초과",
+      "cancelled": "취소됨",
       "finished": "종료",
+      "branches": "근거 브랜치",
+      "executionDetails": "실행 상세 정보 ({count})",
+      "kind": {
+        "tool": "도구 근거",
+        "operational": "운영 근거",
+        "agent": "에이전트 근거",
+        "public_web": "공개 웹 근거"
+      },
       "executionEvidence": "관찰된 실행 근거",
       "redacted": "민감한 값 정제됨",
       "copyCommand": "명령 복사",

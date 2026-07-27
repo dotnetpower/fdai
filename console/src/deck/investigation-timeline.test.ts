@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { InvestigationActivity } from "./backend";
-import { upsertInvestigationActivity } from "./investigation-timeline";
+import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
+import type { EvidenceBranch } from "./backend";
 
 function activity(
   activityId: string,
@@ -49,5 +52,46 @@ describe("upsertInvestigationActivity", () => {
     );
 
     expect(updated).toEqual([existing]);
+  });
+});
+
+function branch(status: EvidenceBranch["status"]): EvidenceBranch {
+  return {
+    branchId: "request:tool",
+    kind: "tool",
+    parentBranchId: null,
+    status,
+    summary: status,
+    startedAt: "2026-07-27T01:00:00Z",
+    evidenceRefs: [],
+  };
+}
+
+describe("upsertEvidenceBranch", () => {
+  it("advances running branches once and keeps terminal state immutable", () => {
+    const running = upsertEvidenceBranch([], branch("running"));
+    const completed = upsertEvidenceBranch(running, branch("completed"));
+    const stale = upsertEvidenceBranch(completed, branch("running"));
+
+    expect(completed[0]?.status).toBe("completed");
+    expect(stale).toBe(completed);
+  });
+
+  it("keeps execution evidence folded and branch summaries accessible on narrow screens", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./investigation-timeline.tsx", import.meta.url)),
+      "utf8",
+    );
+    const styles = readFileSync(
+      fileURLToPath(new URL("../styles.css", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain('<details class="deck-investigation-activity-disclosure">');
+    expect(component).not.toContain('<details class="deck-investigation-activity-disclosure" open>');
+    expect(component).toContain('aria-label={t("deck.investigation.branches")}');
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.deck-branch-item\s*\{[^}]*grid-template-columns:\s*18px minmax\(0, 1fr\)/,
+    );
   });
 });

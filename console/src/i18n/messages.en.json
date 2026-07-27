@@ -1832,6 +1832,13 @@
       "groundingReadOnly": "grounding on read-only sources",
       "readingSources": "Reading sources"
     },
+    "answerState": {
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "corrected": "Corrected",
+      "partial": "Partial",
+      "complete": "Complete"
+    },
     "investigation": {
       "label": "Investigation activity",
       "title": "Investigation",
@@ -1840,7 +1847,17 @@
       "completed": "Completed",
       "unavailable": "Unavailable",
       "failed": "Failed",
+      "timed_out": "Timed out",
+      "cancelled": "Cancelled",
       "finished": "Finished",
+      "branches": "Evidence branches",
+      "executionDetails": "Execution details ({count})",
+      "kind": {
+        "tool": "Tool evidence",
+        "operational": "Operational evidence",
+        "agent": "Agent evidence",
+        "public_web": "Public web evidence"
+      },
       "executionEvidence": "Observed execution evidence",
       "redacted": "Sensitive values redacted",
       "copyCommand": "Copy command",

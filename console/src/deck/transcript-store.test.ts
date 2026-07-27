@@ -156,6 +156,19 @@ describe("serializeTurns", () => {
       text: "Resolve scope\nCheck health",
       at: "10:00:00",
       terminal: true,
+      branches: [
+        {
+          branchId: "request-1:tool",
+          kind: "tool" as const,
+          parentBranchId: null,
+          status: "completed" as const,
+          summary: "tool evidence ready",
+          startedAt: "2026-07-27T01:00:00Z",
+          completedAt: "2026-07-27T01:00:01Z",
+          durationMs: 1000,
+          evidenceRefs: ["tool:result:1"],
+        },
+      ],
       activities: [
         {
           activityId: "scope",
@@ -179,6 +192,7 @@ describe("serializeTurns", () => {
     const parsed = parseTurns(serializeTurns(turns));
 
     expect(parsed[0]?.kind).toBe("activity");
+    expect(parsed[0]?.branches?.[0]?.status).toBe("completed");
     expect(parsed[0]?.activities?.[0]?.activityId).toBe("scope");
     expect(parsed[0]?.activities?.[0]?.execution?.command).toContain("az resource show");
     expect(parsed[0]?.activities?.[0]?.execution?.output).toContain("available");

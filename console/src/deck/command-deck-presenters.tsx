@@ -6,6 +6,8 @@ import {
   type AnswerPlanningMetadata,
   type BackendHealth,
   type DelegationMetadata,
+  type ConfirmedAnswerSegment,
+  type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
   type RouterSnapshot,
@@ -28,6 +30,8 @@ export interface Turn {
   readonly text: string;
   readonly kind?: "message" | "activity";
   readonly activities?: readonly InvestigationActivity[];
+  readonly branches?: readonly EvidenceBranch[];
+  readonly confirmed?: ConfirmedAnswerSegment;
   readonly citations?: readonly { readonly label: string; readonly value?: string }[];
   readonly followUps?: readonly string[];
   readonly source?: string;
@@ -258,6 +262,7 @@ export function TurnBubble({
       {isActivity ? (
         <InvestigationTimeline
           activities={turn.activities ?? []}
+          branches={turn.branches ?? []}
           running={turn.streaming === true}
         />
       ) : isDeck ? (
@@ -268,6 +273,7 @@ export function TurnBubble({
           source={turn.source}
           streaming={turn.streaming === true}
           verification={turn.verification}
+          confirmed={turn.confirmed}
           verificationProgress={turn.verificationProgress}
           answerPlan={turn.answerPlan}
           answerPlanning={turn.answerPlanning}

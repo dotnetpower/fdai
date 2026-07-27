@@ -7,6 +7,8 @@ import {
 import { requestHeaders, streamUrl } from "./backend-endpoints";
 import {
   newRequestId,
+  parseConfirmedAnswerSegment,
+  parseEvidenceBranch,
   parseAnswerVerification,
   parseDelegation,
   parseInvestigationActivity,
@@ -24,6 +26,7 @@ import {
 import type {
   AnswerVerificationStatus,
   BackendTurn,
+  ConfirmedAnswerSegment,
   ProgressiveAnswer,
   StreamCallbacks,
 } from "./backend-types";
@@ -185,7 +188,9 @@ export async function askBackendStream(
   let turnInterrupted = false;
   let lastSequence = 0;
   let lastRevision = 0;
+  let sequenceGap = false;
   let terminalSeen = false;
+  let confirmedSegment: ConfirmedAnswerSegment | undefined;
   const pendingRevisions: Array<{
     readonly answer: string;
     readonly revision: number;
@@ -218,6 +223,7 @@ export async function askBackendStream(
       : null;
     if (sequence !== null) {
       if (sequence <= lastSequence) return;
+      if (sequence !== lastSequence + 1) sequenceGap = true;
       lastSequence = sequence;
     }
     const revision = typeof object.revision === "number" && Number.isInteger(object.revision)
@@ -247,6 +253,9 @@ export async function askBackendStream(
     } else if (event === "milestone") {
       const milestone = parseInvestigationMilestone(object);
       if (milestone !== null) callbacks.onMilestone?.(milestone);
+    } else if (event === "branch") {
+      const branch = parseEvidenceBranch(object);
+      if (branch !== null) callbacks.onBranch?.(branch);
     } else if (event === "revision") {
       const replacement = typeof object.answer === "string" ? object.answer : null;
       const status = parseVerificationStatus(object.status);
@@ -254,6 +263,11 @@ export async function askBackendStream(
         lastRevision = revision;
         answerText = replacement;
         pendingRevisions.push({ answer: replacement, revision, status });
+      }
+    } else if (event === "confirmed") {
+      const confirmed = parseConfirmedAnswerSegment(object, revision);
+      if (confirmed !== null && confirmed.revision >= (confirmedSegment?.revision ?? -1)) {
+        confirmedSegment = confirmed;
       }
     } else if (event === "done") {
       doneData = object;
@@ -308,6 +322,16 @@ export async function askBackendStream(
       source: `partial (${why})`,
     };
   }
+  if (sequenceGap) {
+    const gapDone: Record<string, unknown> = doneData ?? {};
+    const terminalAnswer = typeof gapDone.answer === "string" ? gapDone.answer : "";
+    return {
+      text: terminalAnswer || answerText,
+      citations: snapshotCitations(snapshot),
+      followUps: [],
+      source: "partial (sequence gap)",
+    };
+  }
   if (!terminalSeen && answerText !== "") {
     return {
       text: answerText,
@@ -325,6 +349,7 @@ export async function askBackendStream(
       pendingRevision.status,
     );
   }
+  if (confirmedSegment !== undefined) callbacks.onConfirmed?.(confirmedSegment);
 
   const done: Record<string, unknown> = doneData ?? {};
   const finalText = typeof done.answer === "string" && done.answer ? done.answer : answerText;
@@ -359,5 +384,6 @@ export async function askBackendStream(
     ...(answerPlan ? { answerPlan } : {}),
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+    ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
   };
 }

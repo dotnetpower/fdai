@@ -20,6 +20,7 @@ import {
   type AnswerPlanningMetadata,
   type AnswerVerification,
   type DelegationMetadata,
+  type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
 } from "./backend";
@@ -40,6 +41,7 @@ const MAX_CITATION_VALUE_CHARS = 16 * 1024;
 const MAX_FOLLOW_UPS = 8;
 const MAX_FOLLOW_UP_CHARS = 512;
 const MAX_ACTIVITIES = 64;
+const MAX_BRANCHES = 4;
 const MAX_ACTIVITY_ID_CHARS = 128;
 const MAX_ACTIVITY_KIND_CHARS = 128;
 const MAX_ACTIVITY_LABEL_CHARS = 512;
@@ -64,6 +66,7 @@ export interface PersistedTurn {
   readonly text: string;
   readonly kind?: "message" | "activity";
   readonly activities?: readonly InvestigationActivity[];
+  readonly branches?: readonly EvidenceBranch[];
   readonly at: string;
   readonly source?: string;
   /** Agent name when this turn speaks as a specific agent (icon + name header). */
@@ -118,6 +121,7 @@ export function serializeTurns(
         ...(boundedString(t.source, MAX_TURN_SOURCE_CHARS) ? { source: t.source } : {}),
         ...(t.kind ? { kind: t.kind } : {}),
         ...(validActivities(t.activities) ? { activities: t.activities } : {}),
+        ...(validBranches(t.branches) ? { branches: t.branches } : {}),
         ...(boundedString(t.agent, MAX_AGENT_NAME_CHARS) ? { agent: t.agent } : {}),
         ...(validCitations(t.citations) ? { citations: t.citations } : {}),
         ...(validFollowUps(t.followUps) ? { followUps: t.followUps } : {}),
@@ -169,6 +173,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(boundedString(rec.source, MAX_TURN_SOURCE_CHARS) ? { source: rec.source } : {}),
       ...(rec.kind === "message" || rec.kind === "activity" ? { kind: rec.kind } : {}),
       ...(validActivities(rec.activities) ? { activities: rec.activities } : {}),
+      ...(validBranches(rec.branches) ? { branches: rec.branches } : {}),
       ...(boundedString(rec.agent, MAX_AGENT_NAME_CHARS) ? { agent: rec.agent } : {}),
       ...(validCitations(rec.citations) ? { citations: rec.citations } : {}),
       ...(validFollowUps(rec.followUps) ? { followUps: rec.followUps } : {}),
@@ -185,6 +190,32 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     out.push(turn);
   }
   return out;
+}
+
+function validBranches(value: unknown): value is readonly EvidenceBranch[] {
+  if (!Array.isArray(value)) return false;
+  const terminalStatuses = ["completed", "unavailable", "failed", "timed_out", "cancelled"];
+  return value.length <= MAX_BRANCHES && value.every((item) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
+    const record = item as Record<string, unknown>;
+    return (
+      boundedString(record.branchId, 256) &&
+      ["tool", "operational", "agent", "public_web"].includes(String(record.kind)) &&
+      (record.parentBranchId === null || boundedString(record.parentBranchId, 256)) &&
+      terminalStatuses.includes(String(record.status)) &&
+      boundedString(record.summary, 512) &&
+      boundedTimestamp(record.startedAt) &&
+      (record.completedAt === undefined || boundedTimestamp(record.completedAt)) &&
+      (record.durationMs === undefined || nonnegativeSafeInteger(record.durationMs)) &&
+      Array.isArray(record.evidenceRefs) &&
+      record.evidenceRefs.length <= 64 &&
+      record.evidenceRefs.every((ref) => boundedString(ref, 1024))
+    );
+  });
+}
+
+function boundedTimestamp(value: unknown): value is string {
+  return boundedString(value, MAX_ACTIVITY_TIMESTAMP_CHARS) && Number.isFinite(Date.parse(value));
 }
 
 function validActivities(value: unknown): value is readonly InvestigationActivity[] {

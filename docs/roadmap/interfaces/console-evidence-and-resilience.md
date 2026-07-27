@@ -292,6 +292,12 @@ The terminal `done` frame remains canonical and is the only answer persisted to 
 history. Clients label an interrupted stream without a terminal frame as partial and never promote
 draft text to confirmed content.
 
+The Web reducer validates branch kind, monotonic status, timing, evidence-reference, and text bounds
+before rendering. It shows compact branch summaries and keeps observed execution details collapsed
+by default. It applies a confirmed segment only after queued token paint and any correction revision
+have drained. A missing `seq` value between frames makes the turn partial even if a later `done`
+arrives, so an incomplete stream cannot inherit terminal verification.
+
 Web, Teams, and Slack consume the same ordered event reduction:
 
 - **Web** keeps compact branch summaries beside the in-progress answer. Details and canonical

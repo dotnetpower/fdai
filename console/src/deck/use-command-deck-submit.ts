@@ -5,6 +5,8 @@ import {
   renderActionResult,
   submitAction,
   type BackendTurn,
+  type ConfirmedAnswerSegment,
+  type EvidenceBranch,
   type InvestigationActivity,
   type InvestigationMilestone,
   type VerificationProgress,
@@ -13,7 +15,7 @@ import { detectActionIntent } from "./action-intent";
 import { watchActionProgress } from "./action-progress";
 import { takeComposerAttachments } from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
-import { upsertInvestigationActivity } from "./investigation-timeline";
+import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
 import { replyAgent, sessionIdFor } from "./command-deck-session";
 import {
   conversationLabelForPrompt,
@@ -372,7 +374,10 @@ export function useCommandDeckSubmit({
                 existing?.activities ?? [],
                 activity,
               );
-              const text = activities.map((item) => item.label).join("\n");
+              const text = [
+                ...(existing?.branches ?? []).map((branch) => branch.summary),
+                ...activities.map((item) => item.label),
+              ].join("\n");
               const next = existing
                 ? current.map((turn) => turn.id === activityTurnId
                   ? { ...turn, text, activities }
@@ -385,6 +390,42 @@ export function useCommandDeckSubmit({
                       kind: "activity" as const,
                       text,
                       activities,
+                      source: "investigation",
+                      streaming: true,
+                      terminal: false,
+                      at: shortTime(),
+                    },
+                  ];
+              turnsRef.current = next;
+              return next;
+            });
+            pinTranscriptToLatest();
+          },
+          onBranch: (branch: EvidenceBranch) => {
+            if (!isCurrent()) return;
+            hasActivityTurn = true;
+            setPending(false);
+            setRetrievalProgress(null);
+            setSrStatus(branch.summary);
+            setTurns((current) => {
+              const existing = current.find((turn) => turn.id === activityTurnId);
+              const branches = upsertEvidenceBranch(existing?.branches ?? [], branch);
+              const text = [
+                ...branches.map((item) => item.summary),
+                ...(existing?.activities ?? []).map((item) => item.label),
+              ].join("\n");
+              const next = existing
+                ? current.map((turn) => turn.id === activityTurnId
+                  ? { ...turn, text, branches }
+                  : turn)
+                : [
+                    ...current,
+                    {
+                      id: activityTurnId,
+                      role: "deck" as const,
+                      kind: "activity" as const,
+                      text,
+                      branches,
                       source: "investigation",
                       streaming: true,
                       terminal: false,
@@ -450,6 +491,30 @@ export function useCommandDeckSubmit({
               return next;
             });
           },
+          onConfirmed: (segment: ConfirmedAnswerSegment) => {
+            if (!isCurrent()) return;
+            visibleAcc = segment.text;
+            paintQueue.length = 0;
+            pendingRevision = Math.max(pendingRevision, segment.revision);
+            revealWhenReady();
+            if (!started) return;
+            if (paintFrame !== null) {
+              cancelAnimationFrame(paintFrame);
+              paintFrame = null;
+            }
+            setTurns((current) => {
+              const next = current.map((turn) => turn.id === deckId
+                ? {
+                    ...turn,
+                    text: segment.text,
+                    revision: segment.revision,
+                    confirmed: segment,
+                  }
+                : turn);
+              turnsRef.current = next;
+              return next;
+            });
+          },
           signal: controller.signal,
         });
       } catch (error) {
@@ -491,6 +556,7 @@ export function useCommandDeckSubmit({
                   source: reply.source,
                   agent: replyAgent(reply),
                   ...(reply.verification ? { verification: reply.verification } : {}),
+                  ...(reply.confirmed ? { confirmed: reply.confirmed } : {}),
                   ...(reply.router ? { router: reply.router } : {}),
                   ...(reply.answerPlan ? { answerPlan: reply.answerPlan } : {}),
                   ...(reply.answerPlanning ? { answerPlanning: reply.answerPlanning } : {}),

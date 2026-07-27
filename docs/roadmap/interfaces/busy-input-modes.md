@@ -88,6 +88,8 @@ interrupt:
 - Planning helpers are cancelled and awaited.
 - Every active read-evidence branch is cancelled and awaited through its bounded task group. A
     cancelled branch cannot emit a terminal answer or continue provider work after the turn closes.
+- An interrupted turn emits no `confirmed` or `done` frame. Draft text remains partial and is not
+    restored as verified conversation history.
 - The active-turn marker is finished in `finally`.
 
 For a normal terminal answer, the stream cancels outstanding planning and finishes the active-turn

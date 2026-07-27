@@ -172,12 +172,46 @@ export interface InvestigationActivity {
   readonly authority?: string;
   readonly observedAt?: string;
   readonly execution?: InvestigationExecutionEvidence;
+  readonly branchId?: string;
 }
 
 export interface InvestigationMilestone {
   readonly messageId: string;
   readonly text: string;
   readonly agent?: string;
+}
+
+export type EvidenceBranchKind = "tool" | "operational" | "agent" | "public_web";
+
+export type EvidenceBranchStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "unavailable"
+  | "failed"
+  | "timed_out"
+  | "cancelled";
+
+export interface EvidenceBranch {
+  readonly branchId: string;
+  readonly kind: EvidenceBranchKind;
+  readonly parentBranchId: string | null;
+  readonly status: EvidenceBranchStatus;
+  readonly summary: string;
+  readonly startedAt: string;
+  readonly completedAt?: string;
+  readonly durationMs?: number;
+  readonly evidenceRefs: readonly string[];
+}
+
+export interface ConfirmedAnswerSegment {
+  readonly segmentIndex: number;
+  readonly revision: number;
+  readonly text: string;
+  readonly status: Exclude<AnswerVerificationStatus, "unverified">;
+  readonly evidenceRefs: readonly string[];
+  readonly replaceStart?: number;
+  readonly replaceEnd?: number;
 }
 
 export type CodeValidationStatus = "valid" | "invalid" | "not_checked";
@@ -199,6 +233,7 @@ export type ProgressiveAnswer = Answer & {
   readonly answerPlan?: AnswerPlanMetadata;
   readonly answerPlanning?: AnswerPlanningMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
+  readonly confirmed?: ConfirmedAnswerSegment;
 };
 
 export interface BackendHealth {
@@ -214,6 +249,8 @@ export interface StreamCallbacks {
   readonly onProgress?: (progress: VerificationProgress) => void;
   readonly onActivity?: (activity: InvestigationActivity) => void;
   readonly onMilestone?: (milestone: InvestigationMilestone) => void;
+  readonly onBranch?: (branch: EvidenceBranch) => void;
+  readonly onConfirmed?: (segment: ConfirmedAnswerSegment) => void;
   readonly onRevision?: (
     answer: string,
     revision: number,

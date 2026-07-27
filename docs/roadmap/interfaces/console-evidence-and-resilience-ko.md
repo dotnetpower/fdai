@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5ce2ffbc8c7a75b44e6130e02aa6158244ba0867
+translation_source_sha: 8bd266def32f5a9829e9c454f37cc416e035c227
 translation_revised: 2026-07-27
 ---
 
@@ -286,6 +286,12 @@ revision, evidence reference와 이후 verified result가 앞선 segment를 수�
 포함합니다. Confirmed segment는 running branch를 인용하지 않습니다. Terminal `done` frame은 계속
 canonical이며 conversation history에 저장되는 유일한 answer입니다. Client는 terminal frame 없이
 중단된 stream을 partial로 표시하며 draft text를 confirmed content로 승격하지 않습니다.
+
+Web reducer는 rendering 전에 branch kind, monotonic status, timing, evidence-reference 및 text bound를
+검증합니다. Compact branch summary를 표시하고 observed execution detail은 기본적으로 접어 둡니다.
+Queued token paint와 correction revision이 모두 drain된 후에만 confirmed segment를 적용합니다. Frame
+사이에 `seq` 값이 누락되면 이후 `done`이 도착해도 turn을 partial로 표시하므로 incomplete stream이
+terminal verification을 상속하지 않습니다.
 
 Web, Teams 및 Slack은 동일한 ordered event reduction을 사용합니다.
 

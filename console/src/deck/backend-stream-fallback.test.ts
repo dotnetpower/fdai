@@ -618,4 +618,42 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.verification?.reason_code).toBe("malformed_verification_artifact");
   });
 
+  test("reduces branch lifecycle and confirms only after stream completion", async () => {
+    const body = [
+      'event: branch\ndata: {"seq":1,"revision":0,"branch_id":"req:tool",' +
+        '"branch_kind":"tool","parent_branch_id":null,"status":"running",' +
+        '"summary":"checking","started_at":"2026-07-27T01:00:00Z","evidence_refs":[]}\n\n',
+      'event: token\ndata: {"seq":2,"revision":0,"delta":"Draft"}\n\n',
+      'event: confirmed\ndata: {"seq":3,"revision":0,"segment_index":0,' +
+        '"text":"Draft","status":"consistent","evidence_refs":[]}\n\n',
+      'event: done\ndata: {"seq":4,"revision":0,"answer":"Draft","model":"gpt-test"}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    const calls: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => calls.push("token"),
+      onBranch: (branch) => calls.push(`branch:${branch.status}`),
+      onConfirmed: (segment) => calls.push(`confirmed:${segment.status}`),
+    });
+
+    expect(calls).toEqual(["branch:running", "token", "confirmed:consistent"]);
+    expect(reply.confirmed?.text).toBe("Draft");
+  });
+
+  test("fails closed when a terminal stream has a sequence gap", async () => {
+    const body = [
+      'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
+      'event: done\ndata: {"seq":3,"revision":0,"answer":"Draft","model":"gpt-test"}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+
+    expect(reply.source).toBe("partial (sequence gap)");
+    expect(reply.verification).toBeUndefined();
+  });
+
 });

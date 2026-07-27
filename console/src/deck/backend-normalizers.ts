@@ -6,6 +6,10 @@ import type {
   AtomicAnswerClaim,
   AtomicClaimStatus,
   DelegationMetadata,
+  ConfirmedAnswerSegment,
+  EvidenceBranch,
+  EvidenceBranchKind,
+  EvidenceBranchStatus,
   EvidenceManifestEntry,
   InvestigationActivity,
   InvestigationActivityStatus,
@@ -49,6 +53,32 @@ const MAX_CLAIM_REFS = MAX_EVIDENCE_ENTRIES;
 const MAX_ARTIFACT_LIST_ITEMS = 64;
 const MAX_ARTIFACT_IDENTIFIER_CHARS = 1024;
 const MAX_ARTIFACT_VALUE_CHARS = 16 * 1024;
+const MAX_BRANCH_ID_CHARS = 256;
+const MAX_BRANCH_SUMMARY_CHARS = 512;
+const MAX_BRANCH_REFS = 64;
+const MAX_CONFIRMED_TEXT_CHARS = 256 * 1024;
+const BRANCH_KINDS = new Set<EvidenceBranchKind>([
+  "tool",
+  "operational",
+  "agent",
+  "public_web",
+]);
+const BRANCH_STATUSES = new Set<EvidenceBranchStatus>([
+  "pending",
+  "running",
+  "completed",
+  "unavailable",
+  "failed",
+  "timed_out",
+  "cancelled",
+]);
+const TERMINAL_BRANCH_STATUSES = new Set<EvidenceBranchStatus>([
+  "completed",
+  "unavailable",
+  "failed",
+  "timed_out",
+  "cancelled",
+]);
 
 function parseInvestigationExecution(raw: unknown): InvestigationActivity["execution"] {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
@@ -127,6 +157,9 @@ export function parseInvestigationActivity(raw: unknown): InvestigationActivity 
       ? { observedAt: record.observed_at }
       : {}),
     ...(execution ? { execution } : {}),
+    ...(nonemptyBoundedString(record.branch_id, MAX_BRANCH_ID_CHARS)
+      ? { branchId: record.branch_id }
+      : {}),
   };
 }
 
@@ -145,6 +178,97 @@ export function parseInvestigationMilestone(raw: unknown): InvestigationMileston
       ? { agent: record.agent }
       : {}),
   };
+}
+
+export function parseEvidenceBranch(raw: unknown): EvidenceBranch | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const kind = record.branch_kind;
+  const status = record.status;
+  if (
+    !nonemptyBoundedString(record.branch_id, MAX_BRANCH_ID_CHARS) ||
+    typeof kind !== "string" ||
+    !BRANCH_KINDS.has(kind as EvidenceBranchKind) ||
+    typeof status !== "string" ||
+    !BRANCH_STATUSES.has(status as EvidenceBranchStatus) ||
+    !nonemptyBoundedString(record.summary, MAX_BRANCH_SUMMARY_CHARS) ||
+    !validTimestamp(record.started_at)
+  ) return null;
+  const parentBranchId = record.parent_branch_id === null
+    ? null
+    : nonemptyBoundedString(record.parent_branch_id, MAX_BRANCH_ID_CHARS)
+    ? record.parent_branch_id
+    : undefined;
+  if (parentBranchId === undefined) return null;
+  const completedAt = validTimestamp(record.completed_at) ? record.completed_at : undefined;
+  const durationMs = typeof record.duration_ms === "number" &&
+      Number.isSafeInteger(record.duration_ms) && record.duration_ms >= 0
+    ? record.duration_ms
+    : undefined;
+  const evidenceRefs = boundedStrings(record.evidence_refs, MAX_BRANCH_REFS, 1024);
+  if (evidenceRefs === null) return null;
+  const terminal = TERMINAL_BRANCH_STATUSES.has(status as EvidenceBranchStatus);
+  if ((!terminal && (completedAt !== undefined || evidenceRefs.length > 0)) ||
+      (completedAt !== undefined && Date.parse(completedAt) < Date.parse(record.started_at))) {
+    return null;
+  }
+  return {
+    branchId: record.branch_id,
+    kind: kind as EvidenceBranchKind,
+    parentBranchId,
+    status: status as EvidenceBranchStatus,
+    summary: record.summary,
+    startedAt: record.started_at,
+    ...(completedAt !== undefined ? { completedAt } : {}),
+    ...(durationMs !== undefined ? { durationMs } : {}),
+    evidenceRefs,
+  };
+}
+
+export function parseConfirmedAnswerSegment(
+  raw: unknown,
+  revision: number,
+): ConfirmedAnswerSegment | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const status = parseVerificationStatus(record.status);
+  const refs = boundedStrings(record.evidence_refs, MAX_VERIFICATION_REFS, 1024);
+  if (
+    !Number.isSafeInteger(revision) || revision < 0 ||
+    !Number.isSafeInteger(record.segment_index) ||
+    (record.segment_index as number) < 0 ||
+    (record.segment_index as number) >= 64 ||
+    !nonemptyBoundedString(record.text, MAX_CONFIRMED_TEXT_CHARS) ||
+    status === null || status === "unverified" || refs === null
+  ) return null;
+  const parsedReplaceStart = nonnegativeSafeInteger(record.replace_start);
+  const parsedReplaceEnd = nonnegativeSafeInteger(record.replace_end);
+  const replaceStart = parsedReplaceStart === null ? undefined : parsedReplaceStart;
+  const replaceEnd = parsedReplaceEnd === null ? undefined : parsedReplaceEnd;
+  if ((replaceStart === undefined) !== (replaceEnd === undefined) ||
+      (replaceStart !== undefined && replaceEnd !== undefined && replaceEnd < replaceStart)) {
+    return null;
+  }
+  return {
+    segmentIndex: record.segment_index as number,
+    revision,
+    text: record.text,
+    status,
+    evidenceRefs: refs,
+    ...(replaceStart !== undefined ? { replaceStart } : {}),
+    ...(replaceEnd !== undefined ? { replaceEnd } : {}),
+  };
+}
+
+function validTimestamp(value: unknown): value is string {
+  return nonemptyBoundedString(value, MAX_ACTIVITY_TIMESTAMP_CHARS) &&
+    Number.isFinite(Date.parse(value));
+}
+
+function boundedStrings(raw: unknown, maximum: number, chars: number): string[] | null {
+  if (!Array.isArray(raw) || raw.length > maximum) return null;
+  if (!raw.every((item) => nonemptyBoundedString(item, chars))) return null;
+  return raw as string[];
 }
 
 function finiteProgress(raw: unknown): number | null {
