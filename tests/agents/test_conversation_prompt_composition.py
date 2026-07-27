@@ -422,3 +422,48 @@ def test_the_framing_budget_is_the_only_thing_that_can_be_spent() -> None:
         for situation in _SITUATIONS:
             dropped = set(spec.conversation.compose_prompt(situation).dropped_layer_ids)
             assert not dropped & set(CONSTRAINT_LAYER_IDS), (spec.name, situation.key)
+
+
+async def test_a_forged_agent_name_never_reaches_a_server_owned_layer() -> None:
+    """The pantheon is a fixed set, so a name outside it is a forgery."""
+    odin = Odin()
+    captured: dict[str, Any] = {}
+
+    async def capture(_self: Agent, _question: str, context: dict[str, Any]) -> IntrospectionResult:
+        captured.update(context)
+        return IntrospectionResult(answer="captured", facts={})
+
+    odin.introspect = MethodType(capture, odin)  # type: ignore[method-assign]
+    await odin.on_conversation_turn(
+        "portfolio status",
+        {"a2a": True, "requester": "Malicious", "handoff_owner": "Ghostagent"},
+    )
+    prompt = str(captured["agent_system_prompt"])
+    composition = captured["agent_prompt_composition"]
+
+    assert "Malicious" not in prompt
+    assert "Ghostagent" not in prompt
+    # The peer layer still composes; it just cannot name a fake requester.
+    assert "audience_peer" in composition["layers"]
+    assert "another pantheon agent is asking" in prompt
+    # A forged owner cannot manufacture a handoff at all.
+    assert "handoff_pending" not in composition["layers"]
+
+
+async def test_a_real_agent_name_is_still_accepted() -> None:
+    odin = Odin()
+    captured: dict[str, Any] = {}
+
+    async def capture(_self: Agent, _question: str, context: dict[str, Any]) -> IntrospectionResult:
+        captured.update(context)
+        return IntrospectionResult(answer="captured", facts={})
+
+    odin.introspect = MethodType(capture, odin)  # type: ignore[method-assign]
+    await odin.on_conversation_turn(
+        "portfolio status",
+        {"a2a": True, "requester": "Forseti", "handoff_owner": "Thor"},
+    )
+    prompt = str(captured["agent_system_prompt"])
+
+    assert "agent Forseti is asking" in prompt
+    assert "Thor owns this request" in prompt

@@ -1330,3 +1330,11 @@ def test_a_turn_without_constraints_adds_no_constraint_line() -> None:
     charter = next(m["content"] for m in messages if "Selected accountable agent" in m["content"])
 
     assert "Constraints on that agent's turn:" not in charter
+
+
+def test_narrator_constraint_map_uses_only_real_layer_ids() -> None:
+    """A renamed layer MUST NOT silently stop reaching the narrator."""
+    from fdai.agents import CONSTRAINT_LAYER_IDS
+    from fdai.delivery.read_api.routes.chat_prompt import _TURN_CONSTRAINTS
+
+    assert set(_TURN_CONSTRAINTS) <= set(CONSTRAINT_LAYER_IDS)

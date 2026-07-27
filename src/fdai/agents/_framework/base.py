@@ -424,11 +424,17 @@ class Agent:
         action_intent = is_action_intent(question)
         tool_id = context.get("conversation_tool")
         tool = charter.tool(tool_id) if isinstance(tool_id, str) else None
+        # Lazily imported: pantheon.py builds on this module, so a module
+        # level import would close the cycle. The roster is what turns a
+        # shape check on an agent name into a membership check.
+        from fdai.agents._framework.pantheon import PANTHEON_NAMES
+
         composed = charter.compose_prompt(
             ConversationSituation.from_context(
                 context,
                 allowed_tools=charter.tools,
                 tool_fact_keys=tool.fact_keys if tool is not None else (),
+                known_agents=PANTHEON_NAMES,
                 action_intent=action_intent,
                 evidence_available=(
                     context.get("evidence_available") is not False

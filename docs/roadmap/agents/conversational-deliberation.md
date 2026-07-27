@@ -57,7 +57,9 @@ Two invariants keep the dynamic path inside the port contract:
   pays.
 - **Server-owned text.** The situation is parsed from an untrusted turn context, but that context
   only selects layers. Free-form values are dropped or reduced to a bounded identifier, so a forged
-  context cannot inject instructions.
+  context cannot inject instructions. An agent name is checked against the fixed roster rather than
+  its shape alone: the pantheon is a closed set, so a name outside it is a forgery and is dropped
+  instead of being rendered into a server-owned layer.
 
 Composition is deterministic, so a recorded turn replays exactly. Each response carries the layer
 ids, the situation key, and the composed prompt digest, and the console evidence carries the same

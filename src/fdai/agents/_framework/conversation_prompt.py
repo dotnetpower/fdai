@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -175,6 +175,7 @@ class ConversationSituation:
         *,
         allowed_tools: Sequence[str] = (),
         tool_fact_keys: Sequence[str] = (),
+        known_agents: Collection[str] = (),
         action_intent: bool = False,
         evidence_available: bool = True,
     ) -> ConversationSituation:
@@ -184,6 +185,12 @@ class ConversationSituation:
         baseline value instead of raising: a conversational turn MUST
         NOT fail because a caller sent an odd hint, and the baseline is
         always the safe answer.
+
+        ``known_agents`` is the roster an agent name is checked against.
+        Shape alone is not enough - the pantheon is a fixed set, so a
+        name outside it is a forgery and is dropped rather than rendered
+        into a server-owned layer. An empty roster means the caller has
+        none to offer and only the shape check applies.
         """
         raw_phase = context.get("deliberation_phase")
         raw_tier = context.get("deliberation_tier")
@@ -200,11 +207,7 @@ class ConversationSituation:
             else _PHASE_DIRECT,
             tier=raw_tier if isinstance(raw_tier, str) and raw_tier in _KNOWN_TIERS else "T0",
             locale=_normalize_locale(context.get("locale")),
-            requester=(
-                raw_requester
-                if isinstance(raw_requester, str) and _AGENT_NAME.fullmatch(raw_requester)
-                else None
-            ),
+            requester=_known_agent(raw_requester, known_agents),
             tool_id=tool_id,
             tool_fact_keys=tuple(tool_fact_keys) if tool_id is not None else (),
             evidence_available=evidence_available,
@@ -214,11 +217,7 @@ class ConversationSituation:
             escalation_available=context.get("escalation_available") is not False,
             escalation_spent=_bounded_count(context.get("escalation_spent")),
             escalation_limit=_bounded_count(context.get("escalation_limit")),
-            handoff_owner=(
-                raw_owner
-                if isinstance(raw_owner, str) and _AGENT_NAME.fullmatch(raw_owner)
-                else None
-            ),
+            handoff_owner=_known_agent(raw_owner, known_agents),
         )
 
     @property
@@ -507,6 +506,15 @@ def _bounded_count(raw: Any) -> int:
     if not isinstance(raw, int) or isinstance(raw, bool):
         return 0
     return max(0, min(raw, _MAX_ESCALATION_COUNT))
+
+
+def _known_agent(raw: Any, known_agents: Collection[str]) -> str | None:
+    """Reduce an untrusted agent name to a real pantheon member, or drop it."""
+    if not isinstance(raw, str) or _AGENT_NAME.fullmatch(raw) is None:
+        return None
+    if known_agents and raw not in known_agents:
+        return None
+    return raw
 
 
 __all__ = [

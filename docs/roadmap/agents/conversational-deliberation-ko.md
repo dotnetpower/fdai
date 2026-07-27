@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 562faf79fdadb5a9086c3e20898dd21f22f68e04
+translation_source_sha: 9741923e0066454f9770d0385f99ea9b36d2d1c0
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -60,7 +60,9 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
   절대 비용을 치르지 않습니다.
 - **Server-owned text.** Situation은 신뢰할 수 없는 turn context에서 파싱하지만 그 context는
   layer를 선택만 합니다. 자유 형식 값은 제거되거나 bounded identifier로 축약되므로 위조된
-  context가 instruction을 주입할 수 없습니다.
+  context가 instruction을 주입할 수 없습니다. Agent 이름은 형태만이 아니라 고정 roster와
+  대조합니다. 판테온은 닫힌 집합이므로 그 밖의 이름은 위조이며, server-owned layer에
+  렌더링하지 않고 버립니다.
 
 조립은 deterministic하므로 기록된 turn은 정확히 replay됩니다. 각 response는 layer id, situation
 key, 조립된 prompt digest를 전달하고 console evidence도 같은 manifest를 실어 나르므로, 답변이

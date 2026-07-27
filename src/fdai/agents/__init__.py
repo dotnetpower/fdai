@@ -21,6 +21,7 @@ from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, AgentHandlerPhase
 from fdai.agents._framework.conversation_prompt import (
     BASELINE_LAYER_IDS,
+    CONSTRAINT_LAYER_IDS,
     ComposedConversationPrompt,
     ConversationSituation,
 )
@@ -58,6 +59,7 @@ from fdai.agents.saga import Saga
 __all__ = [
     "Agent",
     "BASELINE_LAYER_IDS",
+    "CONSTRAINT_LAYER_IDS",
     "AgentHandlerObserver",
     "AgentHandlerPhase",
     "AgentSpec",
