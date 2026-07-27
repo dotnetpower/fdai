@@ -308,3 +308,62 @@ def test_resolution_requires_an_explicit_clock() -> None:
             verifier=_AcceptAll(),
             now=datetime(2026, 7, 27, 12, 0),  # noqa: DTZ001 - the rejected input
         )
+
+
+class _FailingVerifier:
+    """A verifier holding a corrupt public key, which is how a bad key behaves."""
+
+    def verify(self, document: bytes, signature: bytes) -> bool:
+        raise ValueError("public key is malformed")
+
+
+def test_a_verifier_that_cannot_run_degrades_instead_of_crashing() -> None:
+    """A corrupt packaged key would otherwise take the whole runtime down, which
+    costs an operator the observability they need most while diagnosing it.
+    """
+    entitlement = resolve_entitlement(
+        catalog=_catalog(),
+        token=_token(_claims()),
+        verifier=_FailingVerifier(),
+        now=_NOW,
+    )
+
+    assert entitlement.status is LicenseStatus.UNTRUSTED
+    assert entitlement.available_capability_ids == {"cost.metering"}
+    assert entitlement.reason is not None
+    assert "could not be checked" in entitlement.reason
+
+
+def test_a_valid_license_never_sees_less_than_an_expired_one() -> None:
+    """Read-only capabilities are unlicensed, so omitting them from a license
+    must not withdraw them. Otherwise renewing a license would remove an
+    operator's dashboards.
+    """
+    acting_only = _claims(capability_ids=("incident.restart",))
+    expired = _claims(
+        capability_ids=("incident.restart",),
+        not_before=_NOW - timedelta(days=30),
+        not_after=_NOW - timedelta(days=1),
+    )
+
+    active = resolve_entitlement(
+        catalog=_catalog(), token=_token(acting_only), verifier=_AcceptAll(), now=_NOW
+    )
+    lapsed = resolve_entitlement(
+        catalog=_catalog(), token=_token(expired), verifier=_AcceptAll(), now=_NOW
+    )
+
+    assert active.status is LicenseStatus.ACTIVE
+    assert lapsed.status is LicenseStatus.EXPIRED
+    assert lapsed.available_capability_ids <= active.available_capability_ids
+    assert active.available_capability_ids == {"cost.metering", "incident.restart"}
+
+
+def test_a_license_still_cannot_grant_a_capability_the_catalog_lacks() -> None:
+    unlisted = _claims(capability_ids=("incident.restart", "network.rewrite-routes"))
+
+    entitlement = resolve_entitlement(
+        catalog=_catalog(), token=_token(unlisted), verifier=_AcceptAll(), now=_NOW
+    )
+
+    assert "network.rewrite-routes" not in entitlement.available_capability_ids

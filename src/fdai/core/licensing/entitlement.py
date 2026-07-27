@@ -11,9 +11,12 @@ that a high-risk action executes.
 Resolution fails toward safety. An absent, malformed, untrusted, out-of-window,
 or misbound token degrades to the read-only subset of the catalog rather than
 raising, so an expired license leaves an operator able to observe while unable
-to act. An unlicensed upstream deployment keeps the full catalog, because
-licensing is a downstream distribution concern; a distribution that wants
-fail-closed behavior sets ``require_license``.
+to act. Read-only capabilities are therefore never licensed: a license that
+omits them still leaves them available, because a valid license must never make
+a deployment less observable than an expired one. An unlicensed upstream
+deployment keeps the full catalog, because licensing is a downstream
+distribution concern; a distribution that wants fail-closed behavior sets
+``require_license``.
 """
 
 from __future__ import annotations
@@ -99,7 +102,15 @@ def resolve_entitlement(
         claims, document, signature = parse_license_token(token)
     except LicenseTokenError as exc:
         return _degraded(catalog, LicenseStatus.UNTRUSTED, f"license token is malformed: {exc}")
-    if not verifier.verify(document, signature):
+    try:
+        verified = verifier.verify(document, signature)
+    except Exception as exc:  # noqa: BLE001 - a broken verifier degrades, it never crashes the runtime
+        return _degraded(
+            catalog,
+            LicenseStatus.UNTRUSTED,
+            f"license signature could not be checked: {exc}",
+        )
+    if not verified:
         return _degraded(
             catalog,
             LicenseStatus.UNTRUSTED,
@@ -124,7 +135,9 @@ def resolve_entitlement(
         return _degraded(catalog, LicenseStatus.MISBOUND, mismatch, claims=claims)
     return Entitlement(
         status=LicenseStatus.ACTIVE,
-        available_capability_ids=_all_ids(catalog) & frozenset(claims.capability_ids),
+        available_capability_ids=(
+            (_all_ids(catalog) & frozenset(claims.capability_ids)) | _read_only_ids(catalog)
+        ),
         license_id=claims.license_id,
         not_after=claims.not_after,
     )
