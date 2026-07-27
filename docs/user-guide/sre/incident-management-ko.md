@@ -1,106 +1,106 @@
 ---
 title: 인시던트 관리
-description: FDAI가 first-class incident를 생성하고 소유자를 지정하며 전환, 측정, 종료하는 방법입니다.
+description: FDAI가 인시던트를 하나의 정식 기록으로 만들고, 소유자를 정하고, 상태를 옮기고, 측정하고, 종료하는 방법입니다.
 translation_of: incident-management.md
 translation_source_sha: 9d0b821bc0a4d51abb8f65a5b6fbe1262fb495a6
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 인시던트 관리
 
-인시던트는 연계된 신호, 소유권, 조사, 대응, 복구, 포스트모템 증거를 연결하는 지속적인
-운영 레코드입니다. FDAI는 인시던트를 알림에 붙는 label이 아니라 명시적인 lifecycle로
-관리합니다.
+인시던트는 서로 연결된 신호, 소유권, 조사, 대응, 복구, 포스트모템 근거를 한데 묶어 두는
+운영 기록입니다. FDAI는 인시던트를 알림에 붙는 꼬리표로 다루지 않고, 명확한 생애주기를
+가진 대상으로 관리합니다.
 
-## 인시던트 라이프사이클
+## 인시던트 생애주기
 
 ```text
 open -> triaging -> mitigated -> resolved -> closed
 ```
 
-State machine이 전환을 검증하고 idempotent하게 기록합니다. 오래된 expected state는 더
-새로운 운영자 또는 자동화 결정을 덮어쓰지 않고 conflict를 발생시킵니다.
+상태 전환은 상태 머신이 검증하며, 같은 요청이 여러 번 들어와도 결과가 달라지지 않도록
+기록합니다. 오래된 상태 정보를 들고 온 요청은 더 최근의 운영자나 자동화 결정을 덮어쓰지
+않고 충돌로 처리됩니다.
 
-| 상태 | 운영 의미 |
-|------|-----------|
-| `open` | 연계된 증거가 incident record를 생성함 |
-| `triaging` | 소유권 지정과 증거 수집이 진행 중임 |
-| `mitigated` | 즉각적인 영향은 억제됐지만 복구는 완료되지 않음 |
-| `resolved` | 서비스 복구가 검증됨 |
-| `closed` | 후속 조치와 필수 사후 작업이 완료됨 |
+| 상태 | 운영자에게 주는 의미 |
+|------|----------------------|
+| `open` | 연결된 근거가 모여 인시던트 기록이 만들어졌습니다 |
+| `triaging` | 소유자를 정하고 근거를 모으는 중입니다 |
+| `mitigated` | 당장의 영향은 막았지만 복구는 아직 끝나지 않았습니다 |
+| `resolved` | 서비스 복구를 확인했습니다 |
+| `closed` | 후속 조치와 필수 사후 작업까지 끝났습니다 |
 
-Incident module은 lifecycle의 single writer입니다. Vertical과 operator는 transition을
-제안할 수 있지만 직접 append할 수는 없습니다. Transition은 incident, target state,
-actor 조합으로 dedup됩니다. Persistence layer는 incident를 잠그고 expected state를 확인한
-뒤 global audit chain에 transition을 하나의 작업으로 append합니다. 경쟁에서 진 writer는
-어떤 state가 이겼는지 추측하지 않고 canonical projection을 다시 읽습니다.
+생애주기를 기록하는 주체는 인시던트 모듈 하나뿐입니다. 버티컬과 운영자는 상태 전환을
+제안할 수 있을 뿐, 직접 기록을 덧붙이지는 못합니다. 상태 전환은 인시던트, 목표 상태, 요청
+주체를 묶어 중복을 걸러 냅니다. 저장 계층은 인시던트를 잠그고 예상 상태가 맞는지 확인한
+뒤, 상태 전환을 전체 감사 체인에 한 번의 작업으로 덧붙입니다. 경쟁에서 밀린 요청은 어느
+상태가 이겼는지 추측하지 않고 정본 데이터를 다시 읽습니다.
 
-지원되는 reopen path는 `resolved -> triaging`입니다. Severity 변경은 이 edge에서만
-허용되므로 replay가 active incident의 severity를 조용히 다시 쓸 수 없습니다.
+다시 열 수 있는 경로는 `resolved -> triaging` 하나뿐입니다. 심각도 변경도 이 구간에서만
+허용되므로, 재실행이 진행 중인 인시던트의 심각도를 몰래 바꾸는 일은 없습니다.
 
-## 레코드에 포함되는 내용
+## 기록에 담기는 내용
 
-Incident는 안정적인 ID, correlation key, severity, status, source, owner, timestamp,
-member reference, mitigation summary, postmortem reference를 저장합니다. Audit entry는
-open, membership change, assignment, transition을 보존합니다.
+인시던트는 고정된 ID, 상관관계 키, 심각도, 상태, 출처, 소유자, 시각, 구성원 참조, 완화
+요약, 포스트모템 참조를 담습니다. 감사 항목에는 인시던트 생성, 구성원 변경, 담당자 지정,
+상태 전환이 그대로 남습니다.
 
-Ownership, impact, recovery evidence가 없으면 unavailable로 표시합니다. Console은 display
-text에서 해당 값을 추론하지 않습니다.
+소유권, 영향 범위, 복구 근거가 없으면 값을 지어내지 않고 확인 불가로 표시합니다. 콘솔도
+화면에 보이는 문구만 보고 그 값을 짐작하지 않습니다.
 
-## 안전한 생성과 할당
+## 안전하게 만들고 배정하기
 
-수동 생성에는 contributor 수준 운영자와 제안된 severity 및 correlation key 확인이
-필요합니다. 자동 상관관계는 안정적인 incident anchor를 도출하므로 반복 delivery가 같은
-incident를 생성하거나 갱신합니다.
+인시던트를 직접 만들려면 기여자 이상 권한이 필요하고, 제안된 심각도와 상관관계 키를
+확인해야 합니다. 자동 연결은 고정된 인시던트 기준점을 뽑아내므로, 같은 신호가 여러 번
+도착해도 같은 인시던트를 만들거나 갱신합니다.
 
-Assignment change는 감사되며 notification delivery는 durable합니다. 알림 실패는 lifecycle
-record를 rollback하지 않고, retry claim은 중복 전달이 중복 state transition이 되는 것을
-방지합니다.
+담당자 변경은 감사에 남고, 알림은 유실 없이 전달됩니다. 알림이 실패해도 생애주기 기록을
+되돌리지 않으며, 재시도 점유 방식 덕분에 중복 전달이 중복 상태 전환으로 이어지지 않습니다.
 
-## Lifecycle truth와 delivery truth 분리
+## 생애주기 결과와 전달 결과는 다릅니다
 
-Incident transition과 notification은 서로 관련되지만 별개의 결과를 가집니다. Audit append가
-성공하면 transition이 authoritative 상태가 됩니다. Notification delivery는 안정적인 audit ID,
-single-claimer lease, sent checkpoint를 사용합니다. Startup replay는 checkpoint가 없는 row를
-다시 시도합니다.
+인시던트 상태 전환과 그 알림은 서로 관련은 있지만 별개의 결과입니다. 상태 전환은 감사
+기록이 성공적으로 덧붙는 순간 확정됩니다. 알림 전달은 고정된 감사 ID, 한 번에 한 곳만
+잡을 수 있는 점유권, 발송 완료 표시를 사용합니다. 시작할 때 수행하는 재실행은 완료 표시가
+없는 항목만 다시 시도합니다.
 
-| Lifecycle 결과 | Delivery 결과 | 운영자 해석 |
-|----------------|---------------|-------------|
-| Applied | Sent | State와 notice가 최신임 |
-| Applied | Pending 또는 failed | State는 최신이며 delivery retry 또는 escalation 필요 |
-| Duplicate | Already sent | Replay가 새 state나 message를 만들지 않음 |
-| Conflict | Not sent | Incident를 다시 읽고 요청된 transition 재검토 |
+| 생애주기 결과 | 전달 결과 | 운영자가 읽는 방법 |
+|---------------|-----------|---------------------|
+| 적용됨 | 발송됨 | 상태와 알림이 모두 최신입니다 |
+| 적용됨 | 대기 또는 실패 | 상태는 최신이고, 전달만 재시도하거나 에스컬레이션하면 됩니다 |
+| 중복 | 이미 발송됨 | 재실행이 새 상태도, 새 메시지도 만들지 않았습니다 |
+| 충돌 | 미발송 | 인시던트를 다시 읽고 요청한 상태 전환을 재검토하세요 |
 
-## 분류, 완화, 해결
+## 분류하고, 완화하고, 해결하기
 
-1. Membership, scope, severity, 현재 owner를 확인합니다.
-2. `triaging`으로 이동하고 범위가 제한된 조사를 시작합니다.
-3. Mitigation proposal을 typed pipeline과 필요한 approval로 보냅니다.
-4. 영향 억제 증거가 있을 때만 `mitigated`로 표시합니다.
-5. 서비스 복구를 검증한 뒤에만 `resolved`로 표시합니다.
-6. 필수 follow-up, postmortem, ownership action을 기록한 뒤 종료합니다.
+1. 구성원, 범위, 심각도, 현재 소유자를 확인합니다.
+2. `triaging`으로 옮기고 범위를 정한 조사를 시작합니다.
+3. 완화 제안은 타입이 정의된 파이프라인과 필요한 승인 절차를 거치게 합니다.
+4. 영향을 막았다는 근거가 있을 때만 `mitigated`로 표시합니다.
+5. 서비스 복구를 확인한 뒤에만 `resolved`로 표시합니다.
+6. 후속 조치, 포스트모템, 소유권 정리를 기록한 뒤에 종료합니다.
 
-## SLA와 storm 처리
+## SLA와 알림 폭주 대응
 
-Severity별 acknowledge 및 resolution target을 transition stream에서 평가할 수 있습니다.
-Event storm은 deterministic incident ID, deduplication, 명시적 수정 step으로 제한되며
-무제한 병렬 변경을 만들지 않습니다.
+심각도별 확인 목표와 해결 목표는 상태 전환 기록만으로 평가할 수 있습니다. 이벤트가
+폭주해도 고정된 인시던트 ID, 중복 제거, 명시적인 수정 단계가 범위를 잡아 주므로 변경이
+무한정 동시에 일어나지 않습니다.
 
-SLA target은 hardcoded assumption이 아니라 deployment policy입니다. 모든 severity에 대해
-acknowledgment 및 resolution budget이 구성되기 전까지 monitor는 disabled 상태입니다. 활성화되면
-ordered transition record에서 deadline을 계산하고 breach마다 안정적인 operational notice를 한 번
-생성합니다. Resolved 및 closed incident는 alert를 계속 만들지 않습니다.
+SLA 목표는 배포 환경의 정책이지 코드에 박아 둔 가정이 아닙니다. 모든 심각도에 확인 시간과
+해결 시간 예산이 설정되기 전까지 모니터는 꺼져 있습니다. 켜지면 순서가 매겨진 상태 전환
+기록에서 마감 시각을 계산하고, 위반 한 건마다 같은 형식의 운영 알림을 한 번만 보냅니다.
+이미 해결되었거나 종료된 인시던트는 계속 알리지 않습니다.
 
-Storm 중에는 결정론적 sequencing이 제안된 수정을 severity, 영향 범위, stable ID
-순으로 정렬합니다. 설정된 concurrency cap이 이를 wave로 나누고 storm이 active인 동안 approval
-bar를 높일 수 있습니다. Storm coordinator는 안전성 검토에 조언할 뿐 실행하거나 권한을 가지지
-않습니다.
+폭주 상황에서는 정해진 순서 규칙이 제안된 수정 작업을 심각도, 영향 범위, 고정 ID 순으로
+정렬합니다. 설정된 동시 실행 한도가 이를 여러 차수로 나누고, 폭주가 이어지는 동안 승인
+기준을 더 높일 수 있습니다. 폭주 조정자는 안전성 검토에 조언만 할 뿐, 직접 실행하거나
+권한을 갖지는 않습니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| 증거를 수집하는 방법 | [분류와 조사](triage-and-investigation-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 근거를 모으는 방법 | [분류와 조사](triage-and-investigation-ko.md) |
 | 원인을 표현하는 방법 | [근본 원인 분석](root-cause-analysis-ko.md) |
-| 완화를 governed 상태로 유지하는 방법 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) |
-| 최종 레코드를 검토하는 방법 | [포스트모템과 학습](postmortems-and-learning-ko.md) |
+| 완화 조치를 통제 아래 두는 방법 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) |
+| 최종 기록을 검토하는 방법 | [포스트모템과 학습](postmortems-and-learning-ko.md) |
