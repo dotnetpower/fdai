@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ca129b586b121ea18899d8f3c352077e1a003e5f
+translation_source_sha: 8a7bc67e756e39016098ad9237682007887409a1
 translation_revised: 2026-07-28
 ---
 
@@ -75,7 +75,9 @@ Runner는 task와 identity가 다른 submission을 차단합니다.
 4. `close()`는 성공 또는 실패 시 transport resource를 해제합니다.
 
 Runner는 중복 task identity를 차단하고 구성된 task count에서 중단합니다. Processing 또는
-submission이 실패해도 `close()`가 실행됩니다.
+submission이 실패해도 `close()`가 실행됩니다. Adapter와 task processor가 반환한 값은 각각
+`BenchmarkTask` 및 `BenchmarkSubmission` instance여야 합니다. 잘못된 collaborator output은 field
+access 또는 harness submission 전에 실패합니다.
 
 ### Provider binding
 

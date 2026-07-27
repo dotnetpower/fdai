@@ -63,6 +63,8 @@ class BenchmarkRunner:
                 task = await self._adapter.next_task()
                 if task is None:
                     break
+                if not isinstance(task, BenchmarkTask):
+                    raise BenchmarkRunError("adapter returned an invalid benchmark task")
                 identity = (task.run_id, task.task_id, task.stage)
                 if identity in seen:
                     raise BenchmarkRunError(f"duplicate benchmark task identity: {identity!r}")
@@ -71,6 +73,8 @@ class BenchmarkRunner:
                 seen.add(identity)
 
                 submission = await self._processor.process(task)
+                if not isinstance(submission, BenchmarkSubmission):
+                    raise BenchmarkRunError("processor returned an invalid submission")
                 if (submission.run_id, submission.task_id, submission.stage) != identity:
                     raise BenchmarkRunError(
                         "processor submission identity does not match the benchmark task"

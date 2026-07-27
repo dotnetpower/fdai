@@ -75,6 +75,16 @@ class _DoubleFailingAdapter(_Adapter):
         raise RuntimeError("cleanup failed")
 
 
+class _InvalidTaskAdapter(_Adapter):
+    async def next_task(self) -> BenchmarkTask | None:
+        return object()  # type: ignore[return-value]
+
+
+class _InvalidSubmissionProcessor(_Processor):
+    async def process(self, task: BenchmarkTask) -> BenchmarkSubmission:
+        return object()  # type: ignore[return-value]
+
+
 async def test_runner_processes_and_submits_each_task_once() -> None:
     adapter = _Adapter((_task("task-1"), _task("task-2")))
 
@@ -103,6 +113,25 @@ async def test_runner_preserves_primary_failure_when_cleanup_fails() -> None:
         await BenchmarkRunner(adapter=adapter, processor=_Processor()).run()
 
     assert error.value.__notes__ == ["benchmark adapter cleanup also failed (RuntimeError)"]
+
+
+async def test_runner_rejects_invalid_task_value() -> None:
+    adapter = _InvalidTaskAdapter(())
+
+    with pytest.raises(BenchmarkRunError, match="adapter returned an invalid benchmark task"):
+        await BenchmarkRunner(adapter=adapter, processor=_Processor()).run()
+
+    assert adapter.closed is True
+
+
+async def test_runner_rejects_invalid_submission_value() -> None:
+    adapter = _Adapter((_task(),))
+
+    with pytest.raises(BenchmarkRunError, match="processor returned an invalid submission"):
+        await BenchmarkRunner(adapter=adapter, processor=_InvalidSubmissionProcessor()).run()
+
+    assert adapter.submissions == []
+    assert adapter.closed is True
 
 
 async def test_runner_rejects_duplicate_task_before_second_processing() -> None:

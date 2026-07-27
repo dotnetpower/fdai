@@ -71,7 +71,9 @@ runner rejects a submission whose identity differs from its task.
 4. `close()` releases transport resources on success or failure.
 
 The runner rejects duplicate task identities and stops at a configured task count. `close()` runs
-even when processing or submission fails.
+even when processing or submission fails. Values returned by the adapter and task processor must
+be `BenchmarkTask` and `BenchmarkSubmission` instances; invalid collaborator output fails before
+field access or harness submission.
 
 ### Provider binding
 
