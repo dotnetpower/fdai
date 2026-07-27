@@ -80,6 +80,10 @@ even when processing or submission fails.
 instances. This bundle intentionally excludes promotion state, risk policy, approval, and mutation
 executors.
 
+Every declared override must satisfy its runtime-checkable provider Protocol before the container
+is replaced. An invalid provider blocks plugin composition instead of failing on the first metric,
+log, trace, or inventory query.
+
 A benchmark that needs mutation must use an existing governed execution adapter selected by the
 host composition. The benchmark plugin cannot introduce a second execution path or raise an
 ActionType from observation mode to enforcement mode.
@@ -128,7 +132,18 @@ The independent `benchmarks/sregym/` distribution currently translates these con
 Plaintext conductor URLs are accepted only on loopback or SREGym's exact
 `host.docker.internal` agent-container alias. A wildcard bind address is normalized to loopback for
 non-container runs. Credentials, query strings, and fragments in the configured URL are rejected.
-Unknown stages and malformed responses fail closed.
+An explicit port must be between 1 and 65535, and polling, stage, and request timeouts must be
+finite and positive. Unknown stages and malformed responses fail closed.
+
+Every conductor response, including `/submit`, is streamed through a bounded buffer. The default
+`max_response_bytes` limit is 1,000,000 bytes; exceeding the configured limit stops the stream.
+JSON responses are decoded only after the bounded read completes.
+
+The adapter accepts a submission only for the exact run, task, and stage identity returned by its
+latest `next_task()` call. It clears that identity only after the conductor accepts the submission,
+so a transport failure can retry the same result without permitting an unissued or wrong-stage
+submission.
+While that identity is outstanding, another `next_task()` call fails before polling the conductor.
 
 SREGym metric, log, trace, and Kubernetes MCP transports are not implemented in this slice. Until
 they bind through the existing providers and governed execution contracts, this plugin alone is not

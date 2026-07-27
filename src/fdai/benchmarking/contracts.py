@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
+from unicodedata import category
 
 _MAX_ID_LENGTH = 256
 _MAX_TEXT_LENGTH = 20_000
@@ -95,7 +96,7 @@ def _validate_metadata(metadata: Mapping[str, str]) -> None:
 
 
 def _has_control_character(value: str) -> bool:
-    return any(ord(character) < 32 for character in value)
+    return any(category(character) in {"Cc", "Cf"} for character in value)
 
 
 def _freeze_metadata(metadata: Mapping[str, str]) -> Mapping[str, str]:

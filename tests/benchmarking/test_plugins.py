@@ -46,6 +46,10 @@ def _factory() -> _Plugin:
     return _Plugin()
 
 
+def _raising_factory() -> _Plugin:
+    raise RuntimeError("provider detail")
+
+
 def _points(*names: str) -> tuple[EntryPoint, ...]:
     _FACTORIES["factory"] = _factory
     return tuple(
@@ -85,6 +89,33 @@ def test_rejects_incompatible_api_version(monkeypatch: pytest.MonkeyPatch) -> No
         load_benchmark_plugin("example", entry_point_source=lambda: _points("example"))
 
 
+def test_normalizes_plugin_import_failure() -> None:
+    point = EntryPoint(
+        name="broken",
+        value="missing_benchmark_module:create_plugin",
+        group="fdai.benchmark_adapters",
+    )
+
+    with pytest.raises(BenchmarkPluginError, match="failed to load") as error:
+        load_benchmark_plugin("broken", entry_point_source=lambda: (point,))
+
+    assert isinstance(error.value.__cause__, ModuleNotFoundError)
+
+
+def test_normalizes_plugin_factory_failure() -> None:
+    point = EntryPoint(
+        name="broken",
+        value=f"{__name__}:_raising_factory",
+        group="fdai.benchmark_adapters",
+    )
+
+    with pytest.raises(BenchmarkPluginError, match="factory failed") as error:
+        load_benchmark_plugin("broken", entry_point_source=lambda: (point,))
+
+    assert isinstance(error.value.__cause__, RuntimeError)
+    assert "provider detail" not in str(error.value)
+
+
 def test_binding_replaces_only_declared_provider_seams(container: Container) -> None:
     metric_provider = StaticMetricProvider(())
 
@@ -99,3 +130,15 @@ def test_binding_replaces_only_declared_provider_seams(container: Container) -> 
     assert bound.trace_query_provider is container.trace_query_provider
     assert bound.inventory is container.inventory
     assert bound.capability_runtime is container.capability_runtime
+
+
+@pytest.mark.parametrize(
+    "provider_field",
+    ("metric_provider", "log_query_provider", "trace_query_provider", "inventory"),
+)
+def test_bindings_reject_invalid_provider(provider_field: str) -> None:
+    with pytest.raises(TypeError, match=f"{provider_field} MUST implement"):
+        BenchmarkBindings(  # type: ignore[arg-type]
+            adapter=_Adapter(),
+            **{provider_field: object()},
+        )
