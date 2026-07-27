@@ -239,6 +239,14 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   scheduled trigger. Huginn owns real-time resource discovery ingress: Azure create, update, and
   delete signals arrive through the canonical event topic, then an injected delivery projector
   enriches and applies ordered inventory deltas without putting Azure I/O inside the agent. The
+  PostgreSQL projector applies each resource and its relationship changes in one transaction.
+  Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
+  reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.
+  Ordinary patches share the graph gate, so unrelated resources remain concurrent. Resource
+  deletion and a `links_complete: true` relationship replacement take the graph gate exclusively,
+  read the effective relationship set, and write missing relationships as tombstones before commit.
+  An absent or false `links_complete` never removes an unobserved relationship. Snapshot promotion
+  keeps the exclusive promotion gate and therefore cannot overlap any delta transaction. The
   dedicated Inventory sync job queries Azure Resource Graph with ARM fallback every six hours by
   default and atomically promotes a complete reconciliation snapshot. Heimdall monitors discovery
   freshness, lag, and coverage without starting repair. The job checks durable attempt state every

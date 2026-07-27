@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b71ff553f3d83930913f18a91a94aef425124d1e
+translation_source_sha: 519a963f80a8f3d37ae5bf6dbedbc6ee78f88085
 translation_revised: 2026-07-28
 ---
 
@@ -239,6 +239,13 @@ fdai/
   trigger를 기다립니다. Huginn은 실시간 resource discovery ingress를 소유합니다. Azure create,
   update, delete signal은 canonical event topic으로 들어오고, 주입된 delivery projector가 Azure
   I/O를 agent 내부에 넣지 않은 채 enrichment와 ordered inventory delta 적용을 담당합니다. 전용
+  PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
+  snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
+  정렬된 lock 순서로 획득합니다. 일반 patch는 graph gate를 공유하므로 관련 없는 리소스는 동시에
+  처리할 수 있습니다. 리소스 삭제와 `links_complete: true` 관계 교체는 graph gate를 독점하고,
+  유효 관계 집합을 읽은 뒤 누락된 관계를 commit 전에 tombstone으로 기록합니다.
+  `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은
+  exclusive promotion gate를 유지하므로 어떤 delta transaction과도 동시에 실행되지 않습니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한
   reconciliation snapshot을 원자적으로 promote합니다. Heimdall은 discovery freshness, lag,
   coverage를 관찰하며 repair를 시작하지 않습니다. Job은 10분마다 durable attempt state를 확인하고

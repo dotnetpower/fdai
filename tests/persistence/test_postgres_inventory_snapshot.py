@@ -8,12 +8,16 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import psycopg
 import pytest
 
 from fdai.delivery.persistence.postgres_inventory_delta import (
     PostgresInventoryDeltaProjector,
+    _acquire_inventory_gate,
+    _acquire_inventory_locks,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    _PROMOTION_LOCK,
     PostgresInventoryAgeProvider,
     PostgresInventoryContextProvider,
     PostgresInventoryGraphProvider,
@@ -63,6 +67,57 @@ def _manifest(source: str) -> InventoryCoverageManifest:
 def _after_snapshot(manifest: InventoryCoverageManifest, seconds: int) -> str:
     assert manifest.started_at is not None
     return (manifest.started_at + timedelta(seconds=seconds)).isoformat()
+
+
+async def test_inventory_delta_lock_serializes_the_same_resource() -> None:
+    async with (
+        await psycopg.AsyncConnection.connect(_dsn()) as first,
+        await psycopg.AsyncConnection.connect(_dsn()) as second,
+        first.transaction(),
+    ):
+        await _acquire_inventory_locks(first, ("resource-lock-shared",))
+        async with second.transaction():
+            await second.execute("SET LOCAL lock_timeout = '100ms'")
+            with pytest.raises(psycopg.errors.LockNotAvailable):
+                await _acquire_inventory_locks(second, ("resource-lock-shared",))
+
+
+async def test_inventory_delta_lock_allows_independent_resources() -> None:
+    async with (
+        await psycopg.AsyncConnection.connect(_dsn()) as first,
+        await psycopg.AsyncConnection.connect(_dsn()) as second,
+        first.transaction(),
+        second.transaction(),
+    ):
+        await _acquire_inventory_locks(first, ("resource-lock-a",))
+        await second.execute("SET LOCAL lock_timeout = '100ms'")
+        await _acquire_inventory_locks(second, ("resource-lock-b",))
+
+
+async def test_inventory_promotion_lock_blocks_delta_projection() -> None:
+    async with (
+        await psycopg.AsyncConnection.connect(_dsn()) as promotion,
+        await psycopg.AsyncConnection.connect(_dsn()) as delta,
+        promotion.transaction(),
+    ):
+        await promotion.execute("SELECT pg_advisory_xact_lock(%s)", (_PROMOTION_LOCK,))
+        async with delta.transaction():
+            await delta.execute("SET LOCAL lock_timeout = '100ms'")
+            with pytest.raises(psycopg.errors.LockNotAvailable):
+                await _acquire_inventory_locks(delta, ("resource-lock-delta",))
+
+
+async def test_inventory_graph_reconciliation_blocks_ordinary_patch() -> None:
+    async with (
+        await psycopg.AsyncConnection.connect(_dsn()) as reconciliation,
+        await psycopg.AsyncConnection.connect(_dsn()) as patch,
+        reconciliation.transaction(),
+    ):
+        await _acquire_inventory_gate(reconciliation, exclusive_graph=True)
+        async with patch.transaction():
+            await patch.execute("SET LOCAL lock_timeout = '100ms'")
+            with pytest.raises(psycopg.errors.LockNotAvailable):
+                await _acquire_inventory_locks(patch, ("resource-lock-patch",))
 
 
 async def test_failed_candidate_retains_last_active_snapshot() -> None:
@@ -220,6 +275,68 @@ async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> 
     context = await context_provider("rg-overlay/vm-new")
     assert context is not None
     assert context["props"] == {"name": "new"}
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        cursor = await connection.execute(
+            "SELECT change_kind FROM inventory_realtime_link "
+            "WHERE from_id=%s AND link_type='contains' AND to_id=%s",
+            ("rg-overlay", "rg-overlay/vm-old"),
+        )
+        assert await cursor.fetchone() == ("delete",)
+
+
+async def test_complete_relationship_set_tombstones_missing_owned_link() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("rg-complete", "resource-group"),
+                ResourceRecord("rg-complete/vm", "compute.vm"),
+            ),
+            links=(
+                LinkRecord(
+                    from_id="rg-complete/vm",
+                    from_type="compute.vm",
+                    link_type="depends_on",
+                    to_id="rg-complete",
+                    to_type="resource-group",
+                ),
+            ),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    await projector(
+        {
+            "event_id": "event-complete-links",
+            "idempotency_key": "inventory-complete-links",
+            "inventory_change": {
+                "kind": "upsert",
+                "resource": {
+                    "resource_id": "rg-complete/vm",
+                    "type": "compute.vm",
+                    "props": {},
+                    "provider_ref": None,
+                    "last_seen": _after_snapshot(manifest, 1),
+                },
+                "links_complete": True,
+                "links": [],
+            },
+        }
+    )
+
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        cursor = await connection.execute(
+            "SELECT change_kind FROM inventory_realtime_link "
+            "WHERE from_id=%s AND link_type='depends_on' AND to_id=%s",
+            ("rg-complete/vm", "rg-complete"),
+        )
+        assert await cursor.fetchone() == ("delete",)
 
 
 async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> None:
