@@ -20,7 +20,7 @@ variable "env" {
 }
 
 variable "enable_dev_operations_gateway" {
-  description = "Provision the development-only Azure Functions operations gateway. Requires env=dev and private networking."
+  description = "Provision the development-only Azure Functions operations gateway. Requires env=dev and private networking, both enforced in production-gates.tf. NOTE: the function app terminates a PUBLIC inbound endpoint - a developer has to reach it - so this is not usable on a closed network and must stay false there."
   type        = bool
   default     = false
 }
