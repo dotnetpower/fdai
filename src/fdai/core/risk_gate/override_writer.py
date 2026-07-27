@@ -183,7 +183,10 @@ def _validate(request: OverrideRequest) -> None:
             raise OverrideWriterError(f"{label} MUST be at most {_PRINCIPAL_ID_MAX_LEN} chars")
         if any(character in principal for character in "\n\r"):
             raise OverrideWriterError(f"{label} MUST NOT contain a line break")
-    if request.requester_id == request.approver_id:
+    if request.requester_id.strip().casefold() == request.approver_id.strip().casefold():
+        # Compared case-insensitively: an Entra object id is a GUID, and a GUID
+        # is the same value however it is cased. Comparing the raw strings would
+        # let one person appear as two and self-approve their own override.
         raise OverrideWriterError("no self-approval - requester_id and approver_id MUST differ")
 
 

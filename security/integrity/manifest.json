@@ -246,7 +246,7 @@
     "src/fdai/core/executor/tool_call.py": "aae4c0e8cbb08af251b09d6865273c64aa7d759c9f72deac66c9a4c4a995e5a3",
     "src/fdai/core/hil_resume/__init__.py": "f1ef3d58e7c2d19b48d296eed5cae3263442e34886aea790565e13d8a7ff224a",
     "src/fdai/core/hil_resume/coordinator.py": "c0fd07ff4d0e25f31525e15c60456e98d003fcc747306f4464cacf68564d0364",
-    "src/fdai/core/hil_resume/delegation.py": "e9142f452f56983cd26ba176dffaaf81d6d36174f8d4f4e9d7410fe945552353",
+    "src/fdai/core/hil_resume/delegation.py": "0ab805bb50fda4373d4ec31c05ee31583d7a4f94d6a056a8b49c1fe5749a6dfe",
     "src/fdai/core/hil_resume/load_control.py": "ce19ec86b6ea7f26df11758da561ddc62e8933dd0431600da3262a737b2af258",
     "src/fdai/core/incident/__init__.py": "0be5fb42ec59f0cdefa1e8593ed1687c3924d1f9ed5d213cb022553ae62e2f57",
     "src/fdai/core/incident/audit_entries.py": "9183fa65abb5613333db92184154458c2ee3fbf70887d9596a974309c1aa834d",
@@ -477,7 +477,7 @@
     "src/fdai/core/risk_gate/evaluator.py": "78d8d15ffe0e0bb7f47fac4a3dc6793a4ae81199a4cf0bbe5235771b066852b4",
     "src/fdai/core/risk_gate/feature.py": "e28ef89e5424bb2fe8a884e4a883d01a45e086f575d83fe8e3edd9fa1ff8ab23",
     "src/fdai/core/risk_gate/gate.py": "0f22537491fa2a97f2fac86021326f3799a74dde28bdb532a05b1785e81f92b0",
-    "src/fdai/core/risk_gate/override_writer.py": "6323def5c6e07ed183a9f6a3c13e37c7fc8d83eeca088ea4a3afe1e76a0428ca",
+    "src/fdai/core/risk_gate/override_writer.py": "58d6feced637f1833c86f3516c28ac4bd520dc8974680f35ee42db5132ce9e46",
     "src/fdai/core/risk_gate/precedence.py": "a977b3d9d33a7a23087c9906581102bdd35f97668389b3eaa60f334ae52d41c3",
     "src/fdai/core/risk_gate/risk_table.py": "d5a9d37bd7c203bc5a5878eecedfe891130c27418604a7d4b0208f6eeba26b0f",
     "src/fdai/core/rpc/__init__.py": "5c2e8704df1cec574b701676ab71b1c915180fea407007e32f9b27ff27697150",
@@ -804,7 +804,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T19:13:35Z",
+  "generated_at": "2026-07-27T19:24:00Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

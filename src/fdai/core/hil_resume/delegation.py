@@ -91,6 +91,11 @@ def evaluate_hil_delegation(
     ``approver_can_approve_hil`` is supplied by the caller's RBAC check
     (``Capability.APPROVE_RUNTIME_HIL``); this function never reads roles
     itself, so it stays pure and identical across entry points.
+
+    Identities are compared case-insensitively. An Entra object id is a GUID,
+    and a GUID is the same value however it is cased (RFC 4122) - two entry
+    points that normalise differently would otherwise let one person appear as
+    two, which is exactly the thing the self-approval floor exists to prevent.
     """
 
     approver = approver_oid.strip()
@@ -101,16 +106,22 @@ def evaluate_hil_delegation(
         return DelegationDecision(allowed=False, refusal=DelegationRefusal.BLANK_APPROVER)
     if not submitter:
         return DelegationDecision(allowed=False, refusal=DelegationRefusal.UNKNOWN_SUBMITTER)
-    if approver == submitter:
+    if _same_principal(approver, submitter):
         return DelegationDecision(allowed=False, refusal=DelegationRefusal.SELF_APPROVAL)
     if not approver_can_approve_hil:
         return DelegationDecision(allowed=False, refusal=DelegationRefusal.MISSING_CAPABILITY)
 
     if not assignee:
         return DelegationDecision(allowed=True, mode=DelegationMode.ROLE_SCOPED)
-    if approver == assignee:
+    if _same_principal(approver, assignee):
         return DelegationDecision(allowed=True, mode=DelegationMode.DIRECT)
     return DelegationDecision(allowed=True, mode=DelegationMode.DELEGATED)
+
+
+def _same_principal(left: str, right: str) -> bool:
+    """Whether two identity strings name the same principal."""
+
+    return left.casefold() == right.casefold()
 
 
 __all__ = [

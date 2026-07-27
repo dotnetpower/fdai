@@ -223,3 +223,14 @@ def test_a_legitimate_override_still_renders_one_verdict() -> None:
     assert '"override_id": "ovr-2026-001",' in overlay.content
     assert [line for line in overlay.content.splitlines() if line.startswith("allow")] == []
     assert overlay.content.count('"level":') == 1
+
+
+def test_recasing_an_identity_does_not_defeat_the_self_approval_floor() -> None:
+    """The ids are Entra object ids - GUIDs, which are the same value however
+    they are cased. Comparing raw strings let one person request and approve
+    their own ceiling override.
+    """
+    oid = "00000000-0000-0000-0000-0000000000ab"
+
+    with pytest.raises(OverrideWriterError, match="no self-approval"):
+        render_override_rego(_valid_request(requester_id=oid, approver_id=oid.upper()))
