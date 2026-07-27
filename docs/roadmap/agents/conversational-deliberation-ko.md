@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 2a64e6731f884f373a636856fa165cfb3473c404
+translation_source_sha: aa1ffccf93a4fdaa04fa736e8cd887e3ea7638a7
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -165,8 +165,10 @@ owner의 안정적 digest로 대체합니다. 그렇지 않으면 모든 deliber
 두 한도 중 하나만 걸려도 거부하며, 호출 전에 둘 다 검사합니다. 지출을 차감하는 지점은 정확히
 하나이며, 그것은 deliberator가 아닙니다.
 
-1. **호출 전 시도 예약.** Round는 provider에게 묻기 전에 call 1건만 차감하고 금액은 차감하지
-   않습니다. 이후 실패한 provider도 부여받은 시도를 소모한 것이 되므로, 실패한 provider를
+1. **호출 전 시도 예약.** Round는 provider에게 묻기 전에 call 1건만 가져가고 금액은 차감하지
+   않습니다. 이 예약은 읽고 나서 쓰는 두 단계가 아니라 단일 원자적 단계입니다. 같은 correlation의
+   두 turn이 남은 허용량을 각각 읽으면 둘 다 통과해버려서, call 1건짜리 천장이 겹친 수만큼
+   허용됩니다. 이후 실패한 provider도 부여받은 시도를 소모한 것이 되므로, 실패한 provider를
    무제한 재시도할 수 없습니다.
 2. **호출이 기록되는 곳에서 금액 차감.** `SynthesisOutcome`이 실측 `TokenUsage`와 model key를
    보고합니다. Provider가 알려주지 않는 것을 예산이 계량할 수는 없기 때문입니다. 가격이 매겨진

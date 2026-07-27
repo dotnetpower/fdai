@@ -177,14 +177,15 @@ class T2Tier:
         later one. The pipeline's unit of work is the event.
         """
         budget_key = str(context.event.event_id)
-        if not await self._ledger.allows(budget_key):
+        # Reserve atomically: asking whether the allowance fits and then
+        # taking it lets two concurrent events past one declared total.
+        if not await self._ledger.reserve(budget_key, calls=1, cost_microusd=0):
             return T2Decision(
                 outcome=T2Outcome.ESCALATE,
                 candidate=None,
                 quality_decision=None,
                 reason="t2_budget_exhausted",
             )
-        await self._ledger.charge(budget_key, calls=1, cost_microusd=0)
         try:
             candidate = await self._proposer.propose(context=context)
         except Exception as exc:  # noqa: BLE001 - model/provider boundary

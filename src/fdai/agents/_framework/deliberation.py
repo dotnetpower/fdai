@@ -321,7 +321,14 @@ class ConversationDeliberator:
         # stays at T1 rather than calling a model anyway. The bound is
         # reported so the answer can say the deeper pass did not run.
         budget_key = _budget_key(correlation_id, question=question, primary=primary_agent)
-        if not await self._ledger.allows(budget_key):
+        # Reserve, do not ask-then-take: two turns of the same correlation
+        # that both read the remaining allowance would both proceed, and a
+        # ceiling of one call would admit however many happen to overlap.
+        # The reservation is made before the call, so a provider that then
+        # fails still consumed what it was granted. Cost is charged where
+        # it becomes known - the metering record - so this ledger has
+        # exactly one place that accounts for money.
+        if not await self._ledger.reserve(budget_key, calls=1, cost_microusd=0):
             result["t2_status"] = "budget_denied"
             result["escalation_budget"] = await self._budget_snapshot(budget_key)
             return result
@@ -336,12 +343,6 @@ class ConversationDeliberator:
                 for claim in claims
             ),
         )
-        # Charge the call before making it: a provider that then fails
-        # still consumed what it was granted, so charging on success would
-        # let a failing provider be retried without limit. Cost is charged
-        # where it becomes known - the metering record - so this ledger has
-        # exactly one place that accounts for money.
-        await self._ledger.charge(budget_key, calls=1, cost_microusd=0)
         try:
             outcome = await synthesizer.synthesize(request)
         except Exception as exc:  # noqa: BLE001 - optional presentation degradation

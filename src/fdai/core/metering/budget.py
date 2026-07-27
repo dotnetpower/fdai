@@ -108,8 +108,25 @@ class BudgetLedger(Protocol):
     a recorded decision replays to the same allow / deny outcome.
     """
 
+    async def reserve(self, correlation_id: str, *, calls: int, cost_microusd: int) -> bool:
+        """Atomically take the allowance if it fits, else return ``False``.
+
+        This is the gate. Checking with :meth:`allows` and then charging
+        is a check-then-act race: two turns that read the same remaining
+        allowance both proceed, and a declared ceiling of one call admits
+        as many callers as happen to overlap. A durable implementation
+        MUST make this a single operation (one conditional ``UPDATE``),
+        never a read followed by a write.
+        """
+        ...
+
     async def allows(self, correlation_id: str) -> bool:
-        """Return whether another call fits every declared bound."""
+        """Return whether another call would fit. Advisory only.
+
+        Safe for display - the ``escalation_available`` fact a turn
+        states - but MUST NOT be used to admit a call. Use
+        :meth:`reserve` for that.
+        """
         ...
 
     async def charge(self, correlation_id: str, *, calls: int, cost_microusd: int) -> None:
@@ -150,7 +167,24 @@ class InMemoryBudgetLedger:
     def budget(self) -> ModelBudget:
         return self._budget
 
+    async def reserve(self, correlation_id: str, *, calls: int, cost_microusd: int) -> bool:
+        """Check and take in one step, with no ``await`` in between.
+
+        Atomic by construction on an event loop: nothing can run between
+        the test and the mutation, so two overlapping turns cannot both
+        be admitted by the same remaining allowance.
+        """
+        if calls < 0 or cost_microusd < 0:
+            raise ValueError("model budget charges MUST be non-negative")
+        if not self._fits(correlation_id):
+            return False
+        self._apply(correlation_id, calls=calls, cost_microusd=cost_microusd)
+        return True
+
     async def allows(self, correlation_id: str) -> bool:
+        return self._fits(correlation_id)
+
+    def _fits(self, correlation_id: str) -> bool:
         spent = self._per_correlation.get(correlation_id, BudgetSpend())
         budget = self._budget
         if budget.max_calls_total is not None and self._total.calls >= budget.max_calls_total:
@@ -174,6 +208,9 @@ class InMemoryBudgetLedger:
     async def charge(self, correlation_id: str, *, calls: int, cost_microusd: int) -> None:
         if calls < 0 or cost_microusd < 0:
             raise ValueError("model budget charges MUST be non-negative")
+        self._apply(correlation_id, calls=calls, cost_microusd=cost_microusd)
+
+    def _apply(self, correlation_id: str, *, calls: int, cost_microusd: int) -> None:
         self._total = BudgetSpend(
             calls=self._total.calls + calls,
             cost_microusd=self._total.cost_microusd + cost_microusd,

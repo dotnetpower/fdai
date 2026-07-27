@@ -163,9 +163,11 @@ still costs nothing more.
 Either bound denies, and both are checked before the call. Spend is charged at exactly one point,
 and it is not the deliberator:
 
-1. **Reserve the attempt, before the call.** The round charges one call, and no money, before it
-   asks the provider. A provider that then fails still consumed the attempt it was granted, so a
-   failing provider cannot be retried without limit.
+1. **Reserve the attempt, before the call.** The round takes one call, and no money, before it
+   asks the provider. The reservation is a single atomic step, not a read followed by a write:
+   two turns of one correlation that both read the remaining allowance would both proceed, and a
+   ceiling of one call would admit however many happen to overlap. A provider that then fails still
+   consumed the attempt it was granted, so a failing provider cannot be retried without limit.
 2. **Charge the money where the call is recorded.** `SynthesisOutcome` reports the measured
    `TokenUsage` and model key, because a budget cannot meter what its provider never tells it. The
    priced `LlmInvocation` is written to metering with `usage_scope: operator_chat`, and

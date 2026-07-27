@@ -8,6 +8,7 @@ asserted - the ledger denies, never refunds, and stays bounded.
 
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 
 import pytest
@@ -215,3 +216,38 @@ def test_an_empty_in_memory_sink_is_falsy_so_defaults_use_is_none() -> None:
     from fdai.core.metering.sink import InMemoryMeteringSink
 
     assert bool(InMemoryMeteringSink()) is False
+
+
+async def test_a_reservation_is_atomic_so_overlapping_callers_cannot_share_it() -> None:
+    """The ceiling is a gate, and a gate that is read then taken is not one.
+
+    Eight turns of one correlation start together against a ceiling of a
+    single call. Only one may pass, whatever order the loop runs them in.
+    """
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=1))
+
+    async def attempt() -> bool:
+        await asyncio.sleep(0)  # every caller starts before any finishes
+        return await ledger.reserve("corr-1", calls=1, cost_microusd=0)
+
+    granted = await asyncio.gather(*[attempt() for _ in range(8)])
+
+    assert sum(granted) == 1
+    assert (await ledger.spend("corr-1")).calls == 1
+
+
+async def test_a_denied_reservation_charges_nothing() -> None:
+    """A refused gate must not consume the allowance it refused."""
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=1))
+
+    assert await ledger.reserve("corr-1", calls=1, cost_microusd=10) is True
+    assert await ledger.reserve("corr-1", calls=1, cost_microusd=10) is False
+    assert (await ledger.spend("corr-1")) == BudgetSpend(calls=1, cost_microusd=10)
+
+
+async def test_a_reservation_refuses_to_refund() -> None:
+    """Same non-negative contract as ``charge``."""
+    ledger = InMemoryBudgetLedger(ModelBudget())
+
+    with pytest.raises(ValueError, match="MUST be non-negative"):
+        await ledger.reserve("corr-1", calls=-1, cost_microusd=0)
