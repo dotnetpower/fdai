@@ -31,7 +31,7 @@
     "src/fdai/agents/_framework/bus_metrics.py": "7f1cc31a939da501608ba0804113a3a53c087f59ea4a54a4c6f8277446cd32ac",
     "src/fdai/agents/_framework/candidate_guard.py": "df471cd77e522e28284dac04966fb51739ef00812f01f0f7dbb727524fae2cee",
     "src/fdai/agents/_framework/charters.py": "89b615a87a85d0ef61e411827b1d4c606538d8bbcc3ff406e5b70f421f2b7621",
-    "src/fdai/agents/_framework/conversation_prompt.py": "51ea8054063941be48162855696607546361a796e26d2193e80b7f8fd40444f2",
+    "src/fdai/agents/_framework/conversation_prompt.py": "0a43dca1911c2b988d3c5979e98eeedaff4d32d85347b2450cae20fb9d9f5289",
     "src/fdai/agents/_framework/conversation_tools.py": "206210de20b66d9df1eb40d4577435bf44b48a8e9f3b4270f6fc9b63ff20605c",
     "src/fdai/agents/_framework/deliberation.py": "5d540bcec5051ad06bad2629801db227a4f4a082bd4de69effa09ec633ba1cf2",
     "src/fdai/agents/_framework/divergence.py": "0304d6e035bf126bf02893794bef8453df40c042c264e89ceb7946254ddd8d0a",
@@ -795,7 +795,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T09:34:37Z",
+  "generated_at": "2026-07-27T09:37:05Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

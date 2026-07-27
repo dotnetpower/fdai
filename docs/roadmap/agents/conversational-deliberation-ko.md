@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 9741923e0066454f9770d0385f99ea9b36d2d1c0
+translation_source_sha: 214488be8cedf5c732923bfa62df9929a21f3ab6
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -57,7 +57,9 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
   `tool_scope`, `budget_denied`, `evidence_gap`, `handoff_pending`)는 순위가 아니라 구조적으로
   이 예산에서 면제됩니다. Constraint를 떨어뜨릴 수 있는 예산은 부하가 걸릴수록 prompt를 덜
   안전하게 만들며, 그것은 거꾸로 된 설계이기 때문입니다. 경쟁하는 것은 framing뿐이고 baseline은
-  절대 비용을 치르지 않습니다.
+  절대 비용을 치르지 않습니다. 면제는 대신 각 constraint 자체에 한도를 둡니다. Tool-scope layer는
+  fact key를 앞의 12개만 나열하고 나머지는 개수로 요약하므로, 어떤 charter도 잘라낼 수 없는
+  layer를 무한히 키울 수 없고, composed 상한에 닿으면 조립이 크게 실패합니다.
 - **Server-owned text.** Situation은 신뢰할 수 없는 turn context에서 파싱하지만 그 context는
   layer를 선택만 합니다. 자유 형식 값은 제거되거나 bounded identifier로 축약되므로 위조된
   context가 instruction을 주입할 수 없습니다. Agent 이름은 형태만이 아니라 고정 roster와

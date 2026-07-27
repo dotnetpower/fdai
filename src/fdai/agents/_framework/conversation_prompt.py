@@ -110,6 +110,13 @@ _LOCALE_TAG = re.compile(r"^[A-Za-z]{2}(?:-[A-Za-z0-9]{2,8})?$")
 #: malformed runtime value cannot render an unbounded number.
 _MAX_ESCALATION_COUNT: Final[int] = 1_000_000
 
+#: Fact keys the tool-scope layer names before it summarizes the rest.
+#: Constraint layers are exempt from the framing budget, so the one layer
+#: whose length follows its input has to bound itself: a tool declaring
+#: hundreds of keys would otherwise blow past the composed ceiling that
+#: nothing is allowed to trim.
+_MAX_RENDERED_FACT_KEYS: Final[int] = 12
+
 
 @dataclass(frozen=True, slots=True)
 class PromptLayer:
@@ -293,8 +300,15 @@ def compose_conversation_prompt(
             MAX_COMPOSED_PROMPT_CHARS - len(baseline_prompt),
         ),
     )
+    text = "\n".join([baseline_prompt, *(layer.text for _, layer in kept)])
+    if len(text) > MAX_COMPOSED_PROMPT_CHARS:
+        # Unreachable while every layer bounds its own text, which is the
+        # point: constraint layers cannot be trimmed, so one that outgrew
+        # its bound has to fail loudly at composition rather than ship an
+        # unbounded prompt.
+        raise ValueError("composed conversation prompt MUST fit the composed prompt budget")
     return ComposedConversationPrompt(
-        text="\n".join([baseline_prompt, *(layer.text for _, layer in kept)]),
+        text=text,
         layer_ids=BASELINE_LAYER_IDS + tuple(layer.id for _, layer in kept),
         dropped_layer_ids=tuple(layer.id for _, layer in dropped),
         situation_key=situation.key,
@@ -366,7 +380,11 @@ def _situational_layers(
             )
         )
     if situation.tool_id is not None:
-        fact_keys = ", ".join(situation.tool_fact_keys) or "the tool's declared facts"
+        named = situation.tool_fact_keys[:_MAX_RENDERED_FACT_KEYS]
+        remainder = len(situation.tool_fact_keys) - len(named)
+        fact_keys = ", ".join(named) or "the tool's declared facts"
+        if remainder > 0:
+            fact_keys += f", and {remainder} further declared fact(s)"
         layers.append(
             (
                 2,

@@ -467,3 +467,27 @@ async def test_a_real_agent_name_is_still_accepted() -> None:
 
     assert "agent Forseti is asking" in prompt
     assert "Thor owns this request" in prompt
+
+
+def test_an_exempt_constraint_layer_still_bounds_its_own_text() -> None:
+    """Constraints cannot be trimmed, so each one has to bound itself."""
+    spec = next(spec for spec in PANTHEON_SPECS if spec.name == "Thor")
+    keys = tuple(f"a_very_long_owned_fact_key_name_number_{index:03d}" for index in range(400))
+    composed = compose_conversation_prompt(
+        baseline_prompt=spec.conversation.system_prompt,
+        situation=ConversationSituation(
+            tool_id="read_action_runs",
+            tool_fact_keys=keys,
+            evidence_available=False,
+            action_intent=True,
+            escalation_available=False,
+            escalation_spent=1,
+            escalation_limit=1,
+            handoff_owner="Odin",
+        ),
+    )
+
+    assert len(composed.text) <= MAX_COMPOSED_PROMPT_CHARS
+    assert "tool_scope" in composed.layer_ids
+    # The scope stays honest: it names what it can and counts the rest.
+    assert "and 388 further declared fact(s)" in composed.text

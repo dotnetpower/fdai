@@ -54,7 +54,9 @@ Two invariants keep the dynamic path inside the port contract:
   (`action_intent`, `tool_scope`, `budget_denied`, `evidence_gap`, `handoff_pending`) are exempt
   from that budget by construction, not by ranking: a budget that can shed a constraint makes the
   prompt less safe under load, which is backwards. Only framing competes, and the baseline never
-  pays.
+  pays. Exemption puts the bound on each constraint instead: the tool-scope layer names the first
+  twelve fact keys and counts the rest, so no charter can grow a layer that nothing is allowed to
+  trim, and composition fails loudly if the composed ceiling is ever reached.
 - **Server-owned text.** The situation is parsed from an untrusted turn context, but that context
   only selects layers. Free-form values are dropped or reduced to a bounded identifier, so a forged
   context cannot inject instructions. An agent name is checked against the fixed roster rather than
