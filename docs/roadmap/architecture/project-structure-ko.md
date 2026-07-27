@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 519a963f80a8f3d37ae5bf6dbedbc6ee78f88085
+translation_source_sha: b566dd1c3411954b3429679dd97b4e88fa68e530
 translation_revised: 2026-07-28
 ---
 
@@ -241,7 +241,8 @@ fdai/
   I/O를 agent 내부에 넣지 않은 채 enrichment와 ordered inventory delta 적용을 담당합니다. 전용
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
-  정렬된 lock 순서로 획득합니다. 일반 patch는 graph gate를 공유하므로 관련 없는 리소스는 동시에
+  정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를
+  사용하므로 양수 global promotion 및 reconciliation gate와 key 범위가 분리됩니다. 일반 patch는 graph gate를 공유하므로 관련 없는 리소스는 동시에
   처리할 수 있습니다. 리소스 삭제와 `links_complete: true` 관계 교체는 graph gate를 독점하고,
   유효 관계 집합을 읽은 뒤 누락된 관계를 commit 전에 tombstone으로 기록합니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은

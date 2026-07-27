@@ -242,6 +242,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.
+  Resource locks use seeded 63-bit advisory keys in the negative key range; the positive global
+  promotion and reconciliation gates therefore occupy a disjoint key range.
   Ordinary patches share the graph gate, so unrelated resources remain concurrent. Resource
   deletion and a `links_complete: true` relationship replacement take the graph gate exclusively,
   read the effective relationship set, and write missing relationships as tombstones before commit.

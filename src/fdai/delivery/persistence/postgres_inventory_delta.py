@@ -20,7 +20,7 @@ _CHANGE_KINDS = frozenset({"upsert", "delete"})
 _LINK_TYPES = frozenset({"contains", "attached_to", "depends_on"})
 _DEFAULT_MAX_LINKS = 256
 _DEFAULT_MAX_FUTURE_SKEW_SECONDS = 300
-_RESOURCE_LOCK_NAMESPACE = 0x46444149
+_RESOURCE_LOCK_SEED = 0x46444149
 _GRAPH_RECONCILIATION_LOCK = 732_410_992
 _EFFECTIVE_LINKS_CTE = (
     "WITH effective_links AS ("
@@ -249,8 +249,8 @@ async def _acquire_resource_locks(
 ) -> None:
     for resource_id in sorted(set(resource_ids)):
         await connection.execute(
-            "SELECT pg_advisory_xact_lock(%s, hashtext(%s))",
-            (_RESOURCE_LOCK_NAMESPACE, resource_id),
+            "SELECT pg_advisory_xact_lock(-1 - (hashtextextended(%s, %s) & 9223372036854775807))",
+            (resource_id, _RESOURCE_LOCK_SEED),
         )
 
 

@@ -9,7 +9,7 @@ import pytest
 
 from fdai.delivery.persistence.postgres_inventory_delta import (
     _GRAPH_RECONCILIATION_LOCK,
-    _RESOURCE_LOCK_NAMESPACE,
+    _RESOURCE_LOCK_SEED,
     PostgresInventoryDeltaProjector,
     _acquire_inventory_locks,
     _covered_resource_types,
@@ -128,12 +128,12 @@ async def test_inventory_locks_take_promotion_gate_then_sorted_resource_locks() 
             (_GRAPH_RECONCILIATION_LOCK,),
         ),
         call(
-            "SELECT pg_advisory_xact_lock(%s, hashtext(%s))",
-            (_RESOURCE_LOCK_NAMESPACE, "a-resource"),
+            "SELECT pg_advisory_xact_lock(-1 - (hashtextextended(%s, %s) & 9223372036854775807))",
+            ("a-resource", _RESOURCE_LOCK_SEED),
         ),
         call(
-            "SELECT pg_advisory_xact_lock(%s, hashtext(%s))",
-            (_RESOURCE_LOCK_NAMESPACE, "z-resource"),
+            "SELECT pg_advisory_xact_lock(-1 - (hashtextextended(%s, %s) & 9223372036854775807))",
+            ("z-resource", _RESOURCE_LOCK_SEED),
         ),
     ]
 
