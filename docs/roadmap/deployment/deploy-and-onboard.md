@@ -81,6 +81,11 @@ Some tenants force **every** data service private (Key Vault *and* storage), so 
 terraform remote-state backend is laptop-unreachable. The `infra/bootstrap` layer stands up
 the durable hub that makes the deploy possible and survives app rebuilds:
 
+The ops layer creates one outbound path by default, a NAT gateway with a static public IP, because
+a GitHub-registered runner must reach GitHub, the management plane, and the identity plane. A
+closed network sets `enable_public_egress = false`: no public address is created, the host is a
+jumpbox rather than a registered runner, and the tenant supplies its own approved route.
+
 - an **ops resource group + hub VNet** (`rg-fdai-ops-<region_short>` / `vnet-fdai-ops-...`)
   separate from the app RG, with a runner subnet and a private-endpoint subnet;
 - a **terraform remote-state storage account** locked to private, fronted by a blob private

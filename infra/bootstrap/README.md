@@ -14,7 +14,7 @@ makes that possible, and it survives app rebuilds.
 | Ops (hub) VNet + `snet-runner` + `snet-pe` | Stable network the runner lives in. |
 | State storage account (private) + `tfstate` and `deployment-plans` containers | Terraform remote backend plus protected plan artifacts the runner reaches over a private endpoint. |
 | Blob private endpoint + `privatelink.blob.core.windows.net` | Private resolution of the state account from the ops VNet. |
-| NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. |
+| NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. Set `enable_public_egress = false` on a closed network: the host becomes a jumpbox rather than a GitHub-registered runner, no public IP is created at all, and the tenant supplies its own approved path to the management and identity planes. |
 | Runner VM (no public IP) + system-assigned MI | The only host with line-of-sight to the app's private endpoints. |
 | Role assignments | Runner MI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid Contributor on the subscription. |
 
@@ -84,6 +84,20 @@ Two options:
 
 The runner authenticates to Azure with `az login --identity` (its system MI) -
 no cloud credentials are stored on the box.
+
+## Configuration tests
+
+`tests/*.tftest.hcl` assert the planned configuration through `mock_provider`, so they run with no
+subscription, credentials, or network:
+
+```bash
+terraform -chdir=infra/bootstrap init -backend=false
+terraform -chdir=infra/bootstrap test
+```
+
+CI runs the same commands. `public_egress.tftest.hcl` covers the closed-network toggle: with
+`enable_public_egress = false` the plan contains no public IP, no NAT gateway, and neither NAT
+association.
 
 ## Security notes
 

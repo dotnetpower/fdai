@@ -116,3 +116,9 @@ variable "runner_auto_shutdown_timezone" {
   type        = string
   default     = "UTC"
 }
+
+variable "enable_public_egress" {
+  description = "Give the runner subnet outbound internet through a NAT gateway and one static public IP. Default true: the self-hosted GitHub runner registers over the internet and terraform reaches management.azure.com and login.microsoftonline.com directly. Set false for a closed network, where the host is a jumpbox rather than a GitHub runner and the tenant supplies its own approved path to the Azure management and identity planes (Private Link or a hub route). Turning it off removes the only outbound path this layer creates; nothing else here substitutes for it."
+  type        = bool
+  default     = true
+}

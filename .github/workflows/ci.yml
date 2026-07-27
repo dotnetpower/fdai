@@ -653,3 +653,8 @@ jobs:
       # and no network - the same posture a disconnected tenant has.
       - name: terraform test (mocked providers)
         run: terraform test
+
+      - name: terraform test (bootstrap, mocked providers)
+        run: |
+          terraform -chdir=bootstrap init -backend=false -input=false
+          terraform -chdir=bootstrap test

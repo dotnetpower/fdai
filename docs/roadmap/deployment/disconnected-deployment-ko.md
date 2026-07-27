@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 4f9c6a4a1a428c5f68b4aaf9ca240bcc42c390f6
+translation_source_sha: 76c8170bcd6859267a2958fe7980fd2a813f1883
 translation_revised: 2026-07-28
 ---
 # 폐쇄망 배포
@@ -59,6 +59,12 @@ self-hosted runner 또는 점프박스 - 에서 실행해야 합니다. `infra/b
 세우고, `scripts/deployment/azure/check-runner-egress.py`가 runner가 실제로 도달 가능한
 allow-list 호스트를 기록합니다. 따라서 plan은 자신의 네트워크 위치를 가정이 아니라 증거로
 가지고 다닙니다.
+
+그 계층은 기본적으로 outbound 경로 하나 - static public IP를 가진 NAT gateway - 를 만듭니다.
+GitHub에 등록된 runner는 GitHub, management plane, identity plane에 도달해야 하기 때문입니다.
+폐쇄망은 `enable_public_egress = false`로 설정합니다. Public 주소를 전혀 만들지 않고, 호스트는
+등록된 runner가 아니라 점프박스가 되며, 테난트가 management 및 identity plane으로 가는 자체
+승인 경로를 공급합니다.
 
 Registry가 private이 되면 runtime image 빌드와 push도 같은 호스트에서 합니다.
 

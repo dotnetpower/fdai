@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a4afd26dae1d55215514fe8b6ce4c478b1dd7acb
+translation_source_sha: 841bfceed2c6a1af59caf1058fe512db26049251
 translation_revised: 2026-07-27
 ---
 
@@ -83,6 +83,11 @@ capability-mode 토글이 필요합니다
 일부 테난트는 **모든** 데이터 서비스를 private 로 강제한다(Key Vault 와 storage 둘 다).
 그래서 terraform remote-state 백엔드조차 laptop 에서 도달 불가능하다. `infra/bootstrap`
 레이어가 배포를 가능케 하는 지속적 hub 를 세우며, 이는 앱 재빌드에도 살아남는다:
+
+Ops 계층은 기본적으로 outbound 경로 하나, static public IP를 가진 NAT gateway를 만듭니다.
+GitHub에 등록된 runner가 GitHub, management plane, identity plane에 도달해야 하기 때문입니다.
+폐쇄망은 `enable_public_egress = false`로 설정합니다. Public 주소를 만들지 않고, 호스트는 등록된
+runner가 아니라 점프박스가 되며, 테난트가 자체 승인 경로를 공급합니다.
 
 - 앱 RG 와 분리된 **ops 리소스 그룹 + hub VNet**(`rg-fdai-ops-<region_short>` /
   `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;

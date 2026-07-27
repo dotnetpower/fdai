@@ -57,6 +57,12 @@ that durable hub, and `scripts/deployment/azure/check-runner-egress.py` records 
 hosts the runner can actually reach, so a plan carries evidence of its own network position instead
 of an assumption.
 
+That layer creates one outbound path by default - a NAT gateway with a static public IP - because a
+GitHub-registered runner has to reach GitHub, the management plane, and the identity plane. A closed
+network sets `enable_public_egress = false`: no public address is created at all, the host is a
+jumpbox rather than a registered runner, and the tenant supplies its own approved route to the
+management and identity planes.
+
 Build and push the runtime image from the same host once the registry is private.
 
 ### 3. Point every build input at an internal mirror
