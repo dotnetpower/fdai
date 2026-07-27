@@ -116,8 +116,16 @@ class PromotionGateEvaluator:
             accuracy = agreed_count / reviewed_count
 
         now = self._now()
-        earliest = min((v.observed_at for v in relevant), default=now)
-        shadow_days_elapsed = max(0.0, (now - earliest).total_seconds() / 86400.0)
+        # Measured between the first and last observation, not up to now.
+        # Using now would let the clock satisfy the gate: an ActionType observed
+        # on one day and never again accrues "shadow days" while nothing is
+        # being observed at all, so stale evidence could promote an action to
+        # autonomous execution today. The window has to be the period the
+        # ActionType was actually watched.
+        observed = [v.observed_at for v in relevant]
+        earliest = min(observed, default=now)
+        latest = max(observed, default=now)
+        shadow_days_elapsed = max(0.0, (latest - earliest).total_seconds() / 86400.0)
 
         gaps: list[str] = []
         if shadow_days_elapsed < gate.min_shadow_days:

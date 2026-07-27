@@ -66,9 +66,16 @@ def test_gate_is_not_ready_with_zero_verdicts() -> None:
 def test_gate_is_ready_when_all_criteria_met() -> None:
     action = _load_action("ops.publish-change-summary")
     gate = action.promotion_gate
+    # Spread across the shadow window rather than stacked on one day: the
+    # elapsed window is measured between the first and last observation, so
+    # samples that all land on the same date span no time at all.
+    span = gate.min_shadow_days + 1
     verdicts = [
-        _verdict("ops.publish-change-summary", days_ago=(gate.min_shadow_days + 1))
-        for _ in range(gate.min_samples)
+        _verdict(
+            "ops.publish-change-summary",
+            days_ago=span - (index * span) // max(gate.min_samples - 1, 1),
+        )
+        for index in range(gate.min_samples)
     ]
     evaluator = PromotionGateEvaluator(now_fn=_now_fixed)
     progress = evaluator.evaluate(action, verdicts=verdicts)
@@ -174,3 +181,23 @@ def test_now_fn_must_return_datetime() -> None:
     evaluator = PromotionGateEvaluator(now_fn=lambda: "not-a-datetime")
     with pytest.raises(TypeError):
         evaluator.evaluate(action, verdicts=[])
+
+
+def test_the_clock_alone_cannot_satisfy_the_shadow_window() -> None:
+    """Elapsed shadow days used to run from the first observation to now, so an
+    ActionType observed on one day and never again kept accruing shadow days
+    while nothing was being observed. Evidence from months ago could promote an
+    action to autonomous execution today by waiting.
+    """
+    action = _load_action("ops.publish-change-summary")
+    gate = action.promotion_gate
+    stacked_long_ago = [
+        _verdict("ops.publish-change-summary", days_ago=gate.min_shadow_days * 10)
+        for _ in range(gate.min_samples)
+    ]
+
+    progress = PromotionGateEvaluator(now_fn=_now_fixed).evaluate(action, verdicts=stacked_long_ago)
+
+    assert progress.shadow_days_elapsed == 0.0
+    assert progress.ready is False
+    assert any("min_shadow_days" in gap for gap in progress.gaps)

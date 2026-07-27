@@ -299,7 +299,7 @@
     "src/fdai/core/measurement/model_tracking.py": "b3a242ca6541786152e5f9d8af317ff04c7c3c02fe6d3963bcccb85e911b52dd",
     "src/fdai/core/measurement/mttr.py": "16e3ba4eb4b5acf068f771f72d7317b383ed6733984dad3b91f0c7c564dd3287",
     "src/fdai/core/measurement/pattern_growth.py": "f1e398d970851e8e56cecb4569e6f4ceea8b62ab1244f5abfd45ddb92f7e71c7",
-    "src/fdai/core/measurement/promotion_gate.py": "87dc613c26ffc721057339d210ea99593fe69423d083893b3d4082c0c75949de",
+    "src/fdai/core/measurement/promotion_gate.py": "c9bb7daf0c5cd8dac4c3d14d3c4edea8c83a9d3335a6f48f17fb49ab62fb4aef",
     "src/fdai/core/measurement/prompt_probe.py": "aeba8a76ddc0ecbc85220b60e23127edcffacf90df57efef50c06faf06913f49",
     "src/fdai/core/measurement/prompt_probe_cli.py": "63763009dd2b80e97fbcc173bb02b945a0dbd2e586e8816ead4ec156ada74a95",
     "src/fdai/core/measurement/prompt_probe_emit.py": "2284f58e25c31a26ac61fadfa5f9c05690bb9f6ed7d9bfd05f2f53600681f1fc",
@@ -805,7 +805,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-27T20:14:22Z",
+  "generated_at": "2026-07-27T20:20:41Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
