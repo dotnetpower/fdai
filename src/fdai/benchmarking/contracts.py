@@ -61,13 +61,15 @@ class BenchmarkSubmission:
         _validate_identifier("task_id", self.task_id)
         _validate_identifier("stage", self.stage)
         _validate_text("summary", self.summary)
-        if len(self.evidence_refs) > _MAX_EVIDENCE_REFS:
+        evidence_refs = tuple(self.evidence_refs)
+        if len(evidence_refs) > _MAX_EVIDENCE_REFS:
             raise ValueError(f"evidence_refs MUST contain at most {_MAX_EVIDENCE_REFS} entries")
-        for evidence_ref in self.evidence_refs:
+        for evidence_ref in evidence_refs:
             _validate_identifier("evidence_ref", evidence_ref)
         if self.audit_ref is not None:
             _validate_identifier("audit_ref", self.audit_ref)
         _validate_metadata(self.metadata)
+        object.__setattr__(self, "evidence_refs", evidence_refs)
         object.__setattr__(self, "metadata", _freeze_metadata(self.metadata))
 
 

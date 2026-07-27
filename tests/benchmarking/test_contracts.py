@@ -94,3 +94,19 @@ def test_submission_accepts_evidence_ref_limit() -> None:
     )
 
     assert len(submission.evidence_refs) == 256
+
+
+def test_submission_freezes_evidence_refs() -> None:
+    evidence_refs = ["audit/1"]
+
+    submission = BenchmarkSubmission(
+        run_id="run-1",
+        task_id="task-1",
+        stage="diagnosis",
+        status=BenchmarkStatus.COMPLETED,
+        summary="Evidence-backed result.",
+        evidence_refs=evidence_refs,  # type: ignore[arg-type]
+    )
+    evidence_refs.extend(f"audit/{index}" for index in range(2, 300))
+
+    assert submission.evidence_refs == ("audit/1",)
