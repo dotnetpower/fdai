@@ -174,9 +174,27 @@ bash scripts/deployment/release/airgap-drill.sh
 The verify phase asserts, in order: the namespace really has no egress or DNS; the signed kit
 verifies; the signed bundle verifies; `terraform init` resolves every provider from the kit mirror
 alone; `terraform validate` accepts the bundle; `terraform test` evaluates the plan graph through
-mocked providers; the same `init` **fails** without the mirror; and `fdaictl license inspect`
-resolves entitlement. Step seven is the control that matters - without it, a cached plugin directory
-could pass the drill while proving nothing.
+mocked providers; the same `init` **fails** without the mirror; `fdaictl license inspect` resolves
+entitlement; and `fdaictl provision plan` - the command an operator actually runs - reaches the same
+place on its own, with deployment input as the only thing still missing. Step seven is the control
+that matters: without it, a cached plugin directory could pass the drill while proving nothing.
+Step nine requires that an unresolved provider, or any reach toward the public registry, fails the
+drill, so a broken mirror pin cannot pass as a missing variable.
+
+The drill is repeatable. `--skip-stage` re-verifies against an existing kit, and the bundle tree is
+unpacked on every run because Terraform writes into it - a drill that only passes once is a
+demonstration, not a regression check.
+
+## What the verifiers refuse
+
+Both the kit verifier and the bundle verifier read input that is not trusted yet, so both bound
+what they read **before** checking a signature rather than after, refuse metadata reached through a
+symlink, and fail on a directory they cannot list. That last one matters more than it looks: path
+globbing silently returns what it managed to see, which would let a signer attest to a tree missing
+whatever sat under an unreadable directory, and let a verifier accept a truncated tree as complete.
+
+The two verifiers are deliberately symmetric. They guard the same handover, so a gap in either one
+is a gap in both.
 
 The drill stops at plan evaluation on purpose. A real `terraform apply` still needs the tenant's
 approved private path to the management plane, and pretending to simulate that locally would be the

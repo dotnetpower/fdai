@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 39ae7f41513d42706b511438e04a576f2278c6a4
+translation_source_sha: 75290634d3f39261ce491b160dfea7ca9f89544b
 translation_revised: 2026-07-28
 ---
 # 폐쇄망 배포
@@ -176,8 +176,25 @@ Verify 단계가 순서대로 단정하는 것: namespace에 정말로 egress와
 서명된 bundle이 검증된다, `terraform init`이 kit mirror만으로 모든 provider를 해석한다,
 `terraform validate`가 bundle을 수락한다, `terraform test`가 mock provider로 plan graph를
 평가한다, mirror 없이는 같은 `init`이 **실패한다**, `fdaictl license inspect`가 entitlement를
-해석한다. 일곱 번째가 중요한 대조군입니다. 이것이 없으면 캐시된 plugin 디렉터리가 아무것도 증명하지
-않은 채 드릴을 통과시킬 수 있습니다.
+해석한다, 그리고 운영자가 실제로 실행하는 명령인 `fdaictl provision plan`이 스스로 같은 지점까지
+도달하며 남은 것은 배포 입력뿐이다. 일곱 번째가 중요한 대조군입니다. 이것이 없으면 캐시된 plugin
+디렉터리가 아무것도 증명하지 않은 채 드릴을 통과시킬 수 있습니다. 아홉 번째는 해석되지 않은
+provider나 public registry로 향하는 어떤 시도든 드릴을 실패시키도록 요구하므로, 깨진 mirror 고정이
+누락된 변수인 척 통과할 수 없습니다.
+
+드릴은 반복 실행할 수 있습니다. `--skip-stage`는 기존 kit으로 재검증하고, bundle 트리는 매 실행마다
+다시 풉니다. Terraform이 그 안에 쓰기 때문입니다. 한 번만 통과하는 드릴은 회귀 검사가 아니라
+시연입니다.
+
+## 검증기가 거부하는 것
+
+Kit 검증기와 bundle 검증기는 모두 아직 신뢰되지 않은 입력을 읽습니다. 그래서 둘 다 signature를
+확인한 **뒤**가 아니라 **전에** 읽을 양을 제한하고, symlink를 통해 도달한 metadata를 거부하며,
+나열할 수 없는 디렉터리에서 실패합니다. 마지막 항목이 보기보다 중요합니다. 경로 globbing은 볼 수
+있었던 것만 조용히 돌려주므로, 서명자가 읽을 수 없는 디렉터리 아래의 내용이 빠진 트리에 서명하게
+되고, 검증기는 잘린 트리를 완전한 것으로 수락하게 됩니다.
+
+두 검증기는 의도적으로 대칭입니다. 같은 handover를 지키므로, 한쪽의 빈틈은 곧 양쪽의 빈틈입니다.
 
 드릴은 의도적으로 plan 평가에서 멈춥니다. 실제 `terraform apply`는 여전히 테난트의 승인된 private
 관리 평면 경로가 필요하며, 그것을 로컬에서 시뮬레이션했다고 주장하는 것은 이 설계가 피하려는 종류의
