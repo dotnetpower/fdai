@@ -132,7 +132,8 @@ The independent `benchmarks/sregym/` distribution currently translates these con
 Plaintext conductor URLs are accepted only on loopback or SREGym's exact
 `host.docker.internal` agent-container alias. A wildcard bind address is normalized to loopback for
 non-container runs. Credentials, query strings, and fragments in the configured URL are rejected.
-Unknown stages and malformed responses fail closed.
+An explicit port must be between 1 and 65535, and polling, stage, and request timeouts must be
+finite and positive. Unknown stages and malformed responses fail closed.
 
 Every conductor response, including `/submit`, is streamed through a bounded buffer. The default
 `max_response_bytes` limit is 1,000,000 bytes; exceeding the configured limit stops the stream.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final
@@ -39,21 +40,25 @@ class SregymAdapterConfig:
             raise ValueError("conductor_url MUST be an absolute HTTP or HTTPS URL")
         if parsed.username or parsed.password or parsed.query or parsed.fragment:
             raise ValueError("conductor_url MUST NOT contain credentials, query, or fragment")
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError("conductor_url port MUST be between 1 and 65535") from exc
+        if port is not None and not 1 <= port <= 65535:
+            raise ValueError("conductor_url port MUST be between 1 and 65535")
         if parsed.scheme == "http" and parsed.hostname not in _PLAINTEXT_HOSTS:
             raise ValueError(
                 "plaintext conductor_url is supported only for loopback or the harness host alias"
             )
         if not self.artifact_id.strip() or any(ord(char) < 32 for char in self.artifact_id):
             raise ValueError("artifact_id MUST be a non-empty identifier")
-        if (
-            min(
-                self.poll_interval_seconds,
-                self.stage_timeout_seconds,
-                self.request_timeout_seconds,
-            )
-            <= 0
-        ):
-            raise ValueError("SREGym adapter timeouts MUST be positive")
+        timeouts = (
+            self.poll_interval_seconds,
+            self.stage_timeout_seconds,
+            self.request_timeout_seconds,
+        )
+        if any(not math.isfinite(timeout) or timeout <= 0 for timeout in timeouts):
+            raise ValueError("SREGym adapter timeouts MUST be finite and positive")
         if self.max_response_bytes < 1:
             raise ValueError("max_response_bytes MUST be >= 1")
 

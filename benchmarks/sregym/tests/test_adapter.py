@@ -296,6 +296,29 @@ def test_rejects_unsafe_conductor_urls(url: str) -> None:
         SregymAdapterConfig(conductor_url=url, artifact_id="attempt-1")
 
 
+@pytest.mark.parametrize(
+    "url",
+    (
+        "http://127.0.0.1:abc",
+        "http://127.0.0.1:0",
+        "http://127.0.0.1:65536",
+    ),
+)
+def test_rejects_invalid_conductor_port(url: str) -> None:
+    with pytest.raises(ValueError, match="conductor_url port MUST be between 1 and 65535"):
+        SregymAdapterConfig(conductor_url=url, artifact_id="attempt-1")
+
+
+@pytest.mark.parametrize("timeout", (float("nan"), float("inf"), float("-inf")))
+def test_rejects_non_finite_timeout(timeout: float) -> None:
+    with pytest.raises(ValueError, match="timeouts MUST be finite and positive"):
+        SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            request_timeout_seconds=timeout,
+        )
+
+
 def test_accepts_upstream_container_host_alias() -> None:
     config = SregymAdapterConfig(
         conductor_url="http://host.docker.internal:8000",

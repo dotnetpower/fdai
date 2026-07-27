@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 8d7dd001237fc6f19ed7385b0e5d478aecdca101
+translation_source_sha: ca129b586b121ea18899d8f3c352077e1a003e5f
 translation_revised: 2026-07-28
 ---
 
@@ -135,8 +135,9 @@ Entry-point discovery는 public package downloader 또는 signature verifier가 
 
 Plaintext conductor URL은 loopback 또는 SREGym의 정확한 `host.docker.internal` agent-container
 alias에서만 허용됩니다. Non-container 실행에서는 wildcard bind address를 loopback으로
-정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 알 수 없는 stage와
-malformed response는 fail closed됩니다.
+정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 명시적 port는
+1에서 65535 사이여야 하며 polling, stage 및 request timeout은 finite positive 값이어야 합니다.
+알 수 없는 stage와 malformed response는 fail closed됩니다.
 
 `/submit`을 포함한 모든 conductor response는 bounded buffer를 통해 stream됩니다. 기본
 `max_response_bytes` limit은 1,000,000 byte입니다. 구성된 limit을 초과하면 stream을 중단합니다.
