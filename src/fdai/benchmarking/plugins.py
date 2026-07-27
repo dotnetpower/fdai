@@ -34,7 +34,7 @@ def discover_benchmark_plugins(
 ) -> tuple[str, ...]:
     """Return unique installed plugin names in deterministic order."""
 
-    points = tuple((entry_point_source or _installed_entry_points)())
+    points = _read_entry_points(entry_point_source)
     names = [point.name for point in points]
     duplicates = sorted({name for name in names if names.count(name) > 1})
     if duplicates:
@@ -53,7 +53,7 @@ def load_benchmark_plugin(
 
     if not name.strip() or any(ord(character) < 32 for character in name):
         raise BenchmarkPluginError("benchmark plugin name MUST be a non-empty identifier")
-    points = tuple((entry_point_source or _installed_entry_points)())
+    points = _read_entry_points(entry_point_source)
     matches = tuple(point for point in points if point.name == name)
     if not matches:
         raise BenchmarkPluginError(f"benchmark plugin {name!r} is not installed")
@@ -86,6 +86,13 @@ def load_benchmark_plugin(
 
 def _installed_entry_points() -> tuple[EntryPoint, ...]:
     return tuple(entry_points(group=BENCHMARK_ENTRY_POINT_GROUP))
+
+
+def _read_entry_points(source: EntryPointSource | None) -> tuple[EntryPoint, ...]:
+    try:
+        return tuple((source or _installed_entry_points)())
+    except Exception as exc:
+        raise BenchmarkPluginError("benchmark plugin discovery failed") from exc
 
 
 __all__ = [

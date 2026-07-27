@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 8a7bc67e756e39016098ad9237682007887409a1
+translation_source_sha: aa73ffa0bae31d452df84ab63141825861571570
 translation_revised: 2026-07-28
 ---
 
@@ -105,8 +105,9 @@ example = "fdai_bench_example:create_plugin"
 
 Discovery는 deterministic하며 중복 이름을 차단합니다. Loading은 누락된 plugin, callable이 아닌
 factory, entry-point 이름과 다른 `plugin_id`, host의 정확한 version이 아닌 benchmark API version을
-차단합니다. Package installation은 operator가 통제하는 supply chain action으로 유지됩니다.
-Entry-point discovery는 public package downloader 또는 signature verifier가 아닙니다.
+차단합니다. Registry enumeration, entry-point import 및 factory failure는 provider error text를
+노출하지 않고 정규화됩니다. Package installation은 operator가 통제하는 supply chain action으로
+유지됩니다. Entry-point discovery는 public package downloader 또는 signature verifier가 아닙니다.
 
 ## Runtime 및 안전 경계
 

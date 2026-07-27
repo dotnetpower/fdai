@@ -101,8 +101,10 @@ example = "fdai_bench_example:create_plugin"
 
 Discovery is deterministic and rejects duplicate names. Loading rejects a missing plugin, a
 non-callable factory, an entry-point name that differs from `plugin_id`, and a benchmark API version
-other than the host's exact version. Package installation remains an operator-controlled supply
-chain action; entry-point discovery is not a public package downloader or a signature verifier.
+other than the host's exact version. Registry enumeration, entry-point import, and factory failures
+are normalized without exposing provider error text. Package installation remains an
+operator-controlled supply chain action; entry-point discovery is not a public package downloader
+or a signature verifier.
 
 ## Runtime and safety boundaries
 

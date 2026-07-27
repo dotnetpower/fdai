@@ -65,6 +65,21 @@ def test_discovers_plugins_in_deterministic_order() -> None:
     )
 
 
+@pytest.mark.parametrize("operation", ("discover", "load"))
+def test_normalizes_plugin_registry_failure(operation: str) -> None:
+    def broken_source():  # type: ignore[no-untyped-def]
+        raise RuntimeError("registry secret")
+
+    with pytest.raises(BenchmarkPluginError, match="plugin discovery failed") as error:
+        if operation == "discover":
+            discover_benchmark_plugins(entry_point_source=broken_source)
+        else:
+            load_benchmark_plugin("example", entry_point_source=broken_source)
+
+    assert isinstance(error.value.__cause__, RuntimeError)
+    assert "registry secret" not in str(error.value)
+
+
 def test_loads_exact_compatible_plugin() -> None:
     plugin = load_benchmark_plugin("example", entry_point_source=lambda: _points("example"))
 
