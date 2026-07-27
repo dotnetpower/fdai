@@ -69,20 +69,102 @@ async def test_translates_diagnosis_and_submits_result() -> None:
     await client.aclose()
 
 
+async def test_submit_rejects_unissued_task() -> None:
+    submit_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal submit_calls
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/submit":
+            submit_calls += 1
+            return httpx.Response(200, json={"status": "200"})
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+
+    with pytest.raises(BenchmarkAdapterError, match="no SREGym task is awaiting submission"):
+        await adapter.submit(
+            BenchmarkSubmission(
+                run_id="attempt-1",
+                task_id="attempt-1",
+                stage="diagnosis",
+                status=BenchmarkStatus.COMPLETED,
+                summary="Unissued result.",
+            )
+        )
+
+    assert submit_calls == 0
+    await client.aclose()
+
+
+async def test_submit_rejects_mismatched_issued_task() -> None:
+    submit_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal submit_calls
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "example-shop",
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        if request.url.path == "/submit":
+            submit_calls += 1
+            return httpx.Response(200, json={"status": "200"})
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+    task = await adapter.next_task()
+    assert task is not None
+
+    with pytest.raises(BenchmarkAdapterError, match="does not match the issued SREGym task"):
+        await adapter.submit(
+            BenchmarkSubmission(
+                run_id=task.run_id,
+                task_id=task.task_id,
+                stage="mitigation",
+                status=BenchmarkStatus.COMPLETED,
+                summary="Wrong-stage result.",
+            )
+        )
+
+    assert submit_calls == 0
+    await client.aclose()
+
+
 async def test_submit_normalizes_transport_failure() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/status":
             return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "example-shop",
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
         if request.url.path == "/submit":
             raise httpx.ReadTimeout("submit timed out", request=request)
         raise AssertionError(request.url.path)
 
     adapter, client = _adapter(handler)
     await adapter.start()
+    task = await adapter.next_task()
+    assert task is not None
     submission = BenchmarkSubmission(
-        run_id="attempt-1",
-        task_id="attempt-1",
-        stage="diagnosis",
+        run_id=task.run_id,
+        task_id=task.task_id,
+        stage=task.stage,
         status=BenchmarkStatus.COMPLETED,
         summary="Evidence-backed result.",
     )

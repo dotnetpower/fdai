@@ -68,6 +68,7 @@ class SregymAdapter:
         self._http = http_client or httpx.AsyncClient()
         self._owns_http = http_client is None
         self._submitted_stage: str | None = None
+        self._issued_identity: tuple[str, str, str] | None = None
         self._started = False
 
     async def start(self) -> None:
@@ -86,7 +87,7 @@ class SregymAdapter:
         namespace = _required_text(app, "namespace")
         app_name = _required_text(app, "app_name")
         descriptions = _required_text(app, "descriptions")
-        return BenchmarkTask(
+        task = BenchmarkTask(
             run_id=self._config.artifact_id,
             task_id=self._config.artifact_id,
             stage=stage,
@@ -94,10 +95,15 @@ class SregymAdapter:
             target_ref=f"kubernetes.namespace/{namespace}",
             metadata={"application": app_name, "namespace": namespace},
         )
+        self._issued_identity = (task.run_id, task.task_id, task.stage)
+        return task
 
     async def submit(self, submission: BenchmarkSubmission) -> None:
-        if submission.run_id != self._config.artifact_id:
-            raise BenchmarkAdapterError("submission run_id does not match SREGym artifact identity")
+        if self._issued_identity is None:
+            raise BenchmarkAdapterError("no SREGym task is awaiting submission")
+        identity = (submission.run_id, submission.task_id, submission.stage)
+        if identity != self._issued_identity:
+            raise BenchmarkAdapterError("submission does not match the issued SREGym task")
         try:
             response = await self._http.post(
                 f"{self._config.conductor_url.rstrip('/')}/submit",
@@ -108,6 +114,7 @@ class SregymAdapter:
             raise BenchmarkAdapterError(f"SREGym submit request failed: {exc}") from exc
         _raise_for_status(response, operation="submit")
         self._submitted_stage = submission.stage
+        self._issued_identity = None
 
     async def close(self) -> None:
         if self._owns_http:

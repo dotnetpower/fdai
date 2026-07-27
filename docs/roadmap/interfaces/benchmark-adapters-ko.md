@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 9f01b197cdfdc323744140524faa13070f3138b4
+translation_source_sha: 40e0320b7d58bdfc8507c7938236d45219dfe128
 translation_revised: 2026-07-28
 ---
 
@@ -133,6 +133,11 @@ Plaintext conductor URL은 loopback 또는 SREGym의 정확한 `host.docker.inte
 alias에서만 허용됩니다. Non-container 실행에서는 wildcard bind address를 loopback으로
 정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 알 수 없는 stage와
 malformed response는 fail closed됩니다.
+
+Adapter는 가장 최근 `next_task()` 호출이 반환한 정확한 run, task 및 stage identity에 대한
+submission만 허용합니다. Conductor가 submission을 수락한 후에만 이 identity를 clear하므로,
+transport failure는 같은 결과를 재시도할 수 있지만 발급되지 않았거나 stage가 다른 submission은
+허용되지 않습니다.
 
 SREGym metric, log, trace 및 Kubernetes MCP transport는 이 slice에서 구현되지 않았습니다. 기존
 provider 및 governed execution contract를 통해 bind되기 전까지 이 plugin만으로는 완전한 SREGym
