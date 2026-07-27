@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: c0f827d67d493314c6708076a21e2670fbbccb37
+translation_source_sha: dac30d6f20435c28339e296675d2ff4b55cbe449
 translation_revised: 2026-07-27
 ---
 # 폐쇄망 배포
@@ -111,6 +111,37 @@ fail-closed입니다.
   override합니다 ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
 - **적응형 결정**: model 경로를 사용할 수 없으면 적응형 능력은 unavailable을 보고하고 해당 작업은
   deterministic-only로 남습니다. 자율성은 저하될 뿐 fail-open하지 않습니다.
+
+## 이미지로 전달된 distribution의 provisioning
+
+이미지를 넘기는 distribution도 먼저 Azure 인벤토리를 만들어야 하는데, 런타임 이미지는 그것을 할 수
+없습니다. `infra/`는 빌드 컨텍스트에서 제외되고, Terraform 바이너리는 설치되지 않으며, 진입점은
+provisioner가 아니라 컨트롤 플레인입니다. `fdaictl` console script는 `fdai` 패키지와 함께 배포되어
+이미지 안에 존재합니다. 그래서 이 간극은 오해하기 쉽습니다. 명령은 있고, 인프라 소스와 Terraform
+바이너리는 없습니다.
+
+따라서 폐쇄망 인계는 **아티팩트 두 개**입니다. 런타임 이미지, 그리고 wheel, `infra/`를 담은
+deployment bundle, pinned Terraform 바이너리 및 provider mirror, 정책 엔진, bill of materials를
+싣고 있는 서명된 offline kit입니다.
+
+| # | 단계 | 도구 | 상태 |
+|---|------|------|------|
+| 1 | Kit 검증 | `fdaictl provision inspect` | 구현됨. Trust root 배포 전까지 `candidate`로 보고 |
+| 2 | Deployment bundle 검증 | `fdaictl bundle verify` | 구현됨 |
+| 3 | 런타임 이미지 load 후 테난트 registry에 push | VNet 호스트의 컨테이너 도구 | 운영자 단계 |
+| 4 | Ops hub 구축: state account, VNet, 배포 호스트 | `infra/bootstrap` | 구현됨. 테난트당 1회 |
+| 5 | Bundle에서 app 계층 plan | Kit의 pinned Terraform + bundle `infra/` | 운영자 주도. CLI가 orchestration하지 않음 |
+| 6 | Apply 전에 plan 분석 | `fdaictl deploy preflight --terraform-plan` | 구현됨, 네트워크 불필요 |
+| 7 | Apply | 배포 호스트의 Terraform | 운영자 주도 |
+| 8 | State store 마이그레이션 | 같은 이미지를 실행하는 일회성 job | 구현됨 |
+| 9 | License token 주입 및 확인 | Secret 경로 + `fdaictl license inspect` | 구현됨 ([capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)) |
+| 10 | 컨트롤 플레인 시작 | 이미지 진입점 | 구현됨 |
+
+인계를 계획하기 전에 짚어야 할 결과가 둘 있습니다. `fdaictl deploy plan`과 `deploy apply`는 GitHub
+workflow에 작업을 제출하므로, 그 도달성이 없는 테난트는 `manual` transport를 쓰고 배포 호스트에서
+Terraform을 직접 실행합니다. 그리고 5단계와 7단계는 CLI가 아니라 운영자의 몫입니다. Bootstrap
+plan/apply orchestration이 목표 동작으로 남아 있어, 위 순서는 한 개의 명령이 아니라 사람이 따라가는
+체크리스트입니다.
 
 ## 완전 air gap
 

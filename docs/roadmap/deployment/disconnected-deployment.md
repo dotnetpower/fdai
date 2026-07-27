@@ -108,6 +108,37 @@ fails closed:
 - **Adaptive decisions**: when the model path is unavailable, adaptive capabilities report
   unavailable and the affected work stays deterministic-only. Autonomy degrades; it never fails open.
 
+## Provisioning an image-delivered distribution
+
+A distribution that hands over an image still has to create the Azure inventory first, and the
+runtime image cannot do it. `infra/` is excluded from the build context, no Terraform binary is
+installed, and the entry point is the control plane, not a provisioner. The `fdaictl` console script
+does exist inside the image because it ships with the `fdai` package, which makes the gap easy to
+misread: the command is present, the infrastructure source and the Terraform binary are not.
+
+A closed-network handover is therefore **two artifacts**: the runtime image, and the signed offline
+kit that carries the wheel, the deployment bundle with `infra/`, the pinned Terraform binary and
+provider mirror, the policy engine, and the bill of materials.
+
+| # | Step | Tool | State |
+|---|------|------|-------|
+| 1 | Verify the kit | `fdaictl provision inspect` | implemented; reports `candidate` until the trust root ships |
+| 2 | Verify the deployment bundle | `fdaictl bundle verify` | implemented |
+| 3 | Load the runtime image and push it to the tenant registry | container tooling on the VNet host | operator step |
+| 4 | Stand up the ops hub: state account, VNet, and the deploy host | `infra/bootstrap` | implemented; run once per tenant |
+| 5 | Plan the app layer from the bundle | the kit's pinned Terraform against the bundle `infra/` | operator-driven; the CLI does not orchestrate it |
+| 6 | Analyze the plan before applying it | `fdaictl deploy preflight --terraform-plan` | implemented and network-free |
+| 7 | Apply | Terraform on the deploy host | operator-driven |
+| 8 | Migrate the state store | a one-off job running the same image | implemented |
+| 9 | Inject and check the license token | secret path plus `fdaictl license inspect` | implemented ([capability-licensing.md](../fork-and-sequencing/capability-licensing.md)) |
+| 10 | Start the control plane | the image entry point | implemented |
+
+Two consequences are worth stating before an operator plans a handover. `fdaictl deploy plan` and
+`deploy apply` submit work to a GitHub workflow, so a tenant without that reachability uses the
+`manual` transport and runs Terraform on the deploy host directly. And steps 5 and 7 are the
+operator's, not the CLI's: bootstrap plan and apply orchestration remain target behavior, so the
+sequence above is a checklist a person follows rather than one command.
+
 ## Full air gap
 
 A site with no Azure reachability at all can still run the deterministic core. The policy engine is
