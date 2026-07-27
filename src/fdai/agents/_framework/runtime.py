@@ -43,7 +43,11 @@ from fdai.agents._framework.conversation_tools import (
     AgentConversationToolRegistry,
     AgentToolResult,
 )
-from fdai.agents._framework.deliberation import EscalationBudget, T2ConversationSynthesizer
+from fdai.agents._framework.deliberation import (
+    EscalationBudget,
+    EscalationLedger,
+    T2ConversationSynthesizer,
+)
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import (
@@ -75,6 +79,8 @@ from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
 from fdai.core.learning import PostTurnReviewCoordinator
+from fdai.core.metering.pricing import PricingTable
+from fdai.core.metering.sink import MeteringSink
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
@@ -145,6 +151,10 @@ class PantheonRuntime:
         conversation_embedding_model: EmbeddingModel | None = None,
         conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
         conversation_escalation_budget: EscalationBudget | None = None,
+        conversation_escalation_ledger: EscalationLedger | None = None,
+        conversation_pricing: PricingTable | None = None,
+        conversation_metering: MeteringSink | None = None,
+        conversation_t2_model_key: str = "",
         semantic_router_config: SemanticRouterConfig | None = None,
         conversation_tool_timeout_seconds: float = 5.0,
     ) -> PantheonRuntime:
@@ -223,6 +233,10 @@ class PantheonRuntime:
                 ),
                 t2_synthesizer=conversation_t2_synthesizer,
                 escalation_budget=conversation_escalation_budget,
+                escalation_ledger=conversation_escalation_ledger,
+                pricing=conversation_pricing,
+                metering=conversation_metering,
+                t2_model_key=conversation_t2_model_key,
             )
         if discovery_projector is not None:
             instantiated["Huginn"] = Huginn(discovery_projector=discovery_projector)

@@ -141,26 +141,45 @@ itself as the requester and the primary agent as the handoff owner, so the contr
 the peer-audience and handoff layers and returns owned evidence instead of narrating an answer it
 does not own.
 
-`cost-model.md` requires the model budget to be a ceiling - overflow degrades to a cheaper path,
-never to uncapped inference. `EscalationBudget` declares that ceiling and `EscalationLedger`
-enforces it before the synthesizer is called:
+`cost-model.md` requires the model budget to be a ceiling: overflow degrades to a cheaper path,
+never to uncapped inference. `EscalationBudget` declares that ceiling in microUSD - the same unit
+`TaskWorkerBudget` already uses - and the deliberator enforces it against the shipped pricing table
+before the synthesizer is called.
 
 | Limit | Default | Why |
 |-------|---------|-----|
-| `max_calls_per_correlation` | 1 | A second synthesis re-reads the same bounded claims, so it buys presentation polish rather than evidence. |
-| `max_calls_total` | 64 | Contains a runaway caller regardless of correlation. |
+| `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | The real ceiling: what one conversation may spend. |
+| `max_cost_microusd_total` | 2,000,000 (2 USD) | Contains a runaway caller regardless of correlation. |
+| `max_calls_per_correlation` | 1 | Fail-safe. A second synthesis re-reads the same bounded claims. |
+| `max_calls_total` | 64 | Fail-safe. An unpriced model yields no cost, so a cost-only ceiling would be no ceiling for exactly the model nobody priced. |
 
-The budget is charged before the call, not after, so a provider failure cannot be retried without
-limit. When it is spent the round stays at T1 and records `t2_status: budget_denied` with the
+Either bound denies, and both are checked before the call. Spend is charged in two steps:
+
+1. **Estimate, before the call.** The estimate prices the whole composed input plus a full-length
+   conclusion, so it can never undercount and let a call slip past the ceiling. The prompt the
+   agents compose is part of that input, so the charter's own size is accounted for rather than
+   being free. Charging first means a provider that then fails still consumed what it was granted,
+   and a failing provider cannot be retried without limit.
+2. **Settle, after the call.** `SynthesisOutcome` reports the measured `TokenUsage` and model key,
+   because a budget cannot meter what its provider never tells it. Only a shortfall is charged;
+   a generous estimate stays spent. There is no refund path.
+
+The settled call is then recorded as an `LlmInvocation` with `usage_scope: operator_chat`, so the
+conversational spend lands in the same metering rollups as every other model call and the ceiling
+is auditable rather than merely asserted. A provider that reports no usage is honestly unmeasured:
+nothing is metered and the call caps remain the bound.
+
+When the budget is spent the round stays at T1 and records `t2_status: budget_denied` with the
 bound, and the turn composes the `budget_denied` prompt layer carrying that same bound, so the
 answer can state it rather than implying the deeper pass ran. Denial degrades the result; it never
 raises.
 
-The ledger tracks per-correlation spend in a capped map, so a total budget larger than that cap is
-rejected at construction: an eviction would drop a spent correlation and silently refund it, and a
-ceiling that refunds itself is not a ceiling. The ledger is process-scoped in-memory state, so a
-restart resets it; a deployment that needs a ceiling across restarts binds a durable ledger at the
-composition root.
+`EscalationLedger` is a Protocol, like every other durable-state seam in the pantheon. The upstream
+`InMemoryEscalationLedger` is process-local and deterministic, so a restart resets the ceiling; a
+deployment that needs the ceiling to survive a restart binds a durable implementation at the
+composition root. The ledger tracks per-correlation spend in a capped map, so a total call budget
+larger than that cap is rejected at construction: an eviction would drop a spent correlation and
+silently refund it, and a ceiling that refunds itself is not a ceiling.
 
 ## Optional T2 synthesis
 

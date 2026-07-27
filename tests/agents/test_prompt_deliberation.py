@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Sequence
+from decimal import Decimal
 
 import pytest
 
@@ -11,11 +12,16 @@ from fdai.agents._framework.charters import conversation_prompt_layers
 from fdai.agents._framework.deliberation import (
     DeliberationRequest,
     EscalationBudget,
+    SynthesisOutcome,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
+from fdai.core.metering.pricing import PricingTable
+from fdai.core.metering.records import InvocationScope
+from fdai.core.metering.sink import InMemoryMeteringSink
+from fdai.core.metering.usage import TokenUsage
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 PromptCheck = tuple[str, Callable[[str], bool]]
@@ -164,22 +170,32 @@ class _CrossDomainEmbedding:
 
 
 class _T2Synthesizer:
-    def __init__(self) -> None:
+    def __init__(self, *, usage: TokenUsage | None = None, model_key: str = "") -> None:
         self.requests: list[object] = []
+        self._usage = usage
+        self._model_key = model_key
 
-    async def synthesize(self, request: DeliberationRequest) -> str:
+    async def synthesize(self, request: DeliberationRequest) -> SynthesisOutcome:
         self.requests.append(request)
-        return "Capacity evidence outweighs the bounded cost objection; disagreement remains."
+        return SynthesisOutcome(
+            conclusion=(
+                "Capacity evidence outweighs the bounded cost objection; disagreement remains."
+            ),
+            model_key=self._model_key,
+            usage=self._usage,
+        )
 
 
 class _T2FailureSynthesizer:
     def __init__(self, outcome: str | None | Exception) -> None:
         self.outcome = outcome
 
-    async def synthesize(self, request: DeliberationRequest) -> str | None:
+    async def synthesize(self, request: DeliberationRequest) -> SynthesisOutcome | None:
         if isinstance(self.outcome, Exception):
             raise self.outcome
-        return self.outcome
+        if self.outcome is None:
+            return None
+        return SynthesisOutcome(conclusion=self.outcome)
 
 
 def _runtime(*, t2: T2ConversationSynthesizer | None = None) -> PantheonRuntime:
@@ -342,8 +358,8 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
     assert second["escalation_budget"] == {
         "spent_for_correlation": 1,
         "max_per_correlation": 1,
-        "spent_total": 1,
-        "max_total": 64,
+        "cost_microusd_for_correlation": 0,
+        "max_cost_microusd_per_correlation": 50_000,
     }
     # Denying escalation degrades to the T1 result, never to an error.
     assert second["status"] == "completed"
@@ -413,18 +429,24 @@ def test_a_total_budget_larger_than_the_ledger_is_rejected() -> None:
 
 
 def test_spent_budget_is_never_refunded_by_ledger_eviction() -> None:
-    from fdai.agents._framework.deliberation import _MAX_TRACKED_CORRELATIONS, EscalationLedger
+    from fdai.agents._framework.deliberation import (
+        _MAX_TRACKED_CORRELATIONS,
+        InMemoryEscalationLedger,
+    )
 
-    ledger = EscalationLedger(
+    ledger = InMemoryEscalationLedger(
         EscalationBudget(max_calls_per_correlation=1, max_calls_total=_MAX_TRACKED_CORRELATIONS)
     )
-    ledger.record("victim")
+    asyncio.run(ledger.charge("victim", calls=1, cost_microusd=0))
 
     # Fill the ledger with every other correlation the budget can pay for.
-    for index in range(_MAX_TRACKED_CORRELATIONS - 1):
-        ledger.record(f"c{index}")
+    async def fill() -> None:
+        for index in range(_MAX_TRACKED_CORRELATIONS - 1):
+            await ledger.charge(f"c{index}", calls=1, cost_microusd=0)
 
-    assert ledger.allows("victim") is False
+    asyncio.run(fill())
+
+    assert asyncio.run(ledger.allows("victim")) is False
 
 
 def test_the_denied_turn_states_the_bound_it_was_told_to_state() -> None:
@@ -447,3 +469,135 @@ def test_the_denied_turn_states_the_bound_it_was_told_to_state() -> None:
     # The instruction "state the bound" is satisfiable only if the bound is
     # in the prompt. Without the numbers it would be another ungroundable ask.
     assert "1 of 1 model call(s) already spent for this correlation" in composed.text
+
+
+# ---------------------------------------------------------------------------
+# The ceiling is money, measured against the shipped pricing table
+# ---------------------------------------------------------------------------
+
+_PRICING = PricingTable.from_mapping(
+    {"gpt-test": {"input_per_1k": "1.00", "output_per_1k": "2.00", "currency": "USD"}}
+)
+
+
+def _priced_runtime(
+    synthesizer: _T2Synthesizer,
+    *,
+    budget: EscalationBudget,
+    metering: InMemoryMeteringSink | None = None,
+) -> PantheonRuntime:
+    return PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        conversation_embedding_model=_CrossDomainEmbedding(),
+        semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
+        conversation_t2_synthesizer=synthesizer,
+        conversation_escalation_budget=budget,
+        conversation_pricing=_PRICING,
+        conversation_metering=metering,
+        conversation_t2_model_key="gpt-test",
+    )
+
+
+def test_a_spent_cost_ceiling_denies_the_next_escalation() -> None:
+    """Calls remain, money does not: the cost bound denies on its own."""
+    synthesizer = _T2Synthesizer(model_key="gpt-test", usage=TokenUsage(1_000, 500))
+    runtime = _priced_runtime(
+        synthesizer,
+        budget=EscalationBudget(
+            max_calls_per_correlation=8,
+            max_calls_total=8,
+            # One call prices well above this, so the money runs out first.
+            max_cost_microusd_per_correlation=1_000,
+            max_cost_microusd_total=1_000,
+        ),
+    )
+
+    first = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    second = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+
+    assert first["t2_status"] == "completed"
+    assert second["t2_status"] == "budget_denied"
+    assert len(synthesizer.requests) == 1
+    # Calls were still available; the money is what stopped it.
+    assert second["escalation_budget"]["spent_for_correlation"] < 8
+    assert second["escalation_budget"]["cost_microusd_for_correlation"] >= 1_000
+
+
+def test_a_measured_call_is_metered_for_replay() -> None:
+    """A budget that cannot be audited is not evidence-governed."""
+    sink = InMemoryMeteringSink()
+    synthesizer = _T2Synthesizer(model_key="gpt-test", usage=TokenUsage(2_000, 1_000))
+    runtime = _priced_runtime(synthesizer, budget=EscalationBudget(), metering=sink)
+
+    asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            correlation_id="corr-metered",
+        )
+    )
+    recorded = asyncio.run(sink.invocations())
+
+    assert len(recorded) == 1
+    invocation = recorded[0]
+    assert invocation.correlation_id == "corr-metered"
+    assert invocation.usage_scope is InvocationScope.OPERATOR_CHAT
+    assert invocation.tier == "T2"
+    assert invocation.model_key == "gpt-test"
+    # 2,000 prompt tokens at 1.00 + 1,000 completion tokens at 2.00 per 1k.
+    assert invocation.cost == Decimal("4.000")
+    assert invocation.currency == "USD"
+
+
+def test_an_unpriced_model_still_hits_the_call_ceiling() -> None:
+    """Pricing gaps MUST NOT become budget gaps."""
+    synthesizer = _T2Synthesizer(model_key="unpriced", usage=TokenUsage(9_000, 9_000))
+    runtime = _priced_runtime(
+        synthesizer,
+        budget=EscalationBudget(max_calls_per_correlation=1, max_calls_total=1),
+    )
+
+    first = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    second = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+
+    assert first["t2_status"] == "completed"
+    assert second["t2_status"] == "budget_denied"
+    assert len(synthesizer.requests) == 1
+
+
+def test_an_estimate_is_charged_before_a_provider_can_fail() -> None:
+    """A failing provider MUST NOT be retriable without limit."""
+    runtime = _priced_runtime(
+        _T2Synthesizer(model_key="gpt-test"),
+        budget=EscalationBudget(max_calls_per_correlation=1, max_calls_total=4),
+    )
+    runtime.agents["Bragi"]._deliberator._t2_synthesizer = _T2FailureSynthesizer(  # noqa: SLF001
+        RuntimeError("provider down")
+    )
+
+    first = asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            correlation_id="corr-fail",
+        )
+    )
+    second = asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            correlation_id="corr-fail",
+        )
+    )
+
+    assert first["t2_status"] == "error"
+    assert second["t2_status"] == "budget_denied"

@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 214488be8cedf5c732923bfa62df9929a21f3ab6
+translation_source_sha: 30df710ee87ec6e519964bff79a90d72690f4dd3
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -145,24 +145,42 @@ primary agent를 handoff owner로 전달하므로 contributor는 peer-audience�
 조립하고, 소유하지 않은 답변을 서술하는 대신 owned evidence를 반환합니다.
 
 `cost-model.md`는 model 예산을 천장으로 요구합니다. 초과분은 더 싼 경로로 강등할 뿐 절대
-uncapped inference로 가지 않습니다. `EscalationBudget`이 그 천장을 선언하고
-`EscalationLedger`가 synthesizer 호출 전에 집행합니다.
+uncapped inference로 가지 않습니다. `EscalationBudget`은 그 천장을 microUSD로 선언하며,
+이는 `TaskWorkerBudget`이 이미 쓰는 단위와 같습니다. Deliberator는 synthesizer를 호출하기 전에
+동봉된 pricing table로 이를 집행합니다.
 
 | 한도 | 기본값 | 이유 |
 |------|--------|------|
-| `max_calls_per_correlation` | 1 | 두 번째 synthesis는 같은 bounded claim을 다시 읽을 뿐이라 evidence가 아니라 표현을 샴니다. |
-| `max_calls_total` | 64 | Correlation과 무관하게 폭주하는 caller를 가둡니다. |
+| `max_cost_microusd_per_correlation` | 50,000 (0.05 USD) | 실제 천장. 대화 하나가 쓸 수 있는 금액입니다. |
+| `max_cost_microusd_total` | 2,000,000 (2 USD) | Correlation과 무관하게 폭주하는 caller를 가둡니다. |
+| `max_calls_per_correlation` | 1 | Fail-safe. 두 번째 synthesis는 같은 bounded claim을 다시 읽을 뿐입니다. |
+| `max_calls_total` | 64 | Fail-safe. 가격이 없는 model은 비용이 0이므로, 비용만 보는 천장은 하필 아무도 가격을 매기지 않은 model에 대해 천장이 아닙니다. |
 
-예산은 호출 후가 아니라 호출 전에 차감하므로 provider 실패를 무제한 재시도할 수 없습니다.
-예산이 소진되면 round는 T1에 머물고 `t2_status: budget_denied`와 한도를 기록하며, 해당
-turn은 같은 한도를 담은 `budget_denied` prompt layer를 조립하므로 답변이 그 한도를 직접
-밝힐 수 있습니다. 거부는 결과를 강등시킬 뿐 예외를 일으키지 않습니다.
+두 한도 중 하나만 걸려도 거부하며, 호출 전에 둘 다 검사합니다. 지출은 두 단계로 차감합니다.
 
-Ledger는 correlation별 지출을 상한이 있는 map으로 추적하므로, 그 상한보다 큰 총 예산은
-생성 시점에 거부합니다. 축출이 일어나면 이미 소모한 correlation이 조용히 환불되고,
-스스로 환불하는 천장은 천장이 아니기 때문입니다. Ledger는 프로세스 범위의 in-memory
-상태이므로 재시작하면 초기화됩니다. 재시작을 넘어서는 천장이 필요한 배포는 composition
-root에서 durable ledger를 바인딩합니다.
+1. **호출 전 추정 차감.** 추정은 조립된 입력 전체와 최대 길이의 conclusion을 함께 가격 매기므로
+   과소 계상해서 호출이 천장을 넘어가는 일이 없습니다. Agent가 조립한 prompt도 그 입력의
+   일부이므로 charter 자체의 크기가 공짜가 아니라 계상됩니다. 먼저 차감하기 때문에 이후 실패한
+   provider도 부여받은 예산을 소모한 것이 되고, 실패한 provider를 무제한 재시도할 수 없습니다.
+2. **호출 후 정산.** `SynthesisOutcome`이 실측 `TokenUsage`와 model key를 보고합니다. Provider가
+   알려주지 않는 것을 예산이 계량할 수는 없기 때문입니다. 부족분만 추가 차감하며 넉넉했던 추정은
+   그대로 소모로 남습니다. 환불 경로는 없습니다.
+
+정산된 호출은 `usage_scope: operator_chat`을 가진 `LlmInvocation`으로 기록되므로, 대화 지출이
+다른 모든 model 호출과 같은 metering rollup에 들어가고 천장이 주장이 아니라 감사 가능해집니다.
+Usage를 보고하지 않는 provider는 정직하게 미계량 상태로 남습니다. 아무것도 metering하지 않고
+call 한도가 경계로 남습니다.
+
+예산이 소진되면 round는 T1에 머물고 `t2_status: budget_denied`와 한도를 기록하며, 해당 turn은
+같은 한도를 담은 `budget_denied` prompt layer를 조립하므로 답변이 그 한도를 직접 밝힐 수
+있습니다. 거부는 결과를 강등시킬 뿐 예외를 일으키지 않습니다.
+
+`EscalationLedger`는 판테온의 다른 durable-state seam과 마찬가지로 Protocol입니다. 상류 기본값인
+`InMemoryEscalationLedger`는 프로세스 범위이며 deterministic하므로 재시작하면 천장이
+초기화됩니다. 재시작을 넘어서는 천장이 필요한 배포는 composition root에서 durable 구현을
+바인딩합니다. Ledger는 correlation별 지출을 상한이 있는 map으로 추적하므로 그 상한보다 큰 총 call
+예산은 생성 시점에 거부합니다. 축출이 일어나면 이미 소모한 correlation이 조용히 환불되고,
+스스로 환불하는 천장은 천장이 아니기 때문입니다.
 
 ## Optional T2 synthesis
 
