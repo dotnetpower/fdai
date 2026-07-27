@@ -84,6 +84,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     _with_compiled_user_policy,
 )
 from fdai.delivery.read_api.routes.chat_screen_data import render_screen_data_answer
+from fdai.delivery.read_api.routes.chat_stream_metrics import record_enqueued_progress_metrics
 from fdai.delivery.read_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _chunk_answer_for_stream,
@@ -321,39 +322,16 @@ def make_chat_stream_route(
 
                 async def observe_evidence_progress(event: Mapping[str, Any]) -> None:
                     nonlocal first_progress_recorded
-                    if progress_metrics is not None:
-                        if not first_progress_recorded:
-                            progress_metrics.observe_latency(
-                                "time_to_first_progress",
-                                max(0, int((time.monotonic() - started) * 1000)),
-                            )
-                            first_progress_recorded = True
-                        if progress_queue.full():
-                            progress_metrics.increment("queue_saturation")
-                        status = event.get("status")
-                        kind = event.get("branch_kind")
-                        duration_ms = event.get("duration_ms")
-                        if (
-                            event.get("event") == "branch"
-                            and isinstance(status, str)
-                            and status
-                            in {"completed", "unavailable", "failed", "timed_out", "cancelled"}
-                            and isinstance(kind, str)
-                            and isinstance(duration_ms, int)
-                            and not isinstance(duration_ms, bool)
-                        ):
-                            progress_metrics.record_branch(
-                                kind=kind,
-                                outcome=status,
-                                duration_ms=duration_ms,
-                            )
-                        execution = event.get("execution")
-                        if (
-                            isinstance(execution, Mapping)
-                            and execution.get("output_truncated") is True
-                        ):
-                            progress_metrics.increment("truncations")
+                    if progress_metrics is not None and progress_queue.full():
+                        progress_metrics.increment("queue_saturation")
                     await progress_queue.put(dict(event))
+                    if progress_metrics is not None:
+                        first_progress_recorded = record_enqueued_progress_metrics(
+                            progress_metrics,
+                            event,
+                            elapsed_ms=max(0, int((time.monotonic() - started) * 1000)),
+                            first_progress_recorded=first_progress_recorded,
+                        )
 
                 evidence_task = asyncio.create_task(
                     resolve_parallel_chat_evidence(

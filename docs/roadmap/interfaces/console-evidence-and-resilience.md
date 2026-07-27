@@ -324,6 +324,8 @@ content, branch kind/outcome/duration, correction, truncation, terminal completi
 saturation, sequence gap, suppressed branch retry, and ambiguous channel update. They retain no
 prompt, answer, branch id, channel id, principal id, or resource identifier. Failed and timed-out
 read branches are not retried inside the turn; the operator can start a new turn with fresh scope.
+Progress, branch outcome, and truncation metrics are recorded only after the bounded stream queue
+accepts the event. A cancellation-only lifecycle frame is not counted as first evidence progress.
 An idempotent terminal replay contributes its observed time-to-first-confirmed latency and replay
 count while still skipping evidence retrieval, narration, and post-turn review.
 The browser counts sequence gaps and partial terminals locally because the server cannot observe

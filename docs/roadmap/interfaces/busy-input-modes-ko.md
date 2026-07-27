@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 91a6df54ba308f06c6abe111e35652a7e6e44e39
+translation_source_sha: 0df3f9401578b9e4bf97573004d843c6c4dac355
 translation_revised: 2026-07-27
 ---
 
@@ -166,6 +166,8 @@ Authorization은 입력 도착 시점과 consume 시점에 모두 확인합니�
 별도 progressive-conversation collector는 aggregate branch, confirmation, correction, truncation,
 terminal, saturation, replay 및 latency metric을 기록합니다. Busy-input mode를 변경하거나 input
 content를 보관하지 않습니다.
+Queue가 accept한 progress만 해당 metric에 포함되며 cancellation만으로 first-progress latency sample을
+만들지 않습니다.
 Terminal replay는 다른 active turn을 만들지 않고 confirmation latency를 기록합니다.
 
 ## 실패 동작

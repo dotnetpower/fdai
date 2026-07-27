@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 92063056adab9c79ecc39e865f99a479a710946d
+translation_source_sha: cd9ee0ad8203f0a9f3bea096630cfe7ad95005bd
 translation_revised: 2026-07-27
 ---
 
@@ -321,6 +321,8 @@ answer, branch id, channel id, principal id 또는 resource identifier는 보관
 timed-out read branch는 turn 안에서 retry하지 않으며 operator가 fresh scope로 새 turn을 시작할 수
 있습니다. Server는 client frame 누락을 관찰할 수 없으므로 browser가 sequence gap과 partial terminal을
 local에서 계산합니다.
+Progress, branch outcome 및 truncation metric은 bounded stream queue가 event를 accept한 후에만
+기록합니다. Cancellation-only lifecycle frame은 first evidence progress로 계산하지 않습니다.
 Idempotent terminal replay는 observed time-to-first-confirmed latency와 replay count에 포함되지만
 evidence retrieval, narration 및 post-turn review는 계속 건너뜁니다.
 
