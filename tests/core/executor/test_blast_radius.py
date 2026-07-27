@@ -11,13 +11,14 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fdai.core.executor.blast_radius import blast_radius_refusal
-from fdai.shared.contracts.models import Action
-from fdai.shared.contracts.models.action import BlastRadius, RollbackRef
-from fdai.shared.contracts.models.enums import (
+from fdai.shared.contracts.models import (
+    Action,
+    BlastRadius,
     BlastRadiusScope,
     Mode,
     Operation,
     RollbackKind,
+    RollbackRef,
 )
 
 
