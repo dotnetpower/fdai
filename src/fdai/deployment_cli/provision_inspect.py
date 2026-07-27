@@ -131,7 +131,15 @@ def inspect_provisioning(
 ) -> ProvisionInspectResult:
     """Inspect local provisioning capabilities without changing host or cloud state."""
     tools = {name: resolve_executable(name) is not None for name in ("az", "terraform", "gh")}
-    online_available = (online_probe or _probe_online_egress)()
+    # An operator who declares the site disconnected has already answered this
+    # question, and the probe opens TLS connections to three public hosts to ask
+    # it again. On a closed network that is an outbound attempt to explain to a
+    # security team, an entry in an egress log, and - where DNS accepts the
+    # query but never answers - a long stall in a command that was supposed to
+    # be a quick local inspection.
+    online_available = (
+        False if connectivity is Connectivity.OFFLINE else (online_probe or _probe_online_egress)()
+    )
     workload_identity_available = (workload_identity_probe or _probe_workload_identity)()
     offline_kit_available = _offline_kit_candidate_exists(offline_kit)
     offline_verification: OfflineKitVerification | None = None

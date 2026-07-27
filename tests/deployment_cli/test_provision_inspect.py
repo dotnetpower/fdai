@@ -217,3 +217,42 @@ def test_cli_text_states_that_inspection_made_no_change(
 
     assert exit_code == 0
     assert stdout.getvalue().endswith("No resources were changed.\n")
+
+
+def test_a_declared_offline_site_is_never_probed_over_the_public_internet() -> None:
+    """The probe opens TLS connections to three public hosts. On a closed
+    network that is an outbound attempt someone has to explain, and the
+    operator already answered the question by declaring the site offline.
+    """
+    probes: list[str] = []
+
+    def probe() -> bool:
+        probes.append("public")
+        return True
+
+    result = inspect_provisioning(
+        connectivity=Connectivity.OFFLINE,
+        online_probe=probe,
+        workload_identity_probe=lambda: False,
+        resolve_executable=lambda name: None,
+    )
+
+    assert probes == []
+    assert result.connectivity is Connectivity.OFFLINE
+
+
+def test_an_auto_site_still_probes_because_it_has_not_been_told() -> None:
+    probes: list[str] = []
+
+    def probe() -> bool:
+        probes.append("public")
+        return True
+
+    inspect_provisioning(
+        connectivity=Connectivity.AUTO,
+        online_probe=probe,
+        workload_identity_probe=lambda: False,
+        resolve_executable=lambda name: None,
+    )
+
+    assert probes == ["public"]
