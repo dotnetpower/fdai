@@ -30,7 +30,9 @@ class _Identities:
 
 class _Authorizer:
     def can_approve_pairing(self, actor_id: str) -> bool:
-        return actor_id == "owner-1"
+        # Case-insensitive, like a directory-group lookup: the core must hold
+        # its distinct-approver rule whatever an authorizer implementation does.
+        return actor_id.strip().casefold() == "owner-1"
 
 
 def _turn(sender: str = "sender-1") -> InboundTurn:
@@ -175,5 +177,24 @@ async def test_unauthorized_or_same_principal_approval_is_blocked() -> None:
             code="ABC123",
             principal_id="operator-1",
             actor_id="reader-1",
+            at=_NOW,
+        )
+
+
+async def test_a_recased_actor_is_not_a_distinct_approver() -> None:
+    """Pairing binds a channel sender to a principal, so the approver must be
+    someone other than the principal being bound. An identity string is the
+    same principal however it is cased.
+    """
+    service = _service()
+    turn = _turn()
+    await service.request_pairing(turn, at=_NOW)
+
+    with pytest.raises(ChannelAccessError, match="distinct approver"):
+        await service.approve(
+            ChannelSenderKey(ConversationChannelKind.SLACK, "channel-1", "sender-1"),
+            code="ABC123",
+            principal_id="owner-1",
+            actor_id="OWNER-1",
             at=_NOW,
         )

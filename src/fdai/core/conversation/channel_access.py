@@ -246,7 +246,7 @@ class ChannelAccessService:
     ) -> PairingRequest:
         if not self._authorizer.can_approve_pairing(actor_id):
             raise ChannelAccessError("actor is not authorized to approve channel pairing")
-        if actor_id == principal_id:
+        if actor_id.strip().casefold() == principal_id.strip().casefold():
             raise ChannelAccessError("channel sender pairing requires a distinct approver")
         if await self._identities.principal_for_id(principal_id) is None:
             raise ChannelAccessError("pairing target principal is unknown")

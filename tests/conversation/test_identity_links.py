@@ -23,7 +23,9 @@ _TEAMS = ChannelSenderKey(ConversationChannelKind.TEAMS, "teams-channel", "teams
 
 class _Authorizer:
     def can_approve_pairing(self, actor_id: str) -> bool:
-        return actor_id == "owner-example"
+        # Case-insensitive, like a directory-group lookup: the core must hold
+        # its distinct-approver rule whatever an authorizer implementation does.
+        return actor_id.strip().casefold() == "owner-example"
 
 
 async def _pair(
@@ -133,5 +135,15 @@ async def test_unapproved_same_channel_or_self_approved_links_are_denied() -> No
             _TEAMS,
             principal_id="owner-example",
             actor_id="owner-example",
+            at=_NOW,
+        )
+    # An identity string is the same principal however it is cased, so the
+    # distinct-approver requirement must not be satisfied by recasing.
+    with pytest.raises(CrossChannelIdentityLinkError, match="distinct approver"):
+        await service.link(
+            _SLACK,
+            _TEAMS,
+            principal_id="owner-example",
+            actor_id="OWNER-EXAMPLE",
             at=_NOW,
         )

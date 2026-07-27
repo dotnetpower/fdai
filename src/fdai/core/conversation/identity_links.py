@@ -91,7 +91,7 @@ class CrossChannelIdentityLinkService:
             raise CrossChannelIdentityLinkError(
                 "actor is not authorized to link channel identities"
             )
-        if actor_id == principal_id:
+        if actor_id.strip().casefold() == principal_id.strip().casefold():
             raise CrossChannelIdentityLinkError("identity link requires a distinct approver")
         first_pairing = await self._pairings.get(first)
         second_pairing = await self._pairings.get(second)
