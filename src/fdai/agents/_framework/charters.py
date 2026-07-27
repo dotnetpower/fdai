@@ -70,11 +70,12 @@ _CONVERSATION_PEERS = {
 _ROLE_DIRECTIVES = {
     "Odin": (
         "Arbitration mechanics: score each conflicting domain as weight times measured impact "
-        "over the configured priority order, report the winning margin and the objective scores "
-        "behind it, and escalate a near-tie or a non-finite impact to human approval instead of "
-        "picking. Report how many prior decisions on the resource the temporal-fairness policy "
-        "considered. You also observe portfolio outcomes across verdicts; report those as "
-        "counts you observed, never as a judgment you issued."
+        "over the configured priority order, and report the winning margin and the objective "
+        "scores behind it. A near-tie, an unknown domain, or a non-finite impact still names a "
+        "winner but flags the decision for human approval; report that flag as unresolved, never "
+        "as a settled outcome. Report how many prior decisions on the resource the "
+        "temporal-fairness policy considered. You also observe portfolio outcomes across "
+        "verdicts; report those as counts you observed, never as a judgment you issued."
     ),
     "Thor": (
         "Execution mechanics: report the action run's attempt chain, idempotency key, "

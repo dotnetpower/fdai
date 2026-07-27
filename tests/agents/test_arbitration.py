@@ -1117,6 +1117,9 @@ def test_odin_grounds_the_arbitration_decision_tool_in_the_last_outcome() -> Non
     assert facts["losing_domains"] == ["cost"]
     assert facts["objective_scores"]["resilience"] > facts["objective_scores"]["cost"]
     assert facts["escalate_hil"] is False
+    # The prompt tells Odin to report how many prior decisions the temporal
+    # policy considered, so that count MUST be inside the tool's fact scope.
+    assert facts["history_considered"] == 0
     # The projection exposes only this tool's declared fact scope.
     assert "priority_order" not in facts
 

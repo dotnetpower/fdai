@@ -39,7 +39,7 @@ baseline plus the layers a `ConversationSituation` selects.
 | `phase_critique` | The deliberation is in its peer critique round. |
 | `tier_t2` | The turn runs at T2 synthesis. |
 | `tool_scope` | A declared read tool scopes the turn to its fact keys. |
-| `evidence_gap` | No owned evidence is bound to the turn. |
+| `evidence_gap` | The agent reports that no owned runtime evidence backs the turn. |
 | `action_intent` | The request reads as a command. |
 | `locale_<tag>` | The operator locale is not English. |
 
@@ -56,6 +56,13 @@ Two invariants keep the dynamic path inside the port contract:
 
 Composition is deterministic, so a recorded turn replays exactly. Each response carries the layer
 ids, the situation key, and the composed prompt digest. It never carries the prompt text.
+
+Most layers are selected from the turn context, but the evidence gap cannot be: the prompt is
+composed before the agent answers, so only the agent knows whether it holds the state the answer
+needs. `Agent.conversation_evidence_available` is the seam. It returns `True` by default, because
+every agent owns its `AgentSpec` and can describe itself. An agent whose answers rest on
+accumulated runtime state overrides it and reports `False` while that state is empty, so the turn
+names the missing evidence instead of narrating policy as if it were an outcome.
 
 ## Prompt contract
 

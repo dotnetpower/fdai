@@ -130,6 +130,7 @@ class Odin(Agent):
         # chain, and retaining more here would duplicate it without the
         # append-only guarantees.
         self._last_decision: ArbitrationDecision | None = None
+        self._last_history_considered = 0
         self._verdicts_observed = 0
         self._verdict_outcomes: Counter[str] = Counter()
 
@@ -185,6 +186,7 @@ class Odin(Agent):
             escalate_hil=outcome.escalate_hil,
         )
         self._last_decision = decision
+        self._last_history_considered = len(history)
         if self.bus is not None:
             await self.bus.publish(
                 "Odin",
@@ -205,6 +207,17 @@ class Odin(Agent):
             )
         return decision
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Report whether any arbitration or portfolio evidence is retained.
+
+        Odin's answers rest on accumulated runtime state: an arbitration
+        it resolved, or verdicts it observed. Before either exists, the
+        priority policy is the only thing it owns, so the turn composes
+        the evidence-gap layer and the answer names what is missing
+        instead of narrating the policy as if it were an outcome.
+        """
+        return self._last_decision is not None or self._verdicts_observed > 0
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         last = self._last_decision
         facts = {
@@ -222,6 +235,7 @@ class Odin(Agent):
             "objective_scores": dict(last.objective_scores) if last else None,
             "margin": last.margin if last else None,
             "escalate_hil": last.escalate_hil if last else None,
+            "history_considered": self._last_history_considered if last else None,
             "verdicts_observed": self._verdicts_observed,
             "verdict_outcomes": dict(self._verdict_outcomes),
         }

@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 8683137269bdbc93b5fd4f935a4bf660c7541578
+translation_source_sha: 83420f5e2bd2dd187d723cb261f68e167290ae3e
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -42,7 +42,7 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
 | `phase_critique` | Deliberation이 peer critique round입니다. |
 | `tier_t2` | Turn이 T2 synthesis에서 실행됩니다. |
 | `tool_scope` | 선언된 read tool이 turn을 fact key로 한정합니다. |
-| `evidence_gap` | Turn에 bound된 owned evidence가 없습니다. |
+| `evidence_gap` | Agent가 turn을 뒷받침하는 owned runtime evidence가 없다고 보고합니다. |
 | `action_intent` | 요청이 command로 읽힙니다. |
 | `locale_<tag>` | Operator locale이 English가 아닙니다. |
 
@@ -59,6 +59,13 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
 
 조립은 deterministic하므로 기록된 turn은 정확히 replay됩니다. 각 response는 layer id, situation
 key, 조립된 prompt digest를 전달하며 prompt text 자체는 절대 전달하지 않습니다.
+
+대부분의 layer는 turn context에서 선택하지만 evidence gap은 그럴 수 없습니다. Prompt는 agent가
+답하기 전에 조립되므로 답변에 필요한 state를 보유했는지는 agent만 알기 때문입니다.
+`Agent.conversation_evidence_available`가 그 seam입니다. 모든 agent는 자신의 `AgentSpec`을
+소유하고 자기 소개를 할 수 있으므로 기본값은 `True`입니다. 답변이 누적된 runtime state에
+의존하는 agent는 그 state가 비어 있는 동안 `False`를 보고하므로, 해당 turn은 policy를
+결과처럼 서술하는 대신 빠진 evidence를 명시합니다.
 
 ## Prompt contract
 

@@ -216,6 +216,15 @@ def test_budget_overflow_drops_optional_layers_and_never_the_baseline() -> None:
 
 def test_conversational_port_composes_the_prompt_for_the_turn() -> None:
     odin = Odin()
+    asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "corr-compose",
+                "domains_in_conflict": ["resilience", "cost"],
+                "impacts": {"resilience": 0.9, "cost": 0.2},
+            }
+        )
+    )
     captured: dict[str, Any] = {}
 
     async def capture(_self: Agent, _question: str, context: dict[str, Any]) -> IntrospectionResult:
@@ -260,6 +269,28 @@ def test_command_intent_turn_composes_the_refusal_layer() -> None:
     assert envelope["requires_typed_pipeline"] is True
     assert envelope["prompt_composition"]["layers"][-1] == "action_intent"
     assert "intent=action" in envelope["prompt_composition"]["situation"]
+
+
+def test_agent_without_retained_evidence_composes_the_evidence_gap_layer() -> None:
+    """The gap layer is agent-reported, not caller-supplied."""
+    odin = Odin()
+
+    before = asyncio.run(odin.on_conversation_turn("Which domain won?", {}))
+    asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "corr-gap",
+                "domains_in_conflict": ["resilience", "cost"],
+                "impacts": {"resilience": 0.9, "cost": 0.2},
+            }
+        )
+    )
+    after = asyncio.run(odin.on_conversation_turn("Which domain won?", {}))
+
+    assert "evidence_gap" in before["prompt_composition"]["layers"]
+    assert "evidence=absent" in before["prompt_composition"]["situation"]
+    assert "evidence_gap" not in after["prompt_composition"]["layers"]
+    assert "evidence=present" in after["prompt_composition"]["situation"]
 
 
 def test_tool_scoped_turn_composes_the_declared_fact_scope() -> None:

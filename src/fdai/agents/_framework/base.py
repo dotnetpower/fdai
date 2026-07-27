@@ -430,7 +430,10 @@ class Agent:
                 allowed_tools=charter.tools,
                 tool_fact_keys=tool.fact_keys if tool is not None else (),
                 action_intent=action_intent,
-                evidence_available=context.get("evidence_available") is not False,
+                evidence_available=(
+                    context.get("evidence_available") is not False
+                    and self.conversation_evidence_available(context)
+                ),
             )
         )
         policy_context = {
@@ -483,6 +486,22 @@ class Agent:
             answer=capability_sentence(self.spec),
             facts=capability_facts(self.spec),
         )
+
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Report whether owned runtime evidence backs this turn.
+
+        Selects the ``evidence_gap`` prompt layer, which tells the agent
+        to name the missing evidence and abstain rather than reason from
+        general knowledge. The prompt is composed before
+        :meth:`introspect` runs, so the agent - not the answer - is the
+        only thing that can know this up front.
+
+        The base returns ``True``: an agent always owns its ``AgentSpec``
+        and can describe itself. An agent whose answers depend on
+        accumulated runtime state overrides this and reports ``False``
+        while that state is empty.
+        """
+        return True
 
     def _conversation_envelope(
         self,

@@ -50,6 +50,7 @@ _ODIN = AgentSpec(
             "objective_scores",
             "margin",
             "escalate_hil",
+            "history_considered",
         ),
         conversation_tool(
             "read_portfolio_outcomes",

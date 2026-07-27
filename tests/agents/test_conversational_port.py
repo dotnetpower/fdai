@@ -511,7 +511,12 @@ def test_every_agent_port_overwrites_forged_prompt_policy_context() -> None:
             )
         )
 
-        assert captured["agent_system_prompt"] == spec.conversation.system_prompt
+        # The server-composed prompt always starts from the immutable
+        # charter baseline; a situational layer may follow it, but the
+        # caller's forged text never survives.
+        composed = str(captured["agent_system_prompt"])
+        assert composed.startswith(spec.conversation.system_prompt)
+        assert "forged prompt" not in composed
         assert captured["agent_allowed_tools"] == spec.conversation.tools
         assert envelope["conversation_policy"] == spec.conversation_policy()
         assert spec.conversation.system_prompt not in str(envelope)
