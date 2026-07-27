@@ -245,6 +245,10 @@ progress but remains inspectable after completion.
 Production composition can inject the shared progressive-conversation collector into both
 publishers. It records aggregate first-progress/confirmed latency, truncation, terminal completion,
 and post-acknowledgement ambiguity without retaining message, destination, or identity values.
+Truncation includes output clipped to a vendor field limit and any complete activity omitted from
+the Teams Adaptive Card to preserve its 24,000-byte budget. The metric records only that truncation
+occurred. The omission count stays visible in the card, and the original activities remain in the
+durable response evidence.
 
 Observed output uses explicit provenance markers. `[UPSTREAM OUTPUT TRUNCATED]` means the evidence
 producer supplied partial output; `[CHANNEL OUTPUT TRUNCATED]` means the adapter clipped output to

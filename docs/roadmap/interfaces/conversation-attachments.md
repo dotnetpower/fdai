@@ -201,6 +201,8 @@ Running revisions show summary text only. Canonical redacted activity evidence a
 final confirmed revision after protected ingestion and coordinator completion.
 Progress metrics can count truncation and terminal delivery, but they contain no filename, document
 id, citation, source reference, collection, channel id, or extracted content.
+Teams card-budget activity omission counts as truncation without adding the omitted activity count
+or content to metrics.
 The channel publisher keeps transport and acknowledgement handling separate from pure rendering;
 this structural split does not change protected ingestion or the redaction boundary.
 

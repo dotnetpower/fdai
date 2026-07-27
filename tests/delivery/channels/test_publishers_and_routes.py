@@ -697,6 +697,55 @@ async def test_teams_progress_snapshots_post_once_then_edit_canonical_answer() -
     assert "Inspect health" in str(calls[1][1])
     assert "Canonical answer" in str(calls[1][1])
     assert metrics.snapshot().counts["terminal_completed"] == 1
+    assert metrics.snapshot().counts.get("truncations", 0) == 0
+
+
+async def test_teams_progress_counts_card_budget_activity_omission_as_truncation() -> None:
+    activities = tuple(
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label=f"Inspect evidence {index}",
+            tool="query_resource_health",
+            command=f"query_resource_health --scope <redacted> {'x' * 3_500}",
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+        )
+        for index in range(8)
+    )
+    metrics = ConversationProgressMetrics()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            201 if request.method == "POST" else 200,
+            json={"id": "activity-omission"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        publisher = TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+            progress_metrics=metrics,
+        )
+        await publisher.publish(
+            _response(
+                ConversationChannelKind.TEAMS,
+                text="Canonical answer",
+                activities=activities,
+                progress_updates=(
+                    ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Checking", 0),
+                    ChannelProgressUpdate(
+                        1,
+                        ChannelProgressStatus.CONFIRMED,
+                        "Canonical answer",
+                        len(activities),
+                    ),
+                ),
+            )
+        )
+
+    assert metrics.snapshot().counts["truncations"] == 1
 
 
 async def test_teams_progress_update_failure_is_ambiguous_after_initial_ack() -> None:

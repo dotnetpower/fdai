@@ -173,6 +173,21 @@ def slack_escape(value: str) -> str:
 
 
 def teams_activity_card(response: OutboundResponse, answer: str) -> dict[str, object]:
+    card, _omitted = _teams_activity_card_result(response, answer)
+    return card
+
+
+def teams_activity_omission_count(response: OutboundResponse, answer: str) -> int:
+    """Return the activities omitted by the exact Teams card budget renderer."""
+
+    _card, omitted = _teams_activity_card_result(response, answer)
+    return omitted
+
+
+def _teams_activity_card_result(
+    response: OutboundResponse,
+    answer: str,
+) -> tuple[dict[str, object], int]:
     body: list[dict[str, object]] = []
     answer_block: dict[str, object] = {
         "type": "TextBlock",
@@ -194,7 +209,7 @@ def teams_activity_card(response: OutboundResponse, answer: str) -> dict[str, ob
     if omitted:
         body.append(teams_omission_block(omitted))
     body.append(answer_block)
-    return teams_card(body)
+    return teams_card(body), omitted
 
 
 def teams_activity_blocks(activity: ConversationActivity) -> list[dict[str, object]]:
@@ -290,5 +305,6 @@ __all__ = [
     "render_slack_text",
     "slack_activity_blocks",
     "slack_update_body",
+    "teams_activity_omission_count",
     "teams_message_body",
 ]

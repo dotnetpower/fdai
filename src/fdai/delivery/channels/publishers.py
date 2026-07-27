@@ -24,6 +24,9 @@ from fdai.delivery.channels.publisher_rendering import (
     slack_update_body as _slack_update_body,
 )
 from fdai.delivery.channels.publisher_rendering import (
+    teams_activity_omission_count as _teams_activity_omission_count,
+)
+from fdai.delivery.channels.publisher_rendering import (
     teams_message_body as _teams_message_body,
 )
 from fdai.shared.providers.conversation_channel import (
@@ -440,7 +443,10 @@ class TeamsBotFrameworkReplyPublisher:
         self._record_progress_latency("time_to_first_confirmed", started)
         if self._progress_metrics is not None:
             self._progress_metrics.increment("terminal_completed")
-            if _response_truncated(response, 4_000):
+            if (
+                _response_truncated(response, 4_000)
+                or _teams_activity_omission_count(response, response.text) > 0
+            ):
                 self._progress_metrics.increment("truncations")
         return _receipt(
             response,
