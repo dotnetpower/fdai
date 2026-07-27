@@ -3,70 +3,70 @@ title: 용량과 성능
 description: FDAI가 측정된 수요와 예측을 범위가 제한된 용량 문제와 통제된 확장 제안으로 바꾸는 방법입니다.
 translation_of: capacity-and-performance.md
 translation_source_sha: 8c971692b24b6c29efedbfb3dcab34101307c1ba
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 용량과 성능
 
-용량 관리는 resource가 비용을 낭비하거나 dependency를 고갈시키지 않고 측정된 demand를
-충족할 수 있는지 판단합니다. FDAI는 scaling action을 제안하기 전에 현재 utilization,
-forecast evidence, minimum floor, dependency check, promotion state를 결합합니다.
+용량 관리는 리소스가 비용을 낭비하지도, 의존 요소를 고갈시키지도 않으면서 실제 수요를
+감당할 수 있는지 판단하는 일입니다. FDAI는 확장 작업을 제안하기 전에 현재 사용률, 예측 근거,
+최소 보장치, 의존성 점검, 승격 상태를 함께 봅니다.
 
-## 용량 증거
+## 용량 근거
 
-- Resource 및 window별 현재 utilization과 saturation.
-- Demand trend, forecast horizon, uncertainty, expected breach time.
-- Minimum 및 maximum capacity와 warm-capacity floor.
-- Quota, regional availability, dependent-resource constraint.
-- Workload SLO 및 error-budget impact.
-- Cost estimate와 rollback 또는 scale-back path.
+- 리소스별, 구간별 현재 사용률과 포화도.
+- 수요 추세, 예측 기간, 불확실성, 예상 위반 시점.
+- 최소 및 최대 용량과 미리 확보해 둘 여유 용량.
+- 할당량, 리전별 가용성, 의존 리소스의 제약.
+- 워크로드 SLO와 오류 예산에 미치는 영향.
+- 비용 추정치와 롤백 또는 축소 경로.
 
-Telemetry가 없거나 오래되면 unavailable 또는 판단 보류 evidence가 됩니다. Demand가 0이라고
-가정하지 않습니다.
+관측 데이터가 없거나 오래되면 확인 불가 또는 판단 보류 근거가 됩니다. 수요를 0으로
+가정하지는 않습니다.
 
-## Specialist 충돌 판단
+## 전문 에이전트가 충돌할 때
 
-Freyr는 capacity를 평가하고 Njord는 cost를 평가합니다. Reliability를 위해 scale up하고
-efficiency를 위해 scale down하는 것처럼 advice가 충돌할 수 있습니다. Specialist는 advisory
-역할을 유지하며 Forseti와 안전성 검토가 설정된 precedence와 autonomy ceiling을 적용합니다.
+Freyr는 용량을, Njord는 비용을 평가합니다. 안정성을 위해 늘리자는 의견과 효율을 위해
+줄이자는 의견처럼 서로 부딪힐 수 있습니다. 전문 에이전트는 조언 역할에 머무르고, Forseti와
+안전성 검토가 설정된 우선순위와 자율성 상한을 적용합니다.
 
-Advice가 충돌하면 Forseti가 cross-vertical arbitration request를 생성합니다. Odin은
-rule catalog의 버전 관리되는 priority policy를 적용하고, Forseti가 결정을 만들기 전에
-재현 가능한 arbitration result 하나를 반환합니다. 기본 policy는 cost 및 architecture
-advice보다 SLO 보호를 우선하지만 배포 환경에서 agent code를 변경하지 않고 검토된 policy를
-제공할 수 있습니다. Arbitration result는 증거이며 안전성 검토 ceiling을 완화할 수 없습니다.
+의견이 충돌하면 Forseti가 영역 간 중재를 요청합니다. Odin은 룰 카탈로그에 버전으로 관리되는
+우선순위 정책을 적용해, Forseti가 결정을 내리기 전에 재현 가능한 중재 결과 하나를 돌려줍니다.
+기본 정책은 비용이나 구조 관련 조언보다 SLO 보호를 앞세우지만, 배포 환경에서 에이전트 코드를
+고치지 않고도 검토된 정책을 따로 넣을 수 있습니다. 중재 결과는 근거일 뿐, 안전성 검토의
+상한을 느슨하게 만들지는 못합니다.
 
-예시: 낮은 utilization은 scale-down을 제안하지만 SLO forecast는 임박한 capacity breach를
-표시 -> 설정된 priority policy가 SLO floor를 유지 -> what-if가 quota와 dependency를 계속
-검사 -> 안전성 검토가 shadow, approval, promoted execution 중 하나를 결정.
+예시: 사용률이 낮아 축소하자는 의견이 나오지만 SLO 예측은 곧 용량이 부족해진다고 표시 ->
+설정된 우선순위 정책이 SLO 하한선을 지킴 -> what-if가 할당량과 의존 관계를 계속 확인 ->
+안전성 검토가 관찰 모드, 승인, 이미 승격된 자동 실행 중 하나를 결정.
 
-## Scaling proposal 흐름
+## 확장 제안이 만들어지는 흐름
 
-1. Detector 또는 scheduled evaluation이 capacity 발견된 문제를 생성합니다.
-2. 발견된 문제를 workload SLO, current change, incident와 연계합니다.
-3. What-if가 quota, dependency, floor, expected effect를 검증합니다.
-4. Typed scale proposal이 scope, batch, rate, stop condition, rollback을 포함합니다.
-5. Shadow evidence와 promotion state가 approval 또는 promoted auto 경로 도달 여부를 정합니다.
+1. 탐지기나 예약된 평가가 용량 관련 문제를 찾아냅니다.
+2. 그 문제를 워크로드 SLO, 진행 중인 변경, 인시던트와 연결합니다.
+3. what-if가 할당량, 의존 관계, 하한선, 예상 효과를 검증합니다.
+4. 타입이 정의된 확장 제안에 범위, 배치 크기, 속도, 중단 조건, 롤백을 담습니다.
+5. 관찰 근거와 승격 상태에 따라 승인으로 갈지, 이미 승격된 자동 실행으로 갈지 정해집니다.
 
 ## 보호 장치
 
-선언된 safety floor 아래로 scale하거나 dependency를 고립시키거나 quota를 초과하지 않습니다.
-Forecast를 실행 권한으로 취급하지 않습니다. Per-resource lock과 bounded batch change가 서로
-경쟁하는 scale action의 race를 방지합니다.
+선언된 안전 하한선 아래로 줄이거나, 의존 요소를 고립시키거나, 할당량을 넘기지 않습니다.
+예측을 실행 권한으로 취급하지도 않습니다. 리소스별 잠금과 제한된 배치 변경이 서로 경쟁하는
+확장 작업이 뒤엉키는 것을 막습니다.
 
-| Runtime 검사 | 통과 시 | 실패 또는 unknown 시 |
-|--------------|---------|----------------------|
-| Demand 및 SLO evidence가 fresh | What-if로 진행 | Unavailable evidence로 보류 |
-| Quota 및 dependency 검사 통과 | Typed proposal 생성 | Proposal 생성 안 함 |
-| Floor, batch, rate limit 충족 | 안전성 검토로 진행 | Deny 또는 scope 축소 |
-| Lock 및 idempotency claim 성공 | 최대 한 번 적용 | 안전하게 retry 또는 no-op |
-| Stop condition이 정상 유지 | 제한된 batch 계속 | 중지 후 rollback policy 적용 |
+| 실행 시점 점검 | 통과하면 | 실패하거나 알 수 없으면 |
+|----------------|----------|--------------------------|
+| 수요와 SLO 근거가 최신인지 | what-if로 넘어갑니다 | 근거 확인 불가로 보류합니다 |
+| 할당량과 의존성 점검 통과 | 타입이 정의된 제안을 만듭니다 | 제안을 만들지 않습니다 |
+| 하한선, 배치, 속도 제한 충족 | 안전성 검토로 넘어갑니다 | 거부하거나 범위를 좁힙니다 |
+| 잠금과 idempotency 확보 성공 | 최대 한 번만 적용합니다 | 안전하게 재시도하거나 미실행으로 둡니다 |
+| 중단 조건이 정상 유지 | 제한된 배치를 계속 진행합니다 | 중단하고 보상 정책을 적용합니다 |
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| Forecast가 만들어지는 방법 | [관측성, 감지, 예측](observability-detection-and-forecasting-ko.md) |
-| Workload impact를 측정하는 방법 | [SLO와 오류 예산](slos-and-error-budgets-ko.md) |
-| Cost와 capacity가 상호 작용하는 방법 | [비용 거버넌스](../capabilities/cost-governance-ko.md) |
-| Action을 승격하는 방법 | [Shadow 후 enforce](../concepts/shadow-then-enforce-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 예측이 만들어지는 방법 | [관측성, 감지, 예측](observability-detection-and-forecasting-ko.md) |
+| 워크로드 영향을 측정하는 방법 | [SLO와 오류 예산](slos-and-error-budgets-ko.md) |
+| 비용과 용량이 서로 영향을 주는 방식 | [비용 거버넌스](../capabilities/cost-governance-ko.md) |
+| 작업을 승격하는 방법 | [관찰 후 적용](../concepts/shadow-then-enforce-ko.md) |

@@ -3,103 +3,100 @@ title: 온콜과 에스컬레이션
 description: FDAI가 대응의 최종 책임자를 선택하고 대기 중인 결정을 에스컬레이션하며 페이징 연동이 없을 때 안전하게 중단하는 방법입니다.
 translation_of: on-call-and-escalation.md
 translation_source_sha: 55948d180c207d739b0628223dda4c19fd8a3f28
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 온콜과 에스컬레이션
 
-온콜 라우팅은 notification channel에 실행 권한을 주지 않으면서 인시던트를 책임 있는
-사람과 연결합니다. FDAI는 현재 responder를 확인하고 설정된 escalation ladder를 적용하며,
-모든 timeout, reroute, approval, no-op을 기록합니다.
+온콜 라우팅은 알림 채널에 실행 권한을 주지 않으면서 인시던트를 책임질 사람과 이어 줍니다.
+FDAI는 지금 대응할 사람을 확인하고, 설정된 에스컬레이션 단계를 적용하며, 모든 시간 초과,
+경로 변경, 승인, 미실행을 기록합니다.
 
-> Upstream on-call schedule seam과 fail-safe resolver는 구현되어 있습니다. PagerDuty 또는
-> Opsgenie adapter와 channel별 DM targeting은 배포 또는 fork binding으로 남아 있습니다.
-> Status-page broadcast는 Deferred입니다.
+> 상위 프로젝트에는 온콜 일정 연결 지점과 안전 대체 경로가 이미 구현되어 있습니다. PagerDuty나
+> Opsgenie 어댑터, 채널별 개인 메시지 지정은 배포 환경이나 포크에서 연결해야 합니다. 상태
+> 페이지 공지는 아직 미구현입니다.
 
-## 대응자 확인
+## 대응자 확인하기
 
-Resolver는 시간 범위가 있는 schedule을 읽고 현재 shift의 principal을 반환합니다.
-Schedule이 없거나 오래됐거나 unavailable이면 FDAI는 설정된 fail-safe route를 사용하고
-degraded routing을 기록합니다. Identity를 추측하지 않습니다.
+일정 해석기는 시간 범위가 있는 일정표를 읽어 현재 근무 중인 담당자를 돌려줍니다. 일정이
+없거나 오래됐거나 읽을 수 없으면 FDAI는 설정된 안전 대체 경로를 쓰고, 라우팅이 저하됐다는
+사실을 기록합니다. 담당자를 추측하지는 않습니다.
 
-Approval과 execution은 서로 다른 principal로 유지됩니다. On-call responder는 RBAC와 policy
-범위에서만 검토 또는 승인할 수 있으며, shift 중이라는 이유로 executor credential을 받지
-않습니다.
+승인과 실행은 서로 다른 주체가 맡습니다. 온콜 대응자는 RBAC와 정책이 허용하는 범위에서만
+검토하거나 승인할 수 있고, 근무 중이라는 이유로 실행 권한을 받지는 않습니다.
 
 ## 에스컬레이션 단계
 
-Escalation ladder는 level, wait period, channel, role, stop condition을 정의합니다. Pending
-decision은 scope와 severity에 따라 primary on-call에서 secondary, incident commander,
-owner로 이동할 수 있습니다.
+에스컬레이션 단계표에는 단계, 대기 시간, 채널, 역할, 중단 조건을 정의합니다. 대기 중인 결정은
+범위와 심각도에 따라 1차 온콜에서 2차, 인시던트 지휘자, 소유자 순으로 올라갈 수 있습니다.
 
-느린 supervisory loop는 기저 risk 결정을 직접 변경하지 않습니다. 책임 있는 approver를
-찾거나 request를 expire할 수 있지만 `deny`를 `auto`로 바꾸거나 사람 대신 승인할 수 없습니다.
-일치하는 standing authorization은 ladder deadline 이후 typed proposal을 새 판단을 위해
-안전성 검토에 다시 넣을 수만 있습니다.
+느리게 도는 감독 루프가 바탕이 된 위험 결정을 직접 바꾸지는 않습니다. 책임질 승인자를 찾거나
+요청을 만료시킬 수는 있어도, `deny`를 `auto`로 바꾸거나 사람 대신 승인할 수는 없습니다. 조건이
+맞는 상시 권한이 있더라도, 단계 마감이 지난 뒤 제안을 안전성 검토에 다시 올려 새로 판단받게 할
+수 있을 뿐입니다.
 
-## Delivery fallback과 authority escalation 구분
+## 전달 대체와 권한 상향은 다릅니다
 
-두 mechanism은 서로 다른 실패에 답하며 별개의 audit history를 유지합니다.
+두 장치는 서로 다른 실패에 대응하며, 감사 기록도 따로 남습니다.
 
-| Mechanism | Trigger | 변경되는 내용 |
-|-----------|---------|---------------|
-| Channel fallback | 동일 recipient에게 channel이 전달하지 못함 | Delivery pipe |
-| Escalation ladder | 전달은 성공했지만 rung TTL 전에 authorized decision이 없음 | 요청 대상 human authority |
+| 장치 | 발동 조건 | 바뀌는 것 |
+|------|-----------|-----------|
+| 채널 대체 | 같은 수신자에게 채널이 전달하지 못함 | 전달 경로 |
+| 에스컬레이션 단계 | 전달은 됐지만 단계 시한 안에 권한 있는 결정이 없음 | 요청을 받는 사람의 권한 |
 
-각 ladder는 유한한 rung 수와 overall deadline을 가집니다. 모든 rung transition은 audience,
-category, start, expiry, result를 기록합니다. 이후 rung도 no self-approval을 적용하며 executor
-identity를 상속하지 않습니다.
+각 단계표에는 단계 수가 정해져 있고 전체 마감 시각도 있습니다. 단계가 바뀔 때마다 대상, 분류,
+시작 시각, 만료 시각, 결과를 기록합니다. 뒤 단계에서도 자기 승인 금지는 그대로 적용되며,
+실행기 자격을 물려받지도 않습니다.
 
-## 신뢰할 수 있는 forecast에 따른 시간 단축
+## 믿을 만한 예측이 있으면 시간을 앞당깁니다
 
-Forecast-backed incident에서 supervisor는 tick마다 urgency를 다시 계산합니다. Effective rung
-window는 `effective_ttl = min(rung.ttl, k * remaining_lead_time)`을 따르므로 가까워지는 breach
-ETA가 configured TTL을 줄일 수는 있지만 늘릴 수는 없습니다. Impact에 따라 더 높은 시작
-rung을 선택할 수도 있습니다.
+예측에 근거한 인시던트에서는 감독자가 매 주기마다 시급성을 다시 계산합니다. 실제 단계 시간은
+`effective_ttl = min(rung.ttl, k * remaining_lead_time)`을 따르므로, 위반 예상 시각이 가까워지면
+설정된 시한을 줄일 수는 있어도 늘릴 수는 없습니다. 영향이 크면 더 높은 단계에서 시작할 수도
+있습니다.
 
-Prediction interval이 configured confidence level을 통과한 forecast만 시간을 줄일 수 있습니다.
-Noisy point estimate는 escalation을 가속할 수 없습니다. Urgency는 사람에게 요청하는 속도만
-바꾸며 실행 권한을 주지 않습니다.
+예측 구간이 설정된 신뢰 수준을 통과한 예측만 시간을 앞당길 수 있습니다. 잡음이 섞인 단일
+추정치로는 에스컬레이션을 서두를 수 없습니다. 시급성은 사람에게 요청하는 속도만 바꿀 뿐 실행
+권한을 주지 않습니다.
 
-## 검토를 우회하지 않는 standing authority
+## 검토를 건너뛰지 않는 상시 권한
 
-Standing authorization은 operator-authored policy artifact입니다. Deterministic condition,
-resource-group-equivalent 이하 envelope, reversible action type, tested rollback contract,
-unanswered-ladder trigger를 식별합니다. 관찰 모드에서 시작하고 자체 promotion gate를 따릅니다.
+상시 권한은 운영자가 작성하는 정책 문서입니다. 여기에는 결정론적인 조건, 리소스 그룹 크기
+이하의 적용 범위, 되돌릴 수 있는 작업 유형, 검증된 롤백 계약, 그리고 응답 없는 단계표라는
+발동 조건을 적습니다. 관찰 모드에서 시작하며 자체 승격 기준을 따릅니다.
 
-Deadline 이후 supervisor는 authorization이 valid, unexpired, in-scope 상태이며 pending action을
-계속 포함하는지 확인합니다. 그런 다음 proposal을 typed pipeline에 다시 주입합니다. Forseti와
-안전성 검토가 현재 inventory 및 policy를 다시 평가하고, 새 결정이 `auto`인 경우에만 Thor가
-실행합니다. Irreversible action, stale evidence, 넓어진 영향 범위, envelope miss는 감사되는
-no-op으로 종료됩니다.
+마감이 지나면 감독자는 그 권한이 유효한지, 만료되지 않았는지, 범위 안인지, 대기 중인 작업을
+여전히 포함하는지 확인합니다. 그런 다음 제안을 타입이 정의된 파이프라인에 다시 넣습니다.
+Forseti와 안전성 검토가 현재 인벤토리와 정책으로 다시 평가하고, 새 결정이 `auto`일 때만 Thor가
+실행합니다. 되돌릴 수 없는 작업, 오래된 근거, 넓어진 영향 범위, 범위를 벗어난 경우는 감사되는
+미실행으로 끝납니다.
 
 | 최종 상태 | 의미 |
 |-----------|------|
-| Approved | Authorized human이 expiry 전에 결정 |
-| Rejected | Authorized human이 reject, action 없음 |
-| Standing-authority executed | Deadline 통과 후 새 risk decision이 envelope 검증 |
-| Terminal no-op | Valid human 또는 standing decision 없이 ladder 종료 |
+| 승인됨 | 권한 있는 사람이 만료 전에 결정했습니다 |
+| 거부됨 | 권한 있는 사람이 거부했고 아무 작업도 하지 않았습니다 |
+| 상시 권한으로 실행됨 | 마감이 지난 뒤 새 위험 판단이 적용 범위를 다시 확인했습니다 |
+| 미실행으로 종료 | 사람의 결정도 상시 권한도 없이 단계표가 끝났습니다 |
 
-## 운영자 확인 사항
+## 운영자가 확인할 것
 
-1. Schedule freshness, timezone, handoff boundary를 확인합니다.
-2. Incident scope와 severity가 예상 ladder를 선택하는지 확인합니다.
-3. 필요한 경우 approver가 executor 및 requester와 다른지 검증합니다.
-4. Notification delivery와 durable retry state를 확인합니다.
-5. Expiration을 감사되는 no-op으로 처리합니다.
+1. 일정의 최신성, 시간대, 교대 경계를 확인합니다.
+2. 인시던트 범위와 심각도가 기대한 단계표를 고르는지 확인합니다.
+3. 필요하다면 승인자가 실행자, 요청자와 다른 사람인지 확인합니다.
+4. 알림 전달 상태와 재시도 상태를 확인합니다.
+5. 만료는 감사되는 미실행으로 처리합니다.
 
-## 커뮤니케이션
+## 소통 방식
 
-Operational alert, approval request, incident lifecycle notice는 서로 다른 message class와
-RBAC floor를 사용합니다. Channel은 incident ID, scope, severity, evidence link, requested
-decision, expiry처럼 행동에 필요한 최소 context만 받습니다. Secret과 raw customer data는
-message에 포함하지 않습니다.
+운영 알림, 승인 요청, 인시던트 생애주기 공지는 서로 다른 메시지 분류와 최소 권한 기준을
+사용합니다. 채널에는 인시던트 ID, 범위, 심각도, 근거 링크, 요청된 결정, 만료 시각처럼 행동에
+꼭 필요한 최소 정보만 전달합니다. 시크릿과 고객 원본 데이터는 메시지에 담지 않습니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| 승인이 작동하는 방법 | [승인과 채널](../concepts/approvals-and-channels-ko.md) |
-| 에스컬레이션 계약 | [에스컬레이션과 Standing Authority](../../roadmap/decisioning/escalation-and-standing-authority-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 승인이 동작하는 방법 | [승인과 알림 채널](../concepts/approvals-and-channels-ko.md) |
+| 에스컬레이션 계약 | [에스컬레이션과 상시 권한](../../roadmap/decisioning/escalation-and-standing-authority-ko.md) |
 | 채널 라우팅 | [채널과 알림](../../roadmap/interfaces/channels-and-notifications-ko.md) |
-| Incident ownership | [인시던트 관리](incident-management-ko.md) |
+| 인시던트 소유권 | [인시던트 관리](incident-management-ko.md) |
