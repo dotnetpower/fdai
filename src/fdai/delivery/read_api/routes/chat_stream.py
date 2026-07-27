@@ -265,6 +265,10 @@ def make_chat_stream_route(
                 if completed_payload is not None:
                     if progress_metrics is not None:
                         progress_metrics.increment("replays")
+                        progress_metrics.observe_latency(
+                            "time_to_first_confirmed",
+                            max(0, int((time.monotonic() - started) * 1000)),
+                        )
                     await cleanup()
                     yield frame("done", completed_payload)
                     return

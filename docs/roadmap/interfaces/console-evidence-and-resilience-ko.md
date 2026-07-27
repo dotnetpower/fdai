@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4bfe207e0d34599e4cf4ea1f328b9485db8a3747
+translation_source_sha: fc82bb761bf0ce6d75c73cef414e61515021c151
 translation_revised: 2026-07-27
 ---
 
@@ -319,6 +319,8 @@ answer, branch id, channel id, principal id 또는 resource identifier는 보관
 timed-out read branch는 turn 안에서 retry하지 않으며 operator가 fresh scope로 새 turn을 시작할 수
 있습니다. Server는 client frame 누락을 관찰할 수 없으므로 browser가 sequence gap과 partial terminal을
 local에서 계산합니다.
+Idempotent terminal replay는 observed time-to-first-confirmed latency와 replay count에 포함되지만
+evidence retrieval, narration 및 post-turn review는 계속 건너뜁니다.
 
 ## Stream recovery 및 authentication
 

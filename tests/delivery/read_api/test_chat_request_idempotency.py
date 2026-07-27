@@ -14,6 +14,7 @@ from fdai.delivery.read_api.routes.chat import (
     make_chat_stream_route,
 )
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
+from fdai.shared.telemetry import ConversationProgressMetrics
 
 
 class _ChangingBackend(ChatBackend):
@@ -53,6 +54,27 @@ def _client() -> tuple[TestClient, _ChangingBackend, InMemoryConversationHistory
         ]
     )
     return TestClient(app), backend, store
+
+
+def _client_with_progress_metrics() -> tuple[
+    TestClient,
+    _ChangingBackend,
+    ConversationProgressMetrics,
+]:
+    backend = _ChangingBackend()
+    store = InMemoryConversationHistoryStore()
+    metrics = ConversationProgressMetrics()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_authorize,
+                conversation_history_store=store,
+                progress_metrics=metrics,
+            ),
+        ]
+    )
+    return TestClient(app), backend, metrics
 
 
 def _request(
@@ -111,6 +133,19 @@ def test_stream_exact_retry_replays_only_completed_terminal_response() -> None:
     assert retry.text.count("event: done") == 1
     assert "event: token" not in retry.text
     assert backend.calls == 1
+
+
+def test_stream_replay_records_time_to_first_confirmed_latency() -> None:
+    client, backend, metrics = _client_with_progress_metrics()
+
+    first = client.post("/chat/stream", json=_request())
+    retry = client.post("/chat/stream", json=_request())
+
+    assert first.status_code == retry.status_code == 200
+    assert backend.calls == 1
+    snapshot = metrics.snapshot()
+    assert snapshot.counts["replays"] == 1
+    assert snapshot.latency_ms["time_to_first_confirmed"].count == 2
 
 
 def test_json_changed_prompt_retry_is_conflict() -> None:

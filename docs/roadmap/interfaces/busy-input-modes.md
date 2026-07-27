@@ -166,6 +166,7 @@ is checked both when input arrives and when it is consumed.
 The separate progressive-conversation collector records aggregate branch, confirmation, correction,
 truncation, terminal, saturation, replay, and latency metrics. It does not change busy-input mode or
 retain input content.
+Terminal replay records confirmation latency without creating another active turn.
 
 ## Failure behavior
 
