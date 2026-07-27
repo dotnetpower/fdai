@@ -46,6 +46,10 @@ _LOG = logging.getLogger(__name__)
 _MAX_BEHAVIOR_KEYS = 512
 _BEHAVIOR_OVERFLOW_KEY = "behavior:overflow"
 _MAX_CONVERSATION_TOOLS = 16
+#: Retrieval anchors per tool, and the size of one. Bounded because they
+#: are embedded on every cache build, not because a prompt renders them.
+_MAX_TOOL_EXAMPLES = 4
+_MAX_TOOL_EXAMPLE_CHARS = 256
 _MAX_TOOL_PURPOSE_CHARS = 160
 _TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 _CHARTER_VERSION = re.compile(r"^v[1-9][0-9]*$")
@@ -80,6 +84,14 @@ class ConversationTool:
     tool_id: str
     purpose: str
     fact_keys: tuple[str, ...]
+    examples: tuple[str, ...] = ()
+    """Bilingual questions that anchor retrieval for this tool.
+
+    Never rendered into a prompt and never part of an answer. A
+    declaration says what a tool yields; an example says how the question
+    for it is actually asked, and matching on the declaration alone
+    selects the wrong tool for most real questions.
+    """
 
     def __post_init__(self) -> None:
         if _TOOL_ID.fullmatch(self.tool_id) is None:
@@ -90,6 +102,11 @@ class ConversationTool:
             raise ValueError("conversation tool fact_keys MUST be non-empty and unique")
         if any(_FACT_KEY.fullmatch(key) is None for key in self.fact_keys):
             raise ValueError("conversation tool fact_keys MUST be bounded ASCII identifiers")
+        if len(self.examples) > _MAX_TOOL_EXAMPLES or any(
+            not example.strip() or len(example) > _MAX_TOOL_EXAMPLE_CHARS
+            for example in self.examples
+        ):
+            raise ValueError("conversation tool examples MUST be bounded and non-empty")
 
 
 @dataclass(frozen=True, slots=True)

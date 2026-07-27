@@ -193,6 +193,13 @@ forwards only allowlisted identity fields with prompt values up to 256 character
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly.
 Agent answers keep Bragi as narrator while displaying the verified specialist as response owner.
+Before that answering turn, the delegate plans the routed owner's declared read tools from the
+question alone - a lexical, bilingual, model-free decision - and carries the scoped results as
+`tool_evidence`. Dispatch is capped at three tools, one level deep, and bounded by a single
+prefetch budget, so a question cannot open an unbounded read. The evidence is carried on the
+handoff too: the turn that abstains is the one where scoped evidence is worth the most. Only
+the answering owner's own reads are attached, because the plan runs before the turn and routing
+and the turn can disagree; another agent's read is not this answer's grounding.
 Charter version, hashes, and tool ids remain hidden provenance. An exact policy match lets the
 model receive that server-owned charter after Bragi's global safety prompt; it scopes role and
 voice without becoming evidence or authority. Runtime grounding uses supplied

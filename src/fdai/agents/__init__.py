@@ -45,6 +45,12 @@ from fdai.agents._framework.provider_adapters import StateStoreAuditChainAdapter
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
+from fdai.agents._framework.tool_planner import (
+    MAX_TOOL_PLANS,
+    ConversationToolPlan,
+    plan_conversation_tools,
+)
+from fdai.agents._framework.tool_semantic import SemanticToolConfig, SemanticToolPlanner
 from fdai.agents._framework.topics import (
     OWNED_OBJECT_TOPICS,
     partition_key_for,
@@ -63,8 +69,12 @@ __all__ = [
     "AgentHandlerObserver",
     "AgentHandlerPhase",
     "AgentSpec",
+    "MAX_TOOL_PLANS",
     "AgentToolResult",
     "AgentToolStatus",
+    "ConversationToolPlan",
+    "SemanticToolConfig",
+    "SemanticToolPlanner",
     "agent_state_evidence_ref",
     "Bragi",
     "ComposedConversationPrompt",
@@ -85,6 +95,7 @@ __all__ = [
     "StateStoreAuditChainAdapter",
     "SynthesisOutcome",
     "T2ConversationSynthesizer",
+    "plan_conversation_tools",
     "load_pantheon",
     "instantiate_pantheon",
     "PANTHEON_SPECS",

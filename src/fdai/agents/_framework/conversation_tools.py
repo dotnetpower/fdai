@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from enum import StrEnum
-from typing import Any
+from typing import Any, Final
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.introspection import agent_state_evidence_ref
@@ -17,6 +18,18 @@ from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 _MAX_QUESTION_CHARS = 2_000
 _MAX_TRACE_REF_CHARS = 256
 _MAX_OUTPUT_BYTES = 65_536
+
+#: The tool this task is already running, if any.
+#:
+#: Tool dispatch is one level deep by construction: an :class:`Agent` holds
+#: no reference to this registry, so there is no edge from an agent turn
+#: back to a tool call. This variable is the second lock. If a future edit
+#: ever creates that edge, the nested call is refused here rather than
+#: recursing, because a conversational port that can call itself can hang
+#: the whole read path. ``ContextVar`` is per-task, so tools dispatched
+#: concurrently each see their own empty value and only a genuinely nested
+#: call sees a non-empty one.
+_TOOL_IN_FLIGHT: Final[ContextVar[str]] = ContextVar("fdai_conversation_tool_in_flight", default="")
 
 
 class AgentToolStatus(StrEnum):
@@ -82,7 +95,14 @@ class AgentConversationToolRegistry:
             return self._abstain(agent_name, tool_id, "wrong_owner", trace_ref)
         if agent_name in self._disabled or agent_name not in self._agents:
             return self._abstain(agent_name, tool_id, "agent_disabled", trace_ref)
+        in_flight = _TOOL_IN_FLIGHT.get()
+        if in_flight:
+            # Depth is capped at one. Refusing is not a degradation here:
+            # a nested dispatch means a wiring bug, and answering it would
+            # trade an honest abstain for an unbounded call chain.
+            return self._abstain(agent_name, tool_id, f"reentrant_tool_call:{in_flight}", trace_ref)
         agent = self._agents[agent_name]
+        token = _TOOL_IN_FLIGHT.set(tool_id)
         try:
             async with asyncio.timeout(self._timeout_seconds):
                 envelope = await agent.on_conversation_turn(
@@ -97,6 +117,8 @@ class AgentConversationToolRegistry:
         except Exception:
             agent.record_behavior(f"conversation_tool:{tool_id}:error")
             return self._abstain(agent_name, tool_id, "error", trace_ref)
+        finally:
+            _TOOL_IN_FLIGHT.reset(token)
 
         answer = envelope.get("answer")
         facts = envelope.get("facts")

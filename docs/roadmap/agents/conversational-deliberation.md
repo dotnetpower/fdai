@@ -112,6 +112,82 @@ to four rules, each pinned by `tests/agents/test_charter_robustness.py`:
 The fourth rule has one deliberate exception. Bragi owns no runtime evidence at all - its roster
 answer is derived from the immutable specs - so it is always grounded and keeps the default.
 
+## Tool planning
+
+A charter tells its agent to answer "through the allowed tools", and the grounding layer now names
+them. Until it did, that instruction described a surface no turn could reach: the registry existed,
+but nothing in the read path dispatched a tool, so the sentence asked the agent to work through
+something it was never given.
+
+Selection happens outside the agent and before it answers, in two tiers - the same shape the agent
+router already uses for question-to-owner routing.
+
+Which tier leads was measured, not assumed. Against fourteen questions written the way operators
+actually ask them ("why did we get billed so much", "어제 되돌린 작업 뭐였지"), the tiers scored:
+
+| Tier | Right tool in the top three |
+|------|------|
+| T0 lexical only | 3 / 14 |
+| T0 first, T1 for what it misses | 11 / 14 |
+| T1 leading, T0 as the fallback | **13 / 14** |
+
+Lexical is not merely weaker. It is confidently wrong often enough to veto a better answer: its
+score counts term overlap, and two matched words say nothing about whether they were the right two.
+So meaning leads where an embedding is bound, and the lexical tier is what the path degrades to -
+an unbound model, a provider failure, or a match below the confidence floor all fall back to it. A
+deployment with no embedding model keeps exactly the behaviour it had.
+
+**T0, lexical.** `plan_conversation_tools` matches the question against what a tool declares - its
+id, its purpose, and the fact keys it yields - and returns the best matches with the terms that
+chose them. Operator vocabulary is translated onto those declared English terms, because tool ids
+and fact keys are record keys and stay English; without that bounded catalog a Korean question
+would match nothing at all.
+
+**T1, meaning.** `SemanticToolPlanner` embeds each tool once and caches it, then scores the
+question against those vectors with a cosine floor and a margin. Embedding the declarations alone
+scored exactly the same 3 / 14 as the words did, because a declaration sits in a different register
+from a question; each tool therefore carries a bilingual example of how its question is really
+asked, and those anchors are what lift the tier. The examples are retrieval anchors only - they
+never enter a prompt and never become evidence.
+
+The tier is an embedding rather than a generative model on purpose. Tool selection is part of the
+evidence trail, so it has to replay: the same question against the same catalog and the same model
+yields the same vectors and therefore the same plan. A generation that reorders tools between
+vendor versions could not make that promise.
+
+Each plan names the tier that produced it, because the two scores are not comparable - one counts
+matched terms, the other scales a cosine - and a reader must not have to infer which from the
+number.
+
+The vector cache is all or nothing. Ranking is relative, so a catalog missing one tool does not
+lose that tool; it sends that tool's questions to whichever tool is next closest, silently and for
+as long as the cache lives. An incomplete build is therefore refused and retried rather than
+cached, and a cache built under one model is dropped when the provider reports a different
+dimension - scoring a query against vectors from another space keeps producing confident numbers
+that mean nothing.
+
+The examples are retrieval anchors only. They are not part of the charter digest, so tuning
+retrieval never churns the audit trail, and they never reach a prompt or an answer.
+
+Tool selection also does not decide who answers. The plan runs before the turn, from the
+deterministically routed owner, and the turn can still land on a different agent; only the
+answering owner's own reads are attached to its answer, because evidence from an agent that did
+not answer is not that answer's grounding.
+
+Dispatch is bounded in four ways, because a read surface that an operator question can open is a
+denial-of-service surface if any of them is missing.
+
+| Bound | Value | Why |
+|-------|-------|-----|
+| Plans per question | `MAX_TOOL_PLANS` (3) | A question that wants dozens of reads wants a report. |
+| Depth | one level | An agent holds no reference to the registry, so no turn can call a tool. The registry refuses a nested call as the second lock. |
+| One dispatch | registry timeout, output ceiling, sensitivity scan | Owned by the registry, unchanged. |
+| The whole prefetch | `PREFETCH_BUDGET_SECONDS` (5) | A per-tool timeout does not bound the sum. A budget that only refused to *start* the next tool would still overrun by one full dispatch, so it cancels instead and returns what completed. |
+
+Prefetched evidence is supplementary. A tool that abstains, times out, or is cancelled by the
+budget contributes nothing and the answering turn proceeds, including on the abstain path - the
+turn with no answer is exactly the one where scoped evidence gathered up front is worth the most.
+
 ## T1 discussion
 
 The discussion path deliberately does not reuse a clear T0 route. T1 embedding similarity must

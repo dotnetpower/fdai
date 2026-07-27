@@ -133,6 +133,9 @@ def test_specialist_abstention_becomes_an_explicit_handoff_to_bragi() -> None:
         "trace_ref": "trace-handoff",
         "handoff_from": "Heimdall",
         "handoff_reason": "insufficient_agent_evidence",
+        # Prefetched before the turn, so a handoff still carries whatever
+        # scoped evidence the question asked for.
+        "tool_evidence": [],
     }
 
 
@@ -250,3 +253,49 @@ async def test_selected_agent_binding_persists_until_operator_explicitly_overrid
         "@Forseti verify this decision",
         "@Heimdall Compare Thor with the current observer",
     ]
+
+
+async def test_evidence_from_another_owner_never_rides_on_this_answer() -> None:
+    """The plan runs before the turn, so routing and the turn can disagree.
+
+    When they do, the prefetched reads belong to an agent that did not
+    answer. Presenting them beside this answer would offer a read that
+    had nothing to do with it as if it were its grounding.
+    """
+    from fdai.agents import AgentToolStatus
+
+    class _MismatchedRuntime:
+        def route_conversation(self, prompt: str) -> object:
+            return SimpleNamespace(primary_agent="Njord")
+
+        async def prefetch_conversation_tools(
+            self, prompt: str, *, agents: tuple[str, ...] = (), **kwargs: object
+        ) -> tuple[object, ...]:
+            return (
+                SimpleNamespace(
+                    agent=agents[0] if agents else "?",
+                    tool_id="read_cost_samples",
+                    answer="observed cost samples",
+                    facts={"tracked_scopes_count": 2},
+                    evidence_refs=("agent:Njord/state",),
+                    status=AgentToolStatus.OK,
+                ),
+            )
+
+        async def ask(self, **kwargs: object) -> object:
+            return SimpleNamespace(
+                answer={
+                    "answer": "Capacity holds for now.",
+                    "primary_agent": "Freyr",
+                    "facts": {},
+                    "trace_ref": "trace-1",
+                }
+            )
+
+    delegate = PantheonChatDelegate(runtime=_MismatchedRuntime())  # type: ignore[arg-type]
+
+    result = await delegate.delegate(prompt="용량 늘려야 하나", user_id="u", session_id="s")
+
+    assert result is not None
+    assert result["primary_agent"] == "Freyr"
+    assert result["tool_evidence"] == []

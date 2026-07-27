@@ -14,10 +14,13 @@ alongside the pantheon it describes (see `agent-pantheon.md` 6.2).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from fdai.agents._framework.base import (
     ConversationCharter,
     ConversationTool,
 )
+from fdai.agents._framework.tool_examples import tool_examples
 
 _CONVERSATION_GUARDRAILS = {
     "Odin": (
@@ -160,10 +163,20 @@ _ROLE_DIRECTIVES = {
 
 
 def conversation_tool(tool_id: str, purpose: str, *fact_keys: str) -> ConversationTool:
-    return ConversationTool(tool_id=tool_id, purpose=purpose, fact_keys=fact_keys)
+    # Examples are attached here rather than at each declaration so a new
+    # tool cannot be declared without one going unnoticed: the planner
+    # tests assert the catalog and the declarations match exactly.
+    return ConversationTool(
+        tool_id=tool_id,
+        purpose=purpose,
+        fact_keys=fact_keys,
+        examples=tool_examples(tool_id),
+    )
 
 
-def conversation_prompt_layers(name: str, mandate: str) -> tuple[str, ...]:
+def conversation_prompt_layers(
+    name: str, mandate: str, tool_ids: Sequence[str] = ()
+) -> tuple[str, ...]:
     peers = ", ".join(_CONVERSATION_PEERS[name])
     return (
         f"You are {name}, one of FDAI's fixed operational agents.",
@@ -173,8 +186,13 @@ def conversation_prompt_layers(name: str, mandate: str) -> tuple[str, ...]:
             "authoritative. This conversational port is read-only and cannot grant new authority."
         ),
         (
-            "Grounding: answer only from owned state through the allowed tools. Cite evidence refs "
-            "for every material claim."
+            # Name them. An instruction to work "through the allowed
+            # tools" that never says which tools exist is an instruction
+            # no turn can follow, and the runtime plans dispatch from
+            # exactly this list.
+            "Grounding: answer only from owned state through the allowed tools "
+            f"({', '.join(tool_ids)}). Cite evidence refs for every material "
+            "claim."
         ),
         (
             "Epistemics: separate observed facts, inferences, and unknowns. Treat missing or stale "
@@ -240,7 +258,12 @@ def conversation_charter(
     role_directive = _ROLE_DIRECTIVES[name]
     return ConversationCharter(
         version="v3",
-        system_prompt="\n".join((*conversation_prompt_layers(name, mandate), role_directive)),
+        system_prompt="\n".join(
+            (
+                *conversation_prompt_layers(name, mandate, tuple(tool.tool_id for tool in tools)),
+                role_directive,
+            )
+        ),
         tool_specs=tools,
         routing_examples=(english_route, korean_route),
         role_directive=role_directive,

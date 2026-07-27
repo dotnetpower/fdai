@@ -32,7 +32,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -58,6 +58,13 @@ from fdai.agents._framework.semantic_routing import (
     SemanticAgentRouter,
     SemanticRouterConfig,
 )
+from fdai.agents._framework.tool_planner import (
+    MAX_TOOL_PLANS,
+    ConversationToolPlan,
+    plan_conversation_tools,
+)
+from fdai.agents._framework.tool_prefetch import prefetch_tools
+from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 from fdai.agents.bragi import Bragi, RoutingDecision, Turn
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall, IncidentCandidateHook, ReadInvestigationHook
@@ -113,6 +120,7 @@ class PantheonRuntime:
     divergence: ShadowDivergenceLedger | None = None
     _bragi: Bragi | None = None
     _conversation_tools: AgentConversationToolRegistry | None = None
+    _semantic_tool_planner: SemanticToolPlanner | None = None
     _continuity_failures: dict[str, str] = field(default_factory=dict)
 
     @classmethod
@@ -372,6 +380,13 @@ class PantheonRuntime:
             disabled_agents=disabled,
             timeout_seconds=conversation_tool_timeout_seconds,
         )
+        # Bound to the same embedding the agent router uses. Absent it,
+        # tool selection stays exactly the lexical decision it was.
+        semantic_tool_planner = (
+            SemanticToolPlanner(embedding_model=conversation_embedding_model, specs=PANTHEON_SPECS)
+            if conversation_embedding_model is not None
+            else None
+        )
         runtime = cls(
             bridge=bridge,
             agents=agents,
@@ -382,6 +397,7 @@ class PantheonRuntime:
             divergence=divergence,
             _bragi=bragi_ref,
             _conversation_tools=conversation_tools,
+            _semantic_tool_planner=semantic_tool_planner,
         )
 
         # Ingress: raw events on the P1 topic -> Huginn.ingest -> normalized
@@ -561,6 +577,47 @@ class PantheonRuntime:
             question=question,
             requester=requester,
             correlation_id=correlation_id,
+        )
+
+    def plan_conversation_tools(
+        self,
+        question: str,
+        *,
+        agents: Sequence[str] = (),
+        limit: int = MAX_TOOL_PLANS,
+    ) -> tuple[ConversationToolPlan, ...]:
+        """Return the owned read tools this question asks for.
+
+        Deterministic and side-effect free, so a caller may show the plan
+        before spending anything on it.
+        """
+        return plan_conversation_tools(question, agents=agents, limit=limit)
+
+    async def prefetch_conversation_tools(
+        self,
+        question: str,
+        *,
+        agents: Sequence[str] = (),
+        limit: int = MAX_TOOL_PLANS,
+        trace_ref: str = "",
+    ) -> tuple[AgentToolResult, ...]:
+        """Run the tools this question asks for and return their results.
+
+        Bounded in count, depth, per-dispatch time, and total time. Never
+        raises for a tool that fails: a prefetch is supplementary
+        evidence, so an abstain or a timeout leaves the answering turn
+        untouched. See :mod:`fdai.agents._framework.tool_prefetch`.
+        """
+        registry = self._conversation_tools
+        if registry is None:
+            return ()
+        return await prefetch_tools(
+            question,
+            registry=registry,
+            semantic=self._semantic_tool_planner,
+            agents=agents,
+            limit=limit,
+            trace_ref=trace_ref,
         )
 
     async def invoke_conversation_tool(

@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d003b43a5620d5fb0b859f812c3b5e019bb5ebf4
-translation_revised: 2026-07-27
+translation_source_sha: 2fdae9814b9a90ee75f04211ce00dcffabbcd164
+translation_revised: 2026-07-28
 ---
 
 # 콘솔 근거 및 복원력
@@ -192,6 +192,13 @@ allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복
 selection을 unavailable로 표시합니다. Ontology projection과 결정론적 browse answer는 일반 prompt
 assembly와 분리된 자체 prompt module에 위치합니다.
 Agent answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로 표시합니다.
+그 답변 turn 전에 delegate는 질문만으로 라우팅된 owner의 선언된 read tool을 계획합니다. 어휘
+기반의 이중언어 판단이며 모델이 필요 없습니다. 범위 한정 결과는 `tool_evidence`로 전달됩니다.
+Dispatch는 도구 3개, 깊이 1단계로 제한되고 단일 prefetch 예산으로 유계이므로 질문 하나가 무제한
+읽기를 열 수 없습니다. Handoff에도 함께 전달됩니다. Abstain하는 turn이야말로 범위 한정 증거가
+가장 값진 경우이기 때문입니다. 첨부되는 것은 답한 owner 자신의 읽기뿐입니다. 계획은 turn 전에
+돌고 라우팅과 turn이 어긋날 수 있으며, 다른 에이전트의 읽기는 이 답변의 근거가 아니기
+때문입니다.
 Charter version, hash 및 tool id는 hidden provenance로 유지합니다. Exact policy match일 때 model은
 Bragi global safety prompt 뒤에서 server-owned charter를 받으며, charter는 role과 voice를 제한하지만
 evidence 또는 authority가 되지 않습니다. Runtime grounding은 제공된
