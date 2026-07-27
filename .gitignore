@@ -321,3 +321,10 @@ resolved-models*.json
 # Validation script artifacts (scripts/catalog/validate-catalog-full.py)
 logs/validation/
 tmp/
+
+# --------------------------------------------------------------------------
+# Presentation deck working folder. The L100 deck outline, its rendered HTML,
+# and the demo/screenshot media a delivery drops in are working artifacts that
+# carry customer-specific framing. They stay local and out of the repo.
+# --------------------------------------------------------------------------
+docs/user-guide/deck/
