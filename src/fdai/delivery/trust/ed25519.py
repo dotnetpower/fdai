@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
@@ -27,10 +27,10 @@ class Ed25519ExtensionTrustVerifier:
     def verify(self, manifest: ExtensionManifest, archive: bytes) -> bool:
         if hashlib.sha256(archive).hexdigest() != manifest.archive_sha256:
             return False
-        return _verify(
+        return _verify_payload(
             self.trusted_publishers.get(manifest.source),
             self.signature,
-            extension_signature_payload(manifest),
+            lambda: extension_signature_payload(manifest),
         )
 
 
@@ -42,10 +42,10 @@ class Ed25519SkillTrustVerifier:
     signature: bytes
 
     def verify(self, skill: RuntimeSkill, raw_markdown: bytes) -> bool:
-        return _verify(
+        return _verify_payload(
             self.trusted_publishers.get(skill.manifest.source),
             self.signature,
-            skill_signature_payload(skill, raw_markdown),
+            lambda: skill_signature_payload(skill, raw_markdown),
         )
 
 
@@ -117,10 +117,10 @@ class Ed25519SkillBundleTrustVerifier:
     def verify(self, bundle: RuntimeSkillBundle, raw_manifest: bytes) -> bool:
         if raw_manifest != bundle.raw_manifest:
             return False
-        return _verify(
+        return _verify_payload(
             self.trusted_publishers.get(bundle.manifest.source),
             self.signature,
-            skill_bundle_signature_payload(bundle),
+            lambda: skill_bundle_signature_payload(bundle),
         )
 
 
@@ -192,10 +192,10 @@ class Ed25519ModelEndpointRegistrationVerifier:
     trusted_publishers: Mapping[str, bytes]
 
     def verify(self, *, source: str, document: bytes, signature: bytes) -> bool:
-        return _verify(
+        return _verify_payload(
             self.trusted_publishers.get(source),
             signature,
-            model_endpoint_registration_signature_payload(source, document),
+            lambda: model_endpoint_registration_signature_payload(source, document),
         )
 
 
@@ -262,6 +262,27 @@ def _payload(*parts: str) -> bytes:
     if any(not part or "\0" in part for part in parts):
         raise ValueError("signature payload fields MUST be non-empty and NUL-free")
     return "\0".join(parts).encode("utf-8")
+
+
+def _verify_payload(
+    public_key_pem: bytes | None,
+    signature: bytes,
+    build_payload: Callable[[], bytes],
+) -> bool:
+    """Refuse, rather than raise, when a field cannot form a canonical payload.
+
+    A verifier is a trust boundary, and its answer is yes or no. A publisher
+    name carrying a NUL byte is hostile input rather than a programming error:
+    it cannot be encoded unambiguously, so it cannot be trusted. Letting it
+    raise would replace a clean refusal with a different failure mode in
+    whatever called the verifier, at the exact point that code is deciding
+    whether to load unverified content.
+    """
+    try:
+        payload = build_payload()
+    except ValueError:
+        return False
+    return _verify(public_key_pem, signature, payload)
 
 
 def _verify(public_key_pem: bytes | None, signature: bytes, payload: bytes) -> bool:

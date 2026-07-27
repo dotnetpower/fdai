@@ -23,6 +23,7 @@ from fdai.core.supply_chain import (
 )
 from fdai.delivery.trust.ed25519 import (
     Ed25519ExtensionTrustVerifier,
+    Ed25519ModelEndpointRegistrationVerifier,
     Ed25519SkillBundleTrustVerifier,
     Ed25519SkillCatalogVerifier,
     Ed25519SkillTrustVerifier,
@@ -212,3 +213,32 @@ def test_skill_bundle_signature_is_domain_separated_and_manifest_bound() -> None
     assert verifier.verify(bundle, raw) is True
     assert verifier.verify(bundle, raw + b" ") is False
     assert signature != private.sign(skill_signature_payload(skill, skill_raw))
+
+
+def test_a_publisher_name_with_a_nul_is_untrusted_rather_than_fatal() -> None:
+    """A verifier is a trust boundary and answers yes or no. A name that cannot
+    be encoded unambiguously is hostile input, not a programming error, so it
+    must refuse rather than raise into the caller that is deciding whether to
+    load unverified content.
+    """
+    _private, public = _keys()
+    archive = b"payload"
+    manifest = _extension(archive, source="publisher\x00evil")
+    verifier = Ed25519ExtensionTrustVerifier(
+        trusted_publishers={"publisher\x00evil": public},
+        signature=b"\x00" * 64,
+    )
+
+    assert verifier.verify(manifest, archive) is False
+
+
+def test_a_registration_source_with_a_nul_is_untrusted_rather_than_fatal() -> None:
+    _private, public = _keys()
+    verifier = Ed25519ModelEndpointRegistrationVerifier(
+        trusted_publishers={"publisher\x00evil": public}
+    )
+
+    assert (
+        verifier.verify(source="publisher\x00evil", document=b"doc", signature=b"\x00" * 64)
+        is False
+    )
