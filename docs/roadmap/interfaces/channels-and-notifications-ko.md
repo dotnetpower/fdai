@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 8a39a9205be3576aa1e083600a1d873cd51ce9e5
+translation_source_sha: c90709dd32a95a8940b88b2f86cf0e04650ddc3b
 translation_revised: 2026-07-27
 ---
 
@@ -230,7 +230,7 @@ payload 또는 fallback behavior를 변경하지 않으며 vendor presentation�
 | Streaming | 최초 `chat.postMessage` 후 cumulative `chat.update` | 최초 activity `POST` 후 cumulative activity `PUT` | 최종 text reply 하나 |
 | Edit | 선언된 message id에 `chat.update` | 선언된 activity id에 activity `PUT` | `Update:` prefix가 있는 새 thread reply |
 | Reaction | inbound message에 `reactions.add` | inbound message에 `messageReaction` activity | `Reaction:` label이 있는 새 thread reply |
-| Agent activity | handoff, plain-text command/result, Bragi answer 순서의 Block Kit section; post, stream update, edit에서 같은 block을 보존 | 24,000-byte card budget 안의 같은 순서 Adaptive Card block; 생략된 activity 수를 표시 | 같은 agent attribution 및 redaction marker가 있는 bounded text |
+| Agent activity | handoff, plain-text command/result, Bragi answer 순서의 Block Kit section; post, stream update, edit에서 같은 block을 보존 | 24,000-byte serialized card budget 안의 같은 순서 Adaptive Card block; multibyte answer를 byte 기준으로 제한하고 생략된 activity 수를 표시 | 같은 agent attribution 및 redaction marker가 있는 bounded text |
 
 Slack은 notification 및 accessibility fallback을 위해 top-level `text` field에 전체 activity
 fallback을 유지합니다. Block Kit은 각 activity를 자체 section에 한 번만 표시하고 final Bragi
@@ -252,8 +252,9 @@ latency, truncation, terminal completion 및 post-acknowledgement ambiguity를 �
 Truncation에는 vendor field limit에 맞춰 잘린 output과 Teams Adaptive Card의 24,000-byte budget을
 지키기 위해 완전히 생략된 activity가 포함됩니다. 또한 4,000-character answer-block limit에 맞춰
 잘린 canonical Teams answer도 포함됩니다. Metric은 truncation 발생 여부만 기록합니다. Omission
-count와 clipping marker는 card에 표시되고 원본 activity와 answer는 durable response evidence에
-유지됩니다.
+count와 clipping marker는 card에 표시됩니다. Multibyte JSON encoding이 card byte ceiling에 먼저
+도달하면 같은 marker와 metric을 사용해 answer를 더 일찍 자릅니다. 원본 activity와 answer는 durable
+response evidence에 유지됩니다.
 
 Observed output은 명시적인 provenance marker를 사용합니다. `[UPSTREAM OUTPUT TRUNCATED]`는
 evidence producer가 partial output을 제공했다는 뜻이고, `[CHANNEL OUTPUT TRUNCATED]`는 adapter가

@@ -173,40 +173,38 @@ def slack_escape(value: str) -> str:
 
 
 def teams_activity_card(response: OutboundResponse, answer: str) -> dict[str, object]:
-    card, _omitted = _teams_activity_card_result(response, answer)
+    card, _omitted, _answer_truncated = _teams_activity_card_result(response, answer)
     return card
 
 
 def teams_activity_omission_count(response: OutboundResponse, answer: str) -> int:
     """Return the activities omitted by the exact Teams card budget renderer."""
 
-    _card, omitted = _teams_activity_card_result(response, answer)
+    _card, omitted, _answer_truncated = _teams_activity_card_result(response, answer)
     return omitted
 
 
-def teams_answer_truncated(answer: str) -> bool:
+def teams_answer_truncated(response: OutboundResponse, answer: str) -> bool:
     """Return whether the Teams answer block clips the canonical answer."""
 
-    return len(answer) > TEAMS_FALLBACK_MAX_CHARS
+    _card, _omitted, answer_truncated = _teams_activity_card_result(response, answer)
+    return answer_truncated
 
 
 def _teams_activity_card_result(
     response: OutboundResponse,
     answer: str,
-) -> tuple[dict[str, object], int]:
+) -> tuple[dict[str, object], int, bool]:
     body: list[dict[str, object]] = []
-    answer_block: dict[str, object] = {
-        "type": "TextBlock",
-        "text": f"**Bragi**\n{bounded_text(answer, 4_000)}",
-        "wrap": True,
-        "separator": True,
-        "spacing": "Medium",
-    }
+    omission_reserve = (
+        [teams_omission_block(len(response.activities))] if response.activities else []
+    )
+    answer_block, answer_truncated = _teams_answer_block(answer, omission_reserve)
     omitted = 0
     for activity in response.activities:
         activity_blocks = teams_activity_blocks(activity)
         if (
-            teams_card_bytes([*body, *activity_blocks, teams_omission_block(1), answer_block])
+            teams_card_bytes([*body, *activity_blocks, *omission_reserve, answer_block])
             > TEAMS_CARD_MAX_BYTES
         ):
             omitted += 1
@@ -215,7 +213,39 @@ def _teams_activity_card_result(
     if omitted:
         body.append(teams_omission_block(omitted))
     body.append(answer_block)
-    return teams_card(body), omitted
+    return teams_card(body), omitted, answer_truncated
+
+
+def _teams_answer_block(
+    answer: str,
+    reserved_blocks: list[dict[str, object]],
+) -> tuple[dict[str, object], bool]:
+    def block(text: str) -> dict[str, object]:
+        return {
+            "type": "TextBlock",
+            "text": f"**Bragi**\n{text}",
+            "wrap": True,
+            "separator": True,
+            "spacing": "Medium",
+        }
+
+    bounded = bounded_text(answer, TEAMS_FALLBACK_MAX_CHARS)
+    answer_block = block(bounded)
+    char_truncated = len(answer) > TEAMS_FALLBACK_MAX_CHARS
+    if teams_card_bytes([*reserved_blocks, answer_block]) <= TEAMS_CARD_MAX_BYTES:
+        return answer_block, char_truncated
+
+    suffix = "\n[TRUNCATED]"
+    low = 0
+    high = min(len(answer), TEAMS_FALLBACK_MAX_CHARS - len(suffix))
+    while low < high:
+        midpoint = (low + high + 1) // 2
+        candidate = block(f"{answer[:midpoint]}{suffix}")
+        if teams_card_bytes([*reserved_blocks, candidate]) <= TEAMS_CARD_MAX_BYTES:
+            low = midpoint
+        else:
+            high = midpoint - 1
+    return block(f"{answer[:low]}{suffix}"), True
 
 
 def teams_activity_blocks(activity: ConversationActivity) -> list[dict[str, object]]:

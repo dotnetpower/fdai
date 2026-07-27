@@ -260,6 +260,42 @@ async def test_teams_activity_card_stays_under_byte_budget() -> None:
     assert len(str(captured["text"])) <= 4_000
 
 
+async def test_teams_multibyte_answer_stays_under_card_byte_budget() -> None:
+    captured: dict[str, object] = {}
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Inspect health",
+        tool="query_resource_health",
+        command="query_resource_health --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(201, json={"id": "activity-multibyte"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=client,
+        ).publish(
+            _response(
+                ConversationChannelKind.TEAMS,
+                activities=(activity,),
+                text="가" * 4_000,
+            )
+        )
+
+    attachments = captured["attachments"]
+    assert isinstance(attachments, list)
+    card = attachments[0]["content"]
+    assert len(json.dumps(card, separators=(",", ":")).encode("utf-8")) <= 24_000
+    assert "[TRUNCATED]" in str(card["body"][-1])
+
+
 async def test_activity_output_distinguishes_upstream_and_channel_truncation() -> None:
     slack_body: dict[str, object] = {}
     teams_body: dict[str, object] = {}

@@ -449,7 +449,7 @@ class TeamsBotFrameworkReplyPublisher:
             if (
                 _response_truncated(response, 4_000)
                 or _teams_activity_omission_count(response, response.text) > 0
-                or _teams_answer_truncated(response.text)
+                or _teams_answer_truncated(response, response.text)
             ):
                 self._progress_metrics.increment("truncations")
         return _receipt(

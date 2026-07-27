@@ -230,7 +230,7 @@ payload or fallback behavior and keeps vendor presentation independently testabl
 | Streaming | Initial `chat.postMessage`, then cumulative `chat.update` | Initial activity `POST`, then cumulative activity `PUT` | One final text reply |
 | Edit | `chat.update` for the declared message id | Activity `PUT` for the declared activity id | New thread reply prefixed with `Update:` |
 | Reaction | `reactions.add` against the inbound message | `messageReaction` activity against the inbound message | New thread reply with a `Reaction:` label |
-| Agent activity | Block Kit sections in handoff, plain-text command/result, Bragi-answer order; posts, stream updates, and edits preserve the same blocks | Adaptive Card blocks in the same order under a 24,000-byte card budget; omitted activities are counted | Bounded text with the same agent attribution and redaction markers |
+| Agent activity | Block Kit sections in handoff, plain-text command/result, Bragi-answer order; posts, stream updates, and edits preserve the same blocks | Adaptive Card blocks in the same order under a 24,000-byte serialized card budget; multibyte answers are byte-bounded and omitted activities are counted | Bounded text with the same agent attribution and redaction markers |
 
 Slack keeps the complete activity fallback in the top-level `text` field for notification and
 accessibility fallback. Block Kit carries each activity once in its own section and passes only the
@@ -252,8 +252,9 @@ and post-acknowledgement ambiguity without retaining message, destination, or id
 Truncation includes output clipped to a vendor field limit and any complete activity omitted from
 the Teams Adaptive Card to preserve its 24,000-byte budget. It also includes a canonical Teams
 answer clipped to the 4,000-character answer-block limit. The metric records only that truncation
-occurred. The omission count and clipping marker stay visible in the card, and the original
-activities and answer remain in the durable response evidence.
+occurred. When multibyte JSON encoding reaches the card byte ceiling first, the answer is clipped
+earlier with the same marker and metric. The omission count and clipping marker stay visible in the
+card, and the original activities and answer remain in the durable response evidence.
 
 Observed output uses explicit provenance markers. `[UPSTREAM OUTPUT TRUNCATED]` means the evidence
 producer supplied partial output; `[CHANNEL OUTPUT TRUNCATED]` means the adapter clipped output to
