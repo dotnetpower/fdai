@@ -22,7 +22,9 @@ if [[ "$1 $2" == "account show" ]]; then
   if [[ "${FAKE_AZ_SHOW_FAIL:-0}" == "1" ]]; then
     exit 1
   fi
-  printf '%s\t%s\n' "$FAKE_AZ_SUBSCRIPTION" "$FAKE_AZ_TENANT"
+  # Real `az ... --query '[id,tenantId]' --output tsv` prints one element per
+  # line. A tab-joined fake hides a parser that only ever reads the first line.
+  printf '%s\n%s\n' "$FAKE_AZ_SUBSCRIPTION" "$FAKE_AZ_TENANT"
 elif [[ "$1 $2" == "account set" ]]; then
   exit 0
 else

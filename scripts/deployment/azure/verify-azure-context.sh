@@ -22,7 +22,15 @@ account="$({
   exit 1
 }
 
-IFS=$'\t' read -r actual_subscription actual_tenant <<<"$account"
+# `--output tsv` renders a JMESPath list one element per line, not tab-joined, so
+# reading it as a single tab-separated record leaves the tenant empty and the
+# check below can never pass.
+actual_subscription="$(sed -n '1p' <<<"$account")"
+actual_tenant="$(sed -n '2p' <<<"$account")"
+if [[ -z "$actual_subscription" || -z "$actual_tenant" ]]; then
+  echo "verify-azure-context: the active identity did not report both axes." >&2
+  exit 1
+fi
 if [[ "$actual_subscription" != "$expected_subscription" ]]; then
   echo "verify-azure-context: active subscription does not match the expected target." >&2
   exit 1
