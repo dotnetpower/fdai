@@ -1,7 +1,7 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: dac30d6f20435c28339e296675d2ff4b55cbe449
+translation_source_sha: 3cfd2f614a5a6c8ae3410f83dfe442f65bb75ec8
 translation_revised: 2026-07-27
 ---
 # 폐쇄망 배포
@@ -142,6 +142,28 @@ workflow에 작업을 제출하므로, 그 도달성이 없는 테난트는 `man
 Terraform을 직접 실행합니다. 그리고 5단계와 7단계는 CLI가 아니라 운영자의 몫입니다. Bootstrap
 plan/apply orchestration이 목표 동작으로 남아 있어, 위 순서는 한 개의 명령이 아니라 사람이 따라가는
 체크리스트입니다.
+
+## 네트워크 없이 전 경로 예행연습
+
+`scripts/deployment/release/airgap-drill.sh`는 고객이 받는 것과 같은 두 단계로 인계를 실행합니다.
+그래서 폐쇄망 경로가 주장이 아니라 실증됩니다. Stage 단계는 wheel, 서명된 deployment bundle,
+Terraform provider mirror를 만들고 실제 offline kit 하나를 조립해 서명합니다. Verify 단계는 route도
+name resolution도 없는 network namespace 안에서 모든 폐쇄망 단계를 다시 실행합니다.
+
+```bash
+bash scripts/deployment/release/airgap-drill.sh
+```
+
+Verify 단계가 순서대로 단정하는 것: namespace에 정말로 egress와 DNS가 없다, 서명된 kit이 검증된다,
+서명된 bundle이 검증된다, `terraform init`이 kit mirror만으로 모든 provider를 해석한다,
+`terraform validate`가 bundle을 수락한다, `terraform test`가 mock provider로 plan graph를
+평가한다, mirror 없이는 같은 `init`이 **실패한다**, `fdaictl license inspect`가 entitlement를
+해석한다. 일곱 번째가 중요한 대조군입니다. 이것이 없으면 캐시된 plugin 디렉터리가 아무것도 증명하지
+않은 채 드릴을 통과시킬 수 있습니다.
+
+드릴은 의도적으로 plan 평가에서 멈춥니다. 실제 `terraform apply`는 여전히 테난트의 승인된 private
+관리 평면 경로가 필요하며, 그것을 로컬에서 시뮬레이션했다고 주장하는 것은 이 설계가 피하려는 종류의
+주장입니다. 드릴의 서명 key는 work 디렉터리 안의 일회용 key이며 리포지토리 자산이 되지 않습니다.
 
 ## 완전 air gap
 

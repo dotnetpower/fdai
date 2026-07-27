@@ -139,6 +139,30 @@ Two consequences are worth stating before an operator plans a handover. `fdaictl
 operator's, not the CLI's: bootstrap plan and apply orchestration remain target behavior, so the
 sequence above is a checklist a person follows rather than one command.
 
+## Rehearsing the whole path with no network
+
+`scripts/deployment/release/airgap-drill.sh` runs the handover in the two phases a customer
+receives it, so the disconnected path is exercised rather than asserted. The stage phase builds the
+wheel, the signed deployment bundle, and a Terraform provider mirror, then assembles and signs one
+real offline kit. The verify phase re-runs every disconnected step inside a network namespace that
+has no route and no name resolution.
+
+```bash
+bash scripts/deployment/release/airgap-drill.sh
+```
+
+The verify phase asserts, in order: the namespace really has no egress or DNS; the signed kit
+verifies; the signed bundle verifies; `terraform init` resolves every provider from the kit mirror
+alone; `terraform validate` accepts the bundle; `terraform test` evaluates the plan graph through
+mocked providers; the same `init` **fails** without the mirror; and `fdaictl license inspect`
+resolves entitlement. Step seven is the control that matters - without it, a cached plugin directory
+could pass the drill while proving nothing.
+
+The drill stops at plan evaluation on purpose. A real `terraform apply` still needs the tenant's
+approved private path to the management plane, and pretending to simulate that locally would be the
+kind of claim this design is built to avoid. Its signing keys are throwaway keys under the work
+directory and never become repository material.
+
 ## Full air gap
 
 A site with no Azure reachability at all can still run the deterministic core. The policy engine is
