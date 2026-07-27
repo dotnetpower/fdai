@@ -1,19 +1,19 @@
 ---
 title: SRE foundations
-description: The core SRE functions FDAI automates, and how each maps to the control loop, the agents, and the three verticals.
+description: The core SRE functions FDAI automates, and how each one maps to the control loop, the agents, and the three verticals.
 sidebar:
   order: 1
 ---
 
 # SRE foundations
 
-FDAI is an autonomous take on **Site Reliability Engineering (SRE)**. The SRE
-discipline defines a set of recurring functions - watch the system, catch
-regressions, ship changes safely, plan capacity, control cost, prepare for
-disaster, and eliminate toil. FDAI keeps those functions but changes who runs
-them: repeatable cases are candidates for rule-driven handling, and people stay
-in the loop for novel, high-risk, or insufficiently grounded cases. Actual
-autonomous coverage is measured after shadow evaluation and promotion.
+FDAI is an autonomous take on **Site Reliability Engineering (SRE)**. SRE
+defines a set of recurring functions: watch the system, catch regressions, ship
+changes safely, plan capacity, control cost, prepare for disaster, and remove
+toil. FDAI keeps every one of those functions and changes who runs them.
+Repeatable cases become candidates for rule-driven handling, and people stay in
+the loop for cases that are new, high risk, or short on evidence. How much runs
+automatically is measured after observation-mode evaluation and promotion.
 
 This page is the map. It lists the SRE functions FDAI covers, what each one
 does, and where to read the mechanism in depth.
@@ -22,7 +22,7 @@ does, and where to read the mechanism in depth.
 
 | SRE function | What it does in FDAI | Vertical / owner |
 |--------------|----------------------|------------------|
-| Monitoring and observability | Ingests resource-change signals, activity-log events, and detector detected issues; correlates them into incidents | Heimdall, Huginn |
+| Monitoring and observability | Takes in resource-change signals, activity-log events, and detected issues, then correlates them into incidents | Heimdall, Huginn |
 | Incident detection and response | Routes each signal by confidence, decides a decision, and acts or escalates | trust-router, Forseti |
 | Change management | Gates every proposed change against policy-as-code before it ships | Change Safety |
 | Capacity and performance | Detects sizing gaps and proposes or runs promoted scaling actions against measured demand | Freyr, Cost Governance |
@@ -34,21 +34,20 @@ does, and where to read the mechanism in depth.
 ## Monitoring and observability
 
 FDAI is event-driven, not a polling dashboard. Resource changes, activity-log
-events, and anomaly or forecast detected issues arrive on the event bus. The sensing
-agents normalize, deduplicate, and correlate them into incidents so a single
-root event is not counted as ten symptoms.
+events, and issues detected by anomaly or forecast checks all arrive on the event
+bus. The sensing agents normalize them, drop duplicates, and correlate them into
+incidents, so one root event does not get counted as ten symptoms.
 
 Example: five alerts fire from one failed deployment -> the collector correlates
 them on a shared resource key -> one incident enters the loop, not five.
 
 ## Incident detection and response
 
-Every correlated event is scored by the **trust router**, which picks the
-lowest tier competent to decide it (see
-[risk-tiers.md](risk-tiers.md)). Deterministic cases resolve at T0 with no model
-call; ambiguous cases escalate. Detection stays deterministic-first: an anomaly
-or a prediction raises a *detected issue* that the safety check governs - it never
-auto-acts on its own.
+The **trust router** scores every correlated event and picks the lowest tier
+that can decide it (see [risk-tiers.md](risk-tiers.md)). Deterministic cases
+resolve at T0 with no model call, and ambiguous cases move up. Detection stays
+deterministic-first. An anomaly or a prediction raises a detected issue that the
+safety check governs. It never acts on its own.
 
 ## A detected issue is not an action
 
@@ -57,10 +56,11 @@ the same trust router and safety check as any other event. It becomes an executa
 action only when a valid `ActionType` supplies the safety contract and every
 verification, scope, lock, and approval requirement passes.
 
-Example: a forecast predicts capacity exhaustion -> Freyr emits a detected issue ->
-the router selects a tier -> the safety check evaluates the proposed scaling
-action -> shadow, human approval, or promoted auto behavior follows. The prediction itself
-never scales the workload.
+Example: a forecast predicts that capacity will run out -> Freyr emits a
+detected issue -> the router selects a tier -> the safety check evaluates the
+proposed scaling action -> the result is observation mode, human approval, or, if
+the action is already promoted, automatic execution. The prediction itself never
+scales the workload.
 
 ## Reasoning tier is not autonomy level
 
@@ -76,59 +76,60 @@ Each input can lower autonomy; none can raise it above a stricter input.
 | T1 reuse | A prior pattern may apply after re-verification | Current scope and dependencies are unchanged |
 | T2 proposal | Grounded reasoning passed its quality gate | The proposal may execute |
 
-This separation explains why a deterministic detected issue can still route to human
-review and why a well-grounded T2 result can remain shadow-only.
+This separation is why a deterministic detected issue can still go to human
+review, and why a well-supported T2 result can stay in observation mode.
 
 ## The runtime contract remains mandatory
 
-Before mutation, FDAI rechecks the proposed action against current inventory
-and policy. The executor proceeds only with a dry run, stop condition, rollback
-path, impact scope limit, per-resource lock, stable idempotency key, authorized
-workload identity, and writable audit path. If any required input becomes stale
-or unavailable, the action becomes an audited no-op, shadow result, or denial
-according to policy. A console button or notification reply cannot replace
-these checks.
+Before anything changes, FDAI rechecks the proposed action against the current
+inventory and policy. The executor proceeds only when it has a dry run, a stop
+condition, a rollback path, an impact scope limit, a per-resource lock, a stable
+idempotency key, an authorized workload identity, and a writable audit path. If a
+required input goes stale or disappears, the action becomes an audited no-op, an
+observation-mode result, or a denial, depending on policy. A console button or a
+reply to a notification cannot stand in for these checks.
 
 ## Change management
 
-Before a change ships, it is dry-run against policy-as-code, impact scope
-scoped, and either prepared for a configured PR-native policy or routed to human approval. Actions are delivered as
-**fix PRs**, so review, approval, and rollback are inherited from git.
+Before a change ships, FDAI dry-runs it against policy-as-code, limits its impact
+scope, and then either prepares it for the configured pull-request merge policy
+or sends it for human approval. Actions arrive as **fix pull requests**, so
+review, approval, and rollback all come from Git.
 
-Example: an IaC PR proposes a public-egress rule -> the safety check flags it
-high-risk -> an approval card reaches you in Teams -> you approve -> the
-PR-native merge policy or authorized approver completes delivery -> FDAI writes
-the audit entry.
+Example: an IaC pull request proposes a public-egress rule -> the safety check
+marks it high risk -> an approval card reaches you in Teams -> you approve -> the
+merge policy or an authorized approver completes delivery -> FDAI writes the
+audit entry.
 
 ## Capacity, performance, and cost
 
-Capacity and cost are two views of the same signal: is a resource sized to its
-demand? FDAI detects over- and under-provisioning and recommends a right-size.
-Low-risk candidates such as unattached public IP release must still collect
-shadow evidence and be promoted independently before auto execution. Anything
-that could degrade a live workload remains gated.
+Capacity and cost are two views of the same question: is this resource sized for
+its demand? FDAI detects over- and under-provisioning and recommends a
+right-size. Even a low-risk candidate such as releasing an unattached public IP
+has to collect observation evidence and be promoted on its own before it can run
+automatically. Anything that could degrade a live workload stays gated.
 
 ## Reliability and disaster recovery
 
-Reliability work is proactive here. Scheduled DR drills, database restore
-exercises, and impact scope-bounded chaos experiments run on a cadence. Cadence,
-scope, and proof stay separated: the scheduler owns cadence, the safety check owns
-scope, and the audit log owns proof.
+Reliability work here is proactive. Scheduled DR drills, database restore
+exercises, and chaos experiments with a bounded impact scope run on a cadence.
+Cadence, scope, and proof stay separate: the scheduler owns cadence, the safety
+check owns scope, and the audit log owns proof.
 
 ## Toil elimination
 
-The whole point of the deterministic-first design is to remove toil. Because the
-repeatable majority is decided by rules, operators stop hand-approving the same
-drift, cost regression, or policy violation every week. The human is reserved
-for the novel and the high-risk (see
+The whole point of the deterministic-first design is to remove toil. Because
+rules decide the repeatable majority, you stop hand-approving the same drift,
+cost regression, or policy violation every week. People are reserved for the new
+and the high-risk cases (see
 [deterministic-first.md](deterministic-first.md)).
 
 ## Postmortem and learning
 
-Every terminal decision - including no-ops, rejects, and human approval timeouts - writes
-an append-only audit entry. A learning loop watches those signals (human approval
-approvals, shadow drift, overrides) and proposes grounded catalog candidates.
-It never edits or promotes the catalog directly.
+Every final decision writes an append-only audit entry, including no-ops,
+rejections, and approval timeouts. A learning loop watches those signals, such as
+approvals, observation-mode drift, and overrides, and proposes catalog candidates
+backed by evidence. It never edits or promotes the catalog itself.
 
 ## How SRE improvement is measured
 
@@ -162,7 +163,7 @@ console or notification channel inheriting executor authority.
 | How incidents move from open to closed | [Incident management](../sre/incident-management.md) |
 | How FDAI produces grounded cause hypotheses | [Root-cause analysis](../sre/root-cause-analysis.md) |
 | Why the repeatable majority never reaches an LLM | [deterministic-first.md](deterministic-first.md) |
-| How decisions become auto vs human approval | [risk-tiers.md](risk-tiers.md) |
+| How decisions become auto or human approval | [risk-tiers.md](risk-tiers.md) |
 | How every action inherits a safety contract | [ontology-driven-automation.md](ontology-driven-automation.md) |
 | Which agents run each function and how they self-heal | [agents-and-self-healing.md](agents-and-self-healing.md) |
 | The three verticals end to end | [../get-started.md](../get-started.md) |
