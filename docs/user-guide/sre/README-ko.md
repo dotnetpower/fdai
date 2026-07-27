@@ -46,12 +46,12 @@ Governance는 효율성을 관리하며, Resilience는 복구 가능성을 증�
 ## 연동 대상
 
 - **Azure 신호**: Activity Log 이벤트, 리소스 인벤토리, 배포 이력, 서비스 메트릭이
-  provider adapter를 통해 들어옵니다.
+  provider 어댑터를 통해 들어옵니다.
 - **관측 시스템**: 메트릭, 로그, 트레이스 provider는 근거를 공급할 뿐 두 번째 실행
   경로가 되지 않습니다.
-- **Git과 ChatOps**: 수정 pull request가 변경을 전달하고, Teams 또는 Slack이
-  승인과 운영 알림을 전달합니다.
-- **감사와 리포팅**: 모든 최종 결과는 추가 전용 감사 레코드와 correlation 참조로
+- **Git과 ChatOps**: 수정 pull request가 변경을 전달하고, Teams나 Slack이 승인과 운영
+  알림을 전달합니다.
+- **감사와 보고**: 모든 최종 결과는 추가 전용 감사 기록과 상관관계 참조로 다시
   재구성할 수 있습니다.
 
 ## 작동 방식
@@ -60,8 +60,8 @@ Governance는 효율성을 관리하며, Resilience는 복구 가능성을 증�
    것들을 하나의 인시던트로 묶습니다.
 2. **조사하고 대응합니다.** 범위가 제한된 근거 묶음을 만들고 그 근거에 기반한 근본 원인
    분석을 도출한 다음, 모든 완화 제안을 관리되는 작업 파이프라인으로 보냅니다.
-3. **복구하고 학습합니다.** 복구를 검증하고 최종 감사 레코드를 쓰며 포스트모템을
-   작성한 뒤 증거 기반 개선 후보를 제안합니다.
+3. **복구하고 학습합니다.** 복구를 확인하고 최종 감사 기록을 남기며 포스트모템을 작성한 뒤
+   근거에 기반한 개선 후보를 제안합니다.
 
 ```text
 signals -> finding -> incident -> investigation -> RCA
@@ -96,24 +96,24 @@ FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. provider
 
 ## SRE 기능 지도
 
-| 영역 | 문서 | Upstream 상태 |
-|------|------|---------------|
-| 관측성, 상관관계, 이상 감지, 예측 | [관측성, 감지, 예측](observability-detection-and-forecasting-ko.md) | Covered. 실제 telemetry adapter는 배포 binding입니다. |
-| 워크로드 목표와 burn rate | [SLO와 오류 예산](slos-and-error-budgets-ko.md) | 실제 metric provider와 예약 trigger가 연결될 때까지 Partial입니다. |
-| 용량과 성능 | [용량과 성능](capacity-and-performance-ko.md) | Covered. 자율 액션은 계속 승격 게이트를 따릅니다. |
-| 인시던트 라이프사이클 | [인시던트 관리](incident-management-ko.md) | Covered |
-| 범위가 제한된 증거 수집 | [분류와 조사](triage-and-investigation-ko.md) | Covered. 증거 깊이는 provider에 따라 달라집니다. |
-| 근본 원인 가설 | [근본 원인 분석](root-cause-analysis-ko.md) | Covered. T2는 구성된 모델 및 knowledge binding에 의존합니다. |
-| 대응 계획과 완화 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) | Covered. 계획은 제안하고 라우팅하며 승인을 우회하지 않습니다. |
-| 온콜과 에스컬레이션 | [온콜과 에스컬레이션](on-call-and-escalation-ko.md) | paging adapter와 DM targeting이 연결될 때까지 Partial입니다. |
-| 인시던트 이후 학습 | [포스트모템과 학습](postmortems-and-learning-ko.md) | Covered |
-| 성과 측정 | [SRE 성과 측정](measuring-sre-outcomes-ko.md) | baseline 및 treatment window가 있을 때 Covered입니다. |
-| 시나리오 증거 | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) | Demo 18개, live 적용 모드 10개, frozen replay 9개, catalog scenario 132개 |
-| 재해 복구 | [재해 복구와 훈련](disaster-recovery-and-drills-ko.md) | 제공되는 drill과 adapter 범위에서 Covered입니다. |
+| 영역 | 문서 | 상위 프로젝트 상태 |
+|------|------|--------------------|
+| 관측성, 상관관계, 이상 감지, 예측 | [관측성, 감지, 예측](observability-detection-and-forecasting-ko.md) | 지원됩니다. 실제 관측 어댑터는 배포 환경에서 연결합니다. |
+| 워크로드 목표와 예산 소진 속도 | [SLO와 오류 예산](slos-and-error-budgets-ko.md) | 실제 지표 provider와 예약 실행이 연결될 때까지는 부분 지원입니다. |
+| 용량과 성능 | [용량과 성능](capacity-and-performance-ko.md) | 지원됩니다. 자율 작업은 여전히 승격 기준을 따릅니다. |
+| 인시던트 생애주기 | [인시던트 관리](incident-management-ko.md) | 지원됩니다. |
+| 범위를 정한 근거 수집 | [분류와 조사](triage-and-investigation-ko.md) | 지원됩니다. 근거의 깊이는 provider에 따라 달라집니다. |
+| 근본 원인 가설 | [근본 원인 분석](root-cause-analysis-ko.md) | 지원됩니다. T2는 설정된 모델과 지식 연결에 좌우됩니다. |
+| 대응 계획과 완화 | [대응 계획과 완화](response-plans-and-mitigation-ko.md) | 지원됩니다. 계획은 제안하고 전달할 뿐 승인을 우회하지 않습니다. |
+| 온콜과 에스컬레이션 | [온콜과 에스컬레이션](on-call-and-escalation-ko.md) | 페이징 어댑터와 개인 메시지 지정이 연결될 때까지는 부분 지원입니다. |
+| 인시던트 이후 학습 | [포스트모템과 학습](postmortems-and-learning-ko.md) | 지원됩니다. |
+| 성과 측정 | [SRE 성과 측정](measuring-sre-outcomes-ko.md) | 기준선과 적용군 측정 기간이 있으면 지원됩니다. |
+| 시나리오 근거 | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) | 데모 18개, 실제 적용 모드 10개, 고정 재생 9개, 카탈로그 시나리오 132개 |
+| 재해 복구 | [재해 복구와 훈련](disaster-recovery-and-drills-ko.md) | 제공되는 훈련과 어댑터 범위에서 지원됩니다. |
 | 카오스 엔지니어링 | [카오스 엔지니어링](chaos-engineering-ko.md) | 지원됩니다. 모든 시나리오는 관찰 모드에서 시작합니다. |
 
-> 상태 페이지 broadcast와 DORA 배포 메트릭은 Deferred 상태입니다. Provider 및 데이터
-> 계약을 구현하기 전에는 사용 가능한 SRE 기능으로 표시하지 않습니다.
+> 상태 페이지 공지와 DORA 배포 지표는 아직 미구현입니다. provider와 데이터 계약을 구현하기
+> 전까지는 사용 가능한 SRE 기능으로 소개하지 않습니다.
 
 ## 환경과 함께 확장
 
