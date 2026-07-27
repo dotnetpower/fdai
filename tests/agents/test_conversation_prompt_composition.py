@@ -40,16 +40,24 @@ _SITUATIONS = tuple(
         evidence_available=evidence,
         action_intent=action_intent,
         escalation_available=escalation,
-        handoff_owner="Odin" if audience == "peer" else None,
+        escalation_spent=0 if escalation else 1,
+        escalation_limit=0 if escalation else 1,
+        handoff_owner="Odin" if handoff else None,
+        tool_id="read_portfolio_policy" if scoped else None,
+        tool_fact_keys=("priority_order", "temporal_policy") if scoped else (),
     )
-    for audience, phase, tier, locale, evidence, action_intent, escalation in product(
-        ("operator", "peer"),
-        ("direct", "position", "critique"),
-        ("T0", "T1", "T2"),
-        ("en", "ko"),
-        (True, False),
-        (True, False),
-        (True, False),
+    for audience, phase, tier, locale, evidence, action_intent, escalation, handoff, scoped in (
+        product(
+            ("operator", "peer"),
+            ("direct", "position", "critique"),
+            ("T0", "T1", "T2"),
+            ("en", "ko"),
+            (True, False),
+            (True, False),
+            (True, False),
+            (True, False),
+            (True, False),
+        )
     )
 )
 
@@ -491,3 +499,18 @@ def test_an_exempt_constraint_layer_still_bounds_its_own_text() -> None:
     assert "tool_scope" in composed.layer_ids
     # The scope stays honest: it names what it can and counts the rest.
     assert "and 388 further declared fact(s)" in composed.text
+
+
+def test_every_charter_keeps_headroom_for_another_layer() -> None:
+    """Exceeding the charter bound raises at import, which is a hard stop.
+
+    A layer added to the shared contract lands in all fifteen charters at
+    once. Keeping provable headroom means that addition fails here, as a
+    test, instead of crashing the package on import.
+    """
+    tightest = max(
+        ((len(spec.conversation.system_prompt), spec.name) for spec in PANTHEON_SPECS),
+    )
+    headroom = MAX_CHARTER_PROMPT_CHARS - tightest[0]
+
+    assert headroom >= 512, f"{tightest[1]} leaves only {headroom} characters"
