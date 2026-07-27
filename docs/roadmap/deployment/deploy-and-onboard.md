@@ -188,6 +188,12 @@ All default to the dev posture (the live env is unchanged) and tighten via tfvar
 | Monitoring | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + destination |
 | Cost | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | set |
 
+A tenant without public registry egress builds the runtime image with
+`--build-arg BASE_IMAGE_REGISTRY=<internal-mirror>`. Only the registry host moves; the base
+image digests stay pinned in the `Dockerfile`, so a mirror can change where the bytes come from
+but never which bytes are accepted. `scripts/quality/ci/check-ci-contracts.py` fails the build
+when a base image loses either property.
+
 `enable_private_postgres` adds a dedicated subnet delegated to PostgreSQL Flexible Server,
 links a private DNS zone to the app and ops VNet, disables public access, and removes the
 `AllowAllAzureServices` firewall rule. Turning it on for an existing public server may replace

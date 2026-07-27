@@ -11,8 +11,14 @@
 # - Runs as a numeric nonroot user (uid 65532). Container Apps enforces read-only fs
 #   on the app volume by default; only the writable OTel/temp mounts are
 #   used.
+# - BASE_IMAGE_REGISTRY lets a disconnected tenant build from an internal
+#   registry mirror (`--build-arg BASE_IMAGE_REGISTRY=myacr.azurecr.io`) without
+#   editing this file. The digest pin stays in place, so a mirror that serves
+#   different content fails the pull instead of shipping unreviewed bytes.
 
-FROM golang@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS opa-builder
+ARG BASE_IMAGE_REGISTRY=docker.io
+
+FROM ${BASE_IMAGE_REGISTRY}/library/golang@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS opa-builder
 
 ARG OPA_VERSION=v1.18.2
 ARG OPA_GRPC_VERSION=v1.82.1
@@ -25,7 +31,7 @@ RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VE
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "google.golang.org/grpc" {print $3}')" = "${OPA_GRPC_VERSION}" \
     && /go/bin/opa version
 
-FROM python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -46,7 +52,7 @@ COPY policies/ ./policies/
 RUN uv sync --frozen --no-dev --extra serve --extra pdf-report --no-editable
 
 # ----------------------------------------------------------------------------
-FROM python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS runtime
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

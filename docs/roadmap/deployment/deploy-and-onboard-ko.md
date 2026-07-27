@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: c1a08486ef86cdb4d4b7521d7ad86223668c4636
+translation_source_sha: 6492d63f592c42fb96553e75b0fd23a9cf9977b3
 translation_revised: 2026-07-27
 ---
 
@@ -192,6 +192,12 @@ exact pair에 access할 수 없으면 mutation 전에 fail합니다.
 | Registry | `acr_sku` | `Premium` |
 | 모니터링 | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + 목적지 |
 | 비용 | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | 설정 |
+
+Public registry egress가 없는 테난트는 `--build-arg BASE_IMAGE_REGISTRY=<내부-미러>`로 런타임
+이미지를 빌드합니다. 움직이는 것은 registry host뿐이고 base image digest는 `Dockerfile`에 pin된
+채로 남습니다. 따라서 미러는 바이트의 출처를 바꿀 수 있어도 어떤 바이트가 수락되는지는 바꿀 수
+없습니다. Base image가 둘 중 하나라도 잃으면 `scripts/quality/ci/check-ci-contracts.py`가 빌드를
+실패시킵니다.
 
 `enable_private_postgres`는 PostgreSQL Flexible Server 전용 delegated subnet을 추가하고 app/ops
 VNet에 private DNS zone을 연결하며 public access와 `AllowAllAzureServices` firewall rule을

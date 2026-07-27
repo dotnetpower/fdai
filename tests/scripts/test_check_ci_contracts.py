@@ -69,3 +69,43 @@ def test_uv_cache_contract_allows_one_writer(
         encoding="utf-8",
     )
     assert module._validate_uv_cache_writers() == []
+
+
+def test_base_images_must_stay_mirror_overridable_and_digest_pinned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A disconnected build redirects where bytes come from, never which bytes."""
+    module = _load_contract_module()
+    dockerfile = tmp_path / "Dockerfile"
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    dockerfile.write_text(
+        "FROM docker.io/library/python:3.13 AS builder\nFROM builder AS runtime\n",
+        encoding="utf-8",
+    )
+
+    assert module._validate_base_images() == [
+        "Dockerfile must declare ARG BASE_IMAGE_REGISTRY with a default",
+        "Dockerfile base image docker.io/library/python:3.13 must be prefixed with "
+        "${BASE_IMAGE_REGISTRY}/",
+        "Dockerfile base image docker.io/library/python:3.13 must be digest-pinned",
+    ]
+
+
+def test_compliant_base_images_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_contract_module()
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    (tmp_path / "Dockerfile").write_text(
+        "ARG BASE_IMAGE_REGISTRY=docker.io\n"
+        "FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:" + "a" * 64 + " AS builder\n"
+        "FROM builder AS runtime\n",
+        encoding="utf-8",
+    )
+
+    assert module._validate_base_images() == []
+
+
+def test_shipped_dockerfile_satisfies_the_base_image_contract() -> None:
+    module = _load_contract_module()
+
+    assert module._validate_base_images() == []

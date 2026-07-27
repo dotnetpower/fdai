@@ -48,6 +48,8 @@ REQUIRED_ACTION_REFS = {
 }
 ACTION_REF_RE = re.compile(r"uses:\s*(?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(?P<ref>[^\s#]+)")
 UV_SETUP_BLOCK_RE = re.compile(r"(?ms)^\s+- name: Set up uv \(Python 3\.13\).*?(?=^\s+- name:|\Z)")
+BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
+BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
 
 
 def _tracked_paths() -> set[str]:
@@ -118,6 +120,37 @@ def _validate_build_context() -> list[str]:
         else:
             if not isinstance(manifest, dict) or not isinstance(manifest.get("capabilities"), list):
                 errors.append("resolved-models.json must be an object with a capabilities array")
+    return errors
+
+
+def _validate_base_images() -> list[str]:
+    """Keep every external base image mirror-overridable and digest-pinned.
+
+    A disconnected tenant builds from an internal registry mirror, so the
+    registry host MUST be a build argument. The digest MUST stay in the file so
+    the override can redirect where bytes come from but never which bytes are
+    accepted.
+    """
+    errors: list[str] = []
+    lines = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8").splitlines()
+    if not any(line.strip().startswith(f"ARG {BASE_IMAGE_REGISTRY_ARG}=") for line in lines):
+        errors.append(f"Dockerfile must declare ARG {BASE_IMAGE_REGISTRY_ARG} with a default")
+    stages: set[str] = set()
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) < 2 or parts[0].upper() != "FROM":
+            continue
+        reference = parts[1]
+        if len(parts) >= 4 and parts[2].upper() == "AS":
+            stages.add(parts[3])
+        if reference in stages:
+            continue
+        if not reference.startswith(BASE_IMAGE_PREFIX):
+            errors.append(
+                f"Dockerfile base image {reference} must be prefixed with {BASE_IMAGE_PREFIX}"
+            )
+        if "@sha256:" not in reference:
+            errors.append(f"Dockerfile base image {reference} must be digest-pinned")
     return errors
 
 
@@ -228,6 +261,7 @@ def _validate_live_db_guards() -> list[str]:
 def main() -> int:
     errors = [
         *_validate_build_context(),
+        *_validate_base_images(),
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
         *_validate_action_runtime_versions(),
