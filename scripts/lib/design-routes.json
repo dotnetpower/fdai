@@ -711,7 +711,8 @@
         "tests/deployment_cli/**",
         "scripts/deployment/release/**",
         "docs/roadmap/deployment/installable-deployment-cli*.md",
-        "docs/roadmap/deployment/provisioning-execution-profiles*.md"
+        "docs/roadmap/deployment/provisioning-execution-profiles*.md",
+        "docs/roadmap/deployment/disconnected-deployment*.md"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
@@ -722,7 +723,8 @@
       ],
       "docs_update": [
         "docs/roadmap/deployment/installable-deployment-cli.md",
-        "docs/roadmap/deployment/provisioning-execution-profiles.md"
+        "docs/roadmap/deployment/provisioning-execution-profiles.md",
+        "docs/roadmap/deployment/disconnected-deployment.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov tests/deployment_cli",
