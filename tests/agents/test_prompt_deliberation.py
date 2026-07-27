@@ -631,3 +631,84 @@ def test_unattributed_rounds_do_not_share_one_budget() -> None:
 
     assert statuses == ["completed", "completed", "budget_denied"]
     assert len(synthesizer.requests) == 2
+
+
+async def test_a_metering_hiccup_never_costs_the_operator_the_answer() -> None:
+    """Metering is a side-channel; the model already answered.
+
+    A durable metering store that is briefly unavailable must not turn a
+    completed T2 synthesis into a failed turn.
+    """
+
+    class _BrokenSink:
+        async def record(self, invocation: object) -> None:
+            raise RuntimeError("metering store down")
+
+    runtime = _priced_runtime(
+        _T2Synthesizer(model_key="gpt-test", usage=TokenUsage(10, 5)),
+        budget=ModelBudget(),
+        metering=_BrokenSink(),  # type: ignore[arg-type]
+    )
+
+    result = await runtime.deliberate(
+        question="Compare cost and capacity.",
+        requester="Forseti",
+        correlation_id="corr-broken-sink",
+    )
+
+    assert result["t2_status"] == "completed"
+
+
+async def test_a_failed_metering_write_still_charges_the_money_it_spent() -> None:
+    """A ceiling that only counts what it could persist is not a ceiling."""
+    from datetime import UTC, datetime
+
+    from fdai.core.metering.budget import BudgetChargingMeteringSink, InMemoryBudgetLedger
+    from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
+
+    class _BrokenSink:
+        async def record(self, invocation: object) -> None:
+            raise RuntimeError("metering store down")
+
+    ledger = InMemoryBudgetLedger(ModelBudget())
+    sink = BudgetChargingMeteringSink(_BrokenSink(), ledger)  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError):
+        await sink.record(
+            LlmInvocation(
+                occurred_at=datetime.now(UTC),
+                correlation_id="corr-1",
+                capability_id="t2.conversation.synthesis",
+                model_key="gpt-test",
+                tier="T2",
+                mode=InvocationMode.SHADOW,
+                usage=TokenUsage(1_000, 500),
+                usage_scope=InvocationScope.OPERATOR_CHAT,
+                cost=Decimal("0.25"),
+                currency="USD",
+            )
+        )
+
+    assert (await ledger.spend("corr-1")).cost_microusd == 250_000
+
+
+async def test_a_failed_provider_still_reports_the_bound_it_spent() -> None:
+    """The call is charged before it is made, so the bound moved."""
+
+    class _ErroringSynthesizer:
+        async def synthesize(self, request: object) -> None:
+            raise RuntimeError("provider 500")
+
+    runtime = _priced_runtime(
+        _ErroringSynthesizer(),  # type: ignore[arg-type]
+        budget=ModelBudget(max_calls_per_correlation=2),
+    )
+
+    result = await runtime.deliberate(
+        question="Compare cost and capacity.",
+        requester="Forseti",
+        correlation_id="corr-provider-error",
+    )
+
+    assert result["t2_status"] == "error"
+    assert result["escalation_budget"]["spent_for_correlation"] == 1

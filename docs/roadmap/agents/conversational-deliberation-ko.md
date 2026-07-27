@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: f74d23259534aeab008989c27ac5fd9ee59d9fe0
+translation_source_sha: 2a64e6731f884f373a636856fa165cfb3473c404
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -176,7 +176,9 @@ owner의 안정적 digest로 대체합니다. 그렇지 않으면 모든 deliber
 따라서 비용은 추정되지도, 두 번 차감되지도 않습니다. 예산이 쓴 금액이 곧 감사 기록에 남은
 금액이므로 천장이 주장이 아니라 감사 가능해집니다. Usage를 보고하지 않는 provider는 정직하게
 미계량 상태로 남습니다. 아무것도 metering하지 않고 금액도 차감하지 않으며 call 한도가 경계로
-남습니다. 차감 지점이 개별 호출 지점이 아니라 metering 기록이므로, composition root가 이 charging
+남습니다. Metering 기록이 *실패한* 경우는 애초에 일어나지 않은 경우와 다릅니다. 돈은 이미 나갔으므로
+charging sink는 그대로 차감하고 실패는 예외 대신 로그로 남깁니다. Metering은 side-channel이며, 이미
+답을 받은 운영자가 장부 문제로 그 답을 잃어서는 안 됩니다. 차감 지점이 개별 호출 지점이 아니라 metering 기록이므로, composition root가 이 charging
 sink를 바인딩하면 각 seam에 예산을 가르치지 않고도 metering되는 모든 model 호출이 같은 천장 아래
 놓입니다.
 

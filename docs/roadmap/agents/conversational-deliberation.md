@@ -174,7 +174,10 @@ and it is not the deliberator:
 Cost is therefore never estimated and never charged twice: what the budget spends is exactly what
 the audit trail shows, so the ceiling is auditable rather than merely asserted. A provider that
 reports no usage is honestly unmeasured: nothing is metered, no money is charged, and the call caps
-remain the bound. Because the charge point is the metering write rather than one call site, a
+remain the bound. A metering write that *fails* is different from one that never happened: the money
+left the account, so the charging sink charges it anyway and the failure is logged rather than
+raised. Metering is a side-channel, and an operator who already has an answer must not lose it to a
+bookkeeping hiccup. Because the charge point is the metering write rather than one call site, a
 composition root that binds the charging sink puts every metered model call under the same ceiling
 without teaching each seam about budgets.
 

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ceae7c5815919764c1645bdcb4458313febd1199
+translation_source_sha: 4863cc688d439008c4941bd3fc242fbbde2f07d2
 translation_revised: 2026-07-27
 ---
 # 코드 맵
@@ -123,7 +123,7 @@ shared 패키지를 커버한다.
 | architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |
 | workflow | Version-pinned WorkflowDefinition과 principal binding을 컴파일 및 실행하고 Process journal과 projection retry 관리 | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
 | scheduler | Create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation ([설계](../interfaces/scheduled-result-continuations-ko.md)) | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
-| metering | 사용량 미터링 카운터와 모든 LLM 경로가 측정되는 공유 model budget. 호출이 기록되는 단일 지점에서 차감하며, 총량은 ledger 축출을 견디지만 correlation별 한도는 그렇지 않음 | [src/fdai/core/metering/](../../../src/fdai/core/metering/) | [tests/core/metering/](../../../tests/core/metering/) |
+| metering | 사용량 미터링 카운터와 모든 LLM 경로가 측정되는 공유 model budget. 호출이 기록되는 단일 지점에서 차감하며, 총량은 ledger 축출을 견디지만 correlation별 한도는 그렇지 않으며, metering 기록이 실패해도 차감은 수행 | [src/fdai/core/metering/](../../../src/fdai/core/metering/) | [tests/core/metering/](../../../tests/core/metering/) |
 | measurement | MTTR 및 네 가지 DORA measure를 포함한 Phase-4 연속 측정 | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |
 | mscp_profile | 레벨 비종속 `mscp-operational-v1` provenance, 순수 effect/cycle/integrity 검사 및 optional ControlLoop shadow observation ([설계](mscp-operational-profile-ko.md)) | [src/fdai/core/mscp_profile/](../../../src/fdai/core/mscp_profile/) | [tests/core/mscp_profile/](../../../tests/core/mscp_profile/) |
 | security | 보안 시그널 생산자 | [src/fdai/core/security/](../../../src/fdai/core/security/) | [tests/core/security/](../../../tests/core/security/) |

@@ -234,7 +234,17 @@ class BudgetChargingMeteringSink:
         self._ledger = ledger
 
     async def record(self, invocation: LlmInvocation) -> None:
-        await self._inner.record(invocation)
+        # ``finally``: the money left the account whether or not the
+        # record could be persisted. A ceiling that only counts the calls
+        # it managed to write down is not a ceiling, so a failing sink
+        # must not also refund the budget. The write's own failure is
+        # left to propagate; the caller decides how loud it is.
+        try:
+            await self._inner.record(invocation)
+        finally:
+            await self._charge(invocation)
+
+    async def _charge(self, invocation: LlmInvocation) -> None:
         try:
             await self._ledger.charge(
                 invocation.correlation_id,

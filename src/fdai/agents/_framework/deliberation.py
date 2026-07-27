@@ -350,6 +350,10 @@ class ConversationDeliberator:
                 extra={"error_type": type(exc).__name__},
             )
             result["t2_status"] = "error"
+            # The call was charged before it was made, so the bound moved:
+            # a turn that reports no bound after spending one would let an
+            # answer imply the budget is untouched.
+            result["escalation_budget"] = await self._budget_snapshot(budget_key)
             return result
         conclusion = outcome.conclusion if isinstance(outcome, SynthesisOutcome) else None
         if isinstance(outcome, SynthesisOutcome):
@@ -389,27 +393,38 @@ class ConversationDeliberator:
         An unmeasured provider is honestly unmeasured: nothing is
         recorded, because metering is for measured facts, and the call
         caps remain the bound.
+
+        Best-effort, like ``MeteringEmitter.emit_safe``: the model has
+        already answered and the call has already been charged, so a
+        metering hiccup degrades the audit trail, never the operator's
+        answer. The charging sink still charges what it could not write.
         """
-        if self._metering is None or outcome.usage is None or not outcome.model_key:
+        sink = self._metering
+        if sink is None or outcome.usage is None or not outcome.model_key:
             return
-        await self._metering.record(
-            LlmInvocation(
-                occurred_at=datetime.now(UTC),
-                correlation_id=correlation_id,
-                capability_id=_T2_CONVERSATION_CAPABILITY,
-                model_key=outcome.model_key,
-                tier="T2",
-                mode=InvocationMode.SHADOW,
-                usage=outcome.usage,
-                usage_scope=InvocationScope.OPERATOR_CHAT,
-                cost=(
-                    self._pricing.cost_of(model_key=outcome.model_key, usage=outcome.usage)
-                    if self._pricing is not None
-                    else None
-                ),
-                currency=_CURRENCY if self._pricing is not None else None,
-            )
+        invocation = LlmInvocation(
+            occurred_at=datetime.now(UTC),
+            correlation_id=correlation_id,
+            capability_id=_T2_CONVERSATION_CAPABILITY,
+            model_key=outcome.model_key,
+            tier="T2",
+            mode=InvocationMode.SHADOW,
+            usage=outcome.usage,
+            usage_scope=InvocationScope.OPERATOR_CHAT,
+            cost=(
+                self._pricing.cost_of(model_key=outcome.model_key, usage=outcome.usage)
+                if self._pricing is not None
+                else None
+            ),
+            currency=_CURRENCY if self._pricing is not None else None,
         )
+        try:
+            await sink.record(invocation)
+        except Exception:  # noqa: BLE001 - metering is a side-channel
+            _LOG.warning(
+                "pantheon_t2_metering_failed",
+                extra={"correlation_id": correlation_id},
+            )
 
 
 def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClaim | None:
