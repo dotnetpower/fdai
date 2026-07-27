@@ -62,6 +62,11 @@ class _Processor:
         )
 
 
+class _StartFailingAdapter(_Adapter):
+    async def start(self) -> None:
+        raise RuntimeError("startup failed")
+
+
 async def test_runner_processes_and_submits_each_task_once() -> None:
     adapter = _Adapter((_task("task-1"), _task("task-2")))
 
@@ -72,6 +77,15 @@ async def test_runner_processes_and_submits_each_task_once() -> None:
     assert [item.task_id for item in adapter.submissions] == ["task-1", "task-2"]
     assert summary.task_count == 2
     assert summary.completed_count == 2
+
+
+async def test_runner_closes_adapter_when_start_fails() -> None:
+    adapter = _StartFailingAdapter(())
+
+    with pytest.raises(RuntimeError, match="startup failed"):
+        await BenchmarkRunner(adapter=adapter, processor=_Processor()).run()
+
+    assert adapter.closed is True
 
 
 async def test_runner_rejects_duplicate_task_before_second_processing() -> None:

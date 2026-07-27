@@ -56,8 +56,8 @@ class BenchmarkRunner:
 
         seen: set[tuple[str, str, str]] = set()
         counts = {status: 0 for status in BenchmarkStatus}
-        await self._adapter.start()
         try:
+            await self._adapter.start()
             while True:
                 task = await self._adapter.next_task()
                 if task is None:
