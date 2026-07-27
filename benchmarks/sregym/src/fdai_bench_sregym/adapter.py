@@ -12,7 +12,11 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from fdai.benchmarking import BenchmarkSubmission, BenchmarkTask
+from fdai.benchmarking import (
+    BenchmarkSubmission,
+    BenchmarkTask,
+    validate_benchmark_identifier,
+)
 from fdai.benchmarking.adapter import BenchmarkAdapterError
 
 _TERMINAL_STAGES: Final[frozenset[str]] = frozenset({"done", "tearing_down"})
@@ -50,8 +54,7 @@ class SregymAdapterConfig:
             raise ValueError(
                 "plaintext conductor_url is supported only for loopback or the harness host alias"
             )
-        if not self.artifact_id.strip() or any(ord(char) < 32 for char in self.artifact_id):
-            raise ValueError("artifact_id MUST be a non-empty identifier")
+        validate_benchmark_identifier("artifact_id", self.artifact_id)
         timeouts = (
             self.poll_interval_seconds,
             self.stage_timeout_seconds,

@@ -362,6 +362,15 @@ def test_rejects_non_positive_response_limit() -> None:
         )
 
 
+@pytest.mark.parametrize("artifact_id", ("a" * 257, "attempt\u202e1"))
+def test_rejects_invalid_artifact_identity(artifact_id: str) -> None:
+    with pytest.raises(ValueError, match="artifact_id MUST be a non-empty bounded identifier"):
+        SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id=artifact_id,
+        )
+
+
 async def test_fails_closed_on_unknown_stage() -> None:
     adapter, client = _adapter(lambda _: httpx.Response(200, json={"stage": "unknown-stage"}))
 

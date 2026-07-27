@@ -35,10 +35,10 @@ class BenchmarkTask:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        _validate_identifier("run_id", self.run_id)
-        _validate_identifier("task_id", self.task_id)
-        _validate_identifier("stage", self.stage)
-        _validate_identifier("target_ref", self.target_ref)
+        validate_benchmark_identifier("run_id", self.run_id)
+        validate_benchmark_identifier("task_id", self.task_id)
+        validate_benchmark_identifier("stage", self.stage)
+        validate_benchmark_identifier("target_ref", self.target_ref)
         _validate_text("objective", self.objective)
         _validate_metadata(self.metadata)
         object.__setattr__(self, "metadata", _freeze_metadata(self.metadata))
@@ -58,9 +58,9 @@ class BenchmarkSubmission:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        _validate_identifier("run_id", self.run_id)
-        _validate_identifier("task_id", self.task_id)
-        _validate_identifier("stage", self.stage)
+        validate_benchmark_identifier("run_id", self.run_id)
+        validate_benchmark_identifier("task_id", self.task_id)
+        validate_benchmark_identifier("stage", self.stage)
         if not isinstance(self.status, BenchmarkStatus):
             raise ValueError("status MUST be a BenchmarkStatus")
         _validate_text("summary", self.summary)
@@ -68,16 +68,20 @@ class BenchmarkSubmission:
         if len(evidence_refs) > _MAX_EVIDENCE_REFS:
             raise ValueError(f"evidence_refs MUST contain at most {_MAX_EVIDENCE_REFS} entries")
         for evidence_ref in evidence_refs:
-            _validate_identifier("evidence_ref", evidence_ref)
+            validate_benchmark_identifier("evidence_ref", evidence_ref)
         if self.audit_ref is not None:
-            _validate_identifier("audit_ref", self.audit_ref)
+            validate_benchmark_identifier("audit_ref", self.audit_ref)
         _validate_metadata(self.metadata)
         object.__setattr__(self, "evidence_refs", evidence_refs)
         object.__setattr__(self, "metadata", _freeze_metadata(self.metadata))
 
 
-def _validate_identifier(name: str, value: str) -> None:
-    if not value.strip() or len(value) > _MAX_ID_LENGTH or _has_control_character(value):
+def validate_benchmark_identifier(name: str, value: str) -> None:
+    """Reject an empty, oversized, or control-bearing benchmark identifier."""
+
+    if not isinstance(value, str) or (
+        not value.strip() or len(value) > _MAX_ID_LENGTH or _has_control_character(value)
+    ):
         raise ValueError(f"{name} MUST be a non-empty bounded identifier")
 
 
@@ -90,7 +94,7 @@ def _validate_metadata(metadata: Mapping[str, str]) -> None:
     if len(metadata) > _MAX_METADATA_ENTRIES:
         raise ValueError(f"metadata MUST contain at most {_MAX_METADATA_ENTRIES} entries")
     for key, value in metadata.items():
-        _validate_identifier("metadata key", key)
+        validate_benchmark_identifier("metadata key", key)
         if len(value) > _MAX_METADATA_VALUE_LENGTH or _has_control_character(value):
             raise ValueError("metadata values MUST be bounded text without control characters")
 
@@ -107,4 +111,5 @@ __all__ = [
     "BenchmarkStatus",
     "BenchmarkSubmission",
     "BenchmarkTask",
+    "validate_benchmark_identifier",
 ]

@@ -6,6 +6,7 @@ from fdai.benchmarking.contracts import (
     BenchmarkStatus,
     BenchmarkSubmission,
     BenchmarkTask,
+    validate_benchmark_identifier,
 )
 from fdai.benchmarking.plugins import (
     BENCHMARK_API_VERSION,
@@ -39,4 +40,5 @@ __all__ = [
     "bind_benchmark_providers",
     "discover_benchmark_plugins",
     "load_benchmark_plugin",
+    "validate_benchmark_identifier",
 ]

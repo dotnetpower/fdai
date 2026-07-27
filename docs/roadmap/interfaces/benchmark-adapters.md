@@ -56,6 +56,8 @@ activate any benchmark integration. Removing a plugin leaves the FDAI runtime un
 `BenchmarkTask` carries a run id, task id, open stage string, objective, target reference, and
 bounded metadata. The stage stays open rather than using a diagnosis-specific enum so one runner
 can support code repair, operational recovery, security assessment, and future benchmark shapes.
+Plugins reuse `validate_benchmark_identifier()` for identifiers that later become task fields, so
+length and Unicode control checks run at plugin startup instead of the first task.
 
 `BenchmarkSubmission` returns the same identity, a terminal `completed`, `held`, or `failed`
 status, a bounded summary, at most 256 evidence references, and an optional audit reference. The
@@ -137,7 +139,8 @@ Plaintext conductor URLs are accepted only on loopback or SREGym's exact
 `host.docker.internal` agent-container alias. A wildcard bind address is normalized to loopback for
 non-container runs. Credentials, query strings, and fragments in the configured URL are rejected.
 An explicit port must be between 1 and 65535, and polling, stage, and request timeouts must be
-finite and positive. Unknown stages and malformed responses fail closed.
+finite and positive. The artifact identity must satisfy the shared benchmark identifier contract.
+Unknown stages and malformed responses fail closed.
 
 Every conductor response, including `/submit`, is streamed through a bounded buffer. The default
 `max_response_bytes` limit is 1,000,000 bytes; exceeding the configured limit stops the stream.

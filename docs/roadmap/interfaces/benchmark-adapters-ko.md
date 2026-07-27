@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: aa73ffa0bae31d452df84ab63141825861571570
+translation_source_sha: 934dd9c56dba8fe3dee5e07943b2d99c7a42859c
 translation_revised: 2026-07-28
 ---
 
@@ -60,6 +60,8 @@ Harness plugin은 별도 Python distribution입니다. FDAI만 설치하면 benc
 metadata를 전달합니다. 하나의 runner가 code repair, operational recovery, security assessment 및
 향후 benchmark shape를 지원할 수 있도록 stage는 diagnosis 전용 enum 대신 open 상태를
 유지합니다.
+Plugin은 나중에 task field가 되는 identifier에 `validate_benchmark_identifier()`를 재사용합니다.
+따라서 길이 및 Unicode control 검사는 첫 task가 아니라 plugin startup에서 실행됩니다.
 
 `BenchmarkSubmission`은 같은 identity, terminal `completed`, `held` 또는 `failed` status,
 bounded summary, 최대 256개의 evidence reference 및 선택적 audit reference를 반환합니다.
@@ -140,7 +142,8 @@ Plaintext conductor URL은 loopback 또는 SREGym의 정확한 `host.docker.inte
 alias에서만 허용됩니다. Non-container 실행에서는 wildcard bind address를 loopback으로
 정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 명시적 port는
 1에서 65535 사이여야 하며 polling, stage 및 request timeout은 finite positive 값이어야 합니다.
-알 수 없는 stage와 malformed response는 fail closed됩니다.
+Artifact identity는 shared benchmark identifier contract를 충족해야 합니다. 알 수 없는 stage와
+malformed response는 fail closed됩니다.
 
 `/submit`을 포함한 모든 conductor response는 bounded buffer를 통해 stream됩니다. 기본
 `max_response_bytes` limit은 1,000,000 byte입니다. 구성된 limit을 초과하면 stream을 중단합니다.
