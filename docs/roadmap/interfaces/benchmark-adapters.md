@@ -134,6 +134,10 @@ Plaintext conductor URLs are accepted only on loopback or SREGym's exact
 non-container runs. Credentials, query strings, and fragments in the configured URL are rejected.
 Unknown stages and malformed responses fail closed.
 
+Conductor JSON responses are streamed into a bounded buffer before parsing. The default
+`max_response_bytes` limit is 1,000,000 bytes; exceeding the configured limit stops the stream and
+fails the adapter without passing the body to the JSON decoder.
+
 The adapter accepts a submission only for the exact run, task, and stage identity returned by its
 latest `next_task()` call. It clears that identity only after the conductor accepts the submission,
 so a transport failure can retry the same result without permitting an unissued or wrong-stage

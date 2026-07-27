@@ -176,6 +176,38 @@ async def test_submit_normalizes_transport_failure() -> None:
     await client.aclose()
 
 
+async def test_rejects_response_over_byte_limit() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "x" * 100,
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        raise AssertionError(request.url.path)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = SregymAdapter(
+        config=SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            max_response_bytes=64,
+        ),
+        http_client=client,
+    )
+    await adapter.start()
+
+    with pytest.raises(BenchmarkAdapterError, match="over the 64-byte cap"):
+        await adapter.next_task()
+
+    await client.aclose()
+
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -196,6 +228,15 @@ def test_accepts_upstream_container_host_alias() -> None:
     )
 
     assert config.conductor_url == "http://host.docker.internal:8000"
+
+
+def test_rejects_non_positive_response_limit() -> None:
+    with pytest.raises(ValueError, match="max_response_bytes MUST be >= 1"):
+        SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            max_response_bytes=0,
+        )
 
 
 async def test_fails_closed_on_unknown_stage() -> None:

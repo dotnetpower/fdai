@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 01731a57c813451bc39067eb1d52e46b181d00d7
+translation_source_sha: b7104f4d0bc551c0a0da9b8372c36f79288a286e
 translation_revised: 2026-07-28
 ---
 
@@ -137,6 +137,10 @@ Plaintext conductor URL은 loopback 또는 SREGym의 정확한 `host.docker.inte
 alias에서만 허용됩니다. Non-container 실행에서는 wildcard bind address를 loopback으로
 정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 알 수 없는 stage와
 malformed response는 fail closed됩니다.
+
+Conductor JSON response는 parsing 전에 bounded buffer로 stream됩니다. 기본
+`max_response_bytes` limit은 1,000,000 byte입니다. 구성된 limit을 초과하면 stream을 중단하고
+body를 JSON decoder에 전달하지 않은 채 adapter가 실패합니다.
 
 Adapter는 가장 최근 `next_task()` 호출이 반환한 정확한 run, task 및 stage identity에 대한
 submission만 허용합니다. Conductor가 submission을 수락한 후에만 이 identity를 clear하므로,

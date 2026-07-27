@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final
@@ -18,6 +19,7 @@ _TASK_STAGES: Final[frozenset[str]] = frozenset({"diagnosis", "mitigation", "res
 _PLAINTEXT_HOSTS: Final[frozenset[str]] = frozenset(
     {"127.0.0.1", "localhost", "host.docker.internal"}
 )
+_DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 1_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +31,7 @@ class SregymAdapterConfig:
     poll_interval_seconds: float = 1.0
     stage_timeout_seconds: float = 300.0
     request_timeout_seconds: float = 30.0
+    max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
 
     def __post_init__(self) -> None:
         parsed = urlsplit(self.conductor_url)
@@ -51,6 +54,8 @@ class SregymAdapterConfig:
             <= 0
         ):
             raise ValueError("SREGym adapter timeouts MUST be positive")
+        if self.max_response_bytes < 1:
+            raise ValueError("max_response_bytes MUST be >= 1")
 
 
 class SregymAdapter:
@@ -138,15 +143,24 @@ class SregymAdapter:
 
     async def _get_json(self, path: str) -> Mapping[str, Any]:
         try:
-            response = await self._http.get(
+            async with self._http.stream(
+                "GET",
                 f"{self._config.conductor_url.rstrip('/')}{path}",
                 timeout=self._config.request_timeout_seconds,
-            )
+            ) as response:
+                _raise_for_status(response, operation=path)
+                body = bytearray()
+                async for chunk in response.aiter_bytes():
+                    if len(body) + len(chunk) > self._config.max_response_bytes:
+                        raise BenchmarkAdapterError(
+                            f"SREGym response for {path!r} is over the "
+                            f"{self._config.max_response_bytes}-byte cap"
+                        )
+                    body.extend(chunk)
         except httpx.HTTPError as exc:
             raise BenchmarkAdapterError(f"SREGym request {path!r} failed: {exc}") from exc
-        _raise_for_status(response, operation=path)
         try:
-            payload = response.json()
+            payload = json.loads(body)
         except ValueError as exc:
             raise BenchmarkAdapterError(f"SREGym response for {path!r} is not JSON") from exc
         if not isinstance(payload, Mapping):
