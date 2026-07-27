@@ -18,7 +18,7 @@ import json
 import pytest
 from starlette.exceptions import HTTPException
 
-from fdai.agents import PANTHEON_SPECS
+from fdai.agents import BASELINE_LAYER_IDS, PANTHEON_SPECS
 from fdai.delivery.read_api.routes.chat import (
     _CAPABILITIES,
     _GLOSSARY,
@@ -1281,3 +1281,52 @@ def test_owner_in_unrelated_email_does_not_hit_capability() -> None:
     # ROLE_TOKEN matches "owner" via \b, but WHO_TOKEN / EXPLAIN_INTENT /
     # HOW_TO_GET_INTENT MUST all miss on this string, so lean stays.
     assert _is_capability_query("show the owner@example.com row") is False
+
+
+def test_agent_turn_constraints_reach_the_narrator() -> None:
+    """The narrator MUST know the agent answered under an evidence gap."""
+    spec = next(spec for spec in PANTHEON_SPECS if spec.name == "Odin")
+    messages = _build_messages(
+        "explain the portfolio",
+        {
+            "_agent_evidence": {
+                "primary_agent": "Odin",
+                "conversation_policy": spec.conversation_policy(),
+                "prompt_composition": {
+                    "situation": "audience=operator;evidence=absent;escalation=denied",
+                    "layers": [*BASELINE_LAYER_IDS, "budget_denied", "evidence_gap"],
+                    "dropped_layers": [],
+                    "prompt_sha256": "0" * 64,
+                },
+            }
+        },
+        [],
+    )
+    charter = next(m["content"] for m in messages if "Selected accountable agent" in m["content"])
+
+    assert "Constraints on that agent's turn:" in charter
+    assert "name the gap instead of covering it" in charter
+    assert "do not present the answer as a deeper analysis" in charter
+
+
+def test_a_turn_without_constraints_adds_no_constraint_line() -> None:
+    spec = next(spec for spec in PANTHEON_SPECS if spec.name == "Odin")
+    messages = _build_messages(
+        "explain the portfolio",
+        {
+            "_agent_evidence": {
+                "primary_agent": "Odin",
+                "conversation_policy": spec.conversation_policy(),
+                "prompt_composition": {
+                    "situation": "audience=operator;evidence=present",
+                    "layers": list(BASELINE_LAYER_IDS),
+                    "dropped_layers": [],
+                    "prompt_sha256": "0" * 64,
+                },
+            }
+        },
+        [],
+    )
+    charter = next(m["content"] for m in messages if "Selected accountable agent" in m["content"])
+
+    assert "Constraints on that agent's turn:" not in charter

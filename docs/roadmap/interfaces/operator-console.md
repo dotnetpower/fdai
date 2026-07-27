@@ -110,7 +110,7 @@ flowchart TD
   remains the response owner.
   When a request carries both a plain agent target and an incident binding, the two structured
   agent values must match; conflict is rejected before evidence retrieval. For model-backed answers, global Bragi safety stays first and the selected immutable charter follows only on an exact `conversation_policy` match;
-  mismatch or handoff injects nothing, and the charter scopes role and voice without becoming evidence, authority, or tool permission. The injected charter is composed for the turn: the immutable baseline plus the operator-locale layer when the answer locale is not English.
+  mismatch or handoff injects nothing, and the charter scopes role and voice without becoming evidence, authority, or tool permission. The injected charter is composed for the turn: the immutable baseline plus the operator-locale layer when the answer locale is not English. The agent evidence also carries the layer manifest and digest of the prompt that governed the agent's own turn, so a spent escalation budget or an evidence gap is stated to the narrator as a constraint rather than left invisible.
   Bragi becomes the response owner only after that agent abstains and hands the turn back. Vendor
   adapters change presentation only. Slack uses plain-text activity
   blocks for command and output bodies so markup characters cannot change the observed command,

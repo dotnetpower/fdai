@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: a589e27fb3e5fd3cae9262703237991be14908d9
+translation_source_sha: bdc9aa19f1c82c9b39eb152a3227e411004dd363
 translation_revised: 2026-07-27
 ---
 
@@ -108,7 +108,7 @@ flowchart TD
   유지됩니다. 해당 agent가 판단을 보류하고 turn을 다시 handoff한 경우에만 Bragi가 response owner가
   됩니다.
   일반 agent target과 incident binding의 agent 값은 일치해야 하며 conflict는 evidence retrieval 전에 차단됩니다. Model-backed answer는 global Bragi safety를 먼저 유지하고 exact `conversation_policy` match에서만 selected immutable charter를 추가합니다.
-  Mismatch 또는 handoff에는 주입하지 않으며 charter는 role과 voice를 제한하지만 evidence, authority, tool permission이 아닙니다. 주입되는 charter는 해당 turn용으로 조립됩니다. Immutable baseline에 answer locale이 English가 아닐 때 operator-locale layer를 더합니다.
+  Mismatch 또는 handoff에는 주입하지 않으며 charter는 role과 voice를 제한하지만 evidence, authority, tool permission이 아닙니다. 주입되는 charter는 해당 turn용으로 조립됩니다. Immutable baseline에 answer locale이 English가 아닐 때 operator-locale layer를 더합니다. Agent evidence는 해당 agent의 turn을 지배한 prompt의 layer manifest와 digest도 실어 나르므로, 소진된 escalation 예산이나 evidence gap이 narrator에게 constraint로 명시됩니다.
   Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에
   plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
   post, stream update 및 edit에서 해당 block을 보존합니다.

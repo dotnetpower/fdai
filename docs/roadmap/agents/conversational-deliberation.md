@@ -59,7 +59,10 @@ Two invariants keep the dynamic path inside the port contract:
   context cannot inject instructions.
 
 Composition is deterministic, so a recorded turn replays exactly. Each response carries the layer
-ids, the situation key, and the composed prompt digest. It never carries the prompt text.
+ids, the situation key, and the composed prompt digest, and the console evidence carries the same
+manifest, so the constraints an answer was produced under stay observable end to end. None of it
+ever carries the prompt text. `BASELINE_LAYER_IDS` and `ConversationSituation` are exported from
+the `fdai.agents` facade for that purpose.
 
 Most layers are selected from the turn context, but the evidence gap cannot be: the prompt is
 composed before the agent answers, so only the agent knows whether it holds the state the answer

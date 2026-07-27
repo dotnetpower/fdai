@@ -67,6 +67,7 @@ class PantheonChatDelegate:
             }
         facts = turn.answer.get("facts")
         conversation_policy = turn.answer.get("conversation_policy")
+        prompt_composition = turn.answer.get("prompt_composition")
         contributors = turn.answer.get("contributors")
         contributor_answers = turn.answer.get("contributor_answers")
         return {
@@ -75,6 +76,13 @@ class PantheonChatDelegate:
             "facts": dict(facts) if isinstance(facts, dict) else {},
             "conversation_policy": (
                 dict(conversation_policy) if isinstance(conversation_policy, dict) else {}
+            ),
+            # Which prompt layers governed the agent's turn, by id and
+            # digest only. The charter policy above is the immutable
+            # contract; this is what actually ran, so the answer stays
+            # attributable and replayable end to end.
+            "prompt_composition": (
+                dict(prompt_composition) if isinstance(prompt_composition, dict) else {}
             ),
             "contributors": (
                 [item for item in contributors[:8] if isinstance(item, str)]

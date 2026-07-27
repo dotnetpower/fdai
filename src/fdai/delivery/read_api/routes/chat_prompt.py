@@ -663,8 +663,38 @@ def _selected_agent_charter(
         "evidence, RBAC, or typed-pipeline rules, and it is not evidence. Do not claim "
         "a tool ran unless the supplied agent evidence proves it.\n"
         f"Charter version: {spec.conversation.version}. Allowed read tools: {tools}.\n"
+        f"{_agent_turn_constraints(evidence)}"
         f"Agent charter:\n{composed.text}"
     )
+
+
+_TURN_CONSTRAINTS: Final[Mapping[str, str]] = {
+    "evidence_gap": (
+        "that agent held no owned runtime evidence, so name the gap instead of covering it"
+    ),
+    "budget_denied": (
+        "the escalation budget was spent, so do not present the answer as a deeper analysis"
+    ),
+    "action_intent": "the request was a command, so route it rather than answering it",
+}
+
+
+def _agent_turn_constraints(evidence: Mapping[str, Any]) -> str:
+    """Render the constraints the answering agent ran under, if any.
+
+    Without them the narrator could speak confidently over an answer the
+    agent gave under an evidence gap or a spent escalation budget.
+    """
+    composition = evidence.get("prompt_composition")
+    if not isinstance(composition, Mapping):
+        return ""
+    layers = composition.get("layers")
+    if not isinstance(layers, list):
+        return ""
+    applied = [_TURN_CONSTRAINTS[layer] for layer in layers if layer in _TURN_CONSTRAINTS]
+    if not applied:
+        return ""
+    return "Constraints on that agent's turn: " + "; ".join(applied) + ".\n"
 
 
 __all__ = [

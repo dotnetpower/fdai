@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: adc37260cfc123db48ca951030294c99a5d6233b
+translation_source_sha: 9da4ca8802cde0f5289627519369ff42b50842cf
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -62,7 +62,10 @@ peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 �
   context가 instruction을 주입할 수 없습니다.
 
 조립은 deterministic하므로 기록된 turn은 정확히 replay됩니다. 각 response는 layer id, situation
-key, 조립된 prompt digest를 전달하며 prompt text 자체는 절대 전달하지 않습니다.
+key, 조립된 prompt digest를 전달하고 console evidence도 같은 manifest를 실어 나르므로, 답변이
+어떤 constraint 아래 만들어졌는지가 end-to-end로 관측됩니다. 어느 쪽도 prompt text 자체는 절대
+전달하지 않습니다. 이를 위해 `BASELINE_LAYER_IDS`와 `ConversationSituation`은 `fdai.agents`
+facade에서 export합니다.
 
 대부분의 layer는 turn context에서 선택하지만 evidence gap은 그럴 수 없습니다. Prompt는 agent가
 답하기 전에 조립되므로 답변에 필요한 state를 보유했는지는 agent만 알기 때문입니다.
