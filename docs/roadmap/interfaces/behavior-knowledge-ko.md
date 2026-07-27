@@ -1,7 +1,7 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: aa39139c4c299f4dcead92f04f4979858b142fb3
+translation_source_sha: 97575d6ed111ff53fadc679208fa995b784649c3
 translation_revised: 2026-07-26
 ---
 
@@ -65,7 +65,9 @@ indexed commit을 표시할 수 있지만 raw code는 표시하지 않습니다.
 
 인용한 test가 늘어나거나 이동하면 seed는 같은 변경에서 exact symbol line range를 갱신합니다.
 Line만 이동해도 이 갱신이 필요합니다. Freshness test는 path와 blob이 current여도 stale range를
-reject합니다.
+reject합니다. 인용된 파일을 고치면서 seed를 갱신하지 않은 변경은 전체 suite를 red로 만들고,
+그 실패는 원인이 된 변경이 아니라 behavior knowledge 아래에서 드러납니다. 그래서 이 갱신은
+line을 옮긴 커밋에 속합니다.
 
 ## 검색 및 권위
 

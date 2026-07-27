@@ -62,7 +62,9 @@ blob hash, and indexed commit, but not raw code.
 
 When a cited test grows or moves, the seed updates its exact symbol line range in the same change;
 line-only movement still requires that update. The freshness test rejects a stale range even when
-the path and blob are otherwise current.
+the path and blob are otherwise current. A change that edits a cited file without updating the seed
+turns the whole suite red, and the failure surfaces under behavior knowledge rather than under the
+change that caused it - so the update belongs in the commit that moves the lines.
 
 ## Retrieval and authority
 
