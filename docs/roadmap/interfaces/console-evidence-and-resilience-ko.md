@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 89e2123abfa6030c999f17f71d69d76f96da5bd0
+translation_source_sha: 5ce2ffbc8c7a75b44e6130e02aa6158244ba0867
 translation_revised: 2026-07-27
 ---
 
@@ -273,6 +273,12 @@ Server는 request `seq` 순서로 branch lifecycle frame을 내보냅니다. Bra
 unavailable, failed 또는 timed out 상태여도 성공한 sibling evidence를 지우지 않습니다. Authoritative
 fact conflict는 다르게 처리합니다. Join은 양쪽 evidence set을 보존하고 answer를 unverified로 표시하며
 Bragi가 한쪽을 선택하지 못하게 합니다. Concurrent branch는 shared mutable context를 변경하지 않습니다.
+
+구현된 first wave는 조건을 충족한 tool, operational, 명시적으로 선택된 agent, read-investigation agent
+및 deterministic public-web read에 bounded task group 하나를 사용합니다. 이전 authority result에 따라
+eligibility가 달라지는 agent 또는 web 작업은 bounded follow-up wave에서 실행됩니다. 따라서 기존
+authority order가 억제할 agent 또는 external web provider를 speculative하게 호출하지 않으면서 독립
+I/O를 겹쳐 실행합니다. JSON 및 SSE chat은 동일한 merge helper를 사용합니다.
 
 Draft `token` frame은 provisional narration으로 유지됩니다. `confirmed` frame에는 결정론적 verifier를
 이미 통과한 evidence에서 렌더링한 complete segment만 포함됩니다. Monotonic segment index, answer

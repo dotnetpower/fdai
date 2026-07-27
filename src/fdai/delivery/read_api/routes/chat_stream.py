@@ -55,12 +55,11 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     OperationalEvidenceResolverProtocol,
     _delegation_summary,
     _retrieval_source_previews,
-    _with_agent_evidence,
     _with_behavior_evidence,
-    _with_operational_evidence,
     _with_screen_scope,
-    _with_tool_evidence,
-    _with_web_evidence,
+)
+from fdai.delivery.read_api.routes.chat_evidence_pipeline import (
+    resolve_parallel_chat_evidence,
 )
 from fdai.delivery.read_api.routes.chat_history import (
     append_assistant_turn,
@@ -310,63 +309,29 @@ def make_chat_stream_route(
                     enriched_context,
                     behavior_resolver,
                 )
-                tool_progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=64)
+                progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=128)
 
-                async def observe_tool_progress(event: Mapping[str, Any]) -> None:
-                    await tool_progress_queue.put(dict(event))
-
-                tool_task = asyncio.create_task(
-                    _with_tool_evidence(
-                        clean_prompt,
-                        enriched_context,
-                        tool_resolver,
-                        principal_id=user_id,
-                        progress_observer=observe_tool_progress,
-                    )
-                )
-                try:
-                    while not tool_task.done() or not tool_progress_queue.empty():
-                        try:
-                            progress_event = await asyncio.wait_for(
-                                tool_progress_queue.get(),
-                                timeout=0.25,
-                            )
-                        except TimeoutError:
-                            continue
-                        event_name = progress_event.pop("event", None)
-                        if event_name in {"activity", "milestone"}:
-                            yield frame(event_name, progress_event)
-                    enriched_context = await tool_task
-                finally:
-                    if not tool_task.done():
-                        tool_task.cancel()
-                        with suppress(asyncio.CancelledError):
-                            await tool_task
-                enriched_context = await _with_operational_evidence(
-                    clean_prompt,
-                    enriched_context,
-                    evidence_resolver,
-                    conversation_context=conversation_context,
-                )
-                progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=32)
-
-                async def observe_agent_progress(event: Mapping[str, Any]) -> None:
+                async def observe_evidence_progress(event: Mapping[str, Any]) -> None:
                     await progress_queue.put(dict(event))
 
-                agent_task = asyncio.create_task(
-                    _with_agent_evidence(
-                        clean_prompt,
-                        enriched_context,
-                        agent_delegate,
+                evidence_task = asyncio.create_task(
+                    resolve_parallel_chat_evidence(
+                        request_id=request_id,
+                        prompt=clean_prompt,
+                        view_context=enriched_context,
                         user_id=user_id,
                         session_id=session_id,
                         conversation_context=conversation_context,
                         target_agent=target_agent,
-                        progress_observer=observe_agent_progress,
+                        tool_resolver=tool_resolver,
+                        evidence_resolver=evidence_resolver,
+                        agent_delegate=agent_delegate,
+                        web_search_resolver=web_search_resolver,
+                        progress_observer=observe_evidence_progress,
                     )
                 )
                 try:
-                    while not agent_task.done() or not progress_queue.empty():
+                    while not evidence_task.done() or not progress_queue.empty():
                         try:
                             progress_event = await asyncio.wait_for(
                                 progress_queue.get(),
@@ -375,46 +340,15 @@ def make_chat_stream_route(
                         except TimeoutError:
                             continue
                         event_name = progress_event.pop("event", None)
-                        if event_name in {"activity", "milestone"}:
+                        if event_name in {"activity", "milestone", "status", "branch"}:
                             yield frame(event_name, progress_event)
-                    enriched_context = await agent_task
+                    enriched_context = await evidence_task
                 finally:
-                    if not agent_task.done():
-                        agent_task.cancel()
+                    if not evidence_task.done():
+                        evidence_task.cancel()
                         with suppress(asyncio.CancelledError):
-                            await agent_task
+                            await evidence_task
                 enriched_context = _with_concept_evidence(clean_prompt, enriched_context)
-                web_progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=16)
-
-                async def observe_web_progress(event: Mapping[str, Any]) -> None:
-                    await web_progress_queue.put(dict(event))
-
-                web_task = asyncio.create_task(
-                    _with_web_evidence(
-                        clean_prompt,
-                        enriched_context,
-                        web_search_resolver,
-                        progress_observer=observe_web_progress,
-                    )
-                )
-                try:
-                    while not web_task.done() or not web_progress_queue.empty():
-                        try:
-                            progress_event = await asyncio.wait_for(
-                                web_progress_queue.get(),
-                                timeout=0.25,
-                            )
-                        except TimeoutError:
-                            continue
-                        event_name = progress_event.pop("event", None)
-                        if event_name == "status":
-                            yield frame("status", progress_event)
-                    enriched_context = await web_task
-                finally:
-                    if not web_task.done():
-                        web_task.cancel()
-                        with suppress(asyncio.CancelledError):
-                            await web_task
                 answer_plan, planning_task = start_shadow_answer_planning(
                     prompt=clean_prompt,
                     plan=answer_plan,

@@ -278,6 +278,12 @@ authoritative facts is different: the join preserves both evidence sets, marks t
 unverified, and does not let Bragi choose a winner. Shared mutable context is never written by
 concurrent branches.
 
+The implemented first wave uses one bounded task group for eligible tool, operational, explicitly
+selected agent, read-investigation agent, and deterministic public-web reads. Agent or web work
+whose eligibility depends on an earlier authority result runs in a bounded follow-up wave. This
+keeps independent I/O overlapped without speculatively calling an agent or external web provider
+that the established authority order would suppress. JSON and SSE chat use the same merge helper.
+
 Draft `token` frames remain provisional narration. A `confirmed` frame contains only a complete
 segment rendered from evidence that has already passed its deterministic verifier. It includes a
 monotonic segment index, answer revision, evidence references, and replacement range when a later

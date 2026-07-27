@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from inspect import Parameter, signature
 from typing import Any, Protocol
 
@@ -16,6 +16,10 @@ from fdai.core.read_investigation import (
 from fdai.delivery.agent_introspection_bus import addressed_agent
 from fdai.delivery.read_api.routes.chat_data_sources import needs_read_source_evidence
 from fdai.delivery.read_api.routes.chat_evidence import needs_operational_evidence
+from fdai.delivery.read_api.routes.chat_evidence_branches import (
+    EvidenceBranchKind,
+    EvidenceBranchResult,
+)
 from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
 from fdai.delivery.read_api.routes.chat_prompt import (
     _AGENT_NAME_TOKEN,
@@ -425,6 +429,86 @@ async def _with_web_evidence(
     if evidence is not None:
         enriched["_web_evidence"] = dict(evidence)
     return enriched
+
+
+def merge_evidence_branch_results(
+    prompt: str,
+    base_context: Mapping[str, Any],
+    results: Sequence[EvidenceBranchResult],
+    *,
+    conversation_context: Mapping[str, str] | None = None,
+    target_agent: str | None = None,
+) -> dict[str, Any]:
+    """Merge immutable branch snapshots with the established authority precedence."""
+
+    contexts = {result.kind: result.context for result in results}
+    merged = dict(base_context)
+
+    tool_context = contexts.get(EvidenceBranchKind.TOOL)
+    if tool_context is not None and (
+        "_tool_evidence" in tool_context or "_current_screen_tool" in tool_context
+    ):
+        for key in (
+            "_behavior_evidence",
+            "_operational_evidence",
+            "_tool_evidence",
+            "_current_screen_tool",
+        ):
+            if key in tool_context:
+                merged[key] = tool_context[key]
+            else:
+                merged.pop(key, None)
+
+    operational_context = contexts.get(EvidenceBranchKind.OPERATIONAL)
+    if (
+        operational_context is not None
+        and "_operational_evidence" in operational_context
+        and not any(
+            key in merged for key in ("_screen_scope", "_behavior_evidence", "_tool_evidence")
+        )
+        and "_current_screen_tool" not in merged
+    ):
+        merged["_operational_evidence"] = operational_context["_operational_evidence"]
+
+    selected_agent = _selected_agent(prompt, conversation_context, target_agent)
+    agent_owned = selected_agent is not None
+    read_investigation = (
+        classify_read_investigation_intent(prompt) is not None
+        and resource_name_from_question(prompt) is not None
+    )
+    current_screen_tool = merged.pop("_current_screen_tool", None)
+    agent_context = contexts.get(EvidenceBranchKind.AGENT)
+    agent_evidence = agent_context.get("_agent_evidence") if agent_context is not None else None
+    agent_handoff_only = isinstance(agent_evidence, Mapping) and (
+        agent_evidence.get("handoff_from") is not None and agent_evidence.get("answer") is None
+    )
+    agent_blocked = (
+        ("_behavior_evidence" in merged and not agent_owned)
+        or ("_operational_evidence" in merged and not agent_owned)
+        or ("_tool_evidence" in merged and not read_investigation and not agent_owned)
+        or (current_screen_tool is not None and not agent_owned)
+    )
+    if agent_evidence is not None and not agent_blocked:
+        if (read_investigation or agent_owned) and not agent_handoff_only:
+            merged.pop("_tool_evidence", None)
+        if agent_owned and not agent_handoff_only:
+            merged.pop("_behavior_evidence", None)
+            merged.pop("_operational_evidence", None)
+        if not agent_handoff_only:
+            merged.pop("_web_evidence", None)
+        merged["_agent_evidence"] = agent_evidence
+
+    web_context = contexts.get(EvidenceBranchKind.PUBLIC_WEB)
+    if (
+        web_context is not None
+        and "_web_evidence" in web_context
+        and not any(
+            key in merged for key in ("_behavior_evidence", "_screen_scope", "_agent_evidence")
+        )
+        and not _explicit_agent_requested(prompt)
+    ):
+        merged["_web_evidence"] = web_context["_web_evidence"]
+    return merged
 
 
 def _tool_matches_current_route(

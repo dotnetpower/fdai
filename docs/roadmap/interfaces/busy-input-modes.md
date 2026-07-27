@@ -86,6 +86,8 @@ interrupt:
 - The one-shot route returns an interrupted response before appending an assistant turn.
 - The stream emits `interrupted`, emits no `done`, and closes upstream iteration.
 - Planning helpers are cancelled and awaited.
+- Every active read-evidence branch is cancelled and awaited through its bounded task group. A
+    cancelled branch cannot emit a terminal answer or continue provider work after the turn closes.
 - The active-turn marker is finished in `finally`.
 
 For a normal terminal answer, the stream cancels outstanding planning and finishes the active-turn

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -99,6 +100,9 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     _with_screen_scope,
     _with_tool_evidence,
     _with_web_evidence,
+)
+from fdai.delivery.read_api.routes.chat_evidence_pipeline import (
+    resolve_parallel_chat_evidence,
 )
 from fdai.delivery.read_api.routes.chat_history import (
     append_assistant_turn,
@@ -408,33 +412,25 @@ def make_chat_route(
                 view_context,
                 behavior_resolver,
             )
-            view_context = await _with_tool_evidence(
-                clean_prompt,
-                view_context,
-                tool_resolver,
-                principal_id=user_id,
-            )
-            view_context = await _with_operational_evidence(
-                clean_prompt,
-                view_context,
-                evidence_resolver,
-                conversation_context=conversation_context,
-            )
-            view_context = await _with_agent_evidence(
-                clean_prompt,
-                view_context,
-                agent_delegate,
+
+            async def ignore_evidence_progress(_event: Mapping[str, Any]) -> None:
+                return None
+
+            view_context = await resolve_parallel_chat_evidence(
+                request_id=request_id,
+                prompt=clean_prompt,
+                view_context=view_context,
                 user_id=user_id,
                 session_id=session_id,
                 conversation_context=conversation_context,
                 target_agent=target_agent,
+                tool_resolver=tool_resolver,
+                evidence_resolver=evidence_resolver,
+                agent_delegate=agent_delegate,
+                web_search_resolver=web_search_resolver,
+                progress_observer=ignore_evidence_progress,
             )
             view_context = _with_concept_evidence(clean_prompt, view_context)
-            view_context = await _with_web_evidence(
-                clean_prompt,
-                view_context,
-                web_search_resolver,
-            )
             answer_plan, planning_task = start_shadow_answer_planning(
                 prompt=clean_prompt,
                 plan=answer_plan,

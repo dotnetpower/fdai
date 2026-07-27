@@ -1758,10 +1758,12 @@ class TestChatStreamEvidence:
 
         events = _parse_sse(response.text)
         names = [name for name, _ in events]
-        assert names[:2] == ["status", "status"]
+        assert names[0] == "status"
         provisional_index = names.index("provisional")
         assert provisional_index > 2
-        assert set(names[2:provisional_index]) == {"token"}
+        assert "branch" in names[1:provisional_index]
+        assert "status" in names[1:provisional_index]
+        assert set(names[1:provisional_index]) <= {"branch", "status", "token"}
         assert names[provisional_index:] == [
             "provisional",
             "verification",

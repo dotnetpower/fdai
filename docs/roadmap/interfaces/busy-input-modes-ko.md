@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 3c438d172cec6d63abd3036070b421883d1172cd
+translation_source_sha: 246c53cf8133179b601cf0349448cf862ead3a8c
 translation_revised: 2026-07-27
 ---
 
@@ -90,6 +90,8 @@ model call은 conversation-local cancellation event와 경쟁합니다. Interrup
 - One-shot route는 assistant turn을 append하기 전에 interrupted response를 반환합니다.
 - Stream은 `interrupted`를 emit하고 `done`을 emit하지 않으며 upstream iteration을 닫습니다.
 - Planning helper를 cancel하고 await합니다.
+- 실행 중인 모든 read-evidence branch를 bounded task group을 통해 cancel하고 await합니다. Cancel된
+    branch는 terminal answer를 emit하거나 turn 종료 후 provider 작업을 계속할 수 없습니다.
 - Active-turn marker를 `finally`에서 finish합니다.
 
 정상 terminal answer에서는 stream이 남아 있는 planning을 cancel하고 active-turn marker를 finish한
