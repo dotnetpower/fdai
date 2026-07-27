@@ -8,21 +8,21 @@ sidebar:
 # Agents and self-healing
 
 FDAI runs as a fixed **organization of 15 named agents**. Each agent has one
-mandate, owns a set of object and action types, and communicates on a
-schema-checked event bus. The org chart is the safety model: the agent that
-judges is never the agent that executes, and the agent that executes never holds
-your approval. When a resource drifts or a failure occurs, the agents
-collaborate to resolve it - autonomously for promoted low-risk actions, and with
-your approval for high-risk actions. The autonomous share is a measured target,
-not an assumed product result.
+mandate, owns a set of object and action types, and talks on a schema-checked
+event bus. The org chart is the safety model: the agent that judges never
+executes, and the agent that executes never holds your approval. When a resource
+drifts or something fails, the agents work together to fix it. Promoted low-risk
+actions run on their own, and high-risk actions wait for your approval. How much
+runs automatically is a measured target, not a promised product number.
 
-This page explains who the agents are, how they separate duties, how you operate
-at the approve-or-reject level, and how they self-heal a failure end to end.
+This page explains who the agents are, how they split duties, how you stay at the
+approve-or-reject level, and how they heal a failure end to end.
 
 ## The organization
 
-The pantheon is defined once upstream and never changed by a fork. Odin plans,
-Forseti judges, Thor executes, and staff agents govern the catalog and memory.
+The set of agents is defined once upstream and a fork never changes it. Odin
+plans, Forseti judges, Thor executes, and the staff agents govern the catalog and
+the memory.
 
 ```mermaid
 graph TD
@@ -52,40 +52,40 @@ graph TD
 | Vidar | Recovery | Owns rollback and DR failover |
 | Huginn | Event Collector / Resource Discovery | Owns real-time resource-change ingress and correlation |
 | Heimdall | Observer | Watches discovery freshness, coverage, drift, and resource change |
-| Njord / Freyr / Loki | Specialists | Advise on cost, capacity, chaos - they never execute |
+| Njord / Freyr / Loki | Specialists | Advise on cost, capacity, and chaos, and never execute |
 | Mimir / Norns / Muninn | Governance staff | Rule ownership, learning, memory |
 | Saga | Auditor | Writes the append-only audit log |
 | Bragi | Narrator | Translates your questions to and from the pipeline |
 
 ## Separation of duties
 
-The safety guarantees come from who is *not* allowed to do what:
+The safety guarantees come from what each agent is *not* allowed to do:
 
-- **Judge is not executor.** Forseti decides; Thor acts. No agent both judges
-  and executes, so a bad judgment cannot self-approve into a change.
-- **Approval is a separate principal.** Var carries your approval; Thor cannot
-  approve on your behalf.
-- **Specialists advise, they do not act.** Njord, Freyr, and Loki feed
-  judgment; they never reach the executor directly.
-- **Two ports, no bypass.** Every agent has a typed pub/sub port (machine
-  traffic) and a conversational port (your questions). A conversational request
-  that asks for an action must re-enter the typed pipeline - the narrator can
-  never execute directly.
+- **The judge is not the executor.** Forseti decides and Thor acts. No agent both
+  judges and executes, so a bad judgment cannot approve itself into a change.
+- **Approval is a separate principal.** Var carries your approval, and Thor
+  cannot approve on your behalf.
+- **Specialists advise, they do not act.** Njord, Freyr, and Loki feed the
+  judgment. They never reach the executor directly.
+- **Two ports, no bypass.** Every agent has a typed pub/sub port for machine
+  traffic and a conversational port for your questions. A conversation that asks
+  for an action has to re-enter the typed pipeline, so the narrator can never
+  execute anything itself.
 
 ## You operate at approve-or-reject
 
 You do not drive the agents task by task. The organization runs the loop and
-brings you decisions:
+brings decisions to you:
 
-- **Promoted low-risk actions can auto-resolve** with a stop-condition,
-  rollback path, impact scope limit, and audit entry. New actions remain in
-  shadow until their evidence gate passes.
-- The **risky few pause for you.** An approval card reaches you through the
-  channel you already use (Teams or Slack), and you approve or reject. Rejection and
-  timeout are no-ops, and both are audited.
-- You can **ask questions** in natural language through Bragi ("why did this
-  fail over?") and get a grounded answer, without ever holding the executor's
-  privileged identity.
+- **Promoted low-risk actions can resolve themselves** with a stop condition, a
+  rollback path, an impact scope limit, and an audit entry. A new action stays in
+  observation mode until its evidence clears the promotion gate.
+- **The risky few wait for you.** An approval card arrives in the channel you
+  already use, such as Teams or Slack, and you approve or reject it. A rejection
+  and a timeout both end as an audited no-op.
+- **You can ask questions** in plain language through Bragi, such as "why did
+  this fail over?", and get an answer backed by evidence. You never need the
+  executor's privileged identity to do it.
 
 Full walkthrough: [../guides/approve-change.md](../guides/approve-change.md).
 
@@ -109,53 +109,57 @@ graph LR
   Saga -. signals .-> Norns["Norns<br/>learns"]
 ```
 
-1. **Sense.** Huginn ingests resource changes and failure signals in real time;
-  the periodic Inventory job reconciles missed changes, and Heimdall checks
-  freshness and coverage before correlating one incident instead of an alert storm.
-2. **Judge.** Forseti scores the incident, consults the specialists for cost and
-   capacity trade-offs, and issues a decision: auto, human approval, or deny.
-3. **Act.** Thor dispatches. Low-risk recovery runs autonomously; a high-risk
-   failover pauses for Var to carry your approval.
+1. **Sense.** Huginn takes in resource changes and failure signals in real time.
+  The periodic Inventory job catches anything missed, and Heimdall checks
+  freshness and coverage so the signals become one incident instead of an alert
+  storm.
+2. **Judge.** Forseti scores the incident, asks the specialists about cost and
+   capacity trade-offs, and issues a decision: run it, request approval, or deny.
+3. **Act.** Thor dispatches. Low-risk recovery runs on its own, while a high-risk
+   failover waits for Var to carry your approval.
 4. **Recover.** Vidar owns the rollback or DR failover, bounded by the action's
-   stop-conditions and impact scope.
-5. **Record and learn.** Saga writes the audit entry; Norns turns recurring
-  patterns into inert catalog candidates. A candidate still needs provenance,
-  review, regression testing, and shadow evidence before promotion.
+   stop conditions and impact scope.
+5. **Record and learn.** Saga writes the audit entry. Norns turns recurring
+  patterns into inactive catalog candidates, and each candidate still needs
+  provenance, review, regression tests, and observation-mode evidence before it
+  can be promoted.
 
-When specialists disagree on the same resource - Njord wants `scale_down` for
-cost while Freyr wants `scale_up` for capacity - Odin arbitrates before Forseti
-finalizes, so conflicting objectives never race to the executor.
+Specialists sometimes disagree about the same resource. Njord may want
+`scale_down` to cut cost while Freyr wants `scale_up` for capacity. Odin settles
+that before Forseti finalizes the decision, so competing goals never race each
+other to the executor.
 
 ## When an agent is unavailable
 
-Self-healing includes the organization itself. A missing role lowers autonomy;
-it never allows another agent to absorb incompatible authority.
+Self-healing covers the organization itself. A missing role lowers autonomy. It
+never lets another agent take over authority it was not given.
 
 | Unavailable role | Safe degradation |
 |------------------|------------------|
-| Forseti (judge) | No new decision is issued; the case is held for human approval |
-| Thor (executor) | Judgment and audit may continue, but no mutation runs |
-| Var (approver) | Human approval requests remain queued; timeout is an audited no-op |
-| Vidar (recovery) | Actions that require rollback or failover cannot auto-execute |
-| Saga (auditor) | Mutation stops because no terminal path can satisfy the audit invariant |
-| Odin (arbitrator) | Cross-vertical conflicts go to human approval instead of choosing a winner |
+| Forseti (judge) | No new decision is issued, and the case waits for human approval |
+| Thor (executor) | Judgment and audit continue, but nothing changes |
+| Var (approver) | Approval requests stay queued, and a timeout ends as an audited no-op |
+| Vidar (recovery) | Actions that need rollback or failover cannot run automatically |
+| Saga (auditor) | Changes stop, because no outcome could satisfy the audit requirement |
+| Odin (arbitrator) | Cross-vertical conflicts go to human approval instead of picking a winner |
 
-An agent does not silently impersonate a failed peer. Recovery restores the
-declared role and replays pending judgment only; it never re-executes an action
-from conversation or an old delivery message.
+An agent never quietly stands in for a failed peer. Recovery restores the
+declared role and replays pending judgment only. It never re-runs an action from
+a conversation or an old delivery message.
 
 ## How to know the organization is healthy
 
-Useful health signals combine agent and control-loop outcomes:
+Useful health signals mix agent state with control-loop outcomes:
 
-- event ingestion lag, dead-letter depth, and correlation backlog;
-- decision latency, mixed-model disagreement, and human approval expiry rate;
-- execution success, stop-condition activation, and rollback rate;
-- audit completeness and time from terminal outcome to durable record;
-- per-agent degradation state and time spent below its normal autonomy ceiling.
+- event ingestion lag, dead-letter depth, and correlation backlog
+- decision latency, disagreement between models, and how often approvals expire
+- execution success, stop-condition activations, and rollback rate
+- audit completeness and the time from final outcome to a durable record
+- each agent's degradation state and how long it stayed below its normal
+  autonomy ceiling
 
-The goal is not to maximize auto execution. A healthy organization lowers
-autonomy when these signals degrade and makes the reason visible to operators.
+The goal is not to maximize automatic execution. A healthy organization lowers
+autonomy when these signals degrade and shows operators why.
 
 ## Next steps
 
