@@ -251,10 +251,12 @@ publishers. It records aggregate first-progress/confirmed latency, truncation, t
 and post-acknowledgement ambiguity without retaining message, destination, or identity values.
 Truncation includes output clipped to a vendor field limit and any complete activity omitted from
 the Teams Adaptive Card to preserve its 24,000-byte budget. It also includes a canonical Teams
-answer clipped to the 4,000-character answer-block limit. The metric records only that truncation
-occurred. When multibyte JSON encoding reaches the card byte ceiling first, the answer is clipped
-earlier with the same marker and metric. The omission count and clipping marker stay visible in the
-card, and the original activities and answer remain in the durable response evidence.
+answer clipped to the 4,000-character answer-block limit and a canonical Slack answer clipped to
+the 2,900-character Block Kit section limit after mrkdwn escaping. The metric records only that
+truncation occurred. When multibyte JSON encoding reaches the Teams card byte ceiling first, the
+answer is clipped earlier with the same marker and metric. The omission count and clipping marker
+stay visible in the vendor message, and the original activities and answer remain in the durable
+response evidence.
 
 Observed output uses explicit provenance markers. `[UPSTREAM OUTPUT TRUNCATED]` means the evidence
 producer supplied partial output; `[CHANNEL OUTPUT TRUNCATED]` means the adapter clipped output to

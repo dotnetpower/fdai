@@ -205,7 +205,8 @@ Teams card-budget activity omission counts as truncation without adding the omit
 or content to metrics.
 Teams canonical-answer clipping also counts as truncation without adding answer text or length to
 metrics. This includes earlier clipping required by multibyte serialized card bytes. Neither
-presentation limit changes attachment evidence authority or durable response data.
+Teams nor Slack canonical-answer clipping changes attachment evidence authority or durable response
+data, and Slack metrics likewise retain no answer text or length.
 The channel publisher keeps transport and acknowledgement handling separate from pure rendering;
 this structural split does not change protected ingestion or the redaction boundary.
 

@@ -21,6 +21,9 @@ from fdai.delivery.channels.publisher_rendering import (
     slack_activity_blocks as _slack_activity_blocks,
 )
 from fdai.delivery.channels.publisher_rendering import (
+    slack_answer_truncated as _slack_answer_truncated,
+)
+from fdai.delivery.channels.publisher_rendering import (
     slack_update_body as _slack_update_body,
 )
 from fdai.delivery.channels.publisher_rendering import (
@@ -178,7 +181,9 @@ class SlackWebApiReplyPublisher:
         self._record_progress_latency("time_to_first_confirmed", started)
         if self._progress_metrics is not None:
             self._progress_metrics.increment("terminal_completed")
-            if _response_truncated(response, 2_800):
+            if _response_truncated(response, 2_800) or _slack_answer_truncated(
+                response, response.text
+            ):
                 self._progress_metrics.increment("truncations")
         return _receipt(
             response,

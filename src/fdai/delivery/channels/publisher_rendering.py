@@ -172,6 +172,12 @@ def slack_escape(value: str) -> str:
     return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def slack_answer_truncated(response: OutboundResponse, answer: str) -> bool:
+    """Return whether Slack clips the canonical structured answer block."""
+
+    return bool(response.activities) and len(f"*Bragi*\n{slack_escape(answer)}") > 2_900
+
+
 def teams_activity_card(response: OutboundResponse, answer: str) -> dict[str, object]:
     card, _omitted, _answer_truncated = _teams_activity_card_result(response, answer)
     return card
@@ -340,6 +346,7 @@ __all__ = [
     "operation_fallback_text",
     "render_slack_text",
     "slack_activity_blocks",
+    "slack_answer_truncated",
     "slack_update_body",
     "teams_activity_omission_count",
     "teams_answer_truncated",

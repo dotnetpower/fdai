@@ -540,6 +540,45 @@ async def test_slack_progress_snapshots_post_once_then_edit_canonical_answer() -
     assert snapshot.latency_ms["time_to_first_confirmed"].count == 1
 
 
+async def test_slack_progress_counts_canonical_answer_clipping_as_truncation() -> None:
+    answer = "a" * 5_000
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Inspect health",
+        tool="query_resource_health",
+        command="query_resource_health --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+    )
+    metrics = ConversationProgressMetrics()
+    calls: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(),
+            token="app-token",
+            http_client=client,
+            progress_metrics=metrics,
+        ).publish(
+            _response(
+                ConversationChannelKind.SLACK,
+                text=answer,
+                activities=(activity,),
+                progress_updates=(
+                    ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Checking", 0),
+                    ChannelProgressUpdate(1, ChannelProgressStatus.CONFIRMED, answer, 1),
+                ),
+            )
+        )
+
+    assert "[TRUNCATED]" in str(calls[-1]["blocks"])
+    assert metrics.snapshot().counts["truncations"] == 1
+
+
 async def test_slack_progress_update_failure_is_ambiguous_after_initial_ack() -> None:
     calls = 0
 

@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: c90709dd32a95a8940b88b2f86cf0e04650ddc3b
+translation_source_sha: a4774dff5e29981be9f173080ae8384273a320de
 translation_revised: 2026-07-27
 ---
 
@@ -251,10 +251,11 @@ Production composition은 shared progressive-conversation collector를 두 publi
 latency, truncation, terminal completion 및 post-acknowledgement ambiguity를 기록합니다.
 Truncation에는 vendor field limit에 맞춰 잘린 output과 Teams Adaptive Card의 24,000-byte budget을
 지키기 위해 완전히 생략된 activity가 포함됩니다. 또한 4,000-character answer-block limit에 맞춰
-잘린 canonical Teams answer도 포함됩니다. Metric은 truncation 발생 여부만 기록합니다. Omission
-count와 clipping marker는 card에 표시됩니다. Multibyte JSON encoding이 card byte ceiling에 먼저
-도달하면 같은 marker와 metric을 사용해 answer를 더 일찍 자릅니다. 원본 activity와 answer는 durable
-response evidence에 유지됩니다.
+잘린 canonical Teams answer와 mrkdwn escaping 후 2,900-character Block Kit section limit에 맞춰
+잘린 canonical Slack answer도 포함됩니다. Metric은 truncation 발생 여부만 기록합니다. Omission
+count와 clipping marker는 vendor message에 표시됩니다. Multibyte JSON encoding이 Teams card byte
+ceiling에 먼저 도달하면 같은 marker와 metric을 사용해 answer를 더 일찍 자릅니다. 원본 activity와
+answer는 durable response evidence에 유지됩니다.
 
 Observed output은 명시적인 provenance marker를 사용합니다. `[UPSTREAM OUTPUT TRUNCATED]`는
 evidence producer가 partial output을 제공했다는 뜻이고, `[CHANNEL OUTPUT TRUNCATED]`는 adapter가

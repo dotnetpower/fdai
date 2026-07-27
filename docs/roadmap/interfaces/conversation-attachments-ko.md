@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 64f4ef2b694ac81b719ba74be7968dceea229507
+translation_source_sha: 178147d3b4cacb69b9e1c28c203342dc5544a7b3
 translation_revised: 2026-07-27
 title: 대화 첨부파일
 ---
@@ -213,7 +213,8 @@ Teams card-budget activity omission은 metric에 생략된 activity count 또는
 truncation으로 집계됩니다.
 Teams canonical-answer clipping도 metric에 answer text 또는 length를 추가하지 않고 truncation으로
 집계됩니다. Multibyte serialized card byte로 더 일찍 잘리는 경우도 포함됩니다. 두 presentation
-limit 모두 attachment evidence authority 또는 durable response data를 변경하지 않습니다.
+limit 모두 attachment evidence authority 또는 durable response data를 변경하지 않습니다. Slack
+canonical-answer clipping metric도 answer text 또는 length를 보관하지 않습니다.
 Channel publisher는 transport 및 acknowledgement 처리를 pure rendering과 분리합니다. 이 구조적
 분리는 protected ingestion 또는 redaction boundary를 변경하지 않습니다.
 
