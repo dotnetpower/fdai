@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: a82a1cab9811ff5e4ba46c5796a9943b1c2f8ce6
+translation_source_sha: 6f7c7319051e1e9d1e6b98d6542a8c581f453beb
 translation_revised: 2026-07-25
 ---
 # 설치형 배포 CLI
@@ -19,9 +19,9 @@ translation_revised: 2026-07-25
 > 사용할 수 있습니다. 읽기 전용 `provision inspect`, signed bundle build/verify/release
 > workflow, production exact-plan apply wiring, profile persistence, PyPI Trusted Publishing도
 > 구현됐습니다. Offline inspection은 composition-injected pinned verifier로 trusted 또는 rejected
-> kit evidence를 보고하며 operator trust-root override를 노출하지 않습니다. 첫 PyPI publication,
-> pinned offline root packaging, internal mirror/disconnected delivery, bootstrap
-> orchestration, teardown은 남았습니다.
+> kit evidence를 보고하며 operator trust-root override를 노출하지 않습니다. Offline-kit build, signing,
+> verification도 구현됐습니다. 첫 PyPI publication, pinned offline root packaging,
+> internal mirror/disconnected delivery, bootstrap orchestration, teardown은 남았습니다.
 >
 > **실행 경계:** Terraform은 인프라 실행 엔진이자 source of truth로 유지됩니다. `fdaictl`은
 > validation, plan 분석, workflow 제출, 배포 후 검사를 위한 얇은 orchestration 계층입니다.

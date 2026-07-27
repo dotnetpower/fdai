@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 31d6f0b8ea78c689f3afcdcad27bacf586168bda
+translation_source_sha: 5afd7908f3448d726dc895b688e4c74abc97e303
 translation_revised: 2026-07-25
 ---
 # Provisioning 실행 Profile
@@ -11,10 +11,10 @@ translation_revised: 2026-07-25
 전에 적용되는 사람 승인과 workload-identity 경계를 정의합니다.
 
 > **구현 상태:** 읽기 전용 `fdaictl provision inspect`와 private `provision init` profile
-> persistence가 구현되었습니다. Injected release root를 사용하는 offline-kit manifest,
+> persistence가 구현되었습니다. Injected release root를 사용하는 offline-kit manifest 생성,
 > signature, compatibility, exact file-set verification, inspection integration이 구현되었습니다.
 > Pinned root packaging,
-> kit construction, bootstrap plan/apply orchestration, temporary public-access cleanup,
+> bootstrap plan/apply orchestration, temporary public-access cleanup,
 > post-provision verification은 목표 동작으로 남아 있습니다.
 >
 > **범위:** Azure가 구현된 대상입니다. 이 profile은 Terraform source of truth를 변경하거나
@@ -160,6 +160,15 @@ root injection은 test, release construction, pinned inspection composition에�
 Artifact hashing은 no-follow descriptor open으로 path swap redirect를 막습니다. `fdaictl`은 `--release-root`
 override를 제공하지 않습니다. Public root가 wheel에 pin될 때까지 inspection은 `review`로
 유지됩니다.
+
+`build_offline_kit_manifest`는 그 verifier의 release-side 역방향입니다. Staged kit을 verifier와
+동일한 scan으로 읽으므로 symlink, 비정규 file, 한계 초과 tree를 기술하는 대신 거부하며, file
+목록을 operator 입력이 아니라 stage에서 도출합니다. Stage에 없는 artifact role은 서명 이전에
+실패하며, 동일한 내용을 두 번 build하면 서명 대상 byte가 정확히 같습니다.
+`scripts/deployment/release/build-offline-kit.py`가 서명을 담당합니다. Operator가 보관한 Ed25519
+private key를 로드하고, 새 manifest를 쓰기 전에 오래된 signature를 제거해 중단된 실행이
+그럴듯한 kit이 아니라 검증 불가 kit을 남기게 하며, 보고 전에 public release root로 재검증합니다.
+Private key는 kit, repository, log 어느 곳에도 들어가지 않습니다.
 
 ### Trust root 및 rotation
 

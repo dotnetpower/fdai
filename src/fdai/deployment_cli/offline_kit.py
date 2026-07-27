@@ -1,4 +1,14 @@
-"""Offline deployment-kit verification against an injected pinned release root."""
+"""Offline deployment-kit manifest construction and verification.
+
+The module owns one contract - ``fdai.deployment.offline-kit.v1`` - in both
+directions. :func:`build_offline_kit_manifest` mints the canonical signable
+bytes for a staged kit and :func:`verify_offline_kit` re-establishes trust in
+an unpacked kit. Both apply the same content rules, so the builder refuses to
+mint a manifest for a tree that verification would later reject.
+
+Signing is deliberately out of scope: the release private key never reaches
+library code (see ``scripts/deployment/release/build-offline-kit.py``).
+"""
 
 from __future__ import annotations
 
@@ -18,6 +28,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 OFFLINE_KIT_SCHEMA: Final = "fdai.deployment.offline-kit.v1"
 OFFLINE_KIT_VERIFICATION_SCHEMA: Final = "fdai.deployment-cli.offline-kit-verification.v1"
+MANIFEST_NAME: Final = "offline-kit.json"
+SIGNATURE_NAME: Final = "offline-kit.json.sig"
+_METADATA_NAMES: Final = frozenset({MANIFEST_NAME, SIGNATURE_NAME})
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 _PLATFORM = re.compile(r"^[a-z0-9]+(?:-[a-z0-9_]+)+$")
@@ -111,6 +124,67 @@ class OfflineKitVerificationError(ValueError):
     """The offline kit failed trust, compatibility, or content verification."""
 
 
+def build_offline_kit_manifest(
+    root: Path,
+    *,
+    kit_version: str,
+    cli_version: str,
+    bundle_version: str,
+    platform_tag: str,
+    python_wheel: str,
+    deployment_bundle: str,
+    terraform_binary: str,
+    provider_mirror_prefix: str,
+    opa_binary: str,
+    sbom_path: str,
+    max_total_bytes: int = _DEFAULT_MAX_TOTAL_BYTES,
+    max_files: int = _DEFAULT_MAX_FILES,
+) -> bytes:
+    """Return canonical signable manifest bytes for one staged offline kit.
+
+    The staged tree is read exactly as :func:`verify_offline_kit` reads it:
+    symlinks, non-regular entries, and out-of-bound trees are rejected instead
+    of being described, so a manifest can never attest to content that the
+    verifier would refuse. The caller signs the returned bytes verbatim; this
+    function never touches a private key and never writes to ``root``.
+    """
+    if max_total_bytes < 1 or max_files < 1:
+        raise ValueError("offline kit limits MUST be positive")
+    if root.is_symlink() or not root.is_dir():
+        raise OfflineKitVerificationError("offline kit root MUST be a regular directory")
+    staged, _total_bytes = _scan_kit_files(
+        root,
+        max_files=max_files,
+        max_total_bytes=max_total_bytes,
+    )
+    if not staged:
+        raise OfflineKitVerificationError("offline kit stages no artifact")
+    manifest = OfflineKitManifest(
+        kit_version=kit_version,
+        cli_version=cli_version,
+        bundle_version=bundle_version,
+        platform_tag=platform_tag,
+        python_wheel=python_wheel,
+        deployment_bundle=deployment_bundle,
+        terraform_binary=terraform_binary,
+        provider_mirror_prefix=provider_mirror_prefix,
+        opa_binary=opa_binary,
+        sbom_path=sbom_path,
+        files={relative: _file_digest(root / relative) for relative in sorted(staged)},
+    )
+    return canonical_manifest_bytes(manifest)
+
+
+def canonical_manifest_bytes(manifest: OfflineKitManifest) -> bytes:
+    """Serialize a manifest to the exact byte sequence that is signed."""
+    payload = json.dumps(
+        manifest.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return payload.encode("utf-8") + b"\n"
+
+
 def verify_offline_kit(
     root: Path,
     *,
@@ -126,8 +200,8 @@ def verify_offline_kit(
         raise ValueError("platform_tag is invalid")
     if max_total_bytes < 1 or max_files < 1:
         raise ValueError("offline kit limits MUST be positive")
-    manifest_path = root / "offline-kit.json"
-    signature_path = root / "offline-kit.json.sig"
+    manifest_path = root / MANIFEST_NAME
+    signature_path = root / SIGNATURE_NAME
     if root.is_symlink() or not root.is_dir():
         raise OfflineKitVerificationError("offline kit root MUST be a regular directory")
     if any(path.is_symlink() or not path.is_file() for path in (manifest_path, signature_path)):
@@ -152,28 +226,11 @@ def verify_offline_kit(
         raise OfflineKitVerificationError("offline kit platform does not match")
 
     listed = set(manifest.files)
-    actual: set[str] = set()
-    total_bytes = 0
-    for path in root.rglob("*"):
-        relative = path.relative_to(root).as_posix()
-        if relative in {"offline-kit.json", "offline-kit.json.sig"}:
-            continue
-        if path.is_symlink():
-            raise OfflineKitVerificationError(
-                f"offline kit file {relative!r} MUST NOT be a symlink"
-            )
-        if path.is_dir():
-            continue
-        if not path.is_file():
-            raise OfflineKitVerificationError(
-                f"offline kit entry {relative!r} is not a regular file"
-            )
-        actual.add(relative)
-        if len(actual) > max_files:
-            raise OfflineKitVerificationError("offline kit exceeds the file-count limit")
-        total_bytes += path.stat().st_size
-        if total_bytes > max_total_bytes:
-            raise OfflineKitVerificationError("offline kit exceeds the total-size limit")
+    actual, total_bytes = _scan_kit_files(
+        root,
+        max_files=max_files,
+        max_total_bytes=max_total_bytes,
+    )
     if actual != listed:
         missing = sorted(listed - actual)
         extra = sorted(actual - listed)
@@ -192,6 +249,38 @@ def verify_offline_kit(
         file_count=len(manifest.files),
         total_bytes=total_bytes,
     )
+
+
+def _scan_kit_files(
+    root: Path,
+    *,
+    max_files: int,
+    max_total_bytes: int,
+) -> tuple[set[str], int]:
+    """Enumerate payload files under ``root`` without following any symlink."""
+    found: set[str] = set()
+    total_bytes = 0
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        if relative in _METADATA_NAMES:
+            continue
+        if path.is_symlink():
+            raise OfflineKitVerificationError(
+                f"offline kit file {relative!r} MUST NOT be a symlink"
+            )
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise OfflineKitVerificationError(
+                f"offline kit entry {relative!r} is not a regular file"
+            )
+        found.add(relative)
+        if len(found) > max_files:
+            raise OfflineKitVerificationError("offline kit exceeds the file-count limit")
+        total_bytes += path.stat().st_size
+        if total_bytes > max_total_bytes:
+            raise OfflineKitVerificationError("offline kit exceeds the total-size limit")
+    return found, total_bytes
 
 
 def _verify_signature(public_key_pem: bytes, manifest: bytes, signature: bytes) -> None:
@@ -238,10 +327,14 @@ def _file_digest(path: Path) -> str:
 
 
 __all__ = [
+    "MANIFEST_NAME",
     "OFFLINE_KIT_SCHEMA",
     "OFFLINE_KIT_VERIFICATION_SCHEMA",
+    "SIGNATURE_NAME",
     "OfflineKitManifest",
     "OfflineKitVerification",
     "OfflineKitVerificationError",
+    "build_offline_kit_manifest",
+    "canonical_manifest_bytes",
     "verify_offline_kit",
 ]

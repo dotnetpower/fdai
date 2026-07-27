@@ -11,9 +11,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fdai.deployment_cli.offline_kit import (
+    MANIFEST_NAME,
+    SIGNATURE_NAME,
     OfflineKitManifest,
     OfflineKitVerificationError,
     _file_digest,
+    build_offline_kit_manifest,
     verify_offline_kit,
 )
 
@@ -196,4 +199,108 @@ def test_manifest_requires_provider_mirror_artifact() -> None:
             opa_binary="bin/opa",
             sbom_path="sbom/offline-kit.cdx.json",
             files=files,
+        )
+
+
+def _stage(root: Path) -> None:
+    for relative, content in _ARTIFACTS.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+
+
+def _build(root: Path, **overrides: str) -> bytes:
+    arguments: dict[str, str] = {
+        "kit_version": _VERSION,
+        "cli_version": _VERSION,
+        "bundle_version": _VERSION,
+        "platform_tag": _PLATFORM,
+        "python_wheel": "python/fdai-0.1.5-py3-none-any.whl",
+        "deployment_bundle": "deployment/fdai-deployment-bundle-0.1.5.tar.gz",
+        "terraform_binary": "terraform/terraform",
+        "provider_mirror_prefix": "terraform/providers",
+        "opa_binary": "bin/opa",
+        "sbom_path": "sbom/offline-kit.cdx.json",
+    }
+    arguments.update(overrides)
+    return build_offline_kit_manifest(root, **arguments)
+
+
+def test_built_manifest_verifies_after_signing(tmp_path: Path) -> None:
+    """The builder and the verifier MUST agree on one staged tree."""
+    _stage(tmp_path)
+    manifest_bytes = _build(tmp_path)
+    private_key = Ed25519PrivateKey.generate()
+    (tmp_path / MANIFEST_NAME).write_bytes(manifest_bytes)
+    (tmp_path / SIGNATURE_NAME).write_bytes(private_key.sign(manifest_bytes))
+
+    result = verify_offline_kit(
+        tmp_path,
+        release_root_pem=_public_key(private_key),
+        cli_version=_VERSION,
+        platform_tag=_PLATFORM,
+    )
+
+    assert result.file_count == len(_ARTIFACTS)
+    assert result.manifest_digest == hashlib.sha256(manifest_bytes).hexdigest()
+
+
+def test_build_is_byte_deterministic(tmp_path: Path) -> None:
+    """Two builds of identical content MUST produce one signable byte string."""
+    _stage(tmp_path)
+
+    assert _build(tmp_path) == _build(tmp_path)
+
+
+def test_build_ignores_stale_metadata_but_covers_every_artifact(tmp_path: Path) -> None:
+    """A rebuild over a previously signed kit MUST NOT attest to its own metadata."""
+    _stage(tmp_path)
+    (tmp_path / MANIFEST_NAME).write_bytes(b"stale")
+    (tmp_path / SIGNATURE_NAME).write_bytes(b"stale")
+
+    manifest = json.loads(_build(tmp_path))
+
+    assert set(manifest["files"]) == set(_ARTIFACTS)
+
+
+def test_build_rejects_symlinked_artifact(tmp_path: Path) -> None:
+    """A symlink could redirect the signed digest to content outside the kit."""
+    _stage(tmp_path)
+    (tmp_path / "link").symlink_to(tmp_path / "bin/opa")
+
+    with pytest.raises(OfflineKitVerificationError, match="MUST NOT be a symlink"):
+        _build(tmp_path)
+
+
+def test_build_rejects_empty_stage(tmp_path: Path) -> None:
+    with pytest.raises(OfflineKitVerificationError, match="stages no artifact"):
+        _build(tmp_path)
+
+
+def test_build_rejects_unstaged_required_artifact(tmp_path: Path) -> None:
+    """A declared role that is absent from the stage MUST fail before signing."""
+    _stage(tmp_path)
+    (tmp_path / "bin/opa").unlink()
+
+    with pytest.raises(ValueError, match="opa"):
+        _build(tmp_path)
+
+
+def test_build_rejects_file_count_over_limit(tmp_path: Path) -> None:
+    _stage(tmp_path)
+
+    with pytest.raises(OfflineKitVerificationError, match="file-count limit"):
+        build_offline_kit_manifest(
+            tmp_path,
+            kit_version=_VERSION,
+            cli_version=_VERSION,
+            bundle_version=_VERSION,
+            platform_tag=_PLATFORM,
+            python_wheel="python/fdai-0.1.5-py3-none-any.whl",
+            deployment_bundle="deployment/fdai-deployment-bundle-0.1.5.tar.gz",
+            terraform_binary="terraform/terraform",
+            provider_mirror_prefix="terraform/providers",
+            opa_binary="bin/opa",
+            sbom_path="sbom/offline-kit.cdx.json",
+            max_files=2,
         )

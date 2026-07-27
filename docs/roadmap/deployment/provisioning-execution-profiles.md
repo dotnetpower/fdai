@@ -8,10 +8,10 @@ transport, and access path. It also defines the human approval and workload-iden
 that applies before Terraform changes infrastructure or role assignments.
 
 > **Implementation status:** Read-only `fdaictl provision inspect` and private `provision init`
-> profile persistence are implemented. Offline-kit manifest, signature, compatibility, exact
-> file-set verification, and inspection integration are implemented behind an injected release
-> root. Pinned root packaging,
-> kit construction, bootstrap plan/apply orchestration, temporary public-access cleanup, and
+> profile persistence are implemented. Offline-kit manifest construction, signature, compatibility,
+> exact file-set verification, and inspection integration are implemented behind an injected
+> release root. Pinned root packaging,
+> bootstrap plan/apply orchestration, temporary public-access cleanup, and
 > post-provision verification remain target behavior.
 >
 > **Scope:** Azure is the implemented target. The profiles do not change the Terraform source of
@@ -156,6 +156,17 @@ root is injectable for tests, release construction, and pinned inspection compos
 Artifact hashing uses a no-follow descriptor open so a path swap cannot redirect it. `fdaictl`
 does not expose a
 `--release-root` override; inspection remains `review` until a public root is pinned in the wheel.
+
+`build_offline_kit_manifest` is the release-side inverse of that verifier. It reads the staged kit
+with the same scan, so it refuses to describe a symlink, a non-regular entry, or an out-of-bound
+tree, and it derives the file list from the stage rather than from an operator-supplied list. A
+declared artifact role that is absent from the stage fails before anything is signed, and two
+builds of identical content produce one identical signable byte string.
+`scripts/deployment/release/build-offline-kit.py` adds signing: it loads an operator-held Ed25519
+private key, removes any stale signature before writing the new manifest so an interrupted run
+leaves an unverifiable kit rather than a plausible one, and re-verifies the written kit against
+the public release root before reporting. The private key never enters the kit, the repository,
+or any log line.
 
 ### Trust root and rotation
 

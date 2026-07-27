@@ -17,9 +17,9 @@ machine.
 > evidence are available. Read-only `provision inspect`, signed bundle build/verify/release, and
 > production exact-plan apply wiring, profile persistence, and PyPI Trusted Publishing are
 > implemented. Offline inspection accepts a composition-injected pinned verifier and reports
-> trusted or rejected kit evidence without an operator trust-root override. First PyPI publication,
-> pinned offline root packaging, internal mirror/disconnected delivery, bootstrap
-> orchestration, and teardown remain.
+> trusted or rejected kit evidence without an operator trust-root override. Offline-kit build,
+> signing, and verification are implemented. First PyPI publication, pinned offline root
+> packaging, internal mirror/disconnected delivery, bootstrap orchestration, and teardown remain.
 >
 > **Execution boundary:** Terraform remains the infrastructure execution engine and source of
 > truth. `fdaictl` is a thin orchestration layer over validation, plan analysis, workflow
