@@ -51,6 +51,15 @@ class EscalationBudget:
             raise ValueError("escalation budget limits MUST be non-negative")
         if self.max_calls_per_correlation > self.max_calls_total:
             raise ValueError("per-correlation escalation budget MUST fit the total budget")
+        if self.max_calls_total > _MAX_TRACKED_CORRELATIONS:
+            # The ledger tracks per-correlation spend in a capped map. A
+            # total budget larger than that cap would let an eviction drop
+            # a spent correlation and silently refund its budget, so the
+            # ceiling would not be a ceiling. Reject it instead.
+            raise ValueError(
+                "total escalation budget MUST NOT exceed "
+                f"{_MAX_TRACKED_CORRELATIONS} tracked correlations"
+            )
 
 
 class EscalationLedger:
@@ -83,6 +92,10 @@ class EscalationLedger:
         A provider call that then fails still consumed the budget it was
         granted; charging on success would let a failing provider be
         retried without limit.
+
+        The map cannot overflow while budget remains: each charge adds at
+        most one key and the total budget is capped at the map's size, so
+        an eviction can never refund a correlation that still counts.
         """
         self._total += 1
         if len(self._per_correlation) >= _MAX_TRACKED_CORRELATIONS:
@@ -224,10 +237,11 @@ class ConversationDeliberator:
                 "correlation_id": correlation_id,
                 "deliberation_phase": "position",
                 "deliberation_tier": "T1",
-                # Whether a model escalation is still affordable this turn.
-                # The agent states the bound rather than implying a deeper
-                # pass ran when the budget already refused it.
+                # Whether a model escalation is still affordable this turn,
+                # and the bound itself. The agent states the bound rather
+                # than implying a deeper pass ran when it never did.
                 "escalation_available": self._ledger.allows(correlation_id),
+                **self._escalation_counters(correlation_id),
             },
         )
         primary_claim = _claim(decision.primary_agent, primary_raw)
@@ -311,12 +325,21 @@ class ConversationDeliberator:
                 "deliberation_tier": "T1",
                 "peer_claims": (_claim_dict(primary_claim),),
                 "escalation_available": self._ledger.allows(correlation_id),
+                **self._escalation_counters(correlation_id),
                 # The primary owns the conclusion; a critic contributes
                 # owned evidence and hands the answer back to that owner.
                 "handoff_owner": primary_claim.agent,
             },
         )
         return _claim(agent_name, response)
+
+    def _escalation_counters(self, correlation_id: str) -> dict[str, int]:
+        """Return the bound a turn may state, as bounded integers."""
+        snapshot = self._ledger.snapshot(correlation_id)
+        return {
+            "escalation_spent": snapshot["spent_for_correlation"],
+            "escalation_limit": snapshot["max_per_correlation"],
+        }
 
     async def _synthesize(
         self,

@@ -77,8 +77,9 @@ _CRITIQUE_ROUNDS: tuple[tuple[str, tuple[PromptCheck, ...]], ...] = (
     (
         "handoff",
         (
-            ("owner named", lambda prompt: "name that owner" in prompt),
+            ("owner named", lambda prompt: "to that owner by name" in prompt),
             ("llm-free routing", lambda prompt: "deterministic and needs no model" in prompt),
+            ("owner source", lambda prompt: "from the peer set above" in prompt),
             ("no impersonation", lambda prompt: "never answer in the owner's name" in prompt),
         ),
     ),
@@ -398,3 +399,51 @@ def test_a_denied_budget_reaches_the_agent_prompt_for_the_turn() -> None:
     assert "escalation=available" in allowed["prompt_composition"]["situation"]
     assert "budget_denied" in denied["prompt_composition"]["layers"]
     assert "escalation=denied" in denied["prompt_composition"]["situation"]
+
+
+def test_a_total_budget_larger_than_the_ledger_is_rejected() -> None:
+    """An evictable ledger would refund spent budget, so the ceiling would leak."""
+    from fdai.agents._framework.deliberation import _MAX_TRACKED_CORRELATIONS
+
+    with pytest.raises(ValueError, match="tracked correlations"):
+        EscalationBudget(
+            max_calls_per_correlation=1,
+            max_calls_total=_MAX_TRACKED_CORRELATIONS + 1,
+        )
+
+
+def test_spent_budget_is_never_refunded_by_ledger_eviction() -> None:
+    from fdai.agents._framework.deliberation import _MAX_TRACKED_CORRELATIONS, EscalationLedger
+
+    ledger = EscalationLedger(
+        EscalationBudget(max_calls_per_correlation=1, max_calls_total=_MAX_TRACKED_CORRELATIONS)
+    )
+    ledger.record("victim")
+
+    # Fill the ledger with every other correlation the budget can pay for.
+    for index in range(_MAX_TRACKED_CORRELATIONS - 1):
+        ledger.record(f"c{index}")
+
+    assert ledger.allows("victim") is False
+
+
+def test_the_denied_turn_states_the_bound_it_was_told_to_state() -> None:
+    """The economy layer says to state the bound, so the bound MUST be legible."""
+    from fdai.agents._framework.conversation_prompt import ConversationSituation
+    from fdai.agents.odin import Odin
+
+    odin = Odin()
+    envelope = asyncio.run(
+        odin.on_conversation_turn(
+            "portfolio status",
+            {"escalation_available": False, "escalation_spent": 1, "escalation_limit": 1},
+        )
+    )
+    composed = odin.spec.conversation.compose_prompt(
+        ConversationSituation(escalation_available=False, escalation_spent=1, escalation_limit=1)
+    )
+
+    assert "budget_denied" in envelope["prompt_composition"]["layers"]
+    # The instruction "state the bound" is satisfiable only if the bound is
+    # in the prompt. Without the numbers it would be another ungroundable ask.
+    assert "1 of 1 model call(s) already spent for this correlation" in composed.text

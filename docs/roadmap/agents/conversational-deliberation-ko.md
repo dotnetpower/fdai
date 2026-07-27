@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 2c744234c78952e14a925ae77a9760715c3959f8
+translation_source_sha: fd69be83da3f7e5e80c3b9e81ad863e7a028d2fa
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -143,8 +143,12 @@ uncapped inference로 가지 않습니다. `EscalationBudget`이 그 천장을 �
 
 예산은 호출 후가 아니라 호출 전에 차감하므로 provider 실패를 무제한 재시도할 수 없습니다.
 예산이 소진되면 round는 T1에 머물고 `t2_status: budget_denied`와 한도를 기록하며, 해당
-turn은 `budget_denied` prompt layer를 조립해서 답변이 더 깊은 분석을 한 것처럼 암시하지 않고
-실행되지 않았다고 밝히도록 합니다. 거부는 결과를 강등시킬 뿐 예외를 일으키지 않습니다.
+turn은 같은 한도를 담은 `budget_denied` prompt layer를 조립하므로 답변이 그 한도를 직접
+밝힐 수 있습니다. 거부는 결과를 강등시킬 뿐 예외를 일으키지 않습니다.
+
+Ledger는 correlation별 지출을 상한이 있는 map으로 추적하므로, 그 상한보다 큰 총 예산은
+생성 시점에 거부합니다. 축출이 일어나면 이미 소모한 correlation이 조용히 환불되고,
+스스로 환불하는 천장은 천장이 아니기 때문입니다.
 
 ## Optional T2 synthesis
 

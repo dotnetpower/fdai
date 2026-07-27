@@ -95,6 +95,10 @@ _AGENT_NAME = re.compile(r"^[A-Z][a-z]{1,15}$")
 _TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 _LOCALE_TAG = re.compile(r"^[A-Za-z]{2}(?:-[A-Za-z0-9]{2,8})?$")
 
+#: Upper bound on the escalation counters a situation may carry, so a
+#: malformed runtime value cannot render an unbounded number.
+_MAX_ESCALATION_COUNT: Final[int] = 1_000_000
+
 
 @dataclass(frozen=True, slots=True)
 class PromptLayer:
@@ -124,6 +128,8 @@ class ConversationSituation:
     evidence_available: bool = True
     action_intent: bool = False
     escalation_available: bool = True
+    escalation_spent: int = 0
+    escalation_limit: int = 0
     handoff_owner: str | None = None
 
     def __post_init__(self) -> None:
@@ -141,6 +147,10 @@ class ConversationSituation:
             raise ValueError("conversation handoff owner MUST be a bounded agent name")
         if self.tool_id is not None and _TOOL_ID.fullmatch(self.tool_id) is None:
             raise ValueError("conversation tool id MUST be a bounded ASCII identifier")
+        if not 0 <= self.escalation_spent <= _MAX_ESCALATION_COUNT:
+            raise ValueError("conversation escalation_spent MUST be a bounded count")
+        if not 0 <= self.escalation_limit <= _MAX_ESCALATION_COUNT:
+            raise ValueError("conversation escalation_limit MUST be a bounded count")
 
     @classmethod
     def baseline(cls) -> ConversationSituation:
@@ -191,6 +201,8 @@ class ConversationSituation:
             # Absence means "not stated", which MUST NOT read as "denied":
             # only an explicit False from the runtime closes escalation.
             escalation_available=context.get("escalation_available") is not False,
+            escalation_spent=_bounded_count(context.get("escalation_spent")),
+            escalation_limit=_bounded_count(context.get("escalation_limit")),
             handoff_owner=(
                 raw_owner
                 if isinstance(raw_owner, str) and _AGENT_NAME.fullmatch(raw_owner)
@@ -387,15 +399,25 @@ def _situational_layers(
             )
         )
     if not situation.escalation_available:
+        # The economy layer tells the agent to state the bound, so the bound
+        # has to reach it. Rendered from the runtime's own counters when it
+        # supplied them, never from a number the agent has to guess.
+        bound = (
+            f" ({situation.escalation_spent} of {situation.escalation_limit} "
+            "model call(s) already spent for this correlation)"
+            if situation.escalation_limit
+            else ""
+        )
         layers.append(
             (
                 2,
                 PromptLayer(
                     "budget_denied",
                     (
-                        "Escalation budget: the pre-declared budget leaves no model escalation "
-                        "for this turn. Answer from owned facts and allowed tools only, and say "
-                        "plainly that the deeper pass was not run rather than implying it was."
+                        f"Escalation budget: the pre-declared budget leaves no model "
+                        f"escalation for this turn{bound}. Answer from owned facts and "
+                        "allowed tools only, and say plainly that the deeper pass was not "
+                        "run rather than implying it was."
                     ),
                 ),
             )
@@ -460,6 +482,13 @@ def _normalize_locale(raw: Any) -> str:
         return "en"
     primary = raw.split("-", 1)[0].casefold()
     return primary if primary in SUPPORTED_LOCALES else "en"
+
+
+def _bounded_count(raw: Any) -> int:
+    """Reduce an untrusted counter to a bounded non-negative integer."""
+    if not isinstance(raw, int) or isinstance(raw, bool):
+        return 0
+    return max(0, min(raw, _MAX_ESCALATION_COUNT))
 
 
 __all__ = [

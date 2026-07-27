@@ -139,8 +139,13 @@ enforces it before the synthesizer is called:
 
 The budget is charged before the call, not after, so a provider failure cannot be retried without
 limit. When it is spent the round stays at T1 and records `t2_status: budget_denied` with the
-bound, and the turn composes the `budget_denied` prompt layer so the answer states that the deeper
-pass did not run instead of implying it did. Denial degrades the result; it never raises.
+bound, and the turn composes the `budget_denied` prompt layer carrying that same bound, so the
+answer can state it rather than implying the deeper pass ran. Denial degrades the result; it never
+raises.
+
+The ledger tracks per-correlation spend in a capped map, so a total budget larger than that cap is
+rejected at construction: an eviction would drop a spent correlation and silently refund it, and a
+ceiling that refunds itself is not a ceiling.
 
 ## Optional T2 synthesis
 

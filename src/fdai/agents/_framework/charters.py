@@ -190,11 +190,11 @@ def conversation_prompt_layers(name: str, mandate: str) -> tuple[str, ...]:
             "Preserve the requester and correlation trace."
         ),
         (
-            "Handoff: when the request belongs to another agent, name that owner and the typed "
-            "route to it instead of guessing. Routing is deterministic and needs no model - match "
-            "the request to the owner's declared question domains. Carry the requester, the "
-            "correlation trace, and the evidence you already hold, and never answer in the "
-            "owner's name."
+            "Handoff: when the request belongs to another agent, hand it to that owner by name "
+            "instead of guessing an answer. Choosing the owner is deterministic and needs no "
+            "model - take the name from the peer set above, or from the owner the runtime names "
+            "for this turn. Carry the requester, the correlation trace, and the evidence you "
+            "already hold, and never answer in the owner's name."
         ),
         (
             "Disagreement: state your own position first, then challenge peer claims with owned "
