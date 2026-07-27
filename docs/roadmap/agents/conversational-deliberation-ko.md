@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 30ec462c27b135f151fd5a6dafb411177ce403a6
+translation_source_sha: 4ff4dc48004c1e10f048f8af8c9f29f6e57dcb5e
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -161,27 +161,30 @@ owner의 안정적 digest로 대체합니다. 그렇지 않으면 모든 deliber
 공유해서, 첫 synthesis가 그 뒤의 무관한 모든 질문의 예산까지 써버립니다. 같은 owner에게 같은
 질문을 다시 하는 것은 같은 작업 단위이므로 추가 비용이 들지 않습니다.
 
-두 한도 중 하나만 걸려도 거부하며, 호출 전에 둘 다 검사합니다. 지출은 두 단계로 차감합니다.
+두 한도 중 하나만 걸려도 거부하며, 호출 전에 둘 다 검사합니다. 지출을 차감하는 지점은 정확히
+하나이며, 그것은 deliberator가 아닙니다.
 
-1. **호출 전 추정 차감.** 추정은 조립된 입력 전체와 최대 길이의 conclusion을 함께 가격 매기므로
-   과소 계상해서 호출이 천장을 넘어가는 일이 없습니다. Agent가 조립한 prompt도 그 입력의
-   일부이므로 charter 자체의 크기가 공짜가 아니라 계상됩니다. 먼저 차감하기 때문에 이후 실패한
-   provider도 부여받은 예산을 소모한 것이 되고, 실패한 provider를 무제한 재시도할 수 없습니다.
-2. **호출 후 정산.** `SynthesisOutcome`이 실측 `TokenUsage`와 model key를 보고합니다. Provider가
-   알려주지 않는 것을 예산이 계량할 수는 없기 때문입니다. 부족분만 추가 차감하며 넉넉했던 추정은
-   그대로 소모로 남습니다. 환불 경로는 없습니다.
+1. **호출 전 시도 예약.** Round는 provider에게 묻기 전에 call 1건만 차감하고 금액은 차감하지
+   않습니다. 이후 실패한 provider도 부여받은 시도를 소모한 것이 되므로, 실패한 provider를
+   무제한 재시도할 수 없습니다.
+2. **호출이 기록되는 곳에서 금액 차감.** `SynthesisOutcome`이 실측 `TokenUsage`와 model key를
+   보고합니다. Provider가 알려주지 않는 것을 예산이 계량할 수는 없기 때문입니다. 가격이 매겨진
+   `LlmInvocation`이 `usage_scope: operator_chat`으로 metering에 기록되고,
+   `BudgetChargingMeteringSink`가 방금 기록한 그 비용을 ledger에 차감합니다.
 
-정산된 호출은 `usage_scope: operator_chat`을 가진 `LlmInvocation`으로 기록되므로, 대화 지출이
-다른 모든 model 호출과 같은 metering rollup에 들어가고 천장이 주장이 아니라 감사 가능해집니다.
-Usage를 보고하지 않는 provider는 정직하게 미계량 상태로 남습니다. 아무것도 metering하지 않고
-call 한도가 경계로 남습니다.
+따라서 비용은 추정되지도, 두 번 차감되지도 않습니다. 예산이 쓴 금액이 곧 감사 기록에 남은
+금액이므로 천장이 주장이 아니라 감사 가능해집니다. Usage를 보고하지 않는 provider는 정직하게
+미계량 상태로 남습니다. 아무것도 metering하지 않고 금액도 차감하지 않으며 call 한도가 경계로
+남습니다. 차감 지점이 개별 호출 지점이 아니라 metering 기록이므로, composition root가 이 charging
+sink를 바인딩하면 각 seam에 예산을 가르치지 않고도 metering되는 모든 model 호출이 같은 천장 아래
+놓입니다.
 
 예산이 소진되면 round는 T1에 머물고 `t2_status: budget_denied`와 한도를 기록하며, 해당 turn은
 같은 한도를 담은 `budget_denied` prompt layer를 조립하므로 답변이 그 한도를 직접 밝힐 수
 있습니다. 거부는 결과를 강등시킬 뿐 예외를 일으키지 않습니다.
 
-`EscalationLedger`는 판테온의 다른 durable-state seam과 마찬가지로 Protocol입니다. 상류 기본값인
-`InMemoryEscalationLedger`는 프로세스 범위이며 deterministic하므로 재시작하면 천장이
+`BudgetLedger`는 판테온의 다른 durable-state seam과 마찬가지로 Protocol입니다. 상류 기본값인
+`InMemoryBudgetLedger`는 프로세스 범위이며 deterministic하므로 재시작하면 천장이
 초기화됩니다. 재시작을 넘어서는 천장이 필요한 배포는 composition root에서 durable 구현을
 바인딩합니다. Ledger는 correlation별 지출을 상한이 있는 map으로 추적하므로 그 상한보다 큰 총 call
 예산은 생성 시점에 거부합니다. 축출이 일어나면 이미 소모한 correlation이 조용히 환불되고,

@@ -159,29 +159,31 @@ otherwise share the empty string, so the first synthesis would spend the budget 
 question after it. Re-asking the same question of the same owner is the same unit of work and
 still costs nothing more.
 
-Either bound denies, and both are checked before the call. Spend is charged in two steps:
+Either bound denies, and both are checked before the call. Spend is charged at exactly one point,
+and it is not the deliberator:
 
-1. **Estimate, before the call.** The estimate prices the whole composed input plus a full-length
-   conclusion, so it can never undercount and let a call slip past the ceiling. The prompt the
-   agents compose is part of that input, so the charter's own size is accounted for rather than
-   being free. Charging first means a provider that then fails still consumed what it was granted,
-   and a failing provider cannot be retried without limit.
-2. **Settle, after the call.** `SynthesisOutcome` reports the measured `TokenUsage` and model key,
-   because a budget cannot meter what its provider never tells it. Only a shortfall is charged;
-   a generous estimate stays spent. There is no refund path.
+1. **Reserve the attempt, before the call.** The round charges one call, and no money, before it
+   asks the provider. A provider that then fails still consumed the attempt it was granted, so a
+   failing provider cannot be retried without limit.
+2. **Charge the money where the call is recorded.** `SynthesisOutcome` reports the measured
+   `TokenUsage` and model key, because a budget cannot meter what its provider never tells it. The
+   priced `LlmInvocation` is written to metering with `usage_scope: operator_chat`, and
+   `BudgetChargingMeteringSink` charges the ledger the same cost it just recorded.
 
-The settled call is then recorded as an `LlmInvocation` with `usage_scope: operator_chat`, so the
-conversational spend lands in the same metering rollups as every other model call and the ceiling
-is auditable rather than merely asserted. A provider that reports no usage is honestly unmeasured:
-nothing is metered and the call caps remain the bound.
+Cost is therefore never estimated and never charged twice: what the budget spends is exactly what
+the audit trail shows, so the ceiling is auditable rather than merely asserted. A provider that
+reports no usage is honestly unmeasured: nothing is metered, no money is charged, and the call caps
+remain the bound. Because the charge point is the metering write rather than one call site, a
+composition root that binds the charging sink puts every metered model call under the same ceiling
+without teaching each seam about budgets.
 
 When the budget is spent the round stays at T1 and records `t2_status: budget_denied` with the
 bound, and the turn composes the `budget_denied` prompt layer carrying that same bound, so the
 answer can state it rather than implying the deeper pass ran. Denial degrades the result; it never
 raises.
 
-`EscalationLedger` is a Protocol, like every other durable-state seam in the pantheon. The upstream
-`InMemoryEscalationLedger` is process-local and deterministic, so a restart resets the ceiling; a
+`BudgetLedger` is a Protocol, like every other durable-state seam in the pantheon. The upstream
+`InMemoryBudgetLedger` is process-local and deterministic, so a restart resets the ceiling; a
 deployment that needs the ceiling to survive a restart binds a durable implementation at the
 composition root. The ledger tracks per-correlation spend in a capped map, so a total call budget
 larger than that cap is rejected at construction: an eviction would drop a spent correlation and

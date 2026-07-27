@@ -18,7 +18,6 @@ from fdai.core.metering.budget import (
     BudgetLedger,
     InMemoryBudgetLedger,
     ModelBudget,
-    to_microusd,
 )
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
@@ -329,11 +328,12 @@ class ConversationDeliberator:
                 for claim in claims
             ),
         )
-        # Charge the estimate before the call. A provider call that then
-        # fails still consumed the budget it was granted, so charging on
-        # success would let a failing provider be retried without limit.
-        estimate = self._estimated_cost_microusd(request)
-        await self._ledger.charge(budget_key, calls=1, cost_microusd=estimate)
+        # Charge the call before making it: a provider that then fails
+        # still consumed what it was granted, so charging on success would
+        # let a failing provider be retried without limit. Cost is charged
+        # where it becomes known - the metering record - so this ledger has
+        # exactly one place that accounts for money.
+        await self._ledger.charge(budget_key, calls=1, cost_microusd=0)
         try:
             outcome = await synthesizer.synthesize(request)
         except Exception as exc:  # noqa: BLE001 - optional presentation degradation
@@ -345,12 +345,7 @@ class ConversationDeliberator:
             return result
         conclusion = outcome.conclusion if isinstance(outcome, SynthesisOutcome) else None
         if isinstance(outcome, SynthesisOutcome):
-            await self._settle(
-                outcome,
-                budget_key=budget_key,
-                correlation_id=correlation_id,
-                estimate=estimate,
-            )
+            await self._meter(outcome, correlation_id=budget_key)
         if not isinstance(conclusion, str) or not conclusion.strip():
             result["t2_status"] = "abstained"
         elif len(conclusion) > _MAX_T2_CONCLUSION_CHARS:
@@ -374,61 +369,19 @@ class ConversationDeliberator:
             "max_cost_microusd_per_correlation": (self._budget.max_cost_microusd_per_correlation),
         }
 
-    def _estimated_cost_microusd(self, request: DeliberationRequest) -> int:
-        """Price the call before making it, from what it is about to send.
+    async def _meter(self, outcome: SynthesisOutcome, *, correlation_id: str) -> None:
+        """Record the measured call so the spend is auditable and charged.
 
-        Deliberately conservative: it prices the whole composed input plus
-        a full-length conclusion, so the pre-charge can never undercount
-        and let a call slip past the ceiling. The prompt the agents
-        compose is part of that input, so the charter's own size is
-        accounted for rather than being free.
+        An unmeasured provider is honestly unmeasured: nothing is
+        recorded, because metering is for measured facts, and the call
+        caps remain the bound.
         """
-        if self._pricing is None or not self._t2_model_key:
-            return 0
-        prompt_chars = len(request.question) + sum(
-            len(prompt) + len(claim.answer)
-            for (_, prompt), claim in zip(request.participant_prompts, request.claims, strict=True)
-        )
-        usage = TokenUsage(
-            prompt_tokens=prompt_chars // _CHARS_PER_TOKEN,
-            completion_tokens=_MAX_T2_CONCLUSION_CHARS // _CHARS_PER_TOKEN,
-        )
-        return to_microusd(self._pricing.cost_of(model_key=self._t2_model_key, usage=usage))
-
-    async def _settle(
-        self,
-        outcome: SynthesisOutcome,
-        *,
-        budget_key: str,
-        correlation_id: str,
-        estimate: int,
-    ) -> None:
-        """Reconcile the estimate with measured usage and meter the call.
-
-        Charges only the shortfall, never a refund: an estimate that
-        turned out generous stays spent, so the ceiling can only ever be
-        conservative. An unmeasured provider settles at the estimate and
-        records nothing, because metering is for measured facts.
-        """
-        if outcome.usage is None or not outcome.model_key:
-            return
-        measured = to_microusd(
-            self._pricing.cost_of(model_key=outcome.model_key, usage=outcome.usage)
-            if self._pricing is not None
-            else None
-        )
-        if measured > estimate:
-            await self._ledger.charge(
-                budget_key,
-                calls=0,
-                cost_microusd=measured - estimate,
-            )
-        if self._metering is None:
+        if self._metering is None or outcome.usage is None or not outcome.model_key:
             return
         await self._metering.record(
             LlmInvocation(
                 occurred_at=datetime.now(UTC),
-                correlation_id=correlation_id or "unattributed",
+                correlation_id=correlation_id,
                 capability_id=_T2_CONVERSATION_CAPABILITY,
                 model_key=outcome.model_key,
                 tier="T2",

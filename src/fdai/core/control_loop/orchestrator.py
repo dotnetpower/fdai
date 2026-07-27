@@ -130,7 +130,11 @@ class ControlLoop(
         self._rca_coordinator = rca_coordinator
         self._event_correlator = event_correlator
         self._incident_member_source = incident_member_source
-        self._causal_chain_window = causal_chain_window or timedelta(minutes=15)
+        # ``is None``, not ``or``: timedelta(0) is falsy, so an operator
+        # who declares a zero window would silently get fifteen minutes.
+        self._causal_chain_window = (
+            causal_chain_window if causal_chain_window is not None else timedelta(minutes=15)
+        )
         self._resource_dependency_graph = (
             dict(resource_dependency_graph) if resource_dependency_graph is not None else None
         )

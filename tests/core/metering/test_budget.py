@@ -133,3 +133,85 @@ async def test_spend_reports_what_a_correlation_consumed() -> None:
 )
 def test_pricing_converts_to_conservative_microusd(cost: Decimal | None, expected: int) -> None:
     assert to_microusd(cost) == expected
+
+
+async def test_the_charging_sink_records_first_then_charges_what_it_recorded() -> None:
+    """One charge point: whatever metering records is what the budget spends."""
+    from datetime import UTC, datetime
+
+    from fdai.core.metering.budget import BudgetChargingMeteringSink
+    from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
+    from fdai.core.metering.sink import InMemoryMeteringSink
+    from fdai.core.metering.usage import TokenUsage
+
+    inner = InMemoryMeteringSink()
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=4))
+    sink = BudgetChargingMeteringSink(inner, ledger)
+
+    await sink.record(
+        LlmInvocation(
+            occurred_at=datetime.now(UTC),
+            correlation_id="corr-1",
+            capability_id="t2.conversation.synthesis",
+            model_key="gpt-test",
+            tier="T2",
+            mode=InvocationMode.SHADOW,
+            usage=TokenUsage(1_000, 500),
+            usage_scope=InvocationScope.OPERATOR_CHAT,
+            cost=Decimal("0.25"),
+            currency="USD",
+        )
+    )
+
+    assert len(await inner.invocations()) == 1
+    assert (await ledger.spend("corr-1")).cost_microusd == 250_000
+
+
+async def test_a_ledger_failure_never_breaks_the_metering_write() -> None:
+    """Metering is a side-channel; a budget hiccup MUST NOT lose the record."""
+    from datetime import UTC, datetime
+
+    from fdai.core.metering.budget import BudgetChargingMeteringSink
+    from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
+    from fdai.core.metering.sink import InMemoryMeteringSink
+    from fdai.core.metering.usage import TokenUsage
+
+    class _BrokenLedger:
+        async def allows(self, correlation_id: str) -> bool:
+            return True
+
+        async def charge(self, correlation_id: str, *, calls: int, cost_microusd: int) -> None:
+            raise RuntimeError("ledger backend down")
+
+        async def spend(self, correlation_id: str) -> BudgetSpend:
+            return BudgetSpend()
+
+    inner = InMemoryMeteringSink()
+    sink = BudgetChargingMeteringSink(inner, _BrokenLedger())
+
+    await sink.record(
+        LlmInvocation(
+            occurred_at=datetime.now(UTC),
+            correlation_id="corr-1",
+            capability_id="t2.conversation.synthesis",
+            model_key="gpt-test",
+            tier="T2",
+            mode=InvocationMode.SHADOW,
+            usage=TokenUsage(1, 1),
+            usage_scope=InvocationScope.OPERATOR_CHAT,
+        )
+    )
+
+    assert len(await inner.invocations()) == 1
+
+
+def test_an_empty_in_memory_sink_is_falsy_so_defaults_use_is_none() -> None:
+    """Pins the trap that silently discarded an injected sink.
+
+    ``InMemoryMeteringSink`` defines ``__len__``, so an empty one is
+    falsy and ``sink or Default()`` throws the caller's sink away. Any
+    default fallback for it MUST test ``is None``.
+    """
+    from fdai.core.metering.sink import InMemoryMeteringSink
+
+    assert bool(InMemoryMeteringSink()) is False

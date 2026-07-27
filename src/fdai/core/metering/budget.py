@@ -21,9 +21,15 @@ restart binds a durable implementation at the composition root.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Final, Protocol, runtime_checkable
+
+from fdai.core.metering.records import LlmInvocation
+from fdai.core.metering.sink import MeteringSink
+
+_LOG = logging.getLogger(__name__)
 
 #: Distinct correlations the in-memory ledger tracks. A budget whose call
 #: ceiling exceeds this could have a spent correlation evicted, which
@@ -183,9 +189,52 @@ def to_microusd(cost: Decimal | None) -> int:
 
 __all__ = [
     "MAX_TRACKED_CORRELATIONS",
+    "BudgetChargingMeteringSink",
     "BudgetLedger",
     "BudgetSpend",
     "InMemoryBudgetLedger",
     "ModelBudget",
     "to_microusd",
 ]
+
+
+class BudgetChargingMeteringSink:
+    """Charge the budget with what metering actually recorded.
+
+    Spend is known in one place already: an adapter emits an
+    :class:`~fdai.core.metering.records.LlmInvocation` after every call,
+    with the measured usage and the computed cost. Wrapping the sink
+    makes that the single charge point, so every path that meters is
+    also bounded - the cross-check, the proposer, the critic, the judge,
+    the narrator - without each one being taught to account for itself.
+
+    Cost is charged after the call because that is when it is known. The
+    call caps are what stop a call *before* it happens; a ceiling can
+    therefore be overshot by at most the one call that crossed it, which
+    is why the per-unit call cap exists alongside the cost cap.
+
+    Charging never breaks the caller: the wrapped sink is written first
+    and a ledger failure is logged, not raised, exactly like the
+    emitter's own best-effort contract.
+    """
+
+    __slots__ = ("_inner", "_ledger")
+
+    def __init__(self, inner: MeteringSink, ledger: BudgetLedger) -> None:
+        self._inner = inner
+        self._ledger = ledger
+
+    async def record(self, invocation: LlmInvocation) -> None:
+        await self._inner.record(invocation)
+        try:
+            await self._ledger.charge(
+                invocation.correlation_id,
+                calls=0,
+                cost_microusd=to_microusd(invocation.cost),
+            )
+        except Exception:
+            _LOG.warning(
+                "budget_charge_failed",
+                extra={"correlation_id": invocation.correlation_id},
+                exc_info=True,
+            )

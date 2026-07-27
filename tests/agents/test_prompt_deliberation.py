@@ -17,7 +17,11 @@ from fdai.agents._framework.deliberation import (
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
-from fdai.core.metering.budget import ModelBudget
+from fdai.core.metering.budget import (
+    BudgetChargingMeteringSink,
+    InMemoryBudgetLedger,
+    ModelBudget,
+)
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.records import InvocationScope
 from fdai.core.metering.sink import InMemoryMeteringSink
@@ -483,6 +487,13 @@ def _priced_runtime(
     budget: ModelBudget,
     metering: InMemoryMeteringSink | None = None,
 ) -> PantheonRuntime:
+    """Wire the runtime the way a composition root does.
+
+    The ledger is charged where spend becomes known - the metering
+    record - so the sink is wrapped rather than the deliberator being
+    taught to account for money twice.
+    """
+    ledger = InMemoryBudgetLedger(budget)
     return PantheonRuntime.build(
         provider=InMemoryEventBus(),
         raw_event_topic="fdai.events",
@@ -490,8 +501,13 @@ def _priced_runtime(
         semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
         conversation_t2_synthesizer=synthesizer,
         conversation_escalation_budget=budget,
+        conversation_escalation_ledger=ledger,
         conversation_pricing=_PRICING,
-        conversation_metering=metering,
+        # ``is None``, not ``or``: an empty InMemoryMeteringSink is
+        # falsy, so ``or`` would discard the sink the caller passed.
+        conversation_metering=BudgetChargingMeteringSink(
+            metering if metering is not None else InMemoryMeteringSink(), ledger
+        ),
         conversation_t2_model_key="gpt-test",
     )
 
