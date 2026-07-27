@@ -115,8 +115,10 @@ def test_forseti_arbitrations_map_is_bounded() -> None:
 
     forseti = Forseti()
     for i in range(_MAX_RESOURCES + 100):
-        forseti._record_arbitration(  # noqa: SLF001
-            {"correlation_id": f"c{i}", "winning_domain": "cost"}
+        asyncio.run(
+            forseti._record_arbitration(  # noqa: SLF001
+                {"correlation_id": f"c{i}", "winning_domain": "cost"}
+            )
         )
     assert len(forseti.arbitrations) == _MAX_RESOURCES
     # The oldest correlations were evicted; the newest is retained.
@@ -1167,3 +1169,112 @@ def test_odin_verdict_observation_never_publishes() -> None:
     asyncio.run(odin.on_typed_message("object.verdict", {"risk_verdict": "auto"}))
 
     assert bus.messages_on("object.arbitration-decision") == []
+
+
+# ---------------------------------------------------------------------------
+# Unresolved arbitration reaches a human (agent-pantheon.md 3.1)
+# ---------------------------------------------------------------------------
+
+
+def test_escalated_arbitration_reaches_a_human_verdict_end_to_end() -> None:
+    """A near-tie Odin refuses to settle MUST NOT vanish after arbitration."""
+    bus = _bus()
+    forseti = Forseti(bus=bus)
+    odin = Odin(bus=bus)
+    bus.subscribe("object.arbitration-request", "Odin", odin.on_typed_message)
+    bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)
+
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.cost-anomaly",
+            {
+                "correlation_id": "corr-close",
+                "resource_id": "vm-close",
+                "recommendation": "scale_down",
+                "impact": 0.50,
+            },
+        )
+    )
+    # Capacity carries the lower weight, so a higher impact puts the top-two
+    # margin inside the default 0.10 HIL band: too close to auto-resolve.
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.capacity-forecast",
+            {
+                "correlation_id": "corr-close",
+                "resource_id": "vm-close",
+                "recommendation": "scale_up",
+                "impact": 0.62,
+            },
+        )
+    )
+
+    decision = bus.messages_on("object.arbitration-decision")[-1].payload
+    verdicts = bus.messages_on("object.verdict")
+
+    assert decision["escalate_hil"] is True
+    assert len(verdicts) == 1
+    verdict = verdicts[0].payload
+    assert verdict["producer_principal"] == "Forseti"
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["reason"] == "arbitration_unresolved"
+    assert verdict["resource_id"] == "vm-close"
+    assert verdict["arbitration"]["winning_domain"] == decision["winning_domain"]
+    assert forseti.behavior_snapshot()["arbitration_escalated"] == 1
+
+
+def test_settled_arbitration_issues_no_escalation_verdict() -> None:
+    bus = _bus()
+    forseti = Forseti(bus=bus)
+
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.arbitration-decision",
+            {"correlation_id": "corr-clear", "winning_domain": "cost", "escalate_hil": False},
+        )
+    )
+
+    assert bus.messages_on("object.verdict") == []
+    assert forseti.arbitrations["corr-clear"] == "cost"
+
+
+def test_redelivered_escalation_does_not_publish_a_second_verdict() -> None:
+    bus = _bus()
+    forseti = Forseti(bus=bus)
+    decision = {
+        "correlation_id": "corr-dup",
+        "winning_domain": "cost",
+        "losing_domains": ["capacity"],
+        "margin": 0.01,
+        "escalate_hil": True,
+    }
+
+    asyncio.run(forseti.on_typed_message("object.arbitration-decision", decision))
+    asyncio.run(forseti.on_typed_message("object.arbitration-decision", decision))
+
+    assert len(bus.messages_on("object.verdict")) == 1
+
+
+def test_event_on_an_unresolved_correlation_never_judges_auto() -> None:
+    """The contested resource stays with the human until the tie is settled."""
+    bus = _bus()
+    forseti = Forseti(bus=bus)
+    event = {
+        "correlation_id": "corr-gate",
+        "resource_id": "vm-gate",
+        "action_type": "ops.restart-service",
+    }
+
+    baseline = asyncio.run(forseti.judge(dict(event)))
+    asyncio.run(
+        forseti.on_typed_message(
+            "object.arbitration-decision",
+            {"correlation_id": "corr-gate", "winning_domain": "cost", "escalate_hil": True},
+        )
+    )
+    gated = asyncio.run(forseti.judge(dict(event)))
+
+    assert baseline is not None and baseline["risk_verdict"] == "auto"
+    assert gated is not None
+    assert gated["risk_verdict"] == "hil"
+    assert gated["reason"] == "arbitration_unresolved"

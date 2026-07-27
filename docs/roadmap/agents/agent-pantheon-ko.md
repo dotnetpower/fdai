@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 88efe608cc911582f2fd946de18620e2f52213ed
+translation_source_sha: 148fa26469f52ee6e7ac0ca8cefda9807c0dd15d
 translation_revised: 2026-07-27
 ---
 
@@ -161,8 +161,8 @@ Odin은 무딘 우선순위 테이블 대신
   아끼려고 컴퓨트 10달러를 쓰지 않는다).
 - 상위 2개의 **마진**이 설정된 HIL 밴드(기본 `0.10`) 이내이거나, 도메인에 알려진
   가중치가 없으면, 자동 해소하기엔 너무 접전이라 결정에 `escalate_hil` 플래그가
-  붙는다 - 접전은 사람에게 넘기고 절대 조용히 자동 선택하지 않는다(안전 쪽으로
-  실패).
+  붙고 Forseti가 이를 `hil` 판정으로 바꿔 사람에게 넘긴다 - 절대 조용히 자동
+  선택하지 않는다(안전 쪽으로 실패).
 - 모든 결정은 도메인별 `objective_scores`와 `margin`을
   `object.arbitration-decision`에 기록하므로 결과는 근거가 있고 감사 가능하다.
 

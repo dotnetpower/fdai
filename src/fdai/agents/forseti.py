@@ -88,6 +88,16 @@ class Forseti(Agent):
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
+        # Correlations whose arbitration Odin flagged as too close to settle
+        # (near-tie, unknown domain, non-finite impact). They gate the
+        # verdict to HIL; cleared once a human-visible verdict is issued.
+        self._unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
+        # Resource id per arbitration request, so the escalation verdict can
+        # name the resource a human must look at. Odin's decision carries the
+        # correlation but not the resource.
+        self._arbitration_resources: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
         # Accumulated domain advice per resource id: {resource: {domain:
         # recommendation}}. Fed by object.cost-anomaly / capacity-forecast
         # so conflicting advice arriving on separate signals still triggers
@@ -135,7 +145,7 @@ class Forseti(Agent):
         elif topic == "object.capacity-forecast":
             await self._ingest_domain_signal("capacity", payload)
         elif topic == "object.arbitration-decision":
-            self._record_arbitration(payload)
+            await self._record_arbitration(payload)
 
     def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
         resource_id = str(payload.get("resource_id") or "")
@@ -234,6 +244,8 @@ class Forseti(Agent):
             "advice": advice,
             "impacts": impacts or {},
         }
+        if correlation_id:
+            self._arbitration_resources.set(correlation_id, str(resource_id or ""))
         # Decision semantics: the judge decided to raise arbitration. Recorded
         # independent of a bus (delivery is measured by the bus metrics, not
         # here), so a bus-less unit still measures the decision.
@@ -242,7 +254,7 @@ class Forseti(Agent):
             await self.bus.publish("Forseti", "object.arbitration-request", request)
         return request
 
-    def _record_arbitration(self, decision: dict[str, Any]) -> None:
+    async def _record_arbitration(self, decision: dict[str, Any]) -> None:
         correlation_id = str(decision.get("correlation_id", ""))
         if not correlation_id:
             return
@@ -255,6 +267,56 @@ class Forseti(Agent):
         # triggers a spurious eviction.
         if len(self.arbitrations) > _MAX_RESOURCES:
             self.arbitrations.pop(next(iter(self.arbitrations)))
+        if decision.get("escalate_hil") is True:
+            await self._escalate_arbitration(correlation_id, decision)
+
+    async def _escalate_arbitration(
+        self,
+        correlation_id: str,
+        decision: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Turn Odin's unresolved arbitration into a human-visible verdict.
+
+        Odin flags a near-tie, an unknown domain, or a non-finite impact
+        rather than auto-picking. Recording the winner and stopping there
+        would drop the conflict: the accumulated domain advice is already
+        consumed, so nothing else would ever surface it, and the escalation
+        would exist only inside Odin's payload. Fail toward safety instead
+        (``agent-pantheon.md`` 3.1) and issue the ``hil`` verdict that puts
+        the conflict in front of a human.
+
+        Idempotent by correlation id: a redelivered decision re-records the
+        winner but does not publish a second verdict.
+        """
+        if self._unresolved_arbitrations.get(correlation_id) is not None:
+            return None
+        losing = [str(domain) for domain in decision.get("losing_domains") or []]
+        grounding = {
+            "winning_domain": str(decision.get("winning_domain", "")),
+            "losing_domains": losing,
+            "margin": decision.get("margin"),
+        }
+        self._unresolved_arbitrations.set(correlation_id, grounding)
+        self.record_behavior("verdict:hil")
+        self.record_behavior("arbitration_escalated")
+        verdict = {
+            "producer_principal": "Forseti",
+            "correlation_id": correlation_id,
+            "resource_id": self._arbitration_resources.get(correlation_id) or "",
+            # No single ActionType resolves the conflict - the human picks
+            # which domain's recommendation to pursue. Empty string (not
+            # None) so Thor's str() coercion yields "" rather than "None".
+            "action_type": "",
+            "risk_verdict": "hil",
+            "reason": "arbitration_unresolved",
+            "arbitration": grounding,
+            # No known irreversible action; the single-approver default.
+            "quorum_required": 1,
+            "initiator_principal": None,
+        }
+        if self.bus is not None:
+            await self.bus.publish("Forseti", "object.verdict", verdict)
+        return verdict
 
     # ---- judgment ------------------------------------------------------
 
@@ -414,10 +476,23 @@ class Forseti(Agent):
         if readiness_limited:
             risk_verdict = "hil"
 
+        # An arbitration Odin could not settle leaves the resource contested.
+        # Judging a later event on that correlation as auto would execute a
+        # change while the domain conflict behind it is still with a human.
+        arbitration_limited = bool(
+            risk_verdict == "auto"
+            and self._unresolved_arbitrations.get(str(event.get("correlation_id") or ""))
+            is not None
+        )
+        if arbitration_limited:
+            risk_verdict = "hil"
+
         if risk_verdict == "deny":
             reason = "rbac_insufficient" if rbac_denied else "risk_deny"
         elif readiness_limited:
             reason = "detection_readiness_ceiling"
+        elif arbitration_limited:
+            reason = "arbitration_unresolved"
         else:
             reason = "rule_match"
         # Measurable behaviour: the verdict distribution + why. A scenario

@@ -167,8 +167,8 @@ blunt priority table:
   ten dollars of compute).
 - When the top-two **margin** is within a configured HIL band (default
   `0.10`), or a domain has no known weight, the call is too close to
-  auto-resolve and the decision is flagged `escalate_hil` - close calls go
-  to a human, never a silent auto-pick (fail toward safety).
+  auto-resolve: the decision is flagged `escalate_hil`, which Forseti turns
+  into a `hil` verdict so the close call reaches a human (fail toward safety).
 - Every decision records per-domain `objective_scores` and the `margin`
   on `object.arbitration-decision`, so the outcome is grounded and
   auditable.
