@@ -107,7 +107,7 @@ def test_conversation_policy_is_server_injected_and_attributed() -> None:
     )
 
     assert turn is not None
-    assert captured["agent_system_prompt"] == njord.spec.conversation.system_prompt
+    assert str(captured["agent_system_prompt"]).startswith(njord.spec.conversation.system_prompt)
     assert captured["agent_allowed_tools"] == njord.spec.conversation.tools
     policy = turn.answer["conversation_policy"]
     assert len(policy["prompt_sha256"]) == 64

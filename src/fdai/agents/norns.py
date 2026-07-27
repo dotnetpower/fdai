@@ -660,6 +660,10 @@ class Norns(Agent):
         """Return bounded aggregate hold records for operator inspection."""
         return tuple(self._consensus_holds)
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Discovery answers rest on observed patterns and proposed candidates."""
+        return bool(self._fingerprint_counter or self.pending_candidates)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),

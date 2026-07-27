@@ -262,6 +262,10 @@ class Var(Agent):
 
     # ---- conversational port -------------------------------------------
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Approval answers rest on pending tickets; the policy alone is config."""
+        return bool(self._pending)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         pending = self._pending
         facts = {

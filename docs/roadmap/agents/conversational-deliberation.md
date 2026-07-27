@@ -83,6 +83,23 @@ Every v3 prompt requires the agent to:
 Prompt text is not returned to callers. Responses carry the charter version, prompt digest,
 full-charter digest, tool ids, owner attribution, evidence refs, and the composed layer manifest.
 
+## Charter robustness standard
+
+A role directive is only as good as the evidence behind it. A directive that names a mechanic the
+agent never exposes cannot be satisfied through the allowed tools, so it collides with the
+grounding layer and the answer degrades to a plausible-sounding abstention. Every charter is held
+to four rules, each pinned by `tests/agents/test_charter_robustness.py`:
+
+| Rule | What it prevents |
+|------|------------------|
+| The directive names only mechanics the agent implements | A prompt that promises more than the code delivers. |
+| Every named mechanic is readable through a declared fact key | An instruction that no tool can satisfy. |
+| Every tool answers when the agent holds no state | Silence that hides whether a fact is absent or the tool is broken. |
+| A state-dependent agent reports its evidence gap | Configuration narrated as if it were an outcome. |
+
+The fourth rule has one deliberate exception. Bragi owns no runtime evidence at all - its roster
+answer is derived from the immutable specs - so it is always grounded and keeps the default.
+
 ## T1 discussion
 
 The discussion path deliberately does not reuse a clear T0 route. T1 embedding similarity must

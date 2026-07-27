@@ -356,11 +356,19 @@ class Saga(Agent):
     def replay_for_correlation(self, correlation_id: str) -> list[AuditEntry]:
         return self.audit_chain.entries_for_correlation(correlation_id)
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Audit answers rest on chain entries; an empty chain proves nothing."""
+        return bool(self.audit_chain.entries)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         entries = self.audit_chain.entries
         facts = {
             **capability_facts(self.spec),
             "audit_entries": len(entries),
+            # The chain head is the tamper-evidence anchor: any earlier entry
+            # is verifiable only against the hash that currently seals it.
+            "chain_head_seq": entries[-1].seq if entries else None,
+            "chain_head_hash": entries[-1].entry_hash if entries else None,
             "issues_total": len(self.github.issues),
             "issues_open": sum(1 for issue in self.github.issues.values() if issue.open),
         }
@@ -372,7 +380,15 @@ class Saga(Agent):
                 {
                     "correlation_id": corr[0],
                     "matched_entries": [
-                        {"seq": e.seq, "principal": e.principal, "topic": e.topic} for e in scoped
+                        {
+                            "seq": e.seq,
+                            "principal": e.principal,
+                            "topic": e.topic,
+                            "prev_hash": e.prev_hash,
+                            "entry_hash": e.entry_hash,
+                            "payload_digest": e.payload_digest,
+                        }
+                        for e in scoped
                     ],
                 }
             )

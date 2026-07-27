@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 83420f5e2bd2dd187d723cb261f68e167290ae3e
+translation_source_sha: d4b99323dcecf6bba0075dfa882b24d4f2aa7399
 translation_revised: 2026-07-27
 ---
 # 판테온 대화형 숙의
@@ -86,6 +86,23 @@ key, 조립된 prompt digest를 전달하며 prompt text 자체는 절대 전달
 Prompt text는 caller에게 반환하지 않습니다. Response에는 charter version, prompt digest,
 full-charter digest, tool id, owner attribution, evidence ref 및 조립된 layer manifest가
 포함됩니다.
+
+## Charter 견고성 기준
+
+Role directive는 그 뒤의 evidence만큼만 유효합니다. Agent가 노출하지 않는 mechanic을 거론하는
+directive는 allowed tool로 충족할 수 없으므로 grounding layer와 충돌하고, 답변은 그럴듯한
+abstention으로 퇴화합니다. 모든 charter는 네 가지 규칙을 지키며, 각각은
+`tests/agents/test_charter_robustness.py`가 고정합니다.
+
+| 규칙 | 막아주는 것 |
+|------|-------------|
+| Directive는 agent가 구현한 mechanic만 명시합니다 | 코드보다 앞서가는 prompt. |
+| 명시된 모든 mechanic은 선언된 fact key로 읽힐 수 있습니다 | 어느 tool도 충족할 수 없는 instruction. |
+| 상태가 비어 있어도 모든 tool이 답합니다 | Fact 부재인지 tool 고장인지 가리는 침묵. |
+| 상태 의존 agent는 evidence gap을 보고합니다 | 설정을 결과처럼 서술하는 답변. |
+
+네 번째 규칙에는 의도된 예외가 하나 있습니다. Bragi는 runtime evidence를 전혀 소유하지
+않고 roster 답변을 immutable spec에서 도출하므로 항상 grounded이며 기본값을 유지합니다.
 
 ## T1 discussion
 

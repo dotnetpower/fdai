@@ -138,6 +138,10 @@ class Loki(Agent):
 
     # ---- conversational port -------------------------------------------
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Chaos answers rest on proposals made; the cap alone is config."""
+        return bool(self.proposals)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         accepted = [p for p in self.proposals if p.accepted]
         facts = {

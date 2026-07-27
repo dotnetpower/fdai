@@ -268,6 +268,10 @@ class Muninn(Agent):
     def put_context(self, bucket: str, key: str, value: Any) -> None:
         self.state_store.put(bucket, key, value)
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Memory answers rest on stored buckets; an empty store is a gap."""
+        return bool(self.state_store.data)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         data = self.state_store.data
         facts = {

@@ -202,11 +202,21 @@ class Huginn(Agent):
 
     # ---- conversational port -------------------------------------------
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Ingress answers rest on signals seen; an idle collector has none."""
+        return bool(self._seen_keys) or self.behavior_snapshot().get("ingested", 0) > 0
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
+        behavior = self.behavior_snapshot()
         facts = {
             **capability_facts(self.spec),
             "dedup_size": len(self._seen_keys),
             "dedup_capacity": self._dedup_capacity,
+            "ingested_count": behavior.get("ingested", 0),
+            "deduped_count": behavior.get("deduped", 0),
+            # A full window has evicted its oldest keys, so a miss there is
+            # uncertainty rather than proof a signal never arrived.
+            "dedup_window_full": len(self._seen_keys) >= self._dedup_capacity,
         }
         answer = (
             f"Ingesting and deduplicating events; {len(self._seen_keys)} key(s) "

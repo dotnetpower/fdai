@@ -556,12 +556,27 @@ class Forseti(Agent):
             },
         )
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Report whether any judged runtime state backs this turn.
+
+        The risk table and rule matches are configuration. Answering "why
+        was this denied" from them alone presents a default as if it were
+        a decision, so the turn is grounded only once an arbitration, a
+        readiness ceiling, or an unresolved conflict has been recorded.
+        """
+        return bool(self.arbitrations or self._detection_readiness or self._unresolved_arbitrations)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
             "known_action_verdicts": dict(_RISK_VERDICT),
             "rule_matches": dict(_RULE_MATCH),
             "arbitrations_recorded": len(self.arbitrations),
+            # Both gates that force an otherwise-auto verdict to human
+            # review. The charter tells Forseti to report them as exactly
+            # that, so they MUST be readable through the judgment tool.
+            "unresolved_arbitrations": len(self._unresolved_arbitrations),
+            "readiness_limited_resources": len(self._detection_readiness),
             "rca_evidence_available": False,
         }
         normalized_question = question.casefold()

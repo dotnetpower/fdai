@@ -140,6 +140,10 @@ class Freyr(Agent):
 
     # ---- conversational port -------------------------------------------
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Capacity answers rest on utilization samples; thresholds alone are config."""
+        return bool(self._samples)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),

@@ -143,6 +143,10 @@ class Njord(Agent):
 
     # ---- conversational port -------------------------------------------
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Cost answers rest on ingested samples; the cost table alone is config."""
+        return bool(self._samples)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),

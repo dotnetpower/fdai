@@ -93,6 +93,10 @@ class Mimir(Agent):
     def status(self, rule_id: str) -> RulePromotion | None:
         return self._promotions.get(rule_id)
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Rule answers rest on tracked promotions and the candidate queue."""
+        return bool(self._promotions or self._pending_candidates or self._quarantined_candidates)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
@@ -110,7 +114,16 @@ class Mimir(Agent):
         rules = mentioned(question, self._promotions)
         if rules:
             promo = self._promotions[rules[0]]
-            facts.update({"rule_id": promo.rule_id, "state": promo.state, "source": promo.source})
+            facts.update(
+                {
+                    "rule_id": promo.rule_id,
+                    "state": promo.state,
+                    "source": promo.source,
+                    # When the state last changed, so an operator can tell a
+                    # fresh promotion from a long-settled one.
+                    "updated_at": promo.updated_at,
+                }
+            )
             answer = f"Rule {promo.rule_id!r} is {promo.state} (source: {promo.source})."
             return IntrospectionResult(answer=answer, facts=facts)
         answer = (

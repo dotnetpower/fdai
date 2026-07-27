@@ -510,6 +510,14 @@ class Heimdall(Agent):
     def alert_count(self, initiator: str, action: str) -> int:
         return self._alert_counters[(initiator, action)]
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Observation answers rest on a populated window of signals.
+
+        A bound read-investigation hook is its own evidence source, so it
+        keeps the turn grounded even before the local window fills.
+        """
+        return bool(self._recent_events or self._security_recent or self._read_investigation_hook)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         if self._read_investigation_hook is not None:
             investigation = await self._read_investigation_hook(question, context)

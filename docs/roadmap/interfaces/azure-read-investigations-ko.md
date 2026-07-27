@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: a915d468b0f47935fcc8a1637e93c565fc116c75
-translation_revised: 2026-07-26
+translation_source_sha: 1a5182ea8bd288a810880f9e72cf2b2111306dc5
+translation_revised: 2026-07-27
 ---
 
 # Azure 읽기 조사
@@ -58,6 +58,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Capability | 현재 상태 | 근거 |
 |------------|-----------|------|
 | Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
+| Investigation evidence signal | 구현됨 | Bound된 read-investigation hook은 Heimdall 대화형 포트의 owned evidence로 계산되므로, 로컬 신호 window가 차기 전에도 조사 가능한 turn에는 evidence-gap prompt layer가 붙지 않습니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
 | Subscription health sweep | 구현됨 | Configured reader scope가 Resource Graph inventory와 Resource Health를 병렬 query한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |

@@ -455,6 +455,10 @@ class Thor(Agent):
 
     # ---- conversational port -------------------------------------------
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Thor answers from dispatched runs; before the first one there are none."""
+        return bool(self.action_runs)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         runs = self.action_runs
         active = [r for r in runs.values() if r.state not in _TERMINAL_STATES]
@@ -478,8 +482,15 @@ class Thor(Agent):
                     "action_type": target.action_type,
                     "resource_id": target.resource_id,
                     "state": target.state.value,
+                    # The attempt chain the charter promises: every state this
+                    # run passed through, in order, then its current state.
+                    "state_history": [s.value for s in target.history],
                     "verdict": target.verdict,
+                    "quorum_required": target.quorum_required,
+                    "outcome": target.outcome,
                     "shadow_mode": target.shadow_mode,
+                    "rollback_contract": target.rollback_contract,
+                    "rollback_ref": target.rollback_ref,
                 }
             )
             location = f" on {target.resource_id}" if target.resource_id else ""

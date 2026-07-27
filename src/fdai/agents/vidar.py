@@ -131,6 +131,10 @@ class Vidar(Agent):
 
     # ---- conversational port -------------------------------------------
 
+    def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
+        """Recovery answers rest on rollbacks performed; none is a real gap."""
+        return bool(self.records)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         recs = self.records
         facts = {
@@ -145,6 +149,9 @@ class Vidar(Agent):
                     "last_action_type": last.action_type,
                     "last_state": last.state,
                     "last_contract": last.contract,
+                    # The proof the rollback ran, not just that it was
+                    # attempted. None when the contract produced no artifact.
+                    "last_rollback_ref": last.rollback_ref,
                 }
             )
             answer = (
