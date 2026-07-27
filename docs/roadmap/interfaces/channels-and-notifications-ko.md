@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 470995b98b4609c547697f41930f21f4e3aa3deb
+translation_source_sha: de034ed9cc31c6ae1af5c43136e98dcee65a9e2d
 translation_revised: 2026-07-27
 ---
 
@@ -231,6 +231,10 @@ payload 또는 fallback behavior를 변경하지 않으며 vendor presentation�
 | Edit | 선언된 message id에 `chat.update` | 선언된 activity id에 activity `PUT` | `Update:` prefix가 있는 새 thread reply |
 | Reaction | inbound message에 `reactions.add` | inbound message에 `messageReaction` activity | `Reaction:` label이 있는 새 thread reply |
 | Agent activity | handoff, plain-text command/result, Bragi answer 순서의 Block Kit section; post, stream update, edit에서 같은 block을 보존 | 24,000-byte card budget 안의 같은 순서 Adaptive Card block; 생략된 activity 수를 표시 | 같은 agent attribution 및 redaction marker가 있는 bounded text |
+
+Slack은 notification 및 accessibility fallback을 위해 top-level `text` field에 전체 activity
+fallback을 유지합니다. Block Kit은 각 activity를 자체 section에 한 번만 표시하고 final Bragi
+section에는 canonical answer만 전달하므로 structured client가 evidence를 중복 렌더링하지 않습니다.
 
 점진적 대화 전달은 완료된 answer를 인위적인 token chunk로 나누는 대신 typed cumulative
 `ChannelProgressUpdate` snapshot을 사용합니다. Gateway는 ordered coordinator activity와 canonical

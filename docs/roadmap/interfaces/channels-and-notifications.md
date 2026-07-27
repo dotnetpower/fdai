@@ -232,6 +232,10 @@ payload or fallback behavior and keeps vendor presentation independently testabl
 | Reaction | `reactions.add` against the inbound message | `messageReaction` activity against the inbound message | New thread reply with a `Reaction:` label |
 | Agent activity | Block Kit sections in handoff, plain-text command/result, Bragi-answer order; posts, stream updates, and edits preserve the same blocks | Adaptive Card blocks in the same order under a 24,000-byte card budget; omitted activities are counted | Bounded text with the same agent attribution and redaction markers |
 
+Slack keeps the complete activity fallback in the top-level `text` field for notification and
+accessibility fallback. Block Kit carries each activity once in its own section and passes only the
+canonical answer to the final Bragi section, so structured clients do not render duplicate evidence.
+
 Progressive conversation delivery uses typed cumulative `ChannelProgressUpdate` snapshots rather
 than splitting a completed answer into artificial token chunks. The gateway derives snapshots only
 from ordered coordinator activities and the canonical final preview. Revisions are contiguous,

@@ -51,7 +51,7 @@ def slack_update_body(
         "text": rendered,
     }
     if response.activities:
-        body["blocks"] = slack_activity_blocks(response, rendered)
+        body["blocks"] = slack_activity_blocks(response, text)
     return body
 
 

@@ -494,8 +494,10 @@ async def test_slack_progress_snapshots_post_once_then_edit_canonical_answer() -
 
     assert [path for path, _body in calls] == ["/api/chat.postMessage", "/api/chat.update"]
     assert "blocks" not in calls[0][1]
-    assert "Inspect health" in str(calls[1][1]["blocks"])
-    assert "Canonical answer" in str(calls[1][1]["blocks"])
+    final_blocks = calls[1][1]["blocks"]
+    assert str(final_blocks).count("Inspect evidence") == 1
+    assert str(final_blocks).count("query_resource_health --scope <redacted>") == 1
+    assert final_blocks[-1]["text"]["text"] == "*Bragi*\nCanonical answer"  # type: ignore[index]
     snapshot = metrics.snapshot()
     assert snapshot.counts["terminal_completed"] == 1
     assert snapshot.latency_ms["time_to_first_progress"].count == 1
