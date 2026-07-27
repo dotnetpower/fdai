@@ -673,6 +673,34 @@ describe("askBackendStream fallback typewriter", () => {
     );
   });
 
+  test("ignores token and confirmed frames from a stale revision", async () => {
+    const body = [
+      'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
+      'event: revision\ndata: {"seq":2,"revision":1,"answer":"Canonical",' +
+        '"status":"corrected"}\n\n',
+      'event: token\ndata: {"seq":3,"revision":0,"delta":" stale"}\n\n',
+      'event: confirmed\ndata: {"seq":4,"revision":0,"segment_index":0,' +
+        '"text":"Stale confirmation","status":"consistent","evidence_refs":[]}\n\n',
+      'event: done\ndata: {"seq":5,"revision":1,"answer":"Canonical",' +
+        '"model":"gpt-test"}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+    const deltas: string[] = [];
+    const confirmations: string[] = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: (delta) => deltas.push(delta),
+      onConfirmed: (segment) => confirmations.push(segment.text),
+    });
+
+    expect(deltas).toEqual(["Draft"]);
+    expect(confirmations).toEqual([]);
+    expect(reply.text).toBe("Canonical");
+    expect(reply.confirmed).toBeUndefined();
+  });
+
   test("fails closed when a terminal stream has a sequence gap", async () => {
     const body = [
       'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',

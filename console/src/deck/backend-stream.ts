@@ -247,7 +247,7 @@ export async function askBackendStream(
       : lastRevision;
     if (event === "token") {
       const delta = typeof object.delta === "string" ? object.delta : "";
-      if (delta) {
+      if (delta && revision === lastRevision) {
         answerText += delta;
         enqueueDelta(delta);
       }
@@ -282,7 +282,11 @@ export async function askBackendStream(
       }
     } else if (event === "confirmed") {
       const confirmed = parseConfirmedAnswerSegment(object, revision);
-      if (confirmed !== null && confirmed.revision > (confirmedSegment?.revision ?? -1)) {
+      if (
+        confirmed !== null &&
+        confirmed.revision === lastRevision &&
+        confirmed.revision > (confirmedSegment?.revision ?? -1)
+      ) {
         confirmedSegment = confirmed;
         confirmedSegmentCount += 1;
       }

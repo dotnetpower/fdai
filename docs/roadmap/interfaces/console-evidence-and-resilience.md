@@ -296,8 +296,10 @@ draft text to confirmed content.
 The Web reducer validates branch kind, monotonic status, timing, evidence-reference, and text bounds
 before rendering. It shows compact branch summaries and keeps observed execution details collapsed
 by default. It applies a confirmed segment only after queued token paint and any correction revision
-have drained. Confirmed revisions advance strictly; another frame with the same or an older revision
-is a stale replay and cannot replace canonical text or increment confirmation metrics. A missing
+have drained. Token and confirmed frames must match the current canonical revision. A frame from a
+superseded or unannounced revision consumes its sequence position but cannot append text, replace
+canonical content, invoke confirmation callbacks, or increment confirmation metrics. Confirmed
+revisions also advance strictly, so a duplicate at the current revision is a stale replay. A missing
 `seq` value between frames makes the turn partial even if a later `done`
 arrives, so an incomplete stream cannot inherit terminal verification.
 
