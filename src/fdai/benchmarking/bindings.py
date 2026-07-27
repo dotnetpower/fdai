@@ -27,20 +27,6 @@ class BenchmarkBindings:
             raise TypeError("adapter MUST implement BenchmarkAdapter")
         if not self.adapter.adapter_id.strip():
             raise ValueError("adapter_id MUST be non-empty")
-        if self.metric_provider is not None and not isinstance(
-            self.metric_provider, MetricProvider
-        ):
-            raise TypeError("metric_provider MUST implement MetricProvider")
-        if self.log_query_provider is not None and not isinstance(
-            self.log_query_provider, LogQueryProvider
-        ):
-            raise TypeError("log_query_provider MUST implement LogQueryProvider")
-        if self.trace_query_provider is not None and not isinstance(
-            self.trace_query_provider, TraceQueryProvider
-        ):
-            raise TypeError("trace_query_provider MUST implement TraceQueryProvider")
-        if self.inventory is not None and not isinstance(self.inventory, Inventory):
-            raise TypeError("inventory MUST implement Inventory")
 
 
 def bind_benchmark_providers(container: Container, bindings: BenchmarkBindings) -> Container:

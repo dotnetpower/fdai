@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ca129b586b121ea18899d8f3c352077e1a003e5f
+translation_source_sha: 9f01b197cdfdc323744140524faa13070f3138b4
 translation_revised: 2026-07-28
 ---
 
@@ -84,10 +84,6 @@ submission이 실패해도 `close()`가 실행됩니다.
 instance를 유지합니다. 이 bundle은 promotion state, risk policy, approval 및 mutation executor를
 의도적으로 제외합니다.
 
-명시된 모든 override는 container를 교체하기 전에 runtime-checkable provider Protocol을 충족해야
-합니다. 잘못된 provider는 첫 metric, log, trace 또는 inventory query에서 실패하는 대신 plugin
-composition 단계에서 차단됩니다.
-
 Mutation이 필요한 benchmark는 host composition이 선택한 기존 governed execution adapter를
 사용하는 것이 좋습니다. Benchmark plugin은 두 번째 execution path를 만들거나 ActionType을
 observation mode에서 enforcement mode로 올릴 수 없습니다.
@@ -135,20 +131,8 @@ Entry-point discovery는 public package downloader 또는 signature verifier가 
 
 Plaintext conductor URL은 loopback 또는 SREGym의 정확한 `host.docker.internal` agent-container
 alias에서만 허용됩니다. Non-container 실행에서는 wildcard bind address를 loopback으로
-정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 명시적 port는
-1에서 65535 사이여야 하며 polling, stage 및 request timeout은 finite positive 값이어야 합니다.
-알 수 없는 stage와 malformed response는 fail closed됩니다.
-
-`/submit`을 포함한 모든 conductor response는 bounded buffer를 통해 stream됩니다. 기본
-`max_response_bytes` limit은 1,000,000 byte입니다. 구성된 limit을 초과하면 stream을 중단합니다.
-JSON response는 bounded read가 완료된 후에만 decode됩니다.
-
-Adapter는 가장 최근 `next_task()` 호출이 반환한 정확한 run, task 및 stage identity에 대한
-submission만 허용합니다. Conductor가 submission을 수락한 후에만 이 identity를 clear하므로,
-transport failure는 같은 결과를 재시도할 수 있지만 발급되지 않았거나 stage가 다른 submission은
-허용되지 않습니다.
-이 identity가 outstanding 상태인 동안 다른 `next_task()` 호출은 conductor를 polling하기 전에
-실패합니다.
+정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 알 수 없는 stage와
+malformed response는 fail closed됩니다.
 
 SREGym metric, log, trace 및 Kubernetes MCP transport는 이 slice에서 구현되지 않았습니다. 기존
 provider 및 governed execution contract를 통해 bind되기 전까지 이 plugin만으로는 완전한 SREGym

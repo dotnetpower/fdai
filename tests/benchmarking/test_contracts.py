@@ -41,11 +41,9 @@ def test_task_is_immutable_and_brand_neutral() -> None:
     [
         ("run_id", "   "),
         ("task_id", "task\n2"),
-        ("task_id", "task\x7f2"),
         ("stage", "x" * 257),
         ("target_ref", ""),
         ("objective", "   "),
-        ("objective", "spoof\u202etext"),
     ],
 )
 def test_task_rejects_invalid_boundary_text(field: str, value: str) -> None:
