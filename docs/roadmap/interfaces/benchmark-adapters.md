@@ -80,6 +80,10 @@ even when processing or submission fails.
 instances. This bundle intentionally excludes promotion state, risk policy, approval, and mutation
 executors.
 
+Every declared override must satisfy its runtime-checkable provider Protocol before the container
+is replaced. An invalid provider blocks plugin composition instead of failing on the first metric,
+log, trace, or inventory query.
+
 A benchmark that needs mutation must use an existing governed execution adapter selected by the
 host composition. The benchmark plugin cannot introduce a second execution path or raise an
 ActionType from observation mode to enforcement mode.

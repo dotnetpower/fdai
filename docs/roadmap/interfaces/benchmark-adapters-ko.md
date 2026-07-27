@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 40e0320b7d58bdfc8507c7938236d45219dfe128
+translation_source_sha: 01731a57c813451bc39067eb1d52e46b181d00d7
 translation_revised: 2026-07-28
 ---
 
@@ -83,6 +83,10 @@ submission이 실패해도 `close()`가 실행됩니다.
 `TraceQueryProvider` 또는 `Inventory`를 교체할 수 있습니다. 명시하지 않은 seam은 기존의 정확한
 instance를 유지합니다. 이 bundle은 promotion state, risk policy, approval 및 mutation executor를
 의도적으로 제외합니다.
+
+명시된 모든 override는 container를 교체하기 전에 runtime-checkable provider Protocol을 충족해야
+합니다. 잘못된 provider는 첫 metric, log, trace 또는 inventory query에서 실패하는 대신 plugin
+composition 단계에서 차단됩니다.
 
 Mutation이 필요한 benchmark는 host composition이 선택한 기존 governed execution adapter를
 사용하는 것이 좋습니다. Benchmark plugin은 두 번째 execution path를 만들거나 ActionType을

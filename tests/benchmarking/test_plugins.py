@@ -99,3 +99,15 @@ def test_binding_replaces_only_declared_provider_seams(container: Container) -> 
     assert bound.trace_query_provider is container.trace_query_provider
     assert bound.inventory is container.inventory
     assert bound.capability_runtime is container.capability_runtime
+
+
+@pytest.mark.parametrize(
+    "provider_field",
+    ("metric_provider", "log_query_provider", "trace_query_provider", "inventory"),
+)
+def test_bindings_reject_invalid_provider(provider_field: str) -> None:
+    with pytest.raises(TypeError, match=f"{provider_field} MUST implement"):
+        BenchmarkBindings(  # type: ignore[arg-type]
+            adapter=_Adapter(),
+            **{provider_field: object()},
+        )
