@@ -112,14 +112,20 @@ class SregymAdapter:
         if identity != self._issued_identity:
             raise BenchmarkAdapterError("submission does not match the issued SREGym task")
         try:
-            response = await self._http.post(
+            async with self._http.stream(
+                "POST",
                 f"{self._config.conductor_url.rstrip('/')}/submit",
                 json={"solution": submission.summary},
                 timeout=self._config.request_timeout_seconds,
-            )
+            ) as response:
+                _raise_for_status(response, operation="submit")
+                await _read_bounded_body(
+                    response,
+                    operation="submit",
+                    max_bytes=self._config.max_response_bytes,
+                )
         except httpx.HTTPError as exc:
             raise BenchmarkAdapterError(f"SREGym submit request failed: {exc}") from exc
-        _raise_for_status(response, operation="submit")
         self._submitted_stage = submission.stage
         self._issued_identity = None
 
@@ -151,14 +157,11 @@ class SregymAdapter:
                 timeout=self._config.request_timeout_seconds,
             ) as response:
                 _raise_for_status(response, operation=path)
-                body = bytearray()
-                async for chunk in response.aiter_bytes():
-                    if len(body) + len(chunk) > self._config.max_response_bytes:
-                        raise BenchmarkAdapterError(
-                            f"SREGym response for {path!r} is over the "
-                            f"{self._config.max_response_bytes}-byte cap"
-                        )
-                    body.extend(chunk)
+                body = await _read_bounded_body(
+                    response,
+                    operation=path,
+                    max_bytes=self._config.max_response_bytes,
+                )
         except httpx.HTTPError as exc:
             raise BenchmarkAdapterError(f"SREGym request {path!r} failed: {exc}") from exc
         try:
@@ -168,6 +171,22 @@ class SregymAdapter:
         if not isinstance(payload, Mapping):
             raise BenchmarkAdapterError(f"SREGym response for {path!r} is not an object")
         return payload
+
+
+async def _read_bounded_body(
+    response: httpx.Response,
+    *,
+    operation: str,
+    max_bytes: int,
+) -> bytes:
+    body = bytearray()
+    async for chunk in response.aiter_bytes():
+        if len(body) + len(chunk) > max_bytes:
+            raise BenchmarkAdapterError(
+                f"SREGym response for {operation!r} is over the {max_bytes}-byte cap"
+            )
+        body.extend(chunk)
+    return bytes(body)
 
 
 def _required_text(payload: Mapping[str, Any], key: str) -> str:

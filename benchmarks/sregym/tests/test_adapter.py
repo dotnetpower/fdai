@@ -239,6 +239,50 @@ async def test_rejects_response_over_byte_limit() -> None:
     await client.aclose()
 
 
+async def test_rejects_submit_response_over_byte_limit() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "example-shop",
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        if request.url.path == "/submit":
+            return httpx.Response(200, content=b"x" * 256)
+        raise AssertionError(request.url.path)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = SregymAdapter(
+        config=SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            max_response_bytes=128,
+        ),
+        http_client=client,
+    )
+    await adapter.start()
+    task = await adapter.next_task()
+    assert task is not None
+
+    with pytest.raises(BenchmarkAdapterError, match="submit.*over the 128-byte cap"):
+        await adapter.submit(
+            BenchmarkSubmission(
+                run_id=task.run_id,
+                task_id=task.task_id,
+                stage=task.stage,
+                status=BenchmarkStatus.COMPLETED,
+                summary="Evidence-backed result.",
+            )
+        )
+
+    await client.aclose()
+
+
 @pytest.mark.parametrize(
     "url",
     [

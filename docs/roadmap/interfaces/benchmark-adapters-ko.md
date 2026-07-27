@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: c98082f5dcfc10cf783fc84e86ee3c56be0516d5
+translation_source_sha: 8d7dd001237fc6f19ed7385b0e5d478aecdca101
 translation_revised: 2026-07-28
 ---
 
@@ -138,9 +138,9 @@ alias에서만 허용됩니다. Non-container 실행에서는 wildcard bind addr
 정규화합니다. 구성 URL의 credential, query string 및 fragment는 차단됩니다. 알 수 없는 stage와
 malformed response는 fail closed됩니다.
 
-Conductor JSON response는 parsing 전에 bounded buffer로 stream됩니다. 기본
-`max_response_bytes` limit은 1,000,000 byte입니다. 구성된 limit을 초과하면 stream을 중단하고
-body를 JSON decoder에 전달하지 않은 채 adapter가 실패합니다.
+`/submit`을 포함한 모든 conductor response는 bounded buffer를 통해 stream됩니다. 기본
+`max_response_bytes` limit은 1,000,000 byte입니다. 구성된 limit을 초과하면 stream을 중단합니다.
+JSON response는 bounded read가 완료된 후에만 decode됩니다.
 
 Adapter는 가장 최근 `next_task()` 호출이 반환한 정확한 run, task 및 stage identity에 대한
 submission만 허용합니다. Conductor가 submission을 수락한 후에만 이 identity를 clear하므로,
