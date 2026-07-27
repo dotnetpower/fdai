@@ -2,8 +2,8 @@
 title: 사이트 신뢰성 엔지니어링
 description: 신호와 인시던트부터 대응, 복구, 학습까지 이어지는 FDAI의 SRE 운영 모델입니다.
 translation_of: README.md
-translation_source_sha: 56fbb769b0381195abe4abe5a970574249681d57
-translation_revised: 2026-07-22
+translation_source_sha: 7d4e26e1b6248898a07570ee26a4cbd25a95f20c
+translation_revised: 2026-07-27
 ---
 
 # 사이트 신뢰성 엔지니어링
@@ -20,8 +20,8 @@ Governance는 효율성을 관리하며, Resilience는 복구 가능성을 증�
 
 ### 신호 폭풍을 하나의 인시던트로 정리
 
-관련 리소스 이벤트, telemetry 발견된 문제, 변경을 안정적인 멤버십과 시간 순서를 가진
-하나의 인시던트로 연계합니다.
+관련 리소스 이벤트, 관측 데이터에서 나온 탐지 결과, 변경을 안정적인 구성원 목록과 명확한
+시간 순서를 가진 하나의 인시던트로 묶습니다.
 
 예시: 다섯 개의 알림이 동일한 배포 및 리소스 키를 공유 -> 이벤트 상관관계가 인시던트
 하나를 생성 -> 운영자는 다섯 페이지가 아니라 하나의 타임라인을 분류합니다.
@@ -31,13 +31,14 @@ Governance는 효율성을 관리하며, Resilience는 복구 가능성을 증�
 범위가 제한된 증거를 수집하고, 근거가 있는 근본 원인 가설을 생성하며, 모든 완화
 제안을 trust-router, 안전성 검토, 승인 정책 뒤에 둡니다.
 
-예시: 오류율 알림 -> 조사가 최근 배포를 연계 -> RCA가 변경과 telemetry를 인용 ->
-대응 계획이 rollback을 제안 -> 사람 승인이 제안을 액션 파이프라인에 다시 넣을지 결정.
+예시: 오류율 알림 -> 조사가 최근 배포를 연결 -> 근본 원인 분석이 변경과 관측 데이터를
+인용 -> 대응 계획이 롤백을 제안 -> 사람 승인이 이 제안을 작업 파이프라인에 다시 넣을지
+결정.
 
 ### 실패를 숨기지 않고 학습
 
-추가 전용 감사 이력, 포스트모템 초안, shadow 결과, rollback 증거를 사용해 규칙과
-runbook을 개선합니다. 학습 구성 요소가 정책을 직접 변경하도록 허용하지 않습니다.
+추가 전용 감사 이력, 포스트모템 초안, 관찰 모드 결과, 롤백 근거를 사용해 룰과 런북을
+개선합니다. 학습 구성 요소가 정책을 직접 바꾸도록 두지는 않습니다.
 
 예시: 해결된 인시던트 -> 포스트모템이 타임라인과 액션 결과를 추출 -> provenance가
 있는 카탈로그 후보 제안 -> 일반 검토 및 승격 게이트를 그대로 통과.
@@ -46,7 +47,7 @@ runbook을 개선합니다. 학습 구성 요소가 정책을 직접 변경하�
 
 - **Azure 신호**: Activity Log 이벤트, 리소스 인벤토리, 배포 이력, 서비스 메트릭이
   provider adapter를 통해 들어옵니다.
-- **Telemetry 시스템**: metric, log, trace provider는 증거를 공급하지만 두 번째 실행
+- **관측 시스템**: 메트릭, 로그, 트레이스 provider는 근거를 공급할 뿐 두 번째 실행
   경로가 되지 않습니다.
 - **Git과 ChatOps**: 수정 pull request가 변경을 전달하고, Teams 또는 Slack이
   승인과 운영 알림을 전달합니다.
@@ -55,10 +56,10 @@ runbook을 개선합니다. 학습 구성 요소가 정책을 직접 변경하�
 
 ## 작동 방식
 
-1. **관찰하고 연계합니다.** 이벤트와 발견된 문제를 정규화 및 중복 제거하고, 관련 멤버를
-   하나의 인시던트로 묶습니다.
-2. **조사하고 대응합니다.** 범위가 제한된 증거 세트를 만들고 grounded RCA를 도출한
-   다음, 모든 완화 제안을 governed action pipeline으로 보냅니다.
+1. **관찰하고 묶습니다.** 이벤트와 발견된 문제를 정규화하고 중복을 제거한 뒤, 관련된
+   것들을 하나의 인시던트로 묶습니다.
+2. **조사하고 대응합니다.** 범위가 제한된 근거 묶음을 만들고 그 근거에 기반한 근본 원인
+   분석을 도출한 다음, 모든 완화 제안을 관리되는 작업 파이프라인으로 보냅니다.
 3. **복구하고 학습합니다.** 복구를 검증하고 최종 감사 레코드를 쓰며 포스트모템을
    작성한 뒤 증거 기반 개선 후보를 제안합니다.
 
@@ -70,29 +71,28 @@ signals -> finding -> incident -> investigation -> RCA
 
 ## 모든 대응을 제어하는 두 가지 판단
 
-Trust routing과 execution policy는 서로 다른 질문에 답합니다. Trust-router는 판단 후보를
-만들 T0(결정론 규칙), T1(검증된 재사용), T2(근거 기반 추론)를 선택합니다. 안전성 검토는
-policy, action type, 영향 범위, environment, evidence freshness, identity, promotion
-state에서 가장 엄격한 허용 결과를 계산합니다.
+신뢰 라우팅과 실행 정책은 서로 다른 질문에 답합니다. 트러스트 라우터는 판단 후보를
+만들 수준으로 T0(결정론 룰), T1(검증된 재사용), T2(근거 기반 추론) 중 하나를 고릅니다.
+안전성 검토는 정책, 작업 유형, 영향 범위, 환경, 근거 최신성, 자격 증명, 승격 상태를 모두
+보고 가장 엄격한 허용 결과를 계산합니다.
 
 | 판단 | 질문 | 가능한 결과 |
 |------|------|-------------|
-| Trust routing | 어떤 tier가 설명하거나 제안할 수 있는가? | T0, T1, T2 또는 검토 보류 |
-| Risk gating | 이 제안이 지금 무엇을 할 수 있는가? | `auto`, `hil`, `deny` 또는 shadow-only |
-| Execution | 모든 runtime 안전 검사가 여전히 유효한가? | 한 번 적용, no-op, 중지 또는 rollback |
+| 신뢰 라우팅 | 어떤 티어가 설명하거나 제안할 수 있는가? | T0, T1, T2 또는 검토 보류 |
+| 위험 검토 | 이 제안이 지금 무엇을 할 수 있는가? | `auto`, `hil`, `deny` 또는 관찰 전용 |
+| 실행 | 실행 시점 안전 검사가 여전히 유효한가? | 한 번 적용, 미실행, 중지 또는 롤백 |
 
-T0 match가 변경 권한을 자동으로 부여하지 않으며 T2 proposal이 스스로 권한을 부여할 수도
-없습니다. 실행 가능한 모든 action에는 계속 dry run, stop condition, rollback path,
-영향 범위 limit, fresh inventory, per-resource lock, idempotency key, authorized identity,
-audit record가 필요합니다.
+T0 일치가 변경 권한을 자동으로 주지 않고, T2 제안이 스스로 권한을 만들 수도 없습니다.
+실행 가능한 모든 작업에는 여전히 사전 검증, 중단 조건, 롤백 경로, 영향 범위 제한, 최신
+인벤토리, 리소스별 잠금, idempotency key, 권한 있는 자격 증명, 감사 기록이 필요합니다.
 
-## 명시적 상태인 저하 운영
+## 성능 저하도 명시적인 상태입니다
 
-FDAI는 누락된 증거를 정상 상태로 바꾸지 않습니다. Provider failure는 의존 증거를
-unavailable로 표시합니다. Stale inventory, audit write 실패, unavailable lock, 검증되지 않은
-rollback path는 영향을 받는 action을 shadow 또는 deny로 낮춥니다. Notification failure는
-durable retry 또는 escalation을 따르지만 승인이 되지 않으며, 이미 유효한 incident transition을
-되돌리지도 않습니다.
+FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. provider 장애는 그에 의존하는 근거를
+사용 불가로 표시합니다. 오래된 인벤토리, 감사 기록 실패, 잠금 획득 실패, 검증되지 않은
+롤백 경로는 영향을 받는 작업을 관찰 모드나 거부로 낮춥니다. 알림 실패는 지속적으로
+재시도하거나 에스컬레이션합니다. 알림 실패가 승인이 되는 일은 없고, 이미 유효했던 인시던트
+상태 전환을 되돌리지도 않습니다.
 
 ## SRE 기능 지도
 
@@ -110,14 +110,14 @@ durable retry 또는 escalation을 따르지만 승인이 되지 않으며, 이�
 | 성과 측정 | [SRE 성과 측정](measuring-sre-outcomes-ko.md) | baseline 및 treatment window가 있을 때 Covered입니다. |
 | 시나리오 증거 | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) | Demo 18개, live 적용 모드 10개, frozen replay 9개, catalog scenario 132개 |
 | 재해 복구 | [재해 복구와 훈련](disaster-recovery-and-drills-ko.md) | 제공되는 drill과 adapter 범위에서 Covered입니다. |
-| 카오스 엔지니어링 | [카오스 엔지니어링](chaos-engineering-ko.md) | Covered. 모든 scenario는 shadow에서 시작합니다. |
+| 카오스 엔지니어링 | [카오스 엔지니어링](chaos-engineering-ko.md) | 지원됩니다. 모든 시나리오는 관찰 모드에서 시작합니다. |
 
 > 상태 페이지 broadcast와 DORA 배포 메트릭은 Deferred 상태입니다. Provider 및 데이터
 > 계약을 구현하기 전에는 사용 가능한 SRE 기능으로 표시하지 않습니다.
 
 ## 환경과 함께 확장
 
-- **Day 1**: shadow에서 신호를 수집하고 인시던트 그룹화를 확인하며 변경 없이 증거를
+- **Day 1**: 관찰 모드로 신호를 수집하고 인시던트 묶음을 확인하며 변경 없이 근거를
   검토합니다.
 - **Week 1**: 워크로드 메트릭을 연결하고 초기 SLO를 정의하며 온콜 라우팅을 연결하고,
   대응 계획을 합성 또는 과거 사례에 대해 사전 테스트합니다.

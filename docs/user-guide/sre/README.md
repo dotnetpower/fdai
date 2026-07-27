@@ -19,8 +19,8 @@ by a deployment or downstream fork.
 
 ### Turn signal storms into incidents
 
-Correlate related resource events, telemetry detected issues, and changes into one
-incident with stable membership and chronology.
+Correlate related resource events, telemetry detections, and changes into one
+incident with stable membership and a clear chronology.
 
 Example: five alerts share a deployment and resource key -> event correlation
 opens one incident -> triage reads one timeline instead of five pages.
@@ -31,14 +31,15 @@ Gather bounded evidence, produce grounded root-cause hypotheses, and keep every
 mitigation behind the trust router, safety check, and approval policy.
 
 Example: an error-rate alert -> investigation correlates a recent deployment ->
-RCA cites the change and telemetry -> a response plan proposes rollback -> human approval
-approval decides whether the proposal may re-enter the action pipeline.
+root-cause analysis cites the change and the telemetry -> a response plan proposes
+a rollback -> human approval decides whether the proposal may re-enter the action
+pipeline.
 
 ### Learn without hiding failures
 
-Use append-only audit history, postmortem drafts, shadow outcomes, and rollback
-evidence to improve rules and runbooks without letting a learning component
-change policy directly.
+Use append-only audit history, postmortem drafts, observation-mode outcomes, and
+rollback evidence to improve rules and runbooks, without letting a learning
+component change policy directly.
 
 Example: a resolved incident -> postmortem extracts the timeline and action
 outcome -> a catalog candidate is proposed with provenance -> normal review and
@@ -48,8 +49,8 @@ promotion gates still apply.
 
 - **Azure signals**: Activity Log events, resource inventory, deployment
   history, and service metrics enter through provider adapters.
-- **Telemetry systems**: metric, log, and trace providers supply evidence; they
-  do not become a second execution path.
+- **Telemetry systems**: metric, log, and trace providers supply evidence. They
+  never become a second execution path.
 - **Git and ChatOps**: fix pull requests carry changes, while Teams or
   Slack carries approvals and operational notifications.
 - **Audit and reporting**: every terminal outcome remains reconstructable from
@@ -57,10 +58,11 @@ promotion gates still apply.
 
 ## How it works
 
-1. **Observe and correlate.** Normalize events and detected issues, deduplicate them,
-   and group related members into an incident.
-2. **Investigate and respond.** Build a bounded evidence set, derive a grounded
-   RCA, and route any proposed mitigation through the governed action pipeline.
+1. **Observe and correlate.** Normalize events and detected issues, drop
+   duplicates, and group the related ones into an incident.
+2. **Investigate and respond.** Build a bounded evidence set, derive a root-cause
+   analysis backed by that evidence, and route any proposed mitigation through the
+   governed action pipeline.
 3. **Recover and learn.** Verify recovery, write the terminal audit record,
    draft the postmortem, and propose evidence-backed improvements.
 
@@ -81,7 +83,7 @@ freshness, identity, and promotion state.
 | Decision | Question | Possible result |
 |----------|----------|-----------------|
 | Trust routing | Which tier can explain or propose? | T0, T1, T2, or hold for review |
-| Risk gating | What may this proposal do now? | `auto`, `hil`, `deny`, or shadow-only |
+| Risk gating | What may this proposal do now? | `auto`, `hil`, `deny`, or observation only |
 | Execution | Are all runtime safety checks still valid? | Apply once, no-op, stop, or roll back |
 
 A T0 match is not automatic permission to mutate, and a T2 proposal cannot
@@ -91,12 +93,12 @@ per-resource lock, idempotency key, authorized identity, and audit record.
 
 ## Degraded operation is an explicit state
 
-FDAI does not translate missing evidence into a healthy system. A provider
-failure marks dependent evidence unavailable. Stale inventory, a failed audit
-write, an unavailable lock, or an unverified rollback path lowers the affected
-action to shadow or deny. Notification failure follows durable retry or
-escalation, but never becomes approval and never rolls back an already valid
-incident transition.
+FDAI never reads missing evidence as a healthy system. A provider failure marks
+the dependent evidence unavailable. Stale inventory, a failed audit write, an
+unavailable lock, or an unverified rollback path lowers the affected action to
+observation mode or deny. A notification failure retries durably or escalates. It
+never becomes an approval, and it never undoes an incident transition that was
+already valid.
 
 ## SRE capability map
 
@@ -114,7 +116,7 @@ incident transition.
 | Outcome measurement | [Measuring SRE outcomes](measuring-sre-outcomes.md) | Covered when baseline and treatment windows exist |
 | Scenario evidence | [Scenario validation inventory](scenario-validation-inventory.md) | 18 demo, 10 live enforcement, 9 frozen replay, 132 catalog scenarios |
 | Disaster recovery | [Disaster recovery and drills](disaster-recovery-and-drills.md) | Covered for shipped drills and adapters |
-| Chaos engineering | [Chaos engineering](chaos-engineering.md) | Covered; every scenario starts in shadow |
+| Chaos engineering | [Chaos engineering](chaos-engineering.md) | Covered, and every scenario starts in observation mode |
 
 > Status page broadcast and DORA deployment metrics remain deferred. They are
 > not presented as available SRE features until their provider and data
@@ -122,8 +124,8 @@ incident transition.
 
 ## Grows with your environment
 
-- **Day 1**: ingest signals in shadow, confirm incident grouping, and inspect
-  evidence without enabling mutation.
+- **Day 1**: ingest signals in observation mode, confirm incident grouping, and
+  inspect evidence without enabling any changes.
 - **Week 1**: bind workload metrics, define initial SLOs, connect on-call
   routing, and pretest response plans against synthetic or historical cases.
 - **Month 1**: promote measured low-risk actions independently, schedule
