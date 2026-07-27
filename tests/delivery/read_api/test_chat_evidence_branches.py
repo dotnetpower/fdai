@@ -139,6 +139,41 @@ async def test_cancelling_parent_cancels_and_awaits_every_branch() -> None:
     assert all(event.is_set() for event in cancelled)
 
 
+async def test_cancellation_observer_failure_does_not_replace_cancelled_error() -> None:
+    resolver_cancelled = asyncio.Event()
+
+    async def resolve(_observe):  # type: ignore[no-untyped-def]
+        try:
+            await asyncio.Event().wait()
+        finally:
+            resolver_cancelled.set()
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        if event.get("status") == "cancelled":
+            raise RuntimeError("synthetic observer failure")
+
+    task = asyncio.create_task(
+        resolve_evidence_branches(
+            request_id="request-cancel-observer",
+            base_context={},
+            specs=(
+                EvidenceBranchSpec(
+                    EvidenceBranchKind.TOOL,
+                    resolve,
+                    ("_tool_evidence",),
+                ),
+            ),
+            progress_observer=observe,
+        )
+    )
+    await asyncio.sleep(0)
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert resolver_cancelled.is_set()
+
+
 async def test_branch_count_above_fixed_parallel_limit_is_rejected() -> None:
     async def resolve(_observe):  # type: ignore[no-untyped-def]
         return {}

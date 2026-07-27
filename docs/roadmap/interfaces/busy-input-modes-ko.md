@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: fe8ebd93414ee674c98c24597354ad1610054387
+translation_source_sha: 2393af707595da792a259d9b334e760c9dedd3d8
 translation_revised: 2026-07-27
 ---
 
@@ -92,6 +92,8 @@ model call은 conversation-local cancellation event와 경쟁합니다. Interrup
 - Planning helper를 cancel하고 await합니다.
 - 실행 중인 모든 read-evidence branch를 bounded task group을 통해 cancel하고 await합니다. Cancel된
     branch는 terminal answer를 emit하거나 turn 종료 후 provider 작업을 계속할 수 없습니다.
+- Optional cancelled lifecycle frame 보고가 실패하면 log하고 격리합니다. 원래 cancellation signal을
+    대체하거나 interrupted turn outcome을 변경하지 않습니다.
 - Interrupted turn은 `confirmed` 또는 `done` frame을 emit하지 않습니다. Draft text는 partial로
     유지되며 verified conversation history로 복원되지 않습니다.
 - Active-turn marker를 `finally`에서 finish합니다.

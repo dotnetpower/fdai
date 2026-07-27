@@ -309,6 +309,8 @@ Web, Teams, and Slack consume the same ordered event reduction:
 	not call precomputed text chunks streaming and does not change answer authority.
 
 Stream close, operator interruption, or request deadline cancels and awaits every child branch.
+Cancellation remains authoritative when its optional progress observer fails; the observer error is
+logged without converting a cancelled branch into a failed stream.
 Per-branch deadlines, queue capacity, branch count, event size, activity count, text bytes, and
 vendor payloads stay bounded. Command and output evidence requires `redacted=true`; branch summaries
 never expose credentials, tenant identifiers, customer resource identifiers, or raw untrusted web

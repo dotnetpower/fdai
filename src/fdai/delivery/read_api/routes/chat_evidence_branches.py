@@ -126,16 +126,24 @@ async def _resolve_branch(
             progress_observer=progress_observer,
         )
     except asyncio.CancelledError:
-        await progress_observer(
-            _lifecycle_event(
-                branch_id=branch_id,
-                kind=spec.kind,
-                status=EvidenceBranchStatus.CANCELLED.value,
-                summary=f"{spec.kind.value} evidence cancelled",
-                started_at=started_at,
-                started=started,
+        try:
+            await progress_observer(
+                _lifecycle_event(
+                    branch_id=branch_id,
+                    kind=spec.kind,
+                    status=EvidenceBranchStatus.CANCELLED.value,
+                    summary=f"{spec.kind.value} evidence cancelled",
+                    started_at=started_at,
+                    started=started,
+                )
             )
-        )
+        except Exception as exc:  # noqa: BLE001 - cancellation remains authoritative
+            _LOG.warning(
+                "chat evidence cancellation progress failed: %s",
+                type(exc).__name__,
+                extra={"branch_kind": spec.kind.value},
+                exc_info=True,
+            )
         raise
     except Exception as exc:  # noqa: BLE001 - isolate one read-only evidence branch
         _LOG.warning(

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 1b401a386072c8c7764caf0c195220d1075e4508
+translation_source_sha: 4bfe207e0d34599e4cf4ea1f328b9485db8a3747
 translation_revised: 2026-07-27
 ---
 
@@ -304,6 +304,8 @@ Web, Teams 및 Slack은 동일한 ordered event reduction을 사용합니다.
 	전송합니다. Precomputed text chunk를 streaming이라고 부르지 않으며 answer authority를 바꾸지 않습니다.
 
 Stream close, operator interruption 또는 request deadline은 모든 child branch를 cancel하고 await합니다.
+Optional progress observer가 실패해도 cancellation이 authoritative 상태를 유지합니다. Observer error는
+cancelled branch를 failed stream으로 바꾸지 않고 log됩니다.
 Per-branch deadline, queue capacity, branch count, event size, activity count, text byte 및 vendor payload는
 bounded 상태를 유지합니다. Command 및 output evidence에는 `redacted=true`가 필요합니다. Branch
 summary는 credential, tenant identifier, customer resource identifier 또는 raw untrusted web content를
