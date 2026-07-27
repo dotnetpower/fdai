@@ -5,42 +5,42 @@ description: How to narrow, downgrade, or disable an accepted rule for a specifi
 
 # Override a rule
 
-Sometimes an accepted rule is right in general but wrong for a specific
-scope - a production tier that legitimately needs a wider threshold, a
-dev sandbox where a strict guardrail is more annoying than useful. Rather
-than editing the rule text (which affects everyone) or disabling the rule
-globally, FDAI supports **scoped overrides** that sit above the
-automated quality gate.
+Sometimes an accepted rule is right in general but wrong for one scope. A
+production tier may legitimately need a wider threshold, or a dev sandbox may
+find a strict guardrail more annoying than useful. Instead of editing the rule
+text, which affects everyone, or disabling the rule everywhere, FDAI supports
+**scoped overrides** that sit above the automated quality gate.
 
 ## What an override can do
 
-Overrides are policy-as-code artefacts stored alongside the rule catalog.
-An override on a rule at a given scope can do exactly one of:
+An override is a policy-as-code artifact stored next to the rule catalog. On a
+given rule and scope, it can do exactly one of these:
 
-- **`disabled`** - the rule stops executing on that scope. Detection still
-  runs in shadow (the audit log continues to record what the rule *would*
-  have flagged), so the discovery loop can spot recurring override patterns.
-- **`severity-downgrade`** - the rule still fires but with a lower severity
-  (e.g. `critical -> medium`). The safety check re-evaluates the resulting
-  detected issue; an override can lower or suppress execution for its scope, but it
-  cannot bypass a hard deny or raise autonomy.
-- **`parameter-relaxation`** - a widening of a threshold the rule itself
-  declares (e.g. cost anomaly `> 20%` becomes `> 40%`). Only the rule's
-  declared parameters can be relaxed; the check logic cannot be rewritten.
+- **`disabled`**: the rule stops executing on that scope. Detection keeps running
+  in observation mode, so the audit log still records what the rule would have
+  flagged and the discovery loop can spot repeated override patterns.
+- **`severity-downgrade`**: the rule still fires, but at a lower severity, for
+  example `critical` becomes `medium`. The safety check re-evaluates the
+  resulting detected issue. An override can lower or suppress execution inside
+  its scope, but it cannot get around a hard deny or raise autonomy.
+- **`parameter-relaxation`**: it widens a threshold the rule already declares,
+  for example a cost anomaly at `> 20%` becomes `> 40%`. Only the rule's declared
+  parameters can be relaxed. You cannot rewrite the check logic.
 
-Anything broader - a global disable across all scopes - is not an override.
-It is a rule retirement and must go through the catalog pipeline with its
-own review.
+Anything broader, such as disabling a rule everywhere, is not an override. That
+is a rule retirement, and it goes through the catalog pipeline with its own
+review.
 
-Overrides are downgrade-only controls. They never turn human approval into AUTO, DENY
-into human approval, or shadow into enforce.
+Overrides can only lower autonomy. They never turn human approval into automatic
+execution, a denial into an approval request, or observation mode into
+enforcement.
 
 ## Scope limits
 
-**An override MUST be bounded to a `resource-group`-equivalent grouping or
-narrower.** Wider overrides (subscription-wide, tenant-wide, organisation-
-wide) are rejected by the promotion pipeline. If you need that breadth, you
-are asking for a rule retirement.
+**An override has to stay inside a resource-group-sized grouping or smaller.**
+The promotion pipeline rejects anything wider, such as subscription-wide,
+tenant-wide, or organization-wide. If you need that reach, what you actually want
+is a rule retirement.
 
 Practically this means:
 
@@ -52,35 +52,34 @@ Practically this means:
 
 Every override, regardless of mode, records:
 
-- **Actor** - the operator raising the override.
-- **Approver** - a distinct principal (no self-approval).
-- **Justification** - the reason this scope is different. This text is
-  audited and surfaces on any human approval request that the override would touch.
-- **Target rule + scope + mode** - machine-readable so the discovery loop
-  can find the entry.
+- **Actor**: the operator raising the override.
+- **Approver**: a different principal, because self-approval is not allowed.
+- **Justification**: why this scope is different. The text is audited and shows
+  up on any approval request the override would touch.
+- **Target rule, scope, and mode**: machine-readable, so the discovery loop can
+  find the entry.
 
-Overrides may be long-lived. They are not required to carry an expiry, but
-recurring or long-lived overrides on the same rule are treated by the
-discovery loop as a signal to propose a revision of the rule itself.
+An override can last a long time and does not need an expiry. However, when the
+same rule keeps collecting overrides, or one override lives on for a long time,
+the discovery loop treats that as a signal to propose revising the rule itself.
 
-## What an override does *not* suppress
+## What an override does not suppress
 
-- **The audit record.** Every detected issue that the override intercepted is
-  still logged with the reason it was suppressed. Overrides never make an
-  event invisible; they change what FDAI does about it.
-- **Rule updates from upstream.** Because the override is a separate
-  artefact, upstream rule updates flow through without touching the
-  override.
+- **The audit record.** Every detected issue the override intercepted is still
+  logged, along with the reason it was suppressed. An override never makes an
+  event invisible. It changes what FDAI does about it.
+- **Rule updates from upstream.** Because the override is a separate artifact,
+  upstream rule updates flow through without touching it.
 
 ## How to raise one
 
-1. Confirm the rule id and the current decision (the audit log has both).
-2. Draft the override artefact (mode, scope, justification) in the same
-   repo you edit rules in.
-3. Open a PR. The reviewer must not be you.
-4. On merge, the override takes effect the next time the affected event
-   fires. The audit log shows both the underlying detected issue and the override
-   intercepting it.
+1. Confirm the rule ID and the current decision. The audit log has both.
+2. Draft the override artifact, meaning the mode, the scope, and the
+   justification, in the same repository where you edit rules.
+3. Open a pull request. The reviewer cannot be you.
+4. Once it merges, the override takes effect the next time the affected event
+   fires. The audit log then shows both the underlying detected issue and the
+   override intercepting it.
 
 ## Verify the override
 
@@ -101,17 +100,17 @@ work.
 
 ## When to retire the rule instead
 
-If you find yourself raising the same override on the same rule for many
-scopes, that's the discovery loop's job - but it is also a signal that the
-rule itself may need a revision. Rather than accumulate overrides, open a
-PR against the rule catalog with the revised parameters and let it flow
-through the quality gate the same way any rule change does.
+If you keep raising the same override on the same rule for many scopes, the
+discovery loop will notice. That is also a sign the rule itself needs a revision.
+Rather than piling up overrides, open a pull request against the rule catalog
+with the revised parameters and let it go through the quality gate like any other
+rule change.
 
 ## Next steps
 
 | To learn about | Read |
 |----------------|------|
-| What severity and auto/human approval/DENY mean at execution | [../concepts/risk-tiers.md](../concepts/risk-tiers.md) |
+| What severity, auto, human approval, and deny mean at execution | [../concepts/risk-tiers.md](../concepts/risk-tiers.md) |
 | How to see whether your override is taking effect | [read-audit-log.md](read-audit-log.md) |
-| The exemption workflow (owner-approved, time-boxed) | [../../runbooks/exemption-workflow.md](../../runbooks/exemption-workflow.md) |
+| The exemption workflow, which is owner-approved and time-boxed | [../../runbooks/exemption-workflow.md](../../runbooks/exemption-workflow.md) |
 | The full Human Override design | [../../../.github/instructions/architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) |
