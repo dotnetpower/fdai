@@ -60,6 +60,8 @@ class BenchmarkSubmission:
         _validate_identifier("run_id", self.run_id)
         _validate_identifier("task_id", self.task_id)
         _validate_identifier("stage", self.stage)
+        if not isinstance(self.status, BenchmarkStatus):
+            raise ValueError("status MUST be a BenchmarkStatus")
         _validate_text("summary", self.summary)
         evidence_refs = tuple(self.evidence_refs)
         if len(evidence_refs) > _MAX_EVIDENCE_REFS:

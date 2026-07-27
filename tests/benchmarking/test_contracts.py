@@ -66,6 +66,17 @@ def test_submission_preserves_task_identity_and_evidence() -> None:
     assert submission.evidence_refs == ("audit/example-1",)
 
 
+def test_submission_rejects_invalid_runtime_status() -> None:
+    with pytest.raises(ValueError, match="status MUST be a BenchmarkStatus"):
+        BenchmarkSubmission(
+            run_id="run-1",
+            task_id="task-1",
+            stage="diagnosis",
+            status="bogus",  # type: ignore[arg-type]
+            summary="Evidence-backed result.",
+        )
+
+
 def test_metadata_is_bounded() -> None:
     with pytest.raises(ValueError, match="at most 64"):
         _task(metadata={f"key-{index}": "value" for index in range(65)})
