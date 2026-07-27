@@ -1,60 +1,59 @@
 ---
 title: 카오스 엔지니어링
-description: FDAI가 제한된 target, stop condition, recovery evidence를 사용해 catalog-driven fault experiment를 실행하는 방법입니다.
+description: FDAI가 제한된 대상, 중단 조건, 복구 근거를 사용해 카탈로그에 정의된 장애 실험을 실행하는 방법입니다.
 translation_of: chaos-engineering.md
 translation_source_sha: 3308e4fdc9c58ff63cf85ab53f4e673263a1dd61
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 카오스 엔지니어링
 
-카오스 엔지니어링은 알려진 fault에서 workload와 recovery control이 예상대로 작동하는지
-검증합니다. FDAI는 experiment를 명시적인 target, probe, 영향 범위, stop condition,
-rollback, audit evidence가 있는 catalog entry로 표현합니다.
+카오스 엔지니어링은 알려진 장애가 일어났을 때 워크로드와 복구 장치가 예상대로 움직이는지
+확인하는 일입니다. FDAI는 실험을 카탈로그 항목으로 표현하며, 각 항목에는 대상, 상태 점검,
+영향 범위, 중단 조건, 롤백, 감사 근거가 명시되어 있습니다.
 
 ## 시나리오 계약
 
-Fault scenario는 hypothesis, supported resource type, injector, steady-state probe, approved
-target, maximum duration, stop condition, rollback, promotion gate를 선언합니다. Catalog schema
-validation은 불완전한 scenario가 실행되기 전에 거부합니다.
+장애 시나리오에는 가설, 지원되는 리소스 유형, 주입 방식, 정상 상태 점검, 승인된 대상, 최대
+지속 시간, 중단 조건, 롤백, 승격 기준을 적습니다. 카탈로그 스키마 검증이 내용이 덜 채워진
+시나리오를 실행 전에 걸러 냅니다.
 
 ## 안전한 실험 흐름
 
-1. 승격된 scenario를 선택하고 target eligibility를 검증합니다.
-2. Fault를 주입하지 않고 preflight 및 steady-state probe를 실행합니다.
-3. 범위가 제한된 target set과 필요한 approval을 확인합니다.
-4. Console identity가 아니라 설정된 provider를 통해 주입합니다.
-5. Stop condition과 health probe를 계속 평가합니다.
-6. Rollback하고 recovery를 검증하며 outcome을 기록합니다.
+1. 승격된 시나리오를 고르고 대상이 자격을 갖췄는지 확인합니다.
+2. 장애를 주입하지 않은 채 사전 점검과 정상 상태 점검을 실행합니다.
+3. 범위를 좁힌 대상 집합과 필요한 승인을 확인합니다.
+4. 콘솔 자격 증명이 아니라 설정된 provider를 통해 장애를 주입합니다.
+5. 중단 조건과 상태 점검을 실험 내내 계속 평가합니다.
+6. 롤백하고 복구를 확인한 뒤 결과를 기록합니다.
 
-## Fault injection 전 shadow
+## 장애를 주입하기 전에 먼저 관찰합니다
 
-Shadow에서 FDAI는 fault를 주입하지 않고 target selection, policy, expected probe, 실행됐을
-action을 평가합니다. 승격은 scenario 및 scope별로 수행합니다. 새 scenario는 다른 scenario의
-evidence를 상속하지 않습니다.
+관찰 모드에서 FDAI는 장애를 주입하지 않고 대상 선택, 정책, 예상되는 점검, 실행했을 법한
+작업을 평가합니다. 승격은 시나리오와 범위 단위로 이루어집니다. 새 시나리오가 다른
+시나리오의 근거를 물려받는 일은 없습니다.
 
-## 중지와 복구 규칙
+## 중단과 복구 규칙
 
-Target set이 확대되거나 protected dependency가 저하되거나 probe freshness를 잃거나
-experiment가 duration을 초과하거나 rollback을 사용할 수 없거나 audit write가 실패하면 즉시
-중지합니다. Recovery verification은 optional cleanup이 아니라 experiment outcome의 일부입니다.
+대상 집합이 넓어지거나, 보호 중인 의존 요소가 나빠지거나, 점검 데이터가 오래되거나, 실험이
+정해진 시간을 넘기거나, 롤백을 쓸 수 없거나, 감사 기록에 실패하면 즉시 중단합니다. 복구
+확인은 선택적인 뒷정리가 아니라 실험 결과의 일부입니다.
 
-## 커버리지와 증거
+## 커버리지와 근거
 
-Failure mode 및 resource type별 scenario coverage, probe reliability, abort rate, rollback
-success, recovery time, unexpected impact를 추적합니다. Recovery가 검증되지 않은 successful
-injection은 성공한 experiment가 아닙니다.
+장애 유형과 리소스 유형별 시나리오 커버리지, 점검의 신뢰도, 중단 비율, 롤백 성공률, 복구
+시간, 예상하지 못한 영향을 추적합니다. 복구를 확인하지 못한 주입은 성공한 실험이 아닙니다.
 
-[시나리오 검증 인벤토리](scenario-validation-inventory-ko.md)는 catalog entry 132개,
-shadow-coverage pack 18개, live 적용 모드 validation 10개, 별도 frozen control-loop scenario를
-서로 구분합니다.
+[시나리오 검증 인벤토리](scenario-validation-inventory-ko.md)는 카탈로그 항목 132개, 관찰
+커버리지 묶음 18개, 실제 적용 모드 검증 10개, 그리고 별도로 고정한 컨트롤 루프 시나리오를
+서로 구분해서 보여 줍니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
+| 알아볼 내용 | 문서 |
+|-------------|------|
 | 복구를 훈련하는 방법 | [재해 복구와 훈련](disaster-recovery-and-drills-ko.md) |
-| 모든 scenario와 evidence level | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) |
+| 모든 시나리오와 근거 수준 | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) |
 | 영향 범위를 관리하는 방법 | [리스크 티어](../concepts/risk-tiers-ko.md) |
-| 운영자 절차 | [Chaos game day runbook](../../runbooks/chaos-game-day-ko.md) |
-| Resilience capability | [회복탄력성](../capabilities/resilience-ko.md) |
+| 운영자 절차 | [카오스 게임데이 런북](../../runbooks/chaos-game-day-ko.md) |
+| 회복탄력성 기능 | [회복탄력성](../capabilities/resilience-ko.md) |

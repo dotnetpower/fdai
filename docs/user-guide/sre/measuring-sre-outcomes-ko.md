@@ -1,56 +1,55 @@
 ---
 title: SRE 성과 측정
-description: 자동화량을 신뢰성과 혼동하지 않고 paired baseline을 기준으로 FDAI SRE 성과를 측정하는 방법입니다.
+description: 자동화한 양을 신뢰성과 혼동하지 않고, 짝을 이룬 기준선과 비교해 FDAI의 SRE 성과를 측정하는 방법입니다.
 translation_of: measuring-sre-outcomes.md
 translation_source_sha: b0fa546247f5409d2b24e8243e9c8152321f82a8
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # SRE 성과 측정
 
-FDAI는 자동으로 판단한 비율이 아니라 outcome과 guard metric으로 SRE 개선을 측정합니다.
-모든 비교는 동일한 scenario set, 명시된 measurement window, paired baseline 및 treatment
-evidence를 사용합니다.
+FDAI는 자동으로 판단한 비율이 아니라 결과 지표와 보호 지표로 SRE 개선을 측정합니다. 모든
+비교는 같은 시나리오 묶음, 명시된 측정 기간, 그리고 짝을 이룬 기준선과 적용군 근거를
+사용합니다.
 
 ## 결과 지표
 
 | 지표 | 답하는 질문 |
 |------|-------------|
-| MTTR distribution | Mean, median, p90에서 해결에 얼마나 걸리나요? |
-| Auto-resolution rate | 사람 접점과 사후 rollback 없이 올바른 terminal outcome에 도달한 event는 무엇인가요? |
-| Human touchpoints | Incident당 운영자 작업이 얼마나 남았나요? |
-| Change lead time | Governed change가 request에서 merge까지 얼마나 걸리나요? |
-| Cost per resolved event | 각 결과에 귀속되는 platform 및 inference 비용은 얼마인가요? |
+| MTTR 분포 | 평균, 중앙값, p90 기준으로 해결까지 얼마나 걸리나요? |
+| 자동 해결률 | 사람 손을 거치지 않고 사후 롤백도 없이 올바르게 끝난 이벤트는 얼마나 되나요? |
+| 사람 개입 횟수 | 인시던트 하나당 운영자가 해야 할 일이 얼마나 남아 있나요? |
+| 변경 리드 타임 | 관리되는 변경이 요청부터 병합까지 얼마나 걸리나요? |
+| 해결된 이벤트당 비용 | 결과 하나에 들어간 플랫폼 비용과 추론 비용은 얼마인가요? |
 
 ## 보호 지표
 
-Change-failure rate, false positive, false negative, rollback rate, policy-violation escape,
-audit gap, verifier failure, mixed-model disagreement를 추적합니다. Guard metric이 threshold를
-넘어 회귀하면 outcome 개선으로 인정하지 않습니다.
+변경 실패율, 오탐, 미탐, 롤백률, 정책 우회, 감사 공백, 검증기 실패, 모델 간 불일치를
+추적합니다. 보호 지표가 기준을 넘어 나빠지면 결과가 좋아졌다고 인정하지 않습니다.
 
-## 측정 계약
+## 측정 규칙
 
-1. Scenario-set version과 input distribution을 고정합니다.
-2. Baseline model, rule, threshold, adapter, catalog version을 기록합니다.
-3. 동일한 scenario 및 observation window에 treatment를 실행합니다.
-4. 평균뿐 아니라 sample size, missing data, confidence, distribution을 보고합니다.
-5. Shadow outcome과 enforce outcome을 구분합니다.
-6. 측정된 guard metric이 회귀하면 capability를 강등합니다.
+1. 시나리오 묶음의 버전과 입력 분포를 고정합니다.
+2. 기준선의 모델, 룰, 임계값, 어댑터, 카탈로그 버전을 기록합니다.
+3. 같은 시나리오와 같은 관측 기간에 적용군을 실행합니다.
+4. 평균만이 아니라 표본 크기, 결측 데이터, 신뢰 구간, 분포까지 함께 보고합니다.
+5. 관찰 모드 결과와 적용 모드 결과를 구분합니다.
+6. 측정한 보호 지표가 나빠지면 해당 기능을 강등합니다.
 
-## 오해를 만드는 주장 방지
+## 오해를 부르는 주장 피하기
 
-- Paired measurement 없이 multiplier를 주장하지 않습니다.
-- 누락된 projection을 0으로 취급하지 않습니다.
-- Mean과 p90을 하나의 latency 문장으로 합치지 않습니다.
-- 나중에 rollback된 결과를 성공한 auto-resolution으로 세지 않습니다.
-- 서로 다른 scenario set을 비교할 때 변경 사실을 숨기지 않습니다.
+- 짝을 이룬 측정 없이 배수를 주장하지 않습니다.
+- 빠진 값을 0으로 취급하지 않습니다.
+- 평균과 p90을 한 문장에 뭉뚱그려 지연 시간을 말하지 않습니다.
+- 나중에 롤백된 결과를 성공한 자동 해결로 세지 않습니다.
+- 서로 다른 시나리오 묶음을 비교할 때 바뀌었다는 사실을 숨기지 않습니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| 표준 공식과 window | [목표와 메트릭](../../roadmap/architecture/goals-and-metrics-ko.md) |
-| 이름이 있는 scenario set과 evidence level | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) |
-| SLO burn이 workload impact를 측정하는 방법 | [SLO와 오류 예산](slos-and-error-budgets-ko.md) |
-| Shadow evidence가 승격을 제어하는 방법 | [Shadow 후 enforce](../concepts/shadow-then-enforce-ko.md) |
-| Audit evidence를 재구성하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 표준 계산식과 측정 기간 | [목표와 메트릭](../../roadmap/architecture/goals-and-metrics-ko.md) |
+| 이름이 붙은 시나리오 묶음과 근거 수준 | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) |
+| SLO 소진이 워크로드 영향을 측정하는 방법 | [SLO와 오류 예산](slos-and-error-budgets-ko.md) |
+| 관찰 근거가 승격을 좌우하는 방법 | [관찰 후 적용](../concepts/shadow-then-enforce-ko.md) |
+| 감사 근거를 재구성하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |

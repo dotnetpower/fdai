@@ -1,58 +1,58 @@
 ---
 title: 포스트모템과 학습
-description: FDAI가 증거 기반 postmortem draft를 만들고 교훈을 governed improvement candidate로 바꾸는 방법입니다.
+description: FDAI가 근거에 기반한 포스트모템 초안을 만들고, 거기서 얻은 교훈을 관리되는 개선 후보로 바꾸는 방법입니다.
 translation_of: postmortems-and-learning.md
 translation_source_sha: 14a2532379635094bcd65ac9de26a1d7983be48c
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 포스트모템과 학습
 
-포스트모템은 audit record를 다시 쓰지 않고 impact, chronology, cause, response, recovery,
-follow-up을 설명합니다. FDAI는 incident 및 audit data로 deterministic template을 만들고,
-선택적으로 구성된 postmortem model을 통해 내용을 보강할 수 있습니다.
+포스트모템은 감사 기록을 고쳐 쓰지 않으면서 영향, 시간 순서, 원인, 대응, 복구, 후속 조치를
+설명합니다. FDAI는 인시던트와 감사 데이터로 정해진 형식의 초안을 만들고, 필요하면 설정된
+포스트모템 모델로 내용을 보강할 수 있습니다.
 
-## 초안 내용
+## 초안에 담기는 내용
 
-- Incident summary와 검증된 impact.
-- 순서가 있는 audit timeline과 lifecycle transition.
-- Grounded root cause와 contributing factor.
-- 실행된 action, approval, rollback, recovery evidence.
-- 잘 작동한 점, 실패한 점, 해결되지 않은 limitation.
-- Owner가 지정된 corrective 및 preventive follow-up.
+- 인시던트 요약과 확인된 영향.
+- 순서대로 정리한 감사 타임라인과 상태 전환.
+- 근거가 뒷받침하는 근본 원인과 기여 요인.
+- 실행한 작업, 승인, 롤백, 복구 근거.
+- 잘 통한 점, 실패한 점, 아직 남아 있는 한계.
+- 담당자가 정해진 시정 조치와 예방 조치.
 
-Optional model을 사용할 수 없어도 generator는 template-based draft를 반환합니다. 누락된
-impact나 cause를 만들어내지 않습니다.
+선택 사항인 모델을 쓸 수 없어도 생성기는 형식에 맞춘 초안을 돌려줍니다. 빠진 영향이나
+원인을 지어내지는 않습니다.
 
-## 증거 경계 보존
+## 근거의 경계를 지킵니다
 
-Postmortem은 audit row와 citation을 참조하며 변경하지 않습니다. 사람의 편집은 machine
-record와 구분됩니다. 누락된 증거는 unavailable로 표시하고 unresolved hypothesis는
-hypothesis로 유지합니다.
+포스트모템은 감사 기록과 인용을 참조할 뿐 바꾸지 않습니다. 사람이 손댄 부분은 기계가 남긴
+기록과 구분됩니다. 빠진 근거는 확인 불가로 표시하고, 아직 확정되지 않은 추정은 가설 그대로
+남겨 둡니다.
 
 ## 학습 루프
 
-Learning extractor는 반복되는 correlation key, root cause, 성공한 action type, override,
-rollback, 사람 승인 pattern을 식별할 수 있습니다. 결과는 rule, runbook, knowledge entry의 inert
-candidate가 됩니다.
+학습 추출기는 반복되는 상관관계 키, 근본 원인, 성공한 작업 유형, 오버라이드, 롤백, 사람
+승인 패턴을 찾아낼 수 있습니다. 그 결과는 룰, 런북, 지식 항목의 후보가 되며 아직 작동하지는
+않습니다.
 
-Candidate는 provenance를 포함하고 schema, review, regression, shadow, promotion gate를
-통과해야 합니다. Learning loop는 active catalog를 직접 편집하지 않습니다.
+후보에는 출처가 함께 담기고, 스키마 검사와 검토, 회귀 테스트, 관찰 모드, 승격 기준을 모두
+거쳐야 합니다. 학습 루프가 운영 중인 카탈로그를 직접 고치는 일은 없습니다.
 
-## 검토 워크플로
+## 검토 절차
 
-1. Incident scope, severity, verified impact를 확인합니다.
-2. Audit timeline과 external evidence를 대조합니다.
-3. Root cause, contributing factor, detection gap을 구분합니다.
-4. 남은 영향을 포함해 rollback 및 recovery outcome을 기록합니다.
-5. Follow-up owner와 측정 가능한 completion evidence를 지정합니다.
-6. 재사용 가능한 교훈을 governed catalog 또는 runbook workflow로 제출합니다.
+1. 인시던트 범위, 심각도, 확인된 영향을 점검합니다.
+2. 감사 타임라인과 외부 근거를 서로 대조합니다.
+3. 근본 원인, 기여 요인, 탐지 공백을 구분합니다.
+4. 남은 영향까지 포함해 롤백과 복구 결과를 기록합니다.
+5. 후속 조치 담당자와 완료를 확인할 수 있는 근거를 정합니다.
+6. 다시 쓸 만한 교훈은 관리되는 카탈로그나 런북 절차로 제출합니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| Incident가 종료되는 방법 | [인시던트 관리](incident-management-ko.md) |
-| RCA가 grounded 상태를 유지하는 방법 | [근본 원인 분석](root-cause-analysis-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 인시던트가 종료되는 방법 | [인시던트 관리](incident-management-ko.md) |
+| 근본 원인 분석이 근거를 유지하는 방법 | [근본 원인 분석](root-cause-analysis-ko.md) |
 | 판단을 재구성하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |
-| 포스트모템 절차 | [포스트모템 workflow runbook](../../runbooks/postmortem-workflow-ko.md) |
+| 포스트모템 절차 | [포스트모템 절차 런북](../../runbooks/postmortem-workflow-ko.md) |

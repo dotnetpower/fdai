@@ -1,49 +1,49 @@
 ---
 title: 재해 복구와 훈련
-description: FDAI가 예약되고 격리되며 증거를 남기는 restore 및 failover exercise로 복구 경로를 증명하는 방법입니다.
+description: FDAI가 예약되고 격리된, 근거를 남기는 복원 및 장애 조치 훈련으로 복구 경로를 증명하는 방법입니다.
 translation_of: disaster-recovery-and-drills.md
 translation_source_sha: 0c211aa9fa5cc3648a95f0a018f7d3ba57db3495
-translation_revised: 2026-07-22
+translation_revised: 2026-07-27
 ---
 
 # 재해 복구와 훈련
 
-재해 복구(Disaster Recovery, DR)는 outage 전에 recovery path를 훈련하고 측정해야 신뢰할
-수 있습니다. FDAI는 범위가 제한된 drill을 예약하고 격리된 target에 복원하며 recovery
-objective를 검증하고 cleanup 및 audit evidence를 기록합니다.
+재해 복구(Disaster Recovery, DR)는 장애가 나기 전에 복구 경로를 연습하고 측정해 봐야
+믿을 수 있습니다. FDAI는 범위를 정한 훈련을 예약하고, 격리된 대상으로 복원하고, 복구
+목표를 검증하고, 정리 작업과 감사 근거를 기록합니다.
 
-## 훈련 계획
+## 훈련 계획하기
 
-Drill은 protected workload, target RPO 및 RTO, exercise window, isolated destination,
-owner, stop condition, 영향 범위, cleanup plan, evidence requirement를 선언합니다.
-Verification restore는 production data를 덮어쓰지 않습니다.
+훈련에는 보호 대상 워크로드, 목표 RPO와 RTO, 훈련 시간대, 격리된 복원 위치, 소유자, 중단
+조건, 영향 범위, 정리 계획, 필요한 근거를 적습니다. 검증용 복원이 운영 데이터를 덮어쓰는
+일은 없습니다.
 
-## 훈련 라이프사이클
+## 훈련 진행 순서
 
-1. Backup readiness, restore window, identity, quota, destination isolation을 확인합니다.
-2. Restore point를 선택하고 expected RPO를 기록합니다.
-3. 새로 격리한 resource group 또는 동등 scope에 복원합니다.
-4. Connectivity, schema, integrity, application-level verification을 실행합니다.
-5. 달성한 RPO와 RTO를 objective와 비교해 측정합니다.
-6. Evidence를 기록하고 temporary resource를 제거한 뒤 cleanup을 검증합니다.
+1. 백업 준비 상태, 복원 시간대, 자격 증명, 할당량, 복원 위치의 격리 상태를 확인합니다.
+2. 복원 시점을 고르고 예상 RPO를 기록합니다.
+3. 새로 격리한 리소스 그룹이나 그에 준하는 범위로 복원합니다.
+4. 연결, 스키마, 무결성, 애플리케이션 수준 검증을 실행합니다.
+5. 실제로 달성한 RPO와 RTO를 목표와 비교해 측정합니다.
+6. 근거를 기록하고 임시 리소스를 지운 뒤, 정리가 끝났는지 확인합니다.
 
-## Fail closed
+## 안전한 쪽으로 멈추기
 
-Source identity가 모호하거나 destination이 production에 영향을 줄 수 있거나 backup metadata가
-없거나 verification이 불완전하거나 cleanup을 보장할 수 없으면 drill을 중지합니다. 실패한
-drill은 recovery gap의 증거이며 workload를 healthy로 표시할 이유가 아닙니다.
+원본 자격 증명이 모호하거나, 복원 위치가 운영 환경을 건드릴 수 있거나, 백업 메타데이터가
+없거나, 검증이 덜 끝났거나, 정리를 보장할 수 없으면 훈련을 중단합니다. 실패한 훈련은 복구
+공백을 보여 주는 근거이지, 워크로드를 정상으로 표시할 이유가 아닙니다.
 
 ## 승격과 주기
 
-새 drill automation은 shadow에서 시작합니다. Scheduler가 cadence를, 안전성 검토가 scope와
-execution eligibility를, audit log가 proof를 담당합니다. 승격에는 반복 가능한 성공과 정책
-위반 escape 0건이 필요합니다.
+새로 만든 훈련 자동화는 관찰 모드에서 시작합니다. 주기는 스케줄러가, 범위와 실행 자격은
+안전성 검토가, 증명은 감사 로그가 맡습니다. 승격하려면 반복해서 성공해야 하고, 정책을
+우회한 사례가 한 건도 없어야 합니다.
 
 ## 다음 단계
 
-| 학습 대상 | 문서 |
-|-----------|------|
-| 상세 database 절차 | [Deep DB-DR 복원 훈련](../../runbooks/db-dr-drill-ko.md) |
-| Failure injection이 DR을 보완하는 방법 | [카오스 엔지니어링](chaos-engineering-ko.md) |
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 데이터베이스 상세 절차 | [DB 재해 복구 복원 훈련](../../runbooks/db-dr-drill-ko.md) |
+| 장애 주입이 재해 복구를 보완하는 방법 | [카오스 엔지니어링](chaos-engineering-ko.md) |
 | 복구를 측정하는 방법 | [SRE 성과 측정](measuring-sre-outcomes-ko.md) |
-| Resilience capability | [회복탄력성](../capabilities/resilience-ko.md) |
+| 회복탄력성 기능 | [회복탄력성](../capabilities/resilience-ko.md) |
