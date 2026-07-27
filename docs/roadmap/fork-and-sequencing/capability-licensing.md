@@ -66,16 +66,37 @@ that could raise autonomy would itself be a backdoor.
 Entitlement is also an intersection with the shipped catalog, so a token cannot invent a capability
 the distribution does not implement.
 
+**Read-only capabilities are not licensed.** Every degraded status already grants them
+unconditionally, so an `active` license grants them too, whether or not it lists them. Without this,
+a license naming only acting capabilities would leave an operator seeing strictly less than an
+expired license would, and renewing an entitlement could remove dashboards. The available set of an
+`active` license is therefore always a superset of the degraded set.
+
+## Token canonicality
+
+A license has exactly one valid spelling. Base64 decoding in most standard libraries drops
+characters outside the alphabet, so whitespace inserted into either segment would decode to the same
+signed bytes and keep the signature valid - one license, unlimited distinct token strings. Segments
+MUST match the unpadded base64url alphabet, and the decoded bytes MUST re-encode to the segment that
+arrived.
+
+This matters for what gets built later rather than for what exists today. Revocation, reuse
+detection, and audit correlation all key on the token; each would be built on an identifier that is
+not unique.
+
 ## Resolution and degradation
 
 Resolution fails toward safety. Every unhappy path degrades to the read-only subset of the catalog
 rather than raising, so an operator with an expired license can still observe while unable to act.
+This includes a verifier that cannot run at all: a corrupt packaged public key resolves to
+`untrusted`, never to a crash, because that is precisely when a runtime has to stay up to be
+diagnosed.
 
 | Status | Cause | Availability |
 |--------|-------|--------------|
-| `active` | signature verifies, inside the window, bindings match | listed capabilities that exist in the catalog |
+| `active` | signature verifies, inside the window, bindings match | listed capabilities that exist in the catalog, plus every read-only capability |
 | `absent` | no token configured | full catalog upstream; read-only when the distribution sets `require_license` |
-| `untrusted` | malformed token, or a signature the packaged key rejects | read-only |
+| `untrusted` | malformed token, a non-canonical token, a signature the packaged key rejects, or a verifier that cannot run | read-only |
 | `not-yet-valid` / `expired` | outside the validity window | read-only |
 | `misbound` | image digest or deployment binding does not match | read-only |
 

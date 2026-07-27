@@ -399,6 +399,8 @@ Hard don'ts. Any of these is a merge-blocker:
   `fork/runbooks/` and reference these upstream templates.
 - [capability-licensing.md](capability-licensing.md) - how a distribution that
   ships an image activates entitlement: a public key inside the image, a signed
-  token in deployment configuration, and availability-only authority.
+  token in deployment configuration, and availability-only authority. A license
+  cannot withdraw read-only capabilities, so a fork can gate what an operator
+  may do without ever gating what they can see.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.

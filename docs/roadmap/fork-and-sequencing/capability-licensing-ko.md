@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 891bb29fa68867d8570d01de37847713a65c42ae
+translation_source_sha: d8946659ccf83a3eb2b201286ebd10c16a117bc8
 translation_revised: 2026-07-27
 ---
 # Capability 라이선싱
@@ -65,16 +65,34 @@ risk gate가 계속 소유합니다
 Entitlement는 배포된 catalog와의 교집합이기도 하므로, token이 distribution에 없는 capability를
 만들어낼 수 없습니다.
 
+**읽기 전용 capability는 license 대상이 아닙니다.** 모든 저하 상태가 이미 무조건 부여하므로,
+`active` license도 나열 여부와 무관하게 부여합니다. 그렇지 않으면 조치 capability만 나열한
+license를 쓰는 운영자가 만료된 license보다 더 적게 보게 되고, entitlement를 갱신했더니 대시보드가
+사라지는 일이 생깁니다. 따라서 `active`의 가용 집합은 항상 저하 집합의 상위 집합입니다.
+
+## Token 정규성
+
+License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 라이브러리에서 base64 디코딩은 알파벳
+밖 문자를 조용히 버립니다. 그래서 어느 세그먼트에든 공백을 끼워 넣어도 같은 서명 바이트로
+디코딩되어 signature가 그대로 유효합니다. License 하나에 서로 다른 token 문자열이 무한히 생기는
+셈입니다. 세그먼트는 패딩 없는 base64url 알파벳과 일치해야 하고, 디코딩된 바이트는 도착한
+세그먼트로 다시 인코딩되어야 합니다.
+
+이는 지금 있는 것보다 앞으로 만들 것에 관한 문제입니다. Revocation, 재사용 탐지, 감사 상관관계는
+모두 token을 키로 삼습니다. 각각이 고유하지 않은 식별자 위에 세워지게 됩니다.
+
 ## 해석과 저하
 
 해석은 안전 쪽으로 실패합니다. 모든 비정상 경로는 예외를 던지는 대신 catalog의 읽기 전용
 부분집합으로 저하됩니다. 그래서 license가 만료된 운영자도 관찰은 계속하고 조치만 못 합니다.
+검증기 자체가 실행되지 못하는 경우도 포함합니다. 손상된 packaged public key는 crash가 아니라
+`untrusted`로 해석됩니다. 바로 그때가 런타임이 살아 있어야 진단이 가능한 시점이기 때문입니다.
 
 | 상태 | 원인 | 가용성 |
 |------|------|--------|
-| `active` | Signature 검증 통과, 기간 내, binding 일치 | Catalog에 존재하는 나열된 capability |
+| `active` | Signature 검증 통과, 기간 내, binding 일치 | Catalog에 존재하는 나열된 capability와 모든 읽기 전용 capability |
 | `absent` | Token 미설정 | Upstream은 전체 catalog, distribution이 `require_license`를 켜면 읽기 전용 |
-| `untrusted` | 형식 오류 token, 또는 packaged key가 거부한 signature | 읽기 전용 |
+| `untrusted` | 형식 오류 token, 비정규 token, packaged key가 거부한 signature, 또는 실행되지 못한 검증기 | 읽기 전용 |
 | `not-yet-valid` / `expired` | 유효 기간 밖 | 읽기 전용 |
 | `misbound` | Image digest 또는 배포 binding 불일치 | 읽기 전용 |
 
