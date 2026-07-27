@@ -161,6 +161,30 @@ def test_resigning_replaces_the_stale_signature(builder: ModuleType, tmp_path: P
         )
 
 
+def test_kit_is_left_unsigned_when_it_fails_its_own_verification(
+    builder: ModuleType, tmp_path: Path
+) -> None:
+    """A rotated release root must not leave a signature nobody can check."""
+    _stage(tmp_path)
+    signing_key = Ed25519PrivateKey.generate()
+    other_root = _public_key_pem(Ed25519PrivateKey.generate().public_key())
+
+    with pytest.raises(builder.OfflineKitBuildError, match="left unsigned"):
+        builder.sign_offline_kit(
+            tmp_path,
+            private_key_pem=_private_key_pem(signing_key),
+            release_root_pem=other_root,
+            kit_version=_VERSION,
+            cli_version=_VERSION,
+            bundle_version=_VERSION,
+            platform_tag=_PLATFORM,
+            **_ROLES,
+        )
+
+    assert not (tmp_path / MANIFEST_NAME).exists()
+    assert not (tmp_path / SIGNATURE_NAME).exists()
+
+
 def test_non_ed25519_signing_key_is_rejected(builder: ModuleType, tmp_path: Path) -> None:
     _stage(tmp_path)
     rsa_pem = generate_private_key(public_exponent=65537, key_size=2048).private_bytes(

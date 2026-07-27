@@ -34,6 +34,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai.deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
+    OfflineKitVerificationError,
     build_offline_kit_manifest,
     verify_offline_kit,
 )
@@ -82,12 +83,23 @@ def sign_offline_kit(
     signature_path.unlink(missing_ok=True)
     manifest_path.write_bytes(manifest_bytes)
     signature_path.write_bytes(signature)
-    verification = verify_offline_kit(
-        root,
-        release_root_pem=release_root_pem,
-        cli_version=cli_version,
-        platform_tag=platform_tag,
-    )
+    try:
+        verification = verify_offline_kit(
+            root,
+            release_root_pem=release_root_pem,
+            cli_version=cli_version,
+            platform_tag=platform_tag,
+        )
+    except OfflineKitVerificationError as exc:
+        # A kit whose own signer cannot verify it MUST NOT look shippable. The
+        # reachable cause is a release root that does not match the signing key
+        # (for example after a rotation), so leave the stage without metadata
+        # rather than with a signature nobody downstream can check.
+        manifest_path.unlink(missing_ok=True)
+        signature_path.unlink(missing_ok=True)
+        raise OfflineKitBuildError(
+            f"offline kit failed its own verification and was left unsigned: {exc}"
+        ) from exc
     return verification.to_json()
 
 
