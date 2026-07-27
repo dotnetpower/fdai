@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 57fc7611e50a350bf5e635f28de11a96a788448e
-translation_revised: 2026-07-27
+translation_source_sha: 6bcc86fff0ab78e8152f900cc4849357641d7c0d
+translation_revised: 2026-07-28
 ---
 # 코드 맵
 
@@ -211,6 +211,13 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | streaming | Kafka / Event Hub 추상화 | [src/fdai/shared/streaming/](../../../src/fdai/shared/streaming/) |
 | resilience | 재시도 / circuit-breaker 헬퍼 | [src/fdai/shared/resilience/](../../../src/fdai/shared/resilience/) |
 | telemetry | 구조화 로깅 + 메트릭 헬퍼 | [src/fdai/shared/telemetry/](../../../src/fdai/shared/telemetry/) |
+
+## Benchmark integration
+
+| 경로 | 목적 |
+|------|------|
+| [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | 브랜드 중립 task/submission contract, installed-plugin discovery, explicit read-provider binding 및 bounded lifecycle runner입니다. |
+| [benchmarks/](../../../benchmarks/) | 독립적으로 package된 harness plugin입니다. [benchmark adapter 설계](../interfaces/benchmark-adapters-ko.md)를 참조하세요. |
 
 ## Composition과 카탈로그
 

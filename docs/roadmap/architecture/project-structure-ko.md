@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2d6ad56d28a6b2a9154a874628a773d15f79980c
-translation_revised: 2026-07-27
+translation_source_sha: b71ff553f3d83930913f18a91a94aef425124d1e
+translation_revised: 2026-07-28
 ---
 
 # 프로젝트 구조
@@ -115,9 +115,11 @@ fdai/
 │   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
+│   ├── benchmarking/          # 브랜드 중립 task/submission contract, installed-plugin discovery, read-provider binding 및 bounded runner; harness 구현 없음
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + focused `wire_*` binder
 │   ├── runtime/               # Focused transport/identity bootstrap binding, Pantheon 전 startup readiness, continuous worker gating 및 Norns에 연결되는 durable post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
+├── benchmarks/                # 독립적으로 package된 external-harness plugin; FDAI wheel에 포함되지 않음
 ├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 src/fdai/rule_catalog/ 에
 │   ├── schema/                 # JSON Schema 정의 (데이터)
 │   ├── vocabulary/             # canonical CSP-중립 어휘: resource-types.yaml, object-types/, link-types/

@@ -1,0 +1,99 @@
+"""Tests for the SREGym conductor translation boundary."""
+
+from __future__ import annotations
+
+import json
+
+import httpx
+import pytest
+from fdai_bench_sregym import SregymAdapter, SregymAdapterConfig
+
+from fdai.benchmarking import BenchmarkStatus, BenchmarkSubmission
+
+
+def _adapter(handler) -> tuple[SregymAdapter, httpx.AsyncClient]:  # type: ignore[no-untyped-def]
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    return (
+        SregymAdapter(
+            config=SregymAdapterConfig(
+                conductor_url="http://127.0.0.1:8000",
+                artifact_id="attempt-1",
+                poll_interval_seconds=0.001,
+                stage_timeout_seconds=0.01,
+            ),
+            http_client=client,
+        ),
+        client,
+    )
+
+
+async def test_translates_diagnosis_and_submits_result() -> None:
+    submitted: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "example-shop",
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        if request.url.path == "/submit":
+            submitted.append(json.loads(request.content))
+            return httpx.Response(200, json={"status": "200"})
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+    task = await adapter.next_task()
+    assert task is not None
+    assert task.stage == "diagnosis"
+    assert task.target_ref == "kubernetes.namespace/example"
+
+    await adapter.submit(
+        BenchmarkSubmission(
+            run_id=task.run_id,
+            task_id=task.task_id,
+            stage=task.stage,
+            status=BenchmarkStatus.COMPLETED,
+            summary="The backend dependency is unavailable.",
+        )
+    )
+
+    assert submitted == [{"solution": "The backend dependency is unavailable."}]
+    await client.aclose()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://example.com:8000",
+        "https://user@example.com",
+        "https://example.com?token=value",
+    ],
+)
+def test_rejects_unsafe_conductor_urls(url: str) -> None:
+    with pytest.raises(ValueError):
+        SregymAdapterConfig(conductor_url=url, artifact_id="attempt-1")
+
+
+def test_accepts_upstream_container_host_alias() -> None:
+    config = SregymAdapterConfig(
+        conductor_url="http://host.docker.internal:8000",
+        artifact_id="attempt-1",
+    )
+
+    assert config.conductor_url == "http://host.docker.internal:8000"
+
+
+async def test_fails_closed_on_unknown_stage() -> None:
+    adapter, client = _adapter(lambda _: httpx.Response(200, json={"stage": "unknown-stage"}))
+
+    with pytest.raises(RuntimeError, match="unsupported SREGym stage"):
+        await adapter.start()
+
+    await client.aclose()

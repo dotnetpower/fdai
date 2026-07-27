@@ -101,6 +101,7 @@ Read the reference docs first, then the phases in order.
 | 19c | [skill-source-management.md](interfaces/skill-source-management.md) | durable approved sources, quarantine, ETag refresh, disabled-first approval, and provenance-preserving revocation |
 | 19d | [durable-conversation-delivery.md](interfaces/durable-conversation-delivery.md) | verified cross-channel bindings, durable reply ledger, process-loss recovery, adapter controls, and read-only reliability metrics |
 | 19e | [governed-trajectory-datasets.md](interfaces/governed-trajectory-datasets.md) | authorization-first observable trajectories, deterministic JSONL/checksums, quarantine, offline replay validation, retention/legal hold, and reviewed-only Norns intake |
+| 19i | [benchmark-adapters.md](interfaces/benchmark-adapters.md) | brand-neutral external harness contracts, installed-plugin injection, provider binding, bounded lifecycle, and benchmark authority boundaries |
 | 20 | [action-ontology.md](decisioning/action-ontology.md) | ActionType schema (remediation + ops + governance), trigger axis, tier / role / prod / live-probe ceilings, fork override seams |
 | 21 | [execution-model.md](decisioning/execution-model.md) | Unified RiskGate, six-axis authority matrix, three executor paths (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit block |
 

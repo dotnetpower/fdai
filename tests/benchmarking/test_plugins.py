@@ -1,0 +1,101 @@
+"""Tests for trusted benchmark entry-point discovery."""
+
+from __future__ import annotations
+
+from importlib.metadata import EntryPoint
+
+import pytest
+
+from fdai.benchmarking import (
+    BENCHMARK_API_VERSION,
+    BenchmarkBindings,
+    BenchmarkPluginError,
+    bind_benchmark_providers,
+    discover_benchmark_plugins,
+    load_benchmark_plugin,
+)
+from fdai.composition import Container
+from fdai.shared.providers.metric import StaticMetricProvider
+
+_FACTORIES: dict[str, object] = {}
+
+
+class _Adapter:
+    adapter_id = "example"
+
+    async def start(self) -> None: ...
+
+    async def next_task(self):  # type: ignore[no-untyped-def]
+        return None
+
+    async def submit(self, submission) -> None:  # type: ignore[no-untyped-def]
+        return None
+
+    async def close(self) -> None: ...
+
+
+class _Plugin:
+    plugin_id = "example"
+    api_version = BENCHMARK_API_VERSION
+
+    def create_bindings(self) -> BenchmarkBindings:
+        return BenchmarkBindings(adapter=_Adapter())
+
+
+def _factory() -> _Plugin:
+    return _Plugin()
+
+
+def _points(*names: str) -> tuple[EntryPoint, ...]:
+    _FACTORIES["factory"] = _factory
+    return tuple(
+        EntryPoint(name=name, value=f"{__name__}:_factory", group="fdai.benchmark_adapters")
+        for name in names
+    )
+
+
+def test_discovers_plugins_in_deterministic_order() -> None:
+    assert discover_benchmark_plugins(entry_point_source=lambda: _points("zeta", "alpha")) == (
+        "alpha",
+        "zeta",
+    )
+
+
+def test_loads_exact_compatible_plugin() -> None:
+    plugin = load_benchmark_plugin("example", entry_point_source=lambda: _points("example"))
+
+    assert plugin.plugin_id == "example"
+    assert plugin.create_bindings().adapter.adapter_id == "example"
+
+
+def test_rejects_duplicate_plugin_names() -> None:
+    with pytest.raises(BenchmarkPluginError, match="duplicate"):
+        discover_benchmark_plugins(entry_point_source=lambda: _points("example", "example"))
+
+
+def test_rejects_plugin_id_mismatch() -> None:
+    with pytest.raises(BenchmarkPluginError, match="does not match"):
+        load_benchmark_plugin("other", entry_point_source=lambda: _points("other"))
+
+
+def test_rejects_incompatible_api_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(_Plugin, "api_version", "2.0")
+
+    with pytest.raises(BenchmarkPluginError, match="expected '1.0'"):
+        load_benchmark_plugin("example", entry_point_source=lambda: _points("example"))
+
+
+def test_binding_replaces_only_declared_provider_seams(container: Container) -> None:
+    metric_provider = StaticMetricProvider(())
+
+    bound = bind_benchmark_providers(
+        container,
+        BenchmarkBindings(adapter=_Adapter(), metric_provider=metric_provider),
+    )
+
+    assert bound is not container
+    assert bound.metric_provider is metric_provider
+    assert bound.log_query_provider is container.log_query_provider
+    assert bound.trace_query_provider is container.trace_query_provider
+    assert bound.inventory is container.inventory
+    assert bound.capability_runtime is container.capability_runtime

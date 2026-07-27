@@ -35,6 +35,29 @@
       "validate": ["uv run ruff check", "uv run mypy"]
     },
     {
+      "id": "benchmark-adapters",
+      "paths": [
+        "src/fdai/benchmarking/**",
+        "tests/benchmarking/**",
+        "benchmarks/**",
+        "docs/roadmap/interfaces/benchmark-adapters*.md"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/interfaces/benchmark-adapters.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/benchmark-adapters.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/benchmarking",
+        "PYTHONPATH=src:benchmarks/sregym/src uv run pytest -q --no-cov benchmarks/sregym/tests"
+      ]
+    },
+    {
       "id": "architecture-core",
       "paths": ["src/fdai/core/**", "src/fdai/shared/**", "src/fdai/composition/**"],
       "must_read": [

@@ -211,6 +211,13 @@ domain agents consume those canonical Events before publishing their owned advis
 | resilience | Retry / circuit-breaker helpers | [src/fdai/shared/resilience/](../../../src/fdai/shared/resilience/) |
 | telemetry | Structured logging + metrics helpers | [src/fdai/shared/telemetry/](../../../src/fdai/shared/telemetry/) |
 
+## Benchmark integration
+
+| Path | Purpose |
+|------|---------|
+| [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Brand-neutral task/submission contracts, installed-plugin discovery, explicit read-provider binding, and bounded lifecycle runner. |
+| [benchmarks/](../../../benchmarks/) | Independently packaged harness plugins; see the [benchmark adapter design](../interfaces/benchmark-adapters.md). |
+
 ## Composition and catalog
 
 | Path | Purpose |

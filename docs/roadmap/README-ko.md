@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 92bf16902bf61d45e5aafdee32812c5945a7fc94
-translation_revised: 2026-07-24
+translation_source_sha: e811342c8862e2cd265269a5c5303be2cf58ffa3
+translation_revised: 2026-07-28
 ---
 
 # FDAI 로드맵
@@ -99,6 +99,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 19c | [skill-source-management-ko.md](interfaces/skill-source-management-ko.md) | Durable approved source, quarantine, ETag refresh, disabled-first approval, provenance-preserving revocation |
 | 19d | [durable-conversation-delivery-ko.md](interfaces/durable-conversation-delivery-ko.md) | 검증된 cross-channel binding, durable reply ledger, process-loss recovery, adapter control 및 read-only reliability metric |
 | 19e | [governed-trajectory-datasets-ko.md](interfaces/governed-trajectory-datasets-ko.md) | Authorization-first observable trajectory, deterministic JSONL/checksum, quarantine, offline replay validation, retention/legal hold, reviewed-only Norns intake |
+| 19i | [benchmark-adapters-ko.md](interfaces/benchmark-adapters-ko.md) | 브랜드 중립 external harness contract, installed-plugin injection, provider binding, bounded lifecycle 및 benchmark authority 경계 |
 | 20 | [action-ontology-ko.md](decisioning/action-ontology-ko.md) | ActionType 스키마 (remediation + ops + governance), trigger 축, tier / role / prod / live-probe 상한, fork override seam |
 | 21 | [execution-model-ko.md](decisioning/execution-model-ko.md) | 통합 RiskGate, 6-axis authority 매트릭스, 3개 executor 경로 (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit 블록 |
 

@@ -1,0 +1,31 @@
+[project]
+name = "fdai-benchmark-sregym"
+version = "0.1.0"
+description = "SREGym harness plugin for the FDAI benchmark runner"
+requires-python = ">=3.12"
+dependencies = [
+    "fdai>=0.1.98,<0.2",
+    "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3,<10",
+    "pytest-asyncio>=1.0,<2",
+]
+
+[project.entry-points."fdai.benchmark_adapters"]
+sregym = "fdai_bench_sregym:create_plugin"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_bench_sregym"]
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+pythonpath = ["src", "../../src"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
