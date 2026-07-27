@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: de6ccbd0c9c0d1a46ee29f2fbfc654941e6342df
+translation_source_sha: c1a08486ef86cdb4d4b7521d7ad86223668c4636
 translation_revised: 2026-07-27
 ---
 
@@ -52,8 +52,11 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   잠급니다. Private-only vault는
   운영자 laptop 에서 도달 불가능하므로, `terraform apply` 는 endpoint 에 VNet 시야가
   확보된 호스트 - VNet 내 CI 러너 또는 점프박스 - 에서 실행해야 합니다(executor가 거기서
-  DSN 시크릿을 write). ACR private endpoint도 tenant가 registry를 제한할 때 동일한 generic
-  `modules/private-endpoint` 모듈을 재사용합니다.
+  DSN 시크릿을 write). `acr_sku = "Premium"`이면 ACR도 같은 방식으로 잠깁니다. Registry는 public
+  network access를 잃고 `privatelink.azurecr.io` endpoint를 받으며, zone group이 login-server와
+  data-endpoint record를 등록합니다. Private link는 Premium 전용이므로 Basic 또는 Standard
+  registry는 의도적으로 public으로 남습니다. Private 경로 없이 닫으면 모든 image pull이
+  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다.
 
 #### ops/hub 러너 (private-everything 테난트)
 

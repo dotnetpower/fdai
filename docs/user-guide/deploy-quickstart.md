@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: de6ccbd0c9c0d1a46ee29f2fbfc654941e6342df }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c1a08486ef86cdb4d4b7521d7ad86223668c4636 }]
 ---
 
 # Deploy Quickstart
@@ -29,7 +29,8 @@ first, so you can review the plan before you run the separate apply step.
   attested digest, and Terraform rejects the old Azure CLI placeholder.
 - Network access from the deployment host to every private endpoint. In a
   private-only environment, run Terraform from the VNet-connected deployment
-  runner rather than an operator workstation.
+  runner rather than an operator workstation. A Premium registry in that
+  environment is private too, so build and push the image from the same runner.
 - For a protected remote plan, set the non-secret `DEPLOY_PREFLIGHT_INPUT_JSON`
   repository variable with every required live category. A missing profile stops
   the run before Azure login, and a blocked probe logs only sanitized check

@@ -24,9 +24,14 @@ variable "sku" {
   default     = "Basic"
 }
 
+variable "public_network_access_enabled" {
+  description = "Allow registry access from the public internet. Set false only together with a Premium SKU and a registry private endpoint; a Basic or Standard registry has no private-link path, so disabling public access would make every image pull fail."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags."
   type        = map(string)
   default     = {}
 }
-

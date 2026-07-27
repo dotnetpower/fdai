@@ -155,13 +155,41 @@ resource "azurerm_application_insights" "core" {
 # -----------------------------------------------------------------------
 # Container Registry - pin-by-digest images live here.
 # -----------------------------------------------------------------------
+# Private link is a Premium-only registry capability. A tenant that enforces
+# private data services therefore locks the registry only when it also pays
+# for Premium; on Basic or Standard the registry stays public because there is
+# no private path to replace it, and closing it would break every image pull.
+locals {
+  acr_private_link = var.enable_private_networking && var.acr_sku == "Premium"
+}
+
 module "container_registry" {
-  source              = "./modules/container-registry"
-  name                = "cr${var.workload}${local.acr_suffix}"
-  location            = var.region
-  resource_group_name = module.resource_group.name
-  sku                 = var.acr_sku
-  tags                = local.tags
+  source                        = "./modules/container-registry"
+  name                          = "cr${var.workload}${local.acr_suffix}"
+  location                      = var.region
+  resource_group_name           = module.resource_group.name
+  sku                           = var.acr_sku
+  public_network_access_enabled = !local.acr_private_link
+  tags                          = local.tags
+}
+
+# Registry private endpoint + privatelink.azurecr.io DNS. The zone group
+# registers the login-server record and the Premium data-endpoint records, so
+# a VNet-integrated Container App and the deploy runner both resolve the
+# registry without leaving the network.
+module "acr_private_endpoint" {
+  count                 = local.acr_private_link ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-acr-${var.workload}${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.container_registry.id
+  subresource_name      = "registry"
+  private_dns_zone_name = "privatelink.azurecr.io"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = local.tags
 }
 
 # Grant the executor MI `AcrPull` so the Container App can pull an image

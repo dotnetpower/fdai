@@ -49,8 +49,11 @@ All identifiers are synthetic per
   locks Key Vault to private access. Because a private-only vault is unreachable from an operator laptop,
   `terraform apply` MUST then run from a host with VNet line-of-sight to the endpoint - a
   CI runner or a jumpbox inside the VNet (the executor writes the DSN secrets from there).
-  ACR private endpoints reuse the same generic `modules/private-endpoint` module when a tenant
-  restricts the registry too.
+  ACR is locked the same way when `acr_sku = "Premium"`: the registry loses public network
+  access and receives a `privatelink.azurecr.io` endpoint whose zone group registers the
+  login-server and data-endpoint records. Private link is Premium-only, so a Basic or Standard
+  registry deliberately stays public - closing it without a private path would break every
+  image pull. Prod already requires Premium.
 
 #### Ops/hub runner (private-everything tenants)
 
