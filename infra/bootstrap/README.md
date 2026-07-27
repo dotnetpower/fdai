@@ -36,7 +36,15 @@ export AZURE_TENANT_ID="<expected-tenant-id>"
 #    (state_storage_account_name).
 OPS_RG=rg-fdai-ops-krc REGION=koreacentral ./create-state-account.sh
 
-# 2. Apply the ops layer (VNet, blob PE, runner VM, role assignments).
+# 2. Make sure the APP resource group exists. `create_runner_vm = true` reads it
+#    as a data source to scope the runner's Contributor grant, but the app layer
+#    is what creates it - so a first run on an empty subscription fails here with
+#    a "resource group was not found" error. Either create the empty group first,
+#    or apply this layer once with `create_runner_vm = false` (state backend and
+#    networking only), run the app layer, then re-apply with the runner enabled.
+az group create --name rg-fdai-dev-krc --location koreacentral --output none
+
+# 3. Apply the ops layer (VNet, blob PE, runner VM, role assignments).
 terraform -chdir=infra/bootstrap init
 terraform -chdir=infra/bootstrap apply -var-file=bootstrap.tfvars
 terraform -chdir=infra/bootstrap output backend_config_hint

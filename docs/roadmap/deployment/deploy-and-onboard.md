@@ -55,6 +55,26 @@ All identifiers are synthetic per
   registry deliberately stays public - closing it without a private path would break every
   image pull. Prod already requires Premium.
 
+#### What Terraform does not create
+
+Terraform owns the inventory below, but four inputs must exist before the first apply, and a
+missing one fails mid-run rather than at plan time:
+
+- **The deployer identity and its role-assignment permission.** Creating the executor identity and
+  its scoped roles needs User Access Administrator; Contributor alone plans and then fails.
+- **The Terraform state storage account.** `infra/bootstrap/create-state-account.sh` creates it with
+  `az`, because a private, key-disabled account cannot complete Terraform's data-plane readiness
+  poll from an operator workstation. Terraform reads it through a data source.
+- **The app resource group, when the bootstrap layer creates the runner VM.** That layer reads the
+  group as a data source to scope the runner's Contributor grant, while the app layer is what
+  creates it. On an empty subscription, create the empty group first or apply bootstrap once with
+  `create_runner_vm = false`, run the app layer, then re-apply with the runner enabled.
+- **An SSH public key for the runner**, plus quota headroom and the Log Analytics destination above.
+
+A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
+matching capability-mode toggle before the plan can converge
+([deployment-preflight.md](deployment-preflight.md)).
+
 #### Ops/hub runner (private-everything tenants)
 
 Some tenants force **every** data service private (Key Vault *and* storage), so even a

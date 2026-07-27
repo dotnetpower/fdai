@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6492d63f592c42fb96553e75b0fd23a9cf9977b3
+translation_source_sha: 32b4c232e1370e053367e26dcc00328ec78c7804
 translation_revised: 2026-07-27
 ---
 
@@ -57,6 +57,26 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   data-endpoint record를 등록합니다. Private link는 Premium 전용이므로 Basic 또는 Standard
   registry는 의도적으로 public으로 남습니다. Private 경로 없이 닫으면 모든 image pull이
   깨지기 때문입니다. Prod는 이미 Premium을 요구합니다.
+
+#### Terraform이 만들지 않는 것
+
+아래 인벤토리는 Terraform이 소유하지만, 첫 apply 전에 반드시 존재해야 하는 입력이 넷 있습니다.
+하나라도 없으면 plan 시점이 아니라 실행 도중에 실패합니다.
+
+- **Deployer 신원과 role assignment 권한.** Executor identity와 scoped role을 만들려면 User Access
+  Administrator가 필요합니다. Contributor만 있으면 plan은 통과하고 apply에서 실패합니다.
+- **Terraform state storage account.** `infra/bootstrap/create-state-account.sh`가 `az`로
+  만듭니다. Private + key-disabled 계정은 운영자 워크스테이션에서 Terraform의 data-plane readiness
+  poll을 끝낼 수 없기 때문입니다. Terraform은 data source로 읽기만 합니다.
+- **Bootstrap 계층이 runner VM을 만들 때의 app resource group.** 그 계층은 runner의 Contributor
+  grant 범위를 정하려고 이 group을 data source로 읽는데, 정작 group을 만드는 것은 app 계층입니다.
+  빈 구독에서는 빈 group을 먼저 만들거나, `create_runner_vm = false`로 bootstrap을 한 번 apply한
+  뒤 app 계층을 돌리고 runner를 켜서 다시 apply합니다.
+- **Runner용 SSH public key**, 그리고 위에 적은 쿼터 헤드룸과 Log Analytics 목적지.
+
+Azure Policy가 인벤토리 일부를 거부하는 테난트는 plan이 수렴하기 전에 예외 또는 대응하는
+capability-mode 토글이 필요합니다
+([deployment-preflight-ko.md](deployment-preflight-ko.md)).
 
 #### ops/hub 러너 (private-everything 테난트)
 
