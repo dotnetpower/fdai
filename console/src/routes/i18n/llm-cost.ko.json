@@ -10,6 +10,14 @@
   "noInvocationEvidence": "측정된 호출 근거 없음",
   "boundaryTitle": "사용량은 측정되지만 가격 귀속은 연결되지 않았습니다.",
   "boundaryBody": "이 배포는 공급자 호출과 토큰을 보고하며 지출, 예산 또는 청구 금액을 추정하지 않습니다.",
+  "boundaryConnectedTitle": "표준 가격 귀속이 연결되었습니다.",
+  "boundaryConnectedBody": "귀속 비용은 구성된 공개 정가를 사용하며 청구서 또는 실제 청구 금액이 아닙니다.",
+  "boundaryPartialTitle": "표준 가격 귀속이 일부 연결되었습니다.",
+  "boundaryPartialBody": "{coverage}. 표시 금액에는 가격이 구성되지 않은 호출이 포함되지 않습니다.",
+  "boundaryMixedTitle": "귀속 비용에 여러 통화가 사용됩니다.",
+  "boundaryMixedBody": "모델별 비용은 유지하지만 통화 간 합계는 표시하지 않습니다.",
+  "attributedCost": "귀속 비용",
+  "priceCoverage": "호출 {total}건 중 {priced}건 가격 귀속",
   "latestInvocation": "최근 호출",
   "calls": "LLM 호출",
   "totalTokens": "전체 토큰",
@@ -55,6 +63,7 @@
     "model": "모델",
     "capability": "Capability",
     "tierMode": "티어 / 모드",
-    "correlationId": "Correlation ID"
+    "correlationId": "Correlation ID",
+    "cost": "귀속 비용"
   }
 }

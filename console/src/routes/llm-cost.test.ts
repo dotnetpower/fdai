@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   decodeLlmCost,
+  formatAttributedCost,
   llmUsageCorrelationHref,
   tokenShare,
   usageTrendPoints,
@@ -12,6 +13,11 @@ const summary = {
   prompt_tokens: 10,
   completion_tokens: 5,
   total_tokens: 15,
+  priced_invocations: 1,
+  cost: "0.45",
+  currency: "USD",
+  has_unpriced: false,
+  has_mixed_currency: false,
 };
 
 describe("LLM usage provenance", () => {
@@ -19,7 +25,7 @@ describe("LLM usage provenance", () => {
     expect(llmUsageCorrelationHref("corr-1")).toBe("/audit?correlation=corr-1");
   });
 
-  test("decodes measured chat, model, and invocation usage without cost", () => {
+  test("decodes measured usage with transparent cost coverage", () => {
     const decoded = decodeLlmCost({
       source: "metering",
       latest_occurred_at: "2026-07-10T09:00:00+00:00",
@@ -54,8 +60,20 @@ describe("LLM usage provenance", () => {
     expect(decoded.latest_occurred_at).toBe("2026-07-10T09:00:00+00:00");
     expect(decoded.chat.total_tokens).toBe(15);
     expect(decoded.by_model[0]?.key).toBe("gpt-4.1-mini");
+    expect(decoded.total.cost).toBe("0.45");
+    expect(decoded.total.priced_invocations).toBe(1);
     expect(decoded.records[0]?.usage_scope).toBe("operator_chat");
     expect(decoded.records[0]).not.toHaveProperty("cost");
+  });
+
+  test("formats only single-currency attributed cost", () => {
+    expect(formatAttributedCost(summary, "en-US")).toBe("$0.45");
+    expect(formatAttributedCost({ ...summary, priced_invocations: 0 }, "en-US")).toBeNull();
+    expect(formatAttributedCost({
+      ...summary,
+      currency: "mixed",
+      has_mixed_currency: true,
+    }, "en-US")).toBeNull();
   });
 
   test("derives presentation ratios and trends only from measured tokens", () => {

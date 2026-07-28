@@ -21,6 +21,8 @@ import { currentRoute, routeHref } from "../router";
 import {
   panelArray,
   panelBoolean,
+  panelContractError,
+  panelNonNegativeInteger,
   panelNullableString,
   panelNumber,
   panelRecord,
@@ -32,8 +34,8 @@ import {
  * provider tokens by workload, model, call, day, and month.
  *
  * Read-only: every number comes from the metering stream (recorded from
- * real provider ``usage``); derived price is intentionally not exposed.
- * The ``source``
+ * real provider ``usage``). Attributed cost uses configured standard prices
+ * and always carries priced-call coverage. The ``source``
  * field is surfaced honestly - ``metering`` for a real store, or
  * ``synthetic-dev`` in the dev harness where LLM calls are faked.
  */
@@ -41,9 +43,14 @@ import {
 interface Summary {
   readonly key: string;
   readonly invocations: number;
+  readonly priced_invocations: number;
   readonly prompt_tokens: number;
   readonly completion_tokens: number;
   readonly total_tokens: number;
+  readonly cost: string;
+  readonly currency: string;
+  readonly has_unpriced: boolean;
+  readonly has_mixed_currency: boolean;
 }
 
 interface InvocationRecord {
@@ -102,6 +109,22 @@ export function usageTrendPoints(rows: readonly Summary[]): string | null {
   }).join(" ");
 }
 
+export function formatAttributedCost(summary: Summary, locale: string): string | null {
+  if (summary.priced_invocations === 0 || summary.has_mixed_currency) return null;
+  const value = Number(summary.cost);
+  if (!Number.isFinite(value) || value < 0) return null;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: summary.currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }).format(value);
+  } catch {
+    return null;
+  }
+}
+
 export function LlmCostRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<Response>>({ status: "loading" });
 
@@ -144,12 +167,38 @@ export function decodeLlmCost(value: unknown): Response {
   const root = panelRecord(value, "LLM cost");
   const decodeSummary = (value: unknown, label: string): Summary => {
     const summary = panelRecord(value, label);
+    const invocations = panelNonNegativeInteger(summary, "invocations", label);
+    const pricedInvocations = panelNonNegativeInteger(summary, "priced_invocations", label);
+    const cost = panelString(summary, "cost", label);
+    const currency = panelString(summary, "currency", label);
+    const hasUnpriced = panelBoolean(summary, "has_unpriced", label);
+    const hasMixedCurrency = panelBoolean(summary, "has_mixed_currency", label);
+    if (pricedInvocations > invocations) {
+      throw panelContractError(`${label}.priced_invocations MUST NOT exceed invocations`);
+    }
+    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(cost)) {
+      throw panelContractError(`${label}.cost MUST be a non-negative decimal with at most 6 places`);
+    }
+    if (currency !== "mixed" && !/^[A-Z]{3}$/.test(currency)) {
+      throw panelContractError(`${label}.currency MUST be an ISO 4217 code or mixed`);
+    }
+    if (hasUnpriced !== (pricedInvocations < invocations)) {
+      throw panelContractError(`${label}.has_unpriced MUST match priced invocation coverage`);
+    }
+    if (hasMixedCurrency !== (currency === "mixed")) {
+      throw panelContractError(`${label}.has_mixed_currency MUST match currency`);
+    }
     return {
       key: panelString(summary, "key", label),
-      invocations: panelNumber(summary, "invocations", label),
+      invocations,
+      priced_invocations: pricedInvocations,
       prompt_tokens: panelNumber(summary, "prompt_tokens", label),
       completion_tokens: panelNumber(summary, "completion_tokens", label),
       total_tokens: panelNumber(summary, "total_tokens", label),
+      cost,
+      currency,
+      has_unpriced: hasUnpriced,
+      has_mixed_currency: hasMixedCurrency,
     };
   };
   const summaries = (key: string) => panelArray(root[key], `LLM cost.${key}`)
@@ -208,6 +257,7 @@ function _summaryColumns(
     { key: "pt", header: t("llmCost.column.input"), render: (r) => r.prompt_tokens.toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US"), cellClass: "num" },
     { key: "ct", header: t("llmCost.column.output"), render: (r) => r.completion_tokens.toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US"), cellClass: "num" },
     { key: "tt", header: t("llmCost.totalTokens"), render: (r) => r.total_tokens.toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US") },
+    { key: "cost", header: t("llmCost.column.cost"), render: (r) => formatAttributedCost(r, getLocale() === "ko" ? "ko-KR" : "en-US") ?? t("llmCost.valueUnavailable"), cellClass: "num" },
   ];
 }
 
@@ -230,20 +280,26 @@ function LlmCostBody({ data }: { readonly data: Response }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
   const auditContext = Object.fromEntries(currentRoute().search.entries());
   const auditHref = routeHref("audit", { params: auditContext });
-  const latestRecord = data.records[0];
-  const latestHref = latestRecord
-    ? routeHref("audit", {
-        params: { ...auditContext, correlation: latestRecord.correlation_id },
-      })
-    : auditHref;
   const chatShare = tokenShare(data.chat.total_tokens, data.total.total_tokens);
+  const attributedCost = formatAttributedCost(data.total, locale);
+  const priceCoverage = t("llmCost.priceCoverage", {
+    priced: data.total.priced_invocations.toLocaleString(locale),
+    total: data.total.invocations.toLocaleString(locale),
+  });
+  const priceBoundary = data.total.priced_invocations === 0
+    ? { title: t("llmCost.boundaryTitle"), body: t("llmCost.boundaryBody") }
+    : data.total.has_mixed_currency
+      ? { title: t("llmCost.boundaryMixedTitle"), body: t("llmCost.boundaryMixedBody") }
+      : data.total.has_unpriced
+        ? { title: t("llmCost.boundaryPartialTitle"), body: t("llmCost.boundaryPartialBody", { coverage: priceCoverage }) }
+        : { title: t("llmCost.boundaryConnectedTitle"), body: t("llmCost.boundaryConnectedBody") };
   usePublishViewContext(
     () => ({
       routeId: "llm-cost",
       routeLabel: t("llmCost.title"),
       purpose:
-        "Measured provider token usage by workload, model, invocation, day, and month. " +
-        "Derived price is intentionally not exposed.",
+        "Measured provider token usage and standard-price attribution by workload, model, " +
+        "invocation, day, and month.",
       glossary: composeGlossary([
         TERMS.tier,
         TERMS.mode,
@@ -257,6 +313,9 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         { key: "invocations", value: data.invocations, group: "summary" },
         { key: "total_tokens", value: data.total.total_tokens, group: "summary" },
         { key: "chat_tokens", value: data.chat.total_tokens, group: "summary" },
+        { key: "attributed_cost", value: data.total.cost, group: "summary" },
+        { key: "currency", value: data.total.currency, group: "summary" },
+        { key: "priced_invocations", value: data.total.priced_invocations, group: "summary" },
       ],
       records: {
         by_month: data.by_month.map((r) => ({ ...r })),
@@ -272,8 +331,8 @@ function LlmCostBody({ data }: { readonly data: Response }) {
   return (
     <div class="stack llm-cost-view">
       <div class="llm-cost-boundary">
-        <strong>{t("llmCost.boundaryTitle")}</strong>
-        <span>{t("llmCost.boundaryBody")}</span>
+        <strong>{priceBoundary.title}</strong>
+        <span>{priceBoundary.body}</span>
       </div>
       <div class="analytics-evidence llm-cost-evidence">
         <strong>{t("llmCost.measuredUsage")}</strong>
@@ -285,13 +344,14 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         <KpiGrid>
           <KpiCard href={auditHref} label={t("llmCost.calls")} value={data.invocations.toLocaleString(locale)} hint={`${t("llmCost.source")}: ${data.source}`} />
           <KpiCard href={auditHref} label={t("llmCost.totalTokens")} value={data.total.total_tokens.toLocaleString(locale)} />
-          <KpiCard href={auditHref} label={t("llmCost.chatShare")} value={chatShare === null ? kpiEvidenceLabel("not-measured") : `${Math.round(chatShare * 100)}%`} evidenceState={chatShare === null ? "not-measured" : "measured"} hint={chatShare === null ? t("llmCost.noInvocationEvidence") : t("llmCost.chatTokensValue", { count: data.chat.total_tokens.toLocaleString(locale) })} />
           <KpiCard
-            evidenceState={data.latest_occurred_at ? "measured" : "not-measured"}
-            href={latestHref}
-            label={t("llmCost.latestInvocation")}
-            value={data.latest_occurred_at ? <time class="llm-cost-timestamp" dateTime={data.latest_occurred_at}>{new Date(data.latest_occurred_at).toLocaleString(locale)}</time> : kpiEvidenceLabel("not-measured")}
+            evidenceState={attributedCost === null ? "not-measured" : "measured"}
+            href={auditHref}
+            label={t("llmCost.attributedCost")}
+            value={attributedCost ?? kpiEvidenceLabel("not-measured")}
+            hint={priceCoverage}
           />
+          <KpiCard href={auditHref} label={t("llmCost.chatShare")} value={chatShare === null ? kpiEvidenceLabel("not-measured") : `${Math.round(chatShare * 100)}%`} evidenceState={chatShare === null ? "not-measured" : "measured"} hint={chatShare === null ? t("llmCost.noInvocationEvidence") : t("llmCost.chatTokensValue", { count: data.chat.total_tokens.toLocaleString(locale) })} />
         </KpiGrid>
       </div>
 

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 822ed0c64a8f73bc30eb060d1558993d40a69194
+translation_source_sha: 45ad654048845b1fd2be93d2eb31b2d04a56a081
 translation_revised: 2026-07-28
 ---
 
@@ -207,7 +207,8 @@ Artifact가 없으면 model path와 usage는 unavailable 상태를 유지하며 
 usage로 대체하지 않습니다.
 비용 귀속에는 resolver의 명시적 deployment-to-family binding과 shipped pricing catalog만 사용합니다.
 Family가 없거나 충돌하면 deployment name을 parsing하거나 rate를 추측하지 않고 unpriced 상태를
-유지합니다.
+유지합니다. LLM Cost projection은 정확한 귀속 금액과 가격이 연결된 호출 범위를 표시하고, 가격이 없는
+호출은 해당 금액에서 제외하며, 서로 다른 통화를 하나의 합계로 더하지 않습니다.
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 profile에서
 같은 bounded Azure Monitor Logs provider를 사용합니다. Interactive local은 현재 Azure CLI
