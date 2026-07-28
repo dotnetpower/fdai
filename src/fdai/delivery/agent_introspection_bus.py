@@ -108,13 +108,16 @@ def _target_from_prompt(prompt: str) -> str | None:
 
 
 def _handoff(agent: str, reason: str) -> dict[str, Any]:
+    normalized_reason = reason.strip()[:128] or "agent_abstained_without_evidence"
+    if scan_text(normalized_reason):
+        normalized_reason = "agent_response_sensitive"
     return {
         "primary_agent": "Bragi",
         "answer": None,
         "facts": {},
         "contributors": [],
         "handoff_from": agent,
-        "handoff_reason": reason[:128],
+        "handoff_reason": normalized_reason,
     }
 
 

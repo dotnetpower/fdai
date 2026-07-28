@@ -319,6 +319,9 @@ export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
           PANTHEON_AGENT_NAMES.has(item),
       ).slice(0, 8)
     : [];
+  const handoffReason = typeof record.handoff_reason === "string"
+    ? record.handoff_reason.trim().slice(0, 128)
+    : "";
   return {
     primary_agent: record.primary_agent,
     contributors,
@@ -328,8 +331,8 @@ export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
     ...(typeof record.handoff_from === "string" && PANTHEON_AGENT_NAMES.has(record.handoff_from)
       ? { handoff_from: record.handoff_from }
       : {}),
-    ...(typeof record.handoff_reason === "string" && record.handoff_reason.length > 0
-      ? { handoff_reason: record.handoff_reason.slice(0, 128) }
+    ...(handoffReason.length > 0
+      ? { handoff_reason: handoffReason }
       : {}),
   };
 }

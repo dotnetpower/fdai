@@ -384,6 +384,31 @@ def test_normalization_rejects_empty_answer_owner_substitution() -> None:
     assert result["handoff_reason"] == "agent_response_owner_mismatch"
 
 
+def test_normalization_screens_and_defaults_empty_answer_reason() -> None:
+    sensitive = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": None,
+            "handoff_reason": "password=supersecretvalue",
+        },
+        target_agent="Heimdall",
+    )
+    blank = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": None,
+            "handoff_reason": "   ",
+        },
+        target_agent="Heimdall",
+    )
+
+    assert sensitive is not None
+    assert sensitive["handoff_reason"] == "agent_response_sensitive"
+    assert "supersecretvalue" not in repr(sensitive)
+    assert blank is not None
+    assert blank["handoff_reason"] == "agent_abstained_without_evidence"
+
+
 def test_normalization_preserves_only_valid_charter_policy_and_json_facts() -> None:
     policy = _policy("Heimdall")
     valid = normalize_pantheon_answer(

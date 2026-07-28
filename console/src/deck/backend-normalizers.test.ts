@@ -105,6 +105,21 @@ describe("parseDelegation", () => {
       contributors: ["Heimdall"],
     });
   });
+
+  it("trims handoff reasons and drops whitespace-only values", () => {
+    expect(parseDelegation({
+      primary_agent: "Bragi",
+      contributors: [],
+      handoff_from: "Heimdall",
+      handoff_reason: "  insufficient_agent_evidence  ",
+    })?.handoff_reason).toBe("insufficient_agent_evidence");
+    expect(parseDelegation({
+      primary_agent: "Bragi",
+      contributors: [],
+      handoff_from: "Heimdall",
+      handoff_reason: "  \t\n ",
+    })?.handoff_reason).toBeUndefined();
+  });
 });
 
 describe("parseAnswerVerification", () => {
