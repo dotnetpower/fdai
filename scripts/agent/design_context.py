@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record design-document reads and gate file edits for agent sessions."""
+"""Record requested design-document reads and gate edits without post-tool payloads."""
 
 from __future__ import annotations
 
@@ -183,6 +183,12 @@ def enforce_edit(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
+    if _tool_name(payload) == "read_file":
+        return record_read(payload)
+    return enforce_edit(payload)
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2 or argv[1] not in {"record-read", "pre-tool-use"}:
         print("usage: design_context.py record-read|pre-tool-use", file=sys.stderr)
@@ -195,7 +201,7 @@ def main(argv: list[str]) -> int:
     if not isinstance(payload, dict):
         print("design-context: hook payload must be an object", file=sys.stderr)
         return 2
-    result = record_read(payload) if argv[1] == "record-read" else enforce_edit(payload)
+    result = record_read(payload) if argv[1] == "record-read" else pre_tool_use(payload)
     json.dump(result, sys.stdout)
     sys.stdout.write("\n")
     return 0

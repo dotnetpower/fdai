@@ -8,6 +8,7 @@ from types import ModuleType
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+HOOK_CONFIG_PATH = REPO_ROOT / ".github/hooks/design-context.json"
 
 
 def _load_module() -> ModuleType:
@@ -29,6 +30,33 @@ def test_required_context_composes_every_matching_route() -> None:
     assert ".github/instructions/app-shape.instructions.md" in required
     assert "docs/roadmap/deployment/dev-and-deploy-parity.md" in required
     assert "docs/roadmap/interfaces/operator-console.md" in required
+
+
+def test_hook_avoids_post_tool_response_payloads() -> None:
+    hooks = json.loads(HOOK_CONFIG_PATH.read_text(encoding="utf-8"))["hooks"]
+
+    assert set(hooks) == {"PreToolUse"}
+    assert hooks["PreToolUse"][0]["command"].endswith("design_context.py pre-tool-use")
+
+
+def test_pre_tool_use_records_read_without_tool_response(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    state_path = tmp_path / "receipt.json"
+    monkeypatch.setattr(module, "_state_path", lambda payload: state_path)
+    target = REPO_ROOT / ".github/copilot-instructions.md"
+    payload = {
+        "session_id": "session-read",
+        "tool_name": "read_file",
+        "tool_input": {"filePath": str(target), "startLine": 1, "endLine": 20},
+    }
+
+    result = module.pre_tool_use(payload)
+
+    assert result == {"continue": True}
+    recorded = json.loads(state_path.read_text(encoding="utf-8"))
+    assert recorded["reads"][".github/copilot-instructions.md"] == module._sha256(target)
 
 
 def test_pre_tool_use_denies_edit_without_current_reads(

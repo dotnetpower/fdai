@@ -10,7 +10,9 @@ only for the residual ambiguous cases.
 This file is the small always-on contract. Detailed rules are loaded through
 [`design-routes.json`](../scripts/lib/design-routes.json). Before an edit, read every
 `must_read` document selected by all matching routes. The workspace hook blocks edits when
-that context is missing or stale. A more specific instruction wins a conflict.
+that context is missing or stale. The single pre-tool hook records existing repository files
+requested through `read_file`; no post-tool hook receives or logs tool response bodies. A more
+specific instruction wins a conflict.
 
 ## Core Principles (MUST)
 
