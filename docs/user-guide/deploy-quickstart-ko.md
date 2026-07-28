@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b223b26faf52511c7a5b99d4b1a86ca87614954e
+translation_source_sha: 698a74e00174b68f7d45e81fd53a6650a06ac7d3
 translation_revised: 2026-07-28
 ---
 
@@ -95,6 +95,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    확인합니다.
    - **읽기 API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
      관리 자격 증명과 분리돼 있습니다.
+   - **Email 알림**: incident-open message가 multipart HTML과 plain text로 도착합니다. Console을
+     활성화한 경우 detail link는 Static Web App origin을 사용하고 Settings > Integrations는 합성
+     placeholder로 동일한 renderer를 표시합니다.
    - **문서 OCR**: 수집 자격 증명이 지정된 Document Intelligence 리소스에만
      `Cognitive Services User` 역할을 갖습니다.
    - **케이스 히스토리**: 전용 관리 자격 증명만 Blob 데이터에 접근하고, 실행기에는
