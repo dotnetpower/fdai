@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 1c9a375982e581df0ed12c3bf3a4cdc286baba1f
+translation_source_sha: fe344132db64420496d109260da8874ec3709e12
 translation_revised: 2026-07-28
 ---
 
@@ -56,6 +56,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   escalation은 deduplicated A2 lifecycle notice를 emit합니다.
   Direct candidate text와 evidence key는 512자로 제한되고 candidate 하나는 evidence key를 최대 100개
   포함하며 oversized input은 lifecycle 또는 audit write 전에 hold됩니다.
+- Heimdall은 retained repeated-event episode를 global 및 resource별로 제한합니다. 한 resource의
+  correlation flood는 다른 resource의 partially accumulated evidence보다 해당 resource의 가장 오래된
+  episode를 먼저 축출합니다.
 - 새 감지기는 **shadow 모드** 로 출시되고 shadow→enforce 규칙에 따라 승격; 정확도와
   false-positive 비율은 Phase 0 베이스라인 대비 측정됨.
 

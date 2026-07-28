@@ -126,6 +126,43 @@ def test_heimdall_recent_events_keyspace_is_bounded() -> None:
     assert len(h._recent_events) == _MAX_TRACKED_KEYS  # noqa: SLF001
 
 
+def test_heimdall_correlation_flood_does_not_evict_other_resource(
+    monkeypatch,
+) -> None:
+    import fdai.agents.heimdall as heimdall_module
+
+    monkeypatch.setattr(heimdall_module, "_MAX_TRACKED_KEYS", 4)
+    monkeypatch.setattr(heimdall_module, "_MAX_EPISODES_PER_RESOURCE", 2, raising=False)
+    heimdall = Heimdall(rate_threshold=3)
+    asyncio.run(
+        heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "victim",
+                "event_type": "availability.probe_failed",
+                "correlation_id": "victim-episode",
+                "idempotency_key": "victim-1",
+            },
+        )
+    )
+    for index in range(4):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "attacker",
+                    "event_type": "availability.probe_failed",
+                    "correlation_id": f"attack-{index}",
+                    "idempotency_key": f"attack-{index}",
+                },
+            )
+        )
+
+    resources = [episode_key[0] for episode_key in heimdall._recent_events]  # noqa: SLF001
+    assert "victim" in resources
+    assert resources.count("attacker") == 2
+
+
 def test_security_rate_limit_recovers_after_window() -> None:
     # Regression: the per-hour alert budget must RECOVER when the window rolls
     # over. A monotonic counter with no window would silence the initiator

@@ -55,6 +55,9 @@ are synthetic.
   emits a deduplicated A2 lifecycle notice. Direct candidate text and
   evidence keys are capped at 512 characters, and one candidate carries at most 100 evidence keys;
   oversized input is held before lifecycle or audit writes.
+- Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
+  from one resource evicts only that resource's oldest episode before it can displace another
+  resource's partially accumulated evidence.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 

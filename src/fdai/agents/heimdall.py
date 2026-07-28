@@ -65,6 +65,7 @@ _ALERT_WINDOW_SECONDS = 3600.0
 #: seen. Oldest-first eviction bounds memory; an evicted resource simply
 #: restarts its rate window on its next event.
 _MAX_TRACKED_KEYS = 10_000
+_MAX_EPISODES_PER_RESOURCE = 100
 _INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
 _SEVERITY_ALIASES = {
     "sev1": "critical",
@@ -124,6 +125,7 @@ class Heimdall(Agent):
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
         self._recent_events: dict[tuple[str, str, str, str], deque[tuple[float, str, str]]] = {}
+        self._recent_episode_keys: dict[str, dict[tuple[str, str, str, str], None]] = {}
         self._security_recent: deque[dict[str, Any]] = deque(maxlen=security_window_events)
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
@@ -408,10 +410,7 @@ class Heimdall(Agent):
             str(event.get("incident_correlation") or "correlate").strip().casefold()
         )
         episode_key = (resource_id, event_type, correlation_id, incident_correlation)
-        history = self._recent_events.setdefault(
-            episode_key, deque(maxlen=self._rate_threshold * 2)
-        )
-        _evict_oldest(self._recent_events, _MAX_TRACKED_KEYS, keep=episode_key)
+        history = self._episode_history(episode_key)
         now = self._clock()
         while history and now - history[0][0] > self._rate_window:
             history.popleft()
@@ -442,19 +441,19 @@ class Heimdall(Agent):
             if self.bus is not None:
                 await self.bus.publish("Heimdall", "object.anomaly", anomaly)
             if self._incident_candidate_hook is None:
-                history.clear()
+                self._drop_episode(episode_key)
                 return
             if incident_correlation in _INCIDENT_CORRELATION_DISABLED:
                 self.record_behavior("incident_candidate_correlation_disabled")
-                history.clear()
+                self._drop_episode(episode_key)
                 return
             if not correlation_id:
                 self.record_behavior("incident_candidate_missing_correlation")
-                history.clear()
+                self._drop_episode(episode_key)
                 return
             if any(not evidence_key for _, _, evidence_key in window_tail):
                 self.record_behavior("incident_candidate_missing_evidence")
-                history.clear()
+                self._drop_episode(episode_key)
                 return
             evidence_keys = tuple(dict.fromkeys(evidence_key for _, _, evidence_key in window_tail))
             candidate = {
@@ -472,8 +471,36 @@ class Heimdall(Agent):
                     extra={"correlation_id": anomaly["correlation_id"]},
                 )
                 return
-            history.clear()
+            self._drop_episode(episode_key)
             self.record_behavior("incident_candidate" if accepted else "incident_candidate_held")
+
+    def _episode_history(
+        self,
+        episode_key: tuple[str, str, str, str],
+    ) -> deque[tuple[float, str, str]]:
+        existing = self._recent_events.get(episode_key)
+        if existing is not None:
+            return existing
+        resource_id = episode_key[0]
+        resource_episodes = self._recent_episode_keys.setdefault(resource_id, {})
+        resource_episodes[episode_key] = None
+        while len(resource_episodes) > _MAX_EPISODES_PER_RESOURCE:
+            self._drop_episode(next(iter(resource_episodes)))
+        history: deque[tuple[float, str, str]] = deque(maxlen=self._rate_threshold * 2)
+        self._recent_events[episode_key] = history
+        while len(self._recent_events) > _MAX_TRACKED_KEYS:
+            self._drop_episode(next(iter(self._recent_events)))
+        return history
+
+    def _drop_episode(self, episode_key: tuple[str, str, str, str]) -> None:
+        self._recent_events.pop(episode_key, None)
+        resource_id = episode_key[0]
+        resource_episodes = self._recent_episode_keys.get(resource_id)
+        if resource_episodes is None:
+            return
+        resource_episodes.pop(episode_key, None)
+        if not resource_episodes:
+            self._recent_episode_keys.pop(resource_id, None)
 
     async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
         self._security_recent.append(event)
