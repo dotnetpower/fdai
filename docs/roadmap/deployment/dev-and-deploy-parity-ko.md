@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1a1af416e648a91b3ad1eccbb556600c2d0d99c7
-translation_revised: 2026-07-26
+translation_source_sha: 7a3c19a51b457e2be1a86a931612227345ca6ee7
+translation_revised: 2026-07-28
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -97,6 +97,11 @@ port에 접근합니다. Startup probe로 response consumer 준비를 확인한 
 retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Request는
 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
 answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
+장기 실행 core 및 read API task의 terminal output은 `.fdai/logs/core-runtime.log`와
+`.fdai/logs/read-api.log`에 보존됩니다. 각 log는 service 시작 및 중지 timestamp와 child exit code를
+기록하고 private local permission을 사용하며, 10 MiB에서 회전하여 이전 세대 하나를 유지합니다.
+Git에서 제외된 이 진단 log는 task terminal이 닫혀도 유지되며 structured warning 및 error record인
+`warnings.jsonl`을 대체하지 않습니다.
 Local 및 deployed console 모두 agent card의 Ask action에서 새 user-scoped conversation key를
 할당하고 submit 전에 선택한 agent를 conversation summary에 저장합니다. Browser는 stable per-agent
 key를 사용해 이전 transcript를 묵시적으로 재개하지 않습니다.

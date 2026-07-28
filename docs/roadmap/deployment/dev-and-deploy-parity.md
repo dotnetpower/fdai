@@ -95,6 +95,11 @@ traffic is accepted. The client reuses a joining consumer across retries and all
 initial Event Hubs group join. Requests carry salted SHA-256 user and session references rather than raw identities;
 timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
 specialist answer.
+The long-running core and read API tasks preserve their terminal output in
+`.fdai/logs/core-runtime.log` and `.fdai/logs/read-api.log`. Each log records service start and stop
+timestamps plus the child exit code, uses private local permissions, and rotates at 10 MiB with one
+previous generation retained. These gitignored diagnostics survive a task terminal closing; they
+don't replace the structured `warnings.jsonl` warning and error record.
 In both local and deployed consoles, an agent-card Ask action allocates a fresh user-scoped
 conversation key while persisting the selected agent in the conversation summary before submit.
 The browser never uses a stable per-agent key to resume an earlier transcript implicitly.
