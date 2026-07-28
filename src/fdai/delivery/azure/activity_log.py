@@ -272,7 +272,7 @@ class AzureActivityLogFactory:
         page_max: datetime | None = None
         for event in events:
             if not isinstance(event, Mapping):
-                continue
+                raise ActivityLogError("Activity Log payload contains a non-object event")
             page_max = _max_dt(page_max, _parse_ts(event.get("eventTimestamp")))
             mapped = self._map_one(event)
             if mapped is None:

@@ -262,6 +262,19 @@ async def test_activity_page_rejects_event_count_over_cap() -> None:
 
 
 @pytest.mark.asyncio
+async def test_activity_page_rejects_non_object_event() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": ["malformed-event"]})
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="non-object event"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_nextlink_paging_encodes_running_max() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)

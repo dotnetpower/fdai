@@ -277,7 +277,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   hyphenated subscription UUID, preventing scope text from altering the request path or query. Its
   bearer-token endpoint must be an HTTPS origin URL without userinfo, path, query, or fragment.
   Each Activity Log response is also bounded by `max_events_per_page` (default 1000); an oversized
-  page fails before mapping or cursor advancement.
+  page fails before mapping or cursor advancement. Every `value` entry must be an object; a
+  malformed entry fails the page because its ordering position cannot be verified safely.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.
