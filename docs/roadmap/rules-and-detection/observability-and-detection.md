@@ -45,7 +45,9 @@ are synthetic.
   stable evidence key to the candidate and the resulting Incident member set. Events marked
   `incident_correlation=none`, including
   inventory and discovery changes, never open an Incident. The default automatic-open minimum is
-  `high`; an unclassified burst remains `medium` and stays an anomaly.
+  `high`; an unclassified burst remains `medium` and stays an anomaly. If anomaly publication or
+  the lifecycle handoff fails, Heimdall retains that bounded episode window and retries only when
+  the next matching Event arrives; it does not create an unbounded background retry loop.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 

@@ -1467,3 +1467,32 @@ def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
         "episode-a",
         "episode-b",
     ]
+
+
+def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
+    candidates: list[dict[str, object]] = []
+
+    async def fail_once(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+        if len(candidates) == 1:
+            raise RuntimeError("transient lifecycle failure")
+
+    heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=fail_once)
+    for index in range(3):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "episode-1",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": "high",
+                },
+            )
+        )
+
+    assert len(candidates) == 2
+    assert heimdall.behavior_snapshot()["incident_candidate_failed"] == 1
+    assert heimdall.behavior_snapshot()["incident_candidate"] == 1

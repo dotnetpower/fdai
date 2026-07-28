@@ -439,37 +439,41 @@ class Heimdall(Agent):
                 ),
                 "incident_correlation": incident_correlation,
             }
-            history.clear()
             if self.bus is not None:
                 await self.bus.publish("Heimdall", "object.anomaly", anomaly)
-            if self._incident_candidate_hook is not None:
-                if incident_correlation in _INCIDENT_CORRELATION_DISABLED:
-                    self.record_behavior("incident_candidate_correlation_disabled")
-                    return
-                if not str(event.get("correlation_id") or "").strip():
-                    self.record_behavior("incident_candidate_missing_correlation")
-                    return
-                if any(not evidence_key for _, _, evidence_key in window_tail):
-                    self.record_behavior("incident_candidate_missing_evidence")
-                    return
-                evidence_keys = tuple(
-                    dict.fromkeys(evidence_key for _, _, evidence_key in window_tail)
+            if self._incident_candidate_hook is None:
+                history.clear()
+                return
+            if incident_correlation in _INCIDENT_CORRELATION_DISABLED:
+                self.record_behavior("incident_candidate_correlation_disabled")
+                history.clear()
+                return
+            if not correlation_id:
+                self.record_behavior("incident_candidate_missing_correlation")
+                history.clear()
+                return
+            if any(not evidence_key for _, _, evidence_key in window_tail):
+                self.record_behavior("incident_candidate_missing_evidence")
+                history.clear()
+                return
+            evidence_keys = tuple(dict.fromkeys(evidence_key for _, _, evidence_key in window_tail))
+            candidate = {
+                **anomaly,
+                "reason_code": "repeated_event_threshold",
+                "evidence_key": evidence_keys[-1],
+                "evidence_keys": evidence_keys,
+            }
+            try:
+                await self._incident_candidate_hook(candidate)
+            except Exception:  # noqa: BLE001 - retry on the next matching event
+                self.record_behavior("incident_candidate_failed")
+                _LOG.exception(
+                    "incident_candidate_hook_failed",
+                    extra={"correlation_id": anomaly["correlation_id"]},
                 )
-                candidate = {
-                    **anomaly,
-                    "reason_code": "repeated_event_threshold",
-                    "evidence_key": evidence_keys[-1],
-                    "evidence_keys": evidence_keys,
-                }
-                try:
-                    await self._incident_candidate_hook(candidate)
-                    self.record_behavior("incident_candidate")
-                except Exception:  # noqa: BLE001 - anomaly remains authoritative
-                    self.record_behavior("incident_candidate_failed")
-                    _LOG.exception(
-                        "incident_candidate_hook_failed",
-                        extra={"correlation_id": anomaly["correlation_id"]},
-                    )
+                return
+            history.clear()
+            self.record_behavior("incident_candidate")
 
     async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
         self._security_recent.append(event)
