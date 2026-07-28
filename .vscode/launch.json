@@ -23,11 +23,16 @@
       "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "FDAI_RUNTIME_LOCK_FILE": "${workspaceFolder}/.fdai/core-runtime.lock"
+        "FDAI_RUNTIME_LOCK_FILE": "${workspaceFolder}/.fdai/core-runtime.lock",
+        "AZURE_CONFIG_DIR": null
       },
       "console": "integratedTerminal",
       "justMyCode": true,
-      "subProcess": true
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 1
+      }
     },
     {
       "name": "Console Web: Read API",
@@ -59,7 +64,11 @@
       },
       "console": "integratedTerminal",
       "justMyCode": true,
-      "subProcess": true
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 2
+      }
     },
     {
       "name": "Console Web: Ingestion Gateway",
@@ -128,6 +137,10 @@
         "pattern": "Local:\\s+(https?://\\S+)",
         "uriFormat": "%s",
         "action": "debugWithChrome"
+      },
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 3
       }
     }
   ],
@@ -140,7 +153,11 @@
         "Console Web: Read API",
         "Console Web: Frontend"
       ],
-      "stopAll": true
+      "stopAll": true,
+      "presentation": {
+        "group": "0-fullstack",
+        "order": 1
+      }
     }
   ]
 }
