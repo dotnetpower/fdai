@@ -356,13 +356,14 @@ async def test_failed_status_and_unknown_type_dropped() -> None:
 @pytest.mark.asyncio
 async def test_http_error_raises_activity_log_error() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, text="boom")
+        return httpx.Response(500, text="sensitive-resource-reference")
 
     factory, client, _ = _factory(handler)
     fetch = factory.build_fetch_fn()
     try:
-        with pytest.raises(ActivityLogError, match="HTTP 500"):
+        with pytest.raises(ActivityLogError, match="HTTP 500") as captured:
             await fetch("2026-07-10T05:00:00+00:00")
+        assert "sensitive-resource-reference" not in str(captured.value)
     finally:
         await client.aclose()
 

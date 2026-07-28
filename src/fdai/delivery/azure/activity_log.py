@@ -226,10 +226,7 @@ class AzureActivityLogFactory:
             raise ActivityLogError(f"Activity Log request failed: {type(exc).__name__}") from exc
 
         if response.status_code >= 400:
-            snippet = response.text[:200].replace("\n", " ")
-            raise ActivityLogError(
-                f"Activity Log returned HTTP {response.status_code}: {snippet!r}"
-            )
+            raise ActivityLogError(f"Activity Log returned HTTP {response.status_code}")
         try:
             payload = response.json()
         except ValueError as exc:

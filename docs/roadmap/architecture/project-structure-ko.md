@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ab74e43683a47ec907440c731fe5bd60a7686246
+translation_source_sha: 53102b8e5e30ce9b9876cab3af302b7fa0480205
 translation_revised: 2026-07-28
 ---
 
@@ -257,7 +257,8 @@ fdai/
   진행합니다. 한 리소스의 record가 여러 개이면 event time과 canonical resource document 순서로
   결정론적으로 선택하며 각 page는 `resource_id` 순서로 리소스를 방출합니다. Resume cursor와 지원되는
   리소스 event에는 timezone-aware RFC 3339 timestamp가 필요합니다. 잘못된 event timestamp는 drop하거나
-  UTC로 간주하지 않고 page를 실패시켜 ordering authority를 보존합니다.
+  UTC로 간주하지 않고 page를 실패시켜 ordering authority를 보존합니다. Activity Log non-2xx 오류는
+  HTTP status만 보고하며 response body는 exception 또는 log text에 포함하지 않습니다.
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
   정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를
