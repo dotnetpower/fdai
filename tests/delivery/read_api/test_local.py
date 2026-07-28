@@ -287,7 +287,9 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert "--allow-loopback-http" in tasks
     assert core_env["FDAI_RUNTIME_LOCK_FILE"] == "${workspaceFolder}/.fdai/core-runtime.lock"
     assert tasks.count('"instanceLimit": 1') >= 5
-    assert configs["Console Web: Read API"]["preLaunchTask"] == "console: prepare full stack"
+    assert compound["preLaunchTask"] == "console: prepare full stack"
+    assert "preLaunchTask" not in configs["Console Web: Core Runtime"]
+    assert "preLaunchTask" not in configs["Console Web: Read API"]
     assert configs["Console Web: Read API"]["envFile"].endswith("/.fdai/local-runtime.env")
     assert frontend_env["VITE_DEV_MODE"] == "0"
     assert frontend_env["VITE_LOCAL_AZURE_CLI_AUTH"] == "0"

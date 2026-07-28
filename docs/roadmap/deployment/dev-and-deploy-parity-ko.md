@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 17935cca6126e9baa2e5a977e97f6dc2d6254343
+translation_source_sha: 44e08578f9b0c2d9e0851e53122a4e320e24e5c2
 translation_revised: 2026-07-28
 ---
 
@@ -85,10 +85,18 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 
 `Console Web: Full Stack` compound는 core runtime, Console SPA, read API를 시작합니다. 정적 design
 mock과 격리된 test ingestion gateway는 시작하지 않습니다.
+Compound는 child configuration을 시작하기 전에 `console: prepare full stack`을 한 번 완료합니다.
+따라서 두 backend launch가 PostgreSQL migration, runtime environment 생성, Entra 동기화를 반복하지
+않습니다. Standalone Core Runtime 또는 Read API debug configuration을 시작할 때는 이 준비 task를
+먼저 실행합니다.
 준비 순서에서는 구성된 Entra SPA 등록에 `http://localhost:5273`과
 `http://127.0.0.1:5273`을 안전하게 재시도할 수 있는 방식으로 동기화합니다. Helper는 기존
 redirect를 보존하고 해당 loopback host에만 HTTP를 허용하며, 활성 tenant가 다르거나 운영자가
 등록을 읽거나 업데이트할 수 없으면 service 시작 전에 중단합니다.
+Read API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
+`GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
+HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지
+않고 기존 access-recovery surface에 즉시 표시합니다.
 각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
 실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.

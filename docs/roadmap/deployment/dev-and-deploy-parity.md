@@ -82,10 +82,18 @@ site is static and separate from the authenticated Console full stack.
 
 The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and read API. It does
 not start the static design mocks or the isolated test ingestion gateway.
-Its preparation sequence safely retries synchronization of `http://localhost:5273` and
+The compound completes `console: prepare full stack` once before starting any child configuration,
+so PostgreSQL migration, runtime environment generation, and Entra synchronization are not repeated
+by both backend launches. Run that preparation task first when starting the standalone Core Runtime
+or Read API debug configuration.
+The preparation sequence safely retries synchronization of `http://localhost:5273` and
 `http://127.0.0.1:5273` into the configured Entra SPA registration. The helper preserves existing
 redirects, permits HTTP only for those loopback hosts, and stops before service startup when the
 active tenant is wrong or the operator cannot read or update the registration.
+While the read API completes its startup probes, the browser keeps the initial panel skeleton and
+retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
+seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops
+immediately at the existing access-recovery surface instead of being hidden by another retry.
 Each long-running Console task permits one VS Code instance. The core task and debug launch also
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.

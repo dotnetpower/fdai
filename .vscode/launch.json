@@ -20,7 +20,6 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "module": "fdai",
       "cwd": "${workspaceFolder}",
-      "preLaunchTask": "console: prepare full stack",
       "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
@@ -47,7 +46,6 @@
         "--reload"
       ],
       "cwd": "${workspaceFolder}",
-      "preLaunchTask": "console: prepare full stack",
       "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
@@ -136,6 +134,7 @@
   "compounds": [
     {
       "name": "Console Web: Full Stack",
+      "preLaunchTask": "console: prepare full stack",
       "configurations": [
         "Console Web: Core Runtime",
         "Console Web: Read API",

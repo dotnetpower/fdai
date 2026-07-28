@@ -34,6 +34,7 @@ import {
   panelPath,
   shouldReplaceUnmatchedRoute,
 } from "./router";
+import { withStartupTransportRetry } from "./bootstrap-retry";
 
 interface AppState {
   readonly status: "loading" | "ready" | "access-error" | "error";
@@ -147,7 +148,7 @@ export function App() {
         let iamSelf: IamSelfStatus | undefined;
         if (shouldLoadIamSelf(auth)) {
           try {
-            iamSelf = await client.iamSelf();
+            iamSelf = await withStartupTransportRetry(() => client.iamSelf());
           } catch (err) {
             handleUnauthorized({
               message: err instanceof Error ? err.message : String(err),
