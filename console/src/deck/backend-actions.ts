@@ -75,6 +75,50 @@ export function createActionSubmitter(
   };
 }
 
+export function createActionConfirmer(
+  chatUrl: () => string,
+  requestHeaders: () => Promise<Record<string, string>>,
+): (draft: import("./backend-types").ActionDraft, signal?: AbortSignal) => Promise<ActionSubmitResult> {
+  return async (draft, signal) => {
+    let response: Response;
+    try {
+      response = await fetch(`${chatUrl()}/action/confirm`, {
+        method: "POST",
+        headers: await requestHeaders(),
+        body: JSON.stringify({
+          action_type: draft.actionType,
+          arguments: draft.arguments,
+          session_id: draft.sessionId,
+          idempotency_key: draft.idempotencyKey,
+        }),
+        signal: signal ?? null,
+        credentials: "omit",
+      });
+    } catch {
+      return { submitted: false, status: 0, reason: "error" };
+    }
+    let payload: Record<string, unknown> = {};
+    try {
+      const parsed = await response.json();
+      if (typeof parsed === "object" && parsed !== null) payload = parsed as Record<string, unknown>;
+    } catch {
+      /* fall through - use the status only */
+    }
+    return {
+      submitted: payload.submitted === true,
+      status: response.status,
+      ...(typeof payload.action_type === "string" ? { actionType: payload.action_type } : {}),
+      ...(typeof payload.correlation_id === "string" ? { correlationId: payload.correlation_id } : {}),
+      ...(typeof payload.reason === "string" ? { reason: payload.reason } : {}),
+      ...(typeof payload.required_capability === "string" ? { requiredCapability: payload.required_capability } : {}),
+      ...(typeof payload.message === "string" ? { message: payload.message } : {}),
+      ...(typeof payload.incident_id === "string" ? { incidentId: payload.incident_id } : {}),
+      ...(typeof payload.incident_state === "string" ? { incidentState: payload.incident_state } : {}),
+      ...(typeof payload.created === "boolean" ? { created: payload.created } : {}),
+    };
+  };
+}
+
 export function renderActionResult(result: ActionSubmitResult): string {
   if (result.actionType?.startsWith("incident.") && result.message) return result.message;
   if (result.submitted) {

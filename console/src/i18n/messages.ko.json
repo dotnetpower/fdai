@@ -1839,6 +1839,15 @@
       "partial": "일부 응답",
       "complete": "완료"
     },
+    "actionDraft": {
+      "title": "작업 초안",
+      "action": "작업",
+      "arguments": "인자",
+      "confirm": "확인 후 제출",
+      "cancel": "취소",
+      "submitting": "제출 중...",
+      "cancelled": "작업 초안을 취소했습니다. 제출된 작업은 없습니다."
+    },
     "investigation": {
       "label": "조사 활동",
       "title": "조사",

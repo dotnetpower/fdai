@@ -19,6 +19,7 @@ import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
 import type {
+  ActionDraft,
   AnswerPlanMetadata,
   AnswerPlanningMetadata,
   ConfirmedAnswerSegment,
@@ -27,6 +28,7 @@ import type {
   GroundedCodeArtifact,
   VerificationProgress,
 } from "./backend";
+import { confirmActionDraft, renderActionResult } from "./backend";
 import { RichContent } from "./rich-content";
 import { relevantCitations, type Citation } from "./citations";
 import {
@@ -54,6 +56,7 @@ export function GroundedReply({
   answerPlanning,
   delegation,
   codeArtifacts,
+  actionDraft,
   onRegenerate,
 }: {
   readonly turnId: string;
@@ -69,6 +72,7 @@ export function GroundedReply({
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
   readonly delegation: DelegationMetadata | undefined;
   readonly codeArtifacts: readonly GroundedCodeArtifact[] | undefined;
+  readonly actionDraft: ActionDraft | undefined;
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
 }) {
@@ -76,6 +80,8 @@ export function GroundedReply({
   const parsedSource = parseReplySource(source);
   const [open, setOpen] = useState(false);
   const [copied, showCopied] = useTransientFlag(1500);
+  const [draftState, setDraftState] = useState<"idle" | "submitting" | "done" | "cancelled">("idle");
+  const [draftResult, setDraftResult] = useState<string | null>(null);
   const cites = relevantCitations(citations ?? [], text);
   const evidenceReferences = cites.every((citation) =>
     citation.label.startsWith("evidence."));
@@ -136,6 +142,13 @@ export function GroundedReply({
       },
     );
   };
+  const confirmDraft = async () => {
+    if (!actionDraft || draftState !== "idle") return;
+    setDraftState("submitting");
+    const result = await confirmActionDraft(actionDraft);
+    setDraftResult(renderActionResult(result));
+    setDraftState("done");
+  };
 
   return (
     <div class="deck-gr">
@@ -190,6 +203,47 @@ export function GroundedReply({
           citeMarks={marks}
         />
       </div>
+
+      {actionDraft ? (
+        <section class="deck-action-draft" aria-label={t("deck.actionDraft.title")}>
+          <strong>{t("deck.actionDraft.title")}</strong>
+          <dl>
+            <div>
+              <dt>{t("deck.actionDraft.action")}</dt>
+              <dd>{actionDraft.actionType}</dd>
+            </div>
+            <div>
+              <dt>{t("deck.actionDraft.arguments")}</dt>
+              <dd><code>{JSON.stringify(actionDraft.arguments)}</code></dd>
+            </div>
+          </dl>
+          {draftResult ? <p role="status">{draftResult}</p> : null}
+          {draftState === "cancelled" ? (
+            <p role="status">{t("deck.actionDraft.cancelled")}</p>
+          ) : draftState === "idle" || draftState === "submitting" ? (
+            <div class="deck-action-draft-actions">
+              <button
+                type="button"
+                class="deck-followup"
+                disabled={draftState === "submitting"}
+                onClick={() => void confirmDraft()}
+              >
+                {draftState === "submitting"
+                  ? t("deck.actionDraft.submitting")
+                  : t("deck.actionDraft.confirm")}
+              </button>
+              <button
+                type="button"
+                class="deck-followup"
+                disabled={draftState === "submitting"}
+                onClick={() => setDraftState("cancelled")}
+              >
+                {t("deck.actionDraft.cancel")}
+              </button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {!streaming && codeArtifacts && codeArtifacts.length > 0 ? (
         <CodeEvidence artifacts={codeArtifacts} />

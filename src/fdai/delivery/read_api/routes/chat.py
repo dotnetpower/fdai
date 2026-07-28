@@ -428,7 +428,10 @@ def make_chat_route(
                         "answer": "Review this action draft before submitting it.",
                         "model": "semantic-turn-planner",
                         "source": "action-draft",
-                        "action_draft": semantic_plan.confirmation_payload(request_id=request_id),
+                        "action_draft": semantic_plan.confirmation_payload(
+                            request_id=request_id,
+                            session_id=session_id,
+                        ),
                     }
                 )
             view_context = await _with_compiled_user_policy(

@@ -25,6 +25,7 @@ import {
 } from "./backend-parsers";
 import type {
   AnswerVerificationStatus,
+  ActionDraft,
   BackendTurn,
   ConfirmedAnswerSegment,
   ProgressiveAnswer,
@@ -388,6 +389,7 @@ export async function askBackendStream(
   const delegation = parseDelegation(done.delegation);
   const answerPlan = parseAnswerPlan(done.answer_plan);
   const answerPlanning = parseAnswerPlanning(done.answer_planning);
+  const actionDraft = parseActionDraft(done.action_draft);
   const codeArtifacts = parseGroundedCodeArtifacts(done.code_artifacts);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
@@ -410,5 +412,29 @@ export async function askBackendStream(
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
+    ...(actionDraft ? { actionDraft } : {}),
+  };
+}
+
+function parseActionDraft(value: unknown): ActionDraft | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.action_type !== "string" ||
+    record.action_type.length === 0 ||
+    record.action_type.length > 200 ||
+    typeof record.arguments !== "object" ||
+    record.arguments === null ||
+    Array.isArray(record.arguments) ||
+    (record.session_id !== null && typeof record.session_id !== "string") ||
+    typeof record.idempotency_key !== "string" ||
+    record.idempotency_key.length === 0 ||
+    record.idempotency_key.length > 200
+  ) return undefined;
+  return {
+    actionType: record.action_type,
+    arguments: record.arguments as Record<string, unknown>,
+    sessionId: record.session_id as string | null,
+    idempotencyKey: record.idempotency_key,
   };
 }

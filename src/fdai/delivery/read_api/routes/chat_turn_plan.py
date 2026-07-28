@@ -64,7 +64,12 @@ class TurnPlan:
             "requires_confirmation": self.requires_confirmation,
         }
 
-    def confirmation_payload(self, *, request_id: str) -> dict[str, object]:
+    def confirmation_payload(
+        self,
+        *,
+        request_id: str,
+        session_id: str | None,
+    ) -> dict[str, object]:
         """Return the typed payload a separate confirmation request may submit."""
 
         if not self.requires_confirmation or self.action_type is None:
@@ -72,6 +77,7 @@ class TurnPlan:
         return {
             "action_type": self.action_type,
             "arguments": dict(self.arguments),
+            "session_id": session_id,
             "idempotency_key": f"draft-{request_id}"[:200],
         }
 

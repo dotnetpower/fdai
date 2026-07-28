@@ -302,7 +302,8 @@ def make_chat_stream_route(
                                     "model": "semantic-turn-planner",
                                     "source": "action-draft",
                                     "action_draft": semantic_plan.confirmation_payload(
-                                        request_id=request_id
+                                        request_id=request_id,
+                                        session_id=session_id,
                                     ),
                                 },
                             )

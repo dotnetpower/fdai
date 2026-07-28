@@ -25,6 +25,13 @@ export interface BackendReply {
   readonly router?: RouterSnapshot;
 }
 
+export interface ActionDraft {
+  readonly actionType: string;
+  readonly arguments: Readonly<Record<string, unknown>>;
+  readonly sessionId: string | null;
+  readonly idempotencyKey: string;
+}
+
 export type AnswerVerificationStatus = "verified" | "consistent" | "corrected" | "unverified";
 export type AtomicClaimStatus = "supported" | "unsupported" | "ambiguous";
 
@@ -234,6 +241,7 @@ export type ProgressiveAnswer = Answer & {
   readonly answerPlanning?: AnswerPlanningMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly confirmed?: ConfirmedAnswerSegment;
+  readonly actionDraft?: ActionDraft;
 };
 
 export interface BackendHealth {

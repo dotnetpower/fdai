@@ -2,6 +2,7 @@ import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import {
   type AnswerVerification,
+  type ActionDraft,
   type AnswerPlanMetadata,
   type AnswerPlanningMetadata,
   type BackendHealth,
@@ -45,6 +46,7 @@ export interface Turn {
   readonly answerPlanning?: AnswerPlanningMetadata;
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
+  readonly actionDraft?: ActionDraft;
   readonly agent?: string;
   readonly at: string;
 }
@@ -279,6 +281,7 @@ export function TurnBubble({
           answerPlanning={turn.answerPlanning}
           delegation={turn.delegation}
           codeArtifacts={turn.codeArtifacts}
+          actionDraft={turn.actionDraft}
           {...(onRegenerate ? { onRegenerate } : {})}
         />
       ) : (

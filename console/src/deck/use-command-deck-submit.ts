@@ -2,8 +2,6 @@ import { useCallback } from "preact/hooks";
 import { t } from "../i18n";
 import {
   askBackendStream,
-  renderActionResult,
-  submitAction,
   type BackendTurn,
   type ConfirmedAnswerSegment,
   type EvidenceBranch,
@@ -11,8 +9,6 @@ import {
   type InvestigationMilestone,
   type VerificationProgress,
 } from "./backend";
-import { detectActionIntent } from "./action-intent";
-import { watchActionProgress } from "./action-progress";
 import { takeComposerAttachments } from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
@@ -36,7 +32,7 @@ export interface ActiveRequest {
   readonly id: string;
   readonly sessionKey: string;
   readonly controller: AbortController;
-  readonly kind: "stream" | "action";
+  readonly kind: "stream";
 }
 
 type StateSetter<T> = (value: T | ((current: T) => T)) => void;
@@ -115,12 +111,11 @@ export function useCommandDeckSubmit({
     const attachments = takeComposerAttachments();
     const originSessionKey = sessionKeyRef.current;
     const controller = new AbortController();
-    const action = detectActionIntent(text);
     const request: ActiveRequest = {
       id: newId(),
       sessionKey: originSessionKey,
       controller,
-      kind: action ? "action" : "stream",
+      kind: "stream",
     };
     activeRequestRef.current = request;
     abortRef.current = controller;
@@ -153,88 +148,6 @@ export function useCommandDeckSubmit({
     setRetrievalProgress(null);
     setSrStatus("Retrieving answer...");
     setInFlight(true);
-
-    if (action) {
-      try {
-        const result = await submitAction(
-          text,
-          sessionIdFor(sessionIdsRef.current, originSessionKey),
-          controller.signal,
-        );
-        if (isCurrent()) {
-          setPending(false);
-          const resultTurn: Turn = {
-              id: newId(),
-              role: "deck",
-              text: renderActionResult(result),
-              agent: DEFAULT_NARRATOR,
-              terminal: true,
-              at: shortTime(),
-          };
-          const progressId = newId();
-          const progressTurn: Turn | null = result.submitted && result.correlationId
-            ? {
-                id: progressId,
-                role: "deck",
-                text: `Tracking ${result.correlationId}`,
-                agent: DEFAULT_NARRATOR,
-                source: "action-progress",
-                streaming: true,
-                terminal: false,
-                at: shortTime(),
-              }
-            : null;
-          setTurns((current) => {
-            const next = [...current, resultTurn, ...(progressTurn ? [progressTurn] : [])];
-            turnsRef.current = next;
-            return next;
-          });
-          if (progressTurn && result.correlationId) {
-            void watchActionProgress(result.correlationId, (snapshot) => {
-              setTurns((current) => {
-                const next = current.map((turn) =>
-                  turn.id === progressId
-                    ? {
-                        ...turn,
-                        text: snapshot.text,
-                        streaming: !snapshot.terminal,
-                        terminal: snapshot.terminal,
-                      }
-                    : turn,
-                );
-                turnsRef.current = next;
-                return next;
-              });
-              pinTranscriptToLatest();
-            }).catch(() => {
-              setTurns((current) => current.map((turn) =>
-                turn.id === progressId
-                  ? {
-                      ...turn,
-                      text: `${turn.text}\n- Progress stream unavailable. Use the trace for this correlation.`,
-                      streaming: false,
-                      terminal: true,
-                    }
-                  : turn,
-              ));
-            });
-          }
-        }
-      } finally {
-        if (isCurrent()) {
-          activeRequestRef.current = null;
-          abortRef.current = null;
-          inFlightRef.current = false;
-          setPending(false);
-          setSrStatus(controller.signal.aborted
-            ? "Response dismissed; submission outcome may be unknown."
-            : "Answer ready.");
-          setInFlight(false);
-          focusInput();
-        }
-      }
-      return;
-    }
 
     const history: BackendTurn[] = turns
       .filter((turn) => turn.kind !== "activity")
@@ -562,6 +475,7 @@ export function useCommandDeckSubmit({
                   ...(reply.answerPlanning ? { answerPlanning: reply.answerPlanning } : {}),
                   ...(reply.delegation ? { delegation: reply.delegation } : {}),
                   ...(reply.codeArtifacts ? { codeArtifacts: reply.codeArtifacts } : {}),
+                  ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
                 }
               : turn;
           });

@@ -14,7 +14,7 @@
  */
 
 import { answer as deterministicAnswer } from "./answerer";
-import { createActionSubmitter } from "./backend-actions";
+import { createActionConfirmer, createActionSubmitter } from "./backend-actions";
 import {
   citationsForVerification,
   createBackendRequestPayload,
@@ -204,3 +204,4 @@ export async function askBackend(
 }
 
 export const submitAction = createActionSubmitter(chatUrl, () => requestHeaders(true));
+export const confirmActionDraft = createActionConfirmer(chatUrl, () => requestHeaders(true));

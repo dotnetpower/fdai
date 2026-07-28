@@ -1839,6 +1839,15 @@
       "partial": "Partial",
       "complete": "Complete"
     },
+    "actionDraft": {
+      "title": "Action draft",
+      "action": "Action",
+      "arguments": "Arguments",
+      "confirm": "Confirm and submit",
+      "cancel": "Cancel",
+      "submitting": "Submitting...",
+      "cancelled": "Action draft cancelled. Nothing was submitted."
+    },
     "investigation": {
       "label": "Investigation activity",
       "title": "Investigation",

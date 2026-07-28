@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { renderActionResult, submitAction, type ActionSubmitResult } from "./backend";
+import {
+  confirmActionDraft,
+  renderActionResult,
+  submitAction,
+  type ActionSubmitResult,
+} from "./backend";
 
 /** A minimal fake Response with just the fields submitAction reads. */
 function fakeResponse(status: number, body: unknown): Response {
@@ -118,6 +123,35 @@ describe("submitAction", () => {
     expect(result.incidentId).toBe("incident-1");
     expect(result.incidentState).toBe("open");
     expect(result.created).toBe(false);
+  });
+});
+
+describe("confirmActionDraft", () => {
+  test("posts only the typed draft to the confirmation endpoint", async () => {
+    const spy = vi.fn(async (_url: string, _init: RequestInit) =>
+      fakeResponse(200, {
+        submitted: true,
+        action_type: "ops.restart-service",
+        correlation_id: "conv-confirmed",
+      }),
+    );
+    vi.stubGlobal("fetch", spy);
+
+    const result = await confirmActionDraft({
+      actionType: "ops.restart-service",
+      arguments: { resource_id: "svc-1" },
+      sessionId: "session-1",
+      idempotencyKey: "draft-request-1",
+    });
+
+    expect(result.submitted).toBe(true);
+    expect(spy.mock.calls[0]![0]).toMatch(/\/chat\/action\/confirm$/);
+    expect(JSON.parse(spy.mock.calls[0]![1]!.body as string)).toEqual({
+      action_type: "ops.restart-service",
+      arguments: { resource_id: "svc-1" },
+      session_id: "session-1",
+      idempotency_key: "draft-request-1",
+    });
   });
 });
 
