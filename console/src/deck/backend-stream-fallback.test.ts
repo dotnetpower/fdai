@@ -237,6 +237,30 @@ describe("askBackendStream fallback typewriter", () => {
     expect(timer).not.toHaveBeenCalled();
   });
 
+  test("returns on done without waiting for the server to close the stream", async () => {
+    const answer = "terminal answer";
+    let cancelled = false;
+    const body = new TextEncoder().encode(
+      `event: token\ndata: ${JSON.stringify({ delta: answer })}\n\n` +
+      `event: done\ndata: ${JSON.stringify({ answer, model: "gpt-test" })}\n\n`,
+    );
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(body);
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(stream, { status: 200 })));
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+
+    expect(reply.text).toBe(answer);
+    expect(cancelled).toBe(true);
+  }, 1_000);
+
   test("accepts CRLF-framed SSE from an intermediary", async () => {
     const answer = "CRLF stream completed";
     const body =

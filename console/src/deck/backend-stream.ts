@@ -312,6 +312,11 @@ export async function askBackendStream(
         const index = boundary.index ?? 0;
         handleFrame(buffer.slice(0, index));
         buffer = buffer.slice(index + boundary[0].length);
+        if (terminalSeen) break;
+      }
+      if (terminalSeen) {
+        await reader.cancel().catch(() => undefined);
+        break;
       }
       if (buffer.length > MAX_DECK_SSE_FRAME_CHARS) {
         throw new Error("backend stream frame exceeds the size limit");
