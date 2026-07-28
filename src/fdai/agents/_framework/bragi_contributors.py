@@ -9,6 +9,7 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
+from fdai.agents._framework.introspection import REQUIRES_TYPED_PIPELINE
 from fdai.agents._framework.pantheon import PANTHEON_NAMES
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 
@@ -35,6 +36,11 @@ def normalize_responder_answer(
     answer = raw.get("answer")
     if answer is not None and (not isinstance(answer, str) or len(answer) > _MAX_ANSWER_CHARS):
         return None, "answer_invalid"
+    requires_typed_pipeline = raw.get("requires_typed_pipeline") is True
+    if requires_typed_pipeline and (
+        answer is not None or raw.get("abstain_reason") != REQUIRES_TYPED_PIPELINE
+    ):
+        return None, "typed_pipeline_conflict"
     facts = raw.get("facts")
     safe_facts = dict(facts) if isinstance(facts, Mapping) else {}
     normalized_input = {
@@ -46,7 +52,7 @@ def normalize_responder_answer(
         "prompt_composition": raw.get("prompt_composition"),
         "trace_ref": raw.get("trace_ref"),
     }
-    if raw.get("requires_typed_pipeline") is True:
+    if requires_typed_pipeline:
         normalized_input["requires_typed_pipeline"] = True
     try:
         encoded = json.dumps(

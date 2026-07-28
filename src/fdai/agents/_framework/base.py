@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 from fdai.agents._framework.conversation_prompt import (
     MAX_CHARTER_PROMPT_CHARS,
     MAX_ROLE_DIRECTIVE_CHARS,
+    MAX_TOOL_FACT_KEYS,
     ComposedConversationPrompt,
     ConversationSituation,
     compose_conversation_prompt,
@@ -99,7 +100,11 @@ class ConversationTool:
             raise ValueError("conversation tool id MUST be a bounded ASCII identifier")
         if not self.purpose.strip() or len(self.purpose) > _MAX_TOOL_PURPOSE_CHARS:
             raise ValueError("conversation tool purpose MUST be bounded and non-empty")
-        if not self.fact_keys or len(set(self.fact_keys)) != len(self.fact_keys):
+        if (
+            not self.fact_keys
+            or len(self.fact_keys) > MAX_TOOL_FACT_KEYS
+            or len(set(self.fact_keys)) != len(self.fact_keys)
+        ):
             raise ValueError("conversation tool fact_keys MUST be non-empty and unique")
         if any(_FACT_KEY.fullmatch(key) is None for key in self.fact_keys):
             raise ValueError("conversation tool fact_keys MUST be bounded ASCII identifiers")

@@ -374,6 +374,43 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
     assert second["tier"] == "T1"
 
 
+def test_unattributed_participants_see_the_budget_that_gates_synthesis() -> None:
+    runtime = _runtime(t2=_T2Synthesizer())
+    contexts: list[dict[str, object]] = []
+
+    async def capture(
+        agent_name: str,
+        _question: str,
+        context: dict[str, object],
+    ) -> tuple[dict[str, object], None]:
+        contexts.append(dict(context))
+        spec = next(spec for spec in PANTHEON_SPECS if spec.name == agent_name)
+        return (
+            {
+                "primary_agent": agent_name,
+                "answer": f"{agent_name} evidence",
+                "facts": {"evidence_refs": [f"agent-state:{agent_name}"]},
+                "conversation_policy": spec.conversation_policy(),
+            },
+            None,
+        )
+
+    runtime.agents["Bragi"]._deliberator._call_responder = capture  # noqa: SLF001
+    first = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    contexts.clear()
+    second = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+
+    assert first["t2_status"] == "completed"
+    assert second["t2_status"] == "budget_denied"
+    assert contexts
+    assert all(context["escalation_available"] is False for context in contexts)
+    assert all(context["escalation_spent"] == 1 for context in contexts)
+
+
 def test_a_zero_budget_never_calls_the_model_at_all() -> None:
     synthesizer = _T2Synthesizer()
     runtime = PantheonRuntime.build(

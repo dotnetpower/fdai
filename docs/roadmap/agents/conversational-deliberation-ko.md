@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 661f1a6130b0ae8a7a93156488ff41b5d7b90f9e
+translation_source_sha: bb416c23d2edb8df75b2596a7a5ac86ec6237703
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -76,6 +76,11 @@ facade에서 export합니다.
 거부된 escalation은 prompt text를 바꾸는 bounded `spent/limit` counter를 situation key에
 포함합니다. Direct construction은 `spent > limit`을 거부하고, untrusted turn context는 malformed
 counter를 boundary exception 대신 일관된 상태로 clamp합니다.
+Peer requester identity와 전체 bounded tool fact scope의 digest도 prompt text를 바꾸므로 key에
+포함합니다. Tool fact key는 bounded ASCII identifier이며 direct construction으로 server-owned
+tool-scope layer에 free-form text를 넣을 수 없습니다. Charter declaration과 turn composition은
+같은 256-key ceiling을 적용하므로 accepted tool이 prompt boundary보다 넓은 scope를 선언했다는
+이유로 실행 단계에서만 실패하지 않습니다.
 
 대부분의 layer는 turn context에서 선택하지만 evidence gap은 그럴 수 없습니다. Prompt는 agent가
 답하기 전에 조립되므로 답변에 필요한 state를 보유했는지는 agent만 알기 때문입니다.
@@ -424,6 +429,20 @@ agent가 할 수 있는 일을 고정하고 directive는 agent가 자기 결과�
 Bragi는 이제 turn을 봉인하기 전에 handoff를 시도하고 `published`, `publish_failed`,
 `transport_unavailable` 중 하나를 기록합니다. Transport failure는 exception type만 기록하고 bounded
 behavior counter를 증가시키며, 성공을 주장하지 않은 unanswered turn을 반환합니다.
+
+## 두 번째 추가 3라운드 하드닝
+
+다음 campaign은 cross-state 결함 세 개를 별도의 10점 rubric으로 닫았습니다.
+
+| Round | 10점 focus | 제거한 결함 | Exit score | 실행 증거 |
+|------:|------------|-------------|-----------:|-----------|
+| 1 | Requester identity, tool id, fact-scope validation, scope bound, key uniqueness, digest distinction, no free-form text, manifest attribution, replay, regression | Requester와 tool fact scope가 prompt text를 바꾸면서 situation key는 바꾸지 않았고 direct fact key가 prompt text를 허용했습니다. | 10/10 | Requester/scope key test와 direct injection rejection |
+| 2 | One budget key, unattributed digest, position context, critique context, synthesis gate, spent count, availability flag, call ceiling, replay, regression | Unattributed T1 participant는 empty budget key를 조회하지만 T2는 question/owner digest를 사용했습니다. | 10/10 | Participant context를 capture한 repeated unattributed deliberation |
+| 3 | Typed flag, null answer, canonical reason, owner attribution, bounded JSON, sensitivity scan, primary path, contributor path, no authority ambiguity, regression | Responder가 prose와 `requires_typed_pipeline=true`를 함께 반환하거나 flag에 다른 abstention reason을 붙일 수 있었습니다. | 10/10 | Contradictory-envelope normalization test |
+
+이제 position, critique, synthesis는 하나의 canonical unattributed budget key를 사용합니다. Normalized
+responder는 `answer=null`과 canonical `requires_typed_pipeline` abstention reason이 함께 있을 때만
+`requires_typed_pipeline=true`를 전달할 수 있으며, 모순된 envelope는 aggregation 전에 보류됩니다.
 
 ## 검증
 

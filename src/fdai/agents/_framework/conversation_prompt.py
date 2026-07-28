@@ -105,6 +105,7 @@ _KNOWN_TIERS: Final[frozenset[str]] = frozenset({"T0", "T1", "T2"})
 
 _AGENT_NAME = re.compile(r"^[A-Z][a-z]{1,15}$")
 _TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
+_FACT_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _LOCALE_TAG = re.compile(r"^[A-Za-z]{2}(?:-[A-Za-z0-9]{2,8})?$")
 
 #: Upper bound on the escalation counters a situation may carry, so a
@@ -117,6 +118,7 @@ _MAX_ESCALATION_COUNT: Final[int] = 1_000_000
 #: hundreds of keys would otherwise blow past the composed ceiling that
 #: nothing is allowed to trim.
 _MAX_RENDERED_FACT_KEYS: Final[int] = 12
+MAX_TOOL_FACT_KEYS: Final[int] = 256
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,10 +164,18 @@ class ConversationSituation:
             raise ValueError("conversation locale MUST be a supported locale")
         if self.requester is not None and _AGENT_NAME.fullmatch(self.requester) is None:
             raise ValueError("conversation requester MUST be a bounded agent name")
+        if self.requester is not None and self.audience != _AUDIENCE_PEER:
+            raise ValueError("conversation requester is valid only for a peer audience")
         if self.handoff_owner is not None and _AGENT_NAME.fullmatch(self.handoff_owner) is None:
             raise ValueError("conversation handoff owner MUST be a bounded agent name")
         if self.tool_id is not None and _TOOL_ID.fullmatch(self.tool_id) is None:
             raise ValueError("conversation tool id MUST be a bounded ASCII identifier")
+        if self.tool_fact_keys and self.tool_id is None:
+            raise ValueError("conversation tool fact keys require a tool id")
+        if len(self.tool_fact_keys) > MAX_TOOL_FACT_KEYS or any(
+            _FACT_KEY.fullmatch(key) is None for key in self.tool_fact_keys
+        ):
+            raise ValueError("conversation tool fact keys MUST be bounded ASCII identifiers")
         if not 0 <= self.escalation_spent <= _MAX_ESCALATION_COUNT:
             raise ValueError("conversation escalation_spent MUST be a bounded count")
         if not 0 <= self.escalation_limit <= _MAX_ESCALATION_COUNT:
@@ -211,8 +221,9 @@ class ConversationSituation:
             context.get("escalation_spent"),
             context.get("escalation_limit"),
         )
+        audience = _AUDIENCE_PEER if context.get("a2a") is True else _AUDIENCE_OPERATOR
         return cls(
-            audience=_AUDIENCE_PEER if context.get("a2a") is True else _AUDIENCE_OPERATOR,
+            audience=audience,
             # A phase exists only inside a deliberation; a peer request
             # without one is a plain A2A introspection.
             phase=raw_phase
@@ -220,7 +231,9 @@ class ConversationSituation:
             else _PHASE_DIRECT,
             tier=raw_tier if isinstance(raw_tier, str) and raw_tier in _KNOWN_TIERS else "T0",
             locale=_normalize_locale(context.get("locale")),
-            requester=_known_agent(raw_requester, known_agents),
+            requester=(
+                _known_agent(raw_requester, known_agents) if audience == _AUDIENCE_PEER else None
+            ),
             tool_id=tool_id,
             tool_fact_keys=tuple(tool_fact_keys) if tool_id is not None else (),
             evidence_available=evidence_available,
@@ -246,8 +259,12 @@ class ConversationSituation:
         ]
         if self.handoff_owner is not None:
             parts.append(f"handoff={self.handoff_owner}")
+        if self.requester is not None:
+            parts.append(f"requester={self.requester}")
         if self.tool_id is not None:
             parts.append(f"tool={self.tool_id}")
+            scope = hashlib.sha256("\0".join(self.tool_fact_keys).encode("ascii")).hexdigest()
+            parts.append(f"tool_scope={len(self.tool_fact_keys)}:{scope}")
         if self.action_intent:
             parts.append("intent=action")
         if not self.escalation_available:
@@ -557,6 +574,7 @@ __all__ = [
     "MAX_COMPOSED_PROMPT_CHARS",
     "MAX_ROLE_DIRECTIVE_CHARS",
     "MAX_SITUATIONAL_PROMPT_CHARS",
+    "MAX_TOOL_FACT_KEYS",
     "SUPPORTED_LOCALES",
     "ComposedConversationPrompt",
     "ConversationSituation",

@@ -91,6 +91,33 @@ def test_content_addressed_digest_is_not_misclassified_as_card_number() -> None:
     assert normalized["facts"]["evidence_refs"] == [f"agent-state:Bragi:sha256:{digest}"]
 
 
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {
+            "answer": "I will restart it.",
+            "abstain_reason": "requires_typed_pipeline",
+            "requires_typed_pipeline": True,
+        },
+        {
+            "answer": None,
+            "abstain_reason": "no_route",
+            "requires_typed_pipeline": True,
+        },
+    ),
+)
+def test_responder_cannot_mix_an_answer_with_typed_pipeline_authority(
+    payload: dict[str, object],
+) -> None:
+    normalized, error = normalize_responder_answer(
+        "Bragi",
+        {"primary_agent": "Bragi", "facts": {}, **payload},
+    )
+
+    assert normalized is None
+    assert error == "typed_pipeline_conflict"
+
+
 def test_each_agent_tool_projects_a_distinct_owned_fact_scope() -> None:
     runtime = _runtime()
 

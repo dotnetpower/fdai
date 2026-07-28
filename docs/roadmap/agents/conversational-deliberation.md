@@ -73,6 +73,11 @@ the `fdai.agents` facade for that purpose.
 A denied escalation includes its bounded `spent/limit` counters in the situation key because those
 counters change the prompt text. Direct construction rejects `spent > limit`; untrusted turn
 context clamps malformed counters into one consistent state instead of raising at the boundary.
+Peer requester identity and a digest of the complete bounded tool fact scope also participate in
+the key because both alter prompt text. Tool fact keys are bounded ASCII identifiers; direct
+construction cannot place free-form text in the server-owned tool-scope layer. Charter declaration
+and turn composition enforce the same 256-key ceiling, so an accepted tool cannot fail later only
+because its declared scope is wider than the prompt boundary.
 
 Most layers are selected from the turn context, but the evidence gap cannot be: the prompt is
 composed before the agent answers, so only the agent knows whether it holds the state the answer
@@ -433,6 +438,20 @@ The next campaign applied a separate 10-point rubric to each confirmed defect:
 Bragi now attempts handoff before sealing the turn and records exactly one of `published`,
 `publish_failed`, or `transport_unavailable`. A failed transport records only its exception type,
 increments a bounded behavior counter, and returns the unanswered turn without claiming success.
+
+## Second additional three-round hardening
+
+The following campaign closed three more cross-state defects under separate 10-point rubrics:
+
+| Round | 10-point focus | Defect removed | Exit score | Executable evidence |
+|------:|----------------|----------------|-----------:|---------------------|
+| 1 | Requester identity, tool id, fact-scope validation, scope bound, key uniqueness, digest distinction, no free-form text, manifest attribution, replay, regression | Requester and tool fact scope changed prompt text without changing the situation key; direct fact keys accepted prompt text. | 10/10 | Requester/scope key tests and direct injection rejection. |
+| 2 | One budget key, unattributed digest, position context, critique context, synthesis gate, spent count, availability flag, call ceiling, replay, regression | Unattributed T1 participants queried the empty budget key while T2 used a question/owner digest. | 10/10 | Repeated unattributed deliberation with captured participant contexts. |
+| 3 | Typed flag, null answer, canonical reason, owner attribution, bounded JSON, sensitivity scan, primary path, contributor path, no authority ambiguity, regression | A responder could return prose and `requires_typed_pipeline=true`, or pair the flag with another abstention reason. | 10/10 | Contradictory-envelope normalization tests. |
+
+One canonical unattributed budget key now governs position, critique, and synthesis. A normalized
+responder may carry `requires_typed_pipeline=true` only with `answer=null` and the canonical
+`requires_typed_pipeline` abstention reason; contradictory envelopes are held before aggregation.
 
 ## Verification
 

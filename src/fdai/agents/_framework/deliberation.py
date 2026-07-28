@@ -190,6 +190,11 @@ class ConversationDeliberator:
                 "participants": list(participants),
             }
 
+        budget_key = _budget_key(
+            correlation_id,
+            question=question,
+            primary=decision.primary_agent,
+        )
         primary_raw, primary_error = await self._call_responder(
             decision.primary_agent,
             question,
@@ -202,8 +207,8 @@ class ConversationDeliberator:
                 # Whether a model escalation is still affordable this turn,
                 # and the bound itself. The agent states the bound rather
                 # than implying a deeper pass ran when it never did.
-                "escalation_available": await self._ledger.allows(correlation_id),
-                **await self._escalation_counters(correlation_id),
+                "escalation_available": await self._ledger.allows(budget_key),
+                **await self._escalation_counters(budget_key),
             },
         )
         primary_claim = _claim(decision.primary_agent, primary_raw)
@@ -223,6 +228,7 @@ class ConversationDeliberator:
                     question=question,
                     requester=requester,
                     correlation_id=correlation_id,
+                    budget_key=budget_key,
                     primary_claim=primary_claim,
                 )
                 for peer in participants[1:]
@@ -263,6 +269,7 @@ class ConversationDeliberator:
             question=question,
             requester=requester,
             correlation_id=correlation_id,
+            budget_key=budget_key,
             primary_agent=decision.primary_agent,
             claims=claims,
         )
@@ -274,6 +281,7 @@ class ConversationDeliberator:
         question: str,
         requester: str,
         correlation_id: str,
+        budget_key: str,
         primary_claim: DeliberationClaim,
     ) -> DeliberationClaim | None:
         response, _ = await self._call_responder(
@@ -286,8 +294,8 @@ class ConversationDeliberator:
                 "deliberation_phase": "critique",
                 "deliberation_tier": "T1",
                 "peer_claims": (_claim_dict(primary_claim),),
-                "escalation_available": await self._ledger.allows(correlation_id),
-                **await self._escalation_counters(correlation_id),
+                "escalation_available": await self._ledger.allows(budget_key),
+                **await self._escalation_counters(budget_key),
                 # The primary owns the conclusion; a critic contributes
                 # owned evidence and hands the answer back to that owner.
                 "handoff_owner": primary_claim.agent,
@@ -310,6 +318,7 @@ class ConversationDeliberator:
         question: str,
         requester: str,
         correlation_id: str,
+        budget_key: str,
         primary_agent: str,
         claims: tuple[DeliberationClaim, ...],
     ) -> dict[str, Any]:
@@ -319,7 +328,6 @@ class ConversationDeliberator:
         # The budget is a ceiling, not a target: when it is spent the round
         # stays at T1 rather than calling a model anyway. The bound is
         # reported so the answer can say the deeper pass did not run.
-        budget_key = _budget_key(correlation_id, question=question, primary=primary_agent)
         # Reserve, do not ask-then-take: two turns of the same correlation
         # that both read the remaining allowance would both proceed, and a
         # ceiling of one call would admit however many happen to overlap.

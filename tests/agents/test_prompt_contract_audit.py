@@ -263,6 +263,15 @@ def test_conversation_charter_rejects_an_empty_role_directive() -> None:
         )
 
 
+def test_conversation_tool_rejects_an_unbounded_fact_scope() -> None:
+    with pytest.raises(ValueError, match="fact_keys"):
+        ConversationTool(
+            tool_id="read_status",
+            purpose="Read status.",
+            fact_keys=tuple(f"fact_{index}" for index in range(257)),
+        )
+
+
 def test_baseline_manifest_is_complete_and_unique() -> None:
     assert len(BASELINE_LAYER_IDS) == 14
     assert len(BASELINE_LAYER_IDS) == len(set(BASELINE_LAYER_IDS))
