@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from fdai.core.read_investigation.routing import (
     classify_read_investigation_intent,
@@ -20,6 +20,7 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     ChatToolResolver,
     ChatWebSearchEvidenceResolver,
     OperationalEvidenceResolverProtocol,
+    PlannedChatToolResolver,
     _selected_agent,
     _with_agent_evidence,
     _with_operational_evidence,
@@ -40,6 +41,7 @@ async def resolve_parallel_chat_evidence(
     conversation_context: Mapping[str, str] | None,
     target_agent: str | None,
     tool_resolver: ChatToolResolver | None,
+    planned_tool_resolver: PlannedChatToolResolver | None = None,
     evidence_resolver: OperationalEvidenceResolverProtocol | None,
     agent_delegate: AgentChatDelegate | None,
     web_search_resolver: ChatWebSearchEvidenceResolver | None,
@@ -57,19 +59,62 @@ async def resolve_parallel_chat_evidence(
     ):
         base_context.pop(key, None)
     specs: list[EvidenceBranchSpec] = []
-    parallel_agent = _selected_agent(prompt, conversation_context, target_agent) is not None or (
-        classify_read_investigation_intent(prompt) is not None
-        and resource_name_from_question(prompt) is not None
+    semantic_plan = base_context.get("_turn_plan")
+    has_semantic_plan = isinstance(semantic_plan, Mapping)
+    planned_tool_name = (
+        semantic_plan.get("tool_name") if isinstance(semantic_plan, Mapping) else None
+    )
+    planned_arguments = (
+        semantic_plan.get("arguments") if isinstance(semantic_plan, Mapping) else None
+    )
+    planned_read = (
+        isinstance(semantic_plan, Mapping)
+        and semantic_plan.get("kind") == "read_tool"
+        and isinstance(planned_tool_name, str)
+        and isinstance(planned_arguments, Mapping)
+    )
+    parallel_agent = not has_semantic_plan and (
+        _selected_agent(prompt, conversation_context, target_agent) is not None
+        or (
+            classify_read_investigation_intent(prompt) is not None
+            and resource_name_from_question(prompt) is not None
+        )
     )
     parallel_web = (
         web_search_resolver is not None
-        and classify_search_intent(prompt).route == "web"
+        and (
+            planned_tool_name == "web_search"
+            if has_semantic_plan
+            else classify_search_intent(prompt).route == "web"
+        )
         and not parallel_agent
         and "_behavior_evidence" not in base_context
         and "_screen_scope" not in base_context
     )
 
-    if tool_resolver is not None:
+    if planned_read and planned_tool_resolver is not None:
+        selected_tool_name = cast(str, planned_tool_name)
+        selected_arguments = cast(Mapping[str, object], planned_arguments)
+
+        async def resolve_planned_tool(_observe: BranchProgressObserver) -> dict[str, Any]:
+            resolved = await planned_tool_resolver.resolve_planned(
+                selected_tool_name,
+                selected_arguments,
+                principal_id=user_id,
+            )
+            enriched = dict(base_context)
+            if resolved is not None:
+                enriched["_tool_evidence"] = dict(resolved)
+            return enriched
+
+        specs.append(
+            EvidenceBranchSpec(
+                EvidenceBranchKind.TOOL,
+                resolve_planned_tool,
+                ("_tool_evidence",),
+            )
+        )
+    elif not has_semantic_plan and tool_resolver is not None:
 
         async def resolve_tool(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_tool_evidence(
@@ -88,7 +133,7 @@ async def resolve_parallel_chat_evidence(
             )
         )
 
-    if evidence_resolver is not None:
+    if not has_semantic_plan and evidence_resolver is not None:
 
         async def resolve_operational(observe: BranchProgressObserver) -> dict[str, Any]:
             del observe

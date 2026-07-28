@@ -51,7 +51,6 @@ from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.read_api.routes.chat_turn_plan import (
     BackendTurnPlanner,
     StructuredCompletionBackend,
-    default_read_turn_tools,
 )
 from fdai.delivery.read_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.read_api.routes.detection_readiness import DetectionReadinessReader
@@ -146,7 +145,7 @@ def append_chat_routes(
     turn_planner = (
         BackendTurnPlanner(backend) if isinstance(backend, StructuredCompletionBackend) else None
     )
-    turn_tools = default_read_turn_tools()
+    turn_tools = read_tools.turn_tools()
     routes.extend(
         (
             make_chat_route(
@@ -155,6 +154,7 @@ def append_chat_routes(
                 behavior_resolver=behavior,
                 evidence_resolver=evidence,
                 tool_resolver=tools,
+                planned_tool_resolver=read_tools,
                 web_search_resolver=web_search_resolver,
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),
@@ -181,6 +181,7 @@ def append_chat_routes(
                 behavior_resolver=behavior,
                 evidence_resolver=evidence,
                 tool_resolver=tools,
+                planned_tool_resolver=read_tools,
                 web_search_resolver=web_search_resolver,
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),

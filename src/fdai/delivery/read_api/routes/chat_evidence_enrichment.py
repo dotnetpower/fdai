@@ -72,6 +72,18 @@ class ChatToolResolver(Protocol):
     ) -> Mapping[str, Any] | None: ...
 
 
+class PlannedChatToolResolver(Protocol):
+    """Execute one server-validated read plan without natural-language matching."""
+
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> Mapping[str, Any] | None: ...
+
+
 class ChatWebSearchEvidenceResolver(Protocol):
     """Read-only public-web evidence resolver for explicitly eligible turns."""
 

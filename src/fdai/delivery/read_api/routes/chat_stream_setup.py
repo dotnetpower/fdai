@@ -87,6 +87,7 @@ async def prepare_chat_stream_request(
     if not isinstance(view_context, dict):
         raise HTTPException(status_code=400, detail="view_context MUST be an object")
     view_context.pop("_answer_plan", None)
+    view_context.pop("_turn_plan", None)
     view_context.pop("_attachments", None)
     try:
         vision_attachments = parse_vision_attachments(body)

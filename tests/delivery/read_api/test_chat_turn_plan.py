@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 import pytest
@@ -9,6 +11,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.routes.chat import make_chat_route
 from fdai.delivery.read_api.routes.chat_backend_azure import AzureAdChatBackend
 from fdai.delivery.read_api.routes.chat_backend_openai import (
@@ -16,7 +19,9 @@ from fdai.delivery.read_api.routes.chat_backend_openai import (
     OpenAiCompatibleChatBackendConfig,
 )
 from fdai.delivery.read_api.routes.chat_backend_router import LatencyRoutedChatBackend
+from fdai.delivery.read_api.routes.chat_evidence_pipeline import resolve_parallel_chat_evidence
 from fdai.delivery.read_api.routes.chat_stream import make_chat_stream_route
+from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.read_api.routes.chat_turn_plan import (
     BackendTurnPlanner,
     TurnKind,
@@ -68,6 +73,30 @@ class _Planner:
     async def plan_turn(self, **_kwargs: object) -> TurnPlan:
         self.calls += 1
         return parse_turn_plan(_plan())
+
+
+class _FailingKeywordResolver:
+    async def resolve(self, *_args: object, **_kwargs: object) -> dict[str, object] | None:
+        raise AssertionError("legacy keyword resolver must not run for a semantic plan")
+
+
+class _PlannedResolver:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> Mapping[str, Any] | None:
+        self.calls += 1
+        return {
+            "tool": tool_name,
+            "authority": "server_read_model",
+            "result": {"arguments": arguments, "principal_id": principal_id},
+        }
 
 
 async def _allow(_request: Request) -> str:
@@ -296,3 +325,101 @@ def test_chat_routes_attach_shadow_semantic_plan(stream: bool) -> None:
         "confidence": 0.91,
         "requires_confirmation": False,
     }
+
+
+@pytest.mark.asyncio
+async def test_read_model_tools_execute_structured_plan_without_prompt_matching() -> None:
+    resolver = ReadModelChatTools(InMemoryConsoleReadModel())
+
+    evidence = await resolver.resolve_planned(
+        "list_incidents",
+        {"status": "active", "limit": 5},
+        principal_id="reader-1",
+    )
+
+    assert evidence is not None
+    assert evidence["tool"] == "list_incidents"
+    assert evidence["authority"] == "server_read_model"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"status": "unknown"},
+        {"limit": 0},
+        {"limit": 101},
+        {"unexpected": True},
+    ],
+)
+async def test_read_model_tools_reject_invalid_planned_arguments(
+    arguments: dict[str, object],
+) -> None:
+    resolver = ReadModelChatTools(InMemoryConsoleReadModel())
+
+    with pytest.raises(ValueError, match="planned tool"):
+        await resolver.resolve_planned(
+            "list_incidents",
+            arguments,
+            principal_id="reader-1",
+        )
+
+
+@pytest.mark.asyncio
+async def test_answer_plan_bypasses_legacy_keyword_evidence_routing() -> None:
+    context = {"_turn_plan": parse_turn_plan(_plan()).to_dict()}
+
+    enriched = await resolve_parallel_chat_evidence(
+        request_id="request-1",
+        prompt="Incident 는 자동으로 생성되나?",
+        view_context=context,
+        user_id="reader-1",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=_FailingKeywordResolver(),
+        planned_tool_resolver=_PlannedResolver(),
+        evidence_resolver=None,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=_ignore_progress,
+    )
+
+    assert "_tool_evidence" not in enriched
+
+
+@pytest.mark.asyncio
+async def test_read_plan_calls_only_structured_resolver() -> None:
+    resolver = _PlannedResolver()
+    context = {
+        "_turn_plan": parse_turn_plan(
+            _plan(
+                kind="read_tool",
+                tool_name="list_incidents",
+                arguments={"status": "active"},
+            )
+        ).to_dict()
+    }
+
+    enriched = await resolve_parallel_chat_evidence(
+        request_id="request-2",
+        prompt="whatever phrasing the operator used",
+        view_context=context,
+        user_id="reader-1",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=_FailingKeywordResolver(),
+        planned_tool_resolver=resolver,
+        evidence_resolver=None,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=_ignore_progress,
+    )
+
+    assert resolver.calls == 1
+    assert enriched["_tool_evidence"]["tool"] == "list_incidents"
+
+
+async def _ignore_progress(_event: object) -> None:
+    return None

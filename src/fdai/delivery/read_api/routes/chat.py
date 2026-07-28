@@ -89,6 +89,7 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     ChatToolResolver,
     ChatWebSearchEvidenceResolver,
     OperationalEvidenceResolverProtocol,
+    PlannedChatToolResolver,
     _delegation_summary,
     _explicit_agent_requested,
     _retrieval_source_previews,
@@ -235,6 +236,7 @@ def make_chat_route(
     behavior_resolver: ChatBehaviorEvidenceResolver | None = None,
     evidence_resolver: OperationalEvidenceResolverProtocol | None = None,
     tool_resolver: ChatToolResolver | None = None,
+    planned_tool_resolver: PlannedChatToolResolver | None = None,
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
     agent_delegate: AgentChatDelegate | None = None,
     answer_planning_delegate: AnswerPlanningDelegate | None = None,
@@ -312,6 +314,7 @@ def make_chat_route(
         if not isinstance(view_context, dict):
             raise HTTPException(status_code=400, detail="view_context MUST be an object")
         view_context.pop("_answer_plan", None)
+        view_context.pop("_turn_plan", None)
         # `_attachments` is a server-owned, validated field: never trust a
         # client-supplied one, then set it from the parsed inline images.
         view_context.pop("_attachments", None)
@@ -443,6 +446,7 @@ def make_chat_route(
                 conversation_context=conversation_context,
                 target_agent=target_agent,
                 tool_resolver=tool_resolver,
+                planned_tool_resolver=planned_tool_resolver,
                 evidence_resolver=evidence_resolver,
                 agent_delegate=agent_delegate,
                 web_search_resolver=web_search_resolver,
