@@ -75,7 +75,7 @@ resource "azurerm_container_app_job" "inventory" {
       }
       env {
         name  = "FDAI_INVENTORY_RECOVERY_DELTA"
-        value = "1"
+        value = var.infrastructure_subnet_id == null ? "0" : "1"
       }
       env {
         name  = "FDAI_MI_CLIENT_ID"
