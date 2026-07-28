@@ -140,10 +140,24 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
         return _handoff(target_agent, "agent_response_too_large")
     if primary != target_agent:
         return _handoff(target_agent, "agent_response_owner_mismatch")
+    raw_policy = raw.get("conversation_policy")
+    expected_policy = _EXPECTED_CONVERSATION_POLICY[target_agent]
+    if not isinstance(raw_policy, Mapping) or dict(raw_policy) != expected_policy:
+        return _handoff(target_agent, "agent_response_policy_invalid")
     facts = raw.get("facts")
     safe_facts = dict(facts) if isinstance(facts, Mapping) else {}
     refs = safe_facts.get("evidence_refs")
-    if not isinstance(refs, list | tuple) or not any(str(ref) for ref in refs):
+    valid_refs = (
+        [ref for ref in refs if isinstance(ref, str) and 0 < len(ref) <= 1_024]
+        if isinstance(refs, list | tuple)
+        else []
+    )
+    factual_leaves = {key: value for key, value in safe_facts.items() if key != "evidence_refs"}
+    if not valid_refs and not factual_leaves:
+        return _handoff(target_agent, "agent_response_evidence_absent")
+    if valid_refs:
+        safe_facts["evidence_refs"] = valid_refs
+    else:
         safe_facts["evidence_refs"] = [agent_state_evidence_ref(target_agent, safe_facts)]
     contributors = raw.get("contributors")
     safe_contributors = (
@@ -161,10 +175,6 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
         "facts": safe_facts,
         "contributors": safe_contributors,
     }
-    raw_policy = raw.get("conversation_policy")
-    expected_policy = _EXPECTED_CONVERSATION_POLICY[target_agent]
-    if not isinstance(raw_policy, Mapping) or dict(raw_policy) != expected_policy:
-        return _handoff(target_agent, "agent_response_policy_invalid")
     result["conversation_policy"] = dict(expected_policy)
     trace_ref = raw.get("trace_ref")
     if isinstance(trace_ref, str) and trace_ref:

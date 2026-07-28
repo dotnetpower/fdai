@@ -413,6 +413,40 @@ def test_normalization_requires_charter_policy_for_answered_turn() -> None:
     assert result["handoff_reason"] == "agent_response_policy_invalid"
 
 
+def test_normalization_rejects_answer_without_facts_or_valid_evidence_refs() -> None:
+    policy = _policy("Heimdall")
+
+    for facts in ({}, {"evidence_refs": []}, {"evidence_refs": [123, ""]}):
+        result = normalize_pantheon_answer(
+            {
+                "primary_agent": "Heimdall",
+                "answer": "One observation is available.",
+                "facts": facts,
+                "conversation_policy": policy,
+            },
+            target_agent="Heimdall",
+        )
+
+        assert result is not None
+        assert result["handoff_reason"] == "agent_response_evidence_absent"
+
+
+def test_normalization_accepts_external_evidence_ref_without_inline_facts() -> None:
+    result = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": "One observation is available.",
+            "facts": {"evidence_refs": ["incident:corr-example"]},
+            "conversation_policy": _policy("Heimdall"),
+        },
+        target_agent="Heimdall",
+    )
+
+    assert result is not None
+    assert result["primary_agent"] == "Heimdall"
+    assert result["facts"] == {"evidence_refs": ["incident:corr-example"]}
+
+
 async def test_client_rejects_untrusted_response_identity() -> None:
     bus = _bus()
     client = EventBusAgentIntrospectionClient(
