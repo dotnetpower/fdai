@@ -128,6 +128,15 @@ az rest --method PATCH \
   --body @/tmp/fdai_spa.json
 ```
 
+### Keep local redirect URIs synchronized
+
+The `console: prepare full stack` task reads the local tenant and SPA client values from
+`console/.env.local`, then safely retries both fixed Vite origins through
+`scripts/deployment/azure/sync-entra-spa-redirect.py`. The helper preserves every existing
+redirect. Its `--allow-loopback-http` option accepts HTTP only for `localhost` or `127.0.0.1`;
+the default command remains HTTPS-only. A tenant mismatch or insufficient Microsoft Graph
+permission stops preparation before the local services start.
+
 ### Keep the deployed redirect URI synchronized
 
 Set these GitHub Actions repository variables for each deployment target:

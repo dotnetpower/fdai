@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 5e5fa3b4c6829bd329aca80b04e8d689567b9af5
-translation_revised: 2026-07-24
+translation_source_sha: 5fcd2be7153b990bf881daba8fed204d2ebc8888
+translation_revised: 2026-07-28
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -460,7 +460,9 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
   audience, lifetime, App Role을 검증합니다. 서버의 Azure CLI 세션은 Microsoft Graph, Azure
   Resource Graph, Azure OpenAI 같은 Azure adapter에만 단기 token을 제공하며 브라우저
   principal을 대체하지 않습니다. App Role이 없는 principal에는 접근 요청 페이지가 표시되고,
-  bearer token이 없으면 fail closed합니다.
+  bearer token이 없으면 fail closed합니다. Full-stack 준비 단계는 두 개의 고정 loopback origin을
+  구성된 SPA 등록에 안전하게 재시도할 수 있는 방식으로 동기화합니다. Tenant가 다르거나 Graph
+  권한이 부족하면 sign-in 후 redirect가 깨진 상태로 남지 않도록 startup을 중단합니다.
 - **CLI principal 대안**: 브라우저 로그인이 필요하지 않을 때
   `FDAI_READ_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1`은 현재 CLI 사용자를 고정된
   로컬 역할 상한으로 projection합니다. 이는 명시적 대안이며 canonical full-stack profile이

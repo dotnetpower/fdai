@@ -173,6 +173,9 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert "FDAI_NARRATOR_AUTO_OPEN_AOAI=0" not in tasks
     assert 'PYTHONPATH=\\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\\"' in tasks
     assert 'FDAI_RUNTIME_LOCK_FILE=\\"$PWD/.fdai/core-runtime.lock\\"' in tasks
+    assert '"label": "console: sync local Entra redirects"' in tasks
+    assert "http://localhost:5273 http://127.0.0.1:5273" in tasks
+    assert "--allow-loopback-http" in tasks
     assert core_env["FDAI_RUNTIME_LOCK_FILE"] == "${workspaceFolder}/.fdai/core-runtime.lock"
     assert tasks.count('"instanceLimit": 1') >= 5
     assert configs["Console Web: Read API"]["preLaunchTask"] == "console: prepare full stack"

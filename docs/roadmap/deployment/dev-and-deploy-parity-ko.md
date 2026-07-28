@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 5dd4254bf7ecab385cb70a2c5a23ebe539800ee7
+translation_source_sha: aa08981ad16dff8d12416994681aa4e2d93409c5
 translation_revised: 2026-07-28
 ---
 
@@ -79,12 +79,16 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 | Surface | 기본 address | Workspace entry point |
 |---------|-------------|-----------------------|
 | Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` task 또는 Live Server |
-| Console SPA | `http://127.0.0.1:5273` | `Console Web: Frontend` |
+| Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
 | Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
 `Console Web: Full Stack` compound는 core runtime, Console SPA, read API를 시작합니다. 정적 design
 mock과 격리된 test ingestion gateway는 시작하지 않습니다.
+준비 순서에서는 구성된 Entra SPA 등록에 `http://localhost:5273`과
+`http://127.0.0.1:5273`을 안전하게 재시도할 수 있는 방식으로 동기화합니다. Helper는 기존
+redirect를 보존하고 해당 loopback host에만 HTTP를 허용하며, 활성 tenant가 다르거나 운영자가
+등록을 읽거나 업데이트할 수 없으면 service 시작 전에 중단합니다.
 각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
 실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.
@@ -98,13 +102,14 @@ retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 �
 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
 answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
 장기 실행 core 및 read API task의 terminal output은 `.fdai/logs/core-runtime.log`와
-`.fdai/logs/read-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 local UTC offset을 포함한
-대괄호 없는 RFC 3339 millisecond timestamp로 시작합니다. 각 log는 service 시작 및 중지 timestamp와
-child exit code도 기록하고 private local permission을 사용하며, 10 MiB에서 회전하여 이전 세대 하나를
-유지합니다. Git에서 제외된 이 진단 log는 task terminal이 닫혀도 유지되며 structured warning 및 error
-record인 `warnings.jsonl`을 대체하지 않습니다. Core terminal은 machine-readable JSON stream을
-유지하지만, core file은 read API log와 같은 `LEVEL: logger: message` 형식으로 record를 렌더링합니다.
-Startup model latency probe는 구성된 모든 reasoning candidate가 지원하는 Azure Responses API output-token budget과
+`.fdai/logs/read-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 millisecond와 local timezone
+약어를 포함한 Python logging style timestamp로 시작합니다. 예시는 `2026-07-28 15:25:53,717 KST`입니다.
+각 log는 service 시작 및 중지 timestamp와 child exit code도 기록하고 private local permission을
+사용하며, 10 MiB에서 회전하여 이전 세대 하나를 유지합니다. Git에서 제외된 이 진단 log는 task
+terminal이 닫혀도 유지되며 structured warning 및 error record인 `warnings.jsonl`을 대체하지 않습니다.
+Core terminal은 machine-readable JSON stream을 유지하지만, core file은 read API log와 같은
+`LEVEL: logger: message` 형식으로 record를 렌더링합니다. Startup model latency probe는 구성된 모든
+reasoning candidate가 지원하는 Azure Responses API output-token budget과
 안정적인 `read-api:*:latency-probe` correlation id를 사용하므로 측정된 사용량이 uncorrelated
 traffic으로 기록되지 않습니다.
 Local 및 deployed console 모두 agent card의 Ask action에서 새 user-scoped conversation key를

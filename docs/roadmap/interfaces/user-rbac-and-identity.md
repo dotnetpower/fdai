@@ -474,7 +474,10 @@ Human users never hold PATs or long-lived secrets:
   production does. The server's Azure CLI session supplies short-lived tokens only to
   Azure adapters such as Microsoft Graph, Azure Resource Graph, and Azure OpenAI; it
   never replaces the browser principal. A principal with no App Role sees the
-  access-request page, and a missing bearer token fails closed.
+  access-request page, and a missing bearer token fails closed. The full-stack preparation
+  idempotently synchronizes both fixed loopback origins into the configured SPA registration;
+  a tenant mismatch or insufficient Graph permission stops startup instead of leaving a broken
+  post-sign-in redirect.
 - **CLI principal alternative**: `FDAI_READ_API_LOCAL_AZURE_CLI=1` and
   `VITE_LOCAL_AZURE_CLI_AUTH=1` project the current CLI user with a fixed local role
   ceiling when browser sign-in isn't required. This is an explicit alternative, not the

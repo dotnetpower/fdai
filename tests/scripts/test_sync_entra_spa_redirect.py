@@ -93,6 +93,25 @@ def test_existing_origin_is_an_idempotent_no_op(script_module: ModuleType) -> No
     assert all(call[0] != "rest" for call in runner.calls)
 
 
+@pytest.mark.parametrize("origin", ["http://localhost:5273", "http://127.0.0.1:5273"])
+def test_adds_explicit_loopback_http_origin(
+    script_module: ModuleType,
+    origin: str,
+) -> None:
+    runner = FakeAzureCli(redirect_uris=["https://console.example.com"])
+
+    changed = script_module.synchronize_redirect_uri(
+        tenant_id="target-tenant",
+        spa_client_id="spa-client-id",
+        origin=origin,
+        allow_loopback_http=True,
+        runner=runner,
+    )
+
+    assert changed is True
+    assert runner.redirect_uris == ["https://console.example.com", origin]
+
+
 def test_rejects_active_tenant_mismatch_before_reading_app(script_module: ModuleType) -> None:
     runner = FakeAzureCli(tenant_id="other-tenant")
 
@@ -119,6 +138,22 @@ def test_rejects_active_tenant_mismatch_before_reading_app(script_module: Module
 def test_rejects_non_origin_values(script_module: ModuleType, origin: str) -> None:
     with pytest.raises(ValueError, match="HTTPS origin"):
         script_module.normalize_origin(origin)
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://example.com:5273",
+        "http://localhost.example.com:5273",
+        "http://localhost:5273/path",
+    ],
+)
+def test_loopback_http_opt_in_rejects_external_or_non_origin_values(
+    script_module: ModuleType,
+    origin: str,
+) -> None:
+    with pytest.raises(ValueError, match="loopback HTTP"):
+        script_module.normalize_origin(origin, allow_loopback_http=True)
 
 
 def test_fails_when_graph_update_is_not_visible(script_module: ModuleType) -> None:

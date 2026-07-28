@@ -1,8 +1,8 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: df70a946a5216858dcb06d2112055cfa6b18c4c9
-translation_revised: 2026-07-19
+translation_source_sha: 1ffca9ed60eb28d1728b8a0171bc4fc49b52d6c6
+translation_revised: 2026-07-28
 ---
 
 # Entra 앱 등록
@@ -130,6 +130,15 @@ az rest --method PATCH \
   --headers "Content-Type=application/json" \
   --body @/tmp/fdai_spa.json
 ```
+
+### 로컬 redirect URI 동기화 유지
+
+`console: prepare full stack` task는 `console/.env.local`에서 local tenant와 SPA client 값을
+읽고 `scripts/deployment/azure/sync-entra-spa-redirect.py`를 통해 두 개의 고정 Vite origin을
+안전하게 재시도할 수 있는 방식으로 동기화합니다. Helper는 기존 redirect를 모두 보존합니다.
+`--allow-loopback-http` option은 `localhost` 또는 `127.0.0.1`에만 HTTP를 허용하며 기본 command는
+계속 HTTPS-only입니다. Tenant가 다르거나 Microsoft Graph 권한이 부족하면 local service가
+시작되기 전에 준비 단계가 중단됩니다.
 
 ### 배포된 redirect URI 동기화 유지
 

@@ -76,12 +76,16 @@ site is static and separate from the authenticated Console full stack.
 | Surface | Default address | Workspace entry point |
 |---------|-----------------|-----------------------|
 | Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` task, or Live Server |
-| Console SPA | `http://127.0.0.1:5273` | `Console Web: Frontend` |
+| Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
 | Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
 The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and read API. It does
 not start the static design mocks or the isolated test ingestion gateway.
+Its preparation sequence safely retries synchronization of `http://localhost:5273` and
+`http://127.0.0.1:5273` into the configured Entra SPA registration. The helper preserves existing
+redirects, permits HTTP only for those loopback hosts, and stops before service startup when the
+active tenant is wrong or the operator cannot read or update the registration.
 Each long-running Console task permits one VS Code instance. The core task and debug launch also
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.
@@ -97,12 +101,13 @@ timeouts or invalid responses become an explicit agent-to-Bragi handoff instead 
 specialist answer.
 The long-running core and read API tasks preserve their terminal output in
 `.fdai/logs/core-runtime.log` and `.fdai/logs/read-api.log`. Every captured child-output line begins
-with an unbracketed RFC 3339 millisecond timestamp carrying the local UTC offset. Each log also
-records service start and stop timestamps plus the child exit code, uses private local permissions,
-and rotates at 10 MiB with one previous generation retained. These gitignored diagnostics survive
-a task terminal closing; they don't replace the structured `warnings.jsonl` warning and error
-record. The core terminal keeps its machine-readable JSON stream, while the core file renders those
-records as `LEVEL: logger: message` lines to match the read API log. Startup model latency probes use a bounded Azure Responses API
+with a Python logging-style timestamp containing milliseconds and the local timezone abbreviation,
+for example `2026-07-28 15:25:53,717 KST`. Each log also records service start and stop timestamps
+plus the child exit code, uses private local permissions, and rotates at 10 MiB with one previous
+generation retained. These gitignored diagnostics survive a task terminal closing; they don't
+replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
+machine-readable JSON stream, while the core file renders those records as `LEVEL: logger: message`
+lines to match the read API log. Startup model latency probes use a bounded Azure Responses API
 output-token budget supported by every configured reasoning candidate and stable
 `read-api:*:latency-probe` correlation ids, so their measured usage isn't filed as uncorrelated
 traffic.

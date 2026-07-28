@@ -107,6 +107,18 @@
       }
     },
     {
+      "label": "console: sync local Entra redirects",
+      "type": "shell",
+      "command": "set -a && source console/.env.local && set +a && for origin in http://localhost:5273 http://127.0.0.1:5273; do env -u AZURE_CONFIG_DIR .venv/bin/python scripts/deployment/azure/sync-entra-spa-redirect.py --tenant-id \"$VITE_MSAL_TENANT_ID\" --spa-client-id \"$VITE_MSAL_CLIENT_ID\" --origin \"$origin\" --allow-loopback-http; done",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      }
+    },
+    {
       "label": "console: prepare local state",
       "type": "shell",
       "command": "bash scripts/deployment/local/prepare-console-state.sh",
@@ -123,7 +135,8 @@
       "dependsOrder": "sequence",
       "dependsOn": [
         "console: prepare local state",
-        "console: prepare local runtime env"
+        "console: prepare local runtime env",
+        "console: sync local Entra redirects"
       ],
       "problemMatcher": []
     },

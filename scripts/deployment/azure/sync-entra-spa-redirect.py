@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synchronize one deployed console origin into an Entra SPA registration."""
+"""Synchronize one console origin into an Entra SPA registration."""
 
 from __future__ import annotations
 
@@ -25,10 +25,15 @@ class SpaRegistration:
     redirect_uris: tuple[str, ...]
 
 
-def normalize_origin(value: str) -> str:
+def normalize_origin(value: str, *, allow_loopback_http: bool = False) -> str:
     parsed = urlsplit(value.strip())
+    allowed_scheme = parsed.scheme == "https" or (
+        allow_loopback_http
+        and parsed.scheme == "http"
+        and parsed.hostname in {"localhost", "127.0.0.1"}
+    )
     if (
-        parsed.scheme != "https"
+        not allowed_scheme
         or not parsed.hostname
         or parsed.username is not None
         or parsed.password is not None
@@ -36,7 +41,10 @@ def normalize_origin(value: str) -> str:
         or parsed.query
         or parsed.fragment
     ):
-        raise ValueError("origin must be an HTTPS origin without path, query, or fragment")
+        raise ValueError(
+            "origin must be an HTTPS origin without path, query, or fragment; "
+            "explicit loopback HTTP may use localhost or 127.0.0.1"
+        )
     return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 
@@ -83,6 +91,7 @@ def synchronize_redirect_uri(
     tenant_id: str,
     spa_client_id: str,
     origin: str,
+    allow_loopback_http: bool = False,
     runner: CommandRunner = run_az,
 ) -> bool:
     expected_tenant = tenant_id.strip().lower()
@@ -95,7 +104,10 @@ def synchronize_redirect_uri(
     if active_tenant.strip().lower() != expected_tenant:
         raise ValueError("active Azure CLI tenant does not match the deployment tenant")
 
-    normalized_origin = normalize_origin(origin)
+    normalized_origin = normalize_origin(
+        origin,
+        allow_loopback_http=allow_loopback_http,
+    )
     registration = load_registration(spa_client_id, runner)
     if normalized_origin in registration.redirect_uris:
         return False
@@ -128,7 +140,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tenant-id", required=True, help="target Entra tenant id")
     parser.add_argument("--spa-client-id", required=True, help="console SPA application client id")
-    parser.add_argument("--origin", required=True, help="deployed console HTTPS origin")
+    parser.add_argument("--origin", required=True, help="console redirect origin")
+    parser.add_argument(
+        "--allow-loopback-http",
+        action="store_true",
+        help="allow an HTTP origin only for localhost or 127.0.0.1",
+    )
     args = parser.parse_args()
 
     try:
@@ -136,6 +153,7 @@ def main() -> int:
             tenant_id=args.tenant_id,
             spa_client_id=args.spa_client_id,
             origin=args.origin,
+            allow_loopback_http=args.allow_loopback_http,
         )
     except (AzureCliError, json.JSONDecodeError, ValueError) as exc:
         print(f"sync-entra-spa-redirect: FAIL: {exc}", file=sys.stderr)
