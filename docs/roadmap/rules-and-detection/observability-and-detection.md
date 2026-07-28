@@ -37,7 +37,9 @@ are synthetic.
 - A repeated-event burst is an anomaly, not automatic Incident authority. Heimdall always records
   the bounded anomaly, but it can hand off an Incident candidate only when the normalized Event
   declares `incident_correlation=correlate`, carries a non-empty correlation id and evidence key,
-  and meets the configured minimum severity. Events marked `incident_correlation=none`, including
+  and meets the configured minimum severity. Every event in one repeated-event burst belongs to the
+  same non-empty correlation episode; events from independent episodes never satisfy one another's
+  threshold. Events marked `incident_correlation=none`, including
   inventory and discovery changes, never open an Incident. The default automatic-open minimum is
   `high`; an unclassified burst remains `medium` and stays an anomaly.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their

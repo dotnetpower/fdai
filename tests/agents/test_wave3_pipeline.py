@@ -1351,3 +1351,31 @@ def test_end_to_end_shadow_verdict_loop() -> None:
     # Saga captured every terminal state
     saga.audit_chain.verify()
     assert len(saga.audit_chain.entries) >= len(verdicts) + len(action_runs)
+
+
+def test_heimdall_does_not_merge_independent_correlation_episodes() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
+    for index in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": f"episode-{index}",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": "high",
+                },
+            )
+        )
+
+    assert bus.messages_on("object.anomaly") == []
+    assert candidates == []

@@ -120,7 +120,7 @@ class Heimdall(Agent):
         self.bus = bus
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
-        self._recent_events: dict[str, deque[tuple[float, str]]] = {}
+        self._recent_events: dict[str, deque[tuple[float, str, str]]] = {}
         self._security_recent: deque[dict[str, Any]] = deque(maxlen=security_window_events)
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
@@ -406,11 +406,19 @@ class Heimdall(Agent):
         now = self._clock()
         while history and now - history[0][0] > self._rate_window:
             history.popleft()
-        history.append((now, str(event.get("event_type", "generic"))))
+        history.append(
+            (
+                now,
+                str(event.get("event_type", "generic")),
+                str(event.get("correlation_id") or "").strip(),
+            )
+        )
         if len(history) < self._rate_threshold:
             return
-        window_tail = [event_type for _, event_type in list(history)[-self._rate_threshold :]]
-        if len(set(window_tail)) == 1:
+        window_tail = list(history)[-self._rate_threshold :]
+        event_types = {event_type for _, event_type, _ in window_tail}
+        correlation_ids = {correlation_id for _, _, correlation_id in window_tail}
+        if len(event_types) == 1 and len(correlation_ids) == 1:
             incident_correlation = (
                 str(event.get("incident_correlation") or "correlate").strip().casefold()
             )
@@ -419,7 +427,7 @@ class Heimdall(Agent):
                 "correlation_id": event.get("correlation_id", ""),
                 "resource_id": resource_id,
                 "target_type": str(event.get("resource_type") or "unknown"),
-                "event_type": window_tail[0],
+                "event_type": window_tail[0][1],
                 "count_in_window": self._rate_threshold,
                 "severity": _event_severity(event),
                 "incident_correlation": incident_correlation,
@@ -575,7 +583,7 @@ class Heimdall(Agent):
         if resources:
             rid = resources[0]
             history = list(self._recent_events[rid])
-            event_types = sorted({event_type for _, event_type in history})
+            event_types = sorted({event_type for _, event_type, _ in history})
             facts.update(
                 {
                     "resource_id": rid,
