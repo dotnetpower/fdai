@@ -361,6 +361,44 @@ def test_summary_state_renders_all_incidents_without_requesting_selection() -> N
     assert result.evidence_refs == ("incident:corr-a", "incident:corr-b")
 
 
+def test_operational_summary_remains_authoritative_with_agent_evidence() -> None:
+    result = verify_answer(
+        "Heimdall found one high-severity signal.",
+        {
+            "routeId": "agents",
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "answer": "One high-severity signal is recorded.",
+                "facts": {
+                    "severity": "high",
+                    "evidence_refs": ["agent-state:Heimdall:sha256:" + "a" * 64],
+                },
+            },
+            "_operational_evidence": {
+                "status": "summary",
+                "searched_recent_incidents": 1,
+                "incidents": [
+                    {
+                        "correlation_id": "corr-high",
+                        "title": "Memory pressure",
+                        "status": "open",
+                        "severity": "high",
+                        "last_updated_at": "2026-07-22T01:00:00Z",
+                        "involved_agents": ["Heimdall"],
+                    }
+                ],
+            },
+        },
+        locale="en",
+    )
+
+    assert result.status == "corrected"
+    assert result.authority == "server_read_model"
+    assert result.reason_code == "incident_summary"
+    assert "corr-high" in result.answer
+    assert result.evidence_refs == ("incident:corr-high",)
+
+
 def test_summary_state_renders_korean_answer_without_requesting_selection() -> None:
     result = verify_answer(
         "인시던트를 선택해 주세요.",
