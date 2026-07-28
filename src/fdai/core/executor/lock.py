@@ -12,9 +12,10 @@ Design
 ------
 
 - One :class:`asyncio.Lock` per ``resource_id``, created lazily.
-- Locks stay in-process; horizontal scaling requires the executor to be
-  bounded to a single replica or to use a distributed lock (out of scope
-  for P1).
+- This implementation stays in-process and is the local/single-replica
+    default behind the ``ResourceLock`` seam. Scale-out composition injects
+    ``PostgresAdvisoryResourceLock`` for cross-replica exclusion; the event
+    bus resource partition key separately preserves per-resource ordering.
 - The manager MUST be safe to reuse across concurrent tasks - the
   per-resource-id dictionary itself is guarded by an internal lock.
 - Locks are held for the *duration of the action*; short critical
