@@ -61,7 +61,7 @@ class InventoryDeltaApplyResult:
 
     resources: int
     links: int
-    outcome: InventoryDeltaApplyOutcome
+    outcome: InventoryDeltaApplyOutcome = InventoryDeltaApplyOutcome.APPLIED
 
 
 class PostgresInventoryDeltaProjector:

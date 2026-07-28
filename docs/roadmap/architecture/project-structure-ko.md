@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 210912fb2fb8f5b85908452d53345de89c3c29db
+translation_source_sha: 68499962dbfe7f08919cdd766c6c1d4c89d86263
 translation_revised: 2026-07-28
 ---
 
@@ -287,7 +287,8 @@ fdai/
   promotion이 포함된 overlay를 정리하면 snapshot 기반 freshness가 복원됩니다.
   각 projector 결과에는 `applied`, `not_applicable`, `snapshot_covered`, `ordering_rejected` typed
   outcome이 포함됩니다. Snapshot 및 ordering suppression은 event id와 bounded reason을 포함한
-  `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 update를 구분할 수 있게 합니다.
+  `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 update를 구분할 수 있게 합니다. 기존
+  two-field result 생성은 생략된 outcome을 `applied`로 기본 설정하여 호환성을 유지합니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은
   exclusive promotion gate를 유지하므로 어떤 delta transaction과도 동시에 실행되지 않습니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한

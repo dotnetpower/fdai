@@ -11,6 +11,7 @@ from fdai.delivery.persistence.postgres_inventory_delta import (
     _GRAPH_RECONCILIATION_LOCK,
     _RESOURCE_LOCK_SEED,
     InventoryDeltaApplyOutcome,
+    InventoryDeltaApplyResult,
     PostgresInventoryDeltaProjector,
     _acquire_inventory_locks,
     _covered_resource_types,
@@ -34,6 +35,12 @@ async def test_payload_without_inventory_change_is_not_applicable() -> None:
     result = await projector({})
 
     assert result.outcome is InventoryDeltaApplyOutcome.NOT_APPLICABLE
+
+
+def test_apply_result_preserves_legacy_two_field_constructor() -> None:
+    result = InventoryDeltaApplyResult(resources=1, links=2)
+
+    assert result.outcome is InventoryDeltaApplyOutcome.APPLIED
 
 
 def _payload(
