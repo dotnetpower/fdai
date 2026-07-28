@@ -80,6 +80,8 @@ class IncidentPlatformSync:
 
 
 def _idempotency_key(*parts: str) -> str:
+    if any("\0" in part for part in parts):
+        raise ValueError("incident platform idempotency parts MUST NOT contain NUL")
     digest = hashlib.sha256("\0".join(parts).encode()).hexdigest()
     return f"incident-platform:{digest}"
 

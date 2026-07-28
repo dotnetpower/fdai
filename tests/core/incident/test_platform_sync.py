@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fdai.core.incident.platform_sync import IncidentPlatformSync
+import pytest
+
+from fdai.core.incident.platform_sync import IncidentPlatformSync, _idempotency_key
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.incident_platform import (
     ExternalIncident,
@@ -75,3 +77,11 @@ async def test_sync_publishes_stable_bounded_event() -> None:
     assert first_payload["idempotency_key"] == second_payload["idempotency_key"]
     assert first_payload["event_type"] == "incident.platform.updated"
     assert first_payload["payload"]["incident_ref"] == "inc-1"  # type: ignore[index]
+
+
+def test_platform_idempotency_key_rejects_ambiguous_nul_parts() -> None:
+    assert _idempotency_key("a", "bc") == _idempotency_key("a", "bc")
+    with pytest.raises(ValueError, match="NUL"):
+        _idempotency_key("a", "b\0c")
+    with pytest.raises(ValueError, match="NUL"):
+        _idempotency_key("a\0b", "c")

@@ -258,7 +258,7 @@
     "src/fdai/core/incident/metrics.py": "97397bae9bad9f87f02e1d8317c2c99537a553a466f4b66f67aae931a374f554",
     "src/fdai/core/incident/notification_delivery.py": "e2dcb6f79e52919800dd6884d8f59f7ef3a4b37e543f48932a242d078d4d99cb",
     "src/fdai/core/incident/notifications.py": "fd5f123675b9300d85d1e5cdebbd3f789531935b463330f6e073a8e671abdc09",
-    "src/fdai/core/incident/platform_sync.py": "2fdc6827f6e292c3408d93dc14be2fc461f7fee212020e916e53cb5d80ca92c1",
+    "src/fdai/core/incident/platform_sync.py": "ef0dc9ebe47cf9c1a639c77fded7efce166da769a36ed8266c2469b650a680a0",
     "src/fdai/core/incident/proposal_store.py": "d47eb9900a124ffea60d237414e88b691675c6cbecee342ff857d4df83c77c50",
     "src/fdai/core/incident/registry.py": "8577e2dca4a2cbbe5bf39bef7c313c94557e52d070917c0aa1e7494785a8a6af",
     "src/fdai/core/incident/replay.py": "80e4dc727c676d7ba0b81b6eb240e23e74e251793cbebc42b3622e6b3456584a",
@@ -807,7 +807,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-28T11:35:57Z",
+  "generated_at": "2026-07-28T11:38:32Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
