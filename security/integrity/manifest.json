@@ -50,7 +50,7 @@
     "src/fdai/agents/_framework/tool_examples.py": "63d5989f0f1805537b204bca01c548fb75269cd3a7fc9f3a94aa723a8a2b60b9",
     "src/fdai/agents/_framework/tool_planner.py": "1100d5e3c86ecff81cb1bef1693206eccb623a9b956266d2b453e3c708a33809",
     "src/fdai/agents/_framework/tool_prefetch.py": "8ad4136d4a1319d740947b186f03dd5589d93f4ce8ca3739498555a03244474c",
-    "src/fdai/agents/_framework/tool_semantic.py": "3d8ed0f16ffa5ed00fd846d57f4e0ab5211d5a9d2a0152f49d2f7bd11429a1fb",
+    "src/fdai/agents/_framework/tool_semantic.py": "bd55c3b67b2db421efcb46bf486bbeff76bbace69ae1182eb155bce9c016cb21",
     "src/fdai/agents/_framework/topics.py": "86c8aafe27517f19d78b1f0a0cd68ddc321392707ac91f8e662b11484f66b488",
     "src/fdai/agents/_framework/workflows.py": "a44335c08495c1cc7177d89abf0ef72d56ad3e32ebc1d9b39c913bacb1e8878a",
     "src/fdai/agents/bragi.py": "8b904fd4bd0a23b8c2582c71fed279f33cfe375e54ec78b8d2f5670cfa64e507",
@@ -806,7 +806,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-28T01:22:36Z",
+  "generated_at": "2026-07-28T01:25:43Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

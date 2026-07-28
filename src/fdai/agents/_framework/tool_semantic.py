@@ -56,14 +56,17 @@ class SemanticToolConfig:
     cosine_threshold: float = 0.55
     margin_threshold: float = 0.0
     retry_cooldown_seconds: float = 30.0
+    cache_ttl_seconds: float = 3_600.0
 
     def __post_init__(self) -> None:
         if not 0 < self.cosine_threshold <= 1:
             raise ValueError("semantic tool cosine_threshold MUST be in (0, 1]")
         if not 0 <= self.margin_threshold < 1:
             raise ValueError("semantic tool margin_threshold MUST be in [0, 1)")
-        if self.retry_cooldown_seconds < 0:
+        if not math.isfinite(self.retry_cooldown_seconds) or self.retry_cooldown_seconds < 0:
             raise ValueError("semantic tool retry_cooldown_seconds MUST be non-negative")
+        if not math.isfinite(self.cache_ttl_seconds) or self.cache_ttl_seconds <= 0:
+            raise ValueError("semantic tool cache_ttl_seconds MUST be positive and finite")
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +81,7 @@ class SemanticToolPlanner:
 
     __slots__ = (
         "_build_task",
+        "_built_at",
         "_config",
         "_embedding",
         "_lock",
@@ -101,6 +105,7 @@ class SemanticToolPlanner:
         self._config = config or SemanticToolConfig()
         self._vectors: tuple[_ToolVector, ...] | None = None
         self._vector_dim = 0
+        self._built_at = 0.0
         self._lock = asyncio.Lock()
         self._build_task: asyncio.Task[tuple[_ToolVector, ...]] | None = None
         self._retry_after = 0.0
@@ -189,7 +194,13 @@ class SemanticToolPlanner:
         provider hangs.
         """
         if self._vectors is not None and self._vector_dim == self._embedding.dim:
-            return self._vectors
+            if monotonic() - self._built_at < self._config.cache_ttl_seconds:
+                return self._vectors
+            # Same dimension does not prove the same embedding space. An
+            # endpoint can replace its backing model without changing
+            # vector length, so bound how long an old catalog may live.
+            _LOG.info("pantheon_tool_vector_cache_expired")
+            self._vectors = None
         if monotonic() < self._retry_after:
             return ()
         if self._vectors is not None:
@@ -272,6 +283,7 @@ class SemanticToolPlanner:
             # next question rather than cached as if it were the catalog.
             self._vectors = tuple(entries)
             self._vector_dim = self._embedding.dim
+            self._built_at = monotonic()
             return self._vectors
 
 

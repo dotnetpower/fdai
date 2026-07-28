@@ -165,7 +165,9 @@ lose that tool; it sends that tool's questions to whichever tool is next closest
 as long as the cache lives. An incomplete build is therefore refused and retried rather than
 cached, and a cache built under one model is dropped when the provider reports a different
 dimension - scoring a query against vectors from another space keeps producing confident numbers
-that mean nothing. NaN, Infinity, zero, and wrong-dimension vectors are invalid catalog entries.
+that mean nothing. Dimension cannot identify a same-size replacement model, so the cache also has
+a positive, finite TTL (one hour by default) that bounds how long the old space may remain. NaN,
+Infinity, zero, and wrong-dimension vectors are invalid catalog entries.
 
 The cold build is one shared task. A question may stop waiting and degrade while the build
 continues, but twenty-five timed-out questions still leave one build, not twenty-five. While it is

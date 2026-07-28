@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 4ff5bcf9f25fd42a019b6b4c8ecedec2024881d6
+translation_source_sha: 285652e4a98eb78f747a71430fe606c03d87f67a
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -165,7 +165,9 @@ generic responder는 이를 위조할 수 없습니다.
 것이 아니라, 그 도구의 질문을 그다음으로 가까운 도구로 조용히 보내며 캐시가 사는 동안 계속 그렇게
 합니다. 그래서 불완전한 빌드는 캐시하지 않고 거부한 뒤 다음 질문이 재시도하며, provider가 다른
 차원을 보고하면 기존 캐시를 버립니다. 다른 공간의 벡터와 대조한 점수는 의미 없는 확신에 찬 숫자일
-뿐이기 때문입니다. NaN, Infinity, zero 및 잘못된 차원 벡터는 유효한 catalog entry가 아닙니다.
+뿐이기 때문입니다. 차원만으로 같은 크기의 교체 모델을 식별할 수 없으므로 cache에는 양수이며 유한한
+TTL(기본 1시간)도 두어 기존 공간이 남는 시간을 제한합니다. NaN, Infinity, zero 및 잘못된 차원
+벡터는 유효한 catalog entry가 아닙니다.
 
 Cold build는 하나의 shared task입니다. 질문은 기다리기를 중단하고 강등될 수 있지만, timeout 질문
 25개가 남기는 build는 25개가 아니라 1개입니다. Build 중인 동안 뒤따르는 질문은 전체 gather timeout을

@@ -401,6 +401,18 @@ def test_retry_cooldown_cannot_be_negative() -> None:
         SemanticToolConfig(retry_cooldown_seconds=-0.01)
 
 
+@pytest.mark.parametrize("value", (float("nan"), float("inf"), -float("inf")))
+def test_retry_cooldown_must_be_finite(value: float) -> None:
+    with pytest.raises(ValueError, match="retry_cooldown_seconds MUST be non-negative"):
+        SemanticToolConfig(retry_cooldown_seconds=value)
+
+
+@pytest.mark.parametrize("value", (0.0, -1.0, float("nan"), float("inf")))
+def test_cache_ttl_must_be_positive_and_finite(value: float) -> None:
+    with pytest.raises(ValueError, match="cache_ttl_seconds MUST be positive and finite"):
+        SemanticToolConfig(cache_ttl_seconds=value)
+
+
 async def test_a_plan_names_the_tier_that_selected_it() -> None:
     """The two scores are not comparable, so the tier cannot be inferred."""
     from fdai.agents._framework.tool_planner import plan_conversation_tools
@@ -445,3 +457,38 @@ async def test_a_re_deployed_model_rebuilds_instead_of_ranking_across_spaces() -
     assert planner._vectors is not None
     assert all(len(entry.vector) == model.dim for entry in planner._vectors)
     assert model.calls == (tools + 1) * 2  # rebuilt, not scored across spaces
+
+
+async def test_same_dimension_model_swap_is_bounded_by_cache_ttl() -> None:
+    """Dimension alone cannot identify an embedding space."""
+
+    class _SameDimSwap:
+        dim = _DIM
+
+        def __init__(self) -> None:
+            self.calls = 0
+            self.space = 0
+
+        async def embed(self, text: str) -> list[float]:
+            self.calls += 1
+            vector = [0.0] * _DIM
+            vector[self.space] = 1.0
+            return vector
+
+    model = _SameDimSwap()
+    planner = _planner(
+        model,
+        config=SemanticToolConfig(cache_ttl_seconds=0.01),
+    )
+    tools = sum(len(spec.conversation.tool_specs) for spec in PANTHEON_SPECS)
+
+    assert await planner.plan("cost")
+    assert model.calls == tools + 1
+
+    model.space = 1
+    await asyncio.sleep(0.02)
+    assert await planner.plan("cost")
+
+    assert model.calls == (tools + 1) * 2
+    assert planner._vectors is not None
+    assert planner._vectors[0].vector[1] == 1.0
