@@ -270,6 +270,16 @@ def verify_answer(
                 evidence_refs=inventory_refs,
                 reason_code="inventory_snapshot_grounded",
             )
+        if state == "partial":
+            return AnswerVerification(
+                status="unverified",
+                answer=inventory_answer,
+                authority="server_inventory_graph",
+                checks_completed=1,
+                checks_total=2,
+                evidence_refs=inventory_refs,
+                reason_code="inventory_workload_coverage_gap",
+            )
         return AnswerVerification(
             status="unverified",
             answer=inventory_answer,

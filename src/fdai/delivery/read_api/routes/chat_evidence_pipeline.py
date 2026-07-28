@@ -30,6 +30,7 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     _with_web_evidence,
     merge_evidence_branch_results,
 )
+from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
 from fdai.delivery.read_api.routes.chat_web_search_intent import classify_search_intent
 
 
@@ -82,28 +83,39 @@ async def resolve_parallel_chat_evidence(
     )
     planned_web = planned_tool_name == "web_search"
     planned_direct_read = planned_read and planned_agent is None and not planned_web
+    search_intent = classify_search_intent(prompt)
+    deterministic_inventory_turn = needs_inventory_evidence(prompt) and search_intent.route != "web"
     selected_incident_turn = _screen_incident_context(
         prompt, base_context
     ) is not None and not _is_explicit_tool_command(prompt)
-    parallel_agent = planned_agent is not None or (
-        not has_semantic_plan
-        and (
-            _selected_agent(prompt, conversation_context, target_agent) is not None
-            or (
-                classify_read_investigation_intent(prompt) is not None
-                and resource_name_from_question(prompt) is not None
+    parallel_agent = not deterministic_inventory_turn and (
+        planned_agent is not None
+        or (
+            not has_semantic_plan
+            and (
+                _selected_agent(prompt, conversation_context, target_agent) is not None
+                or (
+                    classify_read_investigation_intent(prompt) is not None
+                    and resource_name_from_question(prompt) is not None
+                )
             )
         )
     )
     parallel_web = (
         web_search_resolver is not None
-        and (planned_web if has_semantic_plan else classify_search_intent(prompt).route == "web")
+        and not deterministic_inventory_turn
+        and (planned_web if has_semantic_plan else search_intent.route == "web")
         and not parallel_agent
         and "_behavior_evidence" not in base_context
         and "_screen_scope" not in base_context
     )
 
-    if planned_direct_read and planned_tool_resolver is not None and not selected_incident_turn:
+    if (
+        planned_direct_read
+        and planned_tool_resolver is not None
+        and not selected_incident_turn
+        and not deterministic_inventory_turn
+    ):
         selected_tool_name = cast(str, planned_tool_name)
         selected_arguments = cast(Mapping[str, object], planned_arguments)
 
@@ -125,7 +137,11 @@ async def resolve_parallel_chat_evidence(
                 ("_tool_evidence",),
             )
         )
-    elif not has_semantic_plan and tool_resolver is not None and not selected_incident_turn:
+    elif (
+        (not has_semantic_plan or deterministic_inventory_turn)
+        and tool_resolver is not None
+        and not selected_incident_turn
+    ):
 
         async def resolve_tool(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_tool_evidence(
@@ -230,7 +246,7 @@ async def resolve_parallel_chat_evidence(
         target_agent=target_agent,
     )
 
-    if not parallel_agent and not selected_incident_turn:
+    if not parallel_agent and not selected_incident_turn and not deterministic_inventory_turn:
 
         async def resolve_dependent_agent(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_agent_evidence(
@@ -264,7 +280,12 @@ async def resolve_parallel_chat_evidence(
             target_agent=target_agent,
         )
 
-    if not parallel_web and web_search_resolver is not None and not selected_incident_turn:
+    if (
+        not parallel_web
+        and web_search_resolver is not None
+        and not selected_incident_turn
+        and not deterministic_inventory_turn
+    ):
 
         async def resolve_dependent_web(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_web_evidence(

@@ -246,7 +246,7 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `explain_verdict(event_id)` | Read the audit trail for one already-processed event; return the tier, decision, citing rule ids, verifier report, mode. | Reader | `StateStore.query_audit()` |
 | `explore_catalog(query)` | Search the shipped rule catalog / action-type catalog / ontology vocabulary by id, keyword, or resource_type. | Reader | Loaded catalogs (no I/O) |
 | `query_audit(filters)` | Structured audit query: by event id, actor, decision, mode, time window. Paginated. | Reader | `StateStore.query_audit()` |
-| `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, and relationship queries. Returns bounded allowlisted fields plus active view and snapshot source/freshness; local VM state comes from `az vm list --show-details`; provider failure renders unavailable. | Reader | `InventoryGraphProvider` |
+| `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, and relationship queries. Returns bounded allowlisted fields plus active view and snapshot source/freshness; local VM state comes from `az vm list --show-details`; provider failure renders unavailable. AKS results cover cluster resources, not in-cluster Deployments or Pods. | Reader | `InventoryGraphProvider` |
 | `query_subscription_health()` | Inspect the server-configured Azure reader scope with parallel Resource Graph inventory and Resource Health queries, then bounded representative metric checks. Returns explicit findings, coverage gaps, freshness, and truncation without allowing caller-supplied scope. | Reader | `SubscriptionHealthProvider` |
 | `query_detection_readiness()` | Read Heimdall's latest AKS readiness decisions from Muninn StateSnapshots, including six-axis coverage gaps and the authority ceiling. It does not probe Azure or recompute readiness. | Reader | `DetectionReadinessReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
@@ -328,6 +328,11 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   with `web` / `local` / `none`, confidence, reason code, and a normalized query. Low-confidence,
   malformed, or unavailable classification stays `none`. Current-screen, audit, inventory,
   catalog, and sensitive-data boundaries are applied before this semantic fallback.
+  A deterministic local inventory intent, including an ASCII resource token followed by a Korean
+  particle such as `AKS에`, overrides a semantic public-web plan unless the operator explicitly
+  requests a web search. The coordinator runs only the local tool branch. An AKS application
+  deployment question remains partial when only cluster inventory is connected; it lists the
+  observed cluster resources and states that Kubernetes workload evidence is missing.
   Bragi deterministically keeps a data question on the current screen when that screen carries
   a facts or records projection for the turn, including an explicitly empty projection. The scope
   is selected before behavior, tool, incident, agent, concept, and web resolvers. It suppresses

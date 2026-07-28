@@ -15,7 +15,11 @@ from fdai.delivery.read_api.routes.chat import make_chat_route, make_chat_stream
 from fdai.delivery.read_api.routes.chat_behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
 )
-from fdai.delivery.read_api.routes.chat_inventory import InventoryChatTools
+from fdai.delivery.read_api.routes.chat_inventory import (
+    InventoryChatTools,
+    render_inventory_answer,
+)
+from fdai.delivery.read_api.routes.chat_verification import verify_answer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -285,6 +289,25 @@ def test_inventory_provider_failure_is_unverified_and_fail_closed() -> None:
     assert payload["verification"]["reason_code"] == "inventory_evidence_unavailable"
     assert "확정하지 않았습니다" in payload["answer"]
     assert backend.calls == 0
+
+
+async def test_aks_workload_question_reports_cluster_only_coverage() -> None:
+    evidence = await InventoryChatTools(_provider).resolve(
+        "지금 AKS에 배포되고 있는 게 있어?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "partial"
+    assert evidence["result"]["coverage_gap"] == "kubernetes_workloads"
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "aks-app" in answer
+    assert "Deployment와 Pod는 포함하지 않습니다" in answer
+    verification = verify_answer("", {"_tool_evidence": evidence}, locale="ko")
+    assert verification.status == "unverified"
+    assert verification.reason_code == "inventory_workload_coverage_gap"
+    assert verification.answer == answer
 
 
 def test_twenty_inventory_weaknesses_pass_twenty_answer_rubrics() -> None:

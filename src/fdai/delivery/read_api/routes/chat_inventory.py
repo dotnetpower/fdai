@@ -12,10 +12,11 @@ from fdai.delivery.read_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphProvider
 
 _RESOURCE_INTENT: Final = re.compile(
-    r"\b(?:azure\s+)?(?:resources?|assets?|inventory|virtual machines?|vms?|storage accounts?|"
-    r"databases?|postgres(?:ql)?|sql databases?|aks|kubernetes clusters?|vnets?|"
+    r"\b(?:azure\s+)?(?:resources?|assets?|inventory|virtual machines?|storage accounts?|"
+    r"databases?|postgres(?:ql)?|sql databases?|kubernetes clusters?|vnets?|"
     r"virtual networks?|managed identit(?:y|ies)|key vaults?|resource groups?|public ips?|"
     r"nsgs?)\b"
+    r"|(?<![A-Za-z0-9_])(?:aks|vms?)(?![A-Za-z0-9_])"
     r"|Azure\s*리소스|인벤토리|가상\s*머신|스토리지\s*계정|데이터베이스|"
     r"쿠버네티스|클러스터|가상\s*네트워크|관리형\s*ID|키\s*볼트|리소스\s*그룹|"
     r"공인\s*IP|네트워크\s*보안\s*그룹",
@@ -58,6 +59,11 @@ _RELATIONSHIP_INTENT: Final = re.compile(
 )
 _LOCATION_INTENT: Final = re.compile(r"\b(?:where|location|region)\b|어디|위치|리전", re.IGNORECASE)
 _STATUS_INTENT: Final = re.compile(r"\bstatus\b|상태", re.IGNORECASE)
+_WORKLOAD_INTENT: Final = re.compile(
+    r"\b(?:deploy(?:ed|ing|ments?)?|pods?|workloads?|running apps?)\b"
+    r"|배포|파드|워크로드|실행\s*중인\s*앱",
+    re.IGNORECASE,
+)
 _GROUP_FILTER: Final = re.compile(
     r"(?:resource\s*group|리소스\s*그룹)(?:\s*(?:named|이름(?:이|은)?))?\s*[:=]?\s*([A-Za-z0-9_.-]+)",
     re.IGNORECASE,
@@ -176,8 +182,11 @@ def _project_inventory_result(prompt: str, graph: Mapping[str, Any]) -> dict[str
         names = {str(item["name"]) for item in matched}
         links = [item for item in links if item["source"] in names or item["target"] in names]
 
+    workload_query = bool(
+        _WORKLOAD_INTENT.search(prompt) and "kubernetes-cluster" in requested_types
+    )
     return {
-        "status": "matched",
+        "status": "partial" if workload_query else "matched",
         "query_kind": _query_kind(prompt),
         "requested_types": list(requested_types),
         "resource_group": group_filter,
@@ -195,6 +204,7 @@ def _project_inventory_result(prompt: str, graph: Mapping[str, Any]) -> dict[str
             for item in matched[:_MAX_RESOURCES]
         ],
         "links": links[:_MAX_LINKS] if _RELATIONSHIP_INTENT.search(prompt) else [],
+        "coverage_gap": "kubernetes_workloads" if workload_query else None,
     }
 
 
@@ -207,7 +217,7 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
     if not isinstance(result, Mapping):
         return None
     korean = bool(locale and locale.casefold().startswith("ko"))
-    if result.get("status") != "matched":
+    if result.get("status") not in {"matched", "partial"}:
         return (
             "Azure 인벤토리 근거를 조회할 수 없어 리소스 상태를 확정하지 않았습니다."
             if korean
@@ -229,6 +239,12 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
             f"질문과 일치하는 리소스는 {count}개입니다."
         ]
         lines.extend(_answer_detail_lines(result, resources, korean=True))
+        if result.get("status") == "partial":
+            lines.append(
+                "이 Azure inventory 근거는 AKS 클러스터 리소스 상태까지만 포함하며, "
+                "클러스터 내부 Deployment와 Pod는 포함하지 않습니다. 따라서 앱 배포 여부는 "
+                "Kubernetes workload 근거가 연결되기 전에는 확정할 수 없습니다."
+            )
         lines.append(f"근거: {source}, snapshot {snapshot}, freshness {freshness}.")
         if truncated:
             lines.append("인벤토리 snapshot이 잘렸으므로 실제 리소스 수가 더 많을 수 있습니다.")
@@ -238,6 +254,12 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
         f"{count} of {total} resources in Azure inventory view '{active_view}' match the question."
     ]
     lines.extend(_answer_detail_lines(result, resources, korean=False))
+    if result.get("status") == "partial":
+        lines.append(
+            "This Azure inventory evidence covers AKS cluster resources only; it does not include "
+            "in-cluster Deployments or Pods. Application deployment cannot be confirmed until "
+            "Kubernetes workload evidence is connected."
+        )
     lines.append(f"Evidence: {source}, snapshot {snapshot}, freshness {freshness}.")
     if truncated:
         lines.append("The inventory snapshot is truncated, so additional resources may exist.")

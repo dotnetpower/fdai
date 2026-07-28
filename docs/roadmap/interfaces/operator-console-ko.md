@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 9ee8be9ba347e90fdc536ac0f204f5d1da06fcb5
+translation_source_sha: 7148e52153a6f5812e36b7ddac461080f3906a0a
 translation_revised: 2026-07-28
 ---
 
@@ -242,7 +242,7 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `explain_verdict(event_id)` | 이미 처리된 이벤트의 audit trail을 읽어; tier, decision, citing 룰 id, verifier 리포트, mode 반환. | Reader | `StateStore.query_audit()` |
 | `explore_catalog(query)` | Shipped rule 카탈로그 / action-type 카탈로그 / ontology 어휘를 id, keyword, 또는 resource_type으로 검색. | Reader | 로딩된 카탈로그 (I/O 없음) |
 | `query_audit(filters)` | 구조화된 audit query: event id, actor, decision, mode, 시간 window 별. Paginate. | Reader | `StateStore.query_audit()` |
-| `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, relationship query입니다. 제한된 allowlist field, active view, snapshot source/freshness만 반환하고 local VM 상태는 `az vm list --show-details`에서 읽으며 provider 실패는 unavailable로 표시합니다. | Reader | `InventoryGraphProvider` |
+| `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, relationship query입니다. 제한된 allowlist field, active view, snapshot source/freshness만 반환하고 local VM 상태는 `az vm list --show-details`에서 읽으며 provider 실패는 unavailable로 표시합니다. AKS result는 cluster resource만 포함하며 cluster 내부 Deployment와 Pod는 포함하지 않습니다. | Reader | `InventoryGraphProvider` |
 | `query_subscription_health()` | Server-configured Azure reader scope에서 Resource Graph inventory와 Resource Health를 병렬 query한 다음 bounded representative metric을 확인합니다. Caller-supplied scope를 허용하지 않고 명시적인 finding, coverage gap, freshness 및 truncation을 반환합니다. | Reader | `SubscriptionHealthProvider` |
 | `query_detection_readiness()` | Muninn StateSnapshot에서 Heimdall의 최신 AKS readiness 판정을 읽고 6축 coverage gap과 authority ceiling을 반환합니다. Azure를 probe하거나 readiness를 다시 계산하지 않습니다. | Reader | `DetectionReadinessReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
@@ -320,6 +320,11 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   검색 가능한 model이 `web` / `local` / `none`, confidence, reason code 및 normalized query를 strict
   JSON으로 반환합니다. Low-confidence, malformed 또는 unavailable classification은 `none`을 유지합니다.
   Current-screen, audit, inventory, catalog 및 sensitive-data 경계는 semantic fallback 전에 적용됩니다.
+  `AKS에`처럼 ASCII resource token 뒤에 한국어 조사가 붙은 경우를 포함한 deterministic local
+  inventory intent는 operator가 web search를 명시적으로 요청하지 않는 한 semantic public-web plan보다
+  우선합니다. Coordinator는 local tool branch만 실행합니다. Cluster inventory만 연결된 상태의 AKS 앱
+  배포 질문은 partial로 유지하고 관찰된 cluster resource와 Kubernetes workload evidence 누락을 함께
+  표시합니다.
   현재 화면에 명시적으로 빈 projection을 포함한 turn의 facts 또는 records projection이 있으면
   Bragi는 data question을 해당 화면 범위에 결정론적으로 유지합니다. 이 scope는 behavior, tool,
   incident, agent, concept 및 web resolver보다 먼저 선택합니다. Specialist delegation, semantic web

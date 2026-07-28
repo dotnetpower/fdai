@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: d6154be1d6aa677ceeeda6fdc9d29482e2323845
+translation_source_sha: 5cd58e400a4411b882b2b9aa2a7483fe8068e2f6
 translation_revised: 2026-07-28
 ---
 
@@ -131,6 +131,9 @@ Intent scope도 유지합니다. Steer rerun은 active turn의 structured `web`,
 route를 유지하고, queued next turn은 자신의 content를 분류합니다. Incident collection-summary 후속
 입력은 operator에게 incident 하나를 선택하도록 요청하지 않고 bounded matching set을 결정론적으로
 렌더링합니다. Cause analysis처럼 incident 하나가 필요한 질문은 ambiguous-selection 동작을 유지합니다.
+Deterministic local inventory intent는 semantic plan이 public web을 선택했더라도 rerun에서 local로
+유지합니다. 명시적인 web-search 표현만 예외입니다. Partial AKS cluster inventory는 cluster 내부
+Deployment 또는 Pod의 proof가 되지 않습니다.
 `latest`, `recent`, `최신` 같은 generic public freshness term은 incident, issue, outage, failure,
 problem 또는 cause 의미가 명시되지 않으면 incident scope를 만들지 않습니다. Steer rerun도 원래의
 public-web와 operational 경계를 유지합니다.
