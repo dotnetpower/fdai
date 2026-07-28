@@ -8243,10 +8243,74 @@ main { padding-bottom: 60px !important; }
 .rule-category-pill.is-remediation { color: var(--cs-sage); background: color-mix(in oklab, var(--cs-sage) 10%, transparent); }
 .rule-category-pill.is-governance { color: var(--cs-plum); background: color-mix(in oklab, var(--cs-plum) 10%, transparent); }
 .rule-category-pill.is-ops { color: var(--cs-teal); background: color-mix(in oklab, var(--cs-teal) 10%, transparent); }
+.rules-view-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--cs-shade);
+}
+.rules-view-tabs a {
+  min-width: 92px;
+  padding: 7px 14px;
+  border-radius: 5px;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+}
+.rules-view-tabs a.is-active {
+  color: var(--fg);
+  background: var(--bg-elevated);
+  box-shadow: 0 1px 3px rgba(46, 54, 64, 0.1);
+}
+.control-evidence-banner {
+  background: color-mix(in oklab, var(--cs-terracotta) 5%, var(--cs-shade));
+}
+.control-table-identity {
+  display: grid;
+  grid-template-columns: 54px minmax(190px, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  min-width: 330px;
+}
+.control-table-identity code { color: var(--fg); font-weight: 700; }
+.control-table-identity span { color: var(--fg-muted); line-height: 1.35; }
+.control-requirement-list { display: grid; gap: 7px; }
+.control-requirement-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--cs-shade);
+}
+.control-requirement-row > div { display: grid; gap: 3px; min-width: 0; }
+.control-requirement-row code { overflow-wrap: anywhere; }
 @media (max-width: 760px) {
   .rule-facet-set { width: 100%; }
   .rule-facet-set > div { max-width: 100%; }
   .rule-facet-search { width: 100%; margin-left: 0; }
+  .rules-view-tabs { width: 100%; }
+  .rules-view-tabs a { flex: 1; min-width: 0; }
+  .controls-catalog-view .control-evidence-banner {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .controls-catalog-view .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .control-column-secondary,
+  .control-column-owner { display: none; }
+  .control-table-identity {
+    grid-template-columns: 48px minmax(130px, 1fr);
+    min-width: 210px;
+  }
+  .control-table-identity span { font-size: 11px; }
 }
 .scope-axis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .scope-axis-section,

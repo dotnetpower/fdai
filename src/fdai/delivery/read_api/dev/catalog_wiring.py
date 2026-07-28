@@ -11,6 +11,7 @@ from typing import Any
 import yaml
 
 from fdai.core.tiers.t0_deterministic.opa_evaluator import MissingOpaBinaryError
+from fdai.delivery.read_api.app.catalog_reference import load_best_practice_reference
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
@@ -29,6 +30,7 @@ class LocalCatalogWiring:
     object_types: tuple[Any, ...]
     link_types: tuple[Any, ...]
     action_types: tuple[Any, ...]
+    best_practices: tuple[Any, ...]
     rules: tuple[Any, ...]
     collected_rules: tuple[Any, ...]
     workflows: tuple[Any, ...]
@@ -109,6 +111,7 @@ def build_local_catalog_wiring(
         object_types=object_types,
         link_types=link_types,
         action_types=action_types,
+        best_practices=load_best_practice_reference(repo_root),
         rules=rules,
         collected_rules=collected_rules,
         workflows=workflows,

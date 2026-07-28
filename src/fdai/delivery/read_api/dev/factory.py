@@ -326,6 +326,7 @@ def build_local_app(
     ontology_object_types = catalog.object_types
     ontology_link_types = catalog.link_types
     action_types = catalog.action_types
+    best_practice_controls = catalog.best_practices
     rule_catalog_rules = catalog.rules
     rule_catalog_collected = catalog.collected_rules
     policies_root = catalog.policies_root
@@ -688,6 +689,7 @@ def build_local_app(
                 else None
             ),
             log_query_provider=log_query_provider,
+            best_practice_controls=tuple(best_practice_controls),
             rule_catalog_rules=tuple(rule_catalog_rules),
             rule_catalog_collected_rules=tuple(rule_catalog_collected),
             rule_catalog_policies_root=policies_root if policies_root.is_dir() else None,

@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rules - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/rules-controls.css?v=controls-v1" />
   <script defer src="assets/calm-slate.js?v=page-context-v3"></script>
+  <script defer src="assets/rules-controls.js?v=controls-v1"></script>
 </head>
 <body>
   <main class="cs-container cs-page">
@@ -24,7 +26,8 @@
 
     <!-- Tabs -->
     <div class="cs-tabs" data-cs-tabs role="tablist">
-      <button class="cs-tab cs-active" data-cs-tab="rules-catalog">Catalog <span class="cs-muted" style="font-weight:400">&middot; 214</span></button>
+      <button class="cs-tab cs-active" data-cs-tab="rules-catalog">Rules <span class="cs-muted" style="font-weight:400">&middot; 214</span></button>
+      <button class="cs-tab" data-cs-tab="rules-controls">Controls <span class="cs-muted" style="font-weight:400">&middot; 21</span></button>
       <button class="cs-tab" data-cs-tab="rules-collected">Collected <span class="cs-muted" style="font-weight:400">&middot; 37</span></button>
       <button class="cs-tab" data-cs-tab="rules-overrides">Overrides &amp; exemptions <span class="cs-muted" style="font-weight:400">&middot; 9</span></button>
     </div>
@@ -138,6 +141,65 @@
       <div class="cs-flex cs-flex-between cs-mb-0" style="margin-top:12px">
         <span class="cs-muted" style="font-size:13px">Showing 6 of 214 rules across 7 sources.</span>
         <a href="#" class="cs-link">Open rule schema &rarr;</a>
+      </div>
+    </div>
+
+    <!-- Tab: Controls -->
+    <div id="rules-controls" class="cs-tabpanel">
+      <div class="control-boundary-note">
+        <strong>Definitions and evaluation are separate.</strong>
+        <span>This design mock uses synthetic mixed statuses to exercise the complete surface. The
+          real console shows Unknown until runtime evidence is connected; catalog presence never
+          counts as a pass.</span>
+      </div>
+
+      <div class="cs-grid cs-grid-4 control-kpis">
+        <div class="cs-card cs-kpi"><span class="cs-kpi-label">Control definitions</span><span class="cs-kpi-value">21</span><span class="cs-kpi-foot">Azure WAF, version-pinned</span></div>
+        <div class="cs-card cs-kpi"><span class="cs-kpi-label">Reliability</span><span class="cs-kpi-value">10</span><span class="cs-kpi-foot">RE:01-RE:10</span></div>
+        <div class="cs-card cs-kpi"><span class="cs-kpi-label">Operational excellence</span><span class="cs-kpi-value">11</span><span class="cs-kpi-foot">OE:01-OE:11</span></div>
+        <div class="cs-card cs-kpi"><span class="cs-kpi-label">Needs attention</span><span class="cs-kpi-value">12</span><span class="cs-kpi-foot">failed, stale, or unknown</span></div>
+      </div>
+
+      <div class="cs-filterbar">
+        <span class="cs-fb-label">Pillar</span>
+        <div class="cs-chipset" data-control-filter="pillar">
+          <button class="cs-chip cs-active" data-value="">All</button>
+          <button class="cs-chip" data-value="reliability">Reliability</button>
+          <button class="cs-chip" data-value="operational-excellence">Operational excellence</button>
+        </div>
+        <span class="cs-fb-label">Status</span>
+        <div class="cs-chipset" data-control-filter="status">
+          <button class="cs-chip cs-active" data-value="">All</button>
+          <button class="cs-chip" data-value="satisfied">Satisfied</button>
+          <button class="cs-chip" data-value="failed">Failed</button>
+          <button class="cs-chip" data-value="stale">Stale</button>
+          <button class="cs-chip" data-value="unknown">Unknown</button>
+        </div>
+        <label class="cs-fb-search">
+          <span class="cs-muted" style="font-size:13px">&#128269;</span>
+          <input id="control-search" type="search" placeholder="RE:09 or disaster recovery" />
+        </label>
+      </div>
+
+      <div class="cs-table-wrap">
+        <table class="cs-table">
+          <thead>
+            <tr>
+              <th>Control</th>
+              <th class="control-col-secondary">Pillar</th>
+              <th class="control-col-secondary">Severity</th>
+              <th class="control-col-secondary">Requirements</th>
+              <th class="control-col-owner">Owner</th>
+              <th>Status</th>
+              <th aria-label="Open detail"></th>
+            </tr>
+          </thead>
+          <tbody id="control-table-body"></tbody>
+        </table>
+      </div>
+      <div class="cs-flex cs-flex-between cs-mb-0 control-results">
+        <span class="cs-muted" id="control-result-count">Showing 21 of 21 controls.</span>
+        <span class="cs-muted">Synthetic status data - design validation only</span>
       </div>
     </div>
 
@@ -288,6 +350,40 @@
     </div>
 
   </main>
+
+  <div class="cs-drawer-overlay" id="rules-control-drawer" data-cs-drawer-overlay hidden>
+    <aside class="cs-drawer" role="dialog" aria-modal="true" aria-labelledby="control-drawer-title" tabindex="-1" data-cs-drawer>
+      <header class="cs-drawer-head">
+        <div><h3><code id="control-drawer-title">Control</code></h3><p>Azure Well-Architected Framework</p></div>
+        <button class="cs-alert-dismiss" type="button" aria-label="Close control detail" data-cs-drawer-close>&times;</button>
+      </header>
+      <div class="cs-drawer-body">
+        <section class="cs-drawer-section">
+          <div class="cs-flex cs-wrap cs-gap-8 cs-mb-16" id="control-drawer-pills"></div>
+          <h4 id="control-drawer-heading"></h4>
+          <p class="cs-muted" id="control-drawer-rationale"></p>
+        </section>
+        <section class="cs-drawer-section">
+          <h4>Evidence state</h4>
+          <div class="control-boundary-note">
+            <span>Mock status is synthetic. Production remains Unknown until signed, fresh runtime
+              evidence satisfies each requirement.</span>
+          </div>
+        </section>
+        <section class="cs-drawer-section"><h4>Requirements</h4><div class="control-requirements" id="control-drawer-requirements"></div></section>
+        <section class="cs-drawer-section">
+          <h4>Provenance</h4>
+          <dl class="cs-drawer-facts">
+            <div><dt>Framework</dt><dd>Azure WAF</dd></div>
+            <div><dt>Version</dt><dd>1.0.0</dd></div>
+            <div><dt>Source</dt><dd>Microsoft Learn</dd></div>
+            <div><dt>Mode</dt><dd>all</dd></div>
+          </dl>
+        </section>
+      </div>
+      <footer class="cs-drawer-foot"><button class="cs-btn" type="button" data-cs-drawer-close>Close</button></footer>
+    </aside>
+  </div>
 
   <footer class="cs-footer">
     <div class="cs-container cs-flex-between cs-wrap">

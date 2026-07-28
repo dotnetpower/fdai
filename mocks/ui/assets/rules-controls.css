@@ -1,0 +1,51 @@
+.control-boundary-note {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: color-mix(in srgb, var(--cs-terracotta) 6%, var(--cs-card));
+}
+.control-boundary-note strong { color: var(--cs-text); }
+.control-boundary-note span { color: var(--cs-text-soft); line-height: 1.5; }
+.control-kpis { margin-bottom: 20px; }
+.control-table-button {
+  display: grid;
+  grid-template-columns: 52px minmax(180px, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.control-table-button code { font-weight: 700; }
+.control-table-button span { color: var(--cs-text-soft); line-height: 1.35; }
+.control-requirements { display: grid; gap: 8px; }
+.control-requirement {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-shade);
+}
+.control-requirement > span { display: grid; gap: 2px; min-width: 0; }
+.control-requirement code { overflow-wrap: anywhere; }
+.control-results { margin-top: 12px; font-size: 13px; }
+@media (max-width: 700px) {
+  .control-col-secondary,
+  .control-col-owner { display: none; }
+  .control-table-button {
+    grid-template-columns: 48px minmax(130px, 1fr);
+    min-width: 210px;
+  }
+  .control-table-button span { font-size: 11px; }
+  .control-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

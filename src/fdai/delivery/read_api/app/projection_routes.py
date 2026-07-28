@@ -76,6 +76,22 @@ def append_projection_routes(
             )
         )
 
+    if config.best_practice_controls:
+        from fdai.delivery.read_api.routes.best_practices import (
+            DEFAULT_ROUTE_PATH,
+            DETAIL_ROUTE_PATH,
+            make_best_practice_routes,
+        )
+
+        for path in (DEFAULT_ROUTE_PATH, DETAIL_ROUTE_PATH):
+            _ensure_available(path, "best-practice path", core_paths, panel_paths)
+        routes.extend(
+            make_best_practice_routes(
+                controls=config.best_practice_controls,
+                authorize=authorize,
+            )
+        )
+
     if config.rule_catalog_rules or config.rule_catalog_collected_rules:
         from fdai.delivery.read_api.routes.rule_catalog import (
             DEFAULT_ROUTE_PATH,

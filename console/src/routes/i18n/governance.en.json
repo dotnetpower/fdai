@@ -186,6 +186,11 @@
     }
   },
   "rules": {
+    "view": {
+      "aria": "Rule catalog views",
+      "rules": "Rules",
+      "controls": "Controls"
+    },
     "lifecycleInvalid": "The requested rule lifecycle status is not registered.",
     "lifecycleUnavailable": "Rule {status} lifecycle evidence is not exposed by this deployment.",
     "routeUnavailable": "The rule-catalog route is not wired on this deployment. Set ReadApiConfig.rule_catalog_rules / rule_catalog_collected_rules in the composition root to enable it.",
@@ -271,6 +276,54 @@
       "noViolations": "No resources currently violate this rule.",
       "viewArchitecture": "View on architecture"
     },
+    "controls": {
+      "routeUnavailable": "Best-practice controls are not available in this deployment.",
+      "loadFailed": "Failed to load controls: {message}",
+      "loading": "Loading controls...",
+      "context": {
+        "routeLabel": "Controls",
+        "purpose": "Version-pinned Best Practice definitions and their evidence requirements. Catalog presence is reference data, not runtime compliance evidence.",
+        "headline": "{total} control definitions; {unknown} remain Unknown"
+      },
+      "banner": {
+        "title": "Control definitions are connected; runtime evidence is not.",
+        "body": "These 21 Azure Well-Architected controls are version-pinned catalog definitions. Unknown is intentional until an evidence provider evaluates the requirements."
+      },
+      "kpi": {
+        "total": "Control definitions",
+        "reliability": "Reliability",
+        "operations": "Operational excellence",
+        "unknown": "Unknown",
+        "notConnected": "Runtime evidence not connected"
+      },
+      "column": {
+        "control": "Control",
+        "pillar": "Pillar",
+        "requirements": "Requirements",
+        "owner": "Owner",
+        "status": "Status"
+      },
+      "filter": {
+        "pillar": "Pillar",
+        "status": "Status",
+        "searchAria": "Search controls",
+        "searchPlaceholder": "e.g. RE:09 or disaster recovery"
+      },
+      "result": {
+        "empty": "No controls match the current filters.",
+        "showing": "Showing {filtered} of {total} controls"
+      },
+      "detail": {
+        "aria": "Control detail",
+        "title": "Control detail",
+        "loading": "Loading control detail...",
+        "loadFailed": "Failed to load control detail: {message}",
+        "notConnected": "No runtime evidence provider is connected. Requirement status remains Unknown; catalog presence is not a pass.",
+        "framework": "Framework",
+        "mode": "Requirement mode",
+        "requirements": "Evidence requirements"
+      }
+    },
     "severityRisk": {
       "critical": "Critical - a violation is an immediate, high-impact exposure.",
       "high": "High - a violation is a serious risk that should be fixed promptly.",
@@ -292,6 +345,18 @@
     "origin": {
       "active": "Active",
       "collected": "Collected"
+    },
+    "controlPillar": {
+      "reliability": "Reliability",
+      "operational_excellence": "Operational excellence",
+      "other": "Other"
+    },
+    "controlStatus": {
+      "satisfied": "Satisfied",
+      "failed": "Failed",
+      "stale": "Stale",
+      "unknown": "Unknown",
+      "not_applicable": "Not applicable"
     },
     "severity": {
       "critical": "Critical",

@@ -295,6 +295,10 @@ fakes, synthetic scheduler/cost data, scope templates, and blast-radius fixtures
 When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated
 surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain
 visible because they are configuration-as-code, not observed runtime evidence.
+Local and deployed read API factories load the same validated Best Practice definitions for the
+Rules `Controls` reference view. This parity does not create a runtime claim: without an
+authoritative evidence provider, both factories expose every control and requirement as `Unknown`
+with source `not_connected`.
 
 The local API exposes `GET /system/data-sources`. In the standard full stack, the production
 PostgreSQL read-model adapter points to local pgvector. Before accepting traffic, the local read API

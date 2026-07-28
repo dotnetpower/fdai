@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalReadApiUnavailable } from "../api";
 import type { ReadApiClient } from "../api";
+import { bestPracticeHref, rulesCatalogViewFromSearch } from "./best-practice-controls.model";
+import { BestPracticeControlsRoute } from "./best-practice-controls";
 import {
   ErrorState,
   LoadingState,
@@ -67,6 +69,29 @@ interface Props {
 }
 
 export function RuleCatalogRoute({ client }: Props) {
+  const [view, setView] = useState(rulesCatalogViewFromSearch(currentRoute().search));
+  useEffect(() => {
+    const onRouteChange = () => setView(rulesCatalogViewFromSearch(currentRoute().search));
+    window.addEventListener("popstate", onRouteChange);
+    window.addEventListener("fdai:route-changed", onRouteChange);
+    return () => {
+      window.removeEventListener("popstate", onRouteChange);
+      window.removeEventListener("fdai:route-changed", onRouteChange);
+    };
+  }, []);
+  return (
+    <div class="stack governance-route rules-route">
+      <PageHeader title={t("route.rules")} subtitle={t("governance.rules.subtitle")} />
+      <nav class="rules-view-tabs" aria-label={t("governance.rules.view.aria")}>
+        <a class={view === "rules" ? "is-active" : undefined} aria-current={view === "rules" ? "page" : undefined} href={routeHref("rules")}>{t("governance.rules.view.rules")}</a>
+        <a class={view === "controls" ? "is-active" : undefined} aria-current={view === "controls" ? "page" : undefined} href={bestPracticeHref({ pillar: "", status: "", q: "" }, null)}>{t("governance.rules.view.controls")}</a>
+      </nav>
+      {view === "controls" ? <BestPracticeControlsRoute client={client} /> : <AtomicRuleCatalogRoute client={client} />}
+    </div>
+  );
+}
+
+function AtomicRuleCatalogRoute({ client }: Props) {
   const initialListState = ruleListStateFromRoute();
   const [lifecycleStatus, setLifecycleStatus] = useState(ruleLifecycleStatusFromSearch(
     currentRoute().search,
@@ -269,18 +294,10 @@ export function RuleCatalogRoute({ client }: Props) {
     };
   }, [selected]);
 
-  const header = (
-    <PageHeader
-      title={t("route.rules")}
-      subtitle={t("governance.rules.subtitle")}
-    />
-  );
-
   // First load (no data yet): show a single state block.
   if (data === null) {
     return (
-      <div class="stack governance-route rules-route">
-        {header}
+      <div class="stack">
         {status === "error" ? (
           <ErrorState message={t("governance.rules.loadFailed", { message: errorMsg })} />
         ) : status === "unavailable" ? (
@@ -296,8 +313,7 @@ export function RuleCatalogRoute({ client }: Props) {
   // shows an inline indicator, so the search box never loses focus.
   const listUpdating = isRuleListUpdating(searchInput, filters.q, status === "loading");
   return (
-    <div class="stack governance-route rules-route">
-      {header}
+    <div class="stack">
       {status === "error" ? (
         <ErrorState message={t("governance.rules.refreshFailed", { message: errorMsg })} />
       ) : null}

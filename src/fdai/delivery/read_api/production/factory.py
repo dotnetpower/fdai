@@ -99,6 +99,7 @@ from fdai.delivery.persistence.postgres_task_worker import (
     PostgresTaskWorkerStore,
     PostgresTaskWorkerStoreConfig,
 )
+from fdai.delivery.read_api.app.catalog_reference import load_best_practice_reference
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.production import env_contract as _env
 from fdai.delivery.read_api.production.config import (
@@ -659,6 +660,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         ),
         subscription_health_provider=subscription_health_provider,
         detection_readiness_reader=state_store,
+        best_practice_controls=load_best_practice_reference(_REPO_ROOT),
         scope_source=scope_source,
         log_query_provider=log_query_provider,
         reporting=reporting,

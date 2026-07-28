@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dff343719386944fdf6711d1c0d3d2044ecdc54f
+translation_source_sha: 1aa856402c24c1fbec4525ed5eb7ee44f392223d
 translation_revised: 2026-07-29
 ---
 
@@ -221,6 +221,9 @@ fdai/
   Command surface는 인증된 record 또는 typed proposal을 read API에 제출할 수 있지만 resource
   executor를 직접 호출하지 않습니다. Risk, approval, audit, executor 경계는 server-side에 유지됩니다
   ([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
+  Repository Best Practice 정의는 composition root에서 한 번 로드하고 GET 전용 list 및 detail
+  route로 노출합니다. 이 정의는 catalog reference data로 유지되며 runtime evidence provider를
+  명시적으로 bind하기 전까지 projection은 `Unknown` 및 `not-connected`를 보고합니다.
   탐색 셸은 아이콘 전용 Activity Bar와 다섯 개의 안정적인 영역인 `전체 현황`, `운영`,
   `에이전트`, `거버넌스`, `감사·증적`을 사용합니다. 인접한 Explorer는 선택한 영역에 등록된
   패널을 렌더링합니다. 영역을 선택하면 Explorer를 열고 운영자의 로컬 패널 순서 및 표시

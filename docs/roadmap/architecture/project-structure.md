@@ -218,6 +218,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   API, but they cannot call a resource executor directly; risk, approval, audit, and executor
   boundaries remain server-side
   (see [security-and-identity.md](security-and-identity.md)).
+  Repository Best Practice definitions are loaded once at the composition root and exposed through
+  GET-only list and detail routes. They remain catalog reference data; the projection reports
+  `Unknown` and `not-connected` until a runtime evidence provider is explicitly bound.
   The navigation shell uses an icon-only Activity Bar with five stable domains:
   `Overview`, `Operations`, `Agents`, `Governance`, and `Evidence`. The adjacent Explorer
   renders the panels registered for the selected domain. Selecting a domain opens the Explorer

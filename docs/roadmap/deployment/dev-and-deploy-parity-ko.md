@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: be5f837bf55f0aa462ad53d389c2f17eee1f505c
+translation_source_sha: f8ddbf3ab35d3e1468fd1d8f6423428c9446c07c
 translation_revised: 2026-07-29
 ---
 
@@ -297,6 +297,10 @@ executor, VM-task fake, synthetic scheduler/cost data, scope template, blast-rad
 FDAI Azure PostgreSQL, Event Hubs, runtime, executor resource가 없으면 해당 surface는 runtime
 claim 없이 unavailable 또는 empty로 표시됩니다. Repository catalog와 schema는 observed runtime
 evidence가 아니라 configuration-as-code이므로 계속 표시합니다.
+Local 및 deployed read API factory는 Rules의 `Controls` reference view를 위해 동일한 validated
+Best Practice 정의를 로드합니다. 이 parity는 runtime claim을 만들지 않습니다. Authoritative
+evidence provider가 없으면 두 factory 모두 모든 control과 requirement를 `Unknown`, source는
+`not_connected`로 노출합니다.
 
 Local API는 `GET /system/data-sources`를 제공합니다. Standard full stack에서는 production
 PostgreSQL read-model adapter가 local pgvector를 사용합니다. Local read API는 traffic을 받기 전에

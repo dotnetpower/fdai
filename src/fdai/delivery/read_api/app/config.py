@@ -226,6 +226,13 @@ class ReadApiConfig:
     :class:`~fdai.delivery.read_api.routes.scope.ScopeSource`. When set,
     registers Reader-gated read-only ``GET /scope``."""
 
+    best_practice_controls: tuple[Any, ...] = ()
+    """Validated Best Practice definitions for ``GET /best-practices``.
+
+    Definitions are repository reference data, not runtime compliance evidence.
+    The route reports ``unknown`` and ``not_connected`` until an authoritative
+    evidence projection is explicitly composed."""
+
     rule_catalog_rules: tuple[Any, ...] = ()
     """Opt-in rule-catalog explorer input: the *active* catalog. Tuple of
     :class:`~fdai.shared.contracts.models.Rule` loaded at
