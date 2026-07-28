@@ -402,7 +402,7 @@ async def test_chat_pipeline_prefers_local_aks_inventory_over_planned_web() -> N
     class ToolResolver:
         async def resolve(self, prompt: str, *, principal_id: str):
             del principal_id
-            assert prompt == "지금 AKS에 배포되고 있는 게 있어?"
+            assert prompt == "지금 AKS 에 배포되고 있는게 있어?"
             return {
                 "tool": "query_inventory",
                 "authority": "server_inventory_graph",
@@ -432,7 +432,7 @@ async def test_chat_pipeline_prefers_local_aks_inventory_over_planned_web() -> N
 
     merged = await resolve_parallel_chat_evidence(
         request_id="request-aks-inventory",
-        prompt="지금 AKS에 배포되고 있는 게 있어?",
+        prompt="지금 AKS 에 배포되고 있는게 있어?",
         view_context={
             "routeId": "operating-outcomes",
             "_turn_plan": {

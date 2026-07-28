@@ -88,8 +88,13 @@ async def resolve_parallel_chat_evidence(
         classify_read_investigation_intent(prompt) is not None
         and resource_name_from_question(prompt) is not None
     )
+    explicit_web_search = search_intent.reason in {
+        "explicit_web_search",
+        "explicit_web_context",
+        "explicit_search_request",
+    }
     deterministic_inventory_turn = (
-        needs_inventory_evidence(prompt) and search_intent.route != "web" and not read_investigation
+        needs_inventory_evidence(prompt) and not explicit_web_search and not read_investigation
     )
     selected_incident_turn = _screen_incident_context(
         prompt, base_context
