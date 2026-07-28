@@ -77,3 +77,42 @@ def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) 
         str(_ROOT / "src"),
         inherited,
     ]
+
+
+def test_python_test_runner_isolates_database_env_by_phase(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    recorded = tmp_path / "database-env.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "%s|%s|%s\\n" "${FDAI_DATABASE_URL-unset}" '
+        '"${FDAI_STATE_STORE_DSN-unset}" "$*" >> "$RECORDED_DATABASE_ENV"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    bash = shutil.which("bash")
+    assert bash is not None
+    result = subprocess.run(  # noqa: S603 - fixed repository script, test-controlled env
+        [bash, str(_PYTHON_TESTS)],
+        cwd=_ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+            "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/state",
+            "FDAI_PYTEST_XDIST": "0",
+            "RECORDED_DATABASE_ENV": str(recorded),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    lines = recorded.read_text(encoding="utf-8").splitlines()
+    assert lines[0].startswith("unset|unset|run pytest -q -m not integration")
+    assert lines[1].startswith(
+        "postgresql://example.invalid/fdai|postgresql://example.invalid/state|"
+        "run pytest -q -m integration"
+    )
