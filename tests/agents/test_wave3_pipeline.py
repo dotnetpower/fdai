@@ -1379,3 +1379,32 @@ def test_heimdall_does_not_merge_independent_correlation_episodes() -> None:
 
     assert bus.messages_on("object.anomaly") == []
     assert candidates == []
+
+
+def test_heimdall_uses_worst_severity_in_burst_window() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
+    for index, severity in enumerate(("critical", "info")):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "episode-1",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": severity,
+                },
+            )
+        )
+
+    anomaly = bus.messages_on("object.anomaly")[0].payload
+    assert anomaly["severity"] == "critical"
+    assert candidates[0]["severity"] == "critical"

@@ -39,7 +39,8 @@ are synthetic.
   declares `incident_correlation=correlate`, carries a non-empty correlation id and evidence key,
   and meets the configured minimum severity. Every event in one repeated-event burst belongs to the
   same non-empty correlation episode; events from independent episodes never satisfy one another's
-  threshold. Events marked `incident_correlation=none`, including
+  threshold. The burst severity is the most severe recorded value in that bounded window, not the
+  value on whichever Event arrived last. Events marked `incident_correlation=none`, including
   inventory and discovery changes, never open an Incident. The default automatic-open minimum is
   `high`; an unclassified burst remains `medium` and stays an anomaly.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 509d4c7bf36f2b11259dd128731dddd1ad2e341e
+translation_source_sha: 1eeb262163ba5f78803b837384302abf85dad0fa
 translation_revised: 2026-07-28
 ---
 
@@ -239,8 +239,8 @@ Heimdall은 deterministic forecast episode 평가와 closure를 소유합니다.
 `incident_candidate_hook`을 호출할 수 있습니다. 이 hook은 정규화된 resource,
 event type, correlation, severity, reason code, evidence key를 composition 소유
 `IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 Incident를 직접 쓰거나 새
-object type을 publish하지 않습니다. 하나의 correlation episode에서 configured rate window 안에
-반복된 Event만 anomaly를 형성하며 sparse sample과 독립 episode는 결합되지 않습니다.
+object type을 publish하지 않습니다. 하나의 correlation episode에서 configured rate window 안에 반복된
+Event만 가장 심각한 observed severity로 anomaly를 형성하며 sparse sample과 독립 episode는 결합되지 않습니다.
 Routine heartbeat, healthy probe, within-threshold observation은 finding이나 Incident를
 생성하지 않습니다.
 명시적 `incident_correlation=correlate`, correlation과 evidence, 활성 auto-open 및 충분한 severity를
