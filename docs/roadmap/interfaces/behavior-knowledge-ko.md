@@ -1,7 +1,7 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: e0ced7b0d3191b68ecbbc4b5d587f593c69bccf3
+translation_source_sha: a5668389abfb96cdfc73f25f6c4af08e5061136a
 translation_revised: 2026-07-26
 ---
 
@@ -110,7 +110,7 @@ Built-in seed set은 13개 contract를 포함합니다. 초기 3개에 architect
 
 | Behavior | Owner | Implemented evidence |
 |----------|-------|----------------------|
-| 결정적 Incident ID와 member merge | `IncidentRegistry` | Incident registry code와 lifecycle test |
+| 결정적 Incident ID, member merge 및 monotonic severity | `IncidentRegistry` | Incident registry code와 lifecycle test |
 | Odin cross-domain arbitration 및 non-intervention | `Odin`, trigger owner는 `Forseti` | Forseti/Odin code, arbitration code, arbitration test |
 | Issue fingerprint deduplication | `Saga` | Saga code, governance test, Issue lifecycle schema |
 | Trust routing 및 T2 quality gate | `TrustRouter`, `QualityGate` | Core implementation과 focused test |

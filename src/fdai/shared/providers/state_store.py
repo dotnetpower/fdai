@@ -117,7 +117,7 @@ class StateStore(Protocol):
 
         Semantically an ``append_audit_entry`` restricted to incident
         events (``kind`` is one of ``incident.open``, ``incident.members``,
-        ``incident.assigned``, ``incident.ticket``, or
+        ``incident.severity``, ``incident.assigned``, ``incident.ticket``, or
         ``incident.transition``); kept as a distinct method so a fork MAY route
         incident audit to a separate stream / topic without touching the
         general audit surface.
@@ -190,6 +190,26 @@ def classify_incident_append(
             return IncidentAppendStatus.DUPLICATE
         if current_assignee != entry.get("from_assignee_oid"):
             raise IncidentWriteConflictError(f"incident assignee conflict: {incident_id}")
+    elif kind == "incident.severity":
+        current_severity = _required(opened, "severity")
+        for row in incident_history:
+            if row.get("kind") in {"incident.severity", "incident.transition"}:
+                current_severity = _required(row, "severity")
+        target_severity = _required(entry, "severity")
+        if current_severity == target_severity:
+            return IncidentAppendStatus.DUPLICATE
+        if current_severity != _required(entry, "from_severity"):
+            raise IncidentWriteConflictError(
+                f"incident severity conflict for {incident_id}: "
+                f"expected={entry.get('from_severity')}, current={current_severity}"
+            )
+        severity_rank = {"sev1": 1, "sev2": 2, "sev3": 3, "sev4": 4, "sev5": 5}
+        if (
+            target_severity not in severity_rank
+            or current_severity not in severity_rank
+            or severity_rank[target_severity] >= severity_rank[current_severity]
+        ):
+            raise IncidentWriteConflictError("incident severity escalation MUST become more severe")
     return IncidentAppendStatus.APPLIED
 
 
@@ -226,6 +246,14 @@ def _same_incident_intent(existing: Mapping[str, Any], incoming: Mapping[str, An
             "incident_id",
             "from_assignee_oid",
             "assignee_oid",
+            "actor_oid",
+            "at",
+        ),
+        "incident.severity": (
+            "incident_id",
+            "state",
+            "from_severity",
+            "severity",
             "actor_oid",
             "at",
         ),

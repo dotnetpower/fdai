@@ -72,6 +72,26 @@ def members_audit_entry(
     }
 
 
+def severity_audit_entry(
+    *,
+    incident: Incident,
+    target_severity: IncidentSeverity,
+    actor_oid: str,
+    at: datetime,
+) -> Mapping[str, object]:
+    return {
+        "kind": "incident.severity",
+        "idempotency_key": f"{incident.incident_id}::severity::{target_severity.value}",
+        "correlation_id": str(incident.incident_id),
+        "incident_id": str(incident.incident_id),
+        "state": incident.state.value,
+        "from_severity": incident.severity.value,
+        "severity": target_severity.value,
+        "actor_oid": actor_oid,
+        "at": at.isoformat(),
+    }
+
+
 def assignment_audit_entry(
     *,
     incident: Incident,
@@ -113,6 +133,7 @@ __all__ = [
     "assignment_audit_entry",
     "members_audit_entry",
     "open_audit_entry",
+    "severity_audit_entry",
     "ticket_audit_entry",
     "transition_audit_entry",
 ]

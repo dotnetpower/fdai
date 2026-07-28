@@ -695,3 +695,83 @@ async def test_transition_on_unknown_incident_raises(registry: IncidentRegistry)
             to_state=IncidentState.TRIAGING,
             actor_oid="oid-oncall",
         )
+
+
+async def test_repeated_open_escalates_severity_monotonically_and_replays(
+    state_store: InMemoryStateStore,
+) -> None:
+    registry = IncidentRegistry(state_store=state_store)
+    keys = ["resource:api-example", "signal:availability.probe_failed"]
+    first = await registry.open(
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000001")],
+        actor_oid="Heimdall",
+    )
+
+    escalated = await registry.open(
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV1,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000002")],
+        actor_oid="Heimdall",
+    )
+    unchanged = await registry.open(
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV4,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000003")],
+        actor_oid="Heimdall",
+    )
+
+    assert escalated.incident_id == first.incident_id
+    assert escalated.severity is IncidentSeverity.SEV1
+    assert unchanged.severity is IncidentSeverity.SEV1
+    assert [entry["kind"] for entry in state_store.incident_transitions] == [
+        "incident.open",
+        "incident.severity",
+        "incident.members",
+        "incident.members",
+    ]
+    restored = IncidentRegistry(state_store=InMemoryStateStore())
+    restored.rehydrate(await state_store.read_incident_transitions())
+    assert restored.get(first.incident_id) == unchanged
+
+
+async def test_concurrent_severity_escalation_converges_on_most_severe(
+    state_store: InMemoryStateStore,
+) -> None:
+    first_registry = IncidentRegistry(state_store=state_store)
+    second_registry = IncidentRegistry(state_store=state_store)
+    keys = ["resource:api-example", "signal:availability.probe_failed"]
+    opened = await first_registry.open(
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000001")],
+        actor_oid="Heimdall",
+    )
+    second_registry.rehydrate(await state_store.read_incident_transitions())
+
+    await asyncio.gather(
+        first_registry.open(
+            correlation_keys=keys,
+            severity=IncidentSeverity.SEV2,
+            member_event_ids=[UUID("00000000-0000-0000-0000-000000000002")],
+            actor_oid="Heimdall",
+        ),
+        second_registry.open(
+            correlation_keys=keys,
+            severity=IncidentSeverity.SEV1,
+            member_event_ids=[UUID("00000000-0000-0000-0000-000000000003")],
+            actor_oid="Heimdall",
+        ),
+    )
+
+    restored = IncidentRegistry(state_store=InMemoryStateStore())
+    restored.rehydrate(await state_store.read_incident_transitions())
+    canonical = restored.get(opened.incident_id)
+    assert canonical is not None
+    assert canonical.severity is IncidentSeverity.SEV1
+    assert set(canonical.member_event_ids) == {
+        UUID("00000000-0000-0000-0000-000000000001"),
+        UUID("00000000-0000-0000-0000-000000000002"),
+        UUID("00000000-0000-0000-0000-000000000003"),
+    }

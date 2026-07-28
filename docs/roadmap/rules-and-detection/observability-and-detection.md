@@ -49,7 +49,9 @@ are synthetic.
   the lifecycle handoff fails, Heimdall retains that bounded episode window and retries only when
   the next matching Event arrives; it does not create an unbounded background retry loop. The
   handoff reports `accepted` or `held`, and Heimdall records those outcomes separately so a policy
-  hold is never counted as a successful Incident candidate.
+  hold is never counted as a successful Incident candidate. A more severe recurrence for an open
+  Incident raises its severity through an append-only `incident.severity` row; a recurrence never
+  lowers severity, and replay reconstructs the same monotonic result.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 

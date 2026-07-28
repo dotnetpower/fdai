@@ -41,6 +41,9 @@ def rehydrate_incidents(
             if kind == "incident.members":
                 _replay_members(restored, entry)
                 continue
+            if kind == "incident.severity":
+                _replay_severity(restored, entry)
+                continue
             if kind == "incident.assigned":
                 _replay_assignment(restored, entry)
                 continue
@@ -89,6 +92,20 @@ def _replay_members(
     restored[incident_id] = current.model_copy(
         update={"member_event_ids": tuple(dict.fromkeys((*current.member_event_ids, *added)))}
     )
+
+
+def _replay_severity(
+    restored: dict[UUID, Incident],
+    entry: Mapping[str, object],
+) -> None:
+    current = _require_existing_incident(restored, entry, kind="severity")
+    from_severity = IncidentSeverity(_required_string(entry, "from_severity"))
+    if current.severity is not from_severity:
+        raise ValueError(f"severity from_severity mismatch for {current.incident_id}")
+    target = IncidentSeverity(_required_string(entry, "severity"))
+    if _severity_rank(target) >= _severity_rank(current.severity):
+        raise ValueError("incident severity escalation MUST become more severe")
+    restored[current.incident_id] = current.model_copy(update={"severity": target})
 
 
 def _replay_assignment(
@@ -219,6 +236,16 @@ def _required_string(entry: Mapping[str, object], key: str) -> str:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{key} MUST be a non-empty string")
     return value
+
+
+def _severity_rank(severity: IncidentSeverity) -> int:
+    return {
+        IncidentSeverity.SEV1: 1,
+        IncidentSeverity.SEV2: 2,
+        IncidentSeverity.SEV3: 3,
+        IncidentSeverity.SEV4: 4,
+        IncidentSeverity.SEV5: 5,
+    }[severity]
 
 
 def _optional_string(entry: Mapping[str, object], key: str) -> str | None:

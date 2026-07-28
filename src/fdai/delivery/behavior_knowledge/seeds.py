@@ -51,14 +51,14 @@ def build_seed_behavior_specs(
         raise ValueError(f"missing behavior source blobs: {', '.join(missing)}")
 
     incident_sources = (
-        _source(blob_shas, "code", "src/fdai/core/incident/registry.py", "incident_id_for", 45, 71),
+        _source(blob_shas, "code", "src/fdai/core/incident/registry.py", "incident_id_for", 74, 88),
         _source(
             blob_shas,
             "code",
             "src/fdai/core/incident/registry.py",
             "IncidentRegistry.open_with_status",
-            103,
-            186,
+            139,
+            225,
         ),
         _source(
             blob_shas,

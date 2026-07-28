@@ -33,6 +33,7 @@ from .audit_entries import (
     assignment_audit_entry,
     members_audit_entry,
     open_audit_entry,
+    severity_audit_entry,
     ticket_audit_entry,
     transition_audit_entry,
 )
@@ -45,6 +46,13 @@ from .replay import (
 from .state_machine import IncidentStateMachine, IncidentTransition
 
 _SCHEMA_VERSION = "1.0.0"
+_SEVERITY_RANK = {
+    IncidentSeverity.SEV1: 1,
+    IncidentSeverity.SEV2: 2,
+    IncidentSeverity.SEV3: 3,
+    IncidentSeverity.SEV4: 4,
+    IncidentSeverity.SEV5: 5,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +153,12 @@ class IncidentRegistry:
         async with self._write_lock:
             existing = self._incidents.get(incident_id)
             if existing is not None:
+                existing = await self._escalate_severity_if_needed(
+                    incident=existing,
+                    target=severity,
+                    actor_oid=actor_oid,
+                    at=opened_at or datetime.now(tz=UTC),
+                )
                 added = tuple(
                     member for member in members if member not in existing.member_event_ids
                 )
@@ -208,6 +222,42 @@ class IncidentRegistry:
                 return IncidentOpenResult(incident=canonical, created=False)
             self._incidents[incident_id] = incident
             return IncidentOpenResult(incident=incident, created=True)
+
+    async def _escalate_severity_if_needed(
+        self,
+        *,
+        incident: Incident,
+        target: IncidentSeverity,
+        actor_oid: str,
+        at: datetime,
+    ) -> Incident:
+        canonical = incident
+        for _attempt in range(2):
+            if _SEVERITY_RANK[target] >= _SEVERITY_RANK[canonical.severity]:
+                return canonical
+            updated = canonical.model_copy(update={"severity": target})
+            try:
+                status = await self._persist(
+                    severity_audit_entry(
+                        incident=canonical,
+                        target_severity=target,
+                        actor_oid=actor_oid,
+                        at=at,
+                    ),
+                    incident_id=canonical.incident_id,
+                )
+            except IncidentWriteConflictError:
+                canonical = await self._reload_canonical(canonical.incident_id)
+                continue
+            if status is IncidentAppendStatus.DUPLICATE:
+                canonical = await self._reload_canonical(canonical.incident_id)
+            else:
+                self._incidents[canonical.incident_id] = updated
+                canonical = updated
+            return canonical
+        raise IncidentWriteConflictError(
+            f"incident severity escalation did not converge: {canonical.incident_id}"
+        )
 
     async def transition(
         self,

@@ -106,7 +106,7 @@ The built-in seed set contains 13 contracts. Ten architecture contracts extend t
 
 | Behavior | Owner | Implemented evidence |
 |----------|-------|----------------------|
-| Deterministic Incident ID and member merge | `IncidentRegistry` | Incident registry code and lifecycle tests |
+| Deterministic Incident ID, member merge, and monotonic severity | `IncidentRegistry` | Incident registry code and lifecycle tests |
 | Odin cross-domain arbitration and non-intervention | `Odin` with `Forseti` trigger ownership | Forseti and Odin code, arbitration code, and arbitration tests |
 | Issue fingerprint deduplication | `Saga` | Saga code, governance tests, and the Issue lifecycle schema |
 | Trust routing and T2 quality gate | `TrustRouter`, `QualityGate` | Core implementation and focused tests |
