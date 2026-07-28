@@ -22,6 +22,7 @@ refuses a nested call as the second lock.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -145,6 +146,11 @@ _TERM_TRANSLATIONS: Final[dict[str, tuple[str, ...]]] = {
 }
 
 _TERM = re.compile(r"[a-z0-9]+|[가-힣]+")
+_PLAN_TIERS: Final[frozenset[str]] = frozenset({"t0_lexical", "t1_semantic"})
+_PLAN_OWNERS: Final[dict[str, str]] = {
+    tool.tool_id: spec.name for spec in PANTHEON_SPECS for tool in spec.conversation.tool_specs
+}
+_MAX_PLAN_TERM_CHARS: Final[int] = 64
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,16 +164,31 @@ class ConversationToolPlan:
 
     agent: str
     tool_id: str
-    score: int
+    score: float
     """How well this tool matched, in the selecting tier's own units.
 
     Lexical counts matched terms; semantic scales a cosine. The two are
     NOT comparable, which is why ``tier`` is a field rather than
-    something a reader has to infer from the number.
+    something a reader has to infer from the number. Semantic scores
+    keep their fractional precision because rounding two distinct
+    matches into the same integer would create a false ambiguity.
     """
 
     matched_terms: tuple[str, ...]
     tier: str = "t0_lexical"
+
+    def __post_init__(self) -> None:
+        owner = _PLAN_OWNERS.get(self.tool_id)
+        if owner is None or owner != self.agent:
+            raise ValueError("conversation tool plan MUST name an owned pantheon tool")
+        if not math.isfinite(self.score) or self.score < 0:
+            raise ValueError("conversation tool plan score MUST be finite and non-negative")
+        if self.tier not in _PLAN_TIERS:
+            raise ValueError("conversation tool plan tier MUST be canonical")
+        if len(self.matched_terms) > _MAX_QUESTION_TERMS or any(
+            not term or len(term) > _MAX_PLAN_TERM_CHARS for term in self.matched_terms
+        ):
+            raise ValueError("conversation tool plan matched_terms MUST be bounded")
 
 
 def plan_conversation_tools(

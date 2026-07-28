@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Sequence
+from dataclasses import replace
 
 import pytest
 
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.tool_examples import TOOL_EXAMPLES
 from fdai.agents._framework.tool_prefetch import plan_tools
-from fdai.agents._framework.tool_semantic import SemanticToolConfig, SemanticToolPlanner
+from fdai.agents._framework.tool_semantic import (
+    SemanticToolConfig,
+    SemanticToolPlanner,
+    _ToolVector,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -122,6 +128,44 @@ async def test_a_plan_says_which_tier_chose_it() -> None:
 
     assert plans
     assert plans[0].tier == "t1_semantic"
+
+
+async def test_distinct_cosines_do_not_become_a_false_integer_tie() -> None:
+    """A unique best tool must remain unique after plan serialization."""
+
+    class _CloseEmbedding:
+        dim = 2
+
+        async def embed(self, text: str) -> list[float]:
+            if "Observed cost samples" in text:
+                return [0.804, math.sqrt(1 - 0.804**2)]
+            if "Known action cost model" in text:
+                return [0.796, math.sqrt(1 - 0.796**2)]
+            if text == "query":
+                return [1.0, 0.0]
+            return [0.0, 1.0]
+
+    njord = next(spec for spec in PANTHEON_SPECS if spec.name == "Njord")
+    tools = tuple(
+        tool
+        for tool in njord.conversation.tool_specs
+        if tool.tool_id in {"read_cost_samples", "read_cost_model"}
+    )
+    spec = replace(
+        njord,
+        conversation=replace(njord.conversation, tool_specs=tools),
+    )
+    planner = SemanticToolPlanner(
+        embedding_model=_CloseEmbedding(),
+        specs=(spec,),
+    )
+
+    plans = await planner.plan("query", agents=("Njord",), limit=3)
+
+    assert [plan.tool_id for plan in plans] == ["read_cost_samples", "read_cost_model"]
+    assert plans[0].score == pytest.approx(80.4)
+    assert plans[1].score == pytest.approx(79.6)
+    assert plans[0].score != plans[1].score
 
 
 async def test_the_same_question_replays_to_the_same_plan() -> None:
@@ -462,6 +506,31 @@ async def test_shutdown_is_bounded_when_provider_suppresses_cancellation() -> No
     model.release.set()
     assert planner._build_task is not None
     await planner._build_task
+
+
+async def test_plan_cannot_create_a_build_after_stop_wins_the_race() -> None:
+    """The cache boundary must recheck stop after ``plan`` first checked it."""
+
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    class _PausedPlanner(SemanticToolPlanner):
+        async def _tool_vectors(self) -> tuple[_ToolVector, ...]:
+            entered.set()
+            await release.wait()
+            return await super()._tool_vectors()
+
+    model = _KeywordEmbedding()
+    planner = _PausedPlanner(embedding_model=model, specs=PANTHEON_SPECS)
+
+    planning = asyncio.create_task(planner.plan("cost"))
+    await entered.wait()
+    await planner.stop()
+    release.set()
+
+    assert await planning == ()
+    assert planner._build_task is None
+    assert model.calls == 0
 
 
 async def test_a_plan_names_the_tier_that_selected_it() -> None:

@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 904b8cef2620ac5da626e3ba2098918fea9fe318
+translation_source_sha: 79a6b17c62e71c0584d058dff99e44e223c7e5a0
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -159,7 +159,10 @@ key - 과 대조하고 선택 근거가 된 용어와 함께 반환합니다. �
 각 plan은 자신을 만든 계층을 이름으로 밝힙니다. 두 점수는 비교할 수 없기 때문입니다. 하나는 일치한
 용어 수이고 다른 하나는 cosine을 배율한 값이므로, 읽는 쪽이 숫자만 보고 어느 쪽인지 추측하게 두어선
 안 됩니다. 선택한 plan의 agent, tool id, tier 및 score는 server-owned answer envelope에 실리며,
-generic responder는 이를 위조할 수 없습니다.
+generic responder는 이를 위조할 수 없습니다. Semantic score는 fractional precision을 유지합니다.
+80.4와 79.6을 같은 정수로 반올림하면 유일한 최상위 도구가 거짓 tie가 되기 때문입니다. Serialized
+plan은 생성 시 pantheon ownership, canonical tier, 유한한 non-negative score 및 bounded matched
+term을 검증합니다.
 
 벡터 캐시는 전부 아니면 무효입니다. 순위는 상대적이므로 도구 하나가 빠진 카탈로그는 그 도구를 잃는
 것이 아니라, 그 도구의 질문을 그다음으로 가까운 도구로 조용히 보내며 캐시가 사는 동안 계속 그렇게
@@ -176,7 +179,8 @@ cooldown에 들어가므로, 깨진 provider가 질문마다 전체 catalog 비�
 shutdown은 bridge shutdown이 실패해도 task를 drain합니다. Third-party provider가
 `CancelledError`를 잘못 삼키면 Python은 해당 coroutine을 강제로 종료할 수 없습니다. 따라서 planner
 shutdown은 양수이며 유한한 시간만 기다리고 이후 plan을 모두 비활성화한 뒤, shared build 최대 1개만
-process boundary에 남기고 반환합니다.
+process boundary에 남기고 반환합니다. Cache boundary는 build 생성 및 publish 전에 stopped state를
+다시 확인하므로, shutdown 직전에 첫 검사를 통과한 plan이 이후 provider를 다시 시작할 수 없습니다.
 
 예문은 검색 앵커일 뿐입니다. Charter digest에 포함되지 않으므로 검색을 튜닝해도 감사 기록이 흔들리지
 않고, prompt나 답변에도 들어가지 않습니다.

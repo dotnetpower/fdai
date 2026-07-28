@@ -169,10 +169,10 @@ class SemanticToolPlanner:
             ConversationToolPlan(
                 agent=entry.agent,
                 tool_id=entry.tool_id,
-                # Scaled to an integer so a plan reads the same whichever
-                # tier produced it. The matched terms carry the tier.
                 # Tier-local units: a scaled cosine, not a term count.
-                score=max(1, int(round(score * 100))),
+                # Keep fractional precision: 80.4 and 79.6 are not a
+                # tie, even though rounding both would say they are.
+                score=score * 100.0,
                 matched_terms=(),
                 tier="t1_semantic",
             )
@@ -198,6 +198,11 @@ class SemanticToolPlanner:
         leave another build waiting forever behind the same lock when a
         provider hangs.
         """
+        if self._stopped:
+            # ``plan`` checks too, but stop may run after that check and
+            # before this async boundary. Never create a provider task
+            # after shutdown has completed.
+            return ()
         if self._vectors is not None and self._vector_dim == self._embedding.dim:
             if monotonic() - self._built_at < self._config.cache_ttl_seconds:
                 return self._vectors
@@ -295,6 +300,8 @@ class SemanticToolPlanner:
             # One provider hiccup would quietly rewire the read path, so
             # an incomplete build is refused, logged, and retried by the
             # next question rather than cached as if it were the catalog.
+            if self._stopped:
+                return ()
             self._vectors = tuple(entries)
             self._vector_dim = self._embedding.dim
             self._built_at = monotonic()

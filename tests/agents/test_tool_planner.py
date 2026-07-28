@@ -14,6 +14,7 @@ from fdai.agents import (
     plan_conversation_tools,
 )
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents._framework.tool_planner import ConversationToolPlan
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 pytestmark = pytest.mark.anyio
@@ -66,6 +67,34 @@ def test_a_plan_names_the_terms_that_chose_it() -> None:
     for plan in plans:
         assert plan.matched_terms
         assert plan.score == len(plan.matched_terms)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    (
+        {"agent": "Ghost"},
+        {"tool_id": "../../exec"},
+        {"score": -1.0},
+        {"score": float("nan")},
+        {"score": float("inf")},
+        {"tier": "forged"},
+        {"matched_terms": ("x" * 65,)},
+        {"matched_terms": ("x",) * 65},
+    ),
+)
+def test_plan_record_rejects_forged_or_unbounded_fields(changes: dict[str, object]) -> None:
+    """This public record enters server-owned answer serialization."""
+    values: dict[str, object] = {
+        "agent": "Njord",
+        "tool_id": "read_cost_samples",
+        "score": 1.0,
+        "matched_terms": ("cost",),
+        "tier": "t0_lexical",
+        **changes,
+    }
+
+    with pytest.raises(ValueError):
+        ConversationToolPlan(**values)  # type: ignore[arg-type]
 
 
 def test_every_planned_tool_is_owned_by_the_agent_it_names() -> None:
@@ -143,7 +172,7 @@ async def test_a_self_calling_agent_cannot_recurse() -> None:
         nested_reasons.append(nested.reason)
         return await original(question, context)
 
-    odin.introspect = calls_itself  # type: ignore[method-assign]
+    odin.introspect = calls_itself  # type: ignore[assignment,method-assign]
 
     result = await asyncio.wait_for(
         registry.invoke(
@@ -210,7 +239,7 @@ async def test_a_failing_tool_degrades_the_prefetch_not_the_caller() -> None:
     async def explodes(question: str, context: dict[str, object]) -> object:
         raise RuntimeError("owned state unavailable")
 
-    odin.introspect = explodes  # type: ignore[method-assign]
+    odin.introspect = explodes  # type: ignore[assignment,method-assign]
 
     results = await runtime.prefetch_conversation_tools(
         "What is the portfolio policy?", agents=("Odin",)
@@ -250,7 +279,7 @@ async def test_the_whole_prefetch_is_bounded_even_when_every_tool_hangs() -> Non
         await asyncio.sleep(300)
         raise AssertionError("unreachable")
 
-    runtime.agents["Odin"].introspect = never_returns  # type: ignore[method-assign]
+    runtime.agents["Odin"].introspect = never_returns  # type: ignore[assignment,method-assign]
     question = "What is the portfolio policy and the arbitration history?"
     assert len(runtime.plan_conversation_tools(question, agents=("Odin",))) > 1
 
@@ -283,7 +312,7 @@ async def test_a_cancelled_prefetch_leaves_no_lock_behind() -> None:
         await asyncio.sleep(300)
         raise AssertionError("unreachable")
 
-    odin.introspect = never_returns  # type: ignore[method-assign]
+    odin.introspect = never_returns  # type: ignore[assignment,method-assign]
     question = "What is the portfolio policy?"
 
     original_budget = prefetch_module.PREFETCH_BUDGET_SECONDS

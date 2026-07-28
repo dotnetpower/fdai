@@ -16,9 +16,11 @@ from typing import TYPE_CHECKING
 
 from fdai.agents._framework.tool_planner import (
     MAX_PLANNED_QUESTION_CHARS,
-    PREFETCH_BUDGET_SECONDS,
     ConversationToolPlan,
     plan_conversation_tools,
+)
+from fdai.agents._framework.tool_planner import (
+    PREFETCH_BUDGET_SECONDS as DEFAULT_PREFETCH_BUDGET_SECONDS,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -29,6 +31,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 
 _LOG = logging.getLogger(__name__)
+
+# Runtime copy of the canonical default. Tests and a composition root may
+# tune the gather deadline without mutating a ``Final`` source constant.
+PREFETCH_BUDGET_SECONDS: float = DEFAULT_PREFETCH_BUDGET_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,4 +155,10 @@ async def gather_tools(
     return ToolGatherResult(plans=plans, results=tuple(results), timed_out=False)
 
 
-__all__ = ["ToolGatherResult", "gather_tools", "plan_tools", "prefetch_tools"]
+__all__ = [
+    "PREFETCH_BUDGET_SECONDS",
+    "ToolGatherResult",
+    "gather_tools",
+    "plan_tools",
+    "prefetch_tools",
+]

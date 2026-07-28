@@ -158,7 +158,10 @@ vendor versions could not make that promise.
 Each plan names the tier that produced it, because the two scores are not comparable - one counts
 matched terms, the other scales a cosine - and a reader must not have to infer which from the
 number. The selected plan's agent, tool id, tier, and score travel in the server-owned answer
-envelope; a generic responder cannot forge them.
+envelope; a generic responder cannot forge them. Semantic scores keep fractional precision because
+rounding 80.4 and 79.6 to the same integer would turn a unique best tool into a false tie. The
+serialized plan validates pantheon ownership, canonical tier, finite non-negative score, and
+bounded matched terms at construction.
 
 The vector cache is all or nothing. Ranking is relative, so a catalog missing one tool does not
 lose that tool; it sends that tool's questions to whichever tool is next closest, silently and for
@@ -177,7 +180,8 @@ broken provider cannot cost one full catalog per question. Runtime shutdown drai
 when bridge shutdown fails. If a third-party provider incorrectly catches `CancelledError`, Python
 cannot forcibly kill that coroutine; planner shutdown therefore waits for a positive, finite bound,
 disables all later plans, and returns while leaving at most the one shared build to the process
-boundary.
+boundary. The cache boundary rechecks the stopped state before creating or publishing a build, so
+a plan that passed its first check just before shutdown cannot restart the provider afterward.
 
 The examples are retrieval anchors only. They are not part of the charter digest, so tuning
 retrieval never churns the audit trail, and they never reach a prompt or an answer.
