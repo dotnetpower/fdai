@@ -249,7 +249,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `resource_id` only once; duplicates block the whole batch before any event is published.
   The Azure Activity Log adapter derives the resource-group `contains` relationship from each
   mapped ARM resource id and includes it in the same delta page. Dependencies that require a live
-  resource read remain incomplete until an ARG or ARM hydration adapter supplies them.
+  resource read remain incomplete until an ARG or ARM hydration adapter supplies them. Event Grid
+  remains authoritative for resource deletion. The upsert-only Activity Log adapter skips delete
+  operations instead of resurrecting the resource, but still advances its page cursor from every
+  valid event timestamp so filtered records cannot stall the stream.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.

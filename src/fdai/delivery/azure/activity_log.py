@@ -251,11 +251,11 @@ class AzureActivityLogFactory:
         for event in events:
             if not isinstance(event, Mapping):
                 continue
+            page_max = _max_dt(page_max, _parse_ts(event.get("eventTimestamp")))
             mapped = self._map_one(event)
             if mapped is None:
                 continue
             at, record = mapped
-            page_max = _max_dt(page_max, at)
             prior = by_id.get(record.resource_id)
             if prior is None or at >= prior[0]:
                 by_id[record.resource_id] = (at, record)
@@ -265,6 +265,9 @@ class AzureActivityLogFactory:
 
     def _map_one(self, event: Mapping[str, Any]) -> tuple[datetime, ResourceRecord] | None:
         if self._config.only_succeeded and _nested_value(event, "status") != "Succeeded":
+            return None
+        operation = _nested_value(event, "operationName")
+        if operation and operation.rsplit("/", maxsplit=1)[-1].casefold() == "delete":
             return None
 
         arm_id = event.get("resourceId")
@@ -286,7 +289,7 @@ class AzureActivityLogFactory:
 
         props = _truncate_props(
             {
-                "operation": _nested_value(event, "operationName"),
+                "operation": operation,
                 "status": _nested_value(event, "status"),
                 "caller": event.get("caller"),
                 "eventTimestamp": event.get("eventTimestamp"),

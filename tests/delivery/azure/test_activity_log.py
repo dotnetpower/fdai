@@ -139,6 +139,42 @@ async def test_resume_cursor_builds_filter_and_maps_event() -> None:
 
 
 @pytest.mark.asyncio
+async def test_delete_event_is_not_upserted_and_still_advances_cursor() -> None:
+    vocab = _vocab()
+    _, arm_type = _arm_type_for(vocab)
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001"
+        f"/resourceGroups/rg-a/providers/{arm_type}/thing-deleted"
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {"value": arm_type},
+                        "operationName": {"value": f"{arm_type}/delete"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:30:00Z",
+                    }
+                ]
+            },
+        )
+
+    factory, client, _ = _factory(handler)
+    try:
+        page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+    assert page.resources == ()
+    assert page.links == ()
+    assert page.cursor == "2026-07-10T06:30:00+00:00"
+
+
+@pytest.mark.asyncio
 async def test_nextlink_paging_encodes_running_max() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
