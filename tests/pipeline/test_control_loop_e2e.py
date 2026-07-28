@@ -1388,7 +1388,11 @@ async def test_t1_causal_chain_noop_with_blank_resource_ref(
 class _StubT2Reasoner:
     """Fake RcaReasoner citing the first supplied candidate (grounded)."""
 
+    def __init__(self) -> None:
+        self.incident_summary = ""
+
     async def reason(self, *, incident_summary: str, candidate_citations: Any) -> Any:
+        self.incident_summary = incident_summary
         if not candidate_citations:
             return None
         return RootCauseHypothesis(
@@ -1405,14 +1409,15 @@ async def test_t2_rca_audited_on_abstain_with_reasoner(
 ) -> None:
     # No OPA -> T0 abstains (no rule verdict); a wired T2 reasoner then
     # produces a grounded root-cause hypothesis on the novel case.
-    coordinator = RcaCoordinator(reasoner=_StubT2Reasoner())
+    reasoner = _StubT2Reasoner()
+    coordinator = RcaCoordinator(reasoner=reasoner)
     loop, _, audit = _make_loop(
         shipped_catalog,
         with_opa=False,
         rca_coordinator=coordinator,
         event_correlator=EventCorrelator(),
     )
-    await loop.process(
+    result = await loop.process(
         _make_event(
             idempotency_key="t2-1",
             resource_type="object-storage",
@@ -1427,6 +1432,9 @@ async def test_t2_rca_audited_on_abstain_with_reasoner(
     assert t2_entries[0]["rca_tier"] == "t2"
     assert t2_entries[0]["rca_outcome"] == "grounded"
     assert t2_entries[0]["incident_id"] is not None
+    assert result.rca_result is not None
+    assert result.rca_result.is_grounded
+    assert "Untrusted bounded evidence" in reasoner.incident_summary
 
 
 @pytest.mark.asyncio
@@ -1445,3 +1453,31 @@ async def test_t2_rca_skipped_without_reasoner(shipped_catalog: tuple[Any, Any])
         e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
     ]
     assert t2_entries == []
+
+
+@pytest.mark.asyncio
+async def test_t2_rca_returned_for_novel_resource_type_without_rules(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    reasoner = _StubT2Reasoner()
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(reasoner=reasoner),
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="t2-novel-resource",
+            resource_type="kubernetes.namespace",
+            resource_id="namespace/example-app",
+            props={},
+        )
+    )
+
+    assert result.rca_result is not None
+    assert result.rca_result.is_grounded
+    assert result.resource_type == "kubernetes.namespace"
+    assert any(
+        entry["entry"].get("action_kind") == "rca.hypothesis" for entry in audit.audit_entries
+    )

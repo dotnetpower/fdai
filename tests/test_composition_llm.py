@@ -1411,6 +1411,37 @@ def test_bind_wires_rca_reasoner_when_capability_resolves_and_prompt_supplied(
     assert isinstance(bindings.rca_reasoner, LlmRcaReasoner)
 
 
+def test_bind_hil_only_mode_preserves_independent_rca_reasoner(tmp_path: Path) -> None:
+    from fdai.core.quality_gate.testing import MismatchCrossCheckModel
+    from fdai.core.rca import LlmRcaReasoner
+
+    resolved = tmp_path / "resolved-models.json"
+    payload = (
+        _resolved_models_json_with_rca()
+        .replace('"mixed_model_mode": "azure-foundry"', '"mixed_model_mode": "hil-only"')
+        .replace(
+            '"t2.reasoner.secondary", "status": "resolved"',
+            '"t2.reasoner.secondary", "status": "hil-only"',
+        )
+    )
+    resolved.write_text(payload, encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+        rca_system_prompt="unit-test rca system prompt",
+    )
+
+    bindings = finalized.require_llm_bindings()
+    assert isinstance(bindings.cross_check_models[1], MismatchCrossCheckModel)
+    assert isinstance(bindings.rca_reasoner, LlmRcaReasoner)
+
+
 def test_bind_leaves_rca_reasoner_none_when_capability_missing(tmp_path: Path) -> None:
     """Baseline resolver output (no ``t2.rca``) MUST NOT bind an RCA
     reasoner even when the caller supplies a prompt - so a deployment

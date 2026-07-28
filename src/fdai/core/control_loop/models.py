@@ -8,6 +8,7 @@ from enum import StrEnum
 from fdai.core.executor import ExecutionResult
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.tool_call import ToolCallExecutionResult
+from fdai.core.rca import RcaResult
 from fdai.core.tiers.t1_lightweight.tier import T1Decision
 from fdai.core.tiers.t2_reasoning import T2Decision
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDecision
@@ -51,6 +52,7 @@ class ControlLoopResult:
     change_safety_decision: ChangeSafetyDecision | None = None
     t1_decision: T1Decision | None = None
     t2_decision: T2Decision | None = None
+    rca_result: RcaResult | None = None
 
 
 __all__ = ["ControlLoopOutcome", "ControlLoopResult"]

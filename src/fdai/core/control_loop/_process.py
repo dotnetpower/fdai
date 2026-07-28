@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any, cast
 
 from fdai.core.control_loop._helpers import (
@@ -123,6 +124,9 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             reason=decision.reason or "no_rule_matches_resource_type",
             stage="trust_router",
         )
+        rca_result = await host._analyze_t2_rca_on_abstain(
+            event=event, decision=decision, incident_id=incident_id
+        )
         fallback = await host._evaluate_fallback_tiers(
             event=event,
             decision=decision,
@@ -132,7 +136,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             correlation_id=correlation_id,
         )
         if fallback is not None:
-            return cast(ControlLoopResult, fallback)
+            return replace(cast(ControlLoopResult, fallback), rca_result=rca_result)
         await host._emit_stage(
             event_id=event_id,
             correlation_id=correlation_id,
@@ -148,6 +152,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             reason=decision.reason,
             event_id=event_id,
             change_safety_decision=cs_decision,
+            rca_result=rca_result,
         )
 
     resource_props = _extract_resource_props(event.payload)
@@ -183,7 +188,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             ),
             stage="t0_evaluate",
         )
-        await host._analyze_t2_rca_on_abstain(
+        rca_result = await host._analyze_t2_rca_on_abstain(
             event=event, decision=decision, incident_id=incident_id
         )
         fallback = await host._evaluate_fallback_tiers(
@@ -195,7 +200,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             correlation_id=correlation_id,
         )
         if fallback is not None:
-            return cast(ControlLoopResult, fallback)
+            return replace(cast(ControlLoopResult, fallback), rca_result=rca_result)
         await host._emit_stage(
             event_id=event_id,
             correlation_id=correlation_id,
@@ -212,6 +217,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             reason=verdict.audit_hint.reason if verdict.audit_hint else None,
             event_id=str(event.event_id),
             change_safety_decision=cs_decision,
+            rca_result=rca_result,
         )
 
     await host._analyze_and_audit_t1_causal_chain(event=event, incident_id=incident_id)

@@ -242,6 +242,25 @@ def bind_azure_llm_bindings(
             pricing=pricing,
         )
 
+    rca_cap = _capability(resolved, "t2.rca")
+    rca_reasoner: RcaReasoner | None = None
+    if rca_cap is not None and rca_system_prompt:
+        rca_reasoner = LlmRcaReasoner(
+            model=AzureOpenAIRcaModel(
+                identity=identity,
+                http_client=http_client,
+                config=AzureOpenAIRcaModelConfig(
+                    **_target(
+                        "t2.rca",
+                        legacy_deployment=rca_cap.name,
+                        legacy_api_version="2024-06-01",
+                    ),
+                    system_prompt=rca_system_prompt,
+                ),
+                metering=_emitter_for("t2.rca", rca_cap, "T2"),
+            )
+        )
+
     proposer = (
         AzureOpenAIProposer(
             identity=identity,
@@ -314,6 +333,7 @@ def bind_azure_llm_bindings(
                     primary_model,
                     MismatchCrossCheckModel(model_id="hil-only-force-disagree"),
                 ),
+                rca_reasoner=rca_reasoner,
                 t2_proposer=proposer,
             )
             return replace(container, llm_bindings=bindings)
@@ -467,30 +487,6 @@ def bind_azure_llm_bindings(
             critic=critic_model,
             judge=judge_model,
             config=DebateOrchestratorConfig(max_rounds=1),
-        )
-    # RCA T2 reasoner: opt-in, symmetric to Critic / Judge. Bind the real
-    # ``AzureOpenAIRcaModel`` behind ``LlmRcaReasoner`` only when the
-    # ``t2.rca`` capability resolves AND the caller supplied an
-    # ``rca_system_prompt``. Missing either keeps ``rca_reasoner = None`` so
-    # ``RcaCoordinator.has_t2`` is False and novel-case T2 RCA stays dark
-    # (the deterministic T0 RCA path is unaffected).
-    rca_cap = _capability(resolved, "t2.rca")
-    rca_reasoner: RcaReasoner | None = None
-    if rca_cap is not None and rca_system_prompt:
-        rca_reasoner = LlmRcaReasoner(
-            model=AzureOpenAIRcaModel(
-                identity=identity,
-                http_client=http_client,
-                config=AzureOpenAIRcaModelConfig(
-                    **_target(
-                        "t2.rca",
-                        legacy_deployment=rca_cap.name,
-                        legacy_api_version="2024-06-01",
-                    ),
-                    system_prompt=rca_system_prompt,
-                ),
-                metering=_emitter_for("t2.rca", rca_cap, "T2"),
-            )
         )
     bindings = LlmBindings(
         embedding_model=embedding,

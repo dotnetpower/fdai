@@ -13,7 +13,8 @@ bounded runner. FDAI owns the public host and governed execution behind it.
 >
 > **Implementation status:** The independently packageable SDK, public host and session,
 > capability attenuation, artifact custody, workspace policy broker, SREGym migration, CyberGym
-> acceptance driver, compatibility facade, and dependency gates are implemented.
+> acceptance driver, installed-adapter discovery, bounded Kubernetes evidence, runner readiness
+> checks, compatibility facade, and dependency gates are implemented.
 
 ## Design at a glance
 
@@ -86,6 +87,12 @@ Authority is the minimum of the requested ceiling and every server-owned ceiling
 enforcement can therefore open as observation mode, but it can never promote FDAI. Workspace and
 substrate mutations remain separate side-effect classes with independent policy and audit records.
 
+The host maps each neutral target kind to a routing resource type through server-owned policy.
+For SREGym, `kubernetes.namespace` remains `kubernetes.namespace` so an evaluation task does not
+reuse unrelated cluster-governance rules. The driver cannot supply or override that routing value.
+Evidence collectors run only for effective observation capabilities. Provider errors and
+byte-limit violations produce structured unavailable evidence instead of an execution decision.
+
 ## Public host and custody
 
 `fdai.evaluation.public` exports only `EvaluationHost`, `EvaluationSession`, and the API version.
@@ -155,6 +162,35 @@ While that identity is outstanding, another `next_task()` call fails before poll
 The package imports only `fdai_evaluation_sdk`. It requests neutral Kubernetes, metric, log, and
 trace observation capabilities. `FdaiEvaluationHost` owns stable event construction, control-loop
 result interpretation, idempotency, authority attenuation, and audit correlation.
+
+FDAI discovers installed drivers through the `fdai.evaluation.adapters` entry-point group. The
+generic runtime loads the selected `EvaluationAdapter` contract without importing a benchmark
+package. The SREGym package registers `sregym` in that group.
+
+The current live SREGym composition provides exact-namespace Kubernetes inventory and event
+evidence through an explicit kubeconfig and context. The kubectl adapter uses fixed read-only
+commands, no shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection
+that excludes Secret objects and unreviewed fields. Metrics, logs, and traces remain structured
+unavailable evidence until their providers are bound.
+
+On deterministic hold for review, the existing grounded RCA path receives the task objective and
+bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the
+submission summary. The runner blocks before a benchmark starts when the RCA reasoner is absent;
+it never submits a generic control-loop outcome as an SREGym solution.
+
+Run the readiness check before starting a harness:
+
+```bash
+fdai-evaluation-runner check --adapter sregym
+```
+
+Configure `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
+`FDAI_EVALUATION_KUBERNETES_CLUSTER`, and the comma-separated exact namespace allowlist in
+`FDAI_EVALUATION_KUBERNETES_NAMESPACES`. Readiness requires installed-adapter discovery, live
+Kubernetes inventory access, both Kubernetes evidence providers, and a configured grounded RCA
+reasoner. It also sends one synthetic citation-bounded RCA request so a stale or missing model
+deployment cannot report ready. The host authority remains observation mode even when all checks
+pass.
 
 The plugin image contains the FDAI distribution, rule and policy catalogs, and SREGym plugin on top
 of the reviewed SREGym agent base. The root Docker build context excludes local runtime state,

@@ -30,8 +30,17 @@ from fdai_evaluation_sdk import (
 )
 
 from fdai.core.control_loop import ControlLoopOutcome, ControlLoopResult
+from fdai.core.rca import (
+    Citation,
+    CitationKind,
+    RcaOutcome,
+    RcaResult,
+    RcaTier,
+    RootCauseHypothesis,
+)
 from fdai.evaluation.artifacts import InMemoryArtifactBroker, InMemoryArtifactCustodySink
 from fdai.evaluation.capabilities import AuthorityAxes, CapabilityAxes
+from fdai.evaluation.evidence import BoundedEvaluationEvidenceCollector
 from fdai.evaluation.host import (
     EvaluationHostError,
     EvaluationHostPolicy,
@@ -131,8 +140,12 @@ def _host(
     *,
     host_authority: AuthorityCeiling = AuthorityCeiling.SHADOW,
     outcome: ControlLoopOutcome = ControlLoopOutcome.EXECUTED,
+    capability_id: str = _CAPABILITY_ID,
+    side_effect_class: SideEffectClass = SideEffectClass.WORKSPACE,
+    target_resource_types: Mapping[str, str] | None = None,
+    evidence_collector: BoundedEvaluationEvidenceCollector | None = None,
 ):
-    allowed = frozenset({_CAPABILITY_ID})
+    allowed = frozenset({capability_id})
     processor = _Processor(outcome)
     custody = InMemoryArtifactCustodySink()
     broker = InMemoryArtifactBroker(custody_sink=custody, clock=lambda: _NOW)
@@ -140,8 +153,9 @@ def _host(
         processor=processor,
         artifact_broker=broker,
         validation_sink=InMemoryExternalValidationSink(),
+        evidence_collector=evidence_collector,
         policy=EvaluationHostPolicy(
-            capability_catalog={_CAPABILITY_ID: SideEffectClass.WORKSPACE},
+            capability_catalog={capability_id: side_effect_class},
             capability_axes=CapabilityAxes(
                 host_allowlist=allowed,
                 session_scope=allowed,
@@ -158,6 +172,7 @@ def _host(
                 risk=host_authority,
                 approval=host_authority,
             ),
+            target_resource_types=target_resource_types or {"workspace": "workspace"},
         ),
         clock=lambda: _NOW,
     )
@@ -205,8 +220,88 @@ async def test_execute_correlates_ingress_and_reuses_idempotent_result() -> None
     assert event.source == "evaluation.host"
     assert event.event_type == "evaluation.task.requested"
     assert event.correlation_id == "session-1"
+    assert event.payload["resource"]["type"] == "workspace"
     assert event.payload["input_artifact_refs"] == []
     assert not any(isinstance(value, bytes) for value in event.payload.values())
+
+
+async def test_execute_renders_grounded_rca_as_evaluation_summary() -> None:
+    host, processor, _ = _host()
+    original_process = processor.process
+
+    async def process_with_rca(event: Event | Mapping[str, Any]) -> ControlLoopResult:
+        base = await original_process(event)
+        return ControlLoopResult(
+            outcome=base.outcome,
+            tier="t2",
+            decision="abstain",
+            resource_type=base.resource_type,
+            rca_result=RcaResult(
+                outcome=RcaOutcome.GROUNDED,
+                hypothesis=RootCauseHypothesis(
+                    tier=RcaTier.T2,
+                    cause="The application pods cannot reach their dependency.",
+                    confidence=0.85,
+                    citations=(
+                        Citation(
+                            kind=CitationKind.TELEMETRY,
+                            ref="evaluation:observe.kubernetes.events",
+                        ),
+                    ),
+                ),
+                reason="grounded",
+            ),
+        )
+
+    processor.process = process_with_rca  # type: ignore[method-assign]
+    session = await host.open(_request())
+
+    result = await session.execute(_task())
+
+    assert result.summary.startswith("Grounded root-cause hypothesis:")
+    assert "cannot reach their dependency" in result.summary
+    assert "evaluation:observe.kubernetes.events" in result.summary
+
+
+async def test_execute_collects_bounded_evidence_before_typed_ingress() -> None:
+    class _EvidenceProvider:
+        async def collect(self, task: EvaluationTask):  # type: ignore[no-untyped-def]
+            return {"target": task.target.value, "healthy": False}
+
+    capability_id = "observe.kubernetes.inventory"
+    capability = Capability(
+        capability_id=capability_id,
+        side_effect_class=SideEffectClass.OBSERVE,
+    )
+    host, processor, _ = _host(
+        capability_id=capability_id,
+        side_effect_class=SideEffectClass.OBSERVE,
+        target_resource_types={"kubernetes.namespace": "kubernetes.namespace"},
+        evidence_collector=BoundedEvaluationEvidenceCollector(
+            providers={capability_id: _EvidenceProvider()}
+        ),
+    )
+    session = await host.open(
+        _request(
+            requested_capabilities=(capability,),
+            workspace_policy=WorkspacePolicy(),
+        )
+    )
+
+    await session.execute(
+        _task(
+            target=TargetRef(kind="kubernetes.namespace", value="source-1"),
+            requested_capabilities=(capability,),
+        )
+    )
+
+    evidence = processor.events[0].payload["evidence"]
+    assert evidence[capability_id] == {
+        "status": "available",
+        "payload": {"target": "source-1", "healthy": False},
+    }
+    assert processor.events[0].payload["resource"]["type"] == "kubernetes.namespace"
+    assert processor.events[0].payload["resource"]["props"] == {"evaluation_evidence": evidence}
 
 
 async def test_retry_with_same_id_and_different_content_is_rejected() -> None:

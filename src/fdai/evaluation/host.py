@@ -36,6 +36,10 @@ from fdai.evaluation.capabilities import (
     attenuate_authority,
     attenuate_capabilities,
 )
+from fdai.evaluation.evidence import (
+    EvaluationEvidenceCollector,
+    NoopEvaluationEvidenceCollector,
+)
 from fdai.evaluation.outputs import (
     EvaluationOutputCollector,
     NoopEvaluationOutputCollector,
@@ -77,12 +81,18 @@ class EvaluationHostPolicy:
     capability_catalog: Mapping[str, SideEffectClass]
     capability_axes: CapabilityAxes
     authority_axes: AuthorityAxes
+    target_resource_types: Mapping[str, str]
     max_tasks: int = 1_000
     max_concurrency: int = 16
 
     def __post_init__(self) -> None:
         if self.max_tasks < 1 or self.max_concurrency < 1:
             raise ValueError("host task and concurrency limits MUST be positive")
+        if any(
+            not target_kind.strip() or not resource_type.strip()
+            for target_kind, resource_type in self.target_resource_types.items()
+        ):
+            raise ValueError("target resource type mappings MUST not contain empty values")
 
 
 class FdaiEvaluationHost:
@@ -95,12 +105,14 @@ class FdaiEvaluationHost:
         artifact_broker: InMemoryArtifactBroker,
         validation_sink: ExternalValidationSink,
         policy: EvaluationHostPolicy,
+        evidence_collector: EvaluationEvidenceCollector | None = None,
         output_collector: EvaluationOutputCollector | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._processor = processor
         self._artifact_broker = artifact_broker
         self._validation_sink = validation_sink
+        self._evidence_collector = evidence_collector or NoopEvaluationEvidenceCollector()
         self._output_collector = output_collector or NoopEvaluationOutputCollector()
         self._policy = policy
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -150,7 +162,9 @@ class FdaiEvaluationHost:
             processor=self._processor,
             artifact_broker=self._artifact_broker,
             validation_sink=self._validation_sink,
+            evidence_collector=self._evidence_collector,
             output_collector=self._output_collector,
+            target_resource_types=self._policy.target_resource_types,
             clock=self._clock,
             close_observer=self._record_closed_session,
         )
@@ -206,7 +220,9 @@ class FdaiEvaluationSession:
         processor: EventProcessor,
         artifact_broker: InMemoryArtifactBroker,
         validation_sink: ExternalValidationSink,
+        evidence_collector: EvaluationEvidenceCollector,
         output_collector: EvaluationOutputCollector,
+        target_resource_types: Mapping[str, str],
         clock: Callable[[], datetime],
         close_observer: Callable[[str, frozenset[str]], Awaitable[None]],
     ) -> None:
@@ -216,7 +232,9 @@ class FdaiEvaluationSession:
         self._processor = processor
         self._artifact_broker = artifact_broker
         self._validation_sink = validation_sink
+        self._evidence_collector = evidence_collector
         self._output_collector = output_collector
+        self._target_resource_types = dict(target_resource_types)
         self._clock = clock
         self._close_observer = close_observer
         self._results: dict[str, tuple[str, EvaluationResult]] = {}
@@ -249,7 +267,11 @@ class FdaiEvaluationSession:
                 self._inflight += 1
                 self._tasks[task.task_id] = task
             try:
-                event = self._event_for(task, fingerprint)
+                evidence = await self._evidence_collector.collect(
+                    task=task,
+                    allowed_capabilities=self._effective_capabilities.allowed_ids,
+                )
+                event = self._event_for(task, fingerprint, evidence=evidence)
                 loop_result = await self._processor.process(event)
                 completed = loop_result.outcome is ControlLoopOutcome.EXECUTED
                 outputs = await collect_verified_outputs(
@@ -364,15 +386,24 @@ class FdaiEvaluationSession:
             raise EvaluationHostError("evaluation session task count limit exceeded")
         if task.deadline > self._request.deadline or task.deadline <= now:
             raise EvaluationHostError("evaluation task deadline is outside the session envelope")
+        if task.target.kind not in self._target_resource_types:
+            raise EvaluationHostError("evaluation target kind has no resource type mapping")
         requested = frozenset(item.capability_id for item in task.requested_capabilities)
         if not requested <= self._effective_capabilities.allowed_ids:
             raise EvaluationHostError("evaluation task requests unavailable capabilities")
         if any(item.expires_at <= now for item in task.input_artifacts):
             raise EvaluationHostError("evaluation task contains an expired input artifact")
 
-    def _event_for(self, task: EvaluationTask, fingerprint: str) -> Event:
+    def _event_for(
+        self,
+        task: EvaluationTask,
+        fingerprint: str,
+        *,
+        evidence: Mapping[str, Any],
+    ) -> Event:
         observed_at = self._clock()
         event_id = uuid5(NAMESPACE_URL, f"fdai:evaluation:{self.session_id}:{fingerprint}")
+        resource_type = self._target_resource_types[task.target.kind]
         return Event(
             schema_version="1.0.0",
             event_id=event_id,
@@ -382,6 +413,11 @@ class FdaiEvaluationSession:
             event_type="evaluation.task.requested",
             resource_ref=f"{task.target.kind}/{task.target.value}",
             payload={
+                "resource": {
+                    "resource_id": f"{task.target.kind}/{task.target.value}",
+                    "type": resource_type,
+                    "props": {"evaluation_evidence": dict(evidence)},
+                },
                 "session_id": self.session_id,
                 "task_id": task.task_id,
                 "phase": task.phase,
@@ -391,6 +427,7 @@ class FdaiEvaluationSession:
                     item.model_dump(mode="json") for item in task.expected_outputs
                 ],
                 "capabilities": sorted(item.capability_id for item in task.requested_capabilities),
+                "evidence": dict(evidence),
                 "metadata": {item.key: item.value for item in task.metadata},
             },
             detected_at=observed_at,
@@ -473,6 +510,22 @@ def _rollback_reference(item: object) -> str | None:
 
 
 def _summary(result: ControlLoopResult) -> str:
+    if result.rca_result is not None and result.rca_result.is_grounded:
+        hypothesis = result.rca_result.hypothesis
+        if hypothesis is not None:
+            citations = ", ".join(
+                f"{citation.kind.value}:{citation.ref}" for citation in hypothesis.citations
+            )
+            remediation = (
+                f" Suggested governed remediation: {hypothesis.remediation_ref}."
+                if hypothesis.remediation_ref
+                else ""
+            )
+            return (
+                f"Grounded root-cause hypothesis: {hypothesis.cause[:8_000]} "
+                f"Confidence: {hypothesis.confidence:.3f}. Evidence: {citations}."
+                f"{remediation}"
+            )
     detail = result.reason or result.decision
     return (
         f"FDAI outcome={result.outcome.value}; tier={result.tier}; "

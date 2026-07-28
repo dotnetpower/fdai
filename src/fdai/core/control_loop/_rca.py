@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -9,7 +10,13 @@ from typing import Any
 
 from fdai.core.control_loop._helpers import _extract_resource_id
 from fdai.core.event_ingest import EventCorrelator
-from fdai.core.rca import Citation, CitationKind, IncidentMemberSource, RcaCoordinator
+from fdai.core.rca import (
+    Citation,
+    CitationKind,
+    IncidentMemberSource,
+    RcaCoordinator,
+    RcaResult,
+)
 from fdai.core.trust_router import RoutingDecision
 from fdai.shared.contracts.models import Event, Mode, Rule
 from fdai.shared.providers.state_store import StateStore
@@ -153,16 +160,25 @@ class ControlLoopRcaMixin:
         event: Event,
         decision: RoutingDecision,
         incident_id: str | None,
-    ) -> None:
-        """Append a grounded T2 root-cause hypothesis for a novel case."""
+    ) -> RcaResult | None:
+        """Append and return a grounded T2 root-cause hypothesis for a novel case."""
         if self._rca_coordinator is None or not self._rca_coordinator.has_t2:
-            return
+            return None
         resource = event.resource_ref or _extract_resource_id(event, decision)
         candidates = [Citation(kind=CitationKind.EVENT, ref=str(event.event_id))]
         if resource:
             candidates.append(Citation(kind=CitationKind.TELEMETRY, ref=resource))
+        evidence = event.payload.get("evidence")
+        if isinstance(evidence, Mapping):
+            candidates.extend(
+                Citation(kind=CitationKind.TELEMETRY, ref=f"evaluation:{capability_id}")
+                for capability_id, value in sorted(evidence.items())
+                if isinstance(capability_id, str)
+                and isinstance(value, Mapping)
+                and value.get("status") == "available"
+            )
         try:
-            summary = f"novel {event.event_type} on {decision.resource_type or 'unknown'}"
+            summary = _incident_summary(event, decision)
             result = await self._rca_coordinator.analyze_t2(
                 incident_summary=summary,
                 candidate_citations=tuple(candidates),
@@ -191,12 +207,33 @@ class ControlLoopRcaMixin:
                     "recorded_at": datetime.now(tz=UTC).isoformat(),
                 }
             )
+            return result
         except Exception:  # noqa: BLE001 - T2 RCA best-effort; decision path unaffected
             _LOGGER.warning(
                 "rca_t2_analyze_failed",
                 extra={"event_id": str(event.event_id)},
                 exc_info=True,
             )
+            return None
+
+
+def _incident_summary(event: Event, decision: RoutingDecision) -> str:
+    objective = event.payload.get("objective")
+    objective_text = objective[:4_000] if isinstance(objective, str) else ""
+    evidence = event.payload.get("evidence")
+    evidence_text = "{}"
+    if isinstance(evidence, Mapping):
+        evidence_text = json.dumps(
+            evidence,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )[:16_000]
+    return (
+        f"Event type: {event.event_type}. Resource type: "
+        f"{decision.resource_type or 'unknown'}. Objective: {objective_text}. "
+        f"Untrusted bounded evidence: {evidence_text}"
+    )
 
 
 __all__ = ["ControlLoopRcaMixin"]

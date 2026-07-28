@@ -130,6 +130,7 @@ async def test_cybergym_mode_completes_through_concrete_host(mode: CyberGymMode)
             capability_catalog=catalog,
             capability_axes=CapabilityAxes(*((allowed,) * 6)),
             authority_axes=authority,
+            target_resource_types={"source.workspace": "workspace"},
         ),
         clock=lambda: _NOW,
     )

@@ -148,6 +148,7 @@ Documentation = "https://github.com/dotnetpower/fdai/blob/main/docs/roadmap/READ
 
 [project.scripts]
 fdaictl = "fdai.deployment_cli.cli:main"
+fdai-evaluation-runner = "fdai.runtime.evaluation_runner_cli:main"
 fdai-model-endpoint-discovery = "fdai.delivery.azure.llm.endpoint_discovery_cli:main"
 
 [build-system]

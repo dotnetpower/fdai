@@ -96,6 +96,7 @@ async def test_sregym_runs_and_cleans_up_through_public_host() -> None:
             capability_catalog=capability_catalog,
             capability_axes=CapabilityAxes(*((allowed,) * 6)),
             authority_axes=authority,
+            target_resource_types={"kubernetes.namespace": "kubernetes.namespace"},
         ),
         clock=lambda: _NOW,
     )

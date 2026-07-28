@@ -8,6 +8,9 @@ dependencies = [
     "httpx>=0.27,<1",
 ]
 
+[project.entry-points."fdai.evaluation.adapters"]
+sregym = "fdai_bench_sregym.plugin:create_plugin"
+
 [project.optional-dependencies]
 dev = [
     "mypy>=1.13,<2",

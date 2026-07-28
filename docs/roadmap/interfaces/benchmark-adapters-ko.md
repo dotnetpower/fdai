@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 5d698f6e21a6781ba287a36f98c7b2be09ea4c96
+translation_source_sha: fbbf63a187a0aeef3c09da018a73a4cfe2a7fe00
 translation_revised: 2026-07-29
 ---
 
@@ -16,7 +16,8 @@ public host와 그 뒤의 governed execution을 소유합니다.
 >
 > **구현 상태:** 독립 package SDK, public host 및 session, capability attenuation, artifact
 > custody, workspace policy broker, SREGym migration, CyberGym acceptance driver, compatibility
-> facade 및 dependency gate가 구현되었습니다.
+> facade, installed-adapter discovery, bounded Kubernetes evidence, runner readiness check 및
+> dependency gate가 구현되었습니다.
 
 ## 설계 요약
 
@@ -90,6 +91,12 @@ Authority는 requested ceiling과 모든 server-owned ceiling의 최솟값입니
 observation mode로 열릴 수 있지만 FDAI를 promote할 수 없습니다. Workspace와 substrate mutation은
 독립 policy 및 audit record를 가진 별도 side-effect class로 유지됩니다.
 
+Host는 server-owned policy를 통해 각 neutral target kind를 routing resource type으로 매핑합니다.
+SREGym에서는 evaluation task가 관련 없는 cluster-governance rule을 재사용하지 않도록
+`kubernetes.namespace`를 그대로 유지합니다. Driver는 이 routing value를 제공하거나 override할 수
+없습니다. Evidence collector는 effective observation capability에 대해서만 실행됩니다. Provider
+error와 byte-limit violation은 execution decision 대신 structured unavailable evidence를 생성합니다.
+
 ## Public host 및 custody
 
 `fdai.evaluation.public`은 `EvaluationHost`, `EvaluationSession` 및 API version만 export합니다.
@@ -160,6 +167,35 @@ transport failure는 같은 결과를 재시도할 수 있지만 발급되지 �
 Package는 `fdai_evaluation_sdk`만 import합니다. Neutral Kubernetes, metric, log 및 trace observation
 capability를 요청합니다. `FdaiEvaluationHost`가 stable event construction, control-loop result
 interpretation, idempotency, authority attenuation 및 audit correlation을 소유합니다.
+
+FDAI는 `fdai.evaluation.adapters` entry-point group에서 설치된 driver를 검색합니다. Generic
+runtime은 benchmark package를 import하지 않고 선택된 `EvaluationAdapter` contract를 load합니다.
+SREGym package는 이 group에 `sregym`을 등록합니다.
+
+현재 live SREGym composition은 explicit kubeconfig와 context를 통해 exact-namespace Kubernetes
+inventory 및 event evidence를 제공합니다. Kubectl adapter는 fixed read-only command, no shell,
+최대 30초 timeout, output 및 item limit을 사용합니다. Diagnostic projection은 Secret object와
+검토되지 않은 field를 제외합니다. Metrics, logs 및 traces는 provider가 bind될 때까지 structured
+unavailable evidence로 유지됩니다.
+
+Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
+Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가
+없으면 runner는 benchmark 시작 전에 차단됩니다. Generic control-loop outcome을 SREGym solution으로
+제출하지 않습니다.
+
+Harness를 시작하기 전에 readiness check를 실행합니다.
+
+```bash
+fdai-evaluation-runner check --adapter sregym
+```
+
+`FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
+`FDAI_EVALUATION_KUBERNETES_CLUSTER` 및 comma-separated exact namespace allowlist인
+`FDAI_EVALUATION_KUBERNETES_NAMESPACES`를 구성합니다. Readiness는 installed-adapter discovery,
+live Kubernetes inventory access, 두 Kubernetes evidence provider 및 configured grounded RCA
+reasoner를 요구합니다. 또한 synthetic citation-bounded RCA request를 한 번 전송하므로 stale 또는
+missing model deployment는 ready로 표시되지 않습니다. 모든 check를 통과해도 host authority는
+관찰 모드로 유지됩니다.
 
 Plugin image는 검토된 SREGym agent base 위에 FDAI distribution, rule 및 policy catalog, SREGym
 plugin을 포함합니다. Root Docker build context는 local runtime state, resolved model file, log,
