@@ -1036,9 +1036,56 @@
     "latestMode": "Latest mode",
     "statusSource": "Status source",
     "additionalEvidence": "Additional evidence",
+    "ownerLabel": "Responsible {kind}",
+    "ownerKind": {"agent": "agent", "service": "service"},
+    "owner": {
+      "notificationDelivery": "Notification delivery",
+      "notificationRouter": "Notification router",
+      "system": "FDAI system"
+    },
+    "event": {
+      "title": {
+        "opened": "Incident opened",
+        "correlated": "Related signal correlated",
+        "transitioned": "Incident status changed",
+        "notificationEscalation": "Notification escalation required",
+        "notificationRoute": "Notification routing evaluated",
+        "approvalRequested": "Human approval requested",
+        "approvalUnavailable": "Approval delivery unavailable",
+        "requestHeld": "Operator request held for review",
+        "auditRecorded": "Audit evidence recorded"
+      },
+      "description": {
+        "opened": "Opened a {severity} incident and began correlating related signals.",
+        "correlatedOne": "Attached one related signal to this incident.",
+        "correlatedMany": "Attached {count} related signals to this incident.",
+        "transitioned": "Changed the incident state to {state}.",
+        "notificationEscalation": "Notification delivery could not complete and requires operator attention.",
+        "notificationEscalationReason": "Notification delivery could not complete and requires operator attention. Recorded reason: {reason}",
+        "notificationRoute": "Evaluated notification delivery. Recorded outcome: {outcome}.",
+        "approvalRequested": "Requested human approval before the proposed action can continue.",
+        "approvalUnavailable": "The approval request could not be delivered to the configured approval channel.",
+        "requestHeld": "Held the operator request because the available evidence was insufficient for a governed action.",
+        "auditRecorded": "Recorded the latest decision and action evidence in the append-only audit log.",
+        "result": "Recorded result: {result}.",
+        "recorded": "Recorded operational event: {action}."
+      }
+    },
+    "fact": {
+      "decision": "Decision",
+      "outcome": "Outcome",
+      "state": "Current state",
+      "stage": "Pipeline stage",
+      "severity": "Severity",
+      "category": "Category",
+      "tier": "Trust tier",
+      "rule": "Rule",
+      "approval": "Approval",
+      "relatedSignals": "Related signals"
+    },
     "history": "History entries",
     "involvedAgents": "Involved agents",
-    "timeline": "Recovery timeline",
+    "timeline": "Remediation history",
     "actor": "Actor",
     "action": "Action",
     "decision": "Decision",
@@ -1054,14 +1101,12 @@
     "loadMoreError": "Failed to load more incidents: {message}",
     "historyError": "Failed to load incident history: {message}",
     "filterLabel": "Incident status filter",
-    "details": "Details",
-    "viewJson": "View JSON",
     "emptyHistory": "No audit entries for this incident.",
     "none": "-",
     "auditFilter": "Filtered to correlation id: {correlation}",
     "viewPurpose": "Incident-centric roster and recovery history projected from the append-only audit log. Read-only.",
     "viewHeadline": "{count} incident(s) loaded",
-    "historyShown": "Showing {shown} of {total} history entries. Open the filtered audit log to continue browsing."
+    "historyShown": "{shown} of {total} records - newest first. Open the filtered audit log to continue browsing."
   },
   "documents": {
     "subtitle": "Upload governed documents through quarantine, protection checks, extraction, and indexing.",

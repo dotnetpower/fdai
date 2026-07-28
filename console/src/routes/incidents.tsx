@@ -18,6 +18,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
+import { incidentTimelinePresentation } from "./incidents.timeline";
 
 const INCIDENT_DETAIL_ID = "incident-detail";
 
@@ -467,37 +468,35 @@ function IncidentTimeline({ items }: { readonly items: readonly AuditItem[] }) {
   return (
     <ol class="incident-timeline">
       {items.map((item) => {
-        const decision = optionalEntryString(item, "decision");
-        const rollback = optionalEntryString(item, "rollback_reference", "rollback_ref");
+        const presentation = incidentTimelinePresentation(item);
         return (
           <li key={item.seq} class={`incident-timeline-event mode-${item.mode}`}>
             <div class="incident-timeline-row">
-              <code class="incident-timeline-title">{item.action_kind}</code>
-              <span class="incident-actor">{item.actor}</span>
+              <div class="incident-timeline-heading">
+                <strong class="incident-timeline-title">{presentation.title}</strong>
+                <code class="incident-timeline-kind">{presentation.actionKind}</code>
+              </div>
+              <span class={`incident-owner owner-${presentation.ownerKind}`}>
+                <span>{t("incidents.ownerLabel", {
+                  kind: t(`incidents.ownerKind.${presentation.ownerKind}`),
+                })}</span>
+                <strong>{presentation.owner}</strong>
+              </span>
               <time dateTime={item.recorded_at}>{formatConsoleTimestamp(item.recorded_at)}</time>
             </div>
-            {decision ? <p>{decision}</p> : null}
+            <p class="incident-timeline-description">{presentation.description}</p>
             <div class="incident-timeline-facts">
-              <span>{t("incidents.mode")} <strong>{item.mode}</strong></span>
-              {rollback ? <span>{t("incidents.rollback")} <strong>{rollback}</strong></span> : null}
+              {presentation.facts.map((fact) => (
+                <span key={`${fact.label}:${fact.value}`}>
+                  {fact.label} <strong>{fact.value}</strong>
+                </span>
+              ))}
             </div>
-            <details class="incident-event-details">
-              <summary>{t("incidents.viewJson")}</summary>
-              <pre class="mono small entry-json">{JSON.stringify(item.entry, null, 2)}</pre>
-            </details>
           </li>
         );
       })}
     </ol>
   );
-}
-
-function optionalEntryString(item: AuditItem, ...keys: string[]): string | null {
-  for (const key of keys) {
-    const value = item.entry[key];
-    if (typeof value === "string" && value.trim()) return value;
-  }
-  return null;
 }
 
 function localized(group: string, value: string): string {

@@ -4635,10 +4635,8 @@ pre {
 .incident-detail-meta dd,
 .incident-additional-evidence dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 11.5px; }
 .incident-additional-evidence { padding-top: 2px; }
-.incident-additional-evidence summary,
-.incident-event-details summary { width: fit-content; color: var(--fg-muted); font-size: 11px; font-weight: 600; cursor: pointer; }
-.incident-additional-evidence summary:focus-visible,
-.incident-event-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.incident-additional-evidence summary { width: fit-content; color: var(--fg-muted); font-size: 11px; font-weight: 600; cursor: pointer; }
+.incident-additional-evidence summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .incident-additional-evidence dl { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 11px; }
 .incident-additional-evidence dl > div { padding-right: 8px; }
 .incident-detail > .incident-evidence-links {
@@ -4687,16 +4685,28 @@ pre {
 }
 .incident-timeline-event.mode-enforce::before { background: var(--cs-sage); }
 .incident-timeline-event.mode-shadow::before { background: var(--cs-steel); }
-.incident-timeline-row { display: flex; align-items: baseline; gap: 7px; min-width: 0; flex-wrap: wrap; }
-.incident-timeline-title { min-width: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 12.5px; font-weight: 650; }
-.incident-actor { padding: 2px 6px; border-radius: 5px; background: var(--cs-shade); color: var(--fg-muted); font-size: 10px; font-weight: 650; }
+.incident-timeline-row { display: flex; align-items: flex-start; gap: 8px 10px; min-width: 0; flex-wrap: wrap; }
+.incident-timeline-heading { display: grid; gap: 2px; flex: 1 1 220px; min-width: 0; }
+.incident-timeline-title { min-width: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 13.5px; font-weight: 650; }
+.incident-timeline-kind { width: fit-content; color: var(--fg-muted); font-size: 9.5px; font-weight: 500; }
+.incident-owner {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: var(--cs-shade);
+  color: var(--fg-muted);
+  font-size: 9.5px;
+}
+.incident-owner strong { overflow-wrap: anywhere; color: var(--fg); font-size: 10.5px; font-weight: 700; }
+.incident-owner.owner-agent { background: color-mix(in oklab, var(--cs-steel) 9%, var(--cs-shade)); }
 .incident-timeline-row time { margin-left: auto; color: var(--fg-muted); font-family: var(--mono, ui-monospace, monospace); font-size: 10px; }
-.incident-timeline-event > p { margin: 4px 0 7px; color: var(--fg-muted); font-size: 12px; line-height: 1.45; }
+.incident-timeline-description { margin: 6px 0 8px; color: var(--fg-muted); font-size: 12px; line-height: 1.5; }
 .incident-timeline-facts { display: flex; gap: 5px; flex-wrap: wrap; }
 .incident-timeline-facts span { padding: 2px 6px; border-radius: 5px; background: var(--cs-shade); color: var(--fg-muted); font-size: 10px; }
 .incident-timeline-facts strong { color: var(--fg); font-weight: 650; }
-.incident-event-details { margin-top: 7px; }
-.incident-event-details .entry-json { max-height: 220px; margin-top: 7px; overflow: auto; }
 
 @media (max-width: 980px) {
   .incidents-workspace { grid-template-columns: minmax(0, 1fr); }
@@ -4717,7 +4727,8 @@ pre {
   .incident-detail > .incident-evidence-links { padding-left: 15px; padding-right: 15px; }
   .incident-history-head { align-items: flex-start; flex-direction: column; gap: 3px; }
   .incident-history-head span { max-width: none; text-align: left; }
-  .incident-timeline-row time { width: 100%; margin-left: 0; }
+  .incident-owner { order: 2; }
+  .incident-timeline-row time { order: 3; width: 100%; margin-left: 0; }
 }
 
 /* Approvals ---------------------------------------------------------- */

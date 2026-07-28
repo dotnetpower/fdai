@@ -1036,9 +1036,56 @@
     "latestMode": "최신 모드",
     "statusSource": "상태 소스",
     "additionalEvidence": "추가 근거",
+    "ownerLabel": "담당 {kind}",
+    "ownerKind": {"agent": "에이전트", "service": "서비스"},
+    "owner": {
+      "notificationDelivery": "알림 전달 서비스",
+      "notificationRouter": "알림 라우터",
+      "system": "FDAI 시스템"
+    },
+    "event": {
+      "title": {
+        "opened": "인시던트 열림",
+        "correlated": "관련 신호 연결됨",
+        "transitioned": "인시던트 상태 변경됨",
+        "notificationEscalation": "알림 에스컬레이션 필요",
+        "notificationRoute": "알림 경로 평가됨",
+        "approvalRequested": "사람 승인 요청됨",
+        "approvalUnavailable": "승인 전달 불가",
+        "requestHeld": "운영자 요청 검토 대기",
+        "auditRecorded": "감사 근거 기록됨"
+      },
+      "description": {
+        "opened": "{severity} 인시던트를 열고 관련 신호 연결을 시작했습니다.",
+        "correlatedOne": "관련 신호 1개를 이 인시던트에 연결했습니다.",
+        "correlatedMany": "관련 신호 {count}개를 이 인시던트에 연결했습니다.",
+        "transitioned": "인시던트 상태를 {state}(으)로 변경했습니다.",
+        "notificationEscalation": "알림 전달을 완료하지 못해 운영자의 확인이 필요합니다.",
+        "notificationEscalationReason": "알림 전달을 완료하지 못해 운영자의 확인이 필요합니다. 기록된 사유: {reason}",
+        "notificationRoute": "알림 전달 경로를 평가했습니다. 기록된 결과: {outcome}.",
+        "approvalRequested": "제안된 작업을 계속하기 전에 사람 승인을 요청했습니다.",
+        "approvalUnavailable": "구성된 승인 채널로 승인 요청을 전달하지 못했습니다.",
+        "requestHeld": "통제된 작업을 수행할 근거가 충분하지 않아 운영자 요청을 보류했습니다.",
+        "auditRecorded": "최신 결정 및 작업 근거를 추가 전용 감사 로그에 기록했습니다.",
+        "result": "기록된 결과: {result}.",
+        "recorded": "운영 이벤트를 기록했습니다: {action}."
+      }
+    },
+    "fact": {
+      "decision": "결정",
+      "outcome": "결과",
+      "state": "현재 상태",
+      "stage": "파이프라인 단계",
+      "severity": "심각도",
+      "category": "범주",
+      "tier": "신뢰 등급",
+      "rule": "규칙",
+      "approval": "승인",
+      "relatedSignals": "관련 신호"
+    },
     "history": "이력 항목",
     "involvedAgents": "참여 에이전트",
-    "timeline": "복구 타임라인",
+    "timeline": "조치 이력",
     "actor": "주체",
     "action": "작업",
     "decision": "결정",
@@ -1054,14 +1101,12 @@
     "loadMoreError": "인시던트를 더 불러오지 못했습니다: {message}",
     "historyError": "인시던트 이력을 불러오지 못했습니다: {message}",
     "filterLabel": "인시던트 상태 필터",
-    "details": "상세",
-    "viewJson": "JSON 보기",
     "emptyHistory": "이 인시던트의 감사 항목이 없습니다.",
     "none": "-",
     "auditFilter": "상관관계 ID로 필터링됨: {correlation}",
     "viewPurpose": "추가 전용 감사 로그에서 투영된 인시던트 중심 목록 및 복구 이력입니다. 읽기 전용입니다.",
     "viewHeadline": "인시던트 {count}개를 불러왔습니다",
-    "historyShown": "이력 항목 {total}개 중 {shown}개를 표시합니다. 계속 탐색하려면 필터링된 감사 로그를 여세요."
+    "historyShown": "{total}개 중 {shown}개 - 최신순. 계속 탐색하려면 필터링된 감사 로그를 여세요."
   },
   "documents": {
     "subtitle": "검역, 보호 검사, 추출, 인덱싱을 거쳐 거버넌스 적용 문서를 업로드합니다.",

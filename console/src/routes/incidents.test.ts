@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { AuditItem } from "../types";
 import { mergeIncidentItems, parseIncidentVertical, resolveIncidentSelection } from "./incidents";
+import { incidentTimelinePresentation } from "./incidents.timeline";
 
 const incidents = [
   { correlation_id: "correlation-1" },
@@ -46,5 +48,85 @@ describe("incident pagination", () => {
     const exact = [{ correlation_id: "b" }];
     expect(mergeIncidentItems(exact as never, current as never).map((item) => item.correlation_id))
       .toEqual(["b", "a"]);
+  });
+});
+
+function auditItem(
+  actionKind: string,
+  actor: string,
+  entry: Record<string, unknown>,
+): AuditItem {
+  return {
+    seq: 1,
+    event_id: "event-1",
+    correlation_id: "correlation-1",
+    actor,
+    action_kind: actionKind,
+    mode: "shadow",
+    entry,
+    entry_hash: "hash-1",
+    previous_hash: "hash-0",
+    recorded_at: "2026-07-28T06:43:55Z",
+  };
+}
+
+describe("incident timeline presentation", () => {
+  it("explains an incident opening and names the responsible agent", () => {
+    const presentation = incidentTimelinePresentation(auditItem(
+      "incident.open",
+      "Heimdall",
+      { severity: "sev3", state: "open", member_event_ids: ["event-1"] },
+    ));
+
+    expect(presentation.title).toBe("Incident opened");
+    expect(presentation.description).toBe(
+      "Opened a SEV3 incident and began correlating related signals.",
+    );
+    expect(presentation.owner).toBe("Heimdall");
+    expect(presentation.ownerKind).toBe("agent");
+    expect(presentation.facts).toContainEqual({ label: "Related signals", value: "1" });
+  });
+
+  it("uses a recorded reason and labels non-agent notification ownership honestly", () => {
+    const presentation = incidentTimelinePresentation(auditItem(
+      "notification.escalation",
+      "fdai.notifications.hil_sink",
+      { reason: "No configured channel accepted the alert.", severity: "warn" },
+    ));
+
+    expect(presentation.title).toBe("Notification escalation required");
+    expect(presentation.description).toBe(
+      "Notification delivery could not complete and requires operator attention. " +
+      "Recorded reason: No configured channel accepted the alert.",
+    );
+    expect(presentation.owner).toBe("Notification delivery");
+    expect(presentation.ownerKind).toBe("service");
+  });
+
+  it("prefers an audit summary and producer principal for a generic action", () => {
+    const presentation = incidentTimelinePresentation(auditItem(
+      "compute.restart",
+      "fdai.runtime",
+      {
+        producer_principal: "Thor",
+        summary: "Restarted the unhealthy compute instance after policy verification.",
+        outcome: "applied",
+      },
+    ));
+
+    expect(presentation.title).toBe("Compute restart");
+    expect(presentation.description).toContain("Restarted the unhealthy compute instance");
+    expect(presentation.owner).toBe("Thor");
+    expect(presentation.facts).toContainEqual({ label: "Outcome", value: "Applied" });
+  });
+
+  it("uses singular wording for one correlated signal", () => {
+    const presentation = incidentTimelinePresentation(auditItem(
+      "incident.members",
+      "Heimdall",
+      { member_event_ids: ["event-1"] },
+    ));
+
+    expect(presentation.description).toBe("Attached one related signal to this incident.");
   });
 });

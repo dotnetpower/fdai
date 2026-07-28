@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 900f416984d764a79a061ce9e26a45b89c3d4f40
+translation_source_sha: 53309032000926f60d5e02109dbb724999c2e221
 translation_revised: 2026-07-28
 ---
 
@@ -120,9 +120,9 @@ append-only sample을 열거할 수 있습니다. `hil_pending`은 별도의 현
 유지되며 audit sample에 포함되지 않습니다. Tier key와 tier filter는 lowercase canonical
 value (`t0`, `t1`, `t2`)를 사용합니다.
 
-SPA는 incident 목록에서 native table semantics를 유지합니다. 첫 cell에는 selection
-button이 있고 선택된 각 row는 `aria-selected`를 노출하며 control은
-`aria-controls`로 incident detail region을 가리킵니다. 알 수 없는 top-level URL은
+SPA는 incident 목록을 selection button의 semantic list로 렌더링합니다. 선택된 button은
+`aria-pressed`를 노출하며 모든 button은 `aria-controls`로 incident detail region을
+가리킵니다. 알 수 없는 top-level URL은
 canonical `/overview`로 replace되므로 같은 화면이 typo path 아래 여러 conversation
 cache를 만들지 않습니다.
 
@@ -215,6 +215,15 @@ Process 목록도 `source`, nullable `synthetic`, nullable `durable`로 같은 �
 최신 모드, 타임스탬프, 이력 수를 표시합니다. 누락된 값은 사용할 수 없음으로
 렌더링하며 브라우저가 영향, 소유권, 복구를 추론하지 않습니다. 상세는
 History > Reports의 correlation 범위 **Incident RCA Dossier**로 연결됩니다.
+
+조치 이력은 각 audit row를 사람이 읽을 수 있는 이벤트로 표시합니다. 먼저 기록된
+`summary`, `detail`, `reason` 텍스트를 사용하고, 값이 없으면 알려진 lifecycle, 알림,
+사람 승인, audit event kind에 대한 결정론적 템플릿을 사용합니다. 담당 에이전트는 기록된
+`producer_principal`, Pantheon actor 또는 canonical stage-owner mapping에서 가져옵니다.
+에이전트가 아닌 runtime은 에이전트로 귀속하지 않고 담당 서비스로 표시합니다. 각 row는
+정확한 machine `action_kind`를 보조 텍스트로 유지하고 기록된 핵심 사실을 최대 5개까지
+표시합니다. Incidents에서는 raw entry JSON을 생략하며 correlation 범위 Audit link가 전체
+레코드 화면으로 유지됩니다.
 
 Overview는 autonomy measurement가 없거나 malformed여도 모든 필수 분석 section을
 계속 표시합니다. Section을 제거하거나 0으로 추정하지 않고 명시적 unavailable

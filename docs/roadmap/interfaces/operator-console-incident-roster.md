@@ -126,10 +126,9 @@ arrive. `hil_pending` remains a separate current queue projection and is not
 part of the audit sample. Tier keys and tier filtering use lowercase canonical
 values (`t0`, `t1`, `t2`).
 
-The SPA preserves native table semantics for the incident roster. The first
-cell contains the selection button, each selected row exposes
-`aria-selected`, and the control points to the incident detail region with
-`aria-controls`. Unknown top-level URLs are replaced with canonical
+The SPA renders the incident roster as a semantic list of selection buttons.
+The selected button exposes `aria-pressed`, and every button points to the
+incident detail region with `aria-controls`. Unknown top-level URLs are replaced with canonical
 `/overview`, so one visible screen cannot create multiple conversation caches
 under typo paths.
 
@@ -237,6 +236,14 @@ disposition, verdict, owning vertical, latest mode, timestamps, and history
 count before the remediation timeline. Missing values render unavailable; the
 browser does not infer impact, ownership, or recovery. The detail links to the
 correlation-scoped **Incident RCA Dossier** in History > Reports.
+
+The remediation history presents each audit row as a plain-language event. It uses recorded
+`summary`, `detail`, or `reason` text first, then a deterministic template for known lifecycle,
+notification, human approval, and audit event kinds. The responsible agent comes from a recorded
+`producer_principal`, Pantheon actor, or the canonical stage-owner mapping. A non-agent runtime is
+labelled as a responsible service instead of being attributed to an agent. Each row retains the
+exact machine `action_kind` as secondary text and shows at most five recorded facts. Raw entry JSON
+is omitted from Incidents; the correlation-scoped Audit link remains the complete record surface.
 
 Overview keeps every required analytical section visible when autonomy
 measurement is absent or malformed. It renders an explicit unavailable state
