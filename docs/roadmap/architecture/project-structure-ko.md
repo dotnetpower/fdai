@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 15a1c5beacf6811ba7091fa58d25037b0ea5dd3a
+translation_source_sha: 6fe0d86b5b9bbc7f5fc28fae576d0491bc2870e3
 translation_revised: 2026-07-28
 ---
 
@@ -242,7 +242,8 @@ fdai/
   generic Inventory delta forwarder는 각 `InventoryBatch.links` patch를 보존합니다. `contains`는
   target 리소스에, 다른 관계 type은 source 리소스에 할당합니다. 같은 batch에 관계 owner 리소스가
   없으면 cursor 진행을 차단하여 graph 데이터를 조용히 버리지 않고 page를 재시도합니다. Event
-  idempotency identity에는 리소스 및 관계 payload의 canonical digest가 포함됩니다. Delta 리소스에는
+  idempotency identity는 scope, 리소스, 관계 payload의 bounded SHA-256 digest입니다. 따라서 긴
+  resource id 때문에 구분용 digest가 잘리거나 event contract 길이를 초과하지 않습니다. Delta 리소스에는
   timezone이 포함된 RFC 3339 `last_seen`이 필요합니다. Ordering time이 없거나 잘못되면 process wall
   clock으로 대체하지 않고 발행과 cursor 진행을 차단합니다. 하나의 batch에는 각 `resource_id`가 한
   번만 포함될 수 있으며 중복이 있으면 event를 발행하기 전에 batch 전체를 차단합니다.

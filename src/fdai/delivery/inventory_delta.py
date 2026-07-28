@@ -87,17 +87,16 @@ def _resource_event(*, scope: str, resource: ResourceRecord, links: Sequence[Lin
         for link in sorted(links, key=lambda item: (item.from_id, item.link_type, item.to_id))
     ]
     identity_document = json.dumps(
-        {"resource": resource_payload, "links": link_payloads},
+        {"scope": scope, "resource": resource_payload, "links": link_payloads},
         sort_keys=True,
         separators=(",", ":"),
         default=str,
     )
     identity_digest = hashlib.sha256(identity_document.encode("utf-8")).hexdigest()
-    identity = f"{scope}:{resource_id}:{resource_type}:{last_seen or 'unknown'}:{identity_digest}"
     return Event(
         schema_version="1.0.0",
-        event_id=uuid5(NAMESPACE_URL, f"fdai.inventory-delta://{identity}"),
-        idempotency_key=f"inventory-delta:{identity}",
+        event_id=uuid5(NAMESPACE_URL, f"fdai.inventory-delta://{identity_digest}"),
+        idempotency_key=f"inventory-delta:{identity_digest}",
         source="fdai.delivery.inventory_delta",
         event_type="inventory.resource_changed",
         resource_ref=resource_id,

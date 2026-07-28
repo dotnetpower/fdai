@@ -202,7 +202,7 @@ async def test_forward_delta_rejects_link_without_owner_resource() -> None:
 
 def test_delta_event_identity_includes_relationship_payload() -> None:
     resource = ResourceRecord(
-        resource_id="resource:example/vm-1",
+        resource_id=f"resource:example/{'x' * 600}",
         type="compute.vm",
         last_seen="2026-07-15T00:00:00Z",
     )
@@ -235,6 +235,18 @@ def test_delta_event_identity_includes_relationship_payload() -> None:
 
     assert first.event_id != second.event_id
     assert first.idempotency_key != second.idempotency_key
+    assert len(first.idempotency_key) <= 80
+    other_scope = _resource_event(
+        scope="subscription-2",
+        resource=resource,
+        links=(),
+    )
+    first_scope_without_links = _resource_event(
+        scope="subscription-1",
+        resource=resource,
+        links=(),
+    )
+    assert other_scope.idempotency_key != first_scope_without_links.idempotency_key
 
 
 @pytest.mark.parametrize("last_seen", [None, "not-a-timestamp"])
