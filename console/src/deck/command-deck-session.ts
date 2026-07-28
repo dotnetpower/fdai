@@ -82,6 +82,10 @@ export function replyAgent(
   return reply.delegation?.primary_agent ?? "Bragi";
 }
 
+export function provisionalReplyAgent(targetAgent: string | undefined): string {
+  return targetAgent ?? "Bragi";
+}
+
 export function replyAgentLabel(
   agent: string,
   delegation: ProgressiveAnswer["delegation"],

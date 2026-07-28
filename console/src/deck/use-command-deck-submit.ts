@@ -12,7 +12,7 @@ import {
 import { takeComposerAttachments } from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
-import { replyAgent, sessionIdFor } from "./command-deck-session";
+import { provisionalReplyAgent, replyAgent, sessionIdFor } from "./command-deck-session";
 import {
   conversationLabelForPrompt,
   conversationPath,
@@ -195,7 +195,7 @@ export function useCommandDeckSubmit({
               streaming: true,
               terminal: false,
               revision: pendingRevision,
-              agent: DEFAULT_NARRATOR,
+              agent: provisionalReplyAgent(sessionSummary?.agent),
               at: shortTime(),
             },
           ];

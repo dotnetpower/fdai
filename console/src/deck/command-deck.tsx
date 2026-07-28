@@ -26,6 +26,7 @@ export {
   clearScheduledTimeouts,
   matchingTurnIndexes,
   parseDeckLayoutMode,
+  provisionalReplyAgent,
   replyAgent,
   replyAgentLabel,
   restoredTurn,

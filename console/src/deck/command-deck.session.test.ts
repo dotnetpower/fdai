@@ -4,6 +4,7 @@ import {
   matchingTurnIndexes,
   clampDockWidth,
   parseDeckLayoutMode,
+  provisionalReplyAgent,
   replyAgent,
   replyAgentLabel,
   restoredTurn,
@@ -68,6 +69,11 @@ describe("Deck transcript search", () => {
 });
 
 describe("terminal reply attribution", () => {
+  test("keeps the selected agent visible while its reply is streaming", () => {
+    expect(provisionalReplyAgent("Heimdall")).toBe("Heimdall");
+    expect(provisionalReplyAgent(undefined)).toBe("Bragi");
+  });
+
   test("keeps the delegated specialist as the reply owner", () => {
     const delegation = { primary_agent: "Saga", contributors: [] };
     const verification = {
