@@ -66,6 +66,17 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
         )
     model.record_audit_entry(
         {
+            "event_id": "event-2",
+            "actor": "fdai.core.control_loop",
+            "action_kind": "risk_gate.unified",
+            "mode": "shadow",
+            "decision": "hil",
+            "action_id": "action-2",
+            "action_type_id": "remediate.right-size-role",
+        }
+    )
+    model.record_audit_entry(
+        {
             "event_id": "event-measurement",
             "actor": "fdai.measurement",
             "action_kind": "measurement.observed",
@@ -89,7 +100,7 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
 
     assert autonomy["sample_size"] == 2
     assert autonomy["success"]["auto_resolution_rate"]["value"] == 0.5
-    assert autonomy["success"]["human_touchpoints_per_100"]["value"] == 50.0
+    assert autonomy["success"]["human_touchpoints_per_100"]["value"] == 100.0
     assert autonomy["success"]["auto_resolution_rate"]["baseline"] is None
     assert autonomy["success"]["mttr_seconds"] == {
         "value": 120.0,
@@ -115,7 +126,7 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
             "key": "cost",
             "events": 1,
             "auto_resolved": 0,
-            "open_risks": 1,
+            "open_risks": 2,
             "monthly_savings": 0.0,
         },
     ]

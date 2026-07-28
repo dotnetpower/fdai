@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: eddf9552f2f88f4e1bec24b2521b7656ed87d103
-translation_revised: 2026-07-13
+translation_source_sha: d7aa7cd2976b6b4fc5bae855450075bffdb4032b
+translation_revised: 2026-07-28
 ---
 
 # 목표와 메트릭
@@ -37,7 +37,9 @@ translation_revised: 2026-07-13
 - **Reference agent**: Phase 0에서 측정된 고정 비교 시스템(문서화됨, 단일 모델, 티어링 없음).
   버전은 베이스라인 실행마다 고정됩니다.
 - **Human touchpoint**: 사람의 결정 또는 입력이 필요한 모든 액션(HIL 승인, 수동 편집, 수동
-  롤백). 콘솔의 읽기 전용 조회는 터치포인트가 **아닙니다**.
+  롤백). 고유하게 식별된 action 또는 approval은 각각 한 번 계산하며, 같은 action 또는 approval의
+  반복 lifecycle row는 touchpoint를 추가하지 않습니다. 하나의 event가 둘 이상의 touchpoint를
+  제공할 수 있습니다. 콘솔의 읽기 전용 조회는 touchpoint가 **아닙니다**.
 - **Auto-resolved event**: 측정 윈도우 내에서 사람 터치포인트 0회, 사후 롤백 없이 종단의
   올바른 결과에 도달한 이벤트.
 - **Measurement window**: 실행당 고정된 관측 기간(기본값: 30일 롤링, 또는 전체 시나리오 세트

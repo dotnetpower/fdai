@@ -84,7 +84,7 @@ def _audit_payload(
     events = _event_evidence(items)
     evidence_items = _merge_items(items, supplemental_items)
     auto_count = sum(_is_auto_resolved(event_items) for event_items in events.values())
-    human_count = sum(_has_human_touch(event_items) for event_items in events.values())
+    human_count = sum(_human_touchpoint_count(event_items) for event_items in events.values())
     auto_rate = auto_count / len(events) if events else None
     touchpoints = human_count * 100.0 / len(events) if events else None
 
@@ -98,8 +98,7 @@ def _audit_payload(
         bucket["events"] += 1
         if _is_auto_resolved(event_items):
             bucket["auto_resolved"] += 1
-        if _has_human_touch(event_items):
-            bucket["open_risks"] += 1
+        bucket["open_risks"] += _human_touchpoint_count(event_items)
         bucket["monthly_savings"] += _event_savings(event_items)
         tier = _event_tier(event_items)
         if tier is not None:
@@ -147,12 +146,8 @@ def _audit_payload(
             "mixed_model_disagreement_rate": _metric(
                 evidence_items, "mixed_model_disagreement_rate", "lower"
             ),
-            "verifier_failure_rate": _metric(
-                evidence_items, "verifier_failure_rate", "lower"
-            ),
-            "shadow_divergence_rate": _metric(
-                evidence_items, "shadow_divergence_rate", "lower"
-            ),
+            "verifier_failure_rate": _metric(evidence_items, "verifier_failure_rate", "lower"),
+            "shadow_divergence_rate": _metric(evidence_items, "shadow_divergence_rate", "lower"),
         },
         "guards": _guards(evidence_items),
         "verticals": [
@@ -194,11 +189,27 @@ def _normalized_entry_value(item: AuditItem, key: str) -> str:
 
 
 def _has_human_touch(items: Sequence[AuditItem]) -> bool:
-    return any(
-        _normalized_entry_value(item, "decision") == "hil"
-        or _normalized_entry_value(item, "outcome") in _HUMAN_TOUCH
-        for item in items
-    )
+    return _human_touchpoint_count(items) > 0
+
+
+def _human_touchpoint_count(items: Sequence[AuditItem]) -> int:
+    touchpoint_ids: set[str] = set()
+    for item in items:
+        if not (
+            _normalized_entry_value(item, "decision") == "hil"
+            or _normalized_entry_value(item, "outcome") in _HUMAN_TOUCH
+        ):
+            continue
+        identity = next(
+            (
+                str(value)
+                for key in ("action_id", "approval_id", "idempotency_key")
+                if (value := item.entry.get(key)) is not None and str(value).strip()
+            ),
+            "unidentified",
+        )
+        touchpoint_ids.add(identity)
+    return len(touchpoint_ids)
 
 
 def _is_auto_resolved(items: Sequence[AuditItem]) -> bool:

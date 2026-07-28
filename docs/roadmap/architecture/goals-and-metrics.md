@@ -33,7 +33,9 @@ Terms used across all metrics, fixed here to avoid ambiguity:
 - **Reference agent**: the fixed comparison system (documented, single-model, no tiering)
   measured in Phase 0. Its version is pinned per baseline run.
 - **Human touchpoint**: any action requiring a human decision or input (HIL approval, manual
-  edit, manual rollback). Read-only viewing of the console is **not** a touchpoint.
+  edit, manual rollback). Each uniquely identified action or approval counts once, while repeated
+  lifecycle rows for the same action or approval don't add another touchpoint. One event can
+  contribute more than one touchpoint. Read-only viewing of the console is **not** a touchpoint.
 - **Auto-resolved event**: an event that reaches a terminal, correct outcome with zero human
   touchpoints and no post-hoc rollback within the measurement window.
 - **Measurement window**: the fixed observation period per run (default: 30 days rolling, or
