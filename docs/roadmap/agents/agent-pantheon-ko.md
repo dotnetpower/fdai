@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: b5065dcc7eab5e6d6785a7a43f13223d1a07900b
+translation_source_sha: 32bd5cb6f8f531ef254469f2cf73bca87130e8eb
 translation_revised: 2026-07-29
 ---
 
@@ -34,7 +34,6 @@ publish/subscribe 하고, 별도의 conversational port 로 자연어 질문에�
   initiator / judge / approver / executor / auditor 에 바인딩한다.
 - 포크는 §10 을 읽고 어느 seam 이 열려 있고 (topic subscription, config
   override) 어느 것이 잠겨 있는지 (에이전트 추가 금지, rename 금지) 확인한다.
-
 ## 1. 설계 원칙
 
 판테온은 기존 FDAI 컨트롤 루프를 명명된 조직 역할로 얇게 재구성한 것이다.
@@ -66,7 +65,6 @@ publish/subscribe 하고, 별도의 conversational port 로 자연어 질문에�
   `_framework` 서브모듈에서 직접 import 하지 **않는다**. 레이아웃은
   [`tests/agents/test_framework_layout.py`](../../../tests/agents/test_framework_layout.py)
   로 강제된다 (트래커 #14, 이슈 #21).
-
 ## 2. 조직도
 
 Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4개의

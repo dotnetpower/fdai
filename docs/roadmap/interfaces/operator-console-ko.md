@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 147aa432a945b14d159523e7b3dfb53ccc90a26a
+translation_source_sha: 7018892db23b452be88ff41491d8086c6fbc21ff
 translation_revised: 2026-07-29
 ---
 
@@ -24,7 +24,6 @@ surface입니다.
 > 고객-무관: 아래의 모든 채널 id, LLM deployment 이름, 리소스 id, 그룹
 > 이름은 placeholder. Fork는 config로 실제 값을 공급
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
 오퍼레이터 콘솔은 **판단 authority 를 가지지 않는다**. FDAI의 판단
@@ -49,7 +48,6 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
   ([architecture.instructions.md § Rule Catalog](../../../.github/instructions/architecture.instructions.md#rule-catalog)) -
   불투명한 LLM 세션 memory가 아님. 대화 간에 persist 되는 모든 상태는
   `audit_log` + `operator_memory`에 살며, 감사가능 / export 가능 / CSP-중립.
-
 ### 1.1 공유 glossary에 추가된 어휘
 
 다음 토큰들이
@@ -64,7 +62,6 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
   하나 (멀티-turn, RBAC-scoped, 감사됨).
 - **console-tool** - narrator가 호출 가능한 노출된 pipeline stage 또는
   카탈로그 view 하나.
-
 ## 2. 3-layer 아키텍처
 
 ```mermaid
@@ -159,7 +156,6 @@ flowchart TD
   콘솔은 새 판단 경로, 새 지속성 저장소, 새 execution vector를 추가하지
   않는다. 콘솔 tool call은 기존 pipeline이 이미 만드는 법을 아는 call
   로 resolve.
-
 ### 2.1 모듈 맵
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
@@ -215,7 +211,6 @@ pipeline decision을 변경하지 않습니다.
 CSP-중립 규칙은 그대로 유지: `core/conversation/`은 **오직** Protocol만
 import. 모든 Azure SDK / httpx / Bot Framework 호출은 `delivery/` 아래
 거주.
-
 ## 3. Tool 카탈로그
 
 Tool은 **pipeline-stage view** 입니다. Core tool은 안정된 name, bounded `argument_hint`,
@@ -233,7 +228,6 @@ capability가 없습니다. Discovery는 navigation을 개선할 뿐 새 authori
 method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 resolved `Principal`을
 사용하고 RPC call은 caller가 제공한 role parameter가 아니라 server-authorized scope에서 role을
 도출합니다. 두 surface 모두 descriptor만 반환하며 target을 invoke할 수 없습니다.
-
 ### 3.1 Day-1 tool 집합 (read-only + explain)
 
 | Tool | 목적 | RBAC 하한 | Delegates to |
@@ -253,7 +247,6 @@ embedding lookup, T2 모델, 외부 adapter, 어떤 mutation surface도
 호출하지 않고, PR과 audit entry를 write 안 함. 그 `side_effect_class`는
 `read` 이며, shadow-mode test가 executor / PR adapter / state store를 절대
 건드리지 않음을 assert. 이것이 Reader 하한에서 안전한 이유입니다. Browser capture는 [브라우저 근거 수집](browser-evidence-ko.md) 계약을 따르며 Bragi는 browser handle을 받지 않습니다.
-
 ### 3.2 Week-1 추가 (write / approve / runbook)
 
 | Tool | 목적 | RBAC 하한 | 참고 |
@@ -276,7 +269,6 @@ write 집합에 대한 두 명확화:
   개수* (대시보드 tile)를 보여줌; `list_hil`은 *전체 item 상세* (target,
   proposed action, requester)를 반환하며 이는 민감한 intent를 드러낼 수
   있으므로 Approver-scoped 유지. 둘은 의도적으로 같은 가시성이 아님.
-
 ### 3.3 Month-1 추가 (관찰 depth)
 
 | Tool | 목적 | RBAC 하한 | 의존 |
@@ -289,7 +281,6 @@ write 집합에 대한 두 명확화:
 Month-1 추가는 콘솔을 multi-signal 인시덴트 대응 경험에 가깝게
 만들어 주지만, 여전히 **이미 correlate 된** 결과를 surface;
 correlator는 Layer 1에 살고, narrator 안에 살지 않는다.
-
 ### 3.4 Tool discovery 계약
 
 각 tool은 다음을 선언:
@@ -378,7 +369,6 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   스페인어, 프랑스어 및 일본어 prompt로 semantic classification과 query normalization을 측정합니다.
   Alternative discovery는 goal, subject, capability, candidate count와 diversity, self exclusion, direct
   page 및 conceptual-content exclusion에 대한 관측 가능한 relevance check 10개를 추가합니다.
-
 ## 4-6. 런타임 모델 (Narrator, DI seam, 세션 모델)
 
 focused owner 문서로 이동했습니다: [operator-console-runtime-model-ko.md](operator-console-runtime-model-ko.md). Narrator LLM tier 모델(section 4), DI seam(section 5), 세션 모델 및 memory(section 6)를 다룹니다.
@@ -386,7 +376,6 @@ focused owner 문서로 이동했습니다: [operator-console-runtime-model-ko.m
 ### 6. Session model + memory
 
 [operator-console-runtime-model-ko.md#6-세션-모델--memory](operator-console-runtime-model-ko.md#6-세션-모델--memory) 참조.
-
 ## 7. 안전 invariant (chat은 이를 약화시키지 않음)
 
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
@@ -455,7 +444,6 @@ emit MAY. Verifier re-check (invariant 5) 시:
   review item을 file 하는 `enqueue_hil(...)` call로 substitute 하고
   오퍼레이터에게 "HIL item id X를 file 했어" 반환.
 - 어떠한 상황에서도 dispatch 전 audit entry 없이 write는 발생하지 않음.
-
 ## 8. 채널 통합 (push vs pull)
 
 채널 추상화 ([channels-and-notifications.md](channels-and-notifications-ko.md))
@@ -507,7 +495,6 @@ record, role, session, audit history를 merge하지 않습니다.
 notification routing만 소유합니다. Conversation channel은 `FDAI_SLACK_CHANNEL_ENABLED`,
 `FDAI_TEAMS_CHANNEL_ENABLED`, secret reference, Teams identity/principal binding, queue-capacity
 contract를 별도로 사용합니다. Shared credential backend는 config ownership을 합친다는 뜻이 아닙니다.
-
 ## 9. 성장 모델 (catalog + operator memory)
 
 콘솔은 시간이 지남에 따라 세 가지 결정론적 mechanism으로 나아진다.
@@ -550,7 +537,6 @@ pull adapter 추가. 콘솔은 이제:
 
 결과는 chat의 common investigation 패턴이 카탈로그의 first-class 룰이 됨 -
 **콘솔은 카탈로그를 성장시키지, 자신을 성장시키지 않는다**.
-
 ## 10. Rollout reconciliation
 
 초기 Day/Week/Month 계획은 구현 순서를 설명한 역사적 정보이며 현재 availability source가 아닙니다.
@@ -566,7 +552,6 @@ pull adapter 추가. 콘솔은 이제:
 
 Live Azure completion evidence와 capability promotion은 여전히 authoritative registry 및 deployment
 verification에서 판단하며 이 문서의 phase 이름으로 추론하지 않습니다.
-
 ## 11. Testability
 
 - **Coordinator** - property test: "verifier re-check는 매 write-class
@@ -592,7 +577,6 @@ verification에서 판단하며 이 문서의 phase 이름으로 추론하지 �
 - **세션 복구** - principal-scoped `ConversationHistoryStore`에서 session id로 이전 turn을
   reload하고 stable request idempotency가 duplicate append를 막는지 검증. Audit/ontology에는
   raw transcript가 아니라 hash와 reference만 남습니다.
-
 ## 12. 실패 모드
 
 - **Narrator unavailable** - Chat T0 direct-hit로 fall through; turn이
@@ -612,7 +596,6 @@ verification에서 판단하며 이 문서의 phase 이름으로 추론하지 �
 - **Tool 구현 raise** - tool의 타입화된 error surface (§3.4)가
   `ToolResult(status=error)`로 wrap; narrator는 exception traceback이
   아닌 구조화된 error를 봄.
-
 ## 13. 데이터 + wire 계약
 
 focused owner 문서로 분리했습니다:
@@ -620,7 +603,6 @@ focused owner 문서로 분리했습니다:
 - [operator-console-wire-contracts-ko.md](operator-console-wire-contracts-ko.md) - audit entry, CLI REPL, approval callback(13.1-13.3), action submit, Python VM workbench, 그라운딩된 코드, 온톨로지 projection(13.6-13.9).
 - [operator-console-view-snapshot-ko.md](operator-console-view-snapshot-ko.md) - self-describing screen 계약(13.4).
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록 및 교정 이력(13.5).
-
 ## 14. MCP delivery 및 managed catalog
 
 FDAI는 `src/fdai/delivery/mcp/` 아래 managed outbound catalog를 통해 외부 hosted MCP tool을
@@ -639,7 +621,6 @@ ship하지 않습니다. 따라서 fork가 문서만 근거로 FDAI tool을 MCP 
 거부하며 mTLS 또는 audience-scoped Entra token을 service `Principal`에 mapping하고 audit해야 합니다.
 이것은 current capability가 아니라 별도 threat model, protocol, test, deployment gate가 필요한
 future scope입니다.
-
 ## 15. Decision status
 
 - **OD-C1 resolved** - strict core narrator prompt는 `AzureOpenAINarratorModel` code가 소유하고,
@@ -650,7 +631,6 @@ future scope입니다.
   향후 설계는 no-self-approval을 유지하고 distinct approver requirement를 별도로 승인해야 합니다.
 - **OD-C4 current behavior** - CLI history는 process memory에서만 bounded navigation을 제공합니다.
   Persistent history file과 retention/redaction contract는 shipped 기능이나 현재 CLI의 blocker가 아닙니다.
-
 ## 16. 관련 문서
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -

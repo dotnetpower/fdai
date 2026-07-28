@@ -27,7 +27,6 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > machinery lives under `src/fdai/agents/_framework/`; current wave coverage
 > lives in `tests/agents/test_wave2_governance.py` through
 > `test_wave8_kpi_degradation.py`.
-
 ## 1. Why this doc exists
 
 The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the

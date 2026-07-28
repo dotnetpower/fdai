@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 1b24d328daf8d02575659d25104dbe89d7a90aa7
+translation_source_sha: 483839bfcb3f56debb15607e1a15d0731de532fc
 translation_revised: 2026-07-29
 ---
 
@@ -29,7 +29,6 @@ translation_revised: 2026-07-29
 > `src/fdai/agents/_framework/`에 있고, 현재 wave coverage는
 > `tests/agents/test_wave2_governance.py`부터
 > `test_wave8_kpi_degradation.py`까지에 있습니다.
-
 ## 1. 이 문서가 존재하는 이유
 
 판테온 문서 ([agent-pantheon.md](agent-pantheon-ko.md)) 는 15개 에이전트 계약을

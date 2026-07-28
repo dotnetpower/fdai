@@ -33,7 +33,6 @@ Consumers of this document:
   to its initiator, judge, approver, executor, and auditor.
 - Forks read §10 to see which seams are open (topic subscriptions, config
   overrides) and which are locked (no new agents, no rename).
-
 ## 1. Design principles
 
 The pantheon is a thin re-framing of the existing FDAI control loop into
@@ -66,7 +65,6 @@ it makes the roles legible and auditable.
   `_framework` submodule. The layout is enforced by
   [`tests/agents/test_framework_layout.py`](../../../tests/agents/test_framework_layout.py)
   (tracker #14, issue #21).
-
 ## 2. Organization chart
 
 Two lines report to Odin: Thor (operations) and Forseti (judgment). Four

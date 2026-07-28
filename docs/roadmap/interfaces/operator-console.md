@@ -24,7 +24,6 @@ contract, but they are distinct integration surfaces.
 > group name below is a placeholder. A fork supplies concrete values via
 > config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-
 ## 1. Framing - what this is (and what it is not)
 
 The operator console does **not** carry judgment authority. FDAI's
@@ -51,7 +50,6 @@ Three properties follow directly:
   not opaque LLM session memory. Every state that persists across
   conversations lives in `audit_log` + `operator_memory` where it is
   auditable, exportable, and CSP-neutral.
-
 ### 1.1 Vocabulary added to the shared glossary
 
 The following tokens are added to the shared vocabulary in
@@ -66,7 +64,6 @@ and are used consistently by every referring doc:
   the console (multi-turn, RBAC-scoped, audited).
 - **console-tool** - one exposed pipeline stage or catalog view the narrator
   may call.
-
 ## 2. Three-layer architecture
 
 ```mermaid
@@ -163,7 +160,6 @@ flowchart TD
   The console adds no new judgment path, no new persistence store, and no
   new execution vector. A console tool call resolves to a call the
   existing pipeline already knows how to make.
-
 ### 2.1 Module map
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
@@ -220,7 +216,6 @@ authority, locale selection, or the typed pipeline decision.
 The CSP-neutral rule stays intact: `core/conversation/` imports **only**
 Protocols. All Azure SDK / httpx / Bot Framework calls live under
 `delivery/`.
-
 ## 3. Tool catalog
 
 Tools are **pipeline-stage views**. A core tool has a stable name, bounded `argument_hint`, RBAC
@@ -238,7 +233,6 @@ The same projection is available through the deterministic channel verbs `search
 `describe_tool`, and typed read RPC methods `tools.search` and `tools.describe`. Channel calls use
 the resolved `Principal`; RPC calls derive the role from server-authorized scopes, never from a
 caller-supplied role parameter. Both surfaces return descriptors only and cannot invoke the target.
-
 ### 3.1 Day-1 tool set (read-only + explain)
 | Tool | Purpose | RBAC floor | Delegates to |
 |------|---------|-----------|--------------|
@@ -258,7 +252,6 @@ mutation surface, and it writes no PR and no audit entry. Its
 `side_effect_class` is `read`, and a shadow-mode test asserts it never
 touches the executor, the PR adapter, or the state store. This is what
 keeps it safe at the Reader floor. Browser capture follows [Browser evidence collection](browser-evidence.md); Bragi never receives a browser handle.
-
 ### 3.2 Week-1 additions (write / approve / runbook)
 
 | Tool | Purpose | RBAC floor | Notes |
@@ -282,7 +275,6 @@ Two clarifications on the write set:
   returns the *full item detail* (target, proposed action, requester),
   which can reveal sensitive intent, so it stays Approver-scoped. The two
   are intentionally not the same visibility.
-
 ### 3.3 Month-1 additions (observation depth)
 
 | Tool | Purpose | RBAC floor | Depends on |
@@ -296,7 +288,6 @@ The Month-1 additions bring the console close to a multi-signal
 incident-response experience, but they still surface
 **already-correlated** results; the correlator lives in Layer 1, not
 inside the narrator.
-
 ### 3.4 Tool discovery contract
 
 Each tool declares:
@@ -389,7 +380,6 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   and Japanese prompts that aren't present in the T0 pattern set.
   Alternative discovery adds ten observable relevance checks for goal, subject, capabilities,
   candidate count and diversity, self exclusion, direct pages, and conceptual-content exclusion.
-
 ## 4-6. Runtime model (Narrator, DI seams, session model)
 
 Moved to a focused owner document: [operator-console-runtime-model.md](operator-console-runtime-model.md). It covers the Narrator LLM tier model (section 4), DI seams (section 5), and the session model and memory (section 6).
@@ -397,7 +387,6 @@ Moved to a focused owner document: [operator-console-runtime-model.md](operator-
 ### 6. Session model + memory
 
 See [operator-console-runtime-model.md#6-session-model--memory](operator-console-runtime-model.md#6-session-model--memory).
-
 ## 7. Safety invariants (chat does not weaken them)
 
 The four autonomy invariants from
@@ -470,7 +459,6 @@ verifier re-check (invariant 5):
   operator.
 - Under no circumstance does the write happen without an audit entry
   before dispatch.
-
 ## 8. Channel integration (push vs pull)
 
 The channel abstraction ([channels-and-notifications.md](channels-and-notifications.md))
@@ -521,7 +509,6 @@ idempotent and does not merge principal records, roles, sessions, or audit histo
 notification routing only. Conversation channels use separate enablement, secret references,
 Teams identity/principal bindings, and queue-capacity settings. Sharing a credential backend does
 not merge configuration ownership.
-
 ## 9. Growth model (catalog + operator memory)
 
 The console gets better over time via three deterministic mechanisms.
@@ -567,7 +554,6 @@ Adds the observation-depth tools (§3.3) and the discovery-loop hook:
 The result is that a common investigation pattern in chat becomes a
 first-class rule in the catalog - **the console grows the catalog, not
 itself**.
-
 ## 10. Rollout reconciliation
 
 The original Day/Week/Month sequence is historical implementation context, not the current
@@ -584,7 +570,6 @@ availability source.
 
 Live Azure completion evidence and capability promotion remain governed by deployment verification
 and the authoritative registry, never inferred from phase names in this document.
-
 ## 11. Testability
 
 - **Coordinator** - property tests: "verifier re-check runs on every
@@ -610,7 +595,6 @@ and the authoritative registry, never inferred from phase names in this document
 - **Session recovery** - principal-scoped `ConversationHistoryStore` reloads prior turns by session
   id, while stable request idempotency prevents duplicate appends. Audit/ontology retain hashes and
   references rather than raw transcripts.
-
 ## 12. Failure modes
 
 - **Narrator unavailable** - fall through to Chat T0 direct-hit; if the
@@ -632,7 +616,6 @@ and the authoritative registry, never inferred from phase names in this document
 - **Tool implementation raises** - the tool's typed error surface (§3.4)
   is wrapped as a `ToolResult(status=error)`; the narrator sees a
   structured error, not an exception traceback.
-
 ## 13. Data + wire contracts
 
 Split into focused owner documents:
@@ -640,7 +623,6 @@ Split into focused owner documents:
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), action submit, Python VM workbench, grounded code, and ontology projection (13.6-13.9).
 - [operator-console-view-snapshot.md](operator-console-view-snapshot.md) - the self-describing screen contract (13.4).
 - [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster and fix history (13.5).
-
 ## 14. MCP delivery and managed catalog
 
 FDAI can consume externally hosted MCP tools through the managed outbound catalog under
@@ -659,7 +641,6 @@ A future inbound MCP proposal can additively reuse the coordinator and RBAC, rej
 callers, map mTLS or audience-scoped Entra identities to service `Principal` records, and audit the
 resolved role. That remains future scope requiring its own threat model, protocol tests, and
 deployment gates.
-
 ## 15. Decision status
 
 - **OD-C1 resolved** - the strict core narrator prompt lives in `AzureOpenAINarratorModel`; the
@@ -670,7 +651,6 @@ deployment gates.
   must retain no-self-approval and separately approve any distinct-approver requirement.
 - **OD-C4 current behavior** - CLI history is bounded process-memory navigation only. A persistent
   history file and retention/redaction contract are neither shipped nor blockers for the current CLI.
-
 ## 16. Related docs
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
