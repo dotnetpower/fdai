@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 68286658b7150280d9c665e4c485b25b586a2379
+translation_source_sha: 53d2d15db2261251d0295f1ff1bcf5795cd2bede
 translation_revised: 2026-07-28
 ---
 
@@ -197,6 +197,9 @@ Repository-local `resolved-models.json`이 있으면 full-stack 준비가 해당
 같은 local PostgreSQL instance에 bind하므로 실제로 측정된 FDAI provider call만 LLM Cost에 표시됩니다.
 Artifact가 없으면 model path와 usage는 unavailable 상태를 유지하며 fixture 또는 benchmark judge
 usage로 대체하지 않습니다.
+비용 귀속에는 resolver의 명시적 deployment-to-family binding과 shipped pricing catalog만 사용합니다.
+Family가 없거나 충돌하면 deployment name을 parsing하거나 rate를 추측하지 않고 unpriced 상태를
+유지합니다.
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 profile에서
 같은 bounded Azure Monitor Logs provider를 사용합니다. Interactive local은 현재 Azure CLI

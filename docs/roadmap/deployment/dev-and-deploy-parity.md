@@ -197,6 +197,9 @@ When repository-local `resolved-models.json` exists, full-stack preparation emit
 `FDAI_METERING_DSN` to the same local PostgreSQL instance as the read model, so only measured FDAI
 provider calls appear in LLM Cost. Without the artifact, the model path and its usage remain
 unavailable; preparation never substitutes fixture or benchmark-judge usage.
+Cost attribution uses only the resolver's explicit deployment-to-family binding and the shipped
+pricing catalog. A missing or conflicting family remains unpriced instead of parsing a deployment
+name or guessing a rate.
 
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data

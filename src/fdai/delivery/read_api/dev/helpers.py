@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from fdai.core.metering import MeteringSink, PricingTable
 from fdai.delivery.read_api.streaming.agent_activity_relay import (
     ControlLoopAgentActivityRelay,
 )
@@ -40,10 +41,13 @@ def build_stewardship_map() -> Any:
     return None
 
 
-def build_chat_backend(metering_sink: Any = None) -> Any:
+def build_chat_backend(
+    metering_sink: MeteringSink | None = None,
+    pricing: PricingTable | None = None,
+) -> Any:
     from fdai.delivery.read_api.routes.chat import backend_from_env
 
-    return backend_from_env(metering_sink=metering_sink)
+    return backend_from_env(metering_sink=metering_sink, pricing=pricing)
 
 
 def build_chat_web_search() -> Any:

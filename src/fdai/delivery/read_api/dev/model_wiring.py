@@ -27,7 +27,10 @@ class LocalModelWiring:
 
 def build_local_model_wiring(repo_root: Path, *, metering_sink: Any = None) -> LocalModelWiring:
     """Build local narrator providers and their settings service."""
-    backend = build_chat_backend(metering_sink)
+    from fdai.composition import load_pricing_table
+
+    pricing = load_pricing_table(repo_root / "rule-catalog" / "llm-pricing.yaml")
+    backend = build_chat_backend(metering_sink, pricing)
     web_search = build_chat_web_search()
     return LocalModelWiring(
         backend=backend,

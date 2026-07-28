@@ -319,6 +319,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     web_search_raw = env.get("FDAI_WEB_SEARCH_ENABLED", "").strip().casefold()
     web_search_configured = web_search_raw not in {"", "0", "false", "no", "off"}
     if resolved_models_path or narrator_api_key_configured or web_search_configured:
+        from fdai.composition import load_pricing_table
         from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
         from fdai.delivery.persistence import PostgresMeteringStore, PostgresMeteringStoreConfig
 
@@ -339,6 +340,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                     connect_timeout_s=read_model._config.connect_timeout_s,
                 )
             ),
+            pricing=load_pricing_table(_REPO_ROOT / "rule-catalog" / "llm-pricing.yaml"),
         )
         chat_web_search = chat_web_search_from_env(
             env,

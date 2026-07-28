@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
 
-from fdai.core.metering import MeteringEmitter, MeteringSink
+from fdai.core.metering import MeteringEmitter, MeteringSink, PricingTable
 from fdai.delivery.azure.llm.request_target import COGNITIVE_SERVICES_SCOPE
 from fdai.delivery.read_api.routes.chat_backend_azure import AzureAdChatBackend
 from fdai.delivery.read_api.routes.chat_backend_common import ChatBackend, DisabledChatBackend
@@ -67,6 +68,7 @@ def backend_from_env(
     identity: WorkloadIdentity | None = None,
     http_client: httpx.AsyncClient | None = None,
     metering_sink: MeteringSink | None = None,
+    pricing: PricingTable | None = None,
 ) -> ChatBackend:
     """Resolve a ChatBackend from environment variables.
 
@@ -102,7 +104,7 @@ def backend_from_env(
                 max_tokens=max_tokens,
             ),
             http_client=http_client,
-            metering=_chat_metering(metering_sink, model),
+            metering=_chat_metering(metering_sink, model, pricing=pricing),
         )
     # 2) Keyless Azure via resolved-models.json + az CLI.
     disk = _resolve_disk_azure_backend(
@@ -112,6 +114,7 @@ def backend_from_env(
         max_tokens=max_tokens,
         turn_timeout_seconds=turn_timeout_seconds,
         metering_sink=metering_sink,
+        pricing=pricing,
     )
     if disk is not None:
         return disk
@@ -126,6 +129,7 @@ def _resolve_disk_azure_backend(
     max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
     turn_timeout_seconds: float = _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS,
     metering_sink: MeteringSink | None = None,
+    pricing: PricingTable | None = None,
 ) -> ChatBackend | None:
     """Look up ``resolved-models.json`` and build an Azure AD backend.
 
@@ -151,6 +155,7 @@ def _resolve_disk_azure_backend(
         return None
     if not isinstance(data, dict):
         return None
+    resolved_model_keys = _resolved_model_keys(data)
     # 1) Multi-candidate router (preferred when present).
     routed = _build_routed_backend(
         data.get("narrator_candidates"),
@@ -159,6 +164,8 @@ def _resolve_disk_azure_backend(
         max_tokens=max_tokens,
         turn_timeout_seconds=turn_timeout_seconds,
         metering_sink=metering_sink,
+        pricing=pricing,
+        resolved_model_keys=resolved_model_keys,
     )
     if routed is not None:
         return routed
@@ -169,6 +176,8 @@ def _resolve_disk_azure_backend(
         http_client=http_client,
         max_tokens=max_tokens,
         metering_sink=metering_sink,
+        pricing=pricing,
+        resolved_model_keys=resolved_model_keys,
     )
 
 
@@ -179,6 +188,8 @@ def _build_single_azure_backend(
     http_client: httpx.AsyncClient | None = None,
     max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
     metering_sink: MeteringSink | None = None,
+    pricing: PricingTable | None = None,
+    resolved_model_keys: Mapping[str, str] | None = None,
 ) -> AzureAdChatBackend | None:
     if not isinstance(narrator, dict):
         return None
@@ -204,7 +215,12 @@ def _build_single_azure_backend(
         identity=identity,
         http_client=http_client,
         max_tokens=max_tokens,
-        metering=_chat_metering(metering_sink, deployment),
+        metering=_chat_metering(
+            metering_sink,
+            deployment,
+            pricing=pricing,
+            resolved_model_keys=resolved_model_keys,
+        ),
     )
 
 
@@ -216,6 +232,8 @@ def _build_routed_backend(
     max_tokens: int = _DEFAULT_NARRATOR_MAX_TOKENS,
     turn_timeout_seconds: float = _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS,
     metering_sink: MeteringSink | None = None,
+    pricing: PricingTable | None = None,
+    resolved_model_keys: Mapping[str, str] | None = None,
 ) -> LatencyRoutedChatBackend | None:
     """Build the latency-routed backend from a ``narrator_candidates`` list.
 
@@ -261,7 +279,12 @@ def _build_routed_backend(
                     identity=identity,
                     http_client=http_client,
                     max_tokens=max_tokens,
-                    metering=_chat_metering(metering_sink, deployment),
+                    metering=_chat_metering(
+                        metering_sink,
+                        deployment,
+                        pricing=pricing,
+                        resolved_model_keys=resolved_model_keys,
+                    ),
                 ),
             )
         )
@@ -276,15 +299,46 @@ def _build_routed_backend(
 def _chat_metering(
     sink: MeteringSink | None,
     model_key: str,
+    *,
+    pricing: PricingTable | None = None,
+    resolved_model_keys: Mapping[str, str] | None = None,
 ) -> MeteringEmitter | None:
     if sink is None:
         return None
+    resolved_model_key = (resolved_model_keys or {}).get(model_key, model_key)
     return MeteringEmitter(
         sink=sink,
         capability_id="t1.judge",
-        model_key=model_key,
+        model_key=resolved_model_key,
         tier="T1",
+        pricing=pricing,
     )
+
+
+def _resolved_model_keys(data: Mapping[str, Any]) -> dict[str, str]:
+    """Return explicit deployment-to-family bindings from resolver output."""
+
+    result: dict[str, str] = {}
+    ambiguous: set[str] = set()
+    capabilities = data.get("capabilities")
+    if not isinstance(capabilities, list):
+        return result
+    for capability in capabilities:
+        if not isinstance(capability, dict):
+            continue
+        deployment = capability.get("name")
+        family = capability.get("family")
+        if not isinstance(deployment, str) or not deployment:
+            continue
+        if not isinstance(family, str) or not family:
+            continue
+        existing = result.get(deployment)
+        if existing is not None and existing != family:
+            ambiguous.add(deployment)
+            result.pop(deployment, None)
+        elif deployment not in ambiguous:
+            result[deployment] = family
+    return result
 
 
 def _find_resolved_models(env: dict[str, str]) -> str | None:
