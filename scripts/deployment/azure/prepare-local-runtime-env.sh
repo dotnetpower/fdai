@@ -30,6 +30,54 @@ if [[ -z "$resolved_models_override" && ! -f "$resolved_models_path" ]]; then
   resolved_models_path=""
 fi
 
+resolved_llm_endpoint=""
+if [[ -n "$resolved_models_path" ]]; then
+  resolved_llm_endpoint="$("$REPO_ROOT/.venv/bin/python" - "$resolved_models_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+from urllib.parse import urlsplit
+
+path = Path(sys.argv[1])
+try:
+  payload = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+  raise SystemExit(f"resolved models artifact is unreadable: {exc}") from exc
+
+if not isinstance(payload, dict):
+  raise SystemExit("resolved models artifact MUST be a JSON object")
+
+narrator = payload.get("narrator")
+endpoint = narrator.get("endpoint") if isinstance(narrator, dict) else None
+if not isinstance(endpoint, str) or not endpoint.strip():
+  candidates = payload.get("narrator_candidates")
+  if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict):
+    endpoint = candidates[0].get("endpoint")
+
+if not isinstance(endpoint, str) or not endpoint.strip():
+  raise SystemExit(
+    "resolved models artifact requires narrator.endpoint or "
+    "narrator_candidates[0].endpoint for the core runtime"
+  )
+
+endpoint = endpoint.strip().rstrip("/")
+parsed = urlsplit(endpoint)
+if (
+  parsed.scheme != "https"
+  or not parsed.hostname
+  or parsed.username is not None
+  or parsed.password is not None
+  or parsed.query
+  or parsed.fragment
+  or parsed.path not in ("", "/")
+):
+  raise SystemExit("resolved models narrator endpoint MUST be an HTTPS origin")
+
+print(endpoint)
+PY
+)"
+fi
+
 bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_kafka_bootstrap)"
 operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_operational_kafka_bootstrap 2>/dev/null || true)"
 topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_topics)"
@@ -120,7 +168,7 @@ umask 077
 temp_env="$(mktemp "${OUTPUT_ENV}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|FDAI_LLM_ENDPOINT|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
 {
   printf 'AZURE_TENANT_ID=%s\n' "$tenant_id"
   printf 'AZURE_SUBSCRIPTION_ID=%s\n' "$subscription_id"
@@ -145,6 +193,7 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   if [[ -n "$resolved_models_path" ]]; then
     printf 'LLM_MODE=azure\n'
     printf 'LLM_RESOLVED_MODELS_PATH=%s\n' "$resolved_models_path"
+    printf 'FDAI_LLM_ENDPOINT=%s\n' "$resolved_llm_endpoint"
   fi
   printf 'RUNTIME_ENV=dev\n'
   printf 'AUTONOMY_MODE_DEFAULT=shadow\n'

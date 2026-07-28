@@ -146,11 +146,23 @@
       "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh core-runtime \"$PWD/.fdai/logs/core-runtime.log\" -- env -u AZURE_CONFIG_DIR FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
       "dependsOn": "console: prepare full stack",
       "isBackground": true,
-      "problemMatcher": [],
+      "problemMatcher": {
+        "owner": "console-core-runtime",
+        "pattern": {
+          "regexp": "^(?!)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*service=core-runtime event=starting$",
+          "endsPattern": "pantheon_bridge_started"
+        }
+      },
       "presentation": {
-        "reveal": "silent",
+        "reveal": "always",
         "panel": "dedicated",
-        "group": "console-full-stack"
+        "group": "console-core-runtime",
+        "clear": true,
+        "showReuseMessage": false
       },
       "runOptions": {
         "instanceLimit": 1
@@ -162,11 +174,23 @@
       "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh read-api \"$PWD/.fdai/logs/read-api.log\" -- env -u FDAI_READ_API_DEV_MODE -u FDAI_READ_API_LOCAL_AZURE_CLI PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" FDAI_READ_API_LOCAL_ENTRA=1 FDAI_READ_API_EMBED_PANTHEON=0 FDAI_READ_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273 .venv/bin/python -m uvicorn fdai.delivery.read_api.dev.local:server_app --factory --host 127.0.0.1 --port 8010 --no-access-log",
       "dependsOn": "console: prepare full stack",
       "isBackground": true,
-      "problemMatcher": [],
+      "problemMatcher": {
+        "owner": "console-read-api",
+        "pattern": {
+          "regexp": "^(?!)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*service=read-api event=starting$",
+          "endsPattern": "Application startup complete\\."
+        }
+      },
       "presentation": {
-        "reveal": "silent",
+        "reveal": "always",
         "panel": "dedicated",
-        "group": "console-full-stack"
+        "group": "console-read-api",
+        "clear": true,
+        "showReuseMessage": false
       },
       "runOptions": {
         "instanceLimit": 1
@@ -177,11 +201,23 @@
       "type": "shell",
       "command": "VITE_DEV_MODE=0 VITE_LOCAL_AZURE_CLI_AUTH=0 VITE_READ_API_BASE_URL=http://127.0.0.1:8010 VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011 npm --prefix console run dev -- --port 5273 --strictPort",
       "isBackground": true,
-      "problemMatcher": [],
+      "problemMatcher": {
+        "owner": "console-frontend",
+        "pattern": {
+          "regexp": "^(?!)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^> fdai-console@.* dev$",
+          "endsPattern": "Local:\\s+http://(?:127\\.0\\.0\\.1|localhost):5273/"
+        }
+      },
       "presentation": {
-        "reveal": "silent",
+        "reveal": "always",
         "panel": "dedicated",
-        "group": "console-full-stack"
+        "group": "console-frontend",
+        "clear": true,
+        "showReuseMessage": false
       },
       "runOptions": {
         "instanceLimit": 1

@@ -90,6 +90,10 @@ The preparation sequence safely retries synchronization of `http://localhost:527
 `http://127.0.0.1:5273` into the configured Entra SPA registration. The helper preserves existing
 redirects, permits HTTP only for those loopback hosts, and stops before service startup when the
 active tenant is wrong or the operator cannot read or update the registration.
+When a resolved-model artifact is present, the same preparation step validates its narrator
+endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
+private local runtime environment. A missing or malformed narrator endpoint stops preparation
+before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
 While the read API completes its startup probes, the browser keeps the initial panel skeleton and
 retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
 seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops
@@ -97,6 +101,10 @@ immediately at the existing access-recovery surface instead of being hidden by a
 Each long-running Console task permits one VS Code instance. The core task and debug launch also
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.
+The core runtime, read API, and frontend tasks use separate dedicated terminal groups and clear only
+their own previous output when restarted. VS Code marks each background task ready only after the
+Pantheon bridge starts, Uvicorn completes application startup, or Vite publishes its local address,
+respectively, so a spawned process isn't presented as a ready service.
 The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is
 unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes
 continue to use a process lock only when the deployment configures one explicitly.

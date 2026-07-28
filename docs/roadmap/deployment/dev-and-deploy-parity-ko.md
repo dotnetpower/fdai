@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 53d2d15db2261251d0295f1ff1bcf5795cd2bede
+translation_source_sha: 822ed0c64a8f73bc30eb060d1558993d40a69194
 translation_revised: 2026-07-28
 ---
 
@@ -93,6 +93,10 @@ Compound는 child configuration을 시작하기 전에 `console: prepare full st
 `http://127.0.0.1:5273`을 안전하게 재시도할 수 있는 방식으로 동기화합니다. Helper는 기존
 redirect를 보존하고 해당 loopback host에만 HTTP를 허용하며, 활성 tenant가 다르거나 운영자가
 등록을 읽거나 업데이트할 수 없으면 service 시작 전에 중단합니다.
+Resolved-model artifact가 있으면 같은 준비 단계에서 narrator endpoint가 HTTPS origin인지 검증하고
+`FDAI_LLM_ENDPOINT`와 `LLM_RESOLVED_MODELS_PATH`를 private local runtime environment에 기록합니다.
+Narrator endpoint가 없거나 올바르지 않으면 core runtime을 시작한 뒤 실패하게 두지 않고 Terraform
+또는 Azure provider에 접근하기 전에 준비 단계를 중단합니다.
 Read API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
 `GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
 HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지
@@ -100,6 +104,10 @@ HTTP response, authentication failure, malformed payload 또는 소진된 schedu
 각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
 실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.
+Core runtime, read API 및 frontend task는 각각 별도의 dedicated terminal group을 사용하며 재시작할 때
+자신의 이전 output만 지웁니다. VS Code는 Pantheon bridge 시작, Uvicorn application startup 완료 또는
+Vite local address 게시를 각각 확인한 뒤에만 background task를 ready로 표시합니다. 따라서 process가
+생성되기만 한 상태를 준비된 service로 표시하지 않습니다.
 표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로,
 `python -m fdai`를 직접 실행해도 singleton guard를 우회할 수 없습니다. Production runtime은 deployment에서
 명시적으로 구성한 경우에만 process lock을 계속 사용합니다.

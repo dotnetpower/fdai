@@ -24,7 +24,10 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
     (repo / "infra").mkdir()
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
-    (repo / "resolved-models.json").write_text('{"capabilities": []}\n', encoding="utf-8")
+    (repo / "resolved-models.json").write_text(
+        '{"narrator": {"endpoint": "https://models.example.com/"}}\n',
+        encoding="utf-8",
+    )
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_CLIENT_ID=client\n"
         "LLM_MODE=local-fake\n"
@@ -122,6 +125,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "LLM_MODE=azure",
         f"LLM_RESOLVED_MODELS_PATH={repo / 'resolved-models.json'}",
+        "FDAI_LLM_ENDPOINT=https://models.example.com",
         "RUNTIME_ENV=dev",
         "AUTONOMY_MODE_DEFAULT=shadow",
         "FDAI_START_CONSUMER=1",
@@ -140,6 +144,38 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api-application-id",
     ]
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
+
+
+def test_rejects_resolved_models_without_core_endpoint_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
+    (repo / "resolved-models.json").write_text('{"capabilities": []}\n', encoding="utf-8")
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-models",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "requires narrator.endpoint" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert not output.exists()
 
 
 def test_omits_inventory_invalidation_topic_until_provisioned(tmp_path: Path) -> None:

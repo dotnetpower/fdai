@@ -323,6 +323,15 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert "--allow-loopback-http" in tasks
     assert core_env["FDAI_RUNTIME_LOCK_FILE"] == "${workspaceFolder}/.fdai/core-runtime.lock"
     assert tasks.count('"instanceLimit": 1') >= 5
+    for terminal_group in (
+        "console-core-runtime",
+        "console-read-api",
+        "console-frontend",
+    ):
+        assert f'"group": "{terminal_group}"' in tasks
+    assert "pantheon_bridge_started" in tasks
+    assert "Application startup complete" in tasks
+    assert "Local:\\\\s+http://" in tasks
     assert compound["preLaunchTask"] == "console: prepare full stack"
     assert "preLaunchTask" not in configs["Console Web: Core Runtime"]
     assert "preLaunchTask" not in configs["Console Web: Read API"]
