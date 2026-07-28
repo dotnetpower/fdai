@@ -62,10 +62,12 @@ a merge or release boundary.
 Non-Python fixtures under `tests/` and package resources under `src/` also
 select the full suite because their consumers can't be inferred from imports.
 
-The runner executes non-integration tests first. It executes selected
-`integration` tests only when `FDAI_DATABASE_URL` is set; otherwise it reports
-that those tests were skipped. An integration-only change without a database
-still exits successfully after confirming that integration tests were selected.
+The runner executes non-integration tests first in a sanitized environment. It
+executes selected `integration` tests only when
+`FDAI_CHANGED_TEST_INTEGRATION=1` and `FDAI_DATABASE_URL` points to a disposable
+test database; a configured local runtime database alone never opts in. An
+integration-only change without opt-in still exits successfully after confirming
+that integration tests were selected.
 The exact repository inputs that CI classifies as Python-impacting are covered
 by a regression test so local and CI selection can't drift silently.
 Selections with at least 20 pytest paths use up to eight xdist workers by

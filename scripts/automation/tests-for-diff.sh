@@ -259,6 +259,11 @@ if [[ $run_pytest -eq 1 ]]; then
             clean_pytest_env+=(-u "$name")
         fi
     done < <(env)
+    run_integration="${FDAI_CHANGED_TEST_INTEGRATION:-0}"
+    if [[ "$run_integration" != "0" && "$run_integration" != "1" ]]; then
+        echo "tests-for-diff.sh: FDAI_CHANGED_TEST_INTEGRATION must be 0 or 1" >&2
+        exit 2
+    fi
 
     set +e
     "${clean_pytest_env[@]}" PYTHONPATH="$pytest_pythonpath" \
@@ -269,7 +274,11 @@ if [[ $run_pytest -eq 1 ]]; then
         exit "$non_integration_status"
     fi
 
-    if [[ -n "${FDAI_DATABASE_URL:-}" ]]; then
+    if [[ "$run_integration" == "1" ]]; then
+        if [[ -z "${FDAI_DATABASE_URL:-}" ]]; then
+            echo "tests-for-diff.sh: FDAI_DATABASE_URL is required when integration is enabled" >&2
+            exit 2
+        fi
         set +e
         "${clean_pytest_env[@]}" FDAI_DATABASE_URL="$FDAI_DATABASE_URL" \
             PYTHONPATH="$pytest_pythonpath" \
@@ -301,5 +310,5 @@ if [[ $run_pytest -eq 1 ]]; then
         fi
     fi
 
-    echo "tests-for-diff.sh: FDAI_DATABASE_URL unset; integration tests skipped" >&2
+    echo "tests-for-diff.sh: integration tests skipped; set FDAI_CHANGED_TEST_INTEGRATION=1 with a disposable FDAI_DATABASE_URL to run them" >&2
 fi
