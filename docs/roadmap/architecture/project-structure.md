@@ -252,7 +252,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   that reaches the configured page cap returns the latest cursor so the next pull resumes there.
   A terminal `final=True` batch may carry resources and relationships; the forwarder publishes
   that payload before committing its cursor. Any batch after the final fence fails the stream and
-  leaves the prior durable cursor unchanged.
+  leaves the prior durable cursor unchanged. If the final batch omits its cursor, the forwarder
+  commits the last non-null page cursor instead of rewinding to the cursor from the start of pull.
   The Azure Activity Log adapter derives the resource-group `contains` relationship from each
   mapped ARM resource id and includes it in the same delta page. Dependencies that require a live
   resource read remain incomplete until an ARG or ARM hydration adapter supplies them. Event Grid

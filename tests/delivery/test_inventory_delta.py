@@ -92,6 +92,21 @@ class _FinalBatchInventory:
             yield InventoryBatch(resources=(resource,), cursor="cursor-invalid")
 
 
+class _CursorlessFinalInventory:
+    async def delta(self, cursor: str):  # type: ignore[no-untyped-def]
+        yield InventoryBatch(
+            resources=(
+                ResourceRecord(
+                    resource_id="resource:example/cursor",
+                    type="compute.vm",
+                    last_seen="2026-07-15T00:00:00Z",
+                ),
+            ),
+            cursor="cursor-latest",
+        )
+        yield InventoryBatch(final=True, cursor=None)
+
+
 @pytest.mark.asyncio
 async def test_forward_delta_publishes_event_and_advances_cursor() -> None:
     inventory = _Inventory()
@@ -281,4 +296,22 @@ async def test_forward_delta_rejects_data_after_final_fence() -> None:
 
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
         "cursor": "cursor-old"
+    }
+
+
+@pytest.mark.asyncio
+async def test_forward_delta_cursorless_final_preserves_latest_page_cursor() -> None:
+    state = InMemoryStateStore()
+    await state.write_state("inventory_delta_cursor:subscription-1", {"cursor": "cursor-old"})
+
+    await forward_inventory_delta(
+        inventory=_CursorlessFinalInventory(),
+        state_store=state,
+        event_bus=InMemoryEventBus(),
+        topic="events",
+        scope="subscription-1",
+    )
+
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-latest"
     }

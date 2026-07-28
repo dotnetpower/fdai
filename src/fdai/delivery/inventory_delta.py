@@ -29,15 +29,18 @@ async def forward_inventory_delta(
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key) or {}
     cursor = str(saved.get("cursor") or "")
+    latest_cursor = cursor
     published = 0
     final_cursor: str | None = None
     saw_final = False
     async for batch in inventory.delta(cursor):
         if saw_final:
             raise RuntimeError("inventory delta stream emitted data after final fence")
+        if batch.cursor is not None:
+            latest_cursor = batch.cursor
         if batch.final:
             saw_final = True
-            final_cursor = batch.cursor if batch.cursor is not None else cursor
+            final_cursor = latest_cursor
         links_by_owner = _links_by_owner(batch.resources, batch.links)
         for resource in batch.resources:
             event = _resource_event(

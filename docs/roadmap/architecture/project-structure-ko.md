@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a08317d6487d291b6a560a43e66cc9e08409ab96
+translation_source_sha: 5832427a391437fa96a697612601726bf48071d8
 translation_revised: 2026-07-28
 ---
 
@@ -251,7 +251,8 @@ fdai/
   stream이 설정된 page cap에 도달하면 최신 cursor를 반환하여 다음 pull이 그 위치에서 재개됩니다.
   Terminal `final=True` batch에는 리소스와 관계가 포함될 수 있으며 forwarder는 cursor를 commit하기
   전에 해당 payload를 발행합니다. Final fence 뒤에 batch가 나오면 stream을 실패시키고 이전 durable
-  cursor를 유지합니다.
+  cursor를 유지합니다. Final batch가 cursor를 생략하면 forwarder는 pull 시작 시점의 cursor로
+  되돌리지 않고 마지막 non-null page cursor를 commit합니다.
   Azure Activity Log adapter는 mapping된 각 ARM resource id에서 resource-group `contains` 관계를
   생성하고 같은 delta page에 포함합니다. Live resource read가 필요한 dependency는 ARG 또는 ARM
   hydration adapter가 제공할 때까지 incomplete 상태로 유지됩니다. 리소스 삭제의 authority는 Event
