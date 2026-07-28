@@ -63,7 +63,9 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
   records that prove enforce execution, deterministic verification, rollback
   state, embedding projection, exact parameters, and incident provenance.
   Outcome and durable audit timestamps must be timezone-aware. An outcome more
-  than five minutes ahead of its audit timestamp is rejected before intake.
+  than five minutes ahead of its audit timestamp is rejected before intake. Within each bounded
+  intake batch, only the highest-sequence finalization for an action is evaluated; superseded rows
+  still advance the durable watermark and an explicit verification failure is audited as rejected.
   Missing provenance yields zero intake rather than inferred training data.
   Azure text-embedding-3 requests use the fixed 384-dimension pgvector
   contract; a different family or dimension fails startup.

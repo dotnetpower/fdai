@@ -115,6 +115,8 @@ Every metric maps to a concrete telemetry source so the dashboard is buildable, 
 - **Outcome finalization records** (`measurement.action_outcome.v1`) are the authority for
   auto-resolution. Dispatch-only events remain pending, verified non-rollback outcomes enter the
   finalized denominator, and rollback/adverse outcomes remain visible without becoming successes.
+  When an action has corrected finalization rows, only its highest audit sequence is authoritative;
+  an explicit verification failure remains a rejected observation rather than disappearing.
 - **Explicit metric observations** use the latest row for each `event_id` and metric key. A retry
   or correction for one event replaces that event's earlier value instead of adding statistical
   weight; observations from different events remain independent samples.

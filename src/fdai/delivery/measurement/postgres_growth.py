@@ -47,6 +47,7 @@ class PostgresVerifiedOutcomeSource:
         high_water = after_seq
         for row in rows:
             high_water = max(high_water, int(row["seq"]))
+        for row in _latest_outcome_rows(rows):
             entry = _mapping(row["entry"])
             record = _outcome_record(entry, recorded_at=row["created_at"])
             if record is not None:
@@ -152,6 +153,21 @@ def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+def _latest_outcome_rows(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    latest_by_action: dict[str, Mapping[str, Any]] = {}
+    unidentified: list[Mapping[str, Any]] = []
+    for row in rows:
+        entry = _mapping(row.get("entry"))
+        action_id = entry.get("action_id")
+        if not isinstance(action_id, str) or not action_id:
+            unidentified.append(row)
+            continue
+        current = latest_by_action.get(action_id)
+        if current is None or int(row["seq"]) > int(current["seq"]):
+            latest_by_action[action_id] = row
+    return sorted((*unidentified, *latest_by_action.values()), key=lambda row: int(row["seq"]))
+
+
 def _outcome_record(
     entry: Mapping[str, Any],
     *,
@@ -164,7 +180,8 @@ def _outcome_record(
     )
     if not all(isinstance(value, str) and value for value in required):
         return None
-    if entry.get("execution_mode") != "enforce" or entry.get("verification_passed") is not True:
+    verification_passed = entry.get("verification_passed")
+    if entry.get("execution_mode") != "enforce" or not isinstance(verification_passed, bool):
         return None
     observed_at = accepted_outcome_timestamp(
         entry["observed_at"],
@@ -177,7 +194,7 @@ def _outcome_record(
         action_type_id=str(entry["action_type_id"]),
         observed_at=observed_at,
         was_auto=entry.get("decision") == "auto",
-        was_verified=True,
+        was_verified=verification_passed,
         was_rolled_back=entry.get("rollback_succeeded") is True,
     )
 

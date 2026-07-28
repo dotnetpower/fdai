@@ -1,7 +1,7 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: a9d7ebd8740e4fcd8369d35e05a8c9dd7912ab3e
+translation_source_sha: 901afb8201e7f3f597dd50d86ed85978d2088b0b
 translation_revised: 2026-07-29
 ---
 
@@ -62,7 +62,9 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
   enforce execution, deterministic verification, rollback 상태, embedding projection, exact
   parameter, incident provenance 를 증명하는 명시적 `measurement.action_outcome.v1` audit
   record 만 읽습니다. Outcome 및 durable audit timestamp는 timezone-aware여야 합니다. Audit
-  timestamp보다 5분 넘게 미래인 outcome은 intake 전에 거부됩니다. Provenance 가 없으면 training
+  timestamp보다 5분 넘게 미래인 outcome은 intake 전에 거부됩니다. 각 bounded intake batch에서는
+  action별 가장 높은 sequence의 finalization만 평가합니다. 대체된 row도 durable watermark를
+  전진시키며 명시적 verification failure는 rejected로 audit됩니다. Provenance 가 없으면 training
   data 를 추론하지 않고 zero intake 로 처리합니다. Azure text-embedding-3 request 는 fixed
   384-dimension pgvector contract 를
   사용하며 다른 family 또는 dimension 은 startup 에서 실패합니다.

@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: ca0edfb8b3fa597631bc78696268634f320be697
+translation_source_sha: 5374da7c73ebdecae18f16115c0b0b3822104fa7
 translation_revised: 2026-07-29
 ---
 
@@ -117,7 +117,9 @@ translation_revised: 2026-07-29
 - **append-only 감사 로그**가 사람 터치포인트(metric 4), 롤백, 정책 escape의 소스.
 - **Outcome finalization record**(`measurement.action_outcome.v1`)가 auto-resolution의 authority입니다.
   Dispatch-only event는 pending으로 유지되고, 검증된 non-rollback outcome만 finalized denominator에
-  들어가며, rollback/adverse outcome은 success가 되지 않고 계속 표시됩니다.
+  들어가며, rollback/adverse outcome은 success가 되지 않고 계속 표시됩니다. 하나의 action에
+  correction finalization row가 있으면 가장 높은 audit sequence만 authoritative하며, 명시적
+  verification failure는 사라지지 않고 rejected observation으로 유지됩니다.
 - **명시적 metric 관측값**은 각 `event_id` 및 metric key의 최신 row를 사용합니다. 하나의 event에
   대한 retry 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 event의
   관측값은 독립 표본으로 유지합니다.
