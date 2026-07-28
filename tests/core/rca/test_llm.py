@@ -67,6 +67,27 @@ def test_parse_valid_answer() -> None:
     assert h.citations[0].ref == "object-storage.owner-tag.required"
 
 
+def test_parse_exact_kind_qualified_candidate() -> None:
+    hypothesis = parse_rca_response(
+        _answer(citations=["event:e-1"]),
+        candidate_citations=_CANDIDATES,
+    )
+
+    assert hypothesis is not None
+    assert hypothesis.citations == (_CANDIDATES[1],)
+
+
+@pytest.mark.parametrize("citation", ("rule:e-1", "event:missing"))
+def test_parse_rejects_mismatched_or_missing_qualified_candidate(citation: str) -> None:
+    assert (
+        parse_rca_response(
+            _answer(citations=[citation]),
+            candidate_citations=_CANDIDATES,
+        )
+        is None
+    )
+
+
 def test_parse_malformed_json_abstains() -> None:
     assert parse_rca_response("{not json", candidate_citations=_CANDIDATES) is None
 

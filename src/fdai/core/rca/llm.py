@@ -87,11 +87,12 @@ def parse_rca_response(
         return None
 
     by_ref = {c.ref: c for c in candidate_citations}
+    by_qualified_ref = {f"{c.kind.value}:{c.ref}": c for c in candidate_citations}
     grounded: list[Citation] = []
     for ref in cited:
         if not isinstance(ref, str):
             return None  # malformed citation entry
-        citation = by_ref.get(ref)
+        citation = by_ref.get(ref) or by_qualified_ref.get(ref)
         if citation is None:
             # A ref the caller never supplied - treat as fabricated
             # (prompt injection) and refuse the whole hypothesis.

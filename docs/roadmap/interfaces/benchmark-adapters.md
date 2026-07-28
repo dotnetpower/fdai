@@ -176,7 +176,9 @@ unavailable evidence until their providers are bound.
 On deterministic hold for review, the existing grounded RCA path receives the task objective and
 bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the
 submission summary. The runner blocks before a benchmark starts when the RCA reasoner is absent;
-it never submits a generic control-loop outcome as an SREGym solution.
+it never submits a generic control-loop outcome as an SREGym solution. Citation grounding accepts
+the supplied raw reference or its exact `kind:ref` token; a mismatched kind or unknown reference
+still blocks the hypothesis.
 
 Run the readiness check before starting a harness:
 

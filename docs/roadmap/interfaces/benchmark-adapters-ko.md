@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: d69f2f57b3d7343ee040420039249649897cdca7
+translation_source_sha: 22bb34e0c6571fcb64e6c3fbed87f007250301e4
 translation_revised: 2026-07-29
 ---
 
@@ -181,7 +181,8 @@ unavailable evidence로 유지됩니다.
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가
 없으면 runner는 benchmark 시작 전에 차단됩니다. Generic control-loop outcome을 SREGym solution으로
-제출하지 않습니다.
+제출하지 않습니다. Citation grounding은 supplied raw reference 또는 exact `kind:ref` token을
+허용합니다. Mismatched kind 또는 unknown reference는 계속 hypothesis를 차단합니다.
 
 Harness를 시작하기 전에 readiness check를 실행합니다.
 
