@@ -51,7 +51,8 @@ are synthetic.
   handoff reports `accepted` or `held`, and Heimdall records those outcomes separately so a policy
   hold is never counted as a successful Incident candidate. A more severe recurrence for an open
   Incident raises its severity through an append-only `incident.severity` row; a recurrence never
-  lowers severity, and replay reconstructs the same monotonic result. Direct candidate text and
+  lowers severity, replay reconstructs the same monotonic result, and the committed escalation
+  emits a deduplicated A2 lifecycle notice. Direct candidate text and
   evidence keys are capped at 512 characters, and one candidate carries at most 100 evidence keys;
   oversized input is held before lifecycle or audit writes.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their

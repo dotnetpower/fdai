@@ -23,7 +23,7 @@ from .lifecycle import (
     IncidentWorkflowResult,
     NullIncidentLifecycleNotifier,
 )
-from .registry import IncidentRegistry
+from .registry import IncidentOpenResult, IncidentRegistry
 from .workflow_support import manual_incident_event_id, require_incident_operator
 
 _CONFIRMATIONS = frozenset({"confirm", "confirmed", "yes", "proceed", "확인", "생성", "진행"})
@@ -103,10 +103,10 @@ class IncidentLifecycleWorkflow:
         )
         incident = opened.incident
         created = opened.created
-        notification = (
-            await self._notify_opened(incident=incident, actor_oid=principal.id, at=moment)
-            if created
-            else None
+        notification = await self._notify_open_result(
+            opened=opened,
+            actor_oid=principal.id,
+            at=moment,
         )
         return IncidentWorkflowResult(
             incident=incident,
@@ -120,6 +120,7 @@ class IncidentLifecycleWorkflow:
             ),
             notification_result=notification,
             created=created,
+            changed=opened.severity_changed,
         )
 
     async def open_from_agent(
@@ -153,15 +154,11 @@ class IncidentLifecycleWorkflow:
         )
         incident = opened.incident
         created = opened.created
-        notification = (
-            await self._notify_opened(
-                incident=incident,
-                actor_oid=producer_principal,
-                at=moment,
-                reason=reason,
-            )
-            if created
-            else None
+        notification = await self._notify_open_result(
+            opened=opened,
+            actor_oid=producer_principal,
+            at=moment,
+            reason=reason,
         )
         return IncidentWorkflowResult(
             incident=incident,
@@ -172,7 +169,36 @@ class IncidentLifecycleWorkflow:
             ),
             notification_result=notification,
             created=created,
+            changed=opened.severity_changed,
         )
+
+    async def _notify_open_result(
+        self,
+        *,
+        opened: IncidentOpenResult,
+        actor_oid: str,
+        at: datetime,
+        reason: str | None = None,
+    ) -> object | None:
+        if opened.created:
+            return await self._notify_opened(
+                incident=opened.incident,
+                actor_oid=actor_oid,
+                at=at,
+                reason=reason,
+            )
+        if opened.severity_changed and opened.previous_severity is not None:
+            return await self._notify_after_write(
+                IncidentLifecycleNotice(
+                    kind=IncidentNoticeKind.SEVERITY_CHANGED,
+                    actor_oid=actor_oid,
+                    occurred_at=at,
+                    incident=opened.incident,
+                    previous_severity=opened.previous_severity,
+                    reason=reason,
+                )
+            )
+        return None
 
     async def transition_as_operator(
         self,

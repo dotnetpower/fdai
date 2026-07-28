@@ -328,3 +328,30 @@ async def test_stale_same_state_request_reloads_and_rejects_canonical_mismatch()
         )
 
     assert stale.get(incident.incident_id).state is IncidentState.TRIAGING  # type: ignore[union-attr]
+
+
+async def test_agent_severity_escalation_notifies_once() -> None:
+    workflow, notifier, _ = _workflow()
+    keys = ("resource:prod-api-01", "signal:availability.probe_failed")
+    await workflow.open_from_agent(
+        producer_principal="Heimdall",
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=(UUID("00000000-0000-0000-0000-000000000001"),),
+        reason="initial failure burst",
+    )
+    escalated = await workflow.open_from_agent(
+        producer_principal="Heimdall",
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV1,
+        member_event_ids=(UUID("00000000-0000-0000-0000-000000000002"),),
+        reason="critical failure burst",
+    )
+
+    assert escalated.changed is True
+    assert escalated.notification_result == "severity_changed"
+    assert [notice.kind for notice in notifier.notices] == [
+        IncidentNoticeKind.OPENED,
+        IncidentNoticeKind.SEVERITY_CHANGED,
+    ]
+    assert notifier.notices[-1].previous_severity is IncidentSeverity.SEV3

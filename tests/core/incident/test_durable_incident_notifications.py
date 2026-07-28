@@ -203,3 +203,36 @@ def test_replay_rejects_malformed_lifecycle_audit() -> None:
                 "actor_oid": "Heimdall",
             }
         )
+
+
+async def test_replay_delivers_missed_severity_escalation_once() -> None:
+    state_store = InMemoryStateStore()
+    registry = IncidentRegistry(state_store=state_store)
+    keys = ("resource:example-1", "signal:availability.probe_failed")
+    await registry.open(
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=(UUID("00000000-0000-0000-0000-000000000001"),),
+        actor_oid="Heimdall",
+    )
+    await registry.open(
+        correlation_keys=keys,
+        severity=IncidentSeverity.SEV1,
+        member_event_ids=(UUID("00000000-0000-0000-0000-000000000002"),),
+        actor_oid="Heimdall",
+    )
+    delegate = RecordingNotifier()
+    notifier = DurableIncidentLifecycleNotifier(
+        delegate=delegate,
+        delivery_store=InMemoryIncidentNotificationDeliveryStore(),
+    )
+
+    first = await notifier.replay(await state_store.read_incident_transitions())
+    second = await notifier.replay(await state_store.read_incident_transitions())
+
+    assert first == 2
+    assert second == 0
+    assert [notice.kind for notice in delegate.notices] == [
+        IncidentNoticeKind.OPENED,
+        IncidentNoticeKind.SEVERITY_CHANGED,
+    ]

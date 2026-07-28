@@ -27,6 +27,7 @@ class IncidentNoticeKind(StrEnum):
     """Lifecycle events emitted through the workflow's notification seam."""
 
     OPENED = "opened"
+    SEVERITY_CHANGED = "severity_changed"
     STATE_CHANGED = "state_changed"
     ROSTER = "roster"
     SLA_BREACH = "sla_breach"
@@ -45,6 +46,7 @@ class IncidentLifecycleNotice:
     incident_state: IncidentState | None = None
     incident_severity: IncidentSeverity | None = None
     previous_state: IncidentState | None = None
+    previous_severity: IncidentSeverity | None = None
     reason: str | None = None
     roster: tuple[Incident, ...] = ()
 

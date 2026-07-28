@@ -429,6 +429,8 @@ matrix:
   `operational_alert` route has no registered channel that supports its A2 trust tier. The explicit
   local Azure CLI profile may start without an external adapter, but it emits a structured
   `notification_route_unavailable` warning and keeps fail-closed HIL escalation.
+- **Incident severity escalation** - A committed monotonic severity increase emits one A2
+  `severity_changed` notice. Its stable audit id deduplicates immediate delivery and startup replay.
 - **`role-dm` is deny-listed except for `break_glass_usage_summary`.** Any other digest
   attempting `role-dm` fails at config load.
 - **Digests declaring `mention-artifact-owner` MUST specify a valid metadata field**

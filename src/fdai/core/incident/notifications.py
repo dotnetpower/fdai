@@ -53,6 +53,15 @@ class RoutedIncidentLifecycleNotifier:
                 f"Incident `{incident_id}` opened in `{incident_state.value}` state. "
                 "Open the incident roster for its audited history."
             )
+        elif notice.kind is IncidentNoticeKind.SEVERITY_CHANGED:
+            if notice.previous_severity is None:
+                raise ValueError("severity_changed incident notice requires previous_severity")
+            title = f"Incident severity raised: {incident_severity.value.upper()}"
+            body = (
+                f"Incident `{incident_id}` severity changed from "
+                f"`{notice.previous_severity.value}` to `{incident_severity.value}`. "
+                "Open the incident roster for audited evidence."
+            )
         elif notice.kind is IncidentNoticeKind.STATE_CHANGED:
             if notice.previous_state is None:
                 raise ValueError("state_changed incident notice requires previous_state")
@@ -144,9 +153,11 @@ def incident_notice_audit_id(notice: IncidentLifecycleNotice) -> str:
     timestamp = notice.occurred_at.isoformat()
     if notice.kind is IncidentNoticeKind.ROSTER:
         return f"incident-roster:{timestamp}"
-    incident_id, incident_state, _ = _notice_incident_fields(notice)
+    incident_id, incident_state, incident_severity = _notice_incident_fields(notice)
     if notice.kind is IncidentNoticeKind.OPENED:
         return f"incident:{incident_id}:opened"
+    if notice.kind is IncidentNoticeKind.SEVERITY_CHANGED:
+        return f"incident:{incident_id}:severity:{incident_severity.value}"
     if notice.kind is IncidentNoticeKind.SLA_BREACH:
         return f"incident:{incident_id}:sla:{incident_state.value}:{timestamp}"
     if notice.kind is IncidentNoticeKind.ASSIGNED:

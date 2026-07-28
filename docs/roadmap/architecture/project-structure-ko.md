@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c388171f39b0c8d2ec42c0997981af72eaa5c5a4
+translation_source_sha: 782df32a28123a8eccdc08bf756e1b04d212fcd7
 translation_revised: 2026-07-28
 ---
 
@@ -51,7 +51,7 @@ fdai/
 │   │   ├── audit/              # append-only 해시 체인 감사 로그 + KPI/메트릭 발행
 │   │   ├── notifications/      # notifications matrix 위에 얹은 채널 라우팅 레이어
 │   │   ├── detection/          # anomaly/forecast 평가, 변경 불가능한 episode, event-time closure 및 outbox contract
-│   │   ├── incident/           # lifecycle + bounded detector/platform input, complete evidence 및 monotonic severity
+│   │   ├── incident/           # lifecycle + bounded input, evidence, monotonic severity 및 deduplicated notice
 │   │   ├── slo/                # 워크로드 SLO / burn-rate 평가기 (컨트롤 플레인 SLO 와는 구분)
 │   │   ├── runbook/            # 런북 오케스트레이터 (선형 시퀀스 + on-failure 브랜치)
 │   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding 컴파일; 승인 플래너 + shadow 오케스트레이터 + 트리거 인덱스 + 이벤트 코디네이터

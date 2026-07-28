@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 0b1c795ffb605382c4b00a6d2f4ff67dbc726477
+translation_source_sha: 226609b135e53105e8308ce40cf8542f633fcccd
 translation_revised: 2026-07-28
 ---
 
@@ -418,6 +418,8 @@ matrix:
   A2 trust tier를 지원하는 등록 채널이 없으면 startup에 실패합니다. 명시적 local Azure CLI
   profile은 외부 adapter 없이 시작할 수 있지만 구조화된 `notification_route_unavailable` warning을
   기록하고 fail-closed HIL escalation을 유지합니다.
+- **Incident severity escalation** - Commit된 monotonic severity 상향은 A2 `severity_changed`
+  notice를 한 번 emit하며 stable audit id가 immediate delivery와 startup replay를 deduplicate합니다.
 - **`role-dm`은 `break_glass_usage_summary`를 제외하고 deny-list.** `role-dm`을 시도하는
   다른 다이제스트는 config 로드 실패.
 - **`mention-artifact-owner`를 선언하는 다이제스트는 유효한 메타데이터 필드를 명시** 해야 함

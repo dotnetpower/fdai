@@ -61,6 +61,8 @@ class IncidentOpenResult:
 
     incident: Incident
     created: bool
+    severity_changed: bool = False
+    previous_severity: IncidentSeverity | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +155,11 @@ class IncidentRegistry:
         async with self._write_lock:
             existing = self._incidents.get(incident_id)
             if existing is not None:
-                existing = await self._escalate_severity_if_needed(
+                (
+                    existing,
+                    severity_changed,
+                    previous_severity,
+                ) = await self._escalate_severity_if_needed(
                     incident=existing,
                     target=severity,
                     actor_oid=actor_oid,
@@ -179,7 +185,12 @@ class IncidentRegistry:
                     else:
                         self._incidents[incident_id] = updated
                         existing = updated
-                return IncidentOpenResult(incident=existing, created=False)
+                return IncidentOpenResult(
+                    incident=existing,
+                    created=False,
+                    severity_changed=severity_changed,
+                    previous_severity=previous_severity,
+                )
 
             opened = opened_at or datetime.now(tz=UTC)
             incident = Incident(
@@ -230,11 +241,12 @@ class IncidentRegistry:
         target: IncidentSeverity,
         actor_oid: str,
         at: datetime,
-    ) -> Incident:
+    ) -> tuple[Incident, bool, IncidentSeverity | None]:
         canonical = incident
         for _attempt in range(2):
             if _SEVERITY_RANK[target] >= _SEVERITY_RANK[canonical.severity]:
-                return canonical
+                return canonical, False, None
+            previous_severity = canonical.severity
             updated = canonical.model_copy(update={"severity": target})
             try:
                 status = await self._persist(
@@ -251,10 +263,11 @@ class IncidentRegistry:
                 continue
             if status is IncidentAppendStatus.DUPLICATE:
                 canonical = await self._reload_canonical(canonical.incident_id)
+                return canonical, False, None
             else:
                 self._incidents[canonical.incident_id] = updated
                 canonical = updated
-            return canonical
+            return canonical, True, previous_severity
         raise IncidentWriteConflictError(
             f"incident severity escalation did not converge: {canonical.incident_id}"
         )

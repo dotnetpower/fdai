@@ -94,7 +94,7 @@ class DurableIncidentLifecycleNotifier:
             notice_severity = notice.incident_severity
             if notice_severity is None:
                 raise ValueError("lifecycle notification replay produced no severity")
-            if kind in {"incident.open", "incident.transition"}:
+            if kind in {"incident.open", "incident.transition", "incident.severity"}:
                 severities[incident_id] = notice_severity
             result = await self.notify(notice)
             if result.status == "delivered":
@@ -140,6 +140,16 @@ def notice_from_lifecycle_entry(
                 incident_severity=transition_severity,
                 previous_state=IncidentState(_required_string(entry, "from_state")),
                 reason=_optional_string(entry, "reason"),
+            )
+        if kind == "incident.severity":
+            return IncidentLifecycleNotice(
+                kind=IncidentNoticeKind.SEVERITY_CHANGED,
+                actor_oid=actor_oid,
+                occurred_at=_aware_datetime(entry, "at"),
+                incident_id=incident_id,
+                incident_state=IncidentState(_required_string(entry, "state")),
+                incident_severity=IncidentSeverity(_required_string(entry, "severity")),
+                previous_severity=IncidentSeverity(_required_string(entry, "from_severity")),
             )
         if kind == "incident.assigned":
             return IncidentLifecycleNotice(

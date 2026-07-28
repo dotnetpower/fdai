@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 10a7a45f236c0b4668d90c6c22462d642c7a4443
+translation_source_sha: 1c9a375982e581df0ed12c3bf3a4cdc286baba1f
 translation_revised: 2026-07-28
 ---
 
@@ -52,7 +52,8 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   재시도하며 unbounded background retry loop를 만들지 않습니다. Handoff는 `accepted` 또는 `held`를
   반환하며 Heimdall은 policy hold를 성공한 Incident candidate로 계산하지 않습니다.
   Open Incident에 더 심각한 recurrence가 들어오면 append-only `incident.severity` row로 severity를
-  상향합니다. Recurrence는 severity를 낮추지 않으며 replay도 동일한 monotonic 결과를 복원합니다.
+  상향합니다. Recurrence는 severity를 낮추지 않고 replay도 동일한 monotonic 결과를 복원하며 commit된
+  escalation은 deduplicated A2 lifecycle notice를 emit합니다.
   Direct candidate text와 evidence key는 512자로 제한되고 candidate 하나는 evidence key를 최대 100개
   포함하며 oversized input은 lifecycle 또는 audit write 전에 hold됩니다.
 - 새 감지기는 **shadow 모드** 로 출시되고 shadow→enforce 규칙에 따라 승격; 정확도와

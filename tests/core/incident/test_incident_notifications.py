@@ -121,3 +121,24 @@ async def test_sla_breach_has_stable_deadline_identity() -> None:
     assert message.audit_id == (
         "incident:00000000-0000-0000-0000-000000000001:sla:open:2026-07-15T00:05:00+00:00"
     )
+
+
+async def test_severity_change_notice_names_previous_and_current_severity() -> None:
+    dispatcher = CapturingDispatcher()
+    notifier = RoutedIncidentLifecycleNotifier(dispatcher=dispatcher)
+    incident = _incident(1).model_copy(update={"severity": IncidentSeverity.SEV1})
+
+    await notifier.notify(
+        IncidentLifecycleNotice(
+            kind=IncidentNoticeKind.SEVERITY_CHANGED,
+            actor_oid="Heimdall",
+            occurred_at=datetime(2026, 7, 15, tzinfo=UTC),
+            incident=incident,
+            previous_severity=IncidentSeverity.SEV3,
+        )
+    )
+
+    message = dispatcher.messages[0]
+    assert "from `sev3` to `sev1`" in message.body_markdown
+    assert message.severity is Severity.CRITICAL
+    assert message.audit_id == f"incident:{incident.incident_id}:severity:sev1"
