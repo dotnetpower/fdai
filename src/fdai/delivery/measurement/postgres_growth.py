@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import AsyncIterator, Mapping, Sequence
-from datetime import datetime
 from typing import Any
 
 import psycopg
@@ -13,6 +12,7 @@ from psycopg.rows import dict_row
 
 from fdai.core.measurement.pattern_growth import OutcomeRecord
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel, LearnedAction
+from fdai.delivery.measurement.outcome_contract import accepted_outcome_timestamp
 from fdai.shared.providers.state_store import StateStore
 
 _WATERMARK_KEY = "measurement:pattern_growth:watermark"
@@ -48,7 +48,7 @@ class PostgresVerifiedOutcomeSource:
         for row in rows:
             high_water = max(high_water, int(row["seq"]))
             entry = _mapping(row["entry"])
-            record = _outcome_record(entry)
+            record = _outcome_record(entry, recorded_at=row["created_at"])
             if record is not None:
                 yield record
         if high_water > after_seq:
@@ -65,7 +65,7 @@ class PostgresVerifiedOutcomeSource:
                 (str(self._statement_timeout_ms),),
             )
             cursor = await connection.execute(
-                "SELECT seq, entry FROM audit_log WHERE seq > %s "
+                "SELECT seq, entry, created_at FROM audit_log WHERE seq > %s "
                 "AND action_kind = %s ORDER BY seq ASC LIMIT 1000",
                 (after_seq, _OUTCOME_KIND),
             )
@@ -152,7 +152,11 @@ def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _outcome_record(entry: Mapping[str, Any]) -> OutcomeRecord | None:
+def _outcome_record(
+    entry: Mapping[str, Any],
+    *,
+    recorded_at: Any,
+) -> OutcomeRecord | None:
     required = (
         entry.get("action_id"),
         entry.get("action_type_id"),
@@ -162,9 +166,11 @@ def _outcome_record(entry: Mapping[str, Any]) -> OutcomeRecord | None:
         return None
     if entry.get("execution_mode") != "enforce" or entry.get("verification_passed") is not True:
         return None
-    try:
-        observed_at = datetime.fromisoformat(str(entry["observed_at"]).replace("Z", "+00:00"))
-    except ValueError:
+    observed_at = accepted_outcome_timestamp(
+        entry["observed_at"],
+        recorded_at=recorded_at,
+    )
+    if observed_at is None:
         return None
     return OutcomeRecord(
         action_id=str(entry["action_id"]),

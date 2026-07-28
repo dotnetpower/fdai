@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import TypeGuard
 
+from fdai.delivery.measurement.outcome_contract import accepted_outcome_timestamp
 from fdai.delivery.read_api.read_model import AuditItem
 from fdai.delivery.read_api.routes.measurement_summary import _vertical_of
 
@@ -75,7 +75,7 @@ def latest_finalizations(items: Sequence[AuditItem]) -> dict[str, AuditItem]:
             or not isinstance(action_type_id, str)
             or not action_type_id
             or not isinstance(observed_at, str)
-            or not valid_timestamp(observed_at)
+            or accepted_outcome_timestamp(observed_at, recorded_at=item.recorded_at) is None
         ):
             continue
         observed = by_action.get(action_id)
@@ -117,13 +117,6 @@ def event_outcome_state(
     ):
         return "adverse"
     return "auto_resolved"
-
-
-def valid_timestamp(value: str) -> bool:
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).tzinfo is not None
-    except ValueError:
-        return False
 
 
 def event_tier(items: Sequence[AuditItem]) -> str | None:

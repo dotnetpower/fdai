@@ -62,6 +62,8 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
   run. Growth mode reads only explicit `measurement.action_outcome.v1` audit
   records that prove enforce execution, deterministic verification, rollback
   state, embedding projection, exact parameters, and incident provenance.
+  Outcome and durable audit timestamps must be timezone-aware. An outcome more
+  than five minutes ahead of its audit timestamp is rejected before intake.
   Missing provenance yields zero intake rather than inferred training data.
   Azure text-embedding-3 requests use the fixed 384-dimension pgvector
   contract; a different family or dimension fails startup.

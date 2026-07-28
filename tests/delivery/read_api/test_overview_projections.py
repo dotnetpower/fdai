@@ -5,11 +5,13 @@ from pathlib import Path
 
 from fdai.core.verticals.cost_governance.finops import FinOpsActionKind
 from fdai.delivery.read_api.read_model import (
+    AuditItem,
     AuditPage,
     AuditQueryFilters,
     InMemoryConsoleReadModel,
 )
 from fdai.delivery.read_api.routes.audit_finops import AuditFinOpsPanel
+from fdai.delivery.read_api.routes.audit_measurement_events import latest_finalizations
 from fdai.delivery.read_api.routes.audit_measurement_summary import (
     AuditAutonomyMeasurementPanel,
 )
@@ -21,6 +23,27 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_future_dated_outcome_finalization_is_rejected() -> None:
+    item = AuditItem(
+        seq=1,
+        event_id="event-1",
+        correlation_id=None,
+        actor="fdai.measurement",
+        action_kind="measurement.action_outcome.v1",
+        mode="enforce",
+        entry={
+            "action_id": "action-1",
+            "action_type_id": "remediate.enable-zone-redundancy",
+            "observed_at": "2026-07-29T00:05:01Z",
+        },
+        entry_hash="entry-hash",
+        previous_hash="previous-hash",
+        recorded_at="2026-07-29T00:00:00Z",
+    )
+
+    assert latest_finalizations((item,)) == {}
 
 
 async def test_empty_audit_keeps_unobserved_autonomy_metrics_unavailable() -> None:
@@ -68,6 +91,7 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
             "action_id": "action-event-1",
             "action_type_id": "remediate.enable-zone-redundancy",
             "observed_at": "2026-07-29T00:00:00Z",
+            "recorded_at": "2026-07-29T00:00:00Z",
             "execution_mode": "enforce",
             "verification_passed": True,
             "decision": "auto",
@@ -386,6 +410,7 @@ async def test_audit_overview_requires_explicit_verified_finalization() -> None:
                     "action_id": action_id,
                     "action_type_id": "remediate.enable-zone-redundancy",
                     "observed_at": "2026-07-29T00:00:00Z",
+                    "recorded_at": "2026-07-29T00:00:00Z",
                     "execution_mode": "enforce",
                     "verification_passed": True,
                     "decision": "auto",
@@ -438,6 +463,7 @@ async def test_audit_overview_holds_partially_finalized_multi_action_event() -> 
             "action_id": "action-1",
             "action_type_id": "remediate.enable-zone-redundancy",
             "observed_at": "2026-07-29T00:00:00Z",
+            "recorded_at": "2026-07-29T00:00:00Z",
             "execution_mode": "enforce",
             "verification_passed": True,
             "decision": "auto",
