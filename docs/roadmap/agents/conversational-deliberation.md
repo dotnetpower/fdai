@@ -82,8 +82,8 @@ names the missing evidence instead of narrating policy as if it were an outcome.
 Every v3 prompt requires the agent to:
 
 - state its positive mandate and role-specific prohibition;
-- carry the exact reporting line, owned and subscribed topics, action bindings, model policy,
-  hard-dependency status, and proposal budget from its immutable `AgentSpec`;
+- carry the exact layer, reporting line, owned and subscribed topics, action bindings, routing
+  domains, model policy, hard-dependency status, and proposal budget from its immutable `AgentSpec`;
 - answer only from owned state and allowed tools;
 - cite evidence refs and separate facts, inferences, and unknowns;
 - preserve uncertainty and abstain on insufficient or stale evidence;
@@ -386,11 +386,45 @@ closes only at `10/10`; prose inspection alone never earns a point.
 The fourteen baseline layers now include an exact generated role contract and a role directive.
 The contract states what the agent may do; the directive explains how its own result is produced.
 
+## Forty-critique deep audit
+
+The follow-up audit applies 40 independent, executable critiques to every prompt. It checks
+structure and cross-field agreement rather than awarding several points for one repeated phrase.
+
+| Area | Critiques | Examples |
+|------|----------:|----------|
+| Identity and organization | 6 | Canonical identity, fixed roster, mandate, layer, reporting line, routing domains. |
+| Authority and ownership | 8 | Single writer, derived publish topics, subscriptions, execute/initiate bindings, typed authority. |
+| Tools and evidence | 8 | Unique owner, declared ids, bounded purpose, exact fact scope, bilingual anchors, evidence refs. |
+| Peers and handoff | 5 | Closed peer names, no self peer, deterministic owner, requester/trace retention, no impersonation. |
+| Tiers, budget, and security | 8 | T1/T2 boundaries, budget ceiling, hard dependency, untrusted text, prompt secrecy. |
+| Replay and global closure | 5 | Bounded charter, final role layer, unique manifest ids, deterministic digests, global owner closure. |
+
+The audit found and removed four defects:
+
+- Bragi listed `primary owner` and `evidence contributors` as if they were agent names. Its static
+  peer set now contains only fixed roster names; runtime-selected owners remain a separate rule.
+- `ConversationSituation.from_context` accepted shape-valid fake agent names when no roster was
+  supplied. An empty roster now accepts no requester or handoff owner.
+- `ConversationCharter` accepted an empty role directive. Every charter must now carry the final
+  mechanics layer and bake it into the baseline.
+- The exact role contract omitted `layer` and `question_domains`. Both now travel with the prompt
+  and therefore affect its digest when routing authority changes.
+
+Three suspected defects were rejected after execution: acronym topic conversion was a test-helper
+error around `RCA`; independent phase/tier parsing cannot raise authority and production
+deliberation supplies the canonical pair; Saga or Vidar degradation gates mutation, not read-only
+conversation, so blocking every answer would contradict the degradation design.
+
 ## Verification
 
 `tests/agents/test_prompt_deliberation.py` applies 33 criteria to every agent, for 495 baseline
 judgments. It also verifies T1-required routing, two bounded phases, optional T2 synthesis,
 presentation-only authority, exact role contracts, budget denial, and action-intent refusal.
+
+`tests/agents/test_prompt_contract_audit.py` applies the 40 structural critiques to all 15 agents,
+for 600 all-agent judgments, then separately verifies global single-writer/tool ownership, strict
+roster handling, mandatory role directives, and the complete unique baseline manifest.
 
 `tests/agents/test_conversation_prompt_composition.py` re-applies the 33 criteria to 1,152 situation
 permutations for each of 15 agents, for 570,240 deterministic judgments. It pins that the baseline

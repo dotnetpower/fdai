@@ -132,14 +132,6 @@ class ConversationCharter:
             raise ValueError("conversation version MUST be a canonical vN identifier")
         if not self.system_prompt.strip() or len(self.system_prompt) > MAX_CHARTER_PROMPT_CHARS:
             raise ValueError("conversation system_prompt MUST be bounded and non-empty")
-        if self.role_directive and (
-            len(self.role_directive) > MAX_ROLE_DIRECTIVE_CHARS
-            # The baseline is the composition floor, so a directive that is
-            # declared but not baked into it would silently never reach a
-            # model. Pin the two together instead of trusting the caller.
-            or self.role_directive not in self.system_prompt
-        ):
-            raise ValueError("conversation role_directive MUST be bounded and part of the baseline")
         if not self.tool_specs or len(self.tool_specs) > _MAX_CONVERSATION_TOOLS:
             raise ValueError("conversation tools MUST contain between 1 and 16 items")
         if len(set(self.tools)) != len(self.tools):
@@ -152,6 +144,15 @@ class ConversationCharter:
             re.search(r"[가-힣]", example) for example in self.routing_examples
         ):
             raise ValueError("conversation routing_examples MUST contain English and Korean text")
+        if (
+            not self.role_directive
+            or len(self.role_directive) > MAX_ROLE_DIRECTIVE_CHARS
+            # The baseline is the composition floor, so a directive that is
+            # declared but not baked into it would silently never reach a
+            # model. Pin the two together instead of trusting the caller.
+            or self.role_directive not in self.system_prompt
+        ):
+            raise ValueError("conversation role_directive MUST be bounded and part of the baseline")
 
     @property
     def tools(self) -> tuple[str, ...]:
@@ -243,12 +244,14 @@ class AgentSpec:
         )
         return (
             "Role contract: "
+            f"layer={self.layer.value}; "
             f"reports_to={self.reports_to or 'none'}; "
             f"owns={','.join(self.owns) or 'none'}; "
             f"publishes={','.join(self.publishes) or 'none'}; "
             f"subscribes={','.join(self.subscribes) or 'none'}; "
             f"executes={','.join(self.executes) or 'none'}; "
             f"initiates={','.join(self.initiates) or 'none'}; "
+            f"question_domains={','.join(self.question_domains) or 'none'}; "
             f"llm={llm_policy}; "
             f"hard_dependency={'true' if self.hard_dependency else 'false'}; "
             f"proposal_budget={self.rate_limits.per_minute}/minute,"

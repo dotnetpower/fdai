@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: d2753a1edc4e97f3beb32b4e8d9ec851b2ef5f5e
+translation_source_sha: 54283b4afb9a4e87ffabb9200543fe221fdccdf9
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -85,8 +85,8 @@ facade에서 export합니다.
 모든 v3 prompt는 agent에 다음을 요구합니다.
 
 - Positive mandate와 role-specific prohibition을 명시합니다.
-- Immutable `AgentSpec`의 reporting line, owned/subscribed topic, action binding, model policy,
-  hard-dependency 상태 및 proposal budget을 정확히 포함합니다.
+- Immutable `AgentSpec`의 layer, reporting line, owned/subscribed topic, action binding, routing
+  domain, model policy, hard-dependency 상태 및 proposal budget을 정확히 포함합니다.
 - Owned state 및 allowed tool에서만 답합니다.
 - Evidence ref를 인용하고 fact, inference 및 unknown을 구분합니다.
 - Uncertainty를 보존하고 evidence가 부족하거나 오래되면 abstain합니다.
@@ -377,11 +377,45 @@ path로 유지되며 두 port 사이에는 correlation trace만 전달됩니다.
 14개 baseline layer에는 정확히 생성한 role contract와 role directive가 포함됩니다. Contract는
 agent가 할 수 있는 일을 고정하고 directive는 agent가 자기 결과를 만드는 mechanics를 설명합니다.
 
+## 40개 비평 심층 감사
+
+후속 감사는 각 prompt에 서로 독립적인 실행 가능 비평 40개를 적용합니다. 한 문구를 여러 번
+세는 대신 구조와 cross-field agreement를 검사합니다.
+
+| 영역 | 비평 수 | 예시 |
+|------|--------:|------|
+| Identity와 organization | 6 | Canonical identity, fixed roster, mandate, layer, reporting line, routing domain |
+| Authority와 ownership | 8 | Single writer, derived publish topic, subscription, execute/initiate binding, typed authority |
+| Tool과 evidence | 8 | Unique owner, declared id, bounded purpose, exact fact scope, bilingual anchor, evidence ref |
+| Peer와 handoff | 5 | Closed peer name, no self peer, deterministic owner, requester/trace 보존, no impersonation |
+| Tier, budget, security | 8 | T1/T2 boundary, budget ceiling, hard dependency, untrusted text, prompt secrecy |
+| Replay와 global closure | 5 | Bounded charter, final role layer, unique manifest id, deterministic digest, global owner closure |
+
+감사는 네 가지 결함을 찾아 제거했습니다.
+
+- Bragi가 `primary owner`와 `evidence contributors`를 agent 이름처럼 나열했습니다. Static peer
+  set은 이제 fixed roster 이름만 포함하고 runtime-selected owner는 별도 규칙으로 유지합니다.
+- `ConversationSituation.from_context`가 roster 미제공 시 형태만 맞는 fake agent 이름을
+  허용했습니다. Empty roster는 이제 requester와 handoff owner를 하나도 허용하지 않습니다.
+- `ConversationCharter`가 빈 role directive를 허용했습니다. 모든 charter는 이제 마지막 mechanics
+  layer를 포함하고 baseline에 삽입해야 합니다.
+- Exact role contract에서 `layer`와 `question_domains`가 빠져 있었습니다. 이제 둘 다 prompt와
+  digest에 포함되므로 routing authority 변경이 기록됩니다.
+
+실행 후 세 의심 항목은 기각했습니다. `RCA` acronym topic 실패는 test helper 오류였습니다.
+독립적인 phase/tier parsing은 authority를 높이지 않고 production deliberation이 canonical pair를
+공급합니다. Saga 또는 Vidar degradation은 mutation을 gate하며 read-only conversation 전체를
+막지 않으므로 모든 답변 차단은 degradation design과 충돌합니다.
+
 ## 검증
 
 `tests/agents/test_prompt_deliberation.py`는 agent마다 33개 기준을 적용해 baseline judgment
 495개를 검증합니다. T1-required routing, two bounded phase, optional T2 synthesis,
 presentation-only authority, exact role contract, budget denial 및 action-intent refusal도 검증합니다.
+
+`tests/agents/test_prompt_contract_audit.py`는 15개 agent 모두에 structural critique 40개를 적용해
+all-agent judgment 600개를 검증합니다. 이어서 global single-writer/tool ownership, strict roster,
+mandatory role directive 및 complete unique baseline manifest를 별도로 검증합니다.
 
 `tests/agents/test_conversation_prompt_composition.py`는 15개 agent 각각의 situation 순열
 1,152개에 33개 기준을 다시 적용해 deterministic judgment 570,240개를 검증합니다. Baseline은

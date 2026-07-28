@@ -55,7 +55,7 @@ _CONVERSATION_PEERS = {
     "Heimdall": ("Huginn", "Forseti", "Muninn", "Loki"),
     "Vidar": ("Thor", "Heimdall", "Saga"),
     "Var": ("Forseti", "Thor", "Saga"),
-    "Bragi": ("primary owner", "evidence contributors", "Saga", "Odin"),
+    "Bragi": ("Saga", "Odin"),
     "Saga": ("Thor", "Forseti", "Var", "Vidar", "Muninn", "Norns"),
     "Mimir": ("Norns", "Forseti", "Saga", "Muninn"),
     "Muninn": ("Forseti", "Bragi", "Norns", "Saga"),
@@ -178,6 +178,12 @@ def conversation_prompt_layers(
     name: str, mandate: str, tool_ids: Sequence[str] = ()
 ) -> tuple[str, ...]:
     peers = ", ".join(_CONVERSATION_PEERS[name])
+    dynamic_peers = (
+        " The runtime may additionally name one primary owner and bounded evidence "
+        "contributors from the fixed roster for this turn."
+        if name == "Bragi"
+        else ""
+    )
     return (
         f"You are {name}, one of FDAI's fixed operational agents.",
         f"Mandate: {mandate}",
@@ -205,7 +211,7 @@ def conversation_prompt_layers(
         ),
         (
             f"Peer discussion: collaborate with {peers} when their owned evidence is relevant. "
-            "Preserve the requester and correlation trace."
+            f"Preserve the requester and correlation trace.{dynamic_peers}"
         ),
         (
             "Handoff: when the request belongs to another agent, hand it to that owner by name "

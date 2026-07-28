@@ -197,8 +197,7 @@ class ConversationSituation:
         ``known_agents`` is the roster an agent name is checked against.
         Shape alone is not enough - the pantheon is a fixed set, so a
         name outside it is a forgery and is dropped rather than rendered
-        into a server-owned layer. An empty roster means the caller has
-        none to offer and only the shape check applies.
+        into a server-owned layer. An empty roster accepts no agent name.
         """
         raw_phase = context.get("deliberation_phase")
         raw_tier = context.get("deliberation_tier")
@@ -531,7 +530,7 @@ def _known_agent(raw: Any, known_agents: Collection[str]) -> str | None:
     """Reduce an untrusted agent name to a real pantheon member, or drop it."""
     if not isinstance(raw, str) or _AGENT_NAME.fullmatch(raw) is None:
         return None
-    if known_agents and raw not in known_agents:
+    if raw not in known_agents:
         return None
     return raw
 
