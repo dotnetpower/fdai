@@ -136,11 +136,10 @@ Each `AgentSpec` in `pantheon.py` carries:
 
 ## Common Gotchas
 
-- **`mentioned()` word regex**: `[a-z0-9-]+` does NOT match underscore
-  or dot. To exercise action-scoped introspect branches in tests, use
-  single-token bucket / scope names (`rg-1`, `vms`, `keep`). Dotted or
-  underscored real action keys are structurally unreachable through
-  the introspect path.
+- **`mentioned()` identifier matching**: scope narrowing recognizes whole
+  canonical identifiers with internal `.`, `_`, or `-`. Tests SHOULD cover
+  dotted and underscored keys without accepting a shorter candidate that is
+  only a prefix of the identifier in the question.
 - **Handoff / security notification / privilege escalation**: all flow
   through Saga's append-only audit machinery. No side channels.
 - **Hard-dependency agents (Saga, Vidar) go down**: the runtime

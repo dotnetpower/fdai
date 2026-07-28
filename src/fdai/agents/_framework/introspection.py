@@ -217,6 +217,7 @@ _MAX_QUESTION_LEN = 2000
 _FACTS_LIST_CAP = 20
 
 _WORD_RE = re.compile(r"[a-z0-9-]+")
+_IDENTIFIER_RE = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*")
 
 
 def _tokens(question: str) -> list[str]:
@@ -281,8 +282,8 @@ def mentioned(question: str, candidates: Any) -> list[str]:
     (e.g. "cost for rg-abc" -> the ``rg-abc`` scope). Order follows
     ``candidates`` for determinism.
     """
-    tokens = set(_tokens(question))
-    return [c for c in candidates if str(c).lower() in tokens]
+    identifiers = set(_IDENTIFIER_RE.findall(question[:_MAX_QUESTION_LEN].lower()))
+    return [c for c in candidates if str(c).lower() in identifiers]
 
 
 def capped_list(items: Any) -> list[str]:

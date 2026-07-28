@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 2b9365cf29187c0fe14a4ceaa9ae2c70c0dea814
-translation_revised: 2026-07-28
+translation_source_sha: b5065dcc7eab5e6d6785a7a43f13223d1a07900b
+translation_revised: 2026-07-29
 ---
 
 # 에이전트 판테온
@@ -450,6 +450,8 @@ Question은 2,000자로 제한하고 session마다 monotonic turn 100개를 보�
 각 `AgentSpec`은 고유하고 immutable하며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 bounded server-owned system instruction, reporting/ownership/topic/action binding/model policy/hard-dependency/proposal budget을 정확히 생성한 role contract, 해당 agent 결정의 mechanics를 명시하는 role directive, 영어/한국어 query example, purpose 및 owned-fact scope가 있는 read tool을 가집니다. Semantic parity test는 15개 role boundary를 모두 pin합니다. Runtime은 caller policy를 덮어쓰고 각 tool을 고유한 fact scope로 projection하며 instruction을 노출하지 않고 version과 별도의 prompt 및 full-charter SHA-256 digest를 attribution합니다. 답변은 owned state에 근거하며 typed policy가 권위를 유지합니다. Charter prompt는 prompt 전체가 아니라 조립의 바닥면입니다. 모든 turn은 그 baseline에 해당 turn이 선택한 situational layer(peer 대 operator audience, deliberation phase와 tier, tool scope, operator locale, evidence gap, command intent)를 더해 실제 prompt를 조립합니다. 조립은 가산적이고 deterministic하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 turn은 정확히 replay됩니다. Turn context는 layer를 선택만 하고 prompt text를 공급하지 않으므로 위조된 context가 instruction을 주입할 수 없습니다. Response는 layer manifest, situation key, 조립된 prompt digest를 전달하며 text 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
 
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
+Owned-state scope narrowing은 bounded question 안에서 내부 `.`, `_`, `-`를 가진 complete canonical
+identifier만 매칭하며, 더 긴 identifier의 prefix일 뿐인 짧은 candidate는 허용하지 않습니다.
 `PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공하며 bounded multi-agent discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 owner에 bind하고 invalid call을 거부하며 time과
