@@ -37,9 +37,7 @@ def _timestamp_lines(rendered: str, captured_at: str) -> str:
 
 
 def _local_log_timestamp() -> str:
-    captured_at = datetime.now().astimezone()
-    milliseconds = captured_at.microsecond // 1000
-    return f"{captured_at:%Y-%m-%d %H:%M:%S},{milliseconds:03d} {captured_at:%Z}"
+    return datetime.now().astimezone().isoformat(timespec="microseconds")
 
 
 def _open_log(path: Path) -> TextIO:

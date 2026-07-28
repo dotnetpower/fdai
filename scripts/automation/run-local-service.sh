@@ -52,7 +52,7 @@ write_marker() {
   local event="$1"
   local detail="${2:-}"
   local marker
-  marker="$(date '+%Y-%m-%d %H:%M:%S,%3N %Z') service=$service event=$event"
+  marker="$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z') service=$service event=$event"
   if [[ -n "$detail" ]]; then
     marker+=" $detail"
   fi
