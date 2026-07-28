@@ -2,14 +2,16 @@
 
 This folder contains standalone, dependency-free HTML email concepts based on the FDAI Calm Slate visual language. Each template uses synthetic data and a table-first layout suitable for Outlook, Microsoft 365, Gmail, and Apple Mail.
 
-The collection has completed three critique-and-hardening passes: 76 detected issues across 34
-rounds. See [hardening-review.md](hardening-review.md) for all detected issue sets, the round
-ledgers, verification evidence, and residual email-client constraints.
+The established six-template collection completed three critique-and-hardening passes: 76 detected
+issues across 34 rounds. The incident-opened template is a new candidate outside those totals. See
+[hardening-review.md](hardening-review.md) for all detected issue sets, the round ledgers,
+verification evidence, and residual email-client constraints.
 
 ## Templates
 
 | File | Message class | Purpose |
 |------|---------------|---------|
+| [incident-opened.html](incident-opened.html) | A2 | Incident-open notice with impact, response posture, SLA, and evidence handoff |
 | [critical-incident.html](critical-incident.html) | A2 | Critical service degradation alert with evidence and runbook handoff |
 | [cost-anomaly.html](cost-anomaly.html) | A2 | Cost anomaly notice with baseline comparison and contributing services |
 | [channel-health.html](channel-health.html) | A2 | Primary notification-channel degradation and fallback status |
