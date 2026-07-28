@@ -393,7 +393,6 @@ const AUXILIARY_TYPES = new Set([
   "certificate",
   "compute.container-app-job",
   "diagnostic-settings",
-  "disk",
   "email-domain",
   "file-share",
   "kubernetes-node-pool",

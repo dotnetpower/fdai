@@ -5,7 +5,7 @@ import {
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
-import { compareArchitectureNetworkPathNodes } from "./architecture-network-path";
+import { orderArchitectureNetworkPathNodes } from "./architecture-network-path";
 
 const VNET_TYPES = new Set(["virtual-network", "network.vnet"]);
 const SUBNET_TYPES = new Set(["subnet", "network.subnet"]);
@@ -143,7 +143,7 @@ function nearestUniqueSubnet(
   let nearestDistance = Number.POSITIVE_INFINITY;
   while (queue.length > 0) {
     const current = queue.shift()!;
-    if (current.distance > 2 || current.distance > nearestDistance) continue;
+    if (current.distance > 3 || current.distance > nearestDistance) continue;
     if (subnetIds.has(current.id)) {
       nearestDistance = current.distance;
       candidates.add(current.id);
@@ -197,8 +197,7 @@ function buildGroupPlan(
     && !isRegion(resource)
     && !VNET_TYPES.has(resource.type)
     && !SUBNET_TYPES.has(resource.type)
-    && !isAuxiliaryArchitectureResource(resource))
-    .sort(compareArchitectureNetworkPathNodes);
+    && !isAuxiliaryArchitectureResource(resource));
   const membersBySubnet = new Map<string, InventoryResource[]>();
   const unassigned: InventoryResource[] = [];
   for (const node of visibleNodes) {
@@ -210,6 +209,9 @@ function buildGroupPlan(
     const members = membersBySubnet.get(subnetId) ?? [];
     members.push(node);
     membersBySubnet.set(subnetId, members);
+  }
+  for (const [subnetId, members] of membersBySubnet) {
+    membersBySubnet.set(subnetId, orderArchitectureNetworkPathNodes(members, graph.links));
   }
 
   const ownedSubnetIds = new Set<string>();
@@ -231,7 +233,7 @@ function buildGroupPlan(
   return {
     group,
     networks: packedNetworks.items,
-    unassigned: [...unassigned].sort(compareArchitectureNetworkPathNodes),
+    unassigned: orderArchitectureNetworkPathNodes(unassigned, graph.links),
     unassignedTop,
     width: Math.max(4.8, .9 + packedNetworks.width, .9 + unassignedGrid.width),
     height: Math.max(
@@ -275,11 +277,10 @@ function buildSubnetPlan(
   subnet: InventoryResource,
   members: readonly InventoryResource[],
 ): SubnetPlan {
-  const orderedMembers = [...members].sort(compareArchitectureNetworkPathNodes);
-  const grid = nodeGrid(orderedMembers);
+  const grid = nodeGrid(members);
   return {
     subnet,
-    members: orderedMembers,
+    members,
     width: Math.max(4.8, grid.width + .9),
     height: Math.max(3.4, grid.height + 1.15),
   };

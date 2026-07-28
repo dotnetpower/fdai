@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b9e42b94fdf4bcf48585c80bc66aa95fae745609
+translation_source_sha: e9e2a83e3e7f11be710a0784d8a904bf861239b7
 translation_revised: 2026-07-28
 ---
 
@@ -474,7 +474,7 @@ machine을 포함한 모든 resource selection은 현재 camera scale과 positio
 pan 및 camera-view control은 운영자가 명시적으로 조작할 때만 변경됩니다.
 
 Factual count와 inspection index는 계속 complete authoritative inventory를 사용합니다. Isometric
-overview는 network interface를 표시하고 managed disk, diagnostic, certificate 및 provider helper
+overview는 network interface와 managed disk를 표시하고 diagnostic, certificate 및 provider helper
 resource를 접는 presentation-only projection을 적용합니다. 표시된 각 owner는 접힌 neighbor
 수에 해당하는 `+N` badge를 표시합니다. Resource를 선택하면 새 inventory를 요청하거나 만들어 내지
 않고 direct auxiliary child와 semantic neighbor를 표시합니다. Overview는 표시된 resource만 packing하고
@@ -485,7 +485,8 @@ lane으로 렌더링하므로 compute, data 및 gateway node를 network plane �
 lane은 reflection을 렌더링하지 않습니다. Azure inventory는 VNet payload 안에서 관찰된 subnet만
 `network.subnet` record로 승격하고 관찰된 VNet-to-subnet containment edge를 생성합니다. Console은
 등록된 `attached_to` link가 bounded resource-to-interface-to-subnet chain 안에서 하나의 subnet에만
-도달할 때 resource를 해당 subnet에 배치합니다. Membership이 없거나 모호하면 resource-group의 neutral
+도달하거나 disk가 bounded disk-to-workload-to-interface-to-subnet chain으로 도달할 때 resource를 해당
+subnet에 배치합니다. Membership이 없거나 모호하면 resource-group의 neutral
 floor에 유지하며 name과 provider identifier를 topology evidence로 사용하지 않습니다.
 
 Isometric renderer는 VNet을 outer floor로, subnet을 visible member 수에 따라 크기가 정해지는 inset
@@ -497,9 +498,11 @@ plane이 pointer target으로 유지됩니다. Focused service 또는 resource-g
 작은 desktop legend reserve와 canvas height를 사용합니다. 좁은 viewport에서는 동일한 node 크기를
 유지하고 canvas를 520 px로 제한하며 더 넓어진 floor를 panning으로 탐색합니다.
 
-Subnet 안의 visible path participant는 network edge에서 workload 순서로 배치합니다. Public IP 및
-network security resource, network interface, compute 및 service resource 순서입니다. 이는 layout
-순서이며 추론한 traffic direction이 아닙니다. Renderer는 contract가 direction을 제공하지 않는 한 모든
+Subnet 안의 visible path participant는 관찰된 `attached_to` connected component별로 묶은 다음 network
+edge에서 storage 순서로 배치합니다. Public IP 및 network security resource, network interface,
+compute 및 service resource, disk 및 data resource 순서입니다. 여러 workload path는 type 또는 name으로
+서로 섞이지 않고 연속으로 유지됩니다. 이는 layout 순서이며 추론한 traffic direction이 아닙니다.
+Renderer는 contract가 direction을 제공하지 않는 한 모든
 관찰된 `attached_to` edge를 방향 화살표 없는 floor route로 그립니다. Perspective는 bounded depth
 범위에서 projected point를 조정해 가까운 resource를 먼 resource보다 크게 표시하고 picking과
 containment도 동일한 projection을 사용합니다. Zoom은 512x scale까지 상세 탐색을 지원하고 pointer를

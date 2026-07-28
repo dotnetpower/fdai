@@ -483,8 +483,8 @@ selection preserves the current camera scale and position, including virtual mac
 pan, and camera-view controls remain explicit operator actions.
 
 The factual counts and inspection index continue to use the complete authoritative inventory. The
-isometric overview applies a presentation-only projection that keeps network interfaces visible
-while collapsing managed disks, diagnostics, certificates, and provider helper resources.
+isometric overview applies a presentation-only projection that keeps network interfaces and managed
+disks visible while collapsing diagnostics, certificates, and provider helper resources.
 Each visible owner shows a `+N` badge for its collapsed neighbors. Selecting a resource reveals its
 direct auxiliary children and semantic neighbors without requesting or inventing new inventory.
 The overview packs only visible resources, orders children by layer and type, reserves up to two
@@ -495,7 +495,8 @@ readable above the network plane; floor lanes do not render reflections. Azure i
 only subnets observed inside a VNet payload into `network.subnet` records and emits the observed
 VNet-to-subnet containment edge. The console assigns a resource to a subnet only when registered
 `attached_to` links reach one unique subnet within the bounded resource-to-interface-to-subnet
-chain. Missing or ambiguous membership leaves the resource on the neutral resource-group floor;
+chain, or a disk reaches it through the bounded disk-to-workload-to-interface-to-subnet chain.
+Missing or ambiguous membership leaves the resource on the neutral resource-group floor;
 names and provider identifiers never become topology evidence.
 
 The isometric renderer draws a VNet as an outer floor and its subnets as inset floor planes sized
@@ -508,9 +509,11 @@ smaller desktop legend reserve and canvas height than the complete inventory vie
 viewports keep the same node size, cap the canvas at 520 px, and expose the wider floor through
 panning.
 
-Within a subnet, visible path participants are arranged from network edge to workload: public IP
-and network security resources, network interfaces, then compute and service resources. This is a
-layout order, not an inferred traffic direction. The renderer draws every observed `attached_to`
+Within a subnet, visible path participants are grouped by their observed `attached_to` connected
+component, then arranged from network edge to storage: public IP and network security resources,
+network interfaces, compute and service resources, then disks and data resources. Multiple
+workload paths stay contiguous instead of interleaving by type or name. This is a layout order, not
+an inferred traffic direction. The renderer draws every observed `attached_to`
 edge as a floor route without a directional arrow unless the contract provides direction.
 Perspective scales projected points within bounded depth limits so near resources read larger than
 far resources while picking and containment use the same projection. Zoom supports deep inspection

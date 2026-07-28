@@ -210,7 +210,7 @@ describe("architecture map model", () => {
     expect(relatedResourceIds(GRAPH, "missing")).toBeUndefined();
   });
 
-  test("keeps network interfaces visible while collapsing other auxiliaries", () => {
+  test("keeps network interfaces and disks visible while collapsing other auxiliaries", () => {
     const graph: InventoryGraphResponse = {
       ...GRAPH,
       resources: [
@@ -233,8 +233,11 @@ describe("architecture map model", () => {
     };
 
     const overview = architecturePresentationGraph(graph, null);
-    expect(overview.resources.map((resource) => resource.id)).toEqual(["rg", "vm", "nic", "db"]);
-    expect(overview.resources.find((resource) => resource.id === "vm")?.collapsed_count).toBe(1);
+    expect(overview.resources.map((resource) => resource.id)).toEqual([
+      "rg", "vm", "nic", "disk", "db",
+    ]);
+    expect(overview.resources.find((resource) => resource.id === "vm")?.collapsed_count)
+      .toBeUndefined();
     expect(overview.resources.find((resource) => resource.id === "rg")?.collapsed_count).toBe(1);
 
     const focused = architecturePresentationGraph(graph, "vm");
