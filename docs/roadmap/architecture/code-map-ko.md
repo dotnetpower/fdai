@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c7c67d17139fd2db7a4815996ada2c0535960763
+translation_source_sha: 3f131c829d6a1c1472f71974b925d1b765a54f22
 translation_revised: 2026-07-28
 ---
 # 코드 맵
@@ -38,7 +38,7 @@ shared 패키지를 커버한다.
 |-----------|------|------|--------|----------|
 | event_ingest | 이벤트 정규화 + 중복제거 + 인시던트로 상관관계 묶기 | [src/fdai/core/event_ingest/](../../../src/fdai/core/event_ingest/) | [tests/core/event_ingest/](../../../tests/core/event_ingest/) | [architecture.instructions.md § Control Loop](../../../.github/instructions/architecture.instructions.md#control-loop) |
 | trust_router | 신뢰도 계산, T0/T1/T2 라우팅 | [src/fdai/core/trust_router/](../../../src/fdai/core/trust_router/) | [tests/core/trust_router/](../../../tests/core/trust_router/) | [architecture.instructions.md § Trust Routing](../../../.github/instructions/architecture.instructions.md#trust-routing-3-tier) |
-| tiers/t0_deterministic | 정책 + 체크리스트 + what-if + drift | [src/fdai/core/tiers/t0_deterministic/](../../../src/fdai/core/tiers/t0_deterministic/) | [tests/core/tiers/](../../../tests/core/tiers/) | project-structure-ko.md |
+| tiers/t0_deterministic | 정책 + 체크리스트 + what-if + drift. Audit attribution은 evaluator 일부 abstain과 전체 abstain을 구분합니다 | [src/fdai/core/tiers/t0_deterministic/](../../../src/fdai/core/tiers/t0_deterministic/) | [tests/core/tiers/](../../../tests/core/tiers/) | project-structure-ko.md |
 | tiers/t1_lightweight | 유사도 재사용 + 소형 모델 분류 | [src/fdai/core/tiers/t1_lightweight/](../../../src/fdai/core/tiers/t1_lightweight/) | [tests/core/tiers/](../../../tests/core/tiers/) | project-structure-ko.md |
 | tiers/t2_reasoning | 프론티어 모델 추론 (신규 케이스만). 선언된 call budget이 이벤트 단위로 제한하며 소진 시 HIL로 escalate. 금액 한도는 pipeline이 비용을 관측하는 유일한 지점인 metering 기록에 위치 | [src/fdai/core/tiers/t2_reasoning/](../../../src/fdai/core/tiers/t2_reasoning/) | [tests/core/tiers/](../../../tests/core/tiers/) | [llm-strategy-ko.md](llm-strategy-ko.md) |
 | quality_gate | 정규화된 action type과 parameters 전체에 대한 혼합 모델 quorum + verifier + grounding (T2 가드) | [src/fdai/core/quality_gate/](../../../src/fdai/core/quality_gate/) | [tests/core/quality_gate/](../../../tests/core/quality_gate/) | [architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2) |

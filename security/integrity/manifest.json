@@ -569,7 +569,7 @@
     "src/fdai/core/tiers/__init__.py": "bb8fa2972089680a064f6427d943db97f903dfdaa1920f67372bb975d20d1994",
     "src/fdai/core/tiers/t0_deterministic/README.md": "6102a18ac81733dc0e669cbd4b14d8dfca3adbc769d8b86889c0ca5ffc09c661",
     "src/fdai/core/tiers/t0_deterministic/__init__.py": "e88e9026ab2128a97d081e515346673b233b3b0d4c21e1dcac128dc0cc0c8da8",
-    "src/fdai/core/tiers/t0_deterministic/engine.py": "01dccac518683a0353037c972f4ee0a903e4b1db26619c5bf4de1a46417a647f",
+    "src/fdai/core/tiers/t0_deterministic/engine.py": "6223f5d760d13402489950f5605f259cb3efc2110bdabb34ce54addb6012ecb9",
     "src/fdai/core/tiers/t0_deterministic/index.py": "4cbdf9e829567861dd5fa86653fcf553c30edbca2e61580793231fc53f5b4c91",
     "src/fdai/core/tiers/t0_deterministic/models.py": "16dd7b2c98a4ce4c04aea8404e2f6a367b5443c23245ea5502e648391bc23366",
     "src/fdai/core/tiers/t0_deterministic/opa_evaluator.py": "a91846229e1a6f7e3b7daade755906b7efdcc1210f186016454cb873aed6996f",
@@ -806,7 +806,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-28T01:58:52Z",
+  "generated_at": "2026-07-28T02:06:26Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

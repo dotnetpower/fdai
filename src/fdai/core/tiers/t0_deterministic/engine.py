@@ -195,8 +195,10 @@ def _abstain_reason(
         return None
     if not candidates:
         return "no_rule_matched_resource_type"
-    if abstained:
+    if len(abstained) == len(candidates):
         return "evaluator_abstained_on_all_candidates"
+    if abstained:
+        return "evaluator_abstained_on_some_candidates"
     return "no_rule_denied"
 
 

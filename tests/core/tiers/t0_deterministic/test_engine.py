@@ -78,6 +78,12 @@ class _Boom:
         raise RuntimeError("evaluator crashed")
 
 
+class _AbstainOne:
+    def evaluate(self, rule: Rule, resource_props: Mapping[str, Any]) -> PolicyResult | None:
+        del resource_props
+        return None if rule.id == "a.x" else PolicyResult(denied=False, context={})
+
+
 def _engine(rules: list[Rule], evaluator: Any = None) -> T0Engine:
     return T0Engine(index=RuleIndex.build(rules), evaluator=evaluator)
 
@@ -184,6 +190,24 @@ def test_evaluator_exception_is_fail_closed() -> None:
     assert hint.reason == "evaluator_abstained_on_all_candidates"
     # Both rules still cited so an operator can see what SHOULD have run.
     assert set(hint.citing_rule_ids) == {"a.x", "b.x"}
+
+
+def test_partial_evaluator_abstain_is_attributed_accurately() -> None:
+    rules = [
+        _rule(rule_id="a.x", resource_type="compute.vm"),
+        _rule(rule_id="b.x", resource_type="compute.vm"),
+    ]
+    verdict = _engine(rules, evaluator=_AbstainOne()).evaluate(
+        event_id="evt-1",
+        signal_id="sig-1",
+        resource_id="rid-1",
+        resource_type="compute.vm",
+        resource_props={},
+    )
+
+    assert verdict.findings == ()
+    assert verdict.audit_hint is not None
+    assert verdict.audit_hint.reason == "evaluator_abstained_on_some_candidates"
 
 
 def test_shadow_mode_invariant_holds_on_every_verdict() -> None:
