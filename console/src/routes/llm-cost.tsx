@@ -16,6 +16,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { t } from "./i18n/llm-cost";
+import "./llm-cost-alignment.css";
 import { currentRoute, routeHref } from "../router";
 import {
   panelArray,
@@ -280,17 +281,19 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         <span>{t("llmCost.measuredCalls", { count: data.record_count.toLocaleString(locale) })}</span>
         <span>{data.latest_occurred_at ? t("llmCost.asOf", { time: data.latest_occurred_at }) : t("llmCost.noInvocationEvidence")}</span>
       </div>
-      <KpiGrid>
-        <KpiCard href={auditHref} label={t("llmCost.calls")} value={data.invocations.toLocaleString(locale)} hint={`${t("llmCost.source")}: ${data.source}`} />
-        <KpiCard href={auditHref} label={t("llmCost.totalTokens")} value={data.total.total_tokens.toLocaleString(locale)} />
-        <KpiCard href={auditHref} label={t("llmCost.chatShare")} value={chatShare === null ? kpiEvidenceLabel("not-measured") : `${Math.round(chatShare * 100)}%`} evidenceState={chatShare === null ? "not-measured" : "measured"} hint={chatShare === null ? t("llmCost.noInvocationEvidence") : t("llmCost.chatTokensValue", { count: data.chat.total_tokens.toLocaleString(locale) })} />
-        <KpiCard
-          evidenceState={data.latest_occurred_at ? "measured" : "not-measured"}
-          href={latestHref}
-          label={t("llmCost.latestInvocation")}
-          value={data.latest_occurred_at ? new Date(data.latest_occurred_at).toLocaleString(locale) : kpiEvidenceLabel("not-measured")}
-        />
-      </KpiGrid>
+      <div class="llm-cost-kpis">
+        <KpiGrid>
+          <KpiCard href={auditHref} label={t("llmCost.calls")} value={data.invocations.toLocaleString(locale)} hint={`${t("llmCost.source")}: ${data.source}`} />
+          <KpiCard href={auditHref} label={t("llmCost.totalTokens")} value={data.total.total_tokens.toLocaleString(locale)} />
+          <KpiCard href={auditHref} label={t("llmCost.chatShare")} value={chatShare === null ? kpiEvidenceLabel("not-measured") : `${Math.round(chatShare * 100)}%`} evidenceState={chatShare === null ? "not-measured" : "measured"} hint={chatShare === null ? t("llmCost.noInvocationEvidence") : t("llmCost.chatTokensValue", { count: data.chat.total_tokens.toLocaleString(locale) })} />
+          <KpiCard
+            evidenceState={data.latest_occurred_at ? "measured" : "not-measured"}
+            href={latestHref}
+            label={t("llmCost.latestInvocation")}
+            value={data.latest_occurred_at ? <time class="llm-cost-timestamp" dateTime={data.latest_occurred_at}>{new Date(data.latest_occurred_at).toLocaleString(locale)}</time> : kpiEvidenceLabel("not-measured")}
+          />
+        </KpiGrid>
+      </div>
 
       <div class="llm-cost-analysis">
         <TokenComposition data={data} auditHref={auditHref} locale={locale} />
@@ -353,8 +356,16 @@ function TokenComposition({ data, auditHref, locale }: { readonly data: Response
             <span class="is-output" style={{ flexGrow: outputShare }} />
           </div>
           <div class="llm-token-legend">
-            <span><i class="is-input" />{t("llmCost.inputTokens")}<strong>{data.total.prompt_tokens.toLocaleString(locale)}</strong><small>{Math.round(inputShare * 100)}%</small></span>
-            <span><i class="is-output" />{t("llmCost.outputTokens")}<strong>{data.total.completion_tokens.toLocaleString(locale)}</strong><small>{Math.round(outputShare * 100)}%</small></span>
+            <span>
+              <span class="llm-token-kind"><i class="is-input" />{t("llmCost.inputTokens")}</span>
+              <strong>{data.total.prompt_tokens.toLocaleString(locale)}</strong>
+              <small>{Math.round(inputShare * 100)}%</small>
+            </span>
+            <span>
+              <span class="llm-token-kind"><i class="is-output" />{t("llmCost.outputTokens")}</span>
+              <strong>{data.total.completion_tokens.toLocaleString(locale)}</strong>
+              <small>{Math.round(outputShare * 100)}%</small>
+            </span>
           </div>
         </>
       )}
