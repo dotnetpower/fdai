@@ -36,6 +36,9 @@ const INCIDENT_CREATE_TERMS: readonly string[] = [
 const INCIDENT_CONFIRMATIONS: ReadonlySet<string> = new Set([
   "confirm", "confirmed", "yes", "proceed", "확인", "생성", "진행", "cancel", "취소",
 ]);
+const KOREAN_QUESTION_MARKERS: readonly string[] = [
+  "뭐", "왜", "어떻게", "언제", "누가", "어디", "여부", "되나", "되나요", "되는지",
+];
 
 /**
  * Verbs that double as a noun / adjective, so a leading occurrence is NOT
@@ -89,6 +92,12 @@ export function detectActionIntent(text: string): boolean {
     INCIDENT_TERMS.some((term) => normalized.includes(term)) &&
     INCIDENT_CREATE_TERMS.some((term) => normalized.includes(term))
   ) {
+    const verb = leadingVerb(text);
+    if (verb !== null && INCIDENT_CREATE_TERMS.includes(verb)) return true;
+    if (normalized.includes("?")) return false;
+    const tokens = normalized.match(/[a-z0-9-]+/g) ?? [];
+    if (tokens.some((token) => QUESTION_MARKERS.has(token))) return false;
+    if (KOREAN_QUESTION_MARKERS.some((marker) => normalized.includes(marker))) return false;
     return true;
   }
   if (

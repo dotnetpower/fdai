@@ -38,6 +38,13 @@ describe("detectActionIntent", () => {
     expect(detectActionIntent("assign incident 00000000-0000-0000-0000-000000000001 to user-1")).toBe(true);
   });
 
+  test("keeps incident creation questions on the narrator path", () => {
+    expect(detectActionIntent("Incident 는 자동으로 생성되나?")).toBe(false);
+    expect(detectActionIntent("Incident는 언제 생성되나요")).toBe(false);
+    expect(detectActionIntent("Are incidents created automatically?")).toBe(false);
+    expect(detectActionIntent("How do I create an incident?")).toBe(false);
+  });
+
   // Parity with the server `_AMBIGUOUS_ACTION_VERBS` / `_QUESTION_MARKERS`
   // guard (fdai.agents._framework.introspection.is_action_intent). Without
   // this, the deck would misroute a question that leads with an ambiguous verb
