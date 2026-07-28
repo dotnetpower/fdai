@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 260190b8717a2eef565529646f7c16300ec28fe3
+translation_source_sha: a3a7b3c136148e5572e9a0f922e4f8334ea72113
 translation_revised: 2026-07-28
 ---
 
@@ -273,6 +273,8 @@ fdai/
   type이 해당 리소스와 일치해야 합니다. Endpoint가 없거나 모순되면 리소스와 관계 변경을 함께
   rollback합니다. 각 inventory change에는 `(from_id, link_type, to_id)` key별 entry가 최대 하나만
   포함되며 중복 key는 database I/O 전에 거부됩니다.
+  기존 effective `resource_id`의 resource type도 realtime update 전체에서 유지됩니다. 모순된 type은
+  resource row 또는 관계가 변경되기 전에 거부됩니다.
   realtime resource overlay가 하나라도 pending 상태이면 base snapshot이 freshness budget 안에 있어도
   graph freshness는 `unknown`이고 read projection은 degraded 상태입니다. 완전한 reconciliation
   promotion이 포함된 overlay를 정리하면 snapshot 기반 freshness가 복원됩니다.

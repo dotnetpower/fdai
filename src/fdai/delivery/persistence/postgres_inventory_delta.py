@@ -153,6 +153,12 @@ class PostgresInventoryDeltaProjector:
                     connection,
                     (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
                 )
+                await _validate_resource_type(
+                    connection,
+                    snapshot_id=str(coverage["id"]),
+                    resource_id=resource_id,
+                    resource_type=resource_type,
+                )
                 resource_cursor = await connection.execute(
                     "INSERT INTO inventory_realtime_resource "
                     "(resource_id, change_kind, resource_type, props, provider_ref, "
@@ -440,6 +446,22 @@ async def _validate_upsert_link_endpoints(
         raise ValueError("inventory relationship endpoint is missing")
     if any(actual[resource_id] != resource_type for resource_id, resource_type in declared.items()):
         raise ValueError("inventory relationship endpoint type does not match resource type")
+
+
+async def _validate_resource_type(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    snapshot_id: str,
+    resource_id: str,
+    resource_type: str,
+) -> None:
+    cursor = await connection.execute(
+        _EFFECTIVE_RESOURCE_TYPES_QUERY,
+        (snapshot_id, [resource_id]),
+    )
+    row = await cursor.fetchone()
+    if row is not None and str(row["resource_type"]) != resource_type:
+        raise ValueError("inventory resource type does not match the effective resource type")
 
 
 async def _reconcile_links(

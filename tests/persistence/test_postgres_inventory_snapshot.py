@@ -511,6 +511,48 @@ async def test_realtime_overlay_rejects_relationship_endpoint_type_mismatch() ->
         assert await cursor.fetchone() is None
 
 
+async def test_realtime_overlay_rejects_existing_resource_type_change() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(ResourceRecord("resource-type-stable", "compute.vm"),),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    with pytest.raises(ValueError, match="resource type does not match"):
+        await projector(
+            {
+                "event_id": "event-resource-type-change",
+                "idempotency_key": "inventory-resource-type-change",
+                "inventory_change": {
+                    "kind": "upsert",
+                    "resource": {
+                        "resource_id": "resource-type-stable",
+                        "type": "resource-group",
+                        "props": {},
+                        "provider_ref": None,
+                        "last_seen": _after_snapshot(manifest, 1),
+                    },
+                    "links": [],
+                },
+            }
+        )
+
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        cursor = await connection.execute(
+            "SELECT 1 FROM inventory_realtime_resource WHERE resource_id=%s",
+            ("resource-type-stable",),
+        )
+        assert await cursor.fetchone() is None
+
+
 async def test_realtime_overlay_equal_timestamps_use_event_id_tiebreaker() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())

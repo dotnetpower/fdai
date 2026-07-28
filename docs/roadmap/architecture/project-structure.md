@@ -277,6 +277,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   declared endpoint types must match those resources; a missing or contradictory endpoint rolls
   back the resource and relationship changes together. Each inventory change carries at most one
   entry for a `(from_id, link_type, to_id)` key; duplicate keys are rejected before database I/O.
+  An existing effective `resource_id` also keeps its resource type across realtime updates. A
+  contradictory type is rejected before the resource row or its relationships can change.
   While any realtime resource overlay remains pending, graph freshness is `unknown` and the read
   projection is degraded even when the base snapshot is within budget. A complete reconciliation
   promotion clears covered overlays and restores snapshot-derived freshness.
