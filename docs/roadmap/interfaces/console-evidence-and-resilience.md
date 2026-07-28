@@ -207,6 +207,8 @@ forwards only allowlisted identity fields with prompt values up to 256 character
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly.
 Agent answers keep Bragi as narrator while displaying the verified specialist as response owner.
+An agent-targeted Web turn displays that selected specialist from the first provisional token and
+keeps the label stable until terminal delegation either confirms the owner or shows a handoff.
 When an explicit handoff returns the turn to Bragi, the Web labels ownership as
 `specialist -> Bragi` in the reply header and answer-plan row. If the handoff carries no specialist
 answer, deterministic verification returns an unavailable-evidence response and never validates
