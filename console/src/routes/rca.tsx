@@ -18,6 +18,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { navigate, routeHref } from "../router";
+import "./incident-clarity.css";
 
 /**
  * RCA (root-cause analysis) view. Given an incident correlation id, calls
@@ -138,6 +139,7 @@ export function RcaRoute({ client }: Props) {
 }
 
 function RcaBody({ data }: { readonly data: RcaView }) {
+  const recorded = hasRecordedRca(data);
   usePublishViewContext(
     () => ({
       routeId: "rca",
@@ -171,36 +173,53 @@ function RcaBody({ data }: { readonly data: RcaView }) {
   return (
     <div class="stack">
       <p>
-        <a href={routeHref("reports", {
-          segments: ["incident-rca-dossier"],
-          params: { correlation_id: data.correlation_id },
-        })}>
-          {t("rca.report")}
+        <a href={routeHref("incidents", { params: { status: "all", correlation: data.correlation_id } })}>
+          {t("rca.incident")}
         </a>
         {" | "}
         <a href={routeHref("audit", { params: { correlation: data.correlation_id } })}>
-          {t("rca.audit")}
+          {t("rca.auditRecords")}
         </a>
         {" | "}
         <a href={routeHref("trace", { params: { correlation: data.correlation_id } })}>
-          {t("rca.trace")}
+          {t("rca.technicalActivity")}
         </a>
+        {recorded ? (
+          <>
+            {" | "}
+            <a href={routeHref("reports", {
+              segments: ["incident-rca-dossier"],
+              params: { correlation_id: data.correlation_id },
+            })}>
+              {t("rca.report")}
+            </a>
+          </>
+        ) : null}
       </p>
-      <ResponsePlan data={data} />
-      <section class="stack-section">
-        <h3 class="section-title">{t("rca.hypotheses")}</h3>
-        {data.hypotheses.length === 0 ? (
-          <p class="muted">{t("rca.empty")}</p>
-        ) : (
+      {recorded ? (
+        <>
+          <ResponsePlan data={data} />
+          <section class="stack-section">
+            <h3 class="section-title">{t("rca.hypotheses")}</h3>
           <div class="stack">
             {data.hypotheses.map((hypothesis) => (
               <HypothesisCard key={hypothesis.seq} hypothesis={hypothesis} correlationId={data.correlation_id} />
             ))}
           </div>
-        )}
-      </section>
+          </section>
+        </>
+      ) : (
+        <section class="rca-unavailable-state" aria-labelledby="rca-unavailable-title">
+          <h3 id="rca-unavailable-title">{t("rca.notRecordedTitle")}</h3>
+          <p>{t("rca.notRecordedBody")}</p>
+        </section>
+      )}
     </div>
   );
+}
+
+export function hasRecordedRca(data: RcaView): boolean {
+  return data.hypotheses.length > 0;
 }
 
 function ResponsePlan({ data }: { readonly data: RcaView }) {

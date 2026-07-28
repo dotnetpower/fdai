@@ -18,6 +18,11 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
+import "./incident-clarity.css";
+import {
+  incidentOperationalOverview,
+  type IncidentOperationalOverview,
+} from "./incidents.overview";
 import { incidentTimelinePresentation } from "./incidents.timeline";
 
 const INCIDENT_DETAIL_ID = "incident-detail";
@@ -421,46 +426,160 @@ function IncidentDetail({
           <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
         </div>
         <dl class="incident-detail-meta">
-          <div><dt>{t("incidents.correlation")}</dt><dd class="mono">{incident.correlation_id}</dd></div>
           <div><dt>{t("incidents.opened")}</dt><dd>{formatConsoleTimestamp(incident.opened_at)}</dd></div>
           <div><dt>{t("incidents.lastUpdated")}</dt><dd>{formatConsoleTimestamp(incident.last_updated_at)}</dd></div>
-          <div><dt>{t("incidents.currentDisposition")}</dt><dd>{localized("disposition", incident.disposition)}</dd></div>
+          <div><dt>{t("incidents.history")}</dt><dd>{t("incidents.recordCount", { count: incident.history_count })}</dd></div>
+          <div><dt>{t("incidents.latestMode")}</dt><dd>{t(`incidents.modeMeaning.${incident.latest_mode}`)}</dd></div>
         </dl>
         <details class="incident-additional-evidence">
           <summary>{t("incidents.additionalEvidence")}</summary>
           <dl>
+            <div><dt>{t("incidents.correlation")}</dt><dd class="mono">{incident.correlation_id}</dd></div>
             <div><dt>{t("incidents.incidentId")}</dt><dd class="mono">{incident.incident_id ?? t("incidents.none")}</dd></div>
             <div><dt>{t("incidents.ticketId")}</dt><dd class="mono">{incident.ticket_id ?? t("incidents.none")}</dd></div>
-            <div><dt>{t("incidents.currentVerdict")}</dt><dd><StatusPill kind={verdictPill(incident.verdict)} label={incident.verdict} /></dd></div>
+            <div><dt>{t("incidents.currentDisposition")}</dt><dd>{localized("disposition", incident.disposition)}</dd></div>
+            <div><dt>{t("incidents.currentVerdict")}</dt><dd><StatusPill kind={verdictPill(incident.verdict)} label={localized("verdict", incident.verdict)} /></dd></div>
             <div><dt>{t("incidents.verticalLabel")}</dt><dd>{localized("vertical", incident.vertical)}</dd></div>
-            <div><dt>{t("incidents.latestMode")}</dt><dd><StatusPill kind={incident.latest_mode} label={incident.latest_mode} /></dd></div>
             <div><dt>{t("incidents.statusSource")}</dt><dd class="mono">{incident.status_source}</dd></div>
             <div><dt>{t("incidents.involvedAgents")}</dt><dd>{incident.involved_agents.length > 0 ? incident.involved_agents.join(", ") : t("incidents.none")}</dd></div>
           </dl>
         </details>
       </header>
-      <nav class="incident-evidence-links" aria-label={t("evidence.incidents.evidence")}>
-        <a href={reportHref}>{t("incidents.report")}</a>
-        <a href={auditHref}>{t("incidents.audit")}</a>
-        <a href={traceHref}>{t("incidents.trace")}</a>
-        <a href={routeHref("rca", { params: { correlation: incident.correlation_id } })}>{t("incidents.rca")}</a>
-      </nav>
       <AsyncBoundary state={history} resourceLabel={t("incidents.timeline")}>
         {(items) => (
-          <div class="incident-history">
-            <header class="incident-history-head">
-              <h3>{t("incidents.timeline")}</h3>
-              <span>{t("incidents.historyShown", {
-                shown: items.length,
-                total: incident.history_count,
-              })}</span>
-            </header>
-            <IncidentTimeline items={items} />
-          </div>
+          <>
+            <IncidentCurrentState incident={incident} items={items} />
+            <IncidentEvidenceViews
+              incident={incident}
+              overview={incidentOperationalOverview(incident, items)}
+              auditHref={auditHref}
+              traceHref={traceHref}
+              rcaHref={routeHref("rca", { params: { correlation: incident.correlation_id } })}
+              reportHref={reportHref}
+            />
+            <div class="incident-history">
+              <header class="incident-history-head">
+                <h3>{t("incidents.timeline")}</h3>
+                <span>{t("incidents.historyShown", {
+                  shown: items.length,
+                  total: incident.history_count,
+                })}</span>
+              </header>
+              <IncidentTimeline items={items} />
+            </div>
+          </>
         )}
       </AsyncBoundary>
     </section>
   );
+}
+
+function IncidentCurrentState({
+  incident,
+  items,
+}: {
+  readonly incident: IncidentSummary;
+  readonly items: readonly AuditItem[];
+}) {
+  const overview = incidentOperationalOverview(incident, items);
+  return (
+    <section class="incident-current-state" aria-labelledby="incident-current-state-title">
+      <header class="incident-current-state-head">
+        <div>
+          <span class="incident-section-label">{t("incidents.overview.label")}</span>
+          <h3 id="incident-current-state-title">{t(`incidents.overview.headline.${overview.phase}`)}</h3>
+        </div>
+        <StatusPill kind={phasePill(overview.phase)} label={t(`incidents.overview.badge.${overview.phase}`)} />
+      </header>
+      <p>{t(`incidents.overview.body.${overview.phase}`)}</p>
+      <dl class="incident-current-facts">
+        <div><dt>{t("incidents.overview.lifecycle")}</dt><dd>{localized("status", incident.status)}</dd></div>
+        <div><dt>{t("incidents.overview.decision")}</dt><dd>{overview.decisionRecorded ? localized("verdict", incident.verdict) : t("incidents.overview.noDecision")}</dd></div>
+        <div><dt>{t("incidents.overview.authority")}</dt><dd>{t(`incidents.modeMeaning.${incident.latest_mode}`)}</dd></div>
+      </dl>
+      <div class="incident-next-step">
+        <strong>{t("incidents.overview.nextStep")}</strong>
+        <span>{t(`incidents.overview.next.${overview.phase}`)}</span>
+      </div>
+    </section>
+  );
+}
+
+function IncidentEvidenceViews({
+  incident,
+  overview,
+  auditHref,
+  traceHref,
+  rcaHref,
+  reportHref,
+}: {
+  readonly incident: IncidentSummary;
+  readonly overview: IncidentOperationalOverview;
+  readonly auditHref: string;
+  readonly traceHref: string;
+  readonly rcaHref: string;
+  readonly reportHref: string;
+}) {
+  return (
+    <section class="incident-related-views" aria-labelledby="incident-related-views-title">
+      <h3 id="incident-related-views-title">{t("incidents.evidence.title")}</h3>
+      <p>{t("incidents.evidence.body")}</p>
+      <div class="incident-view-list">
+        <IncidentViewRow
+          available={overview.auditAvailable}
+          href={auditHref}
+          title={t("incidents.evidence.auditTitle")}
+          description={t("incidents.evidence.auditBody", { count: overview.activityCount })}
+        />
+        <IncidentViewRow
+          available={overview.traceAvailable}
+          href={traceHref}
+          title={t("incidents.evidence.traceTitle")}
+          description={t("incidents.evidence.traceBody", { count: overview.activityCount })}
+        />
+        <IncidentViewRow
+          available={overview.rcaAvailable}
+          href={rcaHref}
+          title={t("incidents.evidence.rcaTitle")}
+          description={overview.rcaAvailable
+            ? t("incidents.evidence.rcaBody")
+            : t("incidents.evidence.rcaUnavailable")}
+        />
+        <IncidentViewRow
+          available={overview.reportAvailable}
+          href={reportHref}
+          title={t("incidents.evidence.reportTitle")}
+          description={overview.reportAvailable
+            ? t("incidents.evidence.reportBody")
+            : t("incidents.evidence.reportUnavailable")}
+        />
+      </div>
+      <span class="muted footnote">{t("incidents.evidence.correlation", { correlation: incident.correlation_id })}</span>
+    </section>
+  );
+}
+
+function IncidentViewRow({
+  available,
+  href,
+  title,
+  description,
+}: {
+  readonly available: boolean;
+  readonly href: string;
+  readonly title: string;
+  readonly description: string;
+}) {
+  const content = (
+    <>
+      <strong>{title}</strong>
+      <span>{description}</span>
+      <em>{available ? t("incidents.evidence.open") : t("incidents.evidence.unavailable")}</em>
+    </>
+  );
+  return available
+    ? <a class="incident-view-row" href={href}>{content}</a>
+    : <div class="incident-view-row is-unavailable" aria-disabled="true">{content}</div>;
 }
 
 function IncidentTimeline({ items }: { readonly items: readonly AuditItem[] }) {
@@ -521,4 +640,11 @@ function verdictPill(verdict: string): PillKind {
   if (verdict === "hil") return "hil";
   if (verdict === "deny") return "danger";
   return "neutral";
+}
+
+function phasePill(phase: IncidentOperationalOverview["phase"]): PillKind {
+  if (phase === "resolved") return "success";
+  if (phase === "notification_failed" || phase === "response_failed") return "danger";
+  if (phase === "approval_required") return "hil";
+  return "info";
 }
