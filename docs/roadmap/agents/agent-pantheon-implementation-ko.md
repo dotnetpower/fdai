@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 4a96fb1d1354914c77cc3f7cb310a705d9fe1946
-translation_revised: 2026-07-27
+translation_source_sha: 1b24d328daf8d02575659d25104dbe89d7a90aa7
+translation_revised: 2026-07-29
 ---
 
 # 에이전트 판테온 구현 계획
@@ -158,8 +158,9 @@ translation_revised: 2026-07-27
 
 - `test_framework_layout.py`, `test_registry.py`, `test_topics.py`가 package
   shape, 고정 15-agent registry, single-writer ownership, partition-key 동작을 검증.
-- `test_ontology_alignment.py`, `test_action_intent_parity.py`가 ontology와
-  ActionType이 pantheon specification과 일치하는지 검증.
+- `test_ontology_alignment.py`가 ontology와 ActionType이 pantheon specification과
+  일치하는지 검증합니다. `test_action_intent_parity.py`는 client-side 자연어 router를
+  허용하지 않아 action-intent routing을 server-owned로 유지합니다.
 
 **Exit gate**
 

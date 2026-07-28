@@ -158,8 +158,9 @@ measurable; a wave does not close on prose.
 - `test_framework_layout.py`, `test_registry.py`, and `test_topics.py` cover
   package shape, the fixed 15-agent registry, single-writer ownership, and
   partition-key behavior.
-- `test_ontology_alignment.py` and `test_action_intent_parity.py` cover ontology
-  and ActionType alignment with the pantheon specifications.
+- `test_ontology_alignment.py` covers ontology and ActionType alignment with the
+  pantheon specifications. `test_action_intent_parity.py` keeps action-intent
+  routing server-owned by rejecting a client-side natural-language router.
 
 **Exit gate**
 
