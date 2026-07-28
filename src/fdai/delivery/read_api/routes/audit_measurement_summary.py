@@ -9,20 +9,25 @@ from typing import Any, TypeGuard
 from fdai.delivery.read_api.read_model import AuditItem, AuditQueryFilters, ConsoleReadModel
 from fdai.delivery.read_api.routes.measurement_summary import _vertical_of
 
-_AUTO_RESOLVED = frozenset(
+_HUMAN_TOUCH = frozenset({"awaiting_approval", "escalated_hil", "hil", "hil.await", "hil_pending"})
+_AUTONOMY_ACTORS = (
+    "fdai.core.control_loop",
+    "fdai.core.executor.direct_api",
+    "fdai.core.executor.shadow",
+    "fdai.core.executor.tool_call",
+)
+_EXECUTION_SUCCESS = frozenset({"already_applied", "dispatched"})
+_EXECUTION_FAILURE = frozenset(
     {
-        "auto",
-        "executed",
-        "remediated",
-        "resolved",
-        "rollback_completed",
-        "rollback_succeeded",
-        "succeeded",
-        "success",
-        "verified",
+        "abstained_blast_radius",
+        "abstained_precondition",
+        "failed",
+        "rejected_idempotency_conflict",
+        "rejected_invariant",
+        "rejected_mode",
+        "stopped",
     }
 )
-_HUMAN_TOUCH = frozenset({"awaiting_approval", "escalated_hil", "hil", "hil.await", "hil_pending"})
 _VERTICAL_KEYS = ("resilience", "change_safety", "cost")
 
 
@@ -50,14 +55,22 @@ class AuditAutonomyMeasurementPanel:
 
     async def render(self, *, params: Mapping[str, str]) -> Mapping[str, Any]:
         del params
-        page = await self._read_model.list_audit(
+        event_page = await self._read_model.list_audit(
+            limit=500,
+            filters=AuditQueryFilters(
+                actors=_AUTONOMY_ACTORS,
+                window_days=self._window_days,
+            ),
+        )
+        evidence_page = await self._read_model.list_audit(
             limit=500,
             filters=AuditQueryFilters(window_days=self._window_days),
         )
         return _audit_payload(
-            tuple(page.items),
+            tuple(event_page.items),
             window_days=self._window_days,
             active_rule_count=self._active_rule_count,
+            supplemental_items=tuple(evidence_page.items),
         )
 
 
@@ -66,31 +79,30 @@ def _audit_payload(
     *,
     window_days: int,
     active_rule_count: int,
+    supplemental_items: Sequence[AuditItem] = (),
 ) -> Mapping[str, Any]:
-    outcomes = [str(item.entry.get("outcome", "")).strip().lower() for item in items]
-    decided = [outcome for outcome in outcomes if outcome]
-    auto_count = sum(outcome in _AUTO_RESOLVED for outcome in decided)
-    human_count = sum(outcome in _HUMAN_TOUCH for outcome in decided)
-    auto_rate = auto_count / len(decided) if decided else None
-    touchpoints = human_count * 100.0 / len(decided) if decided else None
+    events = _event_evidence(items)
+    evidence_items = _merge_items(items, supplemental_items)
+    auto_count = sum(_is_auto_resolved(event_items) for event_items in events.values())
+    human_count = sum(_has_human_touch(event_items) for event_items in events.values())
+    auto_rate = auto_count / len(events) if events else None
+    touchpoints = human_count * 100.0 / len(events) if events else None
 
     verticals: dict[str, dict[str, float]] = {
         key: {"events": 0, "auto_resolved": 0, "open_risks": 0, "monthly_savings": 0.0}
         for key in _VERTICAL_KEYS
     }
     by_tier: dict[str, int] = {}
-    for item, outcome in zip(items, outcomes, strict=True):
-        bucket = verticals[_vertical_of(item.action_kind)]
+    for event_items in events.values():
+        bucket = verticals[_event_vertical(event_items)]
         bucket["events"] += 1
-        if outcome in _AUTO_RESOLVED:
+        if _is_auto_resolved(event_items):
             bucket["auto_resolved"] += 1
-        if outcome in _HUMAN_TOUCH:
+        if _has_human_touch(event_items):
             bucket["open_risks"] += 1
-        savings = item.entry.get("estimated_savings")
-        if _is_number(savings):
-            bucket["monthly_savings"] += float(savings)
-        tier = item.entry.get("tier")
-        if isinstance(tier, str) and tier in {"t0", "t1", "t2"}:
+        bucket["monthly_savings"] += _event_savings(event_items)
+        tier = _event_tier(event_items)
+        if tier is not None:
             by_tier[tier] = by_tier.get(tier, 0) + 1
 
     tier_total = sum(by_tier.values())
@@ -100,7 +112,7 @@ def _audit_payload(
     return {
         "synthetic": False,
         "window_days": window_days,
-        "sample_size": len(items),
+        "sample_size": len(events),
         "confidence": None,
         "source": {
             "name": "postgres-audit",
@@ -109,26 +121,40 @@ def _audit_payload(
         },
         "rules": {
             "active": active_rule_count,
-            "candidates_30d": sum(item.entry.get("kind") == "rule.candidate" for item in items),
-            "promoted_30d": sum(item.entry.get("kind") == "rule.promoted" for item in items),
+            "candidates_30d": sum(
+                item.entry.get("kind") == "rule.candidate" for item in evidence_items
+            ),
+            "promoted_30d": sum(
+                item.entry.get("kind") == "rule.promoted" for item in evidence_items
+            ),
         },
         "success": {
-            "auto_resolution_rate": _metric(items, "auto_resolution_rate", "higher", auto_rate),
-            "human_touchpoints_per_100": _metric(
-                items, "human_touchpoints_per_100", "lower", touchpoints
+            "auto_resolution_rate": _metric(
+                evidence_items, "auto_resolution_rate", "higher", auto_rate
             ),
-            "mttr_seconds": _metric(items, "mttr_seconds", "lower"),
-            "change_lead_time_seconds": _metric(items, "change_lead_time_seconds", "lower"),
-            "cost_per_resolved_event_usd": _metric(items, "cost_per_resolved_event_usd", "lower"),
+            "human_touchpoints_per_100": _metric(
+                evidence_items, "human_touchpoints_per_100", "lower", touchpoints
+            ),
+            "mttr_seconds": _metric(evidence_items, "mttr_seconds", "lower"),
+            "change_lead_time_seconds": _metric(
+                evidence_items, "change_lead_time_seconds", "lower"
+            ),
+            "cost_per_resolved_event_usd": _metric(
+                evidence_items, "cost_per_resolved_event_usd", "lower"
+            ),
         },
         "leading": {
             "mixed_model_disagreement_rate": _metric(
-                items, "mixed_model_disagreement_rate", "lower"
+                evidence_items, "mixed_model_disagreement_rate", "lower"
             ),
-            "verifier_failure_rate": _metric(items, "verifier_failure_rate", "lower"),
-            "shadow_divergence_rate": _metric(items, "shadow_divergence_rate", "lower"),
+            "verifier_failure_rate": _metric(
+                evidence_items, "verifier_failure_rate", "lower"
+            ),
+            "shadow_divergence_rate": _metric(
+                evidence_items, "shadow_divergence_rate", "lower"
+            ),
         },
-        "guards": _guards(items),
+        "guards": _guards(evidence_items),
         "verticals": [
             {
                 "key": key,
@@ -145,6 +171,87 @@ def _audit_payload(
         },
         "trend": {},
     }
+
+
+def _merge_items(*groups: Sequence[AuditItem]) -> tuple[AuditItem, ...]:
+    by_sequence = {item.seq: item for group in groups for item in group}
+    return tuple(by_sequence[seq] for seq in sorted(by_sequence, reverse=True))
+
+
+def _event_evidence(items: Sequence[AuditItem]) -> dict[str, list[AuditItem]]:
+    grouped: dict[str, list[AuditItem]] = {}
+    for item in items:
+        grouped.setdefault(item.event_id, []).append(item)
+    return {
+        event_id: event_items
+        for event_id, event_items in grouped.items()
+        if any(item.actor == "fdai.core.control_loop" for item in event_items)
+    }
+
+
+def _normalized_entry_value(item: AuditItem, key: str) -> str:
+    return str(item.entry.get(key, "")).strip().lower()
+
+
+def _has_human_touch(items: Sequence[AuditItem]) -> bool:
+    return any(
+        _normalized_entry_value(item, "decision") == "hil"
+        or _normalized_entry_value(item, "outcome") in _HUMAN_TOUCH
+        for item in items
+    )
+
+
+def _is_auto_resolved(items: Sequence[AuditItem]) -> bool:
+    if _has_human_touch(items):
+        return False
+    decisions = {_normalized_entry_value(item, "decision") for item in items}
+    outcomes = {_normalized_entry_value(item, "outcome") for item in items}
+    if decisions & {"deny", "denied"} or outcomes & _EXECUTION_FAILURE:
+        return False
+    return any(
+        item.actor in {"fdai.core.executor.direct_api", "fdai.core.executor.tool_call"}
+        and item.mode == "enforce"
+        and _normalized_entry_value(item, "outcome") in _EXECUTION_SUCCESS
+        and item.entry.get("rollback_succeeded") is not True
+        for item in items
+    )
+
+
+def _event_tier(items: Sequence[AuditItem]) -> str | None:
+    if any(item.action_kind == "control_loop.t2_evaluate" for item in items):
+        return "t2"
+    if any(item.action_kind == "control_loop.t1_evaluate" for item in items):
+        return "t1"
+    if any(
+        item.action_kind in {"risk_gate.unified", "risk_gate.shadow_authority"}
+        or _normalized_entry_value(item, "stage") == "t0_evaluate"
+        for item in items
+    ):
+        return "t0"
+    return None
+
+
+def _event_vertical(items: Sequence[AuditItem]) -> str:
+    for item in items:
+        for key in ("vertical", "category", "action_type_id", "resource_type"):
+            value = item.entry.get(key)
+            if isinstance(value, str) and value.strip():
+                vertical = _vertical_of(value)
+                if vertical != "change_safety":
+                    return vertical
+    return "change_safety"
+
+
+def _event_savings(items: Sequence[AuditItem]) -> float:
+    by_action: dict[str, float] = {}
+    for item in items:
+        savings = item.entry.get("estimated_savings")
+        if not _is_number(savings):
+            continue
+        action_id = item.entry.get("action_id")
+        key = str(action_id) if action_id is not None else item.entry_hash
+        by_action[key] = float(savings)
+    return sum(by_action.values())
 
 
 def _metric(

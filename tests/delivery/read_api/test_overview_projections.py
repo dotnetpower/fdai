@@ -31,30 +31,94 @@ async def test_empty_audit_keeps_unobserved_autonomy_metrics_unavailable() -> No
 
 async def test_audit_overview_projects_only_recorded_measurements() -> None:
     model = InMemoryConsoleReadModel()
-    action_kind = next(iter(FinOpsActionKind)).value
     model.record_audit_entry(
         {
             "event_id": "event-1",
-            "action_kind": action_kind,
+            "actor": "fdai.core.control_loop",
+            "action_kind": "risk_gate.unified",
             "mode": "shadow",
-            "outcome": "resolved",
-            "tier": "t0",
+            "decision": "auto",
+            "action_type_id": "remediate.enable-zone-redundancy",
             "estimated_savings": 12.5,
+        }
+    )
+    model.record_audit_entry(
+        {
+            "event_id": "event-1",
+            "actor": "fdai.core.executor.direct_api",
+            "action_kind": "executor.direct_api.dispatched",
+            "mode": "enforce",
+            "outcome": "dispatched",
+            "rollback_succeeded": False,
+        }
+    )
+    for action_id in ("action-1", "action-2"):
+        model.record_audit_entry(
+            {
+                "event_id": "event-2",
+                "actor": "fdai.core.control_loop",
+                "action_kind": "risk_gate.unified",
+                "mode": "shadow",
+                "decision": "hil",
+                "action_id": action_id,
+                "action_type_id": "remediate.right-size-role",
+            }
+        )
+    model.record_audit_entry(
+        {
+            "event_id": "event-measurement",
+            "actor": "fdai.measurement",
+            "action_kind": "measurement.observed",
+            "mode": "shadow",
             "measurement": {"mttr_seconds": 120.0},
             "baseline": {"mttr_seconds": 300.0},
+        }
+    )
+    model.record_audit_entry(
+        {
+            "event_id": "event-3",
+            "action_kind": next(iter(FinOpsActionKind)).value,
+            "mode": "shadow",
+            "outcome": "resolved",
+            "estimated_savings": 12.5,
         }
     )
 
     autonomy = await AuditAutonomyMeasurementPanel(model).render(params={})
     finops = await AuditFinOpsPanel(model).render(params={})
 
-    assert autonomy["success"]["auto_resolution_rate"]["value"] == 1.0
+    assert autonomy["sample_size"] == 2
+    assert autonomy["success"]["auto_resolution_rate"]["value"] == 0.5
+    assert autonomy["success"]["human_touchpoints_per_100"]["value"] == 50.0
     assert autonomy["success"]["auto_resolution_rate"]["baseline"] is None
     assert autonomy["success"]["mttr_seconds"] == {
         "value": 120.0,
         "baseline": 300.0,
         "direction": "lower",
     }
+    assert autonomy["verticals"] == [
+        {
+            "key": "resilience",
+            "events": 1,
+            "auto_resolved": 1,
+            "open_risks": 0,
+            "monthly_savings": 12.5,
+        },
+        {
+            "key": "change_safety",
+            "events": 0,
+            "auto_resolved": 0,
+            "open_risks": 0,
+            "monthly_savings": 0.0,
+        },
+        {
+            "key": "cost",
+            "events": 1,
+            "auto_resolved": 0,
+            "open_risks": 1,
+            "monthly_savings": 0.0,
+        },
+    ]
     assert finops["estimated_monthly_savings"] == 12.5
     assert finops["source"] == "postgres-audit"
     assert finops["durable"] is True

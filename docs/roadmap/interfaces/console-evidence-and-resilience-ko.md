@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9838a8d461a651f29146a555924e77fb877abb09
+translation_source_sha: 7ad345c578c132dc2869b46ae941bf00a2a7d2c1
 translation_revised: 2026-07-28
 ---
 
@@ -111,6 +111,11 @@ record는 measured breakdown을 실제로 렌더링하는 Auto-resolution view�
 대체하지 않습니다. Snapshot headline은 visible card와 같은 metric formatter를 사용하며,
 Auto-resolution value는 ratio 의미를 유지하므로 표시된 percentage claim을 operator에게 보이는 것과
 같은 반올림 정밀도로 대조할 수 있습니다.
+Audit 기반 projection은 control-loop 및 executor producer만 필터링하고 row를 `event_id`로 묶어
+정규화된 event마다 한 번만 계산합니다. Enforce direct-API 또는 tool execution이 검증된
+post-condition과 함께 완료되고 sampled event evidence에 사람 승인, 거부, 실행 실패 또는 rollback
+신호가 없을 때만 event를 auto-resolved로 계산합니다. 조건을 충족하는 execution이 없는 sampled
+event set은 unavailable value가 아니라 측정된 `0`을 보고합니다.
 
 각 Operating Outcomes route는 metric별 analysis surface를 유지합니다. Auto-resolution은 관측된
 event 및 auto-resolved record 수, 영역별 비율 및 guard context를 보여줍니다. Human touchpoints,

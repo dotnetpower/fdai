@@ -162,6 +162,17 @@ class TestListAudit:
         assert [item.action_kind for item in page.items] == ["target"]
         assert page.next_cursor is None
 
+    async def test_actor_filter_excludes_other_audit_producers(self) -> None:
+        model = InMemoryConsoleReadModel()
+        model.record_audit_entry(_entry(), actor="fdai.core.control_loop")
+        model.record_audit_entry(_entry(), actor="fdai.system")
+
+        page = await model.list_audit(
+            filters=AuditQueryFilters(actors=("fdai.core.control_loop",))
+        )
+
+        assert [item.actor for item in page.items] == ["fdai.core.control_loop"]
+
     async def test_sequence_range_is_inclusive_and_precedes_dimension_filters(self) -> None:
         model = InMemoryConsoleReadModel()
         model.record_audit_entry(_entry(action_kind="outside-low", tier="t0"))

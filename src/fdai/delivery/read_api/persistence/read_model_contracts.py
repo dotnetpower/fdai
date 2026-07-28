@@ -60,6 +60,7 @@ IncidentStatusFilter = Literal["active", "resolved", "all"]
 
 @dataclass(frozen=True, slots=True)
 class AuditQueryFilters:
+    actors: tuple[str, ...] = ()
     mode: str | None = None
     tier: str | None = None
     action_kind: str | None = None

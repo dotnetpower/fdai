@@ -169,6 +169,7 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                        AND (%(correlation_id)s::text IS NULL
                            OR correlation_id = %(correlation_id)s::text
                             OR event_id IN (SELECT event_id FROM unambiguous_events))
+                       AND (%(actors)s::text[] = '{}'::text[] OR actor = ANY(%(actors)s::text[]))
                        AND (%(mode)s::text IS NULL OR mode = %(mode)s::text)
                        AND (%(tier)s::text IS NULL OR LOWER(entry->>'tier') = %(tier)s::text)
                        AND (%(action_kind)s::text IS NULL
@@ -190,6 +191,7 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                         "from_seq": active.from_seq,
                         "through_seq": active.through_seq,
                         "correlation_id": correlation_id,
+                        "actors": list(active.actors),
                         "mode": active.mode,
                         "tier": active.tier,
                         "action_kind": active.action_kind,

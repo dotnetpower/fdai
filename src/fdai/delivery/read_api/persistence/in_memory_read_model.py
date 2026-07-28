@@ -37,6 +37,8 @@ def audit_item_matches(item: AuditItem, filters: AuditQueryFilters) -> bool:
         return False
     if filters.through_seq is not None and item.seq > filters.through_seq:
         return False
+    if filters.actors and item.actor not in filters.actors:
+        return False
     if filters.mode is not None and item.mode != filters.mode:
         return False
     if filters.action_kind is not None and item.action_kind != filters.action_kind:

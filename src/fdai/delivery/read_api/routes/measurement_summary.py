@@ -66,9 +66,10 @@ def _vertical_of(action_kind: str) -> str:
     cockpit uses so the two surfaces agree.
     """
     k = action_kind.lower()
-    if k in _FINOPS_KINDS or any(h in k for h in _COST_HINTS):
+    hint_key = k.replace("-", "_")
+    if k in _FINOPS_KINDS or any(h in hint_key for h in _COST_HINTS):
         return "cost"
-    if any(h in k for h in _RESILIENCE_HINTS):
+    if any(h in hint_key for h in _RESILIENCE_HINTS):
         return "resilience"
     return "change_safety"
 

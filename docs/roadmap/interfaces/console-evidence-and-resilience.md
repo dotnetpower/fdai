@@ -109,6 +109,11 @@ breakdown. The narrator receives only rendered evidence facts; it does not infer
 or replace the route's authoritative source. Snapshot headlines use the same metric formatter as the
 visible cards, and auto-resolution values retain ratio semantics so displayed percentage claims can
 be checked at the same rounded precision the operator sees.
+The audit-backed projection filters to control-loop and executor producers, groups rows by
+`event_id`, and counts each normalized event once. It counts an event as auto-resolved only when an
+enforce direct-API or tool execution completed with verified post-conditions and the sampled event
+evidence contains no human approval, denial, execution failure, or rollback signal. A sampled event
+set with no qualifying execution reports a measured `0`, not an unavailable value.
 
 Each Operating Outcomes route keeps a metric-specific analysis surface. Auto-resolution shows its
 observed event and auto-resolved record counts, vertical rates, and guard context. Human touchpoints,
