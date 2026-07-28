@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Final, Protocol, runtime_checkable
 
 from fdai.agents import PANTHEON_NAMES
-from fdai.core.conversation.answer_plan import AnswerIntent
+from fdai.core.conversation.answer_plan import AnswerIntent, AnswerPlan, AnswerSection
 from fdai.core.conversation.narrator import default_tool_schemas
 
 
@@ -152,6 +152,65 @@ _MAX_HISTORY_CHARS: Final = 1_000
 _MAX_TOOLS: Final = 64
 _MAX_TOOL_DESCRIPTION_CHARS: Final = 512
 
+_ANSWER_SECTIONS: Final[dict[AnswerIntent, tuple[AnswerSection, ...]]] = {
+    AnswerIntent.DEFINITION: (
+        AnswerSection.DEFINITION,
+        AnswerSection.PURPOSE,
+        AnswerSection.CORE_PARTS,
+        AnswerSection.EXAMPLE,
+    ),
+    AnswerIntent.WHY: (
+        AnswerSection.CONCLUSION,
+        AnswerSection.DIRECT_CAUSE,
+        AnswerSection.EVIDENCE,
+        AnswerSection.CONSTRAINTS,
+    ),
+    AnswerIntent.PROCEDURE: (
+        AnswerSection.PRECONDITIONS,
+        AnswerSection.STEPS,
+        AnswerSection.VERIFICATION,
+        AnswerSection.RECOVERY,
+    ),
+    AnswerIntent.COMPARISON: (
+        AnswerSection.CRITERIA,
+        AnswerSection.ITEMS,
+        AnswerSection.TRADE_OFFS,
+        AnswerSection.RECOMMENDATION,
+    ),
+    AnswerIntent.DIAGNOSIS: (
+        AnswerSection.SYMPTOMS,
+        AnswerSection.HYPOTHESES,
+        AnswerSection.CHECKS,
+        AnswerSection.FIX,
+        AnswerSection.VERIFICATION,
+    ),
+    AnswerIntent.STATUS: (
+        AnswerSection.STATE,
+        AnswerSection.METRICS,
+        AnswerSection.ATTENTION,
+        AnswerSection.LINKS,
+    ),
+    AnswerIntent.LIST: (AnswerSection.ITEMS,),
+    AnswerIntent.PROPOSAL: (
+        AnswerSection.RESULT,
+        AnswerSection.TARGET_SCOPE,
+        AnswerSection.MODE,
+        AnswerSection.SAFETY_INVARIANTS,
+    ),
+    AnswerIntent.SUMMARY: (
+        AnswerSection.OUTCOME,
+        AnswerSection.IMPORTANT_FACTS,
+        AnswerSection.UNRESOLVED,
+        AnswerSection.NEXT_STEP,
+    ),
+    AnswerIntent.OPEN_QUESTION: (
+        AnswerSection.ASSUMPTIONS,
+        AnswerSection.BOUNDED_ANSWER,
+        AnswerSection.UNCERTAINTY,
+    ),
+    AnswerIntent.GREETING: (AnswerSection.GREETING, AnswerSection.NEXT_STEP),
+}
+
 
 class BackendTurnPlanner:
     """Use the configured mini backend to create one validated candidate plan."""
@@ -177,6 +236,16 @@ class BackendTurnPlanner:
         plan = parse_turn_plan(raw)
         _validate_selection(plan, bounded_tools)
         return plan
+
+
+def apply_turn_plan_to_answer_plan(plan: AnswerPlan, semantic: TurnPlan) -> AnswerPlan:
+    """Use semantic intent while preserving user-selected presentation preferences."""
+
+    return replace(
+        plan,
+        intent=semantic.answer_intent,
+        sections=_ANSWER_SECTIONS[semantic.answer_intent],
+    )
 
 
 def default_read_turn_tools() -> tuple[TurnTool, ...]:
@@ -393,6 +462,7 @@ __all__ = [
     "TurnTool",
     "action_turn_tools",
     "agent_turn_tools",
+    "apply_turn_plan_to_answer_plan",
     "default_read_turn_tools",
     "parse_turn_plan",
     "web_search_turn_tool",

@@ -99,7 +99,11 @@ from fdai.delivery.read_api.routes.chat_stream_terminal import (
     verification_events,
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
-from fdai.delivery.read_api.routes.chat_turn_plan import TurnPlanner, TurnTool
+from fdai.delivery.read_api.routes.chat_turn_plan import (
+    TurnPlanner,
+    TurnTool,
+    apply_turn_plan_to_answer_plan,
+)
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.delivery.read_api.routes.chat_vision_evidence import (
     vision_source_previews,
@@ -292,6 +296,8 @@ def make_chat_stream_route(
                             extra={"request_id": request_id},
                         )
                     else:
+                        answer_plan = apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                        view_context["_answer_plan"] = answer_plan.to_dict()
                         view_context["_turn_plan"] = semantic_plan.to_dict()
                         if semantic_plan.requires_confirmation:
                             await cleanup()

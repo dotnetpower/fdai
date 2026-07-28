@@ -11,6 +11,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.core.conversation.answer_plan import AnswerIntent, AnswerSection, build_answer_plan
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.routes.chat import make_chat_route
 from fdai.delivery.read_api.routes.chat_backend_azure import AzureAdChatBackend
@@ -28,6 +29,7 @@ from fdai.delivery.read_api.routes.chat_turn_plan import (
     TurnPlan,
     TurnTool,
     agent_turn_tools,
+    apply_turn_plan_to_answer_plan,
     default_read_turn_tools,
     parse_turn_plan,
 )
@@ -299,6 +301,24 @@ def test_agent_turn_manifest_uses_canonical_pantheon_names() -> None:
     assert len(tools) == 15
     assert all(tool.name.startswith("agent:") for tool in tools)
     assert all(tool.side_effect_class == "read" for tool in tools)
+
+
+def test_semantic_answer_intent_replaces_keyword_intent_and_sections() -> None:
+    keyword_plan = build_answer_plan("why did this happen?")
+    semantic = parse_turn_plan(_plan(answer_intent="comparison"))
+
+    resolved = apply_turn_plan_to_answer_plan(keyword_plan, semantic)
+
+    assert keyword_plan.intent is AnswerIntent.WHY
+    assert resolved.intent is AnswerIntent.COMPARISON
+    assert resolved.sections == (
+        AnswerSection.CRITERIA,
+        AnswerSection.ITEMS,
+        AnswerSection.TRADE_OFFS,
+        AnswerSection.RECOMMENDATION,
+    )
+    assert resolved.detail_level is keyword_plan.detail_level
+    assert resolved.format is keyword_plan.format
 
 
 @pytest.mark.parametrize("stream", [False, True])
