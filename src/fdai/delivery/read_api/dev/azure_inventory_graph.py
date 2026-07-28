@@ -26,7 +26,7 @@ from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecor
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 6
+_CACHE_VERSION: Final[int] = 7
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 _ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
@@ -563,11 +563,16 @@ def _project_graph(
     ):
         identity = (link.from_id, link.link_type, link.to_id)
         if (
+            identity in link_ids
+            and selected_types.get(link.from_id) == link.from_type
+            and selected_types.get(link.to_id) == link.to_type
+        ):
+            continue
+        if (
             link.link_type not in _ALLOWED_LINK_TYPES
             or selected_types.get(link.from_id) != link.from_type
             or selected_types.get(link.to_id) != link.to_type
             or link.from_id == link.to_id
-            or identity in link_ids
             or len(links) >= maximum_links
         ):
             dropped_links += 1

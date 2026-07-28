@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4997a2758237605cda5d5509e2daf5dcb6544be5
+translation_source_sha: 1d75f7949f35e8f31513633e17a2a0250b732761
 translation_revised: 2026-07-28
 ---
 
@@ -380,9 +380,10 @@ invalid envelope, configured limit 초과 count를 거부합니다.
 Local graph 기본값은 500개 resource와 synthetic subscription root입니다. 더 큰 inventory는 complete
 coverage를 조용히 주장하지 않고 `truncated=true`를 설정합니다.
 Local projection은 link type이 등록되어 있고 두 endpoint id가 모두 선택되며 endpoint type이 resource
-record와 일치할 때만 discovered relationship을 보존합니다. Unknown, mismatched, dangling, self,
-duplicate 및 over-limit link는 count-only warning과 함께 drop합니다. Complete resource snapshot은
-유지되고 `truncated=true`를 보고합니다.
+record와 일치할 때만 discovered relationship을 보존합니다. 이미 projection된 relationship과 endpoint
+type까지 정확히 같은 duplicate는 idempotent no-op으로 처리합니다. Unknown, mismatched, dangling, self,
+conflicting duplicate 및 over-limit link는 count-only warning과 함께 drop합니다. Complete resource
+snapshot은 유지되고 `truncated=true`를 보고합니다.
 Resource Graph CLI extension 또는 ARG request를 사용할 수 없으면 local discovery는 core
 `az resource list`로 fallback합니다. 이 fallback은 등록된 resource coverage를 보존하지만 해당
 command가 모든 type의 relationship property를 반환하지 않으므로 partial graph를 보고할 수 있습니다.

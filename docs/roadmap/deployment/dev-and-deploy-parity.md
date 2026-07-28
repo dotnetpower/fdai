@@ -381,9 +381,10 @@ beyond the configured limit.
 The local graph default is 500 resources plus the synthetic subscription root. Larger inventories
 set `truncated=true` instead of silently claiming complete coverage.
 Local projection preserves discovered relationships only when the link type is registered, both
-endpoint ids are selected, and the endpoint types match their resource records. Unknown,
-mismatched, dangling, self, duplicate, and over-limit links are dropped with a count-only warning;
-the complete resource snapshot remains available and reports `truncated=true`.
+endpoint ids are selected, and the endpoint types match their resource records. An exact
+type-matching duplicate of an already projected relationship is an idempotent no-op. Unknown,
+mismatched, dangling, self, conflicting duplicate, and over-limit links are dropped with a
+count-only warning; the complete resource snapshot remains available and reports `truncated=true`.
 If the Resource Graph CLI extension or ARG request is unavailable, local discovery falls back to
 core `az resource list`. The fallback preserves registered resource coverage but may report a
 partial graph because that command does not return relationship-bearing properties for every type.

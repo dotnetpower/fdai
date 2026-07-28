@@ -87,6 +87,13 @@ class _InventoryWithLinks(_Inventory):
                 resources=batch.resources,
                 links=(
                     LinkRecord(
+                        from_id=group.resource_id,
+                        from_type=group.type,
+                        link_type="contains",
+                        to_id=vm.resource_id,
+                        to_type=vm.type,
+                    ),
+                    LinkRecord(
                         from_id=vm.resource_id,
                         from_type=vm.type,
                         link_type="depends_on",
@@ -262,10 +269,13 @@ def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
     ]
 
 
-def test_preserves_discovered_links_with_present_endpoints() -> None:
+def test_preserves_discovered_links_and_ignores_generated_duplicates(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     provider = AzureCliInventoryGraphProvider(inventory=_InventoryWithLinks())
 
-    graph = asyncio.run(provider(None, 4, ("depends_on",)))
+    with caplog.at_level(logging.WARNING):
+        graph = asyncio.run(provider(None, 4, ("depends_on",)))
 
     assert graph["links"] == [
         {
@@ -276,6 +286,8 @@ def test_preserves_discovered_links_with_present_endpoints() -> None:
             "type": "depends_on",
         }
     ]
+    assert graph["truncated"] is False
+    assert "azure_cli_inventory_links_dropped" not in caplog.messages
 
 
 def test_drops_invalid_discovered_links_without_discarding_snapshot(
@@ -299,7 +311,7 @@ def test_drops_invalid_discovered_links_without_discarding_snapshot(
     warning = next(
         record for record in caplog.records if record.message == "azure_cli_inventory_links_dropped"
     )
-    assert warning.count == 5
+    assert warning.count == 4
 
 
 def test_filters_links_and_marks_truncation() -> None:
