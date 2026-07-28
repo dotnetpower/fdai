@@ -1,7 +1,7 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 97575d6ed111ff53fadc679208fa995b784649c3
+translation_source_sha: e0ced7b0d3191b68ecbbc4b5d587f593c69bccf3
 translation_revised: 2026-07-26
 ---
 
@@ -161,9 +161,9 @@ behavior, owner, implementation status, citations 또는 provenance 구조를 �
 Focused test는 exact alias priority, normalized subject ranking, idempotent reindexing, stale hash,
 implemented 및 test-backed authority, source citation shape와 symbol precision, source body
 exclusion, client evidence replacement, prompt-injection isolation, comparison, localization,
-PostgreSQL/in-memory top-hit 및 exact-class parity를 검사합니다. Narrator translator-only seed는
-정확한 conversational typed-pipeline regression symbol을 추적하므로 charter test를 삽입하면 같은
-change에서 해당 line range를 갱신합니다. Frozen architecture holdout paraphrase 20개는 routing,
+PostgreSQL/in-memory top-hit 및 exact-class parity를 검사합니다. Source-precision validation은 모든
+built-in seed를 검사하므로 cited test symbol을 이동시키는 코드를 삽입하면 영향받은 모든 range를 같은
+change에서 갱신합니다. Frozen architecture holdout paraphrase 20개는 routing,
 status, current citation, precise symbol, authority, structure, fact, exclusion 및 safety,
 localization, directness를 평가합니다. 2026-07-20 측정 결과는 `10.0/10`입니다. 20개 질문이 모두
 정확히 route되었고 cold initialization은 46.6 ms, warm 200 sample은 p50 8.4 ms와 p95 20.5 ms로
