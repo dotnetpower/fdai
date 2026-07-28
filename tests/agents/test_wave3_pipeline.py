@@ -1433,3 +1433,37 @@ def test_heimdall_preserves_all_burst_evidence_keys() -> None:
         )
 
     assert candidates[0]["evidence_keys"] == ("failure-0", "failure-1")
+
+
+def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
+    for index, correlation_id in enumerate(("episode-a", "episode-b", "episode-a", "episode-b")):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": correlation_id,
+                    "idempotency_key": f"failure-{index}",
+                    "severity": "high",
+                },
+            )
+        )
+
+    assert [message.payload["correlation_id"] for message in bus.messages_on("object.anomaly")] == [
+        "episode-a",
+        "episode-b",
+    ]
+    assert [candidate["correlation_id"] for candidate in candidates] == [
+        "episode-a",
+        "episode-b",
+    ]

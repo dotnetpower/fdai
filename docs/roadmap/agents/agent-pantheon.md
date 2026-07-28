@@ -260,7 +260,7 @@ Heimdall owns deterministic forecast episode evaluation and closure. Its repeate
 carries the normalized resource, event type, correlation, worst severity, reason
 code, and all burst evidence keys to the composition-owned `IncidentLifecycleWorkflow`.
 Only events from one correlation episode repeated inside the configured rate window form one
-anomaly at the worst observed severity; sparse samples and independent episodes never combine. A routine heartbeat,
+anomaly at the worst severity; independent episodes accumulate separately. A routine heartbeat,
 healthy probe, or within-threshold observation creates neither a finding nor an
 Incident.
 Heimdall does not write the Incident or publish a new object type. Only candidates with explicit

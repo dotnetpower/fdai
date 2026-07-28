@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 262a79e18e27d9b6d434863d86c2d22348959d31
+translation_source_sha: bfbbbe9c60893dd16f72cc84f80bc42bb5a60604
 translation_revised: 2026-07-28
 ---
 
@@ -42,7 +42,8 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   비어 있지 않은 correlation ID와 evidence key를 가지며, 설정된 minimum severity를 만족할 때만
   Incident candidate를 전달할 수 있습니다. 하나의 repeated-event burst에 속한 모든 Event는 동일한
   비어 있지 않은 correlation episode에 속해야 하며 독립 episode의 Event는 서로의 threshold를
-  충족하지 않습니다. Burst severity는 마지막에 도착한 Event 값이 아니라 bounded window에 기록된
+  충족하거나 독립적인 누적을 방해하지 않습니다. Burst severity는 마지막에 도착한 Event 값이 아니라
+  bounded window에 기록된
   값 중 가장 심각한 값입니다. Threshold를 충족한 모든 Event의 stable evidence key는 candidate와
   결과 Incident member set에 포함됩니다. Inventory 및 discovery change를 포함해
   `incident_correlation=none`인 Event는 Incident를 열지 않습니다. 자동 생성 minimum 기본값은

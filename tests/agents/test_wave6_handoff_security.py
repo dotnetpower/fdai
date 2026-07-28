@@ -116,8 +116,8 @@ def test_security_rate_limit_stops_further_cards() -> None:
 
 
 def test_heimdall_recent_events_keyspace_is_bounded() -> None:
-    # A long-lived observer sees one entry per distinct resource id; without a
-    # cap the per-resource map leaks one entry per resource ever seen.
+    # A long-lived observer sees one entry per distinct episode; without a cap
+    # the map leaks one entry per resource/correlation tuple ever seen.
     from fdai.agents.heimdall import _MAX_TRACKED_KEYS
 
     h = Heimdall()

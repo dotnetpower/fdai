@@ -123,7 +123,7 @@ class Heimdall(Agent):
         self.bus = bus
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
-        self._recent_events: dict[str, deque[tuple[float, str, str, str, str]]] = {}
+        self._recent_events: dict[tuple[str, str, str, str], deque[tuple[float, str, str]]] = {}
         self._security_recent: deque[dict[str, Any]] = deque(maxlen=security_window_events)
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
@@ -402,18 +402,22 @@ class Heimdall(Agent):
         resource_id = str(event.get("resource_id") or "")
         if not resource_id:
             return
-        history = self._recent_events.setdefault(
-            resource_id, deque(maxlen=self._rate_threshold * 2)
+        event_type = str(event.get("event_type", "generic"))
+        correlation_id = str(event.get("correlation_id") or "").strip()
+        incident_correlation = (
+            str(event.get("incident_correlation") or "correlate").strip().casefold()
         )
-        _evict_oldest(self._recent_events, _MAX_TRACKED_KEYS, keep=resource_id)
+        episode_key = (resource_id, event_type, correlation_id, incident_correlation)
+        history = self._recent_events.setdefault(
+            episode_key, deque(maxlen=self._rate_threshold * 2)
+        )
+        _evict_oldest(self._recent_events, _MAX_TRACKED_KEYS, keep=episode_key)
         now = self._clock()
         while history and now - history[0][0] > self._rate_window:
             history.popleft()
         history.append(
             (
                 now,
-                str(event.get("event_type", "generic")),
-                str(event.get("correlation_id") or "").strip(),
                 _event_severity(event),
                 str(event.get("idempotency_key") or event.get("event_id") or "").strip(),
             )
@@ -421,21 +425,16 @@ class Heimdall(Agent):
         if len(history) < self._rate_threshold:
             return
         window_tail = list(history)[-self._rate_threshold :]
-        event_types = {event_type for _, event_type, _, _, _ in window_tail}
-        correlation_ids = {correlation_id for _, _, correlation_id, _, _ in window_tail}
-        if len(event_types) == 1 and len(correlation_ids) == 1:
-            incident_correlation = (
-                str(event.get("incident_correlation") or "correlate").strip().casefold()
-            )
+        if len(window_tail) == self._rate_threshold:
             anomaly = {
                 "producer_principal": "Heimdall",
-                "correlation_id": event.get("correlation_id", ""),
+                "correlation_id": correlation_id,
                 "resource_id": resource_id,
                 "target_type": str(event.get("resource_type") or "unknown"),
-                "event_type": window_tail[0][1],
+                "event_type": event_type,
                 "count_in_window": self._rate_threshold,
                 "severity": min(
-                    (severity for _, _, _, severity, _ in window_tail),
+                    (severity for _, severity, _ in window_tail),
                     key=_SEVERITY_RANK.__getitem__,
                 ),
                 "incident_correlation": incident_correlation,
@@ -450,11 +449,11 @@ class Heimdall(Agent):
                 if not str(event.get("correlation_id") or "").strip():
                     self.record_behavior("incident_candidate_missing_correlation")
                     return
-                if any(not evidence_key for _, _, _, _, evidence_key in window_tail):
+                if any(not evidence_key for _, _, evidence_key in window_tail):
                     self.record_behavior("incident_candidate_missing_evidence")
                     return
                 evidence_keys = tuple(
-                    dict.fromkeys(evidence_key for _, _, _, _, evidence_key in window_tail)
+                    dict.fromkeys(evidence_key for _, _, evidence_key in window_tail)
                 )
                 candidate = {
                     **anomaly,
@@ -571,8 +570,10 @@ class Heimdall(Agent):
                 return IntrospectionResult(answer=answer, facts=facts)
         facts = {
             **capability_facts(self.spec),
-            "watched_resources": capped_list(sorted(self._recent_events)),
-            "watched_resources_count": len(self._recent_events),
+            "watched_resources": capped_list(
+                sorted({episode_key[0] for episode_key in self._recent_events})
+            ),
+            "watched_resources_count": len({episode_key[0] for episode_key in self._recent_events}),
             "security_events_window": len(self._security_recent),
             "rate_threshold": self._rate_threshold,
             "rate_window_seconds": self._rate_window,
@@ -590,11 +591,21 @@ class Heimdall(Agent):
                 answer="No retained drift finding is bound to this conversational projection.",
                 facts=facts,
             )
-        resources = mentioned(question, self._recent_events)
+        resources = mentioned(
+            question,
+            {episode_key[0] for episode_key in self._recent_events},
+        )
         if resources:
             rid = resources[0]
-            history = list(self._recent_events[rid])
-            event_types = sorted({event_type for _, event_type, _, _, _ in history})
+            history = [
+                item
+                for episode_key, episode_history in self._recent_events.items()
+                if episode_key[0] == rid
+                for item in episode_history
+            ]
+            event_types = sorted(
+                {episode_key[1] for episode_key in self._recent_events if episode_key[0] == rid}
+            )
             facts.update(
                 {
                     "resource_id": rid,
@@ -608,7 +619,7 @@ class Heimdall(Agent):
             )
             return IntrospectionResult(answer=answer, facts=facts)
         answer = (
-            f"Watching {len(self._recent_events)} resource(s); "
+            f"Watching {len({key[0] for key in self._recent_events})} resource(s); "
             f"{len(self._security_recent)} security event(s) in window."
         )
         return IntrospectionResult(answer=answer, facts=facts)
