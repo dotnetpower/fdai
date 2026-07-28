@@ -2,6 +2,9 @@
     "liveServer.settings.host": "127.0.0.1",
     "liveServer.settings.port": 5373,
     "makefile.configureOnOpen": false,
+    "files.associations": {
+        "**/.github/workflows/deploy-dev.yml": "yaml"
+    },
     "files.exclude": {
         "**/__pycache__": true,
         "**/.astro": true,

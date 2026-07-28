@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 8145a41bc084b0bc47435368fc60b9908c9cb293
+translation_source_sha: 356ab69942f453dad6b1457afb3e6059fc03750a
 translation_revised: 2026-07-28
 ---
 
@@ -123,6 +123,13 @@ Terraform state, 임시 output, 그리고 gitignore 처리된 self-improvement w
 중복 항목이 뜨는 것도 막아줍니다. 탐색 기본값일 뿐이므로 명시적 작업에서는 제외된 경로를
 직접 열 수 있습니다. 어떤 제외도 evidence profile, authentication mode, action lifecycle 또는
 runtime adapter를 선택하지 않습니다. Source, test 및 담당 design doc은 계속 검색할 수 있습니다.
+
+Workspace는 `.github/workflows/deploy-dev.yml` 하나만 plain YAML language mode에 연결합니다.
+GitHub Actions extension은 참조한 action tag가 존재하고 다음 step에서 `GITHUB_ENV` 값을 사용할 수
+있는 경우에도 이 workflow에 unresolved-action 및 dynamic context 오류를 표시할 수 있습니다. Plain
+YAML validation은 계속 활성 상태입니다. Remote action-tag 확인, repository workflow contract test 및
+GitHub Actions runtime validation이 authoritative하며 다른 workflow의 GitHub Actions language support는
+유지됩니다.
 
 선택적 `dev-access: configure VPN on folder open` task는 workstation에 격리된 P2S 개발 접근
 stack의 local state가 있을 때만 활성화됩니다. VPN이 연결되어 있으면 FDAI runtime resource를

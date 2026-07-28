@@ -123,6 +123,13 @@ of the same source file exist on disk. They are discovery preferences only: you 
 excluded path for an explicit task, and no exclusion selects an evidence profile, authentication
 mode, action lifecycle, or runtime adapter. Source, tests, and owning design docs remain searchable.
 
+The workspace associates only `.github/workflows/deploy-dev.yml` with the plain YAML language
+mode. The GitHub Actions extension can report unresolved-action and dynamic `GITHUB_ENV` context
+errors for this workflow even when the referenced action tag exists and the value is available to
+the next step. Plain YAML validation remains active. Remote action-tag verification, repository
+workflow contract tests, and GitHub Actions runtime validation remain authoritative; no other
+workflow loses GitHub Actions language support.
+
 The optional `dev-access: configure VPN on folder open` task activates only when the workstation
 has local state for the isolated P2S development-access stack. A connected VPN causes the task to
 restore the transient WSL Resolver binding without changing FDAI runtime resources. A disconnected
