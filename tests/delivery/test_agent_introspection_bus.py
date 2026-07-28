@@ -146,6 +146,34 @@ async def test_start_retry_reuses_consumer_instead_of_rebalancing_group() -> Non
     assert second_task is first_task
 
 
+async def test_client_recovers_when_server_starts_after_initial_timeout() -> None:
+    bus = _bus()
+    client = EventBusAgentIntrospectionClient(
+        event_bus=bus,
+        instance_id="read-api-test",
+        startup_timeout_seconds=0.01,
+        recovery_timeout_seconds=1.0,
+    )
+    server = EventBusAgentIntrospectionServer(
+        event_bus=bus,
+        runtime=SimpleNamespace(ask=AsyncMock()),
+    )
+
+    await client.start()
+    recovery_task = client._recovery_task  # noqa: SLF001 - lifecycle assertion
+    server_task = asyncio.create_task(server.run())
+    try:
+        await asyncio.wait_for(client._ready.wait(), timeout=1.5)  # noqa: SLF001
+        assert recovery_task is not None
+        await asyncio.wait_for(asyncio.shield(recovery_task), timeout=1.5)
+    finally:
+        await client.stop()
+        server_task.cancel()
+        await asyncio.gather(server_task, return_exceptions=True)
+
+    assert recovery_task.done()
+
+
 async def test_pending_capacity_fails_closed_without_publishing() -> None:
     bus = _bus()
     client = EventBusAgentIntrospectionClient(

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: a685efdeef544b8bfd1227c2159df54e9da5ca06
+translation_source_sha: 147aa432a945b14d159523e7b3dfb53ccc90a26a
 translation_revised: 2026-07-29
 ---
 
@@ -353,8 +353,8 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   Browser는 고정 Pantheon 이름만 delegation attribution으로 허용합니다. Replay 전에 primary,
   contributor 및 handoff identity는 64자, contributor는 8개, trace reference는 256자, handoff reason은
   128자로 제한합니다.
-  Cross-process failure는 attention 상태 handoff로 표시하며 선택한 agent가 contribution을 제공했다고
-  주장하거나 Bragi가 생성한 prose를 해당 agent 답변으로 표시하지 않습니다.
+  Cross-process failure는 잘못된 attribution 없이 attention 상태 handoff로 표시합니다. 초기 timeout
+  이후 bounded background probe가 core bridge의 준비를 감지하면 자동으로 복구합니다.
 - **검색:** 대상 turn은 검색 가능한 Azure Responses model candidate로 route됩니다. Provider는
   multilingual public-search 요청을 bounded English query로 변환합니다. Search provider는 해당 query와
   domain allowlist만 받고 정제된 evidence snapshot을 반환합니다. Bragi는 source URL과 함께 답변하며

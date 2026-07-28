@@ -9,6 +9,7 @@ import pytest
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.runtime.bootstrap import (
+    _RUNTIME_LOGICAL_TOPICS,
     _build_runtime_saga,
     _build_runtime_workload_identity,
     _case_history_identity_client_id,
@@ -24,6 +25,10 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 def test_pantheon_starts_by_default() -> None:
     assert pantheon_start_enabled({}) is True
+
+
+def test_runtime_multiplexes_startup_readiness_transitions() -> None:
+    assert "runtime.readiness.transitions" in _RUNTIME_LOGICAL_TOPICS
 
 
 @pytest.mark.parametrize("value", ["0", "false", "NO", "off"])

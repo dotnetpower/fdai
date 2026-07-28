@@ -410,10 +410,12 @@ class EventBusAgentIntrospectionClient:
     event_bus: EventBus
     instance_id: str
     startup_timeout_seconds: float = 20.0
+    recovery_timeout_seconds: float = 300.0
     response_timeout_seconds: float = 20.0
     max_pending_requests: int = _MAX_PENDING_REQUESTS
     fallback_delegate: Any = None
     _consumer_task: asyncio.Task[None] | None = None
+    _recovery_task: asyncio.Task[None] | None = None
     _ready: asyncio.Event = field(default_factory=asyncio.Event)
     _pending: dict[str, asyncio.Future[dict[str, Any]]] = field(default_factory=dict)
     _start_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -455,13 +457,22 @@ class EventBusAgentIntrospectionClient:
                 _LOGGER.info("agent_introspection_client_ready")
             else:
                 _LOGGER.warning("agent_introspection_client_startup_unavailable")
+                if self._recovery_task is None or self._recovery_task.done():
+                    self._recovery_task = asyncio.create_task(
+                        self._recover_readiness(),
+                        name=f"agent-introspection-recovery:{self.instance_id}",
+                    )
 
     async def stop(self) -> None:
-        task = self._consumer_task
+        tasks = tuple(
+            task for task in (self._recovery_task, self._consumer_task) if task is not None
+        )
+        self._recovery_task = None
         self._consumer_task = None
-        if task is not None:
+        for task in tasks:
             task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         for future in self._pending.values():
             if not future.done():
                 future.cancel()
@@ -553,6 +564,48 @@ class EventBusAgentIntrospectionClient:
             )
             return dict(fallback_result) if isinstance(fallback_result, Mapping) else None
         return await self.delegate(prompt=prompt, user_id=user_id, session_id=session_id)
+
+    async def _recover_readiness(self) -> None:
+        deadline = time.monotonic() + self.recovery_timeout_seconds
+        probe_id = f"probe-{uuid.uuid4().hex}"
+        publish_failure_reported = False
+        while not self._ready.is_set() and time.monotonic() < deadline:
+            consumer_task = self._consumer_task
+            if consumer_task is None or consumer_task.done():
+                return
+            try:
+                await self.event_bus.publish(
+                    AGENT_INTROSPECTION_REQUEST_TOPIC,
+                    probe_id,
+                    {
+                        "v": _WIRE_VERSION,
+                        "kind": "probe",
+                        "request_id": probe_id,
+                        "reply_to": self.instance_id,
+                    },
+                )
+                publish_failure_reported = False
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - optional bridge remains fail-closed
+                if not publish_failure_reported:
+                    _LOGGER.warning(
+                        "agent_introspection_client_recovery_probe_failed",
+                        extra={"error_type": type(exc).__name__},
+                    )
+                    publish_failure_reported = True
+            remaining = max(0.0, deadline - time.monotonic())
+            try:
+                await asyncio.wait_for(
+                    self._ready.wait(),
+                    timeout=min(_PROBE_INTERVAL_SECONDS, remaining),
+                )
+            except TimeoutError:
+                continue
+        if self._ready.is_set():
+            _LOGGER.info("agent_introspection_client_recovered")
+        else:
+            _LOGGER.warning("agent_introspection_client_recovery_exhausted")
 
     async def _consume(self) -> None:
         group_id = f"fdai-agent-introspection-client.{self.instance_id}"

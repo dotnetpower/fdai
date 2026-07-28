@@ -24,6 +24,8 @@ from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
 from fdai.core.readiness import AuthorityCeiling
+from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
+from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
 from fdai.delivery.persistence.postgres_case_history import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
@@ -120,6 +122,9 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
+_RUNTIME_LOGICAL_TOPICS = (
+    OWNED_OBJECT_TOPICS | AGENT_INTROSPECTION_TOPICS | frozenset({_TRANSITION_TOPIC})
+)
 
 
 async def _run() -> int:
@@ -206,7 +211,6 @@ async def _run() -> int:
                 ),
             )
             from fdai.delivery.agent_introspection_bus import (
-                AGENT_INTROSPECTION_TOPICS,
                 EventBusAgentIntrospectionServer,
                 agent_introspection_server_group_id,
             )
@@ -214,7 +218,7 @@ async def _run() -> int:
 
             bus = MultiplexedEventBus(
                 bus=bus,
-                logical_topics=OWNED_OBJECT_TOPICS | AGENT_INTROSPECTION_TOPICS,
+                logical_topics=_RUNTIME_LOGICAL_TOPICS,
                 physical_topic=os.environ.get(
                     "FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects"
                 ).strip(),
@@ -313,7 +317,7 @@ async def _run() -> int:
                     actor_oid="Thor",
                 )
 
-            runtime_symptom_index = build_from_promoted()
+            runtime_symptom_index = build_from_promoted(_resolve_catalog_root() / "chaos-scenarios")
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
