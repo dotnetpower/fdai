@@ -5,17 +5,24 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.testclient import TestClient
 
+from fdai.delivery.read_api.routes.chat import make_chat_route
 from fdai.delivery.read_api.routes.chat_backend_azure import AzureAdChatBackend
 from fdai.delivery.read_api.routes.chat_backend_openai import (
     OpenAiCompatibleChatBackend,
     OpenAiCompatibleChatBackendConfig,
 )
 from fdai.delivery.read_api.routes.chat_backend_router import LatencyRoutedChatBackend
+from fdai.delivery.read_api.routes.chat_stream import make_chat_stream_route
 from fdai.delivery.read_api.routes.chat_turn_plan import (
     BackendTurnPlanner,
     TurnKind,
+    TurnPlan,
     TurnTool,
+    default_read_turn_tools,
     parse_turn_plan,
 )
 from fdai.shared.providers.workload_identity import IdentityToken
@@ -41,6 +48,30 @@ class _Identity:
             expires_at=datetime.now(tz=UTC) + timedelta(minutes=5),
             audience=audience,
         )
+
+
+class _AnswerBackend:
+    def __init__(self) -> None:
+        self.context: dict[str, object] = {}
+
+    async def answer(self, **kwargs: object) -> dict[str, object]:
+        raw_context = kwargs["view_context"]
+        assert isinstance(raw_context, dict)
+        self.context = raw_context
+        return {"answer": "It is created only after confirmation.", "model": "test-mini"}
+
+
+class _Planner:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def plan_turn(self, **_kwargs: object) -> TurnPlan:
+        self.calls += 1
+        return parse_turn_plan(_plan())
+
+
+async def _allow(_request: Request) -> str:
+    return "reader-1"
 
 
 def _read_tools() -> tuple[TurnTool, ...]:
@@ -220,3 +251,48 @@ async def test_latency_router_fails_over_for_structured_completion() -> None:
     )
 
     assert plan.kind is TurnKind.ANSWER
+
+
+def test_default_turn_manifest_exposes_only_read_capabilities() -> None:
+    tools = default_read_turn_tools()
+
+    assert tools
+    assert all(tool.side_effect_class == "read" for tool in tools)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_chat_routes_attach_shadow_semantic_plan(stream: bool) -> None:
+    backend = _AnswerBackend()
+    planner = _Planner()
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=default_read_turn_tools(),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=default_read_turn_tools(),
+        )
+    )
+    app = Starlette(routes=[route])
+    path = "/chat/stream" if stream else "/chat"
+
+    response = TestClient(app).post(path, json={"prompt": "Incident 는 자동으로 생성되나?"})
+
+    assert response.status_code == 200
+    assert planner.calls == 1
+    assert backend.context["_turn_plan"] == {
+        "kind": "answer",
+        "answer_intent": "open_question",
+        "tool_name": None,
+        "action_type": None,
+        "arguments": {},
+        "clarification": None,
+        "confidence": 0.91,
+        "requires_confirmation": False,
+    }

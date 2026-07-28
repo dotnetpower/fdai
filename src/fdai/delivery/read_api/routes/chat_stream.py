@@ -98,6 +98,7 @@ from fdai.delivery.read_api.routes.chat_stream_terminal import (
     verification_events,
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
+from fdai.delivery.read_api.routes.chat_turn_plan import TurnPlanner, TurnTool
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.delivery.read_api.routes.chat_vision_evidence import (
     vision_source_previews,
@@ -136,6 +137,8 @@ def make_chat_stream_route(
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     progress_metrics: ConversationProgressMetrics | None = None,
+    turn_planner: TurnPlanner | None = None,
+    turn_tools: tuple[TurnTool, ...] = (),
     path: str = DEFAULT_STREAM_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -273,6 +276,21 @@ def make_chat_stream_route(
                     await cleanup()
                     yield frame("done", completed_payload)
                     return
+                if turn_planner is not None:
+                    try:
+                        semantic_plan = await turn_planner.plan_turn(
+                            prompt=clean_prompt,
+                            tools=turn_tools,
+                            history=history,
+                        )
+                    except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
+                        _LOG.warning(
+                            "chat stream turn planning unavailable: %s",
+                            type(exc).__name__,
+                            extra={"request_id": request_id},
+                        )
+                    else:
+                        view_context["_turn_plan"] = semantic_plan.to_dict()
                 yield frame(
                     "status",
                     {

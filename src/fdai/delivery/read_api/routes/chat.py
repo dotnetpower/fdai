@@ -182,6 +182,7 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
     _with_sse_heartbeats,
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
+from fdai.delivery.read_api.routes.chat_turn_plan import TurnPlanner, TurnTool
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 from fdai.delivery.read_api.routes.chat_vision_evidence import parse_vision_attachments
 from fdai.delivery.read_api.routes.post_turn_review import (
@@ -245,6 +246,8 @@ def make_chat_route(
     post_turn_review_submitter: PostTurnReviewSubmitter | None = None,
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
+    turn_planner: TurnPlanner | None = None,
+    turn_tools: tuple[TurnTool, ...] = (),
     path: str = DEFAULT_ROUTE_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -365,6 +368,21 @@ def make_chat_route(
                 ) from exc
         try:
             operator_turn = None
+            if turn_planner is not None:
+                try:
+                    semantic_plan = await turn_planner.plan_turn(
+                        prompt=clean_prompt,
+                        tools=turn_tools,
+                        history=history,
+                    )
+                except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
+                    _LOG.warning(
+                        "chat turn planning unavailable: %s",
+                        type(exc).__name__,
+                        extra={"request_id": request_id},
+                    )
+                else:
+                    view_context["_turn_plan"] = semantic_plan.to_dict()
             if conversation_history_store is not None:
                 try:
                     operator_turn = await append_operator_turn(

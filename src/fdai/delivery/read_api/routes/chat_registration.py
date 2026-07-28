@@ -48,6 +48,11 @@ from fdai.delivery.read_api.routes.chat_subscription_health import (
 )
 from fdai.delivery.read_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
+from fdai.delivery.read_api.routes.chat_turn_plan import (
+    BackendTurnPlanner,
+    StructuredCompletionBackend,
+    default_read_turn_tools,
+)
 from fdai.delivery.read_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.read_api.routes.detection_readiness import DetectionReadinessReader
 from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphProvider
@@ -138,6 +143,10 @@ def append_chat_routes(
         preferences=answer_preference_store,
         fallback=system_health_tools,
     )
+    turn_planner = (
+        BackendTurnPlanner(backend) if isinstance(backend, StructuredCompletionBackend) else None
+    )
+    turn_tools = default_read_turn_tools()
     routes.extend(
         (
             make_chat_route(
@@ -163,6 +172,8 @@ def append_chat_routes(
                 busy_input_coordinator=(
                     busy_input_runtime.coordinator if busy_input_runtime is not None else None
                 ),
+                turn_planner=turn_planner,
+                turn_tools=turn_tools,
             ),
             make_chat_stream_route(
                 backend=backend,
@@ -188,6 +199,8 @@ def append_chat_routes(
                     busy_input_runtime.coordinator if busy_input_runtime is not None else None
                 ),
                 progress_metrics=progress_metrics,
+                turn_planner=turn_planner,
+                turn_tools=turn_tools,
             ),
             make_chat_health_route(
                 backend=backend,

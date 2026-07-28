@@ -6,9 +6,10 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Protocol
+from typing import Final, Protocol, runtime_checkable
 
 from fdai.core.conversation.answer_plan import AnswerIntent
+from fdai.core.conversation.narrator import default_tool_schemas
 
 
 class TurnKind(StrEnum):
@@ -49,6 +50,20 @@ class TurnPlan:
 
         return self.kind in {TurnKind.ACTION_DRAFT, TurnKind.INCIDENT_DRAFT}
 
+    def to_dict(self) -> dict[str, object]:
+        """Return a JSON-safe projection for evidence and telemetry."""
+
+        return {
+            "kind": self.kind.value,
+            "answer_intent": self.answer_intent.value,
+            "tool_name": self.tool_name,
+            "action_type": self.action_type,
+            "arguments": dict(self.arguments),
+            "clarification": self.clarification,
+            "confidence": self.confidence,
+            "requires_confirmation": self.requires_confirmation,
+        }
+
 
 class TurnPlanner(Protocol):
     """Translate natural language into one validated candidate plan."""
@@ -62,6 +77,7 @@ class TurnPlanner(Protocol):
     ) -> TurnPlan: ...
 
 
+@runtime_checkable
 class StructuredCompletionBackend(Protocol):
     """Bounded JSON-schema completion surface supplied by a chat backend."""
 
@@ -143,6 +159,21 @@ class BackendTurnPlanner:
         plan = parse_turn_plan(raw)
         _validate_selection(plan, bounded_tools)
         return plan
+
+
+def default_read_turn_tools() -> tuple[TurnTool, ...]:
+    """Project the canonical read-only console tool manifest for planning."""
+
+    return tuple(
+        TurnTool(
+            name=schema.tool_name,
+            description=schema.summary,
+            side_effect_class=schema.side_effect_class,
+            argument_schema={"type": "object", "description": schema.argument_hint},
+        )
+        for schema in default_tool_schemas()
+        if schema.side_effect_class == "read"
+    )
 
 
 def parse_turn_plan(raw: Mapping[str, object]) -> TurnPlan:
@@ -270,5 +301,6 @@ __all__ = [
     "TurnPlan",
     "TurnPlanner",
     "TurnTool",
+    "default_read_turn_tools",
     "parse_turn_plan",
 ]
