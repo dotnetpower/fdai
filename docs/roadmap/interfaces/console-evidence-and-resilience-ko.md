@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6eec793f94dbf9d6771011a858eb2c89a16297e7
-translation_revised: 2026-07-28
+translation_source_sha: 90683f84c662860130c8a50299cfb46412452bda
+translation_revised: 2026-07-29
 ---
 
 # 콘솔 근거 및 복원력
@@ -111,11 +111,21 @@ record는 measured breakdown을 실제로 렌더링하는 Auto-resolution view�
 대체하지 않습니다. Snapshot headline은 visible card와 같은 metric formatter를 사용하며,
 Auto-resolution value는 ratio 의미를 유지하므로 표시된 percentage claim을 operator에게 보이는 것과
 같은 반올림 정밀도로 대조할 수 있습니다.
-Audit 기반 projection은 control-loop 및 executor producer만 필터링하고 row를 `event_id`로 묶어
-정규화된 event마다 한 번만 계산합니다. Enforce direct-API 또는 tool execution이 검증된
-post-condition과 함께 완료되고 sampled event evidence에 사람 승인, 거부, 실행 실패 또는 rollback
-신호가 없을 때만 event를 auto-resolved로 계산합니다. 조건을 충족하는 execution이 없는 sampled
-event set은 unavailable value가 아니라 측정된 `0`을 보고합니다.
+Audit 기반 projection은 append-only audit의 head sequence를 캡처하고 해당 cutoff 아래 measurement
+window의 모든 row를 순회한 다음 control-loop 및 executor producer만 필터링합니다. Row를
+`event_id`로 묶어 정규화된 event마다 한 번만 계산합니다. Cutoff 이후의 concurrent append는
+snapshot에 들어오지 않으며 pagination은 query cost만 바꾸고 KPI membership은 바꾸지 않습니다.
+명시적인 `measurement.action_outcome.v1` record가 enforce, verified, auto, non-rollback action을
+finalize하고 complete event evidence에 사람 승인, 거부, 실행 실패 또는 rollback 신호가 없을 때만
+event를 auto-resolved로 계산합니다. Dispatch-only event는 pending으로 유지됩니다. Route는 observed,
+finalized, pending, adverse 및 auto-resolved count를 분리해 표시합니다. Auto-resolution rate는
+canonical total observed-event denominator를 유지하므로 pending 및 기타 non-auto event가 rate에서
+사라지지 않습니다.
+Vertical attribution은 먼저 명시적으로 기록된 vertical을 사용하고, 그다음 강한 Resilience 또는
+Cost Governance action/resource hint만 사용합니다. 추측 없이 귀속할 수 없는 evidence는
+`unattributed` row에 남고 global denominator에 포함되며 표시되는 attribution coverage를 낮춥니다.
+이 evidence를 Change Safety로 fallback하지 않습니다. 고정된 3-domain portfolio는 unattributed row를
+제외하지만 Operating Outcomes는 Audit 목적지와 함께 계속 표시합니다.
 
 각 Operating Outcomes route는 metric별 analysis surface를 유지합니다. Auto-resolution은 관측된
 event 및 auto-resolved record 수, 영역별 비율 및 guard context를 보여줍니다. Human touchpoints,
@@ -212,8 +222,6 @@ owner를 확인하거나 handoff를 표시할 때까지 label을 안정적으로
 `specialist -> Bragi`로 소유권 흐름을 표시합니다. Handoff에 specialist answer가 없으면 결정론적
 verification은 근거를 사용할 수 없다는 응답을 반환하고, 관련 없는 current-screen fact로 narrator
 문장을 검증하지 않습니다.
-선택한 agent와 server-owned operational evidence가 모두 resolve되면 coordinator는 둘 다 유지하며,
-incident summary, absence claim 및 cause는 계속 결정론적 verification이 소유합니다.
 Bragi가 T0/T1 owner route를 한 번 완료한 뒤, 일반 answer path는 그 owner에서 점수가 유일하게
 가장 높은 read tool 하나를 선택합니다. 완료된 tool result가 primary specialist answer가 되고,
 범위 한정 fact는 기존 agent-evidence manifest로 들어갑니다. 동점이거나 일치 항목이 없으면 owner의

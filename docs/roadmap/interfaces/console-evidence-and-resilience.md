@@ -109,11 +109,21 @@ breakdown. The narrator receives only rendered evidence facts; it does not infer
 or replace the route's authoritative source. Snapshot headlines use the same metric formatter as the
 visible cards, and auto-resolution values retain ratio semantics so displayed percentage claims can
 be checked at the same rounded precision the operator sees.
-The audit-backed projection filters to control-loop and executor producers, groups rows by
-`event_id`, and counts each normalized event once. It counts an event as auto-resolved only when an
-enforce direct-API or tool execution completed with verified post-conditions and the sampled event
-evidence contains no human approval, denial, execution failure, or rollback signal. A sampled event
-set with no qualifying execution reports a measured `0`, not an unavailable value.
+The audit-backed projection captures the append-only audit head sequence, traverses every row in
+the measurement window below that cutoff, then filters to control-loop and executor producers. It
+groups rows by `event_id` and counts each normalized event once. Concurrent appends after the cutoff
+don't enter the snapshot, and pagination changes only query cost, not KPI membership. An event is
+auto-resolved only after an explicit `measurement.action_outcome.v1` record finalizes an enforce,
+verified, auto, non-rollback action and the complete event evidence contains no human approval,
+denial, execution failure, or rollback signal. Dispatch-only events remain pending. The route shows
+observed, finalized, pending, adverse, and auto-resolved counts separately; the auto-resolution rate
+keeps the canonical total observed-event denominator, so pending and other non-auto events never
+disappear from the rate.
+Vertical attribution uses an explicit recorded vertical first, then only strong Resilience or Cost
+Governance action/resource hints. Evidence that cannot be attributed without guessing remains in an
+`unattributed` row, contributes to the global denominator, and lowers the displayed attribution
+coverage. It never falls through to Change Safety. The fixed three-domain portfolio omits the
+unattributed row while Operating Outcomes keeps it visible with an Audit destination.
 
 Each Operating Outcomes route keeps a metric-specific analysis surface. Auto-resolution shows its
 observed event and auto-resolved record counts, vertical rates, and guard context. Human touchpoints,
@@ -213,8 +223,6 @@ When an explicit handoff returns the turn to Bragi, the Web labels ownership as
 `specialist -> Bragi` in the reply header and answer-plan row. If the handoff carries no specialist
 answer, deterministic verification returns an unavailable-evidence response and never validates
 narrator prose against unrelated current-screen facts.
-When a selected agent and server-owned operational evidence both resolve, the coordinator retains
-both; deterministic verification still owns incident summaries, absence claims, and causes.
 Bragi completes the T0/T1 owner route once, then the ordinary answer path selects one uniquely
 highest-scoring read tool from that owner. A completed tool result becomes the primary specialist
 answer, and its scoped facts enter the existing agent-evidence manifest. A tie or no match keeps the
