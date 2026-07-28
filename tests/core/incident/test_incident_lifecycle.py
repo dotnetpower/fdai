@@ -49,6 +49,20 @@ def test_incident_id_rejects_ambiguous_key_delimiters(invalid_key: str) -> None:
         incident_id_for([invalid_key, "c"])
 
 
+@pytest.mark.parametrize(
+    "correlation_keys",
+    [
+        tuple(f"key:{index}" for index in range(33)),
+        ("x" * 1025,),
+    ],
+)
+def test_incident_id_rejects_unbounded_correlation_keys(
+    correlation_keys: tuple[str, ...],
+) -> None:
+    with pytest.raises(ValueError, match="bounded"):
+        incident_id_for(correlation_keys)
+
+
 def test_incident_id_requires_at_least_one_key() -> None:
     with pytest.raises(ValueError, match="at least one correlation key"):
         incident_id_for([])

@@ -46,7 +46,7 @@ fdai/
 │   │   ├── audit/              # append-only, hash-chained audit log + KPI/metric emission
 │   │   ├── notifications/      # channel-routing layer over the notifications matrix
 │   │   ├── detection/          # anomaly/forecast evaluation, immutable episodes, event-time closure, and outbox contracts
-│   │   ├── incident/           # lifecycle + bounded unambiguous identities, evidence, severity, and notices
+│   │   ├── incident/           # lifecycle + 32-key/1024-char identities, evidence, severity, and notices
 │   │   ├── slo/                # workload SLO / burn-rate evaluator (distinct from control-plane SLOs)
 │   │   ├── runbook/            # runbook orchestrator (linear sequence + on-failure branch)
 │   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding compilation; approval planner + shadow orchestrator + trigger index + event coordinator

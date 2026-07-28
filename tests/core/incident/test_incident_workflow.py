@@ -67,6 +67,13 @@ def test_manual_incident_anchor_rejects_ambiguous_key_delimiters(invalid_key: st
         manual_incident_event_id((invalid_key, "signal:c"))
 
 
+def test_manual_incident_anchor_rejects_unbounded_key_count() -> None:
+    from fdai.core.incident.workflow_support import manual_incident_event_id
+
+    with pytest.raises(ValueError, match="bounded"):
+        manual_incident_event_id(tuple(f"key:{index}" for index in range(33)))
+
+
 def _operator(role: Role = Role.CONTRIBUTOR) -> Principal:
     return Principal(id="operator@example.com", role=role)
 

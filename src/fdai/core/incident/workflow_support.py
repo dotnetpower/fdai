@@ -9,11 +9,17 @@ from .lifecycle import IncidentOperatorPrincipal, IncidentWorkflowForbiddenError
 
 _CREATE_FLOOR = "contributor"
 _ROLE_RANK = {"reader": 0, "contributor": 1, "approver": 2, "owner": 3}
+_MAX_CORRELATION_KEYS = 32
+_MAX_CORRELATION_KEY_CHARS = 1024
 
 
 def canonical_incident_correlation_keys(correlation_keys: Iterable[str]) -> tuple[str, ...]:
     """Return stable keys while rejecting ambiguous UUID5 delimiters."""
     canonical = tuple(sorted({key for key in correlation_keys if key}))
+    if len(canonical) > _MAX_CORRELATION_KEYS or any(
+        len(key) > _MAX_CORRELATION_KEY_CHARS for key in canonical
+    ):
+        raise ValueError("incident correlation keys MUST be bounded")
     if any("|" in key or "\0" in key for key in canonical):
         raise ValueError("incident correlation key contains a reserved delimiter")
     return canonical
