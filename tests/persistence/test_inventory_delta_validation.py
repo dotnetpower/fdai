@@ -92,6 +92,16 @@ async def test_resource_delete_rejects_link_upsert() -> None:
         await projector(_payload(kind="delete", links=[_link(change_kind="upsert")]))
 
 
+async def test_duplicate_relationship_key_is_rejected_before_database_work() -> None:
+    projector = PostgresInventoryDeltaProjector(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused"),
+        clock=lambda: _NOW,
+    )
+
+    with pytest.raises(ValueError, match="duplicate relationship key"):
+        await projector(_payload(links=[_link(), {**_link(), "props": {"conflict": True}}]))
+
+
 def test_coverage_set_includes_resource_and_link_endpoint_types() -> None:
     covered = _covered_resource_types("compute.vm", [_link()])
 

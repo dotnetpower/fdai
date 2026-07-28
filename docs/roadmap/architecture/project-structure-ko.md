@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a828d7cc3b30566eae4d71b99d89c10eb31bec9f
+translation_source_sha: fe7561c736961253e529afbf81bbcc9921405be0
 translation_revised: 2026-07-28
 ---
 
@@ -251,7 +251,8 @@ fdai/
   유효 관계 집합을 읽은 뒤 누락된 관계를 commit 전에 tombstone으로 기록합니다.
   모든 relationship upsert는 effective resource graph에서 양쪽 endpoint를 확인하고 선언된 endpoint
   type이 해당 리소스와 일치해야 합니다. Endpoint가 없거나 모순되면 리소스와 관계 변경을 함께
-  rollback합니다.
+  rollback합니다. 각 inventory change에는 `(from_id, link_type, to_id)` key별 entry가 최대 하나만
+  포함되며 중복 key는 database I/O 전에 거부됩니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은
   exclusive promotion gate를 유지하므로 어떤 delta transaction과도 동시에 실행되지 않습니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한

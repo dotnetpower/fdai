@@ -97,6 +97,7 @@ class PostgresInventoryDeltaProjector:
         links_complete = _optional_bool(change, "links_complete", default=False)
         if len(links) > self._max_links:
             raise ValueError(f"inventory_change.links exceeds cap ({self._max_links})")
+        _reject_duplicate_link_keys(links)
         link_kinds = tuple(_choice(link, "change_kind", _CHANGE_KINDS) for link in links)
         if change_kind == "delete" and any(kind != "delete" for kind in link_kinds):
             raise ValueError("inventory resource delete can carry only link deletes")
@@ -360,6 +361,15 @@ def _link_key(link: Mapping[str, Any]) -> tuple[str, str, str]:
         _choice(link, "link_type", _LINK_TYPES),
         _required_str(link, "to_id"),
     )
+
+
+def _reject_duplicate_link_keys(links: Sequence[Mapping[str, Any]]) -> None:
+    seen: set[tuple[str, str, str]] = set()
+    for link in links:
+        key = _link_key(link)
+        if key in seen:
+            raise ValueError("inventory change contains a duplicate relationship key")
+        seen.add(key)
 
 
 def _link_owned_by(resource_id: str, link: Mapping[str, Any]) -> bool:
