@@ -528,19 +528,19 @@ function IncidentEvidenceViews({
         <IncidentViewRow
           available={overview.auditAvailable}
           href={auditHref}
-          title={t("incidents.evidence.auditTitle")}
+          label={t("incidents.evidence.auditTitle")}
           description={t("incidents.evidence.auditBody", { count: overview.activityCount })}
         />
         <IncidentViewRow
           available={overview.traceAvailable}
           href={traceHref}
-          title={t("incidents.evidence.traceTitle")}
+          label={t("incidents.evidence.traceTitle")}
           description={t("incidents.evidence.traceBody", { count: overview.activityCount })}
         />
         <IncidentViewRow
           available={overview.rcaAvailable}
           href={rcaHref}
-          title={t("incidents.evidence.rcaTitle")}
+          label={t("incidents.evidence.rcaTitle")}
           description={overview.rcaAvailable
             ? t("incidents.evidence.rcaBody")
             : t("incidents.evidence.rcaUnavailable")}
@@ -548,7 +548,7 @@ function IncidentEvidenceViews({
         <IncidentViewRow
           available={overview.reportAvailable}
           href={reportHref}
-          title={t("incidents.evidence.reportTitle")}
+          label={t("incidents.evidence.reportTitle")}
           description={overview.reportAvailable
             ? t("incidents.evidence.reportBody")
             : t("incidents.evidence.reportUnavailable")}
@@ -562,17 +562,17 @@ function IncidentEvidenceViews({
 function IncidentViewRow({
   available,
   href,
-  title,
+  label,
   description,
 }: {
   readonly available: boolean;
   readonly href: string;
-  readonly title: string;
+  readonly label: string;
   readonly description: string;
 }) {
   const content = (
     <>
-      <strong>{title}</strong>
+      <strong>{label}</strong>
       <span>{description}</span>
       <em>{available ? t("incidents.evidence.open") : t("incidents.evidence.unavailable")}</em>
     </>
