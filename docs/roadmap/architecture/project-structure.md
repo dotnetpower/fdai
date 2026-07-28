@@ -290,6 +290,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   owned by its target and other relationship types are owned by their source. Unowned patches
   cannot mutate an unrelated graph edge. The per-change `max_links` cap is always positive; zero is
   rejected at startup because it would make every relationship-bearing delete unreconcilable.
+  Database-derived tombstones use a separate `max_reconciled_links` cap (default 4096), which must
+  be at least `max_links`; high-degree resources can therefore be deleted atomically without
+  widening the untrusted payload limit.
   An existing effective `resource_id` also keeps its resource type across realtime updates. A
   contradictory type is rejected before the resource row or its relationships can change.
   While any realtime resource overlay remains pending, graph freshness is `unknown` and the read

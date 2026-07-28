@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1d9c4769d73be52e7a01d604b2f2deff58e1a21e
+translation_source_sha: 15a1c5beacf6811ba7091fa58d25037b0ea5dd3a
 translation_revised: 2026-07-28
 ---
 
@@ -285,7 +285,9 @@ fdai/
   모든 incoming relationship patch는 변경된 리소스가 소유해야 합니다. `contains`는 target이
   소유하고 다른 관계 type은 source가 소유합니다. 소유하지 않은 patch는 관련 없는 graph edge를
   변경할 수 없습니다. Change별 `max_links` cap은 항상 양수이며 0은 관계를 가진 모든 delete를
-  reconciliation할 수 없게 하므로 startup에서 거부됩니다.
+  reconciliation할 수 없게 하므로 startup에서 거부됩니다. Database에서 파생된 tombstone은 별도
+  `max_reconciled_links` cap(기본값 4096)을 사용하며 이 값은 `max_links` 이상이어야 합니다. 따라서
+  untrusted payload limit을 넓히지 않고도 관계가 많은 리소스를 원자적으로 삭제할 수 있습니다.
   기존 effective `resource_id`의 resource type도 realtime update 전체에서 유지됩니다. 모순된 type은
   resource row 또는 관계가 변경되기 전에 거부됩니다.
   realtime resource overlay가 하나라도 pending 상태이면 base snapshot이 freshness budget 안에 있어도

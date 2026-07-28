@@ -21,6 +21,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 _CHANGE_KINDS = frozenset({"upsert", "delete"})
 _LINK_TYPES = frozenset({"contains", "attached_to", "depends_on"})
 _DEFAULT_MAX_LINKS = 256
+_DEFAULT_MAX_RECONCILED_LINKS = 4096
 _DEFAULT_MAX_FUTURE_SKEW_SECONDS = 300
 _RESOURCE_LOCK_SEED = 0x46444149
 _GRAPH_RECONCILIATION_LOCK = 732_410_992
@@ -74,15 +75,19 @@ class PostgresInventoryDeltaProjector:
         clock: Callable[[], datetime] | None = None,
         max_future_skew_seconds: int = _DEFAULT_MAX_FUTURE_SKEW_SECONDS,
         max_links: int = _DEFAULT_MAX_LINKS,
+        max_reconciled_links: int = _DEFAULT_MAX_RECONCILED_LINKS,
     ) -> None:
         if max_future_skew_seconds < 0:
             raise ValueError("max_future_skew_seconds MUST be non-negative")
         if max_links < 1:
             raise ValueError("max_links MUST be positive")
+        if max_reconciled_links < max_links:
+            raise ValueError("max_reconciled_links MUST be >= max_links")
         self._config = config
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._max_future_skew_seconds = max_future_skew_seconds
         self._max_links = max_links
+        self._max_reconciled_links = max_reconciled_links
 
     async def __call__(self, payload: Mapping[str, Any]) -> InventoryDeltaApplyResult:
         event_type = payload.get("event_type")
@@ -207,7 +212,7 @@ class PostgresInventoryDeltaProjector:
                     change_kind=change_kind,
                     links_complete=links_complete,
                     incoming=links,
-                    max_links=self._max_links,
+                    max_reconciled_links=self._max_reconciled_links,
                 )
                 if reconcile_graph:
                     await _acquire_resource_locks(
@@ -479,7 +484,7 @@ async def _reconcile_links(
     change_kind: str,
     links_complete: bool,
     incoming: Sequence[Mapping[str, Any]],
-    max_links: int,
+    max_reconciled_links: int,
 ) -> tuple[Mapping[str, Any], ...]:
     if change_kind != "delete" and not links_complete:
         return tuple(incoming)
@@ -493,19 +498,23 @@ async def _reconcile_links(
         + "SELECT from_id, from_type, link_type, to_id, to_type, props "
         + f"FROM effective_links WHERE {predicate} "
         + "ORDER BY from_id, link_type, to_id LIMIT %s",
-        (snapshot_id, resource_id, resource_id, max_links + 1),
+        (snapshot_id, resource_id, resource_id, max_reconciled_links + 1),
     )
     current = await cursor.fetchall()
-    if len(current) > max_links:
-        raise ValueError(f"inventory relationship reconciliation exceeds cap ({max_links})")
+    if len(current) > max_reconciled_links:
+        raise ValueError(
+            f"inventory relationship reconciliation exceeds cap ({max_reconciled_links})"
+        )
     merged = list(incoming)
     incoming_keys = {_link_key(link) for link in incoming}
     for row in current:
         if _link_key(row) in incoming_keys:
             continue
         merged.append({**row, "change_kind": "delete"})
-    if len(merged) > max_links:
-        raise ValueError(f"inventory relationship reconciliation exceeds cap ({max_links})")
+    if len(merged) > max_reconciled_links:
+        raise ValueError(
+            f"inventory relationship reconciliation exceeds cap ({max_reconciled_links})"
+        )
     return tuple(merged)
 
 

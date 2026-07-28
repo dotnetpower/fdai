@@ -35,6 +35,15 @@ def test_projector_rejects_zero_link_cap() -> None:
         )
 
 
+def test_projector_rejects_reconciliation_cap_below_payload_cap() -> None:
+    with pytest.raises(ValueError, match="max_reconciled_links MUST be >= max_links"):
+        PostgresInventoryDeltaProjector(
+            config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused"),
+            max_links=2,
+            max_reconciled_links=1,
+        )
+
+
 async def test_payload_without_inventory_change_is_not_applicable() -> None:
     projector = PostgresInventoryDeltaProjector(
         config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
@@ -231,7 +240,7 @@ async def test_delete_reconciles_all_incident_links_to_tombstones() -> None:
         change_kind="delete",
         links_complete=False,
         incoming=(),
-        max_links=10,
+        max_reconciled_links=10,
     )
 
     assert [link["change_kind"] for link in links] == ["delete", "delete"]
@@ -268,13 +277,40 @@ async def test_complete_links_tombstone_only_missing_owned_relationships() -> No
         change_kind="upsert",
         links_complete=True,
         incoming=incoming,
-        max_links=10,
+        max_reconciled_links=10,
     )
 
     assert [(link["to_id"], link["change_kind"]) for link in links] == [
         ("database-new", "upsert"),
         ("database-old", "delete"),
     ]
+
+
+async def test_reconciliation_uses_internal_cap_not_incoming_payload_cap() -> None:
+    connection = AsyncMock()
+    connection.execute.return_value.fetchall.return_value = [
+        {
+            "from_id": "rg-one/vm-one",
+            "from_type": "compute.vm",
+            "link_type": "depends_on",
+            "to_id": f"database-{index}",
+            "to_type": "postgresql",
+            "props": {},
+        }
+        for index in range(3)
+    ]
+
+    links = await _reconcile_links(
+        connection,
+        snapshot_id="snapshot-one",
+        resource_id="rg-one/vm-one",
+        change_kind="delete",
+        links_complete=False,
+        incoming=(),
+        max_reconciled_links=4,
+    )
+
+    assert len(links) == 3
 
 
 @pytest.mark.parametrize(
