@@ -27,6 +27,14 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 _NOW = datetime(2026, 7, 25, 12, 0, tzinfo=UTC)
 
 
+def test_projector_rejects_zero_link_cap() -> None:
+    with pytest.raises(ValueError, match="max_links MUST be positive"):
+        PostgresInventoryDeltaProjector(
+            config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused"),
+            max_links=0,
+        )
+
+
 async def test_payload_without_inventory_change_is_not_applicable() -> None:
     projector = PostgresInventoryDeltaProjector(
         config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")

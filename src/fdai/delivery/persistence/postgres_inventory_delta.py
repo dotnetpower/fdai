@@ -77,8 +77,8 @@ class PostgresInventoryDeltaProjector:
     ) -> None:
         if max_future_skew_seconds < 0:
             raise ValueError("max_future_skew_seconds MUST be non-negative")
-        if max_links < 0:
-            raise ValueError("max_links MUST be non-negative")
+        if max_links < 1:
+            raise ValueError("max_links MUST be positive")
         self._config = config
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._max_future_skew_seconds = max_future_skew_seconds

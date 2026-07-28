@@ -286,7 +286,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   entry for a `(from_id, link_type, to_id)` key; duplicate keys are rejected before database I/O.
   Every incoming relationship patch must also be owned by the changed resource: `contains` is
   owned by its target and other relationship types are owned by their source. Unowned patches
-  cannot mutate an unrelated graph edge.
+  cannot mutate an unrelated graph edge. The per-change `max_links` cap is always positive; zero is
+  rejected at startup because it would make every relationship-bearing delete unreconcilable.
   An existing effective `resource_id` also keeps its resource type across realtime updates. A
   contradictory type is rejected before the resource row or its relationships can change.
   While any realtime resource overlay remains pending, graph freshness is `unknown` and the read

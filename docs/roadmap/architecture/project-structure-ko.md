@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: baff6f82a4cd97b46469257c0fa4327bd9b7a6cc
+translation_source_sha: ad2c3f0ee162c594dbf8a379bcd9f3a913f057fc
 translation_revised: 2026-07-28
 ---
 
@@ -282,7 +282,8 @@ fdai/
   포함되며 중복 key는 database I/O 전에 거부됩니다.
   모든 incoming relationship patch는 변경된 리소스가 소유해야 합니다. `contains`는 target이
   소유하고 다른 관계 type은 source가 소유합니다. 소유하지 않은 patch는 관련 없는 graph edge를
-  변경할 수 없습니다.
+  변경할 수 없습니다. Change별 `max_links` cap은 항상 양수이며 0은 관계를 가진 모든 delete를
+  reconciliation할 수 없게 하므로 startup에서 거부됩니다.
   기존 effective `resource_id`의 resource type도 realtime update 전체에서 유지됩니다. 모순된 type은
   resource row 또는 관계가 변경되기 전에 거부됩니다.
   realtime resource overlay가 하나라도 pending 상태이면 base snapshot이 freshness budget 안에 있어도
