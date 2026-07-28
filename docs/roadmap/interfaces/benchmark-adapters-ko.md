@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: fbbf63a187a0aeef3c09da018a73a4cfe2a7fe00
+translation_source_sha: d69f2f57b3d7343ee040420039249649897cdca7
 translation_revised: 2026-07-29
 ---
 
@@ -196,6 +196,12 @@ live Kubernetes inventory access, 두 Kubernetes evidence provider 및 configure
 reasoner를 요구합니다. 또한 synthetic citation-bounded RCA request를 한 번 전송하므로 stale 또는
 missing model deployment는 ready로 표시되지 않습니다. 모든 check를 통과해도 host authority는
 관찰 모드로 유지됩니다.
+
+Subscription에 capability-specific deployment를 추가할 quota가 없으면 endpoint discovery가
+`t2.rca`를 같은 account의 기존 verified deployment에 bind할 수 있습니다. 생성된 binding은 URL 대신
+abstract `azure-openai:<account>` reference를 저장합니다. Runtime composition은
+`FDAI_LLM_ENDPOINT`와 일치하는 reference만 resolve하며 다른 account reference는 startup을
+차단합니다.
 
 Plugin image는 검토된 SREGym agent base 위에 FDAI distribution, rule 및 policy catalog, SREGym
 plugin을 포함합니다. Root Docker build context는 local runtime state, resolved model file, log,

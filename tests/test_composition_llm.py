@@ -972,6 +972,72 @@ async def test_wire_azure_container_attaches_full_stack(tmp_path: Path) -> None:
     assert len(bindings.cross_check_models) == 2
 
 
+async def test_wire_azure_container_forwards_model_endpoint_resolver(tmp_path: Path) -> None:
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+
+    payload = json.loads(_resolved_models_json_with_rca())
+    payload["endpoint_bindings"] = [
+        {
+            "binding_id": "t2-rca-direct",
+            "capability": "t2.rca",
+            "provider_kind": "azure-openai",
+            "route_kind": "direct",
+            "api_style": "azure-openai",
+            "endpoint_ref": "azure-openai:oai-example",
+            "deployment": "shared-gpt-4o",
+            "api_version": "2024-10-21",
+            "auth": {
+                "kind": "entra",
+                "audience": "https://cognitiveservices.azure.com/.default",
+            },
+            "model": {
+                "publisher": "OpenAI",
+                "family": "gpt-4o",
+                "version": "2024-11-20",
+            },
+            "capacity": {"unit": "tpm", "value": 1_000},
+            "features": {
+                "streaming": False,
+                "embeddings": False,
+                "structured_output": True,
+                "tool_calling": False,
+            },
+            "discovery": {
+                "source": "azure-management",
+                "resource_ref_digest": "a" * 64,
+                "verified_at": "2026-07-29T00:00:00+00:00",
+            },
+        }
+    ]
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(json.dumps(payload), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://legacy.example.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            model_endpoint_resolver=lambda endpoint_ref: (
+                "https://oai-example.openai.azure.com"
+                if endpoint_ref == "azure-openai:oai-example"
+                else pytest.fail("unexpected endpoint reference")
+            ),
+        ),
+    )
+
+    reasoner = finalized.require_llm_bindings().rca_reasoner
+    assert reasoner is not None
+    model = reasoner._model  # noqa: SLF001
+    assert model._config.endpoint == "https://oai-example.openai.azure.com"  # noqa: SLF001
+    assert model._config.deployment == "shared-gpt-4o"  # noqa: SLF001
+
+
 async def test_wire_azure_container_propagates_scope_resolver(tmp_path: Path) -> None:
     """A fork's ScopeResolver reaches the cross-check adapters."""
     from fdai.composition import AzureWireOverrides, wire_azure_container

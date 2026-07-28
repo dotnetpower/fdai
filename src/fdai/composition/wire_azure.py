@@ -13,7 +13,7 @@ old ``composition.py``.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -75,6 +75,11 @@ class AzureWireOverrides:
     first because ARM-id parsing is CSP-specific; :class:`None` upstream
     means operator-memory entries never enter the composer output.
 
+    ``model_endpoint_resolver`` - callable that resolves a verified abstract
+    endpoint reference from ``resolved-models.json`` to its runtime URL. The
+    binding still owns the deployment name and API style; an unknown reference
+    fails closed before a model request.
+
     ``monitor_workspace_id`` - Log Analytics workspace GUID
     (``customerId``, NOT the ARM resource id). When supplied,
     :func:`wire_azure_container` auto-binds
@@ -127,6 +132,7 @@ class AzureWireOverrides:
     operator_memory_store: OperatorMemoryStore
     tool_providers: Mapping[str, Any] | None = None
     scope_resolver: Any | None = None
+    model_endpoint_resolver: Callable[[str], str] | None = None
     metering_sink: MeteringSink | None = None
     model_health_sink: Any | None = None
     pricing: PricingTable | None = None
@@ -360,6 +366,7 @@ async def wire_azure_container(
         critic_system_prompt=critic_system_prompt,
         judge_system_prompt=judge_system_prompt,
         rca_system_prompt=rca_system_prompt,
+        endpoint_resolver=overrides.model_endpoint_resolver,
         metering_sink=overrides.metering_sink,
         pricing=pricing,
         model_health_sink=overrides.model_health_sink,

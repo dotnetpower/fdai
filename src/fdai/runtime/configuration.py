@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -23,6 +25,29 @@ from fdai.shared.config.models import LlmMode
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
+_AZURE_OPENAI_HOST_SUFFIX = ".openai.azure.com"
+
+
+def _direct_model_endpoint_resolver(endpoint: str) -> Callable[[str], str]:
+    """Resolve only the abstract reference owned by one direct AOAI endpoint."""
+
+    parsed = urlsplit(endpoint)
+    hostname = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not hostname.endswith(_AZURE_OPENAI_HOST_SUFFIX):
+        raise ValueError("FDAI_LLM_ENDPOINT MUST be an Azure OpenAI HTTPS endpoint")
+    if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+        raise ValueError("FDAI_LLM_ENDPOINT MUST be an origin URL")
+    account_name = hostname.removesuffix(_AZURE_OPENAI_HOST_SUFFIX)
+    if not account_name or parsed.username is not None or parsed.password is not None:
+        raise ValueError("FDAI_LLM_ENDPOINT MUST identify one Azure OpenAI account")
+    expected_ref = f"azure-openai:{account_name}"
+
+    def resolve(endpoint_ref: str) -> str:
+        if endpoint_ref != expected_ref:
+            raise ValueError("model endpoint reference does not match FDAI_LLM_ENDPOINT")
+        return endpoint
+
+    return resolve
 
 
 def _new_http_client() -> httpx.AsyncClient:
@@ -174,6 +199,7 @@ async def _finalize_llm_bindings(
         identity=identity,
         overrides=AzureWireOverrides(
             endpoint=endpoint,
+            model_endpoint_resolver=_direct_model_endpoint_resolver(endpoint),
             catalog_root=_resolve_catalog_root(),
             operator_memory_store=_build_operator_memory_store(),
             metering_sink=_build_metering_store(),

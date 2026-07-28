@@ -192,6 +192,11 @@ reasoner. It also sends one synthetic citation-bounded RCA request so a stale or
 deployment cannot report ready. The host authority remains observation mode even when all checks
 pass.
 
+When the subscription has no spare quota for a capability-specific deployment, endpoint discovery
+can bind `t2.rca` to an existing verified deployment in the same account. The generated binding
+stores an abstract `azure-openai:<account>` reference instead of a URL. Runtime composition resolves
+only the reference that matches `FDAI_LLM_ENDPOINT`; another account reference blocks startup.
+
 The plugin image contains the FDAI distribution, rule and policy catalogs, and SREGym plugin on top
 of the reviewed SREGym agent base. The root Docker build context excludes local runtime state,
 resolved model files, logs, temporary artifacts, and secrets.
