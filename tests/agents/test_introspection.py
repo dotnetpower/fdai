@@ -101,9 +101,7 @@ class TestMentioned:
         ) == ["my_resource", "rule.id"]
 
     def test_does_not_match_identifier_prefixes(self) -> None:
-        assert mentioned("inspect rule.id-extra", ["rule.id", "rule.id-extra"]) == [
-            "rule.id-extra"
-        ]
+        assert mentioned("inspect rule.id-extra", ["rule.id", "rule.id-extra"]) == ["rule.id-extra"]
 
     def test_preserves_candidate_order(self) -> None:
         assert mentioned("a and b", ["b", "a"]) == ["b", "a"]
