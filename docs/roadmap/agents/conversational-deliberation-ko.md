@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 54283b4afb9a4e87ffabb9200543fe221fdccdf9
+translation_source_sha: 661f1a6130b0ae8a7a93156488ff41b5d7b90f9e
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -72,6 +72,10 @@ key, 조립된 prompt digest를 전달하고 console evidence도 같은 manifest
 어떤 constraint 아래 만들어졌는지가 end-to-end로 관측됩니다. 어느 쪽도 prompt text 자체는 절대
 전달하지 않습니다. 이를 위해 `BASELINE_LAYER_IDS`와 `ConversationSituation`은 `fdai.agents`
 facade에서 export합니다.
+
+거부된 escalation은 prompt text를 바꾸는 bounded `spent/limit` counter를 situation key에
+포함합니다. Direct construction은 `spent > limit`을 거부하고, untrusted turn context는 malformed
+counter를 boundary exception 대신 일관된 상태로 clamp합니다.
 
 대부분의 layer는 turn context에서 선택하지만 evidence gap은 그럴 수 없습니다. Prompt는 agent가
 답하기 전에 조립되므로 답변에 필요한 state를 보유했는지는 agent만 알기 때문입니다.
@@ -406,6 +410,20 @@ agent가 할 수 있는 일을 고정하고 directive는 agent가 자기 결과�
 독립적인 phase/tier parsing은 authority를 높이지 않고 production deliberation이 canonical pair를
 공급합니다. Saga 또는 Vidar degradation은 mutation을 gate하며 read-only conversation 전체를
 막지 않으므로 모든 답변 차단은 degradation design과 충돌합니다.
+
+## 추가 3라운드 하드닝
+
+다음 campaign은 확정 결함마다 별도의 10점 rubric을 적용했습니다.
+
+| Round | 10점 focus | 제거한 결함 | Exit score | 실행 증거 |
+|------:|------------|-------------|-----------:|-----------|
+| 1 | Counter bound, cross-field validity, boundary normalization, key uniqueness, digest distinction, denial layer, no exception, manifest attribution, replay, regression | 서로 다른 budget prompt가 같은 situation key를 공유하고 `spent > limit`도 허용했습니다. | 10/10 | Direct rejection, untrusted clamping, distinct-key test |
+| 2 | One owner, acronym behavior, publish derivation, role-contract parity, registry parity, no duplicate helper, deterministic output, facade stability, lint, regression | `base.py`와 `topics.py`가 ObjectType-to-topic normalization을 따로 구현했습니다. | 10/10 | Single-normalizer architecture 및 all-agent publish-topic test |
+| 3 | Handoff owner, pre-turn status, bounded failure, behavior counter, no exception leak, turn digest, transport unavailable, publish success, no sensitive log, regression | Handoff publish exception이 turn을 `requested`로 기록한 뒤 발생해 unanswered turn을 고립시켰습니다. | 10/10 | Failing-bus injection, absent-transport 및 normal handoff test |
+
+Bragi는 이제 turn을 봉인하기 전에 handoff를 시도하고 `published`, `publish_failed`,
+`transport_unavailable` 중 하나를 기록합니다. Transport failure는 exception type만 기록하고 bounded
+behavior counter를 증가시키며, 성공을 주장하지 않은 unanswered turn을 반환합니다.
 
 ## 검증
 

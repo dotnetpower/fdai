@@ -527,14 +527,16 @@ class Bragi(Agent):
                 answer["semantic_margin"] = decision.semantic_margin
                 answer["routing_provider_status"] = decision.provider_status
 
+        turn_index = _next_turn_index(session)
         if answer.get("handoff_needed") and materialize_handoff:
-            if self.bus is None:
-                answer["handoff_status"] = "transport_unavailable"
-                self.record_behavior("handoff:transport_unavailable")
-            else:
-                answer["handoff_status"] = "requested"
+            answer["handoff_status"] = await self._publish_handoff(
+                session_id=session_id,
+                question=question,
+                turn_index=turn_index,
+                reason=str(answer.get("abstain_reason") or "no_route"),
+            )
         turn = Turn(
-            turn_index=_next_turn_index(session),
+            turn_index=turn_index,
             question=question,
             primary_agent=decision.primary_agent,
             answer=answer,
@@ -542,13 +544,6 @@ class Bragi(Agent):
         )
         _append_turn(session, turn)
         await self._publish_turn(session_id=session_id, turn=turn)
-        if answer.get("handoff_needed") and materialize_handoff:
-            await self._publish_handoff(
-                session_id=session_id,
-                question=question,
-                turn_index=turn.turn_index,
-                reason=str(answer.get("abstain_reason") or "no_route"),
-            )
         return turn
 
     async def _publish_turn(self, *, session_id: str, turn: Turn) -> None:
@@ -667,30 +662,41 @@ class Bragi(Agent):
         question: str,
         turn_index: int,
         reason: str,
-    ) -> None:
+    ) -> str:
         if self.bus is None:
-            return
+            self.record_behavior("handoff:transport_unavailable")
+            return "transport_unavailable"
         normalized = " ".join(question.split()).casefold()
         selector_digest = hashlib.sha256(normalized.encode()).hexdigest()
         escalation_id = hashlib.sha256(
             f"{session_id}\0{turn_index}\0{reason}\0{selector_digest}".encode()
         ).hexdigest()
-        await self.bus.publish(
-            "Bragi",
-            "object.handoff-escalation",
-            {
-                "producer_principal": "Bragi",
-                "id": f"handoff-{escalation_id[:32]}",
-                "escalation_id": f"handoff-{escalation_id[:32]}",
-                "correlation_id": session_id,
-                "idempotency_key": f"handoff:{escalation_id}",
-                "emitting_agent": "Bragi",
-                "intent_category": reason,
-                "normalized_selector": f"sha256:{selector_digest}",
-                "failure_reason_code": reason,
-                "emitted_at": datetime.now(UTC).isoformat(),
-            },
-        )
+        try:
+            await self.bus.publish(
+                "Bragi",
+                "object.handoff-escalation",
+                {
+                    "producer_principal": "Bragi",
+                    "id": f"handoff-{escalation_id[:32]}",
+                    "escalation_id": f"handoff-{escalation_id[:32]}",
+                    "correlation_id": session_id,
+                    "idempotency_key": f"handoff:{escalation_id}",
+                    "emitting_agent": "Bragi",
+                    "intent_category": reason,
+                    "normalized_selector": f"sha256:{selector_digest}",
+                    "failure_reason_code": reason,
+                    "emitted_at": datetime.now(UTC).isoformat(),
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - bounded operator degradation
+            self.record_behavior("handoff:publish_failed")
+            _LOG.warning(
+                "handoff_publish_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            return "publish_failed"
+        self.record_behavior("handoff:published")
+        return "published"
 
     async def _ask_contributors(
         self,

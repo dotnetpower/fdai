@@ -33,6 +33,7 @@ from fdai.agents._framework.introspection import (
     capability_sentence,
     is_action_intent,
 )
+from fdai.agents._framework.topics import topic_for_object_type
 
 if TYPE_CHECKING:
     from fdai.agents._framework.bus import PantheonBus
@@ -214,7 +215,7 @@ class AgentSpec:
         object.__setattr__(
             self,
             "publishes",
-            tuple(f"object.{_kebab(o)}" for o in self.owns),
+            tuple(topic_for_object_type(object_type) for object_type in self.owns),
         )
         role_contract = self.role_contract()
         charter = self.conversation
@@ -611,22 +612,6 @@ class Agent:
     def health(self) -> dict[str, Any]:
         """Return the health snapshot Heimdall probes (Wave 3+)."""
         return {"agent": self.spec.name, "status": "stub", "behavior": self.behavior_snapshot()}
-
-
-def _kebab(name: str) -> str:
-    """Camel or PascalCase ObjectType name -> kebab topic form.
-
-    Examples:
-        ``Event`` -> ``event``
-        ``ActionRun`` -> ``action-run``
-        ``SecurityEvent`` -> ``security-event``
-    """
-    out: list[str] = []
-    for i, ch in enumerate(name):
-        if ch.isupper() and i and not name[i - 1].isupper():
-            out.append("-")
-        out.append(ch.lower())
-    return "".join(out)
 
 
 def _project_tool_result(

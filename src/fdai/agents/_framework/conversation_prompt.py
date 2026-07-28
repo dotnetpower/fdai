@@ -170,6 +170,8 @@ class ConversationSituation:
             raise ValueError("conversation escalation_spent MUST be a bounded count")
         if not 0 <= self.escalation_limit <= _MAX_ESCALATION_COUNT:
             raise ValueError("conversation escalation_limit MUST be a bounded count")
+        if self.escalation_spent > self.escalation_limit:
+            raise ValueError("conversation escalation_spent cannot exceed escalation_limit")
 
     @classmethod
     def baseline(cls) -> ConversationSituation:
@@ -205,6 +207,10 @@ class ConversationSituation:
         raw_owner = context.get("handoff_owner")
         raw_tool = context.get("conversation_tool")
         tool_id = raw_tool if isinstance(raw_tool, str) and raw_tool in set(allowed_tools) else None
+        escalation_spent, escalation_limit = _bounded_budget_counts(
+            context.get("escalation_spent"),
+            context.get("escalation_limit"),
+        )
         return cls(
             audience=_AUDIENCE_PEER if context.get("a2a") is True else _AUDIENCE_OPERATOR,
             # A phase exists only inside a deliberation; a peer request
@@ -222,8 +228,8 @@ class ConversationSituation:
             # Absence means "not stated", which MUST NOT read as "denied":
             # only an explicit False from the runtime closes escalation.
             escalation_available=context.get("escalation_available") is not False,
-            escalation_spent=_bounded_count(context.get("escalation_spent")),
-            escalation_limit=_bounded_count(context.get("escalation_limit")),
+            escalation_spent=escalation_spent,
+            escalation_limit=escalation_limit,
             handoff_owner=_known_agent(raw_owner, known_agents),
         )
 
@@ -244,6 +250,8 @@ class ConversationSituation:
             parts.append(f"tool={self.tool_id}")
         if self.action_intent:
             parts.append("intent=action")
+        if not self.escalation_available:
+            parts.append(f"budget={self.escalation_spent}/{self.escalation_limit}")
         return ";".join(parts)
 
 
@@ -524,6 +532,13 @@ def _bounded_count(raw: Any) -> int:
     if not isinstance(raw, int) or isinstance(raw, bool):
         return 0
     return max(0, min(raw, _MAX_ESCALATION_COUNT))
+
+
+def _bounded_budget_counts(raw_spent: Any, raw_limit: Any) -> tuple[int, int]:
+    """Normalize untrusted counters to one internally consistent budget state."""
+    limit = _bounded_count(raw_limit)
+    spent = min(_bounded_count(raw_spent), limit)
+    return spent, limit
 
 
 def _known_agent(raw: Any, known_agents: Collection[str]) -> str | None:

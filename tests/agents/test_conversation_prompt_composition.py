@@ -235,6 +235,46 @@ def test_situational_budget_sheds_framing_and_keeps_every_constraint() -> None:
     }
 
 
+def test_impossible_escalation_counters_are_rejected() -> None:
+    with pytest.raises(ValueError, match="cannot exceed"):
+        ConversationSituation(
+            escalation_available=False,
+            escalation_spent=2,
+            escalation_limit=1,
+        )
+
+
+def test_denied_budget_values_participate_in_the_situation_key() -> None:
+    first = ConversationSituation(
+        escalation_available=False,
+        escalation_spent=1,
+        escalation_limit=2,
+    )
+    second = ConversationSituation(
+        escalation_available=False,
+        escalation_spent=2,
+        escalation_limit=2,
+    )
+
+    assert first.key != second.key
+    assert Odin().spec.conversation.compose_prompt(first).prompt_sha256 != (
+        Odin().spec.conversation.compose_prompt(second).prompt_sha256
+    )
+
+
+def test_untrusted_escalation_counters_clamp_to_a_consistent_state() -> None:
+    situation = ConversationSituation.from_context(
+        {
+            "escalation_available": False,
+            "escalation_spent": 99,
+            "escalation_limit": 2,
+        }
+    )
+
+    assert situation.escalation_spent == situation.escalation_limit == 2
+    assert "budget=2/2" in situation.key
+
+
 def test_budget_overflow_drops_optional_layers_and_never_the_baseline() -> None:
     """A charter at its own ceiling still pays nothing toward the layer budget."""
     filler = "Filler layer sentence. " * 10

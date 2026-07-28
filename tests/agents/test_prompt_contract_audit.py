@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import pytest
 
+import fdai.agents._framework.base as agent_base
 from fdai.agents._framework.base import ConversationCharter, ConversationTool
 from fdai.agents._framework.charters import (
     _CONVERSATION_GUARDRAILS,
@@ -235,6 +236,10 @@ def test_global_single_writer_and_tool_owner_closure() -> None:
 
     assert len(owned) == len(set(owned))
     assert len(tools) == len(set(tools))
+
+
+def test_topic_normalization_has_one_authoritative_implementation() -> None:
+    assert not hasattr(agent_base, "_kebab")
 
 
 def test_agent_names_require_an_explicit_closed_roster() -> None:

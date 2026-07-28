@@ -70,6 +70,10 @@ manifest, so the constraints an answer was produced under stay observable end to
 ever carries the prompt text. `BASELINE_LAYER_IDS` and `ConversationSituation` are exported from
 the `fdai.agents` facade for that purpose.
 
+A denied escalation includes its bounded `spent/limit` counters in the situation key because those
+counters change the prompt text. Direct construction rejects `spent > limit`; untrusted turn
+context clamps malformed counters into one consistent state instead of raising at the boundary.
+
 Most layers are selected from the turn context, but the evidence gap cannot be: the prompt is
 composed before the agent answers, so only the agent knows whether it holds the state the answer
 needs. `Agent.conversation_evidence_available` is the seam. It returns `True` by default, because
@@ -415,6 +419,20 @@ Three suspected defects were rejected after execution: acronym topic conversion 
 error around `RCA`; independent phase/tier parsing cannot raise authority and production
 deliberation supplies the canonical pair; Saga or Vidar degradation gates mutation, not read-only
 conversation, so blocking every answer would contradict the degradation design.
+
+## Additional three-round hardening
+
+The next campaign applied a separate 10-point rubric to each confirmed defect:
+
+| Round | 10-point focus | Defect removed | Exit score | Executable evidence |
+|------:|----------------|----------------|-----------:|---------------------|
+| 1 | Counter bounds, cross-field validity, boundary normalization, key uniqueness, digest distinction, denial layer, no exception, manifest attribution, replay, regression | Different budget prompts shared one situation key, and `spent > limit` was accepted. | 10/10 | Direct rejection, untrusted clamping, and distinct-key tests. |
+| 2 | One owner, acronym behavior, publish derivation, role-contract parity, registry parity, no duplicate helper, deterministic output, facade stability, lint, regression | `base.py` and `topics.py` implemented ObjectType-to-topic normalization independently. | 10/10 | Single-normalizer architecture and all-agent publish-topic tests. |
+| 3 | Handoff owner, pre-turn status, bounded failure, behavior counter, no exception leak, turn digest, transport unavailable, publish success, no sensitive log, regression | A handoff publish exception occurred after a turn was recorded as `requested`, stranding the unanswered turn. | 10/10 | Failing-bus injection plus absent-transport and normal handoff tests. |
+
+Bragi now attempts handoff before sealing the turn and records exactly one of `published`,
+`publish_failed`, or `transport_unavailable`. A failed transport records only its exception type,
+increments a bounded behavior counter, and returns the unanswered turn without claiming success.
 
 ## Verification
 
