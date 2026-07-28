@@ -432,6 +432,40 @@ def test_run_executes_selected_integration_tests_with_database(git_repo: Path) -
     ]
 
 
+def test_run_isolates_runtime_env_and_readds_only_integration_database(git_repo: Path) -> None:
+    test_file = git_repo / "tests" / "scripts" / "test_changed.py"
+    test_file.write_text("def test_changed(): pass\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    env_file = git_repo / "pytest-env.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "%s|%s|%s|%s\\n" "${FDAI_DATABASE_URL-unset}" '
+        '"${FDAI_RUNTIME_LOCK_FILE-unset}" "${FDAI_RUNTIME_LOCAL_AZURE_CLI-unset}" '
+        '"${RUNTIME_ENV-unset}" >> "$PYTEST_ENV_FILE"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "PYTEST_ENV_FILE": str(env_file),
+        "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
+        "FDAI_RUNTIME_LOCK_FILE": str(git_repo / ".fdai" / "core-runtime.lock"),
+        "FDAI_RUNTIME_LOCAL_AZURE_CLI": "1",
+        "RUNTIME_ENV": "dev",
+    }
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert result.returncode == 0, result.stderr
+    assert env_file.read_text(encoding="utf-8").splitlines() == [
+        "unset|unset|unset|unset",
+        "postgresql://example.invalid/fdai|unset|unset|unset",
+    ]
+
+
 def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> None:
     for index in range(20):
         test_file = git_repo / "tests" / "scripts" / f"test_changed_{index}.py"

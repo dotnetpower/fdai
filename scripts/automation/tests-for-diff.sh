@@ -247,9 +247,21 @@ if [[ $run_pytest -eq 1 ]]; then
         )
     fi
     pytest_pythonpath="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
+    clean_pytest_env=(
+        env
+        -u RUNTIME_ENV
+        -u DATABASE_URL
+        -u POSTGRES_URL
+        -u AZURE_CONFIG_DIR
+    )
+    while IFS='=' read -r name _value; do
+        if [[ "$name" == FDAI_* ]]; then
+            clean_pytest_env+=(-u "$name")
+        fi
+    done < <(env)
 
     set +e
-    PYTHONPATH="$pytest_pythonpath" \
+    "${clean_pytest_env[@]}" PYTHONPATH="$pytest_pythonpath" \
         uv run pytest -q -m "not integration" --no-cov "${parallel_args[@]}" "${tests[@]}"
     non_integration_status=$?
     set -e
@@ -259,7 +271,9 @@ if [[ $run_pytest -eq 1 ]]; then
 
     if [[ -n "${FDAI_DATABASE_URL:-}" ]]; then
         set +e
-        PYTHONPATH="$pytest_pythonpath" uv run pytest -q -m integration --no-cov "${tests[@]}"
+        "${clean_pytest_env[@]}" FDAI_DATABASE_URL="$FDAI_DATABASE_URL" \
+            PYTHONPATH="$pytest_pythonpath" \
+            uv run pytest -q -m integration --no-cov "${tests[@]}"
         integration_status=$?
         set -e
         if [[ $integration_status -ne 0 && $integration_status -ne 5 ]]; then
@@ -274,7 +288,7 @@ if [[ $run_pytest -eq 1 ]]; then
 
     if [[ $non_integration_status -eq 5 ]]; then
         set +e
-        PYTHONPATH="$pytest_pythonpath" \
+        "${clean_pytest_env[@]}" PYTHONPATH="$pytest_pythonpath" \
             uv run pytest --collect-only -q -m integration --no-cov "${tests[@]}"
         integration_collect_status=$?
         set -e
