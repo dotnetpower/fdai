@@ -38,7 +38,10 @@
       "id": "benchmark-adapters",
       "paths": [
         "src/fdai/benchmarking/**",
+        "src/fdai/evaluation/**",
         "tests/benchmarking/**",
+        "tests/evaluation/**",
+        "evaluation-sdk/**",
         "benchmarks/**",
         "docs/roadmap/interfaces/benchmark-adapters*.md"
       ],
@@ -53,8 +56,11 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
+        "uv run pytest -q --no-cov evaluation-sdk/tests tests/evaluation",
         "uv run pytest -q --no-cov tests/benchmarking",
-        "PYTHONPATH=src:benchmarks/sregym/src uv run pytest -q --no-cov benchmarks/sregym/tests"
+        "PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src uv run pytest -q --no-cov benchmarks/sregym/tests",
+        "PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src uv run pytest -q --no-cov benchmarks/cybergym/tests",
+        "python3 scripts/quality/architecture/check-evaluation-boundaries.py"
       ]
     },
     {

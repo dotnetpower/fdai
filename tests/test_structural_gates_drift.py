@@ -20,6 +20,8 @@ _PRE_PUSH = _REPO_ROOT / ".githooks" / "pre-push"
 _REQUIRED_JOBS = (
     "core-imports",
     "agents-imports",
+    "evaluation-boundaries",
+    "evaluation-packages",
     "file-loc",
     "subsystem-fanout",
     "doc-links",
@@ -47,6 +49,7 @@ def test_ci_workflow_declares_required_job(ci_workflow: dict, job: str) -> None:
     [
         ("core-imports", "check-core-imports.sh"),
         ("agents-imports", "check-agents-imports.sh"),
+        ("evaluation-boundaries", "check-evaluation-boundaries.py"),
         ("file-loc", "check-file-loc.sh"),
         ("subsystem-fanout", "check-subsystem-fanout.sh"),
         ("doc-links", "check-doc-links.sh"),
@@ -65,6 +68,7 @@ def test_pre_push_hook_invokes_all_structural_gates() -> None:
     body = _PRE_PUSH.read_text()
     for gate_path in (
         "scripts/quality/architecture/check-agents-imports.sh",
+        "scripts/quality/architecture/check-evaluation-boundaries.py",
         "scripts/quality/architecture/check-file-loc.sh",
         "scripts/quality/architecture/check-subsystem-fanout.sh",
         "scripts/quality/repository/check-doc-links.sh",

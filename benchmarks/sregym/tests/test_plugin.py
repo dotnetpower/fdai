@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import pytest
-from fdai_bench_sregym import create_plugin
+from fdai_evaluation_sdk import EVALUATION_API_VERSION
 
-from fdai.benchmarking import BENCHMARK_API_VERSION
+from fdai_bench_sregym import create_plugin
 
 
 def test_plugin_requires_harness_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SREGYM_ARTIFACT_ID", raising=False)
 
     with pytest.raises(RuntimeError, match="SREGYM_ARTIFACT_ID"):
-        create_plugin().create_bindings()
+        create_plugin().create_adapter()
 
 
 def test_plugin_builds_generic_bindings(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21,7 +21,7 @@ def test_plugin_builds_generic_bindings(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("API_PORT", "8000")
 
     plugin = create_plugin()
-    bindings = plugin.create_bindings()
+    adapter = plugin.create_adapter()
 
-    assert plugin.api_version == BENCHMARK_API_VERSION
-    assert bindings.adapter.adapter_id == "sregym"
+    assert plugin.api_version == EVALUATION_API_VERSION
+    assert adapter.adapter_id == "sregym"

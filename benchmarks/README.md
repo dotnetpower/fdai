@@ -1,23 +1,25 @@
-# Benchmark plugins
+# Evaluation drivers
 
 This directory contains independently packaged adapters for external evaluation harnesses. FDAI's
-generic contracts live under `src/fdai/benchmarking/`; no harness package is installed with the
-base FDAI distribution.
+generic contracts live in the separate `evaluation-sdk/` distribution. No harness package is
+installed with the base FDAI distribution.
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
-| `sregym/` | SREGym conductor lifecycle plugin. |
-| `<name>/pyproject.toml` | Independent dependencies and `fdai.benchmark_adapters` entry point. |
+| `sregym/` | SREGym conductor lifecycle driver. |
+| `cybergym/` | CyberGym-E2E source workspace and artifact driver. |
+| `<name>/pyproject.toml` | Independent SDK-only package dependencies. |
 | `<name>/tests/` | Harness-specific transport and lifecycle tests. |
 
-## Adding a plugin
+## Adding a driver
 
-Create a separate distribution, implement `BenchmarkAdapter`, and expose a factory through the
-`fdai.benchmark_adapters` entry-point group. Keep harness protocols and optional dependencies in
-that distribution. Use existing FDAI provider contracts for evidence and the governed execution
-path for mutations.
+Create a separate distribution and implement `EvaluationAdapter` from `fdai-evaluation-sdk`.
+The driver initiates a session through an injected `EvaluationHost`; FDAI doesn't discover or
+load benchmark entry points in production. Keep harness protocols, datasets, validators, and
+optional dependencies in the driver distribution. Request semantic capabilities for evidence and
+use the governed host path for mutations.
 
 The owning design is
 [`docs/roadmap/interfaces/benchmark-adapters.md`](../docs/roadmap/interfaces/benchmark-adapters.md).

@@ -31,6 +31,9 @@ classifiers = [
     "Topic :: System :: Systems Administration",
 ]
 dependencies = [
+    # Public evaluation contracts are released independently from the FDAI
+    # implementation. The local workspace member mirrors that release boundary.
+    "fdai-evaluation-sdk>=0.1,<0.2",
     # W1.2 - contracts: typed models + JSON Schema validation at boundaries only.
     # Everything else (event bus, state store, telemetry, LLM clients) is deferred
     # to its own P0 work item so a violation is easy to spot in the lockfile diff.
@@ -145,6 +148,12 @@ fdai-model-endpoint-discovery = "fdai.delivery.azure.llm.endpoint_discovery_cli:
 [build-system]
 requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai-evaluation-sdk = { workspace = true }
+
+[tool.uv.workspace]
+members = ["evaluation-sdk", "benchmarks/sregym", "benchmarks/cybergym"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fdai"]

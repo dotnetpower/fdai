@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a0da57bc11752ba85fa5c97a330f7c34b4f49d09
+translation_source_sha: 2e144862467f257f25519dc8fb5e3d79c482ec7e
 translation_revised: 2026-07-29
 ---
 # 코드 맵
@@ -223,8 +223,10 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 
 | 경로 | 목적 |
 |------|------|
-| [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | 브랜드 중립 task/submission contract, installed-plugin discovery, explicit read-provider binding 및 bounded lifecycle runner입니다. |
-| [benchmarks/](../../../benchmarks/) | 독립적으로 package된 harness plugin입니다. [benchmark adapter 설계](../interfaces/benchmark-adapters-ko.md)를 참조하세요. |
+| [evaluation-sdk/](../../../evaluation-sdk/) | 독립적으로 package할 수 있는 neutral contract, public Protocol, workspace value 및 bounded runner입니다. |
+| [src/fdai/evaluation/](../../../src/fdai/evaluation/) | Public host 구현, capability attenuation, artifact custody, workspace policy, typed ingress 및 result receipt입니다. |
+| [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Legacy benchmark caller를 위한 임시 `0.1.x` compatibility facade입니다. |
+| [benchmarks/](../../../benchmarks/) | 독립적으로 package된 SREGym 및 CyberGym driver입니다. [benchmark adapter 설계](../interfaces/benchmark-adapters-ko.md)를 참조하세요. |
 
 ## Composition과 카탈로그
 

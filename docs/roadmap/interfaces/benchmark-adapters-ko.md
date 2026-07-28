@@ -1,43 +1,39 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 934dd9c56dba8fe3dee5e07943b2d99c7a42859c
-translation_revised: 2026-07-28
+translation_source_sha: ccafc4e003d754673c435e22a35a16ae6845be12
+translation_revised: 2026-07-29
 ---
 
 # 벤치마크 어댑터
 
 이 설계는 FDAI runtime에 특정 benchmark package를 추가하지 않고 외부 평가 harness를 FDAI에
-연결하는 방법을 정의합니다. 기본 distribution은 안정적인 contract와 bounded runner를
-소유합니다. 각 integration은 `benchmarks/` 아래에 독립적으로 설치되는 plugin으로 유지됩니다.
+연결하는 방법을 정의합니다. 독립 SDK가 neutral contract와 bounded runner를 소유하고, FDAI는
+public host와 그 뒤의 governed execution을 소유합니다.
 
 > **범위:** Benchmark adapter는 harness lifecycle과 data를 변환합니다. FDAI action을 판단,
 > 승인, 승격 또는 실행하지 않습니다.
 >
-> **구현 상태:** Generic task, submission, adapter, plugin, provider-binding 및 runner contract가
-> 구현되었습니다. SREGym package는 conductor lifecycle 변환을 구현합니다. 기본 distribution은
-> 아직 production `BenchmarkTaskProcessor`, benchmark CLI, SREGym observation provider 또는
-> SREGym execution binding을 제공하지 않습니다.
+> **구현 상태:** 독립 package SDK, public host 및 session, capability attenuation, artifact
+> custody, workspace policy broker, SREGym migration, CyberGym acceptance driver, compatibility
+> facade 및 dependency gate가 구현되었습니다.
 
 ## 설계 요약
 
-FDAI wheel에는 SREGym, SWE-bench 또는 다른 harness protocol이 포함되지 않습니다. 명시적으로
-설치된 package를 `fdai.benchmark_adapters` Python entry-point group을 통해 발견합니다. Plugin은
-외부 harness adapter와 선택적인 read-only provider replacement를 반환합니다. Host가 소유하는
-task processor는 normal FDAI event, decision 및 audit path를 통해 작업을 전달할 책임을 계속
-가집니다.
+FDAI wheel에는 SREGym, CyberGym 또는 다른 harness protocol이 포함되지 않습니다. External
+driver는 `fdai-evaluation-sdk`에 의존하고 public `EvaluationHost`를 받은 뒤 bounded session을
+시작합니다. Host는 neutral task를 typed ingress로 변환하고 decision, risk, approval, execution 및
+audit을 FDAI 내부에 유지합니다.
 
 ```mermaid
 flowchart LR
-  H[External harness] <--> P[Installed benchmark plugin]
-  P --> A[BenchmarkAdapter]
-  A --> R[BenchmarkRunner]
-  R --> T[Host-owned task processor]
-  T --> F[FDAI control loop]
-  P --> B[Optional read provider bindings]
-  B --> F
-  F --> S[BenchmarkSubmission]
-  S --> R
+  H[External harness] <--> D[External driver]
+  D --> SDK[Evaluation SDK]
+  SDK --> EH[Public EvaluationHost]
+  EH --> C[Capability and custody brokers]
+  EH --> F[FDAI typed ingress and control loop]
+  F --> R[EvaluationResult]
+  R --> D
 ```
 
 ## Package 경계
@@ -46,89 +42,94 @@ flowchart LR
 
 | Layer | 위치 | 책임 |
 |-------|------|------|
-| Generic framework | `src/fdai/benchmarking/` | 안정적인 value, lifecycle Protocol, plugin discovery, explicit provider binding 및 bounded runner입니다. |
-| Harness plugin | `benchmarks/<name>/` | Harness transport, package dependency, entry-point registration, container asset 및 adapter test입니다. |
+| Evaluation SDK | `evaluation-sdk/` | Immutable request, task, result, target, capability, workspace, artifact, receipt, adapter, host 및 runner contract입니다. |
+| FDAI host | `src/fdai/evaluation/` | Typed ingress, capability attenuation, workspace 및 artifact policy, result mapping, cleanup 및 audit입니다. |
+| Harness driver | `benchmarks/<name>/` | Harness lifecycle, neutral task mapping, external validation, package dependency 및 test입니다. |
+| Compatibility facade | `src/fdai/benchmarking/` | Migration 기간의 legacy text task/submission, plugin, binding 및 runner API입니다. |
 
-Harness plugin은 별도 Python distribution입니다. FDAI만 설치하면 benchmark integration이
-설치되거나 활성화되지 않습니다. Plugin을 제거해도 FDAI runtime은 변경되지 않습니다.
+Harness driver는 별도 Python distribution입니다. FDAI만 설치하면 benchmark integration이
+설치되거나 활성화되지 않습니다. Driver를 제거해도 FDAI runtime은 변경되지 않습니다.
 
 ## Contract
 
-### Task 및 submission
+### Session, task 및 result
 
-`BenchmarkTask`는 run id, task id, open stage string, objective, target reference 및 bounded
-metadata를 전달합니다. 하나의 runner가 code repair, operational recovery, security assessment 및
-향후 benchmark shape를 지원할 수 있도록 stage는 diagnosis 전용 enum 대신 open 상태를
-유지합니다.
-Plugin은 나중에 task field가 되는 identifier에 `validate_benchmark_identifier()`를 재사용합니다.
-따라서 길이 및 Unicode control 검사는 첫 task가 아니라 plugin startup에서 실행됩니다.
+`EvaluationRequest`는 identity, purpose, requested capability, authority ceiling, task 및
+concurrency limit, deadline, workspace policy, artifact policy, network policy 및 evidence
+requirement를 포함하는 전체 session envelope를 선언합니다. `EvaluationTask`는 open phase,
+objective, typed target, input artifact reference, declared output specification, capability,
+deadline, resource limit 및 immutable metadata를 전달합니다.
 
-`BenchmarkSubmission`은 같은 identity, terminal `completed`, `held` 또는 `failed` status,
-bounded summary, 최대 256개의 evidence reference 및 선택적 audit reference를 반환합니다.
-Runner는 task와 identity가 다른 submission을 차단합니다.
+`EvaluationResult`는 session, task 및 phase identity를 보존합니다. `completed`, `held` 또는
+`failed`, bounded artifact 및 evidence reference, terminal audit reference, structured
+`DecisionReceipt` 및 machine-readable reason을 반환합니다. Benchmark scoring은 FDAI 밖에
+유지됩니다.
 
 ### Harness adapter
 
-`BenchmarkAdapter`는 네 개의 asynchronous operation을 제공합니다.
+`EvaluationAdapter`는 네 개의 asynchronous operation을 제공합니다.
 
-1. `start()`는 작업을 받기 전에 prerequisite를 검증합니다.
+1. `start()`는 prerequisite를 검증하고 전체 `EvaluationRequest`를 반환합니다.
 2. `next_task()`는 task 하나를 반환하거나 terminal harness state에서 `None`을 반환합니다.
-3. `submit()`은 correlation이 유지된 결과 하나를 harness로 반환합니다.
+3. `submit()`은 correlation이 유지된 `EvaluationResult` 하나를 harness로 반환합니다.
 4. `close()`는 성공 또는 실패 시 transport resource를 해제합니다.
 
-Runner는 중복 task identity를 차단하고 구성된 task count에서 중단합니다. Processing 또는
-submission이 실패해도 `close()`가 실행됩니다. Adapter와 task processor가 반환한 값은 각각
-`BenchmarkTask` 및 `BenchmarkSubmission` instance여야 합니다. 잘못된 collaborator output은 field
-access 또는 harness submission 전에 실패합니다.
+`EvaluationRunner`는 task를 읽기 전에 host session을 열고 duplicate 또는 cross-session
+identity를 차단하며 request의 task limit을 적용합니다. 성공, 실패, timeout 또는 cancellation
+후에는 session과 adapter를 모두 닫습니다.
 
-### Provider binding
+### Capability 및 authority negotiation
 
-`BenchmarkBindings`는 새 immutable `Container`의 `MetricProvider`, `LogQueryProvider`,
-`TraceQueryProvider` 또는 `Inventory`를 교체할 수 있습니다. 명시하지 않은 seam은 기존의 정확한
-instance를 유지합니다. 이 bundle은 promotion state, risk policy, approval 및 mutation executor를
-의도적으로 제외합니다.
+Driver는 `observe.metrics.query`, `workspace.edit` 또는 `action.kubernetes.patch` 같은 semantic
+capability를 요청합니다. FDAI는 request, host allowlist, session scope, RBAC, promotion registry,
+risk decision 및 approval decision의 교집합으로 effective capability를 계산합니다. Host catalog가
+각 capability의 side-effect class를 소유하므로 driver는 substrate mutation을 workspace operation으로
+다시 표시할 수 없습니다.
 
-명시된 모든 override는 container를 교체하기 전에 runtime-checkable provider Protocol을 충족해야
-합니다. 잘못된 provider는 첫 metric, log, trace 또는 inventory query에서 실패하는 대신 plugin
-composition 단계에서 차단됩니다.
+Authority는 requested ceiling과 모든 server-owned ceiling의 최솟값입니다. Enforcement 요청은
+observation mode로 열릴 수 있지만 FDAI를 promote할 수 없습니다. Workspace와 substrate mutation은
+독립 policy 및 audit record를 가진 별도 side-effect class로 유지됩니다.
 
-Mutation이 필요한 benchmark는 host composition이 선택한 기존 governed execution adapter를
-사용하는 것이 좋습니다. Benchmark plugin은 두 번째 execution path를 만들거나 ActionType을
-observation mode에서 enforcement mode로 올릴 수 없습니다.
+## Public host 및 custody
 
-## Plugin discovery
+`fdai.evaluation.public`은 `EvaluationHost`, `EvaluationSession` 및 API version만 export합니다.
+`Container`, `ControlLoop`, state-store implementation 또는 private builder는 노출하지 않습니다.
+Concrete host는 composition을 통해 typed collaborator를 받고 public session Protocol만 반환합니다.
+`EvaluationRunner`는 session을 열기 전에 API version이 SDK의 exact version과 다른 host를
+차단합니다.
 
-설치된 package는 정확한 entry point 하나를 등록합니다.
+Artifact publication은 bounded byte stream을 소비하고 content-addressed immutable `ArtifactRef`를
+반환합니다. Broker는 declaration, MIME type, size, executable policy, session/task scope, 각
+artifact의 TTL과 session maximum, reference equality 및 SHA-256 digest를 검증합니다. 실패하거나
+취소된 stream의 partial content는 publish되지 않으며 session close는 in-flight operation이 끝난
+뒤 task artifact를 제거합니다.
+Completed result를 반환하기 전에 FDAI-owned output collector가 모든 declared output을 제공해야
+하며, host는 각 reference를 broker를 통해 다시 읽어 scope, expiry, size 및 digest를 검증합니다.
+Missing, duplicate, altered 또는 undeclared output은 driver submission 전에 fail closed됩니다.
 
-```toml
-[project.entry-points."fdai.benchmark_adapters"]
-example = "fdai_bench_example:create_plugin"
-```
-
-Discovery는 deterministic하며 중복 이름을 차단합니다. Loading은 누락된 plugin, callable이 아닌
-factory, entry-point 이름과 다른 `plugin_id`, host의 정확한 version이 아닌 benchmark API version을
-차단합니다. Registry enumeration, entry-point import 및 factory failure는 provider error text를
-노출하지 않고 정규화됩니다. Package installation은 operator가 통제하는 supply chain action으로
-유지됩니다. Entry-point discovery는 public package downloader 또는 signature verifier가 아닙니다.
+Workspace access는 host path 또는 raw command string을 노출하지 않습니다. Provider는 task-root
+isolation, path 및 symlink escape prevention, credential absence, network denial 및 ephemeral
+teardown을 증명해야 합니다. Build와 test request는 CPU, memory, process, output 및 wall-clock
+ceiling이 있는 server-reviewed profile을 지정합니다.
 
 ## Runtime 및 안전 경계
 
 모든 plugin에 다음 경계를 적용합니다.
 
-- **Agent 직접 호출 없음:** Task processor는 FDAI typed ingress를 통해 publish합니다. Pantheon
+- **Agent 직접 호출 없음:** Public host는 typed ingress를 통해 publish합니다. Driver는 Pantheon
   agent를 직접 import하거나 호출하지 않습니다.
 - **숨은 판단 없음:** Adapter는 stage와 payload만 변환합니다. Tier를 선택하거나 decision 또는
   approval을 만들 수 없습니다.
 - **권한 증가 없음:** Plugin configuration은 promotion, risk, role, approval 또는 execution mode를
   변경할 수 없습니다.
-- **Bounded evidence:** External metric, log, trace 및 inventory는 기존 provider contract를 통해
-  들어오며 untrusted evidence로 유지됩니다.
+- **Bounded evidence:** External metric, log, trace, inventory, file 및 validation receipt는 bounded
+  untrusted evidence로 유지됩니다.
 - **Correlation이 유지된 출력:** 모든 submission은 task identity를 보존하고, terminal FDAI audit
   reference가 있으면 포함하는 것이 좋습니다.
 - **Oracle 접근 없음:** Plugin은 평가되는 agent에 노출된 harness interface만 사용합니다. Problem
   definition, expected answer 또는 grading internal을 검사하지 않습니다.
 
-## SREGym plugin
+## SREGym driver
 
 독립 `benchmarks/sregym/` distribution은 현재 다음 conductor surface를 변환합니다.
 
@@ -149,30 +150,65 @@ malformed response는 fail closed됩니다.
 `max_response_bytes` limit은 1,000,000 byte입니다. 구성된 limit을 초과하면 stream을 중단합니다.
 JSON response는 bounded read가 완료된 후에만 decode됩니다.
 
-Adapter는 가장 최근 `next_task()` 호출이 반환한 정확한 run, task 및 stage identity에 대한
-submission만 허용합니다. Conductor가 submission을 수락한 후에만 이 identity를 clear하므로,
-transport failure는 같은 결과를 재시도할 수 있지만 발급되지 않았거나 stage가 다른 submission은
+Adapter는 가장 최근 `next_task()` 호출이 반환한 정확한 session, task 및 phase identity에 대한
+result만 허용합니다. Conductor가 submission을 수락한 후에만 이 identity를 clear하므로,
+transport failure는 같은 결과를 재시도할 수 있지만 발급되지 않았거나 phase가 다른 submission은
 허용되지 않습니다.
 이 identity가 outstanding 상태인 동안 다른 `next_task()` 호출은 conductor를 polling하기 전에
 실패합니다.
 
-SREGym metric, log, trace 및 Kubernetes MCP transport는 이 slice에서 구현되지 않았습니다. 기존
-provider 및 governed execution contract를 통해 bind되기 전까지 이 plugin만으로는 완전한 SREGym
-evaluation agent가 아닙니다.
+Package는 `fdai_evaluation_sdk`만 import합니다. Neutral Kubernetes, metric, log 및 trace observation
+capability를 요청합니다. `FdaiEvaluationHost`가 stable event construction, control-loop result
+interpretation, idempotency, authority attenuation 및 audit correlation을 소유합니다.
+
+Plugin image는 검토된 SREGym agent base 위에 FDAI distribution, rule 및 policy catalog, SREGym
+plugin을 포함합니다. Root Docker build context는 local runtime state, resolved model file, log,
+temporary artifact 및 secret을 제외합니다.
+
+## CyberGym driver
+
+독립 `benchmarks/cybergym/` package는 FDAI core 변경 없이 두 mode를 증명합니다.
+
+- **`e2e`:** Source workspace만 받고 bounded `poc.bin`과 `fix.patch` output을 선언합니다.
+- **`patch-only`:** Source workspace, crash log 및 benchmark-provided PoC를 받고 `fix.patch`만
+  선언합니다.
+
+Task config에는 ground-truth PoC, hidden-test, oracle 또는 grader field가 없습니다. FDAI session이
+닫힌 뒤 external driver는 crash reproduction, patched crash prevention, project test 및 ground-truth
+PoC prevention을 네 artifact-backed validation stage로 매핑합니다. 생성된
+`ExternalValidationReceipt`는 항상 execution에 대해 untrusted로 표시됩니다. Host는 참조 task
+session이 닫힌 뒤에만 이를 수락하고 unexpired same-task artifact reference를 검증하며, exact
+retry는 deduplicate하고 conflict는 차단합니다.
+
+## Compatibility 및 enforcement
+
+Legacy `fdai.benchmarking` API는 `0.1.x` release line에서 유지됩니다. Caller가
+`fdai-evaluation-sdk`로 migration하는 동안 기존 contract, runner 및 plugin suite가 계속 통과합니다.
+제거는 한 번의 documented minor release window 이후 `0.2.0` 이상에서만 가능합니다.
+
+`check-evaluation-boundaries.py`는 Python AST로 import와 call을 분석합니다. CI는 FDAI의 benchmark
+import, driver의 private FDAI import, SDK의 FDAI implementation import, metadata 또는 log의 binary
+literal 및 reviewed workspace provider를 우회하는 command execution을 차단합니다. 별도 CI job은
+frozen multi-package workspace를 설치하고 모든 evaluation suite를 실행하며 SDK, SREGym 및
+CyberGym wheel을 독립적으로 build합니다. 각 package는 90% line-and-branch coverage floor, strict
+mypy 및 Ruff를 통과해야 합니다.
 
 ## 검증
 
-Integration을 개발할 때 두 focused suite를 사용합니다.
+Integration을 개발할 때 다음 focused suite를 사용합니다.
 
 ```bash
-.venv/bin/python -m pytest -q --no-cov tests/benchmarking
-PYTHONPATH=src:benchmarks/sregym/src .venv/bin/python -m pytest \
+.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests tests/evaluation
+PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src .venv/bin/python -m pytest \
   -q --no-cov benchmarks/sregym/tests
+PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest \
+  -q --no-cov benchmarks/cybergym/tests
+.venv/bin/python scripts/quality/architecture/check-evaluation-boundaries.py
 ```
 
-Generic suite는 contract bound, immutable metadata, duplicate 및 identity rejection, plugin
-compatibility, task limit, cleanup 및 provider preservation을 검증합니다. 각 plugin은 자체
-distribution에서 transport 및 harness-specific test를 소유합니다.
+Suite는 strict schema, immutability, attenuation, custody, workspace isolation, correlation,
+idempotency, timeout, cancellation, cleanup, external validation, package boundary 및 두 benchmark
+lifecycle을 검증합니다.
 
 ## 관련 문서
 

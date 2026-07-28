@@ -110,11 +110,13 @@ fdai/
 │   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agents, typed topics, v2 conversation charters, and bounded T1/T2 deliberation; see [agent-pantheon.md](../agents/agent-pantheon.md)
-│   ├── benchmarking/          # brand-neutral task/submission contracts, installed-plugin discovery, read-provider binding, and bounded runner; no harness implementation
+│   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, and typed ingress
+│   ├── benchmarking/          # temporary 0.1.x compatibility facade for legacy benchmark contracts and runners
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders
 │   ├── runtime/               # headless lifecycle and composition, including focused transport/identity bootstrap bindings, pre-Pantheon startup readiness, continuous worker gating, and durable post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
-├── benchmarks/                # independently packaged external-harness plugins; not included in the FDAI wheel
+├── evaluation-sdk/            # independently packageable neutral evaluation contracts and runner; no FDAI implementation imports
+├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel
 ├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in src/fdai/rule_catalog/
 │   ├── schema/                 # JSON Schema definitions (data)
 │   ├── vocabulary/             # canonical CSP-neutral vocabularies: resource-types.yaml, object-types/, link-types/

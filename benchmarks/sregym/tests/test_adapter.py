@@ -6,10 +6,15 @@ import json
 
 import httpx
 import pytest
-from fdai_bench_sregym import SregymAdapter, SregymAdapterConfig
+from fdai_evaluation_sdk import (
+    AuthorityCeiling,
+    DecisionReceipt,
+    EvaluationResult,
+    EvaluationStatus,
+    QualityGateStatus,
+)
 
-from fdai.benchmarking import BenchmarkStatus, BenchmarkSubmission
-from fdai.benchmarking.adapter import BenchmarkAdapterError
+from fdai_bench_sregym import SregymAdapter, SregymAdapterConfig, SregymAdapterError
 
 
 def _adapter(handler) -> tuple[SregymAdapter, httpx.AsyncClient]:  # type: ignore[no-untyped-def]
@@ -25,6 +30,32 @@ def _adapter(handler) -> tuple[SregymAdapter, httpx.AsyncClient]:  # type: ignor
             http_client=client,
         ),
         client,
+    )
+
+
+def _result(
+    *,
+    session_id: str = "attempt-1",
+    task_id: str = "diagnosis-0000000000000000",
+    phase: str = "diagnosis",
+    summary: str = "Evidence-backed result.",
+) -> EvaluationResult:
+    return EvaluationResult(
+        session_id=session_id,
+        task_id=task_id,
+        phase=phase,
+        status=EvaluationStatus.COMPLETED,
+        summary=summary,
+        terminal_audit_ref="audit/example",
+        decision_receipt=DecisionReceipt(
+            selected_tier="t0",
+            control_loop_outcome="executed",
+            decision="complete",
+            autonomy_mode=AuthorityCeiling.SHADOW,
+            verifier_passed=True,
+            quality_gate_status=QualityGateStatus.NOT_REQUIRED,
+            authority_ceiling=AuthorityCeiling.SHADOW,
+        ),
     )
 
 
@@ -49,18 +80,23 @@ async def test_translates_diagnosis_and_submits_result() -> None:
         raise AssertionError(request.url.path)
 
     adapter, client = _adapter(handler)
-    await adapter.start()
+    request = await adapter.start()
     task = await adapter.next_task()
     assert task is not None
-    assert task.stage == "diagnosis"
-    assert task.target_ref == "kubernetes.namespace/example"
+    assert request.session_id == "attempt-1"
+    assert {item.capability_id for item in request.requested_capabilities} >= {
+        "observe.kubernetes.inventory",
+        "observe.metrics.query",
+    }
+    assert task.phase == "diagnosis"
+    assert task.target.kind == "kubernetes.namespace"
+    assert task.target.value == "example"
 
     await adapter.submit(
-        BenchmarkSubmission(
-            run_id=task.run_id,
+        _result(
+            session_id=task.session_id,
             task_id=task.task_id,
-            stage=task.stage,
-            status=BenchmarkStatus.COMPLETED,
+            phase=task.phase,
             summary="The backend dependency is unavailable.",
         )
     )
@@ -84,16 +120,8 @@ async def test_submit_rejects_unissued_task() -> None:
     adapter, client = _adapter(handler)
     await adapter.start()
 
-    with pytest.raises(BenchmarkAdapterError, match="no SREGym task is awaiting submission"):
-        await adapter.submit(
-            BenchmarkSubmission(
-                run_id="attempt-1",
-                task_id="attempt-1",
-                stage="diagnosis",
-                status=BenchmarkStatus.COMPLETED,
-                summary="Unissued result.",
-            )
-        )
+    with pytest.raises(SregymAdapterError, match="no SREGym task is awaiting submission"):
+        await adapter.submit(_result(summary="Unissued result."))
 
     assert submit_calls == 0
     await client.aclose()
@@ -125,13 +153,12 @@ async def test_submit_rejects_mismatched_issued_task() -> None:
     task = await adapter.next_task()
     assert task is not None
 
-    with pytest.raises(BenchmarkAdapterError, match="does not match the issued SREGym task"):
+    with pytest.raises(SregymAdapterError, match="does not match the issued SREGym task"):
         await adapter.submit(
-            BenchmarkSubmission(
-                run_id=task.run_id,
+            _result(
+                session_id=task.session_id,
                 task_id=task.task_id,
-                stage="mitigation",
-                status=BenchmarkStatus.COMPLETED,
+                phase="mitigation",
                 summary="Wrong-stage result.",
             )
         )
@@ -164,7 +191,7 @@ async def test_next_task_rejects_outstanding_task() -> None:
     task = await adapter.next_task()
     assert task is not None
 
-    with pytest.raises(BenchmarkAdapterError, match="task is already awaiting submission"):
+    with pytest.raises(SregymAdapterError, match="task is already awaiting submission"):
         await adapter.next_task()
 
     assert status_calls == 2
@@ -192,15 +219,14 @@ async def test_submit_normalizes_transport_failure() -> None:
     await adapter.start()
     task = await adapter.next_task()
     assert task is not None
-    submission = BenchmarkSubmission(
-        run_id=task.run_id,
+    submission = _result(
+        session_id=task.session_id,
         task_id=task.task_id,
-        stage=task.stage,
-        status=BenchmarkStatus.COMPLETED,
+        phase=task.phase,
         summary="Evidence-backed result.",
     )
 
-    with pytest.raises(BenchmarkAdapterError, match="submit request failed") as error:
+    with pytest.raises(SregymAdapterError, match="submit request failed") as error:
         await adapter.submit(submission)
 
     assert isinstance(error.value.__cause__, httpx.ReadTimeout)
@@ -233,7 +259,7 @@ async def test_rejects_response_over_byte_limit() -> None:
     )
     await adapter.start()
 
-    with pytest.raises(BenchmarkAdapterError, match="over the 64-byte cap"):
+    with pytest.raises(SregymAdapterError, match="over the 64-byte cap"):
         await adapter.next_task()
 
     await client.aclose()
@@ -257,10 +283,10 @@ async def test_normalizes_invalid_application_payload() -> None:
     adapter, client = _adapter(handler)
     await adapter.start()
 
-    with pytest.raises(BenchmarkAdapterError, match="application payload is invalid") as error:
+    with pytest.raises(SregymAdapterError, match="application payload is invalid") as error:
         await adapter.next_task()
 
-    assert isinstance(error.value.__cause__, ValueError)
+    assert isinstance(error.value.__cause__, SregymAdapterError)
     await client.aclose()
 
 
@@ -294,13 +320,12 @@ async def test_rejects_submit_response_over_byte_limit() -> None:
     task = await adapter.next_task()
     assert task is not None
 
-    with pytest.raises(BenchmarkAdapterError, match="submit.*over the 128-byte cap"):
+    with pytest.raises(SregymAdapterError, match="submit.*over the 128-byte cap"):
         await adapter.submit(
-            BenchmarkSubmission(
-                run_id=task.run_id,
+            _result(
+                session_id=task.session_id,
                 task_id=task.task_id,
-                stage=task.stage,
-                status=BenchmarkStatus.COMPLETED,
+                phase=task.phase,
                 summary="Evidence-backed result.",
             )
         )
@@ -394,8 +419,88 @@ async def test_fails_closed_when_stage_becomes_unknown_after_start() -> None:
     adapter, client = _adapter(handler)
     await adapter.start()
 
-    with pytest.raises(BenchmarkAdapterError, match="unsupported SREGym stage 'unknown-stage'"):
+    with pytest.raises(SregymAdapterError, match="unsupported SREGym stage 'unknown-stage'"):
         await adapter.next_task()
 
     assert status_calls == 2
     await client.aclose()
+
+
+async def test_rejects_task_before_start_and_returns_terminal_none() -> None:
+    adapter, client = _adapter(lambda _: httpx.Response(200, json={"stage": "done"}))
+
+    with pytest.raises(SregymAdapterError, match="MUST be started"):
+        await adapter.next_task()
+    await adapter.start()
+    assert await adapter.next_task() is None
+    await client.aclose()
+
+
+@pytest.mark.parametrize(
+    ("response", "message"),
+    (
+        (httpx.Response(200, content=b"not-json"), "is not JSON"),
+        (httpx.Response(200, json=["not-an-object"]), "is not an object"),
+        (httpx.Response(503), "returned HTTP 503"),
+    ),
+)
+async def test_normalizes_malformed_and_failed_status_response(
+    response: httpx.Response,
+    message: str,
+) -> None:
+    adapter, client = _adapter(lambda _: response)
+
+    with pytest.raises(SregymAdapterError, match=message):
+        await adapter.start()
+    await client.aclose()
+
+
+async def test_normalizes_get_transport_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("status timed out", request=request)
+
+    adapter, client = _adapter(handler)
+    with pytest.raises(SregymAdapterError, match="request '/status' failed") as error:
+        await adapter.start()
+    assert isinstance(error.value.__cause__, httpx.ReadTimeout)
+    await client.aclose()
+
+
+@pytest.mark.parametrize(
+    ("stage", "expected"),
+    (
+        ("mitigation", "governed recovery"),
+        ("resolution", "resolution evidence"),
+    ),
+)
+async def test_maps_non_diagnosis_objectives(stage: str, expected: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": stage})
+        return httpx.Response(
+            200,
+            json={
+                "app_name": "example-shop",
+                "namespace": "example",
+                "descriptions": "Requests return errors.",
+            },
+        )
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+    task = await adapter.next_task()
+    assert task is not None
+    assert expected in task.objective
+    await client.aclose()
+
+
+async def test_owned_http_client_closes() -> None:
+    adapter = SregymAdapter(
+        config=SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+        )
+    )
+    assert adapter._http.is_closed is False  # noqa: SLF001
+    await adapter.close()
+    assert adapter._http.is_closed is True  # noqa: SLF001

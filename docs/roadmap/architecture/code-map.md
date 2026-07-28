@@ -220,8 +220,10 @@ domain agents consume those canonical Events before publishing their owned advis
 
 | Path | Purpose |
 |------|---------|
-| [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Brand-neutral task/submission contracts, installed-plugin discovery, explicit read-provider binding, and bounded lifecycle runner. |
-| [benchmarks/](../../../benchmarks/) | Independently packaged harness plugins; see the [benchmark adapter design](../interfaces/benchmark-adapters.md). |
+| [evaluation-sdk/](../../../evaluation-sdk/) | Independently packageable neutral contracts, public Protocols, workspace values, and bounded runner. |
+| [src/fdai/evaluation/](../../../src/fdai/evaluation/) | Public host implementation, capability attenuation, artifact custody, workspace policy, typed ingress, and result receipts. |
+| [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Temporary `0.1.x` compatibility facade for legacy benchmark callers. |
+| [benchmarks/](../../../benchmarks/) | Independently packaged SREGym and CyberGym drivers; see the [benchmark adapter design](../interfaces/benchmark-adapters.md). |
 
 ## Composition and catalog
 

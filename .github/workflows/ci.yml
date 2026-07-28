@@ -372,6 +372,53 @@ jobs:
       - name: check-agents-imports.sh
         run: bash scripts/quality/architecture/check-agents-imports.sh
 
+  evaluation-boundaries:
+    name: evaluation SDK and external-adapter boundary guard
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: check-evaluation-boundaries.py
+        run: python3 scripts/quality/architecture/check-evaluation-boundaries.py
+
+  evaluation-packages:
+    name: evaluation SDK and external-adapter packages
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.3.2
+
+      - name: Install frozen workspace
+        run: uv sync --all-packages --extra dev --frozen
+
+      - name: Test evaluation packages
+        run: |
+          uv run pytest -q evaluation-sdk/tests --cov=fdai_evaluation_sdk --cov-branch --cov-fail-under=90 -o addopts=''
+          uv run pytest -q benchmarks/sregym/tests --cov=fdai_bench_sregym --cov-branch --cov-fail-under=90 -o addopts=''
+          uv run pytest -q benchmarks/cybergym/tests --cov=fdai_bench_cybergym --cov-branch --cov-fail-under=90 -o addopts=''
+
+      - name: Lint and type-check evaluation packages
+        run: |
+          uv run ruff check evaluation-sdk/src evaluation-sdk/tests benchmarks/sregym benchmarks/cybergym
+          uv run mypy --strict evaluation-sdk/src/fdai_evaluation_sdk
+          uv run mypy --strict benchmarks/sregym/src/fdai_bench_sregym
+          uv run mypy --strict benchmarks/cybergym/src/fdai_bench_cybergym
+
+      - name: Build independent wheels
+        run: |
+          uv build --wheel evaluation-sdk
+          uv build --wheel benchmarks/sregym
+          uv build --wheel benchmarks/cybergym
+
   file-loc:
     name: file LOC guard (warn > 400, fail > 800 in enforce mode)
     # Existing >400 LOC files remain visible warnings; any file above 800
