@@ -249,6 +249,19 @@ async def test_supported_event_requires_timezone_aware_timestamp(
 
 
 @pytest.mark.asyncio
+async def test_activity_page_rejects_event_count_over_cap() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [{}, {}]})
+
+    factory, client, _ = _factory(handler, cfg=_config(max_events_per_page=1))
+    try:
+        with pytest.raises(ActivityLogError, match="event count exceeds cap"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_nextlink_paging_encodes_running_max() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
@@ -423,6 +436,11 @@ def test_config_rejects_non_origin_activity_endpoint(arg_endpoint: str) -> None:
 def test_config_rejects_empty_subscription() -> None:
     with pytest.raises(ValueError, match="subscription_scope"):
         _config(subscription_scope="")
+
+
+def test_config_rejects_zero_event_page_cap() -> None:
+    with pytest.raises(ValueError, match="max_events_per_page"):
+        _config(max_events_per_page=0)
 
 
 @pytest.mark.parametrize(

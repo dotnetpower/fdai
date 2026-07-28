@@ -83,6 +83,7 @@ _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _DEFAULT_MAX_PROPS_BYTES: Final[int] = 16 * 1024
 _DEFAULT_INITIAL_LOOKBACK_SECONDS: Final[int] = 3600
+_DEFAULT_MAX_EVENTS_PER_PAGE: Final[int] = 1000
 _CURSOR_SEP: Final[str] = "\x1f"  # ASCII unit separator - never in a URL or RFC 3339 ts
 
 
@@ -109,6 +110,7 @@ class AzureActivityLogFactoryConfig:
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     max_props_bytes: int = _DEFAULT_MAX_PROPS_BYTES
     initial_lookback_seconds: int = _DEFAULT_INITIAL_LOOKBACK_SECONDS
+    max_events_per_page: int = _DEFAULT_MAX_EVENTS_PER_PAGE
     only_succeeded: bool = True
     """When True (default), only ``status.value == 'Succeeded'`` events map
     to an upsert; ``Started`` / ``Failed`` entries are skipped so a failed
@@ -147,6 +149,8 @@ class AzureActivityLogFactoryConfig:
             raise ValueError("max_props_bytes MUST be >= 1024")
         if self.initial_lookback_seconds < 0:
             raise ValueError("initial_lookback_seconds MUST be >= 0")
+        if self.max_events_per_page < 1:
+            raise ValueError("max_events_per_page MUST be >= 1")
 
 
 class AzureActivityLogFactory:
@@ -257,6 +261,10 @@ class AzureActivityLogFactory:
         events = payload.get("value")
         if not isinstance(events, list):
             raise ActivityLogError("Activity Log payload missing 'value' array")
+        if len(events) > self._config.max_events_per_page:
+            raise ActivityLogError(
+                f"Activity Log event count exceeds cap ({self._config.max_events_per_page})"
+            )
 
         # Dedupe within the page by neutral resource id, keeping the newest
         # event so a resource written twice in one page upserts once.

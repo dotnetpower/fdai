@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 68499962dbfe7f08919cdd766c6c1d4c89d86263
+translation_source_sha: a08317d6487d291b6a560a43e66cc9e08409ab96
 translation_revised: 2026-07-28
 ---
 
@@ -267,6 +267,8 @@ fdai/
   지우거나 뒤로 이동시킬 수 없습니다. 단일 subscription Activity Log adapter는 canonical hyphenated
   subscription UUID만 허용하여 scope text가 request path 또는 query를 변경하지 못하게 합니다. Bearer
   token endpoint는 userinfo, path, query, fragment가 없는 HTTPS origin URL이어야 합니다.
+  각 Activity Log response는 `max_events_per_page`(기본값 1000)로 제한되며 cap을 초과한 page는 mapping
+  또는 cursor 진행 전에 실패합니다.
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
   정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를
