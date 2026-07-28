@@ -117,7 +117,8 @@ Every metric maps to a concrete telemetry source so the dashboard is buildable, 
   negative duration. The delivery-layer wiring that feeds it live incidents (replacing the
   synthetic dev value in the `/kpi/autonomy` panel) is tracked as follow-up.
 - **Cost/usage records** (model tokens, compute time, storage, bus throughput) source metric 1;
-  attribution keys spend to the originating `event_id`.
+  attribution keys spend to the originating `event_id`. Repeated lifecycle rows for one action
+  contribute the latest observed savings value once rather than weighting or summing retries.
 - All metric inputs are English, secret-free, and customer-agnostic per the repo scope rules.
 
 ## Review Cadence

@@ -135,6 +135,28 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
     assert finops["durable"] is True
 
 
+async def test_audit_overview_uses_latest_savings_observation_per_action() -> None:
+    model = InMemoryConsoleReadModel()
+    for savings in (100.0, 50.0):
+        model.record_audit_entry(
+            {
+                "event_id": "event-1",
+                "actor": "fdai.core.control_loop",
+                "action_kind": "risk_gate.unified",
+                "mode": "shadow",
+                "decision": "hil",
+                "action_id": "action-1",
+                "action_type_id": "remediate.right-size-role",
+                "estimated_savings": savings,
+            }
+        )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+
+    cost = next(row for row in payload["verticals"] if row["key"] == "cost")
+    assert cost["monthly_savings"] == 50.0
+
+
 async def test_persisted_promotion_panel_holds_without_durable_evidence() -> None:
     action_type = load_action_type_catalog(
         REPO_ROOT / "rule-catalog" / "action-types",

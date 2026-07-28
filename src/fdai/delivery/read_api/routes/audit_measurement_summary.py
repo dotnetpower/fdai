@@ -254,15 +254,17 @@ def _event_vertical(items: Sequence[AuditItem]) -> str:
 
 
 def _event_savings(items: Sequence[AuditItem]) -> float:
-    by_action: dict[str, float] = {}
+    by_action: dict[str, tuple[int, float]] = {}
     for item in items:
         savings = item.entry.get("estimated_savings")
         if not _is_number(savings):
             continue
         action_id = item.entry.get("action_id")
         key = str(action_id) if action_id is not None else item.entry_hash
-        by_action[key] = float(savings)
-    return sum(by_action.values())
+        observed = by_action.get(key)
+        if observed is None or item.seq > observed[0]:
+            by_action[key] = (item.seq, float(savings))
+    return sum(value for _, value in by_action.values())
 
 
 def _metric(

@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: d7aa7cd2976b6b4fc5bae855450075bffdb4032b
+translation_source_sha: c5a8d2dfae38a7b115f16edadb35974826be437c
 translation_revised: 2026-07-28
 ---
 
@@ -120,7 +120,8 @@ translation_revised: 2026-07-28
   라이브 인시던트를 공급해 `/kpi/autonomy` 패널의 synthetic 데모값을 대체하는 delivery 레이어
   배선은 후속 작업으로 추적합니다.
 - **비용/사용 기록**(모델 토큰, 컴퓨트 시간, 저장소, 버스 처리량)이 metric 1의 소스.
-  귀속 키는 지출을 발생 `event_id`에 연결합니다.
+  귀속 키는 지출을 발생 `event_id`에 연결합니다. 하나의 action에 반복된 lifecycle row가 있으면
+  retry를 가중하거나 합산하지 않고 최신 관측 savings value를 한 번만 반영합니다.
 - 모든 메트릭 입력은 영문, 시크릿 없음, 고객-비종속 - 저장소 범위 규칙 준수.
 
 ## 리뷰 주기(Review Cadence)
