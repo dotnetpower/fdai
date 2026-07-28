@@ -64,6 +64,19 @@ def test_huginn_preserves_and_projects_canonical_inventory_change() -> None:
     assert huginn.behavior_snapshot()["discovery_projected"] == 1
 
 
+def test_huginn_preserves_recorded_failure_severity() -> None:
+    event = _canonical_event()
+    event["event_type"] = "availability.probe_failed"
+    event["incident_correlation"] = "correlate"
+    event["payload"] = {"severity": "high"}
+
+    normalized = asyncio.run(Huginn().ingest(event))
+
+    assert normalized is not None
+    assert normalized["incident_correlation"] == "correlate"
+    assert normalized["severity"] == "high"
+
+
 def test_projection_failure_does_not_commit_huginn_dedup() -> None:
     calls = 0
 

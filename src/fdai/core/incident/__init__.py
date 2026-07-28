@@ -22,6 +22,13 @@ replace the backend without touching this module.
 
 from __future__ import annotations
 
+from .auto_open import (
+    IncidentAutoOpenDecision,
+    IncidentAutoOpenPolicy,
+    evaluate_incident_auto_open,
+    incident_severity,
+    open_detected_incident_candidate,
+)
 from .durable_notifications import (
     DurableIncidentLifecycleNotifier,
     DurableNotificationResult,
@@ -87,6 +94,8 @@ __all__ = [
     "LEGAL_TRANSITIONS",
     "IncidentChatStatus",
     "IncidentChatTurn",
+    "IncidentAutoOpenDecision",
+    "IncidentAutoOpenPolicy",
     "IncidentConfirmationError",
     "IncidentCreationProposal",
     "IncidentLifecycleNotice",
@@ -126,7 +135,10 @@ __all__ = [
     "RoutedIncidentLifecycleNotifier",
     "detected_incident_correlation_keys",
     "detected_incident_event_id",
+    "evaluate_incident_auto_open",
     "incident_id_for",
+    "incident_severity",
+    "open_detected_incident_candidate",
     "link_ticket_receipt",
     "evaluate_incident_sla",
     "notice_from_lifecycle_entry",

@@ -148,6 +148,9 @@ class Huginn(Agent):
             "event_type": str(raw.get("event_type", "generic"))[:_MAX_FIELD_CHARS],
             "attributes": _bound_attributes(raw.get("attributes", {})),
         }
+        severity = raw.get("severity") or canonical_payload.get("severity")
+        if isinstance(severity, str) and severity.strip():
+            payload["severity"] = _bound(severity)
         if isinstance(inventory_change, Mapping):
             payload["inventory_change"] = _bound_json(inventory_change)
             signal_kind = canonical_payload.get("signal_kind")

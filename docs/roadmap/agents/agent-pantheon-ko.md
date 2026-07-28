@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e2caac52cd1c72be4a94453a2196102883611f81
+translation_source_sha: 7d05835a2a5f55166dd0ec1a41b3fd34b26d3e57
 translation_revised: 2026-07-28
 ---
 
@@ -243,9 +243,9 @@ object type을 publish하지 않습니다. Configured rate window 안에서 반�
 anomaly를 형성하며 sparse monitoring sample은 window를 넘어 누적되지 않습니다.
 Routine heartbeat, healthy probe, within-threshold observation은 finding이나 Incident를
 생성하지 않습니다.
-Workflow는 `IncidentRegistry`가 audited
-record를 쓰기 전에 agent allowlist와 event evidence를 다시 확인합니다. Hook
-실패는 agent behavior counter에 기록되며 anomaly path는 계속 유지됩니다.
+명시적 `incident_correlation=correlate`, correlation과 evidence, 활성 auto-open 및 충분한 severity를
+갖춘 candidate만 Workflow에 도달하며 나머지는 anomaly로 남습니다. Workflow는 evidence를 다시 확인한
+후 `IncidentRegistry`에 audited record를 씁니다. Hook 실패는 behavior counter에 기록되고 anomaly path는 유지됩니다.
 Production control-plane composition은 durable registry를 먼저 rehydrate하고
 pantheon이 enabled일 때 이 hook을 bind합니다. Read API는 Heimdall을 impersonate하지
 않습니다.

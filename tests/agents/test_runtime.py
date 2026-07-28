@@ -155,6 +155,38 @@ async def test_runtime_injects_heimdall_incident_candidate_hook() -> None:
     assert candidates[0]["producer_principal"] == "Heimdall"
 
 
+async def test_runtime_injects_configured_heimdall_repeat_policy() -> None:
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        incident_candidate_hook=capture,
+        heimdall_rate_threshold=2,
+        heimdall_rate_window=60,
+    )
+    heimdall = runtime.agents["Heimdall"]
+    assert isinstance(heimdall, Heimdall)
+
+    for index in range(2):
+        await heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "api-example",
+                "event_type": "availability.probe_failed",
+                "incident_correlation": "correlate",
+                "correlation_id": "episode-1",
+                "idempotency_key": f"failure-{index}",
+                "severity": "high",
+            },
+        )
+
+    assert len(candidates) == 1
+
+
 async def test_runtime_feeds_uncovered_incident_symptom_to_norns() -> None:
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),

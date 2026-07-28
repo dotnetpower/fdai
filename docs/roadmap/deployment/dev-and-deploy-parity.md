@@ -167,6 +167,10 @@ retention/deletion day changes are labeled restart required and are loaded when 
 starts. No setting grants the local read API an executor identity or changes ActionType and Workflow
 promotion state.
 
+Incident auto-open enablement, minimum severity, repeat threshold, and repeat window are also
+startup-bound. The headless runtime loads durable effective values. An embedded local Pantheon uses
+the same validated environment and default contract instead of a separate fixed severity or window.
+
 Detection readiness uses the same boundary. Deployment always reads Muninn StateSnapshots from
 PostgreSQL. Interactive local registers `/detection-readiness` only when local PostgreSQL is
 configured; otherwise the route and source manifest report unavailable. The local browser never

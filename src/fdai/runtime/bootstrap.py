@@ -250,13 +250,13 @@ async def _run() -> int:
             if os.environ.get("FDAI_EMAIL_ENDPOINT") and http_client is None:
                 http_client = _new_http_client()
             from fdai.core.incident import (
+                IncidentAutoOpenPolicy,
                 IncidentLifecycleWorkflow,
                 IncidentRegistry,
-                detected_incident_correlation_keys,
-                detected_incident_event_id,
+                incident_severity,
                 link_ticket_receipt,
+                open_detected_incident_candidate,
             )
-            from fdai.shared.contracts.models import IncidentSeverity
 
             incident_audit_store = _build_audit_store()
             from fdai.delivery.runtime_settings import RuntimeSettingsService
@@ -268,6 +268,12 @@ async def _run() -> int:
             )
             runtime_values = await runtime_settings.effective_values()
             logging.getLogger().setLevel(str(runtime_values["logging.level"]))
+            incident_auto_open_policy = IncidentAutoOpenPolicy(
+                enabled=runtime_values["incident.auto_open.enabled"] is True,
+                minimum_severity=incident_severity(
+                    runtime_values["incident.auto_open.min_severity"]
+                ),
+            )
             incident_registry = IncidentRegistry(state_store=incident_audit_store)
             incident_entries = await incident_audit_store.read_incident_transitions()
             incident_registry.rehydrate(incident_entries)
@@ -283,21 +289,10 @@ async def _run() -> int:
             )
 
             async def _open_incident_candidate(candidate: dict[str, Any]) -> None:
-                evidence_key = str(candidate.get("evidence_key") or "")
-                resource_id = str(candidate.get("resource_id") or "")
-                event_type = str(candidate.get("event_type") or "generic")
-                if not evidence_key or not resource_id:
-                    return
-                await incident_workflow.open_from_agent(
-                    producer_principal="Heimdall",
-                    correlation_keys=detected_incident_correlation_keys(
-                        resource_id=resource_id,
-                        event_type=event_type,
-                        correlation_id=str(candidate.get("correlation_id") or ""),
-                    ),
-                    severity=IncidentSeverity.SEV3,
-                    member_event_ids=(detected_incident_event_id(evidence_key),),
-                    reason=str(candidate.get("reason_code") or "detected_anomaly"),
+                await open_detected_incident_candidate(
+                    workflow=incident_workflow,
+                    candidate=candidate,
+                    policy=incident_auto_open_policy,
                 )
 
             async def _observe_tool_receipt(request: Any, receipt: Any) -> None:
@@ -487,6 +482,14 @@ async def _run() -> int:
                     disabled_agents=disabled_agents,
                     divergence=divergence_ledger,
                     incident_candidate_hook=_open_incident_candidate,
+                    heimdall_rate_threshold=_runtime_positive_integer(
+                        runtime_values,
+                        "incident.repeat_threshold",
+                    ),
+                    heimdall_rate_window=_runtime_positive_integer(
+                        runtime_values,
+                        "incident.repeat_window_seconds",
+                    ),
                     discovery_projector=_build_inventory_delta_projector(),
                     scenario_coverage_aggregator=ScenarioCoverageAggregator(
                         index=runtime_symptom_index

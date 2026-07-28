@@ -423,6 +423,12 @@ def build_local_app(
     agent_activity_config = (
         command_transport.agent_activity if command_transport is not None else None
     )
+    from fdai.delivery.runtime_settings import RuntimeSettingsService
+
+    startup_runtime_values = RuntimeSettingsService(
+        store=None,
+        env=os.environ,
+    ).environment_values()
     runtime = None
     post_turn_review_queue = None
     embed_pantheon = os.environ.get(_EMBED_PANTHEON_ENV, "").strip().casefold() not in {
@@ -466,6 +472,7 @@ def build_local_app(
             local_operator_oid=local_operator_oid,
             action_topic=_LOCAL_ACTION_TOPIC,
             repo_root=_REPO_ROOT,
+            runtime_values=startup_runtime_values,
         )
         runtime = fixture_runtime
         agent_activity_config = replace(
@@ -504,6 +511,7 @@ def build_local_app(
             read_model=read_model,
             action_types=tuple(action_types),
             handler_observer=handler_observer,
+            runtime_values=startup_runtime_values,
         )
         runtime = interactive_runtime
         post_turn_review_queue = PostTurnReviewQueue(
@@ -607,8 +615,6 @@ def build_local_app(
             *arb_status_panels,
         )
     )
-    from fdai.delivery.runtime_settings import RuntimeSettingsService
-
     runtime_settings = RuntimeSettingsService(
         store=persistence.state_store if persistence is not None else models.settings.store,
         env=os.environ,

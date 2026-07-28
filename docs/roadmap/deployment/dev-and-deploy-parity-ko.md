@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 7cb65476bc8e4e0a3ee827c42376406f718d4ca1
+translation_source_sha: b0ef5fdbb0bb7454c90e42c843a37955f59dc644
 translation_revised: 2026-07-28
 ---
 
@@ -166,6 +166,10 @@ allowlist만 업데이트할 수 있습니다. IRP 변경은 다음 eligible ale
 retention cadence 변경은 다음 Job 또는 tick에 적용됩니다. Logging level과 case retention/deletion day
 변경은 restart required로 표시되며 headless runtime이 시작될 때 로드됩니다. 어떤 setting도 local read
 API에 executor identity를 부여하거나 ActionType 및 Workflow promotion state를 변경하지 않습니다.
+
+Incident auto-open enablement, minimum severity, repeat threshold 및 repeat window도 startup-bound입니다.
+Headless runtime은 durable effective value를 로드합니다. Embedded local Pantheon은 별도의 fixed severity나
+window 대신 동일하게 검증된 environment 및 default contract를 사용합니다.
 
 Detection readiness도 같은 경계를 사용합니다. Deployment는 항상 PostgreSQL에서 Muninn
 StateSnapshot을 읽습니다. Interactive local은 local PostgreSQL이 구성된 경우에만

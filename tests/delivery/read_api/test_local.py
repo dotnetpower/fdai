@@ -86,6 +86,114 @@ def test_interactive_pantheon_wires_all_agents_without_fixture_executors() -> No
     assert wiring.operator_runtime is None
 
 
+async def test_interactive_inventory_burst_does_not_open_incident() -> None:
+    read_model = InMemoryConsoleReadModel()
+    wiring = build_interactive_pantheon_wiring(
+        event_bus=LiveInMemoryEventBus(),
+        event_topic="aw.events",
+        read_model=read_model,
+        action_types=(),
+    )
+    heimdall = wiring.pantheon_runtime.agents["Heimdall"]
+
+    for index in range(5):
+        await heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "storage-example",
+                "event_type": "inventory.resource_changed",
+                "incident_correlation": "none",
+                "correlation_id": "inventory:storage-example",
+                "idempotency_key": f"inventory-{index}",
+            },
+        )
+
+    assert (await read_model.list_incidents(status="all")).items == ()
+
+
+async def test_interactive_high_failure_burst_opens_one_incident() -> None:
+    read_model = InMemoryConsoleReadModel()
+    wiring = build_interactive_pantheon_wiring(
+        event_bus=LiveInMemoryEventBus(),
+        event_topic="aw.events",
+        read_model=read_model,
+        action_types=(),
+    )
+    heimdall = wiring.pantheon_runtime.agents["Heimdall"]
+
+    for index in range(5):
+        await heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "api-example",
+                "event_type": "availability.probe_failed",
+                "incident_correlation": "correlate",
+                "correlation_id": "episode-1",
+                "idempotency_key": f"failure-{index}",
+                "severity": "high",
+            },
+        )
+
+    incidents = (await read_model.list_incidents(status="all")).items
+    assert len(incidents) == 1
+    assert incidents[0].severity == "high"
+
+
+async def test_interactive_pantheon_uses_incident_runtime_values() -> None:
+    read_model = InMemoryConsoleReadModel()
+    wiring = build_interactive_pantheon_wiring(
+        event_bus=LiveInMemoryEventBus(),
+        event_topic="aw.events",
+        read_model=read_model,
+        action_types=(),
+        runtime_values={
+            "incident.auto_open.enabled": False,
+            "incident.auto_open.min_severity": "CRITICAL",
+            "incident.repeat_threshold": 7,
+            "incident.repeat_window_seconds": 900,
+        },
+    )
+
+    heimdall = wiring.pantheon_runtime.agents["Heimdall"]
+    introspection = await heimdall.introspect("status", {})
+    assert introspection.facts["rate_threshold"] == 7
+    assert introspection.facts["rate_window_seconds"] == 900
+    for index in range(7):
+        await heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "api-example",
+                "event_type": "availability.probe_failed",
+                "incident_correlation": "correlate",
+                "correlation_id": "episode-disabled",
+                "idempotency_key": f"critical-{index}",
+                "severity": "critical",
+            },
+        )
+    assert (await read_model.list_incidents(status="all")).items == ()
+
+
+@pytest.mark.parametrize(
+    "runtime_values",
+    [
+        {"incident.auto_open.min_severity": "URGENT"},
+        {"incident.repeat_threshold": 1},
+        {"incident.repeat_window_seconds": 1},
+    ],
+)
+def test_interactive_pantheon_rejects_invalid_incident_runtime_values(
+    runtime_values: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="incident"):
+        build_interactive_pantheon_wiring(
+            event_bus=LiveInMemoryEventBus(),
+            event_topic="aw.events",
+            read_model=InMemoryConsoleReadModel(),
+            action_types=(),
+            runtime_values=runtime_values,
+        )
+
+
 async def test_interactive_local_event_streams_huginn_and_heimdall_activity() -> None:
     event_bus = LiveInMemoryEventBus()
     sink = LocalSseSink()

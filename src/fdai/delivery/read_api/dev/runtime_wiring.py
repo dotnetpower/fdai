@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fdai.agents import AgentHandlerObserver, PantheonRuntime
 from fdai.core.incident import (
+    IncidentAutoOpenPolicy,
     IncidentLifecycleWorkflow,
     IncidentRegistry,
-    detected_incident_correlation_keys,
-    detected_incident_event_id,
+    incident_severity,
+    open_detected_incident_candidate,
 )
 from fdai.core.scheduler.store import InMemoryScheduleStore
 from fdai.delivery.read_api.dev.incident_store import ProjectingIncidentStateStore
@@ -22,7 +24,6 @@ from fdai.delivery.read_api.routes.python_tasks import (
     PythonTaskRoutesConfig,
     PythonTaskRunSubmitter,
 )
-from fdai.shared.contracts.models import IncidentSeverity
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import StagePublisher
 from fdai.shared.providers.testing.live_event_bus import LiveInMemoryEventBus
@@ -72,6 +73,42 @@ def _runtime_callbacks(
     return start_pantheon_runtime, stop_pantheon_runtime
 
 
+def _incident_runtime_policy(
+    runtime_values: Mapping[str, object] | None,
+) -> tuple[IncidentAutoOpenPolicy, int, int]:
+    values = runtime_values or {}
+    enabled = values.get("incident.auto_open.enabled", True)
+    minimum_severity = values.get("incident.auto_open.min_severity", "HIGH")
+    rate_threshold = values.get("incident.repeat_threshold", 5)
+    rate_window = values.get("incident.repeat_window_seconds", 300)
+    if not isinstance(enabled, bool):
+        raise ValueError("incident.auto_open.enabled MUST be a boolean")
+    if not isinstance(minimum_severity, str) or minimum_severity not in {
+        "CRITICAL",
+        "HIGH",
+        "MEDIUM",
+        "LOW",
+        "INFO",
+    }:
+        raise ValueError("incident.auto_open.min_severity MUST be a supported severity")
+    if not isinstance(rate_threshold, int) or isinstance(rate_threshold, bool):
+        raise ValueError("incident.repeat_threshold MUST be an integer")
+    if not 2 <= rate_threshold <= 100:
+        raise ValueError("incident.repeat_threshold MUST be between 2 and 100")
+    if not isinstance(rate_window, int) or isinstance(rate_window, bool):
+        raise ValueError("incident.repeat_window_seconds MUST be an integer")
+    if not 10 <= rate_window <= 86_400:
+        raise ValueError("incident.repeat_window_seconds MUST be between 10 and 86400")
+    return (
+        IncidentAutoOpenPolicy(
+            enabled=enabled,
+            minimum_severity=incident_severity(minimum_severity),
+        ),
+        rate_threshold,
+        rate_window,
+    )
+
+
 def build_interactive_pantheon_wiring(
     *,
     event_bus: EventBus,
@@ -79,29 +116,22 @@ def build_interactive_pantheon_wiring(
     read_model: Any,
     action_types: tuple[Any, ...],
     handler_observer: AgentHandlerObserver | None = None,
+    runtime_values: Mapping[str, object] | None = None,
 ) -> LocalRuntimeWiring:
     """Wire all agents to the selected local transport without fixture executors."""
     incident_workflow = IncidentLifecycleWorkflow(
         registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model)),
         allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
     )
+    incident_auto_open_policy, rate_threshold, rate_window = _incident_runtime_policy(
+        runtime_values
+    )
 
     async def open_incident_candidate(candidate: dict[str, Any]) -> None:
-        evidence_key = str(candidate.get("evidence_key") or "")
-        resource_id = str(candidate.get("resource_id") or "")
-        event_type = str(candidate.get("event_type") or "generic")
-        if not evidence_key or not resource_id:
-            return
-        await incident_workflow.open_from_agent(
-            producer_principal="Heimdall",
-            correlation_keys=detected_incident_correlation_keys(
-                resource_id=resource_id,
-                event_type=event_type,
-                correlation_id=str(candidate.get("correlation_id") or ""),
-            ),
-            severity=IncidentSeverity.SEV3,
-            member_event_ids=(detected_incident_event_id(evidence_key),),
-            reason=str(candidate.get("reason_code") or "detected_anomaly"),
+        await open_detected_incident_candidate(
+            workflow=incident_workflow,
+            candidate=candidate,
+            policy=incident_auto_open_policy,
         )
 
     pantheon_runtime = PantheonRuntime.build(
@@ -109,6 +139,8 @@ def build_interactive_pantheon_wiring(
         raw_event_topic=event_topic,
         consumer_group_prefix="fdai-local-pantheon",
         incident_candidate_hook=open_incident_candidate,
+        heimdall_rate_threshold=rate_threshold,
+        heimdall_rate_window=rate_window,
         action_types=action_types,
         handler_observer=handler_observer,
     )
@@ -132,6 +164,7 @@ def build_local_runtime_wiring(
     local_operator_oid: str,
     action_topic: str,
     repo_root: Path,
+    runtime_values: Mapping[str, object] | None = None,
 ) -> LocalRuntimeWiring:
     """Compose local event processing and governed Python-task routes."""
     event_bus = LiveInMemoryEventBus()
@@ -139,23 +172,15 @@ def build_local_runtime_wiring(
         registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model)),
         allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
     )
+    incident_auto_open_policy, rate_threshold, rate_window = _incident_runtime_policy(
+        runtime_values
+    )
 
     async def open_incident_candidate(candidate: dict[str, Any]) -> None:
-        evidence_key = str(candidate.get("evidence_key") or "")
-        resource_id = str(candidate.get("resource_id") or "")
-        event_type = str(candidate.get("event_type") or "generic")
-        if not evidence_key or not resource_id:
-            return
-        await incident_workflow.open_from_agent(
-            producer_principal="Heimdall",
-            correlation_keys=detected_incident_correlation_keys(
-                resource_id=resource_id,
-                event_type=event_type,
-                correlation_id=str(candidate.get("correlation_id") or ""),
-            ),
-            severity=IncidentSeverity.SEV3,
-            member_event_ids=(detected_incident_event_id(evidence_key),),
-            reason=str(candidate.get("reason_code") or "detected_anomaly"),
+        await open_detected_incident_candidate(
+            workflow=incident_workflow,
+            candidate=candidate,
+            policy=incident_auto_open_policy,
         )
 
     local_action_types = frozenset(action_type.name for action_type in action_types)
@@ -164,6 +189,8 @@ def build_local_runtime_wiring(
         raw_event_topic=action_topic,
         operator_rbac={local_operator_oid: local_action_types},
         incident_candidate_hook=open_incident_candidate,
+        heimdall_rate_threshold=rate_threshold,
+        heimdall_rate_window=rate_window,
     )
     console_action = ConsoleActionSubmitter(
         event_bus=event_bus,

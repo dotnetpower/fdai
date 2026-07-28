@@ -120,6 +120,63 @@ async def test_environment_only_runtime_reader_uses_no_persistent_override() -> 
         )
 
 
+async def test_incident_auto_open_settings_are_bounded_and_startup_bound() -> None:
+    service = RuntimeSettingsService(store=InMemoryStateStore(), env={})
+
+    projection = await service.projection(can_manage=True)
+
+    expected = {
+        "incident.auto_open.enabled": True,
+        "incident.auto_open.min_severity": "HIGH",
+        "incident.repeat_threshold": 5,
+        "incident.repeat_window_seconds": 300,
+    }
+    for key, value in expected.items():
+        setting = _setting(projection, key)
+        assert setting["effective_value"] == value
+        assert setting["restart_required"] is True
+
+
+async def test_incident_auto_open_settings_accept_audited_override() -> None:
+    service = RuntimeSettingsService(store=InMemoryStateStore(), env={})
+
+    await service.update(
+        actor_id="owner-1",
+        changes={
+            "incident.auto_open.enabled": False,
+            "incident.auto_open.min_severity": "CRITICAL",
+            "incident.repeat_threshold": 9,
+            "incident.repeat_window_seconds": 600,
+        },
+        expected_revision=0,
+    )
+
+    effective = await service.effective_values()
+    assert effective["incident.auto_open.enabled"] is False
+    assert effective["incident.auto_open.min_severity"] == "CRITICAL"
+    assert effective["incident.repeat_threshold"] == 9
+    assert effective["incident.repeat_window_seconds"] == 600
+
+
+@pytest.mark.parametrize(
+    ("env", "message"),
+    [
+        ({"FDAI_INCIDENT_AUTO_OPEN_MIN_SEVERITY": "urgent"}, "min_severity"),
+        ({"FDAI_INCIDENT_REPEAT_THRESHOLD": "1"}, "REPEAT_THRESHOLD"),
+        ({"FDAI_INCIDENT_REPEAT_WINDOW_SECONDS": "0"}, "REPEAT_WINDOW_SECONDS"),
+    ],
+)
+async def test_invalid_incident_auto_open_environment_fails_closed(
+    env: dict[str, str], message: str
+) -> None:
+    service = RuntimeSettingsService(store=InMemoryStateStore(), env=env)
+
+    with pytest.raises(RuntimeSettingsUnavailableError, match="environment") as exc:
+        await service.effective_values()
+
+    assert message in str(exc.value.__cause__)
+
+
 async def test_projection_sanitizes_integration_and_runtime_status() -> None:
     service = RuntimeSettingsService(
         store=InMemoryStateStore(),

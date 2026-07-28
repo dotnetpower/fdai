@@ -126,6 +126,71 @@ def test_heimdall_no_anomaly_on_mixed_event_types() -> None:
     assert bus.messages_on("object.anomaly") == []
 
 
+def test_heimdall_records_burst_without_incident_candidate_when_correlation_disabled() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
+    for index in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "storage-example",
+                    "event_type": "inventory.resource_changed",
+                    "incident_correlation": "none",
+                    "correlation_id": "inventory:storage-example",
+                    "idempotency_key": f"inventory-{index}",
+                },
+            )
+        )
+
+    assert len(bus.messages_on("object.anomaly")) == 1
+    assert candidates == []
+
+
+def test_heimdall_preserves_high_severity_on_incident_candidate() -> None:
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=capture)
+    for index in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "episode-1",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": "high",
+                },
+            )
+        )
+
+    assert candidates[0]["severity"] == "high"
+    assert candidates[0]["incident_correlation"] == "correlate"
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"rate_threshold": 0}, "rate_threshold"),
+        ({"rate_window": 0}, "rate_window"),
+    ],
+)
+def test_heimdall_rejects_non_positive_repeat_config(kwargs: dict[str, int], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        Heimdall(**kwargs)
+
+
 def test_heimdall_does_not_open_anomaly_for_sparse_monitoring_events() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

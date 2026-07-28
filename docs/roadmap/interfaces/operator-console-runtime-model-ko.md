@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: b161da15267dfd962387a505437d2c0095eef367
-translation_revised: 2026-07-26
+translation_source_sha: 7925631ca4e4911de8f28b087870a488b86a0f80
+translation_revised: 2026-07-28
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -23,11 +23,13 @@ configuration을 지원하는 runtime consumer는 동작을 적용하기 전에 
 approval check를 약화하거나, test-only adapter를 선택할 수 없습니다. Secret, endpoint, tenant
 identifier 및 managed identity identifier는 configured 또는 unavailable 상태로만 표시합니다.
 
-초기 allowlist는 제한된 investigation, inventory freshness, analyzer budget, case history
-retention 및 logging detail을 포함합니다. 각 field는 type, minimum과 maximum, restart requirement
-및 unavailable reason을 선언합니다. 콘솔은 current, proposed 및 effective value, revision, 마지막
-actor와 update time, validation conflict를 표시합니다. Stale revision은 conflict를 반환하며
-operator가 재시도 전에 최신 상태를 검토하도록 합니다.
+초기 allowlist는 제한된 investigation, inventory freshness, analyzer budget, Incident auto-open
+policy, case history retention 및 logging detail을 포함합니다. Incident policy는 enablement,
+minimum severity, repeat threshold, repeat window를 노출하며 Heimdall이 process startup에
+생성되므로 네 field 모두 restart가 필요합니다. 각 field는 type, minimum과 maximum, restart
+requirement 및 unavailable reason을 선언합니다. 콘솔은 current, proposed 및 effective value,
+revision, 마지막 actor와 update time, validation conflict를 표시합니다. Stale revision은 conflict를
+반환하며 operator가 재시도 전에 최신 상태를 검토하도록 합니다.
 
 ## 4. Narrator - LLM tier 모델
 

@@ -106,6 +106,43 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         3_600,
     ),
     RuntimeSettingSpec(
+        "incident.auto_open.enabled",
+        "FDAI_INCIDENT_AUTO_OPEN_ENABLED",
+        "incident",
+        "boolean",
+        True,
+        restart_required=True,
+    ),
+    RuntimeSettingSpec(
+        "incident.auto_open.min_severity",
+        "FDAI_INCIDENT_AUTO_OPEN_MIN_SEVERITY",
+        "incident",
+        "enum",
+        "HIGH",
+        options=("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"),
+        restart_required=True,
+    ),
+    RuntimeSettingSpec(
+        "incident.repeat_threshold",
+        "FDAI_INCIDENT_REPEAT_THRESHOLD",
+        "incident",
+        "integer",
+        5,
+        2,
+        100,
+        restart_required=True,
+    ),
+    RuntimeSettingSpec(
+        "incident.repeat_window_seconds",
+        "FDAI_INCIDENT_REPEAT_WINDOW_SECONDS",
+        "incident",
+        "integer",
+        300,
+        10,
+        86_400,
+        restart_required=True,
+    ),
+    RuntimeSettingSpec(
         "case_history.retention_days",
         "FDAI_CASE_HISTORY_RETENTION_DAYS",
         "retention",
@@ -159,6 +196,10 @@ class RuntimeSettingsService:
     async def effective_values(self) -> dict[str, object]:
         record = await self._record()
         return self._effective_values(dict(record["overrides"]))
+
+    def environment_values(self) -> dict[str, object]:
+        """Return validated startup values without durable overrides."""
+        return self._effective_values({})
 
     async def projection(self, *, can_manage: bool) -> dict[str, Any]:
         record = await self._record()

@@ -142,6 +142,8 @@ class PantheonRuntime:
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
+        heimdall_rate_threshold: int = 5,
+        heimdall_rate_window: int = 300,
         read_investigation_hook: ReadInvestigationHook | None = None,
         discovery_projector: DiscoveryProjector | None = None,
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
@@ -278,22 +280,18 @@ class PantheonRuntime:
                 rbac=operator_rbac,
                 action_semantics=action_semantics,
             )
-        if (
-            action_semantics is not None
-            or forecast_evaluator is not None
-            or forecast_closer is not None
-            or forecast_store is not None
-        ):
-            if (forecast_evaluator is None) != (forecast_closer is None) or (
-                forecast_evaluator is None
-            ) != (forecast_store is None):
-                raise ValueError("forecast runtime bindings MUST be supplied together")
-            instantiated["Heimdall"] = Heimdall(
-                action_semantics=action_semantics,
-                forecast_evaluator=forecast_evaluator,
-                forecast_closer=forecast_closer,
-                forecast_store=forecast_store,
-            )
+        if (forecast_evaluator is None) != (forecast_closer is None) or (
+            forecast_evaluator is None
+        ) != (forecast_store is None):
+            raise ValueError("forecast runtime bindings MUST be supplied together")
+        instantiated["Heimdall"] = Heimdall(
+            rate_threshold=heimdall_rate_threshold,
+            rate_window=heimdall_rate_window,
+            action_semantics=action_semantics,
+            forecast_evaluator=forecast_evaluator,
+            forecast_closer=forecast_closer,
+            forecast_store=forecast_store,
+        )
         if saga is not None:
             instantiated["Saga"] = saga
         if rollback_executors is not None:

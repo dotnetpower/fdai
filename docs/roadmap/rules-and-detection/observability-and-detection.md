@@ -34,6 +34,12 @@ are synthetic.
   within-threshold sample records observation evidence only. An Incident can open only after
   a detector emits a bounded, grounded finding and `IncidentLifecycleWorkflow` rechecks the
   allowed agent principal, correlation keys, reason, and member-event evidence.
+- A repeated-event burst is an anomaly, not automatic Incident authority. Heimdall always records
+  the bounded anomaly, but it can hand off an Incident candidate only when the normalized Event
+  declares `incident_correlation=correlate`, carries a non-empty correlation id and evidence key,
+  and meets the configured minimum severity. Events marked `incident_correlation=none`, including
+  inventory and discovery changes, never open an Incident. The default automatic-open minimum is
+  `high`; an unclassified burst remains `medium` and stays an anomaly.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 
@@ -468,6 +474,12 @@ What we adopt from the general AIOps model, and where we intentionally differ:
 - Detectors validate their config at startup and **fail closed** - a broken detector, an
   insufficient/cold-start baseline, or stale telemetry makes the detector **abstain** rather than
   emit a false finding or auto-act.
+- Repeated-event Incident policy is startup-bound Runtime Settings:
+  `incident.auto_open.enabled` (default `true`), `incident.auto_open.min_severity` (default `high`),
+  `incident.repeat_threshold` (default `5`, range `2-100`), and
+  `incident.repeat_window_seconds` (default `300`, range `10-86400`). Invalid values fail startup.
+  Severity maps deterministically from `critical/high/medium/low/info` to `SEV1-SEV5`; composition
+  does not replace every candidate with a fixed severity.
 - Detection findings are **untrusted input**; any LLM use (fuzzy correlation, T2 RCA) passes the
   quality gate ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md))
   and the prompt-injection threat model in

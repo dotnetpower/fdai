@@ -21,8 +21,10 @@ enable an unavailable capability, promote an ActionType or Workflow, weaken risk
 checks, or select a test-only adapter. Secrets, endpoints, tenant identifiers, and managed identity
 identifiers are represented only by configured or unavailable status.
 
-The initial allowlist covers bounded investigation, inventory freshness, analyzer budgets, case
-history retention, and logging detail. Each field declares its type, minimum and maximum, restart
+The initial allowlist covers bounded investigation, inventory freshness, analyzer budgets, Incident
+auto-open policy, case history retention, and logging detail. Incident policy exposes enablement,
+minimum severity, repeat threshold, and repeat window; all four require restart because Heimdall is
+constructed at process startup. Each field declares its type, minimum and maximum, restart
 requirement, and availability reason. The console shows current, proposed, and effective values,
 the revision, the last actor and update time, and any validation conflict. A stale revision returns
 a conflict and requires the operator to review the latest state before retrying.

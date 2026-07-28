@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: e078b86b5c4aabf12c81833bf578d311f5245824
-translation_revised: 2026-07-27
+translation_source_sha: 831b64d2771b4d38dfeb957849261c16430e2e25
+translation_revised: 2026-07-28
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -37,6 +37,12 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   within-threshold sample은 observation evidence만 기록합니다. Detector가 bounded하고
   grounded된 finding을 emit하고 `IncidentLifecycleWorkflow`가 allowed agent principal,
   correlation key, reason, member-event evidence를 다시 확인한 뒤에만 Incident가 열립니다.
+- Repeated-event burst는 anomaly이며 자동 Incident authority가 아닙니다. Heimdall은 bounded
+  anomaly를 항상 기록하지만 normalized Event가 `incident_correlation=correlate`를 선언하고,
+  비어 있지 않은 correlation ID와 evidence key를 가지며, 설정된 minimum severity를 만족할 때만
+  Incident candidate를 전달할 수 있습니다. Inventory 및 discovery change를 포함해
+  `incident_correlation=none`인 Event는 Incident를 열지 않습니다. 자동 생성 minimum 기본값은
+  `high`이며 분류되지 않은 burst는 `medium` anomaly로 남습니다.
 - 새 감지기는 **shadow 모드** 로 출시되고 shadow→enforce 규칙에 따라 승격; 정확도와
   false-positive 비율은 Phase 0 베이스라인 대비 측정됨.
 
@@ -440,6 +446,12 @@ telemetry / metrics
   편집하지 않음.
 - 감지기는 시작 시 설정을 검증하고 **fail closed** - 깨진 감지기, 부족한/콜드스타트 베이스라인,
   stale 원격측정은 false finding emit 이나 auto-act가 아니라 감지기 **abstain** 하게 함.
+- Repeated-event Incident policy는 startup-bound Runtime Settings입니다.
+  `incident.auto_open.enabled`(기본 `true`), `incident.auto_open.min_severity`(기본 `high`),
+  `incident.repeat_threshold`(기본 `5`, 범위 `2-100`),
+  `incident.repeat_window_seconds`(기본 `300`, 범위 `10-86400`)를 사용합니다. 잘못된 값은
+  startup을 실패시킵니다. Severity는 `critical/high/medium/low/info`에서 `SEV1-SEV5`로
+  결정론적으로 매핑하며 composition은 모든 candidate를 고정 severity로 바꾸지 않습니다.
 - 감지 finding은 **untrusted 입력**; 어떤 LLM 사용(퍼지 상관관계, T2 RCA)도 quality gate
   ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md))
   와 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 의 프롬프트-인젝션 위협 모델을

@@ -65,6 +65,15 @@ _ALERT_WINDOW_SECONDS = 3600.0
 #: seen. Oldest-first eviction bounds memory; an evicted resource simply
 #: restarts its rate window on its next event.
 _MAX_TRACKED_KEYS = 10_000
+_INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
+_SEVERITY_ALIASES = {
+    "sev1": "critical",
+    "sev2": "high",
+    "sev3": "medium",
+    "sev4": "low",
+    "sev5": "info",
+}
+_SEVERITIES = frozenset({"critical", "high", "medium", "low", "info"})
 _MAX_FORECAST_PUBLICATION_ATTEMPTS = 5
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
 
@@ -103,6 +112,10 @@ class Heimdall(Agent):
         forecast_store: ForecastEpisodeStore | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
     ) -> None:
+        if rate_threshold < 1:
+            raise ValueError("rate_threshold MUST be >= 1")
+        if rate_window < 1:
+            raise ValueError("rate_window MUST be >= 1")
         super().__init__(spec=_HEIMDALL)
         self.bus = bus
         self._rate_threshold = rate_threshold
@@ -398,6 +411,9 @@ class Heimdall(Agent):
             return
         window_tail = [event_type for _, event_type in list(history)[-self._rate_threshold :]]
         if len(set(window_tail)) == 1:
+            incident_correlation = (
+                str(event.get("incident_correlation") or "correlate").strip().casefold()
+            )
             anomaly = {
                 "producer_principal": "Heimdall",
                 "correlation_id": event.get("correlation_id", ""),
@@ -405,12 +421,19 @@ class Heimdall(Agent):
                 "target_type": str(event.get("resource_type") or "unknown"),
                 "event_type": window_tail[0],
                 "count_in_window": self._rate_threshold,
-                "severity": "medium",
+                "severity": _event_severity(event),
+                "incident_correlation": incident_correlation,
             }
             history.clear()
             if self.bus is not None:
                 await self.bus.publish("Heimdall", "object.anomaly", anomaly)
             if self._incident_candidate_hook is not None:
+                if incident_correlation in _INCIDENT_CORRELATION_DISABLED:
+                    self.record_behavior("incident_candidate_correlation_disabled")
+                    return
+                if not str(event.get("correlation_id") or "").strip():
+                    self.record_behavior("incident_candidate_missing_correlation")
+                    return
                 evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "")
                 if not evidence_key:
                     self.record_behavior("incident_candidate_missing_evidence")
@@ -533,6 +556,7 @@ class Heimdall(Agent):
             "watched_resources_count": len(self._recent_events),
             "security_events_window": len(self._security_recent),
             "rate_threshold": self._rate_threshold,
+            "rate_window_seconds": self._rate_window,
             "forecast_evidence_available": False,
             "drift_evidence_available": False,
         }
@@ -569,6 +593,15 @@ class Heimdall(Agent):
             f"{len(self._security_recent)} security event(s) in window."
         )
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+def _event_severity(event: dict[str, Any]) -> str:
+    attributes = event.get("attributes")
+    attribute_severity = attributes.get("severity") if isinstance(attributes, dict) else None
+    raw = str(event.get("severity") or event.get("severity_hint") or attribute_severity or "")
+    normalized = raw.strip().casefold()
+    aliased = _SEVERITY_ALIASES.get(normalized, normalized)
+    return aliased if aliased in _SEVERITIES else "medium"
 
 
 __all__ = [

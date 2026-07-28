@@ -263,11 +263,11 @@ Only events repeated inside the configured rate window form that anomaly;
 sparse monitoring samples never accumulate across windows. A routine heartbeat,
 healthy probe, or within-threshold observation creates neither a finding nor an
 Incident.
-Heimdall does not write the Incident or publish a new object type. The workflow
-rechecks the agent allowlist and event evidence before `IncidentRegistry`
-writes the audited record. A hook failure records an agent behavior counter
-and leaves the anomaly path intact. The production control-plane composition
-rehydrates the durable registry first and binds this hook when the pantheon is
+Heimdall does not write the Incident or publish a new object type. Only candidates with explicit
+`incident_correlation=correlate`, correlation and evidence, enabled auto-open, and sufficient
+severity reach the workflow; all others remain anomalies. The workflow rechecks evidence before
+`IncidentRegistry` writes the audited record. Hook failure records a behavior counter and leaves
+the anomaly path intact. Production composition rehydrates the registry and binds the hook when
 enabled; the read API does not impersonate Heimdall.
 
 Huginn is the logical owner of real-time resource discovery. Azure resource
