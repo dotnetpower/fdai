@@ -247,13 +247,17 @@ function applyAgentState(
 ): AgentsState {
   const prev = state.agents[msg.agent];
   if (prev === undefined) return state;
+  const stateUnchanged = prev.observed &&
+    prev.state === msg.state &&
+    prev.correlationId === msg.correlation_id &&
+    prev.detail === msg.detail;
   const node: AgentNode = {
     name: msg.agent,
     layer: prev.layer,
     state: msg.state,
     observed: true,
     correlationId: msg.correlation_id,
-    since: msg.ts,
+    since: stateUnchanged ? prev.since : msg.ts,
     detail: msg.detail,
   };
   return { ...state, agents: { ...state.agents, [msg.agent]: node } };

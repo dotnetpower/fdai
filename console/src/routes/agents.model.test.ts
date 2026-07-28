@@ -23,7 +23,7 @@ function stateMsg(
   agent: string,
   state: AgentStatus,
   correlation_id: string | null = null,
-): AgentActivityMessage {
+): Extract<AgentActivityMessage, { type: "agent.state" }> {
   return {
     type: "agent.state",
     agent,
@@ -123,8 +123,26 @@ describe("agents.model", () => {
 
     expect(state.liveActivity).toHaveLength(PANTHEON.length);
     expect(state.nextLiveActivitySequence).toBe(PANTHEON.length + 1);
-    expect(state.agents.Odin?.since).toBe("2026-07-12T00:00:03+00:00");
-    expect(state.agents.Huginn?.since).toBe("2026-07-12T00:00:03+00:00");
+    expect(state.agents.Odin?.since).toBe("2026-07-12T00:00:01+00:00");
+    expect(state.agents.Huginn?.since).toBe("2026-07-12T00:00:01+00:00");
+  });
+
+  it("advances state time when passive detail changes", () => {
+    let state = makeInitialState();
+    state = reducer(state, {
+      kind: "message",
+      msg: stateMsg("Huginn", "watching"),
+    });
+    state = reducer(state, {
+      kind: "message",
+      msg: {
+        ...stateMsg("Huginn", "watching"),
+        ts: "2026-07-12T00:00:15+00:00",
+        detail: "Processed aw.change.events",
+      },
+    });
+
+    expect(state.agents.Huginn?.since).toBe("2026-07-12T00:00:15+00:00");
   });
 
   it("retains repeated active work frames even when their details match", () => {
