@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f4a0e6a9c8e59e5a0372803158952d144fdf35f9
+translation_source_sha: 2e2ce32a4a7398d72f95f179ff54b552a0e65b2b
 translation_revised: 2026-07-28
 ---
 
@@ -233,6 +233,12 @@ set을 즉시 렌더링합니다. Model prose는 선택된 incident, search scop
 membership 또는 absence claim을 바꿀 수 없습니다.
 `availability=unavailable`인 source는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 probe하지
 않은 source는 `reachable=null`을 사용합니다.
+Incidents route에서 prompt가 단일 selected incident를 title, correlation id 또는 "이 인시던트" 같은
+표현으로 참조하면 해당 selection을 lookup hint로 사용합니다. Server는 답변 전에 incident id와
+correlation id를 authorized read model에서 다시 확인합니다. 정확한 selected-incident evidence는
+자연어 keyword로만 일치한 inventory tool보다 우선합니다. Coordinator는 해당 turn에서 관련 없는
+inventory, agent 또는 public-web branch를 시작하지 않으며 `query_inventory` 같은 명시적 canonical
+tool command는 tool authority를 유지합니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
@@ -511,8 +517,12 @@ Subnet 안의 visible path participant는 관찰된 `attached_to` connected comp
 edge에서 storage 순서로 배치합니다. Public IP 및 network security resource, network interface,
 compute 및 service resource, disk 및 data resource 순서입니다. 여러 workload path는 type 또는 name으로
 서로 섞이지 않고 연속으로 유지됩니다. 이는 layout 순서이며 추론한 traffic direction이 아닙니다.
-Renderer는 contract가 direction을 제공하지 않는 한 모든
-관찰된 `attached_to` edge를 방향 화살표 없는 floor route로 그립니다. Perspective는 bounded depth
+각 component는 독립적인 depth-oriented lane을 사용합니다. Public IP는 camera에 가장 가깝고 security,
+interface, workload 및 storage stage가 순서대로 뒤로 물러납니다. Renderer는 겹치는 intra-subnet edge를
+하나의 shared floor spine과 짧은 stage branch로 대체하며 cross-plane attachment만 direct route를
+유지합니다. Workload는 supporting network resource보다 크게 렌더링됩니다. Path resource는 기본적으로
+glyph를 사용하고 workload는 primary label을 유지하며 어떤 resource든 선택하면 full name과 type을
+복원합니다. Perspective는 bounded depth
 범위에서 projected point를 조정해 가까운 resource를 먼 resource보다 크게 표시하고 picking과
 containment도 동일한 projection을 사용합니다. Zoom은 512x scale까지 상세 탐색을 지원하고 pointer를
 중심으로 확대하며, content-driven world는 고정 canvas-height ceiling 없이 확장됩니다. Fit은 complete

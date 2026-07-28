@@ -41,6 +41,8 @@ const ZOOM_STEP = 1.2;
 const MIN_ZOOM = 6;
 const MAX_ZOOM = 512;
 const ORBIT_RADIANS_PER_PIXEL = .005;
+const FIT_HORIZONTAL_PADDING = 112;
+const FIT_VERTICAL_PADDING = 120;
 
 export function architectureZoomScale(
   scale: number,
@@ -149,11 +151,11 @@ export function fitCamera(
   const verticalCenterOffset = (minimumY + maximumY) / 2 - height / 2;
   const legendReserve = architectureLegendReserveWidth(width);
   camera.scale = clamp(Math.min(
-    Math.max(1, width - 56 - legendReserve) / Math.max(1, horizontalSpan),
-    Math.max(1, height - 72) / Math.max(1, verticalSpan),
+    Math.max(1, width - FIT_HORIZONTAL_PADDING - legendReserve) / Math.max(1, horizontalSpan),
+    Math.max(1, height - FIT_VERTICAL_PADDING) / Math.max(1, verticalSpan),
   ), MIN_ZOOM, 96);
   camera.panX = -legendReserve / 2 - horizontalCenterOffset * camera.scale;
-  camera.panY = height * .08 - verticalCenterOffset * camera.scale;
+  camera.panY = height * .04 - verticalCenterOffset * camera.scale;
   if (!Number.isFinite(camera.scale)) {
     camera.scale = previousScale;
     camera.panX = previousPanX;

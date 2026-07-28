@@ -21,6 +21,7 @@ const GRAPH: InventoryGraphResponse = {
     { id: "snet", type: "network.subnet", name: "App subnet", status: "healthy", parent_id: "rg" },
     { id: "vm", type: "compute.vm", name: "Worker", status: "healthy", parent_id: "rg" },
     { id: "nic", type: "network.interface", name: "Worker NIC", status: "healthy", parent_id: "rg" },
+    { id: "pip", type: "network.public-ip", name: "Worker PIP", status: "healthy", parent_id: "rg" },
     { id: "nsg", type: "network.nsg", name: "App NSG", status: "healthy", parent_id: "rg" },
     { id: "disk", type: "disk", name: "Worker disk", status: "healthy", parent_id: "rg" },
     { id: "db", type: "postgresql-server", name: "Database", status: "healthy", parent_id: "rg" },
@@ -32,6 +33,7 @@ const GRAPH: InventoryGraphResponse = {
     { source: "vnet", target: "snet", type: "contains" },
     { source: "vm", target: "nic", type: "attached_to" },
     { source: "nic", target: "snet", type: "attached_to" },
+    { source: "nic", target: "pip", type: "attached_to" },
     { source: "nic", target: "nsg", type: "attached_to" },
     { source: "vm", target: "disk", type: "attached_to" },
   ],
@@ -52,6 +54,7 @@ describe("architecture network floor layout", () => {
     const subnet = byId.get("snet")!;
     const vm = byId.get("vm")!;
     const nic = byId.get("nic")!;
+    const pip = byId.get("pip")!;
     const nsg = byId.get("nsg")!;
     const disk = byId.get("disk")!;
     const database = byId.get("db")!;
@@ -65,9 +68,10 @@ describe("architecture network floor layout", () => {
     expect(architectureNetworkPathRank(nsg)).toBeLessThan(architectureNetworkPathRank(nic));
     expect(architectureNetworkPathRank(nic)).toBeLessThan(architectureNetworkPathRank(vm));
     expect(architectureNetworkPathRank(vm)).toBeLessThan(architectureNetworkPathRank(disk));
-    expect(nsg.x).toBeLessThan(nic.x!);
-    expect(nic.x).toBeLessThan(vm.x!);
-    expect(vm.x).toBeLessThan(disk.x!);
+    expect(pip.y).toBeLessThan(nsg.y!);
+    expect(nsg.y).toBeLessThan(nic.y!);
+    expect(nic.y).toBeLessThan(vm.y!);
+    expect(vm.y).toBeLessThan(disk.y!);
     expect(vm.x).toBeGreaterThan(subnet.x!);
     expect(vm.x).toBeLessThan(subnet.x! + subnet.w!);
     expect(vm.y).toBeGreaterThan(subnet.y!);

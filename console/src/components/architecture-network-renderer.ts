@@ -12,6 +12,7 @@ import {
   type InventoryResource,
 } from "./architecture-map.model";
 import { isArchitectureNetworkPlane } from "./architecture-network-layout";
+import { architectureNetworkPathComponents } from "./architecture-network-path";
 
 interface NetworkLabelPalette {
   readonly labelText: string;
@@ -80,6 +81,50 @@ export function drawArchitectureNetworkMemberships(
     ];
     const active = !highlightedIds || highlightedIds.has(node.id);
     strokeRoute(context, points, active ? .48 : .08, "#1490df", 1.35, [4, 4]);
+  }
+}
+
+export function drawArchitectureNetworkPathSpines(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  camera: Camera,
+  graph: Pick<InventoryGraphResponse, "resources" | "links">,
+  highlightedIds?: ReadonlySet<string>,
+): void {
+  const nodesByPlane = new Map<string, InventoryResource[]>();
+  for (const resource of graph.resources) {
+    if (isRegion(resource) || !resource.network_plane_id) continue;
+    const nodes = nodesByPlane.get(resource.network_plane_id) ?? [];
+    nodes.push(resource);
+    nodesByPlane.set(resource.network_plane_id, nodes);
+  }
+
+  for (const nodes of nodesByPlane.values()) {
+    for (const component of architectureNetworkPathComponents(nodes, graph.links)) {
+      if (component.length < 2) continue;
+      const spineX = component.reduce((total, resource) => total + (resource.x ?? 0), 0)
+        / component.length;
+      const minimumY = Math.min(...component.map((resource) => resource.y ?? 0));
+      const maximumY = Math.max(...component.map((resource) => resource.y ?? 0));
+      const active = !highlightedIds || component.some((resource) => highlightedIds.has(resource.id));
+      const spine = [
+        project(camera, width, height, spineX, minimumY, .065),
+        project(camera, width, height, spineX, maximumY, .065),
+      ];
+      strokeRoute(context, spine, active ? .72 : .08, "#ffffff", 5.2, []);
+      strokeRoute(context, spine, active ? .92 : .12, "#397a5d", 2.4, []);
+
+      for (const resource of component) {
+        if (Math.abs((resource.x ?? 0) - spineX) < .04) continue;
+        const branch = [
+          project(camera, width, height, resource.x ?? 0, resource.y ?? 0, .065),
+          project(camera, width, height, spineX, resource.y ?? 0, .065),
+        ];
+        strokeRoute(context, branch, active ? .72 : .08, "#ffffff", 4.4, []);
+        strokeRoute(context, branch, active ? .88 : .12, "#397a5d", 2.1, []);
+      }
+    }
   }
 }
 

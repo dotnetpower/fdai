@@ -13,9 +13,11 @@ import {
 } from "./architecture-map.geometry";
 import { architectureResourceAbbreviation } from "./architecture-resource-abbreviations";
 import { isArchitectureNetworkPlane } from "./architecture-network-layout";
+import { architectureNetworkPathRank } from "./architecture-network-path";
 import {
   drawArchitectureAttachmentRoute,
   drawArchitectureNetworkMemberships,
+  drawArchitectureNetworkPathSpines,
   drawArchitectureNetworkPlanes,
 } from "./architecture-network-renderer";
 import {
@@ -144,6 +146,7 @@ export function renderMap(
     palette,
   );
   drawArchitectureNetworkMemberships(context, width, height, camera, graph, highlightedIds);
+  drawArchitectureNetworkPathSpines(context, width, height, camera, graph, highlightedIds);
 
   const nodes = graph.resources.filter((resource) => !isRegion(resource));
   if (options.showReflections) drawReflections(context, width, height, camera, nodes, highlightedIds);
@@ -461,6 +464,14 @@ export function architectureLinkIsDrawable(
     return !(isArchitectureNetworkPlane(source) && isArchitectureNetworkPlane(target));
   }
   if (link.type === "attached_to") {
+    if (
+      source.network_plane_id
+      && source.network_plane_id === target.network_plane_id
+    ) return false;
+    if (
+      source.network_plane_id === target.id
+      || target.network_plane_id === source.id
+    ) return false;
     return (!isRegion(source) || isArchitectureNetworkPlane(source))
       && (!isRegion(target) || isArchitectureNetworkPlane(target));
   }
@@ -770,7 +781,7 @@ function drawNodeOverlay(
     context.fillStyle = "#fff";
     context.fillText(label, badge.x, badge.y + .5);
   }
-  if (showLabels) {
+  if (showLabels && architectureNodeLabelIsVisible(node, selected)) {
     const fontSize = architectureLabelFontSize(camera.scale, selected);
     const labelPoint = project(camera, width, height, nodeX, nodeY, 0);
     drawLabel(
@@ -785,10 +796,17 @@ function drawNodeOverlay(
       occupiedLabels,
       selected,
       palette,
-      resourceTypeLabelOf(node),
+      selected ? resourceTypeLabelOf(node) : undefined,
     );
   }
   context.restore();
+}
+
+export function architectureNodeLabelIsVisible(
+  node: InventoryResource,
+  selected: boolean,
+): boolean {
+  return selected || !node.network_plane_id || architectureNetworkPathRank(node) === 3;
 }
 
 function nodeLabelObstacle(

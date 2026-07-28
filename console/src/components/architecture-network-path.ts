@@ -36,6 +36,13 @@ export function orderArchitectureNetworkPathNodes(
   nodes: readonly InventoryResource[],
   links: readonly InventoryLink[],
 ): InventoryResource[] {
+  return architectureNetworkPathComponents(nodes, links).flat();
+}
+
+export function architectureNetworkPathComponents(
+  nodes: readonly InventoryResource[],
+  links: readonly InventoryLink[],
+): InventoryResource[][] {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const adjacency = new Map<string, Set<string>>();
   for (const link of links) {
@@ -66,9 +73,9 @@ export function orderArchitectureNetworkPathNodes(
     components.push(component.sort(compareArchitectureNetworkPathNodes));
   }
 
-  return components
-    .sort((first, second) => pathComponentKey(first).localeCompare(pathComponentKey(second)))
-    .flat();
+  return components.sort(
+    (first, second) => pathComponentKey(first).localeCompare(pathComponentKey(second)),
+  );
 }
 
 function pathComponentKey(component: readonly InventoryResource[]): string {

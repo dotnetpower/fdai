@@ -235,6 +235,12 @@ requiring a single incident selection. Model prose cannot change the selected in
 scope, supported cause, collection membership, or absence claim. A source with
 `availability=unavailable` never reports `reachable=true`; unconfigured or unprobed sources use
 `reachable=null`.
+On the Incidents route, a prompt that references the one selected incident by title, correlation
+id, or a phrase such as "this incident" uses that selection as a lookup hint. The server rechecks
+the incident id and correlation id against the authorized read model before answering. Exact
+selected-incident evidence takes precedence over an inventory tool matched only from natural-language
+keywords. The coordinator doesn't start unrelated inventory, agent, or public-web branches for
+that turn; an explicit canonical tool command such as `query_inventory` keeps tool authority.
 Generic recency words such as `latest`, `recent`, or `최신` do not create incident authority by
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the
@@ -523,8 +529,12 @@ Within a subnet, visible path participants are grouped by their observed `attach
 component, then arranged from network edge to storage: public IP and network security resources,
 network interfaces, compute and service resources, then disks and data resources. Multiple
 workload paths stay contiguous instead of interleaving by type or name. This is a layout order, not
-an inferred traffic direction. The renderer draws every observed `attached_to`
-edge as a floor route without a directional arrow unless the contract provides direction.
+an inferred traffic direction. Every component gets its own depth-oriented lane: public IP starts
+nearest the camera, and security, interface, workload, and storage stages recede in order. The
+renderer replaces overlapping intra-subnet edges with one shared floor spine and short stage
+branches; only cross-plane attachments retain a direct route. Workloads render larger than
+supporting network resources. Path resources use glyphs by default, workloads retain their primary
+label, and selecting any resource restores its full name and type.
 Perspective scales projected points within bounded depth limits so near resources read larger than
 far resources while picking and containment use the same projection. Zoom supports deep inspection
 up to 512x scale, zooms around the pointer, and lets content-driven worlds grow without a fixed

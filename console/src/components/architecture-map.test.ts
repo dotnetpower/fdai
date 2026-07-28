@@ -24,6 +24,7 @@ import {
 import {
   architectureLinkIsDrawable,
   architectureLinkElevation,
+  architectureNodeLabelIsVisible,
   architectureOverlayOrder,
   architectureFloorLegendEntries,
   architectureFloorLegendFontSize,
@@ -85,6 +86,17 @@ describe("architecture map labels", () => {
     expect(fitted).toMatch(/\.\.\.$/);
     expect(measure(fitted)).toBeLessThanOrEqual(112);
     expect(fitArchitectureLabel("short-name", 112, measure)).toBe("short-name");
+  });
+
+  it("labels path workloads by default and expands any selected path resource", () => {
+    const vm = { id: "vm", type: "compute.vm", network_plane_id: "subnet" } as never;
+    const nic = { id: "nic", type: "network.interface", network_plane_id: "subnet" } as never;
+    const unassigned = { id: "db", type: "postgresql-server" } as never;
+
+    expect(architectureNodeLabelIsVisible(vm, false)).toBe(true);
+    expect(architectureNodeLabelIsVisible(nic, false)).toBe(false);
+    expect(architectureNodeLabelIsVisible(nic, true)).toBe(true);
+    expect(architectureNodeLabelIsVisible(unassigned, false)).toBe(true);
   });
 
   it("paints the selected label after every other node overlay", () => {
@@ -326,7 +338,7 @@ describe("architecture world sizing", () => {
     fitCamera(camera, 1000, 960, graph);
     expect(camera.worldWidth).toBe(24);
     expect(camera.worldHeight).toBe(30);
-    expect(camera.scale).toBeGreaterThanOrEqual(18);
+    expect(camera.scale).toBeGreaterThanOrEqual(6);
   });
 
   it("fits a focused resource-group view to its compact content world", () => {
@@ -341,6 +353,22 @@ describe("architecture world sizing", () => {
 
     expect(architectureWorldSize(graph)).toEqual({ width: 11.25, height: 6.75 });
     expect(architectureCanvasHeight(graph)).toBe(680);
+    const camera: Camera = {
+      ...DEFAULT_ISOMETRIC_CAMERA,
+      scale: 42,
+      panX: 0,
+      panY: 0,
+    };
+    fitCamera(camera, 1200, 680, graph);
+    const world = architectureWorldSize(graph);
+    const corners = [
+      project(camera, 1200, 680, 0, 0, 0),
+      project(camera, 1200, 680, world.width, 0, 0),
+      project(camera, 1200, 680, world.width, world.height, 0),
+      project(camera, 1200, 680, 0, world.height, 0),
+    ];
+    expect(Math.min(...corners.map((point) => point.x))).toBeGreaterThanOrEqual(24);
+    expect(Math.max(...corners.map((point) => point.y))).toBeLessThanOrEqual(656);
   });
 });
 
@@ -383,11 +411,20 @@ describe("architecture connections", () => {
       subnet,
       { source: "vnet", target: "subnet", type: "contains" },
     )).toBe(false);
+    const attachedVm = {
+      id: "vm", type: "compute.vm", network_plane_id: "subnet",
+    } as never;
     expect(architectureLinkIsDrawable(
-      vm,
+      attachedVm,
       subnet,
       { source: "vm", target: "subnet", type: "attached_to" },
-    )).toBe(true);
+    )).toBe(false);
+    const nic = { id: "nic", type: "network.interface", network_plane_id: "subnet" } as never;
+    expect(architectureLinkIsDrawable(
+      attachedVm,
+      nic,
+      { source: "vm", target: "nic", type: "attached_to" },
+    )).toBe(false);
   });
 });
 

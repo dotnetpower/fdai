@@ -6,24 +6,25 @@ import {
   type InventoryResource,
 } from "./architecture-map.model";
 import { orderArchitectureNetworkPathNodes } from "./architecture-network-path";
+import {
+  layoutArchitecturePathComponents,
+  type ArchitecturePathLayout,
+} from "./architecture-network-path-layout";
+import {
+  architectureLayoutTargetWidth,
+  packArchitectureRectangles,
+  type PackedItem,
+  type RectangleItem,
+} from "./architecture-rectangle-pack";
 
 const VNET_TYPES = new Set(["virtual-network", "network.vnet"]);
 const SUBNET_TYPES = new Set(["subnet", "network.subnet"]);
 const CELL_WIDTH = 2.15;
 const CELL_HEIGHT = 1.55;
 const PANEL_GAP = .75;
-interface PackedItem<T> {
-  readonly item: T;
-  readonly x: number;
-  readonly y: number;
-}
-interface RectangleItem {
-  readonly width: number;
-  readonly height: number;
-}
 interface SubnetPlan extends RectangleItem {
   readonly subnet: InventoryResource;
-  readonly members: readonly InventoryResource[];
+  readonly pathLayout: ArchitecturePathLayout;
 }
 
 interface NetworkPlan extends RectangleItem {
@@ -71,7 +72,11 @@ export function layoutArchitectureNetworkFloors(
       membership,
       subnetByVnet,
     ));
-    const packedGroups = packRectangles(groupPlans, layoutTargetWidth(groupPlans), PANEL_GAP);
+    const packedGroups = packArchitectureRectangles(
+      groupPlans,
+      architectureLayoutTargetWidth(groupPlans),
+      PANEL_GAP,
+    );
     const subscriptionX = subscription.x ?? 0;
     const subscriptionY = subscription.y ?? 0;
     const insetX = .45;
@@ -218,14 +223,17 @@ function buildGroupPlan(
   const networkPlans: NetworkPlan[] = vnets.map((vnet) => {
     const ownedSubnets = subnetByVnet.get(vnet.id) ?? [];
     ownedSubnets.forEach((subnet) => ownedSubnetIds.add(subnet.id));
-    return buildNetworkPlan(vnet, ownedSubnets, membersBySubnet);
+    return buildNetworkPlan(vnet, ownedSubnets, membersBySubnet, graph.links);
   });
   for (const subnet of subnets.filter((candidate) => !ownedSubnetIds.has(candidate.id))) {
-    networkPlans.push(buildNetworkPlan(null, [subnet], membersBySubnet));
+    networkPlans.push(buildNetworkPlan(null, [subnet], membersBySubnet, graph.links));
   }
-  const packedNetworks = packRectangles(
+  const packedNetworks = packArchitectureRectangles(
     networkPlans,
-    layoutTargetWidth(networkPlans, architectureViewIsFocused(graph) ? 2.15 : 1.8),
+    architectureLayoutTargetWidth(
+      networkPlans,
+      architectureViewIsFocused(graph) ? 2.15 : 1.8,
+    ),
     PANEL_GAP,
   );
   const unassignedGrid = nodeGrid(unassigned);
@@ -248,17 +256,19 @@ function buildNetworkPlan(
   vnet: InventoryResource | null,
   subnets: readonly InventoryResource[],
   membersBySubnet: ReadonlyMap<string, readonly InventoryResource[]>,
+  links: InventoryGraphResponse["links"],
 ): NetworkPlan {
   const subnetPlans = subnets.map((subnet) => buildSubnetPlan(
     subnet,
     membersBySubnet.get(subnet.id) ?? [],
+    links,
   ));
   if (vnet === null && subnetPlans.length === 1) {
     return { vnet, subnets: [{ item: subnetPlans[0]!, x: 0, y: 0 }], ...subnetPlans[0]! };
   }
-  const packedSubnets = packRectangles(
+  const packedSubnets = packArchitectureRectangles(
     subnetPlans,
-    layoutTargetWidth(subnetPlans),
+    architectureLayoutTargetWidth(subnetPlans),
     .35,
   );
   return {
@@ -276,13 +286,14 @@ function buildNetworkPlan(
 function buildSubnetPlan(
   subnet: InventoryResource,
   members: readonly InventoryResource[],
+  links: InventoryGraphResponse["links"],
 ): SubnetPlan {
-  const grid = nodeGrid(members);
+  const pathLayout = layoutArchitecturePathComponents(members, links);
   return {
     subnet,
-    members,
-    width: Math.max(4.8, grid.width + .9),
-    height: Math.max(3.4, grid.height + 1.15),
+    pathLayout,
+    width: Math.max(4.8, pathLayout.width + .9),
+    height: Math.max(3.4, pathLayout.height + 1.15),
   };
 }
 
@@ -317,10 +328,35 @@ function applyGroupPlan(
         w: subnet.width,
         h: subnet.height,
       });
-      placeNodes(subnet.members, subnetX + .45, subnetY + .75, subnet.subnet.id, updates);
+      placePathLayout(
+        subnet.pathLayout,
+        subnetX + .45,
+        subnetY + .75,
+        subnet.subnet.id,
+        updates,
+      );
     }
   }
   placeNodes(plan.unassigned, groupX + .45, groupY + plan.unassignedTop, null, updates);
+}
+
+function placePathLayout(
+  pathLayout: ArchitecturePathLayout,
+  originX: number,
+  originY: number,
+  networkPlaneId: string,
+  updates: Map<string, InventoryResource>,
+): void {
+  for (const placement of pathLayout.placements) {
+    const { network_plane_id: _networkPlaneId, ...baseNode } = placement.resource;
+    updates.set(placement.resource.id, {
+      ...baseNode,
+      render_scale: placement.renderScale,
+      network_plane_id: networkPlaneId,
+      x: originX + placement.x,
+      y: originY + placement.y,
+    });
+  }
 }
 
 function placeNodes(
@@ -354,43 +390,6 @@ function nodeGrid(nodes: readonly InventoryResource[]): {
   const columns = Math.min(8, nodes.length);
   const rows = Math.max(1, Math.ceil(nodes.length / columns));
   return { columns, width: columns * CELL_WIDTH, height: rows * CELL_HEIGHT };
-}
-
-function packRectangles<T extends RectangleItem>(
-  items: readonly T[],
-  targetWidth: number,
-  gap: number,
-): { readonly items: readonly PackedItem<T>[]; readonly width: number; readonly height: number } {
-  const placements: PackedItem<T>[] = [];
-  let x = 0;
-  let y = 0;
-  let rowHeight = 0;
-  let maximumRight = 0;
-  for (const item of [...items].sort((first, second) =>
-    second.width * second.height - first.width * first.height)) {
-    if (x > 0 && x + item.width > targetWidth) {
-      x = 0;
-      y += rowHeight + gap;
-      rowHeight = 0;
-    }
-    placements.push({ item, x, y });
-    maximumRight = Math.max(maximumRight, x + item.width);
-    rowHeight = Math.max(rowHeight, item.height);
-    x += item.width + gap;
-  }
-  return {
-    items: placements,
-    width: maximumRight,
-    height: placements.length === 0 ? 0 : y + rowHeight,
-  };
-}
-
-function layoutTargetWidth(items: readonly RectangleItem[], aspect = 1.8): number {
-  if (items.length === 0) return 0;
-  return Math.max(
-    ...items.map((item) => item.width),
-    Math.sqrt(items.reduce((total, item) => total + item.width * item.height, 0)) * aspect,
-  );
 }
 
 function addNeighbor(adjacency: Map<string, Set<string>>, source: string, target: string): void {

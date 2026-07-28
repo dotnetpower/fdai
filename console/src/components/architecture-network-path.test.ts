@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { orderArchitectureNetworkPathNodes } from "./architecture-network-path";
+import {
+  architectureNetworkPathComponents,
+  orderArchitectureNetworkPathNodes,
+} from "./architecture-network-path";
 import type { InventoryLink, InventoryResource } from "./architecture-map.model";
 
 function pathNodes(suffix: string, workloadName: string): InventoryResource[] {
@@ -32,6 +35,12 @@ describe("architecture network path ordering", () => {
     expect(orderArchitectureNetworkPathNodes(nodes, links).map((node) => node.id)).toEqual([
       "pip-a", "nsg-a", "nic-a", "vm-a", "disk-a",
       "pip-b", "nsg-b", "nic-b", "vm-b", "disk-b",
+    ]);
+    expect(architectureNetworkPathComponents(nodes, links).map(
+      (component) => component.map((node) => node.id),
+    )).toEqual([
+      ["pip-a", "nsg-a", "nic-a", "vm-a", "disk-a"],
+      ["pip-b", "nsg-b", "nic-b", "vm-b", "disk-b"],
     ]);
   });
 });
