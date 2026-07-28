@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b71302a91bd8c286c3f833ae71b02858e06540b1
+translation_source_sha: ab83710f3fee52a8537944acc11315e45634da8a
 translation_revised: 2026-07-28
 ---
 # 코드 맵
@@ -46,7 +46,7 @@ shared 패키지를 커버한다.
 | hil_resume | 사람 결정까지 park/resume합니다. Principal identity는 대소문자를 구분하지 않고 비교하므로, object id의 표기를 바꿔 한 사람을 두 사람처럼 보이게 해서 no-self-approval 바닥을 무너뜨릴 수 없습니다. no-drop load plan, group당 initial dispatch 1개, atomic expiry reaping, bounded reminder, durable decision-delivery recovery 제공 | [src/fdai/core/hil_resume/](../../../src/fdai/core/hil_resume/), [hil_registry.py](../../../src/fdai/shared/providers/hil_registry.py), [hil_decision.py](../../../src/fdai/delivery/chatops/hil_decision.py) | [tests/core/hil_resume/](../../../tests/core/hil_resume/), [test_hil_callback.py](../../../tests/delivery/read_api/test_hil_callback.py), [test_hil_decision.py](../../../tests/delivery/test_hil_decision.py) | [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) |
 | executor | 리소스별 lock, 멱등 적용, 그리고 세 실행 경로가 공유하는 단일 blast-radius ceiling. 영향 count를 선언하지 않은 action은 통과가 아니라 거부됩니다 | [src/fdai/core/executor/](../../../src/fdai/core/executor/) | [tests/core/](../../../tests/core/) (executor 관련) | project-structure-ko.md |
 | execution_backend | Profile intersection, durable reconciliation, shadow health probe를 제공하며 eligibility authority는 없음 ([설계](../interfaces/execution-backends-ko.md)) | [src/fdai/core/execution_backend/](../../../src/fdai/core/execution_backend/) | [tests/core/execution_backend/](../../../tests/core/execution_backend/) | [execution-backends-ko.md](../interfaces/execution-backends-ko.md) |
-| audit | append-only 해시체인 로그. 체인 규칙(genesis, canonical 형태, chaining digest)은 `shared/providers/audit_hash.py`에 한 번만 존재하므로 두 StateStore 백엔드가 동일한 digest를 만들고 한쪽이 쓴 체인을 다른 쪽이 검증합니다, nullable-stage correlation trace 및 KPI 방출 | [src/fdai/core/audit/](../../../src/fdai/core/audit/) | [tests/core/audit/](../../../tests/core/audit/) | [security-and-identity-ko.md](security-and-identity-ko.md) |
+| audit | append-only 해시체인 로그. 체인 규칙(genesis, canonical 형태, chaining digest)은 `shared/providers/audit_hash.py`에 한 번만 존재하므로 두 StateStore 백엔드가 동일한 digest를 만들고 한쪽이 쓴 체인을 다른 쪽이 검증합니다. Startup readiness는 저장된 체인을 재계산하고 불일치하면 차단합니다. Nullable-stage correlation trace 및 KPI도 방출합니다 | [src/fdai/core/audit/](../../../src/fdai/core/audit/) | [tests/core/audit/](../../../tests/core/audit/) | [security-and-identity-ko.md](security-and-identity-ko.md) |
 | control_loop | 파이프라인 오케스트레이터 (Stage 프로토콜) | [src/fdai/core/control_loop/](../../../src/fdai/core/control_loop/) | [tests/core/](../../../tests/core/) | project-structure-ko.md |
 | pipeline | 위 서브시스템들의 도메인 그룹 파사드 | [src/fdai/core/pipeline/](../../../src/fdai/core/pipeline/) | (멤버와 동일) | project-structure-ko.md |
 

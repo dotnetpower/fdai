@@ -76,7 +76,7 @@ async def test_submit_is_idempotent_and_audited_once(
     entries = tuple(store.audit_entries)
     assert len(entries) == 1
     assert entries[0]["entry"]["action_kind"] == "iam.access-requested"
-    assert store.verify_chain()
+    assert await store.verify_chain()
 
 
 async def test_submit_does_not_leave_state_when_atomic_audit_fails() -> None:

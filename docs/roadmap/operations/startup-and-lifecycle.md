@@ -86,7 +86,7 @@ decision, latency, evidence time, sanitized failure class, and next retry.
 | Release and config | image digest, release version, config hash, catalog version, `resolved-models.json` schema and freshness |
 | Host trust | clock skew within the configured token/TLS tolerance, certificate chain and expiry, proxy and custom CA configuration |
 | Identity and secrets | audience-scoped token acquisition, required role observation, native secret/reference injection |
-| State and policy | PostgreSQL connect, migration head, audit availability, kill-switch read, catalog load, OPA compile |
+| State and policy | PostgreSQL connect, migration head, full audit hash-chain verification, kill-switch read, catalog load, OPA compile |
 | Event path | Kafka DNS/TCP/TLS/auth, required topics, consumer groups, DLQs, and Diagnostic Settings forwarder state |
 | Model capabilities | deployment readiness, auth, quota headroom, feature flags, mixed-publisher invariant, verifier and grounding availability |
 | Optional adapters | web search, notifications, Human approval channels, OTLP export, and any fork-registered provider |
@@ -115,7 +115,7 @@ restore `ready`, never authority above the deployment's promotion state.
 
 ### Failure and authority rules
 
-- **Process-critical**: invalid config, token/secret failure, PostgreSQL/audit failure, policy compile failure, or required Kafka failure keeps `/ready` closed.
+- **Process-critical**: invalid config, token/secret failure, PostgreSQL/audit failure, an audit hash-chain mismatch, policy compile failure, or required Kafka failure keeps `/ready` closed.
 - **Authority-critical**: unreadable kill-switch, missing T2 verification, or unavailable approval forces shadow or Human approval. It never enables an unverified automatic action.
 - **Optional capability**: narrator, search, notification, or telemetry failure is `degraded` with a deterministic fallback or disabled state, never healthy.
 - **Probe safety**: checks are bounded, safe to retry, sanitized, and read-only except on dedicated synthetic resources. A partial required probe produces `blocked`, never `ready`.

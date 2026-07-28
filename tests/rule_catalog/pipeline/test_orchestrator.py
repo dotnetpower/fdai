@@ -185,7 +185,7 @@ async def test_pipeline_runs_end_to_end_and_promotes_first_rollout() -> None:
     assert run.decision.outcome is RegressionOutcome.PASS
     assert run.promotion.outcome is PromotionOutcome.PROMOTED
     assert run.baseline is not None
-    assert audit.verify_chain()
+    assert await audit.verify_chain()
 
 
 @pytest.mark.asyncio

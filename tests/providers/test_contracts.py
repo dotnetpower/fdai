@@ -84,7 +84,7 @@ async def test_state_store_audit_chain_is_intact_after_appends(
         await store.append_audit_entry({"event_id": f"evt-{i}", "decision": "auto"})
 
     if isinstance(store, InMemoryStateStore):
-        assert store.verify_chain() is True
+        assert await store.verify_chain() is True
         entries = list(store.audit_entries)
         assert len(entries) == 3
         for i in range(1, 3):
@@ -102,7 +102,7 @@ async def test_in_memory_state_store_verify_chain_detects_tampered_previous_hash
     # Mutate the internal chain directly - the invariant we're checking is
     # that the verifier catches it, not that a public API allows it.
     store._audit[1]["previous_hash"] = "sha256:tampered"  # noqa: SLF001
-    assert store.verify_chain() is False
+    assert await store.verify_chain() is False
 
 
 async def test_in_memory_state_store_verify_chain_detects_tampered_entry_hash() -> None:
@@ -112,7 +112,7 @@ async def test_in_memory_state_store_verify_chain_detects_tampered_entry_hash() 
     await store.append_audit_entry({"event_id": "e-2"})
     # Recompute previous_hash chain but corrupt the second entry's own hash.
     store._audit[1]["entry_hash"] = "sha256:not-the-real-hash"  # noqa: SLF001
-    assert store.verify_chain() is False
+    assert await store.verify_chain() is False
 
 
 # ---------------------------------------------------------------------------

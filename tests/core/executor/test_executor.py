@@ -449,7 +449,7 @@ async def test_audit_records_form_a_hash_chain() -> None:
     executor, _, audit = _executor()
     for i in range(3):
         await executor.execute(action=_action(idempotency_key=f"k-{i}"), rule=_rule())
-    assert audit.verify_chain(), "audit chain broken"
+    assert await audit.verify_chain(), "audit chain broken"
 
 
 # ---------------------------------------------------------------------------

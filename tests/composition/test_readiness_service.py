@@ -84,7 +84,7 @@ async def test_clear_review_is_audited_then_published() -> None:
     assert audit["outcome"] == "reviewed"
     assert audit["tier"] == "t0"
     assert audit["mode"] == "enforce"
-    assert store.verify_chain() is True
+    assert await store.verify_chain() is True
 
 
 async def test_blocking_posture_finding_gates_enforce_handoff() -> None:

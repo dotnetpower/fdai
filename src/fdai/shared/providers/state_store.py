@@ -36,6 +36,10 @@ class StateStore(Protocol):
         """
         ...
 
+    async def verify_chain(self) -> bool:
+        """Return whether the persisted audit hash-chain is intact."""
+        ...
+
     async def read_state(self, key: str) -> Mapping[str, Any] | None:
         """Return the tracked state for ``key`` or ``None`` when absent."""
         ...

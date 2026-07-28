@@ -113,7 +113,7 @@ class DestinationChainProbe:
 
 
 class StateStoreStartupProbe:
-    """Prove PostgreSQL-backed state access with a read-only operation."""
+    """Prove PostgreSQL-backed state access and audit-chain integrity."""
 
     def __init__(self, *, probe_id: str, state_store: StateStore) -> None:
         self.probe_id = probe_id
@@ -122,7 +122,13 @@ class StateStoreStartupProbe:
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
         await self._state_store.read_state("runtime:startup-readiness:probe")
-        return _result(self.probe_id, started_at, evidence={"read": True})
+        if not await self._state_store.verify_chain():
+            raise RuntimeError("audit chain integrity verification failed")
+        return _result(
+            self.probe_id,
+            started_at,
+            evidence={"read": True, "audit_chain_verified": True},
+        )
 
 
 class StaticStartupProbe:

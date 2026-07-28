@@ -122,7 +122,7 @@ async def test_open_creates_incident_and_writes_audit(
     assert transitions[0]["kind"] == "incident.open"
     assert transitions[0]["correlation_id"] == str(inc.incident_id)
     assert transitions[0]["actor_oid"] == "oid-detector"
-    assert state_store.verify_chain()  # audit hash-chain remains intact
+    assert await state_store.verify_chain()  # audit hash-chain remains intact
 
 
 async def test_open_is_idempotent_and_merges_member_events(
@@ -353,7 +353,7 @@ async def test_transition_walks_full_lifecycle(
         actor_oid="oid-approver",
     )
     assert inc.closed_at is not None
-    assert state_store.verify_chain()  # every transition audited without breaking the chain
+    assert await state_store.verify_chain()  # every transition audited without breaking the chain
 
 
 async def test_transition_is_idempotent_same_state(registry: IncidentRegistry) -> None:
@@ -467,7 +467,7 @@ async def test_transition_reopen_cycle_by_same_actor_audits_every_edge(
     transitions = list(state_store.incident_transitions)
     # open + 5 transitions, none dropped by an idempotency-key collision.
     assert len(transitions) == 6
-    assert state_store.verify_chain()
+    assert await state_store.verify_chain()
 
 
 async def test_reopen_can_adjust_severity_and_replay_it(

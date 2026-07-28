@@ -74,7 +74,17 @@ async def test_state_store_probe_performs_read_only_operation() -> None:
 
     result = await probe.run(_request())
 
-    assert result.evidence == {"read": True}
+    assert result.evidence == {"read": True, "audit_chain_verified": True}
+
+
+async def test_state_store_probe_rejects_corrupt_audit_chain() -> None:
+    store = InMemoryStateStore()
+    await store.append_audit_entry({"event_id": "event-1"})
+    store._audit[0]["entry_hash"] = "sha256:tampered"  # noqa: SLF001
+    probe = StateStoreStartupProbe(probe_id="postgres.read", state_store=store)
+
+    with pytest.raises(RuntimeError, match="audit chain integrity verification failed"):
+        await probe.run(_request())
 
 
 async def test_event_bus_probe_round_trips_synthetic_record() -> None:

@@ -757,7 +757,7 @@ async def test_every_terminal_path_writes_audit(
     executor_entries = len(entries) - abstain_entries
     assert abstain_entries == 2
     assert executor_entries == len(result_c.execution_results)
-    assert audit.verify_chain(), "audit chain broken"
+    assert await audit.verify_chain(), "audit chain broken"
 
 
 # ---------------------------------------------------------------------------
@@ -919,7 +919,7 @@ async def test_action_build_failure_falls_closed_and_audits(
     # No PR opened for that finding.
     assert publisher.records == ()
     # Audit chain remains intact.
-    assert audit.verify_chain()
+    assert await audit.verify_chain()
 
 
 def test_is_execution_success_ignores_non_outcome_objects() -> None:

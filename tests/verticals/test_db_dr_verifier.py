@@ -214,7 +214,7 @@ async def test_start_audit_records_config_details() -> None:
 async def test_audit_chain_is_intact_across_run() -> None:
     verifier, audit, *_ = _make_verifier()
     await verifier.run(make_test_config(experiment_id="exp-chain"))
-    assert audit.verify_chain() is True
+    assert await audit.verify_chain() is True
 
 
 # ---------------------------------------------------------------------------

@@ -694,7 +694,7 @@ class TestRouterAudit:
             await router.dispatch(_ops_message())
         assert len(list(audit.audit_entries)) == 5
         # Hash-chain intact.
-        assert audit.verify_chain() is True
+        assert await audit.verify_chain() is True
 
     async def test_audit_records_route_and_correlation(self) -> None:
         (

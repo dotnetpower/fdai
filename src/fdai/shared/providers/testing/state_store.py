@@ -198,7 +198,7 @@ class InMemoryStateStore(StateStore):
         """Read-only view of the audit chain (deep-copied so callers cannot mutate)."""
         return tuple(deepcopy(e) for e in self._audit)
 
-    def verify_chain(self) -> bool:
+    async def verify_chain(self) -> bool:
         """Recompute every hash and confirm the chain is intact."""
         previous = _GENESIS_HASH
         for record in self._audit:

@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 68fa74305c445b2ba35f8300aee00bc61eea161a
-translation_revised: 2026-07-24
+translation_source_sha: aef2339b09bb8c0a0184b5364418016d766a117e
+translation_revised: 2026-07-28
 ---
 
 # 시작과 라이프사이클(Startup and Lifecycle)
@@ -89,7 +89,7 @@ Report는 세 가지 결정을 사용합니다. `blocked`는 `/ready`를 닫습�
 | Release와 config | image digest, release version, config hash, catalog version, `resolved-models.json` schema와 freshness |
 | Host trust | 설정된 token/TLS 허용 범위 이내의 clock skew, certificate chain과 expiry, proxy와 custom CA config |
 | Identity와 secret | audience-scoped token 획득, 필수 role 관찰, native secret/reference injection |
-| State와 policy | PostgreSQL 연결, migration head, audit 가용성, kill-switch 읽기, catalog load, OPA compile |
+| State와 policy | PostgreSQL 연결, migration head, 전체 audit hash-chain 검증, kill-switch 읽기, catalog load, OPA compile |
 | Event path | Kafka DNS/TCP/TLS/auth, 필수 topic, consumer group, DLQ 및 Diagnostic Settings forwarder 상태 |
 | Model capability | deployment readiness, auth, quota headroom, feature flag, mixed-publisher 불변식, verifier와 grounding 가용성 |
 | Optional adapter | web search, notification, 사람 승인 channel, OTLP export 및 fork가 등록한 provider |
@@ -118,7 +118,7 @@ Recovery는 `ready`를 복원할 수 있지만 promotion state보다 권한을 �
 
 ### 실패와 권한 규칙
 
-- **Process-critical**: 잘못된 config, token/secret failure, PostgreSQL/audit failure, policy compile failure 또는 필수 Kafka failure는 `/ready`를 닫습니다.
+- **Process-critical**: 잘못된 config, token/secret failure, PostgreSQL/audit failure, audit hash-chain 불일치, policy compile failure 또는 필수 Kafka failure는 `/ready`를 닫습니다.
 - **Authority-critical**: 읽을 수 없는 kill-switch, 누락된 T2 verification 또는 unavailable approval은 shadow나 사람 승인을 강제합니다. 검증되지 않은 자동 action을 활성화하지 않습니다.
 - **Optional capability**: narrator, search, notification 또는 telemetry failure는 deterministic fallback 또는 disabled 상태와 함께 `degraded`로 보고하며 healthy로 가장하지 않습니다.
 - **Probe safety**: Check는 bounded, safe to retry, sanitized이며 전용 synthetic resource 외에는 read-only입니다. Partial required probe는 `ready`가 아니라 `blocked`가 됩니다.

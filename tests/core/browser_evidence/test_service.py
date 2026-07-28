@@ -296,4 +296,4 @@ async def test_state_store_custody_is_deterministic_shadow_audit() -> None:
     assert entries[0]["entry"]["mode"] == "shadow"
     assert entries[0]["entry"]["untrusted"] is True
     assert entries[0]["entry"]["can_authorize_action"] is False
-    assert state_store.verify_chain() is True
+    assert await state_store.verify_chain() is True

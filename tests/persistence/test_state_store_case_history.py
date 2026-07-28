@@ -46,7 +46,7 @@ async def test_state_store_append_is_idempotent_and_audited() -> None:
     assert await store.append_revision(record) is True
     assert await store.append_revision(record) is False
     assert len(tuple(state.audit_entries)) == 1
-    assert state.verify_chain()
+    assert await state.verify_chain()
 
 
 async def test_state_store_appends_parent_linked_revision() -> None:
