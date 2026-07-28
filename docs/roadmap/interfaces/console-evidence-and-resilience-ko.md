@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a1d8fa8ce928e53e917d20557cf32cfebda4d236
+translation_source_sha: f4a0e6a9c8e59e5a0372803158952d144fdf35f9
 translation_revised: 2026-07-28
 ---
 
@@ -217,6 +217,15 @@ fact를 포함한 agent fact leaf를 runtime 제공 ref에 rooted된 고유 JSON
 Incident title도 서버 소유 evidence입니다. Read projection은 기록된 title, summary 또는 rule
 field를 우선 사용한 뒤 길이가 제한된 signal 및 resource correlation key를 사용합니다. 빈 값,
 `None`, `null` correlation marker는 결측으로 처리하며 browser는 incident subject를 만들지 않습니다.
+
+선택한 Incident 상세 화면은 lifecycle summary와 불러온 audit history에서만 파생한 운영자용 현재
+상황을 가장 먼저 표시합니다. Raw `pending`, `unknown`, `shadow` 값을 하나의 상태처럼 보여주지 않고
+lifecycle state, response decision, change authority 및 operator attention을 분리합니다. 활성 incident에
+notification-delivery escalation이 있으면 이를 우선 표시하고 필요한 후속 작업을 설명합니다. 기록이
+있으면 audit 및 technical activity를 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
+record가 생긴 뒤에만 link가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
+route도 hypothesis가 없으면 generic audit fallback response를 숨겨 `incident.members`를 response plan
+또는 cause로 표시하지 않습니다.
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching

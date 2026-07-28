@@ -219,6 +219,16 @@ Incident titles are also server-owned evidence. The read projection prefers reco
 summary, or rule fields, then uses bounded signal and resource correlation keys; it treats empty,
 `None`, and `null` correlation markers as absent. The browser never invents an incident subject.
 
+The selected Incident detail leads with one operator-readable current situation derived only from
+the lifecycle summary and its loaded audit history. It separates lifecycle state, response
+decision, change authority, and operator attention instead of presenting raw `pending`, `unknown`,
+and `shadow` values as one status. Notification-delivery escalation takes precedence for an active
+incident and names the required follow-up. Audit and technical activity remain available when
+records exist. Root-cause analysis and its dossier become links only after an `rca.*` record exists;
+otherwise the rows state that no evidence-backed hypothesis has been recorded. The RCA route also
+hides its generic audit fallback response when no hypothesis exists, so `incident.members` is never
+presented as a response plan or cause.
+
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without
 requiring a single incident selection. Model prose cannot change the selected incident, search
