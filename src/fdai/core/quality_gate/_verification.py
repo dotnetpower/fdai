@@ -82,7 +82,9 @@ async def cross_check_candidate(
         proposed_params = proposal.params
         if index == 0:
             first_proposer_output = (proposed_type, proposed_params)
-        agreed = proposed_type == candidate.action_type
+        agreed = (
+            proposed_type == candidate.action_type and dict(proposed_params) == candidate.params
+        )
         if agreed:
             agree += 1
         votes.append(

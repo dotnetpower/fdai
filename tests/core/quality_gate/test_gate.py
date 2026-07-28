@@ -328,6 +328,25 @@ async def test_cross_check_agreement_below_quorum_still_disagrees() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cross_check_parameter_disagreement_below_quorum_disagrees() -> None:
+    class _DifferentParamsModel:
+        async def propose(self, candidate: QualityCandidate):
+            return candidate.action_type, {**candidate.params, "tag_value": "team-b"}
+
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(MatchTypeCrossCheckModel(), _DifferentParamsModel()),
+        grounding=_grounding(),
+        config=QualityGateConfig(require_cross_check_quorum=2),
+    )
+
+    decision = await gate.evaluate(_candidate())
+
+    assert decision.outcome is QualityOutcome.DISAGREE
+    assert decision.model_votes[1].agreed is False
+
+
+@pytest.mark.asyncio
 async def test_cross_check_exception_fails_closed_to_disagree() -> None:
     """A cross-check model failure must fail closed, never crash the gate."""
 

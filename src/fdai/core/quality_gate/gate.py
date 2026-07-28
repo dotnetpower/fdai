@@ -236,7 +236,7 @@ class QualityDecision:
 class CrossCheckModel(Protocol):
     """One frontier model used for a cross-check vote.
 
-    ``propose`` returns the ActionType id + parameter subset the model
+    ``propose`` returns the ActionType id + parameters the model
     would emit for the given candidate context. Real implementations
     call a remote LLM under a bounded timeout; the fake in
     :mod:`~fdai.core.quality_gate.testing` returns a deterministic
@@ -294,7 +294,7 @@ class QualityGateConfig:
     require_grounding: bool = True
     require_cross_check_quorum: int = 2
     """Minimum number of cross-check models that MUST agree with the
-    candidate's ``action_type``. Independent models (distinct
+    candidate's normalized action type and parameters. Independent models (distinct
     vendors/weights) - see phase-2 § Quality Gate."""
 
     rubric_shadow: bool = True
