@@ -118,6 +118,11 @@ A semantic-plan rerun projects the same bounded capability manifest into a stric
 schema and removes nullable optional-argument placeholders before selection validation or dispatch.
 A deterministic evidence fast path skips the shadow answer-planning round during a rerun, so an
 unused contributor bridge cannot delay terminal delivery.
+After the assistant turn is durably persisted, user-context ontology projection is a secondary
+operation with a two-second deadline. A projection timeout or failure is logged but cannot withhold
+the authoritative terminal response.
+The terminal `done` frame is authoritative for the web client. Socket closure and best-effort
+reader cancellation are cleanup only; neither may delay the final answer or status transition.
 Queued and steered follow-ups retain the active incident conversation binding; a rerun never
 reverts to fuzzy incident selection or changes Bragi's narrator identity.
 An exact selected-incident turn keeps its direct correlation-filtered lookup and doesn't start

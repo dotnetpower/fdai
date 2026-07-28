@@ -179,6 +179,13 @@ is confined to Azure adapters such as Resource Graph, Microsoft Graph, model dis
 Hubs. `FDAI_READ_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
 CLI-principal debug alternative with a fixed role ceiling.
 
+Local Kubernetes workload evidence is opt-in and server-owned. Set
+`FDAI_LOCAL_KUBECONFIG`, `FDAI_LOCAL_KUBERNETES_CONTEXT`, and
+`FDAI_LOCAL_KUBERNETES_CLUSTER_NAME` together to bind one fixed read-only `kubectl` query. The
+cluster name must match the Azure inventory result before Deployment or Pod evidence can complete
+an AKS answer. With all three values absent, workload coverage remains explicitly unavailable; a
+partial binding fails startup instead of using the implicit current context.
+
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
 configured. Without durable local state, the source manifest reports the settings store as
 unavailable or non-durable instead of claiming persistence. Readers see the sanitized environment,

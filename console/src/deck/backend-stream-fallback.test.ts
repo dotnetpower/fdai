@@ -250,6 +250,7 @@ describe("askBackendStream fallback typewriter", () => {
       },
       cancel() {
         cancelled = true;
+        return new Promise<void>(() => undefined);
       },
     });
     vi.stubGlobal("fetch", vi.fn(async () => new Response(stream, { status: 200 })));

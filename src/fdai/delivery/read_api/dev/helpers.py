@@ -168,11 +168,20 @@ def build_inventory_graph_provider() -> Any:
     )
 
 
+def build_kubernetes_workload_provider() -> Any:
+    from fdai.delivery.read_api.dev.kubernetes_workloads import (
+        kubectl_workload_provider_from_env,
+    )
+
+    return kubectl_workload_provider_from_env(os.environ)
+
+
 __all__ = [
     "build_agent_streams",
     "build_chat_backend",
     "build_chat_web_search",
     "build_inventory_graph_provider",
+    "build_kubernetes_workload_provider",
     "build_live_stream_config",
     "build_stewardship_map",
     "chat_probe_interval_seconds",

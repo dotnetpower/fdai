@@ -201,6 +201,11 @@ class ReadApiConfig:
     Reader-gated ``GET /inventory/graph``. The provider reads the inventory
     projection only; the console never receives a cloud or executor identity."""
 
+    kubernetes_workload_provider: Any = None
+    """Optional server-owned read-only Kubernetes workload projection. The
+    provider owns its kubeconfig and context binding; browser input cannot
+    select or widen cluster scope."""
+
     detection_readiness_reader: Any = None
     """Optional Muninn StateSnapshot reader for ``GET /detection-readiness``.
     The route projects agent-owned state and never probes Azure or recomputes a

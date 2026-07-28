@@ -20,11 +20,7 @@ import {
 } from "./conversation-sessions";
 import type { ViewSnapshot } from "./context";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
-import {
-  drainStreamPaint,
-  flushStreamPaint,
-  shouldFlushStreamPaintSynchronously,
-} from "./stream-paint";
+import { drainStreamPaint } from "./stream-paint";
 
 const MIN_PREPARING_VISIBLE_MS = 420;
 
@@ -167,12 +163,6 @@ export function useCommandDeckSubmit({
       let revealTimer: number | null = null;
       let paintFrame: number | null = null;
       const paintQueue: string[] = [];
-      let paintDrainResolve: (() => void) | null = null;
-      const resolvePaintDrain = (): void => {
-        const resolve = paintDrainResolve;
-        paintDrainResolve = null;
-        if (resolve !== null) resolve();
-      };
       const scheduleStreamPaint = () => {
         if (!started || paintFrame !== null || paintQueue.length === 0 || !isCurrent()) return;
         paintFrame = requestAnimationFrame(() => {
@@ -187,7 +177,6 @@ export function useCommandDeckSubmit({
             return next;
           });
           if (paintQueue.length > 0) scheduleStreamPaint();
-          else resolvePaintDrain();
         });
       };
       const ensureTurn = () => {
@@ -227,22 +216,6 @@ export function useCommandDeckSubmit({
           revealTimer = null;
           ensureTurn();
         }, remaining);
-      };
-      const waitForPaintDrain = async () => {
-        if (paintQueue.length === 0 && paintFrame === null) return;
-        if (shouldFlushStreamPaintSynchronously(document.visibilityState, document.hasFocus())) {
-          if (paintFrame !== null) {
-            cancelAnimationFrame(paintFrame);
-            paintFrame = null;
-          }
-          visibleAcc += flushStreamPaint(paintQueue);
-          resolvePaintDrain();
-          return;
-        }
-        await new Promise<void>((resolve) => {
-          paintDrainResolve = resolve;
-          scheduleStreamPaint();
-        });
       };
       let reply: Awaited<ReturnType<typeof askBackendStream>>;
       try {
@@ -433,7 +406,6 @@ export function useCommandDeckSubmit({
       } catch (error) {
         if (revealTimer !== null) window.clearTimeout(revealTimer);
         if (paintFrame !== null) cancelAnimationFrame(paintFrame);
-        resolvePaintDrain();
         throw error;
       }
       if (!started && isCurrent()) {
@@ -450,8 +422,8 @@ export function useCommandDeckSubmit({
         cancelAnimationFrame(paintFrame);
         paintFrame = null;
       }
+      paintQueue.length = 0;
       ensureTurn();
-      await waitForPaintDrain();
       if (isCurrent()) {
         setTurns((current) => {
           const next = current.map((turn) => {

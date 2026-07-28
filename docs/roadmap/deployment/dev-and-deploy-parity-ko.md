@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1d75f7949f35e8f31513633e17a2a0250b732761
-translation_revised: 2026-07-28
+translation_source_sha: be5f837bf55f0aa462ad53d389c2f17eee1f505c
+translation_revised: 2026-07-29
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -179,6 +179,14 @@ Canonical local read API는 `FDAI_READ_API_LOCAL_ENTRA=1`을 사용하고 deploy
 Resource Graph, Microsoft Graph, model discovery, Event Hubs 같은 Azure adapter로 제한됩니다.
 `FDAI_READ_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1` 조합은 fixed role ceiling을
 사용하는 명시적 CLI-principal debug 대안입니다.
+
+Local Kubernetes workload evidence는 opt-in이며 server-owned입니다.
+`FDAI_LOCAL_KUBECONFIG`, `FDAI_LOCAL_KUBERNETES_CONTEXT`,
+`FDAI_LOCAL_KUBERNETES_CLUSTER_NAME`을 함께 설정하면 하나의 고정된 read-only `kubectl` query를
+binding합니다. Deployment 또는 Pod evidence가 AKS answer의 coverage를 완료하려면 cluster name이
+Azure inventory result와 일치해야 합니다. 세 값이 모두 없으면 workload coverage는 명시적으로
+unavailable 상태를 유지하며, 일부만 설정된 binding은 implicit current context를 사용하는 대신
+startup에 실패합니다.
 
 Runtime policies는 deployment와 local PostgreSQL이 구성된 경우 동일한 StateStore record를
 사용합니다. Durable local state가 없으면 source manifest는 persistence를 주장하지 않고 settings

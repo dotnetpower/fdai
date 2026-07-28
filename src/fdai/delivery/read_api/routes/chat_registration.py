@@ -39,7 +39,10 @@ from fdai.delivery.read_api.routes.chat_data_sources import DataSourceChatTools
 from fdai.delivery.read_api.routes.chat_detection_readiness import DetectionReadinessChatTools
 from fdai.delivery.read_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
-from fdai.delivery.read_api.routes.chat_inventory import InventoryChatTools
+from fdai.delivery.read_api.routes.chat_inventory import (
+    InventoryChatTools,
+    KubernetesWorkloadProvider,
+)
 from fdai.delivery.read_api.routes.chat_log_query import LogQueryChatTools
 from fdai.delivery.read_api.routes.chat_skills import RuntimeSkillChatTools
 from fdai.delivery.read_api.routes.chat_subscription_health import (
@@ -78,6 +81,7 @@ def append_chat_routes(
     conversation_history_store: ConversationHistoryStore | None = None,
     conversation_search: ConversationSearch | None = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
+    kubernetes_workload_provider: KubernetesWorkloadProvider | None = None,
     detection_readiness_reader: DetectionReadinessReader | None = None,
     subscription_health_provider: SubscriptionHealthProvider | None = None,
     log_query_provider: Any = None,
@@ -114,7 +118,11 @@ def append_chat_routes(
     inventory_tools = (
         log_tools
         if inventory_graph_provider is None
-        else InventoryChatTools(inventory_graph_provider, fallback=log_tools)
+        else InventoryChatTools(
+            inventory_graph_provider,
+            fallback=log_tools,
+            workload_provider=kubernetes_workload_provider,
+        )
     )
     subscription_health_tools = (
         inventory_tools

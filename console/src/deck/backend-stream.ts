@@ -315,7 +315,7 @@ export async function askBackendStream(
         if (terminalSeen) break;
       }
       if (terminalSeen) {
-        await reader.cancel().catch(() => undefined);
+        void reader.cancel().catch(() => undefined);
         break;
       }
       if (buffer.length > MAX_DECK_SSE_FRAME_CHARS) {

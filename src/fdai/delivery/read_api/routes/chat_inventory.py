@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -88,6 +88,7 @@ _TYPE_ALIASES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
 )
 _MAX_RESOURCES = 40
 _MAX_LINKS = 40
+KubernetesWorkloadProvider = Callable[[], Awaitable[Mapping[str, Any]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +97,7 @@ class InventoryChatTools:
 
     provider: InventoryGraphProvider
     fallback: ChatToolResolver | None = None
+    workload_provider: KubernetesWorkloadProvider | None = None
 
     async def resolve(
         self,
@@ -108,6 +110,8 @@ class InventoryChatTools:
         try:
             graph = dict(await self.provider(None, 4, ("contains", "attached_to", "depends_on")))
             result = _project_inventory_result(prompt, graph)
+            if result.get("coverage_gap") == "kubernetes_workloads":
+                result = await self._resolve_workloads(result)
         except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
             result = {"status": "unavailable", "reason": type(exc).__name__}
         return {
@@ -115,6 +119,38 @@ class InventoryChatTools:
             "authority": "server_inventory_graph",
             "result": result,
         }
+
+    async def _resolve_workloads(self, result: dict[str, Any]) -> dict[str, Any]:
+        if self.workload_provider is None:
+            return result
+        try:
+            workload = dict(await self.workload_provider())
+        except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
+            result["workload_evidence_status"] = "unavailable"
+            result["workload_evidence_reason"] = type(exc).__name__
+            return result
+        cluster_names = {
+            str(item.get("name"))
+            for item in result.get("resources", ())
+            if isinstance(item, Mapping) and item.get("type") == "kubernetes-cluster"
+        }
+        if workload.get("status") != "matched" or workload.get("cluster_name") not in cluster_names:
+            result["workload_evidence_status"] = "unmatched"
+            return result
+        if not isinstance(workload.get("deployments"), (list, tuple)) or not isinstance(
+            workload.get("pods"), (list, tuple)
+        ):
+            result["workload_evidence_status"] = "invalid"
+            return result
+        result["workload"] = workload
+        uncovered_cluster_count = len(cluster_names - {str(workload["cluster_name"])})
+        if uncovered_cluster_count or bool(workload.get("truncated")):
+            result["workload_evidence_status"] = "partial"
+            result["uncovered_cluster_count"] = uncovered_cluster_count
+            return result
+        result["status"] = "matched"
+        result["coverage_gap"] = None
+        return result
 
     async def _fallback(self, prompt: str, *, principal_id: str) -> dict[str, Any] | None:
         if self.fallback is None:
@@ -240,11 +276,15 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
         ]
         lines.extend(_answer_detail_lines(result, resources, korean=True))
         if result.get("status") == "partial":
-            lines.append(
-                "이 Azure inventory 근거는 AKS 클러스터 리소스 상태까지만 포함하며, "
-                "클러스터 내부 Deployment와 Pod는 포함하지 않습니다. 따라서 앱 배포 여부는 "
-                "Kubernetes workload 근거가 연결되기 전에는 확정할 수 없습니다."
-            )
+            workload = result.get("workload")
+            if isinstance(workload, Mapping):
+                lines.append(_partial_workload_gap(result, workload, korean=True))
+            else:
+                lines.append(
+                    "이 Azure inventory 근거는 AKS 클러스터 리소스 상태까지만 포함하며, "
+                    "클러스터 내부 Deployment와 Pod는 포함하지 않습니다. 따라서 앱 배포 여부는 "
+                    "Kubernetes workload 근거가 연결되기 전에는 확정할 수 없습니다."
+                )
         lines.append(f"근거: {source}, snapshot {snapshot}, freshness {freshness}.")
         if truncated:
             lines.append("인벤토리 snapshot이 잘렸으므로 실제 리소스 수가 더 많을 수 있습니다.")
@@ -255,11 +295,15 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
     ]
     lines.extend(_answer_detail_lines(result, resources, korean=False))
     if result.get("status") == "partial":
-        lines.append(
-            "This Azure inventory evidence covers AKS cluster resources only; it does not include "
-            "in-cluster Deployments or Pods. Application deployment cannot be confirmed until "
-            "Kubernetes workload evidence is connected."
-        )
+        workload = result.get("workload")
+        if isinstance(workload, Mapping):
+            lines.append(_partial_workload_gap(result, workload, korean=False))
+        else:
+            lines.append(
+                "This Azure inventory evidence covers AKS cluster resources only; it does not "
+                "include in-cluster Deployments or Pods. Application deployment cannot be "
+                "confirmed until Kubernetes workload evidence is connected."
+            )
     lines.append(f"Evidence: {source}, snapshot {snapshot}, freshness {freshness}.")
     if truncated:
         lines.append("The inventory snapshot is truncated, so additional resources may exist.")
@@ -272,6 +316,9 @@ def _answer_detail_lines(
     *,
     korean: bool,
 ) -> list[str]:
+    workload = result.get("workload")
+    if isinstance(workload, Mapping):
+        return _workload_lines(workload, korean=korean)
     query_kind = str(result.get("query_kind") or "list")
     if query_kind == "types":
         counts = result.get("type_counts", {})
@@ -290,13 +337,75 @@ def _answer_detail_lines(
     return [_resource_line(item, korean=korean) for item in resources]
 
 
+def _workload_lines(workload: Mapping[str, Any], *, korean: bool) -> list[str]:
+    deployments = [item for item in workload.get("deployments", ()) if isinstance(item, Mapping)]
+    pods = [item for item in workload.get("pods", ()) if isinstance(item, Mapping)]
+    if korean:
+        lines = [
+            f"Kubernetes API에서 Deployment {len(deployments)}개와 "
+            f"Pod {len(pods)}개를 확인했습니다."
+        ]
+    else:
+        lines = [f"Kubernetes API reported {len(deployments)} Deployments and {len(pods)} Pods."]
+    lines.extend(
+        f"- Deployment {item.get('namespace')}/{item.get('name')}: "
+        f"ready {item.get('ready', 0)}/{item.get('desired', 0)}, "
+        f"available {item.get('available', 0)}"
+        for item in deployments
+    )
+    lines.extend(
+        f"- Pod {item.get('namespace')}/{item.get('name')}: {item.get('phase', 'Unknown')}, "
+        f"ready {item.get('ready', 0)}/{item.get('containers', 0)}"
+        for item in pods
+    )
+    observed_at = workload.get("observed_at")
+    source = workload.get("source")
+    if source or observed_at:
+        prefix = "Workload 근거" if korean else "Workload evidence"
+        lines.append(f"{prefix}: {source or 'unknown'} at {observed_at or 'unknown time'}.")
+    return lines
+
+
+def _partial_workload_gap(
+    result: Mapping[str, Any],
+    workload: Mapping[str, Any],
+    *,
+    korean: bool,
+) -> str:
+    cluster_name = str(workload.get("cluster_name") or "unknown")
+    uncovered = int(result.get("uncovered_cluster_count") or 0)
+    if uncovered:
+        if korean:
+            return (
+                f"이 workload 근거는 {cluster_name}만 포함합니다. "
+                f"다른 AKS 클러스터 {uncovered}개는 "
+                "Deployment와 Pod 근거가 없어 전체 배포 상태를 확정할 수 없습니다."
+            )
+        return (
+            f"This workload evidence covers only {cluster_name}. {uncovered} other matched AKS "
+            "clusters lack Deployment and Pod evidence, so overall deployment state is unconfirmed."
+        )
+    if korean:
+        return "Workload 응답이 잘렸으므로 전체 Deployment와 Pod 상태를 확정할 수 없습니다."
+    return (
+        "The workload response is truncated, so complete Deployment and Pod state is unconfirmed."
+    )
+
+
 def inventory_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
     result = evidence.get("result")
     if not isinstance(result, Mapping):
         return ()
     source = result.get("source")
     snapshot = result.get("snapshot_at")
-    return (f"inventory:{source}@{snapshot}",) if source and snapshot else ()
+    refs = [f"inventory:{source}@{snapshot}"] if source and snapshot else []
+    workload = result.get("workload")
+    if isinstance(workload, Mapping):
+        workload_source = workload.get("source")
+        observed_at = workload.get("observed_at")
+        if workload_source and observed_at:
+            refs.append(f"kubernetes:{workload_source}@{observed_at}")
+    return tuple(refs)
 
 
 def _safe_resource(raw: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -370,6 +479,7 @@ def _resource_line(resource: Mapping[str, Any], *, korean: bool) -> str:
 
 __all__ = [
     "InventoryChatTools",
+    "KubernetesWorkloadProvider",
     "inventory_evidence_refs",
     "needs_inventory_evidence",
     "render_inventory_answer",

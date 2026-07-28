@@ -81,6 +81,7 @@ def append_auxiliary_routes(
         conversation_history_store=config.conversation_history_store,
         conversation_search=config.conversation_search,
         inventory_graph_provider=config.inventory_graph_provider,
+        kubernetes_workload_provider=config.kubernetes_workload_provider,
         detection_readiness_reader=config.detection_readiness_reader,
         subscription_health_provider=config.subscription_health_provider,
         log_query_provider=config.log_query_provider,

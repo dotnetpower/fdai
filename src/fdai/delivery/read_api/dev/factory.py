@@ -121,6 +121,9 @@ from fdai.delivery.read_api.dev.helpers import (  # noqa: E402
     build_inventory_graph_provider as _build_inventory_graph_provider,
 )
 from fdai.delivery.read_api.dev.helpers import (  # noqa: E402
+    build_kubernetes_workload_provider as _build_kubernetes_workload_provider,
+)
+from fdai.delivery.read_api.dev.helpers import (  # noqa: E402
     build_live_stream_config as _build_live_stream_config,
 )
 from fdai.delivery.read_api.dev.helpers import (  # noqa: E402
@@ -675,6 +678,7 @@ def build_local_app(
             runtime_settings=runtime_settings,
             workflow_definitions=workflow_definitions,
             inventory_graph_provider=_build_inventory_graph_provider(),
+            kubernetes_workload_provider=_build_kubernetes_workload_provider(),
             detection_readiness_reader=(
                 persistence.state_store if persistence is not None else None
             ),

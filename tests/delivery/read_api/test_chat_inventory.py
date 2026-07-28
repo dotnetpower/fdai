@@ -17,6 +17,7 @@ from fdai.delivery.read_api.routes.chat_behavior_evidence import (
 )
 from fdai.delivery.read_api.routes.chat_inventory import (
     InventoryChatTools,
+    inventory_evidence_refs,
     render_inventory_answer,
 )
 from fdai.delivery.read_api.routes.chat_turn_plan import parse_turn_plan
@@ -309,6 +310,102 @@ async def test_aks_workload_question_reports_cluster_only_coverage() -> None:
     assert verification.status == "unverified"
     assert verification.reason_code == "inventory_workload_coverage_gap"
     assert verification.answer == answer
+
+
+async def test_aks_workload_question_uses_bound_kubernetes_evidence() -> None:
+    async def workloads() -> dict[str, Any]:
+        return {
+            "status": "matched",
+            "cluster_name": "aks-app",
+            "source": "kubernetes_apiserver",
+            "observed_at": "2026-07-28T15:00:00Z",
+            "deployments": [
+                {
+                    "namespace": "benchmark",
+                    "name": "runner",
+                    "desired": 2,
+                    "ready": 2,
+                    "available": 2,
+                }
+            ],
+            "pods": [
+                {
+                    "namespace": "benchmark",
+                    "name": "runner-abc",
+                    "phase": "Running",
+                    "ready": 1,
+                    "containers": 1,
+                }
+            ],
+            "truncated": False,
+        }
+
+    evidence = await InventoryChatTools(_provider, workload_provider=workloads).resolve(
+        "지금 AKS에 배포되고 있는 게 있어?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "matched"
+    assert evidence["result"]["coverage_gap"] is None
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "benchmark/runner" in answer
+    assert "ready 2/2" in answer
+    assert "benchmark/runner-abc" in answer
+    assert "Running" in answer
+    verification = verify_answer("", {"_tool_evidence": evidence}, locale="ko")
+    assert verification.status == "corrected"
+    assert verification.answer == answer
+    assert inventory_evidence_refs(evidence) == (
+        "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+        "kubernetes:kubernetes_apiserver@2026-07-28T15:00:00Z",
+    )
+
+
+async def test_bound_kubernetes_evidence_does_not_cover_other_clusters() -> None:
+    async def multiple_clusters(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types)
+        graph["resources"].append(
+            _resource(
+                "aks-other",
+                "kubernetes-cluster",
+                "aks-other",
+                group="rg-other",
+                location="koreacentral",
+            )
+        )
+        return graph
+
+    async def workloads() -> dict[str, Any]:
+        return {
+            "status": "matched",
+            "cluster_name": "aks-app",
+            "source": "kubernetes_apiserver",
+            "observed_at": "2026-07-28T15:00:00Z",
+            "deployments": [],
+            "pods": [],
+            "truncated": False,
+        }
+
+    evidence = await InventoryChatTools(
+        multiple_clusters,
+        workload_provider=workloads,
+    ).resolve("AKS에 배포된 앱이 있어?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "partial"
+    assert evidence["result"]["coverage_gap"] == "kubernetes_workloads"
+    assert evidence["result"]["uncovered_cluster_count"] == 1
+    assert evidence["result"]["workload"]["cluster_name"] == "aks-app"
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "aks-app" in answer
+    assert "다른 AKS 클러스터 1개" in answer
 
 
 def test_aks_workload_stream_overrides_semantic_web_plan() -> None:

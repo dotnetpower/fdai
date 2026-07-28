@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -16,6 +18,8 @@ from fdai.shared.providers.user_context import (
 )
 
 _REPLAY_PAYLOAD_KEY = "replay_payload"
+_DEFAULT_PROJECTION_TIMEOUT_SECONDS = 2.0
+_LOG = logging.getLogger(__name__)
 
 
 async def append_operator_turn(
@@ -71,6 +75,7 @@ async def append_assistant_turn(
     recorded_at: datetime,
     metadata: dict[str, str] | None = None,
     ontology_projector: UserContextOntologyProjector | None = None,
+    projection_timeout_seconds: float = _DEFAULT_PROJECTION_TIMEOUT_SECONDS,
 ) -> ConversationTurnRecord:
     idempotency_key = f"{request_id}:assistant"
     turn = ConversationTurnRecord(
@@ -100,11 +105,20 @@ async def append_assistant_turn(
             None,
         )
         if conversation is not None and operator is not None:
-            await ontology_projector.project_turn_exchange(
-                conversation=conversation,
-                operator=operator,
-                assistant=stored,
-            )
+            try:
+                async with asyncio.timeout(projection_timeout_seconds):
+                    await ontology_projector.project_turn_exchange(
+                        conversation=conversation,
+                        operator=operator,
+                        assistant=stored,
+                    )
+            except TimeoutError:
+                _LOG.warning("chat assistant ontology projection timed out")
+            except Exception as exc:  # noqa: BLE001 - persisted answer remains authoritative
+                _LOG.warning(
+                    "chat assistant ontology projection failed: %s",
+                    type(exc).__name__,
+                )
     return stored
 
 
