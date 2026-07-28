@@ -37,12 +37,13 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "module": "uvicorn",
       "args": [
-        "fdai.delivery.read_api.dev.local:app",
+        "fdai.delivery.read_api.dev.local:server_app",
         "--factory",
         "--host",
         "127.0.0.1",
         "--port",
         "8010",
+        "--no-access-log",
         "--reload"
       ],
       "cwd": "${workspaceFolder}",

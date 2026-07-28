@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 397c9120623164168825a6bd520cf4199aa1027d
+translation_source_sha: 7cb65476bc8e4e0a3ee827c42376406f718d4ca1
 translation_revised: 2026-07-28
 ---
 
@@ -108,10 +108,13 @@ answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니�
 사용하며, 1 MiB에서 회전하여 이전 세대를 최대 3개 유지합니다. Git에서 제외된 이 진단 log는 task
 terminal이 닫혀도 유지되며 structured warning 및 error record인 `warnings.jsonl`을 대체하지 않습니다.
 Core terminal은 machine-readable JSON stream을 유지하지만, core file은 read API log와 같은
-`LEVEL: logger: message` 형식으로 record를 렌더링합니다. Event Hubs adapter는 aiokafka의 context가
-없는 socket별 authentication success message를 억제하고, logical consumer마다 topic, consumer group,
-client id 및 authentication mechanism을 포함한 `event_bus_consumer_started` record 하나를 내보냅니다.
-Dependency warning과 error는 계속 표시됩니다. Startup model latency probe는 구성된 모든
+`LEVEL: logger: message` 형식으로 record를 렌더링합니다. Local read API는 같은 structured logger를
+사용하고 기본값이 `INFO`인 `FDAI_LOG_LEVEL`을 적용합니다. Uvicorn access log는 비활성화하고,
+`aiokafka`, `httpx`, `weasyprint`의 `WARNING` 미만 record는 억제하지만 FDAI lifecycle 및 decision
+record는 `INFO`로 유지합니다. Event Hubs adapter는 aiokafka의 context가 없는 socket별 authentication
+success message도 억제하고, logical consumer마다 topic, consumer group, client id 및 authentication
+mechanism을 포함한 `event_bus_consumer_started` record 하나를 내보냅니다. Dependency warning과
+error는 계속 표시됩니다. Startup model latency probe는 구성된 모든
 reasoning candidate가 지원하는 Azure Responses API output-token budget과
 안정적인 `read-api:*:latency-probe` correlation id를 사용하므로 측정된 사용량이 uncorrelated
 traffic으로 기록되지 않습니다.

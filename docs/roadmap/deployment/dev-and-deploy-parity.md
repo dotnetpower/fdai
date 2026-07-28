@@ -107,9 +107,12 @@ plus the child exit code and uses private local permissions. Logs rotate at 1 Mi
 previous generations retained. These gitignored diagnostics survive a task terminal closing; they
 don't replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
 machine-readable JSON stream, while the core file renders those records as `LEVEL: logger: message`
-lines to match the read API log. The Event Hubs adapter suppresses aiokafka's context-free
-per-socket authentication success messages and emits one `event_bus_consumer_started` record per
-logical consumer with its topic, consumer group, client id, and authentication mechanism. Dependency
+lines to match the read API log. The local read API uses the same structured logger and honors
+`FDAI_LOG_LEVEL` with an `INFO` default. Its Uvicorn access log is disabled, and `aiokafka`, `httpx`,
+and `weasyprint` records below `WARNING` are suppressed while FDAI lifecycle and decision records
+remain at `INFO`. The Event Hubs adapter also suppresses aiokafka's context-free per-socket
+authentication success messages and emits one `event_bus_consumer_started` record per logical
+consumer with its topic, consumer group, client id, and authentication mechanism. Dependency
 warnings and errors remain visible. Startup model latency probes use a bounded Azure Responses API
 output-token budget supported by every configured reasoning candidate and stable
 `read-api:*:latency-probe` correlation ids, so their measured usage isn't filed as uncorrelated
