@@ -481,7 +481,11 @@ def make_chat_route(
             answer_plan, planning_task = start_shadow_answer_planning(
                 prompt=clean_prompt,
                 plan=answer_plan,
-                delegate=(None if "_screen_scope" in view_context else answer_planning_delegate),
+                delegate=(
+                    None
+                    if "_screen_scope" in view_context or _uses_evidence_fast_path(view_context)
+                    else answer_planning_delegate
+                ),
             )
             view_context["_answer_plan"] = answer_plan.to_dict()
         except Exception:

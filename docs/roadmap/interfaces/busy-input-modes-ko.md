@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 5cd58e400a4411b882b2b9aa2a7483fe8068e2f6
+translation_source_sha: d1f833a4f63aa44bed559e969c12c13084d6b544
 translation_revised: 2026-07-28
 ---
 
@@ -119,6 +119,8 @@ turn을 시작하지 않으며, review 중 도착한 input은 기존 queue, inte
 governance를 그대로 따릅니다.
 Semantic-plan rerun은 동일한 bounded capability manifest를 strict structured-output schema로
 projection하고 selection validation 또는 dispatch 전에 nullable optional-argument placeholder를 제거합니다.
+Deterministic evidence fast path는 rerun 중 shadow answer-planning round를 생략하므로 사용하지 않는
+contributor bridge가 terminal delivery를 지연시킬 수 없습니다.
 Queued 및 steered follow-up은 active incident conversation binding을 유지합니다. Rerun은 fuzzy
 incident selection으로 돌아가거나 Bragi의 narrator identity를 변경하지 않습니다.
 Exact selected-incident turn은 direct correlation-filtered lookup을 유지하며 rerun 중 관련 없는

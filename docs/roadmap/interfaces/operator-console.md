@@ -333,6 +333,9 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   requests a web search. The coordinator runs only the local tool branch. An AKS application
   deployment question remains partial when only cluster inventory is connected; it lists the
   observed cluster resources and states that Kubernetes workload evidence is missing.
+  A deterministic evidence fast path doesn't start the shadow answer-planning round because it
+  cannot consume contributor prose. Verification and terminal delivery therefore don't wait for
+  an unrelated agent bridge.
   Bragi deterministically keeps a data question on the current screen when that screen carries
   a facts or records projection for the turn, including an explicitly empty projection. The scope
   is selected before behavior, tool, incident, agent, concept, and web resolvers. It suppresses

@@ -19,6 +19,7 @@ from fdai.delivery.read_api.routes.chat_inventory import (
     InventoryChatTools,
     render_inventory_answer,
 )
+from fdai.delivery.read_api.routes.chat_turn_plan import parse_turn_plan
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -308,6 +309,66 @@ async def test_aks_workload_question_reports_cluster_only_coverage() -> None:
     assert verification.status == "unverified"
     assert verification.reason_code == "inventory_workload_coverage_gap"
     assert verification.answer == answer
+
+
+def test_aks_workload_stream_overrides_semantic_web_plan() -> None:
+    class PlanningDelegate:
+        calls = 0
+
+        def route_answer_planning(self, _prompt: str):
+            self.calls += 1
+            raise AssertionError("deterministic AKS evidence must not start answer planning")
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object):
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "status",
+                    "tool_name": "web_search",
+                    "action_type": None,
+                    "arguments": {"query": "AKS deployments", "goal": "current_fact"},
+                    "clarification": None,
+                    "confidence": 0.8,
+                }
+            )
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object):
+            raise AssertionError("local AKS status must not search the public web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object):
+            raise AssertionError("local AKS status must not search the public web")
+
+    planning = PlanningDelegate()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=RecordingBackend(),
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_provider),
+                web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                answer_planning_delegate=planning,  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "prompt": "지금 AKS 에 배포되고 있는게 있어?",
+            "view_context": {"routeId": "operating-outcomes"},
+        },
+    )
+
+    assert response.status_code == 200
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert done["verification"]["reason_code"] == "inventory_workload_coverage_gap"
+    assert "Deployment와 Pod는 포함하지 않습니다" in done["answer"]
+    assert "public_web" not in response.text
+    assert planning.calls == 0
 
 
 def test_twenty_inventory_weaknesses_pass_twenty_answer_rubrics() -> None:

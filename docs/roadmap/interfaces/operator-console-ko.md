@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 7148e52153a6f5812e36b7ddac461080f3906a0a
+translation_source_sha: 760d0b2abdef6dd56defd8fce4ad263818c47b66
 translation_revised: 2026-07-28
 ---
 
@@ -325,6 +325,9 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   우선합니다. Coordinator는 local tool branch만 실행합니다. Cluster inventory만 연결된 상태의 AKS 앱
   배포 질문은 partial로 유지하고 관찰된 cluster resource와 Kubernetes workload evidence 누락을 함께
   표시합니다.
+  Deterministic evidence fast path는 contributor prose를 사용하지 않으므로 shadow answer-planning
+  round를 시작하지 않습니다. 따라서 verification과 terminal delivery는 관련 없는 agent bridge를
+  기다리지 않습니다.
   현재 화면에 명시적으로 빈 projection을 포함한 turn의 facts 또는 records projection이 있으면
   Bragi는 data question을 해당 화면 범위에 결정론적으로 유지합니다. 이 scope는 behavior, tool,
   incident, agent, concept 및 web resolver보다 먼저 선택합니다. Specialist delegation, semantic web

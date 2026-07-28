@@ -116,6 +116,8 @@ start another operator turn; input that arrives during review remains governed b
 queue, interrupt, or steer race outcome.
 A semantic-plan rerun projects the same bounded capability manifest into a strict structured-output
 schema and removes nullable optional-argument placeholders before selection validation or dispatch.
+A deterministic evidence fast path skips the shadow answer-planning round during a rerun, so an
+unused contributor bridge cannot delay terminal delivery.
 Queued and steered follow-ups retain the active incident conversation binding; a rerun never
 reverts to fuzzy incident selection or changes Bragi's narrator identity.
 An exact selected-incident turn keeps its direct correlation-filtered lookup and doesn't start

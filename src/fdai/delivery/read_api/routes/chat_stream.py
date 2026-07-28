@@ -414,7 +414,10 @@ def make_chat_stream_route(
                     prompt=clean_prompt,
                     plan=answer_plan,
                     delegate=(
-                        None if "_screen_scope" in enriched_context else answer_planning_delegate
+                        None
+                        if "_screen_scope" in enriched_context
+                        or _uses_evidence_fast_path(enriched_context)
+                        else answer_planning_delegate
                     ),
                 )
                 enriched_context["_answer_plan"] = answer_plan.to_dict()
