@@ -213,6 +213,8 @@ When an explicit handoff returns the turn to Bragi, the Web labels ownership as
 `specialist -> Bragi` in the reply header and answer-plan row. If the handoff carries no specialist
 answer, deterministic verification returns an unavailable-evidence response and never validates
 narrator prose against unrelated current-screen facts.
+When a selected agent and server-owned operational evidence both resolve, the coordinator retains
+both; deterministic verification still owns incident summaries, absence claims, and causes.
 Bragi completes the T0/T1 owner route once, then the ordinary answer path selects one uniquely
 highest-scoring read tool from that owner. A completed tool result becomes the primary specialist
 answer, and its scoped facts enter the existing agent-evidence manifest. A tie or no match keeps the

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e6b35078465417effd99bfe4e8f984f59cdab54b
+translation_source_sha: 6eec793f94dbf9d6771011a858eb2c89a16297e7
 translation_revised: 2026-07-28
 ---
 
@@ -212,6 +212,8 @@ owner를 확인하거나 handoff를 표시할 때까지 label을 안정적으로
 `specialist -> Bragi`로 소유권 흐름을 표시합니다. Handoff에 specialist answer가 없으면 결정론적
 verification은 근거를 사용할 수 없다는 응답을 반환하고, 관련 없는 current-screen fact로 narrator
 문장을 검증하지 않습니다.
+선택한 agent와 server-owned operational evidence가 모두 resolve되면 coordinator는 둘 다 유지하며,
+incident summary, absence claim 및 cause는 계속 결정론적 verification이 소유합니다.
 Bragi가 T0/T1 owner route를 한 번 완료한 뒤, 일반 answer path는 그 owner에서 점수가 유일하게
 가장 높은 read tool 하나를 선택합니다. 완료된 tool result가 primary specialist answer가 되고,
 범위 한정 fact는 기존 agent-evidence manifest로 들어갑니다. 동점이거나 일치 항목이 없으면 owner의
