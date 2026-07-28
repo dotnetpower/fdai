@@ -246,6 +246,7 @@ class TestReadOnlyInvariant:
             "/hil-queue",
             "/incidents",
             "/kpi",
+            "/notification-templates/incident-opened",
             "/rca",
             "/system/data-sources",
         ]

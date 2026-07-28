@@ -1,0 +1,36 @@
+.settings-email-template {
+  min-width: 0;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-email-template-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 12px;
+}
+.settings-email-template-head span:first-child { min-width: 0; }
+.settings-email-template-head small {
+  display: block;
+  color: var(--fg-muted);
+}
+.settings-email-template-head strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.settings-email-template-frame {
+  display: block;
+  width: 100%;
+  height: 720px;
+  border: 1px solid var(--border);
+  background: #eeeae3;
+}
+@media (max-width: 700px) {
+  .settings-email-template-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .settings-email-template-frame { height: 680px; }
+}

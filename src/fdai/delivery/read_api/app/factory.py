@@ -92,6 +92,7 @@ _CORE_ROUTE_PATHS: frozenset[str] = frozenset(
         "/me/policies",
         "/me/briefing-subscriptions",
         "/me/opening-briefing",
+        "/notification-templates/incident-opened",
         "/workflows/definitions",
         "/workflows/bindings",
     }
@@ -268,6 +269,11 @@ def build_app(
             authorize=_authorize,
         )
     )
+    from fdai.delivery.read_api.routes.notification_templates import (
+        make_notification_template_route,
+    )
+
+    routes.append(make_notification_template_route(authorize=_authorize))
 
     if resolved_config.kill_switch_command is not None:
         from fdai.delivery.read_api.routes.kill_switch import make_kill_switch_route

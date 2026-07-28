@@ -31,6 +31,7 @@ from fdai.delivery.notifications import (
     TeamsWebhookConfig,
 )
 from fdai.delivery.notifications._http import post_json, truncate
+from fdai.delivery.notifications.email_rendering import render_email_content
 from fdai.shared.providers.notifications import (
     ChannelDeliveryError,
     ChannelUnavailableError,
@@ -373,7 +374,109 @@ class TestEmailAdapter:
         body = _json.loads(request.content.decode("utf-8"))
         assert body["recipients"]["to"][0]["address"] == "recv@example.com"
         assert body["senderAddress"] == "ops@example.com"
+        assert "html" not in body["content"]
         assert receipt.provider_message_id == "provider-email-1"
+
+    async def test_incident_open_uses_safe_html_template(self) -> None:
+        captured: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.append(request)
+            if request.method == "POST":
+                return httpx.Response(
+                    202,
+                    headers={"Operation-Location": "https://acs.example/operations/incident"},
+                )
+            return httpx.Response(200, json={"id": "incident-email", "status": "Succeeded"})
+
+        message = _message(
+            correlation_id="incident-1",
+            title="Incident opened: SEV2",
+            audit_id="incident:incident-1:opened",
+            links=(
+                Link(
+                    label="View incident",
+                    url="https://console.example.com/incidents?incident=incident-1",
+                ),
+            ),
+            metadata={
+                "notice_kind": "opened",
+                "incident_id": "incident-1<script>",
+                "incident_state": "open",
+                "incident_severity": "sev2",
+                "opened_at": "2026-07-15T00:00:00+00:00",
+                "member_event_count": "8",
+                "assignment_state": "Unassigned",
+            },
+        )
+        async with _client(handler) as http:
+            adapter = AzureCommunicationEmailChannel(
+                config=AzureCommunicationEmailConfig(
+                    channel_id="email-incident",
+                    endpoint="https://acs.example",
+                    recipient_addresses=("recv@example.com",),
+                    poll_interval_seconds=0,
+                ),
+                http_client=http,
+            )
+            await adapter.send(message)
+
+        import json as _json
+
+        content = _json.loads(captured[0].content.decode("utf-8"))["content"]
+        assert content["subject"] == "[SEV2] Incident opened"
+        assert "Correlated evidence: 8" in content["plainText"]
+        assert "https://console.example.com/incidents?incident=incident-1" in content["html"]
+        assert "incident-1&lt;script&gt;" in content["html"]
+        assert "incident-1<script>" not in content["html"]
+
+    async def test_non_incident_open_metadata_keeps_plain_text_fallback(self) -> None:
+        captured: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.append(request)
+            return httpx.Response(200)
+
+        async with _client(handler) as http:
+            adapter = AzureCommunicationEmailChannel(
+                config=AzureCommunicationEmailConfig(
+                    channel_id="email-generic",
+                    endpoint="https://acs.example",
+                    recipient_addresses=("recv@example.com",),
+                ),
+                http_client=http,
+            )
+            await adapter.send(
+                _message(
+                    audit_id="digest:opened",
+                    metadata={"notice_kind": "opened"},
+                )
+            )
+
+        import json as _json
+
+        content = _json.loads(captured[0].content.decode("utf-8"))["content"]
+        assert content == {"subject": "DLQ depth", "plainText": "Depth = 42"}
+
+    def test_incident_open_omits_unavailable_optional_facts(self) -> None:
+        content = render_email_content(
+            _message(
+                audit_id="incident:incident-1:opened",
+                links=(Link(label="View incident", url="/incidents?incident=incident-1"),),
+                metadata={
+                    "notice_kind": "opened",
+                    "incident_id": "incident-1",
+                    "incident_state": "open",
+                    "incident_severity": "sev2",
+                },
+            )
+        )
+
+        assert content.html is not None
+        assert "Unavailable" not in content.html
+        assert "Correlated evidence" not in content.html
+        assert "Assignment" not in content.html
+        assert "href=" not in content.html
 
     async def test_no_token_provider_omits_bearer(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:

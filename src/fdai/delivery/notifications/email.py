@@ -32,6 +32,7 @@ from fdai.shared.providers.notifications.base import (
 )
 
 from ._http import post_json_response, truncate
+from .email_rendering import render_email_content
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 15.0
 _DEFAULT_POLL_INTERVAL_SECONDS: Final[float] = 1.0
@@ -193,12 +194,15 @@ def _acs_email_payload(
     message: NotificationMessage,
     config: AzureCommunicationEmailConfig,
 ) -> dict[str, object]:
+    content = render_email_content(message)
+    provider_content = {
+        "subject": content.subject,
+        "plainText": content.plain_text,
+        **({"html": content.html} if content.html is not None else {}),
+    }
     return {
         "senderAddress": config.sender_address,
-        "content": {
-            "subject": message.title[:255],
-            "plainText": message.body_markdown,
-        },
+        "content": provider_content,
         "recipients": {
             "to": [{"address": addr} for addr in config.recipient_addresses],
         },

@@ -1,6 +1,7 @@
 import type { ReadApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { useEffect, useRef, useState } from "preact/hooks";
+import "./settings-email-template.css";
 import {
   AsyncBoundary,
   type AsyncState,
@@ -12,6 +13,10 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { SettingRow } from "./settings";
+import {
+  decodeEmailTemplatePreview,
+  type EmailTemplatePreview,
+} from "./settings-email-template.model";
 import {
   decodeRuntimeSettings,
   type RuntimeIntegrationView,
@@ -30,6 +35,7 @@ export function isCurrentDiagnosticCheck(current: number, candidate: number): bo
 export function SettingsIntegrationsRoute({ client, auth }: Props) {
   const authMode = authenticationMode(auth);
   const runtimeSettings = useRuntimeSettings(client);
+  const incidentEmailTemplate = useIncidentEmailTemplate(client);
 
   usePublishViewContext(
     () => ({
@@ -83,6 +89,15 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
           <a href={routeHref("settings-diagnostics")}>{t("route.settingsDiagnostics")}</a>
           <a href={routeHref("onboarding")}>{t("route.onboarding")}</a>
         </nav>
+      </section>
+      <section class="settings-section" aria-labelledby="settings-incident-email-template">
+        <h3 id="settings-incident-email-template">{t("settings.emailTemplateHeading")}</h3>
+        <AsyncBoundary
+          state={incidentEmailTemplate}
+          resourceLabel={t("settings.emailTemplateResource")}
+        >
+          {(template) => <EmailTemplatePreviewPanel template={template} />}
+        </AsyncBoundary>
       </section>
     </div>
   );
@@ -224,6 +239,52 @@ function useRuntimeSettings(client: ReadApiClient): AsyncState<RuntimeSettingsVi
     };
   }, [client]);
   return state;
+}
+
+function useIncidentEmailTemplate(client: ReadApiClient): AsyncState<EmailTemplatePreview> {
+  const [state, setState] = useState<AsyncState<EmailTemplatePreview>>({ status: "loading" });
+  useEffect(() => {
+    let active = true;
+    setState({ status: "loading" });
+    void client.panel<unknown>("/notification-templates/incident-opened").then(
+      (value) => {
+        if (active) setState({ status: "ready", data: decodeEmailTemplatePreview(value) });
+      },
+      (reason) => {
+        if (active) {
+          setState({
+            status: "error",
+            message: reason instanceof Error ? reason.message : String(reason),
+          });
+        }
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [client]);
+  return state;
+}
+
+function EmailTemplatePreviewPanel({ template }: { readonly template: EmailTemplatePreview }) {
+  return (
+    <div class="settings-email-template">
+      <div class="settings-email-template-head">
+        <span>
+          <small>{t("settings.emailTemplateSubject")}</small>
+          <strong>{template.subject}</strong>
+        </span>
+        <StatusPill kind="neutral" label={t("settings.emailTemplateSynthetic")} />
+      </div>
+      <iframe
+        class="settings-email-template-frame"
+        title={t("settings.emailTemplatePreviewTitle")}
+        srcDoc={template.html}
+        sandbox=""
+        referrerPolicy="no-referrer"
+      />
+    </div>
+  );
 }
 
 function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrationView }) {

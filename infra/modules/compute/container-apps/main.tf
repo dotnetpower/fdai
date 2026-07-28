@@ -85,6 +85,9 @@ locals {
       FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON = var.email_recipient_addresses_json
       FDAI_NOTIFICATION_MI_CLIENT_ID      = var.notification_identity_client_id
     },
+    var.console_base_url == "" ? {} : {
+      FDAI_CONSOLE_BASE_URL = var.console_base_url
+    },
     var.dev_operations_gateway_url == "" ? {} : {
       FDAI_DEV_OPERATIONS_GATEWAY_URL      = var.dev_operations_gateway_url
       FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE = var.dev_operations_gateway_audience

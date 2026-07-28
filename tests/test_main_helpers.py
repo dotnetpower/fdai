@@ -36,7 +36,7 @@ from fdai.core.control_loop import ControlLoopOutcome, ControlLoopResult
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
 from fdai.runtime.bootstrap import _operational_event_bus
-from fdai.runtime.delivery import _validate_incident_notification_route
+from fdai.runtime.delivery import _incident_roster_url, _validate_incident_notification_route
 from fdai.shared.config import AppConfig
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
@@ -714,11 +714,26 @@ def _clear_email_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "FDAI_EMAIL_ENDPOINT",
         "FDAI_EMAIL_SENDER_ADDRESS",
         "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON",
+        "FDAI_CONSOLE_BASE_URL",
         "FDAI_NOTIFICATION_MI_CLIENT_ID",
         "IDENTITY_ENDPOINT",
         "IDENTITY_HEADER",
     ):
         monkeypatch.delenv(name, raising=False)
+
+
+def test_incident_roster_url_uses_configured_console_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_CONSOLE_BASE_URL", "https://console.example.com/")
+    assert _incident_roster_url() == "https://console.example.com/incidents"
+
+
+def test_incident_roster_url_keeps_relative_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_CONSOLE_BASE_URL", raising=False)
+    assert _incident_roster_url() == "/incidents"
 
 
 def test_build_notification_registry_is_empty_when_email_is_disabled(

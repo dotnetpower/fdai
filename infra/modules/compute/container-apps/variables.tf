@@ -162,6 +162,12 @@ variable "notification_identity_client_id" {
   default     = ""
 }
 
+variable "console_base_url" {
+  description = "Public HTTPS origin of the read-only console used for notification evidence links."
+  type        = string
+  default     = ""
+}
+
 variable "image" {
   description = "Container image reference. Pin by digest in prod."
   type        = string

@@ -1392,6 +1392,9 @@ module "compute" {
   notification_identity_client_id = (
     var.enable_email_notifications ? module.notification_identity[0].client_id : ""
   )
+  console_base_url = (
+    var.enable_console ? "https://${module.console[0].default_hostname}" : ""
+  )
 
   # Persistence DSNs (KV-backed; executor MI reads at runtime).
   state_store_dsn_secret_id     = azurerm_key_vault_secret.state_store_dsn.id

@@ -13,6 +13,8 @@ Push-direction notifications (system → human) live in
 [channels-and-notifications.md](channels-and-notifications.md); the read-only
 console SPA lives under
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md).
+Settings > Integrations can preview the production incident-open email renderer with synthetic
+placeholders. That GET-only preview does not send mail or grant approval or execution authority.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit

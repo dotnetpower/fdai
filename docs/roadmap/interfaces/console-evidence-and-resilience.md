@@ -53,6 +53,10 @@ restart required and never presents a saved value as an action promotion or clou
 Integrations and Diagnostics consume the same projection. They expose only configured, ready,
 incomplete, mode, and boolean runtime status. They never render endpoint, secret, tenant, resource,
 repository credential, recipient, or managed identity values.
+Integrations also renders the incident-open email through a sandboxed iframe. The authenticated
+preview endpoint calls the same production renderer used by Azure Communication Services Email and
+supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
+or identity value and provides no send, approval, or execution control.
 
 Operations includes a Detection readiness route backed only by Muninn's durable StateSnapshots.
 It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and

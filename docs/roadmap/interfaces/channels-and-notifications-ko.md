@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: a4774dff5e29981be9f173080ae8384273a320de
-translation_revised: 2026-07-27
+translation_source_sha: 0b1c795ffb605382c4b00a6d2f4ff67dbc726477
+translation_revised: 2026-07-28
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -467,7 +467,7 @@ matrix:
 |------|------|
 | **Teams** | A1에 Adaptive Cards; OAuth 스코프 세트를 최소로 유지(`ChannelMessage.Send.Group` + 봇 시그널링). SSO + OBO는 이미 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-sign-in)에 커버. 다이제스트 오디언스는 **`aw-*` Entra 보안 그룹으로 백업된 group-connected 팀** - 멤버십이 별도 리스트 없이 Entra를 따름. |
 | **Slack** | A2/A3에 Block Kit; 승인 콜백 URL은 `fdai-api`를 통해 리다이렉트하여 Entra 재인증이 Slack 안이 아니라 브라우저에서 발생. `chat:write` 스코프만. 포크는 userId↔OID 매핑 저장소를 공급해야 함; Slack 사용자에게 매핑된 Entra OID가 없으면 어댑터는 A1 트래픽 거부. Slack 채널 멤버십은 Slack에서 관리; 해당 `aw-*` 그룹과 수동 또는 SCIM으로 sync 유지. |
-| **Email** | Azure Communication Services Email을 통한 send-only 채널입니다. 승인 링크는 포함하지 않고 다이제스트와 알림만 전달합니다. Terraform은 Azure-managed sender domain과 Communication Services 리소스에 범위가 제한된 전용 notification managed identity를 프로비저닝합니다. 어댑터는 단기 `https://communication.azure.com/.default` 토큰을 요청하고 provider operation이 `Succeeded`가 될 때까지 기다린 후 provider message id를 기록합니다. Redaction은 필수이며 `audit_id`와 대시보드 URL 이상의 상관 페이로드를 포함하지 않습니다. 권장 수신자는 `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**입니다. |
+| **Email** | Azure Communication Services Email을 통한 send-only 채널입니다. 승인 링크는 포함하지 않고 다이제스트와 알림만 전달합니다. 어댑터는 모든 message에 `plainText`를 보내고 `notice_kind=opened`일 때 bounded HTML을 추가합니다. Incident 템플릿은 incident id, state, severity, opened time, aggregate member count, assignment state, `audit_id` 및 HTTPS Console link만 사용합니다. Correlation key, resource payload, actor identity 또는 free-form reason은 렌더링하지 않습니다. Terraform은 Azure-managed sender domain과 Communication Services 리소스에 범위가 제한된 전용 notification managed identity를 프로비저닝합니다. `FDAI_CONSOLE_BASE_URL`이 Console origin을 제공하며, 값이 없거나 완성된 link가 absolute HTTPS가 아니면 renderer는 CTA를 생략합니다. 어댑터는 단기 `https://communication.azure.com/.default` 토큰을 요청하고 provider operation이 `Succeeded`가 될 때까지 기다린 후 provider message id를 기록합니다. Settings > Integrations는 합성 placeholder만 사용하는 authenticated GET으로 동일한 renderer를 가져옵니다. 권장 수신자는 `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**입니다. |
 | **Generic webhook** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
 | **PagerDuty / Opsgenie** | Dedup 키 = observability 상관 id 이므로 버스트가 접힘. 런북 URL은 모든 알림에 필수. |
 | **SMS** | 페이로드는 `<severity> <audit_id> <short-url-to-runbook>`로 제한. 시크릿 없음, 고객 이름 없음, 자유 텍스트 없음. 주로 break-glass 도달성. |

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6022910bacf65cb0901ee8de07f8aa9336de6c18
+translation_source_sha: 73b9100a4b151957f3cd8dc10e44270ff8a2522b
 translation_revised: 2026-07-28
 ---
 
@@ -514,6 +514,7 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_MI_CLIENT_ID` | env | upstream | 현재 process의 user-assigned MI client id. Core에는 executor id를 주입하고 inventory job에는 별도 read-only discovery id를 주입합니다. |
 | `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | upstream | Inventory Job의 정상 full-scan interval입니다. 기본 Job cron은 10분마다 wake하지만 PostgreSQL attempt state가 interval due 전 scan을 skip하고 newer failed/abandoned attempt는 다음 tick에 retry합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | upstream / deployment | ACS Email A2/A4 채널을 활성화합니다. Terraform이 endpoint와 Azure-managed sender를 파생하고 전용 notification MI를 연결한 뒤 client id를 주입합니다. Deployment configuration은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 access key나 connection string이 들어가지 않습니다. 부분 설정은 startup을 차단합니다. |
+| `FDAI_CONSOLE_BASE_URL` | env | deployment | Incident email의 read-only evidence link를 만드는 public HTTPS origin입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 email 전달은 계속되며 renderer는 incident CTA를 생략합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `infra/modules/measurement-runners/`의 Container Apps Job entry point를 선택합니다. `baseline`은 고정된 scenario regression measurement를 실행하고 `growth`는 검토된 outcome을 pattern-growth intake로 전달합니다. Action authority는 promotion 및 risk gate가 독립적으로 관리합니다. |
 | `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 executor direct-API 경로를 in-memory shadow fake로 바꿉니다. Automated test는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations gateway를 찾지 못할 때만 - Terraform state에도 없고 resource group의 live Azure CLI probe(`func-*-devgw-*`와 해당 App Service Authentication audience)로도 복구되지 않을 때 - interactive local dev에서 이를 자동 주입하여 live backend 없이도 `execution_path: direct_api` dispatch를 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated test에서 executor tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive local startup은 executor를 연결하지 않습니다. |

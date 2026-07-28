@@ -576,6 +576,11 @@ def _validate_incident_notification_route(
     )
 
 
+def _incident_roster_url() -> str:
+    console_base_url = os.environ.get("FDAI_CONSOLE_BASE_URL", "").strip().rstrip("/")
+    return f"{console_base_url}/incidents" if console_base_url else "/incidents"
+
+
 def _build_incident_notifier(
     audit_store: Any,
     *,
@@ -614,6 +619,9 @@ def _build_incident_notifier(
         hil_sink=StateStoreHilEscalationSink(state_store=audit_store),
     )
     return DurableIncidentLifecycleNotifier(
-        delegate=RoutedIncidentLifecycleNotifier(dispatcher=router),
+        delegate=RoutedIncidentLifecycleNotifier(
+            dispatcher=router,
+            incidents_url=_incident_roster_url(),
+        ),
         delivery_store=delivery_store,
     )

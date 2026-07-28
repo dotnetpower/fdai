@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: bdc9aa19f1c82c9b39eb152a3227e411004dd363
-translation_revised: 2026-07-27
+translation_source_sha: 9932ff1c3b96c0e78ef6afb3d2a098f28f14b921
+translation_revised: 2026-07-28
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -14,6 +14,8 @@ tier 모델, 세션 지속성, tool 별 RBAC, 안전 invariant, 현재 rollout s
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
 읽기 전용 콘솔 SPA는
 [project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다.
+Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수
+있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다.
 Push와 pull은 같은 채널 credential과 audit 계약을 공유하지만 서로 다른 통합

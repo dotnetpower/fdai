@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 8b5f081a4f98aee2b29194369e34304fa9aff799
+translation_source_sha: 6fa38efebc42dcc10429bd8215d6199d412710e7
 translation_revised: 2026-07-28
 ---
 
@@ -55,6 +55,10 @@ required로 표시하며 저장된 값을 action promotion 또는 cloud-resource
 Integrations와 Diagnostics는 동일한 projection을 사용합니다. 이 화면은 configured, ready,
 incomplete, mode 및 boolean runtime status만 표시합니다. Endpoint, secret, tenant, resource,
 repository credential, recipient 또는 managed identity value는 렌더링하지 않습니다.
+Integrations는 sandboxed iframe으로 incident-open email도 렌더링합니다. Authenticated preview
+endpoint는 Azure Communication Services Email이 사용하는 동일한 production renderer를 호출하고
+합성 placeholder만 제공합니다. Preview는 runtime incident, endpoint, recipient 또는 identity value를
+노출하지 않으며 send, approval 또는 execution control을 제공하지 않습니다.
 
 Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비도 route가 있습니다.
 이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
