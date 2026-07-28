@@ -21,10 +21,11 @@ The API contract is:
 | `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | Return incident summaries newest activity first. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | Return the selected incident's append-only history. |
 | `GET /audit/{correlation_id}/trace` | Reconstruct ordered correlated audit activity and any recorded pipeline stages. |
-| `POST /chat/action` | Prepare or confirm an incident creation request on the authenticated write-direction chat path. |
+| `POST /chat/stream` | Produce a typed incident draft from natural language without creating a record. |
+| `POST /chat/action/confirm` | Confirm the typed draft and create the audited Incident. |
 
-The incident roster stays read-only. Incident creation uses the separate
-authenticated chat action route and never adds a mutation button to the panel.
+The incident roster stays read-only. Incident creation uses semantic draft plus
+typed confirmation routes and never adds a mutation button to the panel.
 For a recognized incident-open request, the route behaves as follows:
 
 1. It requires Contributor capability, severity, and a target correlation key.

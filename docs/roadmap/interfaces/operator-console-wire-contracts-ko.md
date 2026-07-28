@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 133956d3fa4c22256a4b94285b433cf6208e267b
-translation_revised: 2026-07-22
+translation_source_sha: e584b3d96e3049301ef6066cd2a95cf8f7afc9ac
+translation_revised: 2026-07-28
 ---
 
 # Operator Console - Data and Wire Contracts
@@ -67,21 +67,29 @@ translation_revised: 2026-07-22
 보유하지 않고 mutation surface를 직접 호출하지 않음; 승인과 실행은
 별개 principal 유지.
 
-### 13.6 Action submit - `POST /chat/action` (propose, 실행 아님)
+### 13.6 의미 기반 작업 초안 및 typed confirmation
 
-read-only deck은 질문에 답한다; 이것은 유일한 write-direction 경로 -
-오퍼레이터가 요청한 action(`restart vm-1`)을 typed 판테온 파이프라인에
-제출한다. "console never executes" 불변식을 깨지 **않는다**: 라우트는
-`ActionProposal` *시그널* 을 raw event topic(판테온 Huginn이 ingest하는
-바로 그 토픽)에 발행할 뿐 executor identity를 갖지 않는다 - HIL approval
-callback(13.3)과 동일한 선례. Forseti가 proposal을 judge하고, Var가
-high-risk를 승인하며, Thor만 실행한다(shadow-first).
+모든 자연어 turn은 `POST /chat` 또는 `POST /chat/stream`을 사용합니다.
+구성된 mini narrator는 서버가 제공한 capability manifest에서 answer, read
+tool, agent owner, public-web query, clarification 또는 write draft를 선택한
+strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 action intent를
+분류하지 않으며 자연어를 write endpoint에 직접 보내지 않습니다.
 
-- **Endpoint**: `POST /chat/action`, body `{"prompt": str, "session_id": str?,
+- **초안**: `action_draft` 또는 `incident_draft`는 allowlist에 있는
+  `action_type`, bounded typed arguments, conversation `session_id`, request-scoped
+  idempotency key를 반환합니다. 초안을 만드는 동안 event를 발행하거나
+  Incident를 생성하지 않습니다. 브라우저는 확인 및 취소 control을 표시합니다.
+- **Typed confirmation**: `POST /chat/action/confirm`은
+  `{"action_type": str, "arguments": object, "session_id": str?,
+  "idempotency_key": str}`만 받습니다. 서버는 proposal 하나를 발행하기 전에
+  ActionType allowlist, argument bounds, 인증된 principal 및 RBAC를 다시
+  확인합니다. 알 수 없는 field 및 allowlist에 없는 action은 차단됩니다.
+- **호환 endpoint**: `POST /chat/action`, body `{"prompt": str, "session_id": str?,
   "idempotency_key": str?}`. `ReadApiConfig.console_action` 이
   `ConsoleActionSubmitter`
-  (`src/fdai/delivery/read_api/console_action.py`)를 wire할 때만 등록;
-  없으면 콘솔에 action-submit surface가 없다. 오퍼레이터 제공 값은
+  (`src/fdai/delivery/read_api/routes/console_action.py`)를 wire할 때만
+  등록됩니다. 이 raw-prompt route는 호환 API client를 위해 남아 있으며 브라우저
+  Command Deck은 사용하지 않습니다. 오퍼레이터 제공 값은
   bound된다(prompt <= 4000, question <= 2000, resource id / session id /
   idempotency key <= 200자) - 하나의 큰 값이 파이프라인/audit 을 bloat 하지
   못하게. 클라이언트 `idempotency_key` 는 proposal 의 dedup 키가 되어(initiator 로
@@ -107,7 +115,8 @@ high-risk를 승인하며, Thor만 실행한다(shadow-first).
   actor에 대한 반복 거부 - 요청이 파이프라인에 들어가지 않아 Forseti가 못 보는
   권한 프로빙 신호 - 를 탐지 가능하게 한다(audit / metric / security event). seam이
   없으면 구조화 로그 라인만 방출된다.
-- **번역**. `fdai.agents.bragi.translate_action_intent`는 먼저 정확한 ActionType
+- **Legacy translation**. 호환 endpoint의
+  `fdai.agents.bragi.translate_action_intent`는 먼저 정확한 ActionType
   id 또는 load된 ActionType catalog의 모호하지 않은 전체 suffix를 매칭합니다.
   예를 들어 `flush cache`는 `ops.flush-cache`로 매핑됩니다. 그다음 보수적인
   built-in verb fallback을 사용합니다. 모호하거나 매핑되지 않은 명령은 추측하지

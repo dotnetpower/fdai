@@ -394,23 +394,23 @@ conversation session. The question path never issues a privileged call.
 
 ### Submitting an action or incident
 
-For an explicit operator command (`restart vm-1`), the deck does not ask the
-narrator - it POSTs to `/chat/action`
-([`src/deck/backend.ts`](src/deck/backend.ts) `submitAction`), detected by
-[`src/deck/action-intent.ts`](src/deck/action-intent.ts) (a leading imperative
-verb, mirroring the server's `is_action_intent`). That endpoint publishes an
-`ActionProposal` into the typed pantheon pipeline; **nothing runs until Forseti
+Every natural-language turn, including an explicit operator command
+(`restart vm-1`), uses `/chat/stream`. The configured mini narrator selects a
+strict typed plan from the server-owned capability manifest. A write selection
+returns an ephemeral action draft with Confirm and Cancel controls; it does not
+publish anything. Confirm posts only the typed draft to `/chat/action/confirm`,
+which rechecks the allowlist, arguments, identity, and RBAC before publishing an
+`ActionProposal` into the typed pantheon pipeline. **Nothing runs until Forseti
 judges it and, for a high-risk action, an approver signs off** (execution is
 shadow-first, and RBAC is enforced server-side - a Reader gets `403`). The deck
 renders the outcome (submitted with a correlation id / refused by role /
 unmapped) and never holds any execution authority. See
 [operator-console.md § 13.6](../docs/roadmap/interfaces/operator-console.md#136-action-submit---post-chataction-propose-never-execute).
 
-Incident creation uses the same endpoint but a different built-in workflow.
-The deck recognizes English and Korean incident-open requests, displays the
-server's severity/target summary, and sends `confirm` or `확인` back with the
-same conversation id. Only then does `IncidentRegistry` create the audited
-control-plane record. This path never invokes Thor or a cloud executor.
+Incident creation uses the same semantic draft and typed confirmation flow.
+Only a confirmed draft with server-validated severity and target reaches
+`IncidentRegistry` to create the audited control-plane record. This path never
+invokes Thor or a cloud executor.
 The local development composition runs the same proposal through a persistent
 in-memory pantheon bus, so a submitted restart reaches Forseti and finishes as
 a Thor shadow action instead of stopping at HTTP acceptance. Production binds

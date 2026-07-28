@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: b4974b3ade905afd5e8b305ca6628f4f6ffe1a56
-translation_revised: 2026-07-22
+translation_source_sha: 900f416984d764a79a061ce9e26a45b89c3d4f40
+translation_revised: 2026-07-28
 ---
 
 # Operator Console - Incident Roster and Fix History
@@ -24,10 +24,11 @@ API 계약은 다음과 같습니다.
 | `GET /incidents?status=active|resolved|all&limit=<n>&cursor=<opaque>` | 최근 활동 순으로 인시던트 요약을 반환합니다. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | 선택한 인시던트의 추가 전용 이력을 반환합니다. |
 | `GET /audit/{correlation_id}/trace` | 순서가 지정된 연관 감사 활동과 기록된 파이프라인 단계를 재구성합니다. |
-| `POST /chat/action` | 인증된 write-direction chat path에서 incident 생성 요청을 준비하거나 확인합니다. |
+| `POST /chat/stream` | 레코드를 생성하지 않고 자연어에서 typed incident 초안을 만듭니다. |
+| `POST /chat/action/confirm` | typed 초안을 확인하고 audit되는 Incident를 생성합니다. |
 
-Incident roster는 read-only로 유지됩니다. Incident 생성은 별도의 인증된 chat
-action route를 사용하며 panel에 mutation button을 추가하지 않습니다. 인식된
+Incident roster는 read-only로 유지됩니다. Incident 생성은 semantic draft 및
+typed confirmation route를 사용하며 panel에 mutation button을 추가하지 않습니다. 인식된
 incident-open 요청은 다음 순서로 처리됩니다.
 
 1. Contributor capability, severity, target correlation key를 요구합니다.

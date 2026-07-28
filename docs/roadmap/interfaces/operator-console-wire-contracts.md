@@ -64,21 +64,30 @@ the endpoint only *records an approval decision* into the existing HIL
 queue (a signal), which a separate executor principal later acts on. The
 API process never holds the executor Managed Identity and never calls a
 mutation surface itself; approval and execution stay distinct principals.
-### 13.6 Action submit - `POST /chat/action` (propose, never execute)
+### 13.6 Semantic action draft and typed confirmation
 
-The read-only deck answers questions; this is the ONE write-direction path -
-submitting an action the operator asked for (`restart vm-1`) into the typed
-pantheon pipeline. It does **not** break the "console never executes" invariant:
-the route publishes an `ActionProposal` *signal* onto the raw event topic (the
-same topic the pantheon's Huginn ingests) and holds no executor identity - the
-same precedent as the HIL approval callback (13.3). Forseti judges the proposal,
-Var approves a high-risk one, and only Thor executes (shadow-first).
+All natural-language turns use `POST /chat` or `POST /chat/stream`. The configured
+mini narrator returns a strict JSON-schema `TurnPlan` that selects an answer,
+read tool, agent owner, public-web query, clarification, or write draft from the
+server-provided capability manifest. The browser does not classify action intent
+and does not send natural language directly to a write endpoint.
 
-- **Endpoint**: `POST /chat/action`, body `{"prompt": str, "session_id": str?,
+- **Draft**: An `action_draft` or `incident_draft` returns the allowlisted
+  `action_type`, bounded typed arguments, conversation `session_id`, and a
+  request-scoped idempotency key. Producing the draft publishes no event and
+  creates no Incident. The browser shows Confirm and Cancel controls.
+- **Typed confirmation**: `POST /chat/action/confirm` accepts only
+  `{"action_type": str, "arguments": object, "session_id": str?,
+  "idempotency_key": str}`. The server rechecks the ActionType allowlist,
+  argument bounds, authenticated principal, and RBAC before publishing one
+  proposal. Unknown fields and unlisted actions are rejected.
+- **Compatibility endpoint**: `POST /chat/action`, body
+  `{"prompt": str, "session_id": str?,
   "idempotency_key": str?}`. Registered only when `ReadApiConfig.console_action`
   wires a `ConsoleActionSubmitter`
-  (`src/fdai/delivery/read_api/console_action.py`); absent, the console has no
-  action-submit surface. Operator-supplied values are bounded (prompt <= 4000,
+  (`src/fdai/delivery/read_api/routes/console_action.py`). This raw-prompt route
+  remains for compatible API clients; the browser Command Deck does not use it.
+  Operator-supplied values are bounded (prompt <= 4000,
   question <= 2000, resource id / session id / idempotency key <= 200 chars) so
   one large value cannot bloat the pipeline or audit. The client `idempotency_key`
   becomes the proposal's dedup key (namespaced by the initiator, so one operator
@@ -106,7 +115,8 @@ Var approves a high-risk one, and only Thor executes (shadow-first).
   sees because the request never enters the pipeline - become detectable (audit
   / metric / security event). Absent the seam, only a structured log line is
   emitted.
-- **Translation**. `fdai.agents.bragi.translate_action_intent` first matches an
+- **Legacy translation**. The compatibility endpoint uses
+  `fdai.agents.bragi.translate_action_intent`, which first matches an
   exact ActionType id or one unambiguous full suffix from the loaded ActionType
   catalog (for example, `flush cache` -> `ops.flush-cache`), then uses the
   conservative built-in verb fallback. Ambiguous and unmapped commands return
