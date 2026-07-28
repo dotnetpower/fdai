@@ -109,6 +109,8 @@ def _links_by_owner(
     resources: Sequence[ResourceRecord], links: Sequence[LinkRecord]
 ) -> dict[str, tuple[LinkRecord, ...]]:
     resource_ids = {resource.resource_id for resource in resources}
+    if len(resource_ids) != len(resources):
+        raise RuntimeError("inventory delta batch contains a duplicate resource_id")
     grouped: dict[str, list[LinkRecord]] = defaultdict(list)
     for link in links:
         owner_id = link.to_id if link.link_type == "contains" else link.from_id

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d11ef2b4cef25c75a48782f48409fde78acf1d05
+translation_source_sha: 83e9829d6bab686f09f0dffae97ec5cf121b7cf5
 translation_revised: 2026-07-28
 ---
 
@@ -244,7 +244,8 @@ fdai/
   없으면 cursor 진행을 차단하여 graph 데이터를 조용히 버리지 않고 page를 재시도합니다. Event
   idempotency identity에는 리소스 및 관계 payload의 canonical digest가 포함됩니다. Delta 리소스에는
   timezone이 포함된 RFC 3339 `last_seen`이 필요합니다. Ordering time이 없거나 잘못되면 process wall
-  clock으로 대체하지 않고 발행과 cursor 진행을 차단합니다.
+  clock으로 대체하지 않고 발행과 cursor 진행을 차단합니다. 하나의 batch에는 각 `resource_id`가 한
+  번만 포함될 수 있으며 중복이 있으면 event를 발행하기 전에 batch 전체를 차단합니다.
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
   정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를

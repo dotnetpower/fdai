@@ -16,10 +16,12 @@ class _Inventory:
         *,
         final: bool = True,
         orphan_link: bool = False,
+        duplicate_resource: bool = False,
         last_seen: str | None = "2026-07-15T00:00:00Z",
     ) -> None:
         self.final = final
         self.orphan_link = orphan_link
+        self.duplicate_resource = duplicate_resource
         self.last_seen = last_seen
         self.seen_cursor = ""
 
@@ -32,6 +34,18 @@ class _Inventory:
                     type="compute.vm",
                     props={"status": "updated"},
                     last_seen=self.last_seen,
+                ),
+                *(
+                    (
+                        ResourceRecord(
+                            resource_id="resource:example/vm-1",
+                            type="compute.vm",
+                            props={"status": "conflicting"},
+                            last_seen=self.last_seen,
+                        ),
+                    )
+                    if self.duplicate_resource
+                    else ()
                 ),
             ),
             links=(
@@ -186,6 +200,27 @@ async def test_forward_delta_rejects_missing_or_invalid_ordering_timestamp(
             scope="subscription-1",
         )
 
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-old"
+    }
+
+
+@pytest.mark.asyncio
+async def test_forward_delta_rejects_duplicate_resource_before_publication() -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+    await state.write_state("inventory_delta_cursor:subscription-1", {"cursor": "cursor-old"})
+
+    with pytest.raises(RuntimeError, match="duplicate resource_id"):
+        await forward_inventory_delta(
+            inventory=_Inventory(duplicate_resource=True),
+            state_store=state,
+            event_bus=bus,
+            topic="events",
+            scope="subscription-1",
+        )
+
+    assert [item async for item in bus.subscribe("events", "reader")] == []
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
         "cursor": "cursor-old"
     }
