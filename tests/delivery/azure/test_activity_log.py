@@ -406,6 +406,20 @@ def test_config_rejects_plaintext_endpoint() -> None:
         _config(arg_endpoint="http://management.azure.com")
 
 
+@pytest.mark.parametrize(
+    "arg_endpoint",
+    [
+        "https://user@example.com",
+        "https://example.com/custom/path",
+        "https://example.com?api-version=unsafe",
+        "https://example.com#fragment",
+    ],
+)
+def test_config_rejects_non_origin_activity_endpoint(arg_endpoint: str) -> None:
+    with pytest.raises(ValueError, match="origin URL"):
+        _config(arg_endpoint=arg_endpoint)
+
+
 def test_config_rejects_empty_subscription() -> None:
     with pytest.raises(ValueError, match="subscription_scope"):
         _config(subscription_scope="")

@@ -264,7 +264,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   In-flight cursors require both a valid running timestamp and a non-empty next link. The initial
   lower bound is carried across an empty intermediate page, so pagination cannot erase or rewind
   the eventual resume cursor. The single-subscription Activity Log adapter accepts only a canonical
-  hyphenated subscription UUID, preventing scope text from altering the request path or query.
+  hyphenated subscription UUID, preventing scope text from altering the request path or query. Its
+  bearer-token endpoint must be an HTTPS origin URL without userinfo, path, query, or fragment.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.

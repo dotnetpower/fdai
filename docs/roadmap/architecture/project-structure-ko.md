@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a3a7b3c136148e5572e9a0f922e4f8334ea72113
+translation_source_sha: 784389d42c74e8e9fa77a2f116252fb35f03ce8e
 translation_revised: 2026-07-28
 ---
 
@@ -262,7 +262,8 @@ fdai/
   In-flight cursor에는 유효한 running timestamp와 비어 있지 않은 next link가 모두 필요합니다. 초기
   lower bound는 비어 있는 intermediate page에서도 유지되므로 pagination이 최종 resume cursor를
   지우거나 뒤로 이동시킬 수 없습니다. 단일 subscription Activity Log adapter는 canonical hyphenated
-  subscription UUID만 허용하여 scope text가 request path 또는 query를 변경하지 못하게 합니다.
+  subscription UUID만 허용하여 scope text가 request path 또는 query를 변경하지 못하게 합니다. Bearer
+  token endpoint는 userinfo, path, query, fragment가 없는 HTTPS origin URL이어야 합니다.
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
   정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를

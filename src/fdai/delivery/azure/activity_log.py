@@ -132,6 +132,15 @@ class AzureActivityLogFactoryConfig:
                 "- the bearer token is sent on every request "
                 f"(got {self.arg_endpoint!r})"
             )
+        if (
+            parsed_endpoint.username is not None
+            or parsed_endpoint.password is not None
+            or parsed_endpoint.path not in {"", "/"}
+            or parsed_endpoint.params
+            or parsed_endpoint.query
+            or parsed_endpoint.fragment
+        ):
+            raise ValueError("AzureActivityLogFactoryConfig.arg_endpoint MUST be an origin URL")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
         if self.max_props_bytes < 1024:
