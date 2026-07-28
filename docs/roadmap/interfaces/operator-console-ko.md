@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: e228adc0df252488999fd18516196ca44faed6ab
+translation_source_sha: 9ee8be9ba347e90fdc536ac0f204f5d1da06fcb5
 translation_revised: 2026-07-28
 ---
 
@@ -127,6 +127,10 @@ flowchart TD
   class, evidence-reference count 및 prior conversation context 유무에서 결정론적으로 조립합니다.
   현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 read API
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
+  Semantic turn planner는 해당 request의 bounded capability만 strict structured-output schema로
+  projection합니다. 모든 object는 additional property를 거부하고 declared field를 required로
+  표시합니다. Tool의 optional argument는 nullable field로 표현하며 coordinator는 deterministic
+  selection validation 및 dispatch 전에 null placeholder를 제거합니다.
   Rendering 후 core validator가 immutable `ToolResult`에 없는 numeric value, percentage, RFC3339
   timestamp 및 canonical rule, event, incident, correlation, ActionType identifier를 거부합니다.
   `current`, `live`, `latest` 같은 freshness 표현에는 해당 result의 exact timestamp가 필요합니다.

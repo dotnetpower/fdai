@@ -115,7 +115,17 @@ def _read_tools() -> tuple[TurnTool, ...]:
             name="query_incidents",
             description="Read incident summaries.",
             side_effect_class="read",
-            argument_schema={"type": "object"},
+            argument_schema={
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": ["active", "resolved", "all"],
+                    },
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                },
+                "additionalProperties": False,
+            },
         ),
     )
 
@@ -151,6 +161,18 @@ def test_action_plan_is_always_a_confirmation_required_draft() -> None:
 
     assert plan.kind is TurnKind.ACTION_DRAFT
     assert plan.requires_confirmation is True
+
+
+def test_nullable_optional_argument_placeholders_are_removed() -> None:
+    plan = parse_turn_plan(
+        _plan(
+            kind="read_tool",
+            tool_name="query_incidents",
+            arguments={"status": "active", "limit": None},
+        )
+    )
+
+    assert plan.arguments == {"status": "active"}
 
 
 @pytest.mark.parametrize(
@@ -261,6 +283,22 @@ async def test_real_backends_send_strict_turn_plan_schema(provider: str) -> None
     assert isinstance(response_format, dict)
     assert response_format["type"] == "json_schema"
     assert response_format["json_schema"]["strict"] is True
+    schema = response_format["json_schema"]["schema"]
+    argument_variants = schema["properties"]["arguments"]["anyOf"]
+    incident_arguments = next(
+        variant
+        for variant in argument_variants
+        if set(variant.get("properties", {})) == {"status", "limit"}
+    )
+    assert incident_arguments["additionalProperties"] is False
+    assert incident_arguments["required"] == ["status", "limit"]
+    assert set(incident_arguments["properties"]["status"]["type"]) == {"string", "null"}
+    assert incident_arguments["properties"]["status"]["enum"] == [
+        "active",
+        "resolved",
+        "all",
+        None,
+    ]
     assert plan.tool_name == "query_incidents"
     await client.aclose()
 

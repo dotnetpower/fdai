@@ -130,6 +130,10 @@ flowchart TD
   and the presence of prior conversation context. The current inbound/tool/result transaction is
   excluded from that prior context. Web generation uses the read API backend seam, so deployments
   can bind providers.
+  The semantic turn planner projects only the bounded capabilities for that request into a strict
+  structured-output schema. Every object rejects additional properties and marks its declared
+  fields required. A tool's optional arguments are represented as nullable fields, and the
+  coordinator removes null placeholders before deterministic selection validation and dispatch.
   After rendering, a core validator rejects numeric values, percentages, RFC3339 timestamps, and
   canonical rule, event, incident, correlation, or ActionType identifiers that do not occur in the
   immutable `ToolResult`. Freshness words such as `current`, `live`, or `latest` require an exact

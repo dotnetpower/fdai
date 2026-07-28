@@ -130,7 +130,12 @@ TURN_PLAN_JSON_SCHEMA: Final[dict[str, object]] = {
         },
         "tool_name": {"type": ["string", "null"], "maxLength": 128},
         "action_type": {"type": ["string", "null"], "maxLength": 200},
-        "arguments": {"type": "object"},
+        "arguments": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False,
+        },
         "clarification": {"type": ["string", "null"], "maxLength": 512},
         "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
     },
@@ -230,7 +235,7 @@ class BackendTurnPlanner:
             system_prompt=TURN_PLAN_SYSTEM_PROMPT,
             user_content=_turn_plan_input(prompt, bounded_tools, history),
             schema_name="fdai_turn_plan",
-            schema=TURN_PLAN_JSON_SCHEMA,
+            schema=_turn_plan_schema(bounded_tools),
             max_tokens=512,
         )
         plan = parse_turn_plan(raw)
@@ -360,6 +365,7 @@ def parse_turn_plan(raw: Mapping[str, object]) -> TurnPlan:
     arguments = raw["arguments"]
     if not isinstance(arguments, Mapping) or any(not isinstance(key, str) for key in arguments):
         raise ValueError("turn plan arguments must be an object")
+    normalized_arguments = {key: value for key, value in arguments.items() if value is not None}
     confidence = raw["confidence"]
     if (
         not isinstance(confidence, int | float)
@@ -381,7 +387,7 @@ def parse_turn_plan(raw: Mapping[str, object]) -> TurnPlan:
     if kind is TurnKind.ANSWER and (tool_name is not None or action_type is not None):
         raise ValueError("turn plan answer cannot select a tool or action")
     argument_kinds = {TurnKind.READ_TOOL, TurnKind.ACTION_DRAFT, TurnKind.INCIDENT_DRAFT}
-    if kind not in argument_kinds and arguments:
+    if kind not in argument_kinds and normalized_arguments:
         raise ValueError("turn plan arguments are not allowed for this kind")
     if kind is not TurnKind.CLARIFICATION and clarification is not None:
         raise ValueError("clarification text is allowed only for clarification plans")
@@ -391,7 +397,7 @@ def parse_turn_plan(raw: Mapping[str, object]) -> TurnPlan:
         answer_intent=answer_intent,
         tool_name=tool_name,
         action_type=action_type,
-        arguments=dict(arguments),
+        arguments=normalized_arguments,
         clarification=clarification,
         confidence=float(confidence),
     )
@@ -435,6 +441,85 @@ def _turn_plan_input(
         ensure_ascii=False,
         separators=(",", ":"),
     )
+
+
+def _turn_plan_schema(tools: Sequence[TurnTool]) -> dict[str, object]:
+    """Return one strict provider schema for the bounded capability manifest."""
+
+    raw_properties = TURN_PLAN_JSON_SCHEMA["properties"]
+    if not isinstance(raw_properties, Mapping):
+        raise TypeError("turn plan schema properties must be an object")
+    properties = dict(raw_properties)
+    properties["arguments"] = _argument_union_schema(tools)
+    return {**TURN_PLAN_JSON_SCHEMA, "properties": properties}
+
+
+def _argument_union_schema(tools: Sequence[TurnTool]) -> dict[str, object]:
+    variants: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for tool in tools:
+        variant = _strict_schema(tool.argument_schema)
+        digest = json.dumps(variant, sort_keys=True, separators=(",", ":"))
+        if digest in seen:
+            continue
+        seen.add(digest)
+        variants.append(variant)
+    if not variants:
+        variants.append(_strict_schema({"type": "object"}))
+    return {"anyOf": variants}
+
+
+def _strict_schema(
+    schema: Mapping[str, object],
+    *,
+    nullable: bool = False,
+) -> dict[str, object]:
+    """Normalize the supported schema subset for strict structured outputs."""
+
+    normalized = dict(schema)
+    schema_type = normalized.get("type")
+    if schema_type == "object":
+        raw_properties = normalized.get("properties")
+        properties = raw_properties if isinstance(raw_properties, Mapping) else {}
+        raw_required = normalized.get("required")
+        required = (
+            {item for item in raw_required if isinstance(item, str)}
+            if isinstance(raw_required, list)
+            else set()
+        )
+        normalized_properties: dict[str, object] = {}
+        for key, value in properties.items():
+            if not isinstance(key, str) or not isinstance(value, Mapping):
+                continue
+            normalized_properties[key] = _strict_schema(
+                value,
+                nullable=key not in required,
+            )
+        normalized["properties"] = normalized_properties
+        normalized["required"] = list(normalized_properties)
+        normalized["additionalProperties"] = False
+    elif schema_type == "array":
+        items = normalized.get("items")
+        if isinstance(items, Mapping):
+            normalized["items"] = _strict_schema(items)
+    if nullable:
+        _make_nullable(normalized)
+    return normalized
+
+
+def _make_nullable(schema: dict[str, object]) -> None:
+    schema_type = schema.get("type")
+    if isinstance(schema_type, str):
+        schema["type"] = [schema_type, "null"]
+    elif isinstance(schema_type, list) and "null" not in schema_type:
+        schema["type"] = [*schema_type, "null"]
+    elif "anyOf" in schema:
+        raw_variants = schema["anyOf"]
+        if isinstance(raw_variants, list):
+            schema["anyOf"] = [*raw_variants, {"type": "null"}]
+    enum = schema.get("enum")
+    if isinstance(enum, list) and None not in enum:
+        schema["enum"] = [*enum, None]
 
 
 def _validate_selection(plan: TurnPlan, tools: Sequence[TurnTool]) -> None:
