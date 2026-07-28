@@ -340,6 +340,36 @@ def test_run_uses_uv_managed_pytest(git_repo: Path) -> None:
     assert "integration tests skipped" in result.stderr
 
 
+def test_run_prefers_current_checkout_over_inherited_pythonpath(git_repo: Path) -> None:
+    test_file = git_repo / "tests" / "scripts" / "test_changed.py"
+    test_file.write_text("def test_changed(): pass\n", encoding="utf-8")
+    bin_dir = git_repo / "bin"
+    bin_dir.mkdir()
+    pythonpath_file = git_repo / "pytest-pythonpath.txt"
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\n" "$PYTHONPATH" > "$PYTHONPATH_FILE"\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+    inherited = str(git_repo.parent / "other-worktree" / "src")
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "PYTHONPATH": inherited,
+        "PYTHONPATH_FILE": str(pythonpath_file),
+        "FDAI_DATABASE_URL": "",
+    }
+
+    result = _run(git_repo, "bash", str(_SELECTOR), "--run", env=env)
+
+    assert result.returncode == 0, result.stderr
+    assert pythonpath_file.read_text(encoding="utf-8").strip().split(":") == [
+        str(git_repo / "src"),
+        inherited,
+    ]
+
+
 def test_run_accepts_integration_only_selection_without_database(git_repo: Path) -> None:
     test_file = git_repo / "tests" / "scripts" / "test_changed.py"
     test_file.write_text("def test_changed(): pass\n", encoding="utf-8")

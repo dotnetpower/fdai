@@ -246,9 +246,11 @@ if [[ $run_pytest -eq 1 ]]; then
             --dist=worksteal
         )
     fi
+    pytest_pythonpath="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
 
     set +e
-    uv run pytest -q -m "not integration" --no-cov "${parallel_args[@]}" "${tests[@]}"
+    PYTHONPATH="$pytest_pythonpath" \
+        uv run pytest -q -m "not integration" --no-cov "${parallel_args[@]}" "${tests[@]}"
     non_integration_status=$?
     set -e
     if [[ $non_integration_status -ne 0 && $non_integration_status -ne 5 ]]; then
@@ -257,7 +259,7 @@ if [[ $run_pytest -eq 1 ]]; then
 
     if [[ -n "${FDAI_DATABASE_URL:-}" ]]; then
         set +e
-        uv run pytest -q -m integration --no-cov "${tests[@]}"
+        PYTHONPATH="$pytest_pythonpath" uv run pytest -q -m integration --no-cov "${tests[@]}"
         integration_status=$?
         set -e
         if [[ $integration_status -ne 0 && $integration_status -ne 5 ]]; then
@@ -272,7 +274,8 @@ if [[ $run_pytest -eq 1 ]]; then
 
     if [[ $non_integration_status -eq 5 ]]; then
         set +e
-        uv run pytest --collect-only -q -m integration --no-cov "${tests[@]}"
+        PYTHONPATH="$pytest_pythonpath" \
+            uv run pytest --collect-only -q -m integration --no-cov "${tests[@]}"
         integration_collect_status=$?
         set -e
         if [[ $integration_collect_status -eq 5 ]]; then
