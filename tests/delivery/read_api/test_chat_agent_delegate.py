@@ -336,6 +336,40 @@ async def test_selected_agent_binding_persists_until_operator_explicitly_overrid
     ]
 
 
+async def test_selected_agent_preserves_existing_operational_evidence() -> None:
+    class _Delegate:
+        async def delegate(
+            self,
+            *,
+            prompt: str,
+            user_id: str,
+            session_id: str,
+        ) -> dict[str, object]:
+            del prompt, user_id, session_id
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "One high-severity signal is recorded.",
+                "facts": {"severity": "high"},
+            }
+
+    operational = {
+        "status": "summary",
+        "searched_recent_incidents": 3,
+        "incidents": [{"correlation_id": "corr-high", "severity": "high"}],
+    }
+    enriched = await _with_agent_evidence(
+        "최근 발견된 심각도 높은 문제는?",
+        {"_operational_evidence": operational},
+        _Delegate(),
+        user_id="operator-1",
+        session_id="conversation-1",
+        target_agent="Heimdall",
+    )
+
+    assert enriched["_operational_evidence"] == operational
+    assert enriched["_agent_evidence"]["primary_agent"] == "Heimdall"
+
+
 async def test_evidence_from_another_owner_never_rides_on_this_answer() -> None:
     """The delivery adapter never decorates a completed answer with another read."""
 

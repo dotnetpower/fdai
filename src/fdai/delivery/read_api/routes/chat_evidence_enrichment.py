@@ -341,7 +341,6 @@ async def _with_agent_evidence(
             enriched.pop("_tool_evidence", None)
         if agent_owned:
             enriched.pop("_behavior_evidence", None)
-            enriched.pop("_operational_evidence", None)
         enriched["_agent_evidence"] = dict(evidence)
     elif selected_agent is not None:
         enriched["_agent_evidence"] = _agent_handoff(
@@ -585,7 +584,6 @@ def merge_evidence_branch_results(
             merged.pop("_tool_evidence", None)
         if agent_owned and not agent_handoff_only:
             merged.pop("_behavior_evidence", None)
-            merged.pop("_operational_evidence", None)
         if not agent_handoff_only:
             merged.pop("_web_evidence", None)
         merged["_agent_evidence"] = agent_evidence

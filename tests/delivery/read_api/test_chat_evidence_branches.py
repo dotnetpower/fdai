@@ -245,6 +245,37 @@ def test_merge_selected_agent_replaces_competing_tool_and_web_evidence() -> None
     assert merged == {"_agent_evidence": {"primary_agent": "Heimdall"}}
 
 
+def test_merge_selected_agent_preserves_operational_evidence() -> None:
+    operational = {
+        "status": "summary",
+        "searched_recent_incidents": 3,
+        "incidents": [{"correlation_id": "corr-high", "severity": "high"}],
+    }
+    merged = merge_evidence_branch_results(
+        "최근 발견된 심각도 높은 문제는?",
+        {},
+        (
+            _result(
+                EvidenceBranchKind.OPERATIONAL,
+                {"_operational_evidence": operational},
+            ),
+            _result(
+                EvidenceBranchKind.AGENT,
+                {
+                    "_agent_evidence": {
+                        "primary_agent": "Heimdall",
+                        "answer": "One high-severity signal is recorded.",
+                    }
+                },
+            ),
+        ),
+        target_agent="Heimdall",
+    )
+
+    assert merged["_operational_evidence"] == operational
+    assert merged["_agent_evidence"]["primary_agent"] == "Heimdall"
+
+
 @pytest.mark.parametrize(
     ("status", "reason"),
     [
