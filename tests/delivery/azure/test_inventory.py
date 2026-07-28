@@ -266,9 +266,10 @@ async def test_delta_page_cap_stops_and_returns_fence() -> None:
     from fdai.delivery.azure.inventory import ActivityLogPage
 
     async def _fetch(cursor: str) -> ActivityLogPage:
+        page = int(cursor.rsplit("-", maxsplit=1)[-1]) if cursor.startswith("page-") else 0
         return ActivityLogPage(
             resources=(_rr("resource-group/rg-a/vm-x"),),
-            cursor="\x1fhttps://next/loop",
+            cursor=f"page-{page + 1}",
             has_more=True,
         )
 
@@ -279,6 +280,30 @@ async def test_delta_page_cap_stops_and_returns_fence() -> None:
 
     assert len([b for b in seen if not b.final]) == 3
     assert seen[-1].final is True
+    assert seen[-1].cursor == "page-3"
+
+
+@pytest.mark.parametrize("next_cursor", [None, "cur-1"])
+@pytest.mark.asyncio
+async def test_delta_rejects_non_advancing_continuation_cursor(
+    next_cursor: str | None,
+) -> None:
+    from fdai.delivery.azure.inventory import ActivityLogPage
+
+    async def _fetch(cursor: str) -> ActivityLogPage:
+        return ActivityLogPage(
+            resources=(_rr("resource-group/rg-a/vm-x"),),
+            cursor=next_cursor,
+            has_more=True,
+        )
+
+    adapter = _delta_adapter(_fetch)
+    seen: list[InventoryBatch] = []
+    with pytest.raises(RuntimeError, match="cursor did not advance"):
+        async for batch in adapter.delta(cursor="cur-1"):
+            seen.append(batch)
+
+    assert seen == []
 
 
 @pytest.mark.asyncio

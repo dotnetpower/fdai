@@ -250,6 +250,8 @@ class AzureResourceGraphInventory:
         while pages < self._config.max_delta_pages:
             page = await self._delta_fetch(current)
             pages += 1
+            if page.has_more and (not page.cursor or page.cursor == current):
+                raise RuntimeError("inventory delta continuation cursor did not advance")
             resources = _dedupe_resources(page.resources)
             links = _dedupe_links(page.links)
             if resources or links:
