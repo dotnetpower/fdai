@@ -122,7 +122,21 @@
     "audit": "Audit",
     "rca": "RCA",
     "timeline": "Timeline",
-    "empty": "No audit steps for this correlation id."
+    "empty": "No audit steps for this correlation id.",
+    "summary": {
+      "label": "What this trace says",
+      "notificationEscalation": "Alert delivery escalation is recorded",
+      "decisionRecorded": "A response decision is recorded",
+      "activityOnly": "Correlated technical activity only",
+      "body": "This page shows the ordered technical chronology. It does not infer a root cause or remediation decision from generic audit activity.",
+      "decision": "Response decision",
+      "rootCause": "Root cause",
+      "pipelineStages": "Named pipeline stages",
+      "recorded": "Recorded",
+      "notRecorded": "Not recorded",
+      "stageCount": "{count} recorded",
+      "noNamedStages": "None recorded"
+    }
   },
   "delivery": {
     "resource": "conversation delivery",

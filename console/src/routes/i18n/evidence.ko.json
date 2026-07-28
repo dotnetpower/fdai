@@ -122,7 +122,21 @@
     "audit": "감사",
     "rca": "근본 원인 분석",
     "timeline": "타임라인",
-    "empty": "이 상관관계 ID에 대한 감사 단계가 없습니다."
+    "empty": "이 상관관계 ID에 대한 감사 단계가 없습니다.",
+    "summary": {
+      "label": "이 기술 활동의 의미",
+      "notificationEscalation": "알림 전달 escalation이 기록됨",
+      "decisionRecorded": "대응 결정이 기록됨",
+      "activityOnly": "서로 연관된 기술 활동만 기록됨",
+      "body": "이 화면은 순서가 있는 기술 활동을 보여줍니다. 일반 감사 활동에서 근본 원인이나 수정 결정을 추론하지 않습니다.",
+      "decision": "대응 결정",
+      "rootCause": "근본 원인",
+      "pipelineStages": "이름이 있는 파이프라인 단계",
+      "recorded": "기록됨",
+      "notRecorded": "기록되지 않음",
+      "stageCount": "{count}개 기록됨",
+      "noNamedStages": "기록 없음"
+    }
   },
   "delivery": {
     "resource": "대화 전달",

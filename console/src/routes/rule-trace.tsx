@@ -17,6 +17,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, routeHref } from "../router";
 import { isRfc3339Timestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
+import "./incident-clarity.css";
 import {
   panelArray,
   panelNonEmptyString,
@@ -48,6 +49,13 @@ interface TraceResponse {
   readonly step_count: number;
   readonly steps: readonly TraceStep[];
   readonly terminal_stage: string | null;
+}
+
+export interface TraceOperationalSummary {
+  readonly notificationEscalation: boolean;
+  readonly decisionRecorded: boolean;
+  readonly rcaRecorded: boolean;
+  readonly namedStageCount: number;
 }
 
 interface Props {
@@ -345,6 +353,7 @@ function TraceEvidenceLinks({ correlationId }: { readonly correlationId: string 
 }
 
 function TraceView({ data }: { readonly data: TraceResponse }) {
+  const summary = traceOperationalSummary(data);
 
   const columns: readonly Column<TraceStep>[] = [
     {
@@ -379,6 +388,33 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
 
   return (
     <div class="stack">
+      <section class="trace-current-summary" aria-labelledby="trace-current-summary-title">
+        <span class="incident-section-label">{t("evidence.trace.summary.label")}</span>
+        <h3 id="trace-current-summary-title">
+          {summary.notificationEscalation
+            ? t("evidence.trace.summary.notificationEscalation")
+            : summary.decisionRecorded
+              ? t("evidence.trace.summary.decisionRecorded")
+              : t("evidence.trace.summary.activityOnly")}
+        </h3>
+        <p>{t("evidence.trace.summary.body")}</p>
+        <dl class="trace-summary-facts">
+          <div>
+            <dt>{t("evidence.trace.summary.decision")}</dt>
+            <dd>{summary.decisionRecorded ? t("evidence.trace.summary.recorded") : t("evidence.trace.summary.notRecorded")}</dd>
+          </div>
+          <div>
+            <dt>{t("evidence.trace.summary.rootCause")}</dt>
+            <dd>{summary.rcaRecorded ? t("evidence.trace.summary.recorded") : t("evidence.trace.summary.notRecorded")}</dd>
+          </div>
+          <div>
+            <dt>{t("evidence.trace.summary.pipelineStages")}</dt>
+            <dd>{summary.namedStageCount > 0
+              ? t("evidence.trace.summary.stageCount", { count: summary.namedStageCount })
+              : t("evidence.trace.summary.noNamedStages")}</dd>
+          </div>
+        </dl>
+      </section>
       <KpiGrid>
         <KpiCard
           href={routeHref("audit", { params: { correlation: data.correlation_id } })}
@@ -408,4 +444,16 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
       </section>
     </div>
   );
+}
+
+export function traceOperationalSummary(data: TraceResponse): TraceOperationalSummary {
+  return {
+    notificationEscalation: data.steps.some((step) =>
+      step.action_kind === "notification.escalation"
+      || step.action_kind === "hil.request.dispatch_unavailable"
+    ),
+    decisionRecorded: data.steps.some((step) => step.decision !== null),
+    rcaRecorded: data.steps.some((step) => step.action_kind.startsWith("rca.")),
+    namedStageCount: data.steps.filter((step) => step.stage !== null).length,
+  };
 }

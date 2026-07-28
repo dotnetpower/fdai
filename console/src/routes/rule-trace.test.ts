@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTraceViewSnapshot, decodeTraceResponse } from "./rule-trace";
+import {
+  buildTraceViewSnapshot,
+  decodeTraceResponse,
+  traceOperationalSummary,
+} from "./rule-trace";
 
 const step = (seq: number) => ({
   seq,
@@ -89,5 +93,31 @@ describe("trace view context", () => {
       reason: "no delivery channel is available",
       entry_hash: "hash-activity",
     }));
+  });
+});
+
+describe("trace operational summary", () => {
+  it("distinguishes delivery escalation from decisions, RCA, and named stages", () => {
+    const data = decodeTraceResponse({
+      correlation_id: "corr-activity",
+      step_count: 2,
+      steps: [
+        { ...step(1), stage: null, decision: null },
+        {
+          ...step(2),
+          stage: null,
+          action_kind: "notification.escalation",
+          decision: null,
+        },
+      ],
+      terminal_stage: null,
+    });
+
+    expect(traceOperationalSummary(data)).toEqual({
+      notificationEscalation: true,
+      decisionRecorded: false,
+      rcaRecorded: false,
+      namedStageCount: 0,
+    });
   });
 });
