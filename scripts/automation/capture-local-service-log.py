@@ -33,7 +33,7 @@ def _render_line(raw: str, output_format: str) -> str:
 
 
 def _timestamp_lines(rendered: str, captured_at: str) -> str:
-    return "\n".join(f"[{captured_at}] {line}" for line in rendered.split("\n"))
+    return "\n".join(f"{captured_at} {line}" for line in rendered.split("\n"))
 
 
 def _open_log(path: Path) -> TextIO:
@@ -66,7 +66,7 @@ def main() -> int:
         for raw in sys.stdin:
             sys.stdout.write(raw)
             sys.stdout.flush()
-            captured_at = datetime.now().astimezone().isoformat(timespec="seconds")
+            captured_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
             rendered = _render_line(raw, args.format)
             handle.write(_timestamp_lines(rendered, captured_at))
             handle.write("\n")

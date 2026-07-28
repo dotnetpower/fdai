@@ -10,7 +10,7 @@ from pathlib import Path
 
 _BASH = "/usr/bin/bash"
 _RUNNER = Path(__file__).parents[2] / "scripts" / "automation" / "run-local-service.sh"
-_TIMESTAMP_PREFIX = re.compile(r"^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\] ")
+_TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2} ")
 
 
 def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> None:
@@ -42,10 +42,12 @@ def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> 
     assert stat.S_IMODE(log_file.parent.stat().st_mode) == 0o700
     lines = log_file.read_text(encoding="utf-8").splitlines()
     assert "service=read-api event=starting" in lines[0]
+    assert _TIMESTAMP_PREFIX.match(lines[0])
     output_lines = [line for line in lines if line.endswith(("stdout-line", "stderr-line"))]
     assert len(output_lines) == 2
     assert all(_TIMESTAMP_PREFIX.match(line) for line in output_lines)
     assert lines[-1].endswith("service=read-api event=stopped exit_code=7")
+    assert _TIMESTAMP_PREFIX.match(lines[-1])
 
 
 def test_runner_rotates_a_bounded_previous_log(tmp_path: Path) -> None:

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 78205629369c9bcca3040782b5a25d71e84aeb80
+translation_source_sha: 5dd4254bf7ecab385cb70a2c5a23ebe539800ee7
 translation_revised: 2026-07-28
 ---
 
@@ -99,12 +99,12 @@ raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeo
 answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
 장기 실행 core 및 read API task의 terminal output은 `.fdai/logs/core-runtime.log`와
 `.fdai/logs/read-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 local UTC offset을 포함한
-RFC 3339 timestamp로 시작합니다. 각 log는 service 시작 및 중지 timestamp와 child exit code도
-기록하고 private local permission을 사용하며, 10 MiB에서 회전하여 이전 세대 하나를 유지합니다.
-Git에서 제외된 이 진단 log는 task terminal이 닫혀도 유지되며 structured warning 및 error record인
-`warnings.jsonl`을 대체하지 않습니다. Core terminal은 machine-readable JSON stream을 유지하지만,
-core file은 read API log와 같은 `LEVEL: logger: message` 형식으로 record를 렌더링합니다. Startup model
-latency probe는 구성된 모든 reasoning candidate가 지원하는 Azure Responses API output-token budget과
+대괄호 없는 RFC 3339 millisecond timestamp로 시작합니다. 각 log는 service 시작 및 중지 timestamp와
+child exit code도 기록하고 private local permission을 사용하며, 10 MiB에서 회전하여 이전 세대 하나를
+유지합니다. Git에서 제외된 이 진단 log는 task terminal이 닫혀도 유지되며 structured warning 및 error
+record인 `warnings.jsonl`을 대체하지 않습니다. Core terminal은 machine-readable JSON stream을
+유지하지만, core file은 read API log와 같은 `LEVEL: logger: message` 형식으로 record를 렌더링합니다.
+Startup model latency probe는 구성된 모든 reasoning candidate가 지원하는 Azure Responses API output-token budget과
 안정적인 `read-api:*:latency-probe` correlation id를 사용하므로 측정된 사용량이 uncorrelated
 traffic으로 기록되지 않습니다.
 Local 및 deployed console 모두 agent card의 Ask action에서 새 user-scoped conversation key를
