@@ -380,11 +380,12 @@ describe("architecture map model", () => {
       resources: [
         { id: "sub", type: "subscription", name: "sub", status: "healthy", x: 0, y: 0, w: 10, h: 8 },
         { id: "rg", type: "resource-group", name: "rg", status: "healthy", parent_id: "sub", x: 8, y: 7, w: 5, h: 5 },
+        { id: "network", type: "virtual-network", name: "network", status: "healthy", parent_id: "rg", x: 8, y: 7, w: 1, h: 1 },
         { id: "app", type: "app-service", name: "app", status: "healthy", parent_id: "rg", x: 20, y: 20 },
       ],
     });
     const region = constrained.resources[1]!;
-    const app = constrained.resources[2]!;
+    const app = constrained.resources[3]!;
     expect((region.x ?? 0) + (region.w ?? 0)).toBeLessThanOrEqual(9.88);
     expect((region.y ?? 0) + (region.h ?? 0)).toBeLessThanOrEqual(7.88);
     expect(app.x).toBeLessThanOrEqual((region.x ?? 0) + (region.w ?? 0) - .58);
@@ -482,6 +483,48 @@ describe("architecture map model", () => {
     expect(denseChildren.every((resource) => (resource.render_scale ?? 0) >= 1)).toBe(true);
     expect(new Set(denseChildren.map((resource) => `${resource.x}:${resource.y}`)).size)
       .toBe(denseChildren.length);
+  });
+
+  test("expands a dense single-group scope instead of preserving compressed coordinates", () => {
+    const children = Array.from({ length: 24 }, (_, index) => ({
+      id: `resource-${index}`,
+      type: index % 4 === 0 ? "compute.vm" : "network.nsg",
+      name: `resource-${index}`,
+      status: "healthy",
+      parent_id: "group-0",
+      x: 1 + (index % 3) * .4,
+      y: 1.3 + Math.floor(index / 3) * .05,
+    }));
+    const expanded = constrainGraph({
+      ...GRAPH,
+      active_view: "group-0",
+      views: [{
+        id: "group-0",
+        label: "group-0",
+        kind: "resource_group",
+        classification: "resource_group_fallback",
+        description: "",
+        root_resource_id: "group-0",
+      }],
+      resources: [
+        { id: "subscription", type: "subscription", name: "subscription", status: "healthy", x: 0, y: 0, w: 18, h: 12 },
+        { id: "group-0", type: "resource-group", name: "group-0", status: "healthy", parent_id: "subscription", x: 1, y: 1, w: 3, h: 1.5 },
+        ...children,
+      ],
+    });
+    const subscription = expanded.resources.find(
+      (resource) => resource.id === "subscription",
+    )!;
+    const group = expanded.resources.find((resource) => resource.id === "group-0")!;
+    const expandedChildren = expanded.resources.filter(
+      (resource) => resource.parent_id === "group-0",
+    );
+
+    expect(subscription.w).toBeLessThan(18);
+    expect(group.h).toBeGreaterThan(4);
+    expect(expandedChildren.every((resource) => (resource.render_scale ?? 0) >= 1)).toBe(true);
+    expect(new Set(expandedChildren.map((resource) => `${resource.x}:${resource.y}`)).size)
+      .toBe(expandedChildren.length);
   });
 
   test("preserves authored layouts that contain nested regions", () => {

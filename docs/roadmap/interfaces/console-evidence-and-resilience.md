@@ -460,8 +460,10 @@ one-to-one CAF row use a documented stable extension instead of a generated init
 The relationship legend remains the compact canvas control. The default isometric map starts with
 Reflections and Connections enabled. It shows containment as subtle dashed links,
 shows attachment and dependency links with their directional styles, and renders each resource
-shape; top and front views are optional. Simple projections size each resource-group panel from its
-observed child count and pack those panels into a balanced world. A resource node never renders
+shape; top and front views are optional. Simple projections size every resource-group panel,
+including a single selected scope, from its observed child count and pack those panels into a
+balanced world. Focused service and resource-group views fit that repacked content instead of the
+full subscription frame. A resource node never renders
 smaller than the standard Event Grid topic block. The world and canvas grow with inventory while
 authored nested layouts keep their supplied geometry. The map uses the full workspace width and
 places inspection details below it. Narrow viewports preserve node size and use map panning instead
@@ -493,8 +495,9 @@ relationship, or neighboring label can cover it. Truncated snapshots show an exp
 partial-inventory notice.
 The canvas renders containment as subdued dashed center-to-center edges. Semantic relationships use
 directional node-to-node arrows above the connected block tops and do not connect resource-group
-regions as operational endpoints. Drag input coalesces to one draw per animation frame and omits
-reflections and labels only while the pointer is moving; pointer release restores full quality.
+regions as operational endpoints. Drag input coalesces to one draw per animation frame, keeps
+reflections continuous, and omits labels only while the pointer is moving; pointer release restores
+the labels.
 The local projection shows only registered relationship types whose selected endpoint ids and
 resource types agree. It drops malformed or over-limit vendor relationships, marks the snapshot
 truncated, and keeps the last complete resource graph rather than rendering an untrusted edge.

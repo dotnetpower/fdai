@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f7caa0e43fa51e3e3ed9da7aeb3bdd33b01b8a37
+translation_source_sha: 8b5f081a4f98aee2b29194369e34304fa9aff799
 translation_revised: 2026-07-28
 ---
 
@@ -451,8 +451,10 @@ Resource glyph는 Microsoft Cloud Adoption Framework의
 Relationship legend는 compact canvas control로 유지합니다. 기본 isometric map은 Reflections와
 Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed link로,
 attachment 및 dependency는 각각의 directional style로 표시하고 resource shape을 렌더링합니다.
-Top 및 front view는 optional입니다. 단순 projection은 관찰된 child 수에 따라 각 resource-group
-panel 크기를 정하고 균형 잡힌 world에 panel을 배치합니다. Resource node는 표준 Event Grid topic
+Top 및 front view는 optional입니다. 단순 projection은 선택된 단일 scope를 포함한 모든
+resource-group panel의 크기를 관찰된 child 수에 따라 정하고 균형 잡힌 world에 panel을 배치합니다.
+Focused service 및 resource-group view는 full subscription frame이 아니라 repacked content에
+맞춰 표시합니다. Resource node는 표준 Event Grid topic
 block보다 작게 렌더링되지 않습니다. Inventory에 맞춰 world와 canvas가 커지며 authored nested
 layout은 supplied geometry를 유지합니다. Map은 workspace 전체 너비를 사용하고 inspection detail은
 아래에 배치합니다. 좁은 viewport에서는 box를 읽을 수 없게 줄이는 대신 node 크기를 유지하고 map
@@ -484,7 +486,7 @@ index는 filtered canvas와 동등합니다. Pointer target은 containment bound
 Canvas는 containment를 subdued dashed center-to-center edge로 렌더링합니다. Semantic relationship은
 연결된 block top보다 높은 directional node-to-node arrow를 사용하며 resource-group region을 operational
 endpoint로 연결하지 않습니다. Drag input은 animation frame마다 한 번만 draw하고 pointer가 이동하는
-동안에만 reflection과 label을 생략합니다. Pointer release는 full quality를 복원합니다.
+동안에도 reflection을 계속 표시하며 label만 생략합니다. Pointer release는 label을 복원합니다.
 Local projection은 선택된 endpoint id와 resource type이 일치하는 registered relationship type만
 표시합니다. Malformed 또는 over-limit vendor relationship은 drop하고 snapshot을 truncated로 표시하며,
 신뢰할 수 없는 edge를 렌더링하지 않고 마지막 complete resource graph를 유지합니다.

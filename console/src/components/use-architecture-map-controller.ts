@@ -258,7 +258,7 @@ export function architectureInteractionOptions(
   interacting: boolean,
 ): ArchitectureDisplayOptions {
   if (!interacting) return options;
-  return { ...options, showReflections: false, showLabels: false };
+  return { ...options, showLabels: false };
 }
 
 export function architectureLayoutFrame(graph: InventoryGraphResponse): string {

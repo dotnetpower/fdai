@@ -502,6 +502,13 @@ export function architectureViewKindLabel(view: ArchitectureView): string {
   return "Resource group";
 }
 
+export function architectureViewIsFocused(
+  graph: Pick<InventoryGraphResponse, "active_view" | "views">,
+): boolean {
+  const activeView = graph.views?.find((view) => view.id === graph.active_view);
+  return activeView !== undefined && activeView.kind !== "fdai";
+}
+
 export function graphSubset(
   graph: InventoryGraphResponse,
   visibleLayers: ReadonlySet<ArchitectureLayer>,
@@ -617,7 +624,7 @@ export function expandSimpleResourceGroupPanels(
     const groups = graph.resources
       .filter((resource) => resource.type === "resource-group" && resource.parent_id === parent.id)
       .sort((first, second) => (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0));
-    if (groups.length < 3) continue;
+    if (groups.length === 0) continue;
     const directChildren = groups.map((group) => graph.resources
       .filter((resource) => resource.parent_id === group.id)
       .sort(compareArchitectureChildren));
@@ -697,8 +704,12 @@ export function expandSimpleResourceGroupPanels(
     }
     resources.set(parent.id, {
       ...parent,
-      w: Math.max(parent.w ?? 0, maximumRight - parentX + parentInsetX),
-      h: Math.max(parent.h ?? 0, maximumBottom - parentY + parentInsetBottom),
+      w: architectureViewIsFocused(graph)
+        ? maximumRight - parentX + parentInsetX
+        : Math.max(parent.w ?? 0, maximumRight - parentX + parentInsetX),
+      h: architectureViewIsFocused(graph)
+        ? maximumBottom - parentY + parentInsetBottom
+        : Math.max(parent.h ?? 0, maximumBottom - parentY + parentInsetBottom),
     });
   }
 

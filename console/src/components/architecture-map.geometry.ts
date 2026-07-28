@@ -1,4 +1,5 @@
 import {
+  architectureViewIsFocused,
   geometryOf,
   isRegion,
   shapeOf,
@@ -28,6 +29,7 @@ export interface Point {
 export type Quad = readonly [Point, Point, Point, Point];
 
 export const WORLD = { width: 18, height: 12 };
+const FOCUSED_WORLD = { width: 8, height: 6 };
 export const LIFT = .10;
 const ZOOM_STEP = 1.12;
 
@@ -52,14 +54,15 @@ export function applyCameraView(camera: Camera, view: ArchitectureCameraView): v
 }
 
 export function architectureWorldSize(
-  graph: Pick<InventoryGraphResponse, "resources">,
+  graph: Pick<InventoryGraphResponse, "resources" | "active_view" | "views">,
 ): { width: number; height: number } {
+  const minimum = architectureViewIsFocused(graph) ? FOCUSED_WORLD : WORLD;
   return graph.resources.filter(isRegion).reduce(
     (world, resource) => ({
       width: Math.max(world.width, (resource.x ?? 0) + (resource.w ?? 0)),
       height: Math.max(world.height, (resource.y ?? 0) + (resource.h ?? 0)),
     }),
-    { ...WORLD },
+    { ...minimum },
   );
 }
 

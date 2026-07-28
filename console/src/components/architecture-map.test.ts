@@ -200,7 +200,7 @@ describe("architecture selection camera", () => {
 });
 
 describe("architecture drag rendering", () => {
-  it("keeps blocks and connections while deferring expensive reflections and labels", () => {
+  it("keeps blocks, connections, and reflections while deferring labels", () => {
     const options = {
       showConnections: true,
       showReflections: true,
@@ -210,7 +210,7 @@ describe("architecture drag rendering", () => {
 
     expect(architectureInteractionOptions(options, true)).toEqual({
       showConnections: true,
-      showReflections: false,
+      showReflections: true,
       showLabels: false,
       showGrid: true,
     });
@@ -233,6 +233,19 @@ describe("architecture world sizing", () => {
     expect(camera.worldWidth).toBe(24);
     expect(camera.worldHeight).toBe(30);
     expect(camera.scale).toBeGreaterThanOrEqual(18);
+  });
+
+  it("fits a focused resource-group view to its compact content world", () => {
+    const graph = {
+      active_view: "rg",
+      views: [{ id: "rg", kind: "resource_group" }],
+      resources: [
+        { id: "sub", type: "subscription", x: .25, y: .25, w: 11, h: 6.5 },
+        { id: "rg", type: "resource-group", x: .7, y: 1.1, w: 10, h: 5.5 },
+      ],
+    } as never;
+
+    expect(architectureWorldSize(graph)).toEqual({ width: 11.25, height: 6.75 });
   });
 });
 
