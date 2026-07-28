@@ -207,6 +207,10 @@ forwards only allowlisted identity fields with prompt values up to 256 character
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly.
 Agent answers keep Bragi as narrator while displaying the verified specialist as response owner.
+When an explicit handoff returns the turn to Bragi, the Web labels ownership as
+`specialist -> Bragi` in the reply header and answer-plan row. If the handoff carries no specialist
+answer, deterministic verification returns an unavailable-evidence response and never validates
+narrator prose against unrelated current-screen facts.
 Bragi completes the T0/T1 owner route once, then the ordinary answer path selects one uniquely
 highest-scoring read tool from that owner. A completed tool result becomes the primary specialist
 answer, and its scoped facts enter the existing agent-evidence manifest. A tie or no match keeps the

@@ -14,7 +14,7 @@ import {
   type RouterSnapshot,
   type VerificationProgress,
 } from "./backend";
-import { type DeckLayoutMode } from "./command-deck-session";
+import { replyAgentLabel, type DeckLayoutMode } from "./command-deck-session";
 import {
   conversationGroups,
   isScreenConversationKey,
@@ -252,7 +252,7 @@ export function TurnBubble({
                 maskImage: agentIconUrl(turn.agent ?? DEFAULT_NARRATOR),
               }}
             />
-            {turn.agent ?? DEFAULT_NARRATOR}
+            {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
           {turn.source ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>

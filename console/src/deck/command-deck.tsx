@@ -27,6 +27,7 @@ export {
   matchingTurnIndexes,
   parseDeckLayoutMode,
   replyAgent,
+  replyAgentLabel,
   restoredTurn,
   sessionIdFor,
   type DeckLayoutMode,

@@ -5,6 +5,7 @@ import {
   clampDockWidth,
   parseDeckLayoutMode,
   replyAgent,
+  replyAgentLabel,
   restoredTurn,
   sessionIdFor,
 } from "./command-deck";
@@ -85,6 +86,19 @@ describe("terminal reply attribution", () => {
       .toBe("Saga");
     expect(replyAgent({ verification: { ...verification, status: "consistent" } }))
       .toBe("Bragi");
+  });
+
+  test("shows the selected specialist when a turn is handed back to Bragi", () => {
+    expect(replyAgentLabel("Bragi", {
+      primary_agent: "Bragi",
+      contributors: [],
+      handoff_from: "Heimdall",
+      handoff_reason: "insufficient_agent_evidence",
+    })).toBe("Heimdall -> Bragi");
+    expect(replyAgentLabel("Heimdall", {
+      primary_agent: "Heimdall",
+      contributors: [],
+    })).toBe("Heimdall");
   });
 });
 

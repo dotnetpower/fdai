@@ -81,3 +81,13 @@ export function replyAgent(
 ): string {
   return reply.delegation?.primary_agent ?? "Bragi";
 }
+
+export function replyAgentLabel(
+  agent: string,
+  delegation: ProgressiveAnswer["delegation"],
+): string {
+  const handoffFrom = delegation?.handoff_from;
+  return handoffFrom && handoffFrom !== agent
+    ? `${handoffFrom} -> ${agent}`
+    : agent;
+}

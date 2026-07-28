@@ -366,6 +366,34 @@ def verify_answer(
         )
 
     raw = view_context.get("_operational_evidence")
+    agent = view_context.get("_agent_evidence")
+    if isinstance(agent, Mapping):
+        handoff_from = agent.get("handoff_from")
+        agent_answer = agent.get("answer")
+        if (
+            not isinstance(raw, Mapping)
+            and isinstance(handoff_from, str)
+            and not (isinstance(agent_answer, str) and agent_answer.strip())
+        ):
+            korean = _is_korean(locale)
+            answer = (
+                f"요청한 {handoff_from} 응답에서 근거를 확인하지 못해 Bragi가 현재 화면만으로 "
+                "답변하지 않았습니다. 에이전트 근거가 준비된 뒤 다시 시도하거나 특정 "
+                "인시던트 또는 리소스를 지정해 주세요."
+                if korean
+                else f"{handoff_from} could not provide grounded evidence for this request, so "
+                "Bragi did not answer from the current screen. Retry after agent evidence is "
+                "available or ask about a specific incident or resource."
+            )
+            return AnswerVerification(
+                status="unverified",
+                answer=answer,
+                authority="pantheon_runtime",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="agent_evidence_unavailable",
+            )
+
     if not isinstance(raw, Mapping):
         screen = verify_screen_claims(provisional, view_context)
         if screen.overflow or not screen.manifest.complete or not screen.supported:

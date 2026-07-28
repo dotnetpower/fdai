@@ -107,6 +107,33 @@ def test_screen_qualitative_answer_has_no_checkable_claims() -> None:
     assert result.checks_total == 0
 
 
+def test_agent_handoff_without_evidence_is_not_salvaged_from_screen_facts() -> None:
+    result = verify_answer(
+        "No high-severity problems were found. The latest item is low severity.",
+        {
+            "routeId": "agents",
+            "facts": [{"key": "latest_severity", "value": "low"}],
+            "_agent_evidence": {
+                "primary_agent": "Bragi",
+                "answer": None,
+                "facts": {},
+                "contributors": [],
+                "handoff_from": "Heimdall",
+                "handoff_reason": "insufficient_agent_evidence",
+            },
+        },
+        locale="ko",
+    )
+
+    assert result.status == "unverified"
+    assert result.authority == "pantheon_runtime"
+    assert result.reason_code == "agent_evidence_unavailable"
+    assert result.checks_completed == 0
+    assert result.checks_total == 1
+    assert "Heimdall" in result.answer
+    assert "low" not in result.answer
+
+
 def test_invalid_answer_characters_fail_closed_before_claim_verification() -> None:
     invalid_answers = (
         "broken \ufffd output",

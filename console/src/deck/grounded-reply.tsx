@@ -29,6 +29,7 @@ import type {
   VerificationProgress,
 } from "./backend";
 import { confirmActionDraft, renderActionResult } from "./backend";
+import { replyAgentLabel } from "./command-deck-session";
 import { RichContent } from "./rich-content";
 import { relevantCitations, type Citation } from "./citations";
 import {
@@ -155,7 +156,9 @@ export function GroundedReply({
       {answerPlan ? (
         <Tooltip content={t(`deck.answerPlan.format.${answerPlan.format}`)}>
           <div class="deck-answer-plan">
-            <span>{delegation?.primary_agent ?? "Bragi"}</span>
+            <span>
+              {replyAgentLabel(delegation?.primary_agent ?? "Bragi", delegation)}
+            </span>
             <span aria-hidden="true">·</span>
             <span>{t(`deck.answerPlan.intent.${answerPlan.intent}`)}</span>
             <span aria-hidden="true">·</span>

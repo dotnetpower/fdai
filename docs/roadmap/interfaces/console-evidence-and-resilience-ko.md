@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 7ad345c578c132dc2869b46ae941bf00a2a7d2c1
+translation_source_sha: 522d65994b61671ff159f13e108aa4f4863ae35c
 translation_revised: 2026-07-28
 ---
 
@@ -206,6 +206,10 @@ allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복
 selection을 unavailable로 표시합니다. Ontology projection과 결정론적 browse answer는 일반 prompt
 assembly와 분리된 자체 prompt module에 위치합니다.
 Agent answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로 표시합니다.
+명시적 handoff로 turn이 Bragi에 돌아오면 Web은 reply header와 answer-plan row에
+`specialist -> Bragi`로 소유권 흐름을 표시합니다. Handoff에 specialist answer가 없으면 결정론적
+verification은 근거를 사용할 수 없다는 응답을 반환하고, 관련 없는 current-screen fact로 narrator
+문장을 검증하지 않습니다.
 Bragi가 T0/T1 owner route를 한 번 완료한 뒤, 일반 answer path는 그 owner에서 점수가 유일하게
 가장 높은 read tool 하나를 선택합니다. 완료된 tool result가 primary specialist answer가 되고,
 범위 한정 fact는 기존 agent-evidence manifest로 들어갑니다. 동점이거나 일치 항목이 없으면 owner의
