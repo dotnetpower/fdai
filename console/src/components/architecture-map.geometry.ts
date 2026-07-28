@@ -13,6 +13,7 @@ import {
 export interface Camera {
   yaw: number;
   pitch: number;
+  perspective?: number;
   scale: number;
   panX: number;
   panY: number;
@@ -31,13 +32,38 @@ export type Quad = readonly [Point, Point, Point, Point];
 export const WORLD = { width: 18, height: 12 };
 const FOCUSED_WORLD = { width: 8, height: 6 };
 export const LIFT = .10;
-const ZOOM_STEP = 1.12;
+export const DEFAULT_ISOMETRIC_CAMERA = {
+  yaw: .28,
+  pitch: .44,
+  perspective: .34,
+} as const;
+const ZOOM_STEP = 1.2;
+const MIN_ZOOM = 6;
+const MAX_ZOOM = 512;
 
 export function architectureZoomScale(
   scale: number,
   direction: "in" | "out",
 ): number {
-  return clamp(scale * (direction === "in" ? ZOOM_STEP : 1 / ZOOM_STEP), 18, 132);
+  return clamp(scale * (direction === "in" ? ZOOM_STEP : 1 / ZOOM_STEP), MIN_ZOOM, MAX_ZOOM);
+}
+
+export function zoomCameraAtPoint(
+  camera: Camera,
+  direction: "in" | "out",
+  screenX: number,
+  screenY: number,
+  width: number,
+  height: number,
+): void {
+  const previousScale = camera.scale;
+  const nextScale = architectureZoomScale(previousScale, direction);
+  const ratio = nextScale / previousScale;
+  const relativeX = screenX - (width / 2 + camera.panX);
+  const relativeY = screenY - (height / 2 + camera.panY);
+  camera.scale = nextScale;
+  camera.panX = screenX - width / 2 - relativeX * ratio;
+  camera.panY = screenY - height / 2 - relativeY * ratio;
 }
 
 export function architectureResourceFromValue(
@@ -48,9 +74,9 @@ export function architectureResourceFromValue(
 }
 
 export function applyCameraView(camera: Camera, view: ArchitectureCameraView): void {
-  if (view === "top") { camera.yaw = 0; camera.pitch = 1.5; }
-  else if (view === "front") { camera.yaw = 0; camera.pitch = .23; }
-  else { camera.yaw = Math.PI / 4; camera.pitch = .58; }
+  if (view === "top") { camera.yaw = 0; camera.pitch = 1.5; camera.perspective = 0; }
+  else if (view === "front") { camera.yaw = 0; camera.pitch = .23; camera.perspective = .12; }
+  else Object.assign(camera, DEFAULT_ISOMETRIC_CAMERA);
 }
 
 export function architectureWorldSize(
@@ -70,7 +96,7 @@ export function architectureCanvasHeight(
   graph: Pick<InventoryGraphResponse, "resources" | "active_view" | "views">,
 ): number {
   const minimumHeight = architectureViewIsFocused(graph) ? 680 : 780;
-  return clamp(Math.round(architectureWorldSize(graph).height * 28), minimumHeight, 1400);
+  return Math.max(minimumHeight, Math.round(architectureWorldSize(graph).height * 36));
 }
 
 export function cameraWorldSize(camera: Camera): { width: number; height: number } {
@@ -94,18 +120,38 @@ export function fitCamera(
   const world = graph ? architectureWorldSize(graph) : cameraWorldSize(camera);
   camera.worldWidth = world.width;
   camera.worldHeight = world.height;
-  const horizontalSpan = Math.abs(world.width * Math.cos(camera.yaw)) +
-    Math.abs(world.height * Math.sin(camera.yaw));
-  const depthSpan = Math.abs(world.width * Math.sin(camera.yaw)) +
-    Math.abs(world.height * Math.cos(camera.yaw));
-  const verticalSpan = depthSpan * Math.sin(camera.pitch) + 1.2 * Math.cos(camera.pitch);
+  const previousScale = camera.scale;
+  const previousPanX = camera.panX;
+  const previousPanY = camera.panY;
+  camera.scale = 1;
+  camera.panX = 0;
+  camera.panY = 0;
+  const corners = [0, 1.2].flatMap((z) => [
+    project(camera, width, height, 0, 0, z),
+    project(camera, width, height, world.width, 0, z),
+    project(camera, width, height, world.width, world.height, z),
+    project(camera, width, height, 0, world.height, z),
+  ]);
+  const minimumX = Math.min(...corners.map((point) => point.x));
+  const maximumX = Math.max(...corners.map((point) => point.x));
+  const minimumY = Math.min(...corners.map((point) => point.y));
+  const maximumY = Math.max(...corners.map((point) => point.y));
+  const horizontalSpan = maximumX - minimumX;
+  const verticalSpan = maximumY - minimumY;
+  const horizontalCenterOffset = (minimumX + maximumX) / 2 - width / 2;
+  const verticalCenterOffset = (minimumY + maximumY) / 2 - height / 2;
   const legendReserve = architectureLegendReserveWidth(width);
   camera.scale = clamp(Math.min(
     Math.max(1, width - 56 - legendReserve) / Math.max(1, horizontalSpan),
     Math.max(1, height - 72) / Math.max(1, verticalSpan),
-  ), 18, 64);
-  camera.panX = -legendReserve / 2;
-  camera.panY = 6;
+  ), MIN_ZOOM, 96);
+  camera.panX = -legendReserve / 2 - horizontalCenterOffset * camera.scale;
+  camera.panY = height * .08 - verticalCenterOffset * camera.scale;
+  if (!Number.isFinite(camera.scale)) {
+    camera.scale = previousScale;
+    camera.panX = previousPanX;
+    camera.panY = previousPanY;
+  }
 }
 
 export function project(
@@ -121,10 +167,17 @@ export function project(
   const offsetY = y - world.height / 2;
   const rotatedX = offsetX * Math.cos(camera.yaw) - offsetY * Math.sin(camera.yaw);
   const rotatedY = offsetX * Math.sin(camera.yaw) + offsetY * Math.cos(camera.yaw);
+  const depthRatio = rotatedY / Math.max(1, world.height / 2);
+  const perspectiveScale = clamp(
+    1 - depthRatio * (camera.perspective ?? DEFAULT_ISOMETRIC_CAMERA.perspective),
+    .68,
+    1.32,
+  );
   return {
-    x: width / 2 + camera.panX + rotatedX * camera.scale,
+    x: width / 2 + camera.panX + rotatedX * camera.scale * perspectiveScale,
     y: height / 2 + camera.panY -
-      (rotatedY * Math.sin(camera.pitch) + z * Math.cos(camera.pitch)) * camera.scale,
+      (rotatedY * Math.sin(camera.pitch) + z * Math.cos(camera.pitch)) *
+      camera.scale * perspectiveScale,
     depth: rotatedY * Math.cos(camera.pitch) - z * Math.sin(camera.pitch),
   };
 }

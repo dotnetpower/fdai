@@ -58,11 +58,17 @@ export function drawArchitectureNetworkMemberships(
   width: number,
   height: number,
   camera: Camera,
-  graph: Pick<InventoryGraphResponse, "resources">,
+  graph: Pick<InventoryGraphResponse, "resources" | "links">,
   highlightedIds?: ReadonlySet<string>,
 ): void {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const directlyAttachedIds = new Set(
+    graph.links
+      .filter((link) => link.type === "attached_to")
+      .flatMap((link) => [link.source, link.target]),
+  );
   for (const node of graph.resources.filter((resource) => !isRegion(resource))) {
+    if (directlyAttachedIds.has(node.id)) continue;
     const plane = node.network_plane_id ? byId.get(node.network_plane_id) : undefined;
     if (!plane || !isArchitectureNetworkPlane(plane)) continue;
     const railX = (plane.x ?? 0) + .28;
@@ -95,8 +101,8 @@ export function drawArchitectureAttachmentRoute(
     project(camera, width, height, middleX, targetCenter.y, .065),
     project(camera, width, height, targetCenter.x, targetCenter.y, .065),
   ];
-  strokeRoute(context, points, active ? .74 : .1, "#397a5d", 1.7, []);
-  drawArrowHead(context, points.at(-2)!, points.at(-1)!, "#397a5d", active ? .74 : .1);
+  strokeRoute(context, points, active ? .72 : .08, "#ffffff", 4.4, []);
+  strokeRoute(context, points, active ? .88 : .12, "#397a5d", 2.1, []);
 }
 
 function drawWorldLabel(
@@ -157,27 +163,6 @@ function strokeRoute(
   context.moveTo(first.x, first.y);
   points.slice(1).forEach((point) => context.lineTo(point.x, point.y));
   context.stroke();
-  context.restore();
-}
-
-function drawArrowHead(
-  context: CanvasRenderingContext2D,
-  start: Point,
-  end: Point,
-  color: string,
-  alpha: number,
-): void {
-  const angle = Math.atan2(end.y - start.y, end.x - start.x);
-  const size = 6;
-  context.save();
-  context.globalAlpha = alpha;
-  context.fillStyle = color;
-  context.beginPath();
-  context.moveTo(end.x, end.y);
-  context.lineTo(end.x - Math.cos(angle - Math.PI / 6) * size, end.y - Math.sin(angle - Math.PI / 6) * size);
-  context.lineTo(end.x - Math.cos(angle + Math.PI / 6) * size, end.y - Math.sin(angle + Math.PI / 6) * size);
-  context.closePath();
-  context.fill();
   context.restore();
 }
 

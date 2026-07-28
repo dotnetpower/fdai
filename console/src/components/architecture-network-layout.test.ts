@@ -4,6 +4,7 @@ import {
   isArchitectureNetworkPlane,
   layoutArchitectureNetworkFloors,
 } from "./architecture-network-layout";
+import { architectureNetworkPathRank } from "./architecture-network-path";
 import type { InventoryGraphResponse } from "./architecture-map.model";
 import { layoutArchitecturePresentation } from "./architecture-map-layout";
 
@@ -48,6 +49,7 @@ describe("architecture network floor layout", () => {
     const vnet = byId.get("vnet")!;
     const subnet = byId.get("snet")!;
     const vm = byId.get("vm")!;
+    const nic = byId.get("nic")!;
     const nsg = byId.get("nsg")!;
     const database = byId.get("db")!;
 
@@ -56,6 +58,10 @@ describe("architecture network floor layout", () => {
     expect(vm.network_plane_id).toBe("snet");
     expect(nsg.network_plane_id).toBe("snet");
     expect(database.network_plane_id).toBeUndefined();
+    expect(architectureNetworkPathRank(nsg)).toBeLessThan(architectureNetworkPathRank(nic));
+    expect(architectureNetworkPathRank(nic)).toBeLessThan(architectureNetworkPathRank(vm));
+    expect(nsg.x).toBeLessThan(nic.x!);
+    expect(nic.x).toBeLessThan(vm.x!);
     expect(vm.x).toBeGreaterThan(subnet.x!);
     expect(vm.x).toBeLessThan(subnet.x! + subnet.w!);
     expect(vm.y).toBeGreaterThan(subnet.y!);
@@ -82,16 +88,18 @@ describe("architecture network floor layout", () => {
     expect(membership.has("nsg")).toBe(false);
   });
 
-  it("reveals hidden network auxiliaries inside the same subnet plane", () => {
+  it("keeps visible network interfaces stable inside the same subnet plane", () => {
     const overview = layoutArchitecturePresentation(GRAPH, null);
     const focused = layoutArchitecturePresentation(GRAPH, "vm");
     const overviewVm = overview.resources.find((resource) => resource.id === "vm")!;
+    const overviewNic = overview.resources.find((resource) => resource.id === "nic")!;
     const focusedVm = focused.resources.find((resource) => resource.id === "vm")!;
     const nic = focused.resources.find((resource) => resource.id === "nic")!;
     const subnet = focused.resources.find((resource) => resource.id === "snet")!;
 
-    expect(overview.resources.some((resource) => resource.id === "nic")).toBe(false);
+    expect(overview.resources.some((resource) => resource.id === "nic")).toBe(true);
     expect(focusedVm).toMatchObject({ x: overviewVm.x, y: overviewVm.y });
+    expect(nic).toMatchObject({ x: overviewNic.x, y: overviewNic.y });
     expect(nic.network_plane_id).toBe("snet");
     expect(nic.x).toBeGreaterThan(subnet.x!);
     expect(nic.x).toBeLessThan(subnet.x! + subnet.w!);

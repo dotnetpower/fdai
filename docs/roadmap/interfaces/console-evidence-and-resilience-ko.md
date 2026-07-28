@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 03a331656d0010a7819bf160c37e4cac3af1e1c4
+translation_source_sha: b9e42b94fdf4bcf48585c80bc66aa95fae745609
 translation_revised: 2026-07-28
 ---
 
@@ -474,8 +474,8 @@ machine을 포함한 모든 resource selection은 현재 camera scale과 positio
 pan 및 camera-view control은 운영자가 명시적으로 조작할 때만 변경됩니다.
 
 Factual count와 inspection index는 계속 complete authoritative inventory를 사용합니다. Isometric
-overview는 network interface, managed disk, diagnostic, certificate 및 provider helper resource 같은
-auxiliary resource를 접는 presentation-only projection을 적용합니다. 표시된 각 owner는 접힌 neighbor
+overview는 network interface를 표시하고 managed disk, diagnostic, certificate 및 provider helper
+resource를 접는 presentation-only projection을 적용합니다. 표시된 각 owner는 접힌 neighbor
 수에 해당하는 `+N` badge를 표시합니다. Resource를 선택하면 새 inventory를 요청하거나 만들어 내지
 않고 direct auxiliary child와 semantic neighbor를 표시합니다. Overview는 표시된 resource만 packing하고
 child를 layer 및 type 순서로 정렬하며 접힌 owner 옆에 최대 두 개의 satellite slot을 예약합니다. 큰
@@ -496,6 +496,17 @@ plane이 pointer target으로 유지됩니다. Focused service 또는 resource-g
 3개의 network floor를 한 행에 배치하는 wide packing target을 사용합니다. Complete inventory view보다
 작은 desktop legend reserve와 canvas height를 사용합니다. 좁은 viewport에서는 동일한 node 크기를
 유지하고 canvas를 520 px로 제한하며 더 넓어진 floor를 panning으로 탐색합니다.
+
+Subnet 안의 visible path participant는 network edge에서 workload 순서로 배치합니다. Public IP 및
+network security resource, network interface, compute 및 service resource 순서입니다. 이는 layout
+순서이며 추론한 traffic direction이 아닙니다. Renderer는 contract가 direction을 제공하지 않는 한 모든
+관찰된 `attached_to` edge를 방향 화살표 없는 floor route로 그립니다. Perspective는 bounded depth
+범위에서 projected point를 조정해 가까운 resource를 먼 resource보다 크게 표시하고 picking과
+containment도 동일한 projection을 사용합니다. Zoom은 512x scale까지 상세 탐색을 지원하고 pointer를
+중심으로 확대하며, content-driven world는 고정 canvas-height ceiling 없이 확장됩니다. Fit은 complete
+frame을 복원하는 명시적 control로 유지됩니다. 기본 isometric camera는 path lane을 좌우로 읽고 depth가
+뒤로 물러나도록 낮은 oblique angle을 사용합니다. Fit은 위쪽에 visual depth를 남기기 위해 world를
+화면 중심보다 약간 아래에 배치합니다.
 
 Label은 collision을 피하고 긴 이름을 맞추며 각 resource name과 읽기 쉬운 resource type을 함께
 표시합니다. Block의 compact acronym은 보조 cue이며 resource를 식별하는 유일한 방법이 아닙니다.

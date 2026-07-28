@@ -9,12 +9,15 @@ import {
 import { geometryOf } from "./architecture-map.model";
 import {
   architectureCanvasHeight,
+  DEFAULT_ISOMETRIC_CAMERA,
   architectureLegendReserveWidth,
   architectureZoomScale,
+  applyCameraView,
   architectureWorldSize,
   fitCamera,
   pickResource,
   project,
+  zoomCameraAtPoint,
   type Camera,
 } from "./architecture-map.geometry";
 import {
@@ -156,6 +159,53 @@ describe("architecture map zoom", () => {
     expect(architectureZoomScale(architectureZoomScale(initial, "in"), "out"))
       .toBeCloseTo(initial, 10);
   });
+
+  it("supports deep inspection and keeps pointer position anchored", () => {
+    expect(architectureZoomScale(500, "in")).toBe(512);
+    const camera: Camera = {
+      yaw: Math.PI / 4,
+      pitch: .58,
+      perspective: .24,
+      scale: 40,
+      panX: -20,
+      panY: 12,
+    };
+    const width = 1000;
+    const height = 700;
+    const pointer = { x: 720, y: 260 };
+    const relativeX = pointer.x - (width / 2 + camera.panX);
+    const relativeY = pointer.y - (height / 2 + camera.panY);
+
+    zoomCameraAtPoint(camera, "in", pointer.x, pointer.y, width, height);
+
+    expect(camera.scale).toBe(48);
+    expect(width / 2 + camera.panX + relativeX * 1.2).toBeCloseTo(pointer.x);
+    expect(height / 2 + camera.panY + relativeY * 1.2).toBeCloseTo(pointer.y);
+  });
+});
+
+describe("architecture perspective", () => {
+  it("renders near resources larger while top view stays orthographic", () => {
+    const camera: Camera = {
+      yaw: 0,
+      pitch: .58,
+      perspective: .24,
+      scale: 40,
+      panX: 0,
+      panY: 0,
+      worldWidth: 18,
+      worldHeight: 12,
+    };
+    const centerX = 500;
+    const near = project(camera, 1000, 700, 12, 1, .2);
+    const far = project(camera, 1000, 700, 12, 11, .2);
+    expect(Math.abs(near.x - centerX)).toBeGreaterThan(Math.abs(far.x - centerX));
+
+    applyCameraView(camera, "top");
+    const topNear = project(camera, 1000, 700, 12, 1, .2);
+    const topFar = project(camera, 1000, 700, 12, 11, .2);
+    expect(Math.abs(topNear.x - centerX)).toBeCloseTo(Math.abs(topFar.x - centerX));
+  });
 });
 
 describe("architecture floor legend space", () => {
@@ -168,6 +218,16 @@ describe("architecture floor legend space", () => {
 });
 
 describe("architecture selection camera", () => {
+  it("uses a low oblique composition for the default isometric view", () => {
+    const camera: Camera = { yaw: 0, pitch: 0, perspective: 0, scale: 42, panX: 0, panY: 0 };
+
+    applyCameraView(camera, "iso");
+
+    expect(camera).toMatchObject(DEFAULT_ISOMETRIC_CAMERA);
+    expect(camera.yaw).toBeLessThan(Math.PI / 4);
+    expect(camera.pitch).toBeLessThan(.58);
+  });
+
   it("keeps the camera frame when selection reveals resources inside the same regions", () => {
     const region = {
       id: "rg", type: "resource-group", name: "rg", status: "healthy",
@@ -228,7 +288,10 @@ describe("architecture world sizing", () => {
     const camera: Camera = { yaw: Math.PI / 4, pitch: .58, scale: 42, panX: 0, panY: 0 };
 
     expect(architectureWorldSize(graph)).toEqual({ width: 24, height: 30 });
-    expect(architectureCanvasHeight(graph)).toBe(840);
+    expect(architectureCanvasHeight(graph)).toBe(1080);
+    expect(architectureCanvasHeight({
+      resources: [{ id: "sub", type: "subscription", x: 0, y: 0, w: 24, h: 100 }],
+    } as never)).toBe(3600);
     fitCamera(camera, 1000, 960, graph);
     expect(camera.worldWidth).toBe(24);
     expect(camera.worldHeight).toBe(30);

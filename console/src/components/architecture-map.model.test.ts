@@ -102,6 +102,7 @@ describe("architecture map model", () => {
     ["compute.vm", "virtual-machine", "#0078D4"],
     ["compute.vm-scale-set", "vm-scale-set", "#1490DF"],
     ["network.private-endpoint", "private-endpoint", "#32BEDD"],
+    ["network.interface", "network-interface", "#3A7D44"],
     ["network.public-ip", "public-ip", "#AD52E3"],
     ["diagnostic-settings", "diagnostic-settings", "#155EA1"],
     ["file-share", "file-share", "#773ADC"],
@@ -209,7 +210,7 @@ describe("architecture map model", () => {
     expect(relatedResourceIds(GRAPH, "missing")).toBeUndefined();
   });
 
-  test("collapses auxiliary resources until their owner is selected", () => {
+  test("keeps network interfaces visible while collapsing other auxiliaries", () => {
     const graph: InventoryGraphResponse = {
       ...GRAPH,
       resources: [
@@ -232,8 +233,8 @@ describe("architecture map model", () => {
     };
 
     const overview = architecturePresentationGraph(graph, null);
-    expect(overview.resources.map((resource) => resource.id)).toEqual(["rg", "vm", "db"]);
-    expect(overview.resources.find((resource) => resource.id === "vm")?.collapsed_count).toBe(2);
+    expect(overview.resources.map((resource) => resource.id)).toEqual(["rg", "vm", "nic", "db"]);
+    expect(overview.resources.find((resource) => resource.id === "vm")?.collapsed_count).toBe(1);
     expect(overview.resources.find((resource) => resource.id === "rg")?.collapsed_count).toBe(1);
 
     const focused = architecturePresentationGraph(graph, "vm");
@@ -262,6 +263,8 @@ describe("architecture map model", () => {
       .toBe("Virtual machines");
     expect(resourceTypeLabelOf({ id: "pip", type: "network.public-ip" } as never))
       .toBe("Public IP");
+    expect(resourceTypeLabelOf({ id: "nic", type: "network.interface" } as never))
+      .toBe("Network interface");
   });
 
   test("reveals direct auxiliary children when a boundary is selected", () => {
@@ -315,11 +318,11 @@ describe("architecture map model", () => {
     const focused = layoutArchitecturePresentation(graph, "vm");
     const overviewVm = overview.resources.find((resource) => resource.id === "vm")!;
     const focusedVm = focused.resources.find((resource) => resource.id === "vm")!;
-    const revealed = focused.resources.filter((resource) => ["nic", "disk"].includes(resource.id));
+    const revealed = focused.resources.filter((resource) => resource.id === "disk");
 
-    expect(overview.resources.some((resource) => resource.id === "nic")).toBe(false);
+    expect(overview.resources.some((resource) => resource.id === "nic")).toBe(true);
     expect(focusedVm).toMatchObject({ x: overviewVm.x, y: overviewVm.y });
-    expect(new Set(revealed.map((resource) => `${resource.x}:${resource.y}`)).size).toBe(2);
+    expect(new Set(revealed.map((resource) => `${resource.x}:${resource.y}`)).size).toBe(1);
     expect(revealed.every((resource) => resource.x !== overviewVm.x || resource.y !== overviewVm.y))
       .toBe(true);
   });

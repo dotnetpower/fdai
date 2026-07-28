@@ -5,24 +5,22 @@ import {
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
+import { compareArchitectureNetworkPathNodes } from "./architecture-network-path";
 
 const VNET_TYPES = new Set(["virtual-network", "network.vnet"]);
 const SUBNET_TYPES = new Set(["subnet", "network.subnet"]);
-const CELL_WIDTH = 1.65;
-const CELL_HEIGHT = 1.2;
-const PANEL_GAP = .45;
-
+const CELL_WIDTH = 2.15;
+const CELL_HEIGHT = 1.55;
+const PANEL_GAP = .75;
 interface PackedItem<T> {
   readonly item: T;
   readonly x: number;
   readonly y: number;
 }
-
 interface RectangleItem {
   readonly width: number;
   readonly height: number;
 }
-
 interface SubnetPlan extends RectangleItem {
   readonly subnet: InventoryResource;
   readonly members: readonly InventoryResource[];
@@ -199,7 +197,8 @@ function buildGroupPlan(
     && !isRegion(resource)
     && !VNET_TYPES.has(resource.type)
     && !SUBNET_TYPES.has(resource.type)
-    && !isAuxiliaryArchitectureResource(resource));
+    && !isAuxiliaryArchitectureResource(resource))
+    .sort(compareArchitectureNetworkPathNodes);
   const membersBySubnet = new Map<string, InventoryResource[]>();
   const unassigned: InventoryResource[] = [];
   for (const node of visibleNodes) {
@@ -232,7 +231,7 @@ function buildGroupPlan(
   return {
     group,
     networks: packedNetworks.items,
-    unassigned,
+    unassigned: [...unassigned].sort(compareArchitectureNetworkPathNodes),
     unassignedTop,
     width: Math.max(4.8, .9 + packedNetworks.width, .9 + unassignedGrid.width),
     height: Math.max(
@@ -276,10 +275,11 @@ function buildSubnetPlan(
   subnet: InventoryResource,
   members: readonly InventoryResource[],
 ): SubnetPlan {
-  const grid = nodeGrid(members);
+  const orderedMembers = [...members].sort(compareArchitectureNetworkPathNodes);
+  const grid = nodeGrid(orderedMembers);
   return {
     subnet,
-    members,
+    members: orderedMembers,
     width: Math.max(4.8, grid.width + .9),
     height: Math.max(3.4, grid.height + 1.15),
   };
@@ -350,7 +350,7 @@ function nodeGrid(nodes: readonly InventoryResource[]): {
   readonly height: number;
 } {
   if (nodes.length === 0) return { columns: 1, width: 0, height: 0 };
-  const columns = Math.min(5, Math.max(1, Math.ceil(Math.sqrt(Math.max(1, nodes.length)))));
+  const columns = Math.min(8, nodes.length);
   const rows = Math.max(1, Math.ceil(nodes.length / columns));
   return { columns, width: columns * CELL_WIDTH, height: rows * CELL_HEIGHT };
 }

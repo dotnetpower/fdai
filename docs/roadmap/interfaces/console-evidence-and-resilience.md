@@ -483,8 +483,8 @@ selection preserves the current camera scale and position, including virtual mac
 pan, and camera-view controls remain explicit operator actions.
 
 The factual counts and inspection index continue to use the complete authoritative inventory. The
-isometric overview applies a presentation-only projection that collapses auxiliary resources such
-as network interfaces, managed disks, diagnostics, certificates, and provider helper resources.
+isometric overview applies a presentation-only projection that keeps network interfaces visible
+while collapsing managed disks, diagnostics, certificates, and provider helper resources.
 Each visible owner shows a `+N` badge for its collapsed neighbors. Selecting a resource reveals its
 direct auxiliary children and semantic neighbors without requesting or inventing new inventory.
 The overview packs only visible resources, orders children by layer and type, reserves up to two
@@ -507,6 +507,17 @@ uses a wide packing target so three network floors share one row when they fit. 
 smaller desktop legend reserve and canvas height than the complete inventory view. Narrow
 viewports keep the same node size, cap the canvas at 520 px, and expose the wider floor through
 panning.
+
+Within a subnet, visible path participants are arranged from network edge to workload: public IP
+and network security resources, network interfaces, then compute and service resources. This is a
+layout order, not an inferred traffic direction. The renderer draws every observed `attached_to`
+edge as a floor route without a directional arrow unless the contract provides direction.
+Perspective scales projected points within bounded depth limits so near resources read larger than
+far resources while picking and containment use the same projection. Zoom supports deep inspection
+up to 512x scale, zooms around the pointer, and lets content-driven worlds grow without a fixed
+canvas-height ceiling. The default isometric camera uses a low oblique angle so path lanes read
+left-to-right while depth recedes, and Fit places the world slightly below center to reserve visual
+depth above it. Fit remains the explicit way to restore the complete frame.
 
 Labels avoid collisions, fit long names, and pair each resource name with its plain resource type.
 The compact acronym on the block is a secondary cue, not the only way to identify the resource.

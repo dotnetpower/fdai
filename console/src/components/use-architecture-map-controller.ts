@@ -5,8 +5,10 @@ import {
   architectureWorldSize,
   architectureZoomScale,
   clamp,
+  DEFAULT_ISOMETRIC_CAMERA,
   fitCamera,
   pickResource,
+  zoomCameraAtPoint,
   type Camera,
 } from "./architecture-map.geometry";
 import type {
@@ -43,8 +45,7 @@ export function useArchitectureMapController({
 }: ControllerOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef<Camera>({
-    yaw: Math.PI / 4,
-    pitch: .58,
+    ...DEFAULT_ISOMETRIC_CAMERA,
     scale: 42,
     panX: 0,
     panY: 0,
@@ -207,9 +208,14 @@ export function useArchitectureMapController({
     };
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
-      cameraRef.current.scale = architectureZoomScale(
-        cameraRef.current.scale,
+      const point = localPoint(event);
+      zoomCameraAtPoint(
+        cameraRef.current,
         event.deltaY < 0 ? "in" : "out",
+        point.x,
+        point.y,
+        canvas.clientWidth,
+        canvas.clientHeight,
       );
       scheduleDraw();
       notifyZoom();

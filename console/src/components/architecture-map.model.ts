@@ -85,6 +85,7 @@ export type ArchitectureResourceColorToken =
   | "subscription"
   | "resource-group"
   | "virtual-network"
+  | "network-interface"
   | "subnet"
   | "front-door"
   | "application-gateway"
@@ -264,7 +265,7 @@ const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>>
   "network.vnet": "virtual-network",
   "network.subnet": "subnet",
   "network.nsg": "network-security",
-  "network.interface": "virtual-network",
+  "network.interface": "network-interface",
   "network.private-endpoint": "private-endpoint",
   "network.load-balancer": "load-balancer",
   "network.application-gateway": "application-gateway",
@@ -302,6 +303,7 @@ export const RESOURCE_COLOR_TOKENS: Readonly<
   subscription: { label: "Subscription", color: "#FF9300" },
   "resource-group": { label: "Resource group", color: "#50E6FF" },
   "virtual-network": { label: "Virtual network", color: "#5E9624" },
+  "network-interface": { label: "Network interface", color: "#3A7D44" },
   subnet: { label: "Subnet", color: "#1490DF" },
   "front-door": { label: "Front Door", color: "#5EA0EF" },
   "application-gateway": { label: "App Gateway", color: "#76BC2D" },
@@ -397,7 +399,6 @@ const AUXILIARY_TYPES = new Set([
   "kubernetes-node-pool",
   "managed-identity",
   "network.dns-resolver-inbound-endpoint",
-  "network.interface",
   "network.private-dns-zone-link",
 ]);
 const SHAPE_GEOMETRY: Readonly<Record<ArchitectureNodeShape, ArchitectureNodeGeometry>> = {
