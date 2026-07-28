@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 285652e4a98eb78f747a71430fe606c03d87f67a
+translation_source_sha: 904b8cef2620ac5da626e3ba2098918fea9fe318
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -173,7 +173,10 @@ Cold build는 하나의 shared task입니다. 질문은 기다리기를 중단�
 25개가 남기는 build는 25개가 아니라 1개입니다. Build 중인 동안 뒤따르는 질문은 전체 gather timeout을
 각각 더하지 않고 즉시 강등됩니다. 실패하거나 불완전한 build는 첫 invalid vector에서 중단하고 retry
 cooldown에 들어가므로, 깨진 provider가 질문마다 전체 catalog 비용을 만들 수 없습니다. Runtime
-shutdown은 bridge shutdown이 실패해도 task를 drain합니다.
+shutdown은 bridge shutdown이 실패해도 task를 drain합니다. Third-party provider가
+`CancelledError`를 잘못 삼키면 Python은 해당 coroutine을 강제로 종료할 수 없습니다. 따라서 planner
+shutdown은 양수이며 유한한 시간만 기다리고 이후 plan을 모두 비활성화한 뒤, shared build 최대 1개만
+process boundary에 남기고 반환합니다.
 
 예문은 검색 앵커일 뿐입니다. Charter digest에 포함되지 않으므로 검색을 튜닝해도 감사 기록이 흔들리지
 않고, prompt나 답변에도 들어가지 않습니다.

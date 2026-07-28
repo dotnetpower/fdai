@@ -174,7 +174,10 @@ continues, but twenty-five timed-out questions still leave one build, not twenty
 running, later questions degrade immediately instead of each adding the whole gather timeout. A
 failed or incomplete build stops at the first invalid vector and enters a retry cooldown, so a
 broken provider cannot cost one full catalog per question. Runtime shutdown drains the task even
-when bridge shutdown fails.
+when bridge shutdown fails. If a third-party provider incorrectly catches `CancelledError`, Python
+cannot forcibly kill that coroutine; planner shutdown therefore waits for a positive, finite bound,
+disables all later plans, and returns while leaving at most the one shared build to the process
+boundary.
 
 The examples are retrieval anchors only. They are not part of the charter digest, so tuning
 retrieval never churns the audit trail, and they never reach a prompt or an answer.

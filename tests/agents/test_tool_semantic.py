@@ -413,6 +413,57 @@ def test_cache_ttl_must_be_positive_and_finite(value: float) -> None:
         SemanticToolConfig(cache_ttl_seconds=value)
 
 
+@pytest.mark.parametrize("value", (0.0, -1.0, float("nan"), float("inf")))
+def test_shutdown_timeout_must_be_positive_and_finite(value: float) -> None:
+    with pytest.raises(ValueError, match="shutdown_timeout_seconds MUST be positive and finite"):
+        SemanticToolConfig(shutdown_timeout_seconds=value)
+
+
+async def test_shutdown_is_bounded_when_provider_suppresses_cancellation() -> None:
+    """A third-party coroutine cannot hold runtime shutdown forever."""
+
+    class _CancellationResistantEmbedding:
+        dim = _DIM
+
+        def __init__(self) -> None:
+            self.release = asyncio.Event()
+            self.calls = 0
+
+        async def embed(self, text: str) -> list[float]:
+            self.calls += 1
+            while not self.release.is_set():
+                try:
+                    await self.release.wait()
+                except asyncio.CancelledError:
+                    continue
+            return [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    model = _CancellationResistantEmbedding()
+    planner = _planner(
+        model,
+        config=SemanticToolConfig(shutdown_timeout_seconds=0.01),
+    )
+
+    try:
+        async with asyncio.timeout(0.005):
+            await planner.plan("cost")
+    except TimeoutError:
+        pass
+
+    async with asyncio.timeout(0.1):
+        await planner.stop()
+
+    calls_at_stop = model.calls
+    assert await planner.plan("cost") == ()
+    assert model.calls == calls_at_stop
+
+    # Let the deliberately broken provider finish so the test event loop
+    # can close; runtime shutdown was already proven to have returned.
+    model.release.set()
+    assert planner._build_task is not None
+    await planner._build_task
+
+
 async def test_a_plan_names_the_tier_that_selected_it() -> None:
     """The two scores are not comparable, so the tier cannot be inferred."""
     from fdai.agents._framework.tool_planner import plan_conversation_tools

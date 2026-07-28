@@ -57,6 +57,7 @@ class SemanticToolConfig:
     margin_threshold: float = 0.0
     retry_cooldown_seconds: float = 30.0
     cache_ttl_seconds: float = 3_600.0
+    shutdown_timeout_seconds: float = 1.0
 
     def __post_init__(self) -> None:
         if not 0 < self.cosine_threshold <= 1:
@@ -67,6 +68,8 @@ class SemanticToolConfig:
             raise ValueError("semantic tool retry_cooldown_seconds MUST be non-negative")
         if not math.isfinite(self.cache_ttl_seconds) or self.cache_ttl_seconds <= 0:
             raise ValueError("semantic tool cache_ttl_seconds MUST be positive and finite")
+        if not math.isfinite(self.shutdown_timeout_seconds) or self.shutdown_timeout_seconds <= 0:
+            raise ValueError("semantic tool shutdown_timeout_seconds MUST be positive and finite")
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +90,7 @@ class SemanticToolPlanner:
         "_lock",
         "_retry_after",
         "_specs",
+        "_stopped",
         "_vector_dim",
         "_vectors",
     )
@@ -109,6 +113,7 @@ class SemanticToolPlanner:
         self._lock = asyncio.Lock()
         self._build_task: asyncio.Task[tuple[_ToolVector, ...]] | None = None
         self._retry_after = 0.0
+        self._stopped = False
 
     async def plan(
         self,
@@ -124,7 +129,7 @@ class SemanticToolPlanner:
         supplementary evidence for this turn, which is what happened
         before this tier existed.
         """
-        if limit <= 0 or not question.strip():
+        if self._stopped or limit <= 0 or not question.strip():
             return ()
         try:
             vectors = await self._tool_vectors()
@@ -226,15 +231,24 @@ class SemanticToolPlanner:
         return await asyncio.shield(task)
 
     async def stop(self) -> None:
-        """Cancel and drain an unfinished cache build during runtime shutdown."""
+        """Bound shutdown even when a provider suppresses cancellation.
+
+        Python cannot forcibly kill a coroutine that catches
+        ``CancelledError``. Request cancellation, wait for a bounded
+        interval without cancelling our own shutdown task, then return
+        and leave at most the one shared build to the process boundary.
+        """
+        self._stopped = True
         task = self._build_task
         if task is None or task.done():
             return
         task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+        done, _pending = await asyncio.wait(
+            {task},
+            timeout=self._config.shutdown_timeout_seconds,
+        )
+        if not done:
+            _LOG.warning("pantheon_tool_vector_shutdown_timeout")
 
     async def _build_vectors_safely(self) -> tuple[_ToolVector, ...]:
         """Build without leaving an unobserved task exception behind."""
