@@ -131,8 +131,9 @@ def test_heimdall_records_burst_without_incident_candidate_when_correlation_disa
     bus = InMemoryBus(registry=reg)
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
     for index in range(2):
@@ -156,8 +157,9 @@ def test_heimdall_records_burst_without_incident_candidate_when_correlation_disa
 def test_heimdall_preserves_high_severity_on_incident_candidate() -> None:
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=capture)
     for index in range(2):
@@ -197,8 +199,9 @@ def test_heimdall_does_not_open_anomaly_for_sparse_monitoring_events() -> None:
     clock = {"now": 0.0}
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(
         bus=bus,
@@ -230,8 +233,9 @@ def test_heimdall_does_not_handoff_incident_without_event_evidence() -> None:
     bus = InMemoryBus(registry=reg)
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
     for _ in range(2):
@@ -261,7 +265,7 @@ def test_heimdall_threshold_candidate_can_open_incident() -> None:
         allowed_agent_principals={"Heimdall"},
     )
 
-    async def open_candidate(candidate: dict[str, object]) -> None:
+    async def open_candidate(candidate: dict[str, object]) -> bool:
         await workflow.open_from_agent(
             producer_principal=str(candidate["producer_principal"]),
             correlation_keys=(f"resource:{candidate['resource_id']}",),
@@ -269,6 +273,7 @@ def test_heimdall_threshold_candidate_can_open_incident() -> None:
             member_event_ids=(UUID("00000000-0000-0000-0000-000000000001"),),
             reason=str(candidate["reason_code"]),
         )
+        return True
 
     heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=open_candidate)
     for index in range(2):
@@ -1358,8 +1363,9 @@ def test_heimdall_does_not_merge_independent_correlation_episodes() -> None:
     bus = InMemoryBus(registry=reg)
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
     for index in range(2):
@@ -1386,8 +1392,9 @@ def test_heimdall_uses_worst_severity_in_burst_window() -> None:
     bus = InMemoryBus(registry=reg)
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
     for index, severity in enumerate(("critical", "info")):
@@ -1413,8 +1420,9 @@ def test_heimdall_uses_worst_severity_in_burst_window() -> None:
 def test_heimdall_preserves_all_burst_evidence_keys() -> None:
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=capture)
     for index in range(2):
@@ -1440,8 +1448,9 @@ def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
     bus = InMemoryBus(registry=reg)
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
     for index, correlation_id in enumerate(("episode-a", "episode-b", "episode-a", "episode-b")):
@@ -1472,10 +1481,11 @@ def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
 def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
     candidates: list[dict[str, object]] = []
 
-    async def fail_once(candidate: dict[str, object]) -> None:
+    async def fail_once(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
         if len(candidates) == 1:
             raise RuntimeError("transient lifecycle failure")
+        return True
 
     heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=fail_once)
     for index in range(3):
@@ -1496,3 +1506,28 @@ def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
     assert len(candidates) == 2
     assert heimdall.behavior_snapshot()["incident_candidate_failed"] == 1
     assert heimdall.behavior_snapshot()["incident_candidate"] == 1
+
+
+def test_heimdall_records_policy_held_candidate_separately() -> None:
+    async def hold(_candidate: dict[str, object]) -> bool:
+        return False
+
+    heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=hold)
+    for index in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "episode-held",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": "medium",
+                },
+            )
+        )
+
+    snapshot = heimdall.behavior_snapshot()
+    assert snapshot["incident_candidate_held"] == 1
+    assert snapshot.get("incident_candidate", 0) == 0

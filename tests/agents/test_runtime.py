@@ -129,8 +129,9 @@ async def test_forseti_judges_forecast_finding() -> None:
 async def test_runtime_injects_heimdall_incident_candidate_hook() -> None:
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
@@ -158,8 +159,9 @@ async def test_runtime_injects_heimdall_incident_candidate_hook() -> None:
 async def test_runtime_injects_configured_heimdall_repeat_policy() -> None:
     candidates: list[dict[str, object]] = []
 
-    async def capture(candidate: dict[str, object]) -> None:
+    async def capture(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
+        return True
 
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),

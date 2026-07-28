@@ -47,7 +47,9 @@ are synthetic.
   inventory and discovery changes, never open an Incident. The default automatic-open minimum is
   `high`; an unclassified burst remains `medium` and stays an anomaly. If anomaly publication or
   the lifecycle handoff fails, Heimdall retains that bounded episode window and retries only when
-  the next matching Event arrives; it does not create an unbounded background retry loop.
+  the next matching Event arrives; it does not create an unbounded background retry loop. The
+  handoff reports `accepted` or `held`, and Heimdall records those outcomes separately so a policy
+  hold is never counted as a successful Incident candidate.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 

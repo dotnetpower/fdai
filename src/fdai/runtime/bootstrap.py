@@ -288,12 +288,13 @@ async def _run() -> int:
                 allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
             )
 
-            async def _open_incident_candidate(candidate: dict[str, Any]) -> None:
-                await open_detected_incident_candidate(
+            async def _open_incident_candidate(candidate: dict[str, Any]) -> bool:
+                result = await open_detected_incident_candidate(
                     workflow=incident_workflow,
                     candidate=candidate,
                     policy=incident_auto_open_policy,
                 )
+                return result is not None
 
             async def _observe_tool_receipt(request: Any, receipt: Any) -> None:
                 incident_id = request.metadata.get("incident_id") or request.arguments.get(

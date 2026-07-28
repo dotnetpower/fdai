@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: e1e6f600f979abfbc218f02b9a93c9bad1588b05
+translation_source_sha: daf641fd154a462facdf8023fc9cb195c8ad3010
 translation_revised: 2026-07-28
 ---
 
@@ -49,7 +49,8 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   `incident_correlation=none`인 Event는 Incident를 열지 않습니다. 자동 생성 minimum 기본값은
   `high`이며 분류되지 않은 burst는 `medium` anomaly로 남습니다. Anomaly publish 또는 lifecycle
   handoff가 실패하면 Heimdall은 bounded episode window를 유지하고 다음 matching Event가 도착할 때만
-  재시도하며 unbounded background retry loop를 만들지 않습니다.
+  재시도하며 unbounded background retry loop를 만들지 않습니다. Handoff는 `accepted` 또는 `held`를
+  반환하며 Heimdall은 policy hold를 성공한 Incident candidate로 계산하지 않습니다.
 - 새 감지기는 **shadow 모드** 로 출시되고 shadow→enforce 규칙에 따라 승격; 정확도와
   false-positive 비율은 Phase 0 베이스라인 대비 측정됨.
 

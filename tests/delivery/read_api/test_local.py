@@ -171,6 +171,7 @@ async def test_interactive_pantheon_uses_incident_runtime_values() -> None:
             },
         )
     assert (await read_model.list_incidents(status="all")).items == ()
+    assert heimdall.behavior_snapshot()["incident_candidate_held"] == 1
 
 
 @pytest.mark.parametrize(

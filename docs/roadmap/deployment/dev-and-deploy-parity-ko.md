@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b0ef5fdbb0bb7454c90e42c843a37955f59dc644
+translation_source_sha: 17935cca6126e9baa2e5a977e97f6dc2d6254343
 translation_revised: 2026-07-28
 ---
 
@@ -169,7 +169,7 @@ API에 executor identity를 부여하거나 ActionType 및 Workflow promotion st
 
 Incident auto-open enablement, minimum severity, repeat threshold 및 repeat window도 startup-bound입니다.
 Headless runtime은 durable effective value를 로드합니다. Embedded local Pantheon은 별도의 fixed severity나
-window 대신 동일하게 검증된 environment 및 default contract를 사용합니다.
+window 대신 동일하게 검증된 environment, default 및 accepted-versus-held handoff outcome을 사용합니다.
 
 Detection readiness도 같은 경계를 사용합니다. Deployment는 항상 PostgreSQL에서 Muninn
 StateSnapshot을 읽습니다. Interactive local은 local PostgreSQL이 구성된 경우에만

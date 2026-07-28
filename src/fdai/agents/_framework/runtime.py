@@ -306,7 +306,7 @@ class PantheonRuntime:
             and isinstance(norns, Norns)
         ):
 
-            async def observe_and_open(candidate: dict[str, Any]) -> None:
+            async def observe_and_open(candidate: dict[str, Any]) -> bool:
                 if scenario_coverage_aggregator is not None:
                     norns.observe_incident_symptom(
                         incident_id=str(
@@ -316,8 +316,9 @@ class PantheonRuntime:
                         target_type=str(candidate.get("target_type") or "unknown"),
                         severity=str(candidate.get("severity") or "medium"),
                     )
-                if incident_candidate_hook is not None:
-                    await incident_candidate_hook(candidate)
+                if incident_candidate_hook is None:
+                    return True
+                return await incident_candidate_hook(candidate)
 
             heimdall.register_incident_candidate(observe_and_open)
 

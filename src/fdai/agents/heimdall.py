@@ -44,8 +44,8 @@ from fdai.shared.contracts.models import ForecastOutcome
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 """Var-provided hook that delivers the admin notification card."""
 
-IncidentCandidateHook = Callable[[dict[str, Any]], Awaitable[None]]
-"""Composition-provided hook that validates and opens an incident candidate."""
+IncidentCandidateHook = Callable[[dict[str, Any]], Awaitable[bool]]
+"""Composition hook returning whether the lifecycle accepted a candidate."""
 
 ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any] | None]]
 """Composition-provided read-only investigation responder."""
@@ -464,7 +464,7 @@ class Heimdall(Agent):
                 "evidence_keys": evidence_keys,
             }
             try:
-                await self._incident_candidate_hook(candidate)
+                accepted = await self._incident_candidate_hook(candidate)
             except Exception:  # noqa: BLE001 - retry on the next matching event
                 self.record_behavior("incident_candidate_failed")
                 _LOG.exception(
@@ -473,7 +473,7 @@ class Heimdall(Agent):
                 )
                 return
             history.clear()
-            self.record_behavior("incident_candidate")
+            self.record_behavior("incident_candidate" if accepted else "incident_candidate_held")
 
     async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
         self._security_recent.append(event)

@@ -267,7 +267,7 @@ Heimdall does not write the Incident or publish a new object type. Only candidat
 `incident_correlation=correlate`, correlation and evidence, enabled auto-open, and sufficient
 severity reach the workflow; all others remain anomalies. The workflow rechecks evidence before
 `IncidentRegistry` writes the audited record. Hook failure records a behavior counter and leaves
-the bounded episode window available for the next matching Event. Production composition rehydrates the registry and binds the hook when
+the bounded window for retry; accepted and policy-held outcomes use separate counters. Production composition rehydrates the registry and binds the hook when
 enabled; the read API does not impersonate Heimdall.
 
 Huginn is the logical owner of real-time resource discovery. Azure resource

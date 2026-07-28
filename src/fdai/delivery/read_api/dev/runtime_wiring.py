@@ -127,12 +127,13 @@ def build_interactive_pantheon_wiring(
         runtime_values
     )
 
-    async def open_incident_candidate(candidate: dict[str, Any]) -> None:
-        await open_detected_incident_candidate(
+    async def open_incident_candidate(candidate: dict[str, Any]) -> bool:
+        result = await open_detected_incident_candidate(
             workflow=incident_workflow,
             candidate=candidate,
             policy=incident_auto_open_policy,
         )
+        return result is not None
 
     pantheon_runtime = PantheonRuntime.build(
         provider=event_bus,
@@ -176,12 +177,13 @@ def build_local_runtime_wiring(
         runtime_values
     )
 
-    async def open_incident_candidate(candidate: dict[str, Any]) -> None:
-        await open_detected_incident_candidate(
+    async def open_incident_candidate(candidate: dict[str, Any]) -> bool:
+        result = await open_detected_incident_candidate(
             workflow=incident_workflow,
             candidate=candidate,
             policy=incident_auto_open_policy,
         )
+        return result is not None
 
     local_action_types = frozenset(action_type.name for action_type in action_types)
     pantheon_runtime = PantheonRuntime.build(

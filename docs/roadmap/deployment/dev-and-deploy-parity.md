@@ -169,7 +169,8 @@ promotion state.
 
 Incident auto-open enablement, minimum severity, repeat threshold, and repeat window are also
 startup-bound. The headless runtime loads durable effective values. An embedded local Pantheon uses
-the same validated environment and default contract instead of a separate fixed severity or window.
+the same validated environment, defaults, and accepted-versus-held handoff outcome instead of a
+separate fixed severity or window.
 
 Detection readiness uses the same boundary. Deployment always reads Muninn StateSnapshots from
 PostgreSQL. Interactive local registers `/detection-readiness` only when local PostgreSQL is
