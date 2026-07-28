@@ -120,4 +120,23 @@ describe("trace operational summary", () => {
       namedStageCount: 0,
     });
   });
+
+  it("counts recorded decisions, RCA evidence, and named stages", () => {
+    const data = decodeTraceResponse({
+      correlation_id: "corr-rca",
+      step_count: 2,
+      steps: [
+        { ...step(1), action_kind: "policy.evaluation" },
+        { ...step(2), action_kind: "rca.hypothesis" },
+      ],
+      terminal_stage: "risk-gate",
+    });
+
+    expect(traceOperationalSummary(data)).toEqual({
+      notificationEscalation: false,
+      decisionRecorded: true,
+      rcaRecorded: true,
+      namedStageCount: 2,
+    });
+  });
 });
