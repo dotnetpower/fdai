@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { AgentActivityMessage } from "../hooks/use-agent-stream";
 import type { AuditItem } from "../types";
 import {
   activityPresentationState,
@@ -13,6 +14,7 @@ import {
   matchingLiveIncident,
   otherEntryFields,
   selectedAgentAuditEmptyBody,
+  shouldRefreshAuditForAgentMessage,
 } from "./agent-activity";
 import type { AgentNode, Incident } from "./agents.model";
 
@@ -75,6 +77,40 @@ describe("agent activity deep-link selection", () => {
     expect(selectedAgentAuditEmptyBody(huginn, "runtime-observed")).toContain(
       "There is no active correlation or incident",
     );
+  });
+});
+
+describe("agent activity durable refresh", () => {
+  const stateMessage = (
+    state: "idle" | "watching" | "collecting",
+    detail: string,
+    correlationId: string | null = null,
+  ): AgentActivityMessage => ({
+    type: "agent.state",
+    agent: "Huginn",
+    state,
+    ts: "2026-07-28T03:30:00Z",
+    correlation_id: correlationId,
+    detail,
+    source: "runtime-observed",
+  });
+
+  test("does not reload durable audit for periodic health snapshots", () => {
+    expect(shouldRefreshAuditForAgentMessage(
+      stateMessage("watching", "Runtime agent initialized"),
+    )).toBe(false);
+    expect(shouldRefreshAuditForAgentMessage(
+      stateMessage("idle", "Runtime agent initialized"),
+    )).toBe(false);
+  });
+
+  test("reloads durable audit for work and completed handler transitions", () => {
+    expect(shouldRefreshAuditForAgentMessage(
+      stateMessage("collecting", "Processing aw.change.events", "corr-1"),
+    )).toBe(true);
+    expect(shouldRefreshAuditForAgentMessage(
+      stateMessage("watching", "Processed aw.change.events"),
+    )).toBe(true);
   });
 });
 

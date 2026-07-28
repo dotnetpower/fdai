@@ -31,7 +31,12 @@ import {
   usePublishViewContext,
 } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
-import { agentStreamDescriptor, useAgentStream, type AgentStreamStatus } from "../hooks/use-agent-stream";
+import {
+  agentStreamDescriptor,
+  useAgentStream,
+  type AgentActivityMessage,
+  type AgentStreamStatus,
+} from "../hooks/use-agent-stream";
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
 import { t } from "../i18n";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
@@ -148,6 +153,15 @@ function activityFiltersFromRoute(): ActivityFilters {
   return activityFiltersFromSearch(currentRoute().search);
 }
 
+export function shouldRefreshAuditForAgentMessage(message: AgentActivityMessage): boolean {
+  return !(
+    message.type === "agent.state" &&
+    (message.state === "idle" || message.state === "watching") &&
+    message.correlation_id === null &&
+    message.detail === "Runtime agent initialized"
+  );
+}
+
 export function AgentActivityRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<Data>>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
@@ -195,6 +209,7 @@ export function AgentActivityRoute({ client }: Props) {
     onEvent: (message) => {
       dispatch({ kind: "message", msg: message });
       setLastEventAt(message.ts);
+      if (!shouldRefreshAuditForAgentMessage(message)) return;
       const now = Date.now();
       if (now - lastStreamRefresh.current < 1500) return;
       lastStreamRefresh.current = now;
