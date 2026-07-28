@@ -300,6 +300,82 @@ async def test_a_cancelled_prefetch_leaves_no_lock_behind() -> None:
     assert all(result.status is AgentToolStatus.OK for result in recovered)
 
 
+async def test_repeated_timeouts_share_one_build_and_shutdown_drains_it() -> None:
+    """A hung provider must not leave one immortal task per question."""
+
+    class _NeverEmbedding:
+        dim = 4
+
+        async def embed(self, text: str) -> list[float]:
+            await asyncio.Event().wait()
+            raise AssertionError("unreachable")
+
+    from fdai.agents._framework.tool_semantic import SemanticToolPlanner
+
+    planner = SemanticToolPlanner(
+        embedding_model=_NeverEmbedding(),
+        specs=PANTHEON_SPECS,
+    )
+
+    for _ in range(25):
+        try:
+            async with asyncio.timeout(0.005):
+                await planner.plan("cost")
+        except TimeoutError:
+            pass
+
+    live = [
+        task
+        for task in asyncio.all_tasks()
+        if task is not asyncio.current_task() and not task.done()
+    ]
+    assert len(live) == 1
+
+    await planner.stop()
+
+    assert [
+        task
+        for task in asyncio.all_tasks()
+        if task is not asyncio.current_task() and not task.done()
+    ] == []
+
+
+async def test_failed_bridge_shutdown_still_drains_the_tool_build() -> None:
+    """One cleanup error must not strand an unrelated provider task."""
+
+    class _NeverEmbedding:
+        dim = 4
+
+        async def embed(self, text: str) -> list[float]:
+            await asyncio.Event().wait()
+            raise AssertionError("unreachable")
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        conversation_embedding_model=_NeverEmbedding(),
+    )
+    planner = runtime._semantic_tool_planner
+    assert planner is not None
+
+    try:
+        async with asyncio.timeout(0.005):
+            await planner.plan("cost")
+    except TimeoutError:
+        pass
+
+    async def broken_stop() -> None:
+        raise RuntimeError("bridge cleanup failed")
+
+    runtime.bridge.stop = broken_stop  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="bridge cleanup failed"):
+        await runtime.stop()
+
+    assert planner._build_task is not None
+    assert planner._build_task.done()
+
+
 def test_every_declared_tool_is_reachable_from_its_owner() -> None:
     """A declared tool nobody owns is a promise the runtime cannot keep."""
     runtime = _runtime()

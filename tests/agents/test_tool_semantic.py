@@ -161,14 +161,16 @@ async def test_the_tool_catalog_is_embedded_once_and_cached() -> None:
 
 
 async def test_a_concurrent_first_use_embeds_the_catalog_once() -> None:
-    """Eight questions arriving together must not build eight caches."""
+    """Eight questions build one cache and only its owner waits for it."""
     model = _KeywordEmbedding()
     planner = _planner(model)
 
     await asyncio.gather(*[planner.plan("cost") for _ in range(8)])
 
     tools = sum(len(spec.conversation.tool_specs) for spec in PANTHEON_SPECS)
-    assert model.calls == tools + 8
+    # One catalog and one query. The other seven questions see the build
+    # in flight and degrade immediately instead of waiting behind it.
+    assert model.calls == tools + 1
 
 
 # ---------------------------------------------------------------------------
@@ -195,9 +197,42 @@ async def test_a_wrong_dimension_vector_is_refused() -> None:
     assert await _planner(_WrongDimEmbedding()).plan("cost") == ()
 
 
+@pytest.mark.parametrize("value", (float("nan"), float("inf"), -float("inf")))
+async def test_a_non_finite_vector_is_never_cached(value: float) -> None:
+    """Match the agent router: NaN and Infinity are not embedding coordinates."""
+
+    class _NonFiniteEmbedding:
+        dim = _DIM
+
+        async def embed(self, text: str) -> list[float]:
+            return [value, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    planner = _planner(_NonFiniteEmbedding())
+
+    assert await planner.plan("cost") == ()
+    assert planner._vectors is None
+
+
 async def test_an_empty_question_selects_nothing() -> None:
     for question in ("", "   "):
         assert await _planner(_KeywordEmbedding()).plan(question) == ()
+
+
+async def test_an_oversized_question_never_reaches_the_embedding_provider() -> None:
+    """The public prefetch API cannot rely on Bragi's input boundary."""
+
+    model = _KeywordEmbedding()
+    planner = _planner(model)
+
+    plans = await plan_tools(
+        "x" * 2_001,
+        semantic=planner,
+        agents=("Njord",),
+        limit=3,
+    )
+
+    assert plans == ()
+    assert model.calls == 0
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +308,10 @@ async def test_a_cancelled_question_does_not_abandon_the_cache_build() -> None:
             return [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     model = _SlowEmbedding()
-    planner = _planner(model)
+    planner = _planner(
+        model,
+        config=SemanticToolConfig(retry_cooldown_seconds=0),
+    )
     tools = sum(len(spec.conversation.tool_specs) for spec in PANTHEON_SPECS)
 
     original = prefetch_module.PREFETCH_BUDGET_SECONDS
@@ -320,7 +358,10 @@ async def test_a_partial_catalog_is_refused_rather_than_cached() -> None:
             return [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     model = _OneBadTool()
-    planner = _planner(model)
+    planner = _planner(
+        model,
+        config=SemanticToolConfig(retry_cooldown_seconds=0),
+    )
 
     assert await planner.plan("anything") == ()
     assert planner._vectors is None  # nothing cached, so nothing is silently lost
@@ -331,6 +372,33 @@ async def test_a_partial_catalog_is_refused_rather_than_cached() -> None:
     tools = sum(len(spec.conversation.tool_specs) for spec in PANTHEON_SPECS)
     assert planner._vectors is not None
     assert len(planner._vectors) == tools
+
+
+async def test_an_invalid_provider_fails_fast_and_enters_cooldown() -> None:
+    """A broken provider must not cost one full catalog per question."""
+
+    class _InvalidEmbedding:
+        dim = _DIM
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def embed(self, text: str) -> list[float]:
+            self.calls += 1
+            return [0.0] * _DIM
+
+    model = _InvalidEmbedding()
+    planner = _planner(model)
+
+    for _ in range(20):
+        assert await planner.plan("cost") == ()
+
+    assert model.calls == 1
+
+
+def test_retry_cooldown_cannot_be_negative() -> None:
+    with pytest.raises(ValueError, match="retry_cooldown_seconds MUST be non-negative"):
+        SemanticToolConfig(retry_cooldown_seconds=-0.01)
 
 
 async def test_a_plan_names_the_tier_that_selected_it() -> None:

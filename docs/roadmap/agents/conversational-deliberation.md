@@ -157,14 +157,22 @@ vendor versions could not make that promise.
 
 Each plan names the tier that produced it, because the two scores are not comparable - one counts
 matched terms, the other scales a cosine - and a reader must not have to infer which from the
-number.
+number. The selected plan's agent, tool id, tier, and score travel in the server-owned answer
+envelope; a generic responder cannot forge them.
 
 The vector cache is all or nothing. Ranking is relative, so a catalog missing one tool does not
 lose that tool; it sends that tool's questions to whichever tool is next closest, silently and for
 as long as the cache lives. An incomplete build is therefore refused and retried rather than
 cached, and a cache built under one model is dropped when the provider reports a different
 dimension - scoring a query against vectors from another space keeps producing confident numbers
-that mean nothing.
+that mean nothing. NaN, Infinity, zero, and wrong-dimension vectors are invalid catalog entries.
+
+The cold build is one shared task. A question may stop waiting and degrade while the build
+continues, but twenty-five timed-out questions still leave one build, not twenty-five. While it is
+running, later questions degrade immediately instead of each adding the whole gather timeout. A
+failed or incomplete build stops at the first invalid vector and enters a retry cooldown, so a
+broken provider cannot cost one full catalog per question. Runtime shutdown drains the task even
+when bridge shutdown fails.
 
 The examples are retrieval anchors only. They are not part of the charter digest, so tuning
 retrieval never churns the audit trail, and they never reach a prompt or an answer.
@@ -175,9 +183,11 @@ one uniquely highest-scoring tool; a tied top score selects no tool instead of r
 order. This keeps one owner decision and prevents a read from one agent being presented as another
 agent's grounding.
 
-The ordinary primary-answer path uses the lexical selector and adds no embedding call to an
-explicit or T0 agent route. The semantic tool planner remains available through the explicit
-prefetch API for callers that opt into that separate read stage.
+The ordinary primary-answer path uses semantic selection within the owner Bragi already routed,
+then degrades to lexical selection when no embedding is bound, the provider fails, confidence is
+low, the catalog is building, or the retry cooldown is active. Meaning is not a global ownership
+gate here: Bragi has already decided the owner, so the planner considers only that agent's tools.
+The explicit prefetch API uses the same bounded planner.
 
 Dispatch is bounded in four ways, because a read surface that an operator question can open is a
 denial-of-service surface if any of them is missing.
@@ -188,6 +198,7 @@ denial-of-service surface if any of them is missing.
 | Depth | one level | An agent holds no reference to the registry, so no turn can call a tool. The registry refuses a nested call as the second lock. |
 | One dispatch | registry timeout, output ceiling, sensitivity scan | Owned by the registry, unchanged. |
 | The whole gather | `PREFETCH_BUDGET_SECONDS` (5) | A per-tool timeout does not bound planning plus dispatch. The gather retains whether it timed out and how many planned reads completed. |
+| Question | 2,000 characters | The public prefetch API cannot rely on Bragi's boundary; oversize input reaches neither the embedding provider nor the registry. |
 
 For an ordinary routed answer, a completed tool result is the primary response, not evidence added
 after a generic response. Its scoped facts and runtime evidence refs enter the normal agent-evidence

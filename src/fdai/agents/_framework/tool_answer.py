@@ -10,7 +10,7 @@ from fdai.agents._framework.conversation_tools import (
     AgentToolResult,
     AgentToolStatus,
 )
-from fdai.agents._framework.tool_planner import MAX_TOOL_PLANS
+from fdai.agents._framework.tool_planner import MAX_TOOL_PLANS, ConversationToolPlan
 from fdai.agents._framework.tool_prefetch import gather_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 
@@ -37,6 +37,7 @@ async def answer_from_owned_tools(
     )
     if not gathered.plans or gathered.ambiguous:
         return None
+    selected_plan = gathered.plans[0]
     completed = len(gathered.results) == 1
     successful = all(result.status is AgentToolStatus.OK for result in gathered.results)
     if gathered.timed_out or not completed or not successful:
@@ -48,9 +49,15 @@ async def answer_from_owned_tools(
             trace_ref=trace_ref,
             results=gathered.results,
             policy_source=first,
+            plan=selected_plan,
             abstain_reason="tool_evidence_incomplete",
         )
-    return _successful_envelope(agent_name, gathered.results, trace_ref=trace_ref)
+    return _successful_envelope(
+        agent_name,
+        gathered.results,
+        trace_ref=trace_ref,
+        plan=selected_plan,
+    )
 
 
 def _successful_envelope(
@@ -58,6 +65,7 @@ def _successful_envelope(
     results: tuple[AgentToolResult, ...],
     *,
     trace_ref: str,
+    plan: ConversationToolPlan,
 ) -> dict[str, Any]:
     evidence_refs = list(dict.fromkeys(ref for result in results for ref in result.evidence_refs))
     if len(results) == 1:
@@ -78,6 +86,7 @@ def _successful_envelope(
         trace_ref=trace_ref,
         results=results,
         policy_source=results[0],
+        plan=plan,
         abstain_reason=None,
     )
 
@@ -90,6 +99,7 @@ def _envelope(
     trace_ref: str,
     results: tuple[AgentToolResult, ...],
     policy_source: AgentToolResult | None,
+    plan: ConversationToolPlan,
     abstain_reason: str | None,
 ) -> dict[str, Any]:
     policy = (
@@ -110,6 +120,12 @@ def _envelope(
         "abstain_reason": abstain_reason,
         "conversation_policy": policy,
         "conversation_tools": [result.tool_id for result in results],
+        "conversation_tool_plan": {
+            "agent": plan.agent,
+            "tool_id": plan.tool_id,
+            "tier": plan.tier,
+            "score": plan.score,
+        },
     }
 
 

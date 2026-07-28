@@ -467,6 +467,9 @@ class Bragi(Agent):
                     normalized_answer["conversation_tools"] = list(
                         tool_answer.get("conversation_tools", [])
                     )
+                    plan = tool_answer.get("conversation_tool_plan")
+                    if isinstance(plan, dict):
+                        normalized_answer["conversation_tool_plan"] = dict(plan)
             if normalized_answer is None:
                 answer = {
                     "answer": None,

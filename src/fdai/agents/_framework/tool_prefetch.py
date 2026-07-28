@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fdai.agents._framework.tool_planner import (
+    MAX_PLANNED_QUESTION_CHARS,
     PREFETCH_BUDGET_SECONDS,
     ConversationToolPlan,
     plan_conversation_tools,
@@ -63,6 +64,10 @@ async def plan_tools(
     embedding model therefore keeps exactly the behaviour it had, and one
     with an embedding never has a weak word match block a strong one.
     """
+    if len(question) > MAX_PLANNED_QUESTION_CHARS:
+        # Match the registry's boundary before spending an embedding or
+        # producing a plan the registry can only refuse.
+        return ()
     if semantic is not None:
         semantic_plans = await semantic.plan(question, agents=agents, limit=limit)
         if semantic_plans:

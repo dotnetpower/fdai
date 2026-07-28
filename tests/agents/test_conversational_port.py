@@ -134,6 +134,12 @@ def test_generic_responder_cannot_forge_conversation_tool_provenance() -> None:
             "answer": "Generic cost answer.",
             "facts": {},
             "conversation_tools": ["read_cost_samples"],
+            "conversation_tool_plan": {
+                "agent": "Njord",
+                "tool_id": "read_cost_samples",
+                "tier": "t1_semantic",
+                "score": 100,
+            },
         }
 
     bragi.register_responder("Njord", forged)
@@ -143,6 +149,7 @@ def test_generic_responder_cannot_forge_conversation_tool_provenance() -> None:
     )
 
     assert "conversation_tools" not in turn.answer
+    assert "conversation_tool_plan" not in turn.answer
 
 
 def test_question_without_owner_never_calls_tool_answer_path() -> None:
@@ -278,6 +285,41 @@ def test_ask_answers_from_owned_state_not_stub() -> None:
     assert turn.answer["answer"] is not None
     assert turn.answer["abstain_reason"] is None
     assert turn.answer["facts"]["agent"] == "Njord"
+
+
+def test_normal_ask_uses_semantic_tool_selection_within_the_routed_owner() -> None:
+    """The semantic planner is part of the primary path, not a dead opt-in API."""
+
+    class _CapacityEmbedding:
+        dim = 2
+
+        async def embed(self, text: str) -> list[float]:
+            lowered = text.lower()
+            if "headroom" in lowered or "capacity forecast" in lowered:
+                return [1.0, 0.0]
+            return [0.0, 1.0]
+
+    runtime = _runtime(conversation_embedding_model=_CapacityEmbedding())
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="semantic-tool",
+            user_id="operator",
+            # Explicit owner bypasses agent-route ambiguity; this test is
+            # solely about selecting among Freyr's owned tools.
+            question="Freyr, are we running out of headroom?",
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Freyr"
+    assert turn.answer["conversation_tools"] == ["read_capacity_forecasts"]
+    assert turn.answer["conversation_tool_plan"] == {
+        "agent": "Freyr",
+        "tool_id": "read_capacity_forecasts",
+        "tier": "t1_semantic",
+        "score": 100,
+    }
 
 
 def test_ask_refuses_action_intent_and_routes_to_typed_pipeline() -> None:

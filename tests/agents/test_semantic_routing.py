@@ -54,7 +54,7 @@ def _runtime(model: KeywordEmbedding, *, margin: float = 0.08) -> PantheonRuntim
     )
 
 
-def test_explicit_and_t0_routes_do_not_call_embedding() -> None:
+def test_explicit_and_t0_routes_skip_agent_embedding_but_select_owner_tools() -> None:
     model = KeywordEmbedding()
     runtime = _runtime(model)
 
@@ -65,7 +65,11 @@ def test_explicit_and_t0_routes_do_not_call_embedding() -> None:
 
     assert explicit is not None and explicit.primary_agent == "Thor"
     assert t0 is not None and t0.primary_agent == "Njord"
-    assert model.calls == []
+    tools = sum(len(spec.conversation.tool_specs) for spec in PANTHEON_SPECS)
+    # One tool catalog plus one tool query per turn. The agent-domain
+    # router is still skipped for explicit and T0 routes.
+    assert len(model.calls) == tools + 2
+    assert not any(text.startswith(f"{name}\n") for text in model.calls for name in _NAMES)
 
 
 def test_korean_t1_query_routes_to_cost_agent_and_caches_domains() -> None:
@@ -91,9 +95,12 @@ def test_korean_t1_query_routes_to_cost_agent_and_caches_domains() -> None:
     assert first is not None and first.primary_agent == "Njord"
     assert first.answer["routing_method"] == "t1_semantic"
     assert first.answer["semantic_score"] == 1.0
-    assert first_call_count == len(PANTHEON_SPECS) + 1
+    tools = sum(len(spec.conversation.tool_specs) for spec in PANTHEON_SPECS)
+    # Agent-domain catalog + route query + tool catalog + tool query.
+    assert first_call_count == len(PANTHEON_SPECS) + tools + 2
     assert second is not None and second.primary_agent == "Njord"
-    assert len(model.calls) == first_call_count + 1
+    # Both catalogs are cached; only the route and tool queries remain.
+    assert len(model.calls) == first_call_count + 2
 
 
 def test_low_semantic_margin_abstains_instead_of_guessing() -> None:

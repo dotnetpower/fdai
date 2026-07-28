@@ -387,7 +387,11 @@ class PantheonRuntime:
                     question=question,
                     trace_ref=trace_ref,
                     registry=conversation_tools,
-                    semantic=None,
+                    # Bragi has already selected and confidence-gated the
+                    # owner, so meaning chooses only among that owner's
+                    # read tools. This is not the global ranker deciding
+                    # whether the system owns the question.
+                    semantic=semantic_tool_planner,
                 )
 
             bragi_ref.register_tool_answer(answer_with_owned_tools)
@@ -472,7 +476,13 @@ class PantheonRuntime:
 
     async def stop(self) -> None:
         """Cancel every consumer task and drain cleanly."""
-        await self.bridge.stop()
+        try:
+            await self.bridge.stop()
+        finally:
+            # One cleanup failure must not strand an unrelated provider
+            # task. The bridge error still propagates after this drain.
+            if self._semantic_tool_planner is not None:
+                await self._semantic_tool_planner.stop()
 
     async def ask(
         self,

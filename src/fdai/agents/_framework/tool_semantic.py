@@ -33,6 +33,7 @@ import logging
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from time import monotonic
 
 from fdai.agents._framework.base import AgentSpec, ConversationTool
 from fdai.agents._framework.tool_planner import MAX_TOOL_PLANS, ConversationToolPlan
@@ -54,12 +55,15 @@ class SemanticToolConfig:
 
     cosine_threshold: float = 0.55
     margin_threshold: float = 0.0
+    retry_cooldown_seconds: float = 30.0
 
     def __post_init__(self) -> None:
         if not 0 < self.cosine_threshold <= 1:
             raise ValueError("semantic tool cosine_threshold MUST be in (0, 1]")
         if not 0 <= self.margin_threshold < 1:
             raise ValueError("semantic tool margin_threshold MUST be in [0, 1)")
+        if self.retry_cooldown_seconds < 0:
+            raise ValueError("semantic tool retry_cooldown_seconds MUST be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +76,16 @@ class _ToolVector:
 class SemanticToolPlanner:
     """Select owned read tools by meaning when the vocabulary misses."""
 
-    __slots__ = ("_config", "_embedding", "_lock", "_specs", "_vector_dim", "_vectors")
+    __slots__ = (
+        "_build_task",
+        "_config",
+        "_embedding",
+        "_lock",
+        "_retry_after",
+        "_specs",
+        "_vector_dim",
+        "_vectors",
+    )
 
     def __init__(
         self,
@@ -89,6 +102,8 @@ class SemanticToolPlanner:
         self._vectors: tuple[_ToolVector, ...] | None = None
         self._vector_dim = 0
         self._lock = asyncio.Lock()
+        self._build_task: asyncio.Task[tuple[_ToolVector, ...]] | None = None
+        self._retry_after = 0.0
 
     async def plan(
         self,
@@ -108,6 +123,12 @@ class SemanticToolPlanner:
             return ()
         try:
             vectors = await self._tool_vectors()
+            if not vectors:
+                # The catalog is unavailable, incomplete, or still
+                # building. Embedding the query cannot produce a plan
+                # without candidates and would make every later request
+                # wait on the same hung provider instead of degrading.
+                return ()
             query = _unit(await self._embedding.embed(question), expected_dim=self._embedding.dim)
         except asyncio.CancelledError:
             raise
@@ -162,11 +183,15 @@ class SemanticToolPlanner:
 
         ``shield`` decouples the two. The question that triggered the
         build gives up on schedule and degrades to the lexical tier, but
-        the build survives its cancellation and finishes in the
-        background, so a later question finds the cache ready.
+        one shared build survives its cancellation and finishes in the
+        background. Without sharing, every timed-out question would
+        leave another build waiting forever behind the same lock when a
+        provider hangs.
         """
         if self._vectors is not None and self._vector_dim == self._embedding.dim:
             return self._vectors
+        if monotonic() < self._retry_after:
+            return ()
         if self._vectors is not None:
             # The provider was re-deployed on a different model. Cached
             # vectors and a fresh query no longer live in the same space,
@@ -178,37 +203,73 @@ class SemanticToolPlanner:
                 extra={"cached_dim": self._vector_dim, "provider_dim": self._embedding.dim},
             )
             self._vectors = None
-        return await asyncio.shield(self._build_vectors())
+        task = self._build_task
+        if task is not None and not task.done():
+            # One request already paid the cold-start wait. Every later
+            # request degrades immediately to lexical selection while the
+            # shared build continues; otherwise one hung provider adds the
+            # full gather timeout to every answer forever.
+            return ()
+        task = asyncio.create_task(self._build_vectors_safely())
+        self._build_task = task
+        return await asyncio.shield(task)
+
+    async def stop(self) -> None:
+        """Cancel and drain an unfinished cache build during runtime shutdown."""
+        task = self._build_task
+        if task is None or task.done():
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    async def _build_vectors_safely(self) -> tuple[_ToolVector, ...]:
+        """Build without leaving an unobserved task exception behind."""
+        try:
+            vectors = await self._build_vectors()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - embedding provider boundary
+            _LOG.warning(
+                "pantheon_tool_vector_build_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            vectors = ()
+        self._retry_after = 0.0 if vectors else monotonic() + self._config.retry_cooldown_seconds
+        return vectors
 
     async def _build_vectors(self) -> tuple[_ToolVector, ...]:
         async with self._lock:
             if self._vectors is not None:
                 return self._vectors
+            declared_tools = tuple(
+                (spec.name, tool) for spec in self._specs for tool in spec.conversation.tool_specs
+            )
             entries: list[_ToolVector] = []
-            declared = 0
-            for spec in self._specs:
-                for tool in spec.conversation.tool_specs:
-                    declared += 1
-                    vector = _unit(
-                        await self._embedding.embed(_tool_text(spec.name, tool)),
-                        expected_dim=self._embedding.dim,
+            for agent_name, tool in declared_tools:
+                vector = _unit(
+                    await self._embedding.embed(_tool_text(agent_name, tool)),
+                    expected_dim=self._embedding.dim,
+                )
+                if vector is None:
+                    _LOG.warning(
+                        "pantheon_tool_vector_build_incomplete",
+                        extra={
+                            "embedded": len(entries),
+                            "declared": len(declared_tools),
+                            "tool_id": tool.tool_id,
+                        },
                     )
-                    if vector is not None:
-                        entries.append(
-                            _ToolVector(agent=spec.name, tool_id=tool.tool_id, vector=vector)
-                        )
+                    return ()
+                entries.append(_ToolVector(agent=agent_name, tool_id=tool.tool_id, vector=vector))
             # All or nothing. Ranking is relative, so a catalog missing one
             # tool does not lose that tool - it sends its questions to
             # whichever tool is next closest, silently and permanently.
             # One provider hiccup would quietly rewire the read path, so
             # an incomplete build is refused, logged, and retried by the
             # next question rather than cached as if it were the catalog.
-            if len(entries) != declared:
-                _LOG.warning(
-                    "pantheon_tool_vector_build_incomplete",
-                    extra={"embedded": len(entries), "declared": declared},
-                )
-                return ()
             self._vectors = tuple(entries)
             self._vector_dim = self._embedding.dim
             return self._vectors
@@ -227,6 +288,8 @@ def _tool_text(agent: str, tool: ConversationTool) -> str:
 
 def _unit(values: Sequence[float], *, expected_dim: int) -> tuple[float, ...] | None:
     if len(values) != expected_dim:
+        return None
+    if any(not math.isfinite(value) for value in values):
         return None
     norm = math.sqrt(sum(value * value for value in values))
     if norm <= 0:

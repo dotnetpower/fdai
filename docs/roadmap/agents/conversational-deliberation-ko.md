@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 350ef4d96daee0318cdf08f74138a2fd94cd5b89
+translation_source_sha: 4ff5bcf9f25fd42a019b6b4c8ecedec2024881d6
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -158,13 +158,20 @@ key - 과 대조하고 선택 근거가 된 용어와 함께 반환합니다. �
 
 각 plan은 자신을 만든 계층을 이름으로 밝힙니다. 두 점수는 비교할 수 없기 때문입니다. 하나는 일치한
 용어 수이고 다른 하나는 cosine을 배율한 값이므로, 읽는 쪽이 숫자만 보고 어느 쪽인지 추측하게 두어선
-안 됩니다.
+안 됩니다. 선택한 plan의 agent, tool id, tier 및 score는 server-owned answer envelope에 실리며,
+generic responder는 이를 위조할 수 없습니다.
 
 벡터 캐시는 전부 아니면 무효입니다. 순위는 상대적이므로 도구 하나가 빠진 카탈로그는 그 도구를 잃는
 것이 아니라, 그 도구의 질문을 그다음으로 가까운 도구로 조용히 보내며 캐시가 사는 동안 계속 그렇게
 합니다. 그래서 불완전한 빌드는 캐시하지 않고 거부한 뒤 다음 질문이 재시도하며, provider가 다른
 차원을 보고하면 기존 캐시를 버립니다. 다른 공간의 벡터와 대조한 점수는 의미 없는 확신에 찬 숫자일
-뿐이기 때문입니다.
+뿐이기 때문입니다. NaN, Infinity, zero 및 잘못된 차원 벡터는 유효한 catalog entry가 아닙니다.
+
+Cold build는 하나의 shared task입니다. 질문은 기다리기를 중단하고 강등될 수 있지만, timeout 질문
+25개가 남기는 build는 25개가 아니라 1개입니다. Build 중인 동안 뒤따르는 질문은 전체 gather timeout을
+각각 더하지 않고 즉시 강등됩니다. 실패하거나 불완전한 build는 첫 invalid vector에서 중단하고 retry
+cooldown에 들어가므로, 깨진 provider가 질문마다 전체 catalog 비용을 만들 수 없습니다. Runtime
+shutdown은 bridge shutdown이 실패해도 task를 drain합니다.
 
 예문은 검색 앵커일 뿐입니다. Charter digest에 포함되지 않으므로 검색을 튜닝해도 감사 기록이 흔들리지
 않고, prompt나 답변에도 들어가지 않습니다.
@@ -174,9 +181,11 @@ key - 과 대조하고 선택 근거가 된 용어와 함께 반환합니다. �
 도구 하나만 실행합니다. 상위 점수가 같으면 catalog 순서로 고르지 않고 도구를 선택하지 않습니다.
 이렇게 owner 결정을 한 번만 수행하고 한 에이전트의 읽기를 다른 에이전트의 근거로 제시하지 않습니다.
 
-일반 primary-answer path는 lexical selector를 사용하며 explicit 또는 T0 agent route에 embedding
-호출을 추가하지 않습니다. Semantic tool planner는 별도 read stage를 선택한 caller를 위한 explicit
-prefetch API에서 계속 사용할 수 있습니다.
+일반 primary-answer path는 Bragi가 이미 route한 owner 안에서 semantic selection을 사용하고, embedding
+미바인딩, provider 실패, 낮은 confidence, catalog build 중 또는 retry cooldown일 때 lexical
+selection으로 강등됩니다. 여기서 의미 계층은 전역 소유 판정이 아닙니다. Bragi가 owner를 이미
+결정했으므로 planner는 그 agent의 tool만 검토합니다. Explicit prefetch API도 같은 유계 planner를
+사용합니다.
 
 Dispatch는 네 가지로 유계입니다. 운영자 질문 하나가 열 수 있는 읽기 표면은 이 중 하나라도 없으면
 서비스 거부 표면이 되기 때문입니다.
@@ -187,6 +196,7 @@ Dispatch는 네 가지로 유계입니다. 운영자 질문 하나가 열 수 �
 | 깊이 | 1단계 | 에이전트는 registry 참조를 갖지 않으므로 turn이 도구를 부를 수 없습니다. Registry가 중첩 호출을 거부하는 것이 두 번째 잠금입니다. |
 | 단일 dispatch | registry timeout, 출력 상한, 민감도 스캔 | Registry가 그대로 소유합니다. |
 | 전체 gather | `PREFETCH_BUDGET_SECONDS` (5) | 도구별 timeout은 planning과 dispatch의 합계를 제한하지 못합니다. Gather는 timeout 여부와 완료된 plan 수를 보존합니다. |
+| 질문 | 2,000자 | Public prefetch API는 Bragi 경계에 의존할 수 없습니다. 초과 입력은 embedding provider와 registry 어디에도 도달하지 않습니다. |
 
 일반 routed answer에서는 완료된 도구 결과가 generic response 뒤에 붙는 evidence가 아니라 primary
 response가 됩니다. 범위 한정 fact와 runtime evidence ref는 기존 agent-evidence manifest로
