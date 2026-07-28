@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 71788b537bf8a1e73e899b98384d3c0dc1f6dd2f
-translation_revised: 2026-07-21
+translation_source_sha: b1a621f61d770d8968d21ce5dda55c920c917524
+translation_revised: 2026-07-29
 ---
 
 # 규칙 카탈로그 수집(Rule Catalog Collection)
@@ -23,11 +23,11 @@ FDAI가 체크리스트, 모범 사례, 정책, 베이스라인을 어떻게 **�
 
 > **구현 상태**: Source manifest/fetch/snapshot/watcher core, rule/Rego/Azure Policy/kube-bench
 > parsers, strict rule/ActionType/resource vocabulary loaders, collected Azure/kube-bench catalogs,
-> continuous pipeline stages 및 CandidateGuard가 구현되어 있습니다. 아래 나열된 모든 외부 source
-> connector와 parser, autonomous discovery의 production scheduling/PR delivery, compliance/threat
-> crosswalk는 완료되지 않았습니다. 현재 이 문서에서 loader-backed normalized artifact는
-> `Rule`입니다. Best-practice, config-baseline, measurement-baseline 전용 schema/loader는 목표
-> shape로 남아 있습니다. Source 목록은 지원 목표와 shipped implementation을 함께 설명합니다.
+> continuous pipeline stages 및 CandidateGuard가 구현되어 있습니다. `BestPractice`에도 strict
+> schema, loader, typed-reference catalog 검증, 전체 Azure WAF Reliability 및 Operational
+> Excellence control set가 구현되어 있습니다. Config-baseline 및 measurement-baseline 전용
+> schema/loader는 목표 shape로 남아 있습니다. Source 목록은 지원 목표와 shipped
+> implementation을 함께 설명합니다.
 
 ## 무엇을 수집하는가
 
@@ -269,9 +269,11 @@ YAML 키는 **snake_case** ;
 | `id`, `version`, `source`, `severity`, `category`, `remediation`, `provenance` | 동일 |
 
 - `source` 는 등록된 manifest `source_id` (phase-1 `source` enum) 와 같음.
-- 현재 normalized `Rule`은 `schema_version`이 필수이고 `kind` discriminator가 없습니다. Strict
-  schema owner는 `src/fdai/shared/contracts/rule/schema.json`입니다. 위의 다른 artifact kind는
-  전용 schema/loader가 landing할 때까지 목표 shape입니다.
+- Normalized `Rule`은 `schema_version`이 필수이고 `kind` discriminator가 없습니다. Strict
+  schema owner는 `src/fdai/shared/contracts/rule/schema.json`입니다. `BestPractice`는
+  `best-practice` discriminator와 `src/fdai/rule_catalog/schema/` 아래 strict schema를
+  사용합니다. Config-baseline과 measurement-baseline은 loader가 landing할 때까지 목표
+  shape로 남습니다.
 - Enums: `severity` ∈ `critical | high | medium | low` (phase-1 우선순위와 매칭),
   `category` ∈ `security | reliability | cost | config_drift | compliance`, `redistribution` ∈
   `embeddable | reference-only`. `version` 은 semver 패턴 매칭; 모든 타임스탬프는 RFC 3339
@@ -366,25 +368,41 @@ provenance:
 ### Best Practice (다중-check 권고)
 
 ```yaml
-id: reliability.multi-zone.recommend
-version: 1.0.0
+schema_version: "1.0.0"
 kind: best-practice
-source: example-waf-checklist
-severity: medium
+id: azure-waf.reliability.re-09
+version: "1.0.0"
+framework: azure-waf
+control_id: "RE:09"
+title: Implement tested disaster recovery plans
+rationale: Recovery plans need current restore and failover evidence.
+severity: critical
 category: reliability
-resource_type: kubernetes-cluster
-rationale: Spreading nodes across zones reduces single-zone failure blast radius.
-checks:
-  - kubernetes-cluster.zones.count-gte-2
+requirement_mode: all
+requirements:
+  - kind: artifact
+    ref: disaster-recovery-plan
+    freshness_days: 180
+  - kind: drill
+    ref: restore-failover-drill
+    freshness_days: 180
+  - kind: approval
+    ref: reliability-owner
 provenance:
-  source_url: https://example.com/waf/reliability
-  source_version: "2026.06"
+  source_url: https://example.com/waf/reliability/checklist
+  source_version: "2026-05-29"
   resolved_ref: "0000000000000000000000000000000000000000"
   content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-  license: LicenseRef-reference-only
-  retrieved_at: 2026-07-03T00:00:00Z
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: "2026-07-29T00:00:00Z"
   mapped_by: catalog-team
 ```
+
+Requirement kind는 `rule`, `probe`, `artifact`, `metric`, `drill`, `approval`입니다. Strict
+catalog load는 control이 사용하는 모든 kind에 known-reference registry를 요구합니다. 누락,
+unknown, stale 또는 failed evidence는 암묵적인 pass가 되지 않습니다. `not_applicable`은 evidence
+부재가 아니라 명시적으로 평가된 outcome입니다.
 
 ### Config Baseline (하드닝된 reference 세트)
 
@@ -442,6 +460,8 @@ fdai/
     ├── schema/            # extension-kit/skill-bundle 같은 catalog-adjacent schema
     ├── vocabulary/        # canonical CSP-중립 어휘 (resource-types.yaml, ...)
     ├── action-types/      # 규칙의 `remediates` 필드가 인용하는 ActionType 인스턴스
+    ├── best-practices/    # framework provenance가 있는 다중-evidence checklist control
+    ├── rule-sets/         # atomic rule을 버전 고정한 governance initiative
     ├── sources/           # 소스당 하나의 폴더: manifest (.yaml) + collector + parser
     │   └── <source>/
     ├── remediation/       # remediation.ref로 참조되는 remediation 템플릿

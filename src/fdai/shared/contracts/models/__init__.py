@@ -47,6 +47,14 @@ from __future__ import annotations
 
 from ._base import ContractBase, IdempotencyKey, SemVer, _Base
 from .action import Action, BlastRadius, RollbackRef
+from .best_practice import (
+    BestPractice,
+    BestPracticeRequirement,
+    RequirementKind,
+    RequirementMode,
+    RequirementOutcome,
+    RequirementStatus,
+)
 from .document import (
     AccessDescriptor,
     DocumentEnvelope,
@@ -163,6 +171,8 @@ __all__ = [
     "ActionStopCondition",
     "PromotionGate",
     "BlastRadius",
+    "BestPractice",
+    "BestPracticeRequirement",
     "CeilingByTier",
     "CheckLogic",
     "Event",
@@ -184,6 +194,10 @@ __all__ = [
     "PropertyDecl",
     "Provenance",
     "Remediation",
+    "RequirementKind",
+    "RequirementMode",
+    "RequirementOutcome",
+    "RequirementStatus",
     "RollbackRef",
     "Rule",
     "Workflow",

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol, runtime_checkable
 
+from fdai.shared.contracts.models import RequirementOutcome
 from fdai.shared.providers.projection import Finding
 
 
@@ -26,4 +27,17 @@ class ReadinessReportPublisher(Protocol):
         ...
 
 
-__all__ = ["PostureAssessmentProvider", "ReadinessReportPublisher"]
+@runtime_checkable
+class ChecklistEvidenceProvider(Protocol):
+    """Return explicit requirement outcomes for one bounded scope."""
+
+    async def outcomes_for_scope(self, scope: str) -> Sequence[RequirementOutcome]:
+        """Return grounded outcomes; omitted requirements remain unknown."""
+        ...
+
+
+__all__ = [
+    "ChecklistEvidenceProvider",
+    "PostureAssessmentProvider",
+    "ReadinessReportPublisher",
+]

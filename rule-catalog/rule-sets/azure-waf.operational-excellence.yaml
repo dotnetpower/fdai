@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+kind: rule-set
+id: azure-waf.operational-excellence
+version: "1.0.0"
+members:
+  - {rule_id: kubernetes-cluster.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: object-storage.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: ops.change-summary, version: "1.0.0"}
+  - {rule_id: postgresql-server.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: resource-group.environment-tag.required, version: "1.0.0"}
+  - {rule_id: resource-group.owner-tag.required, version: "1.0.0"}
+  - {rule_id: resource-group.role-assignment.owner-count-within-limit, version: "1.0.0"}
+  - {rule_id: secret-store.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: sql-database.diagnostic-settings-required, version: "1.0.0"}
+provenance:
+  created_at: "2026-07-29T00:00:00Z"
+  created_by: catalog-team
+  source: azure-waf

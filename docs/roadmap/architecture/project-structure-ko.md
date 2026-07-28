@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1e91c5231badac6c9dc4c736ae7dcd4fce37c9f7
-translation_revised: 2026-07-28
+translation_source_sha: 20bb49cf4496153826e9298b06cd0d7014b5f6e8
+translation_revised: 2026-07-29
 ---
 
 # 프로젝트 구조
@@ -110,7 +110,7 @@ fdai/
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드
-│   │   ├── schema/             # 룰 + 온톨로지 (ObjectType / LinkType / ActionType) 스키마 + 검증
+│   │   ├── schema/             # 룰, Best Practice, governance 및 온톨로지 스키마 + 검증
 │   │   ├── sources/            # 소스별 컬렉터 (WAF, CIS, OPA, IaC scanners, ...)
 │   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
@@ -128,6 +128,8 @@ fdai/
 │   ├── action-types-overrides/ # 업스트림 ActionType 의 스코프 오버라이드 (≤ resource-group 스코프)
 │   ├── profiles/               # 이름 붙은 룰 팩 (업스트림)
 │   ├── profiles-overrides/     # profiles 의 포크 오버레이
+│   ├── best-practices/         # typed evidence requirement가 있는 framework checklist control
+│   ├── rule-sets/              # atomic rule을 버전 고정한 governance initiative
 │   ├── prompts/                # catalog-as-code 프롬프트 조각 (태스크 팩, 툴, 페르소나)
 │   ├── remediation/            # remediation-plan 아티팩트
 │   ├── operator-console/       # `SystemConsoleTool` descriptor 번들

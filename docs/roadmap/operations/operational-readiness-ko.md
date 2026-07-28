@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: 6d0f97185910f1eb612e5ce3b533856f56f552ee
-translation_revised: 2026-07-22
+translation_source_sha: a66a3f4e5d069419eb438f617780a1980d35dfe2
+translation_revised: 2026-07-29
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -24,9 +24,11 @@ guest principal, 진단 설정 없음, 백업 없음 상태로 운영팀에 도�
 아니라 **핸드오프 시점의 scope 의 누적된 posture** 를 리뷰합니다.
 
 > **구현 상태**: `core/readiness/`의 pure report coordinator와
-> `composition/readiness.py`의 audited orchestration service가 구현되어 있습니다. 현재 upstream
-> runtime은 `ownership_transfer`를 event-ingest에 등록하거나 live posture provider,
-> `ReadinessReportPublisher`, remediation proposal, approval workflow를 binding하지 않습니다. 아래
+> `composition/readiness.py`의 audited orchestration service가 구현되어 있습니다. Service는
+> injected `ChecklistEvidenceProvider`를 통해 typed Best Practice requirement도 평가할 수 있습니다.
+> 현재 upstream runtime은 `ownership_transfer`를 event-ingest에 등록하거나 live posture provider,
+> checklist evidence provider, `ReadinessReportPublisher`, remediation proposal, approval
+> workflow를 binding하지 않습니다. 아래
 > 자동 trigger, handoff blocking, action bridging 및 Var approval은 목표 workflow이며, 현재 service는
 > injected caller가 직접 실행합니다.
 
@@ -68,6 +70,7 @@ ownership_transfer signal
   -> event-ingest (normalize)
   -> assurance-twin: run every applicable rule over the scope projection
   -> deploy-preflight: run the feasibility probes over the scope
+  -> checklist evidence: rule, artifact, metric, drill 및 approval 평가
   -> compose -> ReadinessReport (clear | needs_review | blocked)
   -> blocked + enforce mode -> gate the handoff, route fixes to risk-gate/HIL
   -> audit (Saga)
@@ -93,7 +96,7 @@ signal 은 대상 scope (resource-group 등가 또는 그보다 좁게,
 
 ## 리뷰 차원
 
-ORR 은 scope 전체에 대해 적용 가능한 규칙 집합을 실행하지만, 네 개 차원이
+ORR 은 scope 전체에 대해 적용 가능한 규칙 집합을 실행합니다. 다섯 개 차원이
 운영팀이 가장 의존하고 per-change 리뷰가 가장 자주 놓치는 것입니다:
 
 | 차원 | 대표 체크 | 출처 |
@@ -102,6 +105,7 @@ ORR 은 scope 전체에 대해 적용 가능한 규칙 집합을 실행하지만
 | `identity_rbac` | over-privileged 워크로드 아이덴티티, Owner 를 가진 guest, standing 특권 액세스, wildcard-action role, 한도 초과 Owner 수 | 워크로드 RBAC 최소권한 규칙 팩(`managed-identity.role-assignment.*`, `subscription.role-assignment.*`, `resource-group.role-assignment.*`) |
 | `reliability` | 백업 / PITR 없음, 진단 설정 없음, 존 이중화 없음 | 카탈로그 reliability 규칙 |
 | `dependency_ordering` | 핸드오프 전 필수 링크(private endpoint, NSG, 진단 설정) 존재 | [deployment-preflight](../deployment/deployment-preflight-ko.md) 프로브 |
+| `best_practice` | 명시적인 rule, probe, artifact, metric, drill 및 approval requirement가 있는 framework control | `rule-catalog/best-practices/` 및 ARB binding |
 
 `identity_rbac` 차원은 preflight 도 per-change 리뷰도 이전에 커버하지 않던, ORR 이
 추가하는 것입니다: preflight 의 `identity_rbac` 프로브는 배포할 **executor 의**
@@ -116,8 +120,9 @@ ORR 은 scope 전체에 대해 적용 가능한 규칙 집합을 실행하지만
 묶인 `PostureAssessmentReport`([assurance-twin.md](assurance-twin-ko.md)) 의
 일반화입니다. 각 finding 은 동일한 세 필수 부분을 유지합니다:
 
-- **evidence** - 그것을 만들어낸 규칙의 CSP-neutral 인용. 출처를 인용할 수 없는
-  finding 은 defect 이며, T2 verifier 와 preflight 프로브가 따르는 동일한
+- **evidence** - finding을 만든 rule, probe 또는 Best Practice control의 CSP-neutral 인용입니다.
+  Checklist finding은 `control_id`와 충족되지 않은 `requirement_refs`도 유지합니다. 출처를
+  인용할 수 없는 finding은 defect이며 T2 verifier와 preflight 프로브가 따르는 동일한
   규칙입니다.
 - **severity** - posture의 `low`부터 `critical`, 또는 preflight의 `warning` / `blocking`처럼
   source 값을 보존합니다. Coordinator는 resolved gate를 finding의 별도 `blocking` boolean에
@@ -182,8 +187,10 @@ coordinator 와 하나의 정규화된 signal 을 추가합니다.
 | `ownership_transfer` signal | 리뷰를 트리거하는 정규화된 이벤트(scope + submitter + 대상 environment); fork 가 연결한 핸드오프 순간에 emit |
 | `core/assurance_twin/report` | scope projection 에 대해 적용 가능한 모든 규칙 실행 (재사용) |
 | `core/deploy_preflight` | scope 에 대해 feasibility 프로브 실행 (재사용) |
-| ORR coordinator | 둘을 `ReadinessReport` 로 조합, environment 게이트 적용, `blocks_handoff` 설정 |
-| `composition/readiness.py` | posture + preflight를 동시에 실행하고 success/failure를 audit한 뒤 serialized report publish |
+| `core/readiness/checklist` | 누락 evidence를 pass로 취급하지 않고 명시적인 requirement outcome 조합 |
+| ORR coordinator | posture, preflight 및 checklist 결과를 `ReadinessReport`로 조합하고 environment gate와 `blocks_handoff` 적용 |
+| `composition/readiness.py` | posture, preflight 및 선택적 checklist evidence를 동시에 실행하고 success/failure를 audit한 뒤 serialized report publish |
+| `composition/readiness_evidence.py` | ARB artifact, evidence expiry 및 owner binding을 typed outcome으로 projection |
 | delivery intent | 포크가 `ReadinessReportPublisher`를 Checks API annotation / console `ReadPanel`에 binding |
 
 coordinator 는 다른 모든 core 서브시스템처럼 `shared/` 계약과 provider 만
@@ -194,19 +201,23 @@ import 합니다([project-structure.md](../architecture/project-structure-ko.md#
 
 Deterministic core는 [`core/readiness/`](../../../src/fdai/core/readiness)에 있습니다.
 `OwnershipTransfer` 신호, generic `ReadinessReport` / `HandoffVerdict` /
-`ReadinessFinding` shape, 그리고 posture finding 과 preflight finding 을 하나의
-verdict 로 fold 하고 environment 게이트(`prod` 타깃은 `critical` finding 을
+`ReadinessFinding` shape, pure Best Practice evaluator, 그리고 posture, preflight 및 checklist
+finding을 하나의 verdict로 fold하고 environment 게이트(`prod` 타깃은 `critical` finding 을
 blocking 으로 강제)를 적용하며 `blocks_handoff` 를 설정하는 순수
 `compose_readiness_report` coordinator (shadow-first: enforce 모드로 실행됐을
 때만 `true`)를 제공합니다. `shared/` 타입만 import합니다.
 
 [`OperationalReadinessService`](../../../src/fdai/composition/readiness.py)는 이제 signal을
-injected `PostureAssessmentProvider`와 기존 `PreflightAnalyzer`에 연결하고 두 pass를 동시에
-실행합니다. 이후 report를 compose하고 append-only audit entry를 쓴 다음 injected
+injected `PostureAssessmentProvider`, 기존 `PreflightAnalyzer` 및 선택적
+`ChecklistEvidenceProvider`에 연결하고 pass를 동시에 실행합니다. 이후 report를 compose하고
+append-only audit entry를 쓴 다음 injected
 `ReadinessReportPublisher`를 호출합니다. Partial assessment는 `abstain` audit을 쓰고 error를
-전파하며 delivery failure는 두 번째 failure audit을 쓰고 전파합니다. 남은 fork 작업은
-transport binding입니다. 선택한 handoff moment에서 normalized signal을 emit하고 posture
-provider/report publisher를 live inventory, Checks, console adapter에 binding합니다.
+전파하며 delivery failure는 두 번째 failure audit을 쓰고 전파합니다. 누락 checklist evidence는
+`unknown`, control freshness window를 벗어난 evidence는 `stale`, 만료된 ARB binding은
+`failed`이며 모두 pass가 아닙니다. Live posture 또는 preflight failure는 충돌하는 supplied
+pass보다 우선합니다. 남은 fork 작업은 transport binding입니다.
+선택한 handoff moment에서 normalized signal을 emit하고 posture, checklist evidence 및 report
+publisher adapter를 binding합니다.
 
 ## 안전 posture
 

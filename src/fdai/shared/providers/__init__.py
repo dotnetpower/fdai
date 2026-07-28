@@ -201,7 +201,11 @@ from .programmatic_pipeline import (
     PipelineToolResponse,
     ProgrammaticPipelineRunner,
 )
-from .readiness import PostureAssessmentProvider, ReadinessReportPublisher
+from .readiness import (
+    ChecklistEvidenceProvider,
+    PostureAssessmentProvider,
+    ReadinessReportPublisher,
+)
 from .remediation_pr import (
     PublishReceipt as PrPublishReceipt,
 )
@@ -406,6 +410,7 @@ __all__ = [
     "PipelineToolResponse",
     "ProgrammaticPipelineRunner",
     "PostureAssessmentProvider",
+    "ChecklistEvidenceProvider",
     "ProbeQuery",
     "ProbeResult",
     "ProbeVerdict",

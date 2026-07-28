@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d2b9342fe725f75c7f70caf59d27b05e4592193a
-translation_revised: 2026-07-28
+translation_source_sha: a0da57bc11752ba85fa5c97a330f7c34b4f49d09
+translation_revised: 2026-07-29
 ---
 # 코드 맵
 
@@ -125,7 +125,7 @@ fallback 없이 handoff합니다. Delivery adapter는 완료된 답변에 무관
 | deploy_preflight | 배포 전 실현성 프로브 | [src/fdai/core/deploy_preflight/](../../../src/fdai/core/deploy_preflight/) | [tests/core/deploy_preflight/](../../../tests/core/deploy_preflight/) |
 | onboarding | 테넌트 / 환경 온보딩 흐름 | [src/fdai/core/onboarding/](../../../src/fdai/core/onboarding/) | [tests/core/](../../../tests/core/) |
 | runtime_bootstrap | 프로세스 composition 및 long-running task orchestration, configuration, health-server, required-task, task-supervision, main, shutdown-signal boundary를 격리한 lifecycle helper | [src/fdai/runtime/bootstrap.py](../../../src/fdai/runtime/bootstrap.py), [src/fdai/runtime/bootstrap_lifecycle.py](../../../src/fdai/runtime/bootstrap_lifecycle.py) | [tests/runtime/test_bootstrap_config.py](../../../tests/runtime/test_bootstrap_config.py) |
-| readiness | 운영 handoff, deterministic startup probe, agent 소유 monitored-target readiness, due-gated scheduled discovery repair의 fail-closed reduction, evidence expiry, authority ceiling 및 durable transition ([설계](../operations/startup-and-lifecycle-ko.md)) | [src/fdai/core/readiness/](../../../src/fdai/core/readiness/), [src/fdai/runtime/readiness.py](../../../src/fdai/runtime/readiness.py), [src/fdai/delivery/startup_probe.py](../../../src/fdai/delivery/startup_probe.py), [src/fdai/delivery/analyzer_tick_cli.py](../../../src/fdai/delivery/analyzer_tick_cli.py), [src/fdai/delivery/inventory_sync_cli.py](../../../src/fdai/delivery/inventory_sync_cli.py) 및 [src/fdai/delivery/persistence/postgres_inventory_snapshot.py](../../../src/fdai/delivery/persistence/postgres_inventory_snapshot.py) | [tests/core/readiness/](../../../tests/core/readiness/), [tests/agents/test_detection_readiness.py](../../../tests/agents/test_detection_readiness.py), [tests/runtime/test_readiness.py](../../../tests/runtime/test_readiness.py), [tests/delivery/test_inventory_reconciliation_gate.py](../../../tests/delivery/test_inventory_reconciliation_gate.py) 및 [tests/delivery/test_analyzer_tick_cli.py](../../../tests/delivery/test_analyzer_tick_cli.py) |
+| readiness | 운영 handoff, deterministic Best Practice checklist, startup probe, agent 소유 monitored-target readiness, due-gated scheduled discovery repair의 fail-closed reduction, evidence expiry, authority ceiling 및 durable transition ([설계](../operations/startup-and-lifecycle-ko.md)) | [src/fdai/core/readiness/](../../../src/fdai/core/readiness/), [src/fdai/runtime/readiness.py](../../../src/fdai/runtime/readiness.py), [src/fdai/delivery/startup_probe.py](../../../src/fdai/delivery/startup_probe.py), [src/fdai/delivery/analyzer_tick_cli.py](../../../src/fdai/delivery/analyzer_tick_cli.py), [src/fdai/delivery/inventory_sync_cli.py](../../../src/fdai/delivery/inventory_sync_cli.py) 및 [src/fdai/delivery/persistence/postgres_inventory_snapshot.py](../../../src/fdai/delivery/persistence/postgres_inventory_snapshot.py) | [tests/core/readiness/](../../../tests/core/readiness/), [tests/agents/test_detection_readiness.py](../../../tests/agents/test_detection_readiness.py), [tests/runtime/test_readiness.py](../../../tests/runtime/test_readiness.py), [tests/delivery/test_inventory_reconciliation_gate.py](../../../tests/delivery/test_inventory_reconciliation_gate.py) 및 [tests/delivery/test_analyzer_tick_cli.py](../../../tests/delivery/test_analyzer_tick_cli.py) |
 | assurance_twin | Read-only 온톨로지 트윈 (실행 금지) | [src/fdai/core/assurance_twin/](../../../src/fdai/core/assurance_twin/) | [tests/core/assurance_twin/](../../../tests/core/assurance_twin/) |
 | architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |
 | workflow | Version-pinned WorkflowDefinition을 컴파일 및 실행합니다. 승인 quorum은 정규화된 principal을 세므로 한 운영자가 두 표기로 quorum을 채우거나 자신이 요청한 step을 승인할 수 없습니다. Principal binding과 Process journal과 projection retry 관리 | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
@@ -238,8 +238,8 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | [src/fdai/composition/wire_metric_provider.py](../../../src/fdai/composition/wire_metric_provider.py) | `MetricProvider` 바인더 (`FDAI_MONITOR_WORKSPACE_ID` 세팅 시 Azure Monitor Logs 자동 바인드); LOC 상한 유지를 위해 `wire_azure`에서 분리 (G-4). |
 | [src/fdai/composition/wire_trajectory.py](../../../src/fdai/composition/wire_trajectory.py) | 기본 container에서 feature를 활성화하지 않고 authorization-first source join, dataset metadata, quarantine export, read-only administration을 bind. |
 | [src/fdai/composition/wire_execution_backends.py](../../../src/fdai/composition/wire_execution_backends.py) | Server-selected profile을 validate하고 required backend 및 durable ledger를 bind하며 profile은 기본적으로 enable하지 않습니다. |
-| [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | `rule-catalog/` 트리 (YAML) 로더. |
-| [rule-catalog/](../../../rule-catalog/) | 룰 / 정책 / action-type 카탈로그 (데이터). |
+| [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Rule, Best Practice, governance artifact 및 나머지 `rule-catalog/` YAML 트리의 strict loader. |
+| [rule-catalog/](../../../rule-catalog/) | Rule, Best Practice, policy, rule-set 및 action-type 카탈로그 (데이터). |
 
 ## 개발자 엔트리 포인트와 슬래시 커맨드
 

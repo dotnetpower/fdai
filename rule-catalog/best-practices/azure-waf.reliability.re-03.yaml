@@ -1,0 +1,25 @@
+schema_version: "1.0.0"
+kind: best-practice
+id: azure-waf.reliability.re-03
+version: "1.0.0"
+framework: azure-waf
+control_id: "RE:03"
+title: Perform failure mode analysis
+rationale: Failure mode analysis identifies dependencies, failure points, and mitigations before incidents occur.
+severity: high
+category: reliability
+requirements:
+  - kind: artifact
+    ref: failure-mode-analysis
+    freshness_days: 180
+  - kind: approval
+    ref: reliability-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/reliability/checklist
+  source_version: "2026-05-29"
+  resolved_ref: 687e8febe6ddfa4646952220e057a50b1046a75a
+  content_hash: git:687e8febe6ddfa4646952220e057a50b1046a75a
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: "2026-07-29T00:00:00Z"
+  mapped_by: catalog-team

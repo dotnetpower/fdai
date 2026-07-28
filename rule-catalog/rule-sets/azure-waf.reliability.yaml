@@ -1,0 +1,25 @@
+schema_version: "1.0.0"
+kind: rule-set
+id: azure-waf.reliability
+version: "1.0.0"
+members:
+  - {rule_id: cache.zone-redundant, version: "1.0.0"}
+  - {rule_id: compute.vm-scale-set.zone-redundancy, version: "1.0.0"}
+  - {rule_id: disk.snapshot-policy.required, version: "1.0.0"}
+  - {rule_id: kubernetes-cluster.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: kubernetes-node-pool.multi-zone, version: "1.0.0"}
+  - {rule_id: object-storage.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: object-storage.soft-delete-blob, version: "1.0.0"}
+  - {rule_id: object-storage.versioning-enabled, version: "1.0.0"}
+  - {rule_id: postgresql-server.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: postgresql-server.high-availability, version: "1.0.0"}
+  - {rule_id: postgresql-server.point-in-time-restore, version: "1.0.0"}
+  - {rule_id: secret-store.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: secret-store.soft-delete.enabled, version: "1.0.0"}
+  - {rule_id: sql-database.diagnostic-settings-required, version: "1.0.0"}
+  - {rule_id: sql-database.geo-redundant-backup, version: "1.0.0"}
+  - {rule_id: sql-database.zone-redundant, version: "1.0.0"}
+provenance:
+  created_at: "2026-07-29T00:00:00Z"
+  created_by: catalog-team
+  source: azure-waf

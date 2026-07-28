@@ -21,9 +21,11 @@ ORR reviews the **accumulated posture of the scope at the moment of handoff**,
 not one diff.
 
 > **Implementation status**: The pure report coordinator in `core/readiness/` and the audited
-> orchestration service in `composition/readiness.py` are implemented. The current upstream
-> runtime doesn't register `ownership_transfer` with event ingest or bind a live posture provider,
-> `ReadinessReportPublisher`, remediation proposal, or approval workflow. The automatic trigger,
+> orchestration service in `composition/readiness.py` are implemented. The service can also
+> evaluate typed Best Practice requirements through an injected `ChecklistEvidenceProvider`.
+> The current upstream runtime doesn't register `ownership_transfer` with event ingest or bind a
+> live posture provider, checklist evidence provider, `ReadinessReportPublisher`, remediation
+> proposal, or approval workflow. The automatic trigger,
 > handoff blocking, action bridging, and Var approval below are target workflow; an injected caller
 > invokes the current service directly.
 
@@ -65,6 +67,7 @@ ownership_transfer signal
   -> event-ingest (normalize)
   -> assurance-twin: run every applicable rule over the scope projection
   -> deploy-preflight: run the feasibility probes over the scope
+  -> checklist evidence: evaluate rules, artifacts, metrics, drills, and approvals
   -> compose -> ReadinessReport (clear | needs_review | blocked)
   -> blocked + enforce mode -> gate the handoff, route fixes to risk-gate/HIL
   -> audit (Saga)
@@ -90,7 +93,7 @@ privileged token.
 
 ## Review dimensions
 
-The ORR runs the full applicable rule set over the scope, but four dimensions
+The ORR runs the full applicable rule set over the scope. Five dimensions
 are the ones ops most depends on and that a per-change review most often misses:
 
 | Dimension | Representative check | Sourced from |
@@ -99,6 +102,7 @@ are the ones ops most depends on and that a per-change review most often misses:
 | `identity_rbac` | over-privileged workload identity, guest holding Owner, standing privileged access, wildcard-action role, Owner-count over limit | the workload RBAC least-privilege rule pack (`managed-identity.role-assignment.*`, `subscription.role-assignment.*`, `resource-group.role-assignment.*`) |
 | `reliability` | no backup / PITR, no diagnostic settings, no zone redundancy | catalog reliability rules |
 | `dependency_ordering` | required links (private endpoint, NSG, diagnostic settings) present before handoff | [deployment-preflight](../deployment/deployment-preflight.md) probe |
+| `best_practice` | framework controls with explicit rule, probe, artifact, metric, drill, and approval requirements | `rule-catalog/best-practices/` plus ARB bindings |
 
 The `identity_rbac` dimension is the one the ORR adds that neither preflight nor
 per-change review covered before: preflight's `identity_rbac` probe checks the
@@ -112,9 +116,9 @@ The pass assembles findings into a `ReadinessReport` - a generalization of the
 `PostureAssessmentReport` ([assurance-twin.md](assurance-twin.md)) bound to an
 ownership-transfer event. Each finding keeps the same three required parts:
 
-- **evidence** - a CSP-neutral citation of the rule that produced it. A finding
-  that cannot cite a source is a defect, the same rule the T2 verifier and the
-  preflight probes follow.
+- **evidence** - a CSP-neutral citation of the rule, probe, or Best Practice control that produced
+  it. Checklist findings also retain `control_id` and the unmet `requirement_refs`. A finding that
+  cannot cite a source is a defect, the same rule the T2 verifier and preflight probes follow.
 - **severity** - preserves the source value: posture levels such as `low` through `critical`, or
   preflight `warning` / `blocking`. The coordinator records the resolved gate separately in the
   finding's `blocking` boolean.
@@ -179,8 +183,10 @@ adds a thin coordinator plus one normalized signal.
 | `ownership_transfer` signal | normalized event (scope + submitter + target environment) that triggers the review; emitted by a fork-wired handoff moment |
 | `core/assurance_twin/report` | run every applicable rule over the scope projection (reused) |
 | `core/deploy_preflight` | run the feasibility probes over the scope (reused) |
-| ORR coordinator | compose the two into a `ReadinessReport`, apply the environment gate, set `blocks_handoff` |
-| `composition/readiness.py` | run posture + preflight concurrently, audit success/failure, and publish the serialized report |
+| `core/readiness/checklist` | combine explicit requirement outcomes without treating missing evidence as a pass |
+| ORR coordinator | compose posture, preflight, and checklist results, apply the environment gate, set `blocks_handoff` |
+| `composition/readiness.py` | run posture, preflight, and optional checklist evidence concurrently, audit success/failure, and publish the serialized report |
+| `composition/readiness_evidence.py` | project ARB artifacts, evidence expiry, and owner bindings into typed outcomes |
 | delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel` |
 
 The coordinator imports only `shared/` contracts and providers, like every other
@@ -192,21 +198,23 @@ It holds no cloud SDK and no privileged identity.
 The deterministic core ships in
 [`core/readiness/`](../../../src/fdai/core/readiness): the `OwnershipTransfer`
 signal, the generic `ReadinessReport` / `HandoffVerdict` / `ReadinessFinding`
-shape, and the pure `compose_readiness_report` coordinator that folds the posture
-findings and the preflight findings into one verdict, applies the environment
+shape, the pure Best Practice evaluator, and the `compose_readiness_report` coordinator that folds
+posture, preflight, and checklist findings into one verdict, applies the environment
 gate (a `prod` target forces a `critical` finding to blocking), and sets
 `blocks_handoff` (shadow-first: `false` unless the pass ran in enforce mode). It
 imports only `shared/` types.
 
 [`OperationalReadinessService`](../../../src/fdai/composition/readiness.py) now
-wires the signal to an injected `PostureAssessmentProvider` and the existing
-`PreflightAnalyzer`, runs both passes concurrently, composes the report, writes
+wires the signal to an injected `PostureAssessmentProvider`, the existing `PreflightAnalyzer`, and
+an optional `ChecklistEvidenceProvider`. It runs the passes concurrently, composes the report, writes
 the append-only audit entry, and then calls the injected
 `ReadinessReportPublisher`. A partial assessment writes an `abstain` audit and
 propagates the error; a delivery failure writes a second failure audit and
-propagates. The remaining fork work is transport binding: emit the normalized
-signal from the selected handoff moment and bind the posture provider and report
-publisher to the live inventory / Checks / console adapters.
+propagates. Missing checklist evidence remains `unknown`; evidence outside a control's freshness
+window is `stale`; and an expired ARB binding is `failed`. None is a pass. A live posture or
+preflight failure overrides a conflicting supplied pass. The remaining fork
+work is transport binding: emit the normalized signal from the selected handoff moment and bind the
+posture, checklist evidence, and report publisher adapters.
 
 ## Safety posture
 

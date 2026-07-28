@@ -198,6 +198,7 @@ class ArchitectureReviewProjector:
                         "status": "ready",
                         "classification": "internal",
                         "captured_at": str(binding["approved_at"]),
+                        "expires_at": str(binding["expires_at"]),
                     },
                 )
             )

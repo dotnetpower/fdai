@@ -39,6 +39,9 @@ _EXPECTED_FILES = frozenset(
         # Application-level ORR wiring: composes assurance + preflight through
         # injected providers, audits the verdict, then publishes a read model.
         "readiness.py",
+        # Projects ARB evidence bindings into typed checklist outcomes without
+        # adding I/O or decision authority to the readiness core.
+        "readiness_evidence.py",
         # Extracted from wire_azure.py (G-4) to keep the file under the
         # per-file LOC ceiling; assembles the metric-provider composite
         # from whichever telemetry backends the deploy exposes.

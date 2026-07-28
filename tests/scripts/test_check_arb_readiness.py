@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 
@@ -99,8 +100,34 @@ def test_complete_production_bindings_pass_strict_mode() -> None:
             "sha256": "a" * 64,
             "approved_by": "group:architecture-reviewers",
             "approved_at": "2026-07-13T00:00:00Z",
+            "expires_at": "2099-07-13T00:00:00Z",
         }
         for item in required_evidence
     }
 
     _MOD.validate_contract(raw, _REPO_ROOT, require_production_ready=True)
+
+
+def test_expired_production_evidence_is_rejected() -> None:
+    raw = copy.deepcopy(_manifest())
+    review = raw["architecture_review"]
+    assert isinstance(review, dict)
+    gate = review["production_gate"]
+    assert isinstance(gate, dict)
+    gate["evidence_bindings"] = {
+        "production-terraform-plan": {
+            "uri": "evidence://production-terraform-plan",
+            "sha256": "a" * 64,
+            "approved_by": "group:architecture-reviewers",
+            "approved_at": "2026-07-01T00:00:00Z",
+            "expires_at": "2026-07-15T00:00:00Z",
+        }
+    }
+
+    with pytest.raises(ValueError, match="expired production evidence"):
+        _MOD.validate_contract(
+            raw,
+            _REPO_ROOT,
+            require_production_ready=True,
+            evaluated_at=datetime(2026, 7, 29, tzinfo=UTC),
+        )

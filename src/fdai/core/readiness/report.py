@@ -50,6 +50,8 @@ class ReadinessFinding:
     resolution: str | None
     source: str
     dimension: str | None = None
+    control_id: str | None = None
+    requirement_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.evidence.strip():
@@ -102,6 +104,8 @@ class ReadinessReport:
                     "resolution": f.resolution,
                     "source": f.source,
                     "dimension": f.dimension,
+                    "control_id": f.control_id,
+                    "requirement_refs": list(f.requirement_refs),
                 }
                 for f in self.findings
             ],

@@ -118,8 +118,23 @@ architecture_review:
       - signed-image-provenance
       - network-data-flow-validation
       - privacy-impact-assessment
+      - critical-flow-inventory
+      - failure-mode-analysis
+      - workload-slo-approval
       - rpo-rto-approval
+      - self-healing-validation
+      - reliability-test-results
+      - disaster-recovery-plan
       - restore-failover-drill
+      - health-monitoring-evidence
+      - operational-practices
+      - operations-task-standards
+      - development-practices
+      - development-quality-standards
+      - incident-response-plan
+      - incident-response-drill
+      - test-strategy-results
+      - automation-safety-review
       - operational-readiness-report
       - smoke-canary-results
       - capacity-test-results

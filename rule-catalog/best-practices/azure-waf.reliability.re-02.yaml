@@ -1,0 +1,25 @@
+schema_version: "1.0.0"
+kind: best-practice
+id: azure-waf.reliability.re-02
+version: "1.0.0"
+framework: azure-waf
+control_id: "RE:02"
+title: Identify and rate user and system flows
+rationale: Criticality-rated flows focus reliability investment on business-relevant outcomes.
+severity: high
+category: reliability
+requirements:
+  - kind: artifact
+    ref: critical-flow-inventory
+    freshness_days: 180
+  - kind: approval
+    ref: architecture-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/reliability/checklist
+  source_version: "2026-05-29"
+  resolved_ref: 687e8febe6ddfa4646952220e057a50b1046a75a
+  content_hash: git:687e8febe6ddfa4646952220e057a50b1046a75a
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: "2026-07-29T00:00:00Z"
+  mapped_by: catalog-team

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
+from fdai.core.readiness.checklist import ChecklistControlResult, ChecklistControlStatus
 from fdai.core.readiness.models import (
     AuthorityCeiling,
     EvidenceRequirement,
@@ -311,6 +312,7 @@ def compose_readiness_report(
     mode: Mode,
     generated_at: str,
     blocking_min_severity: Severity = "high",
+    checklist_results: Sequence[ChecklistControlResult] = (),
 ) -> ReadinessReport:
     """Compose the posture + preflight findings into one handoff verdict.
 
@@ -364,6 +366,28 @@ def compose_readiness_report(
                 resolution=pf.resolution.guidance,
                 source="deploy_preflight",
                 dimension=pf.category.value,
+            )
+        )
+
+    for result in checklist_results:
+        if result.status in {
+            ChecklistControlStatus.SATISFIED,
+            ChecklistControlStatus.NOT_APPLICABLE,
+        }:
+            continue
+        severity = result.control.severity.value
+        blocking = _severity_rank(severity) >= min_rank or (prod and severity == "critical")
+        findings.append(
+            ReadinessFinding(
+                evidence=result.control.id,
+                severity=severity,
+                resource=signal.scope,
+                blocking=blocking,
+                resolution=None,
+                source="best_practice",
+                dimension=result.control.category.value,
+                control_id=result.control.control_id,
+                requirement_refs=result.requirement_refs,
             )
         )
 

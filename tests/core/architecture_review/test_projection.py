@@ -75,12 +75,20 @@ async def test_manifest_projects_review_case_and_checks() -> None:
     for item in graph.objects:
         by_type[item.object_type] = by_type.get(item.object_type, 0) + 1
     review = await store.get_object("fdai-target-architecture-v1")
+    manifest_review = _manifest()["architecture_review"]
+    gate = manifest_review["production_gate"]
+    expected_checks = (
+        len(manifest_review["artifacts"])
+        + len(manifest_review["blockers"])
+        + len(gate["required_owner_slots"])
+        + len(gate["required_evidence"])
+    )
 
     assert review is not None
     assert review.properties["status"] == "evidence_pending"
-    assert by_type == {"Process": 1, "ReviewCase": 1, "ReviewCheck": 35}
+    assert by_type == {"Process": 1, "ReviewCase": 1, "ReviewCheck": expected_checks}
     assert any(link.link_type == "runs_review" for link in graph.links)
-    assert sum(link.link_type == "contains_check" for link in graph.links) == 35
+    assert sum(link.link_type == "contains_check" for link in graph.links) == expected_checks
 
 
 async def test_owner_and_evidence_bindings_materialize_typed_objects() -> None:
@@ -99,6 +107,7 @@ async def test_owner_and_evidence_bindings_materialize_typed_objects() -> None:
             "sha256": "a" * 64,
             "approved_by": "group:architecture-reviewers",
             "approved_at": "2026-07-13T00:00:00Z",
+            "expires_at": "2099-07-13T00:00:00Z",
         }
     }
     store = _store()

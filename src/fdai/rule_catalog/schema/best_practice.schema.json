@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/catalog/best-practice/1.0.0",
+  "title": "BestPractice",
+  "description": "A provenance-grounded multi-evidence checklist control.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "id",
+    "version",
+    "framework",
+    "control_id",
+    "title",
+    "rationale",
+    "severity",
+    "category",
+    "requirements",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "kind": {"const": "best-practice"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "framework": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"},
+    "control_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "title": {"type": "string", "minLength": 1, "maxLength": 256},
+    "rationale": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "severity": {"enum": ["critical", "high", "medium", "low"]},
+    "category": {
+      "enum": ["security", "reliability", "cost", "config_drift", "compliance"]
+    },
+    "requirement_mode": {"enum": ["all", "any"], "default": "all"},
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {"enum": ["rule", "probe", "artifact", "metric", "drill", "approval"]},
+          "ref": {"type": "string", "minLength": 1, "maxLength": 256},
+          "freshness_days": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_url",
+        "resolved_ref",
+        "content_hash",
+        "license",
+        "redistribution",
+        "retrieved_at"
+      ],
+      "properties": {
+        "source_url": {"type": "string", "format": "uri"},
+        "source_version": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "minLength": 1},
+        "license": {"type": "string", "minLength": 1},
+        "redistribution": {"enum": ["embeddable", "reference-only"]},
+        "retrieved_at": {"type": "string", "format": "date-time"},
+        "mapped_by": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

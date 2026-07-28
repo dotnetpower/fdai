@@ -1,0 +1,27 @@
+schema_version: "1.0.0"
+kind: best-practice
+id: azure-waf.operational-excellence.oe-11
+version: "1.0.0"
+framework: azure-waf
+control_id: "OE:11"
+title: Define safe deployment practices
+rationale: Incremental releases, quality gates, progressive exposure, and rollback reduce change risk.
+severity: critical
+category: reliability
+requirements:
+  - kind: artifact
+    ref: deployment-and-rollback
+  - kind: drill
+    ref: smoke-canary-results
+    freshness_days: 30
+  - kind: approval
+    ref: release-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist
+  source_version: "2026-06-11"
+  resolved_ref: 84fd234f106eacce573ee415497edd96436e6620
+  content_hash: git:84fd234f106eacce573ee415497edd96436e6620
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: "2026-07-29T00:00:00Z"
+  mapped_by: catalog-team

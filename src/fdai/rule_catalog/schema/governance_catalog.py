@@ -17,7 +17,7 @@ rejected (a catalog cannot bind two assignments under one id).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -95,7 +95,11 @@ def _load_dir[T](
     return tuple(loaded)
 
 
-def load_governance_catalog(root: Path) -> GovernanceCatalog:
+def load_governance_catalog(
+    root: Path,
+    *,
+    known_rule_versions: Mapping[str, str] | None = None,
+) -> GovernanceCatalog:
     """Load every assignment + rule-set YAML under ``root``.
 
     Rule-sets load first so an assignment that binds a rule-set (by ``rule_set``
@@ -106,6 +110,8 @@ def load_governance_catalog(root: Path) -> GovernanceCatalog:
     """
     issues: list[GovernanceLoadIssue] = []
     rule_sets = _load_dir(root / _RULE_SETS_DIR, load_rule_set_from_mapping, lambda r: r.id, issues)
+    if known_rule_versions is not None:
+        issues.extend(_rule_set_reference_issues(rule_sets, known_rule_versions))
     rule_sets_by_id = {rs.id: rs for rs in rule_sets}
     assignments = _load_dir(
         root / _ASSIGNMENTS_DIR,
@@ -116,6 +122,29 @@ def load_governance_catalog(root: Path) -> GovernanceCatalog:
     if issues:
         raise GovernanceLoadError(issues)
     return GovernanceCatalog(assignments=assignments, rule_sets=rule_sets)
+
+
+def _rule_set_reference_issues(
+    rule_sets: tuple[RuleSet, ...],
+    known_rule_versions: Mapping[str, str],
+) -> list[GovernanceLoadIssue]:
+    issues: list[GovernanceLoadIssue] = []
+    for rule_set in rule_sets:
+        for member in rule_set.members:
+            actual_version = known_rule_versions.get(member.rule_id)
+            key = f"{rule_set.id}:{member.rule_id}"
+            if actual_version is None:
+                issues.append(GovernanceLoadIssue(key=key, message="references unknown rule id"))
+            elif actual_version != member.version:
+                issues.append(
+                    GovernanceLoadIssue(
+                        key=key,
+                        message=(
+                            f"pins version {member.version!r}, but catalog has {actual_version!r}"
+                        ),
+                    )
+                )
+    return issues
 
 
 __all__ = ["GovernanceCatalog", "load_governance_catalog"]

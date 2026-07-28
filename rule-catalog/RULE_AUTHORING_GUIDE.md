@@ -160,6 +160,31 @@ A pytest failure with `test_shipped_catalog_loads_and_covers_every_action_type`
 usually means an ActionType has no rule pointing at it - either the rule
 YAML has a typo in `remediates`, or the ActionType is unused (add ≥1 rule).
 
+## Authoring a Best Practice
+
+A Best Practice represents one external framework recommendation that needs
+multiple kinds of evidence. Store one control per file under
+`rule-catalog/best-practices/`. The file stem must equal its `id`.
+
+- Keep the framework's stable control id in `control_id` and pin the source
+  document in `provenance`.
+- Use only the typed requirement kinds `rule`, `probe`, `artifact`, `metric`,
+  `drill`, and `approval`.
+- Set `freshness_days` when old evidence must not satisfy the control.
+- Use `requirement_mode: all` unless the source explicitly permits alternatives.
+- Never treat an omitted outcome as success. Use an explicit `not_applicable`
+  outcome when a requirement does not apply to the evaluated scope.
+- Group the atomic rules behind a framework in a version-pinned file under
+  `rule-catalog/rule-sets/`. A Best Practice is the recommendation and evidence
+  contract; a Rule Set is the assignable atomic-rule initiative.
+
+Run the dedicated deep gate after editing either artifact:
+
+```bash
+.venv/bin/python scripts/catalog/validate-catalog-full.py \
+  --only best_practice_deep
+```
+
 ## Extending the ontology
 
 ### New ActionType

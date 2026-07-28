@@ -18,8 +18,9 @@ The continuous update pipeline is [phase-2-quality-and-t1.md](../phases/phase-2-
 > **Implementation status**: Source manifest/fetch/snapshot/watcher core; rule, Rego, Azure
 > Policy, and kube-bench parsers; strict Rule/ActionType/resource-vocabulary loaders; collected
 > Azure and kube-bench catalogs; continuous pipeline stages; and CandidateGuard are implemented.
-> The current loader-backed normalized artifact in this document is `Rule`. Dedicated
-> best-practice, config-baseline, and measurement-baseline schemas/loaders remain target shapes.
+> `BestPractice` also has a strict schema, loader, typed-reference catalog validation, and the
+> complete Azure WAF Reliability and Operational Excellence control set. Dedicated
+> config-baseline and measurement-baseline schemas/loaders remain target shapes.
 > Not every external connector/parser, production discovery schedule/PR delivery, or
 > compliance/threat crosswalk listed below is complete.
 
@@ -269,9 +270,10 @@ contradictory:
 | `id`, `version`, `source`, `severity`, `category`, `remediation`, `provenance` | identical |
 
 - `source` equals a registered manifest `source_id` (the phase-1 `source` enum).
-- The current normalized `Rule` requires `schema_version` and has no `kind` discriminator. Its
-  strict schema is `src/fdai/shared/contracts/rule/schema.json`. The other artifact kinds shown
-  above are target shapes until dedicated schemas/loaders land.
+- The normalized `Rule` requires `schema_version` and has no `kind` discriminator. Its strict
+  schema is `src/fdai/shared/contracts/rule/schema.json`. `BestPractice` uses the
+  `best-practice` discriminator and the strict schema under `src/fdai/rule_catalog/schema/`.
+  Config-baseline and measurement-baseline remain target shapes until their loaders land.
 - Enums: `severity` ∈ `critical | high | medium | low` (matching phase-1 precedence),
   `category` ∈ `security | reliability | cost | config_drift | compliance`, `redistribution` ∈
   `embeddable | reference-only`. `version` matches a semver pattern; all timestamps are
@@ -369,25 +371,41 @@ provenance:
 ### Best Practice (multi-check recommendation)
 
 ```yaml
-id: reliability.multi-zone.recommend
-version: 1.0.0
+schema_version: "1.0.0"
 kind: best-practice
-source: example-waf-checklist
-severity: medium
+id: azure-waf.reliability.re-09
+version: "1.0.0"
+framework: azure-waf
+control_id: "RE:09"
+title: Implement tested disaster recovery plans
+rationale: Recovery plans need current restore and failover evidence.
+severity: critical
 category: reliability
-resource_type: kubernetes-cluster
-rationale: Spreading nodes across zones reduces single-zone failure blast radius.
-checks:
-  - kubernetes-cluster.zones.count-gte-2
+requirement_mode: all
+requirements:
+  - kind: artifact
+    ref: disaster-recovery-plan
+    freshness_days: 180
+  - kind: drill
+    ref: restore-failover-drill
+    freshness_days: 180
+  - kind: approval
+    ref: reliability-owner
 provenance:
-  source_url: https://example.com/waf/reliability
-  source_version: "2026.06"
+  source_url: https://example.com/waf/reliability/checklist
+  source_version: "2026-05-29"
   resolved_ref: "0000000000000000000000000000000000000000"
   content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-  license: LicenseRef-reference-only
-  retrieved_at: 2026-07-03T00:00:00Z
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: "2026-07-29T00:00:00Z"
   mapped_by: catalog-team
 ```
+
+Requirement kinds are `rule`, `probe`, `artifact`, `metric`, `drill`, and `approval`. Strict
+catalog loading requires a known-reference registry for every kind used by a control. Missing,
+unknown, stale, or failed evidence never becomes an implicit pass. `not_applicable` is an explicit
+evaluated outcome, not the absence of evidence.
 
 ### Config Baseline (hardened reference set)
 
@@ -445,6 +463,8 @@ fdai/
     ├── schema/            # extension-kit/skill-bundle catalog-adjacent schemas
     ├── vocabulary/        # canonical CSP-neutral vocabularies (resource-types.yaml, ...)
     ├── action-types/      # ActionType instances quoted from rules' `remediates` field
+    ├── best-practices/    # multi-evidence checklist controls with framework provenance
+    ├── rule-sets/         # version-pinned governance initiatives for atomic rules
     ├── sources/           # one folder per source: manifest (.yaml) + collector + parser
     │   └── <source>/
     ├── remediation/       # remediation templates referenced by remediation.ref

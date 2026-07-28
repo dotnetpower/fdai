@@ -11,6 +11,10 @@ from jsonschema.exceptions import ValidationError
 
 from .common import (
     ACTION_TYPES_DIR,
+    ARCHITECTURE_REVIEW,
+    BEST_PRACTICES_DIR,
+    CATALOG_ROOT,
+    PROBES_DIR,
     PROFILES_DIR,
     REMEDIATION_DIR,
     REPO_ROOT,
@@ -150,6 +154,100 @@ def step_profile_deep(runner: Runner) -> StepResult:
             "known_rule_ids": len(known_rule_ids),
             "schema_bad": schema_bad,
             "resolve_bad": resolve_bad,
+        },
+    )
+
+
+def step_best_practice_deep(runner: Runner) -> StepResult:
+    """Validate Best Practice controls, typed references, and WAF initiatives."""
+
+    from fdai.rule_catalog.schema.best_practice_catalog import (
+        BestPracticeCatalogError,
+        load_best_practice_catalog,
+    )
+    from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
+    from fdai.rule_catalog.schema.governance_loader import GovernanceLoadError
+    from fdai.rule_catalog.schema.probe import load_probe_catalog, probe_ids
+    from fdai.shared.contracts.models import RequirementKind
+
+    rule_versions: dict[str, str] = {}
+    for path in iter_rule_files():
+        data = load_yaml(path)
+        if isinstance(data, dict) and "id" in data and "version" in data:
+            rule_versions[str(data["id"])] = str(data["version"])
+
+    raw = load_yaml(ARCHITECTURE_REVIEW)
+    if not isinstance(raw, dict) or not isinstance(raw.get("architecture_review"), dict):
+        return StepResult(
+            name="best_practice_deep",
+            ok=False,
+            duration_s=0.0,
+            findings=["config/architecture-review.yaml: architecture_review must be a mapping"],
+        )
+    review = raw["architecture_review"]
+    gate = review.get("production_gate")
+    if not isinstance(gate, dict):
+        return StepResult(
+            name="best_practice_deep",
+            ok=False,
+            duration_s=0.0,
+            findings=["config/architecture-review.yaml: production_gate must be a mapping"],
+        )
+    artifacts = review.get("artifacts")
+    if not isinstance(artifacts, list):
+        artifacts = []
+    artifact_ids = {
+        str(artifact["id"])
+        for artifact in artifacts
+        if isinstance(artifact, dict) and "id" in artifact
+    }
+    evidence_ids = {str(item) for item in gate.get("required_evidence", ())}
+    owner_ids = {str(item) for item in gate.get("required_owner_slots", ())}
+    registries = {
+        RequirementKind.RULE: set(rule_versions),
+        RequirementKind.PROBE: probe_ids(load_probe_catalog(PROBES_DIR)),
+        RequirementKind.ARTIFACT: artifact_ids | evidence_ids,
+        RequirementKind.METRIC: evidence_ids,
+        RequirementKind.DRILL: evidence_ids,
+        RequirementKind.APPROVAL: owner_ids,
+    }
+
+    findings: list[str] = []
+    controls = ()
+    try:
+        controls = load_best_practice_catalog(BEST_PRACTICES_DIR, known_refs=registries)
+    except BestPracticeCatalogError as exc:
+        findings.extend(f"{issue.key}: {issue.message}" for issue in exc.issues)
+    expected_controls = {f"RE:{number:02d}" for number in range(1, 11)} | {
+        f"OE:{number:02d}" for number in range(1, 12)
+    }
+    actual_controls = {control.control_id for control in controls}
+    if actual_controls != expected_controls:
+        findings.append("azure-waf controls differ from the required RE:01-10 and OE:01-11 set")
+
+    rule_sets = ()
+    try:
+        governance = load_governance_catalog(
+            CATALOG_ROOT,
+            known_rule_versions=rule_versions,
+        )
+        rule_sets = governance.rule_sets
+    except GovernanceLoadError as exc:
+        findings.extend(f"{issue.key}: {issue.message}" for issue in exc.issues)
+    rule_set_ids = {rule_set.id for rule_set in rule_sets}
+    required_rule_sets = {"azure-waf.reliability", "azure-waf.operational-excellence"}
+    if not required_rule_sets <= rule_set_ids:
+        findings.append("missing Azure WAF Reliability or Operational Excellence rule-set")
+
+    return StepResult(
+        name="best_practice_deep",
+        ok=not findings,
+        duration_s=0.0,
+        findings=findings,
+        stats={
+            "controls_checked": len(controls),
+            "rule_sets_checked": len(rule_sets),
+            "known_rule_ids": len(rule_versions),
         },
     )
 

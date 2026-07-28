@@ -85,7 +85,12 @@ def evaluate_readiness(raw: Any, *, repo_root: Path) -> ArchitectureReviewReadin
     return ArchitectureReviewReadiness(structure_valid=True, production_ready=True)
 
 
-def validate_contract(raw: Any, repo_root: Path, require_production_ready: bool) -> None:
+def validate_contract(
+    raw: Any,
+    repo_root: Path,
+    require_production_ready: bool,
+    evaluated_at: datetime | None = None,
+) -> None:
     """Validate the ARB manifest and optionally require every production gate."""
     root = _mapping(raw, "document")
     review = _mapping(root.get("architecture_review"), "architecture_review")
@@ -172,6 +177,16 @@ def validate_contract(raw: Any, repo_root: Path, require_production_ready: bool)
         ]
         if missing_evidence:
             failures.append(f"missing production evidence: {', '.join(missing_evidence)}")
+        moment = evaluated_at or datetime.now().astimezone()
+        if moment.tzinfo is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        expired_evidence = [
+            str(item)
+            for item, binding in evidence_bindings.items()
+            if _evidence_expired(binding, item=str(item), evaluated_at=moment)
+        ]
+        if expired_evidence:
+            failures.append(f"expired production evidence: {', '.join(expired_evidence)}")
         production_not_ready = [
             str(artifact["id"])
             for artifact in artifacts
@@ -219,18 +234,32 @@ def _validate_evidence_binding(item: str, raw: Any) -> None:
     digest = binding.get("sha256")
     if not isinstance(digest, str) or _SHA256_RE.fullmatch(digest) is None:
         raise ValueError(f"evidence_bindings.{item}.sha256 must be 64 lowercase hex characters")
-    if not _valid_timestamp(binding.get("approved_at")):
+    approved_at = _timestamp(binding.get("approved_at"))
+    if approved_at is None:
         raise ValueError(f"evidence_bindings.{item}.approved_at must be an ISO 8601 timestamp")
+    expires_at = _timestamp(binding.get("expires_at"))
+    if expires_at is None:
+        raise ValueError(f"evidence_bindings.{item}.expires_at must be an ISO 8601 timestamp")
+    if expires_at <= approved_at:
+        raise ValueError(f"evidence_bindings.{item}.expires_at must be after approved_at")
 
 
-def _valid_timestamp(value: Any) -> bool:
+def _evidence_expired(raw: Any, *, item: str, evaluated_at: datetime) -> bool:
+    binding = _mapping(raw, f"evidence_bindings.{item}")
+    expires_at = _timestamp(binding.get("expires_at"))
+    if expires_at is None:
+        raise ValueError(f"evidence_bindings.{item}.expires_at must be an ISO 8601 timestamp")
+    return expires_at <= evaluated_at
+
+
+def _timestamp(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value:
-        return False
+        return None
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
-        return False
-    return True
+        return None
+    return parsed if parsed.tzinfo is not None else None
 
 
 def _production_failures(message: str) -> tuple[str, ...]:

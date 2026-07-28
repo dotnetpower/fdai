@@ -1,8 +1,8 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: 25396cc8a0af01614a6c1d5e78ce9bacbe461865
-translation_revised: 2026-07-20
+translation_source_sha: de145ab14c4295e09c0d2c6ee1335165a6bef288
+translation_revised: 2026-07-29
 ---
 # Architecture Review Board 패킷
 
@@ -160,10 +160,17 @@ production-terraform-plan:
    sha256: <64-lowercase-hex-digest>
    approved_by: group:<fork-owned-approver>
    approved_at: 2026-07-13T00:00:00Z
+   expires_at: 2027-01-13T00:00:00Z
 ```
 
 Checker는 unknown binding key, missing field, malformed digest, invalid timestamp를 차단합니다.
-Customer name, resource id, evidence body는 포크의 governed store에 유지합니다.
+`expires_at`은 `approved_at`보다 뒤여야 하며 만료된 binding은 production readiness를
+차단합니다. Customer name, resource id, evidence body는 포크의 governed store에 유지합니다.
+
+Upstream required-evidence key는 Azure Well-Architected Reliability `RE:01-10` 및 Operational
+Excellence `OE:01-11` Best Practice requirement 전체를 커버합니다. Checklist evaluator는
+control에 더 짧은 freshness window가 선언된 경우 이를 적용합니다. Binding expiry는 외부 validity
+ceiling이며 control-specific freshness window를 연장하지 않습니다.
 
 ## Dependency와 failure behavior
 

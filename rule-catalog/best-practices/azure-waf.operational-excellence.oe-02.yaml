@@ -1,0 +1,25 @@
+schema_version: "1.0.0"
+kind: best-practice
+id: azure-waf.operational-excellence.oe-02
+version: "1.0.0"
+framework: azure-waf
+control_id: "OE:02"
+title: Standardize routine, ad-hoc, and emergency operations
+rationale: Standard procedures make operational tasks consistent, predictable, and reviewable.
+severity: high
+category: compliance
+requirements:
+  - kind: artifact
+    ref: operations-task-standards
+    freshness_days: 180
+  - kind: approval
+    ref: operations-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist
+  source_version: "2026-06-11"
+  resolved_ref: 84fd234f106eacce573ee415497edd96436e6620
+  content_hash: git:84fd234f106eacce573ee415497edd96436e6620
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: "2026-07-29T00:00:00Z"
+  mapped_by: catalog-team

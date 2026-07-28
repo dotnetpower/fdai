@@ -158,10 +158,17 @@ production-terraform-plan:
    sha256: <64-lowercase-hex-digest>
    approved_by: group:<fork-owned-approver>
    approved_at: 2026-07-13T00:00:00Z
+   expires_at: 2027-01-13T00:00:00Z
 ```
 
 The checker rejects unknown binding keys, missing fields, malformed digests, and invalid timestamps.
+`expires_at` must be later than `approved_at`; an expired binding blocks production readiness.
 Customer names, resource ids, and evidence bodies remain in the fork's governed store.
+
+The upstream required-evidence keys cover all Azure Well-Architected Reliability `RE:01-10` and
+Operational Excellence `OE:01-11` Best Practice requirements. The checklist evaluator applies each
+control's shorter freshness window when one is declared. Binding expiry is the outer validity
+ceiling and never extends a control-specific freshness window.
 
 ## Dependencies and failure behavior
 

@@ -105,7 +105,7 @@ fdai/
 │   │   ├── provisioning/       # surface-A Genesis bootstrap: pure `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O injected, no subprocess)
 │   │   └── scheduler_tick_cli.py  # standalone entry point that drives the scheduler tick from a cron / Container Apps Job
 │   ├── rule_catalog/          # rule-catalog PIPELINE code
-│   │   ├── schema/             # rule + ontology (ObjectType / LinkType / ActionType) schemas + validation
+│   │   ├── schema/             # rule, Best Practice, governance, and ontology schemas + validation
 │   │   ├── sources/            # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
 │   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
@@ -123,6 +123,8 @@ fdai/
 │   ├── action-types-overrides/ # scoped overrides to upstream ActionTypes (≤ resource-group scope)
 │   ├── profiles/               # named rule packs (upstream)
 │   ├── profiles-overrides/     # fork overlay for profiles
+│   ├── best-practices/         # framework checklist controls with typed evidence requirements
+│   ├── rule-sets/              # version-pinned governance initiatives for atomic rules
 │   ├── prompts/                # catalog-as-code prompt fragments (task packs, tools, personas)
 │   ├── remediation/            # remediation-plan artifacts
 │   ├── operator-console/       # `SystemConsoleTool` descriptor bundles
