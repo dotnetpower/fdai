@@ -167,9 +167,7 @@ class TestListAudit:
         model.record_audit_entry(_entry(), actor="fdai.core.control_loop")
         model.record_audit_entry(_entry(), actor="fdai.system")
 
-        page = await model.list_audit(
-            filters=AuditQueryFilters(actors=("fdai.core.control_loop",))
-        )
+        page = await model.list_audit(filters=AuditQueryFilters(actors=("fdai.core.control_loop",)))
 
         assert [item.actor for item in page.items] == ["fdai.core.control_loop"]
 
