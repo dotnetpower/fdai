@@ -247,6 +247,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   timezone-aware RFC 3339 `last_seen`; missing or malformed ordering time blocks publication and
   cursor advancement instead of substituting a process wall clock. A batch may contain each
   `resource_id` only once; duplicates block the whole batch before any event is published.
+  The Azure Activity Log adapter derives the resource-group `contains` relationship from each
+  mapped ARM resource id and includes it in the same delta page. Dependencies that require a live
+  resource read remain incomplete until an ARG or ARM hydration adapter supplies them.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.

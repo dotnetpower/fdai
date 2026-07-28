@@ -126,6 +126,10 @@ async def test_resume_cursor_builds_filter_and_maps_event() -> None:
     rec = page.resources[0]
     assert rec.type == neutral_id
     assert rec.provider_ref == arm_id
+    assert len(page.links) == 1
+    assert page.links[0].link_type == "contains"
+    assert page.links[0].to_id == rec.resource_id
+    assert page.links[0].to_type == rec.type
     # bearer token attached
     assert captured[0].headers["Authorization"] == "Bearer test-token-xyz"
     assert "eventTimestamp" in str(captured[0].url)

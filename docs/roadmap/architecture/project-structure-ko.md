@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 83e9829d6bab686f09f0dffae97ec5cf121b7cf5
+translation_source_sha: 6d92b025c12ea43d96975723696dcb2d1a609347
 translation_revised: 2026-07-28
 ---
 
@@ -246,6 +246,9 @@ fdai/
   timezone이 포함된 RFC 3339 `last_seen`이 필요합니다. Ordering time이 없거나 잘못되면 process wall
   clock으로 대체하지 않고 발행과 cursor 진행을 차단합니다. 하나의 batch에는 각 `resource_id`가 한
   번만 포함될 수 있으며 중복이 있으면 event를 발행하기 전에 batch 전체를 차단합니다.
+  Azure Activity Log adapter는 mapping된 각 ARM resource id에서 resource-group `contains` 관계를
+  생성하고 같은 delta page에 포함합니다. Live resource read가 필요한 dependency는 ARG 또는 ARM
+  hydration adapter가 제공할 때까지 incomplete 상태로 유지됩니다.
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
   정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를

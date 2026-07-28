@@ -64,6 +64,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from fdai.delivery.azure.arg_projection import extract_rg_contains_links
 from fdai.delivery.azure.arg_query import (
     _build_arm_to_neutral_map,
     _to_neutral_id,
@@ -157,19 +158,26 @@ class AzureActivityLogFactory:
 
             payload = await self._get(request_url)
             resources, page_max = self._map_events(payload)
+            links = extract_rg_contains_links(resources)
             running_max = _max_dt(carried_max, page_max)
 
             link = payload.get("nextLink")
             if isinstance(link, str) and link:
                 return ActivityLogPage(
                     resources=resources,
+                    links=links,
                     cursor=_encode_cursor(running_max, link),
                     has_more=True,
                 )
             # Last page: hand back the running newest timestamp as the next
             # resume cursor (or echo the input cursor when no event was seen).
             resume = running_max.isoformat() if running_max is not None else (cursor or "")
-            return ActivityLogPage(resources=resources, cursor=resume, has_more=False)
+            return ActivityLogPage(
+                resources=resources,
+                links=links,
+                cursor=resume,
+                has_more=False,
+            )
 
         return _fetch
 
