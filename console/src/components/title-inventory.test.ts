@@ -4,6 +4,7 @@ import ts from "typescript";
 import { describe, expect, test } from "vitest";
 
 const SOURCE_ROOT = join(import.meta.dirname, "..");
+const ACCESSIBLE_NATIVE_TITLE_ELEMENTS = new Set(["iframe"]);
 const VISIBLE_TITLE_COMPONENTS = new Set([
   "DetailSection",
   "EmptyState",
@@ -59,7 +60,9 @@ function titleAttributes(): readonly TitleAttribute[] {
 
 describe("native title inventory", () => {
   test("uses the shared Tooltip instead of browser-native title bubbles", () => {
-    const nativeAttributes = titleAttributes().filter(({ tag }) => /^[a-z]/.test(tag));
+    const nativeAttributes = titleAttributes().filter(
+      ({ tag }) => /^[a-z]/.test(tag) && !ACCESSIBLE_NATIVE_TITLE_ELEMENTS.has(tag),
+    );
     expect(nativeAttributes).toEqual([]);
   });
 
