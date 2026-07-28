@@ -130,7 +130,7 @@
     {
       "label": "console: core runtime (Azure transport, local PostgreSQL)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-runtime.env && set +a && bash scripts/automation/run-local-service.sh core-runtime \"$PWD/.fdai/logs/core-runtime.log\" -- env -u AZURE_CONFIG_DIR FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh core-runtime \"$PWD/.fdai/logs/core-runtime.log\" -- env -u AZURE_CONFIG_DIR FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
       "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": [],

@@ -24,6 +24,11 @@ if [[ ! "$max_bytes" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_LOCAL_SERVICE_LOG_MAX_BYTES MUST be a positive integer" >&2
   exit 2
 fi
+log_format="${FDAI_LOCAL_SERVICE_LOG_FORMAT:-raw}"
+if [[ "$log_format" != "raw" && "$log_format" != "json-plain" ]]; then
+  echo "FDAI_LOCAL_SERVICE_LOG_FORMAT MUST be raw or json-plain" >&2
+  exit 2
+fi
 
 log_dir="$(dirname "$log_file")"
 mkdir -p "$log_dir"
@@ -56,17 +61,12 @@ write_marker() {
 }
 
 capture_output() {
-  local line
-  local lines_since_check=0
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    printf '%s\n' "$line"
-    printf '%s\n' "$line" >> "$log_file"
-    lines_since_check=$((lines_since_check + 1))
-    if (( lines_since_check >= 100 )); then
-      rotate_log
-      lines_since_check=0
-    fi
-  done
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  python3 "$script_dir/capture-local-service-log.py" \
+    --log-file "$log_file" \
+    --format "$log_format" \
+    --max-bytes "$max_bytes"
 }
 
 rotate_log

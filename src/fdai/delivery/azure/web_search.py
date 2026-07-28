@@ -197,7 +197,7 @@ class AzureResponsesWebSearchCandidate:
             {
                 "model": self._config.deployment,
                 "input": "Reply only with OK.",
-                "max_output_tokens": 8,
+                "max_output_tokens": 128,
             },
             timeout_seconds=30.0,
         )

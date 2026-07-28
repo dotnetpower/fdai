@@ -10,6 +10,22 @@ from typing import Any
 from starlette.applications import Starlette
 
 from fdai.delivery.read_api.routes import chat_registration
+from fdai.shared.telemetry.correlation import with_correlation
+
+
+async def _run_correlated_latency_probe(
+    target: Any,
+    *,
+    label: str,
+    interval_seconds: int,
+    correlation_id: str,
+) -> None:
+    with with_correlation(correlation_id):
+        await chat_registration.periodic_latency_probe(
+            target,
+            label=label,
+            interval_seconds=interval_seconds,
+        )
 
 
 def build_lifespan(
@@ -42,23 +58,25 @@ def build_lifespan(
         if chat_registration.is_routed_chat_backend(chat_backend):
             probe_tasks.append(
                 asyncio.create_task(
-                    chat_registration.periodic_latency_probe(
+                    _run_correlated_latency_probe(
                         chat_backend,
                         label="CommandDeck narrator router",
                         interval_seconds=max(30, config.chat_probe_interval_seconds),
+                        correlation_id="read-api:narrator-latency-probe",
                     )
                 )
             )
         if web_search_resolver is not None:
             probe_tasks.append(
                 asyncio.create_task(
-                    chat_registration.periodic_latency_probe(
+                    _run_correlated_latency_probe(
                         web_search_resolver,
                         label="CommandDeck web-search router",
                         interval_seconds=max(
                             30,
                             int(web_search_resolver.probe_interval_seconds),
                         ),
+                        correlation_id="read-api:web-search-latency-probe",
                     )
                 )
             )

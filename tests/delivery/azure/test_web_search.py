@@ -272,6 +272,29 @@ async def test_azure_candidate_classifies_multilingual_search_intent_as_strict_j
     assert "¿Puedes investigar alternativas a Grafana?" in body["input"][1]["content"]
 
 
+async def test_azure_candidate_probe_uses_bounded_output_token_budget() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"output_text": "OK"})
+
+    candidate = AzureResponsesWebSearchCandidate(
+        config=AzureResponsesWebSearchConfig(
+            endpoint="https://example.openai.azure.com",
+            deployment="mini-fast",
+        ),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    await candidate.probe()
+
+    body = captured["body"]
+    assert isinstance(body, dict)
+    assert body["max_output_tokens"] == 128
+
+
 async def test_alternative_search_drops_self_and_generic_vendor_sources() -> None:
     captured: dict[str, object] = {}
 
