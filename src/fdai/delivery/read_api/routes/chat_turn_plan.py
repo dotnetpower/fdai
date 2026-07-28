@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -61,6 +62,20 @@ class TurnPlanner(Protocol):
     ) -> TurnPlan: ...
 
 
+class StructuredCompletionBackend(Protocol):
+    """Bounded JSON-schema completion surface supplied by a chat backend."""
+
+    async def complete_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_content: str,
+        schema_name: str,
+        schema: Mapping[str, object],
+        max_tokens: int,
+    ) -> Mapping[str, object]: ...
+
+
 TURN_PLAN_SYSTEM_PROMPT: Final[str] = """You route one FDAI operator turn.
 Return only JSON matching the supplied schema. Select only a listed tool or action type.
 Classify questions about actions as answer, not action_draft. Select action_draft or
@@ -96,6 +111,38 @@ TURN_PLAN_JSON_SCHEMA: Final[dict[str, object]] = {
     ],
     "additionalProperties": False,
 }
+
+_MAX_PROMPT_CHARS: Final = 4_000
+_MAX_HISTORY_TURNS: Final = 6
+_MAX_HISTORY_CHARS: Final = 1_000
+_MAX_TOOLS: Final = 64
+_MAX_TOOL_DESCRIPTION_CHARS: Final = 512
+
+
+class BackendTurnPlanner:
+    """Use the configured mini backend to create one validated candidate plan."""
+
+    def __init__(self, backend: StructuredCompletionBackend) -> None:
+        self._backend = backend
+
+    async def plan_turn(
+        self,
+        *,
+        prompt: str,
+        tools: Sequence[TurnTool],
+        history: Sequence[Mapping[str, str]],
+    ) -> TurnPlan:
+        bounded_tools = tuple(tools[:_MAX_TOOLS])
+        raw = await self._backend.complete_structured(
+            system_prompt=TURN_PLAN_SYSTEM_PROMPT,
+            user_content=_turn_plan_input(prompt, bounded_tools, history),
+            schema_name="fdai_turn_plan",
+            schema=TURN_PLAN_JSON_SCHEMA,
+            max_tokens=512,
+        )
+        plan = parse_turn_plan(raw)
+        _validate_selection(plan, bounded_tools)
+        return plan
 
 
 def parse_turn_plan(raw: Mapping[str, object]) -> TurnPlan:
@@ -168,9 +215,57 @@ def _optional_string(value: object, *, maximum: int, field: str) -> str | None:
     return value.strip()
 
 
+def _turn_plan_input(
+    prompt: str,
+    tools: Sequence[TurnTool],
+    history: Sequence[Mapping[str, str]],
+) -> str:
+    tool_manifest = [
+        {
+            "name": tool.name[:128],
+            "description": tool.description[:_MAX_TOOL_DESCRIPTION_CHARS],
+            "side_effect_class": tool.side_effect_class,
+            "argument_schema": dict(tool.argument_schema),
+        }
+        for tool in tools
+    ]
+    bounded_history = [
+        {
+            "role": str(turn.get("role", ""))[:32],
+            "content": str(turn.get("content", ""))[:_MAX_HISTORY_CHARS],
+        }
+        for turn in history[-_MAX_HISTORY_TURNS:]
+    ]
+    return json.dumps(
+        {
+            "operator_request": prompt[:_MAX_PROMPT_CHARS],
+            "available_capabilities": tool_manifest,
+            "recent_history": bounded_history,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _validate_selection(plan: TurnPlan, tools: Sequence[TurnTool]) -> None:
+    by_name = {tool.name: tool for tool in tools}
+    selected = plan.tool_name if plan.kind is TurnKind.READ_TOOL else plan.action_type
+    if selected is None:
+        return
+    tool = by_name.get(selected)
+    if tool is None:
+        raise ValueError("turn plan selected an unavailable capability")
+    if plan.kind is TurnKind.READ_TOOL and tool.side_effect_class != "read":
+        raise ValueError("turn plan read_tool selected a write capability")
+    if plan.requires_confirmation and tool.side_effect_class == "read":
+        raise ValueError("turn plan write draft selected a read capability")
+
+
 __all__ = [
     "TURN_PLAN_JSON_SCHEMA",
     "TURN_PLAN_SYSTEM_PROMPT",
+    "BackendTurnPlanner",
+    "StructuredCompletionBackend",
     "TurnKind",
     "TurnPlan",
     "TurnPlanner",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 import httpx
@@ -20,6 +20,8 @@ from fdai.delivery.read_api.routes.chat_backend_common import (
     _default_chat_http_client,
     _metering_scope,
     _raise_upstream_error,
+    _structured_completion_body,
+    _structured_result,
     _token_usage,
     _usage_summary,
 )
@@ -154,6 +156,64 @@ class AzureAdChatBackend:
         if measured_usage is not None and self._metering is not None:
             await self._metering.emit_safe(measured_usage, usage_scope=_metering_scope())
         return reply
+
+    async def complete_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_content: str,
+        schema_name: str,
+        schema: Mapping[str, object],
+        max_tokens: int,
+    ) -> Mapping[str, object]:
+        """Return one strict JSON-schema completion from the narrator model."""
+
+        import asyncio
+
+        try:
+            token = (
+                await self._workload_identity.get_token(self._target.auth_audience)
+                if self._workload_identity is not None
+                else await asyncio.to_thread(
+                    self._identity().get_token_sync,
+                    self._target.auth_audience,
+                )
+            )
+        except Exception as exc:
+            _LOG.warning("chat backend workload identity failed: %s", exc)
+            raise HTTPException(status_code=502, detail="chat auth failed") from exc
+        body = _structured_completion_body(
+            model=self._deployment,
+            system_prompt=system_prompt,
+            user_content=user_content,
+            schema_name=schema_name,
+            schema=schema,
+            max_tokens=max_tokens,
+        )
+        request = self._target.operation("chat/completions")
+        if request.model_body_field is not None:
+            body["model"] = request.model_body_field
+        try:
+            response = await self._http.post(
+                request.url,
+                params=request.params,
+                headers={
+                    "Authorization": f"Bearer {token.token}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+                timeout=self._timeout,
+            )
+        except httpx.HTTPError as exc:
+            _LOG.warning("chat structured completion HTTP error: %s", exc)
+            raise HTTPException(status_code=502, detail="chat upstream unreachable") from exc
+        if response.status_code >= 400:
+            _raise_upstream_error(response.status_code, response.text)
+        try:
+            envelope = response.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
+        return _structured_result(envelope)
 
     async def answer_stream(
         self,

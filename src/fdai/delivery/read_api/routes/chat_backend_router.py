@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from collections import deque
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final
 
 from fdai.delivery.read_api.routes.chat_backend_azure import AzureAdChatBackend
@@ -264,6 +264,61 @@ class LatencyRoutedChatBackend:
             }
             return out
 
+        self._log_all_penalised_if_saturated()
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("chat router exhausted candidates")
+
+    async def complete_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_content: str,
+        schema_name: str,
+        schema: Mapping[str, object],
+        max_tokens: int,
+    ) -> Mapping[str, object]:
+        """Route one strict structured completion with bounded failover."""
+
+        attempted: set[str] = set()
+        last_error: Exception | None = None
+        deadline = time.monotonic() + self._turn_timeout_seconds
+        while len(attempted) < len(self._candidates):
+            name, backend = self._pick(exclude=attempted)
+            self._in_flight[name] += 1
+            started = time.monotonic()
+            try:
+                complete = getattr(backend, "complete_structured", None)
+                if complete is None:
+                    raise ChatBackendUnavailableError(
+                        f"chat candidate {name!r} does not support structured completion"
+                    )
+                async with asyncio.timeout(self._attempt_budget(deadline, attempted)):
+                    result = await complete(
+                        system_prompt=system_prompt,
+                        user_content=user_content,
+                        schema_name=schema_name,
+                        schema=schema,
+                        max_tokens=max_tokens,
+                    )
+                if not isinstance(result, Mapping):
+                    raise ChatBackendUnavailableError(
+                        f"chat candidate {name!r} returned an invalid structured completion"
+                    )
+            except Exception as exc:
+                self._samples[name].append(_ROUTER_FAILURE_PENALTY_MS)
+                attempted.add(name)
+                last_error = exc
+                _LOG.warning(
+                    "router.structured_candidate_failed",
+                    extra={"candidate": name, "error_type": type(exc).__name__},
+                )
+                continue
+            finally:
+                self._in_flight[name] = max(0, self._in_flight[name] - 1)
+            self._samples[name].append(int((time.monotonic() - started) * 1000))
+            self._success_counts[name] += 1
+            return {str(key): value for key, value in result.items()}
         self._log_all_penalised_if_saturated()
         if last_error is not None:
             raise last_error

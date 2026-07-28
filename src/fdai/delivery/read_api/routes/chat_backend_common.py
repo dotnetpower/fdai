@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any, Final, NoReturn, Protocol
 
 import httpx
@@ -143,6 +145,62 @@ def _completion_body_params(model: str, *, temperature: float, max_tokens: int) 
     if normalized_model.startswith(_COMPLETION_TOKEN_PARAM_MODELS):
         return {"max_completion_tokens": max_tokens}
     return {"temperature": temperature, "max_tokens": max_tokens}
+
+
+def _structured_completion_body(
+    *,
+    model: str,
+    system_prompt: str,
+    user_content: str,
+    schema_name: str,
+    schema: Mapping[str, object],
+    max_tokens: int,
+) -> dict[str, Any]:
+    """Build one strict JSON-schema chat-completion request."""
+
+    return {
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema_name,
+                "strict": True,
+                "schema": dict(schema),
+            },
+        },
+        **_completion_body_params(model, temperature=0.0, max_tokens=max_tokens),
+    }
+
+
+def _structured_result(envelope: object) -> Mapping[str, object]:
+    """Parse one untrusted chat-completion envelope as a JSON object."""
+
+    if not isinstance(envelope, Mapping):
+        raise HTTPException(status_code=502, detail="chat upstream returned invalid JSON")
+    choices = envelope.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise HTTPException(status_code=502, detail="chat upstream returned no choices")
+    first = choices[0]
+    message = first.get("message") if isinstance(first, Mapping) else None
+    content = message.get("content") if isinstance(message, Mapping) else None
+    if not isinstance(content, str) or not content.strip():
+        raise HTTPException(status_code=502, detail="chat upstream returned no structured content")
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="chat upstream returned invalid structured content",
+        ) from exc
+    if not isinstance(parsed, Mapping):
+        raise HTTPException(
+            status_code=502,
+            detail="chat upstream structured content is not an object",
+        )
+    return {str(key): value for key, value in parsed.items()}
 
 
 _COGNITIVE_SCOPE: Final[str] = COGNITIVE_SERVICES_SCOPE
