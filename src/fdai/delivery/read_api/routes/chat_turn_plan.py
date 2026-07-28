@@ -64,6 +64,17 @@ class TurnPlan:
             "requires_confirmation": self.requires_confirmation,
         }
 
+    def confirmation_payload(self, *, request_id: str) -> dict[str, object]:
+        """Return the typed payload a separate confirmation request may submit."""
+
+        if not self.requires_confirmation or self.action_type is None:
+            raise ValueError("turn plan does not require confirmation")
+        return {
+            "action_type": self.action_type,
+            "arguments": dict(self.arguments),
+            "idempotency_key": f"draft-{request_id}"[:200],
+        }
+
 
 class TurnPlanner(Protocol):
     """Translate natural language into one validated candidate plan."""
@@ -174,6 +185,42 @@ def default_read_turn_tools() -> tuple[TurnTool, ...]:
         for schema in default_tool_schemas()
         if schema.side_effect_class == "read"
     )
+
+
+def action_turn_tools(action_type_names: Sequence[str]) -> tuple[TurnTool, ...]:
+    """Project typed write drafts without granting submission authority."""
+
+    generic = tuple(
+        TurnTool(
+            name=name,
+            description=f"Draft the {name} action for explicit operator confirmation.",
+            side_effect_class="write",
+            argument_schema={
+                "type": "object",
+                "properties": {"resource_id": {"type": "string", "maxLength": 200}},
+                "additionalProperties": False,
+            },
+        )
+        for name in sorted(set(action_type_names))
+    )
+    incident = TurnTool(
+        name="incident.create",
+        description="Draft a new incident with an explicit severity and target.",
+        side_effect_class="write",
+        argument_schema={
+            "type": "object",
+            "properties": {
+                "severity": {
+                    "type": "string",
+                    "enum": ["sev1", "sev2", "sev3", "sev4", "sev5"],
+                },
+                "target": {"type": "string", "maxLength": 200},
+            },
+            "required": ["severity", "target"],
+            "additionalProperties": False,
+        },
+    )
+    return (*generic, incident)
 
 
 def parse_turn_plan(raw: Mapping[str, object]) -> TurnPlan:
@@ -301,6 +348,7 @@ __all__ = [
     "TurnPlan",
     "TurnPlanner",
     "TurnTool",
+    "action_turn_tools",
     "default_read_turn_tools",
     "parse_turn_plan",
 ]

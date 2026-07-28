@@ -92,6 +92,7 @@ def append_auxiliary_routes(
         document_evidence_resolver=config.chat_document_evidence,
         user_context_ontology_projector=config.user_context_ontology_projector,
         model_settings=config.model_settings,
+        console_action=config.console_action,
         authorize=authorize,
         read_model=read_model,
         core_paths=core_paths,

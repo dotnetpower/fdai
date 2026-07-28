@@ -37,7 +37,7 @@ import json
 import logging
 import re
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -66,6 +66,7 @@ from .incident_chat import open_investigation_incident, submit_incident_chat
 _LOG = logging.getLogger(__name__)
 
 DEFAULT_ACTION_PATH: Final[str] = "/chat/action"
+DEFAULT_ACTION_CONFIRM_PATH: Final[str] = "/chat/action/confirm"
 DEFAULT_MAX_BODY_BYTES: Final[int] = 8_000
 
 #: Hard caps on operator-supplied values that ride into the proposal (and thus
@@ -427,6 +428,64 @@ class ConsoleActionSubmitter:
             )
         return response
 
+    async def submit_planned(
+        self,
+        *,
+        action_type: str,
+        arguments: Mapping[str, object],
+        principal: Principal,
+        session_id: str | None,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        """Confirm one typed model draft after server allowlist validation."""
+
+        if action_type == "incident.create":
+            _reject_planned_arguments(arguments, {"severity", "target"})
+            severity = arguments.get("severity")
+            target = arguments.get("target")
+            if (
+                not isinstance(severity, str)
+                or severity.lower() not in {item.value for item in IncidentSeverity}
+                or not isinstance(target, str)
+                or not target.strip()
+                or len(target) > MAX_RESOURCE_ID_CHARS
+            ):
+                return {"submitted": False, "reason": "invalid_action_arguments"}
+            prepared = await self.submit(
+                question=f"create {severity.lower()} incident target {target.strip()}",
+                principal=principal,
+                session_id=session_id,
+                idempotency_key=idempotency_key,
+            )
+            if prepared.get("reason") != "incident_confirmation_required":
+                return prepared
+            return await self.submit(
+                question="confirm",
+                principal=principal,
+                session_id=session_id,
+                idempotency_key=idempotency_key,
+            )
+
+        if action_type not in self.action_type_names:
+            return {"submitted": False, "reason": "unmapped_action_intent"}
+        _reject_planned_arguments(arguments, {"resource_id"})
+        resource_id = arguments.get("resource_id")
+        if resource_id is not None and (
+            not isinstance(resource_id, str)
+            or not resource_id.strip()
+            or len(resource_id) > MAX_RESOURCE_ID_CHARS
+        ):
+            return {"submitted": False, "reason": "invalid_action_arguments"}
+        command = action_type
+        if isinstance(resource_id, str):
+            command = f"{command} {resource_id.strip()}"
+        return await self.submit(
+            question=command,
+            principal=principal,
+            session_id=session_id,
+            idempotency_key=idempotency_key,
+        )
+
     async def _publish_incident_ticket_proposal(
         self,
         *,
@@ -487,6 +546,11 @@ def _parse_investigation_request(question: str) -> tuple[str, str] | None:
     if match is None:
         return None
     return match.group("kind").lower(), match.group("resource")
+
+
+def _reject_planned_arguments(arguments: Mapping[str, object], allowed: set[str]) -> None:
+    if any(not isinstance(key, str) or key not in allowed for key in arguments):
+        raise ValueError("planned action arguments contain unsupported fields")
 
 
 AuthorizePrincipalFn = Callable[[Request], Awaitable[Principal]]
@@ -573,6 +637,65 @@ def make_console_action_route(
     return Route(path, handler, methods=["POST"])
 
 
+def make_console_action_confirm_route(
+    *,
+    submitter: ConsoleActionSubmitter,
+    authorize_principal: AuthorizePrincipalFn,
+    path: str = DEFAULT_ACTION_CONFIRM_PATH,
+    max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
+) -> Route:
+    """Build the typed confirmation route for a semantic action draft."""
+
+    async def handler(request: Request) -> JSONResponse:
+        principal = await authorize_principal(request)
+        body_bytes = await request.body()
+        if len(body_bytes) > max_body_bytes:
+            raise HTTPException(status_code=413, detail="action body too large")
+        try:
+            body = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=400, detail="action body MUST be JSON") from exc
+        if not isinstance(body, dict) or set(body) != {
+            "action_type",
+            "arguments",
+            "session_id",
+            "idempotency_key",
+        }:
+            raise HTTPException(status_code=400, detail="typed action confirmation is invalid")
+        action_type = body["action_type"]
+        arguments = body["arguments"]
+        session_id = body["session_id"]
+        idempotency_key = body["idempotency_key"]
+        if not isinstance(action_type, str) or not action_type:
+            raise HTTPException(status_code=400, detail="action_type MUST be a string")
+        if not isinstance(arguments, dict):
+            raise HTTPException(status_code=400, detail="arguments MUST be an object")
+        if session_id is not None and not isinstance(session_id, str):
+            raise HTTPException(status_code=400, detail="session_id MUST be a string")
+        if (
+            not isinstance(idempotency_key, str)
+            or not idempotency_key
+            or len(idempotency_key) > MAX_IDEMPOTENCY_CHARS
+        ):
+            raise HTTPException(status_code=400, detail="idempotency_key is invalid")
+        try:
+            result = await submitter.submit_planned(
+                action_type=action_type,
+                arguments=arguments,
+                principal=principal,
+                session_id=session_id,
+                idempotency_key=idempotency_key,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        status_code = (
+            403 if result.get("reason") in ("rbac_capability", "deny_override_forbidden") else 200
+        )
+        return JSONResponse(result, status_code=status_code)
+
+    return Route(path, handler, methods=["POST"])
+
+
 def append_console_action_route(
     routes: list[BaseRoute],
     *,
@@ -588,6 +711,12 @@ def append_console_action_route(
         raise ValueError(f"action path {DEFAULT_ACTION_PATH!r} collides with a core route")
     routes.append(
         make_console_action_route(
+            submitter=submitter,
+            authorize_principal=authorize_principal,
+        )
+    )
+    routes.append(
+        make_console_action_confirm_route(
             submitter=submitter,
             authorize_principal=authorize_principal,
         )

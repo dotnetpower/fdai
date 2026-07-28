@@ -371,6 +371,7 @@ def make_chat_route(
                 ) from exc
         try:
             operator_turn = None
+            semantic_plan = None
             if turn_planner is not None:
                 try:
                     semantic_plan = await turn_planner.plan_turn(
@@ -415,6 +416,21 @@ def make_chat_route(
                             principal_id=user_id,
                         )
                     return JSONResponse(completed_replay_payload(completed_turn))
+            if semantic_plan is not None and semantic_plan.requires_confirmation:
+                if busy_input_coordinator is not None and active_turn is not None:
+                    await busy_input_coordinator.finish_turn(
+                        session_id=session_id,
+                        turn_id=request_id,
+                        principal_id=user_id,
+                    )
+                return JSONResponse(
+                    {
+                        "answer": "Review this action draft before submitting it.",
+                        "model": "semantic-turn-planner",
+                        "source": "action-draft",
+                        "action_draft": semantic_plan.confirmation_payload(request_id=request_id),
+                    }
+                )
             view_context = await _with_compiled_user_policy(
                 view_context,
                 user_id=user_id,

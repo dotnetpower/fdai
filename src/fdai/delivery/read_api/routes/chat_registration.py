@@ -51,6 +51,7 @@ from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.read_api.routes.chat_turn_plan import (
     BackendTurnPlanner,
     StructuredCompletionBackend,
+    action_turn_tools,
 )
 from fdai.delivery.read_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.read_api.routes.detection_readiness import DetectionReadinessReader
@@ -84,6 +85,7 @@ def append_chat_routes(
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_settings: object | None = None,
+    console_action: object | None = None,
     authorize: Callable[[Request], Awaitable[str]],
     read_model: ConsoleReadModel,
     core_paths: Collection[str],
@@ -145,7 +147,11 @@ def append_chat_routes(
     turn_planner = (
         BackendTurnPlanner(backend) if isinstance(backend, StructuredCompletionBackend) else None
     )
-    turn_tools = read_tools.turn_tools()
+    action_names = getattr(console_action, "action_type_names", ())
+    turn_tools = (
+        *read_tools.turn_tools(),
+        *(action_turn_tools(tuple(action_names)) if console_action is not None else ()),
+    )
     routes.extend(
         (
             make_chat_route(

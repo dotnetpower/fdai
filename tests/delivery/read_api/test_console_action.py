@@ -33,6 +33,7 @@ from fdai.delivery.read_api.routes.console_action import (
     ConsoleActionSubmitter,
     RefusalRecord,
     append_console_action_route,
+    make_console_action_confirm_route,
     make_console_action_route,
 )
 from fdai.delivery.read_api.routes.incident_projection import project_incidents
@@ -696,6 +697,15 @@ def _app(sub: ConsoleActionSubmitter, principal: Principal) -> Starlette:
     return Starlette(routes=[make_console_action_route(submitter=sub, authorize_principal=_authz)])
 
 
+def _confirm_app(sub: ConsoleActionSubmitter, principal: Principal) -> Starlette:
+    async def _authz(_req: Request) -> Principal:
+        return principal
+
+    return Starlette(
+        routes=[make_console_action_confirm_route(submitter=sub, authorize_principal=_authz)]
+    )
+
+
 def test_route_contributor_gets_200_submitted() -> None:
     sub, _bus = _submitter()
     client = TestClient(_app(sub, _principal("u", Role.CONTRIBUTOR)))
@@ -727,6 +737,74 @@ def test_route_rejects_empty_prompt() -> None:
     client = TestClient(_app(sub, _principal("u", Role.CONTRIBUTOR)))
     resp = client.post("/chat/action", json={"prompt": "   "})
     assert resp.status_code == 400
+
+
+def test_typed_confirmation_publishes_allowlisted_action_once() -> None:
+    _unused, bus = _submitter()
+    submitter = ConsoleActionSubmitter(
+        event_bus=bus,
+        raw_event_topic=_TOPIC,
+        action_type_names=frozenset({"ops.restart-service"}),
+    )
+    client = TestClient(_confirm_app(submitter, _principal("u", Role.CONTRIBUTOR)))
+
+    response = client.post(
+        "/chat/action/confirm",
+        json={
+            "action_type": "ops.restart-service",
+            "arguments": {"resource_id": "svc-1"},
+            "session_id": "session-1",
+            "idempotency_key": "draft-1",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["submitted"] is True
+    envelopes = asyncio.run(_drain(bus, _TOPIC))
+    assert len(envelopes) == 1
+    assert envelopes[0].payload["action_type"] == "ops.restart-service"
+    assert envelopes[0].payload["idempotency_key"] == "u::draft-1"
+
+
+@pytest.mark.parametrize(
+    ("role", "action_type", "arguments", "status"),
+    [
+        (Role.READER, "ops.restart-service", {"resource_id": "svc-1"}, 403),
+        (Role.CONTRIBUTOR, "ops.unknown", {"resource_id": "svc-1"}, 200),
+        (
+            Role.CONTRIBUTOR,
+            "ops.restart-service",
+            {"resource_id": "svc-1", "unexpected": True},
+            400,
+        ),
+    ],
+)
+def test_typed_confirmation_refusals_publish_nothing(
+    role: Role,
+    action_type: str,
+    arguments: dict[str, object],
+    status: int,
+) -> None:
+    _unused, bus = _submitter()
+    submitter = ConsoleActionSubmitter(
+        event_bus=bus,
+        raw_event_topic=_TOPIC,
+        action_type_names=frozenset({"ops.restart-service"}),
+    )
+    client = TestClient(_confirm_app(submitter, _principal("u", role)))
+
+    response = client.post(
+        "/chat/action/confirm",
+        json={
+            "action_type": action_type,
+            "arguments": arguments,
+            "session_id": "session-1",
+            "idempotency_key": "draft-1",
+        },
+    )
+
+    assert response.status_code == status
+    assert asyncio.run(_drain(bus, _TOPIC)) == []
 
 
 # ---------------------------------------------------------------------------

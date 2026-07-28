@@ -293,6 +293,20 @@ def make_chat_stream_route(
                         )
                     else:
                         view_context["_turn_plan"] = semantic_plan.to_dict()
+                        if semantic_plan.requires_confirmation:
+                            await cleanup()
+                            yield frame(
+                                "done",
+                                {
+                                    "answer": "Review this action draft before submitting it.",
+                                    "model": "semantic-turn-planner",
+                                    "source": "action-draft",
+                                    "action_draft": semantic_plan.confirmation_payload(
+                                        request_id=request_id
+                                    ),
+                                },
+                            )
+                            return
                 yield frame(
                     "status",
                     {

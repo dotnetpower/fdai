@@ -58,8 +58,10 @@ class _Identity:
 class _AnswerBackend:
     def __init__(self) -> None:
         self.context: dict[str, object] = {}
+        self.calls = 0
 
     async def answer(self, **kwargs: object) -> dict[str, object]:
+        self.calls += 1
         raw_context = kwargs["view_context"]
         assert isinstance(raw_context, dict)
         self.context = raw_context
@@ -67,12 +69,13 @@ class _AnswerBackend:
 
 
 class _Planner:
-    def __init__(self) -> None:
+    def __init__(self, result: TurnPlan | None = None) -> None:
         self.calls = 0
+        self.result = result or parse_turn_plan(_plan())
 
     async def plan_turn(self, **_kwargs: object) -> TurnPlan:
         self.calls += 1
-        return parse_turn_plan(_plan())
+        return self.result
 
 
 class _FailingKeywordResolver:
@@ -325,6 +328,53 @@ def test_chat_routes_attach_shadow_semantic_plan(stream: bool) -> None:
         "confidence": 0.91,
         "requires_confirmation": False,
     }
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_chat_write_plan_returns_draft_without_calling_answer_backend(stream: bool) -> None:
+    backend = _AnswerBackend()
+    planner = _Planner(
+        parse_turn_plan(
+            _plan(
+                kind="action_draft",
+                action_type="ops.restart-service",
+                arguments={"resource_id": "svc-1"},
+            )
+        )
+    )
+    action_tool = TurnTool(
+        name="ops.restart-service",
+        description="Draft a restart.",
+        side_effect_class="write",
+        argument_schema={"type": "object"},
+    )
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(action_tool,),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(action_tool,),
+        )
+    )
+    path = "/chat/stream" if stream else "/chat"
+
+    response = TestClient(Starlette(routes=[route])).post(
+        path,
+        json={"prompt": "restart svc-1", "request_id": "request-1"},
+    )
+
+    assert response.status_code == 200
+    assert backend.calls == 0
+    payload = response.text if stream else json.dumps(response.json())
+    assert '"action_type":"ops.restart-service"' in payload.replace(" ", "")
+    assert '"resource_id":"svc-1"' in payload.replace(" ", "")
 
 
 @pytest.mark.asyncio
