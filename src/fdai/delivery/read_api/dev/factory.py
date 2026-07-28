@@ -61,6 +61,10 @@ from fdai.core.scheduler import (  # noqa: E402
     ScheduleRunHistoryService,
 )
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus  # noqa: E402
+from fdai.delivery.persistence import (  # noqa: E402
+    PostgresMeteringStore,
+    PostgresMeteringStoreConfig,
+)
 from fdai.delivery.persistence.postgres_conversation_delivery import (  # noqa: E402
     PostgresConversationDeliveryStore,
     PostgresConversationDeliveryStoreConfig,
@@ -210,6 +214,26 @@ _REPO_ROOT = Path(__file__).resolve().parents[5]
 
 # One seed audit row: (agent, tier, action_kind, outcome, finished_hhmmss,
 # correlation, summary, detail, work_ms, inputs, outputs).
+
+
+def _build_local_metering(
+    *,
+    read_model: ConsoleReadModel,
+    local_database_configured: bool,
+    test_fixtures: bool,
+) -> Any:
+    if local_database_configured and not test_fixtures:
+        postgres_read_model = cast(PostgresConsoleReadModel, read_model)
+        return PostgresMeteringStore(
+            config=PostgresMeteringStoreConfig(
+                dsn=postgres_read_model._config.dsn,
+                statement_timeout_ms=postgres_read_model._config.statement_timeout_ms,
+                connect_timeout_s=postgres_read_model._config.connect_timeout_s,
+            )
+        )
+    return InMemoryMeteringSink(
+        initial=_synthetic_llm_invocations() if test_fixtures else (),
+    )
 
 
 def build_local_app(
@@ -525,8 +549,10 @@ def build_local_app(
                     interactive_runtime.pantheon_runtime.health()
                 ),
             )
-    metering = InMemoryMeteringSink(
-        initial=_synthetic_llm_invocations() if test_fixtures else (),
+    metering = _build_local_metering(
+        read_model=read_model,
+        local_database_configured=local_database_configured,
+        test_fixtures=test_fixtures,
     )
     models = build_local_model_wiring(_REPO_ROOT, metering_sink=metering)
     log_query_provider = None

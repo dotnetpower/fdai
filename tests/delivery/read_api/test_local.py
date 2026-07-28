@@ -13,9 +13,11 @@ from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 from fdai.core.control_loop import ControlLoopOutcome
+from fdai.core.metering import InMemoryMeteringSink
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 from fdai.delivery.agent_introspection_bus import EventBusAgentIntrospectionClient
+from fdai.delivery.persistence import PostgresMeteringStore
 from fdai.delivery.read_api.dev import factory as _local_factory
 from fdai.delivery.read_api.dev import local as _local
 from fdai.delivery.read_api.dev.azure_cli_identity import LocalAzureCliIdentity
@@ -24,7 +26,10 @@ from fdai.delivery.read_api.dev.config import (
     local_entra_verifier_environment,
 )
 from fdai.delivery.read_api.dev.runtime_wiring import build_interactive_pantheon_wiring
-from fdai.delivery.read_api.postgres_read_model import PostgresConsoleReadModel
+from fdai.delivery.read_api.postgres_read_model import (
+    PostgresConsoleReadModel,
+    PostgresConsoleReadModelConfig,
+)
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.streaming.agent_activity_stream import (
     DEFAULT_CHANNEL,
@@ -50,6 +55,37 @@ _DATABASE_URL_ENV = "FDAI_DATABASE_URL"
 _EMBED_PANTHEON_ENV = "FDAI_READ_API_EMBED_PANTHEON"
 _AUTHORITATIVE_READ_API_ENV = "FDAI_AUTHORITATIVE_READ_API_BASE_URL"
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_local_metering_uses_read_model_postgres_config() -> None:
+    read_model = PostgresConsoleReadModel(
+        config=PostgresConsoleReadModelConfig(
+            dsn="postgresql://fdai:devonly@127.0.0.1:5432/fdai",
+            statement_timeout_ms=3210,
+            connect_timeout_s=4,
+        )
+    )
+
+    metering = _local_factory._build_local_metering(
+        read_model=read_model,
+        local_database_configured=True,
+        test_fixtures=False,
+    )
+
+    assert isinstance(metering, PostgresMeteringStore)
+    assert metering._config.dsn == read_model._config.dsn
+    assert metering._config.statement_timeout_ms == 3210
+    assert metering._config.connect_timeout_s == 4
+
+
+def test_local_metering_keeps_fixture_profile_in_memory() -> None:
+    metering = _local_factory._build_local_metering(
+        read_model=InMemoryConsoleReadModel(),
+        local_database_configured=False,
+        test_fixtures=True,
+    )
+
+    assert isinstance(metering, InMemoryMeteringSink)
 
 
 def _unsigned_token(claims: dict[str, object]) -> str:

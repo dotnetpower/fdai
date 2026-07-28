@@ -192,6 +192,11 @@ account's restricted firewall when the active Azure CLI principal has permission
 set `FDAI_NARRATOR_AUTO_OPEN_AOAI=0` so they never call Azure CLI or change a firewall. A genuinely
 unconfigured, unauthorized, or unreachable model endpoint still fails safely to the deterministic
 answerer for that turn.
+When repository-local `resolved-models.json` exists, full-stack preparation emits
+`LLM_MODE=azure` and `LLM_RESOLVED_MODELS_PATH` for that artifact. It also binds
+`FDAI_METERING_DSN` to the same local PostgreSQL instance as the read model, so only measured FDAI
+provider calls appear in LLM Cost. Without the artifact, the model path and its usage remain
+unavailable; preparation never substitutes fixture or benchmark-judge usage.
 
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data

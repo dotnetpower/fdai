@@ -24,8 +24,12 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
     (repo / "infra").mkdir()
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    (repo / "resolved-models.json").write_text('{"capabilities": []}\n', encoding="utf-8")
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_CLIENT_ID=client\n"
+        "LLM_MODE=local-fake\n"
+        "LLM_RESOLVED_MODELS_PATH=/stale/resolved-models.json\n"
+        "FDAI_METERING_DSN=postgresql://stale\n"
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=stale.example.com:9093\n"
         "KAFKA_TOPIC_EVENTS=stale.topic\n"
         "FDAI_CANARY_TOPIC=stale.canary\n"
@@ -115,6 +119,9 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "POSTGRES_DATABASE=fdai",
         "FDAI_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai",
         "FDAI_STATE_STORE_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
+        "FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
+        "LLM_MODE=azure",
+        f"LLM_RESOLVED_MODELS_PATH={repo / 'resolved-models.json'}",
         "RUNTIME_ENV=dev",
         "AUTONOMY_MODE_DEFAULT=shadow",
         "FDAI_START_CONSUMER=1",
@@ -298,6 +305,36 @@ def test_rejects_invalid_local_consumer_instance_before_provider_access(
 
     assert completed.returncode != 0
     assert "FDAI_LOCAL_CONSUMER_INSTANCE MUST match" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert not output.exists()
+
+
+def test_rejects_invalid_resolved_models_override_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-models",
+            "FDAI_LOCAL_RESOLVED_MODELS_PATH": "relative/resolved-models.json",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "MUST name an existing absolute file" in completed.stderr
     assert "provider-access-must-not-run" not in completed.stderr
     assert not output.exists()
 

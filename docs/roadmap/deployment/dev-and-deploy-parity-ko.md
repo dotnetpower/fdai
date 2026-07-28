@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 44e08578f9b0c2d9e0851e53122a4e320e24e5c2
+translation_source_sha: 68286658b7150280d9c665e4c485b25b586a2379
 translation_revised: 2026-07-28
 ---
 
@@ -192,6 +192,11 @@ IP를 account의 restricted firewall에 추가할 수 있습니다. Automated te
 `FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하므로 Azure CLI를 호출하거나 firewall을 변경하지 않습니다.
 Model endpoint가 실제로 미구성, 권한 없음 또는 unreachable 상태이면 해당 turn만 deterministic
 answerer로 안전하게 fallback합니다.
+Repository-local `resolved-models.json`이 있으면 full-stack 준비가 해당 artifact를 가리키는
+`LLM_MODE=azure`와 `LLM_RESOLVED_MODELS_PATH`를 생성합니다. 또한 `FDAI_METERING_DSN`을 read model과
+같은 local PostgreSQL instance에 bind하므로 실제로 측정된 FDAI provider call만 LLM Cost에 표시됩니다.
+Artifact가 없으면 model path와 usage는 unavailable 상태를 유지하며 fixture 또는 benchmark judge
+usage로 대체하지 않습니다.
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 profile에서
 같은 bounded Azure Monitor Logs provider를 사용합니다. Interactive local은 현재 Azure CLI

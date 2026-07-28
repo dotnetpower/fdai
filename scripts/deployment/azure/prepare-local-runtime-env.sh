@@ -8,6 +8,8 @@ AZ_BIN="${FDAI_AZ_BIN:-az}"
 SOURCE_ENV="$REPO_ROOT/console/.env.local"
 OUTPUT_ENV="${1:-$REPO_ROOT/.fdai/local-runtime.env}"
 local_consumer_instance="${FDAI_LOCAL_CONSUMER_INSTANCE:-}"
+resolved_models_override="${FDAI_LOCAL_RESOLVED_MODELS_PATH:-}"
+resolved_models_path="${resolved_models_override:-$REPO_ROOT/resolved-models.json}"
 
 if [[ ! -f "$SOURCE_ENV" ]]; then
   printf 'missing local console environment: %s\n' "$SOURCE_ENV" >&2
@@ -18,6 +20,14 @@ if [[ -z "$local_consumer_instance" ]]; then
 elif [[ ! "$local_consumer_instance" =~ ^[a-z0-9][a-z0-9-]{0,19}$ ]]; then
   echo "FDAI_LOCAL_CONSUMER_INSTANCE MUST match ^[a-z0-9][a-z0-9-]{0,19}$" >&2
   exit 1
+fi
+if [[ -n "$resolved_models_override" ]] &&
+  [[ "$resolved_models_path" != /* || "$resolved_models_path" == *$'\n'* || "$resolved_models_path" == *$'\r'* || ! -f "$resolved_models_path" ]]; then
+  echo "FDAI_LOCAL_RESOLVED_MODELS_PATH MUST name an existing absolute file" >&2
+  exit 1
+fi
+if [[ -z "$resolved_models_override" && ! -f "$resolved_models_path" ]]; then
+  resolved_models_path=""
 fi
 
 bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw event_bus_kafka_bootstrap)"
@@ -110,7 +120,7 @@ umask 077
 temp_env="$(mktemp "${OUTPUT_ENV}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_READ_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
 {
   printf 'AZURE_TENANT_ID=%s\n' "$tenant_id"
   printf 'AZURE_SUBSCRIPTION_ID=%s\n' "$subscription_id"
@@ -131,6 +141,11 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'POSTGRES_DATABASE=fdai\n'
   printf 'FDAI_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai\n'
   printf 'FDAI_STATE_STORE_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai\n'
+  printf 'FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai\n'
+  if [[ -n "$resolved_models_path" ]]; then
+    printf 'LLM_MODE=azure\n'
+    printf 'LLM_RESOLVED_MODELS_PATH=%s\n' "$resolved_models_path"
+  fi
   printf 'RUNTIME_ENV=dev\n'
   printf 'AUTONOMY_MODE_DEFAULT=shadow\n'
   printf 'FDAI_START_CONSUMER=1\n'
@@ -171,5 +186,8 @@ if [[ -z "$inventory_topic" ]]; then
 fi
 if [[ -z "$dev_operations_gateway_url" ]]; then
   echo "development operations gateway is not provisioned; direct-API executor uses the in-memory shadow fake (FDAI_DIRECT_API_FAKE=1)" >&2
+fi
+if [[ -z "$resolved_models_path" ]]; then
+  echo "resolved-models.json is absent; local LLM calls and metering remain unavailable" >&2
 fi
 echo "prepared local runtime environment from applied Terraform outputs"

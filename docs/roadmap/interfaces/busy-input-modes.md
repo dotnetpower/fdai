@@ -114,6 +114,8 @@ unconsumed steer disposition to `queued`.
 The terminal quality review runs after the final steered draft. It does not consume another steer or
 start another operator turn; input that arrives during review remains governed by the existing
 queue, interrupt, or steer race outcome.
+A semantic-plan rerun projects the same bounded capability manifest into a strict structured-output
+schema and removes nullable optional-argument placeholders before selection validation or dispatch.
 Queued and steered follow-ups retain the active incident conversation binding; a rerun never
 reverts to fuzzy incident selection or changes Bragi's narrator identity.
 An exact selected-incident turn keeps its direct correlation-filtered lookup and doesn't start

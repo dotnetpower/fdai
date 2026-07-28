@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: fdbeac3ae8225f4ff646275c461bf8b69883b135
+translation_source_sha: d6154be1d6aa677ceeeda6fdc9d29482e2323845
 translation_revised: 2026-07-28
 ---
 
@@ -117,6 +117,8 @@ disposition을 `queued`로 원자적으로 변경합니다.
 Terminal quality review는 최종 steered draft 뒤에 실행됩니다. 추가 steer를 consume하거나 다른 operator
 turn을 시작하지 않으며, review 중 도착한 input은 기존 queue, interrupt 또는 steer race outcome의
 governance를 그대로 따릅니다.
+Semantic-plan rerun은 동일한 bounded capability manifest를 strict structured-output schema로
+projection하고 selection validation 또는 dispatch 전에 nullable optional-argument placeholder를 제거합니다.
 Queued 및 steered follow-up은 active incident conversation binding을 유지합니다. Rerun은 fuzzy
 incident selection으로 돌아가거나 Bragi의 narrator identity를 변경하지 않습니다.
 Exact selected-incident turn은 direct correlation-filtered lookup을 유지하며 rerun 중 관련 없는
