@@ -8,13 +8,9 @@ import type {
 } from "../types";
 import {
   AsyncBoundary,
-  DataTable,
-  KpiCard,
-  KpiGrid,
   PageHeader,
   StatusPill,
   type AsyncState,
-  type Column,
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
@@ -236,8 +232,12 @@ export function IncidentsRoute({ client }: Props) {
   }
 
   return (
-    <div class="stack">
+    <div class="stack incidents-route">
       <PageHeader title={t("route.incidents")} subtitle={t("incidents.subtitle")} />
+      <aside class="incident-readonly-banner" aria-label={t("incidents.bannerTitle")}>
+        <strong>{t("incidents.bannerTitle")}</strong>
+        <span>{t("incidents.bannerBody")}</span>
+      </aside>
       {verticalFilter ? (
         <div class="filter-summary"><span>{t("evidence.incidents.verticalFilter")}: <strong>{verticalFilter}</strong></span></div>
       ) : null}
@@ -323,82 +323,77 @@ function IncidentBody({
     [data.items, selected, selectedHistory],
   );
 
-  const columns: readonly Column<IncidentSummary>[] = [
-    { key: "title", header: t("incidents.column.title"), render: (item) => item.title },
-    {
-      key: "severity",
-      header: t("incidents.column.severity"),
-      render: (item) => (
-        <StatusPill kind={severityPill(item.severity)} label={localized("severity", item.severity)} />
-      ),
-    },
-    {
-      key: "status",
-      header: t("incidents.column.status"),
-      render: (item) => (
-        <StatusPill kind={statusPill(item.status)} label={localized("status", item.status)} />
-      ),
-    },
-    {
-      key: "disposition",
-      header: t("incidents.column.disposition"),
-      render: (item) => localized("disposition", item.disposition),
-    },
-    {
-      key: "vertical",
-      header: t("incidents.column.vertical"),
-      render: (item) => localized("vertical", item.vertical),
-    },
-    {
-      key: "updated",
-      header: t("incidents.column.updated"),
-      render: (item) => formatConsoleTimestamp(item.last_updated_at),
-      cellClass: "mono",
-    },
-  ];
-
   return (
-    <div class="stack">
-      <DataTable
-        columns={columns}
-        rows={data.items}
-        keyOf={(item) => item.correlation_id}
-        empty={t("incidents.empty")}
-        onRowClick={(item) => onSelect(item.correlation_id)}
-        isRowActive={(item) => item.correlation_id === selectedId}
-        rowActionLabel={(item) => t("incidents.selectNamed", { title: item.title })}
-        rowActionControls={INCIDENT_DETAIL_ID}
-      />
-      {pageError ? (
-        <p class="state-error-text" role="alert">
-          {t("incidents.loadMoreError", { message: pageError })}
-        </p>
-      ) : null}
-      {data.nextCursor !== null ? (
-        <button
-          type="button"
-          class="primary"
-          disabled={loadingMore}
-          onClick={() => void onLoadMore(data.nextCursor!)}
-        >
-          {loadingMore ? t("incidents.loadingMore") : t("incidents.loadMore")}
-        </button>
-      ) : (
-        <p class="muted footnote">{t("incidents.end")}</p>
-      )}
-      {selected ? <IncidentDetail incident={selected} history={history} /> : (
-        selectedId ? (
-          <div class="state-block state-unavailable" role={data.nextCursor ? "status" : "alert"}>
-            <span class="state-icon" aria-hidden="true">?</span>
-            <span>
-              {t("evidence.incidents.notLoaded", { id: selectedId })}
-              {data.nextCursor
-                ? ` ${t("evidence.incidents.continueSearch")}`
-                : ` ${t("evidence.incidents.filteredUnavailable")}`}
-            </span>
-          </div>
-        ) : <p class="muted">{t("incidents.select")}</p>
-      )}
+    <div class="incidents-workspace">
+      <section class="incidents-roster" aria-labelledby="incident-roster-title">
+        <header class="incidents-roster-head">
+          <h2 id="incident-roster-title">{t("incidents.roster")}</h2>
+          <span>{t("incidents.loadedCount", { count: data.items.length })}</span>
+        </header>
+        {data.items.length > 0 ? (
+          <ul class="incidents-roster-list">
+            {data.items.map((item) => (
+              <li key={item.correlation_id}>
+                <button
+                  type="button"
+                  class={`incident-roster-item${item.correlation_id === selectedId ? " is-selected" : ""}`}
+                  aria-pressed={item.correlation_id === selectedId}
+                  aria-controls={INCIDENT_DETAIL_ID}
+                  onClick={() => onSelect(item.correlation_id)}
+                >
+                  <span class="incident-roster-title">{item.title}</span>
+                  <span class="incident-roster-meta">
+                    <StatusPill kind={severityPill(item.severity)} label={localized("severity", item.severity)} />
+                    <span class={`incident-status-dot status-${item.status}`} aria-hidden="true" />
+                    <span>{localized("status", item.status)}</span>
+                    <span aria-hidden="true">/</span>
+                    <span>{localized("vertical", item.vertical)}</span>
+                  </span>
+                  <span class="incident-roster-updated mono">
+                    {formatConsoleTimestamp(item.last_updated_at)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="incidents-roster-empty">{t("incidents.empty")}</p>
+        )}
+        <footer class="incidents-roster-foot">
+          {pageError ? (
+            <p class="state-error-text" role="alert">
+              {t("incidents.loadMoreError", { message: pageError })}
+            </p>
+          ) : null}
+          {data.nextCursor !== null ? (
+            <button
+              type="button"
+              class="primary"
+              disabled={loadingMore}
+              onClick={() => void onLoadMore(data.nextCursor!)}
+            >
+              {loadingMore ? t("incidents.loadingMore") : t("incidents.loadMore")}
+            </button>
+          ) : (
+            <p class="muted footnote">{t("incidents.end")}</p>
+          )}
+        </footer>
+      </section>
+      <div class="incident-selection">
+        {selected ? <IncidentDetail incident={selected} history={history} /> : (
+          selectedId ? (
+            <div class="state-block state-unavailable" role={data.nextCursor ? "status" : "alert"}>
+              <span class="state-icon" aria-hidden="true">?</span>
+              <span>
+                {t("evidence.incidents.notLoaded", { id: selectedId })}
+                {data.nextCursor
+                  ? ` ${t("evidence.incidents.continueSearch")}`
+                  : ` ${t("evidence.incidents.filteredUnavailable")}`}
+              </span>
+            </div>
+          ) : <p class="muted">{t("incidents.select")}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -410,15 +405,6 @@ function IncidentDetail({
   readonly incident: IncidentSummary;
   readonly history: AsyncState<readonly AuditItem[]>;
 }) {
-  const route = currentRoute();
-  const currentStatus = route.search.get("status");
-  const incidentHref = routeHref("incidents", {
-    params: {
-      status: currentStatus === "resolved" || currentStatus === "all" ? currentStatus : null,
-      vertical: route.search.get("vertical") ?? incident.vertical,
-      correlation: incident.correlation_id,
-    },
-  });
   const auditHref = routeHref("audit", { params: { correlation: incident.correlation_id } });
   const traceHref = routeHref("trace", { params: { correlation: incident.correlation_id } });
   const reportHref = routeHref("reports", {
@@ -426,29 +412,32 @@ function IncidentDetail({
     params: { correlation_id: incident.correlation_id },
   });
   return (
-    <section id={INCIDENT_DETAIL_ID} class="stack-section" aria-labelledby={`${INCIDENT_DETAIL_ID}-title`}>
-      <h3 id={`${INCIDENT_DETAIL_ID}-title`} class="section-title">{t("incidents.detail")}</h3>
-      <KpiGrid>
-        <KpiCard href={auditHref} label={t("incidents.correlation")} value={<span class="mono small">{incident.correlation_id}</span>} />
-        <KpiCard href={reportHref} label={t("incidents.incidentId")} value={<span class="mono small">{incident.incident_id ?? t("incidents.none")}</span>} />
-        <KpiCard href={reportHref} label={t("incidents.ticketId")} value={<span class="mono small">{incident.ticket_id ?? t("incidents.none")}</span>} />
-        <KpiCard href={auditHref} label={t("incidents.opened")} value={<span class="mono small">{formatConsoleTimestamp(incident.opened_at)}</span>} />
-        <KpiCard href={auditHref} label={t("incidents.lastUpdated")} value={<span class="mono small">{formatConsoleTimestamp(incident.last_updated_at)}</span>} />
-        <KpiCard href={incidentHref} label={t("incidents.currentStatus")} value={<StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />} />
-        <KpiCard href={incidentHref} label={t("incidents.currentDisposition")} value={localized("disposition", incident.disposition)} />
-        <KpiCard href={traceHref} label={t("incidents.currentVerdict")} value={<StatusPill kind={verdictPill(incident.verdict)} label={incident.verdict} />} />
-        <KpiCard href={incidentHref} label={t("incidents.verticalLabel")} value={localized("vertical", incident.vertical)} />
-        <KpiCard href={routeHref("audit", { params: { correlation: incident.correlation_id, mode: incident.latest_mode } })} label={t("incidents.latestMode")} value={<StatusPill kind={incident.latest_mode} label={incident.latest_mode} />} />
-        <KpiCard href={auditHref} label={t("incidents.statusSource")} value={<span class="mono small">{incident.status_source}</span>} />
-        <KpiCard href={auditHref} label={t("incidents.history")} value={incident.history_count} />
-        <KpiCard
-          href={traceHref}
-          label={t("incidents.involvedAgents")}
-          value={incident.involved_agents.length > 0
-            ? incident.involved_agents.join(", ")
-            : t("incidents.none")}
-        />
-      </KpiGrid>
+    <section id={INCIDENT_DETAIL_ID} class="incident-detail" aria-labelledby={`${INCIDENT_DETAIL_ID}-title`}>
+      <header class="incident-detail-head">
+        <div class="incident-detail-title-row">
+          <h2 id={`${INCIDENT_DETAIL_ID}-title`}>{incident.title}</h2>
+          <StatusPill kind={severityPill(incident.severity)} label={localized("severity", incident.severity)} />
+          <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
+        </div>
+        <dl class="incident-detail-meta">
+          <div><dt>{t("incidents.correlation")}</dt><dd class="mono">{incident.correlation_id}</dd></div>
+          <div><dt>{t("incidents.opened")}</dt><dd>{formatConsoleTimestamp(incident.opened_at)}</dd></div>
+          <div><dt>{t("incidents.lastUpdated")}</dt><dd>{formatConsoleTimestamp(incident.last_updated_at)}</dd></div>
+          <div><dt>{t("incidents.currentDisposition")}</dt><dd>{localized("disposition", incident.disposition)}</dd></div>
+        </dl>
+        <details class="incident-additional-evidence">
+          <summary>{t("incidents.additionalEvidence")}</summary>
+          <dl>
+            <div><dt>{t("incidents.incidentId")}</dt><dd class="mono">{incident.incident_id ?? t("incidents.none")}</dd></div>
+            <div><dt>{t("incidents.ticketId")}</dt><dd class="mono">{incident.ticket_id ?? t("incidents.none")}</dd></div>
+            <div><dt>{t("incidents.currentVerdict")}</dt><dd><StatusPill kind={verdictPill(incident.verdict)} label={incident.verdict} /></dd></div>
+            <div><dt>{t("incidents.verticalLabel")}</dt><dd>{localized("vertical", incident.vertical)}</dd></div>
+            <div><dt>{t("incidents.latestMode")}</dt><dd><StatusPill kind={incident.latest_mode} label={incident.latest_mode} /></dd></div>
+            <div><dt>{t("incidents.statusSource")}</dt><dd class="mono">{incident.status_source}</dd></div>
+            <div><dt>{t("incidents.involvedAgents")}</dt><dd>{incident.involved_agents.length > 0 ? incident.involved_agents.join(", ") : t("incidents.none")}</dd></div>
+          </dl>
+        </details>
+      </header>
       <nav class="incident-evidence-links" aria-label={t("evidence.incidents.evidence")}>
         <a href={reportHref}>{t("incidents.report")}</a>
         <a href={auditHref}>{t("incidents.audit")}</a>
@@ -457,13 +446,14 @@ function IncidentDetail({
       </nav>
       <AsyncBoundary state={history} resourceLabel={t("incidents.timeline")}>
         {(items) => (
-          <div class="stack">
-            <p class="muted footnote">
-              {t("incidents.historyShown", {
+          <div class="incident-history">
+            <header class="incident-history-head">
+              <h3>{t("incidents.timeline")}</h3>
+              <span>{t("incidents.historyShown", {
                 shown: items.length,
                 total: incident.history_count,
-              })}
-            </p>
+              })}</span>
+            </header>
             <IncidentTimeline items={items} />
           </div>
         )}
@@ -473,38 +463,41 @@ function IncidentDetail({
 }
 
 function IncidentTimeline({ items }: { readonly items: readonly AuditItem[] }) {
-  const columns: readonly Column<AuditItem>[] = [
-    { key: "at", header: t("incidents.column.updated"), render: (item) => formatConsoleTimestamp(item.recorded_at), cellClass: "mono" },
-    { key: "actor", header: t("incidents.actor"), render: (item) => item.actor },
-    { key: "action", header: t("incidents.action"), render: (item) => item.action_kind, cellClass: "mono" },
-    { key: "decision", header: t("incidents.decision"), render: (item) => entryString(item, "decision") },
-    { key: "mode", header: t("incidents.mode"), render: (item) => <StatusPill kind={item.mode} label={item.mode} /> },
-    { key: "rollback", header: t("incidents.rollback"), render: (item) => entryString(item, "rollback_reference", "rollback_ref") },
-    {
-      key: "details",
-      header: t("incidents.details"),
-      render: (item) => (
-        <details>
-          <summary class="details-summary">{t("incidents.viewJson")}</summary>
-          <pre class="mono small entry-json">{JSON.stringify(item.entry, null, 2)}</pre>
-        </details>
-      ),
-    },
-  ];
+  if (items.length === 0) return <p class="incidents-history-empty">{t("incidents.emptyHistory")}</p>;
   return (
-    <div class="stack">
-      <h4 class="section-title">{t("incidents.timeline")}</h4>
-      <DataTable columns={columns} rows={items} keyOf={(item) => item.seq} empty={t("incidents.emptyHistory")} />
-    </div>
+    <ol class="incident-timeline">
+      {items.map((item) => {
+        const decision = optionalEntryString(item, "decision");
+        const rollback = optionalEntryString(item, "rollback_reference", "rollback_ref");
+        return (
+          <li key={item.seq} class={`incident-timeline-event mode-${item.mode}`}>
+            <div class="incident-timeline-row">
+              <code class="incident-timeline-title">{item.action_kind}</code>
+              <span class="incident-actor">{item.actor}</span>
+              <time dateTime={item.recorded_at}>{formatConsoleTimestamp(item.recorded_at)}</time>
+            </div>
+            {decision ? <p>{decision}</p> : null}
+            <div class="incident-timeline-facts">
+              <span>{t("incidents.mode")} <strong>{item.mode}</strong></span>
+              {rollback ? <span>{t("incidents.rollback")} <strong>{rollback}</strong></span> : null}
+            </div>
+            <details class="incident-event-details">
+              <summary>{t("incidents.viewJson")}</summary>
+              <pre class="mono small entry-json">{JSON.stringify(item.entry, null, 2)}</pre>
+            </details>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-function entryString(item: AuditItem, ...keys: string[]): string {
+function optionalEntryString(item: AuditItem, ...keys: string[]): string | null {
   for (const key of keys) {
     const value = item.entry[key];
     if (typeof value === "string" && value.trim()) return value;
   }
-  return t("incidents.none");
+  return null;
 }
 
 function localized(group: string, value: string): string {
