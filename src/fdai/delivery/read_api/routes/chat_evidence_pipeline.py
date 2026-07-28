@@ -84,7 +84,13 @@ async def resolve_parallel_chat_evidence(
     planned_web = planned_tool_name == "web_search"
     planned_direct_read = planned_read and planned_agent is None and not planned_web
     search_intent = classify_search_intent(prompt)
-    deterministic_inventory_turn = needs_inventory_evidence(prompt) and search_intent.route != "web"
+    read_investigation = (
+        classify_read_investigation_intent(prompt) is not None
+        and resource_name_from_question(prompt) is not None
+    )
+    deterministic_inventory_turn = (
+        needs_inventory_evidence(prompt) and search_intent.route != "web" and not read_investigation
+    )
     selected_incident_turn = _screen_incident_context(
         prompt, base_context
     ) is not None and not _is_explicit_tool_command(prompt)
@@ -94,10 +100,7 @@ async def resolve_parallel_chat_evidence(
             not has_semantic_plan
             and (
                 _selected_agent(prompt, conversation_context, target_agent) is not None
-                or (
-                    classify_read_investigation_intent(prompt) is not None
-                    and resource_name_from_question(prompt) is not None
-                )
+                or read_investigation
             )
         )
     )
