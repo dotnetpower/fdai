@@ -198,10 +198,12 @@ async def test_branch_count_above_fixed_parallel_limit_is_rejected() -> None:
 def _result(
     kind: EvidenceBranchKind,
     context: Mapping[str, Any],
+    *,
+    status: EvidenceBranchStatus = EvidenceBranchStatus.COMPLETED,
 ) -> EvidenceBranchResult:
     return EvidenceBranchResult(
         kind=kind,
-        status=EvidenceBranchStatus.COMPLETED,
+        status=status,
         context=context,
         duration_ms=1,
     )
@@ -241,6 +243,35 @@ def test_merge_selected_agent_replaces_competing_tool_and_web_evidence() -> None
     )
 
     assert merged == {"_agent_evidence": {"primary_agent": "Heimdall"}}
+
+
+@pytest.mark.parametrize(
+    ("status", "reason"),
+    [
+        (EvidenceBranchStatus.TIMED_OUT, "agent_conversational_port_unavailable"),
+        (EvidenceBranchStatus.FAILED, "agent_conversational_port_error"),
+        (EvidenceBranchStatus.UNAVAILABLE, "agent_conversational_port_unavailable"),
+    ],
+)
+def test_merge_selected_agent_failure_becomes_explicit_handoff(
+    status: EvidenceBranchStatus,
+    reason: str,
+) -> None:
+    merged = merge_evidence_branch_results(
+        "what are you working on?",
+        {"routeId": "agents"},
+        (_result(EvidenceBranchKind.AGENT, {"routeId": "agents"}, status=status),),
+        target_agent="Heimdall",
+    )
+
+    assert merged["_agent_evidence"] == {
+        "primary_agent": "Bragi",
+        "answer": None,
+        "facts": {},
+        "contributors": [],
+        "handoff_from": "Heimdall",
+        "handoff_reason": reason,
+    }
 
 
 def test_merge_selected_incident_replaces_implicit_inventory_evidence() -> None:

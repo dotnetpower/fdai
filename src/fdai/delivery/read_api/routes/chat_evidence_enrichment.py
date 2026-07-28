@@ -19,6 +19,7 @@ from fdai.delivery.read_api.routes.chat_evidence import needs_operational_eviden
 from fdai.delivery.read_api.routes.chat_evidence_branches import (
     EvidenceBranchKind,
     EvidenceBranchResult,
+    EvidenceBranchStatus,
 )
 from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
 from fdai.delivery.read_api.routes.chat_prompt import (
@@ -502,7 +503,8 @@ def merge_evidence_branch_results(
 ) -> dict[str, Any]:
     """Merge immutable branch snapshots with the established authority precedence."""
 
-    contexts = {result.kind: result.context for result in results}
+    results_by_kind = {result.kind: result for result in results}
+    contexts = {kind: result.context for kind, result in results_by_kind.items()}
     merged = dict(base_context)
 
     tool_context = contexts.get(EvidenceBranchKind.TOOL)
@@ -547,8 +549,28 @@ def merge_evidence_branch_results(
         and resource_name_from_question(prompt) is not None
     )
     current_screen_tool = merged.pop("_current_screen_tool", None)
-    agent_context = contexts.get(EvidenceBranchKind.AGENT)
+    agent_result = results_by_kind.get(EvidenceBranchKind.AGENT)
+    agent_context = agent_result.context if agent_result is not None else None
     agent_evidence = agent_context.get("_agent_evidence") if agent_context is not None else None
+    if (
+        agent_evidence is None
+        and selected_agent is not None
+        and agent_result is not None
+        and agent_result.status
+        in {
+            EvidenceBranchStatus.FAILED,
+            EvidenceBranchStatus.TIMED_OUT,
+            EvidenceBranchStatus.UNAVAILABLE,
+        }
+    ):
+        agent_evidence = _agent_handoff(
+            selected_agent,
+            reason=(
+                "agent_conversational_port_error"
+                if agent_result.status is EvidenceBranchStatus.FAILED
+                else "agent_conversational_port_unavailable"
+            ),
+        )
     agent_handoff_only = isinstance(agent_evidence, Mapping) and (
         agent_evidence.get("handoff_from") is not None and agent_evidence.get("answer") is None
     )
