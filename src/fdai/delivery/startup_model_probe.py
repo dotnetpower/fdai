@@ -10,6 +10,11 @@ from typing import Protocol
 from fdai.core.quality_gate.gate import CrossCheckModel, QualityCandidate
 from fdai.core.readiness import ModelStartupEvidence, ProbeStatus, StartupProbeResult
 from fdai.shared.providers.startup_probe import StartupProbeRequest
+from fdai.shared.telemetry import with_correlation
+
+
+def _correlation_id(probe_id: str) -> str:
+    return f"startup-readiness:{probe_id}"
 
 
 def _result(
@@ -44,16 +49,17 @@ class EmbeddingStartupProbe:
         started_at = perf_counter()
         latencies: list[float] = []
         dimensions: int | None = None
-        for sample in range(request.model_sample_count):
-            sample_started = perf_counter()
-            vector = await self._model.embed(f"startup readiness sample {sample}")
-            latencies.append((perf_counter() - sample_started) * 1000)
-            if not vector:
-                raise RuntimeError("embedding startup probe returned an empty vector")
-            if dimensions is None:
-                dimensions = len(vector)
-            elif len(vector) != dimensions:
-                raise RuntimeError("embedding vector shape changed between startup samples")
+        with with_correlation(_correlation_id(self.probe_id)):
+            for sample in range(request.model_sample_count):
+                sample_started = perf_counter()
+                vector = await self._model.embed(f"startup readiness sample {sample}")
+                latencies.append((perf_counter() - sample_started) * 1000)
+                if not vector:
+                    raise RuntimeError("embedding startup probe returned an empty vector")
+                if dimensions is None:
+                    dimensions = len(vector)
+                elif len(vector) != dimensions:
+                    raise RuntimeError("embedding vector shape changed between startup samples")
         if dimensions is None:
             raise RuntimeError("embedding startup probe collected no samples")
         return _result(
@@ -77,19 +83,22 @@ class CrossCheckModelStartupProbe:
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
         latencies: list[float] = []
-        for sample in range(request.model_sample_count):
-            sample_started = perf_counter()
-            action_type, params = await self._model.propose(
-                QualityCandidate(
-                    action_type="startup-readiness-probe",
-                    target_resource_ref="synthetic:startup-readiness",
-                    params={"sample": sample},
-                    cited_rule_ids=(),
+        with with_correlation(_correlation_id(self.probe_id)):
+            for sample in range(request.model_sample_count):
+                sample_started = perf_counter()
+                action_type, params = await self._model.propose(
+                    QualityCandidate(
+                        action_type="startup-readiness-probe",
+                        target_resource_ref="synthetic:startup-readiness",
+                        params={"sample": sample},
+                        cited_rule_ids=(),
+                    )
                 )
-            )
-            latencies.append((perf_counter() - sample_started) * 1000)
-            if not action_type or not isinstance(params, Mapping):
-                raise RuntimeError("cross-check startup probe returned invalid structured output")
+                latencies.append((perf_counter() - sample_started) * 1000)
+                if not action_type or not isinstance(params, Mapping):
+                    raise RuntimeError(
+                        "cross-check startup probe returned invalid structured output"
+                    )
         return _result(
             self.probe_id,
             started_at,
@@ -117,23 +126,24 @@ class StreamingModelStartupProbe:
         totals: list[float] = []
         ttfts: list[float] = []
         rates: list[float] = []
-        for sample in range(request.model_sample_count):
-            sample_started = perf_counter()
-            first_token_at: float | None = None
-            token_count = 0
-            async for chunk in self._model.stream_startup_sample(sample):
-                if not chunk:
-                    continue
-                now = perf_counter()
-                first_token_at = first_token_at or now
-                token_count += max(1, len(chunk.split()))
-            ended_at = perf_counter()
-            if first_token_at is None:
-                raise RuntimeError("streaming startup probe returned no output token")
-            total_seconds = ended_at - sample_started
-            totals.append(total_seconds * 1000)
-            ttfts.append((first_token_at - sample_started) * 1000)
-            rates.append(token_count / total_seconds if total_seconds > 0 else 0.0)
+        with with_correlation(_correlation_id(self.probe_id)):
+            for sample in range(request.model_sample_count):
+                sample_started = perf_counter()
+                first_token_at: float | None = None
+                token_count = 0
+                async for chunk in self._model.stream_startup_sample(sample):
+                    if not chunk:
+                        continue
+                    now = perf_counter()
+                    first_token_at = first_token_at or now
+                    token_count += max(1, len(chunk.split()))
+                ended_at = perf_counter()
+                if first_token_at is None:
+                    raise RuntimeError("streaming startup probe returned no output token")
+                total_seconds = ended_at - sample_started
+                totals.append(total_seconds * 1000)
+                ttfts.append((first_token_at - sample_started) * 1000)
+                rates.append(token_count / total_seconds if total_seconds > 0 else 0.0)
         return _result(
             self.probe_id,
             started_at,
@@ -165,8 +175,9 @@ class CapabilityProofStartupProbe:
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
         proofs = []
-        for _ in range(request.model_sample_count):
-            proofs.append(await self._prove())
+        with with_correlation(_correlation_id(self.probe_id)):
+            for _ in range(request.model_sample_count):
+                proofs.append(await self._prove())
         if not all(proofs):
             raise RuntimeError("model capability proof failed")
         return _result(

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 45ad654048845b1fd2be93d2eb31b2d04a56a081
+translation_source_sha: 93f56919c782bf8610740b98ccfa2747574ec352
 translation_revised: 2026-07-28
 ---
 
@@ -131,8 +131,9 @@ record는 `INFO`로 유지합니다. Event Hubs adapter는 aiokafka의 context�
 success message도 억제하고, logical consumer마다 topic, consumer group, client id 및 authentication
 mechanism을 포함한 `event_bus_consumer_started` record 하나를 내보냅니다. Dependency warning과
 error는 계속 표시됩니다. Startup model latency probe는 구성된 모든
-reasoning candidate가 지원하는 Azure Responses API output-token budget과
-안정적인 `read-api:*:latency-probe` correlation id를 사용하므로 측정된 사용량이 uncorrelated
+reasoning candidate가 지원하는 Azure Responses API output-token budget을 사용합니다. Core readiness
+sample은 안정적인 `startup-readiness:<probe-id>` correlation id를 사용하고 read API latency sample은
+안정적인 `read-api:*:latency-probe` correlation id를 사용하므로 측정된 probe 사용량이 uncorrelated
 traffic으로 기록되지 않습니다.
 Local 및 deployed console 모두 agent card의 Ask action에서 새 user-scoped conversation key를
 할당하고 submit 전에 선택한 agent를 conversation summary에 저장합니다. Browser는 stable per-agent

@@ -30,6 +30,7 @@ from fdai.shared.providers.local.identity import LocalWorkloadIdentity
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.resilience.kill_switch import StateStoreKillSwitch
+from fdai.shared.telemetry import current_correlation_id
 
 
 def _request(*, synthetic_scope: bool = False) -> StartupProbeRequest:
@@ -44,15 +45,21 @@ def _request(*, synthetic_scope: bool = False) -> StartupProbeRequest:
 class _Embedding:
     def __init__(self) -> None:
         self.calls = 0
+        self.correlations: list[str | None] = []
 
     async def embed(self, text: str) -> list[float]:
         self.calls += 1
+        self.correlations.append(current_correlation_id())
         return [0.1, 0.2, 0.3]
 
 
 class _Streaming:
+    def __init__(self) -> None:
+        self.correlations: list[str | None] = []
+
     def stream_startup_sample(self, sample: int) -> AsyncIterator[str]:
         async def chunks() -> AsyncIterator[str]:
+            self.correlations.append(current_correlation_id())
             yield "bounded"
             yield "startup output"
 
@@ -62,9 +69,11 @@ class _Streaming:
 class _CrossCheck:
     def __init__(self) -> None:
         self.calls = 0
+        self.correlations: list[str | None] = []
 
     async def propose(self, candidate: Any) -> tuple[str, dict[str, int]]:
         self.calls += 1
+        self.correlations.append(current_correlation_id())
         return "startup-readiness-probe", {"sample": self.calls}
 
 
@@ -111,10 +120,16 @@ async def test_embedding_probe_collects_two_shape_samples() -> None:
     assert result.model_evidence.sample_count == 2
     assert result.model_evidence.embedding_dimensions == 3
     assert len(result.model_evidence.total_latency_ms) == 2
+    assert model.correlations == [
+        "startup-readiness:model.embedding",
+        "startup-readiness:model.embedding",
+    ]
+    assert current_correlation_id() is None
 
 
 async def test_streaming_probe_records_ttft_total_and_token_rate_per_sample() -> None:
-    probe = StreamingModelStartupProbe(probe_id="model.stream", model=_Streaming())
+    model = _Streaming()
+    probe = StreamingModelStartupProbe(probe_id="model.stream", model=model)
 
     result = await probe.run(_request())
 
@@ -123,14 +138,21 @@ async def test_streaming_probe_records_ttft_total_and_token_rate_per_sample() ->
     assert len(result.model_evidence.total_latency_ms) == 2
     assert len(result.model_evidence.output_token_rate) == 2
     assert all(value >= 0 for value in result.model_evidence.ttft_ms)
+    assert model.correlations == [
+        "startup-readiness:model.stream",
+        "startup-readiness:model.stream",
+    ]
+    assert current_correlation_id() is None
 
 
 async def test_capability_probe_requires_every_bounded_sample_to_pass() -> None:
     calls = 0
+    correlations: list[str | None] = []
 
     async def prove() -> bool:
         nonlocal calls
         calls += 1
+        correlations.append(current_correlation_id())
         return True
 
     probe = CapabilityProofStartupProbe(
@@ -142,6 +164,11 @@ async def test_capability_probe_requires_every_bounded_sample_to_pass() -> None:
     result = await probe.run(_request())
 
     assert calls == 2
+    assert correlations == [
+        "startup-readiness:model.tools",
+        "startup-readiness:model.tools",
+    ]
+    assert current_correlation_id() is None
     assert result.model_evidence is not None
     assert result.model_evidence.tool_calling_proven is True
 
@@ -153,6 +180,11 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
     result = await probe.run(_request())
 
     assert model.calls == 2
+    assert model.correlations == [
+        "startup-readiness:model.cross-check",
+        "startup-readiness:model.cross-check",
+    ]
+    assert current_correlation_id() is None
     assert result.model_evidence is not None
     assert result.model_evidence.sample_count == 2
     assert result.model_evidence.structured_output_proven is True

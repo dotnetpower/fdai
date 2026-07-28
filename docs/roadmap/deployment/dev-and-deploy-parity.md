@@ -130,8 +130,9 @@ remain at `INFO`. The Event Hubs adapter also suppresses aiokafka's context-free
 authentication success messages and emits one `event_bus_consumer_started` record per logical
 consumer with its topic, consumer group, client id, and authentication mechanism. Dependency
 warnings and errors remain visible. Startup model latency probes use a bounded Azure Responses API
-output-token budget supported by every configured reasoning candidate and stable
-`read-api:*:latency-probe` correlation ids, so their measured usage isn't filed as uncorrelated
+output-token budget supported by every configured reasoning candidate. Core readiness samples use
+stable `startup-readiness:<probe-id>` correlation ids, and read API latency samples use stable
+`read-api:*:latency-probe` correlation ids, so measured probe usage isn't filed as uncorrelated
 traffic.
 In both local and deployed consoles, an agent-card Ask action allocates a fresh user-scoped
 conversation key while persisting the selected agent in the conversation summary before submit.
