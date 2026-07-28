@@ -73,26 +73,32 @@ async def resolve_parallel_chat_evidence(
         and isinstance(planned_tool_name, str)
         and isinstance(planned_arguments, Mapping)
     )
-    parallel_agent = not has_semantic_plan and (
-        _selected_agent(prompt, conversation_context, target_agent) is not None
-        or (
-            classify_read_investigation_intent(prompt) is not None
-            and resource_name_from_question(prompt) is not None
+    planned_agent = (
+        planned_tool_name.removeprefix("agent:")
+        if isinstance(planned_tool_name, str) and planned_tool_name.startswith("agent:")
+        else None
+    )
+    planned_web = planned_tool_name == "web_search"
+    planned_direct_read = planned_read and planned_agent is None and not planned_web
+    parallel_agent = planned_agent is not None or (
+        not has_semantic_plan
+        and (
+            _selected_agent(prompt, conversation_context, target_agent) is not None
+            or (
+                classify_read_investigation_intent(prompt) is not None
+                and resource_name_from_question(prompt) is not None
+            )
         )
     )
     parallel_web = (
         web_search_resolver is not None
-        and (
-            planned_tool_name == "web_search"
-            if has_semantic_plan
-            else classify_search_intent(prompt).route == "web"
-        )
+        and (planned_web if has_semantic_plan else classify_search_intent(prompt).route == "web")
         and not parallel_agent
         and "_behavior_evidence" not in base_context
         and "_screen_scope" not in base_context
     )
 
-    if planned_read and planned_tool_resolver is not None:
+    if planned_direct_read and planned_tool_resolver is not None:
         selected_tool_name = cast(str, planned_tool_name)
         selected_arguments = cast(Mapping[str, object], planned_arguments)
 
@@ -160,7 +166,7 @@ async def resolve_parallel_chat_evidence(
             user_id=user_id,
             session_id=session_id,
             conversation_context=conversation_context,
-            target_agent=target_agent,
+            target_agent=planned_agent or target_agent,
             progress_observer=observe,
         )
 
@@ -176,6 +182,16 @@ async def resolve_parallel_chat_evidence(
     if parallel_web and web_search_resolver is not None:
 
         async def resolve_web(observe: BranchProgressObserver) -> dict[str, Any]:
+            if planned_web and isinstance(planned_arguments, Mapping):
+                resolved = await web_search_resolver.resolve_planned(
+                    {str(key): value for key, value in planned_arguments.items()},
+                    base_context,
+                    progress_observer=observe,
+                )
+                enriched = dict(base_context)
+                if resolved is not None:
+                    enriched["_web_evidence"] = dict(resolved)
+                return enriched
             return await _with_web_evidence(
                 prompt,
                 dict(base_context),

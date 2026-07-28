@@ -27,6 +27,7 @@ from fdai.delivery.read_api.routes.chat_turn_plan import (
     TurnKind,
     TurnPlan,
     TurnTool,
+    agent_turn_tools,
     default_read_turn_tools,
     parse_turn_plan,
 )
@@ -289,6 +290,14 @@ def test_default_turn_manifest_exposes_only_read_capabilities() -> None:
     tools = default_read_turn_tools()
 
     assert tools
+    assert all(tool.side_effect_class == "read" for tool in tools)
+
+
+def test_agent_turn_manifest_uses_canonical_pantheon_names() -> None:
+    tools = agent_turn_tools()
+
+    assert len(tools) == 15
+    assert all(tool.name.startswith("agent:") for tool in tools)
     assert all(tool.side_effect_class == "read" for tool in tools)
 
 

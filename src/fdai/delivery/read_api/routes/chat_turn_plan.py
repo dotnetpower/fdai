@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, Protocol, runtime_checkable
 
+from fdai.agents import PANTHEON_NAMES
 from fdai.core.conversation.answer_plan import AnswerIntent
 from fdai.core.conversation.narrator import default_tool_schemas
 
@@ -229,6 +230,42 @@ def action_turn_tools(action_type_names: Sequence[str]) -> tuple[TurnTool, ...]:
     return (*generic, incident)
 
 
+def agent_turn_tools() -> tuple[TurnTool, ...]:
+    """Expose agent ownership as read-only semantic capabilities."""
+
+    return tuple(
+        TurnTool(
+            name=f"agent:{name}",
+            description=f"Ask {name} for evidence in its declared ownership domain.",
+            side_effect_class="read",
+            argument_schema={"type": "object", "additionalProperties": False},
+        )
+        for name in PANTHEON_NAMES
+    )
+
+
+def web_search_turn_tool() -> TurnTool:
+    """Return the typed public-web capability without provider authority."""
+
+    return TurnTool(
+        name="web_search",
+        description="Search approved public domains for current external information.",
+        side_effect_class="read",
+        argument_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "maxLength": 1000},
+                "goal": {
+                    "type": "string",
+                    "enum": ["current_fact", "research", "alternatives"],
+                },
+            },
+            "required": ["query", "goal"],
+            "additionalProperties": False,
+        },
+    )
+
+
 def parse_turn_plan(raw: Mapping[str, object]) -> TurnPlan:
     """Validate an untrusted model plan and enforce cross-field invariants."""
 
@@ -355,6 +392,8 @@ __all__ = [
     "TurnPlanner",
     "TurnTool",
     "action_turn_tools",
+    "agent_turn_tools",
     "default_read_turn_tools",
     "parse_turn_plan",
+    "web_search_turn_tool",
 ]

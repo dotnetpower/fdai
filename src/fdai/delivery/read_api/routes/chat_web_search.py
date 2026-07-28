@@ -9,7 +9,7 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Protocol
+from typing import Any, Final, Protocol, cast
 
 import httpx
 
@@ -28,6 +28,7 @@ from fdai.delivery.azure.web_search import (
     WebSearchModelCandidate,
 )
 from fdai.delivery.read_api.routes.chat_web_search_intent import (
+    SearchGoal,
     SearchIntentDecision,
     alternative_search_requested,
     semantic_search_intent,
@@ -179,8 +180,9 @@ class ChatWebSearchResolver:
         view_context: Mapping[str, Any],
         *,
         progress_observer: WebSearchProgressObserver | None,
+        planned_intent: SearchIntentDecision | None = None,
     ) -> Mapping[str, Any] | None:
-        search_intent = _classify_search_intent(prompt)
+        search_intent = planned_intent or _classify_search_intent(prompt)
         if _SENSITIVE_QUERY.search(prompt):
             if search_intent.route != "web":
                 return None
@@ -190,15 +192,17 @@ class ChatWebSearchResolver:
                 "reason": "query_not_public_safe",
                 "sources": [],
             }
-        semantic_eligible = self._intent_classifier is not None and semantic_search_intent_eligible(
-            view_context
+        semantic_eligible = (
+            planned_intent is None
+            and self._intent_classifier is not None
+            and semantic_search_intent_eligible(view_context)
         )
-        alternative_requested = alternative_search_requested(prompt)
-        if search_intent.route == "none":
+        alternative_requested = planned_intent is None and alternative_search_requested(prompt)
+        if planned_intent is None and search_intent.route == "none":
             if semantic_eligible:
                 await self._report_intent_classification(progress_observer)
             search_intent = await self._semantic_search_intent(prompt, view_context)
-        elif search_intent.route == "web":
+        elif planned_intent is None and search_intent.route == "web":
             if semantic_eligible:
                 await self._report_intent_classification(progress_observer)
             enriched_intent = await self._semantic_search_intent(prompt, view_context)
@@ -324,6 +328,39 @@ class ChatWebSearchResolver:
             "provider_reasons": list(result.reasons),
             "router": self.descriptor()["router"],
         }
+
+    async def resolve_planned(
+        self,
+        arguments: Mapping[str, object],
+        view_context: Mapping[str, Any],
+        *,
+        progress_observer: WebSearchProgressObserver | None = None,
+    ) -> Mapping[str, Any] | None:
+        """Execute a typed public query without natural-language reclassification."""
+
+        if set(arguments) != {"query", "goal"}:
+            raise ValueError("planned web search arguments are invalid")
+        query = arguments.get("query")
+        goal = arguments.get("goal")
+        if not isinstance(query, str) or not query.strip() or len(query) > 1000:
+            raise ValueError("planned web search query is invalid")
+        if goal not in {"current_fact", "research", "alternatives"}:
+            raise ValueError("planned web search goal is invalid")
+        decision = SearchIntentDecision(
+            "web",
+            1.0,
+            "semantic_turn_plan",
+            query.strip(),
+            cast(SearchGoal, goal),
+            "",
+            (),
+        )
+        return await self._resolve(
+            query.strip(),
+            view_context,
+            progress_observer=progress_observer,
+            planned_intent=decision,
+        )
 
     async def _report_intent_classification(
         self,

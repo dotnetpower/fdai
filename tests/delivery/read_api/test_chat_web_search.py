@@ -114,6 +114,11 @@ class _RubricIntentClassifier:
         }
 
 
+class _FailingIntentClassifier:
+    async def classify_intent(self, prompt: str, *, budget_ms: int) -> dict[str, object]:
+        raise AssertionError("planned web search must not reclassify natural language")
+
+
 class _Backend:
     def __init__(self) -> None:
         self.view_context: dict[str, Any] | None = None
@@ -147,6 +152,25 @@ async def test_normal_screen_question_does_not_search() -> None:
 
     assert evidence is None
     assert provider.calls == []
+
+
+async def test_planned_web_search_bypasses_natural_language_classifiers() -> None:
+    provider = _Provider()
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        intent_classifier=_FailingIntentClassifier(),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+
+    evidence = await resolver.resolve_planned(
+        {"query": "current Azure SDK release", "goal": "current_fact"},
+        {},
+    )
+
+    assert evidence is not None
+    assert evidence["status"] == "matched"
+    assert len(provider.calls) == 1
+    assert provider.calls[0].text == "current Azure SDK release"
 
 
 async def test_latest_public_fact_searches_and_returns_sanitized_evidence() -> None:

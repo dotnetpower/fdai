@@ -93,6 +93,14 @@ class ChatWebSearchEvidenceResolver(Protocol):
         view_context: Mapping[str, Any],
     ) -> Mapping[str, Any] | None: ...
 
+    async def resolve_planned(
+        self,
+        arguments: Mapping[str, object],
+        view_context: Mapping[str, Any],
+        *,
+        progress_observer: AgentProgressObserver | None = None,
+    ) -> Mapping[str, Any] | None: ...
+
 
 _VIEW_EXPLANATION_INTENT = re.compile(
     r"\b(connect(?:ed|s|ion)?|relationship|relate[ds]?|create[ds]?|creation|criteri(?:a|on)|"

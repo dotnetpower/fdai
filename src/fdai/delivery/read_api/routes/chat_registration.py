@@ -52,6 +52,8 @@ from fdai.delivery.read_api.routes.chat_turn_plan import (
     BackendTurnPlanner,
     StructuredCompletionBackend,
     action_turn_tools,
+    agent_turn_tools,
+    web_search_turn_tool,
 )
 from fdai.delivery.read_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.read_api.routes.detection_readiness import DetectionReadinessReader
@@ -150,6 +152,8 @@ def append_chat_routes(
     action_names = getattr(console_action, "action_type_names", ())
     turn_tools = (
         *read_tools.turn_tools(),
+        *agent_turn_tools(),
+        *((web_search_turn_tool(),) if web_search_resolver is not None else ()),
         *(action_turn_tools(tuple(action_names)) if console_action is not None else ()),
     )
     routes.extend(
