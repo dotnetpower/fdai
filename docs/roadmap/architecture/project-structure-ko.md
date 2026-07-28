@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f16589180b27d1d32164c169a85db32cfd76071a
+translation_source_sha: bfe039f97161b1018bd07260b0df26918695bfd6
 translation_revised: 2026-07-28
 ---
 
@@ -81,7 +81,7 @@ fdai/
 │   │   ├── providers/          # CSP-중립 클라우드 프로바이더 인터페이스 (어댑터가 구현)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / 채널 / RBAC seam
-│   │   │                       # `providers/local/` = process-local transport adapter (`LocalEventBus`, bounded `LocalSseSink`)와 명시적 offline helper (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
+│   │   │                       # `providers/local/` = group별 in-flight lease와 독립적인 group/publisher 진행을 보장하는 process-local transport adapter (`LocalEventBus`, bounded `LocalSseSink`)와 명시적 offline helper (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
 │   │   │                       # `providers/testing/` = 테스트 스위트 전반에서 쓰이는 인-메모리 페이크 (prod 에서는 바인딩 안 됨)
 │   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: EventBus 토픽을 SSE 채널로 릴레이
 │   │   ├── telemetry/          # 구조화 로깅, 트레이싱, 메트릭 헬퍼

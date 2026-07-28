@@ -215,6 +215,45 @@ class AgentSpec:
             "publishes",
             tuple(f"object.{_kebab(o)}" for o in self.owns),
         )
+        role_contract = self.role_contract()
+        charter = self.conversation
+        if role_contract not in charter.system_prompt:
+            directive = charter.role_directive
+            if directive and charter.system_prompt.endswith(directive):
+                prefix = charter.system_prompt[: -len(directive)].rstrip()
+                system_prompt = f"{prefix}\n{role_contract}\n{directive}"
+            else:
+                system_prompt = f"{charter.system_prompt}\n{role_contract}"
+            object.__setattr__(
+                self,
+                "conversation",
+                ConversationCharter(
+                    version=charter.version,
+                    system_prompt=system_prompt,
+                    tool_specs=charter.tool_specs,
+                    routing_examples=charter.routing_examples,
+                    role_directive=directive,
+                ),
+            )
+
+    def role_contract(self) -> str:
+        """Serialize this agent's exact authority and budget into its prompt."""
+        llm_policy = (
+            "hot_path" if self.hot_path_llm else "off_path" if self.off_path_llm else "none"
+        )
+        return (
+            "Role contract: "
+            f"reports_to={self.reports_to or 'none'}; "
+            f"owns={','.join(self.owns) or 'none'}; "
+            f"publishes={','.join(self.publishes) or 'none'}; "
+            f"subscribes={','.join(self.subscribes) or 'none'}; "
+            f"executes={','.join(self.executes) or 'none'}; "
+            f"initiates={','.join(self.initiates) or 'none'}; "
+            f"llm={llm_policy}; "
+            f"hard_dependency={'true' if self.hard_dependency else 'false'}; "
+            f"proposal_budget={self.rate_limits.per_minute}/minute,"
+            f"{self.rate_limits.per_hour}/hour."
+        )
 
     def conversation_policy(self) -> dict[str, Any]:
         """Return public attribution for the complete immutable charter."""

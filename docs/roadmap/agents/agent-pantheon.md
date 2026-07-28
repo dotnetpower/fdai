@@ -469,7 +469,7 @@ Partitioning:
 All 15 agents, including Bragi, expose a request-response interface by canonical name or domain
 routing. Questions cap at 2,000 characters and each session retains 100 monotonic turns. Unknown A2A requester or target names are rejected; only the correlation trace crosses ports, and primary responses use a bounded timeout plus the same owner, size, and sensitivity normalization as contributor answers.
 
-Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: bounded server-owned system instructions with role-specific prohibitions, a role directive that states the mechanics of the agent's own decision, English/Korean query examples, and read tools with purpose and owned-fact scopes. Semantic parity tests pin all 15 role boundaries. The runtime overwrites caller policy, projects each tool onto its distinct fact scope, and attributes the version plus separate prompt and full-charter SHA-256 digests without exposing instructions. Each agent grounds answers in owned state; typed policy remains the authority. The charter prompt is the composition floor, not the whole prompt. Every turn composes its effective prompt from that baseline plus the situational layers the turn selects (peer versus operator audience, deliberation phase and tier, tool scope, operator locale, evidence gap, command intent). Composition is additive and deterministic, so a situation can tighten the charter but never loosen it, and a recorded turn replays exactly. The turn context selects layers only; it never supplies prompt text, so a forged context cannot inject instructions. Responses carry the layer manifest, situation key, and composed prompt digest - never the text. See [conversational-deliberation.md](conversational-deliberation.md).
+Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: bounded server-owned system instructions with role-specific prohibitions, an exact generated role contract for reporting, ownership, topics, action bindings, model policy, hard-dependency status, and proposal budgets, a role directive that states the mechanics of the agent's own decision, English/Korean query examples, and read tools with purpose and owned-fact scopes. Semantic parity tests pin all 15 role boundaries. The runtime overwrites caller policy, projects each tool onto its distinct fact scope, and attributes the version plus separate prompt and full-charter SHA-256 digests without exposing instructions. Each agent grounds answers in owned state; typed policy remains the authority. The charter prompt is the composition floor, not the whole prompt. Every turn composes its effective prompt from that baseline plus the situational layers the turn selects (peer versus operator audience, deliberation phase and tier, tool scope, operator locale, evidence gap, command intent). Composition is additive and deterministic, so a situation can tighten the charter but never loosen it, and a recorded turn replays exactly. The turn context selects layers only; it never supplies prompt text, so a forged context cannot inject instructions. Responses carry the layer manifest, situation key, and composed prompt digest - never the text. See [conversational-deliberation.md](conversational-deliberation.md).
 
 `is_action_intent` makes commands abstain with `requires_typed_pipeline`; chat never executes.
 `PantheonRuntime.introspect` supports attributed A2A reads and digest-only Bragi Turns; bounded multi-agent discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
@@ -544,11 +544,11 @@ boundary for every contribution.
 
 ### 6.4 Handoff escalation protocol
 
-When an agent cannot resolve a conversational request through its owned data,
-T0, or T1, it returns an abstention to Bragi instead of guessing through T2.
-Bragi is the single writer that publishes the `HandoffEscalation` object.
-Saga consumes the event and materializes it into a GitHub issue via the
-`escalate_to_github_issue` action.
+An agent that cannot resolve a conversational request through owned data, T0, or T1 abstains to
+Bragi instead of guessing through T2. Bragi alone publishes `HandoffEscalation`, and Saga turns it
+into a GitHub issue through `escalate_to_github_issue`. With no EventBus, Bragi records
+`handoff_status: transport_unavailable` on the turn and increments the matching behavior counter;
+it never presents an unmaterialized escalation as successful.
 
 Deduplication uses a `problem_fingerprint`:
 

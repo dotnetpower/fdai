@@ -142,8 +142,8 @@ framework helpers live under `_framework/`. See
 [.github/instructions/agent-pantheon.instructions.md](../../../.github/instructions/agent-pantheon.instructions.md)
 for the fork-locked role bindings and change contract.
 
-Conversation charter text lives in `_framework/charters.py` and is bound to each agent by
-`_framework/pantheon.py`; per-turn situational composition lives in
+Conversation charter text lives in `_framework/charters.py`; `_framework/pantheon.py` binds each
+agent and `AgentSpec` inserts the exact role and budget contract. Per-turn composition lives in
 `_framework/conversation_prompt.py`. Bounded T1/T2 discussion contracts live in
 `_framework/deliberation.py` and are orchestrated by Bragi through `PantheonRuntime.deliberate`.
 See [conversational-deliberation.md](../agents/conversational-deliberation.md).
@@ -210,7 +210,7 @@ domain agents consume those canonical Events before publishing their owned advis
 |---------|---------|--------|
 | contracts | Cross-package Pydantic contracts, including optional ObjectType lifecycle criteria | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
 | ontology | Domain ontology (ObjectType / LinkType / ActionType) | [src/fdai/shared/ontology/](../../../src/fdai/shared/ontology/) |
-| providers | Provider Protocols including `ExecutionBackend`, non-cached ephemeral typed-command output with bounded diagnostic receipts, strictly decoded, count-, character-, and secret-scanned durable channel-neutral handoff/execution activities, process-local EventBus, bounded SSE, isolated programmatic pipeline runners, [access-scoped conversation search](../interfaces/conversation-search.md), and [structured behavior knowledge](../interfaces/behavior-knowledge.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
+| providers | Provider Protocols including `ExecutionBackend`, non-cached ephemeral typed-command output with bounded diagnostic receipts, strictly decoded, count-, character-, and secret-scanned durable channel-neutral handoff/execution activities, a process-local EventBus with serialized same-group leases and independent group progress, bounded SSE, isolated programmatic pipeline runners, [access-scoped conversation search](../interfaces/conversation-search.md), and [structured behavior knowledge](../interfaces/behavior-knowledge.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
 | config | Config loader, schema, and shared runtime activation flags | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |
 | streaming | Kafka / Event Hub abstraction | [src/fdai/shared/streaming/](../../../src/fdai/shared/streaming/) |
 | resilience | Retry / circuit-breaker helpers | [src/fdai/shared/resilience/](../../../src/fdai/shared/resilience/) |

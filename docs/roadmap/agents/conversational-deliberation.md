@@ -13,9 +13,10 @@ an agent's typed authority.
 ## Design at a glance
 
 Each agent has one server-owned `ConversationCharter`. Its baseline prompt is assembled from
-thirteen layers: identity, mandate, authority, grounding, epistemics, human dialogue, peer
-protocol, handoff, disagreement, tiering, economy, security/output, and the agent's own role
-directive. The charter also owns bilingual routing examples and fact-scoped read tools.
+fourteen layers: identity, mandate, authority, grounding, epistemics, human dialogue, peer
+protocol, handoff, disagreement, tiering, economy, security/output, the exact `AgentSpec` role
+contract, and the agent's own role directive. The charter also owns bilingual routing examples
+and fact-scoped read tools.
 
 The baseline is the composition floor, not the whole prompt. Each turn composes its own prompt from
 the baseline plus the situational layers that the turn selects. See
@@ -81,6 +82,8 @@ names the missing evidence instead of narrating policy as if it were an outcome.
 Every v3 prompt requires the agent to:
 
 - state its positive mandate and role-specific prohibition;
+- carry the exact reporting line, owned and subscribed topics, action bindings, model policy,
+  hard-dependency status, and proposal budget from its immutable `AgentSpec`;
 - answer only from owned state and allowed tools;
 - cite evidence refs and separate facts, inferences, and unknowns;
 - preserve uncertainty and abstain on insufficient or stale evidence;
@@ -369,60 +372,29 @@ Neither T1 discussion nor T2 synthesis may issue or change:
 Action intent returns `requires_typed_pipeline`. The typed pub/sub path remains the only machine
 authority path, and only the correlation trace crosses the two ports.
 
-## Ten-round critique evidence
+## Three-round hardening evidence
 
-The review applied 25 checks to each of 15 prompts in every round: 375 judgments per round and
-3,750 total. The original v1 prompts passed 90/375 checks. The v2 cumulative layer scores were the
-same for every agent because each role-specific mandate, prohibition, and peer set is inserted into
-the same structural contract.
+Each round used a 10-point exit rubric. A round scores one point for each required property and
+closes only at `10/10`; prose inspection alone never earns a point.
 
-| Round | Focus | Score per agent |
-|------:|-------|----------------:|
-| 1 | Identity | 2/25 |
-| 2 | Mandate | 3/25 |
-| 3 | Authority | 6/25 |
-| 4 | Grounding | 9/25 |
-| 5 | Epistemics | 13/25 |
-| 6 | Human dialogue | 15/25 |
-| 7 | Peer protocol | 18/25 |
-| 8 | Disagreement | 20/25 |
-| 9 | T1/T2 tiering | 22/25 |
-| 10 | Security and output | 25/25 |
+| Round | 10-point focus | Defect removed | Exit score | Executable evidence |
+|------:|----------------|----------------|-----------:|---------------------|
+| 1 | Identity, mandate, reporting, ownership, topics, actions, tools, model policy, hard dependency, budget | Generic prompts did not carry exact `AgentSpec` values. | 10/10 | Exact role-contract parity across all 15 prompts. |
+| 2 | Group isolation, ordering, duplicate safety, redelivery, publisher progress, independent progress, bounded wait, cancellation, replay, all-agent fan-out | Two local consumers in one group could lease the same offset concurrently. | 10/10 | Same-group failure injection plus the 15-agent concurrency proof. |
+| 3 | Handoff owner, abstention, typed authority, transport state, behavior counter, turn immutability, exception visibility, T1 failure, T2 budget, tool failure | An unbound Bragi transport silently dropped a required handoff. | 10/10 | Transport failure injection and handoff end-to-end regressions. |
 
-Each agent received 250 checks across the ten rounds. The highest-risk v1 ambiguity reviewed for
-each role was:
-
-| Agent | Highest-risk ambiguity corrected in v2 |
-|-------|----------------------------------------|
-| Odin | Arbitration explanation could sound like execution advice. |
-| Thor | Execution explanation did not fully pin verdict and approval refusal. |
-| Forseti | Judgment could omit evidence/inference/conflict separation. |
-| Huginn | Ingress explanation could drift into judgment or inventory ownership. |
-| Heimdall | Observation could be phrased as a verdict. |
-| Vidar | Recovery evidence could sound like rollback authorization. |
-| Var | Approval explanation could blur self-approval or execution. |
-| Bragi | Synthesis could impersonate a specialist or decision owner. |
-| Saga | Reconstruction could sound like mutation or execution replay. |
-| Mimir | Candidate explanation could imply promotion without the quality gate. |
-| Muninn | Stored content could be followed as instruction or treated as authority. |
-| Norns | Learned patterns could sound like active rules rather than inert candidates. |
-| Njord | Cost advice could be elevated into a verdict. |
-| Freyr | Capacity advice could be elevated into a verdict. |
-| Loki | A proposed experiment could sound approved or executed. |
-
-The v3 revision adds the eleventh baseline layer, the role directive. It closes the gap that the v2
-sweep left open: the prompts pinned what each agent owns and may not do, but not how its own
-decision is made, so an agent could name a verdict without explaining the mechanics behind it.
+The fourteen baseline layers now include an exact generated role contract and a role directive.
+The contract states what the agent may do; the directive explains how its own result is produced.
 
 ## Verification
 
-`tests/agents/test_prompt_deliberation.py` applies 25 criteria to every agent across ten cumulative
-prompt rounds. That is 3,750 deterministic judgments. It also verifies T1-required routing, two
-bounded phases, optional T2 synthesis, presentation-only authority, and action-intent refusal.
+`tests/agents/test_prompt_deliberation.py` applies 33 criteria to every agent, for 495 baseline
+judgments. It also verifies T1-required routing, two bounded phases, optional T2 synthesis,
+presentation-only authority, exact role contracts, budget denial, and action-intent refusal.
 
-`tests/agents/test_conversation_prompt_composition.py` re-applies the same criteria to every agent
-in every situation permutation, and pins the two composition invariants: the baseline is always a
-prefix of the composed prompt, and a forged turn context can never place its own text in a prompt.
+`tests/agents/test_conversation_prompt_composition.py` re-applies the 33 criteria to 1,152 situation
+permutations for each of 15 agents, for 570,240 deterministic judgments. It pins that the baseline
+is always a prefix and that forged turn context can never place its own text in a prompt.
 
 ## Related docs
 

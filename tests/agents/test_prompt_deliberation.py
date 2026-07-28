@@ -141,6 +141,11 @@ def test_each_agent_prompt_passes_every_check_across_twelve_rounds() -> None:
     assert failures == []
 
 
+def test_each_agent_prompt_carries_its_exact_role_and_budget_contract() -> None:
+    for spec in PANTHEON_SPECS:
+        assert spec.role_contract() in spec.conversation.system_prompt, spec.name
+
+
 def test_each_agent_improves_monotonically_over_twelve_critique_rounds() -> None:
     for spec in PANTHEON_SPECS:
         mandate = spec.conversation.system_prompt.splitlines()[1].removeprefix("Mandate: ")

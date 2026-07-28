@@ -527,6 +527,12 @@ class Bragi(Agent):
                 answer["semantic_margin"] = decision.semantic_margin
                 answer["routing_provider_status"] = decision.provider_status
 
+        if answer.get("handoff_needed") and materialize_handoff:
+            if self.bus is None:
+                answer["handoff_status"] = "transport_unavailable"
+                self.record_behavior("handoff:transport_unavailable")
+            else:
+                answer["handoff_status"] = "requested"
         turn = Turn(
             turn_index=_next_turn_index(session),
             question=question,

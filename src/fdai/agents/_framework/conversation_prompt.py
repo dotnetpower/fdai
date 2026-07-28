@@ -1,7 +1,7 @@
 """Situational composition of a pantheon agent's conversational prompt.
 
 The charter in :mod:`fdai.agents._framework.pantheon` carries the
-**baseline** prompt: the eleven server-owned layers every agent always
+**baseline** prompt: the fourteen server-owned layers every agent always
 runs with (identity, mandate, authority, grounding, epistemics, human
 dialogue, peer protocol, disagreement, tiering, security, and the
 agent's own role directive). One static string cannot serve every turn
@@ -67,7 +67,7 @@ CONSTRAINT_LAYER_IDS: Final[frozenset[str]] = frozenset(
     }
 )
 
-#: Bound on an agent's role directive (the eleventh baseline layer).
+#: Bound on an agent's role directive (the final baseline layer).
 MAX_ROLE_DIRECTIVE_CHARS: Final[int] = 640
 
 #: Ordered ids of the baseline layers built in ``pantheon.py``. Kept here
@@ -85,6 +85,7 @@ BASELINE_LAYER_IDS: Final[tuple[str, ...]] = (
     "tiering",
     "economy",
     "security_output",
+    "role_contract",
     "role",
 )
 

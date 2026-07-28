@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2d59ee7454d7075e85aedbab9b06dac0e31615df
+translation_source_sha: d2b9342fe725f75c7f70caf59d27b05e4592193a
 translation_revised: 2026-07-28
 ---
 # 코드 맵
@@ -144,8 +144,9 @@ fallback 없이 handoff합니다. Delivery adapter는 완료된 답변에 무관
 [.github/instructions/agent-pantheon.instructions.md](../../../.github/instructions/agent-pantheon.instructions.md)
 참조.
 
-Conversation charter text는 `_framework/charters.py`에 있고 `_framework/pantheon.py`가 각 agent에
-binding합니다. Turn별 상황 조립은 `_framework/conversation_prompt.py`에 있습니다. Bounded T1/T2
+Conversation charter text는 `_framework/charters.py`에 있고 `_framework/pantheon.py`가 각 agent를
+bind하며 `AgentSpec`이 정확한 role 및 budget contract를 삽입합니다. Turn별 상황 조립은
+`_framework/conversation_prompt.py`에 있습니다. Bounded T1/T2
 discussion contract는 `_framework/deliberation.py`에 있으며 Bragi가 `PantheonRuntime.deliberate`를
 통해 orchestrate합니다.
 [conversational-deliberation-ko.md](../agents/conversational-deliberation-ko.md)를 참조하세요.
@@ -212,7 +213,7 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 |--------|------|------|
 | contracts | optional ObjectType lifecycle 기준을 포함한 크로스 패키지 Pydantic 계약 | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
 | ontology | 도메인 온톨로지 (ObjectType / LinkType / ActionType) | [src/fdai/shared/ontology/](../../../src/fdai/shared/ontology/) |
-| providers | `ExecutionBackend`, bounded diagnostic receipt와 분리되고 cache되지 않는 ephemeral typed-command output, strict decode와 count/character bound 및 secret scan이 있는 durable channel-neutral handoff/execution activity를 포함한 Provider Protocol, process-local EventBus, bounded SSE, isolated programmatic pipeline runner, [access-scoped conversation search](../interfaces/conversation-search-ko.md), [structured behavior knowledge](../interfaces/behavior-knowledge-ko.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
+| providers | `ExecutionBackend`, bounded diagnostic receipt와 분리되고 cache되지 않는 ephemeral typed-command output, strict decode와 count/character bound 및 secret scan이 있는 durable channel-neutral handoff/execution activity를 포함한 Provider Protocol, same-group lease를 직렬화하고 독립 group 진행을 보장하는 process-local EventBus, bounded SSE, isolated programmatic pipeline runner, [access-scoped conversation search](../interfaces/conversation-search-ko.md), [structured behavior knowledge](../interfaces/behavior-knowledge-ko.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
 | config | 설정 로더, 스키마, shared runtime activation flag | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |
 | streaming | Kafka / Event Hub 추상화 | [src/fdai/shared/streaming/](../../../src/fdai/shared/streaming/) |
 | resilience | 재시도 / circuit-breaker 헬퍼 | [src/fdai/shared/resilience/](../../../src/fdai/shared/resilience/) |

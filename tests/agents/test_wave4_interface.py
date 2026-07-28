@@ -313,6 +313,22 @@ def test_bragi_returns_handoff_needed_when_no_route() -> None:
     assert turn.answer.get("handoff_needed") is True
 
 
+def test_bragi_surfaces_unavailable_handoff_transport() -> None:
+    bragi = Bragi()
+
+    turn = asyncio.run(
+        bragi.ask(
+            session_id="handoff-unavailable",
+            user_id="operator@example.com",
+            question="unowned request with no deterministic route",
+        )
+    )
+
+    assert turn.answer["handoff_needed"] is True
+    assert turn.answer["handoff_status"] == "transport_unavailable"
+    assert bragi.behavior_snapshot()["handoff:transport_unavailable"] == 1
+
+
 def test_bragi_sessions_for_partitions_by_user() -> None:
     bragi = Bragi()
 

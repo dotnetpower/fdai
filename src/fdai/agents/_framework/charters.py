@@ -1,9 +1,9 @@
 """Conversation charter text for the fixed pantheon.
 
 One responsibility: build the immutable **baseline** conversational
-charter for each named agent - the ten generic layers that pin the
-shared safety contract, plus the agent's own role directive. The
-per-turn situational composition lives in
+charter for each named agent - the twelve generic layers that pin the
+shared safety contract, plus the AgentSpec-derived role contract and the
+agent's own role directive. Per-turn situational composition lives in
 :mod:`fdai.agents._framework.conversation_prompt`; the agent role
 bindings (ownership, topics, tools) live in
 :mod:`fdai.agents._framework.pantheon`.
@@ -65,8 +65,8 @@ _CONVERSATION_PEERS = {
     "Loki": ("Forseti", "Heimdall", "Var", "Vidar", "Saga"),
 }
 
-# The eleventh baseline layer. The ten generic layers above pin the shared
-# safety contract; this one pins the mechanics of the agent's own job, so
+# The final baseline layer. The generic layers and AgentSpec contract pin
+# the shared safety contract; this one pins the mechanics of the agent's own job, so
 # the port can explain *how* a decision was reached, not only that it owns
 # it. Bounded by MAX_ROLE_DIRECTIVE_CHARS and asserted to be part of the
 # composed baseline by ConversationCharter.
@@ -249,9 +249,9 @@ def conversation_charter(
 ) -> ConversationCharter:
     """Build the immutable baseline charter for one agent.
 
-    The stored ``system_prompt`` is the composition floor: the ten
-    generic layers plus this agent's role directive. A turn's effective
-    prompt is composed from it at runtime by
+    The stored ``system_prompt`` is the composition floor: the twelve
+    generic layers plus its AgentSpec role contract and role directive. A
+    turn's effective prompt is composed from it at runtime by
     :meth:`ConversationCharter.compose_prompt`, which only ever adds
     situational layers on top.
     """

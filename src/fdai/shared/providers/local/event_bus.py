@@ -17,6 +17,7 @@ class LocalEventBus(EventBus):
         self._records: dict[str, list[tuple[str, dict[str, Any]]]] = {}
         self._offsets: dict[tuple[str, str], int] = {}
         self._conditions: dict[str, asyncio.Condition] = {}
+        self._group_locks: dict[tuple[str, str], asyncio.Lock] = {}
 
     async def publish(
         self,
@@ -38,20 +39,22 @@ class LocalEventBus(EventBus):
     async def _subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
         condition = self._condition(topic)
         group_key = (topic, group_id)
+        group_lock = self._group_lock(group_key)
         while True:
-            async with condition:
-                offset = self._offsets.get(group_key, 0)
-                while offset >= len(self._records.get(topic, ())):
-                    await condition.wait()
+            async with group_lock:
+                async with condition:
                     offset = self._offsets.get(group_key, 0)
-                key, payload = self._records[topic][offset]
-            yield EventEnvelope(
-                topic=topic,
-                key=key,
-                payload=deepcopy(payload),
-                offset=offset,
-            )
-            self._offsets[group_key] = offset + 1
+                    while offset >= len(self._records.get(topic, ())):
+                        await condition.wait()
+                        offset = self._offsets.get(group_key, 0)
+                    key, payload = self._records[topic][offset]
+                yield EventEnvelope(
+                    topic=topic,
+                    key=key,
+                    payload=deepcopy(payload),
+                    offset=offset,
+                )
+                self._offsets[group_key] = offset + 1
 
     async def dead_letter(
         self,
@@ -76,6 +79,13 @@ class LocalEventBus(EventBus):
             condition = asyncio.Condition()
             self._conditions[topic] = condition
         return condition
+
+    def _group_lock(self, group_key: tuple[str, str]) -> asyncio.Lock:
+        lock = self._group_locks.get(group_key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._group_locks[group_key] = lock
+        return lock
 
 
 __all__ = ["LocalEventBus"]

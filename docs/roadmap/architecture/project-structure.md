@@ -76,7 +76,7 @@ fdai/
 │   │   ├── providers/          # CSP-neutral cloud provider interfaces (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / channel / RBAC seams
-│   │   │                       # `providers/local/` = process-local transport adapters (`LocalEventBus`, bounded `LocalSseSink`) plus explicit offline helpers (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
+│   │   │                       # `providers/local/` = process-local transport adapters (`LocalEventBus` with per-group in-flight leases and independent group/publisher progress, bounded `LocalSseSink`) plus explicit offline helpers (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
 │   │   │                       # `providers/testing/` = in-memory fakes used across the test suite (never bound in prod)
 │   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: relay EventBus topics → SSE channels
 │   │   ├── telemetry/          # structured logging, tracing, metric helpers
