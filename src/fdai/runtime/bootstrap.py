@@ -317,7 +317,7 @@ async def _run() -> int:
                     actor_oid="Thor",
                 )
 
-            runtime_symptom_index = build_from_promoted(_resolve_catalog_root() / "chaos-scenarios")
+            runtime_symptom_index = build_from_promoted()
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
