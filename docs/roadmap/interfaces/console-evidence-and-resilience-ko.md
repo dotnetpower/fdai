@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6101e5cbef246022c57c39a57ae9ed487c858fb8
+translation_source_sha: 11fa979b165e091ad5d52f1c3de712b8c3057a4c
 translation_revised: 2026-07-29
 ---
 
@@ -121,7 +121,9 @@ action을 finalize하고 complete event evidence에 사람 승인, 거부, 실�
 없을 때만 event를 auto-resolved로 계산합니다. Dispatch-only event는 pending으로 유지됩니다.
 Route는 observed, finalized, pending, adverse 및 auto-resolved count를 분리해 표시합니다.
 Auto-resolution rate는 canonical total observed-event denominator를 유지하므로 pending 및 기타
-non-auto event가 rate에서 사라지지 않습니다.
+non-auto event가 rate에서 사라지지 않습니다. Outcome 및 audit timestamp는 timezone-aware여야
+합니다. Durable audit timestamp보다 5분 넘게 미래인 outcome은 malformed evidence이므로 action을
+finalize하지 않습니다.
 Vertical attribution은 먼저 명시적으로 기록된 vertical을 사용하고, 그다음 강한 Resilience 또는
 Cost Governance action/resource hint만 사용합니다. 추측 없이 귀속할 수 없는 evidence는
 `unattributed` row에 남고 global denominator에 포함되며 표시되는 attribution coverage를 낮춥니다.

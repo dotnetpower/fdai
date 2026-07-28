@@ -119,7 +119,9 @@ enforce, verified, auto, non-rollback action and the complete event evidence con
 approval, denial, execution failure, or rollback signal. Dispatch-only events remain pending. The
 route shows observed, finalized, pending, adverse, and auto-resolved counts separately; the
 auto-resolution rate keeps the canonical total observed-event denominator, so pending and other
-non-auto events never disappear from the rate.
+non-auto events never disappear from the rate. Outcome and audit timestamps must be timezone-aware;
+an outcome more than five minutes ahead of its durable audit timestamp is malformed evidence and
+does not finalize the action.
 Vertical attribution uses an explicit recorded vertical first, then only strong Resilience or Cost
 Governance action/resource hints. Evidence that cannot be attributed without guessing remains in an
 `unattributed` row, contributes to the global denominator, and lowers the displayed attribution
