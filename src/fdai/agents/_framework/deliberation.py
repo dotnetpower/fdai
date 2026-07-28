@@ -87,8 +87,16 @@ class DeliberationRequest:
             raise ValueError("deliberation correlation_id MUST be at most 256 characters")
         if not 2 <= len(self.claims) <= _MAX_CLAIMS:
             raise ValueError("deliberation requires between two and three claims")
+        if self.primary_agent != self.claims[0].agent:
+            raise ValueError("deliberation primary_agent MUST own the first claim")
+        claim_agents = tuple(claim.agent for claim in self.claims)
+        if len(claim_agents) != len(set(claim_agents)):
+            raise ValueError("deliberation claim agents MUST be unique")
         if len(self.participant_prompts) != len(self.claims):
             raise ValueError("deliberation prompts MUST align with claims")
+        prompt_agents = tuple(agent for agent, _ in self.participant_prompts)
+        if prompt_agents != claim_agents:
+            raise ValueError("deliberation prompts MUST align with claim agents")
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 7bdcc6f16d20c1687fba91f1784596fdf8b98eb2
+translation_source_sha: 1ef69c5be3cd3b700519ff56a96eff592a31664f
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -459,11 +459,28 @@ participant의 immutable baseline charter를 전달하며, test가 이 차이를
 situational provenance가 섞이지 않게 합니다. Claim은 canonical lowercase hexadecimal SHA-256 digest와
 1-20개의 evidence reference가 있을 때만 수락됩니다.
 
+## 네 번째 추가 3라운드 하드닝
+
+다음 campaign은 각 T2 synthesis request 내부의 cross-field identity와 ordering을 강화했습니다.
+
+| Round | 10점 focus | 제거한 결함 | Exit score | 실행 증거 |
+|------:|------------|-------------|-----------:|-----------|
+| 1 | Primary identity, first position, owner attribution, claim order, request boundary, immutable input, provider isolation, replay, error clarity, regression | Request가 첫 position claim을 소유하지 않은 agent를 primary로 지정할 수 있었습니다. | 10/10 | Primary-to-first-claim mismatch rejection test |
+| 2 | Distinct participants, unique owners, position separation, critique separation, bounded claims, request boundary, no false quorum, replay, error clarity, regression | 한 agent가 여러 claim을 소유하면서 독립 critique를 제공한 것처럼 보일 수 있었습니다. | 10/10 | Duplicate claim-agent rejection test |
+| 3 | Prompt owner, claim owner, exact ordering, baseline attribution, digest association, request boundary, immutable input, replay, error clarity, regression | Participant prompt가 claim과 독립적으로 재정렬되어 evidence에 잘못된 baseline charter를 연결할 수 있었습니다. | 10/10 | Prompt-to-claim owner-order rejection test |
+
+이제 synthesis request는 `primary_agent`를 첫 claim owner와 결합하고, 모든 claim owner가 고유하도록
+요구하며, participant prompt owner가 claim owner 순서를 정확히 따르도록 요구합니다. 이 검사는
+provider에 request를 전달하기 전에 position, critique, effective prompt digest 및 immutable baseline
+charter가 같은 participant에 귀속되도록 유지합니다.
+
 ## 검증
 
 `tests/agents/test_prompt_deliberation.py`는 agent마다 33개 기준을 적용해 baseline judgment
 495개를 검증합니다. T1-required routing, two bounded phase, optional T2 synthesis,
 presentation-only authority, exact role contract, budget denial 및 action-intent refusal도 검증합니다.
+또한 primary owner, distinct claim owner 또는 participant prompt ordering이 일치하지 않는 cross-field
+T2 request를 차단합니다.
 
 `tests/agents/test_prompt_contract_audit.py`는 15개 agent 모두에 structural critique 40개를 적용해
 all-agent judgment 600개를 검증합니다. 이어서 global single-writer/tool ownership, strict roster,

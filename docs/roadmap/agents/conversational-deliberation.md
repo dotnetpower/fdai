@@ -468,11 +468,28 @@ request separately carries each participant's immutable baseline charter; tests 
 distinction so baseline policy and situational provenance cannot be confused. A claim is admitted
 only with a canonical lowercase hexadecimal SHA-256 digest and one to twenty evidence references.
 
+## Fourth additional three-round hardening
+
+The next campaign hardened cross-field identity and ordering inside each T2 synthesis request:
+
+| Round | 10-point focus | Defect removed | Exit score | Executable evidence |
+|------:|----------------|----------------|-----------:|---------------------|
+| 1 | Primary identity, first position, owner attribution, claim order, request boundary, immutable input, provider isolation, replay, error clarity, regression | A request could name a primary agent that did not own its first position claim. | 10/10 | Primary-to-first-claim mismatch rejection test. |
+| 2 | Distinct participants, unique owners, position separation, critique separation, bounded claims, request boundary, no false quorum, replay, error clarity, regression | One agent could own multiple claims and appear to provide an independent critique. | 10/10 | Duplicate claim-agent rejection test. |
+| 3 | Prompt owner, claim owner, exact ordering, baseline attribution, digest association, request boundary, immutable input, replay, error clarity, regression | Participant prompts could be reordered independently from claims and attach the wrong baseline charter to evidence. | 10/10 | Prompt-to-claim owner-order rejection test. |
+
+A synthesis request now binds `primary_agent` to the first claim owner, requires every claim owner
+to be unique, and requires participant prompt owners to exactly follow claim-owner order. These
+checks keep position, critique, effective prompt digest, and immutable baseline charter attributed
+to the same participant before a provider receives the request.
+
 ## Verification
 
 `tests/agents/test_prompt_deliberation.py` applies 33 criteria to every agent, for 495 baseline
 judgments. It also verifies T1-required routing, two bounded phases, optional T2 synthesis,
 presentation-only authority, exact role contracts, budget denial, and action-intent refusal.
+It also rejects cross-field T2 requests whose primary owner, distinct claim owners, or participant
+prompt ordering disagree.
 
 `tests/agents/test_prompt_contract_audit.py` applies the 40 structural critiques to all 15 agents,
 for 600 all-agent judgments, then separately verifies global single-writer/tool ownership, strict

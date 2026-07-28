@@ -225,6 +225,15 @@ def _agent_index(name: str) -> int:
     return next(index for index, spec in enumerate(PANTHEON_SPECS) if spec.name == name)
 
 
+def _test_claim(agent: str, digest_character: str) -> DeliberationClaim:
+    return DeliberationClaim(
+        agent=agent,
+        answer=f"{agent} grounded evidence.",
+        evidence_refs=(f"agent-state:{agent}",),
+        prompt_sha256=digest_character * 64,
+    )
+
+
 def test_deliberation_requires_t1_instead_of_falling_back_to_t0() -> None:
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
@@ -329,6 +338,48 @@ def test_deliberation_claim_rejects_missing_evidence_refs() -> None:
         )
         is None
     )
+
+
+def test_deliberation_request_rejects_primary_claim_owner_mismatch() -> None:
+    claims = (_test_claim("Njord", "a"), _test_claim("Freyr", "b"))
+
+    with pytest.raises(ValueError, match="primary_agent"):
+        DeliberationRequest(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            correlation_id="corr-primary-owner",
+            primary_agent="Thor",
+            claims=claims,
+            participant_prompts=(("Njord", "Njord prompt"), ("Freyr", "Freyr prompt")),
+        )
+
+
+def test_deliberation_request_rejects_duplicate_claim_agents() -> None:
+    claims = (_test_claim("Njord", "a"), _test_claim("Njord", "b"))
+
+    with pytest.raises(ValueError, match="claim agents MUST be unique"):
+        DeliberationRequest(
+            question="Compare cost evidence.",
+            requester="Forseti",
+            correlation_id="corr-duplicate-claim-agent",
+            primary_agent="Njord",
+            claims=claims,
+            participant_prompts=(("Njord", "Position prompt"), ("Njord", "Critique prompt")),
+        )
+
+
+def test_deliberation_request_rejects_prompt_claim_order_mismatch() -> None:
+    claims = (_test_claim("Njord", "a"), _test_claim("Freyr", "b"))
+
+    with pytest.raises(ValueError, match="prompts MUST align with claim agents"):
+        DeliberationRequest(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            correlation_id="corr-prompt-claim-order",
+            primary_agent="Njord",
+            claims=claims,
+            participant_prompts=(("Freyr", "Freyr prompt"), ("Njord", "Njord prompt")),
+        )
 
 
 def test_t2_deliberation_synthesizes_without_raising_authority() -> None:

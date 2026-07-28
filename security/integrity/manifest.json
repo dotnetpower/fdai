@@ -33,7 +33,7 @@
     "src/fdai/agents/_framework/charters.py": "c15940e4198b30e3f39a32a45f744a9bcac4aeae7661ae9e86eda3fde43583cb",
     "src/fdai/agents/_framework/conversation_prompt.py": "d944245d637315b40133ec14e0ccfdf689e74f1bee059e92bad23a4b56612c74",
     "src/fdai/agents/_framework/conversation_tools.py": "11052e1c5e07638dca16a26dddd1bb5b81ae86b30f80eaafa37212566b20bb95",
-    "src/fdai/agents/_framework/deliberation.py": "73c1582df5faab6ddb3cc80f9221746e6308119f467db894fc3725150a239db6",
+    "src/fdai/agents/_framework/deliberation.py": "eb4dae285df12eced67c86190a2212a36f4943fd2a07eb31c6663530b207e1ed",
     "src/fdai/agents/_framework/divergence.py": "0304d6e035bf126bf02893794bef8453df40c042c264e89ceb7946254ddd8d0a",
     "src/fdai/agents/_framework/factory.py": "741ea0783f1e1ecbfd5d218f0a5ee68e3f5788e300b8468355abc826178c4765",
     "src/fdai/agents/_framework/introspection.py": "b2c27b14df76643cef9a70ce07bd37d2e252dfb9bc7aff3a2885573cc8e5bf69",
@@ -807,7 +807,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-28T10:51:19Z",
+  "generated_at": "2026-07-28T10:56:15Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
