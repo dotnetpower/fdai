@@ -157,6 +157,42 @@ async def test_audit_overview_uses_latest_savings_observation_per_action() -> No
     assert cost["monthly_savings"] == 50.0
 
 
+async def test_audit_overview_uses_latest_metric_observation_per_event() -> None:
+    model = InMemoryConsoleReadModel()
+    model.record_audit_entry(
+        {
+            "event_id": "event-core",
+            "actor": "fdai.core.control_loop",
+            "action_kind": "control_loop.abstain",
+            "mode": "shadow",
+            "stage": "trust_router",
+        }
+    )
+    for mttr_seconds in (100.0, 200.0):
+        model.record_audit_entry(
+            {
+                "event_id": "measurement-1",
+                "actor": "fdai.measurement",
+                "action_kind": "measurement.observed",
+                "mode": "shadow",
+                "measurement": {"mttr_seconds": mttr_seconds},
+            }
+        )
+    model.record_audit_entry(
+        {
+            "event_id": "measurement-2",
+            "actor": "fdai.measurement",
+            "action_kind": "measurement.observed",
+            "mode": "shadow",
+            "measurement": {"mttr_seconds": 400.0},
+        }
+    )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+
+    assert payload["success"]["mttr_seconds"]["value"] == 300.0
+
+
 async def test_persisted_promotion_panel_holds_without_durable_evidence() -> None:
     action_type = load_action_type_catalog(
         REPO_ROOT / "rule-catalog" / "action-types",

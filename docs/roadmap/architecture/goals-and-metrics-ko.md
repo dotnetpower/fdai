@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: c5a8d2dfae38a7b115f16edadb35974826be437c
+translation_source_sha: 25b71780c0ca60d4f7b9886f2e43b59fdc768cd2
 translation_revised: 2026-07-28
 ---
 
@@ -113,6 +113,9 @@ translation_revised: 2026-07-28
 - **구조화된 이벤트 + 트레이스** (OpenTelemetry)가 `event_id`, `tier`, `decision`,
   `mode`(shadow/enforce), 타임스탬프를 운반 - 메트릭 2, 3a/3b, 선행 지표의 소스.
 - **append-only 감사 로그**가 사람 터치포인트(metric 4), 롤백, 정책 escape의 소스.
+- **명시적 metric 관측값**은 각 `event_id` 및 metric key의 최신 row를 사용합니다. 하나의 event에
+  대한 retry 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 event의
+  관측값은 독립 표본으로 유지합니다.
 - **MTTR(metric 3a)** 은 순수 집계기
   [`core/measurement/mttr.py`](../../../src/fdai/core/measurement/mttr.py) 가 계산합니다. 해결된
   인시던트(`resolved_at - opened_at`)를 **mean, median, p90** 초로 접습니다. 미해결/무결성

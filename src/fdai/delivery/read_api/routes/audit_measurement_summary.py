@@ -283,15 +283,17 @@ def _metric(
 
 
 def _values(items: Sequence[AuditItem], key: str, *, baseline: bool = False) -> list[float]:
-    values: list[float] = []
+    latest_by_event: dict[str, tuple[int, float]] = {}
     for item in items:
         container = item.entry.get("baseline" if baseline else "measurement")
         raw = container.get(key) if isinstance(container, Mapping) else None
         if raw is None:
             raw = item.entry.get(f"baseline_{key}" if baseline else key)
         if _is_number(raw):
-            values.append(float(raw))
-    return values
+            observed = latest_by_event.get(item.event_id)
+            if observed is None or item.seq > observed[0]:
+                latest_by_event[item.event_id] = (item.seq, float(raw))
+    return [value for _, value in latest_by_event.values()]
 
 
 def _guards(items: Sequence[AuditItem]) -> list[Mapping[str, Any]]:
