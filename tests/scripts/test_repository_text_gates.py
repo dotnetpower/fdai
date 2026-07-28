@@ -48,6 +48,28 @@ def test_translation_gate_ignores_untracked_ignored_worktrees(git_repo: Path) ->
     assert "1 English docs, 1 translations verified" in result.stdout
 
 
+def test_translation_gate_accepts_large_valid_front_matter(git_repo: Path) -> None:
+    source = git_repo / "docs" / "guide.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# Guide\n", encoding="utf-8")
+    source_sha = _run(git_repo, "git", "hash-object", "docs/guide.md").stdout.strip()
+    (git_repo / "docs" / "guide-ko.md").write_text(
+        "---\n"
+        "translation_of: guide.md\n"
+        f"notes: {'x' * 1_000_000}\n"
+        f"translation_source_sha: {source_sha}\n"
+        "---\n"
+        "# Guide\n",
+        encoding="utf-8",
+    )
+    assert _run(git_repo, "git", "add", "docs").returncode == 0
+
+    result = _run(git_repo, "bash", str(_TRANSLATIONS))
+
+    assert result.returncode == 0, result.stderr
+    assert "1 English docs, 1 translations verified" in result.stdout
+
+
 def test_text_gates_limit_scans_to_supplied_paths(git_repo: Path) -> None:
     (git_repo / "clean.txt").write_text("clean\n", encoding="utf-8")
     (git_repo / "bad-punctuation.txt").write_text("bad \u2014 punctuation\n", encoding="utf-8")

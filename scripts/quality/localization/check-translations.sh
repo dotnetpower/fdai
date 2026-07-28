@@ -26,6 +26,17 @@ cd "$repo_root"
 
 errors=0
 report() { echo "check-translations: $*" >&2; errors=$((errors + 1)); }
+front_matter_value() {
+  local key="$1"
+  local front_matter="$2"
+  awk -F': *' -v key="$key" '
+    $1 == key { value=$2 }
+    END {
+      gsub(/["\047]/, "", value)
+      print value
+    }
+  ' <<<"$front_matter"
+}
 
 # Enumerate in-scope English markdown files (canonical sources).
 mapfile -t english_docs < <(
@@ -56,8 +67,8 @@ for src in "${english_docs[@]}"; do
     continue
   fi
 
-  translation_of="$(printf '%s\n' "$fm" | awk -F': *' '$1=="translation_of"{print $2; exit}' | tr -d '"'"'")"
-  recorded_sha="$(printf '%s\n' "$fm" | awk -F': *' '$1=="translation_source_sha"{print $2; exit}' | tr -d '"'"'")"
+  translation_of="$(front_matter_value "translation_of" "$fm")"
+  recorded_sha="$(front_matter_value "translation_source_sha" "$fm")"
 
   if [[ -z "$translation_of" ]]; then
     report "$ko: front-matter missing translation_of"
