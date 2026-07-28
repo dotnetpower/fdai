@@ -239,6 +239,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   scheduled trigger. Huginn owns real-time resource discovery ingress: Azure create, update, and
   delete signals arrive through the canonical event topic, then an injected delivery projector
   enriches and applies ordered inventory deltas without putting Azure I/O inside the agent. The
+  generic Inventory delta forwarder preserves each `InventoryBatch.links` patch by assigning
+  `contains` to its target resource and other relationship types to their source resource. A link
+  whose owner resource is absent from the same batch blocks cursor advancement so the page is
+  retried instead of silently dropping graph data. The event idempotency identity includes a
+  canonical digest of the resource and relationship payload.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.

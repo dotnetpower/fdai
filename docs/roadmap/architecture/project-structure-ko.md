@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 57089637188bb7ca626b25631a5e4da6d12df7fd
+translation_source_sha: a828d7cc3b30566eae4d71b99d89c10eb31bec9f
 translation_revised: 2026-07-28
 ---
 
@@ -239,6 +239,10 @@ fdai/
   trigger를 기다립니다. Huginn은 실시간 resource discovery ingress를 소유합니다. Azure create,
   update, delete signal은 canonical event topic으로 들어오고, 주입된 delivery projector가 Azure
   I/O를 agent 내부에 넣지 않은 채 enrichment와 ordered inventory delta 적용을 담당합니다. 전용
+  generic Inventory delta forwarder는 각 `InventoryBatch.links` patch를 보존합니다. `contains`는
+  target 리소스에, 다른 관계 type은 source 리소스에 할당합니다. 같은 batch에 관계 owner 리소스가
+  없으면 cursor 진행을 차단하여 graph 데이터를 조용히 버리지 않고 page를 재시도합니다. Event
+  idempotency identity에는 리소스 및 관계 payload의 canonical digest가 포함됩니다.
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
   정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를
