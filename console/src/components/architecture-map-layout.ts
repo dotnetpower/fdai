@@ -6,14 +6,16 @@ import {
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
+import { layoutArchitectureNetworkFloors } from "./architecture-network-layout";
 
 export function layoutArchitecturePresentation(
   graph: InventoryGraphResponse,
   selectedId: string | null,
 ): InventoryGraphResponse {
-  const overview = constrainGraph(architecturePresentationGraph(graph, null));
+  const networkLayout = layoutArchitectureNetworkFloors(graph);
+  const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   if (selectedId === null) return overview;
-  const presented = architecturePresentationGraph(graph, selectedId);
+  const presented = architecturePresentationGraph(networkLayout, selectedId);
   const overviewById = new Map(overview.resources.map((resource) => [resource.id, resource]));
   const presentedById = new Map(presented.resources.map((resource) => [resource.id, resource]));
   const positioned = new Map<string, InventoryResource>();
@@ -30,7 +32,9 @@ export function layoutArchitecturePresentation(
   const revealed = presented.resources.filter((resource) => !overviewById.has(resource.id));
   for (const [revealIndex, resource] of revealed.entries()) {
     const anchor = architectureRevealAnchor(resource, selectedId, presented, positioned);
-    const parent = resource.parent_id ? positioned.get(resource.parent_id) : undefined;
+    const parent = (resource.network_plane_id
+      ? positioned.get(resource.network_plane_id)
+      : undefined) ?? (resource.parent_id ? positioned.get(resource.parent_id) : undefined);
     const placed = placeArchitectureNeighbor(resource, anchor, parent, occupied, revealIndex);
     positioned.set(resource.id, placed);
     occupied.push(placed);

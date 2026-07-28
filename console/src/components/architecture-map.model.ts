@@ -13,6 +13,7 @@ export interface InventoryResource {
   readonly h?: number;
   readonly render_scale?: number;
   readonly collapsed_count?: number;
+  readonly network_plane_id?: string;
 }
 
 export interface InventoryLink {

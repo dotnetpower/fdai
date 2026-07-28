@@ -876,6 +876,85 @@ def test_arm_id_to_type_returns_none_without_providers_segment() -> None:
     assert _arm_id_to_type("/subscriptions/00000000-0000-0000-0000-000000000001") is None
 
 
+def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
+    from fdai.delivery.azure.arg_projection import materialize_nested_subnets
+
+    vnet_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Network/virtualNetworks/vnet-example"
+    )
+    subnet_id = f"{vnet_id}/subnets/app"
+    vnet = ResourceRecord(
+        resource_id="scope-example/resource-group/rg-example/providers/microsoft.network/virtualnetworks/vnet-example",
+        type="network.vnet",
+        props={
+            "resourceGroup": "rg-example",
+            "properties": {
+                "subnets": [
+                    {"id": subnet_id, "name": "app"},
+                    {"id": subnet_id, "name": "duplicate"},
+                    {"id": f"{vnet_id.lower()}/subnets/data", "name": "data"},
+                    {"id": f"{vnet_id}/peerings/not-a-subnet", "name": "invalid"},
+                ]
+            },
+        },
+        provider_ref=vnet_id,
+    )
+
+    records, links = materialize_nested_subnets(vnet)
+
+    assert len(records) == 2
+    assert {record.type for record in records} == {"network.subnet"}
+    assert records[0].props == {"name": "app", "resourceGroup": "rg-example"}
+    assert records[1].props == {"name": "data", "resourceGroup": "rg-example"}
+    assert len(links) == 2
+    assert links[0].from_id == vnet.resource_id
+    assert links[0].to_id == records[0].resource_id
+    assert links[0].link_type == "contains"
+
+
+@pytest.mark.asyncio
+async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> None:
+    vnet_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Network/virtualNetworks/vnet-example"
+    )
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        assert "Microsoft.Network/virtualNetworks" in str(request.read())
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=vnet_id,
+                        arm_type="Microsoft.Network/virtualNetworks",
+                        extra={
+                            "resourceGroup": "rg-example",
+                            "properties": {
+                                "subnets": [{"id": f"{vnet_id}/subnets/app", "name": "app"}]
+                            },
+                        },
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        resources, links = await factory.build_query_fn()("network.subnet")
+
+    assert [resource.type for resource in resources] == ["network.subnet"]
+    assert [(link.from_type, link.link_type, link.to_type) for link in links] == [
+        ("network.vnet", "contains", "network.subnet")
+    ]
+
+
 def test_extract_attached_to_from_subnet_reference() -> None:
     """A NIC row with properties.subnet.id emits attached_to(nic, subnet)."""
     from fdai.delivery.azure.arg_query import (

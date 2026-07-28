@@ -277,6 +277,23 @@ describe("architecture connections", () => {
       .1 + geometryOf(vm).height,
     );
   });
+
+  it("uses nested network planes instead of drawing a containment chord", () => {
+    const vnet = { id: "vnet", type: "network.vnet", w: 8, h: 6 } as never;
+    const subnet = { id: "subnet", type: "network.subnet", w: 4, h: 3 } as never;
+    const vm = { id: "vm", type: "compute.vm" } as never;
+
+    expect(architectureLinkIsDrawable(
+      vnet,
+      subnet,
+      { source: "vnet", target: "subnet", type: "contains" },
+    )).toBe(false);
+    expect(architectureLinkIsDrawable(
+      vm,
+      subnet,
+      { source: "vm", target: "subnet", type: "attached_to" },
+    )).toBe(true);
+  });
 });
 
 describe("architecture responsive layout", () => {

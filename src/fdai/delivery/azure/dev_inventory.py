@@ -49,6 +49,7 @@ from fdai.delivery.azure.arg_projection import (
     extract_attached_to_links_from_row,
     extract_depends_on_links_from_row,
     extract_rg_contains_links,
+    materialize_nested_subnets,
     to_neutral_id,
     truncate_props,
 )
@@ -177,7 +178,9 @@ class AzureCliInventory:
         special = _NEUTRAL_TYPE_TO_AZ_ARGS.get(resource_type)
         if special is not None:
             return special
-        arm_type = self.azure_arm_types.get(resource_type)
+        arm_type = self.azure_arm_types.get(
+            "network.vnet" if resource_type == "network.subnet" else resource_type
+        )
         if arm_type is None:
             return None
         return (
@@ -235,8 +238,9 @@ class AzureCliInventory:
         records: list[ResourceRecord] = []
         links: list[LinkRecord] = []
         for resource_type in self.resource_types:
+            source_type = "network.vnet" if resource_type == "network.subnet" else resource_type
             projected_records, projected_links = self._project_rows(
-                rows_by_type.get(resource_type, ()), resource_type
+                rows_by_type.get(source_type, ()), resource_type
             )
             records.extend(projected_records)
             links.extend(projected_links)
@@ -317,6 +321,19 @@ class AzureCliInventory:
         resource_type: str,
     ) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
         now_iso = datetime.now(tz=UTC).isoformat()
+        if resource_type == "network.subnet":
+            subnet_records: list[ResourceRecord] = []
+            subnet_links: list[LinkRecord] = []
+            for row in rows:
+                vnet = _record_from_az_row(
+                    row=row,
+                    resource_type="network.vnet",
+                    now_iso=now_iso,
+                )
+                nested_records, nested_links = materialize_nested_subnets(vnet)
+                subnet_records.extend(nested_records)
+                subnet_links.extend(nested_links)
+            return tuple(subnet_records), _dedupe_links(subnet_links)
         records = tuple(
             _record_from_az_row(row=row, resource_type=resource_type, now_iso=now_iso)
             for row in rows

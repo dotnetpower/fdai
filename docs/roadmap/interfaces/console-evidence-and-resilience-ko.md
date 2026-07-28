@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6fa38efebc42dcc10429bd8215d6199d412710e7
+translation_source_sha: aba2f070080832544e3b1121b5f0b5a07701a239
 translation_revised: 2026-07-28
 ---
 
@@ -478,7 +478,17 @@ child를 layer 및 type 순서로 정렬하며 접힌 owner 옆에 최대 두 �
 resource-group panel을 wide row에 먼저 배치하므로 숨겨진 auxiliary가 빈 grid hole을 만들거나 world를
 부풀리지 않습니다. Virtual network와 subnet은 낮은 floor
 lane으로 렌더링하므로 compute, data 및 gateway node를 network plane 위에서 읽을 수 있습니다. Floor
-lane은 reflection을 렌더링하지 않습니다.
+lane은 reflection을 렌더링하지 않습니다. Azure inventory는 VNet payload 안에서 관찰된 subnet만
+`network.subnet` record로 승격하고 관찰된 VNet-to-subnet containment edge를 생성합니다. Console은
+등록된 `attached_to` link가 bounded resource-to-interface-to-subnet chain 안에서 하나의 subnet에만
+도달할 때 resource를 해당 subnet에 배치합니다. Membership이 없거나 모호하면 resource-group의 neutral
+floor에 유지하며 name과 provider identifier를 topology evidence로 사용하지 않습니다.
+
+Isometric renderer는 VNet을 outer floor로, subnet을 visible member 수에 따라 크기가 정해지는 inset
+floor plane으로 그립니다. Evidence-derived membership rail과 direct `attached_to` link는 floor에
+유지하고 `depends_on` arrow는 resource top 위에 유지합니다. Plane name은 floating label card 없이
+world axis를 따릅니다. Plane을 선택하면 동일한 resource inspector를 사용하며 가장 작은 containing
+plane이 pointer target으로 유지됩니다.
 
 Label은 collision을 피하고 긴 이름을 맞추며 각 resource name과 읽기 쉬운 resource type을 함께
 표시합니다. Block의 compact acronym은 보조 cue이며 resource를 식별하는 유일한 방법이 아닙니다.

@@ -25,7 +25,10 @@ Current adapters
   under a bounded page cap, truncates untrusted vendor properties, and
   fail-closes on any HTTP / JSON / body-shape error via `ArgQueryError`.
   Extracts bounded `contains`, `attached_to`, and `depends_on` links from
-  trusted ARM-id and property paths.
+  trusted ARM-id and property paths. Because ARG doesn't return nested subnets
+  as independent rows consistently, the subnet shard queries VNet rows and
+  materializes only the observed `properties.subnets` entries with their
+  VNet-to-subnet containment links.
 - [`resource_change.py`](resource_change.py) - strict Event Grid
   write/delete normalizer for Huginn's real-time resource discovery ingress.
   It reuses the ARG neutral-id and relationship projection rules, emits

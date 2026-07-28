@@ -11,6 +11,9 @@ from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
 
 _RESOURCE_GROUP_TYPE: Final[str] = "resource-group"
+_VNET_TYPE: Final[str] = "network.vnet"
+_SUBNET_TYPE: Final[str] = "network.subnet"
+_SUBNET_ARM_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
 
 
 def to_neutral_id(arm_id: str) -> str:
@@ -86,6 +89,62 @@ def extract_rg_contains_links(
             )
         )
     return tuple(links)
+
+
+def materialize_nested_subnets(
+    vnet: ResourceRecord,
+) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
+    """Promote observed VNet subnet payloads into inventory graph records."""
+    if vnet.type != _VNET_TYPE:
+        return (), ()
+    properties = vnet.props.get("properties")
+    if not isinstance(properties, Mapping):
+        return (), ()
+    raw_subnets = properties.get("subnets")
+    if not isinstance(raw_subnets, Sequence) or isinstance(raw_subnets, (str, bytes)):
+        return (), ()
+
+    records: list[ResourceRecord] = []
+    links: list[LinkRecord] = []
+    seen: set[str] = set()
+    for raw_subnet in raw_subnets:
+        if not isinstance(raw_subnet, Mapping):
+            continue
+        provider_ref = raw_subnet.get("id")
+        if not isinstance(provider_ref, str):
+            continue
+        provider_type = arm_id_to_type(provider_ref)
+        if provider_type is None or provider_type.casefold() != _SUBNET_ARM_TYPE.casefold():
+            continue
+        resource_id = to_neutral_id(provider_ref)
+        if resource_id in seen:
+            continue
+        seen.add(resource_id)
+        name = raw_subnet.get("name")
+        props: dict[str, Any] = {
+            "name": name if isinstance(name, str) and name else provider_ref.rsplit("/", 1)[-1],
+        }
+        resource_group = vnet.props.get("resourceGroup")
+        if isinstance(resource_group, str) and resource_group:
+            props["resourceGroup"] = resource_group
+        records.append(
+            ResourceRecord(
+                resource_id=resource_id,
+                type=_SUBNET_TYPE,
+                props=props,
+                provider_ref=provider_ref,
+            )
+        )
+        links.append(
+            LinkRecord(
+                from_id=vnet.resource_id,
+                from_type=_VNET_TYPE,
+                link_type="contains",
+                to_id=resource_id,
+                to_type=_SUBNET_TYPE,
+            )
+        )
+    return tuple(records), tuple(links)
 
 
 _ATTACHED_TO_PROPERTY_KEYS: Final[tuple[str, ...]] = (

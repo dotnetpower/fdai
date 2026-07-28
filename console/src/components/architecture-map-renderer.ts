@@ -12,6 +12,12 @@ import {
   type Point,
 } from "./architecture-map.geometry";
 import { architectureResourceAbbreviation } from "./architecture-resource-abbreviations";
+import { isArchitectureNetworkPlane } from "./architecture-network-layout";
+import {
+  drawArchitectureAttachmentRoute,
+  drawArchitectureNetworkMemberships,
+  drawArchitectureNetworkPlanes,
+} from "./architecture-network-renderer";
 import {
   geometryOf,
   isRegion,
@@ -120,7 +126,7 @@ export function renderMap(
 
   const regions = graph.resources.filter(isRegion).sort((first, second) =>
     (second.w ?? 0) * (second.h ?? 0) - (first.w ?? 0) * (first.h ?? 0));
-  for (const region of regions) {
+  for (const region of regions.filter((resource) => !isArchitectureNetworkPlane(resource))) {
     const color = resourceColorOf(region);
     const points = rectangle(camera, width, height, region.x ?? 0, region.y ?? 0, region.w ?? 0, region.h ?? 0, .01);
     context.save();
@@ -128,6 +134,16 @@ export function renderMap(
     fillPolygon(context, points, color, selectedId === region.id ? "#0f6670" : color, selectedId === region.id ? 2.5 : 1.1);
     context.restore();
   }
+  drawArchitectureNetworkPlanes(
+    context,
+    width,
+    height,
+    camera,
+    regions.filter(isArchitectureNetworkPlane),
+    selectedId,
+    palette,
+  );
+  drawArchitectureNetworkMemberships(context, width, height, camera, graph, highlightedIds);
 
   const nodes = graph.resources.filter((resource) => !isRegion(resource));
   if (options.showReflections) drawReflections(context, width, height, camera, nodes, highlightedIds);
@@ -136,10 +152,11 @@ export function renderMap(
     project(camera, width, height, first.x ?? 0, first.y ?? 0).depth);
   if (options.showConnections) {
     drawLinks(context, width, height, camera, graph, highlightedIds, "containment");
+    drawLinks(context, width, height, camera, graph, highlightedIds, "attachment");
   }
   for (const node of ordered) drawNodeBody(context, width, height, camera, node, selectedId, highlightedIds);
   if (options.showConnections) {
-    drawLinks(context, width, height, camera, graph, highlightedIds, "semantic");
+    drawLinks(context, width, height, camera, graph, highlightedIds, "dependency");
   }
   const labelBounds = ordered.map((node) => nodeLabelObstacle(camera, width, height, node));
   const overlayOrder = architectureOverlayOrder(ordered, selectedId);
@@ -158,7 +175,7 @@ export function renderMap(
     );
   }
   if (showLabels) {
-    for (const region of regions) {
+    for (const region of regions.filter((resource) => !isArchitectureNetworkPlane(resource))) {
       drawLabel(
         context,
         project(camera, width, height, (region.x ?? 0) + .2, (region.y ?? 0) + .2, .02),
@@ -345,14 +362,18 @@ function drawLinks(
   camera: Camera,
   graph: InventoryGraphResponse,
   highlightedIds?: ReadonlySet<string>,
-  pass: "containment" | "semantic" = "semantic",
+  pass: "containment" | "attachment" | "dependency" = "dependency",
 ): void {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
   for (const link of graph.links) {
     const source = byId.get(link.source);
     const target = byId.get(link.target);
     if (!source || !target || !architectureLinkIsDrawable(source, target, link)) continue;
-    if ((link.type === "contains") !== (pass === "containment")) continue;
+    if (
+      (pass === "containment" && link.type !== "contains")
+      || (pass === "attachment" && link.type !== "attached_to")
+      || (pass === "dependency" && link.type !== "depends_on")
+    ) continue;
     if (link.type === "contains") {
       const start = project(
         camera, width, height,
@@ -381,6 +402,21 @@ function drawLinks(
       context.restore();
       continue;
     }
+    const edgeActive = !highlightedIds || (
+      highlightedIds.has(source.id) && highlightedIds.has(target.id)
+    );
+    if (link.type === "attached_to") {
+      drawArchitectureAttachmentRoute(
+        context,
+        width,
+        height,
+        camera,
+        source,
+        target,
+        edgeActive,
+      );
+      continue;
+    }
     const start = project(
       camera, width, height, source.x ?? 0, source.y ?? 0,
       architectureLinkElevation(source),
@@ -389,12 +425,11 @@ function drawLinks(
       camera, width, height, target.x ?? 0, target.y ?? 0,
       architectureLinkElevation(target),
     );
-    const edgeActive = !highlightedIds || (highlightedIds.has(source.id) && highlightedIds.has(target.id));
     context.save();
     context.globalAlpha = edgeActive ? .72 : .1;
-    context.strokeStyle = link.type === "attached_to" ? "#397a5d" : "#426f87";
+    context.strokeStyle = "#426f87";
     context.lineWidth = 1.7;
-    context.setLineDash(link.type === "attached_to" ? [5, 4] : []);
+    context.setLineDash([]);
     const bend = Math.min(28, Math.abs(end.x - start.x) * .12 + 8);
     context.beginPath();
     context.moveTo(start.x, start.y);
@@ -405,12 +440,10 @@ function drawLinks(
     context.beginPath();
     context.moveTo(start.x, start.y);
     context.bezierCurveTo(start.x, start.y - bend, end.x, end.y - bend, end.x, end.y);
-    context.strokeStyle = link.type === "attached_to" ? "#397a5d" : "#426f87";
+    context.strokeStyle = "#426f87";
     context.lineWidth = 1.7;
     context.stroke();
-    if (link.type === "depends_on") {
-      drawArrowHead(context, start, end, "#426f87");
-    }
+    drawArrowHead(context, start, end, "#426f87");
     context.restore();
   }
 }
@@ -424,7 +457,14 @@ export function architectureLinkIsDrawable(
   target: InventoryResource,
   link: InventoryLink,
 ): boolean {
-  return link.type === "contains" || (!isRegion(source) && !isRegion(target));
+  if (link.type === "contains") {
+    return !(isArchitectureNetworkPlane(source) && isArchitectureNetworkPlane(target));
+  }
+  if (link.type === "attached_to") {
+    return (!isRegion(source) || isArchitectureNetworkPlane(source))
+      && (!isRegion(target) || isArchitectureNetworkPlane(target));
+  }
+  return !isRegion(source) && !isRegion(target);
 }
 
 function drawArrowHead(

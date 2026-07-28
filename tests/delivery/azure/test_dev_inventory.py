@@ -360,6 +360,36 @@ class TestFullSnapshot:
         idx = argv.index("--subscription")
         assert argv[idx + 1] == "00000000-0000-0000-0000-000000000000"
 
+    def test_project_rows_materializes_nested_subnet_shard(self) -> None:
+        vnet_id = (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-example/providers/Microsoft.Network/virtualNetworks/vnet-example"
+        )
+        inventory = AzureCliInventory(
+            resource_types=("network.vnet", "network.subnet"),
+            azure_arm_types={
+                "network.vnet": "Microsoft.Network/virtualNetworks",
+                "network.subnet": "Microsoft.Network/virtualNetworks/subnets",
+            },
+        )
+
+        records, links = inventory._project_rows(
+            [
+                {
+                    "id": vnet_id,
+                    "name": "vnet-example",
+                    "resourceGroup": "rg-example",
+                    "properties": {"subnets": [{"id": f"{vnet_id}/subnets/app", "name": "app"}]},
+                }
+            ],
+            "network.subnet",
+        )
+
+        assert [record.type for record in records] == ["network.subnet"]
+        assert [(link.from_type, link.link_type, link.to_type) for link in links] == [
+            ("network.vnet", "contains", "network.subnet")
+        ]
+
     def test_default_profile_drops_inherited_azure_config_dir(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

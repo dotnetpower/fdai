@@ -487,7 +487,18 @@ The overview packs only visible resources, orders children by layer and type, re
 satellite slots beside a collapsed owner, and places larger resource-group panels first in wide
 rows. Hidden auxiliaries therefore do not create empty grid holes or inflate the world.
 Virtual networks and subnets render as low floor lanes so compute, data, and gateway nodes remain
-readable above the network plane; floor lanes do not render reflections.
+readable above the network plane; floor lanes do not render reflections. Azure inventory promotes
+only subnets observed inside a VNet payload into `network.subnet` records and emits the observed
+VNet-to-subnet containment edge. The console assigns a resource to a subnet only when registered
+`attached_to` links reach one unique subnet within the bounded resource-to-interface-to-subnet
+chain. Missing or ambiguous membership leaves the resource on the neutral resource-group floor;
+names and provider identifiers never become topology evidence.
+
+The isometric renderer draws a VNet as an outer floor and its subnets as inset floor planes sized
+from their visible members. Evidence-derived membership rails and direct `attached_to` links stay
+on the floor, while `depends_on` arrows remain above resource tops. Plane names follow the world
+axis without a floating label card. Selecting a plane uses the same resource inspector and the
+smallest containing plane remains the pointer target.
 
 Labels avoid collisions, fit long names, and pair each resource name with its plain resource type.
 The compact acronym on the block is a secondary cue, not the only way to identify the resource.

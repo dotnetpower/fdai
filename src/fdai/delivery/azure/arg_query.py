@@ -95,6 +95,9 @@ from fdai.delivery.azure.arg_projection import (
     extract_rg_contains_links as _extract_rg_contains_links,
 )
 from fdai.delivery.azure.arg_projection import (
+    materialize_nested_subnets as _materialize_nested_subnets,
+)
+from fdai.delivery.azure.arg_projection import (
     to_neutral_id as _to_neutral_id,
 )
 from fdai.delivery.azure.arg_projection import (
@@ -220,7 +223,10 @@ class AzureArgQueryFactory:
         async def _fetch(
             resource_type: str,
         ) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
-            arm_type = self._resolve_arm_type(resource_type)
+            query_resource_type = (
+                "network.vnet" if resource_type == "network.subnet" else resource_type
+            )
+            arm_type = self._resolve_arm_type(query_resource_type)
             if arm_type is None:
                 # The vocabulary does not declare an ARM path for this
                 # CSP-neutral type - nothing to fetch from Azure. This is
@@ -229,8 +235,16 @@ class AzureArgQueryFactory:
                 return (), ()
 
             resources, attached_links = await self._fetch_all_pages(
-                resource_type=resource_type, arm_type=arm_type
+                resource_type=query_resource_type, arm_type=arm_type
             )
+            if resource_type == "network.subnet":
+                subnet_records: list[ResourceRecord] = []
+                subnet_links: list[LinkRecord] = []
+                for vnet in resources:
+                    nested_records, nested_links = _materialize_nested_subnets(vnet)
+                    subnet_records.extend(nested_records)
+                    subnet_links.extend(nested_links)
+                return tuple(subnet_records), tuple(subnet_links)
             contains_links = _extract_rg_contains_links(resources)
             return resources, (*contains_links, *attached_links)
 
