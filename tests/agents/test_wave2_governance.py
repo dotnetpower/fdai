@@ -45,6 +45,23 @@ def test_saga_audit_chain_appends_hash_linked_entries() -> None:
     saga.audit_chain.verify()
 
 
+def test_saga_does_not_stringify_missing_correlation() -> None:
+    saga = Saga()
+
+    asyncio.run(
+        saga.on_typed_message(
+            "object.verdict",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": None,
+                "risk_verdict": "abstain",
+            },
+        )
+    )
+
+    assert saga.audit_chain.entries[0].correlation_id == ""
+
+
 def test_saga_seals_document_admission_as_audit_entry() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

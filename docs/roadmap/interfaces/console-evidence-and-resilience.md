@@ -215,6 +215,10 @@ evidence refs or a content-addressed hash of normalized agent facts, never the s
 Agent narration is not an evidence source: atomic claims bind agent fact leaves to unique JSON
 pointers rooted at those runtime-supplied refs, including separately attributed contributor facts.
 
+Incident titles are also server-owned evidence. The read projection prefers recorded title,
+summary, or rule fields, then uses bounded signal and resource correlation keys; it treats empty,
+`None`, and `null` correlation markers as absent. The browser never invents an incident subject.
+
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without
 requiring a single incident selection. Model prose cannot change the selected incident, search

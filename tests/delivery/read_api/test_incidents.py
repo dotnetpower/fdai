@@ -68,6 +68,43 @@ def test_projection_groups_direct_and_event_anchored_history() -> None:
     assert summary.involved_agents == ("Saga",)
 
 
+def test_projection_uses_correlation_subject_before_opaque_event_id() -> None:
+    summary = project_incidents(
+        (
+            _item(
+                1,
+                "corr-subject",
+                action_kind="incident.open",
+                entry={
+                    "kind": "incident.open",
+                    "correlation_keys": [
+                        "signal:inventory.resource_changed",
+                        "resource:/subscriptions/example/resourceGroups/rg-example/providers/"
+                        "Microsoft.Storage/storageAccounts/storage-example",
+                    ],
+                },
+            ),
+        )
+    )[0]
+
+    assert summary.title == "Resource inventory change - Storage account storage-example"
+
+
+def test_projection_excludes_stringified_missing_correlation() -> None:
+    summaries = project_incidents(
+        (
+            _item(
+                1,
+                "None",
+                action_kind="audit.record",
+                entry={"action_kind": "audit.record"},
+            ),
+        )
+    )
+
+    assert summaries == ()
+
+
 def test_projection_excludes_local_seed_fixtures_without_hiding_operational_rows() -> None:
     items = (
         _item(

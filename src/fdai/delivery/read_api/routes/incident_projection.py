@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -39,6 +40,33 @@ _VERTICALS = {
     "cost-governance": "cost_governance",
     "finops": "cost_governance",
 }
+_SIGNAL_LABELS = {
+    "inventory.resource_changed": "Resource inventory change",
+}
+_RESOURCE_TYPE_LABELS = {
+    "containerapps": "Container app",
+    "databases": "Database",
+    "disks": "Managed disk",
+    "eventhubs": "Event hub",
+    "flexibleservers": "Flexible server",
+    "jobs": "Container Apps job",
+    "managedclusters": "Kubernetes cluster",
+    "managedenvironments": "Container Apps environment",
+    "networkinterfaces": "Network interface",
+    "publicipaddresses": "Public IP address",
+    "registries": "Container registry",
+    "servers": "Server",
+    "sites": "App Service site",
+    "storageaccounts": "Storage account",
+    "subnets": "Subnet",
+    "vaults": "Key vault",
+    "virtualmachines": "Virtual machine",
+    "virtualmachinescalesets": "Virtual machine scale set",
+    "virtualnetworks": "Virtual network",
+    "workspaces": "Workspace",
+}
+_SUBJECT_MAX_LENGTH = 160
+_NULL_CORRELATIONS = frozenset({"none", "null"})
 _PANTHEON_AGENTS = frozenset(
     {
         "Odin",
@@ -67,12 +95,13 @@ def correlate_audit_items(items: Iterable[AuditItem]) -> dict[str, tuple[AuditIt
     incident_candidates: dict[str, set[str]] = defaultdict(set)
     ambiguous_incidents: set[str] = set()
     for item in ordered:
-        if item.correlation_id:
-            event_correlations[item.event_id].add(item.correlation_id)
+        direct_correlation = _normalized_correlation(item.correlation_id)
+        if direct_correlation:
+            event_correlations[item.event_id].add(direct_correlation)
         incident_id = _string(item.entry, "incident_id")
         correlation_status, key_correlation = _correlation_key_state(item.entry)
-        correlation = item.correlation_id or key_correlation
-        if incident_id and item.correlation_id is None and correlation_status == "ambiguous":
+        correlation = direct_correlation or key_correlation
+        if incident_id and direct_correlation is None and correlation_status == "ambiguous":
             ambiguous_incidents.add(incident_id)
         if incident_id and correlation:
             incident_candidates[incident_id].add(correlation)
@@ -84,7 +113,7 @@ def correlate_audit_items(items: Iterable[AuditItem]) -> dict[str, tuple[AuditIt
     grouped: dict[str, list[AuditItem]] = defaultdict(list)
     for item in ordered:
         correlation_status, key_correlation = _correlation_key_state(item.entry)
-        correlation = item.correlation_id or key_correlation
+        correlation = _normalized_correlation(item.correlation_id) or key_correlation
         if correlation is None:
             incident_id = _string(item.entry, "incident_id")
             if incident_id:
@@ -291,7 +320,72 @@ def _title(items: Sequence[AuditItem]) -> str:
         value = _first_string(items, *keys)
         if value:
             return value
+    subject = _correlation_subject(items)
+    if subject:
+        return subject
     return items[0].event_id
+
+
+def _correlation_subject(items: Sequence[AuditItem]) -> str | None:
+    signal: str | None = None
+    resource: str | None = None
+    for item in items:
+        values = item.entry.get("correlation_keys")
+        if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+            continue
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            if signal is None and value.startswith("signal:"):
+                signal = _signal_subject(value[7:])
+            elif resource is None and value.startswith("resource:"):
+                resource = _resource_subject(value[9:])
+        if signal and resource:
+            break
+    if signal and resource:
+        return _bounded_subject(f"{signal} - {resource}")
+    if signal:
+        return _bounded_subject(signal)
+    if resource:
+        return _bounded_subject(resource)
+    return None
+
+
+def _signal_subject(value: str) -> str | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
+    return _SIGNAL_LABELS.get(normalized.lower(), _humanize_subject_token(normalized))
+
+
+def _resource_subject(value: str) -> str | None:
+    normalized = value.strip().rstrip("/")
+    if not normalized:
+        return None
+    parts = [part for part in normalized.split("/") if part]
+    provider_index = next(
+        (index for index, part in enumerate(parts) if part.lower() == "providers"),
+        None,
+    )
+    if provider_index is not None and len(parts) >= provider_index + 4:
+        resource_type = parts[-2].lower()
+        resource_name = parts[-1]
+        type_label = _RESOURCE_TYPE_LABELS.get(
+            resource_type,
+            _humanize_subject_token(parts[-2]),
+        )
+        return f"{type_label} {resource_name}"
+    return f"Resource {parts[-1] if parts else normalized}"
+
+
+def _humanize_subject_token(value: str) -> str:
+    camel_spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", value)
+    words = re.sub(r"[._-]+", " ", camel_spaced).strip()
+    return words[:1].upper() + words[1:].lower()
+
+
+def _bounded_subject(value: str) -> str:
+    return value if len(value) <= _SUBJECT_MAX_LENGTH else f"{value[: _SUBJECT_MAX_LENGTH - 3]}..."
 
 
 def _opened_at(items: Sequence[AuditItem]) -> str | None:
@@ -349,11 +443,13 @@ def _correlation_key(entry: Mapping[str, Any]) -> str | None:
 def _correlation_key_state(entry: Mapping[str, Any]) -> tuple[str, str | None]:
     values = entry.get("correlation_keys")
     if isinstance(values, Sequence) and not isinstance(values, (str, bytes)):
-        candidates = {
-            value[5:]
-            for value in values
-            if isinstance(value, str) and value.startswith("corr:") and len(value) > 5
-        }
+        candidates: set[str] = set()
+        for value in values:
+            if not isinstance(value, str) or not value.startswith("corr:"):
+                continue
+            candidate = _normalized_correlation(value[5:])
+            if candidate:
+                candidates.add(candidate)
         if len(candidates) == 1:
             return "unique", next(iter(candidates))
         if len(candidates) > 1:
@@ -364,6 +460,15 @@ def _correlation_key_state(entry: Mapping[str, Any]) -> tuple[str, str | None]:
 def _is_incident_lifecycle(entry: Mapping[str, Any]) -> bool:
     kind = _string(entry, "kind")
     return bool(kind and kind.startswith("incident."))
+
+
+def _normalized_correlation(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized or normalized.lower() in _NULL_CORRELATIONS:
+        return None
+    return normalized
 
 
 def _string(entry: Mapping[str, Any], key: str) -> str | None:

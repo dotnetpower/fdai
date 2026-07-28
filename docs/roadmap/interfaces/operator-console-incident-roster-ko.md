@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 53309032000926f60d5e02109dbb724999c2e221
+translation_source_sha: 057ff3155c7a0e07e8cc501b5b483c3327fc3fe5
 translation_revised: 2026-07-28
 ---
 
@@ -80,6 +80,18 @@ ownership에서 server-side로 도출한 `involved_agents`를 포함합니다. A
 이 durable incident snapshot을 먼저 hydrate한 다음 더 새로운 `/agents/stream` stage
 delta를 적용합니다. 따라서 새 tab도 Incidents와 일치하면서 live stage transition을
 유지합니다.
+
+Summary title도 서버가 소유합니다. Projection은 먼저 명시적으로 기록된 `title`,
+`summary` 또는 rule ID를 사용합니다. 이 field가 없으면 기록된 `signal:` 및
+`resource:` correlation key에서 길이가 제한된 subject를 만듭니다. Azure resource ID는
+resource type과 마지막 resource name만 제공하므로 전체 path를 노출하지 않고도 목록에
+`Resource inventory change - Storage account storage-example` 같은 subject를 표시할 수
+있습니다. 기록된 subject evidence가 전혀 없는 incident만 event ID로 대체되며 browser는
+대체 title을 만들어내지 않습니다.
+
+누락된 correlation은 누락 상태로 유지합니다. Projection은 빈 값과 과거의 `None` 또는
+`null` 문자열 sentinel을 결측으로 처리하므로 관련 없는 audit-only row가 synthetic Incident를
+구성하지 않습니다.
 
 목록은 요약만 반환하며 모든 audit 행을 포함하지 않습니다. Cursor가 각 서버
 페이지의 범위를 제한합니다. 항목을 선택하면 별도의 필터링된 GET으로 이력을

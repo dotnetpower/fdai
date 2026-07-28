@@ -87,7 +87,7 @@ class Saga(Agent):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         principal = str(payload.get("producer_principal", "unknown"))
-        correlation_id = str(payload.get("correlation_id", ""))
+        correlation_id = str(payload.get("correlation_id") or "")
         await self._append_audit(
             principal=principal,
             topic=topic,

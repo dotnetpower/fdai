@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d73cb77d99b0c15d69987628acb24186e75cc0b5
+translation_source_sha: e2caac52cd1c72be4a94453a2196102883611f81
 translation_revised: 2026-07-28
 ---
 
@@ -227,7 +227,7 @@ operations / interface), `3` = governance staff.
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator 만) |
-| Saga | Auditor | 3 | AuditEntry, Issue | append_audit, escalate_to_github_issue | no |
+| Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 trace 정규화), escalate_to_github_issue | no |
 | Mimir | Rule Steward | 3 | Rule, Policy | promote_rule, revoke_rule | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, PatternObservation | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path batch 만) |

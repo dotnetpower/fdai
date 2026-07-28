@@ -43,6 +43,11 @@ def test_incident_query_types_optional_parameters() -> None:
     assert "CAST(%(vertical)s AS TEXT) IS NULL" in _INCIDENT_PAGE_SQL
 
 
+def test_incident_query_excludes_stringified_null_correlations_before_paging() -> None:
+    assert "LOWER(BTRIM(correlation_id)) NOT IN ('none', 'null')" in _INCIDENT_PAGE_SQL
+    assert "LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')" in (_INCIDENT_PAGE_SQL)
+
+
 def test_incident_query_joins_event_ids_that_equal_known_correlations() -> None:
     assert "correlation_anchor AS (" in _INCIDENT_PAGE_SQL
     assert "LEFT JOIN correlation_anchor AS ca ON ca.correlation_id = a.event_id::text" in (

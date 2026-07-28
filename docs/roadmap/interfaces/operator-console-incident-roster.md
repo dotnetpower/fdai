@@ -82,6 +82,17 @@ Agents surface hydrates this durable incident snapshot first, then applies
 newer `/agents/stream` stage deltas. This keeps a newly opened tab consistent
 with Incidents while preserving live stage transitions.
 
+The summary title also remains server-owned. The projection uses an explicit recorded `title`,
+`summary`, or rule id first. When those fields are absent, it builds a bounded subject from the
+recorded `signal:` and `resource:` correlation keys. An Azure resource id contributes only its
+resource type and final resource name, so the roster can show a subject such as
+`Resource inventory change - Storage account storage-example` without exposing the complete path.
+Only an incident with no recorded subject evidence falls back to its event id; the browser does not
+invent a replacement title.
+
+Missing correlations remain missing. The projection treats empty values and historical `None` or
+`null` string sentinels as absent, so unrelated audit-only rows cannot form a synthetic Incident.
+
 The roster returns summaries only. It does not embed every audit row, and the
 cursor bounds each server-side page. Selection performs a separate filtered
 GET for history. Every route is Reader-gated and returns `405` for mutating

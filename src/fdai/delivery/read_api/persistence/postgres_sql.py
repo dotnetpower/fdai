@@ -16,14 +16,18 @@ bounded_audit AS (
 event_anchor AS (
     SELECT event_id, MIN(correlation_id) AS correlation_id
             FROM bounded_audit
-     WHERE correlation_id IS NOT NULL AND correlation_id <> ''
+     WHERE correlation_id IS NOT NULL
+    AND BTRIM(correlation_id) <> ''
+    AND LOWER(BTRIM(correlation_id)) NOT IN ('none', 'null')
      GROUP BY event_id
     HAVING COUNT(DISTINCT correlation_id) = 1
 ),
 correlation_anchor AS (
     SELECT DISTINCT correlation_id
       FROM bounded_audit
-     WHERE correlation_id IS NOT NULL AND correlation_id <> ''
+         WHERE correlation_id IS NOT NULL
+             AND BTRIM(correlation_id) <> ''
+             AND LOWER(BTRIM(correlation_id)) NOT IN ('none', 'null')
 ),
 hil_park AS (
     SELECT value->>'approval_id' AS approval_id,
@@ -35,12 +39,16 @@ hil_park AS (
 incident_open_raw AS (
     SELECT a.entry->>'incident_id' AS incident_id,
            CASE
-               WHEN a.correlation_id IS NOT NULL AND a.correlation_id <> ''
+               WHEN a.correlation_id IS NOT NULL
+                    AND BTRIM(a.correlation_id) <> ''
+                    AND LOWER(BTRIM(a.correlation_id)) NOT IN ('none', 'null')
                THEN a.correlation_id
                ELSE key_stats.correlation_id
            END AS explicit_correlation_id,
            CASE
-               WHEN a.correlation_id IS NOT NULL AND a.correlation_id <> ''
+               WHEN a.correlation_id IS NOT NULL
+                    AND BTRIM(a.correlation_id) <> ''
+                    AND LOWER(BTRIM(a.correlation_id)) NOT IN ('none', 'null')
                THEN FALSE
                ELSE key_stats.candidate_count > 1
            END AS ambiguous
@@ -60,6 +68,7 @@ incident_open_raw AS (
                 END
             ) AS value
            WHERE value LIKE 'corr:%%'
+             AND LOWER(BTRIM(SUBSTRING(value FROM 6))) NOT IN ('none', 'null')
       ) AS key_stats ON TRUE
      WHERE a.entry->>'kind' = 'incident.open'
 ),
@@ -81,7 +90,9 @@ incident_open AS (
 normalized AS (
     SELECT a.*,
            CASE
-               WHEN a.correlation_id IS NOT NULL AND a.correlation_id <> ''
+               WHEN a.correlation_id IS NOT NULL
+                    AND BTRIM(a.correlation_id) <> ''
+                    AND LOWER(BTRIM(a.correlation_id)) NOT IN ('none', 'null')
                THEN a.correlation_id
                WHEN a.entry->>'kind' LIKE 'incident.%%'
                THEN CASE WHEN NOT io.ambiguous THEN io.correlation_id ELSE NULL END
@@ -163,7 +174,8 @@ incident_groups AS (
            ) AS projected_vertical
     FROM ranked
      WHERE normalized_correlation_id IS NOT NULL
-       AND normalized_correlation_id <> ''
+             AND BTRIM(normalized_correlation_id) <> ''
+             AND LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')
      GROUP BY normalized_correlation_id
 ),
 selected AS (

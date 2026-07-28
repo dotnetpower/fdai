@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: aba2f070080832544e3b1121b5f0b5a07701a239
+translation_source_sha: 98db958632999bfe531540a9702d35b961495381
 translation_revised: 2026-07-28
 ---
 
@@ -213,6 +213,10 @@ evidence 또는 authority가 되지 않습니다. Runtime grounding은 제공된
 evidence ref 또는 normalized agent fact의 content-addressed hash를 사용하며 static agent spec을 사용하지 않습니다.
 Agent narration 자체는 evidence source가 아닙니다. Atomic claim은 별도로 귀속된 contributor
 fact를 포함한 agent fact leaf를 runtime 제공 ref에 rooted된 고유 JSON pointer에 연결합니다.
+
+Incident title도 서버 소유 evidence입니다. Read projection은 기록된 title, summary 또는 rule
+field를 우선 사용한 뒤 길이가 제한된 signal 및 resource correlation key를 사용합니다. 빈 값,
+`None`, `null` correlation marker는 결측으로 처리하며 browser는 incident subject를 만들지 않습니다.
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching
