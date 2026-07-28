@@ -153,6 +153,12 @@ Scheduler and analyzer Jobs set `FDAI_MI_CLIENT_ID` to the client id of the user
 attached to that Job, so Azure Monitor and Event Hubs token acquisition never relies on implicit
 identity selection. The legacy generic OOB Job remains a bounded, inert compatibility resource
 until a probe entry point owns it; implemented recurring work stays in the dedicated Jobs.
+On a public-network profile, Terraform also adopts the deterministic realtime-inventory Event Grid
+subscription when an operator restores it out of band, then converges its Event Hub destination,
+delivery identity, event filter, and retry policy on the next protected apply. Private-networking
+profiles do not create that unsupported Event Grid-to-private-Event-Hubs path. The VNet-integrated
+inventory Job instead forwards bounded Activity Log recovery deltas to the primary Event Bus after
+each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
 The analyzer job defaults to a one-minute shadow schedule. When explicit analyzer targets are

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f0ad059887207b2f1b29e284f7ba13f452fba483
+translation_source_sha: 6022910bacf65cb0901ee8de07f8aa9336de6c18
 translation_revised: 2026-07-28
 ---
 
@@ -157,6 +157,12 @@ Scheduler 및 analyzer Job은 해당 Job에 연결된 user-assigned identity의 
 `FDAI_MI_CLIENT_ID`로 설정하므로 Azure Monitor 및 Event Hubs token 획득에서 implicit identity
 selection을 사용하지 않습니다. Legacy generic OOB Job은 probe entry point가 소유할 때까지 bounded
 inert compatibility resource로 유지되며, 구현된 recurring work는 dedicated Job이 담당합니다.
+Public-network profile에서 운영자가 realtime-inventory Event Grid subscription을 out-of-band로
+복구한 경우 Terraform은 deterministic subscription을 가져오고 다음 protected apply에서 Event Hub
+destination, delivery identity, event filter 및 retry policy를 수렴시킵니다. Private-networking
+profile은 지원되지 않는 Event Grid-to-private-Event-Hubs path를 만들지 않습니다. 대신 VNet-integrated
+inventory Job은 각 reconciliation 후 bounded Activity Log recovery delta를 primary Event Bus로
+전달하며 topic-scoped Data Sender role과 durable idempotency cursor를 사용합니다.
 빈 cron은 해당 job을 비활성화합니다. 기존 scheduler 또는 analyzer job은 plan 전에 안전하게
 가져오고 이후 image와 configuration 변경은 같은 plan 및 apply 경로로 수렴합니다.
 Analyzer job은 기본 1분 shadow schedule을 사용합니다. 명시적 analyzer target이 비어 있으면

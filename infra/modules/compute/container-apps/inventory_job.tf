@@ -74,6 +74,10 @@ resource "azurerm_container_app_job" "inventory" {
         value = tostring(var.inventory_reconciliation_interval_seconds)
       }
       env {
+        name  = "FDAI_INVENTORY_RECOVERY_DELTA"
+        value = "1"
+      }
+      env {
         name  = "FDAI_MI_CLIENT_ID"
         value = var.inventory_identity_client_id
       }

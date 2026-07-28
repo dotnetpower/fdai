@@ -485,7 +485,15 @@ data "azurerm_resources" "eventgrid_system_topics" {
   type = "Microsoft.EventGrid/systemTopics"
 }
 
+data "azurerm_resources" "eventgrid_event_subscriptions" {
+  type = "Microsoft.EventGrid/systemTopics/eventSubscriptions"
+}
+
 locals {
+  inventory_event_subscription_name = "evgs-${var.workload}${local.full_suffix}-inventory"
+  eventgrid_realtime_inventory_enabled = (
+    var.enable_realtime_inventory_discovery && !var.enable_private_networking
+  )
   tracked_subscription_system_topics = [
     for topic in data.azurerm_resources.eventgrid_system_topics.resources : topic
     if topic.location == "global" && startswith(
@@ -493,10 +501,17 @@ locals {
       data.azurerm_client_config.current.subscription_id,
     )
   ]
+  tracked_inventory_event_subscriptions = [
+    for subscription in data.azurerm_resources.eventgrid_event_subscriptions.resources : subscription
+    if endswith(
+      lower(subscription.id),
+      "/eventsubscriptions/${lower(local.inventory_event_subscription_name)}",
+    )
+  ]
 }
 
 import {
-  for_each = var.enable_realtime_inventory_discovery && length(local.tracked_subscription_system_topics) == 1 ? {
+  for_each = local.eventgrid_realtime_inventory_enabled && length(local.tracked_subscription_system_topics) == 1 ? {
     existing = one(local.tracked_subscription_system_topics)
   } : {}
   to = azurerm_eventgrid_system_topic.inventory_resource_changes[0]
@@ -504,7 +519,7 @@ import {
 }
 
 resource "azurerm_eventgrid_system_topic" "inventory_resource_changes" {
-  count = var.enable_realtime_inventory_discovery ? 1 : 0
+  count = local.eventgrid_realtime_inventory_enabled ? 1 : 0
   name = (
     length(local.tracked_subscription_system_topics) == 1
     ? one(local.tracked_subscription_system_topics).name
@@ -533,10 +548,18 @@ resource "azurerm_eventgrid_system_topic" "inventory_resource_changes" {
   }
 }
 
-resource "azurerm_eventgrid_system_topic_event_subscription" "inventory_resource_changes" {
-  count = var.enable_realtime_inventory_discovery ? 1 : 0
+import {
+  for_each = local.eventgrid_realtime_inventory_enabled && length(local.tracked_inventory_event_subscriptions) == 1 ? {
+    existing = one(local.tracked_inventory_event_subscriptions)
+  } : {}
+  to = azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]
+  id = each.value.id
+}
 
-  name                  = "evgs-${var.workload}${local.full_suffix}-inventory"
+resource "azurerm_eventgrid_system_topic_event_subscription" "inventory_resource_changes" {
+  count = local.eventgrid_realtime_inventory_enabled ? 1 : 0
+
+  name                  = local.inventory_event_subscription_name
   resource_group_name   = azurerm_eventgrid_system_topic.inventory_resource_changes[0].resource_group_name
   system_topic          = azurerm_eventgrid_system_topic.inventory_resource_changes[0].name
   eventhub_endpoint_id  = module.event_bus_auxiliary.auxiliary_topic_ids[local.inventory_raw_topic]
@@ -554,6 +577,13 @@ resource "azurerm_eventgrid_system_topic_event_subscription" "inventory_resource
   retry_policy {
     event_time_to_live    = 1440
     max_delivery_attempts = 30
+  }
+
+  lifecycle {
+    precondition {
+      condition     = length(local.tracked_inventory_event_subscriptions) <= 1
+      error_message = "multiple tracked Event Grid subscriptions match the realtime inventory forwarder."
+    }
   }
 
   depends_on = [azurerm_role_assignment.inventory_eventhubs_raw_sender]
