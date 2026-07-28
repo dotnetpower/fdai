@@ -367,6 +367,23 @@ def test_normalization_rejects_owner_substitution_and_sensitive_output() -> None
     assert "supersecretvalue" not in repr(sensitive)
 
 
+def test_normalization_rejects_empty_answer_owner_substitution() -> None:
+    result = normalize_pantheon_answer(
+        {
+            "primary_agent": "Thor",
+            "answer": None,
+            "facts": {},
+            "handoff_from": "Var",
+            "handoff_reason": "delegated",
+        },
+        target_agent="Heimdall",
+    )
+
+    assert result is not None
+    assert result["handoff_from"] == "Heimdall"
+    assert result["handoff_reason"] == "agent_response_owner_mismatch"
+
+
 def test_normalization_preserves_only_valid_charter_policy_and_json_facts() -> None:
     policy = _policy("Heimdall")
     valid = normalize_pantheon_answer(
@@ -445,6 +462,28 @@ def test_normalization_accepts_external_evidence_ref_without_inline_facts() -> N
     assert result is not None
     assert result["primary_agent"] == "Heimdall"
     assert result["facts"] == {"evidence_refs": ["incident:corr-example"]}
+
+
+def test_normalization_canonicalizes_and_bounds_external_evidence_refs() -> None:
+    refs = ["   ", " incident:corr-example ", "incident:corr-example"] + [
+        f"audit:event-{index}" for index in range(40)
+    ]
+    result = normalize_pantheon_answer(
+        {
+            "primary_agent": "Heimdall",
+            "answer": "One observation is available.",
+            "facts": {"evidence_refs": refs},
+            "conversation_policy": _policy("Heimdall"),
+        },
+        target_agent="Heimdall",
+    )
+
+    assert result is not None
+    normalized = result["facts"]["evidence_refs"]
+    assert len(normalized) == 32
+    assert normalized[0] == "incident:corr-example"
+    assert len(normalized) == len(set(normalized))
+    assert all(ref == ref.strip() for ref in normalized)
 
 
 async def test_client_rejects_untrusted_response_identity() -> None:

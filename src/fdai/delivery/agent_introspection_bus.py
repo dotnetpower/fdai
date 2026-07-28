@@ -34,6 +34,8 @@ _MAX_QUESTION_CHARS = 2_000
 _MAX_ANSWER_CHARS = 16_000
 _MAX_RESULT_BYTES = 64 * 1024
 _MAX_CONTRIBUTORS = 8
+_MAX_EVIDENCE_REFS = 32
+_MAX_EVIDENCE_REF_CHARS = 1_024
 _MAX_CACHE_ENTRIES = 1_024
 _MAX_PENDING_REQUESTS = 256
 _DEFAULT_CACHE_TTL_SECONDS = 300.0
@@ -126,20 +128,17 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
         return _handoff(target_agent, "agent_response_invalid")
     if not isinstance(answer, str) or not answer.strip():
         reason = raw.get("handoff_reason") or raw.get("abstain_reason")
-        handoff_from = raw.get("handoff_from")
-        source_agent = (
-            handoff_from
-            if isinstance(handoff_from, str) and handoff_from in PANTHEON_NAMES
-            else primary
-        )
+        normalized_handoff = primary == "Bragi" and raw.get("handoff_from") == target_agent
+        if primary != target_agent and not normalized_handoff:
+            return _handoff(target_agent, "agent_response_owner_mismatch")
         return _handoff(
-            source_agent,
+            target_agent,
             str(reason or "agent_abstained_without_evidence"),
         )
-    if len(answer) > _MAX_ANSWER_CHARS:
-        return _handoff(target_agent, "agent_response_too_large")
     if primary != target_agent:
         return _handoff(target_agent, "agent_response_owner_mismatch")
+    if len(answer) > _MAX_ANSWER_CHARS:
+        return _handoff(target_agent, "agent_response_too_large")
     raw_policy = raw.get("conversation_policy")
     expected_policy = _EXPECTED_CONVERSATION_POLICY[target_agent]
     if not isinstance(raw_policy, Mapping) or dict(raw_policy) != expected_policy:
@@ -148,7 +147,14 @@ def normalize_pantheon_answer(raw: object, *, target_agent: str) -> dict[str, An
     safe_facts = dict(facts) if isinstance(facts, Mapping) else {}
     refs = safe_facts.get("evidence_refs")
     valid_refs = (
-        [ref for ref in refs if isinstance(ref, str) and 0 < len(ref) <= 1_024]
+        list(
+            dict.fromkeys(
+                normalized
+                for ref in refs
+                if isinstance(ref, str)
+                and 0 < len(normalized := ref.strip()) <= _MAX_EVIDENCE_REF_CHARS
+            )
+        )[:_MAX_EVIDENCE_REFS]
         if isinstance(refs, list | tuple)
         else []
     )
