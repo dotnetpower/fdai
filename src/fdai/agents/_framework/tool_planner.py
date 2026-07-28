@@ -153,6 +153,15 @@ _PLAN_OWNERS: Final[dict[str, str]] = {
 _MAX_PLAN_TERM_CHARS: Final[int] = 64
 
 
+def _is_finite_score(value: object) -> bool:
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 @dataclass(frozen=True, slots=True)
 class ConversationToolPlan:
     """One tool the question asks for, and why it was selected.
@@ -178,13 +187,19 @@ class ConversationToolPlan:
     tier: str = "t0_lexical"
 
     def __post_init__(self) -> None:
+        if not isinstance(self.agent, str) or not isinstance(self.tool_id, str):
+            raise ValueError("conversation tool plan owner and tool id MUST be strings")
         owner = _PLAN_OWNERS.get(self.tool_id)
         if owner is None or owner != self.agent:
             raise ValueError("conversation tool plan MUST name an owned pantheon tool")
-        if not math.isfinite(self.score) or self.score < 0:
+        if not _is_finite_score(self.score) or self.score < 0:
             raise ValueError("conversation tool plan score MUST be finite and non-negative")
-        if self.tier not in _PLAN_TIERS:
+        if not isinstance(self.tier, str) or self.tier not in _PLAN_TIERS:
             raise ValueError("conversation tool plan tier MUST be canonical")
+        if not isinstance(self.matched_terms, tuple) or any(
+            not isinstance(term, str) for term in self.matched_terms
+        ):
+            raise ValueError("conversation tool plan matched_terms MUST be a string tuple")
         if len(self.matched_terms) > _MAX_QUESTION_TERMS or any(
             not term or len(term) > _MAX_PLAN_TERM_CHARS for term in self.matched_terms
         ):

@@ -481,8 +481,12 @@ class PantheonRuntime:
         finally:
             # One cleanup failure must not strand an unrelated provider
             # task. The bridge error still propagates after this drain.
-            if self._semantic_tool_planner is not None:
-                await self._semantic_tool_planner.stop()
+            try:
+                if self._conversation_tools is not None:
+                    await self._conversation_tools.stop()
+            finally:
+                if self._semantic_tool_planner is not None:
+                    await self._semantic_tool_planner.stop()
 
     async def ask(
         self,

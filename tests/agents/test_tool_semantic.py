@@ -257,6 +257,20 @@ async def test_a_non_finite_vector_is_never_cached(value: float) -> None:
     assert planner._vectors is None
 
 
+@pytest.mark.parametrize("value", (True, False, "1"))
+async def test_a_non_numeric_vector_coordinate_is_never_cached(value: object) -> None:
+    class _InvalidCoordinateEmbedding:
+        dim = _DIM
+
+        async def embed(self, text: str) -> list[object]:
+            return [value, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    planner = _planner(_InvalidCoordinateEmbedding())
+
+    assert await planner.plan("cost") == ()
+    assert planner._vectors is None
+
+
 async def test_an_empty_question_selects_nothing() -> None:
     for question in ("", "   "):
         assert await _planner(_KeywordEmbedding()).plan(question) == ()
@@ -463,6 +477,92 @@ def test_shutdown_timeout_must_be_positive_and_finite(value: float) -> None:
         SemanticToolConfig(shutdown_timeout_seconds=value)
 
 
+@pytest.mark.parametrize("value", (0.0, -1.0, float("nan"), float("inf")))
+def test_query_timeout_must_be_positive_and_finite(value: float) -> None:
+    with pytest.raises(ValueError, match="query_timeout_seconds MUST be positive and finite"):
+        SemanticToolConfig(query_timeout_seconds=value)
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "cosine_threshold",
+        "margin_threshold",
+        "retry_cooldown_seconds",
+        "cache_ttl_seconds",
+        "shutdown_timeout_seconds",
+        "query_timeout_seconds",
+    ),
+)
+def test_numeric_config_rejects_boolean_values(field: str) -> None:
+    with pytest.raises(ValueError):
+        SemanticToolConfig(**{field: True})
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "cosine_threshold",
+        "margin_threshold",
+        "retry_cooldown_seconds",
+        "cache_ttl_seconds",
+        "shutdown_timeout_seconds",
+        "query_timeout_seconds",
+    ),
+)
+def test_numeric_config_rejects_overflowing_integer_values(field: str) -> None:
+    with pytest.raises(ValueError):
+        SemanticToolConfig(**{field: 10**4_000})
+
+
+async def test_cancellation_resistant_query_is_bounded_and_shared() -> None:
+    """A broken query provider leaves at most one task and never holds later callers."""
+
+    class _QueryHangs(_KeywordEmbedding):
+        def __init__(self) -> None:
+            super().__init__()
+            self.release = asyncio.Event()
+
+        async def embed(self, text: str) -> list[float]:
+            if text == "query":
+                while not self.release.is_set():
+                    try:
+                        await self.release.wait()
+                    except asyncio.CancelledError:
+                        continue
+                return [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            return await super().embed(text)
+
+    model = _QueryHangs()
+    planner = _planner(
+        model,
+        config=SemanticToolConfig(
+            query_timeout_seconds=0.01,
+            shutdown_timeout_seconds=0.01,
+        ),
+    )
+
+    assert await planner.plan("warm")
+
+    started = asyncio.get_running_loop().time()
+    assert await planner.plan("query") == ()
+    assert asyncio.get_running_loop().time() - started < 0.1
+
+    calls_after_timeout = model.calls
+    for _ in range(25):
+        assert await planner.plan("query") == ()
+    assert model.calls == calls_after_timeout
+    assert planner._query_task is not None
+    assert not planner._query_task.done()
+
+    async with asyncio.timeout(0.1):
+        await planner.stop()
+    assert await planner.plan("warm") == ()
+
+    model.release.set()
+    await planner._query_task
+
+
 async def test_shutdown_is_bounded_when_provider_suppresses_cancellation() -> None:
     """A third-party coroutine cannot hold runtime shutdown forever."""
 
@@ -531,6 +631,19 @@ async def test_plan_cannot_create_a_build_after_stop_wins_the_race() -> None:
     assert await planning == ()
     assert planner._build_task is None
     assert model.calls == 0
+
+
+async def test_query_boundary_cannot_restart_provider_after_stop() -> None:
+    """The query boundary needs the same stop recheck as the cache boundary."""
+    model = _KeywordEmbedding()
+    planner = _planner(model)
+
+    assert await planner.plan("warm")
+    await planner.stop()
+    calls_at_stop = model.calls
+
+    assert await planner._query_vector("cost") is None
+    assert model.calls == calls_at_stop
 
 
 async def test_a_plan_names_the_tier_that_selected_it() -> None:

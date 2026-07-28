@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 79a6b17c62e71c0584d058dff99e44e223c7e5a0
+translation_source_sha: 23b814ec14ce2c7ad886d3b5dc34ba4aac913bde
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -169,8 +169,8 @@ term을 검증합니다.
 합니다. 그래서 불완전한 빌드는 캐시하지 않고 거부한 뒤 다음 질문이 재시도하며, provider가 다른
 차원을 보고하면 기존 캐시를 버립니다. 다른 공간의 벡터와 대조한 점수는 의미 없는 확신에 찬 숫자일
 뿐이기 때문입니다. 차원만으로 같은 크기의 교체 모델을 식별할 수 없으므로 cache에는 양수이며 유한한
-TTL(기본 1시간)도 두어 기존 공간이 남는 시간을 제한합니다. NaN, Infinity, zero 및 잘못된 차원
-벡터는 유효한 catalog entry가 아닙니다.
+TTL(기본 1시간)도 두어 기존 공간이 남는 시간을 제한합니다. Boolean, non-numeric, NaN, Infinity,
+zero 및 잘못된 차원 벡터는 유효한 catalog entry가 아닙니다.
 
 Cold build는 하나의 shared task입니다. 질문은 기다리기를 중단하고 강등될 수 있지만, timeout 질문
 25개가 남기는 build는 25개가 아니라 1개입니다. Build 중인 동안 뒤따르는 질문은 전체 gather timeout을
@@ -181,6 +181,13 @@ shutdown은 bridge shutdown이 실패해도 task를 drain합니다. Third-party 
 shutdown은 양수이며 유한한 시간만 기다리고 이후 plan을 모두 비활성화한 뒤, shared build 최대 1개만
 process boundary에 남기고 반환합니다. Cache boundary는 build 생성 및 publish 전에 stopped state를
 다시 확인하므로, shutdown 직전에 첫 검사를 통과한 plan이 이후 provider를 다시 시작할 수 없습니다.
+
+Query embedding에도 같은 lifecycle contract를 적용합니다. Concurrent caller는 query task 하나를
+공유하고, 각 caller는 양수이며 유한한 query bound까지만 기다립니다. Cancellation을 무시하는 provider도
+caller마다 하나가 아니라 최대 한 task만 남깁니다. Shutdown은 build와 query task를 모두 drain하고,
+query 생성 전과 결과 사용 전에 stopped state를 다시 확인합니다. Numeric planner configuration은
+Python의 `True == 1` coercion을 threshold나 timeout으로 받아들이지 않고 boolean, non-numeric value,
+NaN 및 Infinity를 거부합니다.
 
 예문은 검색 앵커일 뿐입니다. Charter digest에 포함되지 않으므로 검색을 튜닝해도 감사 기록이 흔들리지
 않고, prompt나 답변에도 들어가지 않습니다.
@@ -203,9 +210,24 @@ Dispatch는 네 가지로 유계입니다. 운영자 질문 하나가 열 수 �
 |------|-----|------|
 | 질문당 plan | `MAX_TOOL_PLANS` (3) | 수십 건의 읽기를 원하는 질문은 보고서를 원하는 것입니다. |
 | 깊이 | 1단계 | 에이전트는 registry 참조를 갖지 않으므로 turn이 도구를 부를 수 없습니다. Registry가 중첩 호출을 거부하는 것이 두 번째 잠금입니다. |
-| 단일 dispatch | registry timeout, 출력 상한, 민감도 스캔 | Registry가 그대로 소유합니다. |
+| 단일 dispatch | Registry-owned task, timeout, 출력 상한, 민감도 스캔 | Handler가 cancellation을 무시해도 timeout은 반환됩니다. 미해결 task는 전역 최대 16개이며, 포화되면 새 read를 보류합니다. |
 | 전체 gather | `PREFETCH_BUDGET_SECONDS` (5) | 도구별 timeout은 planning과 dispatch의 합계를 제한하지 못합니다. Gather는 timeout 여부와 완료된 plan 수를 보존합니다. |
 | 질문 | 2,000자 | Public prefetch API는 Bragi 경계에 의존할 수 없습니다. 초과 입력은 embedding provider와 registry 어디에도 도달하지 않습니다. |
+
+Registry는 typed answer, facts 및 abstention field를 가진 mapping만 strict JSON으로 수락합니다. Shape가
+틀리면 `malformed_output`, 지원되지 않는 object, NaN 및 Infinity는 process-specific string 대신
+`non_serializable_output` 보류를 만듭니다. Caller trace는 server-owned로 유지되며 agent output이 이를
+바꿀 수 없습니다. Evidence reference는 explicit list와 자동 발견한 `*_ref` / `*_id` fact 전체에서
+deduplicate한 뒤 전역 20개로 제한하며, 결과에는 전체 개수와 truncation 여부가 남습니다. 최종
+server-owned envelope는 선택한 각 tool의 정확한 status와 reason을 전달하므로 timeout, sensitive output
+또는 oversized result가 generic `tool_evidence_incomplete` handoff 하나로만 축약되지 않습니다.
+
+Registry는 모든 invocation task를 소유합니다. Runtime shutdown은 새 read를 거부하고 추적 중인 work를
+cancel한 다음, handler가 cancellation을 무시해도 bounded interval까지만 기다립니다. Python은 그런
+coroutine을 강제로 종료할 수 없으므로 전역 16-task cap이 process-boundary limit 역할도 합니다. 반복되는
+operator question이 orphan work를 무한히 쌓지 못하게 합니다. Question 및 trace validation은 stopped
+또는 saturated lifecycle hold보다 항상 먼저 실행하므로, 이 상태가 검증하지 않은 correlation value를
+반사할 수 없습니다.
 
 일반 routed answer에서는 완료된 도구 결과가 generic response 뒤에 붙는 evidence가 아니라 primary
 response가 됩니다. 범위 한정 fact와 runtime evidence ref는 기존 agent-evidence manifest로

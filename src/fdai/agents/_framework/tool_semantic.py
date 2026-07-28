@@ -58,18 +58,24 @@ class SemanticToolConfig:
     retry_cooldown_seconds: float = 30.0
     cache_ttl_seconds: float = 3_600.0
     shutdown_timeout_seconds: float = 1.0
+    query_timeout_seconds: float = 2.0
 
     def __post_init__(self) -> None:
-        if not 0 < self.cosine_threshold <= 1:
+        if not _is_finite_number(self.cosine_threshold) or not 0 < self.cosine_threshold <= 1:
             raise ValueError("semantic tool cosine_threshold MUST be in (0, 1]")
-        if not 0 <= self.margin_threshold < 1:
+        if not _is_finite_number(self.margin_threshold) or not 0 <= self.margin_threshold < 1:
             raise ValueError("semantic tool margin_threshold MUST be in [0, 1)")
-        if not math.isfinite(self.retry_cooldown_seconds) or self.retry_cooldown_seconds < 0:
+        if not _is_finite_number(self.retry_cooldown_seconds) or self.retry_cooldown_seconds < 0:
             raise ValueError("semantic tool retry_cooldown_seconds MUST be non-negative")
-        if not math.isfinite(self.cache_ttl_seconds) or self.cache_ttl_seconds <= 0:
+        if not _is_finite_number(self.cache_ttl_seconds) or self.cache_ttl_seconds <= 0:
             raise ValueError("semantic tool cache_ttl_seconds MUST be positive and finite")
-        if not math.isfinite(self.shutdown_timeout_seconds) or self.shutdown_timeout_seconds <= 0:
+        if (
+            not _is_finite_number(self.shutdown_timeout_seconds)
+            or self.shutdown_timeout_seconds <= 0
+        ):
             raise ValueError("semantic tool shutdown_timeout_seconds MUST be positive and finite")
+        if not _is_finite_number(self.query_timeout_seconds) or self.query_timeout_seconds <= 0:
+            raise ValueError("semantic tool query_timeout_seconds MUST be positive and finite")
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +94,7 @@ class SemanticToolPlanner:
         "_config",
         "_embedding",
         "_lock",
+        "_query_task",
         "_retry_after",
         "_specs",
         "_stopped",
@@ -112,6 +119,7 @@ class SemanticToolPlanner:
         self._built_at = 0.0
         self._lock = asyncio.Lock()
         self._build_task: asyncio.Task[tuple[_ToolVector, ...]] | None = None
+        self._query_task: asyncio.Task[tuple[float, ...] | None] | None = None
         self._retry_after = 0.0
         self._stopped = False
 
@@ -139,12 +147,12 @@ class SemanticToolPlanner:
                 # without candidates and would make every later request
                 # wait on the same hung provider instead of degrading.
                 return ()
-            query = _unit(await self._embedding.embed(question), expected_dim=self._embedding.dim)
+            query = await self._query_vector(question)
         except asyncio.CancelledError:
             raise
         except Exception:
             return ()
-        if query is None:
+        if self._stopped or query is None:
             return ()
         wanted = frozenset(agents)
         scored = sorted(
@@ -244,16 +252,62 @@ class SemanticToolPlanner:
         and leave at most the one shared build to the process boundary.
         """
         self._stopped = True
-        task = self._build_task
-        if task is None or task.done():
+        tasks = tuple(
+            task
+            for task in (self._build_task, self._query_task)
+            if task is not None and not task.done()
+        )
+        if not tasks:
             return
-        task.cancel()
+        for task in tasks:
+            task.cancel()
         done, _pending = await asyncio.wait(
-            {task},
+            tasks,
             timeout=self._config.shutdown_timeout_seconds,
         )
+        if len(done) != len(tasks):
+            _LOG.warning(
+                "pantheon_tool_vector_shutdown_timeout",
+                extra={"pending": len(tasks) - len(done)},
+            )
+
+    async def _query_vector(self, question: str) -> tuple[float, ...] | None:
+        """Embed one query without allowing unbounded provider waits or fan-out."""
+        if self._stopped:
+            return None
+        task = self._query_task
+        if task is not None and not task.done():
+            return None
+        task = asyncio.create_task(self._embed_query_safely(question))
+        self._query_task = task
+        try:
+            done, _pending = await asyncio.wait(
+                {task},
+                timeout=self._config.query_timeout_seconds,
+            )
+        except asyncio.CancelledError:
+            task.cancel()
+            raise
         if not done:
-            _LOG.warning("pantheon_tool_vector_shutdown_timeout")
+            task.cancel()
+            _LOG.warning("pantheon_tool_query_timeout")
+            return None
+        return task.result()
+
+    async def _embed_query_safely(self, question: str) -> tuple[float, ...] | None:
+        try:
+            return _unit(
+                await self._embedding.embed(question),
+                expected_dim=self._embedding.dim,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - embedding provider boundary
+            _LOG.warning(
+                "pantheon_tool_query_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            return None
 
     async def _build_vectors_safely(self) -> tuple[_ToolVector, ...]:
         """Build without leaving an unobserved task exception behind."""
@@ -322,12 +376,22 @@ def _tool_text(agent: str, tool: ConversationTool) -> str:
 def _unit(values: Sequence[float], *, expected_dim: int) -> tuple[float, ...] | None:
     if len(values) != expected_dim:
         return None
-    if any(not math.isfinite(value) for value in values):
+    if any(not _is_finite_number(value) for value in values):
         return None
     norm = math.sqrt(sum(value * value for value in values))
     if norm <= 0:
         return None
     return tuple(value / norm for value in values)
+
+
+def _is_finite_number(value: object) -> bool:
+    """Return whether a config value is a real number, excluding booleans."""
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _cosine(left: tuple[float, ...], right: tuple[float, ...]) -> float:

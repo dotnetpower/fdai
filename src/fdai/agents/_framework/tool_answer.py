@@ -50,6 +50,9 @@ async def answer_from_owned_tools(
             results=gathered.results,
             policy_source=first,
             plan=selected_plan,
+            fallback_reason=(
+                "gather_timeout" if gathered.timed_out else "tool_evidence_incomplete"
+            ),
             abstain_reason="tool_evidence_incomplete",
         )
     return _successful_envelope(
@@ -87,6 +90,7 @@ def _successful_envelope(
         results=results,
         policy_source=results[0],
         plan=plan,
+        fallback_reason=None,
         abstain_reason=None,
     )
 
@@ -100,6 +104,7 @@ def _envelope(
     results: tuple[AgentToolResult, ...],
     policy_source: AgentToolResult | None,
     plan: ConversationToolPlan,
+    fallback_reason: str | None,
     abstain_reason: str | None,
 ) -> dict[str, Any]:
     policy = (
@@ -126,6 +131,28 @@ def _envelope(
             "tier": plan.tier,
             "score": plan.score,
         },
+        "conversation_tool_results": (
+            [
+                {
+                    "tool_id": result.tool_id,
+                    "status": result.status.value,
+                    "reason": result.reason,
+                    "evidence_ref_count": result.evidence_ref_count,
+                    "evidence_refs_truncated": result.evidence_refs_truncated,
+                }
+                for result in results
+            ]
+            if results
+            else [
+                {
+                    "tool_id": plan.tool_id,
+                    "status": AgentToolStatus.ABSTAIN.value,
+                    "reason": fallback_reason,
+                    "evidence_ref_count": 0,
+                    "evidence_refs_truncated": False,
+                }
+            ]
+        ),
     }
 
 

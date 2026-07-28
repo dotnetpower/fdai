@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from types import MethodType
 
+import pytest
+
 from fdai.agents import AgentToolStatus
 from fdai.agents._framework.bragi_contributors import normalize_responder_answer
 from fdai.agents._framework.introspection import IntrospectionResult
@@ -60,6 +62,15 @@ def test_all_charter_digests_are_deterministic_and_unique() -> None:
     assert first == replay
     assert len({policy["charter_sha256"] for policy in first.values()}) == len(PANTHEON_SPECS)
     assert len({policy["prompt_sha256"] for policy in first.values()}) == len(PANTHEON_SPECS)
+
+
+@pytest.mark.parametrize(
+    "value",
+    (True, 0.0, -1.0, float("nan"), float("inf"), 10**4_000),
+)
+def test_tool_timeout_must_be_a_positive_finite_number(value: float) -> None:
+    with pytest.raises(ValueError):
+        _runtime(timeout=value)
 
 
 def test_content_addressed_digest_is_not_misclassified_as_card_number() -> None:
@@ -264,6 +275,96 @@ def test_sensitive_output_is_held_without_value_leak() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "bad_value",
+    (object(), float("nan"), float("inf"), -float("inf")),
+)
+def test_non_serializable_or_non_finite_output_is_held(bad_value: object) -> None:
+    """Agent bugs never become process-specific evidence strings."""
+    runtime = _runtime()
+    njord = runtime.agents["Njord"]
+
+    async def invalid(_question: str, _context: dict[str, object]) -> dict[str, object]:
+        return {
+            "answer": "invalid fact",
+            "facts": {"bad": bad_value},
+        }
+
+    njord.on_conversation_turn = invalid  # type: ignore[assignment,method-assign]
+
+    result = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+
+    assert result.status is AgentToolStatus.ABSTAIN
+    assert result.reason == "non_serializable_output"
+    assert result.answer is None
+    assert result.facts == {}
+
+
+@pytest.mark.parametrize(
+    "envelope",
+    (
+        None,
+        {"answer": 1, "facts": {}},
+        {"answer": "answer", "facts": None},
+        {"answer": "answer", "facts": {}, "abstain_reason": 1},
+    ),
+)
+def test_malformed_tool_output_is_held(envelope: object) -> None:
+    runtime = _runtime()
+    njord = runtime.agents["Njord"]
+
+    async def malformed(_question: str, _context: dict[str, object]) -> object:
+        return envelope
+
+    njord.on_conversation_turn = malformed  # type: ignore[assignment,method-assign]
+
+    result = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+            trace_ref="server-trace",
+        )
+    )
+
+    assert result.status is AgentToolStatus.ABSTAIN
+    assert result.reason == "malformed_output"
+    assert result.trace_ref == "server-trace"
+
+
+def test_agent_output_cannot_replace_server_owned_trace_ref() -> None:
+    runtime = _runtime()
+    njord = runtime.agents["Njord"]
+
+    async def forged(_self, _question, _context):  # type: ignore[no-untyped-def]
+        return {
+            "answer": "One cost sample is available.",
+            "facts": {},
+            "trace_ref": "forged-trace",
+            "abstain_reason": None,
+        }
+
+    njord.on_conversation_turn = MethodType(forged, njord)  # type: ignore[method-assign]
+
+    result = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+            trace_ref="server-trace",
+        )
+    )
+
+    assert result.status is AgentToolStatus.OK
+    assert result.trace_ref == "server-trace"
+
+
 def test_tool_result_preserves_evidence_trace_and_policy() -> None:
     runtime = _runtime()
     heimdall = runtime.agents["Heimdall"]
@@ -302,6 +403,144 @@ def test_tool_result_preserves_evidence_trace_and_policy() -> None:
     assert result.allowed_tools == heimdall.spec.conversation.tools
     counters = runtime.health()["conversation_tools"]["by_agent"]["Heimdall"]["counters"]
     assert counters["conversation_tool:read_observations:ok"] == 1
+
+
+def test_evidence_reference_cap_applies_to_explicit_and_discovered_refs() -> None:
+    """Auto-discovered ``*_ref`` fields cannot bypass the global cap."""
+    runtime = _runtime()
+    heimdall = runtime.agents["Heimdall"]
+
+    async def many_refs(_self, _question, context):  # type: ignore[no-untyped-def]
+        facts: dict[str, object] = {
+            "evidence_refs": [f"explicit:{index}" for index in range(50)],
+        }
+        facts.update({f"item_{index}_ref": f"ref-{index}" for index in range(100)})
+        return {
+            "answer": "Many observations are available.",
+            "facts": facts,
+            "trace_ref": context["trace_ref"],
+            "abstain_reason": None,
+        }
+
+    heimdall.on_conversation_turn = MethodType(many_refs, heimdall)  # type: ignore[method-assign]
+
+    result = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Heimdall",
+            tool_id="read_observations",
+            question="observations",
+        )
+    )
+
+    assert result.status is AgentToolStatus.OK
+    assert len(result.evidence_refs) == 20
+    assert result.evidence_ref_count == 150
+    assert result.evidence_refs_truncated is True
+
+
+@pytest.mark.asyncio
+async def test_cancellation_resistant_tool_timeout_is_bounded_and_owned() -> None:
+    """A handler that suppresses cancellation cannot hold the caller forever."""
+    runtime = _runtime(timeout=0.01)
+    njord = runtime.agents["Njord"]
+    release = asyncio.Event()
+
+    async def resists_once(_self, _question, _context):  # type: ignore[no-untyped-def]
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            await release.wait()
+        return {"answer": "late", "facts": {}}
+
+    njord.on_conversation_turn = MethodType(resists_once, njord)  # type: ignore[method-assign]
+
+    result = await asyncio.wait_for(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        ),
+        timeout=0.1,
+    )
+
+    assert result.reason == "timeout"
+    assert runtime.health()["conversation_tools"]["in_flight"] == 1
+    release.set()
+    await runtime.stop()
+    assert runtime.health()["conversation_tools"]["in_flight"] == 0
+
+
+@pytest.mark.asyncio
+async def test_stopped_tool_registry_refuses_new_invocations() -> None:
+    runtime = _runtime()
+    await runtime.stop()
+
+    result = await runtime.invoke_conversation_tool(
+        agent_name="Njord",
+        tool_id="read_cost_samples",
+        question="cost samples",
+    )
+
+    assert result.reason == "registry_stopped"
+
+
+@pytest.mark.asyncio
+async def test_stopped_tool_registry_still_sanitizes_trace_input() -> None:
+    runtime = _runtime()
+    await runtime.stop()
+
+    result = await runtime.invoke_conversation_tool(
+        agent_name="Njord",
+        tool_id="read_cost_samples",
+        question="cost samples",
+        trace_ref="password=supersecretvalue",
+    )
+
+    assert result.reason == "invalid_trace_ref"
+    assert result.trace_ref == ""
+
+
+@pytest.mark.asyncio
+async def test_tool_registry_caps_cancellation_resistant_in_flight_work() -> None:
+    runtime = _runtime(timeout=0.001)
+    njord = runtime.agents["Njord"]
+    release = asyncio.Event()
+
+    async def resists_once(_self, _question, _context):  # type: ignore[no-untyped-def]
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            await release.wait()
+        return {"answer": "late", "facts": {}}
+
+    njord.on_conversation_turn = MethodType(resists_once, njord)  # type: ignore[method-assign]
+    registry = runtime._conversation_tools
+    assert registry is not None
+    raw_limit = registry.snapshot()["in_flight_limit"]
+    assert isinstance(raw_limit, int)
+    limit = raw_limit
+
+    timed_out = await asyncio.gather(
+        *(
+            runtime.invoke_conversation_tool(
+                agent_name="Njord",
+                tool_id="read_cost_samples",
+                question=f"cost samples {index}",
+            )
+            for index in range(limit)
+        )
+    )
+    saturated = await runtime.invoke_conversation_tool(
+        agent_name="Njord",
+        tool_id="read_cost_samples",
+        question="one more cost sample",
+    )
+
+    assert {result.reason for result in timed_out} == {"timeout"}
+    assert saturated.reason == "tool_capacity_exhausted"
+    assert registry.snapshot()["in_flight"] == limit
+    release.set()
+    await runtime.stop()
 
 
 def test_tool_inputs_and_outputs_are_bounded() -> None:

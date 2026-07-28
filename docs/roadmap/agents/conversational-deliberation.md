@@ -169,8 +169,9 @@ as long as the cache lives. An incomplete build is therefore refused and retried
 cached, and a cache built under one model is dropped when the provider reports a different
 dimension - scoring a query against vectors from another space keeps producing confident numbers
 that mean nothing. Dimension cannot identify a same-size replacement model, so the cache also has
-a positive, finite TTL (one hour by default) that bounds how long the old space may remain. NaN,
-Infinity, zero, and wrong-dimension vectors are invalid catalog entries.
+a positive, finite TTL (one hour by default) that bounds how long the old space may remain.
+Boolean, non-numeric, NaN, Infinity, zero, and wrong-dimension vectors are invalid catalog
+entries.
 
 The cold build is one shared task. A question may stop waiting and degrade while the build
 continues, but twenty-five timed-out questions still leave one build, not twenty-five. While it is
@@ -182,6 +183,13 @@ cannot forcibly kill that coroutine; planner shutdown therefore waits for a posi
 disables all later plans, and returns while leaving at most the one shared build to the process
 boundary. The cache boundary rechecks the stopped state before creating or publishing a build, so
 a plan that passed its first check just before shutdown cannot restart the provider afterward.
+
+Query embedding has the same lifecycle contract. Concurrent callers share one query task, each
+caller waits for a positive, finite query bound, and a cancellation-resistant provider leaves at
+most that one task rather than one task per caller. Shutdown drains both build and query tasks and
+rechecks the stopped state before query creation and before using its result. Numeric planner
+configuration rejects booleans, non-numeric values, NaN, and Infinity instead of accepting Python's
+`True == 1` coercion as a threshold or timeout.
 
 The examples are retrieval anchors only. They are not part of the charter digest, so tuning
 retrieval never churns the audit trail, and they never reach a prompt or an answer.
@@ -205,9 +213,25 @@ denial-of-service surface if any of them is missing.
 |-------|-------|-----|
 | Plans per question | `MAX_TOOL_PLANS` (3) | A question that wants dozens of reads wants a report. |
 | Depth | one level | An agent holds no reference to the registry, so no turn can call a tool. The registry refuses a nested call as the second lock. |
-| One dispatch | registry timeout, output ceiling, sensitivity scan | Owned by the registry, unchanged. |
+| One dispatch | registry-owned task, timeout, output ceiling, sensitivity scan | A timeout returns even if a handler suppresses cancellation. At most 16 unresolved tasks remain globally, and saturation holds new reads. |
 | The whole gather | `PREFETCH_BUDGET_SECONDS` (5) | A per-tool timeout does not bound planning plus dispatch. The gather retains whether it timed out and how many planned reads completed. |
 | Question | 2,000 characters | The public prefetch API cannot rely on Bragi's boundary; oversize input reaches neither the embedding provider nor the registry. |
+
+The registry accepts only a mapping with typed answer, facts, and abstention fields, serialized as
+strict JSON. A wrong shape produces `malformed_output`; unsupported objects, NaN, and Infinity
+produce `non_serializable_output` rather than a process-specific string. The caller's trace remains
+server-owned and agent output cannot replace it. Evidence references are deduplicated across
+explicit lists and discovered `*_ref` / `*_id` facts, then capped globally at 20; the result
+preserves the total count and whether truncation occurred. The final server-owned envelope carries
+each selected tool's exact status and reason, so a timeout, sensitive output, or oversized result
+does not collapse into only the generic `tool_evidence_incomplete` handoff.
+
+The registry owns every invocation task. Runtime shutdown refuses new reads, cancels tracked work,
+and waits for a bounded interval even when a handler suppresses cancellation. Python cannot force
+such a coroutine to terminate, so the global 16-task cap is also the process-boundary limit. It
+prevents repeated operator questions from accumulating unbounded orphan work. Question and trace
+validation always runs before stopped or saturated lifecycle holds, so those states cannot reflect
+an unvalidated correlation value.
 
 For an ordinary routed answer, a completed tool result is the primary response, not evidence added
 after a generic response. Its scoped facts and runtime evidence refs enter the normal agent-evidence

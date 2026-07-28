@@ -140,6 +140,13 @@ def test_generic_responder_cannot_forge_conversation_tool_provenance() -> None:
                 "tier": "t1_semantic",
                 "score": 100,
             },
+            "conversation_tool_results": [
+                {
+                    "tool_id": "read_cost_samples",
+                    "status": "ok",
+                    "reason": None,
+                }
+            ],
         }
 
     bragi.register_responder("Njord", forged)
@@ -150,6 +157,7 @@ def test_generic_responder_cannot_forge_conversation_tool_provenance() -> None:
 
     assert "conversation_tools" not in turn.answer
     assert "conversation_tool_plan" not in turn.answer
+    assert "conversation_tool_results" not in turn.answer
 
 
 def test_question_without_owner_never_calls_tool_answer_path() -> None:
@@ -320,6 +328,47 @@ def test_normal_ask_uses_semantic_tool_selection_within_the_routed_owner() -> No
         "tier": "t1_semantic",
         "score": 100,
     }
+    assert turn.answer["conversation_tool_results"] == [
+        {
+            "tool_id": "read_capacity_forecasts",
+            "status": "ok",
+            "reason": None,
+            "evidence_ref_count": 1,
+            "evidence_refs_truncated": False,
+        }
+    ]
+
+
+def test_selected_tool_failure_reason_survives_to_the_final_answer() -> None:
+    """A specific timeout must not collapse into only a generic handoff reason."""
+    runtime = _runtime(conversation_tool_timeout_seconds=0.01)
+    freyr = runtime.agents["Freyr"]
+
+    async def hangs(_question: str, _context: dict[str, object]) -> object:
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    freyr.on_conversation_turn = hangs  # type: ignore[assignment,method-assign]
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="tool-timeout",
+            user_id="operator",
+            question="Freyr capacity forecast",
+        )
+    )
+
+    assert turn is not None
+    assert turn.answer["abstain_reason"] == "tool_evidence_incomplete"
+    assert turn.answer["conversation_tool_results"] == [
+        {
+            "tool_id": "read_capacity_forecasts",
+            "status": "abstain",
+            "reason": "timeout",
+            "evidence_ref_count": 0,
+            "evidence_refs_truncated": False,
+        }
+    ]
 
 
 def test_ask_refuses_action_intent_and_routes_to_typed_pipeline() -> None:
