@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -331,6 +332,52 @@ async def test_consumer_receives_event_hubs_safe_connection_windows(
     assert captured["heartbeat_interval_ms"] == 3_000
     assert captured["request_timeout_ms"] == 60_000
     assert captured["retry_backoff_ms"] == 1_000
+
+
+@pytest.mark.asyncio
+async def test_consumer_logs_owned_identity_instead_of_connection_success_noise(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _RecordingConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            self.provider = kwargs["sasl_oauth_token_provider"]
+
+        async def start(self) -> None:
+            await self.provider.token()
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            raise RuntimeError("consumer complete")
+
+    dependency_logger = logging.getLogger("aiokafka.conn")
+    previous_level = dependency_logger.level
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
+    try:
+        bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
+        assert bus is not None
+        assert dependency_logger.level == logging.WARNING
+        caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+        iterator = _iter_consumer(
+            topic="aw.control.canary",
+            group_id="fdai-canary",
+            config=_cfg(),
+            identity=_StaticIdentity(),
+            audience="https://evhns.servicebus.windows.net/.default",
+        )
+
+        with pytest.raises(RuntimeError, match="consumer complete"):
+            await anext(iterator)
+    finally:
+        dependency_logger.setLevel(previous_level)
+
+    record = next(item for item in caplog.records if item.message == "event_bus_consumer_started")
+    assert record.topic == "aw.control.canary"
+    assert record.consumer_group == "fdai-canary"
+    assert record.client_id == "fdai-core"
+    assert record.auth_mechanism == "OAUTHBEARER"
 
 
 def test_token_refresh_delay_is_stable_and_before_expiry() -> None:

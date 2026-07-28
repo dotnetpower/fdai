@@ -35,6 +35,7 @@ from fdai.shared.providers.event_bus import (
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
+_AIOKAFKA_CONNECTION_LOGGER = logging.getLogger("aiokafka.conn")
 
 
 def _default_ssl_context() -> ssl.SSLContext:
@@ -182,6 +183,12 @@ class EventHubsKafkaBus(EventBus):
     ) -> None:
         if not config.bootstrap_servers:
             raise ValueError("bootstrap_servers MUST NOT be empty")
+        # aiokafka emits one context-free success line per broker socket. A
+        # consumer commonly opens bootstrap, coordinator, and fetch sockets,
+        # so INFO output becomes indistinguishable noise during fan-out startup.
+        # Keep dependency warnings/errors and emit one owned record per logical
+        # consumer after startup instead.
+        _AIOKAFKA_CONNECTION_LOGGER.setLevel(logging.WARNING)
         self._identity: Final[WorkloadIdentity] = identity
         self._config: Final[EventHubsKafkaBusConfig] = config
         self._audience: Final[str] = config.audience or _audience_from_bootstrap(
@@ -328,6 +335,15 @@ async def _iter_consumer(
         )
         try:
             await consumer.start()
+            _LOGGER.info(
+                "event_bus_consumer_started",
+                extra={
+                    "topic": topic,
+                    "consumer_group": group_id,
+                    "client_id": config.client_id,
+                    "auth_mechanism": "OAUTHBEARER",
+                },
+            )
             refresh_at = asyncio.get_running_loop().time() + _token_refresh_delay(
                 token_provider=token_provider,
                 group_id=group_id,

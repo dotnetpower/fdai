@@ -113,6 +113,47 @@ def test_runner_formats_json_for_file_without_changing_stdout(tmp_path: Path) ->
     assert payload not in current
 
 
+def test_runner_preserves_allowlisted_consumer_context_only(tmp_path: Path) -> None:
+    log_file = tmp_path / "core-runtime.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_LOG_FORMAT"] = "json-plain"
+    payload = (
+        '{"level":"INFO","logger":"fdai.delivery.azure.event_bus",'
+        '"message":"event_bus_consumer_started","topic":"aw.change.events",'
+        '"consumer_group":"fdai-local-pantheon.Huginn",'
+        '"client_id":"fdai-core","auth_mechanism":"OAUTHBEARER",'
+        '"access_token":"must-not-render"}'
+    )
+
+    result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
+        [
+            _BASH,
+            str(_RUNNER),
+            "core-runtime",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            f"print({payload!r})",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    current = log_file.read_text(encoding="utf-8")
+    formatted_line = next(
+        line for line in current.splitlines() if "event_bus_consumer_started" in line
+    )
+    assert 'topic="aw.change.events"' in formatted_line
+    assert 'consumer_group="fdai-local-pantheon.Huginn"' in formatted_line
+    assert 'client_id="fdai-core"' in formatted_line
+    assert 'auth_mechanism="OAUTHBEARER"' in formatted_line
+    assert "must-not-render" not in current
+
+
 def test_runner_flushes_output_while_child_is_running(tmp_path: Path) -> None:
     log_file = tmp_path / "read-api.log"
     process = subprocess.Popen(  # noqa: S603 - command and executable are fixed test inputs

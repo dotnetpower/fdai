@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TextIO
 
+_PLAIN_CONTEXT_FIELDS = ("topic", "consumer_group", "client_id", "auth_mechanism")
+
 
 def _render_line(raw: str, output_format: str) -> str:
     line = raw.rstrip("\n")
@@ -26,6 +28,13 @@ def _render_line(raw: str, output_format: str) -> str:
     if not all(isinstance(value, str) for value in (level, logger, message)):
         return line
     rendered = f"{level}: {logger}: {message}"
+    context = [
+        f"{field}={json.dumps(payload[field], ensure_ascii=True, separators=(',', ':'))}"
+        for field in _PLAIN_CONTEXT_FIELDS
+        if isinstance(payload.get(field), (str, int, float, bool))
+    ]
+    if context:
+        rendered = f"{rendered} [{', '.join(context)}]"
     exception = payload.get("exception")
     if isinstance(exception, str) and exception:
         rendered = f"{rendered}\n{exception}"

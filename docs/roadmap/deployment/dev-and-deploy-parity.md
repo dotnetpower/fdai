@@ -107,7 +107,10 @@ plus the child exit code, uses private local permissions, and rotates at 10 MiB 
 generation retained. These gitignored diagnostics survive a task terminal closing; they don't
 replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
 machine-readable JSON stream, while the core file renders those records as `LEVEL: logger: message`
-lines to match the read API log. Startup model latency probes use a bounded Azure Responses API
+lines to match the read API log. The Event Hubs adapter suppresses aiokafka's context-free
+per-socket authentication success messages and emits one `event_bus_consumer_started` record per
+logical consumer with its topic, consumer group, client id, and authentication mechanism. Dependency
+warnings and errors remain visible. Startup model latency probes use a bounded Azure Responses API
 output-token budget supported by every configured reasoning candidate and stable
 `read-api:*:latency-probe` correlation ids, so their measured usage isn't filed as uncorrelated
 traffic.
