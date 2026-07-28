@@ -247,6 +247,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   timezone-aware RFC 3339 `last_seen`; missing or malformed ordering time blocks publication and
   cursor advancement instead of substituting a process wall clock. A batch may contain each
   `resource_id` only once; duplicates block the whole batch before any event is published.
+  All events in the bounded batch are constructed and validated before the first publication, so
+  a malformed later resource cannot leave an earlier event partially published by validation.
   Every delta page marked `has_more` must provide a new continuation cursor before its records are
   yielded. A missing or unchanged cursor fails the pull without a final fence; an advancing stream
   that reaches the configured page cap returns the latest cursor so the next pull resumes there.

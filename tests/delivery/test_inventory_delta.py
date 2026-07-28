@@ -107,6 +107,26 @@ class _CursorlessFinalInventory:
         yield InventoryBatch(final=True, cursor=None)
 
 
+class _PartiallyInvalidBatchInventory:
+    async def delta(self, cursor: str):  # type: ignore[no-untyped-def]
+        yield InventoryBatch(
+            resources=(
+                ResourceRecord(
+                    resource_id="resource:example/valid-first",
+                    type="compute.vm",
+                    last_seen="2026-07-15T00:00:00Z",
+                ),
+                ResourceRecord(
+                    resource_id="resource:example/invalid-second",
+                    type="compute.vm",
+                    last_seen="not-a-timestamp",
+                ),
+            ),
+            cursor="cursor-invalid-batch",
+        )
+        yield InventoryBatch(final=True, cursor="cursor-invalid-batch")
+
+
 @pytest.mark.asyncio
 async def test_forward_delta_publishes_event_and_advances_cursor() -> None:
     inventory = _Inventory()
@@ -314,4 +334,25 @@ async def test_forward_delta_cursorless_final_preserves_latest_page_cursor() -> 
 
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
         "cursor": "cursor-latest"
+    }
+
+
+@pytest.mark.asyncio
+async def test_forward_delta_validates_entire_batch_before_publication() -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+    await state.write_state("inventory_delta_cursor:subscription-1", {"cursor": "cursor-old"})
+
+    with pytest.raises(ValueError, match="last_seen"):
+        await forward_inventory_delta(
+            inventory=_PartiallyInvalidBatchInventory(),
+            state_store=state,
+            event_bus=bus,
+            topic="events",
+            scope="subscription-1",
+        )
+
+    assert [item async for item in bus.subscribe("events", "reader")] == []
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-old"
     }

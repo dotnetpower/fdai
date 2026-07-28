@@ -42,12 +42,18 @@ async def forward_inventory_delta(
             saw_final = True
             final_cursor = latest_cursor
         links_by_owner = _links_by_owner(batch.resources, batch.links)
-        for resource in batch.resources:
-            event = _resource_event(
-                scope=scope,
-                resource=resource,
-                links=links_by_owner.get(resource.resource_id, ()),
+        events = tuple(
+            (
+                resource,
+                _resource_event(
+                    scope=scope,
+                    resource=resource,
+                    links=links_by_owner.get(resource.resource_id, ()),
+                ),
             )
+            for resource in batch.resources
+        )
+        for resource, event in events:
             await event_bus.publish(topic, resource.resource_id, event.model_dump(mode="json"))
             published += 1
     if final_cursor is None:

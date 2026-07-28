@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ad2c3f0ee162c594dbf8a379bcd9f3a913f057fc
+translation_source_sha: 1d9c4769d73be52e7a01d604b2f2deff58e1a21e
 translation_revised: 2026-07-28
 ---
 
@@ -246,6 +246,8 @@ fdai/
   timezone이 포함된 RFC 3339 `last_seen`이 필요합니다. Ordering time이 없거나 잘못되면 process wall
   clock으로 대체하지 않고 발행과 cursor 진행을 차단합니다. 하나의 batch에는 각 `resource_id`가 한
   번만 포함될 수 있으며 중복이 있으면 event를 발행하기 전에 batch 전체를 차단합니다.
+  Bounded batch의 모든 event는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
+  event가 validation 단계에서 부분 발행되지 않습니다.
   `has_more`로 표시된 모든 delta page는 record를 방출하기 전에 새로운 continuation cursor를 제공해야
   합니다. Cursor가 없거나 변경되지 않으면 final fence 없이 pull이 실패합니다. 정상적으로 진행하는
   stream이 설정된 page cap에 도달하면 최신 cursor를 반환하여 다음 pull이 그 위치에서 재개됩니다.
