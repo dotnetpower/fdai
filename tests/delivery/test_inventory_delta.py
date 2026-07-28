@@ -249,6 +249,40 @@ def test_delta_event_identity_includes_relationship_payload() -> None:
     assert other_scope.idempotency_key != first_scope_without_links.idempotency_key
 
 
+@pytest.mark.parametrize("invalid_props", [{"bad": {"unordered"}}, {"bad": float("nan")}])
+def test_delta_event_rejects_nondeterministic_resource_props(
+    invalid_props: dict[str, object],
+) -> None:
+    resource = ResourceRecord(
+        resource_id="resource:example/invalid-props",
+        type="compute.vm",
+        props=invalid_props,
+        last_seen="2026-07-15T00:00:00Z",
+    )
+
+    with pytest.raises(ValueError, match="JSON-compatible"):
+        _resource_event(scope="subscription-1", resource=resource, links=())
+
+
+def test_delta_event_rejects_nondeterministic_link_props() -> None:
+    resource = ResourceRecord(
+        resource_id="resource:example/invalid-link-props",
+        type="compute.vm",
+        last_seen="2026-07-15T00:00:00Z",
+    )
+    link = LinkRecord(
+        from_id=resource.resource_id,
+        from_type=resource.type,
+        link_type="depends_on",
+        to_id="resource:example/database",
+        to_type="postgresql",
+        link_props={"bad": object()},
+    )
+
+    with pytest.raises(ValueError, match="JSON-compatible"):
+        _resource_event(scope="subscription-1", resource=resource, links=(link,))
+
+
 @pytest.mark.parametrize("last_seen", [None, "not-a-timestamp"])
 @pytest.mark.asyncio
 async def test_forward_delta_rejects_missing_or_invalid_ordering_timestamp(

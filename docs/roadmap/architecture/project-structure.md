@@ -248,6 +248,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   timezone-aware RFC 3339 `last_seen`; missing or malformed ordering time blocks publication and
   cursor advancement instead of substituting a process wall clock. A batch may contain each
   `resource_id` only once; duplicates block the whole batch before any event is published.
+  Resource and relationship properties must also serialize as canonical JSON with finite numeric
+  values; unsupported objects and `NaN` are rejected before identity calculation or publication.
   All events in the bounded batch are constructed and validated before the first publication, so
   a malformed later resource cannot leave an earlier event partially published by validation.
   Every delta page marked `has_more` must provide a new continuation cursor before its records are

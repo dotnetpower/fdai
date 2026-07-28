@@ -86,12 +86,18 @@ def _resource_event(*, scope: str, resource: ResourceRecord, links: Sequence[Lin
         }
         for link in sorted(links, key=lambda item: (item.from_id, item.link_type, item.to_id))
     ]
-    identity_document = json.dumps(
-        {"scope": scope, "resource": resource_payload, "links": link_payloads},
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    )
+    try:
+        identity_document = json.dumps(
+            {"scope": scope, "resource": resource_payload, "links": link_payloads},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "inventory delta resource and relationship props MUST be JSON-compatible"
+        ) from exc
     identity_digest = hashlib.sha256(identity_document.encode("utf-8")).hexdigest()
     return Event(
         schema_version="1.0.0",
