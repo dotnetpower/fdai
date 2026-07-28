@@ -212,6 +212,42 @@ async def test_equal_timestamp_dedup_is_independent_of_page_order() -> None:
     assert first.resources == second.resources
 
 
+@pytest.mark.parametrize("event_timestamp", [None, "not-a-timestamp", "2026-07-10T06:45:00"])
+@pytest.mark.asyncio
+async def test_supported_event_requires_timezone_aware_timestamp(
+    event_timestamp: str | None,
+) -> None:
+    vocab = _vocab()
+    _, arm_type = _arm_type_for(vocab)
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001"
+        f"/resourceGroups/rg-a/providers/{arm_type}/thing-invalid-time"
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {"value": arm_type},
+                        "operationName": {"value": f"{arm_type}/write"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": event_timestamp,
+                    }
+                ]
+            },
+        )
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="eventTimestamp"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
 @pytest.mark.asyncio
 async def test_nextlink_paging_encodes_running_max() -> None:
     vocab = _vocab()
@@ -377,7 +413,12 @@ def test_config_rejects_empty_subscription() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "bad_cursor",
-    ["2026-07-10' or '1'='1", "not-a-timestamp", "'; drop table x --"],
+    [
+        "2026-07-10' or '1'='1",
+        "not-a-timestamp",
+        "2026-07-10T05:00:00",
+        "'; drop table x --",
+    ],
 )
 async def test_invalid_resume_cursor_fails_closed(bad_cursor: str) -> None:
     # A corrupt / hostile persisted cursor must not be folded into the OData

@@ -269,8 +269,6 @@ class AzureActivityLogFactory:
         if self._config.only_succeeded and _nested_value(event, "status") != "Succeeded":
             return None
         operation = _nested_value(event, "operationName")
-        if operation and operation.rsplit("/", maxsplit=1)[-1].casefold() == "delete":
-            return None
 
         arm_id = event.get("resourceId")
         if not isinstance(arm_id, str) or not arm_id:
@@ -287,6 +285,10 @@ class AzureActivityLogFactory:
 
         at = _parse_ts(event.get("eventTimestamp"))
         if at is None:
+            raise ActivityLogError(
+                "Activity Log eventTimestamp MUST be a timezone-aware RFC 3339 timestamp"
+            )
+        if operation and operation.rsplit("/", maxsplit=1)[-1].casefold() == "delete":
             return None
 
         props = _truncate_props(
@@ -365,7 +367,7 @@ def _parse_ts(raw: Any) -> datetime | None:
         parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC) if parsed.tzinfo else None
 
 
 def _nested_value(event: Mapping[str, Any], key: str) -> str | None:

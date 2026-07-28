@@ -257,7 +257,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   operations instead of resurrecting the resource, but still advances its page cursor from every
   valid event timestamp so filtered records cannot stall the stream. Multiple records for one
   resource use event time and then a canonical resource document as a deterministic tie-breaker;
-  each page emits resources in `resource_id` order.
+  each page emits resources in `resource_id` order. Resume cursors and supported-resource events
+  require timezone-aware RFC 3339 timestamps. A malformed event timestamp fails the page rather
+  than being dropped or treated as UTC, preserving the ordering authority.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.
