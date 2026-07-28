@@ -7,6 +7,7 @@ import {
   clamp,
   DEFAULT_ISOMETRIC_CAMERA,
   fitCamera,
+  orbitArchitectureCamera,
   pickResource,
   zoomCameraAtPoint,
   type Camera,
@@ -54,6 +55,7 @@ export function useArchitectureMapController({
   const layoutFrameRef = useRef("");
   const animationFrameRef = useRef<number | null>(null);
   const dragRef = useRef<{
+    mode: "pan" | "orbit";
     startX: number;
     startY: number;
     lastX: number;
@@ -166,9 +168,13 @@ export function useArchitectureMapController({
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
     const pointerDown = (event: PointerEvent) => {
+      const mode = architecturePointerDragMode(event.button);
+      if (mode === null) return;
+      if (mode === "orbit") event.preventDefault();
       canvas.setPointerCapture(event.pointerId);
       const point = localPoint(event);
       dragRef.current = {
+        mode,
         startX: point.x,
         startY: point.y,
         lastX: point.x,
@@ -176,11 +182,31 @@ export function useArchitectureMapController({
       };
     };
     const pointerMove = (event: PointerEvent) => {
-      const previous = dragRef.current;
-      if (!previous) return;
       const current = localPoint(event);
-      cameraRef.current.panX += current.x - previous.lastX;
-      cameraRef.current.panY += current.y - previous.lastY;
+      const previous = dragRef.current;
+      if (!previous) {
+        const mode = architecturePointerButtonsDragMode(event.buttons);
+        if (mode === null) return;
+        dragRef.current = {
+          mode,
+          startX: current.x,
+          startY: current.y,
+          lastX: current.x,
+          lastY: current.y,
+        };
+        return;
+      }
+      if (architecturePointerButtonsDragMode(event.buttons) !== previous.mode) {
+        dragRef.current = null;
+        scheduleDraw();
+        return;
+      }
+      if (previous.mode === "orbit") {
+        orbitArchitectureCamera(cameraRef.current, current.x - previous.lastX);
+      } else {
+        cameraRef.current.panX += current.x - previous.lastX;
+        cameraRef.current.panY += current.y - previous.lastY;
+      }
       dragRef.current = { ...previous, lastX: current.x, lastY: current.y };
       scheduleDraw();
     };
@@ -189,7 +215,11 @@ export function useArchitectureMapController({
       dragRef.current = null;
       scheduleDraw();
       const point = localPoint(event);
-      if (!previous || Math.hypot(point.x - previous.startX, point.y - previous.startY) > 6) {
+      if (
+        !previous
+        || previous.mode !== "pan"
+        || Math.hypot(point.x - previous.startX, point.y - previous.startY) > 6
+      ) {
         return;
       }
       const state = stateRef.current;
@@ -220,11 +250,15 @@ export function useArchitectureMapController({
       scheduleDraw();
       notifyZoom();
     };
+    const auxClick = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    };
     canvas.addEventListener("pointerdown", pointerDown);
     canvas.addEventListener("pointermove", pointerMove);
     canvas.addEventListener("pointerup", pointerUp);
     canvas.addEventListener("pointercancel", pointerCancel);
     canvas.addEventListener("wheel", wheel, { passive: false });
+    canvas.addEventListener("auxclick", auxClick);
     resize();
     return () => {
       observer.disconnect();
@@ -234,6 +268,7 @@ export function useArchitectureMapController({
       canvas.removeEventListener("pointerup", pointerUp);
       canvas.removeEventListener("pointercancel", pointerCancel);
       canvas.removeEventListener("wheel", wheel);
+      canvas.removeEventListener("auxclick", auxClick);
       if (animationFrameRef.current !== null) {
         window.cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
@@ -265,6 +300,18 @@ export function architectureInteractionOptions(
 ): ArchitectureDisplayOptions {
   if (!interacting) return options;
   return { ...options, showLabels: false };
+}
+
+export function architecturePointerDragMode(button: number): "pan" | "orbit" | null {
+  if (button === 0) return "pan";
+  if (button === 1) return "orbit";
+  return null;
+}
+
+export function architecturePointerButtonsDragMode(buttons: number): "pan" | "orbit" | null {
+  if ((buttons & 4) !== 0) return "orbit";
+  if ((buttons & 1) !== 0) return "pan";
+  return null;
 }
 
 export function architectureLayoutFrame(graph: InventoryGraphResponse): string {

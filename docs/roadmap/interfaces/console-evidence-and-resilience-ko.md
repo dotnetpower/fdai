@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e9e2a83e3e7f11be710a0784d8a904bf861239b7
+translation_source_sha: a1d8fa8ce928e53e917d20557cf32cfebda4d236
 translation_revised: 2026-07-28
 ---
 
@@ -510,6 +510,10 @@ containment도 동일한 projection을 사용합니다. Zoom은 512x scale까지
 frame을 복원하는 명시적 control로 유지됩니다. 기본 isometric camera는 path lane을 좌우로 읽고 depth가
 뒤로 물러나도록 낮은 oblique angle을 사용합니다. Fit은 위쪽에 visual depth를 남기기 위해 world를
 화면 중심보다 약간 아래에 배치합니다.
+왼쪽 button drag는 projected world를 pan합니다. 가운데 button drag는 normalized continuous yaw로
+world center 주위에서 camera를 좌우로 orbit하며 세로 이동은 pitch를 변경하지 않습니다. 오른쪽 button은
+browser behavior를 유지합니다. Orbit input은 동일한 animation-frame coalescing을 사용하고 label만
+지연하며 floor, path 및 reflection은 계속 표시합니다.
 
 Label은 collision을 피하고 긴 이름을 맞추며 각 resource name과 읽기 쉬운 resource type을 함께
 표시합니다. Block의 compact acronym은 보조 cue이며 resource를 식별하는 유일한 방법이 아닙니다.

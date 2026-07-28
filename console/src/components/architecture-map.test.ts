@@ -15,6 +15,7 @@ import {
   applyCameraView,
   architectureWorldSize,
   fitCamera,
+  orbitArchitectureCamera,
   pickResource,
   project,
   zoomCameraAtPoint,
@@ -33,6 +34,8 @@ import {
 import {
   architectureInteractionOptions,
   architectureLayoutFrame,
+  architecturePointerButtonsDragMode,
+  architecturePointerDragMode,
 } from "./use-architecture-map-controller";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
@@ -205,6 +208,34 @@ describe("architecture perspective", () => {
     const topNear = project(camera, 1000, 700, 12, 1, .2);
     const topFar = project(camera, 1000, 700, 12, 11, .2);
     expect(Math.abs(topNear.x - centerX)).toBeCloseTo(Math.abs(topFar.x - centerX));
+  });
+});
+
+describe("architecture camera orbit", () => {
+  it("rotates horizontally and normalizes repeated turns", () => {
+    const camera: Camera = {
+      ...DEFAULT_ISOMETRIC_CAMERA,
+      scale: 42,
+      panX: 0,
+      panY: 0,
+    };
+    const initialYaw = camera.yaw;
+
+    orbitArchitectureCamera(camera, 100);
+    expect(camera.yaw).toBeCloseTo(initialYaw + .5);
+
+    orbitArchitectureCamera(camera, 10_000);
+    expect(camera.yaw).toBeGreaterThanOrEqual(-Math.PI);
+    expect(camera.yaw).toBeLessThan(Math.PI);
+  });
+
+  it("maps left drag to pan and middle drag to orbit", () => {
+    expect(architecturePointerDragMode(0)).toBe("pan");
+    expect(architecturePointerDragMode(1)).toBe("orbit");
+    expect(architecturePointerDragMode(2)).toBeNull();
+    expect(architecturePointerButtonsDragMode(1)).toBe("pan");
+    expect(architecturePointerButtonsDragMode(4)).toBe("orbit");
+    expect(architecturePointerButtonsDragMode(0)).toBeNull();
   });
 });
 

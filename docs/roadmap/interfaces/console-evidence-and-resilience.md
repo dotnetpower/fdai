@@ -521,6 +521,10 @@ up to 512x scale, zooms around the pointer, and lets content-driven worlds grow 
 canvas-height ceiling. The default isometric camera uses a low oblique angle so path lanes read
 left-to-right while depth recedes, and Fit places the world slightly below center to reserve visual
 depth above it. Fit remains the explicit way to restore the complete frame.
+Left-button drag pans the projected world. Middle-button drag orbits the camera horizontally around
+the world center with normalized continuous yaw; vertical movement doesn't change pitch. The right
+button keeps its browser behavior. Orbit input uses the same animation-frame coalescing and keeps
+floors, paths, and reflections visible while labels are deferred.
 
 Labels avoid collisions, fit long names, and pair each resource name with its plain resource type.
 The compact acronym on the block is a secondary cue, not the only way to identify the resource.

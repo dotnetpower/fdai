@@ -40,6 +40,7 @@ export const DEFAULT_ISOMETRIC_CAMERA = {
 const ZOOM_STEP = 1.2;
 const MIN_ZOOM = 6;
 const MAX_ZOOM = 512;
+const ORBIT_RADIANS_PER_PIXEL = .005;
 
 export function architectureZoomScale(
   scale: number,
@@ -64,6 +65,12 @@ export function zoomCameraAtPoint(
   camera.scale = nextScale;
   camera.panX = screenX - width / 2 - relativeX * ratio;
   camera.panY = screenY - height / 2 - relativeY * ratio;
+}
+
+export function orbitArchitectureCamera(camera: Camera, deltaX: number): void {
+  const fullTurn = Math.PI * 2;
+  camera.yaw = ((camera.yaw + deltaX * ORBIT_RADIANS_PER_PIXEL + Math.PI) % fullTurn
+    + fullTurn) % fullTurn - Math.PI;
 }
 
 export function architectureResourceFromValue(
