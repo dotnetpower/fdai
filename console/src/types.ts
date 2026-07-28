@@ -195,6 +195,18 @@ export interface VerticalSummary {
   readonly monthly_savings: number;
 }
 
+export interface AttributionSummary {
+  readonly attributed_events: number;
+  readonly unattributed_events: number;
+  readonly coverage: number | null;
+}
+
+export interface OutcomeFinalizationSummary {
+  readonly finalized_events: number;
+  readonly pending_events: number;
+  readonly adverse_events: number;
+}
+
 /**
  * Autonomy measurement summary (`GET /kpi/autonomy`,
  * `AutonomyMeasurementPanel`). The goals-and-metrics surface: success
@@ -231,6 +243,8 @@ export interface AutonomyPayload {
     readonly shadow_divergence_rate: MetricVsBaseline;
   };
   readonly guards: readonly GuardMetric[];
+  readonly finalization: OutcomeFinalizationSummary;
+  readonly attribution: AttributionSummary;
   readonly verticals: readonly VerticalSummary[];
   readonly tier: {
     readonly mix: Record<string, number>;

@@ -15,7 +15,7 @@ describe("read API response decoders", () => {
   const autonomy = {
     synthetic: false,
     window_days: 30,
-    sample_size: 100,
+    sample_size: 1,
     confidence: 0.95,
     source: { name: "measurement-pipeline", kind: "measurement", as_of: null },
     rules: { active: 10, candidates_30d: 2, promoted_30d: 1 },
@@ -32,6 +32,8 @@ describe("read API response decoders", () => {
       shadow_divergence_rate: metric,
     },
     guards: [{ key: "rollback", value: 0.01, baseline: 0.02, threshold: 0.02, ok: true }],
+    finalization: { finalized_events: 1, pending_events: 0, adverse_events: 0 },
+    attribution: { attributed_events: 1, unattributed_events: 0, coverage: 1 },
     verticals: [{ key: "resilience", events: 1, auto_resolved: 1, open_risks: 0, monthly_savings: 0 }],
     tier: { mix: { t0: 1 }, bands: { t0: [0.7, 0.8] } },
     trend: { auto_resolution_rate: [0.1, 0.2] },
@@ -42,6 +44,19 @@ describe("read API response decoders", () => {
     expect(() => decodeAutonomyPayload({
       ...autonomy,
       success: { ...autonomy.success, cost_per_resolved_event_usd: undefined },
+    })).toThrow(ReadApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      attribution: { attributed_events: 0, unattributed_events: 1, coverage: 0 },
+    })).toThrow(ReadApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      finalization: { finalized_events: 0, pending_events: 0, adverse_events: 1 },
+    })).toThrow(ReadApiError);
+    expect(() => decodeAutonomyPayload({ ...autonomy, sample_size: 2 })).toThrow(ReadApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      finalization: { finalized_events: 1, pending_events: 0, adverse_events: 1 },
     })).toThrow(ReadApiError);
   });
 

@@ -127,6 +127,7 @@ export function OperatingOutcomeBody({
 
 function EvidenceStrip({ autonomy }: { readonly autonomy: AutonomyPayload }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
+  const coverage = autonomy.attribution.coverage;
   return (
     <div class="analytics-evidence">
       <strong>{autonomy.synthetic ? t("analytics.simulated") : t("analytics.measured")}</strong>
@@ -138,6 +139,11 @@ function EvidenceStrip({ autonomy }: { readonly autonomy: AutonomyPayload }) {
           : t("analytics.confidence", { value: Math.round(autonomy.confidence * 100) })}
       </span>
       <span>{t("overview.evidence.source", { source: autonomy.source.name })}</span>
+      <span>
+        {coverage === null
+          ? t("analytics.attributionCoverageUnavailable")
+          : t("analytics.attributionCoverage", { value: Math.round(coverage * 100) })}
+      </span>
       {autonomy.source.as_of ? <span>{t("overview.evidence.asOf", { time: autonomy.source.as_of })}</span> : null}
     </div>
   );
@@ -177,6 +183,9 @@ function OutcomeKpis({
           hint={metric.baseline === null ? t("analytics.outcomes.noBaselineHint") : undefined}
         />
         <KpiCard href={auditHref("auto")} label={t("analytics.outcomes.autoResolvedCount")} value={counts.resolved.toLocaleString(locale)} />
+        <KpiCard href={auditHref()} label={t("analytics.outcomes.finalizedEventCount")} value={autonomy.finalization.finalized_events.toLocaleString(locale)} />
+        <KpiCard href={auditHref()} label={t("analytics.outcomes.pendingFinalizationCount")} value={autonomy.finalization.pending_events.toLocaleString(locale)} />
+        <KpiCard href={auditHref()} label={t("analytics.outcomes.adverseEventCount")} value={autonomy.finalization.adverse_events.toLocaleString(locale)} />
         <KpiCard href={auditHref()} label={t("analytics.outcomes.observedEventCount")} value={counts.observed.toLocaleString(locale)} />
       </KpiGrid>
     );
@@ -300,10 +309,12 @@ function AutoResolutionBreakdown({ verticals }: { readonly verticals: readonly V
     {
       key: "vertical",
       header: t("analytics.verticalLabel"),
-      render: (row) => <a href={routeHref("verticals", {
-        segments: [verticalRouteSlug(row.key)],
-        params,
-      })}>{t(`overview.vertical.${row.key}`)}</a>,
+      render: (row) => row.key === "unattributed"
+        ? <a href={routeHref("audit", { params })}>{t("analytics.unattributed")}</a>
+        : <a href={routeHref("verticals", {
+          segments: [verticalRouteSlug(row.key)],
+          params,
+        })}>{t(`overview.vertical.${row.key}`)}</a>,
     },
     { key: "events", header: t("analytics.events"), render: (row) => row.events, cellClass: "num" },
     { key: "resolved", header: t("analytics.autoResolved"), render: (row) => row.auto_resolved, cellClass: "num" },

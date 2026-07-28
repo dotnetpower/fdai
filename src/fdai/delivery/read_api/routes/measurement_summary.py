@@ -171,6 +171,10 @@ class AutonomyMeasurementPanel:
 
         tier_total = sum(by_tier.values()) or 1
         tier_mix = {key: by_tier.get(key, 0) / tier_total for key in ("t0", "t1", "t2")}
+        attributed_events = sum(int(bucket["events"]) for bucket in verticals.values())
+        sample_size = int(self._measurement.get("sample_size", 0))
+        unattributed_events = max(0, sample_size - attributed_events)
+        attribution_total = attributed_events + unattributed_events
 
         return {
             "synthetic": bool(
@@ -180,13 +184,28 @@ class AutonomyMeasurementPanel:
                 )
             ),
             "window_days": self._measurement.get("window_days", 30),
-            "sample_size": self._measurement.get("sample_size", 0),
+            "sample_size": attribution_total,
             "confidence": self._measurement.get("confidence"),
             "source": dict(self._measurement.get("source", {})),
             "rules": dict(self._measurement.get("rules", {})),
             "success": self._measurement.get("success", {}),
             "leading": self._measurement.get("leading", {}),
             "guards": list(self._measurement.get("guards", [])),
+            "finalization": dict(
+                self._measurement.get(
+                    "finalization",
+                    {
+                        "finalized_events": 0,
+                        "pending_events": 0,
+                        "adverse_events": 0,
+                    },
+                )
+            ),
+            "attribution": {
+                "attributed_events": attributed_events,
+                "unattributed_events": unattributed_events,
+                "coverage": (attributed_events / attribution_total if attribution_total else None),
+            },
             "verticals": [
                 {
                     "key": key,
@@ -196,6 +215,15 @@ class AutonomyMeasurementPanel:
                     "monthly_savings": round(bucket["monthly_savings"], 2),
                 }
                 for key, bucket in verticals.items()
+            ]
+            + [
+                {
+                    "key": "unattributed",
+                    "events": unattributed_events,
+                    "auto_resolved": 0,
+                    "open_risks": 0,
+                    "monthly_savings": 0.0,
+                }
             ],
             "tier": {
                 "mix": tier_mix,

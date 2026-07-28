@@ -10,7 +10,7 @@ export function VerticalCards({
 }) {
   return (
     <section class="overview-verticals" aria-label={t("overview.vertical.label")}>
-      {verticals.map((vertical) => (
+      {verticals.filter((vertical) => vertical.key !== "unattributed").map((vertical) => (
         <VerticalCard key={vertical.key} vertical={vertical} />
       ))}
     </section>

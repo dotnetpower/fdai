@@ -50,6 +50,7 @@ function decodeAuditSample(value: unknown, eventCount: number): DashboardKpi["au
 
 export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   const root = apiRecord(value, "autonomy measurement");
+  const sampleSize = apiNonNegativeInteger(root, "sample_size", "autonomy measurement");
   const source = apiRecord(root["source"], "autonomy measurement.source");
   const sourceKind = apiString(source, "kind", "autonomy measurement.source");
   if (sourceKind !== "audit" && sourceKind !== "measurement" && sourceKind !== "synthetic") {
@@ -60,16 +61,91 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   const rules = apiRecord(root["rules"], "autonomy measurement.rules");
   const tier = apiRecord(root["tier"], "autonomy measurement.tier");
   const bands = apiRecord(tier["bands"], "autonomy measurement.tier.bands");
+  const attribution = apiRecord(root["attribution"], "autonomy measurement.attribution");
+  const finalization = apiRecord(root["finalization"], "autonomy measurement.finalization");
   if (!Array.isArray(root["guards"])) {
     throw contractError("autonomy measurement.guards MUST be an array");
   }
   if (!Array.isArray(root["verticals"])) {
     throw contractError("autonomy measurement.verticals MUST be an array");
   }
+  const verticals = root["verticals"].map((raw, index) => {
+    const item = apiRecord(raw, `autonomy measurement.verticals[${index}]`);
+    return {
+      key: apiString(item, "key", "autonomy vertical"),
+      events: apiNonNegativeInteger(item, "events", "autonomy vertical"),
+      auto_resolved: apiNonNegativeInteger(item, "auto_resolved", "autonomy vertical"),
+      open_risks: apiNonNegativeInteger(item, "open_risks", "autonomy vertical"),
+      monthly_savings: apiNumber(item, "monthly_savings", "autonomy vertical"),
+    };
+  });
+  const allowedVerticalKeys = new Set(["resilience", "change_safety", "cost", "unattributed"]);
+  if (verticals.some((vertical) => !allowedVerticalKeys.has(vertical.key))) {
+    throw contractError("autonomy measurement.verticals contains an unknown key");
+  }
+  if (new Set(verticals.map((vertical) => vertical.key)).size !== verticals.length) {
+    throw contractError("autonomy measurement.verticals MUST have unique keys");
+  }
+  if (verticals.some((vertical) => vertical.auto_resolved > vertical.events)) {
+    throw contractError("autonomy measurement.vertical auto_resolved exceeds events");
+  }
+  const attributedEvents = apiNonNegativeInteger(
+    attribution,
+    "attributed_events",
+    "autonomy measurement.attribution",
+  );
+  const unattributedEvents = apiNonNegativeInteger(
+    attribution,
+    "unattributed_events",
+    "autonomy measurement.attribution",
+  );
+  const attributionCoverage = attribution["coverage"] === null
+    ? null
+    : apiRatio(attribution, "coverage", "autonomy measurement.attribution");
+  const attributionTotal = attributedEvents + unattributedEvents;
+  const expectedCoverage = attributionTotal === 0 ? null : attributedEvents / attributionTotal;
+  const verticalTotal = verticals.reduce((total, vertical) => total + vertical.events, 0);
+  const unattributedVerticalEvents = verticals
+    .filter((vertical) => vertical.key === "unattributed")
+    .reduce((total, vertical) => total + vertical.events, 0);
+  const attributedVerticalEvents = verticalTotal - unattributedVerticalEvents;
+  if (
+    verticalTotal !== sampleSize ||
+    verticalTotal !== attributionTotal ||
+    attributedVerticalEvents !== attributedEvents ||
+    unattributedVerticalEvents !== unattributedEvents ||
+    (expectedCoverage === null) !== (attributionCoverage === null) ||
+    (expectedCoverage !== null && Math.abs(attributionCoverage! - expectedCoverage) > 1e-12)
+  ) throw contractError("autonomy measurement.attribution is inconsistent");
+  const finalizedEvents = apiNonNegativeInteger(
+    finalization,
+    "finalized_events",
+    "autonomy measurement.finalization",
+  );
+  const pendingEvents = apiNonNegativeInteger(
+    finalization,
+    "pending_events",
+    "autonomy measurement.finalization",
+  );
+  const adverseEvents = apiNonNegativeInteger(
+    finalization,
+    "adverse_events",
+    "autonomy measurement.finalization",
+  );
+  if (adverseEvents > finalizedEvents || finalizedEvents + pendingEvents > attributionTotal) {
+    throw contractError("autonomy measurement.finalization is inconsistent");
+  }
+  const autoResolvedEvents = verticals.reduce(
+    (total, vertical) => total + vertical.auto_resolved,
+    0,
+  );
+  if (autoResolvedEvents !== finalizedEvents - adverseEvents) {
+    throw contractError("autonomy measurement finalized outcomes are inconsistent");
+  }
   return {
     synthetic: apiBoolean(root, "synthetic", "autonomy measurement"),
     window_days: apiPositiveInteger(root, "window_days", "autonomy measurement"),
-    sample_size: apiNonNegativeInteger(root, "sample_size", "autonomy measurement"),
+    sample_size: sampleSize,
     confidence: root["confidence"] === null
       ? null
       : apiRatio(root, "confidence", "autonomy measurement"),
@@ -105,16 +181,17 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
         ok: apiBoolean(item, "ok", "autonomy guard"),
       };
     }),
-    verticals: root["verticals"].map((raw, index) => {
-      const item = apiRecord(raw, `autonomy measurement.verticals[${index}]`);
-      return {
-        key: apiString(item, "key", "autonomy vertical"),
-        events: apiNonNegativeInteger(item, "events", "autonomy vertical"),
-        auto_resolved: apiNonNegativeInteger(item, "auto_resolved", "autonomy vertical"),
-        open_risks: apiNonNegativeInteger(item, "open_risks", "autonomy vertical"),
-        monthly_savings: apiNumber(item, "monthly_savings", "autonomy vertical"),
-      };
-    }),
+    finalization: {
+      finalized_events: finalizedEvents,
+      pending_events: pendingEvents,
+      adverse_events: adverseEvents,
+    },
+    attribution: {
+      attributed_events: attributedEvents,
+      unattributed_events: unattributedEvents,
+      coverage: attributionCoverage,
+    },
+    verticals,
     tier: {
       mix: decodeFiniteNumberRecord(tier["mix"], "autonomy measurement.tier.mix"),
       bands: Object.fromEntries(

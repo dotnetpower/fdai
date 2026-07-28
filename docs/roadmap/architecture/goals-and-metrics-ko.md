@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 25b71780c0ca60d4f7b9886f2e43b59fdc768cd2
-translation_revised: 2026-07-28
+translation_source_sha: ca0edfb8b3fa597631bc78696268634f320be697
+translation_revised: 2026-07-29
 ---
 
 # 목표와 메트릭
@@ -41,7 +41,9 @@ translation_revised: 2026-07-28
   반복 lifecycle row는 touchpoint를 추가하지 않습니다. 하나의 event가 둘 이상의 touchpoint를
   제공할 수 있습니다. 콘솔의 읽기 전용 조회는 touchpoint가 **아닙니다**.
 - **Auto-resolved event**: 측정 윈도우 내에서 사람 터치포인트 0회, 사후 롤백 없이 종단의
-  올바른 결과에 도달한 이벤트.
+  올바른 결과에 도달한 이벤트. Executor dispatch는 명시적인 `measurement.action_outcome.v1`
+  record가 enforce mode, verification 통과, auto decision 및 rollback 없음으로 observation을 닫을
+  때까지 resolved가 아니라 pending입니다.
 - **Measurement window**: 실행당 고정된 관측 기간(기본값: 30일 롤링, 또는 전체 시나리오 세트
   1회 리플레이). 보고되는 모든 수치와 함께 명시됩니다.
 
@@ -113,6 +115,9 @@ translation_revised: 2026-07-28
 - **구조화된 이벤트 + 트레이스** (OpenTelemetry)가 `event_id`, `tier`, `decision`,
   `mode`(shadow/enforce), 타임스탬프를 운반 - 메트릭 2, 3a/3b, 선행 지표의 소스.
 - **append-only 감사 로그**가 사람 터치포인트(metric 4), 롤백, 정책 escape의 소스.
+- **Outcome finalization record**(`measurement.action_outcome.v1`)가 auto-resolution의 authority입니다.
+  Dispatch-only event는 pending으로 유지되고, 검증된 non-rollback outcome만 finalized denominator에
+  들어가며, rollback/adverse outcome은 success가 되지 않고 계속 표시됩니다.
 - **명시적 metric 관측값**은 각 `event_id` 및 metric key의 최신 row를 사용합니다. 하나의 event에
   대한 retry 또는 correction은 통계 가중치를 추가하지 않고 이전 값을 대체하며, 서로 다른 event의
   관측값은 독립 표본으로 유지합니다.

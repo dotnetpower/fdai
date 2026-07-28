@@ -3,7 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from fdai.core.verticals.cost_governance.finops import FinOpsActionKind
-from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.read_api.read_model import (
+    AuditPage,
+    AuditQueryFilters,
+    InMemoryConsoleReadModel,
+)
 from fdai.delivery.read_api.routes.audit_finops import AuditFinOpsPanel
 from fdai.delivery.read_api.routes.audit_measurement_summary import (
     AuditAutonomyMeasurementPanel,
@@ -38,6 +42,7 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
             "action_kind": "risk_gate.unified",
             "mode": "shadow",
             "decision": "auto",
+            "action_id": "action-event-1",
             "action_type_id": "remediate.enable-zone-redundancy",
             "estimated_savings": 12.5,
         }
@@ -49,6 +54,22 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
             "action_kind": "executor.direct_api.dispatched",
             "mode": "enforce",
             "outcome": "dispatched",
+            "action_id": "action-event-1",
+            "rollback_succeeded": False,
+        }
+    )
+    model.record_audit_entry(
+        {
+            "event_id": "event-1",
+            "actor": "fdai.measurement",
+            "action_kind": "measurement.action_outcome.v1",
+            "mode": "enforce",
+            "action_id": "action-event-1",
+            "action_type_id": "remediate.enable-zone-redundancy",
+            "observed_at": "2026-07-29T00:00:00Z",
+            "execution_mode": "enforce",
+            "verification_passed": True,
+            "decision": "auto",
             "rollback_succeeded": False,
         }
     )
@@ -99,6 +120,16 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
     finops = await AuditFinOpsPanel(model).render(params={})
 
     assert autonomy["sample_size"] == 2
+    assert autonomy["finalization"] == {
+        "finalized_events": 1,
+        "pending_events": 0,
+        "adverse_events": 0,
+    }
+    assert autonomy["attribution"] == {
+        "attributed_events": 2,
+        "unattributed_events": 0,
+        "coverage": 1.0,
+    }
     assert autonomy["success"]["auto_resolution_rate"]["value"] == 0.5
     assert autonomy["success"]["human_touchpoints_per_100"]["value"] == 100.0
     assert autonomy["success"]["auto_resolution_rate"]["baseline"] is None
@@ -127,6 +158,13 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
             "events": 1,
             "auto_resolved": 0,
             "open_risks": 2,
+            "monthly_savings": 0.0,
+        },
+        {
+            "key": "unattributed",
+            "events": 0,
+            "auto_resolved": 0,
+            "open_risks": 0,
             "monthly_savings": 0.0,
         },
     ]
@@ -191,6 +229,248 @@ async def test_audit_overview_uses_latest_metric_observation_per_event() -> None
     payload = await AuditAutonomyMeasurementPanel(model).render(params={})
 
     assert payload["success"]["mttr_seconds"]["value"] == 300.0
+
+
+async def test_audit_overview_reads_complete_window_beyond_page_limit() -> None:
+    model = InMemoryConsoleReadModel()
+    for index in range(501):
+        model.record_audit_entry(
+            {
+                "event_id": f"event-{index}",
+                "actor": "fdai.core.control_loop",
+                "action_kind": "control_loop.abstain",
+                "mode": "shadow",
+                "stage": "trust_router",
+            }
+        )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+
+    assert payload["sample_size"] == 501
+
+
+async def test_audit_overview_excludes_rows_appended_after_snapshot_head() -> None:
+    class AppendAfterHeadReadModel(InMemoryConsoleReadModel):
+        calls = 0
+
+        async def list_audit(
+            self,
+            *,
+            limit: int = 50,
+            cursor: str | None = None,
+            correlation_id: str | None = None,
+            filters: AuditQueryFilters | None = None,
+        ) -> AuditPage:
+            page = await super().list_audit(
+                limit=limit,
+                cursor=cursor,
+                correlation_id=correlation_id,
+                filters=filters,
+            )
+            self.calls += 1
+            if self.calls == 1:
+                self.record_audit_entry(
+                    {
+                        "event_id": "event-after-head",
+                        "actor": "fdai.core.control_loop",
+                        "action_kind": "control_loop.abstain",
+                        "mode": "shadow",
+                        "stage": "trust_router",
+                    }
+                )
+            return page
+
+    model = AppendAfterHeadReadModel()
+    model.record_audit_entry(
+        {
+            "event_id": "event-before-head",
+            "actor": "fdai.core.control_loop",
+            "action_kind": "control_loop.abstain",
+            "mode": "shadow",
+            "stage": "trust_router",
+        }
+    )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+
+    assert payload["sample_size"] == 1
+
+
+async def test_audit_overview_does_not_guess_change_safety_attribution() -> None:
+    model = InMemoryConsoleReadModel()
+    model.record_audit_entry(
+        {
+            "event_id": "event-1",
+            "actor": "fdai.core.control_loop",
+            "action_kind": "control_loop.abstain",
+            "mode": "shadow",
+            "stage": "trust_router",
+            "resource_type": "event-grid-topic",
+        }
+    )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+    verticals = {row["key"]: row for row in payload["verticals"]}
+
+    assert verticals["change_safety"]["events"] == 0
+    assert verticals["unattributed"]["events"] == 1
+    assert sum(row["events"] for row in payload["verticals"]) == payload["sample_size"]
+    assert payload["attribution"] == {
+        "attributed_events": 0,
+        "unattributed_events": 1,
+        "coverage": 0.0,
+    }
+
+
+async def test_audit_overview_requires_explicit_verified_finalization() -> None:
+    model = InMemoryConsoleReadModel()
+    for event_id, action_id, rolled_back in (
+        ("event-pending", "action-pending", None),
+        ("event-finalized", "action-finalized", False),
+        ("event-adverse", "action-adverse", True),
+    ):
+        model.record_audit_entry(
+            {
+                "event_id": event_id,
+                "actor": "fdai.core.control_loop",
+                "action_kind": "risk_gate.unified",
+                "mode": "shadow",
+                "decision": "auto",
+                "action_id": action_id,
+                "action_type_id": "remediate.enable-zone-redundancy",
+            }
+        )
+        model.record_audit_entry(
+            {
+                "event_id": event_id,
+                "actor": "fdai.core.executor.direct_api",
+                "action_kind": "executor.direct_api.dispatched",
+                "mode": "enforce",
+                "outcome": "dispatched",
+                "action_id": action_id,
+                "rollback_succeeded": False,
+            }
+        )
+        if rolled_back is not None:
+            model.record_audit_entry(
+                {
+                    "event_id": event_id,
+                    "actor": "fdai.measurement",
+                    "action_kind": "measurement.action_outcome.v1",
+                    "mode": "enforce",
+                    "action_id": action_id,
+                    "action_type_id": "remediate.enable-zone-redundancy",
+                    "observed_at": "2026-07-29T00:00:00Z",
+                    "execution_mode": "enforce",
+                    "verification_passed": True,
+                    "decision": "auto",
+                    "rollback_succeeded": rolled_back,
+                }
+            )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+
+    assert payload["finalization"] == {
+        "finalized_events": 2,
+        "pending_events": 1,
+        "adverse_events": 1,
+    }
+    assert payload["success"]["auto_resolution_rate"]["value"] == 1 / 3
+    assert sum(row["auto_resolved"] for row in payload["verticals"]) == 1
+
+
+async def test_audit_overview_holds_partially_finalized_multi_action_event() -> None:
+    model = InMemoryConsoleReadModel()
+    for action_id in ("action-1", "action-2"):
+        model.record_audit_entry(
+            {
+                "event_id": "event-1",
+                "actor": "fdai.core.control_loop",
+                "action_kind": "risk_gate.unified",
+                "mode": "shadow",
+                "decision": "auto",
+                "action_id": action_id,
+                "action_type_id": "remediate.enable-zone-redundancy",
+            }
+        )
+        model.record_audit_entry(
+            {
+                "event_id": "event-1",
+                "actor": "fdai.core.executor.direct_api",
+                "action_kind": "executor.direct_api.dispatched",
+                "mode": "enforce",
+                "outcome": "dispatched",
+                "action_id": action_id,
+                "rollback_succeeded": False,
+            }
+        )
+    model.record_audit_entry(
+        {
+            "event_id": "event-1",
+            "actor": "fdai.measurement",
+            "action_kind": "measurement.action_outcome.v1",
+            "mode": "enforce",
+            "action_id": "action-1",
+            "action_type_id": "remediate.enable-zone-redundancy",
+            "observed_at": "2026-07-29T00:00:00Z",
+            "execution_mode": "enforce",
+            "verification_passed": True,
+            "decision": "auto",
+            "rollback_succeeded": False,
+        }
+    )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+
+    assert payload["finalization"] == {
+        "finalized_events": 0,
+        "pending_events": 1,
+        "adverse_events": 0,
+    }
+    assert payload["success"]["auto_resolution_rate"]["value"] == 0.0
+
+
+async def test_audit_overview_does_not_override_derived_rates_with_metric_rows() -> None:
+    model = InMemoryConsoleReadModel()
+    model.record_audit_entry(
+        {
+            "event_id": "event-pending",
+            "actor": "fdai.core.control_loop",
+            "action_kind": "risk_gate.unified",
+            "mode": "shadow",
+            "decision": "auto",
+            "action_id": "action-pending",
+            "action_type_id": "remediate.enable-zone-redundancy",
+        }
+    )
+    model.record_audit_entry(
+        {
+            "event_id": "event-pending",
+            "actor": "fdai.core.executor.direct_api",
+            "action_kind": "executor.direct_api.dispatched",
+            "mode": "enforce",
+            "outcome": "dispatched",
+            "action_id": "action-pending",
+            "rollback_succeeded": False,
+        }
+    )
+    model.record_audit_entry(
+        {
+            "event_id": "measurement-1",
+            "actor": "fdai.measurement",
+            "action_kind": "measurement.observed",
+            "mode": "shadow",
+            "measurement": {
+                "auto_resolution_rate": 0.99,
+                "human_touchpoints_per_100": 0.01,
+            },
+        }
+    )
+
+    payload = await AuditAutonomyMeasurementPanel(model).render(params={})
+
+    assert payload["success"]["auto_resolution_rate"]["value"] == 0.0
+    assert payload["success"]["human_touchpoints_per_100"]["value"] == 0.0
 
 
 async def test_persisted_promotion_panel_holds_without_durable_evidence() -> None:

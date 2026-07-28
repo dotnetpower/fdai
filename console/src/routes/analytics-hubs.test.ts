@@ -54,6 +54,8 @@ const AUTONOMY: AutonomyPayload = {
     shadow_divergence_rate: { value: null, baseline: null, direction: "lower" },
   },
   guards: [],
+  finalization: { finalized_events: 14, pending_events: 0, adverse_events: 0 },
+  attribution: { attributed_events: 34, unattributed_events: 0, coverage: 1 },
   verticals: [
     { key: "resilience", events: 0, auto_resolved: 0, open_risks: 0, monthly_savings: 0 },
     { key: "change-safety", events: 34, auto_resolved: 14, open_risks: 0, monthly_savings: 0 },
@@ -81,6 +83,14 @@ describe("trust-routing measurements", () => {
 
   it("derives only the supported observed and auto-resolved record counts", () => {
     expect(autoResolutionCounts(AUTONOMY.verticals)).toEqual({ observed: 34, resolved: 14 });
+  });
+
+  it("reports unattributed events without removing them from the global sample", () => {
+    const verticals = [
+      ...AUTONOMY.verticals,
+      { key: "unattributed", events: 6, auto_resolved: 1, open_risks: 0, monthly_savings: 0 },
+    ];
+    expect(autoResolutionCounts(verticals)).toEqual({ observed: 40, resolved: 15 });
   });
 
   it("publishes visible outcome evidence for Command Deck grounding", () => {
@@ -120,6 +130,8 @@ describe("trust-routing measurements", () => {
     expect(autoResolution.headline).toContain("current 41%");
     expect(autoResolution.facts).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: "current_rate", value: 0.41 }),
+      expect.objectContaining({ key: "finalized_events", value: 14 }),
+      expect.objectContaining({ key: "pending_finalization", value: 0 }),
     ]));
     expect(autoResolution.records?.verticals).toContainEqual(expect.objectContaining({
       key: "change-safety",

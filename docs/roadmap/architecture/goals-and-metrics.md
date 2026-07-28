@@ -37,7 +37,9 @@ Terms used across all metrics, fixed here to avoid ambiguity:
   lifecycle rows for the same action or approval don't add another touchpoint. One event can
   contribute more than one touchpoint. Read-only viewing of the console is **not** a touchpoint.
 - **Auto-resolved event**: an event that reaches a terminal, correct outcome with zero human
-  touchpoints and no post-hoc rollback within the measurement window.
+  touchpoints and no post-hoc rollback within the measurement window. An executor dispatch is
+  pending, not resolved, until an explicit `measurement.action_outcome.v1` record closes the
+  observation with enforce mode, passed verification, an auto decision, and no rollback.
 - **Measurement window**: the fixed observation period per run (default: 30 days rolling, or
   one full scenario-set replay), stated with every reported figure.
 
@@ -110,6 +112,9 @@ Every metric maps to a concrete telemetry source so the dashboard is buildable, 
 - **Structured events + traces** (OpenTelemetry) carry `event_id`, `tier`, `decision`,
   `mode` (shadow/enforce), and timestamps - sourcing metrics 2, 3a/3b, and leading indicators.
 - **Append-only audit log** sources human touchpoints (metric 4), rollbacks, and policy escapes.
+- **Outcome finalization records** (`measurement.action_outcome.v1`) are the authority for
+  auto-resolution. Dispatch-only events remain pending, verified non-rollback outcomes enter the
+  finalized denominator, and rollback/adverse outcomes remain visible without becoming successes.
 - **Explicit metric observations** use the latest row for each `event_id` and metric key. A retry
   or correction for one event replaces that event's earlier value instead of adding statistical
   weight; observations from different events remain independent samples.

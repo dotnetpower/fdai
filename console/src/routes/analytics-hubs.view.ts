@@ -84,6 +84,9 @@ export function buildOperatingOutcomeViewSnapshot({
       { key: "source", label: "Evidence source", value: autonomy.source.name, group: "evidence" },
       { key: "source_kind", value: autonomy.source.kind, group: "evidence" },
       { key: "source_as_of", label: "Evidence as of", value: autonomy.source.as_of, group: "evidence" },
+      { key: "finalized_events", label: "Finalized outcomes", value: autonomy.finalization.finalized_events, group: "evidence" },
+      { key: "pending_finalization", label: "Pending finalization", value: autonomy.finalization.pending_events, group: "evidence" },
+      { key: "adverse_outcomes", label: "Adverse outcomes", value: autonomy.finalization.adverse_events, group: "evidence" },
       { key: "synthetic", value: autonomy.synthetic, group: "evidence" },
     ],
     ...(showsVerticalBreakdown

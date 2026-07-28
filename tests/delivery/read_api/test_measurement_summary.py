@@ -48,7 +48,22 @@ async def test_render_shape_and_synthetic_flag() -> None:
         "false_negative",
         "rollback",
     }
-    assert {v["key"] for v in out["verticals"]} == {"resilience", "change_safety", "cost"}
+    assert {v["key"] for v in out["verticals"]} == {
+        "resilience",
+        "change_safety",
+        "cost",
+        "unattributed",
+    }
+    assert out["attribution"] == {
+        "attributed_events": 0,
+        "unattributed_events": 1284,
+        "coverage": 0.0,
+    }
+    assert out["finalization"] == {
+        "finalized_events": 0,
+        "pending_events": 0,
+        "adverse_events": 0,
+    }
     assert out["tier"]["bands"]["t0"] == [0.7, 0.8]
 
 
@@ -86,6 +101,7 @@ async def test_render_derives_verticals_and_savings_from_audit() -> None:
     assert verticals["change_safety"]["events"] == 2
     assert verticals["change_safety"]["auto_resolved"] == 1
     assert verticals["change_safety"]["open_risks"] == 1
+    assert verticals["unattributed"]["events"] == 1280
 
     # Tier mix is normalized over the 4 tiered rows (3x t0, 1x t2).
     assert out["tier"]["mix"]["t0"] == 0.75

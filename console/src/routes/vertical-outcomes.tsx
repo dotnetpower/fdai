@@ -79,7 +79,7 @@ export function VerticalOutcomesBody({ autonomy, context, evidence }: Props) {
 function VerticalSignalGrid({ autonomy, context }: { readonly autonomy: AutonomyPayload; readonly context: Readonly<Record<string, string>> }) {
   return (
     <section class="vertical-summary-grid" aria-label={t("analytics.verticals.summaryLabel")}>
-      {autonomy.verticals.map((vertical) => (
+      {autonomy.verticals.filter(isAttributedVertical).map((vertical) => (
         <VerticalSignalCard autonomy={autonomy} context={context} key={vertical.key} vertical={vertical} />
       ))}
     </section>
@@ -135,7 +135,7 @@ function CrossVerticalComparison({ autonomy, context }: { readonly autonomy: Aut
         <div class="vertical-comparison-row is-header" role="row">
           <span role="columnheader">{t("analytics.verticalLabel")}</span><span role="columnheader">{t("analytics.events")}</span><span role="columnheader">{t("analytics.autoResolved")}</span><span role="columnheader">{t("analytics.resolutionRate")}</span><span role="columnheader">{t("analytics.openRisks")}</span><span role="columnheader">{t("analytics.monthlySavings")}</span>
         </div>
-        {autonomy.verticals.map((vertical) => {
+        {autonomy.verticals.filter(isAttributedVertical).map((vertical) => {
           const slug = verticalRouteSlug(vertical.key) as VerticalSlug;
           const rate = verticalResolutionRate(vertical);
           return (
@@ -154,7 +154,7 @@ function EvidenceContracts({ autonomy, context }: { readonly autonomy: AutonomyP
     <section class="vertical-contracts">
       <header class="vertical-section-head"><div><h3>{t("analytics.verticals.contractsTitle")}</h3><p>{t("analytics.verticals.contractsSubtitle")}</p></div></header>
       <div class="vertical-contract-list">
-        {autonomy.verticals.map((vertical) => {
+        {autonomy.verticals.filter(isAttributedVertical).map((vertical) => {
           const slug = verticalRouteSlug(vertical.key) as VerticalSlug;
           return (
             <a href={verticalDestination(slug, vertical, autonomy.synthetic, context)} key={vertical.key}>
@@ -190,4 +190,8 @@ function verticalDestination(slug: VerticalSlug, vertical: VerticalSummary, synt
 
 function formatRate(rate: number): string {
   return `${Math.round(rate * 100)}%`;
+}
+
+function isAttributedVertical(vertical: VerticalSummary): boolean {
+  return vertical.key !== "unattributed";
 }
