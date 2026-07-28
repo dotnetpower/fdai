@@ -120,8 +120,8 @@ class PostgresInventoryDeltaProjector:
             raise ValueError("inventory resource delete can carry only link deletes")
         if links_complete and any(kind != "upsert" for kind in link_kinds):
             raise ValueError("complete inventory links can carry only link upserts")
-        if links_complete and any(not _link_owned_by(resource_id, link) for link in links):
-            raise ValueError("complete inventory links MUST be owned by the changed resource")
+        if any(not _link_owned_by(resource_id, link) for link in links):
+            raise ValueError("inventory change relationships MUST be owned by the changed resource")
         covered_resource_types = _covered_resource_types(resource_type, links)
         reconcile_graph = change_kind == "delete" or links_complete
 

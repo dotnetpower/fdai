@@ -113,6 +113,22 @@ async def test_duplicate_relationship_key_is_rejected_before_database_work() -> 
         await projector(_payload(links=[_link(), {**_link(), "props": {"conflict": True}}]))
 
 
+async def test_partial_relationship_patch_must_be_owned_by_changed_resource() -> None:
+    projector = PostgresInventoryDeltaProjector(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused"),
+        clock=lambda: _NOW,
+    )
+    unrelated = {
+        **_link(),
+        "from_id": "unrelated-vm",
+        "to_id": "unrelated-database",
+        "link_type": "depends_on",
+    }
+
+    with pytest.raises(ValueError, match="owned by the changed resource"):
+        await projector(_payload(links=[unrelated]))
+
+
 def test_coverage_set_includes_resource_and_link_endpoint_types() -> None:
     covered = _covered_resource_types("compute.vm", [_link()])
 

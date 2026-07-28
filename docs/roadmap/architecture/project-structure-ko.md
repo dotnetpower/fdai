@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c083401ec343a2c4540c82c18a80c89a2bae7137
+translation_source_sha: 210912fb2fb8f5b85908452d53345de89c3c29db
 translation_revised: 2026-07-28
 ---
 
@@ -277,6 +277,9 @@ fdai/
   type이 해당 리소스와 일치해야 합니다. Endpoint가 없거나 모순되면 리소스와 관계 변경을 함께
   rollback합니다. 각 inventory change에는 `(from_id, link_type, to_id)` key별 entry가 최대 하나만
   포함되며 중복 key는 database I/O 전에 거부됩니다.
+  모든 incoming relationship patch는 변경된 리소스가 소유해야 합니다. `contains`는 target이
+  소유하고 다른 관계 type은 source가 소유합니다. 소유하지 않은 patch는 관련 없는 graph edge를
+  변경할 수 없습니다.
   기존 effective `resource_id`의 resource type도 realtime update 전체에서 유지됩니다. 모순된 type은
   resource row 또는 관계가 변경되기 전에 거부됩니다.
   realtime resource overlay가 하나라도 pending 상태이면 base snapshot이 freshness budget 안에 있어도
