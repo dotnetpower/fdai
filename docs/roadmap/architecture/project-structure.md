@@ -243,7 +243,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `contains` to its target resource and other relationship types to their source resource. A link
   whose owner resource is absent from the same batch blocks cursor advancement so the page is
   retried instead of silently dropping graph data. The event idempotency identity includes a
-  canonical digest of the resource and relationship payload.
+  canonical digest of the resource and relationship payload. Delta resources require a
+  timezone-aware RFC 3339 `last_seen`; missing or malformed ordering time blocks publication and
+  cursor advancement instead of substituting a process wall clock.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.

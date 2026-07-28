@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fe7561c736961253e529afbf81bbcc9921405be0
+translation_source_sha: d11ef2b4cef25c75a48782f48409fde78acf1d05
 translation_revised: 2026-07-28
 ---
 
@@ -242,7 +242,9 @@ fdai/
   generic Inventory delta forwarder는 각 `InventoryBatch.links` patch를 보존합니다. `contains`는
   target 리소스에, 다른 관계 type은 source 리소스에 할당합니다. 같은 batch에 관계 owner 리소스가
   없으면 cursor 진행을 차단하여 graph 데이터를 조용히 버리지 않고 page를 재시도합니다. Event
-  idempotency identity에는 리소스 및 관계 payload의 canonical digest가 포함됩니다.
+  idempotency identity에는 리소스 및 관계 payload의 canonical digest가 포함됩니다. Delta 리소스에는
+  timezone이 포함된 RFC 3339 `last_seen`이 필요합니다. Ordering time이 없거나 잘못되면 process wall
+  clock으로 대체하지 않고 발행과 cursor 진행을 차단합니다.
   PostgreSQL projector는 각 리소스와 관계 변경을 하나의 transaction으로 적용합니다. Writer는
   snapshot promotion shared gate, graph reconciliation gate, 변경 리소스 및 모든 관계 endpoint의
   정렬된 lock 순서로 획득합니다. Resource lock은 음수 key 범위의 seeded 63-bit advisory key를

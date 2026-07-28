@@ -119,14 +119,17 @@ def _links_by_owner(
 
 
 def _parse_timestamp(value: object) -> datetime:
-    if isinstance(value, str) and value:
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            if parsed.tzinfo is not None:
-                return parsed
-        except ValueError:
-            pass
-    return datetime.now(tz=UTC)
+    if not isinstance(value, str) or not value:
+        raise ValueError("inventory delta resource.last_seen MUST be an RFC 3339 string")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            "inventory delta resource.last_seen MUST be a valid RFC 3339 timestamp"
+        ) from exc
+    if parsed.tzinfo is None:
+        raise ValueError("inventory delta resource.last_seen MUST include a timezone")
+    return parsed.astimezone(UTC)
 
 
 __all__ = ["forward_inventory_delta"]

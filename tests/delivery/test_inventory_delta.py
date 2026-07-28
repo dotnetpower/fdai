@@ -11,9 +11,16 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 class _Inventory:
-    def __init__(self, *, final: bool = True, orphan_link: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        final: bool = True,
+        orphan_link: bool = False,
+        last_seen: str | None = "2026-07-15T00:00:00Z",
+    ) -> None:
         self.final = final
         self.orphan_link = orphan_link
+        self.last_seen = last_seen
         self.seen_cursor = ""
 
     async def delta(self, cursor: str):  # type: ignore[no-untyped-def]
@@ -24,7 +31,7 @@ class _Inventory:
                     resource_id="resource:example/vm-1",
                     type="compute.vm",
                     props={"status": "updated"},
-                    last_seen="2026-07-15T00:00:00Z",
+                    last_seen=self.last_seen,
                 ),
             ),
             links=(
@@ -160,3 +167,25 @@ def test_delta_event_identity_includes_relationship_payload() -> None:
 
     assert first.event_id != second.event_id
     assert first.idempotency_key != second.idempotency_key
+
+
+@pytest.mark.parametrize("last_seen", [None, "not-a-timestamp"])
+@pytest.mark.asyncio
+async def test_forward_delta_rejects_missing_or_invalid_ordering_timestamp(
+    last_seen: str | None,
+) -> None:
+    state = InMemoryStateStore()
+    await state.write_state("inventory_delta_cursor:subscription-1", {"cursor": "cursor-old"})
+
+    with pytest.raises(ValueError, match="last_seen"):
+        await forward_inventory_delta(
+            inventory=_Inventory(last_seen=last_seen),
+            state_store=state,
+            event_bus=InMemoryEventBus(),
+            topic="events",
+            scope="subscription-1",
+        )
+
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-old"
+    }
