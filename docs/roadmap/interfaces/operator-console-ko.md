@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 9932ff1c3b96c0e78ef6afb3d2a098f28f14b921
+translation_source_sha: e228adc0df252488999fd18516196ca44faed6ab
 translation_revised: 2026-07-28
 ---
 
@@ -323,6 +323,12 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   knowledge로 채우지 않고 부재를 알립니다.
   `bragi-screen-t0` renderer는 지원하는 fact, record, latest audit, action summary 및 promotion row
   질문을 narrator model 호출 없이 답합니다. JSON과 SSE는 동일한 renderer와 verifier를 사용합니다.
+  Incidents route에서 prompt가 단일 selected incident를 title, correlation id 또는 "이 인시던트" 같은
+  표현으로 참조하면 fuzzy recent window 대신 direct correlation-filtered read를 사용합니다. Lifecycle
+  incident id가 없는 projection은 `INC-<correlation>` lookup hint를 파생하지만 server result만
+  evidence로 사용합니다. Coordinator는 해당 turn에서 관련 없는 inventory, agent 또는 public-web
+  branch를 시작하지 않습니다. `query_inventory` 같은 명시적 canonical tool command는 tool authority를
+  유지합니다.
   Agent를 지정한 turn과 server-owned agent evidence가 있는 turn도 semantic public-web classification을
   건너뜁니다. 책임 agent가 turn을 Bragi에 명시적으로 다시 handoff하고 남은 question이 독립적으로
   web-search eligibility를 충족할 때만 public-web routing을 다시 적용합니다.

@@ -332,6 +332,12 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   general model knowledge. The `bragi-screen-t0` renderer answers supported fact, record, latest
   audit, action-summary, and promotion-row questions without a narrator-model call. JSON and SSE
   use the same renderer and verifier.
+  On the Incidents route, a prompt that references the one selected incident by title, correlation
+  id, or a phrase such as "this incident" uses a direct correlation-filtered read instead of the
+  fuzzy recent window. A projection without a lifecycle incident id derives an
+  `INC-<correlation>` lookup hint, but only the server result is evidence. The coordinator doesn't
+  start unrelated inventory, agent, or public-web branches for that turn. An explicit canonical
+  tool command such as `query_inventory` keeps tool authority.
   An agent-addressed turn and a turn with server-owned agent evidence also skip semantic public-web
   classification. Public-web routing resumes only after the accountable agent explicitly hands the
   turn back to Bragi and the remaining question independently meets web-search eligibility.
