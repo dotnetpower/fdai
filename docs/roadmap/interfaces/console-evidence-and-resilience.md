@@ -149,7 +149,9 @@ output composition, the seven-day trend, model attribution, and invocation recor
 from the metering projection. When price attribution is not connected, the route states that boundary
 and doesn't estimate spend, budgets, per-call prices, or invoice amounts from token volume. Detailed
 workload, mode, day, and month rollups remain available in a secondary disclosure so the primary view
-stays scannable without hiding evidence.
+stays scannable without hiding evidence. Headline KPI labels and values stay left-aligned in a
+balanced four-, two-, or one-column grid, while token-composition counts and shares use common
+right-aligned numeric columns for comparison.
 
 ## Loading presentation
 

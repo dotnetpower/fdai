@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 606c8c02ee1b55b5934b3240d5365a923f9f55e1
+translation_source_sha: 9838a8d461a651f29146a555924e77fb877abb09
 translation_revised: 2026-07-28
 ---
 
@@ -148,7 +148,9 @@ LLM Cost는 측정된 호출, token, chat 비율 및 최근 호출 근거를 먼
 7일 trend, model 귀속 및 invocation record는 metering projection에서만 파생합니다. Price attribution이
 연결되지 않은 경우 route는 이 경계를 안내하고 token volume에서 지출, budget, 호출당 가격 또는 invoice
 금액을 추정하지 않습니다. Workload, mode, day 및 month 상세 rollup은 secondary disclosure에서 계속
-제공하므로 primary view의 탐색성을 유지하면서 근거를 숨기지 않습니다.
+제공하므로 primary view의 탐색성을 유지하면서 근거를 숨기지 않습니다. Headline KPI label과 value는
+균형 잡힌 4열, 2열 또는 1열 grid에서 왼쪽 정렬을 유지하고, token 구성의 count와 share는 비교하기 쉽도록
+공통 오른쪽 숫자 열을 사용합니다.
 
 ## 로딩 표현
 
