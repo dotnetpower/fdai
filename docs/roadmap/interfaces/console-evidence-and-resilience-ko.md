@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 208ec37e275e57d860d3959407781af7e17879bf
+translation_source_sha: 248b88e671203a257b0da6ab06191b062a6bc05d
 translation_revised: 2026-07-28
 ---
 
@@ -225,11 +225,9 @@ notification-delivery escalation이 있으면 이를 우선 표시하고 필요�
 있으면 audit 및 technical activity를 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
 record가 생긴 뒤에만 link가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
 route도 hypothesis가 없으면 generic audit fallback response를 숨겨 `incident.members`를 response plan
-또는 cause로 표시하지 않습니다.
-Trace route는 raw ordered table보다 먼저 notification escalation, response-decision evidence,
-RCA evidence 및 named pipeline stage를 분리한 interpretation summary를 표시합니다. Generic
-correlated activity는 cause claim이 아니라 technical history로 유지합니다.
-
+또는 cause로 표시하지 않습니다. Trace route는 raw ordered table보다 먼저 notification escalation,
+response-decision evidence, RCA evidence 및 named pipeline stage를 분리한 interpretation summary를
+표시합니다. Generic correlated activity는 cause claim이 아니라 technical history로 유지합니다.
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching
@@ -237,12 +235,6 @@ set을 즉시 렌더링합니다. Model prose는 선택된 incident, search scop
 membership 또는 absence claim을 바꿀 수 없습니다.
 `availability=unavailable`인 source는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 probe하지
 않은 source는 `reachable=null`을 사용합니다.
-Incidents route에서 prompt가 단일 selected incident를 title, correlation id 또는 "이 인시던트" 같은
-표현으로 참조하면 해당 selection을 lookup hint로 사용합니다. Server는 답변 전에 incident id와
-correlation id를 authorized read model에서 다시 확인합니다. 정확한 selected-incident evidence는
-자연어 keyword로만 일치한 inventory tool보다 우선합니다. Coordinator는 해당 turn에서 관련 없는
-inventory, agent 또는 public-web branch를 시작하지 않으며 `query_inventory` 같은 명시적 canonical
-tool command는 tool authority를 유지합니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
@@ -526,13 +518,16 @@ interface, workload 및 storage stage가 순서대로 뒤로 물러납니다. Re
 하나의 shared floor spine과 짧은 stage branch로 대체하며 cross-plane attachment만 direct route를
 유지합니다. Workload는 supporting network resource보다 크게 렌더링됩니다. Path resource는 기본적으로
 glyph를 사용하고 workload는 primary label을 유지하며 어떤 resource든 선택하면 full name과 type을
-복원합니다. Perspective는 bounded depth
+복원합니다. 읽을 수 있는 label threshold보다 낮은 dense overview scale에서는 선택하지 않은 node name과
+subnet name이 glyph, VNet name, region name 및 floor legend에 자리를 양보하며 focused view는 일반
+workload 및 subnet label 정책을 복원합니다. Perspective는 bounded depth
 범위에서 projected point를 조정해 가까운 resource를 먼 resource보다 크게 표시하고 picking과
 containment도 동일한 projection을 사용합니다. Zoom은 512x scale까지 상세 탐색을 지원하고 pointer를
 중심으로 확대하며, content-driven world는 고정 canvas-height ceiling 없이 확장됩니다. Fit은 complete
 frame을 복원하는 명시적 control로 유지됩니다. 기본 isometric camera는 path lane을 좌우로 읽고 depth가
-뒤로 물러나도록 낮은 oblique angle을 사용합니다. Fit은 위쪽에 visual depth를 남기기 위해 world를
-화면 중심보다 약간 아래에 배치합니다.
+뒤로 물러나도록 낮은 oblique angle을 사용합니다. Fit은 compact world 위쪽에 visual depth를 남기기
+위해 화면 중심보다 약간 아래에 배치합니다. Content-driven canvas가 projected world보다 크게 높은
+경우에는 world를 fold 아래에 중앙 정렬하지 않고 첫 visible frame에 upper bound를 고정합니다.
 왼쪽 button drag는 projected world를 pan합니다. 가운데 button drag는 normalized continuous yaw로
 world center 주위에서 camera를 좌우로 orbit하며 세로 이동은 pitch를 변경하지 않습니다. 오른쪽 button은
 browser behavior를 유지합니다. Orbit input은 동일한 animation-frame coalescing을 사용하고 label만

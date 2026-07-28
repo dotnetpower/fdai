@@ -50,8 +50,19 @@ export function drawArchitectureNetworkPlanes(
       selectedId === plane.id ? 2.4 : subnet ? 1.4 : 1,
     );
     context.restore();
-    drawWorldLabel(context, width, height, camera, plane, color);
+    if (architectureNetworkPlaneLabelIsVisible(plane, selectedId, camera.scale)) {
+      drawWorldLabel(context, width, height, camera, plane, color);
+    }
   }
+}
+
+export function architectureNetworkPlaneLabelIsVisible(
+  plane: InventoryResource,
+  selectedId: string | null,
+  cameraScale: number,
+): boolean {
+  const subnet = plane.type === "network.subnet" || plane.type === "subnet";
+  return !subnet || plane.id === selectedId || cameraScale >= 12;
 }
 
 export function drawArchitectureNetworkMemberships(

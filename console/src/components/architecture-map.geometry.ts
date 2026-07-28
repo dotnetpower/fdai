@@ -155,7 +155,11 @@ export function fitCamera(
     Math.max(1, height - FIT_VERTICAL_PADDING) / Math.max(1, verticalSpan),
   ), MIN_ZOOM, 96);
   camera.panX = -legendReserve / 2 - horizontalCenterOffset * camera.scale;
-  camera.panY = height * .04 - verticalCenterOffset * camera.scale;
+  const projectedVerticalSpan = verticalSpan * camera.scale;
+  const anchorTallWorldAtTop = height - projectedVerticalSpan > FIT_VERTICAL_PADDING * 2;
+  camera.panY = anchorTallWorldAtTop
+    ? FIT_VERTICAL_PADDING - height / 2 - (minimumY - height / 2) * camera.scale
+    : height * .04 - verticalCenterOffset * camera.scale;
   if (!Number.isFinite(camera.scale)) {
     camera.scale = previousScale;
     camera.panX = previousPanX;

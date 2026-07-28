@@ -38,6 +38,7 @@ import {
   architecturePointerButtonsDragMode,
   architecturePointerDragMode,
 } from "./use-architecture-map-controller";
+import { architectureNetworkPlaneLabelIsVisible } from "./architecture-network-renderer";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 const overviewPanelSource = readFileSync(
@@ -93,10 +94,29 @@ describe("architecture map labels", () => {
     const nic = { id: "nic", type: "network.interface", network_plane_id: "subnet" } as never;
     const unassigned = { id: "db", type: "postgresql-server" } as never;
 
-    expect(architectureNodeLabelIsVisible(vm, false)).toBe(true);
-    expect(architectureNodeLabelIsVisible(nic, false)).toBe(false);
-    expect(architectureNodeLabelIsVisible(nic, true)).toBe(true);
-    expect(architectureNodeLabelIsVisible(unassigned, false)).toBe(true);
+    expect(architectureNodeLabelIsVisible(vm, false, 42)).toBe(true);
+    expect(architectureNodeLabelIsVisible(nic, false, 42)).toBe(false);
+    expect(architectureNodeLabelIsVisible(nic, true, 6)).toBe(true);
+    expect(architectureNodeLabelIsVisible(unassigned, false, 42)).toBe(true);
+  });
+
+  it("uses glyphs instead of unselected node labels at dense overview scale", () => {
+    const workload = { id: "vm", type: "compute.vm", network_plane_id: "subnet" } as never;
+    const unassigned = { id: "db", type: "postgresql-server" } as never;
+
+    expect(architectureNodeLabelIsVisible(workload, false, 6)).toBe(false);
+    expect(architectureNodeLabelIsVisible(unassigned, false, 6)).toBe(false);
+    expect(architectureNodeLabelIsVisible(workload, false, 12)).toBe(true);
+  });
+
+  it("keeps VNet names but hides unselected subnet names at dense overview scale", () => {
+    const vnet = { id: "vnet", type: "network.vnet" } as never;
+    const subnet = { id: "subnet", type: "network.subnet" } as never;
+
+    expect(architectureNetworkPlaneLabelIsVisible(vnet, null, 6)).toBe(true);
+    expect(architectureNetworkPlaneLabelIsVisible(subnet, null, 6)).toBe(false);
+    expect(architectureNetworkPlaneLabelIsVisible(subnet, "subnet", 6)).toBe(true);
+    expect(architectureNetworkPlaneLabelIsVisible(subnet, null, 12)).toBe(true);
   });
 
   it("paints the selected label after every other node overlay", () => {
@@ -339,6 +359,31 @@ describe("architecture world sizing", () => {
     expect(camera.worldWidth).toBe(24);
     expect(camera.worldHeight).toBe(30);
     expect(camera.scale).toBeGreaterThanOrEqual(6);
+  });
+
+  it("anchors a tall content-driven world in the first visible frame", () => {
+    const graph = {
+      resources: [
+        { id: "sub", type: "subscription", x: 0, y: 0, w: 24, h: 100 },
+      ],
+    } as never;
+    const camera: Camera = {
+      ...DEFAULT_ISOMETRIC_CAMERA,
+      scale: 42,
+      panX: 0,
+      panY: 0,
+    };
+    const canvasHeight = architectureCanvasHeight(graph);
+
+    fitCamera(camera, 1000, canvasHeight, graph);
+    const corners = [0, 1.2].flatMap((z) => [
+      project(camera, 1000, canvasHeight, 0, 0, z),
+      project(camera, 1000, canvasHeight, 24, 0, z),
+      project(camera, 1000, canvasHeight, 24, 100, z),
+      project(camera, 1000, canvasHeight, 0, 100, z),
+    ]);
+
+    expect(Math.min(...corners.map((point) => point.y))).toBeCloseTo(120, 5);
   });
 
   it("fits a focused resource-group view to its compact content world", () => {

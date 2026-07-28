@@ -781,7 +781,7 @@ function drawNodeOverlay(
     context.fillStyle = "#fff";
     context.fillText(label, badge.x, badge.y + .5);
   }
-  if (showLabels && architectureNodeLabelIsVisible(node, selected)) {
+  if (showLabels && architectureNodeLabelIsVisible(node, selected, camera.scale)) {
     const fontSize = architectureLabelFontSize(camera.scale, selected);
     const labelPoint = project(camera, width, height, nodeX, nodeY, 0);
     drawLabel(
@@ -805,8 +805,11 @@ function drawNodeOverlay(
 export function architectureNodeLabelIsVisible(
   node: InventoryResource,
   selected: boolean,
+  cameraScale: number,
 ): boolean {
-  return selected || !node.network_plane_id || architectureNetworkPathRank(node) === 3;
+  if (selected) return true;
+  if (cameraScale < 12) return false;
+  return !node.network_plane_id || architectureNetworkPathRank(node) === 3;
 }
 
 function nodeLabelObstacle(
