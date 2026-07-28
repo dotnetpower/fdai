@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { kpiEvidenceLabel, mobileColumnLabel, safeExternalHref } from "./ui";
+import {
+  dataTableHeaderClass,
+  kpiEvidenceLabel,
+  mobileColumnLabel,
+  safeExternalHref,
+} from "./ui";
 
 /**
  * ExternalLink is used to render URLs that originate on the read-API wire
@@ -34,6 +39,20 @@ describe("responsive data-table labels", () => {
       .toBe("Step");
     expect(mobileColumnLabel({ key: "seq", header: "Sequence", render: () => null })).toBe("Sequence");
     expect(mobileColumnLabel({ key: "seq", header: null, render: () => null })).toBe("seq");
+  });
+
+  test("inherits numeric cell alignment in the header", () => {
+    expect(dataTableHeaderClass({ key: "calls", header: "Calls", render: () => null, cellClass: "num" }))
+      .toBe("num");
+    expect(dataTableHeaderClass({
+      key: "tokens",
+      header: "Tokens",
+      render: () => null,
+      cellClass: "mono num",
+      headerClass: "compact",
+    })).toBe("compact num");
+    expect(dataTableHeaderClass({ key: "name", header: "Name", render: () => null, cellClass: "mono" }))
+      .toBeUndefined();
   });
 });
 

@@ -20,7 +20,6 @@ from typing import Any
 
 from fdai.core.metering.aggregate import (
     invocations_as_mapping,
-    summaries_as_mapping,
     summarize_by_conversation,
     summarize_by_day,
     summarize_by_mode,
@@ -28,6 +27,7 @@ from fdai.core.metering.aggregate import (
     summarize_by_month,
     summarize_by_scope,
     summarize_total,
+    usage_summaries_as_mapping,
 )
 from fdai.core.metering.records import InvocationScope
 from fdai.core.metering.sink import MeteringReader
@@ -102,9 +102,9 @@ class LlmCostPanel:
                 max(record.occurred_at for record in records).isoformat() if records else None
             ),
             "invocations": total.invocations,
-            "total": dict(summaries_as_mapping([total])[0]),
+            "total": dict(usage_summaries_as_mapping([total])[0]),
             "chat": dict(
-                summaries_as_mapping(
+                usage_summaries_as_mapping(
                     [
                         next(
                             (
@@ -117,10 +117,10 @@ class LlmCostPanel:
                     ]
                 )[0]
             ),
-            "by_scope": list(summaries_as_mapping(summarize_by_scope(records))),
-            "by_model": list(summaries_as_mapping(summarize_by_model(records))),
-            "chat_by_model": list(summaries_as_mapping(summarize_by_model(chat_records))),
-            "by_mode": list(summaries_as_mapping(summarize_by_mode(records))),
+            "by_scope": list(usage_summaries_as_mapping(summarize_by_scope(records))),
+            "by_model": list(usage_summaries_as_mapping(summarize_by_model(records))),
+            "chat_by_model": list(usage_summaries_as_mapping(summarize_by_model(chat_records))),
+            "by_mode": list(usage_summaries_as_mapping(summarize_by_mode(records))),
             "records": list(invocations_as_mapping(visible_records)),
             "records_truncated": len(visible_records) < len(recent_records),
             "record_count": len(recent_records),
@@ -134,13 +134,13 @@ class LlmCostPanel:
         if group in (None, _GROUP_CONVERSATION):
             conversations = summarize_by_conversation(records)
             capped = conversations[: self._max_conversations]
-            payload["by_conversation"] = list(summaries_as_mapping(capped))
+            payload["by_conversation"] = list(usage_summaries_as_mapping(capped))
             payload["by_conversation_truncated"] = len(capped) < len(conversations)
             payload["conversation_count"] = len(conversations)
         if group in (None, _GROUP_DAY):
-            payload["by_day"] = list(summaries_as_mapping(summarize_by_day(records)))
+            payload["by_day"] = list(usage_summaries_as_mapping(summarize_by_day(records)))
         if group in (None, _GROUP_MONTH):
-            payload["by_month"] = list(summaries_as_mapping(summarize_by_month(records)))
+            payload["by_month"] = list(usage_summaries_as_mapping(summarize_by_month(records)))
         return payload
 
 

@@ -1,23 +1,14 @@
 {
   "title": "LLM cost",
-  "subtitle": "Measured model usage, attribution evidence, and the boundary of available cost data",
+  "subtitle": "Measured model usage and attribution evidence",
   "unavailable": "LLM usage metering is unavailable.",
-  "valueUnavailable": "Unavailable",
   "source": "Source",
   "measuredUsage": "Measured usage",
   "measuredCalls": "{count} invocation records",
   "asOf": "As of {time}",
   "noInvocationEvidence": "No measured invocation evidence",
-  "boundaryTitle": "Usage is measured; price attribution is not connected.",
-  "boundaryBody": "This deployment reports provider calls and tokens without estimating spend, budgets, or invoice amounts.",
-  "boundaryConnectedTitle": "Standard-price attribution is connected.",
-  "boundaryConnectedBody": "Attributed cost uses configured public list prices and is not an invoice or billed amount.",
-  "boundaryPartialTitle": "Standard-price attribution is partial.",
-  "boundaryPartialBody": "{coverage}. The displayed amount excludes calls without a configured price.",
-  "boundaryMixedTitle": "Attributed costs use multiple currencies.",
-  "boundaryMixedBody": "Per-model costs remain available, but no cross-currency total is displayed.",
-  "attributedCost": "Attributed cost",
-  "priceCoverage": "{priced} of {total} calls priced",
+  "boundaryTitle": "Usage is measured; cost amounts are not displayed.",
+  "boundaryBody": "This view reports provider calls and tokens only. Pricing remains internal and no spend or invoice amount is shown.",
   "latestInvocation": "Latest invocation",
   "calls": "LLM calls",
   "totalTokens": "Total tokens",
@@ -63,7 +54,6 @@
     "model": "Model",
     "capability": "Capability",
     "tierMode": "Tier / mode",
-    "correlationId": "Correlation ID",
-    "cost": "Attributed cost"
+    "correlationId": "Correlation ID"
   }
 }

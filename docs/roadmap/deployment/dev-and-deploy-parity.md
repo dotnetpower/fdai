@@ -208,9 +208,8 @@ provider calls appear in LLM Cost. Without the artifact, the model path and its 
 unavailable; preparation never substitutes fixture or benchmark-judge usage.
 Cost attribution uses only the resolver's explicit deployment-to-family binding and the shipped
 pricing catalog. A missing or conflicting family remains unpriced instead of parsing a deployment
-name or guessing a rate. The LLM Cost projection shows the exact attributed amount and priced-call
-coverage, excludes unpriced calls from that amount, and never combines mixed currencies into one
-total.
+name or guessing a rate. Pricing remains internal: the LLM Cost operator projection shows measured
+calls and tokens but does not expose cost amounts, price coverage, or invoice values.
 
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data

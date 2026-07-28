@@ -245,6 +245,12 @@ export function mobileColumnLabel<Row>(column: Column<Row>): string {
   return column.key;
 }
 
+export function dataTableHeaderClass<Row>(column: Column<Row>): string | undefined {
+  const classes = new Set(column.headerClass?.split(/\s+/).filter(Boolean) ?? []);
+  if (column.cellClass?.split(/\s+/).includes("num")) classes.add("num");
+  return classes.size > 0 ? [...classes].join(" ") : undefined;
+}
+
 export function DataTable<Row>({
   columns,
   rows,
@@ -272,7 +278,7 @@ export function DataTable<Row>({
         <thead>
           <tr>
             {columns.map((c) => (
-              <th key={c.key} class={c.headerClass}>{c.header}</th>
+              <th key={c.key} class={dataTableHeaderClass(c)}>{c.header}</th>
             ))}
           </tr>
         </thead>

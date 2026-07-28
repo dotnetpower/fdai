@@ -93,23 +93,16 @@ async def test_render_all_groupings() -> None:
         {
             "key": "gpt-4.1-mini",
             "invocations": 1,
-            "priced_invocations": 0,
             "prompt_tokens": 800,
             "completion_tokens": 50,
             "total_tokens": 850,
-            "cost": "0",
-            "currency": "USD",
-            "has_unpriced": True,
-            "has_mixed_currency": False,
         }
     ]
     assert [row["key"] for row in payload["by_model"]] == ["gpt-4.1-mini", "gpt-4o"]
     assert payload["records"][0]["model_key"] == "gpt-4.1-mini"
     assert payload["records"][0]["usage_scope"] == "operator_chat"
-    assert payload["total"]["cost"] == "0.50"
-    assert payload["total"]["currency"] == "USD"
-    assert payload["total"]["priced_invocations"] == 2
-    assert payload["total"]["has_unpriced"] is True
+    assert "cost" not in payload["total"]
+    assert "currency" not in payload["total"]
     assert [row["key"] for row in payload["by_conversation"]] == ["evt-a", "evt-b"]
     assert [row["key"] for row in payload["by_day"]] == ["2026-07-09", "2026-07-10"]
     assert [row["key"] for row in payload["by_month"]] == ["2026-07"]
