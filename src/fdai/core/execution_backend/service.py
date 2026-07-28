@@ -23,7 +23,12 @@ from fdai.shared.providers.execution_backend import (
     ExecutionSubmissionLedger,
 )
 
-from .profiles import ExecutionBackendKind, ExecutionBackendProfileRegistry
+from .profiles import (
+    ExecutionBackendKind,
+    ExecutionBackendProfile,
+    ExecutionBackendProfileRegistry,
+    ExecutionProfileError,
+)
 
 
 class ExecutionBackendCoordinator:
@@ -94,7 +99,9 @@ class ExecutionBackendCoordinator:
         record = await self._require_record(idempotency_key)
         if record.status.terminal:
             return _receipt_from_record(record)
-        profile = self._profiles.require(record.profile_id)
+        record, profile = await self._resolve_record_profile(record)
+        if profile is None:
+            return _receipt_from_record(record)
         if self._now() - record.created_at >= timedelta(seconds=profile.max_timeout_seconds):
             return await self.cancel(idempotency_key, reason="submission exceeded timeout")
         if record.submission_ref is None:
@@ -120,17 +127,19 @@ class ExecutionBackendCoordinator:
         record = await self._require_record(idempotency_key)
         if record.status.terminal:
             return _receipt_from_record(record)
-        if record.submission_ref is None:
+        submission_ref = record.submission_ref
+        if submission_ref is None:
             record = await self._mark_ambiguous(record, "cannot cancel without submission ref")
             return _receipt_from_record(record)
-        submission_ref = record.submission_ref
+        record, profile = await self._resolve_record_profile(record)
+        if profile is None:
+            return _receipt_from_record(record)
         record = await self._save(
             record,
             cancel_requested=True,
             detail=reason,
         )
         await self._attempt(record, ExecutionAttemptOperation.CANCEL)
-        profile = self._profiles.require(record.profile_id)
         backend = self._backend(profile.backend_kind)
         try:
             receipt = await backend.cancel(submission_ref)
@@ -147,14 +156,15 @@ class ExecutionBackendCoordinator:
 
     async def collect_receipt(self, idempotency_key: str) -> ExecutionBackendReceipt:
         record = await self._require_record(idempotency_key)
-        if record.submission_ref is None:
+        submission_ref = record.submission_ref
+        if submission_ref is None:
             raise ExecutionBackendError("cannot collect receipt without submission ref")
+        record, profile = await self._resolve_record_profile(record)
+        if profile is None:
+            raise ExecutionBackendError(record.detail)
         await self._attempt(record, ExecutionAttemptOperation.COLLECT_RECEIPT)
-        profile = self._profiles.require(record.profile_id)
         try:
-            receipt = await self._backend(profile.backend_kind).collect_receipt(
-                record.submission_ref
-            )
+            receipt = await self._backend(profile.backend_kind).collect_receipt(submission_ref)
         except Exception as exc:  # noqa: BLE001 - receipt evidence is incomplete
             record = await self._mark_ambiguous(
                 record,
@@ -165,11 +175,14 @@ class ExecutionBackendCoordinator:
 
     async def cleanup(self, idempotency_key: str) -> ExecutionLedgerRecord:
         record = await self._require_record(idempotency_key)
-        if not record.status.terminal or record.submission_ref is None:
+        submission_ref = record.submission_ref
+        if not record.status.terminal or submission_ref is None:
             raise ExecutionBackendError("cleanup requires a terminal submission")
+        record, profile = await self._resolve_record_profile(record)
+        if profile is None:
+            return record
         await self._attempt(record, ExecutionAttemptOperation.CLEANUP)
-        profile = self._profiles.require(record.profile_id)
-        result = await self._backend(profile.backend_kind).cleanup(record.submission_ref)
+        result = await self._backend(profile.backend_kind).cleanup(submission_ref)
         return await self._save(
             record,
             cleanup_state=result.state,
@@ -227,6 +240,20 @@ class ExecutionBackendCoordinator:
         if record is None:
             raise LookupError(f"unknown execution submission {idempotency_key!r}")
         return record
+
+    async def _resolve_record_profile(
+        self,
+        record: ExecutionLedgerRecord,
+    ) -> tuple[ExecutionLedgerRecord, ExecutionBackendProfile | None]:
+        try:
+            profile = self._profiles.require(record.profile_id)
+        except ExecutionProfileError:
+            return await self._mark_ambiguous(record, "execution profile is unavailable"), None
+        if profile.version != record.profile_version:
+            return await self._mark_ambiguous(
+                record, "execution profile version is unavailable"
+            ), None
+        return record, profile
 
     async def _attempt(
         self,

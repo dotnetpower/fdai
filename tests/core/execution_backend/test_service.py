@@ -115,10 +115,10 @@ def _receipt(
     )
 
 
-def _profile() -> ExecutionBackendProfile:
+def _profile(*, version: str = "1.0.0") -> ExecutionBackendProfile:
     return ExecutionBackendProfile(
         profile_id="vm.report",
-        version="1.0.0",
+        version=version,
         backend_kind=ExecutionBackendKind.VM_TASK,
         workload_ids=frozenset({"report.render"}),
         workspace_mode=WorkspaceMode.NONE,
@@ -242,6 +242,90 @@ async def test_lost_provider_status_fails_closed_as_ambiguous() -> None:
 
     assert receipt.status is ExecutionStatus.AMBIGUOUS
     assert "unavailable" in receipt.detail
+
+
+async def test_missing_profile_during_reconcile_fails_closed_as_ambiguous() -> None:
+    backend = _Backend()
+    ledger = InMemoryExecutionSubmissionLedger()
+    await _service(backend, ledger).start(_request())
+    restarted = ExecutionBackendCoordinator(
+        profiles=ExecutionBackendProfileRegistry(),
+        backends={ExecutionBackendKind.VM_TASK: backend},
+        ledger=ledger,
+    )
+
+    receipt = await restarted.reconcile("event-1:report")
+
+    assert receipt.status is ExecutionStatus.AMBIGUOUS
+    assert receipt.detail == "execution profile is unavailable"
+    assert backend.status_calls == 0
+
+
+async def test_changed_profile_version_during_reconcile_fails_closed() -> None:
+    backend = _Backend()
+    ledger = InMemoryExecutionSubmissionLedger()
+    await _service(backend, ledger).start(_request())
+    restarted = ExecutionBackendCoordinator(
+        profiles=ExecutionBackendProfileRegistry((_profile(version="2.0.0"),)),
+        backends={ExecutionBackendKind.VM_TASK: backend},
+        ledger=ledger,
+    )
+
+    receipt = await restarted.reconcile("event-1:report")
+
+    assert receipt.status is ExecutionStatus.AMBIGUOUS
+    assert receipt.detail == "execution profile version is unavailable"
+    assert backend.status_calls == 0
+
+
+async def test_missing_profile_during_cancel_fails_closed() -> None:
+    backend = _Backend()
+    ledger = InMemoryExecutionSubmissionLedger()
+    await _service(backend, ledger).start(_request())
+    restarted = ExecutionBackendCoordinator(
+        profiles=ExecutionBackendProfileRegistry(),
+        backends={ExecutionBackendKind.VM_TASK: backend},
+        ledger=ledger,
+    )
+
+    receipt = await restarted.cancel("event-1:report")
+
+    assert receipt.status is ExecutionStatus.AMBIGUOUS
+    assert backend.cancel_calls == 0
+
+
+async def test_missing_profile_during_receipt_collection_fails_closed() -> None:
+    backend = _Backend()
+    ledger = InMemoryExecutionSubmissionLedger()
+    await _service(backend, ledger).start(_request())
+    restarted = ExecutionBackendCoordinator(
+        profiles=ExecutionBackendProfileRegistry(),
+        backends={ExecutionBackendKind.VM_TASK: backend},
+        ledger=ledger,
+    )
+
+    with pytest.raises(ExecutionBackendError, match="profile is unavailable"):
+        await restarted.collect_receipt("event-1:report")
+
+    record = await ledger.get("event-1:report")
+    assert record is not None and record.status is ExecutionStatus.AMBIGUOUS
+
+
+async def test_missing_profile_during_cleanup_fails_closed() -> None:
+    backend = _Backend()
+    backend.submit_status = ExecutionStatus.SUCCEEDED
+    ledger = InMemoryExecutionSubmissionLedger()
+    await _service(backend, ledger).start(_request())
+    restarted = ExecutionBackendCoordinator(
+        profiles=ExecutionBackendProfileRegistry(),
+        backends={ExecutionBackendKind.VM_TASK: backend},
+        ledger=ledger,
+    )
+
+    record = await restarted.cleanup("event-1:report")
+
+    assert record.status is ExecutionStatus.AMBIGUOUS
+    assert backend.cleanup_calls == 0
 
 
 async def test_cancel_race_preserves_observed_success() -> None:

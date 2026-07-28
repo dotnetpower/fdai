@@ -1,8 +1,8 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: 3ca90643c5e86dba850593812c89bdf96773073a
-translation_revised: 2026-07-21
+translation_source_sha: e243ba35a9f99f60eed4a229d170643934e20719
+translation_revised: 2026-07-28
 ---
 
 # 거버넌스 적용 실행 백엔드
@@ -104,6 +104,9 @@ cleanup attempt를 순서대로 유지합니다.
 Coordinator는 다음 case를 처리합니다.
 
 - **Duplicate submit 또는 restart**: 기존 ledger receipt를 반환하고 다시 submit하지 않습니다.
+- **Restart 후 profile 누락**: status, cancellation, receipt, cleanup에 ledger가 기록한 exact profile
+  id와 version을 요구합니다. Profile이 없거나 변경되면 `ambiguous`를 기록하고 provider lifecycle
+  call을 수행하지 않습니다.
 - **Submit transport loss**: `ambiguous`를 기록하며 성공으로 가정하거나 blind retry하지 않습니다.
 - **Lost status**: terminal `ambiguous`를 기록해 autonomy가 fail closed하도록 합니다.
 - **Timeout**: server-owned deadline이 만료되면 cancellation을 요청합니다.

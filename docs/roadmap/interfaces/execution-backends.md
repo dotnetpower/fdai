@@ -102,6 +102,9 @@ ordered submit, status, cancel, receipt, and cleanup attempts.
 The coordinator handles these cases:
 
 - **Duplicate submit or restart**: returns the existing ledger receipt and does not re-submit.
+- **Missing profile after restart**: requires the exact recorded profile id and version for status,
+  cancellation, receipt, and cleanup. An unavailable or changed profile records `ambiguous` and
+  performs no provider lifecycle call.
 - **Submit transport loss**: records `ambiguous`; it does not assume success or retry blindly.
 - **Lost status**: records terminal `ambiguous` so autonomy fails closed.
 - **Timeout**: requests cancellation when the server-owned deadline expires.

@@ -234,7 +234,7 @@
     "src/fdai/core/execution_backend/config.py": "6f289e7fcd7bbad8f632c49f481a417b93f52a581e4dd3c5d9a6d053ea5b3ce0",
     "src/fdai/core/execution_backend/ledger.py": "eb438e9273f2dc63921be87253d9153a4a58781f0fda4bde50dbeeb37f161bac",
     "src/fdai/core/execution_backend/profiles.py": "2e109daa3801cc51beb2f421d3432dab893391acceb3c2c9f5a03bad9aeccf40",
-    "src/fdai/core/execution_backend/service.py": "b72c5f7581a6d47557951f806a7fdceb402c133c3b8cad0cb8f979da5e9db3a3",
+    "src/fdai/core/execution_backend/service.py": "1f7a2296dc3330ea57dbfd97c0009e24fb3cdb89e760f1967f05c7171c1a7a3b",
     "src/fdai/core/executor/README.md": "a651974331d1ea67cf378650fb2f233f061f1ad847886666afa79fbf2a4cea71",
     "src/fdai/core/executor/__init__.py": "52152ff35a829eeccdbfcc542ac95438605e0db75a3cfbbda8f23e41a83d0cb2",
     "src/fdai/core/executor/action_builder.py": "aa7b57b40be70cfeebef13fe8c339e86962cde68561250fedad0b84c7da0870e",
@@ -806,7 +806,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-28T02:24:58Z",
+  "generated_at": "2026-07-28T02:37:59Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
