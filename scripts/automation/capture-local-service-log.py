@@ -36,6 +36,12 @@ def _timestamp_lines(rendered: str, captured_at: str) -> str:
     return "\n".join(f"{captured_at} {line}" for line in rendered.split("\n"))
 
 
+def _local_log_timestamp() -> str:
+    captured_at = datetime.now().astimezone()
+    milliseconds = captured_at.microsecond // 1000
+    return f"{captured_at:%Y-%m-%d %H:%M:%S},{milliseconds:03d} {captured_at:%Z}"
+
+
 def _open_log(path: Path) -> TextIO:
     path.touch(exist_ok=True)
     os.chmod(path, 0o600)
@@ -66,9 +72,8 @@ def main() -> int:
         for raw in sys.stdin:
             sys.stdout.write(raw)
             sys.stdout.flush()
-            captured_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
             rendered = _render_line(raw, args.format)
-            handle.write(_timestamp_lines(rendered, captured_at))
+            handle.write(_timestamp_lines(rendered, _local_log_timestamp()))
             handle.write("\n")
             lines_since_check += 1
             if lines_since_check >= 100:

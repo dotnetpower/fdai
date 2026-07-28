@@ -10,7 +10,7 @@ from pathlib import Path
 
 _BASH = "/usr/bin/bash"
 _RUNNER = Path(__file__).parents[2] / "scripts" / "automation" / "run-local-service.sh"
-_TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2} ")
+_TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} \S+ ")
 
 
 def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> None:
