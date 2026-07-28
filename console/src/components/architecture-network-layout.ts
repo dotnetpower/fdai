@@ -224,7 +224,7 @@ function buildGroupPlan(
   }
   const packedNetworks = packRectangles(
     networkPlans,
-    layoutTargetWidth(networkPlans),
+    layoutTargetWidth(networkPlans, architectureViewIsFocused(graph) ? 2.15 : 1.8),
     PANEL_GAP,
   );
   const unassignedGrid = nodeGrid(unassigned);
@@ -384,11 +384,11 @@ function packRectangles<T extends RectangleItem>(
   };
 }
 
-function layoutTargetWidth(items: readonly RectangleItem[]): number {
+function layoutTargetWidth(items: readonly RectangleItem[], aspect = 1.8): number {
   if (items.length === 0) return 0;
   return Math.max(
     ...items.map((item) => item.width),
-    Math.sqrt(items.reduce((total, item) => total + item.width * item.height, 0)) * 1.8,
+    Math.sqrt(items.reduce((total, item) => total + item.width * item.height, 0)) * aspect,
   );
 }
 

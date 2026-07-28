@@ -304,7 +304,7 @@ function ArchitectureBody({
       <div class={`architecture-stage${selected ? " has-selection" : ""}`}>
         <div
           class="architecture-canvas-shell"
-          style={{ minHeight: `${architectureCanvasHeight(presentedGraph)}px` }}
+          style={`--architecture-canvas-height: ${architectureCanvasHeight(presentedGraph)}px`}
         >
           <p id="architecture-map-description" class="sr-only">
             {t("mapDescription", {

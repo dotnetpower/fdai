@@ -160,8 +160,8 @@ describe("architecture map zoom", () => {
 
 describe("architecture floor legend space", () => {
   it("reserves a bounded right-side floor area at desktop and mobile widths", () => {
-    expect(architectureLegendReserveWidth(1200)).toBe(456);
-    expect(architectureLegendReserveWidth(700)).toBe(320);
+    expect(architectureLegendReserveWidth(1200)).toBe(288);
+    expect(architectureLegendReserveWidth(700)).toBe(220);
     expect(architectureLegendReserveWidth(390)).toBeCloseTo(132.6);
     expect(architectureLegendReserveWidth(200)).toBe(96);
   });
@@ -246,6 +246,7 @@ describe("architecture world sizing", () => {
     } as never;
 
     expect(architectureWorldSize(graph)).toEqual({ width: 11.25, height: 6.75 });
+    expect(architectureCanvasHeight(graph)).toBe(680);
   });
 });
 
@@ -322,6 +323,9 @@ describe("architecture responsive layout", () => {
   });
 
   it("keeps the compact legend and resource index free of horizontal scrolling", () => {
+    expect(styles).toMatch(
+      /@media \(max-width: 620px\)[\s\S]*?\.architecture-canvas-shell\s*\{[^}]*min-height:\s*min\(var\(--architecture-canvas-height, 640px\), 520px\)/,
+    );
     expect(styles).toMatch(
       /@media \(max-width: 620px\)[\s\S]*?\.architecture-index-table-wrap\s*\{[^}]*overflow-x:\s*visible/,
     );

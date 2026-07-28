@@ -502,7 +502,11 @@ The isometric renderer draws a VNet as an outer floor and its subnets as inset f
 from their visible members. Evidence-derived membership rails and direct `attached_to` links stay
 on the floor, while `depends_on` arrows remain above resource tops. Plane names follow the world
 axis without a floating label card. Selecting a plane uses the same resource inspector and the
-smallest containing plane remains the pointer target.
+smallest containing plane remains the pointer target. A focused service or resource-group view
+uses a wide packing target so three network floors share one row when they fit. It also uses a
+smaller desktop legend reserve and canvas height than the complete inventory view. Narrow
+viewports keep the same node size, cap the canvas at 520 px, and expose the wider floor through
+panning.
 
 Labels avoid collisions, fit long names, and pair each resource name with its plain resource type.
 The compact acronym on the block is a secondary cue, not the only way to identify the resource.

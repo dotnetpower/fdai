@@ -67,9 +67,10 @@ export function architectureWorldSize(
 }
 
 export function architectureCanvasHeight(
-  graph: Pick<InventoryGraphResponse, "resources">,
+  graph: Pick<InventoryGraphResponse, "resources" | "active_view" | "views">,
 ): number {
-  return clamp(Math.round(architectureWorldSize(graph).height * 28), 780, 1400);
+  const minimumHeight = architectureViewIsFocused(graph) ? 680 : 780;
+  return clamp(Math.round(architectureWorldSize(graph).height * 28), minimumHeight, 1400);
 }
 
 export function cameraWorldSize(camera: Camera): { width: number; height: number } {
@@ -80,7 +81,7 @@ export function cameraWorldSize(camera: Camera): { width: number; height: number
 }
 
 export function architectureLegendReserveWidth(canvasWidth: number): number {
-  if (canvasWidth >= 700) return clamp(canvasWidth * .38, 320, 460);
+  if (canvasWidth >= 700) return clamp(canvasWidth * .24, 220, 340);
   return clamp(canvasWidth * .34, 96, 180);
 }
 

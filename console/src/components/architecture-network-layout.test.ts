@@ -98,4 +98,65 @@ describe("architecture network floor layout", () => {
     expect(nic.y).toBeGreaterThan(subnet.y!);
     expect(nic.y).toBeLessThan(subnet.y! + subnet.h!);
   });
+
+  it("uses a single wide row for three networks in a focused scope", () => {
+    const focused: InventoryGraphResponse = {
+      ...GRAPH,
+      active_view: "rg",
+      views: [{
+        id: "rg",
+        label: "App",
+        kind: "resource_group",
+        classification: "resource_group_fallback",
+        description: "",
+        root_resource_id: "rg",
+      }],
+      resources: [
+        ...GRAPH.resources.filter((resource) => !["vnet", "snet"].includes(resource.id)),
+        ...Array.from({ length: 3 }, (_, index) => ({
+          id: `vnet-${index}`,
+          type: "network.vnet",
+          name: `Network ${index}`,
+          status: "healthy",
+          parent_id: "rg",
+        })),
+        ...Array.from({ length: 3 }, (_, index) => ({
+          id: `snet-${index}`,
+          type: "network.subnet",
+          name: `Subnet ${index}`,
+          status: "healthy",
+          parent_id: "rg",
+        })),
+      ],
+      links: [
+        ...GRAPH.links.filter((link) => !["vnet", "snet"].includes(link.source)
+          && !["vnet", "snet"].includes(link.target)),
+        ...Array.from({ length: 3 }, (_, index) => ({
+          source: `vnet-${index}`,
+          target: `snet-${index}`,
+          type: "contains" as const,
+        })),
+      ],
+    };
+
+    const laidOut = layoutArchitectureNetworkFloors(focused);
+    const networks = laidOut.resources.filter((resource) => resource.type === "network.vnet");
+    const overview = layoutArchitectureNetworkFloors({
+      ...focused,
+      active_view: "fdai",
+      views: [{
+        ...focused.views![0]!,
+        id: "fdai",
+        kind: "fdai",
+        classification: "ownership_tag",
+      }],
+    });
+    const overviewNetworks = overview.resources.filter(
+      (resource) => resource.type === "network.vnet",
+    );
+
+    expect(new Set(networks.map((resource) => resource.y)).size).toBe(1);
+    expect(new Set(networks.map((resource) => resource.x)).size).toBe(3);
+    expect(new Set(overviewNetworks.map((resource) => resource.y)).size).toBeGreaterThan(1);
+  });
 });

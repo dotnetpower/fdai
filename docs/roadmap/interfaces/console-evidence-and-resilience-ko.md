@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 98db958632999bfe531540a9702d35b961495381
+translation_source_sha: 03a331656d0010a7819bf160c37e4cac3af1e1c4
 translation_revised: 2026-07-28
 ---
 
@@ -492,7 +492,10 @@ Isometric renderer는 VNet을 outer floor로, subnet을 visible member 수에 �
 floor plane으로 그립니다. Evidence-derived membership rail과 direct `attached_to` link는 floor에
 유지하고 `depends_on` arrow는 resource top 위에 유지합니다. Plane name은 floating label card 없이
 world axis를 따릅니다. Plane을 선택하면 동일한 resource inspector를 사용하며 가장 작은 containing
-plane이 pointer target으로 유지됩니다.
+plane이 pointer target으로 유지됩니다. Focused service 또는 resource-group view는 공간이 허용될 때
+3개의 network floor를 한 행에 배치하는 wide packing target을 사용합니다. Complete inventory view보다
+작은 desktop legend reserve와 canvas height를 사용합니다. 좁은 viewport에서는 동일한 node 크기를
+유지하고 canvas를 520 px로 제한하며 더 넓어진 floor를 panning으로 탐색합니다.
 
 Label은 collision을 피하고 긴 이름을 맞추며 각 resource name과 읽기 쉬운 resource type을 함께
 표시합니다. Block의 compact acronym은 보조 cue이며 resource를 식별하는 유일한 방법이 아닙니다.
