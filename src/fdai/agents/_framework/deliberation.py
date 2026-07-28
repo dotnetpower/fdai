@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -35,6 +36,7 @@ _MAX_T2_CONCLUSION_CHARS = 4_000
 #: a layer budget there speak in one unit.
 _CHARS_PER_TOKEN = 4
 _T2_CONVERSATION_CAPABILITY = "t2.conversation.synthesis"
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _LOG = logging.getLogger(__name__)
 
 CallResponder = Callable[
@@ -55,9 +57,13 @@ class DeliberationClaim:
     def __post_init__(self) -> None:
         if not self.agent or not self.answer or len(self.answer) > _MAX_ANSWER_CHARS:
             raise ValueError("deliberation claim MUST have a bounded agent and answer")
-        if len(self.evidence_refs) > 20 or any(not ref for ref in self.evidence_refs):
+        if (
+            not self.evidence_refs
+            or len(self.evidence_refs) > 20
+            or any(not ref for ref in self.evidence_refs)
+        ):
             raise ValueError("deliberation claim evidence_refs MUST be bounded and non-empty")
-        if len(self.prompt_sha256) != 64:
+        if _SHA256.fullmatch(self.prompt_sha256) is None:
             raise ValueError("deliberation claim prompt_sha256 MUST be a SHA-256 digest")
 
 
@@ -447,9 +453,11 @@ def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClai
         if isinstance(raw_refs, list | tuple)
         else ()
     )
-    policy = response.get("conversation_policy")
-    prompt_sha256 = policy.get("prompt_sha256") if isinstance(policy, dict) else None
-    if not isinstance(prompt_sha256, str) or len(prompt_sha256) != 64:
+    if not evidence_refs:
+        return None
+    composition = response.get("prompt_composition")
+    prompt_sha256 = composition.get("prompt_sha256") if isinstance(composition, dict) else None
+    if not isinstance(prompt_sha256, str) or _SHA256.fullmatch(prompt_sha256) is None:
         return None
     return DeliberationClaim(
         agent=agent_name,

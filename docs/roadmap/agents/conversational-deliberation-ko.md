@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: bb416c23d2edb8df75b2596a7a5ac86ec6237703
+translation_source_sha: 7bdcc6f16d20c1687fba91f1784596fdf8b98eb2
 translation_revised: 2026-07-28
 ---
 # 판테온 대화형 숙의
@@ -443,6 +443,21 @@ behavior counter를 증가시키며, 성공을 주장하지 않은 unanswered tu
 이제 position, critique, synthesis는 하나의 canonical unattributed budget key를 사용합니다. Normalized
 responder는 `answer=null`과 canonical `requires_typed_pipeline` abstention reason이 함께 있을 때만
 `requires_typed_pipeline=true`를 전달할 수 있으며, 모순된 envelope는 aggregation 전에 보류됩니다.
+
+## 세 번째 추가 3라운드 하드닝
+
+다음 campaign은 T1 claim에서 optional T2 synthesis로 전달되는 provenance를 강화했습니다.
+
+| Round | 10점 focus | 제거한 결함 | Exit score | 실행 증거 |
+|------:|------------|-------------|-----------:|-----------|
+| 1 | Effective prompt, baseline distinction, position layer, critique layer, text-free attribution, claim digest, T2 request, no prompt exposure, replay, regression | Claim이 effective position/critique prompt digest 대신 immutable baseline digest를 기록했습니다. | 10/10 | Extractor 및 end-to-end T2 request digest test |
+| 2 | Canonical SHA-256, lowercase hex, exact length, constructor, extractor, malformed hold, no exception leak, serialization, replay, regression | 길이만 64자인 모든 문자열을 prompt digest로 수락했습니다. | 10/10 | Non-hex constructor 및 responder rejection test |
+| 3 | Grounded claim, 1-20 refs, non-empty refs, constructor, extractor, primary claim, critique claim, T2 admission, abstention, regression | Evidence reference가 없는 claim도 T2 synthesis에 들어갈 수 있었습니다. | 10/10 | Missing-evidence constructor 및 extractor test |
+
+각 claim은 이제 해당 turn을 지배한 effective composed prompt digest를 인용합니다. T2 request는 별도로
+participant의 immutable baseline charter를 전달하며, test가 이 차이를 고정해 baseline policy와
+situational provenance가 섞이지 않게 합니다. Claim은 canonical lowercase hexadecimal SHA-256 digest와
+1-20개의 evidence reference가 있을 때만 수락됩니다.
 
 ## 검증
 

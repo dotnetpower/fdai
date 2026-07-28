@@ -453,6 +453,21 @@ One canonical unattributed budget key now governs position, critique, and synthe
 responder may carry `requires_typed_pipeline=true` only with `answer=null` and the canonical
 `requires_typed_pipeline` abstention reason; contradictory envelopes are held before aggregation.
 
+## Third additional three-round hardening
+
+The next campaign hardened the provenance carried from T1 claims into optional T2 synthesis:
+
+| Round | 10-point focus | Defect removed | Exit score | Executable evidence |
+|------:|----------------|----------------|-----------:|---------------------|
+| 1 | Effective prompt, baseline distinction, position layer, critique layer, text-free attribution, claim digest, T2 request, no prompt exposure, replay, regression | Claims recorded the immutable baseline digest instead of the effective position or critique prompt digest. | 10/10 | Extractor and end-to-end T2 request digest tests. |
+| 2 | Canonical SHA-256, lowercase hex, exact length, constructor, extractor, malformed hold, no exception leak, serialization, replay, regression | Any 64-character string was accepted as a prompt digest. | 10/10 | Non-hex constructor and responder rejection tests. |
+| 3 | Grounded claim, one-to-twenty refs, non-empty refs, constructor, extractor, primary claim, critique claim, T2 admission, abstention, regression | A claim with no evidence reference could enter T2 synthesis. | 10/10 | Missing-evidence constructor and extractor tests. |
+
+Each claim now cites the digest of the effective composed prompt that governed that turn. The T2
+request separately carries each participant's immutable baseline charter; tests pin this
+distinction so baseline policy and situational provenance cannot be confused. A claim is admitted
+only with a canonical lowercase hexadecimal SHA-256 digest and one to twenty evidence references.
+
 ## Verification
 
 `tests/agents/test_prompt_deliberation.py` applies 33 criteria to every agent, for 495 baseline

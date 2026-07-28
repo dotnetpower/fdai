@@ -10,9 +10,11 @@ import pytest
 
 from fdai.agents._framework.charters import conversation_prompt_layers
 from fdai.agents._framework.deliberation import (
+    DeliberationClaim,
     DeliberationRequest,
     SynthesisOutcome,
     T2ConversationSynthesizer,
+    _claim,
 )
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
@@ -262,6 +264,73 @@ def test_t1_deliberation_collects_position_and_peer_critique() -> None:
     assert result["authority"] == "presentation_only"
 
 
+def test_deliberation_claim_uses_the_effective_composed_prompt_digest() -> None:
+    baseline_digest = "a" * 64
+    composed_digest = "b" * 64
+
+    claim = _claim(
+        "Njord",
+        {
+            "answer": "Grounded cost evidence.",
+            "facts": {"evidence_refs": ["cost-snapshot:one"]},
+            "conversation_policy": {"prompt_sha256": baseline_digest},
+            "prompt_composition": {
+                "prompt_sha256": composed_digest,
+                "layers": ["identity", "phase_position"],
+            },
+        },
+    )
+
+    assert claim is not None
+    assert claim.prompt_sha256 == composed_digest
+
+
+def test_deliberation_claim_rejects_non_hex_prompt_digest() -> None:
+    with pytest.raises(ValueError, match="SHA-256"):
+        DeliberationClaim(
+            agent="Njord",
+            answer="Grounded cost evidence.",
+            evidence_refs=("cost-snapshot:one",),
+            prompt_sha256="z" * 64,
+        )
+
+    assert (
+        _claim(
+            "Njord",
+            {
+                "answer": "Grounded cost evidence.",
+                "facts": {"evidence_refs": ["cost-snapshot:one"]},
+                "prompt_composition": {"prompt_sha256": "z" * 64},
+            },
+        )
+        is None
+    )
+
+
+def test_deliberation_claim_rejects_missing_evidence_refs() -> None:
+    digest = "c" * 64
+
+    with pytest.raises(ValueError, match="evidence_refs"):
+        DeliberationClaim(
+            agent="Njord",
+            answer="Unsupported cost claim.",
+            evidence_refs=(),
+            prompt_sha256=digest,
+        )
+
+    assert (
+        _claim(
+            "Njord",
+            {
+                "answer": "Unsupported cost claim.",
+                "facts": {},
+                "prompt_composition": {"prompt_sha256": digest},
+            },
+        )
+        is None
+    )
+
+
 def test_t2_deliberation_synthesizes_without_raising_authority() -> None:
     synthesizer = _T2Synthesizer()
     result = asyncio.run(
@@ -281,6 +350,15 @@ def test_t2_deliberation_synthesizes_without_raising_authority() -> None:
     assert isinstance(request, DeliberationRequest)
     assert len(request.participant_prompts) == 2
     assert all("Authority boundary:" in prompt for _, prompt in request.participant_prompts)
+    baseline_digests = {
+        spec.name: spec.conversation_policy()["prompt_sha256"] for spec in PANTHEON_SPECS
+    }
+    assert all(claim.prompt_sha256 != baseline_digests[claim.agent] for claim in request.claims)
+    assert all(
+        prompt
+        == next(spec.conversation.system_prompt for spec in PANTHEON_SPECS if spec.name == agent)
+        for agent, prompt in request.participant_prompts
+    )
     assert "Authority boundary:" not in str(result)
 
 
@@ -385,12 +463,14 @@ def test_unattributed_participants_see_the_budget_that_gates_synthesis() -> None
     ) -> tuple[dict[str, object], None]:
         contexts.append(dict(context))
         spec = next(spec for spec in PANTHEON_SPECS if spec.name == agent_name)
+        composition = spec.conversation.compose_prompt().attribution()
         return (
             {
                 "primary_agent": agent_name,
                 "answer": f"{agent_name} evidence",
                 "facts": {"evidence_refs": [f"agent-state:{agent_name}"]},
                 "conversation_policy": spec.conversation_policy(),
+                "prompt_composition": composition,
             },
             None,
         )
