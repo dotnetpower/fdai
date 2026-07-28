@@ -228,6 +228,10 @@ records exist. Root-cause analysis and its dossier become links only after an `r
 otherwise the rows state that no evidence-backed hypothesis has been recorded. The RCA route also
 hides its generic audit fallback response when no hypothesis exists, so `incident.members` is never
 presented as a response plan or cause.
+The Trace route leads with an interpretation summary that separates notification escalation,
+response-decision evidence, RCA evidence, and named pipeline stages before showing the raw ordered
+table. Generic correlated activity remains technical history, not a cause claim.
+
 
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without

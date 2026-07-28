@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2e2ce32a4a7398d72f95f179ff54b552a0e65b2b
+translation_source_sha: 208ec37e275e57d860d3959407781af7e17879bf
 translation_revised: 2026-07-28
 ---
 
@@ -226,6 +226,10 @@ notification-delivery escalation이 있으면 이를 우선 표시하고 필요�
 record가 생긴 뒤에만 link가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
 route도 hypothesis가 없으면 generic audit fallback response를 숨겨 `incident.members`를 response plan
 또는 cause로 표시하지 않습니다.
+Trace route는 raw ordered table보다 먼저 notification escalation, response-decision evidence,
+RCA evidence 및 named pipeline stage를 분리한 interpretation summary를 표시합니다. Generic
+correlated activity는 cause claim이 아니라 technical history로 유지합니다.
+
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching
