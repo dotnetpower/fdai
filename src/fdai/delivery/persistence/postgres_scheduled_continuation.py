@@ -88,12 +88,7 @@ class PostgresScheduledConversationAnchorStore:
             row = await cursor.fetchone()
             if row is not None:
                 return _row_to_anchor(row)
-            read = await connection.execute(
-                f"SELECT {_COLUMNS} FROM scheduled_conversation_anchor WHERE anchor_id = %s",  # noqa: S608
-                (anchor_id,),
-            )
-            current = await read.fetchone()
-        return _row_to_anchor(current) if current is not None else None
+        return None
 
     async def list_for_principal(
         self, *, principal_id: str, limit: int = 100

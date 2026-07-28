@@ -125,9 +125,11 @@ hash-chained audit store. Events record the anchor id, authenticated principal, 
 stable idempotency key without copying the result body.
 
 Expiry immediately makes resolution unavailable, and the compare-and-set state transition is
-shipped. A legal-hold-aware retention worker that physically deletes the source result, anchor,
-and projected conversation entry in one coordinated operation is not implemented yet. Until it
-ships, expiry MUST NOT be presented as completed physical deletion or legal-hold enforcement.
+shipped. Concurrent expiry attempts collapse onto one state transition and only its CAS winner
+appends the expiry audit event; losing callers observe the already-expired anchor without claiming
+a second transition. A legal-hold-aware retention worker that physically deletes the source result,
+anchor, and projected conversation entry in one coordinated operation is not implemented yet.
+Until it ships, expiry MUST NOT be presented as completed physical deletion or legal-hold enforcement.
 
 ## Verification
 
@@ -138,7 +140,7 @@ Coverage includes:
 - Result persistence before anchor creation and schedule advance.
 - Web delivery retry collapse and Slack/Teams thread-mode parity.
 - Typed-fact provenance and explicit absence of instruction authority.
-- PostgreSQL row codecs, compare-and-set expiry, migration head, and environment-gated live tests.
+- PostgreSQL row codecs, compare-and-set expiry, concurrent winner-only audit, migration head, and environment-gated live tests.
 
 ## Related docs
 

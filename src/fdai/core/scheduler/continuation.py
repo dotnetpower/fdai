@@ -87,7 +87,7 @@ class InMemoryScheduledConversationAnchorStore:
     ) -> ScheduledConversationAnchor | None:
         current = self._anchors.get(anchor_id)
         if current is None or current.state is not expected_state:
-            return current
+            return None
         expired = replace(current, state=ContinuationAnchorState.EXPIRED)
         self._anchors[anchor_id] = expired
         return expired
@@ -169,16 +169,17 @@ class ScheduledContinuationService:
             await self._deny(anchor_id, access.principal_id, now)
         if anchor.state is ContinuationAnchorState.EXPIRED or now >= anchor.expires_at:
             if anchor.state is ContinuationAnchorState.ACTIVE:
-                await self._store.expire(
+                expired = await self._store.expire(
                     anchor_id=anchor.anchor_id,
                     expected_state=ContinuationAnchorState.ACTIVE,
                 )
-                await self._record(
-                    ContinuationAuditKind.EXPIRED,
-                    anchor.anchor_id,
-                    access.principal_id,
-                    now,
-                )
+                if expired is not None:
+                    await self._record(
+                        ContinuationAuditKind.EXPIRED,
+                        anchor.anchor_id,
+                        access.principal_id,
+                        now,
+                    )
             await self._deny(anchor.anchor_id, access.principal_id, now)
         if (
             access.principal_id != anchor.owner_principal_id
@@ -206,7 +207,12 @@ class ScheduledContinuationService:
             expected_state=ContinuationAnchorState.ACTIVE,
         )
         if expired is None:
-            raise RuntimeError("scheduled continuation disappeared during expiry")
+            current = await self._store.get(anchor.anchor_id)
+            if current is None:
+                raise RuntimeError("scheduled continuation disappeared during expiry")
+            if current.state is not ContinuationAnchorState.EXPIRED:
+                raise RuntimeError("scheduled continuation changed during expiry")
+            return current
         await self._record(
             ContinuationAuditKind.EXPIRED,
             anchor.anchor_id,

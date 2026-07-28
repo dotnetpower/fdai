@@ -108,7 +108,9 @@ class ScheduledConversationAnchorStore(Protocol):
 
     async def expire(
         self, *, anchor_id: str, expected_state: ContinuationAnchorState
-    ) -> ScheduledConversationAnchor | None: ...
+    ) -> ScheduledConversationAnchor | None:
+        """Return the expired anchor only when this call applied the CAS transition."""
+        ...
 
     async def list_for_principal(
         self, *, principal_id: str, limit: int = 100

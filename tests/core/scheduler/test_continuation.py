@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
@@ -8,6 +9,7 @@ import pytest
 from fdai.core.scheduler.continuation import (
     ContinuationAccess,
     ContinuationAccessDeniedError,
+    ContinuationAnchorState,
     ContinuationAudience,
     ContinuationAuditKind,
     ContinuationMode,
@@ -57,6 +59,22 @@ def _service() -> tuple[ScheduledContinuationService, InMemoryContinuationAuditS
         ),
         audit,
     )
+
+
+class _ConcurrentReadStore(InMemoryScheduledConversationAnchorStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self._read_count = 0
+        self._both_read = asyncio.Event()
+
+    async def get(self, anchor_id: str) -> ScheduledConversationAnchor | None:
+        anchor = await super().get(anchor_id)
+        self._read_count += 1
+        if self._read_count == 2:
+            self._both_read.set()
+        else:
+            await self._both_read.wait()
+        return anchor
 
 
 async def test_owner_and_authorized_same_scope_can_resolve() -> None:
@@ -120,6 +138,49 @@ async def test_expired_anchor_denies_and_records_expiry() -> None:
         ContinuationAuditKind.EXPIRED,
         ContinuationAuditKind.ACCESS_DENIED,
     ]
+
+
+async def test_concurrent_auto_expiry_records_one_state_transition() -> None:
+    store = _ConcurrentReadStore()
+    audit = InMemoryContinuationAuditSink()
+    service = ScheduledContinuationService(store=store, audit=audit)
+    anchor = await service.create(_anchor())
+
+    results = await asyncio.gather(
+        *(
+            service.resolve(
+                anchor_id=anchor.anchor_id,
+                access=ContinuationAccess(principal_id="principal-a"),
+                now=anchor.expires_at,
+            )
+            for _ in range(2)
+        ),
+        return_exceptions=True,
+    )
+
+    assert all(isinstance(result, ContinuationAccessDeniedError) for result in results)
+    assert sum(event.kind is ContinuationAuditKind.EXPIRED for event in audit.events) == 1
+
+
+async def test_concurrent_explicit_expiry_records_one_state_transition() -> None:
+    store = _ConcurrentReadStore()
+    audit = InMemoryContinuationAuditSink()
+    service = ScheduledContinuationService(store=store, audit=audit)
+    anchor = await service.create(_anchor())
+
+    results = await asyncio.gather(
+        *(
+            service.expire(
+                anchor_id=anchor.anchor_id,
+                access=ContinuationAccess(principal_id="principal-a"),
+                now=NOW,
+            )
+            for _ in range(2)
+        )
+    )
+
+    assert all(result.state is ContinuationAnchorState.EXPIRED for result in results)
+    assert sum(event.kind is ContinuationAuditKind.EXPIRED for event in audit.events) == 1
 
 
 def test_broadcast_result_cannot_create_an_anchor() -> None:

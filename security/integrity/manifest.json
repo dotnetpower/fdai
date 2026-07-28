@@ -502,7 +502,7 @@
     "src/fdai/core/scheduler/blueprints/suggestion.py": "c90e95eb525eefd50c0cef83358d6c454ac56641e001666d9cfa6a422c98331b",
     "src/fdai/core/scheduler/blueprints/text.py": "22c421d4b575d18db4f69b8e12ece683188b951dedba4418bec38f03d6d1b7c3",
     "src/fdai/core/scheduler/console_tool.py": "0057ead135641bf0f6c00a00e864d41061d37e274f1c15558a34f1e14d270bd9",
-    "src/fdai/core/scheduler/continuation.py": "2becf8e23a7a6f8508dc7daf62c2391bb45b024fd60c10231a89b3aef8402442",
+    "src/fdai/core/scheduler/continuation.py": "b70380802544443b270ccf0564313a02fd4ae8cf3ed150f1ef5912046c30f582",
     "src/fdai/core/scheduler/history.py": "391edf9334face827b5bbfdd0f52bc620e582c25f0195eea843ce0d3d07f4eb8",
     "src/fdai/core/scheduler/isolation.py": "ed2b0508b4a0b3d45931cd583aec834475d98fe0040dbbf48dc1957c46d668f4",
     "src/fdai/core/scheduler/models.py": "553560be76fd53f8c3d49671299f3b19356548b19c45146e280ba0a55b29ecec",
@@ -752,7 +752,7 @@
     "src/fdai/shared/providers/resource_lock.py": "bc35dc2ca393bb79646f9446f9da7b55a2480a71a8766ecf60abbee60ebb0158",
     "src/fdai/shared/providers/routed_metric.py": "4c057d612c3af3823333888194c665955a29b9acec193f100df5da4db4342207",
     "src/fdai/shared/providers/runbook_registry.py": "b569aaf03342e20fad17625ae4251f3ab4f675a283dc3908daf8fe472f136351",
-    "src/fdai/shared/providers/scheduled_continuation.py": "63d4401bfcf48e3a3fd9a050792b30c87fb092207b00baa91174a2de3246719d",
+    "src/fdai/shared/providers/scheduled_continuation.py": "82b29fe268e9fb72182f9b796e22b614a8fd164efd869f15a2eb4013163c1e95",
     "src/fdai/shared/providers/secret_provider.py": "9cae58e0301fe59890587c0faa4d9267df6935f694b354ee198e4584a4560aa4",
     "src/fdai/shared/providers/security_findings.py": "090d35915ea4131ad3a673152f98d36ff30b7c928cad14ab847971aa364f10b6",
     "src/fdai/shared/providers/shell_checker.py": "06d543e10d3bf94e27fefbbd008690bfb114a51a8249f18cbff3c0df6554eef4",
@@ -806,7 +806,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-28T02:06:26Z",
+  "generated_at": "2026-07-28T02:17:10Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

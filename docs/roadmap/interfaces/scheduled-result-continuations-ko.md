@@ -1,7 +1,7 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: c416cc0473c0644d53d3eb9c8bd6ca07ca53ca6a
-translation_revised: 2026-07-21
+translation_source_sha: 8dca585e8c8f867cbae7eb8bb272ee9f1126ec34
+translation_revised: 2026-07-28
 ---
 # 예약 결과 이어가기
 
@@ -126,10 +126,12 @@ Anchor creation, access denial, successful continuation, expiry는 기존 hash-c
 event를 추가합니다. Event는 result body를 복사하지 않고 anchor id, authenticated principal,
 timestamp, stable idempotency key를 기록합니다.
 
-Expiry는 즉시 resolution을 사용할 수 없게 하며 CAS 상태 변경은 shipped behavior입니다. Source
-scheduled result, anchor, projected conversation entry를 legal-hold-aware transaction으로 함께 물리
-삭제하는 retention worker는 아직 구현되지 않았습니다. 그 worker가 추가되기 전에는 expiry를
-physical deletion 또는 legal-hold enforcement 완료로 표현하면 안 됩니다.
+Expiry는 즉시 resolution을 사용할 수 없게 하며 CAS 상태 변경은 shipped behavior입니다. 동시
+expiry 요청은 하나의 상태 변경으로 합쳐지고 CAS winner만 expiry audit event를 추가합니다. CAS
+loser는 두 번째 상태 변경을 주장하지 않고 이미 expired인 anchor를 확인합니다. Source scheduled
+result, anchor, projected conversation entry를 legal-hold-aware transaction으로 함께 물리 삭제하는
+retention worker는 아직 구현되지 않았습니다. 그 worker가 추가되기 전에는 expiry를 physical
+deletion 또는 legal-hold enforcement 완료로 표현하면 안 됩니다.
 
 ## 검증
 
@@ -140,7 +142,7 @@ physical deletion 또는 legal-hold enforcement 완료로 표현하면 안 됩�
 - Anchor creation 및 schedule advance 전에 result persistence가 완료됩니다.
 - Web delivery retry collapse와 Slack/Teams thread-mode parity입니다.
 - Typed-fact provenance와 instruction authority가 없다는 명시적 계약입니다.
-- PostgreSQL row codec, compare-and-set expiry, migration head, 환경 조건부 live test입니다.
+- PostgreSQL row codec, compare-and-set expiry, 동시 winner-only audit, migration head, 환경 조건부 live test입니다.
 
 ## 관련 문서
 
