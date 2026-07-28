@@ -6,6 +6,10 @@ guide. The **substantive contract** for what a PR MUST honor lives in
 and the sibling files under `.github/instructions/`; read those first
 if you have not already.
 
+For the local environment checklist - Azure `az login`, the optional
+private-network VPN, environment variables, and starting the local stack - see
+[DEVELOPING.md](DEVELOPING.md).
+
 ## Prerequisites
 
 - Python 3.13
