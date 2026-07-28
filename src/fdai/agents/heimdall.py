@@ -123,7 +123,7 @@ class Heimdall(Agent):
         self.bus = bus
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
-        self._recent_events: dict[str, deque[tuple[float, str, str, str]]] = {}
+        self._recent_events: dict[str, deque[tuple[float, str, str, str, str]]] = {}
         self._security_recent: deque[dict[str, Any]] = deque(maxlen=security_window_events)
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
@@ -415,13 +415,14 @@ class Heimdall(Agent):
                 str(event.get("event_type", "generic")),
                 str(event.get("correlation_id") or "").strip(),
                 _event_severity(event),
+                str(event.get("idempotency_key") or event.get("event_id") or "").strip(),
             )
         )
         if len(history) < self._rate_threshold:
             return
         window_tail = list(history)[-self._rate_threshold :]
-        event_types = {event_type for _, event_type, _, _ in window_tail}
-        correlation_ids = {correlation_id for _, _, correlation_id, _ in window_tail}
+        event_types = {event_type for _, event_type, _, _, _ in window_tail}
+        correlation_ids = {correlation_id for _, _, correlation_id, _, _ in window_tail}
         if len(event_types) == 1 and len(correlation_ids) == 1:
             incident_correlation = (
                 str(event.get("incident_correlation") or "correlate").strip().casefold()
@@ -434,7 +435,7 @@ class Heimdall(Agent):
                 "event_type": window_tail[0][1],
                 "count_in_window": self._rate_threshold,
                 "severity": min(
-                    (severity for _, _, _, severity in window_tail),
+                    (severity for _, _, _, severity, _ in window_tail),
                     key=_SEVERITY_RANK.__getitem__,
                 ),
                 "incident_correlation": incident_correlation,
@@ -449,14 +450,17 @@ class Heimdall(Agent):
                 if not str(event.get("correlation_id") or "").strip():
                     self.record_behavior("incident_candidate_missing_correlation")
                     return
-                evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "")
-                if not evidence_key:
+                if any(not evidence_key for _, _, _, _, evidence_key in window_tail):
                     self.record_behavior("incident_candidate_missing_evidence")
                     return
+                evidence_keys = tuple(
+                    dict.fromkeys(evidence_key for _, _, _, _, evidence_key in window_tail)
+                )
                 candidate = {
                     **anomaly,
                     "reason_code": "repeated_event_threshold",
-                    "evidence_key": evidence_key,
+                    "evidence_key": evidence_keys[-1],
+                    "evidence_keys": evidence_keys,
                 }
                 try:
                     await self._incident_candidate_hook(candidate)
@@ -590,7 +594,7 @@ class Heimdall(Agent):
         if resources:
             rid = resources[0]
             history = list(self._recent_events[rid])
-            event_types = sorted({event_type for _, event_type, _, _ in history})
+            event_types = sorted({event_type for _, event_type, _, _, _ in history})
             facts.update(
                 {
                     "resource_id": rid,

@@ -70,7 +70,7 @@ def evaluate_incident_auto_open(
         return IncidentAutoOpenDecision(False, "incident_correlation_disabled")
     if not _text(candidate, "correlation_id"):
         return IncidentAutoOpenDecision(False, "correlation_missing")
-    if not _text(candidate, "evidence_key"):
+    if not _evidence_keys(candidate):
         return IncidentAutoOpenDecision(False, "evidence_missing")
     if not _text(candidate, "resource_id"):
         return IncidentAutoOpenDecision(False, "resource_missing")
@@ -108,7 +108,9 @@ async def open_detected_incident_candidate(
             correlation_id=_text(candidate, "correlation_id"),
         ),
         severity=decision.severity,
-        member_event_ids=(detected_incident_event_id(_text(candidate, "evidence_key")),),
+        member_event_ids=tuple(
+            detected_incident_event_id(evidence_key) for evidence_key in _evidence_keys(candidate)
+        ),
         reason=_text(candidate, "reason_code") or "repeated_event_threshold",
     )
 
@@ -116,6 +118,21 @@ async def open_detected_incident_candidate(
 def _text(candidate: Mapping[str, object], key: str) -> str:
     value = candidate.get(key)
     return value.strip() if isinstance(value, str) else ""
+
+
+def _evidence_keys(candidate: Mapping[str, object]) -> tuple[str, ...]:
+    if "evidence_keys" not in candidate:
+        evidence_key = _text(candidate, "evidence_key")
+        return (evidence_key,) if evidence_key else ()
+    raw = candidate.get("evidence_keys")
+    if not isinstance(raw, (list, tuple)):
+        return ()
+    normalized: list[str] = []
+    for value in raw:
+        if not isinstance(value, str) or not value.strip():
+            return ()
+        normalized.append(value.strip())
+    return tuple(dict.fromkeys(normalized))
 
 
 __all__ = [

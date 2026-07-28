@@ -44,6 +44,7 @@ def test_default_policy_holds_medium_candidate_and_accepts_high() -> None:
         ({"incident_correlation": "none"}, "incident_correlation_disabled"),
         ({"correlation_id": ""}, "correlation_missing"),
         ({"evidence_key": ""}, "evidence_missing"),
+        ({"evidence_keys": ("",)}, "evidence_missing"),
         ({"resource_id": ""}, "resource_missing"),
         ({"event_type": ""}, "event_type_missing"),
     ],
@@ -126,3 +127,20 @@ async def test_shared_helper_opens_high_candidate_once_with_recorded_severity() 
     assert replay is not None and replay.created is False
     assert first.incident.severity is IncidentSeverity.SEV2
     assert len(registry.snapshot()) == 1
+
+
+async def test_shared_helper_preserves_all_burst_members() -> None:
+    registry = IncidentRegistry(state_store=InMemoryStateStore())
+    workflow = IncidentLifecycleWorkflow(
+        registry=registry,
+        allowed_agent_principals={"Heimdall"},
+    )
+
+    result = await open_detected_incident_candidate(
+        workflow=workflow,
+        candidate=_candidate(evidence_keys=("evidence-1", "evidence-2")),
+        policy=IncidentAutoOpenPolicy(),
+    )
+
+    assert result is not None
+    assert len(result.incident.member_event_ids) == 2

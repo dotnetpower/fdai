@@ -257,8 +257,8 @@ operations / interface), `3` = governance staff.
 
 Heimdall owns deterministic forecast episode evaluation and closure. Its repeated-event detector can also call an optional
 `incident_candidate_hook` after it emits the authoritative anomaly. The hook
-carries the normalized resource, event type, correlation, severity, reason
-code, and evidence key to the composition-owned `IncidentLifecycleWorkflow`.
+carries the normalized resource, event type, correlation, worst severity, reason
+code, and all burst evidence keys to the composition-owned `IncidentLifecycleWorkflow`.
 Only events from one correlation episode repeated inside the configured rate window form one
 anomaly at the worst observed severity; sparse samples and independent episodes never combine. A routine heartbeat,
 healthy probe, or within-threshold observation creates neither a finding nor an

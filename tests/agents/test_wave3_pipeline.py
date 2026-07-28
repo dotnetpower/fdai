@@ -1408,3 +1408,28 @@ def test_heimdall_uses_worst_severity_in_burst_window() -> None:
     anomaly = bus.messages_on("object.anomaly")[0].payload
     assert anomaly["severity"] == "critical"
     assert candidates[0]["severity"] == "critical"
+
+
+def test_heimdall_preserves_all_burst_evidence_keys() -> None:
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> None:
+        candidates.append(candidate)
+
+    heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=capture)
+    for index in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "episode-1",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": "high",
+                },
+            )
+        )
+
+    assert candidates[0]["evidence_keys"] == ("failure-0", "failure-1")
