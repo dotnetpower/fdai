@@ -62,6 +62,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 from urllib.parse import urlparse
+from uuid import UUID
 
 import httpx
 
@@ -114,8 +115,16 @@ class AzureActivityLogFactoryConfig:
     or in-progress operation never mutates the ontology graph."""
 
     def __post_init__(self) -> None:
-        if not self.subscription_scope:
-            raise ValueError("AzureActivityLogFactoryConfig.subscription_scope MUST be non-empty")
+        try:
+            canonical_scope = str(UUID(self.subscription_scope))
+        except (AttributeError, ValueError) as exc:
+            raise ValueError(
+                "AzureActivityLogFactoryConfig.subscription_scope MUST be a canonical UUID"
+            ) from exc
+        if canonical_scope != self.subscription_scope.casefold():
+            raise ValueError(
+                "AzureActivityLogFactoryConfig.subscription_scope MUST be a canonical UUID"
+            )
         parsed_endpoint = urlparse(self.arg_endpoint)
         if parsed_endpoint.scheme != "https" or not parsed_endpoint.netloc:
             raise ValueError(

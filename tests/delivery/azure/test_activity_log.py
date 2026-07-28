@@ -411,6 +411,15 @@ def test_config_rejects_empty_subscription() -> None:
         _config(subscription_scope="")
 
 
+@pytest.mark.parametrize(
+    "subscription_scope",
+    ["../other?api-version=unsafe", "00000000000000000000000000000001"],
+)
+def test_config_rejects_noncanonical_subscription_scope(subscription_scope: str) -> None:
+    with pytest.raises(ValueError, match="canonical UUID"):
+        _config(subscription_scope=subscription_scope)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "bad_cursor",
