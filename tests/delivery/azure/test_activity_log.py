@@ -175,6 +175,44 @@ async def test_delete_event_is_not_upserted_and_still_advances_cursor() -> None:
 
 
 @pytest.mark.asyncio
+async def test_equal_timestamp_dedup_is_independent_of_page_order() -> None:
+    vocab = _vocab()
+    _, arm_type = _arm_type_for(vocab)
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001"
+        f"/resourceGroups/rg-a/providers/{arm_type}/thing-tied"
+    )
+    events = [
+        {
+            "resourceId": arm_id,
+            "resourceType": {"value": arm_type},
+            "operationName": {"value": f"{arm_type}/write"},
+            "status": {"value": "Succeeded"},
+            "eventTimestamp": "2026-07-10T06:45:00Z",
+            "caller": caller,
+        }
+        for caller in ("alpha@example.com", "zulu@example.com")
+    ]
+    calls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        ordered = events if calls == 0 else list(reversed(events))
+        calls += 1
+        return httpx.Response(200, json={"value": ordered})
+
+    factory, client, _ = _factory(handler)
+    fetch = factory.build_fetch_fn()
+    try:
+        first = await fetch("2026-07-10T05:00:00+00:00")
+        second = await fetch("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+    assert first.resources == second.resources
+
+
+@pytest.mark.asyncio
 async def test_nextlink_paging_encodes_running_max() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)

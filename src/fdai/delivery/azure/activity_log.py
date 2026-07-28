@@ -56,6 +56,7 @@ Safety / cost invariants
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -246,7 +247,7 @@ class AzureActivityLogFactory:
 
         # Dedupe within the page by neutral resource id, keeping the newest
         # event so a resource written twice in one page upserts once.
-        by_id: dict[str, tuple[datetime, ResourceRecord]] = {}
+        by_id: dict[str, tuple[datetime, str, ResourceRecord]] = {}
         page_max: datetime | None = None
         for event in events:
             if not isinstance(event, Mapping):
@@ -256,11 +257,12 @@ class AzureActivityLogFactory:
             if mapped is None:
                 continue
             at, record = mapped
+            tie_breaker = _record_tie_breaker(record)
             prior = by_id.get(record.resource_id)
-            if prior is None or at >= prior[0]:
-                by_id[record.resource_id] = (at, record)
+            if prior is None or (at, tie_breaker) > (prior[0], prior[1]):
+                by_id[record.resource_id] = (at, tie_breaker, record)
 
-        resources = tuple(rec for _, rec in by_id.values())
+        resources = tuple(by_id[resource_id][2] for resource_id in sorted(by_id))
         return resources, page_max
 
     def _map_one(self, event: Mapping[str, Any]) -> tuple[datetime, ResourceRecord] | None:
@@ -314,6 +316,20 @@ class AzureActivityLogFactory:
 def _activity_log_timestamp(value: datetime) -> str:
     """Serialize an Activity Log filter timestamp in Azure's accepted UTC form."""
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _record_tie_breaker(record: ResourceRecord) -> str:
+    return json.dumps(
+        {
+            "type": record.type,
+            "props": dict(record.props),
+            "provider_ref": record.provider_ref,
+            "last_seen": record.last_seen,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
 
 
 def _decode_cursor(cursor: str) -> tuple[datetime | None, str | None]:

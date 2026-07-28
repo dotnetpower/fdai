@@ -252,7 +252,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   resource read remain incomplete until an ARG or ARM hydration adapter supplies them. Event Grid
   remains authoritative for resource deletion. The upsert-only Activity Log adapter skips delete
   operations instead of resurrecting the resource, but still advances its page cursor from every
-  valid event timestamp so filtered records cannot stall the stream.
+  valid event timestamp so filtered records cannot stall the stream. Multiple records for one
+  resource use event time and then a canonical resource document as a deterministic tie-breaker;
+  each page emits resources in `resource_id` order.
   PostgreSQL projector applies each resource and its relationship changes in one transaction.
   Writers acquire locks in a fixed hierarchy: the snapshot-promotion shared gate, the graph
   reconciliation gate, then sorted locks for the changed resource and every relationship endpoint.
