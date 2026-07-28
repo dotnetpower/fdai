@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import TextIO
 
@@ -29,6 +30,10 @@ def _render_line(raw: str, output_format: str) -> str:
     if isinstance(exception, str) and exception:
         rendered = f"{rendered}\n{exception}"
     return rendered
+
+
+def _timestamp_lines(rendered: str, captured_at: str) -> str:
+    return "\n".join(f"[{captured_at}] {line}" for line in rendered.split("\n"))
 
 
 def _open_log(path: Path) -> TextIO:
@@ -61,7 +66,9 @@ def main() -> int:
         for raw in sys.stdin:
             sys.stdout.write(raw)
             sys.stdout.flush()
-            handle.write(_render_line(raw, args.format))
+            captured_at = datetime.now().astimezone().isoformat(timespec="seconds")
+            rendered = _render_line(raw, args.format)
+            handle.write(_timestamp_lines(rendered, captured_at))
             handle.write("\n")
             lines_since_check += 1
             if lines_since_check >= 100:

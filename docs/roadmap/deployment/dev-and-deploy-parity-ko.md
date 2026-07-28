@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 356ab69942f453dad6b1457afb3e6059fc03750a
+translation_source_sha: 78205629369c9bcca3040782b5a25d71e84aeb80
 translation_revised: 2026-07-28
 ---
 
@@ -98,7 +98,8 @@ retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 �
 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
 answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
 장기 실행 core 및 read API task의 terminal output은 `.fdai/logs/core-runtime.log`와
-`.fdai/logs/read-api.log`에 보존됩니다. 각 log는 service 시작 및 중지 timestamp와 child exit code를
+`.fdai/logs/read-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 local UTC offset을 포함한
+RFC 3339 timestamp로 시작합니다. 각 log는 service 시작 및 중지 timestamp와 child exit code도
 기록하고 private local permission을 사용하며, 10 MiB에서 회전하여 이전 세대 하나를 유지합니다.
 Git에서 제외된 이 진단 log는 task terminal이 닫혀도 유지되며 structured warning 및 error record인
 `warnings.jsonl`을 대체하지 않습니다. Core terminal은 machine-readable JSON stream을 유지하지만,

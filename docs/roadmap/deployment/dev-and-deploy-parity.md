@@ -96,12 +96,13 @@ initial Event Hubs group join. Requests carry salted SHA-256 user and session re
 timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
 specialist answer.
 The long-running core and read API tasks preserve their terminal output in
-`.fdai/logs/core-runtime.log` and `.fdai/logs/read-api.log`. Each log records service start and stop
-timestamps plus the child exit code, uses private local permissions, and rotates at 10 MiB with one
-previous generation retained. These gitignored diagnostics survive a task terminal closing; they
-don't replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
-machine-readable JSON stream, while the core file renders those records as `LEVEL: logger: message`
-lines to match the read API log. Startup model latency probes use a bounded Azure Responses API
+`.fdai/logs/core-runtime.log` and `.fdai/logs/read-api.log`. Every captured child-output line begins
+with an RFC 3339 timestamp carrying the local UTC offset. Each log also records service start and
+stop timestamps plus the child exit code, uses private local permissions, and rotates at 10 MiB
+with one previous generation retained. These gitignored diagnostics survive a task terminal
+closing; they don't replace the structured `warnings.jsonl` warning and error record. The core
+terminal keeps its machine-readable JSON stream, while the core file renders those records as
+`LEVEL: logger: message` lines to match the read API log. Startup model latency probes use a bounded Azure Responses API
 output-token budget supported by every configured reasoning candidate and stable
 `read-api:*:latency-probe` correlation ids, so their measured usage isn't filed as uncorrelated
 traffic.
