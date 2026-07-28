@@ -59,6 +59,14 @@ def test_detected_incident_keys_are_grounded_and_investigation_scoped() -> None:
         detected_incident_event_id(" ")
 
 
+@pytest.mark.parametrize("invalid_key", ["resource:a|b", "resource:a\0b"])
+def test_manual_incident_anchor_rejects_ambiguous_key_delimiters(invalid_key: str) -> None:
+    from fdai.core.incident.workflow_support import manual_incident_event_id
+
+    with pytest.raises(ValueError, match="delimiter"):
+        manual_incident_event_id((invalid_key, "signal:c"))
+
+
 def _operator(role: Role = Role.CONTRIBUTOR) -> Principal:
     return Principal(id="operator@example.com", role=role)
 

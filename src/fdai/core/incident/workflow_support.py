@@ -11,6 +11,14 @@ _CREATE_FLOOR = "contributor"
 _ROLE_RANK = {"reader": 0, "contributor": 1, "approver": 2, "owner": 3}
 
 
+def canonical_incident_correlation_keys(correlation_keys: Iterable[str]) -> tuple[str, ...]:
+    """Return stable keys while rejecting ambiguous UUID5 delimiters."""
+    canonical = tuple(sorted({key for key in correlation_keys if key}))
+    if any("|" in key or "\0" in key for key in canonical):
+        raise ValueError("incident correlation key contains a reserved delimiter")
+    return canonical
+
+
 def require_incident_operator(principal: IncidentOperatorPrincipal) -> None:
     role_value = str(getattr(principal.role, "value", principal.role)).lower()
     if _ROLE_RANK.get(role_value, -1) < _ROLE_RANK[_CREATE_FLOOR]:
@@ -20,7 +28,7 @@ def require_incident_operator(principal: IncidentOperatorPrincipal) -> None:
 
 
 def manual_incident_event_id(correlation_keys: Iterable[str]) -> UUID:
-    canonical = "|".join(sorted(set(correlation_keys)))
+    canonical = "|".join(canonical_incident_correlation_keys(correlation_keys))
     return uuid5(NAMESPACE_URL, "fdai.incident.manual://" + canonical)
 
 
@@ -51,6 +59,7 @@ def detected_incident_correlation_keys(
 
 
 __all__ = [
+    "canonical_incident_correlation_keys",
     "detected_incident_correlation_keys",
     "detected_incident_event_id",
     "manual_incident_event_id",

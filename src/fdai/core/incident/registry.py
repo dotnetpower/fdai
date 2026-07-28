@@ -44,6 +44,7 @@ from .replay import (
     rehydrate_incidents,
 )
 from .state_machine import IncidentStateMachine, IncidentTransition
+from .workflow_support import canonical_incident_correlation_keys
 
 _SCHEMA_VERSION = "1.0.0"
 _SEVERITY_RANK = {
@@ -81,7 +82,7 @@ def incident_id_for(correlation_keys: Iterable[str]) -> UUID:
     Empty input raises ``ValueError`` (a correlation-less incident has
     no anchor).
     """
-    canonical = tuple(sorted({k for k in correlation_keys if k}))
+    canonical = canonical_incident_correlation_keys(correlation_keys)
     if not canonical:
         raise ValueError("incident_id_for requires at least one correlation key")
     name = "fdai.incident://" + "|".join(canonical)

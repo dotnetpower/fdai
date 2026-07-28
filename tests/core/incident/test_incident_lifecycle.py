@@ -43,6 +43,12 @@ def test_incident_id_is_deterministic_over_key_set_permutations() -> None:
     assert a == b == c
 
 
+@pytest.mark.parametrize("invalid_key", ["a|b", "a\0b"])
+def test_incident_id_rejects_ambiguous_key_delimiters(invalid_key: str) -> None:
+    with pytest.raises(ValueError, match="delimiter"):
+        incident_id_for([invalid_key, "c"])
+
+
 def test_incident_id_requires_at_least_one_key() -> None:
     with pytest.raises(ValueError, match="at least one correlation key"):
         incident_id_for([])
