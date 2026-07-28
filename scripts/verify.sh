@@ -33,6 +33,7 @@ set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 1
+export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
 
 MODE="fast"
 PYTEST_PATH=""

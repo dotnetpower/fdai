@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
+export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
 
 coverage_args=(
   --cov
