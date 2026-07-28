@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any
 
 import psycopg
@@ -41,6 +43,16 @@ _EFFECTIVE_RESOURCE_TYPES_QUERY = (
     "SELECT resource_id, resource_type FROM effective_resources "
     "WHERE resource_id=ANY(%s::text[])"
 )
+_LOGGER = logging.getLogger(__name__)
+
+
+class InventoryDeltaApplyOutcome(StrEnum):
+    """Reason one inventory delta projection returned."""
+
+    APPLIED = "applied"
+    NOT_APPLICABLE = "not_applicable"
+    ORDERING_REJECTED = "ordering_rejected"
+    SNAPSHOT_COVERED = "snapshot_covered"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +61,7 @@ class InventoryDeltaApplyResult:
 
     resources: int
     links: int
+    outcome: InventoryDeltaApplyOutcome
 
 
 class PostgresInventoryDeltaProjector:
@@ -74,7 +87,11 @@ class PostgresInventoryDeltaProjector:
     async def __call__(self, payload: Mapping[str, Any]) -> InventoryDeltaApplyResult:
         change = _inventory_change(payload)
         if change is None:
-            return InventoryDeltaApplyResult(resources=0, links=0)
+            return InventoryDeltaApplyResult(
+                resources=0,
+                links=0,
+                outcome=InventoryDeltaApplyOutcome.NOT_APPLICABLE,
+            )
         change_kind = _choice(change, "kind", _CHANGE_KINDS)
         resource = _mapping(change, "resource")
         resource_id = _required_str(resource, "resource_id")
@@ -126,7 +143,12 @@ class PostgresInventoryDeltaProjector:
                         "active snapshot coverage"
                     )
                 if observed_at <= coverage["started_at"]:
-                    return InventoryDeltaApplyResult(resources=0, links=0)
+                    _log_ignored_delta(event_id, InventoryDeltaApplyOutcome.SNAPSHOT_COVERED)
+                    return InventoryDeltaApplyResult(
+                        resources=0,
+                        links=0,
+                        outcome=InventoryDeltaApplyOutcome.SNAPSHOT_COVERED,
+                    )
                 await _acquire_resource_locks(
                     connection,
                     (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
@@ -159,7 +181,12 @@ class PostgresInventoryDeltaProjector:
                     ),
                 )
                 if resource_cursor.rowcount <= 0:
-                    return InventoryDeltaApplyResult(resources=0, links=0)
+                    _log_ignored_delta(event_id, InventoryDeltaApplyOutcome.ORDERING_REJECTED)
+                    return InventoryDeltaApplyResult(
+                        resources=0,
+                        links=0,
+                        outcome=InventoryDeltaApplyOutcome.ORDERING_REJECTED,
+                    )
                 effective_links = await _reconcile_links(
                     connection,
                     snapshot_id=str(coverage["id"]),
@@ -220,6 +247,7 @@ class PostgresInventoryDeltaProjector:
         return InventoryDeltaApplyResult(
             resources=max(0, resource_cursor.rowcount),
             links=applied_links,
+            outcome=InventoryDeltaApplyOutcome.APPLIED,
         )
 
     async def _connect(self) -> psycopg.AsyncConnection[Any]:
@@ -465,4 +493,15 @@ def _prefer_incoming_change(
     return current_event_id < incoming_event_id
 
 
-__all__ = ["InventoryDeltaApplyResult", "PostgresInventoryDeltaProjector"]
+def _log_ignored_delta(event_id: str, outcome: InventoryDeltaApplyOutcome) -> None:
+    _LOGGER.info(
+        "inventory_delta_ignored",
+        extra={"event_id": event_id, "reason": outcome.value},
+    )
+
+
+__all__ = [
+    "InventoryDeltaApplyOutcome",
+    "InventoryDeltaApplyResult",
+    "PostgresInventoryDeltaProjector",
+]

@@ -280,6 +280,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   While any realtime resource overlay remains pending, graph freshness is `unknown` and the read
   projection is degraded even when the base snapshot is within budget. A complete reconciliation
   promotion clears covered overlays and restores snapshot-derived freshness.
+  Each projector result carries a typed outcome: `applied`, `not_applicable`, `snapshot_covered`,
+  or `ordering_rejected`. Snapshot and ordering suppression also emit `inventory_delta_ignored`
+  with the event id and bounded reason, so a safe no-op is distinguishable from an applied update.
   An absent or false `links_complete` never removes an unobserved relationship. Snapshot promotion
   keeps the exclusive promotion gate and therefore cannot overlap any delta transaction. The
   dedicated Inventory sync job queries Azure Resource Graph with ARM fallback every six hours by

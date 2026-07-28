@@ -10,6 +10,7 @@ import pytest
 from fdai.delivery.persistence.postgres_inventory_delta import (
     _GRAPH_RECONCILIATION_LOCK,
     _RESOURCE_LOCK_SEED,
+    InventoryDeltaApplyOutcome,
     PostgresInventoryDeltaProjector,
     _acquire_inventory_locks,
     _covered_resource_types,
@@ -23,6 +24,16 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 )
 
 _NOW = datetime(2026, 7, 25, 12, 0, tzinfo=UTC)
+
+
+async def test_payload_without_inventory_change_is_not_applicable() -> None:
+    projector = PostgresInventoryDeltaProjector(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    result = await projector({})
+
+    assert result.outcome is InventoryDeltaApplyOutcome.NOT_APPLICABLE
 
 
 def _payload(

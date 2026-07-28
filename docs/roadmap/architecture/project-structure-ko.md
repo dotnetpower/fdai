@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7c0dc5da036a5ec873559cc88f6486dbfdf2d3de
+translation_source_sha: 260190b8717a2eef565529646f7c16300ec28fe3
 translation_revised: 2026-07-28
 ---
 
@@ -276,6 +276,9 @@ fdai/
   realtime resource overlay가 하나라도 pending 상태이면 base snapshot이 freshness budget 안에 있어도
   graph freshness는 `unknown`이고 read projection은 degraded 상태입니다. 완전한 reconciliation
   promotion이 포함된 overlay를 정리하면 snapshot 기반 freshness가 복원됩니다.
+  각 projector 결과에는 `applied`, `not_applicable`, `snapshot_covered`, `ordering_rejected` typed
+  outcome이 포함됩니다. Snapshot 및 ordering suppression은 event id와 bounded reason을 포함한
+  `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 update를 구분할 수 있게 합니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은
   exclusive promotion gate를 유지하므로 어떤 delta transaction과도 동시에 실행되지 않습니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한

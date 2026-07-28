@@ -12,6 +12,7 @@ import psycopg
 import pytest
 
 from fdai.delivery.persistence.postgres_inventory_delta import (
+    InventoryDeltaApplyOutcome,
     PostgresInventoryDeltaProjector,
     _acquire_inventory_gate,
     _acquire_inventory_locks,
@@ -366,8 +367,8 @@ async def test_stale_resource_delete_does_not_tombstone_current_relationships() 
     )
     await store.promote(attempt, manifest)
 
-    async def project(event_id: str, kind: str, seconds: int) -> None:
-        await projector(
+    async def project(event_id: str, kind: str, seconds: int) -> InventoryDeltaApplyOutcome:
+        result = await projector(
             {
                 "event_id": event_id,
                 "idempotency_key": f"inventory-stale-{event_id}",
@@ -384,9 +385,10 @@ async def test_stale_resource_delete_does_not_tombstone_current_relationships() 
                 },
             }
         )
+        return result.outcome
 
-    await project("event-newer", "upsert", 2)
-    await project("event-stale", "delete", 1)
+    assert await project("event-newer", "upsert", 2) is InventoryDeltaApplyOutcome.APPLIED
+    assert await project("event-stale", "delete", 1) is InventoryDeltaApplyOutcome.ORDERING_REJECTED
 
     async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
         resource_cursor = await connection.execute(
@@ -647,6 +649,7 @@ async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> No
 
     assert result.resources == 0
     assert result.links == 0
+    assert result.outcome is InventoryDeltaApplyOutcome.SNAPSHOT_COVERED
     context = await context_provider("rg-stale/vm")
     assert context is not None
     assert context["props"] == {"name": "snapshot"}
