@@ -73,6 +73,7 @@ class PostgresInventorySnapshotStore:
     async def begin(self, manifest: InventoryCoverageManifest) -> str:
         attempt_id = str(uuid4())
         started = manifest.started_at or datetime.now(tz=UTC)
+        metadata_json = _canonical_json_mapping(manifest.metadata, "snapshot metadata")
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
@@ -92,7 +93,7 @@ class PostgresInventorySnapshotStore:
                         manifest.observation_kind.value,
                         json.dumps(manifest.scopes),
                         json.dumps(manifest.resource_types),
-                        json.dumps(dict(manifest.metadata), default=str),
+                        metadata_json,
                         started,
                     ),
                 )
@@ -101,6 +102,29 @@ class PostgresInventorySnapshotStore:
     async def stage(self, attempt_id: str, batch: InventoryBatch) -> None:
         if batch.final:
             raise ValueError("terminal inventory fences are not staged")
+        resource_rows = [
+            (
+                attempt_id,
+                item.resource_id,
+                item.type,
+                _canonical_json_mapping(item.props, "snapshot resource props"),
+                item.provider_ref,
+                item.last_seen,
+            )
+            for item in batch.resources
+        ]
+        link_rows = [
+            (
+                attempt_id,
+                item.from_id,
+                item.from_type,
+                item.link_type,
+                item.to_id,
+                item.to_type,
+                _canonical_json_mapping(item.link_props, "snapshot relationship props"),
+            )
+            for item in batch.links
+        ]
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
@@ -116,17 +140,7 @@ class PostgresInventorySnapshotStore:
                         "EXCLUDED.resource_type THEN EXCLUDED.resource_type ELSE NULL END, "
                         "props = EXCLUDED.props, provider_ref = EXCLUDED.provider_ref, "
                         "last_seen = EXCLUDED.last_seen",
-                        [
-                            (
-                                attempt_id,
-                                item.resource_id,
-                                item.type,
-                                json.dumps(dict(item.props), default=str),
-                                item.provider_ref,
-                                item.last_seen,
-                            )
-                            for item in batch.resources
-                        ],
+                        resource_rows,
                     )
                 if batch.links:
                     cursor = connection.cursor()
@@ -137,22 +151,12 @@ class PostgresInventorySnapshotStore:
                         "ON CONFLICT (snapshot_id, from_id, link_type, to_id) DO UPDATE SET "
                         "from_type = EXCLUDED.from_type, to_type = EXCLUDED.to_type, "
                         "props = EXCLUDED.props",
-                        [
-                            (
-                                attempt_id,
-                                item.from_id,
-                                item.from_type,
-                                item.link_type,
-                                item.to_id,
-                                item.to_type,
-                                json.dumps(dict(item.link_props), default=str),
-                            )
-                            for item in batch.links
-                        ],
+                        link_rows,
                     )
 
     async def promote(self, attempt_id: str, manifest: InventoryCoverageManifest) -> None:
         completed = manifest.completed_at or datetime.now(tz=UTC)
+        metadata_json = _canonical_json_mapping(manifest.metadata, "snapshot metadata")
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
@@ -205,7 +209,7 @@ class PostgresInventorySnapshotStore:
                         completed,
                         json.dumps(manifest.scopes),
                         json.dumps(manifest.resource_types),
-                        json.dumps(dict(manifest.metadata), default=str),
+                        metadata_json,
                         attempt_id,
                     ),
                 )
@@ -255,6 +259,21 @@ class PostgresInventorySnapshotStore:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
+
+
+def _canonical_json_mapping(value: object, field: str) -> str:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field} MUST be an object")
+    try:
+        return json.dumps(
+            dict(value),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} MUST be JSON-compatible") from exc
 
 
 class PostgresInventoryGraphProvider:

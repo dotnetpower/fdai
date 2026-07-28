@@ -21,8 +21,11 @@ from fdai.delivery.persistence.postgres_inventory_delta import (
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
+    PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.shared.providers.inventory import InventoryBatch, LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest
 
 _NOW = datetime(2026, 7, 25, 12, 0, tzinfo=UTC)
 
@@ -42,6 +45,61 @@ def test_projector_rejects_reconciliation_cap_below_payload_cap() -> None:
             max_links=2,
             max_reconciled_links=1,
         )
+
+
+@pytest.mark.parametrize("invalid_props", [{"bad": object()}, {"bad": float("nan")}])
+async def test_snapshot_resource_props_must_be_deterministic_json_before_database_work(
+    invalid_props: dict[str, object],
+) -> None:
+    store = PostgresInventorySnapshotStore(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    with pytest.raises(ValueError, match="snapshot resource props MUST be JSON-compatible"):
+        await store.stage(
+            "attempt-one",
+            InventoryBatch(
+                resources=(ResourceRecord("resource-one", "compute.vm", invalid_props),)
+            ),
+        )
+
+
+async def test_snapshot_link_props_must_be_deterministic_json_before_database_work() -> None:
+    store = PostgresInventorySnapshotStore(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    with pytest.raises(ValueError, match="snapshot relationship props MUST be JSON-compatible"):
+        await store.stage(
+            "attempt-one",
+            InventoryBatch(
+                links=(
+                    LinkRecord(
+                        from_id="resource-one",
+                        from_type="compute.vm",
+                        link_type="depends_on",
+                        to_id="resource-two",
+                        to_type="postgresql",
+                        link_props={"bad": object()},
+                    ),
+                )
+            ),
+        )
+
+
+async def test_snapshot_metadata_must_be_deterministic_json_before_database_work() -> None:
+    store = PostgresInventorySnapshotStore(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+    manifest = InventoryCoverageManifest(
+        source="arg",
+        scopes=("scope-one",),
+        resource_types=("compute.vm",),
+        metadata={"bad": object()},
+    )
+
+    with pytest.raises(ValueError, match="snapshot metadata MUST be JSON-compatible"):
+        await store.begin(manifest)
 
 
 async def test_payload_without_inventory_change_is_not_applicable() -> None:
