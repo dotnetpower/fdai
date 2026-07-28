@@ -96,6 +96,11 @@ dependencies = [
 [project.optional-dependencies]
 # Development tooling. Concrete runtime deps still arrive with their own P0 tasks.
 dev = [
+    # Root integration tests exercise the independently packaged drivers through
+    # the public SDK/host boundary. Dev-only workspace bindings keep them out of
+    # the FDAI runtime wheel while making the repository suite self-contained.
+    "fdai-benchmark-cybergym>=0.1,<0.2",
+    "fdai-benchmark-sregym>=0.1,<0.2",
     # pytest floor is 9.0.3: pytest <= 9.0.2 uses a predictable
     # /tmp/pytest-of-{user} temp dir (CVE-2025-71176, local DoS/priv-esc).
     "pytest>=9.0.3,<10",
@@ -151,6 +156,8 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 fdai-evaluation-sdk = { workspace = true }
+fdai-benchmark-cybergym = { workspace = true }
+fdai-benchmark-sregym = { workspace = true }
 
 [tool.uv.workspace]
 members = ["evaluation-sdk", "benchmarks/sregym", "benchmarks/cybergym"]

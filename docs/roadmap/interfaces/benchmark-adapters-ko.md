@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ccafc4e003d754673c435e22a35a16ae6845be12
+translation_source_sha: 5d698f6e21a6781ba287a36f98c7b2be09ea4c96
 translation_revised: 2026-07-29
 ---
 
@@ -196,6 +196,10 @@ mypy 및 Ruff를 통과해야 합니다.
 ## 검증
 
 Integration을 개발할 때 다음 focused suite를 사용합니다.
+
+Root `dev` extra는 cross-package integration test를 collect할 수 있도록 두 driver distribution을
+workspace-only dependency로 bind합니다. FDAI runtime dependency에는 포함되지 않으며 각 wheel은 계속
+독립적으로 build할 수 있습니다. `uv sync --extra dev --frozen`으로 이 dev 환경을 준비합니다.
 
 ```bash
 .venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests tests/evaluation

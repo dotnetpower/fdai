@@ -194,6 +194,10 @@ SREGym, and CyberGym wheels independently.
 
 Use these focused suites while developing an integration:
 
+The root `dev` extra binds both driver distributions as workspace-only dependencies so
+`uv sync --extra dev --frozen` can collect the cross-package integration tests. They remain absent
+from FDAI runtime dependencies and independently buildable wheels.
+
 ```bash
 .venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests tests/evaluation
 PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src .venv/bin/python -m pytest \
