@@ -37,6 +37,19 @@ async def test_payload_without_inventory_change_is_not_applicable() -> None:
     assert result.outcome is InventoryDeltaApplyOutcome.NOT_APPLICABLE
 
 
+async def test_explicit_non_inventory_event_type_is_not_applicable() -> None:
+    projector = PostgresInventoryDeltaProjector(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused"),
+        clock=lambda: _NOW,
+    )
+    payload = _payload()
+    payload["event_type"] = "cost.anomaly"
+
+    result = await projector(payload)
+
+    assert result.outcome is InventoryDeltaApplyOutcome.NOT_APPLICABLE
+
+
 def test_apply_result_preserves_legacy_two_field_constructor() -> None:
     result = InventoryDeltaApplyResult(resources=1, links=2)
 

@@ -85,6 +85,13 @@ class PostgresInventoryDeltaProjector:
         self._max_links = max_links
 
     async def __call__(self, payload: Mapping[str, Any]) -> InventoryDeltaApplyResult:
+        event_type = payload.get("event_type")
+        if event_type is not None and event_type != "inventory.resource_changed":
+            return InventoryDeltaApplyResult(
+                resources=0,
+                links=0,
+                outcome=InventoryDeltaApplyOutcome.NOT_APPLICABLE,
+            )
         change = _inventory_change(payload)
         if change is None:
             return InventoryDeltaApplyResult(

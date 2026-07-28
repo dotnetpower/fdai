@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5832427a391437fa96a697612601726bf48071d8
+translation_source_sha: baff6f82a4cd97b46469257c0fa4327bd9b7a6cc
 translation_revised: 2026-07-28
 ---
 
@@ -292,6 +292,9 @@ fdai/
   outcome이 포함됩니다. Snapshot 및 ordering suppression은 event id와 bounded reason을 포함한
   `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 update를 구분할 수 있게 합니다. 기존
   two-field result 생성은 생략된 outcome을 `applied`로 기본 설정하여 호환성을 유지합니다.
+  Event type을 명시한 payload는 `inventory.resource_changed`인 경우에만 projection됩니다. 다른 domain
+  event에 `inventory_change` field가 있어도 `not_applicable`입니다. Direct legacy caller를 위해
+  `event_type` 생략은 계속 지원합니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은
   exclusive promotion gate를 유지하므로 어떤 delta transaction과도 동시에 실행되지 않습니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한
