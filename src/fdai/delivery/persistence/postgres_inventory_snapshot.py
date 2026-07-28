@@ -328,9 +328,11 @@ class PostgresInventoryGraphProvider:
         coverage_gaps.extend(f"link_type:{link_type}" for link_type in missing_links)
         if newer_failure is not None:
             coverage_gaps.append(str(newer_failure.get("failure_code") or "source_unavailable"))
-        degraded = freshness != "fresh" or bool(coverage_gaps)
         overlay_latest = overlay["latest_at"] if overlay is not None else None
         pending_changes = int(overlay["pending_changes"] or 0) if overlay is not None else 0
+        if pending_changes > 0:
+            freshness = "unknown"
+        degraded = freshness != "fresh" or bool(coverage_gaps)
         graph_links = [
             {"source": row["from_id"], "target": row["to_id"], "type": row["link_type"]}
             for row in links

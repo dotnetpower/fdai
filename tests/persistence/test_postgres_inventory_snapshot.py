@@ -566,6 +566,7 @@ async def test_realtime_overlay_makes_graph_freshness_unknown_until_reconciliati
     store = PostgresInventorySnapshotStore(config=config)
     projector = PostgresInventoryDeltaProjector(config=config)
     age_provider = PostgresInventoryAgeProvider(config=config)
+    graph_provider = PostgresInventoryGraphProvider(config=config)
 
     now = datetime.now(tz=UTC)
     manifest = InventoryCoverageManifest(
@@ -603,6 +604,9 @@ async def test_realtime_overlay_makes_graph_freshness_unknown_until_reconciliati
     )
 
     assert await age_provider("rg-fresh/vm") is None
+    graph = await graph_provider(None, 2, ("contains", "attached_to", "depends_on"))
+    assert graph["freshness"] == "unknown"
+    assert graph["degraded"] is True
 
 
 async def test_realtime_overlay_ignores_event_covered_by_active_snapshot() -> None:

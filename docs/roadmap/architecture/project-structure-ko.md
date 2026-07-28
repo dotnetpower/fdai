@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 93fbb61df477acdd61e2bbc8650d6f3a4d6a0b69
+translation_source_sha: 890afe6770039b78f9a3a87981d702e913a8f19b
 translation_revised: 2026-07-28
 ---
 
@@ -266,6 +266,9 @@ fdai/
   type이 해당 리소스와 일치해야 합니다. Endpoint가 없거나 모순되면 리소스와 관계 변경을 함께
   rollback합니다. 각 inventory change에는 `(from_id, link_type, to_id)` key별 entry가 최대 하나만
   포함되며 중복 key는 database I/O 전에 거부됩니다.
+  realtime resource overlay가 하나라도 pending 상태이면 base snapshot이 freshness budget 안에 있어도
+  graph freshness는 `unknown`이고 read projection은 degraded 상태입니다. 완전한 reconciliation
+  promotion이 포함된 overlay를 정리하면 snapshot 기반 freshness가 복원됩니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. Snapshot promotion은
   exclusive promotion gate를 유지하므로 어떤 delta transaction과도 동시에 실행되지 않습니다. 전용
   Inventory sync job은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM fallback을 사용해 완전한
