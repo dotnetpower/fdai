@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from fdai.core.verticals.cost_governance.finops import FinOpsActionKind
@@ -232,7 +233,29 @@ async def test_audit_overview_uses_latest_metric_observation_per_event() -> None
 
 
 async def test_audit_overview_reads_complete_window_beyond_page_limit() -> None:
-    model = InMemoryConsoleReadModel()
+    class CapturingReadModel(InMemoryConsoleReadModel):
+        window_starts: list[datetime] = []
+
+        async def list_audit(
+            self,
+            *,
+            limit: int = 50,
+            cursor: str | None = None,
+            correlation_id: str | None = None,
+            filters: AuditQueryFilters | None = None,
+        ) -> AuditPage:
+            if filters is not None:
+                assert filters.recorded_at_from is not None
+                assert filters.window_days is None
+                self.window_starts.append(filters.recorded_at_from)
+            return await super().list_audit(
+                limit=limit,
+                cursor=cursor,
+                correlation_id=correlation_id,
+                filters=filters,
+            )
+
+    model = CapturingReadModel()
     for index in range(501):
         model.record_audit_entry(
             {
@@ -247,6 +270,8 @@ async def test_audit_overview_reads_complete_window_beyond_page_limit() -> None:
     payload = await AuditAutonomyMeasurementPanel(model).render(params={})
 
     assert payload["sample_size"] == 501
+    assert len(model.window_starts) == 2
+    assert len(set(model.window_starts)) == 1
 
 
 async def test_audit_overview_excludes_rows_appended_after_snapshot_head() -> None:

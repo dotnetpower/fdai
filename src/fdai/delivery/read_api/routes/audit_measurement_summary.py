@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.delivery.read_api.read_model import (
@@ -67,7 +68,11 @@ async def _read_complete_window(
     if not head.items:
         return ()
     snapshot_seq = head.items[0].seq
-    filters = AuditQueryFilters(window_days=window_days, through_seq=snapshot_seq)
+    window_start = datetime.now(tz=UTC) - timedelta(days=window_days)
+    filters = AuditQueryFilters(
+        recorded_at_from=window_start,
+        through_seq=snapshot_seq,
+    )
     items: list[AuditItem] = []
     cursor: str | None = None
     while True:

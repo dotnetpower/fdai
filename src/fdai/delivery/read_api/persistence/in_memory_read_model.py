@@ -58,6 +58,13 @@ def audit_item_matches(item: AuditItem, filters: AuditQueryFilters) -> bool:
             return False
         if recorded < datetime.now(tz=UTC) - timedelta(days=filters.window_days):
             return False
+    if filters.recorded_at_from is not None:
+        try:
+            recorded = datetime.fromisoformat(item.recorded_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if recorded < filters.recorded_at_from:
+            return False
     return True
 
 

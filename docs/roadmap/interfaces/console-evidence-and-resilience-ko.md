@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 90683f84c662860130c8a50299cfb46412452bda
+translation_source_sha: 6101e5cbef246022c57c39a57ae9ed487c858fb8
 translation_revised: 2026-07-29
 ---
 
@@ -114,13 +114,14 @@ Auto-resolution value는 ratio 의미를 유지하므로 표시된 percentage cl
 Audit 기반 projection은 append-only audit의 head sequence를 캡처하고 해당 cutoff 아래 measurement
 window의 모든 row를 순회한 다음 control-loop 및 executor producer만 필터링합니다. Row를
 `event_id`로 묶어 정규화된 event마다 한 번만 계산합니다. Cutoff 이후의 concurrent append는
-snapshot에 들어오지 않으며 pagination은 query cost만 바꾸고 KPI membership은 바꾸지 않습니다.
-명시적인 `measurement.action_outcome.v1` record가 enforce, verified, auto, non-rollback action을
-finalize하고 complete event evidence에 사람 승인, 거부, 실행 실패 또는 rollback 신호가 없을 때만
-event를 auto-resolved로 계산합니다. Dispatch-only event는 pending으로 유지됩니다. Route는 observed,
-finalized, pending, adverse 및 auto-resolved count를 분리해 표시합니다. Auto-resolution rate는
-canonical total observed-event denominator를 유지하므로 pending 및 기타 non-auto event가 rate에서
-사라지지 않습니다.
+snapshot에 들어오지 않습니다. Request는 하나의 절대 UTC 하한 timestamp를 계산하고 모든 page에서
+같은 head sequence와 함께 재사용하므로 pagination은 query cost만 바꾸고 KPI membership은 바꾸지
+않습니다. 명시적인 `measurement.action_outcome.v1` record가 enforce, verified, auto, non-rollback
+action을 finalize하고 complete event evidence에 사람 승인, 거부, 실행 실패 또는 rollback 신호가
+없을 때만 event를 auto-resolved로 계산합니다. Dispatch-only event는 pending으로 유지됩니다.
+Route는 observed, finalized, pending, adverse 및 auto-resolved count를 분리해 표시합니다.
+Auto-resolution rate는 canonical total observed-event denominator를 유지하므로 pending 및 기타
+non-auto event가 rate에서 사라지지 않습니다.
 Vertical attribution은 먼저 명시적으로 기록된 vertical을 사용하고, 그다음 강한 Resilience 또는
 Cost Governance action/resource hint만 사용합니다. 추측 없이 귀속할 수 없는 evidence는
 `unattributed` row에 남고 global denominator에 포함되며 표시되는 attribution coverage를 낮춥니다.

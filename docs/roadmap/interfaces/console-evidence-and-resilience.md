@@ -112,13 +112,14 @@ be checked at the same rounded precision the operator sees.
 The audit-backed projection captures the append-only audit head sequence, traverses every row in
 the measurement window below that cutoff, then filters to control-loop and executor producers. It
 groups rows by `event_id` and counts each normalized event once. Concurrent appends after the cutoff
-don't enter the snapshot, and pagination changes only query cost, not KPI membership. An event is
-auto-resolved only after an explicit `measurement.action_outcome.v1` record finalizes an enforce,
-verified, auto, non-rollback action and the complete event evidence contains no human approval,
-denial, execution failure, or rollback signal. Dispatch-only events remain pending. The route shows
-observed, finalized, pending, adverse, and auto-resolved counts separately; the auto-resolution rate
-keeps the canonical total observed-event denominator, so pending and other non-auto events never
-disappear from the rate.
+don't enter the snapshot. The request computes one absolute UTC lower timestamp and reuses it with
+the same head sequence on every page, so pagination changes only query cost, not KPI membership. An
+event is auto-resolved only after an explicit `measurement.action_outcome.v1` record finalizes an
+enforce, verified, auto, non-rollback action and the complete event evidence contains no human
+approval, denial, execution failure, or rollback signal. Dispatch-only events remain pending. The
+route shows observed, finalized, pending, adverse, and auto-resolved counts separately; the
+auto-resolution rate keeps the canonical total observed-event denominator, so pending and other
+non-auto events never disappear from the rate.
 Vertical attribution uses an explicit recorded vertical first, then only strong Resilience or Cost
 Governance action/resource hints. Evidence that cannot be attributed without guessing remains in an
 `unattributed` row, contributes to the global denominator, and lowers the displayed attribution

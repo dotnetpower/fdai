@@ -7,6 +7,7 @@ import binascii
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any, Literal
 
 DEFAULT_LIMIT = 50
@@ -67,6 +68,7 @@ class AuditQueryFilters:
     outcome: str | None = None
     vertical: str | None = None
     window_days: int | None = None
+    recorded_at_from: datetime | None = None
     from_seq: int | None = None
     through_seq: int | None = None
 

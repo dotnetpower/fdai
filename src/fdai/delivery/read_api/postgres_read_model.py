@@ -183,6 +183,8 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                            CURRENT_TIMESTAMP - make_interval(
                               days => %(window_days)s::integer
                            ))
+                       AND (%(recorded_at_from)s::timestamptz IS NULL
+                           OR created_at >= %(recorded_at_from)s::timestamptz)
                      ORDER BY seq DESC
                      LIMIT %(fetch)s
                     """,
@@ -202,6 +204,7 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                             else None
                         ),
                         "window_days": active.window_days,
+                        "recorded_at_from": active.recorded_at_from,
                         "fetch": fetch,
                     },
                 )

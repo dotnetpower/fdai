@@ -184,6 +184,20 @@ class TestListAudit:
         assert [item.seq for item in page.items] == [2]
         assert [item.action_kind for item in page.items] == ["inside"]
 
+    async def test_absolute_recorded_at_lower_bound_is_inclusive(self) -> None:
+        model = InMemoryConsoleReadModel()
+        boundary = datetime(2026, 7, 6, tzinfo=UTC)
+        model.record_audit_entry(
+            _entry(action_kind="before", recorded_at=(boundary - timedelta(seconds=1)).isoformat())
+        )
+        model.record_audit_entry(
+            _entry(action_kind="at-boundary", recorded_at=boundary.isoformat())
+        )
+
+        page = await model.list_audit(filters=AuditQueryFilters(recorded_at_from=boundary))
+
+        assert [item.action_kind for item in page.items] == ["at-boundary"]
+
 
 class TestDashboardMetrics:
     async def test_empty_snapshot(self) -> None:
