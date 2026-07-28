@@ -162,6 +162,10 @@ export function shouldRefreshAuditForAgentMessage(message: AgentActivityMessage)
   );
 }
 
+export function shouldRefreshAuditForStreamStatus(status: AgentStreamStatus): boolean {
+  return status === "open";
+}
+
 export function AgentActivityRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<Data>>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
@@ -216,6 +220,10 @@ export function AgentActivityRoute({ client }: Props) {
       void loadAudit(false);
     },
   });
+
+  useEffect(() => {
+    if (shouldRefreshAuditForStreamStatus(streamStatus)) void loadAudit(false);
+  }, [streamStatus]);
 
   return (
     <div class="stack">

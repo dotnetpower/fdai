@@ -15,6 +15,7 @@ import {
   otherEntryFields,
   selectedAgentAuditEmptyBody,
   shouldRefreshAuditForAgentMessage,
+  shouldRefreshAuditForStreamStatus,
 } from "./agent-activity";
 import type { AgentNode, Incident } from "./agents.model";
 
@@ -111,6 +112,13 @@ describe("agent activity durable refresh", () => {
     expect(shouldRefreshAuditForAgentMessage(
       stateMessage("watching", "Processed aw.change.events"),
     )).toBe(true);
+  });
+
+  test("reloads durable audit only when the live stream opens", () => {
+    expect(shouldRefreshAuditForStreamStatus("open")).toBe(true);
+    expect(shouldRefreshAuditForStreamStatus("connecting")).toBe(false);
+    expect(shouldRefreshAuditForStreamStatus("idle")).toBe(false);
+    expect(shouldRefreshAuditForStreamStatus("closed")).toBe(false);
   });
 });
 
