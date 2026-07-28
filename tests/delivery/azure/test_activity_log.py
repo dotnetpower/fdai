@@ -275,6 +275,19 @@ async def test_activity_page_rejects_non_object_event() -> None:
 
 
 @pytest.mark.asyncio
+async def test_untracked_activity_event_still_requires_ordering_timestamp() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [{"category": "Administrative"}]})
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="eventTimestamp"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_nextlink_paging_encodes_running_max() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)

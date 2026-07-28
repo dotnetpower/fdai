@@ -273,7 +273,12 @@ class AzureActivityLogFactory:
         for event in events:
             if not isinstance(event, Mapping):
                 raise ActivityLogError("Activity Log payload contains a non-object event")
-            page_max = _max_dt(page_max, _parse_ts(event.get("eventTimestamp")))
+            event_at = _parse_ts(event.get("eventTimestamp"))
+            if event_at is None:
+                raise ActivityLogError(
+                    "Activity Log eventTimestamp MUST be a timezone-aware RFC 3339 timestamp"
+                )
+            page_max = _max_dt(page_max, event_at)
             mapped = self._map_one(event)
             if mapped is None:
                 continue

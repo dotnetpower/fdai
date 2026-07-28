@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 46140ea2d74df91a5ca80dbe96b8b734266ecac9
+translation_source_sha: 204928f33d371e832489c813388d6dfb394194c6
 translation_revised: 2026-07-28
 ---
 
@@ -265,8 +265,9 @@ fdai/
   Grid에 유지됩니다. Upsert 전용 Activity Log adapter는 리소스를 되살리지 않도록 delete operation을
   건너뛰지만, filtered record가 stream을 멈추지 않도록 모든 유효 event timestamp로 page cursor를
   진행합니다. 한 리소스의 record가 여러 개이면 event time과 canonical resource document 순서로
-  결정론적으로 선택하며 각 page는 `resource_id` 순서로 리소스를 방출합니다. Resume cursor와 지원되는
-  리소스 event에는 timezone-aware RFC 3339 timestamp가 필요합니다. 잘못된 event timestamp는 drop하거나
+  결정론적으로 선택하며 각 page는 `resource_id` 순서로 리소스를 방출합니다. Resume cursor와 page의
+  모든 object event에는 tracked resource로 mapping되지 않는 event까지 timezone-aware RFC 3339 timestamp가
+  필요합니다. 잘못된 event timestamp는 drop하거나
   UTC로 간주하지 않고 page를 실패시켜 ordering authority를 보존합니다. Activity Log non-2xx 오류는
   HTTP status만 보고하며 response body는 exception 또는 log text에 포함하지 않습니다.
   In-flight cursor에는 유효한 running timestamp와 비어 있지 않은 next link가 모두 필요합니다. 초기

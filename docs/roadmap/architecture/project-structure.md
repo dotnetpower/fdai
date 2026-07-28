@@ -267,8 +267,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   operations instead of resurrecting the resource, but still advances its page cursor from every
   valid event timestamp so filtered records cannot stall the stream. Multiple records for one
   resource use event time and then a canonical resource document as a deterministic tie-breaker;
-  each page emits resources in `resource_id` order. Resume cursors and supported-resource events
-  require timezone-aware RFC 3339 timestamps. A malformed event timestamp fails the page rather
+  each page emits resources in `resource_id` order. Resume cursors and every object event in a page
+  require timezone-aware RFC 3339 timestamps, including events that don't map to tracked resources.
+  A malformed event timestamp fails the page rather
   than being dropped or treated as UTC, preserving the ordering authority. Non-2xx Activity Log
   errors report only the HTTP status; response bodies never enter exception or log text.
   In-flight cursors require both a valid running timestamp and a non-empty next link. The initial
