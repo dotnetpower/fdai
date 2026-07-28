@@ -155,7 +155,8 @@ class AzureActivityLogFactory:
             if next_link is not None:
                 request_url = next_link
             else:
-                request_url = self._initial_url(resume_cursor=cursor)
+                carried_max = self._resume_lower_bound(cursor)
+                request_url = self._initial_url(lower_bound=carried_max)
 
             payload = await self._get(request_url)
             resources, page_max = self._map_events(payload)
@@ -186,20 +187,17 @@ class AzureActivityLogFactory:
     # Internals
     # ------------------------------------------------------------------
 
-    def _initial_url(self, *, resume_cursor: str) -> str:
+    def _resume_lower_bound(self, resume_cursor: str) -> datetime:
         start = resume_cursor.strip()
         if not start:
-            since = datetime.now(tz=UTC) - timedelta(seconds=self._config.initial_lookback_seconds)
-            start = _activity_log_timestamp(since)
-        else:
-            # Parse-and-canonicalize the persisted resume cursor rather than
-            # trusting it verbatim: only a valid RFC 3339 timestamp is folded
-            # into the OData ``$filter``, so a corrupt or hostile cursor
-            # cannot smuggle filter syntax into the query.
-            parsed = _parse_ts(start)
-            if parsed is None:
-                raise ActivityLogError("resume cursor is not a valid RFC 3339 timestamp")
-            start = _activity_log_timestamp(parsed)
+            return datetime.now(tz=UTC) - timedelta(seconds=self._config.initial_lookback_seconds)
+        parsed = _parse_ts(start)
+        if parsed is None:
+            raise ActivityLogError("resume cursor is not a valid RFC 3339 timestamp")
+        return parsed
+
+    def _initial_url(self, *, lower_bound: datetime) -> str:
+        start = _activity_log_timestamp(lower_bound)
         flt = f"eventTimestamp ge '{start}'"
         return (
             f"{self._config.arg_endpoint.rstrip('/')}"
@@ -340,7 +338,10 @@ def _decode_cursor(cursor: str) -> tuple[datetime | None, str | None]:
     if _CURSOR_SEP not in cursor:
         return None, None
     max_part, _, url = cursor.partition(_CURSOR_SEP)
-    return _parse_ts(max_part), (url or None)
+    running_max = _parse_ts(max_part)
+    if running_max is None or not url:
+        raise ActivityLogError("Activity Log in-flight cursor is malformed")
+    return running_max, url
 
 
 def _encode_cursor(running_max: datetime | None, next_link: str) -> str:

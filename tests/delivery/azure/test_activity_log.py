@@ -436,6 +436,32 @@ async def test_invalid_resume_cursor_fails_closed(bad_cursor: str) -> None:
         await client.aclose()
 
 
+@pytest.mark.parametrize(
+    "cursor",
+    [
+        "bad-timestamp\x1fhttps://management.azure.com/next?token=abc",
+        "2026-07-10T05:00:00Z\x1f",
+    ],
+)
+@pytest.mark.asyncio
+async def test_invalid_inflight_cursor_fails_before_http_request(cursor: str) -> None:
+    called = False
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal called
+        called = True
+        return httpx.Response(200, json={"value": []})
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="in-flight cursor"):
+            await factory.build_fetch_fn()(cursor)
+    finally:
+        await client.aclose()
+
+    assert called is False
+
+
 @pytest.mark.asyncio
 async def test_valid_resume_cursor_is_canonicalized() -> None:
     captured: list[httpx.Request] = []
