@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e99c52da0c21af12ffa591d990477fefa4675b26
+translation_source_sha: 397c9120623164168825a6bd520cf4199aa1027d
 translation_revised: 2026-07-28
 ---
 
@@ -105,7 +105,7 @@ answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니�
 `.fdai/logs/read-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 millisecond와 local timezone
 약어를 포함한 Python logging style timestamp로 시작합니다. 예시는 `2026-07-28 15:25:53,717 KST`입니다.
 각 log는 service 시작 및 중지 timestamp와 child exit code도 기록하고 private local permission을
-사용하며, 10 MiB에서 회전하여 이전 세대 하나를 유지합니다. Git에서 제외된 이 진단 log는 task
+사용하며, 1 MiB에서 회전하여 이전 세대를 최대 3개 유지합니다. Git에서 제외된 이 진단 log는 task
 terminal이 닫혀도 유지되며 structured warning 및 error record인 `warnings.jsonl`을 대체하지 않습니다.
 Core terminal은 machine-readable JSON stream을 유지하지만, core file은 read API log와 같은
 `LEVEL: logger: message` 형식으로 record를 렌더링합니다. Event Hubs adapter는 aiokafka의 context가

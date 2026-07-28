@@ -50,7 +50,7 @@ def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> 
     assert _TIMESTAMP_PREFIX.match(lines[-1])
 
 
-def test_runner_rotates_a_bounded_previous_log(tmp_path: Path) -> None:
+def test_runner_rotates_three_bounded_previous_logs(tmp_path: Path) -> None:
     log_file = tmp_path / "core-runtime.log"
     environment = os.environ.copy()
     environment["FDAI_LOCAL_SERVICE_LOG_MAX_BYTES"] = "512"
@@ -64,7 +64,7 @@ def test_runner_rotates_a_bounded_previous_log(tmp_path: Path) -> None:
             "--",
             sys.executable,
             "-c",
-            "[print(f'line-{index}') for index in range(105)]",
+            "[print(f'line-{index:03d}-' + 'x' * 80) for index in range(105)]",
         ],
         check=False,
         capture_output=True,
@@ -73,12 +73,38 @@ def test_runner_rotates_a_bounded_previous_log(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0
-    rotated = Path(f"{log_file}.1")
-    assert rotated.is_file()
-    assert "line-0" in rotated.read_text(encoding="utf-8")
+    rotated = [Path(f"{log_file}.{generation}") for generation in range(1, 4)]
+    assert all(path.is_file() for path in rotated)
+    assert not Path(f"{log_file}.4").exists()
+    assert all(path.stat().st_size <= 512 for path in rotated)
     current = log_file.read_text(encoding="utf-8")
     assert "line-104" in current
     assert current.splitlines()[-1].endswith("service=core-runtime event=stopped exit_code=0")
+
+
+def test_runner_uses_one_mibibyte_default_rotation_limit(tmp_path: Path) -> None:
+    log_file = tmp_path / "read-api.log"
+    log_file.write_bytes(b"x" * 1_048_576)
+
+    result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
+        [
+            _BASH,
+            str(_RUNNER),
+            "read-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            "print('after-default-rotation')",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert Path(f"{log_file}.1").stat().st_size == 1_048_576
+    assert "after-default-rotation" in log_file.read_text(encoding="utf-8")
 
 
 def test_runner_formats_json_for_file_without_changing_stdout(tmp_path: Path) -> None:

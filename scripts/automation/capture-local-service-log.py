@@ -55,14 +55,15 @@ def _open_log(path: Path) -> TextIO:
     return path.open("a", encoding="utf-8", buffering=1)
 
 
-def _rotate(path: Path, handle: TextIO, max_bytes: int) -> TextIO:
+def _rotate(path: Path, handle: TextIO, backup_count: int) -> TextIO:
     handle.flush()
-    if path.stat().st_size < max_bytes:
-        return handle
     handle.close()
-    rotated = Path(f"{path}.1")
-    rotated.unlink(missing_ok=True)
-    path.replace(rotated)
+    Path(f"{path}.{backup_count}").unlink(missing_ok=True)
+    for generation in range(backup_count, 1, -1):
+        previous = Path(f"{path}.{generation - 1}")
+        if previous.exists():
+            previous.replace(Path(f"{path}.{generation}"))
+    path.replace(Path(f"{path}.1"))
     return _open_log(path)
 
 
@@ -71,21 +72,22 @@ def main() -> int:
     parser.add_argument("--log-file", type=Path, required=True)
     parser.add_argument("--format", choices=("raw", "json-plain"), default="raw")
     parser.add_argument("--max-bytes", type=int, required=True)
+    parser.add_argument("--backup-count", type=int, required=True)
     args = parser.parse_args()
 
     handle = _open_log(args.log_file)
-    lines_since_check = 0
     try:
         for raw in sys.stdin:
             sys.stdout.write(raw)
             sys.stdout.flush()
             rendered = _render_line(raw, args.format)
-            handle.write(_timestamp_lines(rendered, _local_log_timestamp()))
-            handle.write("\n")
-            lines_since_check += 1
-            if lines_since_check >= 100:
-                handle = _rotate(args.log_file, handle, args.max_bytes)
-                lines_since_check = 0
+            entry = f"{_timestamp_lines(rendered, _local_log_timestamp())}\n"
+            handle.flush()
+            current_bytes = args.log_file.stat().st_size
+            entry_bytes = len(entry.encode("utf-8"))
+            if current_bytes > 0 and current_bytes + entry_bytes > args.max_bytes:
+                handle = _rotate(args.log_file, handle, args.backup_count)
+            handle.write(entry)
     finally:
         handle.close()
     return 0

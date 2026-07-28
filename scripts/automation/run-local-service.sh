@@ -19,11 +19,12 @@ if [[ ! "$service" =~ ^[a-zA-Z0-9._-]+$ ]]; then
   exit 2
 fi
 
-max_bytes="${FDAI_LOCAL_SERVICE_LOG_MAX_BYTES:-10485760}"
+max_bytes="${FDAI_LOCAL_SERVICE_LOG_MAX_BYTES:-1048576}"
 if [[ ! "$max_bytes" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_LOCAL_SERVICE_LOG_MAX_BYTES MUST be a positive integer" >&2
   exit 2
 fi
+backup_count=3
 log_format="${FDAI_LOCAL_SERVICE_LOG_FORMAT:-raw}"
 if [[ "$log_format" != "raw" && "$log_format" != "json-plain" ]]; then
   echo "FDAI_LOCAL_SERVICE_LOG_FORMAT MUST be raw or json-plain" >&2
@@ -37,12 +38,24 @@ touch "$log_file"
 chmod 600 "$log_file"
 
 rotate_log() {
+  local required_bytes="${1:-0}"
+  local generation
+  local previous_generation
   local size
   size="$(stat -c %s "$log_file" 2>/dev/null || echo 0)"
-  if (( size < max_bytes )); then
+  if (( required_bytes == 0 && size < max_bytes )); then
     return
   fi
-  rm -f "${log_file}.1"
+  if (( required_bytes > 0 && (size == 0 || size + required_bytes <= max_bytes) )); then
+    return
+  fi
+  rm -f "${log_file}.${backup_count}"
+  for ((generation = backup_count; generation > 1; generation--)); do
+    previous_generation=$((generation - 1))
+    if [[ -f "${log_file}.${previous_generation}" ]]; then
+      mv "${log_file}.${previous_generation}" "${log_file}.${generation}"
+    fi
+  done
   mv "$log_file" "${log_file}.1"
   : > "$log_file"
   chmod 600 "$log_file"
@@ -57,6 +70,7 @@ write_marker() {
     marker+=" $detail"
   fi
   printf '%s\n' "$marker"
+  rotate_log "$(( ${#marker} + 1 ))"
   printf '%s\n' "$marker" >> "$log_file"
 }
 
@@ -66,7 +80,8 @@ capture_output() {
   python3 "$script_dir/capture-local-service-log.py" \
     --log-file "$log_file" \
     --format "$log_format" \
-    --max-bytes "$max_bytes"
+    --max-bytes "$max_bytes" \
+    --backup-count "$backup_count"
 }
 
 rotate_log

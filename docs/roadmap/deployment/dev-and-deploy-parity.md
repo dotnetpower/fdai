@@ -103,9 +103,9 @@ The long-running core and read API tasks preserve their terminal output in
 `.fdai/logs/core-runtime.log` and `.fdai/logs/read-api.log`. Every captured child-output line begins
 with a Python logging-style timestamp containing milliseconds and the local timezone abbreviation,
 for example `2026-07-28 15:25:53,717 KST`. Each log also records service start and stop timestamps
-plus the child exit code, uses private local permissions, and rotates at 10 MiB with one previous
-generation retained. These gitignored diagnostics survive a task terminal closing; they don't
-replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
+plus the child exit code and uses private local permissions. Logs rotate at 1 MiB with up to three
+previous generations retained. These gitignored diagnostics survive a task terminal closing; they
+don't replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
 machine-readable JSON stream, while the core file renders those records as `LEVEL: logger: message`
 lines to match the read API log. The Event Hubs adapter suppresses aiokafka's context-free
 per-socket authentication success messages and emits one `event_bus_consumer_started` record per
