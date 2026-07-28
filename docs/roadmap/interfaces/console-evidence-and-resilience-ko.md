@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 1926ad845694b46c6b6ed8f3c8d27d614b304520
+translation_source_sha: 606c8c02ee1b55b5934b3240d5365a923f9f55e1
 translation_revised: 2026-07-28
 ---
 
@@ -229,6 +229,7 @@ route도 hypothesis가 없으면 generic audit fallback response를 숨겨 `inci
 Trace route는 raw ordered table보다 먼저 notification escalation, response-decision evidence,
 RCA evidence 및 named pipeline stage를 분리한 interpretation summary를 표시합니다. Generic
 correlated activity는 cause claim이 아니라 technical history로 유지합니다.
+
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching

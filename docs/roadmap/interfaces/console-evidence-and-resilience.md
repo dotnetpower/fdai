@@ -232,6 +232,7 @@ The Trace route leads with an interpretation summary that separates notification
 response-decision evidence, RCA evidence, and named pipeline stages before showing the raw ordered
 table. Generic correlated activity remains technical history, not a cause claim.
 
+
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without
 requiring a single incident selection. Model prose cannot change the selected incident, search
