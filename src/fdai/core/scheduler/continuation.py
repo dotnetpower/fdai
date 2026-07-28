@@ -55,6 +55,8 @@ class ContinuationAccessDeniedError(PermissionError):
 
 
 class ContinuationAuditSink(Protocol):
+    """Persist one event idempotently by its stable lifecycle identity."""
+
     async def append(self, event: ContinuationAuditEvent) -> None: ...
 
 
@@ -107,8 +109,13 @@ class InMemoryScheduledConversationAnchorStore:
 class InMemoryContinuationAuditSink:
     def __init__(self) -> None:
         self.events: list[ContinuationAuditEvent] = []
+        self._seen: set[str] = set()
 
     async def append(self, event: ContinuationAuditEvent) -> None:
+        key = _audit_key(event)
+        if key in self._seen:
+            return
+        self._seen.add(key)
         self.events.append(event)
 
 
@@ -119,17 +126,17 @@ class StateStoreContinuationAuditSink:
         self._store = store
 
     async def append(self, event: ContinuationAuditEvent) -> None:
-        await self._store.append_audit_entry(
+        key = _audit_key(event)
+        await self._store.write_state_with_audit_if_absent(
+            f"scheduled-continuation:audit:{key}",
+            {"recorded": True},
             {
                 "event_type": f"scheduled_continuation.{event.kind.value}",
                 "anchor_id": event.anchor_id,
                 "principal_id": event.principal_id,
                 "recorded_at": event.at.isoformat(),
-                "idempotency_key": (
-                    f"scheduled-continuation:{event.kind.value}:{event.anchor_id}:"
-                    f"{event.principal_id}:{event.at.isoformat()}"
-                ),
-            }
+                "idempotency_key": key,
+            },
         )
 
 
@@ -275,6 +282,13 @@ def _identifier(name: str, value: str) -> None:
 def _aware(name: str, value: datetime) -> None:
     if value.tzinfo is None:
         raise ValueError(f"{name} MUST be timezone-aware")
+
+
+def _audit_key(event: ContinuationAuditEvent) -> str:
+    return (
+        f"scheduled-continuation:{event.kind.value}:{event.anchor_id}:"
+        f"{event.principal_id}:{event.at.isoformat()}"
+    )
 
 
 __all__ = [

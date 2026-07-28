@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3565b11d99da154a5291488f6f368c81f2c51fd9
+translation_source_sha: 85fbb3f71debe5df7b46af2f8c7f0d427140892c
 translation_revised: 2026-07-28
 ---
 # 코드 맵
@@ -129,7 +129,7 @@ fallback 없이 handoff합니다. Delivery adapter는 완료된 답변에 무관
 | assurance_twin | Read-only 온톨로지 트윈 (실행 금지) | [src/fdai/core/assurance_twin/](../../../src/fdai/core/assurance_twin/) | [tests/core/assurance_twin/](../../../tests/core/assurance_twin/) |
 | architecture_review | Architecture-review manifest -> governed ontology projection | [src/fdai/core/architecture_review/](../../../src/fdai/core/architecture_review/) | [tests/core/architecture_review/](../../../tests/core/architecture_review/) |
 | workflow | Version-pinned WorkflowDefinition을 컴파일 및 실행합니다. 승인 quorum은 정규화된 principal을 세므로 한 운영자가 두 표기로 quorum을 채우거나 자신이 요청한 step을 승인할 수 없습니다. Principal binding과 Process journal과 projection retry 관리 | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
-| scheduler | Create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, CAS winner만 expiry audit을 기록하는 범위 제한 continuation ([설계](../interfaces/scheduled-result-continuations-ko.md)) | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
+| scheduler | Create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, idempotent lifecycle audit 및 CAS winner만 expiry audit을 기록하는 범위 제한 continuation ([설계](../interfaces/scheduled-result-continuations-ko.md)) | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
 | metering | 사용량 미터링 카운터와 모든 LLM 경로가 측정되는 공유 model budget. 호출이 기록되는 단일 지점에서 차감하며, 총량은 ledger 축출을 견디지만 correlation별 한도는 그렇지 않으며, metering 기록이 실패해도 차감은 수행. 관문은 읽고 쓰기가 아니라 exact prospective call 및 microUSD increment를 검증하는 원자적 예약. Ledger는 microUSD로 계산하며 다른 통화 가격은 차감하지 않음 | [src/fdai/core/metering/](../../../src/fdai/core/metering/) | [tests/core/metering/](../../../tests/core/metering/) |
 | measurement | MTTR 및 네 가지 DORA measure를 포함한 Phase-4 연속 측정. Promotion gate의 shadow 일수는 최초 관측과 최종 관측 사이로 측정하므로 시계만으로는 창을 채울 수 없습니다 | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |
 | mscp_profile | 레벨 비종속 `mscp-operational-v1` provenance, 순수 effect/cycle/integrity 검사 및 optional ControlLoop shadow observation ([설계](mscp-operational-profile-ko.md)) | [src/fdai/core/mscp_profile/](../../../src/fdai/core/mscp_profile/) | [tests/core/mscp_profile/](../../../tests/core/mscp_profile/) |

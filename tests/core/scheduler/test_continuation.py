@@ -18,10 +18,12 @@ from fdai.core.scheduler.continuation import (
     ScheduledContinuationService,
     ScheduledConversationAnchor,
     ScheduledResultOrigin,
+    StateStoreContinuationAuditSink,
     anchor_id_for_run,
     scheduled_result_to_typed_fact,
 )
 from fdai.core.working_context.types import EntryKind
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 NOW = datetime(2026, 7, 20, 9, 0, tzinfo=UTC)
 
@@ -147,13 +149,18 @@ async def test_concurrent_auto_expiry_records_one_state_transition() -> None:
     anchor = await service.create(_anchor())
 
     results = await asyncio.gather(
-        *(
-            service.resolve(
-                anchor_id=anchor.anchor_id,
-                access=ContinuationAccess(principal_id="principal-a"),
-                now=anchor.expires_at,
-            )
-            for _ in range(2)
+        service.resolve(
+            anchor_id=anchor.anchor_id,
+            access=ContinuationAccess(principal_id="principal-a"),
+            now=anchor.expires_at,
+        ),
+        service.resolve(
+            anchor_id=anchor.anchor_id,
+            access=ContinuationAccess(
+                principal_id="principal-b",
+                authorized_scope_refs=frozenset({"scope-a"}),
+            ),
+            now=anchor.expires_at,
         ),
         return_exceptions=True,
     )
@@ -169,14 +176,19 @@ async def test_concurrent_explicit_expiry_records_one_state_transition() -> None
     anchor = await service.create(_anchor())
 
     results = await asyncio.gather(
-        *(
-            service.expire(
-                anchor_id=anchor.anchor_id,
-                access=ContinuationAccess(principal_id="principal-a"),
-                now=NOW,
-            )
-            for _ in range(2)
-        )
+        service.expire(
+            anchor_id=anchor.anchor_id,
+            access=ContinuationAccess(principal_id="principal-a"),
+            now=NOW,
+        ),
+        service.expire(
+            anchor_id=anchor.anchor_id,
+            access=ContinuationAccess(
+                principal_id="principal-b",
+                authorized_scope_refs=frozenset({"scope-a"}),
+            ),
+            now=NOW,
+        ),
     )
 
     assert all(result.state is ContinuationAnchorState.EXPIRED for result in results)
@@ -200,6 +212,35 @@ async def test_each_recurring_run_gets_one_idempotent_distinct_anchor() -> None:
     assert await store.create(first) == first
     assert await store.create(second) == second
     assert first.anchor_id != second.anchor_id
+
+
+async def test_service_create_retry_records_one_state_transition() -> None:
+    service, audit = _service()
+    anchor = _anchor()
+
+    assert await service.create(anchor) == anchor
+    assert await service.create(anchor) == anchor
+
+    assert sum(event.kind is ContinuationAuditKind.CREATED for event in audit.events) == 1
+
+
+async def test_state_store_audit_sink_collapses_create_retry() -> None:
+    state_store = InMemoryStateStore()
+    service = ScheduledContinuationService(
+        store=InMemoryScheduledConversationAnchorStore(),
+        audit=StateStoreContinuationAuditSink(store=state_store),
+    )
+    anchor = _anchor()
+
+    assert await service.create(anchor) == anchor
+    assert await service.create(anchor) == anchor
+
+    created = [
+        record["entry"]
+        for record in state_store.audit_entries
+        if record["entry"].get("event_type") == "scheduled_continuation.created"
+    ]
+    assert len(created) == 1
 
 
 async def test_store_lists_only_owner_anchors() -> None:

@@ -122,7 +122,9 @@ button. Authenticated operator channels and command routes own those operations.
 
 Anchor creation, access denial, successful continuation, and expiry append events to the existing
 hash-chained audit store. Events record the anchor id, authenticated principal, timestamp, and a
-stable idempotency key without copying the result body.
+stable idempotency key without copying the result body. Retrying the same lifecycle event collapses
+onto one audit record. The StateStore sink claims the stable event identity and appends its audit
+record atomically, so a retry can fill a missing post-anchor audit without duplicating a completed one.
 
 Expiry immediately makes resolution unavailable, and the compare-and-set state transition is
 shipped. Concurrent expiry attempts collapse onto one state transition and only its CAS winner
@@ -140,7 +142,7 @@ Coverage includes:
 - Result persistence before anchor creation and schedule advance.
 - Web delivery retry collapse and Slack/Teams thread-mode parity.
 - Typed-fact provenance and explicit absence of instruction authority.
-- PostgreSQL row codecs, compare-and-set expiry, concurrent winner-only audit, migration head, and environment-gated live tests.
+- PostgreSQL row codecs, compare-and-set expiry, concurrent winner-only audit, idempotent lifecycle audit retries, migration head, and environment-gated live tests.
 
 ## Related docs
 

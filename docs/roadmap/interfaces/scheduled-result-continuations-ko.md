@@ -1,6 +1,6 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: 8dca585e8c8f867cbae7eb8bb272ee9f1126ec34
+translation_source_sha: 194664cf80ecc9fa2dfad5b58773895a29392fae
 translation_revised: 2026-07-28
 ---
 # 예약 결과 이어가기
@@ -124,7 +124,9 @@ evidence count, result digest, expiry를 표시합니다. Open, expire, retry, e
 
 Anchor creation, access denial, successful continuation, expiry는 기존 hash-chained audit store에
 event를 추가합니다. Event는 result body를 복사하지 않고 anchor id, authenticated principal,
-timestamp, stable idempotency key를 기록합니다.
+timestamp, stable idempotency key를 기록합니다. 같은 lifecycle event 재시도는 하나의 audit
+record로 합쳐집니다. StateStore sink는 stable event identity claim과 audit append를 원자적으로
+처리하므로, retry는 anchor 저장 후 누락된 audit을 보충하면서 완료된 audit을 중복하지 않습니다.
 
 Expiry는 즉시 resolution을 사용할 수 없게 하며 CAS 상태 변경은 shipped behavior입니다. 동시
 expiry 요청은 하나의 상태 변경으로 합쳐지고 CAS winner만 expiry audit event를 추가합니다. CAS
@@ -142,7 +144,7 @@ deletion 또는 legal-hold enforcement 완료로 표현하면 안 됩니다.
 - Anchor creation 및 schedule advance 전에 result persistence가 완료됩니다.
 - Web delivery retry collapse와 Slack/Teams thread-mode parity입니다.
 - Typed-fact provenance와 instruction authority가 없다는 명시적 계약입니다.
-- PostgreSQL row codec, compare-and-set expiry, 동시 winner-only audit, migration head, 환경 조건부 live test입니다.
+- PostgreSQL row codec, compare-and-set expiry, 동시 winner-only audit, idempotent lifecycle audit retry, migration head, 환경 조건부 live test입니다.
 
 ## 관련 문서
 
