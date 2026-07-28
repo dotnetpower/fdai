@@ -254,7 +254,14 @@ class OperationalEvidenceResolver:
         terms = _topic_terms(prompt)
         try:
             page = await self.read_model.list_incidents(
-                status="all", limit=self.incident_limit, cursor=None
+                status="all",
+                limit=1 if conversation_context is not None else self.incident_limit,
+                cursor=None,
+                correlation_id=(
+                    conversation_context["correlation_id"]
+                    if conversation_context is not None
+                    else None
+                ),
             )
             audits = await asyncio.gather(
                 *(

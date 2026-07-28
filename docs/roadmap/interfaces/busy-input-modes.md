@@ -116,6 +116,8 @@ start another operator turn; input that arrives during review remains governed b
 queue, interrupt, or steer race outcome.
 Queued and steered follow-ups retain the active incident conversation binding; a rerun never
 reverts to fuzzy incident selection or changes Bragi's narrator identity.
+An exact selected-incident turn keeps its direct correlation-filtered lookup and doesn't start
+unrelated inventory, agent, or public-web branches during a rerun.
 They also preserve an English or Korean current-screen explanation intent and its 120-word
 walkthrough bound; steer guidance cannot expand that turn into an unbounded snapshot recital.
 They preserve Bragi's current-screen data scope as well. A steer rerun cannot widen a screen fact

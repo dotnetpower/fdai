@@ -108,6 +108,11 @@ _VIEW_EXPLANATION_INTENT = re.compile(
     "|연결|관계|생성|기준|소유|담당|중복|반복|종료|닫|출처|근거|왜",
     re.IGNORECASE,
 )
+_SELECTED_INCIDENT_REFERENCE = re.compile(
+    r"\b(?:this|that|selected)\s+(?:incident|one)\b|\bwhat about (?:this|it)\b"
+    r"|이\s*인시던트|선택한\s*인시던트|이거|이건|이게|얘는",
+    re.IGNORECASE,
+)
 _EXPLICIT_TOOL_VERBS = frozenset(schema.verb for schema in default_tool_schemas())
 
 
@@ -186,9 +191,11 @@ async def _with_operational_evidence(
     enriched.pop("_operational_evidence", None)
     if str(enriched.get("routeId") or "").lower() == "audit":
         return enriched
-    operational_question = needs_operational_evidence(prompt, enriched)
-    trace_context = _trace_incident_context(enriched) if operational_question else None
-    effective_context = conversation_context or trace_context
+    screen_context = _screen_incident_context(prompt, enriched)
+    operational_question = (
+        needs_operational_evidence(prompt, enriched) or screen_context is not None
+    )
+    effective_context = conversation_context or screen_context
     if (
         resolver is None
         or "_screen_scope" in enriched
@@ -208,10 +215,44 @@ async def _with_operational_evidence(
     return enriched
 
 
-def _trace_incident_context(view_context: Mapping[str, Any]) -> dict[str, str] | None:
-    """Return a bounded selection hint for a Trace screen correlation."""
+def _screen_incident_context(
+    prompt: str,
+    view_context: Mapping[str, Any],
+) -> dict[str, str] | None:
+    """Return a bounded incident selection hint from an owning screen."""
 
-    if str(view_context.get("routeId") or "").lower() != "trace":
+    route = str(view_context.get("routeId") or "").lower()
+    if route == "incidents":
+        records = view_context.get("records")
+        selected = records.get("selected_incident") if isinstance(records, Mapping) else None
+        incident = selected[0] if isinstance(selected, list) and len(selected) == 1 else None
+        if not isinstance(incident, Mapping):
+            return None
+        correlation_id = incident.get("correlation_id")
+        incident_id = incident.get("incident_id") or incident.get("ticket_id")
+        title = incident.get("title")
+        references_selection = bool(
+            _SELECTED_INCIDENT_REFERENCE.search(prompt)
+            or (isinstance(correlation_id, str) and correlation_id.casefold() in prompt.casefold())
+            or (isinstance(title, str) and title.casefold() in prompt.casefold())
+        )
+        if not references_selection:
+            return None
+        if not isinstance(correlation_id, str) or not 0 < len(correlation_id.strip()) <= 256:
+            return None
+        normalized_correlation = correlation_id.strip()
+        if incident_id is None:
+            normalized_incident = f"INC-{normalized_correlation}"
+        elif isinstance(incident_id, str) and 0 < len(incident_id.strip()) <= 256:
+            normalized_incident = incident_id.strip()
+        else:
+            return None
+        return {
+            "kind": "incident",
+            "incident_id": normalized_incident,
+            "correlation_id": normalized_correlation,
+        }
+    if route != "trace" or not needs_operational_evidence(prompt, view_context):
         return None
     facts = view_context.get("facts")
     if not isinstance(facts, list):
@@ -480,15 +521,24 @@ def merge_evidence_branch_results(
                 merged.pop(key, None)
 
     operational_context = contexts.get(EvidenceBranchKind.OPERATIONAL)
+    operational_evidence = (
+        operational_context.get("_operational_evidence")
+        if operational_context is not None
+        else None
+    )
+    selected_operational = isinstance(operational_evidence, Mapping) and isinstance(
+        operational_evidence.get("selected_incident"),
+        Mapping,
+    )
+    implicit_tool = "_tool_evidence" in merged and not _is_explicit_tool_command(prompt)
     if (
-        operational_context is not None
-        and "_operational_evidence" in operational_context
-        and not any(
-            key in merged for key in ("_screen_scope", "_behavior_evidence", "_tool_evidence")
-        )
+        operational_evidence is not None
+        and not any(key in merged for key in ("_screen_scope", "_behavior_evidence"))
         and "_current_screen_tool" not in merged
+        and ("_tool_evidence" not in merged or (selected_operational and implicit_tool))
     ):
-        merged["_operational_evidence"] = operational_context["_operational_evidence"]
+        merged.pop("_tool_evidence", None)
+        merged["_operational_evidence"] = operational_evidence
 
     selected_agent = _selected_agent(prompt, conversation_context, target_agent)
     agent_owned = selected_agent is not None

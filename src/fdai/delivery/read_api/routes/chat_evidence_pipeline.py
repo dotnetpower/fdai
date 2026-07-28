@@ -21,6 +21,8 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     ChatWebSearchEvidenceResolver,
     OperationalEvidenceResolverProtocol,
     PlannedChatToolResolver,
+    _is_explicit_tool_command,
+    _screen_incident_context,
     _selected_agent,
     _with_agent_evidence,
     _with_operational_evidence,
@@ -80,6 +82,9 @@ async def resolve_parallel_chat_evidence(
     )
     planned_web = planned_tool_name == "web_search"
     planned_direct_read = planned_read and planned_agent is None and not planned_web
+    selected_incident_turn = _screen_incident_context(
+        prompt, base_context
+    ) is not None and not _is_explicit_tool_command(prompt)
     parallel_agent = planned_agent is not None or (
         not has_semantic_plan
         and (
@@ -98,7 +103,7 @@ async def resolve_parallel_chat_evidence(
         and "_screen_scope" not in base_context
     )
 
-    if planned_direct_read and planned_tool_resolver is not None:
+    if planned_direct_read and planned_tool_resolver is not None and not selected_incident_turn:
         selected_tool_name = cast(str, planned_tool_name)
         selected_arguments = cast(Mapping[str, object], planned_arguments)
 
@@ -120,7 +125,7 @@ async def resolve_parallel_chat_evidence(
                 ("_tool_evidence",),
             )
         )
-    elif not has_semantic_plan and tool_resolver is not None:
+    elif not has_semantic_plan and tool_resolver is not None and not selected_incident_turn:
 
         async def resolve_tool(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_tool_evidence(
@@ -139,7 +144,7 @@ async def resolve_parallel_chat_evidence(
             )
         )
 
-    if not has_semantic_plan and evidence_resolver is not None:
+    if (not has_semantic_plan or selected_incident_turn) and evidence_resolver is not None:
 
         async def resolve_operational(observe: BranchProgressObserver) -> dict[str, Any]:
             del observe
@@ -225,7 +230,7 @@ async def resolve_parallel_chat_evidence(
         target_agent=target_agent,
     )
 
-    if not parallel_agent:
+    if not parallel_agent and not selected_incident_turn:
 
         async def resolve_dependent_agent(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_agent_evidence(
@@ -259,7 +264,7 @@ async def resolve_parallel_chat_evidence(
             target_agent=target_agent,
         )
 
-    if not parallel_web and web_search_resolver is not None:
+    if not parallel_web and web_search_resolver is not None and not selected_incident_turn:
 
         async def resolve_dependent_web(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_web_evidence(

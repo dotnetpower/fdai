@@ -262,7 +262,18 @@ async def test_summary_request_returns_all_matching_incidents_without_selection(
 
 
 async def test_exact_incident_binding_wins_over_equal_topic_matches() -> None:
-    model = InMemoryConsoleReadModel()
+    class RecordingReadModel(InMemoryConsoleReadModel):
+        incident_queries: list[dict[str, Any]]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.incident_queries = []
+
+        async def list_incidents(self, **kwargs):  # type: ignore[no-untyped-def]
+            self.incident_queries.append(dict(kwargs))
+            return await super().list_incidents(**kwargs)
+
+    model = RecordingReadModel()
     _seed_memory_incident(model, "corr-memory-a")
     _seed_memory_incident(model, "corr-memory-b")
 
@@ -283,6 +294,14 @@ async def test_exact_incident_binding_wins_over_equal_topic_matches() -> None:
     assert evidence["selected_agent_context"] == "Var"
     assert evidence["selected_incident"]["involved_agents"] == ["Forseti"]
     assert evidence["audit_evidence"][0]["agent"] == "Forseti"
+    assert model.incident_queries == [
+        {
+            "status": "all",
+            "limit": 1,
+            "cursor": None,
+            "correlation_id": "corr-memory-b",
+        }
+    ]
 
 
 async def test_stale_incident_binding_never_falls_back_to_fuzzy_match() -> None:

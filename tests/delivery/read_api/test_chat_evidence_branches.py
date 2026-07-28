@@ -243,6 +243,32 @@ def test_merge_selected_agent_replaces_competing_tool_and_web_evidence() -> None
     assert merged == {"_agent_evidence": {"primary_agent": "Heimdall"}}
 
 
+def test_merge_selected_incident_replaces_implicit_inventory_evidence() -> None:
+    operational = {
+        "status": "matched",
+        "selected_incident": {"correlation_id": "corr-selected"},
+    }
+    merged = merge_evidence_branch_results(
+        "Resource inventory change - Storage account storage-example 이거는 어떤 상태인거야?",
+        {"routeId": "incidents"},
+        (
+            _result(
+                EvidenceBranchKind.TOOL,
+                {"_tool_evidence": {"tool": "query_inventory"}},
+            ),
+            _result(
+                EvidenceBranchKind.OPERATIONAL,
+                {"_operational_evidence": operational},
+            ),
+        ),
+    )
+
+    assert merged == {
+        "routeId": "incidents",
+        "_operational_evidence": operational,
+    }
+
+
 async def test_chat_pipeline_overlaps_tool_and_operational_resolvers() -> None:
     started: set[str] = set()
     both_started = asyncio.Event()
@@ -291,6 +317,83 @@ async def test_chat_pipeline_overlaps_tool_and_operational_resolvers() -> None:
     assert started == {"tool", "operational"}
     assert merged["_tool_evidence"]["tool"] == "query_inventory"
     assert "_operational_evidence" not in merged
+
+
+async def test_chat_pipeline_prefers_referenced_selected_incident() -> None:
+    prompt = "Resource inventory change - Storage account storage-example 이거는 어떤 상태인거야?"
+    events: list[dict[str, Any]] = []
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del prompt, principal_id
+            raise AssertionError("selected incident must not query general inventory")
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            del prompt
+            assert conversation_context == {
+                "kind": "incident",
+                "incident_id": "incident-1",
+                "correlation_id": "corr-selected",
+            }
+            return {
+                "status": "matched",
+                "selected_incident": {
+                    "incident_id": "incident-1",
+                    "correlation_id": "corr-selected",
+                    "status": "open",
+                },
+            }
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del prompt, user_id, session_id
+            raise AssertionError("selected incident must not invoke an unrelated agent")
+
+    class WebResolver:
+        async def resolve(self, prompt: str, view_context: Mapping[str, Any]):
+            del prompt, view_context
+            raise AssertionError("selected incident must not search the public web")
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        events.append(dict(event))
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-selected-incident",
+        prompt=prompt,
+        view_context={
+            "routeId": "incidents",
+            "records": {
+                "selected_incident": [
+                    {
+                        "incident_id": "incident-1",
+                        "correlation_id": "corr-selected",
+                        "title": "Resource inventory change - Storage account storage-example",
+                    }
+                ]
+            },
+        },
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=AgentDelegate(),
+        web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert "_tool_evidence" not in merged
+    assert merged["_operational_evidence"]["selected_incident"]["status"] == "open"
+    assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {
+        "operational"
+    }
 
 
 async def test_chat_pipeline_overlaps_explicit_web_and_tool_resolvers() -> None:

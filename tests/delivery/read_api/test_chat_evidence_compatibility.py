@@ -97,6 +97,61 @@ async def test_trace_screen_correlation_becomes_exact_selection_hint() -> None:
     }
 
 
+async def test_selected_incident_title_becomes_exact_selection_hint() -> None:
+    resolver = _ContextResolver()
+
+    await _with_operational_evidence(
+        "Resource inventory change - Storage account storage-example 이거는 어떤 상태인거야?",
+        {
+            "routeId": "incidents",
+            "records": {
+                "selected_incident": [
+                    {
+                        "incident_id": "incident-1",
+                        "correlation_id": "corr-selected",
+                        "title": "Resource inventory change - Storage account storage-example",
+                    }
+                ]
+            },
+        },
+        resolver,
+    )
+
+    assert resolver.context == {
+        "kind": "incident",
+        "incident_id": "incident-1",
+        "correlation_id": "corr-selected",
+    }
+
+
+async def test_selected_incident_without_lifecycle_id_uses_correlation_hint() -> None:
+    resolver = _ContextResolver()
+
+    await _with_operational_evidence(
+        "이거는 어떤 상태인거야?",
+        {
+            "routeId": "incidents",
+            "records": {
+                "selected_incident": [
+                    {
+                        "incident_id": None,
+                        "ticket_id": None,
+                        "correlation_id": "corr-selected",
+                        "title": "Selected incident",
+                    }
+                ]
+            },
+        },
+        resolver,
+    )
+
+    assert resolver.context == {
+        "kind": "incident",
+        "incident_id": "INC-corr-selected",
+        "correlation_id": "corr-selected",
+    }
+
+
 @pytest.mark.parametrize(
     "prompt",
     ("what was the terminal stage?", "who approved this trace?"),
