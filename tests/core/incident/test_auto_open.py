@@ -58,6 +58,37 @@ def test_policy_rejects_candidates_without_authority_or_evidence(
     assert decision.reason == reason
 
 
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"correlation_id": "x" * 513}, "correlation_missing"),
+        ({"resource_id": "x" * 513}, "resource_missing"),
+        ({"event_type": "x" * 513}, "event_type_missing"),
+        ({"evidence_key": "x" * 513}, "evidence_missing"),
+        ({"evidence_keys": tuple(f"evidence-{i}" for i in range(101))}, "evidence_missing"),
+    ],
+)
+def test_policy_holds_oversized_candidate_inputs(overrides: dict[str, object], reason: str) -> None:
+    decision = evaluate_incident_auto_open(_candidate(**overrides), IncidentAutoOpenPolicy())
+
+    assert decision.eligible is False
+    assert decision.reason == reason
+
+
+def test_policy_accepts_candidate_input_boundaries() -> None:
+    decision = evaluate_incident_auto_open(
+        _candidate(
+            correlation_id="c" * 512,
+            resource_id="r" * 512,
+            event_type="e" * 512,
+            evidence_keys=tuple(f"evidence-{index}" for index in range(100)),
+        ),
+        IncidentAutoOpenPolicy(),
+    )
+
+    assert decision.eligible is True
+
+
 def test_disabled_policy_holds_even_critical_candidate() -> None:
     decision = evaluate_incident_auto_open(
         _candidate(severity="critical"),

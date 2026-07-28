@@ -33,6 +33,8 @@ _SEVERITY_RANK = {
     IncidentSeverity.SEV4: 4,
     IncidentSeverity.SEV5: 5,
 }
+_MAX_CANDIDATE_TEXT_CHARS = 512
+_MAX_EVIDENCE_KEYS = 100
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,7 +119,10 @@ async def open_detected_incident_candidate(
 
 def _text(candidate: Mapping[str, object], key: str) -> str:
     value = candidate.get(key)
-    return value.strip() if isinstance(value, str) else ""
+    if not isinstance(value, str):
+        return ""
+    normalized = value.strip()
+    return normalized if len(normalized) <= _MAX_CANDIDATE_TEXT_CHARS else ""
 
 
 def _evidence_keys(candidate: Mapping[str, object]) -> tuple[str, ...]:
@@ -125,11 +130,15 @@ def _evidence_keys(candidate: Mapping[str, object]) -> tuple[str, ...]:
         evidence_key = _text(candidate, "evidence_key")
         return (evidence_key,) if evidence_key else ()
     raw = candidate.get("evidence_keys")
-    if not isinstance(raw, (list, tuple)):
+    if not isinstance(raw, (list, tuple)) or not 1 <= len(raw) <= _MAX_EVIDENCE_KEYS:
         return ()
     normalized: list[str] = []
     for value in raw:
-        if not isinstance(value, str) or not value.strip():
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+            or len(value.strip()) > _MAX_CANDIDATE_TEXT_CHARS
+        ):
             return ()
         normalized.append(value.strip())
     return tuple(dict.fromkeys(normalized))

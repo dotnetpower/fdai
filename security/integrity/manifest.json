@@ -251,7 +251,7 @@
     "src/fdai/core/hil_resume/load_control.py": "ce19ec86b6ea7f26df11758da561ddc62e8933dd0431600da3262a737b2af258",
     "src/fdai/core/incident/__init__.py": "b7322225328d7130793ada3866a0946aea1f4385d8a3b73e40d84ec9b7da6eb4",
     "src/fdai/core/incident/audit_entries.py": "68dc4ad6d536a7b250f8706dc1b73e2b292b71fe38703b5017525bdadd8d9be9",
-    "src/fdai/core/incident/auto_open.py": "3ae37550da601ce2fa558b1f3b9e3131e27426c8863961de99075919065b2732",
+    "src/fdai/core/incident/auto_open.py": "e87460dee69bf62dbdbfe99b09c021b45d51eae9397433d7ed6d0f5c7d7f5fd5",
     "src/fdai/core/incident/durable_notifications.py": "3788a71533bb4a94695d4df9c03e11e37c3eb6825e14a45bc136e54281d136cb",
     "src/fdai/core/incident/intent.py": "380334d4b6ee6a0bf80878891ec5546ee25c1b1084c3939e8006953dfcb9f88b",
     "src/fdai/core/incident/lifecycle.py": "d3127cdd1cbf469b1ad6a22446b95b10d3ecc4063e0bc3b6e06e10c34f04b544",
@@ -807,7 +807,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-28T11:22:55Z",
+  "generated_at": "2026-07-28T11:35:57Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
