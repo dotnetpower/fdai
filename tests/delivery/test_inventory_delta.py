@@ -73,6 +73,25 @@ class _Inventory:
             yield InventoryBatch(final=True, cursor="cursor-next")
 
 
+class _FinalBatchInventory:
+    def __init__(self, *, emit_after_final: bool = False) -> None:
+        self.emit_after_final = emit_after_final
+
+    async def delta(self, cursor: str):  # type: ignore[no-untyped-def]
+        resource = ResourceRecord(
+            resource_id="resource:example/final",
+            type="compute.vm",
+            last_seen="2026-07-15T00:00:00Z",
+        )
+        yield InventoryBatch(
+            resources=(resource,),
+            cursor="cursor-final",
+            final=True,
+        )
+        if self.emit_after_final:
+            yield InventoryBatch(resources=(resource,), cursor="cursor-invalid")
+
+
 @pytest.mark.asyncio
 async def test_forward_delta_publishes_event_and_advances_cursor() -> None:
     inventory = _Inventory()
@@ -221,6 +240,45 @@ async def test_forward_delta_rejects_duplicate_resource_before_publication() -> 
         )
 
     assert [item async for item in bus.subscribe("events", "reader")] == []
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-old"
+    }
+
+
+@pytest.mark.asyncio
+async def test_forward_delta_preserves_payload_on_final_batch() -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+
+    published = await forward_inventory_delta(
+        inventory=_FinalBatchInventory(),
+        state_store=state,
+        event_bus=bus,
+        topic="events",
+        scope="subscription-1",
+    )
+
+    assert published == 1
+    assert len([item async for item in bus.subscribe("events", "reader")]) == 1
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-final"
+    }
+
+
+@pytest.mark.asyncio
+async def test_forward_delta_rejects_data_after_final_fence() -> None:
+    state = InMemoryStateStore()
+    await state.write_state("inventory_delta_cursor:subscription-1", {"cursor": "cursor-old"})
+
+    with pytest.raises(RuntimeError, match="after final fence"):
+        await forward_inventory_delta(
+            inventory=_FinalBatchInventory(emit_after_final=True),
+            state_store=state,
+            event_bus=InMemoryEventBus(),
+            topic="events",
+            scope="subscription-1",
+        )
+
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
         "cursor": "cursor-old"
     }
