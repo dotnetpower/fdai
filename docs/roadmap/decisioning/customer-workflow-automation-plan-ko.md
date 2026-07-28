@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 7a050b9a2e07b8cfaf7c7f919c063490b7aea0d0
-translation_revised: 2026-07-21
+translation_source_sha: 1e07756d0f2352d44b39bd8aef9a5ddc8cf02200
+translation_revised: 2026-07-28
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -88,8 +88,8 @@ flowchart LR
 - **형식화된 ingress로 재진입**: 워크플로 작업은 trust router, 안전성 검토(`risk-gate`),
   승인 경로, executor 및 감사 경로로 돌아갑니다.
 - **사람 전달 경로 검증**: Non-local runtime은 incident delivery를 시작하기 전에 trust-compatible
-  `operational_alert` channel을 요구합니다. 명시적 local profile은 외부 channel이 구성되지 않았을 때
-  warning을 기록하고 HIL escalation을 유지합니다.
+  `operational_alert` channel을 요구합니다. 외부 channel이 구성되지 않았을 때 명시적 local profile은
+  INFO lifecycle event를 기록하고 HIL escalation을 유지합니다.
 - **불확실할 때 안전한 쪽 선택**: 알 수 없는 매개 변수, 해석되지 않은 guard, 오래된 승인,
   누락된 어댑터 및 시뮬레이션 차이는 프로세스를 검토 대기로 둡니다.
 - **고객 자료는 downstream에 유지**: 원본 매뉴얼, 프로세스 임계값, 자격 증명 및 맞춤형

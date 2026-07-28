@@ -11,6 +11,7 @@ from fdai.delivery.agent_introspection_bus import (
     EventBusAgentIntrospectionClient,
     EventBusAgentIntrospectionServer,
     addressed_agent,
+    agent_introspection_server_group_id,
     normalize_pantheon_answer,
 )
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
@@ -34,6 +35,24 @@ def _bus() -> MultiplexedEventBus:
         bus=LocalEventBus(),
         logical_topics=AGENT_INTROSPECTION_TOPICS,
         physical_topic="aw.pantheon.objects",
+    )
+
+
+def test_server_group_is_process_scoped_only_for_local_runtime() -> None:
+    assert (
+        agent_introspection_server_group_id(local_process=False, process_id=101)
+        == "fdai-agent-introspection-server"
+    )
+    assert (
+        agent_introspection_server_group_id(local_process=True, process_id=101)
+        == "fdai-agent-introspection-server.local-101"
+    )
+    assert agent_introspection_server_group_id(
+        local_process=True,
+        process_id=101,
+    ) != agent_introspection_server_group_id(
+        local_process=True,
+        process_id=202,
     )
 
 

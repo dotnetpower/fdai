@@ -560,7 +560,7 @@ def _validate_incident_notification_route(
     if eligible:
         return
     if os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip() == "1":
-        _LOGGER.warning(
+        _LOGGER.info(
             "notification_route_unavailable",
             extra={
                 "route": route.category,

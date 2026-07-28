@@ -428,7 +428,7 @@ matrix:
 - **Incident delivery readiness** - A non-local control-plane runtime fails startup when the
   `operational_alert` route has no registered channel that supports its A2 trust tier. The explicit
   local Azure CLI profile may start without an external adapter, but it emits a structured
-  `notification_route_unavailable` warning and keeps fail-closed HIL escalation.
+  `notification_route_unavailable` lifecycle record at `INFO` and keeps fail-closed HIL escalation.
 - **Incident severity escalation** - A committed monotonic severity increase emits one A2
   `severity_changed` notice. Its stable audit id deduplicates immediate delivery and startup replay.
 - **`role-dm` is deny-listed except for `break_glass_usage_summary`.** Any other digest

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 80200a2a12eeddf1fcf69ac640a4277d0cf49b95
+translation_source_sha: 4997a2758237605cda5d5509e2daf5dcb6544be5
 translation_revised: 2026-07-28
 ---
 
@@ -114,7 +114,10 @@ Vite local address 게시를 각각 확인한 뒤에만 background task를 ready
 Core runtime만 Pantheon을 소유합니다. `FDAI_READ_API_EMBED_PANTHEON=0`일 때 read API는 기존
 `aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
 port에 접근합니다. Startup probe로 response consumer 준비를 확인한 후 traffic을 받습니다. Client는
-retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Request는
+retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Production
+replica는 server consumer group을 공유하므로 request마다 replica 하나만 응답합니다. Singleton local
+core는 process-scoped server group을 사용하므로 재시작할 때 이전 process의 관련 없는 Pantheon traffic을
+replay하지 않고 physical topic의 현재 offset에서 시작합니다. Request는
 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
 answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
 장기 실행 core 및 read API task의 terminal output은 `.fdai/logs/core-runtime.log`와
@@ -130,7 +133,9 @@ Core terminal은 machine-readable JSON stream을 유지하지만, core file은 r
 record는 `INFO`로 유지합니다. Event Hubs adapter는 aiokafka의 context가 없는 socket별 authentication
 success message도 억제하고, logical consumer마다 topic, consumer group, client id 및 authentication
 mechanism을 포함한 `event_bus_consumer_started` record 하나를 내보냅니다. Dependency warning과
-error는 계속 표시됩니다. Startup model latency probe는 구성된 모든
+error는 계속 표시됩니다. 단기 readiness consumer는 group coordinator와 socket을 닫기 전에 fetch
+I/O를 cancel하고 drain하므로 의도적인 probe 종료가 transport failure로 기록되지 않습니다. Startup
+model latency probe는 구성된 모든
 reasoning candidate가 지원하는 Azure Responses API output-token budget을 사용합니다. Core readiness
 sample은 안정적인 `startup-readiness:<probe-id>` correlation id를 사용하고 read API latency sample은
 안정적인 `read-api:*:latency-probe` correlation id를 사용하므로 측정된 probe 사용량이 uncorrelated

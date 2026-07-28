@@ -793,11 +793,16 @@ def test_incident_notification_route_allows_explicit_local_profile(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("FDAI_RUNTIME_LOCAL_AZURE_CLI", "1")
+    caplog.set_level("INFO", logger="fdai.startup")
     matrix = load_matrix_from_yaml(Path("config/notifications-matrix.yaml"))
 
     _validate_incident_notification_route(matrix, ChannelRegistry())
 
     assert "notification_route_unavailable" in caplog.messages
+    record = next(
+        item for item in caplog.records if item.message == "notification_route_unavailable"
+    )
+    assert record.levelname == "INFO"
 
 
 # ---------------------------------------------------------------------------

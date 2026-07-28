@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 226609b135e53105e8308ce40cf8542f633fcccd
+translation_source_sha: 61836ab6cf04f9427fe7cad52a51f9238904dbf0
 translation_revised: 2026-07-28
 ---
 
@@ -416,8 +416,8 @@ matrix:
   다운그레이드는 config-load 에러.
 - **Incident 전달 readiness** - non-local control-plane runtime은 `operational_alert` route에
   A2 trust tier를 지원하는 등록 채널이 없으면 startup에 실패합니다. 명시적 local Azure CLI
-  profile은 외부 adapter 없이 시작할 수 있지만 구조화된 `notification_route_unavailable` warning을
-  기록하고 fail-closed HIL escalation을 유지합니다.
+  profile은 외부 adapter 없이 시작할 수 있지만 구조화된 `notification_route_unavailable` lifecycle
+  record를 `INFO`로 기록하고 fail-closed HIL escalation을 유지합니다.
 - **Incident severity escalation** - Commit된 monotonic severity 상향은 A2 `severity_changed`
   notice를 한 번 emit하며 stable audit id가 immediate delivery와 startup replay를 deduplicate합니다.
 - **`role-dm`은 `break_glass_usage_summary`를 제외하고 deny-list.** `role-dm`을 시도하는

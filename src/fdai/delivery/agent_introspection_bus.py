@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -42,6 +43,21 @@ _AGENT_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
 _AT_AGENT = re.compile(r"@([A-Za-z][A-Za-z0-9-]*)")
 _ASK_AGENT = re.compile(r"\bask\s+([A-Za-z][A-Za-z0-9-]*)\b", re.IGNORECASE)
 _EXPECTED_CONVERSATION_POLICY = {spec.name: spec.conversation_policy() for spec in PANTHEON_SPECS}
+_SERVER_GROUP_ID = "fdai-agent-introspection-server"
+
+
+def agent_introspection_server_group_id(
+    *,
+    local_process: bool,
+    process_id: int | None = None,
+) -> str:
+    """Return a fresh local group while preserving production load balancing."""
+    if not local_process:
+        return _SERVER_GROUP_ID
+    resolved_process_id = os.getpid() if process_id is None else process_id
+    if resolved_process_id <= 0:
+        raise ValueError("process_id MUST be positive")
+    return f"{_SERVER_GROUP_ID}.local-{resolved_process_id}"
 
 
 class PantheonConversationRuntime(Protocol):
@@ -171,7 +187,7 @@ class EventBusAgentIntrospectionServer:
 
     event_bus: EventBus
     runtime: PantheonConversationRuntime
-    group_id: str = "fdai-agent-introspection-server"
+    group_id: str = _SERVER_GROUP_ID
     max_concurrency: int = 16
     cache_ttl_seconds: float = _DEFAULT_CACHE_TTL_SECONDS
     clock: Callable[[], float] = time.monotonic
@@ -547,5 +563,6 @@ __all__ = [
     "EventBusAgentIntrospectionClient",
     "EventBusAgentIntrospectionServer",
     "addressed_agent",
+    "agent_introspection_server_group_id",
     "normalize_pantheon_answer",
 ]

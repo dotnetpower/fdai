@@ -112,7 +112,10 @@ The core runtime remains the only Pantheon owner. With `FDAI_READ_API_EMBED_PANT
 API reaches Bragi's conversational port through bounded request and response logical topics on the
 existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before
 traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second
-initial Event Hubs group join. Requests carry salted SHA-256 user and session references rather than raw identities;
+initial Event Hubs group join. Production replicas share the server consumer group so one replica
+answers each request. The singleton local core uses a process-scoped server group so a restart
+begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a
+previous process. Requests carry salted SHA-256 user and session references rather than raw identities;
 timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
 specialist answer.
 The long-running core and read API tasks preserve their terminal output in
@@ -129,7 +132,9 @@ and `weasyprint` records below `WARNING` are suppressed while FDAI lifecycle and
 remain at `INFO`. The Event Hubs adapter also suppresses aiokafka's context-free per-socket
 authentication success messages and emits one `event_bus_consumer_started` record per logical
 consumer with its topic, consumer group, client id, and authentication mechanism. Dependency
-warnings and errors remain visible. Startup model latency probes use a bounded Azure Responses API
+warnings and errors remain visible. Short-lived readiness consumers cancel and drain fetch I/O
+before closing their group coordinator and socket, so an intentional probe shutdown isn't reported
+as a transport failure. Startup model latency probes use a bounded Azure Responses API
 output-token budget supported by every configured reasoning candidate. Core readiness samples use
 stable `startup-readiness:<probe-id>` correlation ids, and read API latency samples use stable
 `read-api:*:latency-probe` correlation ids, so measured probe usage isn't filed as uncorrelated

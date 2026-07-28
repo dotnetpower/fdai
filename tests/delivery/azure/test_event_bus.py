@@ -335,6 +335,45 @@ async def test_consumer_receives_event_hubs_safe_connection_windows(
 
 
 @pytest.mark.asyncio
+async def test_consumer_cancels_fetch_before_transport_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+
+    class _Fetcher:
+        async def close(self) -> None:
+            order.append("fetcher")
+
+    class _RecordingConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            self.provider = kwargs["sasl_oauth_token_provider"]
+            self._fetcher = _Fetcher()
+
+        async def start(self) -> None:
+            await self.provider.token()
+
+        async def stop(self) -> None:
+            order.append("consumer")
+
+        async def getone(self) -> object:
+            raise RuntimeError("consumer complete")
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
+    iterator = _iter_consumer(
+        topic="aw.control.canary",
+        group_id="fdai-canary",
+        config=_cfg(),
+        identity=_StaticIdentity(),
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    with pytest.raises(RuntimeError, match="consumer complete"):
+        await anext(iterator)
+
+    assert order == ["fetcher", "consumer"]
+
+
+@pytest.mark.asyncio
 async def test_consumer_logs_owned_identity_instead_of_connection_success_noise(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,

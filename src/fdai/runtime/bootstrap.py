@@ -208,6 +208,7 @@ async def _run() -> int:
             from fdai.delivery.agent_introspection_bus import (
                 AGENT_INTROSPECTION_TOPICS,
                 EventBusAgentIntrospectionServer,
+                agent_introspection_server_group_id,
             )
             from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 
@@ -559,6 +560,10 @@ async def _run() -> int:
                 agent_introspection_server = EventBusAgentIntrospectionServer(
                     event_bus=bus,
                     runtime=pantheon_runtime,
+                    group_id=agent_introspection_server_group_id(
+                        local_process=os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip()
+                        == "1"
+                    ),
                 )
                 runtime_state_publisher = AgentRuntimeStatePublisher(
                     event_bus=bus,

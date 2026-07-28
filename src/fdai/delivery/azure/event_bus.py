@@ -372,7 +372,16 @@ async def _iter_consumer(
                 await consumer.commit()
             _LOGGER.debug("event_bus_consumer_token_refresh", extra={"group_id": group_id})
         finally:
-            await consumer.stop()
+            await _stop_consumer(consumer)
+
+
+async def _stop_consumer(consumer: AIOKafkaConsumer) -> None:
+    """Cancel fetch I/O before aiokafka closes the Event Hubs socket."""
+    fetcher = getattr(consumer, "_fetcher", None)
+    close_fetcher = getattr(fetcher, "close", None)
+    if callable(close_fetcher):
+        await close_fetcher()
+    await consumer.stop()
 
 
 def _token_refresh_delay(
