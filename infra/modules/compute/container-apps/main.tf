@@ -359,7 +359,10 @@ resource "azurerm_container_app" "core" {
   tags = merge(var.tags, { "azd-service-name" = "core" })
 }
 
-# Out-of-band scheduled probes (cost anomalies, change detection sweep, etc.).
+# Bounded compatibility placeholder for a future OOB probe entry point.
+# Dedicated inventory, scheduler, analyzer, forecast, watcher, and canary Jobs
+# own the implemented scheduled work. Keep this Job inert so the runtime image's
+# long-running core entry point is never launched under a five-minute Job budget.
 resource "azurerm_container_app_job" "oob" {
   name                         = var.oob_job_name
   container_app_environment_id = azurerm_container_app_environment.primary.id
@@ -394,6 +397,10 @@ resource "azurerm_container_app_job" "oob" {
       image  = var.image
       cpu    = var.oob_cpu
       memory = var.oob_memory
+      command = [
+        "/bin/echo",
+        "oob_job_reserved",
+      ]
 
       # Same required config env vars as the core app - the OOB job runs
       # the same image and would crash-loop on `ConfigError` without them.

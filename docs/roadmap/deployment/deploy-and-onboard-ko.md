@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 58ac7904ff027d5b6cde6e619a0b0cd53a34ca42
-translation_revised: 2026-07-27
+translation_source_sha: f0ad059887207b2f1b29e284f7ba13f452fba483
+translation_revised: 2026-07-28
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -153,6 +153,10 @@ Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSIO
 Forecast Job은 raw tick만 publish하며 Huginn이 이를 Heimdall 평가 및 closure용으로 정규화합니다.
 Inventory reconciliation Job은 core와 같은 required non-secret runtime config를 상속해
 recovery-delta forwarding이 partial config 없이 typed Event Bus publisher를 열게 합니다.
+Scheduler 및 analyzer Job은 해당 Job에 연결된 user-assigned identity의 client id를
+`FDAI_MI_CLIENT_ID`로 설정하므로 Azure Monitor 및 Event Hubs token 획득에서 implicit identity
+selection을 사용하지 않습니다. Legacy generic OOB Job은 probe entry point가 소유할 때까지 bounded
+inert compatibility resource로 유지되며, 구현된 recurring work는 dedicated Job이 담당합니다.
 빈 cron은 해당 job을 비활성화합니다. 기존 scheduler 또는 analyzer job은 plan 전에 안전하게
 가져오고 이후 image와 configuration 변경은 같은 plan 및 apply 경로로 수렴합니다.
 Analyzer job은 기본 1분 shadow schedule을 사용합니다. 명시적 analyzer target이 비어 있으면

@@ -149,6 +149,10 @@ Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 forecast Job publishes only a raw tick, which Huginn normalizes for Heimdall to evaluate and close.
 The inventory reconciliation Job inherits the same required non-secret runtime config as core so
 recovery-delta forwarding can open its typed Event Bus publisher without a partial config.
+Scheduler and analyzer Jobs set `FDAI_MI_CLIENT_ID` to the client id of the user-assigned identity
+attached to that Job, so Azure Monitor and Event Hubs token acquisition never relies on implicit
+identity selection. The legacy generic OOB Job remains a bounded, inert compatibility resource
+until a probe entry point owns it; implemented recurring work stays in the dedicated Jobs.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
 The analyzer job defaults to a one-minute shadow schedule. When explicit analyzer targets are

@@ -216,6 +216,14 @@ def test_analyzer_templates_do_not_interpolate_input() -> None:
         assert "%" not in template.kql, f"{name} KQL uses '%' formatting"
 
 
+def test_azure_openai_status_code_is_schema_portable() -> None:
+    query = sre_demo_analyzer_queries()[METRIC_HTTP_429_RATE].kql
+
+    assert "column_ifexists('ResultStatusCode'" in query
+    assert "column_ifexists('httpStatusCode_d'" in query
+    assert "toint(ResultStatusCode)" not in query
+
+
 def test_default_metric_queries_is_the_union() -> None:
     """``wire_azure_container`` picks this map by default; it MUST be the
     exact union of the two sub-catalogs so every reference scenario -

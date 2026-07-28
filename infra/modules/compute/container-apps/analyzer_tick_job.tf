@@ -82,6 +82,11 @@ resource "azurerm_container_app_job" "analyzer_tick" {
         }
       }
 
+      env {
+        name  = "FDAI_MI_CLIENT_ID"
+        value = var.inventory_identity_client_id
+      }
+
       // Optional explicit target list. Empty / unset uses durable inventory.
       env {
         name  = "FDAI_ANALYZER_TARGETS"

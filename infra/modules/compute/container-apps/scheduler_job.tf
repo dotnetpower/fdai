@@ -71,6 +71,11 @@ resource "azurerm_container_app_job" "scheduler_tick" {
         }
       }
 
+      env {
+        name  = "FDAI_MI_CLIENT_ID"
+        value = var.executor_identity_client_id
+      }
+
       dynamic "env" {
         for_each = nonsensitive(var.state_store_dsn_secret_id) == "" ? toset([]) : toset(["1"])
         content {
