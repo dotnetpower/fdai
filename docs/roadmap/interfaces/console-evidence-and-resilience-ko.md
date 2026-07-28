@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 248b88e671203a257b0da6ab06191b062a6bc05d
+translation_source_sha: 1926ad845694b46c6b6ed8f3c8d27d614b304520
 translation_revised: 2026-07-28
 ---
 
@@ -225,9 +225,10 @@ notification-delivery escalation이 있으면 이를 우선 표시하고 필요�
 있으면 audit 및 technical activity를 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
 record가 생긴 뒤에만 link가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
 route도 hypothesis가 없으면 generic audit fallback response를 숨겨 `incident.members`를 response plan
-또는 cause로 표시하지 않습니다. Trace route는 raw ordered table보다 먼저 notification escalation,
-response-decision evidence, RCA evidence 및 named pipeline stage를 분리한 interpretation summary를
-표시합니다. Generic correlated activity는 cause claim이 아니라 technical history로 유지합니다.
+또는 cause로 표시하지 않습니다.
+Trace route는 raw ordered table보다 먼저 notification escalation, response-decision evidence,
+RCA evidence 및 named pipeline stage를 분리한 interpretation summary를 표시합니다. Generic
+correlated activity는 cause claim이 아니라 technical history로 유지합니다.
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching
@@ -235,6 +236,12 @@ set을 즉시 렌더링합니다. Model prose는 선택된 incident, search scop
 membership 또는 absence claim을 바꿀 수 없습니다.
 `availability=unavailable`인 source는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 probe하지
 않은 source는 `reachable=null`을 사용합니다.
+Incidents route에서 prompt가 단일 selected incident를 title, correlation id 또는 "이 인시던트" 같은
+표현으로 참조하면 해당 selection을 lookup hint로 사용합니다. Server는 답변 전에 incident id와
+correlation id를 authorized read model에서 다시 확인합니다. 정확한 selected-incident evidence는
+자연어 keyword로만 일치한 inventory tool보다 우선합니다. Coordinator는 해당 turn에서 관련 없는
+inventory, agent 또는 public-web branch를 시작하지 않으며 `query_inventory` 같은 명시적 canonical
+tool command는 tool authority를 유지합니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
