@@ -119,10 +119,15 @@ class PostgresInventoryDeltaProjector:
         props = resource.get("props", {})
         if not isinstance(props, Mapping):
             raise ValueError("inventory_change.resource.props MUST be an object")
+        resource_props_json = _canonical_json_mapping(props, "inventory_change.resource.props")
         provider_ref = resource.get("provider_ref")
         if provider_ref is not None and not isinstance(provider_ref, str):
             raise ValueError("inventory_change.resource.provider_ref MUST be a string or null")
         links = _links(change.get("links", ()))
+        link_props_json = tuple(
+            _canonical_json_mapping(link.get("props", {}), "inventory_change link.props")
+            for link in links
+        )
         links_complete = _optional_bool(change, "links_complete", default=False)
         if len(links) > self._max_links:
             raise ValueError(f"inventory_change.links exceeds cap ({self._max_links})")
@@ -191,7 +196,7 @@ class PostgresInventoryDeltaProjector:
                         resource_id,
                         change_kind,
                         resource_type,
-                        json.dumps(dict(props), default=str),
+                        resource_props_json,
                         provider_ref,
                         observed_at,
                         event_id,
@@ -227,11 +232,17 @@ class PostgresInventoryDeltaProjector:
                     links=effective_links,
                 )
                 applied_links = 0
+                incoming_props_by_key = {
+                    _link_key(link): props_json
+                    for link, props_json in zip(links, link_props_json, strict=True)
+                }
                 for link, link_kind in zip(effective_links, effective_link_kinds, strict=True):
                     link_type = _choice(link, "link_type", _LINK_TYPES)
-                    link_props = link.get("props", {})
-                    if not isinstance(link_props, Mapping):
-                        raise ValueError("inventory_change link props MUST be an object")
+                    link_props_json_value = incoming_props_by_key.get(_link_key(link))
+                    if link_props_json_value is None:
+                        link_props_json_value = _canonical_json_mapping(
+                            link.get("props", {}), "inventory relationship props"
+                        )
                     link_cursor = await connection.execute(
                         "INSERT INTO inventory_realtime_link "
                         "(from_id, from_type, link_type, to_id, to_type, change_kind, props, "
@@ -255,7 +266,7 @@ class PostgresInventoryDeltaProjector:
                             _required_str(link, "to_id"),
                             _required_str(link, "to_type"),
                             link_kind,
-                            json.dumps(dict(link_props), default=str),
+                            link_props_json_value,
                             observed_at,
                             event_id,
                             idempotency_key,
@@ -377,6 +388,21 @@ def _links(value: object) -> Sequence[Mapping[str, Any]]:
     if not all(isinstance(link, Mapping) for link in value):
         raise ValueError("inventory_change.links MUST contain only objects")
     return value
+
+
+def _canonical_json_mapping(value: object, field: str) -> str:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field} MUST be an object")
+    try:
+        return json.dumps(
+            dict(value),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} MUST be JSON-compatible") from exc
 
 
 def _covered_resource_types(

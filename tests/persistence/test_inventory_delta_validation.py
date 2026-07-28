@@ -166,6 +166,32 @@ async def test_partial_relationship_patch_must_be_owned_by_changed_resource() ->
         await projector(_payload(links=[unrelated]))
 
 
+@pytest.mark.parametrize("invalid_props", [{"bad": object()}, {"bad": float("nan")}])
+async def test_resource_props_must_be_deterministic_json_before_database_work(
+    invalid_props: dict[str, object],
+) -> None:
+    projector = PostgresInventoryDeltaProjector(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused"),
+        clock=lambda: _NOW,
+    )
+    payload = _payload()
+    payload["inventory_change"]["resource"]["props"] = invalid_props  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="resource.props MUST be JSON-compatible"):
+        await projector(payload)
+
+
+async def test_link_props_must_be_deterministic_json_before_database_work() -> None:
+    projector = PostgresInventoryDeltaProjector(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused"),
+        clock=lambda: _NOW,
+    )
+    link = {**_link(), "props": {"bad": object()}}
+
+    with pytest.raises(ValueError, match="link.props MUST be JSON-compatible"):
+        await projector(_payload(links=[link]))
+
+
 def test_coverage_set_includes_resource_and_link_endpoint_types() -> None:
     covered = _covered_resource_types("compute.vm", [_link()])
 

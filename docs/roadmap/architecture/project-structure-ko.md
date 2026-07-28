@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 401a86b97f25b84d30abda632e3c07d486348109
+translation_source_sha: dab9957a4f68805e8b9d105f5a3d2cd4e0f8b371
 translation_revised: 2026-07-28
 ---
 
@@ -248,7 +248,8 @@ fdai/
   clock으로 대체하지 않고 발행과 cursor 진행을 차단합니다. 하나의 batch에는 각 `resource_id`가 한
   번만 포함될 수 있으며 중복이 있으면 event를 발행하기 전에 batch 전체를 차단합니다.
   리소스 및 관계 property는 finite 숫자 값으로 canonical JSON serialization이 가능해야 합니다. 지원되지
-  않는 object와 `NaN`은 identity 계산 또는 발행 전에 거부됩니다.
+  않는 object와 `NaN`은 identity 계산, 발행 또는 PostgreSQL 연결 전에 거부됩니다. Projector는 사전
+  검증된 canonical JSON document만 저장합니다.
   Bounded batch의 모든 event는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
   event가 validation 단계에서 부분 발행되지 않습니다.
   `has_more`로 표시된 모든 delta page는 record를 방출하기 전에 새로운 continuation cursor를 제공해야
