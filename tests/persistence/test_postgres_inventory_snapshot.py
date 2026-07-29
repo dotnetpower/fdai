@@ -254,6 +254,29 @@ async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
     assert limited["truncated"] is True
 
 
+async def test_inventory_graph_read_uses_consistent_read_only_transaction() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+
+    class RecordingGraphProvider(PostgresInventoryGraphProvider):
+        transaction_state: tuple[str, str] | None = None
+
+        async def _set_timeout(self, connection: psycopg.AsyncConnection[object]) -> None:
+            await super()._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT current_setting('transaction_isolation') AS isolation, "
+                "current_setting('transaction_read_only') AS read_only"
+            )
+            row = await cursor.fetchone()
+            assert row is not None
+            self.transaction_state = (str(row["isolation"]), str(row["read_only"]))
+
+    provider = RecordingGraphProvider(config=config)
+    await provider(None, 1, ("contains",))
+
+    assert provider.transaction_state == ("repeatable read", "on")
+
+
 async def test_inventory_graph_reverse_indexes_are_migrated() -> None:
     _upgrade()
     async with await psycopg.AsyncConnection.connect(_dsn()) as connection:

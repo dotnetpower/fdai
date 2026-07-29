@@ -10,6 +10,7 @@ from typing import Any, Final
 from uuid import uuid4
 
 import psycopg
+from psycopg import IsolationLevel
 from psycopg.rows import dict_row
 
 from fdai.core.views.architecture_graph import project_architecture_graph
@@ -293,6 +294,8 @@ class PostgresInventoryGraphProvider:
         limit: int = 500,
     ) -> Mapping[str, Any]:
         async with await self._connect() as connection:
+            await connection.set_isolation_level(IsolationLevel.REPEATABLE_READ)
+            await connection.set_read_only(True)
             await self._set_timeout(connection)
             await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
             active = await connection.execute(

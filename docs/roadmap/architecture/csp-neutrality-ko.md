@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: e431a2b3b2ed0a1e06740818620dd9b7df370ceb
+translation_source_sha: acc88c4486abe17b7568a38c49d560e399e3f982
 translation_revised: 2026-07-29
 ---
 
@@ -265,8 +265,9 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
 
 리소스 중심 요청은 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`을 지정합니다.
 Provider는 active snapshot과 순서가 보장된 실시간 overlay에서 허용된 incoming 및
-outgoing link를 모두 탐색합니다. 경계가 제한된 neighborhood만 반환하며 resource 또는
-relationship cap에 도달하면 `truncated=true`로 표시합니다. 알 수 없는 root는 named view나
+outgoing link를 하나의 repeatable-read, read-only database transaction 안에서 모두
+탐색합니다. 경계가 제한된 neighborhood만 반환하며 resource 또는 relationship cap에
+도달하면 `truncated=true`로 표시합니다. 알 수 없는 root는 named view나
 전체 inventory로 범위를 넓히지 않고 `404`를 반환합니다. 이 rooted mode를 사용하면 큰
 tenant graph를 전부 로드하지 않고 console에서 리소스를 하나씩 확장할 수 있습니다.
 `scope`와 `root`는 함께 사용할 수 없으며 custom `limit`은 `root`와 함께만 허용됩니다.

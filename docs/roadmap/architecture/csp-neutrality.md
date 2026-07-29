@@ -274,8 +274,9 @@ the executor identity.
 
 A resource-centered request supplies `root=<resource-id>`, `depth=1..8`, and
 `limit=1..1000`. The provider traverses both incoming and outgoing allowlisted links over the
-active snapshot plus its ordered real-time overlay. It returns only the bounded neighborhood and
-sets `truncated=true` when either the resource or relationship cap is reached. An unknown root
+active snapshot plus its ordered real-time overlay inside one repeatable-read, read-only database
+transaction. It returns only the bounded neighborhood and sets `truncated=true` when either the
+resource or relationship cap is reached. An unknown root
 returns `404`; it never widens to a named view or the complete inventory. This rooted mode lets
 the console expand one resource at a time without loading a large tenant graph. `scope` and `root`
 are mutually exclusive, and a custom `limit` is accepted only with `root`. Relationship filters
