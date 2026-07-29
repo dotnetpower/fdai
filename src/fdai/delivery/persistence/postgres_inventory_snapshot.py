@@ -107,6 +107,10 @@ class PostgresInventorySnapshotStore:
     async def stage(self, attempt_id: str, batch: InventoryBatch) -> None:
         if batch.final:
             raise ValueError("terminal inventory fences are not staged")
+        for resource in batch.resources:
+            _canonical_json_mapping(resource.props, "snapshot resource props")
+        for link in batch.links:
+            _canonical_json_mapping(link.link_props, "snapshot relationship props")
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
