@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 22bb34e0c6571fcb64e6c3fbed87f007250301e4
+translation_source_sha: d07ea081b69835f161c823da179a23723ca1545f
 translation_revised: 2026-07-29
 ---
 
@@ -222,6 +222,20 @@ PoC prevention을 네 artifact-backed validation stage로 매핑합니다. 생�
 `ExternalValidationReceipt`는 항상 execution에 대해 untrusted로 표시됩니다. Host는 참조 task
 session이 닫힌 뒤에만 이를 수락하고 unexpired same-task artifact reference를 검증하며, exact
 retry는 deduplicate하고 conflict는 차단합니다.
+
+Repository-level `scripts/benchmarking/run_cybergym.py` command는 official task를 위한 shadow-only
+runner를 제공합니다. CyberGym-E2E checkout에서 project 및 task TOML을 읽고 CPU, memory, process
+limit가 적용된 disposable Docker container에 source를 materialize합니다. Copilot은 task workspace와
+artifact directory만 쓸 수 있는 bubblewrap filesystem boundary 안에서 실행됩니다. 각 validation
+stage는 fresh container에서 실행됩니다. Hidden ground-truth input은 agent 실행이 끝난 뒤 해당
+validation container에만 전달되며 agent sandbox에는 mount되지 않습니다.
+
+`run` 전에 `check`를 사용하여 Docker, bubblewrap, Copilot CLI, GitHub authentication, task config,
+source data 및 validator readiness를 확인합니다. `patch-only` mode가 성공하려면 project-test stage
+3과 ground-truth PoC stage 4를 모두 통과해야 합니다. Stage 4는 patched `run_poc.sh` path가 제공된
+PoC에 대해 status 0으로 종료되어야 합니다. Crash를 nonzero exit로 바꾸는 것만으로는 repair가
+실패한 상태입니다. Runner는 configured output root 아래에 bounded agent log, `fix.patch`,
+`result.json` 및 시도한 validation stage별 JSON receipt를 보존합니다.
 
 ## Compatibility 및 enforcement
 

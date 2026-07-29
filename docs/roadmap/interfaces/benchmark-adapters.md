@@ -220,6 +220,20 @@ tests, and ground-truth PoC prevention to four artifact-backed validation stages
 after the referenced task session closes, verifies unexpired same-task artifact references, and
 deduplicates exact retries while rejecting conflicts.
 
+The repository-level `scripts/benchmarking/run_cybergym.py` command provides a shadow-only runner
+for official tasks. It reads project and task TOML from a CyberGym-E2E checkout, materializes source
+in a disposable Docker container with CPU, memory, and process limits, and runs Copilot inside a
+bubblewrap filesystem boundary where only the task workspace and artifact directory are writable.
+Each validation stage runs in a fresh container. Hidden ground-truth inputs enter only those
+validation containers after agent execution and are never mounted into the agent sandbox.
+
+Use `check` to verify Docker, bubblewrap, Copilot CLI, GitHub authentication, task config, source
+data, and validator readiness before `run`. In `patch-only` mode, success requires both project-test
+stage 3 and ground-truth PoC stage 4 to pass. Stage 4 requires the patched `run_poc.sh` path to exit
+with status 0 for the provided PoC; merely converting a crash into a nonzero exit remains a failed
+repair. The runner preserves a bounded agent log, `fix.patch`, `result.json`, and one JSON receipt
+per attempted validation stage beneath the configured output root.
+
 ## Compatibility and enforcement
 
 The legacy `fdai.benchmarking` API remains available through the `0.1.x` release line. Its existing
