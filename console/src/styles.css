@@ -8234,6 +8234,9 @@ main { padding-bottom: 60px !important; }
 .rule-facet-set button { flex: 0 0 auto; border: 0; border-radius: 999px; padding: 4px 8px; background: transparent; color: var(--fg-muted); font: inherit; font-size: 10.5px; cursor: pointer; }
 .rule-facet-set button.is-active { background: var(--bg-elevated); color: var(--fg); font-weight: 650; box-shadow: 0 1px 3px rgba(46, 54, 64, 0.1); }
 .rule-facet-set small { color: inherit; opacity: 0.72; }
+.rule-facet-select { display: grid; gap: 5px; width: clamp(150px, 15vw, 220px); min-width: 0; }
+.rule-facet-select > span { color: var(--fg-muted); font-size: 10.5px; font-weight: 650; text-transform: uppercase; }
+.rule-facet-select select { width: 100%; min-height: 28px; min-width: 0; padding: 4px 28px 4px 9px; overflow: hidden; border: 1px solid var(--border); border-radius: 999px; background-color: var(--cs-shade); color: var(--fg); font: inherit; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 .rule-facet-search { width: min(300px, 100%); margin-left: auto; }
 .rule-facet-search input { width: 100%; min-height: 32px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; }
 .rule-table-identity { display: grid; gap: 3px; min-width: 220px; }
@@ -8294,6 +8297,7 @@ main { padding-bottom: 60px !important; }
 @media (max-width: 760px) {
   .rule-facet-set { width: 100%; }
   .rule-facet-set > div { max-width: 100%; }
+  .rule-facet-select { width: 100%; }
   .rule-facet-search { width: 100%; margin-left: 0; }
   .rules-view-tabs { width: 100%; }
   .rules-view-tabs a { flex: 1; min-width: 0; }

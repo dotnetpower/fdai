@@ -372,6 +372,9 @@ violate it" over three GET routes
 | `GET /rules/{id}` | Full detail: sandboxed Rego + fix template bodies, plus an `explanation` (why it matters / risk) parsed from the Rego `# METADATA` block or the `azure_policy` / `kube_bench` params - grounded, never fabricated. |
 | `GET /rules/{id}/findings` | Affected resources (resource + the attribute at fault) behind a `findings_provider` seam. Upstream ships none -> honest `evaluated=false`; a fork wires an inventory-evaluation source. |
 
+The bounded origin, category, and severity facets use compact chips. Source is an open-ended facet,
+so it uses a count-bearing select that stays within the filter toolbar at narrow viewport widths.
+
 The seams are `ReadApiConfig.rule_catalog_rules`, `_collected_rules`,
 `_policies_root`, `_remediation_root`, and `_findings_provider`. Interactive
 local development leaves detected issues unavailable until an Azure-backed inventory

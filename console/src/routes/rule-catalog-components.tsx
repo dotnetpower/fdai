@@ -3,6 +3,33 @@ import { displayValue, t } from "./i18n/governance";
 
 export type FacetMap = Readonly<Record<string, number>>;
 
+export function FacetSelect({
+  label,
+  value,
+  counts,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly counts: FacetMap;
+  readonly onChange: (next: string) => void;
+}) {
+  const options = Object.entries(counts);
+  return (
+    <label class="rule-facet-select">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.currentTarget.value)}>
+        <option value="">
+          {t("governance.common.all")} ({options.reduce((sum, [, count]) => sum + count, 0)})
+        </option>
+        {options.map(([key, count]) => (
+          <option key={key} value={key}>{key} ({count})</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function FacetChips({
   label,
   value,

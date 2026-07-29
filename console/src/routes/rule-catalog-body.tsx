@@ -11,7 +11,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
-import { FacetChips } from "./rule-catalog-components";
+import { FacetChips, FacetSelect } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Selection } from "./rule-catalog-state";
 import {
   SEVERITY_PILL,
@@ -252,7 +252,7 @@ export function RuleCatalogBody({
           <FacetChips label={t("governance.rules.filter.origin")} value={filters.origin} counts={data.facets.by_origin} displayGroup="origin" onChange={(value) => onFilter({ origin: value })} />
           <FacetChips label={t("governance.rules.filter.category")} value={filters.category} counts={data.facets.by_category} displayGroup="category" onChange={(value) => onFilter({ category: value })} />
           <FacetChips label={t("governance.rules.filter.severity")} value={filters.severity} counts={data.facets.by_severity} displayGroup="severity" onChange={(value) => onFilter({ severity: value })} />
-          <FacetChips label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} onChange={(value) => onFilter({ source: value })} />
+          <FacetSelect label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} onChange={(value) => onFilter({ source: value })} />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.filter.searchAria")}</span>
             <input
