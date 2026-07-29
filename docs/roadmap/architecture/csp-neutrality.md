@@ -278,7 +278,9 @@ active snapshot plus its ordered real-time overlay. It returns only the bounded 
 sets `truncated=true` when either the resource or relationship cap is reached. An unknown root
 returns `404`; it never widens to a named view or the complete inventory. This rooted mode lets
 the console expand one resource at a time without loading a large tenant graph. `scope` and `root`
-are mutually exclusive, and a custom `limit` is accepted only with `root`.
+are mutually exclusive, and a custom `limit` is accepted only with `root`. Relationship filters
+accept at most 64 repeated `link` values, and each `link` or comma-separated `include` value is
+bounded to 512 characters before parsing.
 
 The projection publishes named architecture views. A request without `scope` returns only
 FDAI's own control plane, identified by the authoritative `fdai:managed=true` plus

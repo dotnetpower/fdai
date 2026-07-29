@@ -64,6 +64,16 @@ def _client(*, wired: bool) -> TestClient:
     return TestClient(app)
 
 
+def _client_with_provider(provider: Any) -> TestClient:
+    auth = build_authenticator(verifier=lambda token: {"oid": "u"}, resolver=lambda claims: None)
+    app = build_app(
+        authenticator=auth,
+        read_model=InMemoryConsoleReadModel(),
+        config=ReadApiConfig(dev_mode=True, inventory_graph_provider=provider),
+    )
+    return TestClient(app, raise_server_exceptions=False)
+
+
 def test_inventory_graph_returns_projection_and_query_manifest() -> None:
     response = _client(wired=True).get(
         "/inventory/graph",
@@ -99,6 +109,20 @@ def test_inventory_graph_forwards_bounded_root_query() -> None:
     assert body["provider_echo"]["limit"] == 25
 
 
+def test_inventory_graph_preserves_legacy_provider_for_named_views() -> None:
+    async def legacy_provider(
+        scope: str | None,
+        depth: int,
+        links: tuple[str, ...],
+    ) -> dict[str, Any]:
+        return await _provider(scope, depth, links)
+
+    response = _client_with_provider(legacy_provider).get("/inventory/graph")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["active_view"] == "fdai-control-plane"
+
+
 @pytest.mark.parametrize("depth", ["zero", "0", "9"])
 def test_inventory_graph_rejects_invalid_depth(depth: str) -> None:
     response = _client(wired=True).get("/inventory/graph", params={"depth": depth})
@@ -128,6 +152,18 @@ def test_inventory_graph_rejects_ambiguous_query_modes(params: dict[str, str]) -
 
 def test_inventory_graph_rejects_unknown_link_type() -> None:
     response = _client(wired=True).get("/inventory/graph", params={"include": "contains,unknown"})
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"include": "contains," + "x" * 504},
+        [("link", "contains")] * 65,
+    ],
+)
+def test_inventory_graph_rejects_oversized_link_filters(params: Any) -> None:
+    response = _client(wired=True).get("/inventory/graph", params=params)
     assert response.status_code == 400
 
 

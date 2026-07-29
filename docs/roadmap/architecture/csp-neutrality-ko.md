@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 48c307795a2bad17c0e674aa15749bf6f7dc9e11
+translation_source_sha: e431a2b3b2ed0a1e06740818620dd9b7df370ceb
 translation_revised: 2026-07-29
 ---
 
@@ -270,6 +270,8 @@ relationship cap에 도달하면 `truncated=true`로 표시합니다. 알 수 �
 전체 inventory로 범위를 넓히지 않고 `404`를 반환합니다. 이 rooted mode를 사용하면 큰
 tenant graph를 전부 로드하지 않고 console에서 리소스를 하나씩 확장할 수 있습니다.
 `scope`와 `root`는 함께 사용할 수 없으며 custom `limit`은 `root`와 함께만 허용됩니다.
+Relationship filter는 반복 `link` 값을 최대 64개까지 허용하며, 각 `link` 또는 comma로
+구분된 `include` 값은 parsing 전에 512자로 제한합니다.
 
 이 프로젝션은 이름이 지정된 아키텍처 뷰를 제공합니다. `scope` 없는 요청은 권위 있는
 `fdai:managed=true`와 `fdai:workload=fdai` 인벤토리 tag pair로 식별된 FDAI 자체

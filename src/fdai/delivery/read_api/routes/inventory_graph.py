@@ -20,6 +20,8 @@ DEFAULT_ROUTE_PATH = "/inventory/graph"
 _ALLOWED_LINKS = frozenset({"contains", "attached_to", "depends_on"})
 _DEFAULT_LIMIT = 500
 _MAX_LIMIT = 1000
+_MAX_LINK_FILTER_CHARS = 512
+_MAX_LINK_FILTER_VALUES = 64
 
 
 class InventoryGraphProvider(Protocol):
@@ -66,8 +68,14 @@ def make_inventory_graph_route(
             return _error(400, "limit requires root")
 
         raw_links: Sequence[str] = request.query_params.getlist("link")
+        if len(raw_links) > _MAX_LINK_FILTER_VALUES or any(
+            len(value) > _MAX_LINK_FILTER_CHARS for value in raw_links
+        ):
+            return _error(400, "link filter is too large")
         if not raw_links:
             include = request.query_params.get("include", "")
+            if len(include) > _MAX_LINK_FILTER_CHARS:
+                return _error(400, "include filter is too large")
             raw_links = tuple(part.strip() for part in include.split(",") if part.strip())
         links = tuple(dict.fromkeys(raw_links or ("contains", "attached_to", "depends_on")))
         unknown = sorted(set(links) - _ALLOWED_LINKS)
@@ -75,15 +83,18 @@ def make_inventory_graph_route(
             return _error(400, f"unsupported link type(s): {', '.join(unknown)}")
 
         try:
-            payload = dict(
-                await provider(
-                    scope,
-                    depth,
-                    links,
-                    root=root,
-                    limit=limit,
+            if root is None:
+                payload = dict(await provider(scope, depth, links))
+            else:
+                payload = dict(
+                    await provider(
+                        scope,
+                        depth,
+                        links,
+                        root=root,
+                        limit=limit,
+                    )
                 )
-            )
         except InventoryGraphViewNotFoundError as exc:
             return _error(404, str(exc))
         resources = payload.get("resources")
