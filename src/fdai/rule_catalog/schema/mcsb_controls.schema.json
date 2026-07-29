@@ -23,6 +23,20 @@
     "status": {"enum": ["stable", "preview", "legacy"]},
     "control_import_status": {"enum": ["complete", "partial", "metadata_only"]},
     "title": {"type": "string", "minLength": 1, "maxLength": 256},
+    "source_documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["domain", "source_url", "resolved_ref", "content_hash"],
+        "properties": {
+          "domain": {"enum": ["NS", "IM", "PA", "DP", "AM", "LT", "IR", "PV", "ES", "BR", "DS", "GS", "AI"]},
+          "source_url": {"type": "string", "format": "uri"},
+          "resolved_ref": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "content_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        }
+      }
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,

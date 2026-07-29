@@ -74,12 +74,15 @@ def test_filters_search_and_paging_compose() -> None:
     assert page["filtered_total"] == 86
 
 
-def test_v2_preview_is_explicitly_metadata_only() -> None:
+def test_v2_preview_exposes_imported_controls_without_claiming_coverage() -> None:
     body = _client().get("/mcsb-controls", params={"version": "v2-preview"}).json()
 
-    assert body["total"] == 0
+    assert body["total"] == 81
     assert body["benchmark"]["status"] == "preview"
-    assert body["benchmark"]["control_import_status"] == "metadata_only"
+    assert body["benchmark"]["control_import_status"] == "complete"
+    assert body["facets"]["by_coverage"] == {"unmapped": 81}
+    assert body["facets"]["by_domain"]["AI"] == 7
+    assert any(item["control_id"] == "AI-1" for item in body["controls"])
     assert body["benchmark"]["policy_profiles"] == [
         {
             "profile_id": "compliance.security-center.preview-microsoft-cloud-security-benc",

@@ -313,8 +313,13 @@ def step_mcsb_deep(runner: Runner) -> StepResult:
         if mapped_rules != expected_rules:
             findings.append("MCSB v1 crosswalk does not cover every curated MCSB rule exactly")
     v2 = by_version.get("v2-preview")
-    if v2 is not None and (v2.control_import_status != "metadata_only" or v2.controls):
-        findings.append("MCSB v2 preview MUST remain metadata-only until controls are imported")
+    if v2 is not None:
+        if v2.control_import_status != "complete" or len(v2.controls) != 81:
+            findings.append("MCSB v2 preview MUST contain the complete 81-control import")
+        if v2.coverage_counts() != {"unmapped": 81}:
+            findings.append("MCSB v2 preview controls MUST remain unmapped until reviewed")
+        if len(v2.source_documents) != 12:
+            findings.append("MCSB v2 preview MUST pin all 12 domain source documents")
     return StepResult(
         name="mcsb_deep",
         ok=not findings,

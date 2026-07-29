@@ -148,11 +148,22 @@ export function McsbControlsBody({
   );
 
   const metadataOnly = data.benchmark.control_import_status === "metadata_only";
+  const previewDefinitions = data.benchmark.status === "preview" && !metadataOnly;
+  const bannerTitle = metadataOnly
+    ? "governance.rules.mcsb.banner.metadataTitle"
+    : previewDefinitions
+      ? "governance.rules.mcsb.banner.previewTitle"
+      : "governance.rules.mcsb.banner.title";
+  const bannerBody = metadataOnly
+    ? "governance.rules.mcsb.banner.metadataBody"
+    : previewDefinitions
+      ? "governance.rules.mcsb.banner.previewBody"
+      : "governance.rules.mcsb.banner.body";
   return (
     <div class="stack">
       <div class="governance-readonly-banner mcsb-coverage-banner">
-        <strong>{t(metadataOnly ? "governance.rules.mcsb.banner.metadataTitle" : "governance.rules.mcsb.banner.title")}</strong>
-        <span>{t(metadataOnly ? "governance.rules.mcsb.banner.metadataBody" : "governance.rules.mcsb.banner.body", { policyRefs })}</span>
+        <strong>{t(bannerTitle)}</strong>
+        <span>{t(bannerBody, { policyRefs, total: data.total })}</span>
       </div>
       <KpiGrid>
         <KpiCard href={mcsbControlsHref(version, EMPTY_FILTERS, null)} label={t("governance.rules.mcsb.kpi.total")} value={data.total} />

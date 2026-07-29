@@ -112,13 +112,43 @@ def test_runtime_registry_and_crosswalk_are_bidirectionally_equal() -> None:
     assert dict(observations_by_control) == dict(expected)
 
 
-def test_v2_preview_stays_separate_and_metadata_only() -> None:
+def test_v2_preview_import_is_complete_but_unmapped() -> None:
     catalogs = {catalog.benchmark_version: catalog for catalog in _catalogs()}
     v2 = catalogs["v2-preview"]
 
     assert v2.status == "preview"
-    assert v2.control_import_status == "metadata_only"
-    assert v2.controls == ()
+    assert v2.control_import_status == "complete"
+    assert len(v2.controls) == 81
+    assert Counter(control.domain for control in v2.controls) == {
+        "NS": 10,
+        "IM": 8,
+        "PA": 8,
+        "DP": 8,
+        "AM": 5,
+        "LT": 7,
+        "IR": 7,
+        "PV": 7,
+        "ES": 3,
+        "BR": 4,
+        "DS": 7,
+        "AI": 7,
+    }
+    assert v2.coverage_counts() == {"unmapped": 81}
+    assert len(v2.source_documents) == 12
+    assert {document.domain for document in v2.source_documents} == {
+        "NS",
+        "IM",
+        "PA",
+        "DP",
+        "AM",
+        "LT",
+        "IR",
+        "PV",
+        "ES",
+        "BR",
+        "DS",
+        "AI",
+    }
     assert [(profile.profile_id, profile.policy_ref_count) for profile in v2.policy_profiles] == [
         ("compliance.security-center.preview-microsoft-cloud-security-benc", 410)
     ]

@@ -377,7 +377,8 @@ violate it" and shows versioned control-framework coverage over five GET routes
 The bounded origin, category, and severity facets use compact chips. Source is an open-ended facet,
 so it uses a count-bearing select that stays within the filter toolbar at narrow viewport widths.
 The Controls view switches between Azure WAF, MCSB v1, and MCSB v2 preview. MCSB v1 renders the
-complete 86-control import and its implementation crosswalk; v2 remains visibly metadata-only.
+complete 86-control import and its implementation crosswalk. MCSB v2 renders all 81 pinned preview
+definitions as Unmapped until its independent crosswalk is reviewed.
 
 The seams are `ReadApiConfig.rule_catalog_rules`, `_collected_rules`,
 `_policies_root`, `_remediation_root`, and `_findings_provider`. Interactive

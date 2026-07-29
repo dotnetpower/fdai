@@ -13,9 +13,9 @@ const preview = {
   benchmark_version: "v2-preview",
   title: "Microsoft Cloud Security Benchmark v2 preview",
   status: "preview",
-  control_import_status: "metadata_only",
-  control_count: 0,
-  coverage_counts: {},
+  control_import_status: "complete",
+  control_count: 1,
+  coverage_counts: { unmapped: 1 },
   policy_profiles: [{ profile_id: "mcsb-v2", policy_ref_count: 410 }],
 };
 const controls = [
@@ -36,6 +36,17 @@ const controls = [
     rule_count: 0,
     runtime_observation_count: 0,
     manual_evidence_count: 1,
+  },
+];
+const previewControls = [
+  {
+    control_id: "AI-1",
+    title: "Ensure use of approved models",
+    domain: "AI",
+    coverage: "unmapped",
+    rule_count: 0,
+    runtime_observation_count: 0,
+    manual_evidence_count: 0,
   },
 ];
 
@@ -69,7 +80,7 @@ async function installFixture(page: Page): Promise<void> {
     }
     if (path === "/mcsb-controls") {
       const selected = url.searchParams.get("version") === "v2-preview" ? preview : version;
-      const items = selected === preview ? [] : controls;
+      const items = selected === preview ? previewControls : controls;
       await json(route, {
         benchmark: selected,
         versions: [version, preview],
@@ -78,8 +89,8 @@ async function installFixture(page: Page): Promise<void> {
         offset: 0,
         limit: 100,
         facets: {
-          by_domain: selected === preview ? {} : { DP: 1, IR: 1 },
-          by_coverage: selected === preview ? {} : { partial: 1, manual: 1 },
+          by_domain: selected === preview ? { AI: 1 } : { DP: 1, IR: 1 },
+          by_coverage: selected === preview ? { unmapped: 1 } : { partial: 1, manual: 1 },
         },
         controls: items,
         evaluation_source: "catalog_crosswalk",
@@ -111,7 +122,10 @@ test("shows versioned implementation coverage without compliance claims", async 
 
   await page.getByRole("link", { name: "MCSB v2 preview" }).click();
   await expect(page).toHaveURL(/framework=mcsb-v2-preview/);
-  await expect(page.getByText("MCSB v2 is tracked separately as preview metadata.")).toBeVisible();
+  await expect(
+    page.getByText("MCSB v2 preview definitions are imported; mappings are pending review."),
+  ).toBeVisible();
+  await expect(page.getByText("AI-1", { exact: true })).toBeVisible();
 
   for (const selector of ["html", ".control-framework-tabs", ".rule-facet-toolbar"]) {
     const dimensions = await page.locator(selector).evaluate((element) => ({

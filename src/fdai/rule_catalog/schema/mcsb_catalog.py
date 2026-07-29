@@ -61,6 +61,14 @@ class McsbControl:
 
 
 @dataclass(frozen=True, slots=True)
+class McsbSourceDocument:
+    domain: str
+    source_url: str
+    resolved_ref: str
+    content_hash: str
+
+
+@dataclass(frozen=True, slots=True)
 class McsbControlMapping:
     control_id: str
     coverage: McsbCoverage
@@ -82,6 +90,7 @@ class McsbCatalog:
     control_import_status: str
     title: str
     source: McsbSource
+    source_documents: tuple[McsbSourceDocument, ...]
     controls: tuple[McsbControl, ...]
     mappings: tuple[McsbControlMapping, ...]
     policy_profiles: tuple[McsbPolicyProfile, ...]
@@ -199,6 +208,25 @@ def _materialize_catalog(
             issues.append(
                 McsbCatalogIssue(control.id, f"domain {control.domain!r} does not match id prefix")
             )
+    source_documents = tuple(
+        McsbSourceDocument(
+            domain=str(item["domain"]),
+            source_url=str(item["source_url"]),
+            resolved_ref=str(item["resolved_ref"]),
+            content_hash=str(item["content_hash"]),
+        )
+        for item in controls_raw.get("source_documents", ())
+    )
+    document_domains = [document.domain for document in source_documents]
+    if len(document_domains) != len(set(document_domains)):
+        issues.append(McsbCatalogIssue(version_root.name, "source document domains MUST be unique"))
+    if source_documents and set(document_domains) != {control.domain for control in controls}:
+        issues.append(
+            McsbCatalogIssue(
+                version_root.name,
+                "source document domains MUST equal imported control domains",
+            )
+        )
     if controls_raw["control_import_status"] == "metadata_only" and controls:
         issues.append(
             McsbCatalogIssue(version_root.name, "metadata_only catalog MUST have no controls")
@@ -253,6 +281,7 @@ def _materialize_catalog(
         control_import_status=str(controls_raw["control_import_status"]),
         title=str(controls_raw["title"]),
         source=McsbSource(**{key: source_raw.get(key) for key in McsbSource.__annotations__}),
+        source_documents=source_documents,
         controls=controls,
         mappings=mappings,
         policy_profiles=profiles,
@@ -373,5 +402,6 @@ __all__ = [
     "McsbCoverage",
     "McsbPolicyProfile",
     "McsbSource",
+    "McsbSourceDocument",
     "load_mcsb_catalogs",
 ]

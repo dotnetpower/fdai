@@ -21,8 +21,8 @@ The continuous update pipeline is [phase-2-quality-and-t1.md](../phases/phase-2-
 > `BestPractice` also has a strict schema, loader, typed-reference catalog validation, and the
 > complete Azure WAF Reliability and Operational Excellence control set. Dedicated
 > config-baseline and measurement-baseline schemas/loaders remain target shapes. The versioned
-> MCSB catalog imports all 86 v1 controls, validates their implementation crosswalk, and tracks
-> v2 preview separately as metadata-only until its control definitions are imported.
+> MCSB catalog imports all 86 v1 controls and all 81 v2 preview controls, pins every source
+> document, and validates each version's independent implementation crosswalk.
 > Not every external connector/parser, production discovery schedule/PR delivery, or
 > compliance/threat crosswalk listed below is complete.
 
@@ -75,7 +75,7 @@ some strategy or process controls cannot be evaluated from resource configuratio
 | Version | Imported controls | Azure Policy profile refs | Status |
 |---------|------------------:|--------------------------:|--------|
 | `v1` | 86 across 12 domains | 222 versioned + 169 current | complete control import |
-| `v2-preview` | 0 | 410 | preview metadata only |
+| `v2-preview` | 81 across 12 domains | 410 | complete preview definitions; mappings pending |
 
 The v1 crosswalk currently classifies 16 controls as partially automated, 9 as manual evidence,
 and 61 as unmapped. No control is labeled fully automated because the mapped checks cover only part
@@ -83,9 +83,14 @@ of each technology-neutral control. These values describe FDAI implementation co
 a workload passes MCSB. Runtime compliance needs authoritative observed evidence and remains a
 separate evaluation.
 
+The v2 preview catalog pins 81 controls from 12 Microsoft Learn domain pages, including the seven
+new Artificial Intelligence Security controls. All 81 remain `unmapped` until each v2 mapping is
+reviewed. FDAI does not transfer a matching v1 control id into v2 automatically.
+
 The versioned artifacts live under `rule-catalog/compliance/mcsb/`:
 
 - `controls.yaml` owns benchmark identity, version, source pin, and control definitions.
+- `source_documents` pins the URL, source commit, and content hash for every v2 domain page.
 - `crosswalk.yaml` owns reviewed links to FDAI rules, Azure Policy profiles, runtime observations,
   and manual evidence.
 - Missing crosswalk entries materialize as `unmapped`; unknown references, duplicate controls,
@@ -105,6 +110,14 @@ PYTHONPATH=src .venv/bin/python scripts/catalog/validate-catalog-full.py \
 ```
 
 The importer records the workbook SHA-256 and never copies a local download path into the catalog.
+Import the current v2 preview definitions from the bounded Learn allowlist with:
+
+```bash
+.venv/bin/python scripts/catalog/import_mcsb_learn.py \
+  --output rule-catalog/compliance/mcsb/v2-preview/controls.yaml \
+  --retrieved-at <rfc3339-timestamp>
+```
+
 MCSB v1 and v2 remain independent versions; a v1 mapping is never relabeled as v2 coverage.
 
 ### Security Sources (deep)

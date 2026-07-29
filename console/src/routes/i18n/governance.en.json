@@ -342,6 +342,8 @@
       "banner": {
         "title": "Implementation coverage, not compliance status.",
         "body": "The v1 workbook is pinned and mapped to FDAI rules, runtime observations, and manual evidence. {policyRefs} Azure Policy references are tracked at benchmark level and do not prove a control passed.",
+        "previewTitle": "MCSB v2 preview definitions are imported; mappings are pending review.",
+        "previewBody": "All {total} official preview controls are pinned from 12 Microsoft Learn domain pages. They remain Unmapped; {policyRefs} Azure Policy references do not prove implementation or compliance.",
         "metadataTitle": "MCSB v2 is tracked separately as preview metadata.",
         "metadataBody": "The preview policy profile is pinned, but v2 control definitions are not imported. No v1 mapping is reused or relabeled as v2 coverage."
       },
