@@ -32,6 +32,7 @@
       ["actions.html", "Actions (ontology)", "is-plum"],
       ["ontology.html", "Ontology", "is-plum"],
       ["ontology-map.html", "Ontology map", "is-plum"],
+      ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"],
       ["workflow-builder.html", "Workflow builder", ""]
     ]],
     ["Evidence", [

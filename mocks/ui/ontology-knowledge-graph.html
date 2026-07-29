@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Full ontology knowledge graph - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=ontology-knowledge-v1" />
+  <script src="assets/calm-slate.js?v=ontology-knowledge-v1" defer></script>
+  <script src="assets/ontology-knowledge-data.js?v=ontology-knowledge-v1"></script>
+  <style>
+    .kg-head { display:flex; align-items:flex-end; justify-content:space-between; gap:28px; margin-bottom:16px; }
+    .kg-head-copy { max-width:78ch; }
+    .kg-head h1 { margin-bottom:5px; }
+    .kg-source { flex:0 0 auto; padding-left:14px; border-left:2px solid var(--cs-hairline); color:var(--cs-text-soft); font-size:11.5px; }
+    .kg-source strong { display:block; color:var(--cs-text); font-size:12px; }
+    .kg-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); margin-bottom:12px; overflow:hidden; border:1px solid var(--cs-hairline); border-radius:8px; background:var(--cs-card); }
+    .kg-stat { padding:9px 12px; border-right:1px solid var(--cs-hairline); }
+    .kg-stat:last-child { border-right:0; }
+    .kg-stat strong,.kg-stat span { display:block; }
+    .kg-stat strong { font-size:18px; line-height:1.1; }
+    .kg-stat span { margin-top:3px; color:var(--cs-text-soft); font-size:10px; text-transform:uppercase; }
+    .kg-toolbar { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:9px 11px; border:1px solid var(--cs-hairline); border-radius:8px 8px 0 0; background:var(--cs-shade); }
+    .kg-tools,.kg-filters { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+    .kg-search { width:260px; min-height:34px; padding:6px 9px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:12px var(--cs-font); }
+    .kg-search:focus { border-color:var(--cs-steel); outline:2px solid rgba(68,104,142,.16); }
+    .kg-tool { min-width:34px; min-height:34px; padding:5px 9px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:700 13px var(--cs-font); cursor:pointer; }
+    .kg-tool:hover { border-color:var(--cs-steel); }
+    .kg-tool:focus-visible { outline:2px solid rgba(68,104,142,.35); outline-offset:1px; }
+    .kg-filter { display:inline-flex; align-items:center; gap:5px; color:var(--cs-text-soft); font-size:10.5px; white-space:nowrap; }
+    .kg-filter input { accent-color:var(--cs-steel); }
+    .kg-workbench { display:grid; grid-template-columns:minmax(0,1fr) 280px; height:720px; overflow:hidden; border:1px solid var(--cs-hairline); border-top:0; background:var(--cs-card); box-shadow:var(--cs-shadow); }
+    .kg-viewport { position:relative; min-width:0; overflow:hidden; cursor:grab; background-color:#fbfaf9; background-image:linear-gradient(rgba(68,104,142,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(68,104,142,.045) 1px,transparent 1px); background-size:24px 24px; }
+    .kg-viewport.is-dragging { cursor:grabbing; }
+    .kg-canvas { display:block; width:100%; height:100%; touch-action:none; user-select:none; }
+    .kg-cluster { fill:rgba(255,255,255,.80); stroke:var(--cs-hairline); stroke-width:2; }
+    .kg-cluster-title { fill:var(--cs-text); font:700 18px var(--cs-font); }
+    .kg-cluster-count { fill:var(--cs-text-soft); font:12px var(--cs-font); }
+    .kg-edge { fill:none; stroke-width:1.2; vector-effect:non-scaling-stroke; opacity:.14; transition:opacity .12s,stroke-width .12s; }
+    .kg-edge.is-link_type { stroke:var(--cs-teal); }
+    .kg-edge.is-instance_of { stroke:#9a9da1; stroke-dasharray:2 4; }
+    .kg-edge.is-rule_dispatch { stroke:var(--cs-steel); }
+    .kg-edge.is-workflow { stroke:var(--cs-plum); }
+    .kg-edge.is-agent { stroke:var(--cs-terracotta); }
+    .kg-edge.is-muted { opacity:.015; }
+    .kg-edge.is-related { opacity:.78; stroke-width:2.2; }
+    .kg-node { cursor:pointer; outline:none; }
+    .kg-node rect { stroke-width:1.2; vector-effect:non-scaling-stroke; }
+    .kg-node text { pointer-events:none; fill:var(--cs-text); font:600 9px var(--cs-font); text-anchor:middle; }
+    .kg-node.is-object_type rect { fill:#eef3f8; stroke:var(--cs-steel); }
+    .kg-node.is-resource_type rect { fill:#edf5f3; stroke:var(--cs-teal); }
+    .kg-node.is-rule rect { fill:#fff; stroke:#90979e; }
+    .kg-node.is-action_type rect { fill:#f3f0f8; stroke:var(--cs-plum); }
+    .kg-node.is-workflow rect { fill:#f8f1ed; stroke:var(--cs-terracotta); }
+    .kg-node.is-agent rect { fill:#eef4eb; stroke:var(--cs-sage); }
+    .kg-node.is-signal_type rect,.kg-node.is-property rect { fill:#f2f2f1; stroke:#8e9296; }
+    .kg-node.is-muted { opacity:.14; }
+    .kg-node.is-related { opacity:1; }
+    .kg-node.is-selected rect { stroke:#1d2730; stroke-width:3; }
+    .kg-node:focus-visible rect { stroke:#1d2730; stroke-width:3; }
+    .kg-inspector { overflow-y:auto; padding:14px; border-left:1px solid var(--cs-hairline); background:var(--cs-shade); }
+    .kg-inspector h2 { margin:0 0 7px; overflow-wrap:anywhere; font-size:16px; }
+    .kg-inspector > p { margin:0 0 12px; color:var(--cs-text-soft); font-size:12px; }
+    .kg-inspector .cs-tag { margin-bottom:8px; }
+    .kg-facts { margin:0; }
+    .kg-facts div { padding:7px 0; border-top:1px solid var(--cs-hairline); }
+    .kg-facts dt { color:var(--cs-text-soft); font-size:10px; text-transform:uppercase; }
+    .kg-facts dd { margin:2px 0 0; overflow-wrap:anywhere; font-size:12px; }
+    .kg-neighbors { margin:12px 0 0; padding:0; list-style:none; }
+    .kg-neighbors li { margin:3px 0; }
+    .kg-neighbors button { max-width:100%; padding:2px 0; overflow:hidden; border:0; background:transparent; color:var(--cs-steel); font:11px "Cascadia Code","Consolas",monospace; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+    .kg-foot { display:flex; justify-content:space-between; gap:16px; padding:9px 12px; border:1px solid var(--cs-hairline); border-top:0; border-radius:0 0 8px 8px; color:var(--cs-text-soft); font-size:11.5px; }
+    @media (max-width:900px) {
+      .kg-head { align-items:flex-start; flex-direction:column; gap:10px; }
+      .kg-source { padding-left:0; border-left:0; }
+      .kg-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .kg-stat:nth-child(3) { border-right:0; }
+      .kg-stat:nth-child(-n+3) { border-bottom:1px solid var(--cs-hairline); }
+      .kg-toolbar { align-items:stretch; flex-direction:column; }
+      .kg-search { width:100%; }
+      .kg-workbench { display:block; height:auto; }
+      .kg-viewport { height:600px; }
+      .kg-inspector { max-height:360px; border-top:1px solid var(--cs-hairline); border-left:0; }
+    }
+    @media (max-width:540px) {
+      .kg-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .kg-stat:nth-child(2n) { border-right:0; }
+      .kg-stat:nth-child(3) { border-right:1px solid var(--cs-hairline); }
+      .kg-filters { gap:5px 9px; }
+      .kg-viewport { height:520px; }
+      .kg-foot { align-items:flex-start; flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page">
+    <header class="kg-head">
+      <div class="kg-head-copy">
+        <div class="cs-eyebrow">Knowledge &middot; complete catalog view</div>
+        <h1>Full ontology knowledge graph</h1>
+        <p class="cs-lead" style="margin:0;">Every generic catalog-backed node on one canvas:
+          type declarations, resource types, rules, actions, workflows, agents, and dispatch
+          concepts. Runtime principal and conversation IDs remain outside this static mock.</p>
+      </div>
+      <div class="kg-source"><strong>Generated snapshot</strong><code>rule-catalog</code> + <code>PANTHEON_SPECS</code></div>
+    </header>
+
+    <div class="kg-summary" aria-label="Knowledge graph summary">
+      <div class="kg-stat"><strong id="kg-node-count">216</strong><span>Catalog nodes</span></div>
+      <div class="kg-stat"><strong id="kg-edge-count">510</strong><span>Relationships</span></div>
+      <div class="kg-stat"><strong>61</strong><span>Rules</span></div>
+      <div class="kg-stat"><strong>44</strong><span>Actions</span></div>
+      <div class="kg-stat"><strong>15</strong><span>Agents</span></div>
+    </div>
+
+    <div class="kg-toolbar">
+      <div class="kg-tools">
+        <input class="kg-search" id="kg-search" type="search" list="kg-node-list" placeholder="Find any node" aria-label="Find any knowledge graph node" />
+        <datalist id="kg-node-list"></datalist>
+        <button class="kg-tool" id="kg-find" title="Focus the first matching node">Find</button>
+        <button class="kg-tool" id="kg-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+        <button class="kg-tool" id="kg-zoom-out" title="Zoom out" aria-label="Zoom out">-</button>
+        <button class="kg-tool" id="kg-fit" title="Fit all nodes">Fit</button>
+      </div>
+      <div class="kg-filters" aria-label="Relationship filters">
+        <label class="kg-filter"><input type="checkbox" data-edge-kind="link_type" checked />LinkTypes</label>
+        <label class="kg-filter"><input type="checkbox" data-edge-kind="instance_of" checked />Instance of</label>
+        <label class="kg-filter"><input type="checkbox" data-edge-kind="rule_dispatch" checked />Rule dispatch</label>
+        <label class="kg-filter"><input type="checkbox" data-edge-kind="workflow" checked />Workflow</label>
+        <label class="kg-filter"><input type="checkbox" data-edge-kind="agent" checked />Ownership</label>
+      </div>
+    </div>
+
+    <div class="kg-workbench">
+      <div class="kg-viewport" id="kg-viewport">
+        <svg class="kg-canvas" id="kg-canvas" viewBox="0 0 2400 1450" role="img" aria-labelledby="kg-title kg-desc">
+          <title id="kg-title">Complete FDAI ontology knowledge graph</title>
+          <desc id="kg-desc">All catalog-backed ontology nodes and their typed or referenced relationships.</desc>
+        </svg>
+      </div>
+      <aside class="kg-inspector" id="kg-inspector" aria-live="polite"></aside>
+    </div>
+    <footer class="kg-foot">
+      <span>Solid edges are catalog references or registered LinkTypes. Dashed edges mean catalog instance-of. Select a node to isolate its one-hop neighborhood.</span>
+      <a href="ontology-map.html">Open declaration explorer</a>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+      var graph = window.FDAI_ONTOLOGY_KNOWLEDGE_GRAPH;
+      var svg = document.getElementById("kg-canvas");
+      var viewport = document.getElementById("kg-viewport");
+      var inspector = document.getElementById("kg-inspector");
+      var search = document.getElementById("kg-search");
+      var positions = new Map();
+      var nodeElements = new Map();
+      var edgeElements = new Map();
+      var selectedId = null;
+      var view = {x:0,y:0,w:2400,h:1450};
+      var drag = null;
+      var clusters = {
+        "ObjectTypes": {x:40,y:40,w:1180,h:390,cols:9},
+        "Agents": {x:1260,y:40,w:500,h:390,cols:4},
+        "Dispatch concepts": {x:1800,y:40,w:560,h:390,cols:2},
+        "ResourceTypes": {x:40,y:470,w:560,h:930,cols:4},
+        "Rules": {x:640,y:470,w:720,h:930,cols:5},
+        "ActionTypes": {x:1400,y:470,w:620,h:930,cols:4},
+        "Workflows": {x:2060,y:470,w:300,h:930,cols:2}
+      };
+      var colors = {object_type:"is-object_type",resource_type:"is-resource_type",rule:"is-rule",action_type:"is-action_type",workflow:"is-workflow",agent:"is-agent",signal_type:"is-signal_type",property:"is-property"};
+
+      function element(name,attrs,text){var node=document.createElementNS("http://www.w3.org/2000/svg",name);Object.keys(attrs||{}).forEach(function(key){node.setAttribute(key,attrs[key]);});if(text!=null)node.textContent=text;return node;}
+      function shortLabel(label){return label.length>20?label.slice(0,18)+"..":label;}
+      function setView(){svg.setAttribute("viewBox",[view.x,view.y,view.w,view.h].join(" "));}
+      function fit(){view={x:0,y:0,w:2400,h:1450};setView();}
+      function zoom(factor,cx,cy){var nextW=Math.max(420,Math.min(2400,view.w*factor));var nextH=nextW*(view.h/view.w);var anchorX=cx==null?view.x+view.w/2:cx;var anchorY=cy==null?view.y+view.h/2:cy;var rx=(anchorX-view.x)/view.w,ry=(anchorY-view.y)/view.h;view={x:anchorX-rx*nextW,y:anchorY-ry*nextH,w:nextW,h:nextH};setView();}
+      function layout(){Object.keys(clusters).forEach(function(group){var cluster=clusters[group],items=graph.nodes.filter(function(node){return node.group===group;});var cellW=(cluster.w-28)/cluster.cols,rows=Math.ceil(items.length/cluster.cols),cellH=Math.min(58,(cluster.h-58)/Math.max(1,rows));items.forEach(function(node,index){positions.set(node.id,{x:cluster.x+14+(index%cluster.cols)*cellW+cellW/2,y:cluster.y+50+Math.floor(index/cluster.cols)*cellH+cellH/2,w:Math.min(118,cellW-8),h:24});});});}
+      function renderClusters(){Object.keys(clusters).forEach(function(group){var c=clusters[group],count=graph.nodes.filter(function(node){return node.group===group;}).length;svg.appendChild(element("rect",{class:"kg-cluster",x:c.x,y:c.y,width:c.w,height:c.h,rx:10}));svg.appendChild(element("text",{class:"kg-cluster-title",x:c.x+16,y:c.y+26},group));svg.appendChild(element("text",{class:"kg-cluster-count",x:c.x+c.w-16,y:c.y+25,"text-anchor":"end"},count+" nodes"));});}
+      function renderEdges(){graph.edges.forEach(function(edge){var source=positions.get(edge.source),target=positions.get(edge.target);if(!source||!target)return;var path=element("path",{class:"kg-edge is-"+edge.kind,"data-kind":edge.kind,d:"M"+source.x+" "+source.y+" C"+((source.x+target.x)/2)+" "+source.y+","+((source.x+target.x)/2)+" "+target.y+","+target.x+" "+target.y});var title=element("title",{},edge.label+": "+edge.source+" -> "+edge.target);path.appendChild(title);edgeElements.set(edge.id,path);svg.appendChild(path);});}
+      function renderNodes(){graph.nodes.forEach(function(node){var p=positions.get(node.id),group=element("g",{class:"kg-node "+colors[node.kind],"data-id":node.id,transform:"translate("+p.x+","+p.y+")",tabindex:"0",role:"button"});group.appendChild(element("rect",{x:-p.w/2,y:-p.h/2,width:p.w,height:p.h,rx:4}));group.appendChild(element("text",{y:3},shortLabel(node.label)));group.appendChild(element("title",{},node.label+" - "+node.detail));group.addEventListener("click",function(){select(node.id,true);});group.addEventListener("keydown",function(event){if(event.key==="Enter"||event.key===" "){event.preventDefault();select(node.id,true);}});nodeElements.set(node.id,group);svg.appendChild(group);});}
+      function connected(id){var ids=new Set([id]),edges=[];graph.edges.forEach(function(edge){if(edge.source===id||edge.target===id){ids.add(edge.source);ids.add(edge.target);edges.push(edge.id);}});return {ids:ids,edges:new Set(edges)};}
+      function select(id,focus){selectedId=id;var neighborhood=connected(id);nodeElements.forEach(function(node,nodeId){node.classList.toggle("is-selected",nodeId===id);node.classList.toggle("is-related",neighborhood.ids.has(nodeId));node.classList.toggle("is-muted",!neighborhood.ids.has(nodeId));});edgeElements.forEach(function(path,edgeId){path.classList.toggle("is-related",neighborhood.edges.has(edgeId));path.classList.toggle("is-muted",!neighborhood.edges.has(edgeId));});var selected=graph.nodes.find(function(node){return node.id===id;}),related=graph.edges.filter(function(edge){return edge.source===id||edge.target===id;});inspector.innerHTML='<span class="cs-tag is-steel">'+selected.kind.replaceAll("_"," ")+'</span><h2><code>'+selected.label+'</code></h2><p>'+selected.detail+'</p><dl class="kg-facts"><div><dt>Evidence state</dt><dd>'+(selected.kind==="object_type"?"Declared":"Catalog-backed")+'</dd></div><div><dt>Cluster</dt><dd>'+selected.group+'</dd></div><div><dt>Relationships</dt><dd>'+related.length+'</dd></div><div><dt>Node id</dt><dd><code>'+selected.id+'</code></dd></div></dl><h3 style="margin:14px 0 4px;font-size:12px;">One-hop neighbors</h3><ul class="kg-neighbors">'+related.slice(0,24).map(function(edge){var other=edge.source===id?edge.target:edge.source,node=graph.nodes.find(function(item){return item.id===other;});return '<li><button data-node="'+other+'">'+edge.label+' -> '+node.label+'</button></li>';}).join("")+'</ul>';inspector.querySelectorAll("button[data-node]").forEach(function(button){button.onclick=function(){select(button.dataset.node,true);};});if(focus){var p=positions.get(id);view={x:p.x-330,y:p.y-200,w:660,h:400};setView();}}
+      function clearSelection(){selectedId=null;nodeElements.forEach(function(node){node.classList.remove("is-selected","is-related","is-muted");});edgeElements.forEach(function(path){path.classList.remove("is-related","is-muted");});inspector.innerHTML='<span class="cs-tag">Complete graph</span><h2>216 catalog nodes</h2><p>Select any node to isolate its one-hop neighborhood. Use Fit to return to the complete overview.</p><dl class="kg-facts"><div><dt>Declared</dt><dd>33 ObjectTypes</dd></div><div><dt>Catalog-backed</dt><dd>183 nodes</dd></div><div><dt>Relationships</dt><dd>510 edges</dd></div><div><dt>Runtime IDs</dt><dd>Excluded from static mock</dd></div></dl>';}
+      function findNode(){var query=search.value.trim().toLowerCase();if(!query)return;var match=graph.nodes.find(function(node){return node.label.toLowerCase()===query;})||graph.nodes.find(function(node){return node.label.toLowerCase().includes(query);});if(match)select(match.id,true);}
+      function applyFilters(){document.querySelectorAll("[data-edge-kind]").forEach(function(input){edgeElements.forEach(function(path){if(path.dataset.kind===input.dataset.edgeKind)path.style.display=input.checked?"":"none";});});}
+
+      layout();renderClusters();renderEdges();renderNodes();fit();clearSelection();
+      document.getElementById("kg-node-count").textContent=graph.nodes.length;document.getElementById("kg-edge-count").textContent=graph.edges.length;
+      document.getElementById("kg-node-list").innerHTML=graph.nodes.map(function(node){return '<option value="'+node.label.replaceAll('"','&quot;')+'"></option>';}).join("");
+      document.getElementById("kg-find").onclick=findNode;search.addEventListener("keydown",function(event){if(event.key==="Enter")findNode();});
+      document.getElementById("kg-fit").onclick=function(){fit();clearSelection();};document.getElementById("kg-zoom-in").onclick=function(){zoom(.75);};document.getElementById("kg-zoom-out").onclick=function(){zoom(1.3);};
+      document.querySelectorAll("[data-edge-kind]").forEach(function(input){input.onchange=applyFilters;});
+      viewport.addEventListener("wheel",function(event){event.preventDefault();var rect=viewport.getBoundingClientRect(),x=view.x+(event.clientX-rect.left)/rect.width*view.w,y=view.y+(event.clientY-rect.top)/rect.height*view.h;zoom(event.deltaY<0?.82:1.22,x,y);},{passive:false});
+      viewport.addEventListener("pointerdown",function(event){if(event.target.closest&&event.target.closest(".kg-node"))return;drag={x:event.clientX,y:event.clientY,viewX:view.x,viewY:view.y};viewport.setPointerCapture(event.pointerId);viewport.classList.add("is-dragging");});
+      viewport.addEventListener("pointermove",function(event){if(!drag)return;var rect=viewport.getBoundingClientRect();view.x=drag.viewX-(event.clientX-drag.x)/rect.width*view.w;view.y=drag.viewY-(event.clientY-drag.y)/rect.height*view.h;setView();});
+      viewport.addEventListener("pointerup",function(){drag=null;viewport.classList.remove("is-dragging");});
+    })();
+  </script>
+</body>
+</html>
