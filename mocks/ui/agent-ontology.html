@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent ontology map - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <style>
+    .ao-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
+    .ao-head-copy { max-width: 74ch; }
+    .ao-head h1 { margin-bottom: 6px; }
+    .ao-stats { display: flex; flex: 0 0 auto; gap: 8px; }
+    .ao-stat { min-width: 88px; padding: 8px 10px; border-left: 2px solid var(--cs-hairline); }
+    .ao-stat strong, .ao-stat span { display: block; }
+    .ao-stat strong { font-size: 20px; line-height: 1; }
+    .ao-stat span { margin-top: 4px; color: var(--cs-text-soft); font-size: 10.5px; text-transform: uppercase; }
+
+    .ao-panel { overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .ao-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 48px; padding: 10px 14px; border-bottom: 1px solid var(--cs-hairline); background: var(--cs-shade); }
+    .ao-panel-head h2 { margin: 0; font-size: 14px; }
+    .ao-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--cs-text-soft); font-size: 11.5px; }
+    .ao-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .ao-legend i { display: inline-block; width: 20px; height: 2px; background: var(--cs-steel); }
+    .ao-legend .is-consumes i { background: repeating-linear-gradient(90deg, var(--cs-plum) 0 5px, transparent 5px 9px); }
+    .ao-legend .is-object i { width: 10px; height: 10px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-card); }
+
+    .ao-scroll { max-width: 100%; overflow-x: auto; padding: 0 0 8px; scrollbar-color: var(--cs-hairline) transparent; }
+    .ao-map { display: block; width: 100%; min-width: 1120px; height: auto; }
+    .ao-map .zone { fill: rgba(244,242,240,.52); }
+    .ao-map .zone.is-middle { fill: rgba(68,104,142,.035); }
+    .ao-map .zone-title { fill: var(--cs-text-soft); font: 700 10px/1 "Segoe UI",sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+    .ao-map .zone-rule { stroke: var(--cs-hairline); stroke-width: 1; }
+
+    .ao-map .owns { fill: none; stroke: var(--cs-steel); stroke-width: 1.5; }
+    .ao-map .consumes { fill: none; stroke: var(--cs-plum); stroke-width: 1.35; stroke-dasharray: 5 4; opacity: .72; }
+    .ao-map .link-label { fill: var(--cs-text-soft); font: 600 9.5px/1 "Cascadia Code","Consolas",monospace; paint-order: stroke; stroke: var(--cs-card); stroke-width: 4px; }
+
+    .ao-map .agent-ring { fill: var(--cs-card); stroke-width: 2; }
+    .ao-map .agent.layer-pipeline .agent-ring { stroke: var(--cs-steel); }
+    .ao-map .agent.layer-governance .agent-ring { stroke: var(--cs-plum); }
+    .ao-map .agent.layer-domain .agent-ring { stroke: var(--cs-teal); }
+    .ao-map .agent-icon-bg { fill: var(--cs-shade); }
+    .ao-map .agent-name { fill: var(--cs-text); font: 650 12px/1 "Segoe UI",sans-serif; text-anchor: middle; }
+    .ao-map .agent-role { fill: var(--cs-text-soft); font: 10px/1 "Segoe UI",sans-serif; text-anchor: middle; }
+
+    .ao-map .object rect { fill: var(--cs-card); stroke: var(--cs-hairline); }
+    .ao-map .object text { fill: var(--cs-text); font: 600 10.5px/1 "Cascadia Code","Consolas",monospace; text-anchor: middle; }
+    .ao-map .object .kind { fill: var(--cs-text-soft); font: 9px/1 "Segoe UI",sans-serif; }
+    .ao-map .object.is-signal rect { stroke: var(--cs-teal); }
+    .ao-map .object.is-knowledge rect { stroke: var(--cs-plum); }
+    .ao-map .object.is-control rect { stroke: var(--cs-terracotta); }
+
+    .ao-note { display: flex; justify-content: space-between; gap: 20px; padding: 10px 14px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 11.5px; }
+    .ao-note a { flex: 0 0 auto; }
+    @media (max-width: 760px) {
+      .ao-head { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .ao-stats { width: 100%; }
+      .ao-stat { flex: 1; }
+      .ao-panel-head, .ao-note { align-items: flex-start; flex-direction: column; gap: 8px; }
+      .ao-map { min-width: 980px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page">
+    <div class="cs-subnav" aria-label="Agent views">
+      <a href="agents.html">Fleet</a>
+      <a href="agents-constellation.html">Org</a>
+      <a href="agent-activity.html">Activity</a>
+      <a href="agent-ontology.html" class="cs-active" aria-current="page">Ontology map</a>
+    </div>
+
+    <header class="ao-head">
+      <div class="ao-head-copy">
+        <h1>Agent ontology map</h1>
+        <p class="cs-lead" style="margin:0;">Which ObjectTypes each fixed agent owns, and where
+          those records flow next. Agents remain the primary nodes; ontology records are the
+          smaller named nodes connected to them.</p>
+      </div>
+      <div class="ao-stats" aria-label="Map summary">
+        <div class="ao-stat"><strong>15</strong><span>Agents</span></div>
+        <div class="ao-stat"><strong>18</strong><span>ObjectTypes</span></div>
+        <div class="ao-stat"><strong>7</strong><span>Flows shown</span></div>
+      </div>
+    </header>
+
+    <section class="ao-panel" aria-labelledby="ao-map-heading">
+      <div class="ao-panel-head">
+        <h2 id="ao-map-heading">Ownership and downstream flow</h2>
+        <div class="ao-legend" aria-label="Map legend">
+          <span><i></i>owns / produces</span>
+          <span class="is-consumes"><i></i>consumes</span>
+          <span class="is-object"><i></i>ObjectType</span>
+        </div>
+      </div>
+
+      <div class="ao-scroll">
+        <svg class="ao-map" viewBox="0 0 1180 720" role="img" aria-labelledby="ao-title ao-desc">
+          <title id="ao-title">Agent-centered ontology ownership map</title>
+          <desc id="ao-desc">All fifteen FDAI agents shown with their owned object types and selected downstream consumption flows.</desc>
+
+          <rect class="zone" x="0" y="0" width="385" height="720" />
+          <rect class="zone is-middle" x="397" y="0" width="385" height="720" />
+          <rect class="zone" x="794" y="0" width="386" height="720" />
+          <line class="zone-rule" x1="385" y1="28" x2="385" y2="692" />
+          <line class="zone-rule" x1="782" y1="28" x2="782" y2="692" />
+          <text class="zone-title" x="24" y="28">Sense and specialize</text>
+          <text class="zone-title" x="421" y="28">Plan and decide</text>
+          <text class="zone-title" x="818" y="28">Act and preserve evidence</text>
+
+          <!-- Ownership links -->
+          <path class="owns" d="M116 100 L260 100" /><text class="link-label" x="164" y="91">owns</text>
+          <path class="owns" d="M116 225 L260 225" /><text class="link-label" x="164" y="216">owns</text>
+          <path class="owns" d="M116 350 L260 350" /><text class="link-label" x="164" y="341">owns</text>
+          <path class="owns" d="M116 475 L260 475" /><text class="link-label" x="164" y="466">owns</text>
+          <path class="owns" d="M116 600 L260 600" /><text class="link-label" x="164" y="591">owns</text>
+
+          <path class="owns" d="M513 100 L657 100" /><text class="link-label" x="561" y="91">owns</text>
+          <path class="owns" d="M513 225 L657 225" /><text class="link-label" x="561" y="216">owns</text>
+          <path class="owns" d="M513 350 L657 350" /><text class="link-label" x="561" y="341">owns</text>
+          <path class="owns" d="M513 475 L657 475" /><text class="link-label" x="561" y="466">owns</text>
+          <path class="owns" d="M513 600 L657 600" /><text class="link-label" x="561" y="591">owns</text>
+
+          <path class="owns" d="M910 100 L1054 100" /><text class="link-label" x="958" y="91">owns</text>
+          <path class="owns" d="M910 225 L1054 225" /><text class="link-label" x="958" y="216">owns</text>
+          <path class="owns" d="M910 350 L1054 350" /><text class="link-label" x="958" y="341">owns</text>
+          <path class="owns" d="M910 475 L1054 475" /><text class="link-label" x="958" y="466">owns</text>
+          <path class="owns" d="M910 600 L1054 600" /><text class="link-label" x="958" y="591">owns</text>
+
+          <!-- Selected event-bus consumption flows -->
+          <path class="consumes" d="M330 100 C 400 100, 400 460, 443 475" />
+          <text class="link-label" x="360" y="282">Event -&gt; Forseti</text>
+          <path class="consumes" d="M330 225 C 390 225, 405 430, 443 465" />
+          <text class="link-label" x="355" y="330">Anomaly -&gt; Forseti</text>
+          <path class="consumes" d="M727 225 C 770 225, 775 438, 840 465" />
+          <text class="link-label" x="750" y="330">Rule -&gt; Saga</text>
+          <path class="consumes" d="M727 475 C 780 475, 790 115, 840 105" />
+          <text class="link-label" x="748" y="286">Verdict -&gt; Thor</text>
+          <path class="consumes" d="M727 600 C 780 600, 795 130, 840 112" />
+          <text class="link-label" x="758" y="410">Approval -&gt; Thor</text>
+          <path class="consumes" d="M1124 100 C 1150 150, 1010 205, 910 225" />
+          <text class="link-label" x="965" y="166">ActionRun -&gt; Vidar</text>
+          <path class="consumes" d="M1124 475 C 1152 520, 1020 585, 910 600" />
+          <text class="link-label" x="970" y="548">AuditEntry -&gt; Muninn</text>
+
+          <!-- Sense and specialize agents -->
+          <g class="agent layer-pipeline" transform="translate(80,100)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/huginn.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Huginn</text><text class="agent-role" y="66">Event collector</text>
+          </g>
+          <g class="agent layer-pipeline" transform="translate(80,225)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/heimdall.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Heimdall</text><text class="agent-role" y="66">Observer</text>
+          </g>
+          <g class="agent layer-domain" transform="translate(80,350)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/njord.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Njord</text><text class="agent-role" y="66">Cost specialist</text>
+          </g>
+          <g class="agent layer-domain" transform="translate(80,475)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/freyr.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Freyr</text><text class="agent-role" y="66">Capacity specialist</text>
+          </g>
+          <g class="agent layer-domain" transform="translate(80,600)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/loki.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Loki</text><text class="agent-role" y="66">Chaos specialist</text>
+          </g>
+
+          <!-- Plan and decide agents -->
+          <g class="agent layer-governance" transform="translate(477,100)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/odin.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Odin</text><text class="agent-role" y="66">Master planner</text>
+          </g>
+          <g class="agent layer-governance" transform="translate(477,225)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/mimir.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Mimir</text><text class="agent-role" y="66">Rule steward</text>
+          </g>
+          <g class="agent layer-governance" transform="translate(477,350)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/norns.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Norns</text><text class="agent-role" y="66">Learner</text>
+          </g>
+          <g class="agent layer-pipeline" transform="translate(477,475)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/forseti.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Forseti</text><text class="agent-role" y="66">Judge</text>
+          </g>
+          <g class="agent layer-pipeline" transform="translate(477,600)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/var.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Var</text><text class="agent-role" y="66">Approver</text>
+          </g>
+
+          <!-- Act and preserve evidence agents -->
+          <g class="agent layer-pipeline" transform="translate(874,100)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/thor.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Thor</text><text class="agent-role" y="66">Responder</text>
+          </g>
+          <g class="agent layer-pipeline" transform="translate(874,225)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/vidar.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Vidar</text><text class="agent-role" y="66">Recovery</text>
+          </g>
+          <g class="agent layer-pipeline" transform="translate(874,350)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/bragi.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Bragi</text><text class="agent-role" y="66">Narrator</text>
+          </g>
+          <g class="agent layer-governance" transform="translate(874,475)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/saga.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Saga</text><text class="agent-role" y="66">Auditor</text>
+          </g>
+          <g class="agent layer-governance" transform="translate(874,600)">
+            <circle class="agent-ring" r="36" /><circle class="agent-icon-bg" r="24" />
+            <image href="../../console/public/agent-icons/muninn.svg" x="-16" y="-16" width="32" height="32" />
+            <text class="agent-name" y="52">Muninn</text><text class="agent-role" y="66">Memory</text>
+          </g>
+
+          <!-- Owned ObjectTypes -->
+          <g class="object" transform="translate(260,76)"><rect width="70" height="48" rx="6" /><text x="35" y="21">Event</text><text class="kind" x="35" y="36">ObjectType</text></g>
+          <g class="object is-signal" transform="translate(260,201)"><rect width="70" height="48" rx="6" /><text x="35" y="21">Anomaly</text><text class="kind" x="35" y="36">+ Drift</text></g>
+          <g class="object is-signal" transform="translate(250,326)"><rect width="90" height="48" rx="6" /><text x="45" y="21">CostAnomaly</text><text class="kind" x="45" y="36">ObjectType</text></g>
+          <g class="object is-signal" transform="translate(238,451)"><rect width="114" height="48" rx="6" /><text x="57" y="21">CapacityForecast</text><text class="kind" x="57" y="36">ObjectType</text></g>
+          <g class="object is-signal" transform="translate(242,576)"><rect width="106" height="48" rx="6" /><text x="53" y="21">ChaosExperiment</text><text class="kind" x="53" y="36">ObjectType</text></g>
+
+          <g class="object is-knowledge" transform="translate(629,76)"><rect width="126" height="48" rx="6" /><text x="63" y="21">ArbitrationDecision</text><text class="kind" x="63" y="36">ObjectType</text></g>
+          <g class="object is-knowledge" transform="translate(657,201)"><rect width="70" height="48" rx="6" /><text x="35" y="21">Rule</text><text class="kind" x="35" y="36">+ Policy</text></g>
+          <g class="object is-knowledge" transform="translate(642,326)"><rect width="100" height="48" rx="6" /><text x="50" y="21">RuleCandidate</text><text class="kind" x="50" y="36">ObjectType</text></g>
+          <g class="object is-control" transform="translate(657,451)"><rect width="70" height="48" rx="6" /><text x="35" y="21">Verdict</text><text class="kind" x="35" y="36">+ RCA</text></g>
+          <g class="object is-control" transform="translate(652,576)"><rect width="80" height="48" rx="6" /><text x="40" y="21">Approval</text><text class="kind" x="40" y="36">ObjectType</text></g>
+
+          <g class="object is-control" transform="translate(1049,76)"><rect width="80" height="48" rx="6" /><text x="40" y="21">ActionRun</text><text class="kind" x="40" y="36">ObjectType</text></g>
+          <g class="object is-control" transform="translate(1054,201)"><rect width="70" height="48" rx="6" /><text x="35" y="21">Rollback</text><text class="kind" x="35" y="36">ObjectType</text></g>
+          <g class="object" transform="translate(1039,326)"><rect width="100" height="48" rx="6" /><text x="50" y="21">Conversation</text><text class="kind" x="50" y="36">ObjectType</text></g>
+          <g class="object is-knowledge" transform="translate(1044,451)"><rect width="90" height="48" rx="6" /><text x="45" y="21">AuditEntry</text><text class="kind" x="45" y="36">ObjectType</text></g>
+          <g class="object is-knowledge" transform="translate(1034,576)"><rect width="110" height="48" rx="6" /><text x="55" y="21">StateSnapshot</text><text class="kind" x="55" y="36">ObjectType</text></g>
+        </svg>
+      </div>
+
+      <div class="ao-note">
+        <span>Illustrative static layout. Production data remains event-bus projected and read-only.</span>
+        <a href="ontology.html">Open type registry</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

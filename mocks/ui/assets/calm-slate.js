@@ -23,7 +23,8 @@
     ["Agents", [
       ["agents.html", "Fleet", "is-sage"],
       ["agents-constellation.html", "Org", ""],
-      ["agent-activity.html", "Agent activity", ""]
+      ["agent-activity.html", "Agent activity", ""],
+      ["agent-ontology.html", "Ontology map", "is-plum"]
     ]],
     ["Governance", [
       ["promotion.html", "Promotion", "is-teal"],
