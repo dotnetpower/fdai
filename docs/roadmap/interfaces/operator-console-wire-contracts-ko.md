@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1c971d8ffc64f26333414a3d6cdd048cd1598f6e
+translation_source_sha: 4a76db5bd1fe8e31f8d33d9ffb624f69574a70af
 translation_revised: 2026-07-30
 ---
 
@@ -246,7 +246,8 @@ truth가 아닙니다. SPA는 별도 복사본을 저장하지 않습니다. JSO
   default mode, precondition, stop condition, blast-radius declaration, tier ceiling,
   promotion gate 를 표시합니다.
 - **온톨로지 맵**: operator가 루트 리소스 id를 입력하기 전에는 콘솔이 인벤토리 요청을
-  보내지 않습니다. 입력 후에는 `depth=2`, `limit=200`,
+  보내지 않습니다. Idle state는 리소스 선택을 위해 Architecture로 연결되고, Architecture
+  inspector는 선택한 리소스를 map root로 엽니다. 이후 맵은 `depth=2`, `limit=200`,
   `contains,attached_to,depends_on`으로 제한된 인접 관계만 요청합니다. 인접 리소스를
   선택해 쿼리 루트를 변경할 수 있으며, 현재 루트를 다시 제출하면 중복 history entry를
   추가하지 않고 제자리에서 재시도합니다. 이 뷰는 provider의 원본, 최신 상태, 스냅샷

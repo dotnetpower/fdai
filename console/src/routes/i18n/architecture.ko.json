@@ -73,6 +73,7 @@
   "parentBoundary": "상위 경계",
   "tenant": "테넌트",
   "viewImpactScope": "영향 범위 보기",
+  "openOntologyMap": "온톨로지 맵 열기",
   "directRelationships": "직접 관계",
   "noDirectRelationships": "보고된 직접 관계가 없습니다.",
   "technicalDetails": "기술 세부 정보",

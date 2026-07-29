@@ -103,6 +103,7 @@
     "open": "Open map",
     "idleTitle": "Choose a resource to begin",
     "idleDescription": "No inventory request is sent until you provide a root resource ID.",
+    "chooseInArchitecture": "Choose a resource in Architecture",
     "loadingLabel": "ontology resource map",
     "unavailable": "The runtime inventory graph is unavailable on this deployment.",
     "error": "The runtime inventory graph could not be loaded. Try again later.",

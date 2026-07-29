@@ -52,6 +52,10 @@ export function architectureStatusLabel(status: string): string {
   return status.replaceAll(/[._-]+/g, " ").replace(/^./, (character) => character.toUpperCase());
 }
 
+export function architectureOntologyMapHref(resourceId: string): string {
+  return routeHref("ontology", { params: { view: "map", root: resourceId } });
+}
+
 export function ArchitectureInspector({
   graph,
   selected,
@@ -93,9 +97,14 @@ export function ArchitectureInspector({
                 ) : t("tenant")}
               </dd>
             </dl>
-            <a class="btn architecture-primary-action" href={routeHref("blast-radius", { params: { target: selected.id, view: graph.active_view } })}>
-              {t("viewImpactScope")}
-            </a>
+            <div class="architecture-resource-actions">
+              <a class="btn architecture-primary-action" href={routeHref("blast-radius", { params: { target: selected.id, view: graph.active_view } })}>
+                {t("viewImpactScope")}
+              </a>
+              <a class="btn architecture-primary-action" href={architectureOntologyMapHref(selected.id)}>
+                {t("openOntologyMap")}
+              </a>
+            </div>
             <section class="architecture-relationships" aria-labelledby="selected-relationships-title">
               <h4 id="selected-relationships-title">{t("directRelationships")}</h4>
               {relationships.length > 0 ? (

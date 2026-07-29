@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ReadApiError } from "../api";
+import { architectureOntologyMapHref } from "../components/architecture-inspector";
 import {
   architectureResourceExists,
   architectureCachePollDelay,
@@ -11,6 +12,11 @@ import {
 } from "./architecture";
 
 describe("architecture resource selection", () => {
+  it("opens the selected resource as the ontology map root", () => {
+    expect(architectureOntologyMapHref("scope-example/resource-group/rg-example"))
+      .toBe("/ontology?view=map&root=scope-example%2Fresource-group%2Frg-example");
+  });
+
   it("polls only while a cached snapshot refresh is pending", () => {
     expect(architectureCacheRefreshPending({ cache: { status: "refreshing" } } as never))
       .toBe(true);

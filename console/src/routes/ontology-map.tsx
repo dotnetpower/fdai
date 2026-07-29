@@ -147,6 +147,9 @@ export function OntologyMapView({ client }: { readonly client: ReadApiClient }) 
         <div class="ontology-map-idle">
           <strong>{t("ontology.map.idleTitle")}</strong>
           <p>{t("ontology.map.idleDescription")}</p>
+          <a class="btn" href={routeHref("architecture")}>
+            {t("ontology.map.chooseInArchitecture")}
+          </a>
         </div>
       ) : (
         <AsyncBoundary state={state} resourceLabel={t("ontology.map.loadingLabel")}>
