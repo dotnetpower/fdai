@@ -25,6 +25,9 @@ _MAX_LINK_FILTER_VALUES = 64
 _MAX_PROVIDER_RESOURCES = 5000
 _MAX_PROVIDER_LINKS = 40_000
 _MAX_PROVIDER_VIEWS = 1000
+_TRUNCATION_REASONS = frozenset(
+    {"resource_limit", "adjacent_edge_limit", "internal_edge_limit", "source_limit"}
+)
 
 
 class InventoryGraphProvider(Protocol):
@@ -117,6 +120,7 @@ def make_inventory_graph_route(
                 "links": list(graph_links),
                 "views": list(payload.get("views", ())),
                 "truncated": payload.get("truncated", False),
+                "truncation_reasons": list(payload.get("truncation_reasons", ())),
             }
         )
         return JSONResponse(payload)
@@ -138,6 +142,7 @@ def _valid_provider_payload(
     links = payload.get("links")
     views = payload.get("views", ())
     truncated = payload.get("truncated", False)
+    truncation_reasons = payload.get("truncation_reasons", ())
     active_view = payload.get("active_view")
     if (
         not isinstance(resources, (list, tuple))
@@ -147,6 +152,9 @@ def _valid_provider_payload(
         or len(links) > link_cap
         or len(views) > _MAX_PROVIDER_VIEWS
         or not isinstance(truncated, bool)
+        or not isinstance(truncation_reasons, (list, tuple))
+        or any(reason not in _TRUNCATION_REASONS for reason in truncation_reasons)
+        or (not truncated and bool(truncation_reasons))
         or (active_view is not None and not _non_empty_string(active_view))
     ):
         return False

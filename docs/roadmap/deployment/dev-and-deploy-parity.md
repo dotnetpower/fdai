@@ -206,6 +206,9 @@ bounded before provider dispatch. The read route rejects malformed resources, un
 relationships, duplicate resource ids, invalid truncation metadata, and oversized provider output.
 Rooted output uses the requested resource cap and matching edge cap; named views keep the existing
 5,000-resource and 40,000-link response ceilings.
+Both profiles expose the same truncation reason vocabulary: resource, adjacent-edge,
+internal-edge, or source cap. The read route rejects unknown reasons and a reason attached to a
+non-truncated payload.
 
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
 configured. Without durable local state, the source manifest reports the settings store as

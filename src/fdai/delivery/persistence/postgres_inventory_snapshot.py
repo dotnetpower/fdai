@@ -349,6 +349,7 @@ class PostgresInventoryGraphProvider:
                 rows = rooted.resources
                 links: Sequence[Mapping[str, Any]] = rooted.links
                 truncated = rooted.truncated
+                truncation_reasons = list(rooted.truncation_reasons)
             else:
                 resources_cursor = await connection.execute(
                     _ALL_RESOURCES_QUERY,
@@ -356,6 +357,7 @@ class PostgresInventoryGraphProvider:
                 )
                 rows = await resources_cursor.fetchall()
                 truncated = len(rows) > _MAX_GRAPH_ROWS
+                truncation_reasons = ["source_limit"] if truncated else []
                 rows = rows[:_MAX_GRAPH_ROWS]
                 ids = [str(row["resource_id"]) for row in rows]
                 links = ()
@@ -434,6 +436,7 @@ class PostgresInventoryGraphProvider:
             "links": [link for link in projection["links"] if link["type"] in link_types],
             "views": projection["views"],
             "truncated": truncated,
+            "truncation_reasons": truncation_reasons,
             "cursor": (
                 f"{snapshot['id']}:{overlay_latest.isoformat()}"
                 if overlay_latest is not None

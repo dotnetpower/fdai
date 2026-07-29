@@ -63,6 +63,7 @@ class RootedInventoryGraph:
     resources: tuple[Mapping[str, Any], ...]
     links: tuple[Mapping[str, Any], ...]
     truncated: bool
+    truncation_reasons: tuple[str, ...]
 
 
 async def load_rooted_inventory_graph(
@@ -83,6 +84,7 @@ async def load_rooted_inventory_graph(
     selected_order = [root]
     frontier = {root}
     truncated = False
+    truncation_reasons: set[str] = set()
     edge_cap = max(_MIN_EDGE_CAP, limit * _MAX_EDGE_MULTIPLIER)
 
     for _ in range(depth):
@@ -103,6 +105,7 @@ async def load_rooted_inventory_graph(
         adjacent = await cursor.fetchall()
         if len(adjacent) > edge_cap:
             truncated = True
+            truncation_reasons.add("adjacent_edge_limit")
             adjacent = adjacent[:edge_cap]
         next_frontier: set[str] = set()
         for link in adjacent:
@@ -113,6 +116,7 @@ async def load_rooted_inventory_graph(
                     continue
                 if len(selected_order) >= limit:
                     truncated = True
+                    truncation_reasons.add("resource_limit")
                     continue
                 selected.add(endpoint)
                 selected_order.append(endpoint)
@@ -144,11 +148,13 @@ async def load_rooted_inventory_graph(
     internal_links = await link_cursor.fetchall()
     if len(internal_links) > edge_cap:
         truncated = True
+        truncation_reasons.add("internal_edge_limit")
         internal_links = internal_links[:edge_cap]
     return RootedInventoryGraph(
         resources=ordered_resources,
         links=tuple(internal_links),
         truncated=truncated,
+        truncation_reasons=tuple(sorted(truncation_reasons)),
     )
 
 

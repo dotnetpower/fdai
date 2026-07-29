@@ -47,6 +47,7 @@ def test_bounded_neighborhood_expands_frontier_fairly() -> None:
         "fair-z-child",
     ]
     assert graph["truncated"] is True
+    assert graph["truncation_reasons"] == ["resource_limit"]
 
 
 def test_bounded_neighborhood_caps_internal_links() -> None:
@@ -71,3 +72,4 @@ def test_bounded_neighborhood_caps_internal_links() -> None:
     assert len(graph["resources"]) == 10
     assert len(graph["links"]) == 80
     assert graph["truncated"] is True
+    assert graph["truncation_reasons"] == ["internal_edge_limit"]

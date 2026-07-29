@@ -190,6 +190,18 @@ def test_inventory_graph_rejects_oversized_link_filters(params: Any) -> None:
             "links": [],
             "truncated": True,
         },
+        {
+            "resources": [{"id": "resource-a", "type": "test"}],
+            "links": [],
+            "truncated": True,
+            "truncation_reasons": ["unknown_limit"],
+        },
+        {
+            "resources": [{"id": "resource-a", "type": "test"}],
+            "links": [],
+            "truncated": False,
+            "truncation_reasons": ["resource_limit"],
+        },
     ],
 )
 def test_inventory_graph_rejects_invalid_provider_payload(payload: dict[str, Any]) -> None:

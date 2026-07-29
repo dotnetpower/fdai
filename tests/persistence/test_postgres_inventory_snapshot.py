@@ -261,6 +261,7 @@ async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
     assert len(limited["resources"]) == 2
     assert limited["resources"][0]["id"] == "bounded-root"
     assert limited["truncated"] is True
+    assert limited["truncation_reasons"] == ["resource_limit"]
 
 
 async def test_inventory_snapshot_stage_chunks_large_batches() -> None:

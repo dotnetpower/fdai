@@ -285,6 +285,9 @@ bounded to 512 characters before parsing. Within one depth, traversal orders edg
 and expands unseen neighbors round-robin by frontier resource, so one high-degree resource cannot
 consume every remaining result slot. Local and deployed providers also sort internal relationships
 and return at most `max(64, limit * 8)` edges, marking the neighborhood truncated when more exist.
+When truncated, providers return stable machine reasons from `resource_limit`,
+`adjacent_edge_limit`, `internal_edge_limit`, and `source_limit`. Unknown or contradictory reason
+metadata fails closed at the read route.
 
 The projection publishes named architecture views. A request without `scope` returns only
 FDAI's own control plane, identified by the authoritative `fdai:managed=true` plus

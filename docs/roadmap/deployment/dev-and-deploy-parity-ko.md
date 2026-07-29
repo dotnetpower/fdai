@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f2abe96d47d9f2dba25f89ae9a3f6d845c71e43f
+translation_source_sha: abaa09b2867c49d8aef3c547000440dd81a373e1
 translation_revised: 2026-07-29
 ---
 
@@ -209,6 +209,9 @@ keyword를 요구합니다. Relationship-filter count와 text length는 provider
 resource id, invalid truncation metadata, oversized provider output을 차단합니다. Rooted output은
 요청된 resource cap과 이에 대응하는 edge cap을 사용하고, named view는 기존
 5,000-resource 및 40,000-link response ceiling을 유지합니다.
+두 profile은 resource, adjacent-edge, internal-edge, source cap으로 구성된 같은 truncation
+reason vocabulary를 노출합니다. Read route는 unknown reason과 non-truncated payload에 붙은
+reason을 차단합니다.
 
 Runtime policies는 deployment와 local PostgreSQL이 구성된 경우 동일한 StateStore record를
 사용합니다. Durable local state가 없으면 source manifest는 persistence를 주장하지 않고 settings

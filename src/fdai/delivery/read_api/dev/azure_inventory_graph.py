@@ -83,12 +83,16 @@ class AzureCliInventoryGraphProvider:
                 link_types=link_types,
                 limit=limit,
             )
+            truncation_reasons = list(neighborhood["truncation_reasons"])
+            if graph.get("truncated"):
+                truncation_reasons.append("source_limit")
             return {
                 **graph,
                 **neighborhood,
                 "active_view": scope or f"resource:{root}",
                 "views": [],
                 "truncated": bool(graph.get("truncated")) or neighborhood["truncated"],
+                "truncation_reasons": sorted(set(truncation_reasons)),
             }
         projection = project_architecture_graph(
             resources=graph["resources"],

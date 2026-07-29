@@ -583,6 +583,9 @@ async def demo_inventory_graph_provider(
         "resources": [dict(resource) for resource in resources],
         "links": [dict(link) for link in links if link["type"] in link_types],
         "truncated": bool(neighborhood["truncated"]) if neighborhood is not None else False,
+        "truncation_reasons": (
+            list(neighborhood["truncation_reasons"]) if neighborhood is not None else []
+        ),
         "cursor": None,
     }
 

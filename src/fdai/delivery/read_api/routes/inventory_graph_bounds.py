@@ -37,6 +37,7 @@ def project_bounded_inventory_neighborhood(
     selected_order = [root]
     frontier = [root]
     truncated = False
+    truncation_reasons: set[str] = set()
     for _ in range(depth):
         next_frontier: list[str] = []
         candidates = {
@@ -54,6 +55,7 @@ def project_bounded_inventory_neighborhood(
                     continue
                 if len(selected_order) >= limit:
                     truncated = True
+                    truncation_reasons.add("resource_limit")
                     continue
                 selected.add(neighbor)
                 selected_order.append(neighbor)
@@ -73,12 +75,14 @@ def project_bounded_inventory_neighborhood(
     edge_cap = max(_MIN_EDGE_CAP, limit * _MAX_EDGE_MULTIPLIER)
     if len(internal_links) > edge_cap:
         truncated = True
+        truncation_reasons.add("internal_edge_limit")
         internal_links = internal_links[:edge_cap]
 
     return {
         "resources": [dict(by_id[resource_id]) for resource_id in selected_order],
         "links": internal_links,
         "truncated": truncated,
+        "truncation_reasons": sorted(truncation_reasons),
     }
 
 
