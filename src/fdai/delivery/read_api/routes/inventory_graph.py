@@ -8,6 +8,7 @@ behind the injected provider at the composition root.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from datetime import datetime
 from typing import Any, Protocol, TypeGuard
 
 from starlette.requests import Request
@@ -25,6 +26,7 @@ _MAX_LINK_FILTER_VALUES = 64
 _MAX_PROVIDER_RESOURCES = 5000
 _MAX_PROVIDER_LINKS = 40_000
 _MAX_PROVIDER_VIEWS = 1000
+_FRESHNESS_VALUES = frozenset({"fresh", "stale", "unknown"})
 _TRUNCATION_REASONS = frozenset(
     {"resource_limit", "adjacent_edge_limit", "internal_edge_limit", "source_limit"}
 )
@@ -145,7 +147,9 @@ def _valid_provider_payload(
     truncation_reasons = payload.get("truncation_reasons", ())
     active_view = payload.get("active_view")
     if (
-        not isinstance(resources, (list, tuple))
+        not _valid_timestamp(payload.get("snapshot_at"))
+        or payload.get("freshness") not in _FRESHNESS_VALUES
+        or not isinstance(resources, (list, tuple))
         or not isinstance(links, (list, tuple))
         or not isinstance(views, (list, tuple))
         or len(resources) > resource_cap
@@ -167,6 +171,8 @@ def _valid_provider_payload(
         if (
             not _non_empty_string(resource_id)
             or not _non_empty_string(resource.get("type"))
+            or not _non_empty_string(resource.get("name"))
+            or not _non_empty_string(resource.get("status"))
             or resource_id in resource_ids
         ):
             return False
@@ -192,6 +198,16 @@ def _valid_provider_payload(
 
 def _non_empty_string(value: object) -> TypeGuard[str]:
     return isinstance(value, str) and bool(value.strip())
+
+
+def _valid_timestamp(value: object) -> bool:
+    if not _non_empty_string(value):
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
 
 
 __all__ = [

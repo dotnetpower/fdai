@@ -30,7 +30,14 @@ async def _provider(
     return {
         "snapshot_at": "2026-07-13T00:00:00Z",
         "freshness": "fresh",
-        "resources": [{"id": "sub-example", "type": "subscription", "name": "Example"}],
+        "resources": [
+            {
+                "id": "sub-example",
+                "type": "subscription",
+                "name": "Example",
+                "status": "healthy",
+            }
+        ],
         "links": [],
         "active_view": scope or "fdai-control-plane",
         "views": [
@@ -201,6 +208,68 @@ def test_inventory_graph_rejects_oversized_link_filters(params: Any) -> None:
             "links": [],
             "truncated": False,
             "truncation_reasons": ["resource_limit"],
+        },
+        {
+            "snapshot_at": "2026-07-30T00:00:00Z",
+            "freshness": "fresh",
+            "resources": [{"id": "resource-a", "type": "test", "status": "healthy"}],
+            "links": [],
+        },
+        {
+            "snapshot_at": "2026-07-30T00:00:00Z",
+            "freshness": "fresh",
+            "resources": [{"id": "resource-a", "type": "test", "name": "A"}],
+            "links": [],
+        },
+        {
+            "freshness": "fresh",
+            "resources": [
+                {
+                    "id": "resource-a",
+                    "type": "test",
+                    "name": "A",
+                    "status": "healthy",
+                }
+            ],
+            "links": [],
+        },
+        {
+            "snapshot_at": "not-a-timestamp",
+            "freshness": "fresh",
+            "resources": [
+                {
+                    "id": "resource-a",
+                    "type": "test",
+                    "name": "A",
+                    "status": "healthy",
+                }
+            ],
+            "links": [],
+        },
+        {
+            "snapshot_at": "2026-07-30T00:00:00Z",
+            "resources": [
+                {
+                    "id": "resource-a",
+                    "type": "test",
+                    "name": "A",
+                    "status": "healthy",
+                }
+            ],
+            "links": [],
+        },
+        {
+            "snapshot_at": "2026-07-30T00:00:00Z",
+            "freshness": "recent",
+            "resources": [
+                {
+                    "id": "resource-a",
+                    "type": "test",
+                    "name": "A",
+                    "status": "healthy",
+                }
+            ],
+            "links": [],
         },
     ],
 )
