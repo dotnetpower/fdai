@@ -167,6 +167,49 @@ def test_inventory_graph_rejects_oversized_link_filters(params: Any) -> None:
     assert response.status_code == 400
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "resources": [{"id": "resource-a"}],
+            "links": [],
+            "truncated": False,
+        },
+        {
+            "resources": [{"id": "resource-a", "type": "test"}],
+            "links": [{"source": "resource-a", "target": "missing", "type": "depends_on"}],
+            "truncated": False,
+        },
+        {
+            "resources": [{"id": "resource-a", "type": "test"}],
+            "links": [],
+            "truncated": "false",
+        },
+        {
+            "resources": [{"id": f"resource-{index}", "type": "test"} for index in range(5001)],
+            "links": [],
+            "truncated": True,
+        },
+    ],
+)
+def test_inventory_graph_rejects_invalid_provider_payload(payload: dict[str, Any]) -> None:
+    async def invalid_provider(
+        scope: str | None,
+        depth: int,
+        links: tuple[str, ...],
+    ) -> dict[str, Any]:
+        del scope, depth, links
+        return payload
+
+    response = _client_with_provider(invalid_provider).get("/inventory/graph")
+
+    assert response.status_code == 500
+    assert (
+        response.json()["error"]["message"]
+        == "inventory graph provider returned an invalid payload"
+    )
+
+
 def test_inventory_graph_route_is_opt_in_and_get_only() -> None:
     assert _client(wired=False).get("/inventory/graph").status_code == 404
     assert _client(wired=True).post("/inventory/graph").status_code == 405

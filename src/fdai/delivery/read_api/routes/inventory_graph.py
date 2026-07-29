@@ -8,7 +8,7 @@ behind the injected provider at the composition root.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeGuard
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -22,6 +22,9 @@ _DEFAULT_LIMIT = 500
 _MAX_LIMIT = 1000
 _MAX_LINK_FILTER_CHARS = 512
 _MAX_LINK_FILTER_VALUES = 64
+_MAX_PROVIDER_RESOURCES = 5000
+_MAX_PROVIDER_LINKS = 40_000
+_MAX_PROVIDER_VIEWS = 1000
 
 
 class InventoryGraphProvider(Protocol):
@@ -97,10 +100,12 @@ def make_inventory_graph_route(
                 )
         except InventoryGraphViewNotFoundError as exc:
             return _error(404, str(exc))
-        resources = payload.get("resources")
-        graph_links = payload.get("links")
-        if not isinstance(resources, (list, tuple)) or not isinstance(graph_links, (list, tuple)):
+        resource_cap = limit if root is not None else _MAX_PROVIDER_RESOURCES
+        link_cap = max(64, limit * 8) if root is not None else _MAX_PROVIDER_LINKS
+        if not _valid_provider_payload(payload, resource_cap=resource_cap, link_cap=link_cap):
             return _error(500, "inventory graph provider returned an invalid payload")
+        resources = payload["resources"]
+        graph_links = payload["links"]
         payload.update(
             {
                 "scope": scope,
@@ -111,6 +116,7 @@ def make_inventory_graph_route(
                 "resources": list(resources),
                 "links": list(graph_links),
                 "views": list(payload.get("views", ())),
+                "truncated": payload.get("truncated", False),
             }
         )
         return JSONResponse(payload)
@@ -120,6 +126,64 @@ def make_inventory_graph_route(
 
 def _error(status: int, message: str) -> JSONResponse:
     return JSONResponse({"error": {"status": status, "message": message}}, status_code=status)
+
+
+def _valid_provider_payload(
+    payload: Mapping[str, Any],
+    *,
+    resource_cap: int,
+    link_cap: int,
+) -> bool:
+    resources = payload.get("resources")
+    links = payload.get("links")
+    views = payload.get("views", ())
+    truncated = payload.get("truncated", False)
+    active_view = payload.get("active_view")
+    if (
+        not isinstance(resources, (list, tuple))
+        or not isinstance(links, (list, tuple))
+        or not isinstance(views, (list, tuple))
+        or len(resources) > resource_cap
+        or len(links) > link_cap
+        or len(views) > _MAX_PROVIDER_VIEWS
+        or not isinstance(truncated, bool)
+        or (active_view is not None and not _non_empty_string(active_view))
+    ):
+        return False
+
+    resource_ids: set[str] = set()
+    for resource in resources:
+        if not isinstance(resource, Mapping):
+            return False
+        resource_id = resource.get("id")
+        if (
+            not _non_empty_string(resource_id)
+            or not _non_empty_string(resource.get("type"))
+            or resource_id in resource_ids
+        ):
+            return False
+        resource_ids.add(resource_id)
+
+    for link in links:
+        if not isinstance(link, Mapping):
+            return False
+        source = link.get("source")
+        target = link.get("target")
+        link_type = link.get("type")
+        if (
+            not _non_empty_string(source)
+            or not _non_empty_string(target)
+            or link_type not in _ALLOWED_LINKS
+            or source not in resource_ids
+            or target not in resource_ids
+        ):
+            return False
+
+    return all(isinstance(view, Mapping) and _non_empty_string(view.get("id")) for view in views)
+
+
+def _non_empty_string(value: object) -> TypeGuard[str]:
+    return isinstance(value, str) and bool(value.strip())
 
 
 __all__ = [

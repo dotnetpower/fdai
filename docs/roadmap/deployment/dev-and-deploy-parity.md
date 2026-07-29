@@ -202,7 +202,10 @@ complete inventory. The deployed provider reads that effective graph in one repe
 read-only transaction, and both profiles expand same-depth frontier resources round-robin in a
 deterministic order. Named-view requests keep the original three-argument provider call contract;
 only rooted requests require the extended keywords. Relationship-filter count and text length are
-bounded before provider dispatch.
+bounded before provider dispatch. The read route rejects malformed resources, unknown or dangling
+relationships, duplicate resource ids, invalid truncation metadata, and oversized provider output.
+Rooted output uses the requested resource cap and matching edge cap; named views keep the existing
+5,000-resource and 40,000-link response ceilings.
 
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
 configured. Without durable local state, the source manifest reports the settings store as
