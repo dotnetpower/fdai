@@ -6,6 +6,8 @@ import re
 from collections.abc import Mapping
 from typing import Any, Final
 
+from fdai.delivery.read_api.routes.chat_verification import AnswerVerification
+
 _RESOURCE_NAME: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 _RESOURCE_TYPE: Final = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,127}$")
 _HISTORY_FOLLOWUP: Final = re.compile(
@@ -116,9 +118,40 @@ def resource_followup_answer(
     return answer.strip()
 
 
+def resource_followup_verification(
+    view_context: Mapping[str, Any],
+    resource_context: Mapping[str, str] | None,
+) -> AnswerVerification | None:
+    """Verify a matching Heimdall answer from bounded normalized read evidence."""
+
+    answer = resource_followup_answer(view_context, resource_context)
+    agent = view_context.get("_agent_evidence")
+    if answer is None or not isinstance(agent, Mapping):
+        return None
+    facts = agent.get("facts")
+    if not isinstance(facts, Mapping) or facts.get("status") != "matched":
+        return None
+    raw_refs = facts.get("evidence_refs")
+    if not isinstance(raw_refs, (list, tuple)) or not 1 <= len(raw_refs) <= 64:
+        return None
+    evidence_refs = tuple(raw_refs)
+    if any(not isinstance(ref, str) or not ref or len(ref) > 1024 for ref in evidence_refs):
+        return None
+    return AnswerVerification(
+        status="verified",
+        answer=answer,
+        authority="server_read_investigation",
+        checks_completed=len(evidence_refs),
+        checks_total=len(evidence_refs),
+        evidence_refs=evidence_refs,
+        reason_code="resource_history_grounded",
+    )
+
+
 __all__ = [
     "contextualize_resource_followup",
     "parse_resource_context",
     "resource_followup_answer",
+    "resource_followup_verification",
     "response_resource_context",
 ]

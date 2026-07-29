@@ -76,7 +76,7 @@ from fdai.delivery.read_api.routes.chat_prompt import (
 )
 from fdai.delivery.read_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
 from fdai.delivery.read_api.routes.chat_resource_context import (
-    resource_followup_answer,
+    resource_followup_verification,
     response_resource_context,
 )
 from fdai.delivery.read_api.routes.chat_route_common import (
@@ -457,10 +457,13 @@ def make_chat_stream_route(
                     enriched_context,
                     locale=response_locale,
                 )
-                contextual_answer = (
-                    resource_followup_answer(enriched_context, resource_context)
+                contextual_verification = (
+                    resource_followup_verification(enriched_context, resource_context)
                     if resource_followup
                     else None
+                )
+                contextual_answer = (
+                    contextual_verification.answer if contextual_verification is not None else None
                 )
                 if vision_previews:
                     yield frame(
@@ -700,7 +703,9 @@ def make_chat_stream_route(
                             quality = candidate
 
                 verification = (
-                    verify_quality_result(
+                    contextual_verification
+                    if contextual_verification is not None
+                    else verify_quality_result(
                         quality,
                         enriched_context,
                         locale=response_locale,

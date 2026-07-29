@@ -545,7 +545,11 @@ def test_resource_followup_reuses_verified_selector_without_planner_or_web() -> 
             return {
                 "primary_agent": "Heimdall",
                 "answer": "postgres-data의 최근 성공한 중지 작업은 확인된 시각부터 이어졌습니다.",
-                "facts": {"resource_name": "postgres-data"},
+                "facts": {
+                    "status": "matched",
+                    "resource_name": "postgres-data",
+                    "evidence_refs": ["azure-activity:sha256:test"],
+                },
                 "contributors": [],
                 "contributor_answers": [],
                 "trace_ref": "read-investigation",
@@ -590,6 +594,9 @@ def test_resource_followup_reuses_verified_selector_without_planner_or_web() -> 
     assert delegated == ["postgres-data 변경 이력: 언제부터 중지되어 있었어?"]
     assert payload["resource_context"]["name"] == "postgres-data"
     assert "postgres-data" in payload["answer"]
+    assert payload["verification"]["status"] == "verified"
+    assert payload["verification"]["authority"] == "server_read_investigation"
+    assert payload["verification"]["reason_code"] == "resource_history_grounded"
     assert backend.calls == 0
 
 
@@ -603,7 +610,11 @@ def test_resource_followup_stream_returns_matching_heimdall_evidence_directly() 
             return {
                 "primary_agent": "Heimdall",
                 "answer": "postgres-data의 최근 성공한 중지 작업은 확인된 시각부터 이어졌습니다.",
-                "facts": {"resource_name": "postgres-data"},
+                "facts": {
+                    "status": "matched",
+                    "resource_name": "postgres-data",
+                    "evidence_refs": ["azure-activity:sha256:test"],
+                },
                 "contributors": [],
                 "contributor_answers": [],
                 "trace_ref": "read-investigation",
@@ -642,6 +653,9 @@ def test_resource_followup_stream_returns_matching_heimdall_evidence_directly() 
     assert done["source"] == "evidence:read-investigation"
     assert done["resource_context"]["name"] == "postgres-data"
     assert "postgres-data" in done["answer"]
+    assert done["verification"]["status"] == "verified"
+    assert done["verification"]["authority"] == "server_read_investigation"
+    assert done["verification"]["reason_code"] == "resource_history_grounded"
     assert backend.calls == 0
 
 

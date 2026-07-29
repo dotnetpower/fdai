@@ -157,7 +157,7 @@ from fdai.delivery.read_api.routes.chat_prompt_ontology import _with_ontology_st
 from fdai.delivery.read_api.routes.chat_resource_context import (
     contextualize_resource_followup,
     parse_resource_context,
-    resource_followup_answer,
+    resource_followup_verification,
     response_resource_context,
 )
 from fdai.delivery.read_api.routes.chat_route_common import (
@@ -541,18 +541,14 @@ def make_chat_route(
                 view_context,
                 locale=response_locale,
             )
-            contextual_answer = (
-                resource_followup_answer(view_context, resource_context)
+            contextual_verification = (
+                resource_followup_verification(view_context, resource_context)
                 if resource_followup
                 else None
             )
             reply: dict[str, Any]
-            if contextual_answer is not None:
-                verification = verify_answer(
-                    contextual_answer,
-                    view_context,
-                    locale=response_locale,
-                )
+            if contextual_verification is not None:
+                verification = contextual_verification
                 reply = {
                     "answer": verification.answer,
                     "model": "heimdall-read-investigation",
