@@ -158,7 +158,7 @@ def build_dev_security_assessment_feed(now: datetime) -> ReportFeed:
             due_days="30",
             remediation="Enable the policy add-on and assign the approved baseline.",
             validation="Verify compliance state is reported for baseline controls.",
-            compliance="MCSB-GV-1",
+            compliance="MCSB-PV-2",
         ),
         _spec(
             "aks-auto-upgrade",

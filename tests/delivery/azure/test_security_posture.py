@@ -130,6 +130,7 @@ def test_azure_inventory_and_supplemental_evidence_produce_thirty_controls() -> 
     assert by_id["aks-image-cleaner"].status is ControlStatus.PASS
     assert by_id["aks-image-cleaner"].current_value == "enabled (168h interval)"
     assert by_id["aks-policy-addon"].status is ControlStatus.FAIL
+    assert by_id["aks-policy-addon"].compliance_controls == ("MCSB-PV-2",)
     assert by_id["aks-service-tier"].status is ControlStatus.WARNING
     assert by_id["aks-node-image"].status is ControlStatus.PASS
     assert by_id["aks-node-vtpm"].status is ControlStatus.FAIL

@@ -222,7 +222,7 @@ def aks_controls(
             validation="Verify compliance state for the baseline controls.",
             priority="medium",
             due_days=30,
-            compliance=("MCSB-GV-1",),
+            compliance=("MCSB-PV-2",),
             source_url=_AKS_GUIDANCE,
         ),
         control(
