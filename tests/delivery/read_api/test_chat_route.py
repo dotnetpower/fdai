@@ -1345,6 +1345,8 @@ class TestChatRouteLatencySurface:
                 "session_id": "conversation-heimdall",
             }
         ]
+        assert backend.view_context is not None
+        assert backend.view_context["_agent_session_target"] == "Heimdall"
 
     def test_plain_agent_conversation_rejects_unknown_target(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)

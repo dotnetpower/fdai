@@ -60,9 +60,10 @@ does not cancel an agent action or typed pipeline event. A bridge timeout return
 agent-to-Bragi handoff; queued input starts a new request with its own idempotency identity.
 If the agent evidence branch fails or times out before the bridge returns, the branch join
 materializes the same explicit handoff without removing successful sibling operational evidence.
-Queue, interrupt, and steer preserve Bragi's narrator identity. Versioned agent-charter metadata
-remains provenance only and never becomes evidence or authority during a rerun. Each rerun injects
-the selected charter only after a fresh exact policy match and keeps Bragi's global safety prompt first.
+Queue, interrupt, and steer preserve the active conversational identity. A dedicated target session
+keeps the selected agent's voice; an unbound conversation keeps Bragi. Versioned agent-charter
+metadata remains provenance only and never becomes evidence or authority during a rerun. Each rerun
+injects the selected charter only after a fresh exact policy match and keeps global safety first.
 Atomic-claim verification likewise excludes generated agent narration and preserves unique fact
 leaf pointers rooted at the agent's durable evidence refs across queued or steered reruns.
 
@@ -125,8 +126,8 @@ operation with a two-second deadline. A projection timeout or failure is logged 
 the authoritative terminal response.
 The terminal `done` frame is authoritative for the web client. Socket closure and best-effort
 reader cancellation are cleanup only; neither may delay the final answer or status transition.
-Queued and steered follow-ups retain the active incident conversation binding; a rerun never
-reverts to fuzzy incident selection or changes Bragi's narrator identity.
+Queued and steered follow-ups retain the active incident conversation binding and conversational
+identity; a rerun never reverts to fuzzy incident selection. An explicit handoff returns to Bragi.
 An exact selected-incident turn keeps its direct correlation-filtered lookup and doesn't start
 unrelated inventory, agent, or public-web branches during a rerun.
 They also preserve an English or Korean current-screen explanation intent and its 120-word

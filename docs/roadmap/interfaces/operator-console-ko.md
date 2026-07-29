@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: fcc6a9f453c61b90ceccd630a3838648d34f7a18
+translation_source_sha: f43912a24590904086c85562a9fc40ac179aa6e2
 translation_revised: 2026-07-29
 ---
 
@@ -107,8 +107,8 @@ flowchart TD
   Agent card의 Ask는 projected state, current-work detail, 연결된 incident, 최근 status 및 severity count와 runtime observation status만 사용한 간결한 report로 시작합니다. 더 긴 고정 context
   envelope는 화면에 표시하지 않고 bounded session replay에서 보존하며 backend history에서만 report를
   대체합니다. 화면에 보이는 report는 bounded 2단어 burst로 stream합니다.
-  일반 agent target과 incident binding의 agent 값은 일치해야 하며 conflict는 evidence retrieval 전에 차단됩니다. Model-backed answer는 global Bragi safety를 먼저 유지하고 exact `conversation_policy` match에서만 selected immutable charter를 추가합니다.
-  Mismatch 또는 handoff에는 주입하지 않으며 charter는 role과 voice를 제한하지만 evidence, authority, tool permission이 아닙니다. 주입되는 charter는 해당 turn용으로 조립됩니다. Immutable baseline에 answer locale이 English가 아닐 때 operator-locale layer를 더합니다. Agent evidence는 해당 agent의 turn을 지배한 prompt의 layer manifest와 digest도 실어 나르므로, 소진된 escalation 예산이나 evidence gap이 narrator에게 constraint로 명시됩니다.
+  일반 agent target과 incident binding의 agent 값은 일치해야 하며 conflict는 evidence retrieval 전에 차단됩니다. Model-backed answer는 global read-only safety를 먼저 유지하고 exact `conversation_policy` match에서만 selected immutable charter를 추가합니다. Dedicated target session은 follow-up turn 전반에서 검증된 agent voice를 사용하며, 일반 screen delegation은 Bragi narrator를 유지합니다.
+  Policy mismatch 또는 명시적 handoff는 narration을 Bragi로 돌려보내며 charter는 evidence, authority 또는 tool permission이 되지 않습니다. 주입되는 charter는 해당 turn용 immutable baseline과 operator-locale layer로 조립됩니다. Agent evidence는 해당 agent turn의 prompt layer manifest와 digest도 제공하므로 소진된 escalation 예산이나 evidence gap이 constraint로 명시됩니다.
   Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에 plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
   post, stream update 및 edit에서 해당 block을 보존합니다.
   Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 책임 agent

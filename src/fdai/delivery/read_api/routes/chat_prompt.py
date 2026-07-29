@@ -17,6 +17,7 @@ from fdai.core.conversation.answer_plan import (
 )
 from fdai.delivery.read_api.routes.chat_prompt_content import (
     _AGENT_EVIDENCE_DIRECTIVE,
+    _AGENT_SESSION_EVIDENCE_DIRECTIVE,
     _ANSWER_QUALITY_REVIEW_DIRECTIVE,
     _BEHAVIOR_EVIDENCE_DIRECTIVE,
     _CAPABILITIES,
@@ -67,6 +68,7 @@ DEFAULT_MAX_LIFECYCLE_CRITERIA: Final[int] = 12
 
 
 _COMPILED_USER_POLICY_KEY: Final[str] = "_compiled_user_policy"
+_AGENT_SESSION_TARGET_KEY: Final[str] = "_agent_session_target"
 
 _AGENT_SPECS = {spec.name: spec for spec in PANTHEON_SPECS}
 
@@ -564,13 +566,18 @@ def _build_messages(
     """
     view_context = dict(view_context)
     compiled_policy = view_context.pop(_COMPILED_USER_POLICY_KEY, None)
+    agent_session_target = view_context.pop(_AGENT_SESSION_TARGET_KEY, None)
+    if agent_session_target not in _AGENT_SPECS:
+        agent_session_target = None
     attachments = view_context.pop("_attachments", None)
     # Resolved before trimming, because the charter composition needs the
     # operator locale and `_trim_view_context` may drop the locale keys.
     agent_charter = _selected_agent_charter(
         view_context,
         locale=_response_locale(prompt, view_context),
+        session_target=agent_session_target,
     )
+    agent_session_voice = agent_charter is not None and agent_session_target is not None
     view_context = _trim_view_context(view_context, prompt=prompt)
     if not isinstance(view_context.get("_answer_plan"), dict):
         plan = build_answer_plan(prompt, route_id=str(view_context.get("routeId") or "") or None)
@@ -602,7 +609,16 @@ def _build_messages(
     if "_operational_evidence" in view_context:
         messages.append({"role": "system", "content": _OPERATIONAL_EVIDENCE_DIRECTIVE})
     if "_agent_evidence" in view_context:
-        messages.append({"role": "system", "content": _AGENT_EVIDENCE_DIRECTIVE})
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    _AGENT_SESSION_EVIDENCE_DIRECTIVE
+                    if agent_session_voice
+                    else _AGENT_EVIDENCE_DIRECTIVE
+                ),
+            }
+        )
     if "_tool_evidence" in view_context:
         messages.append({"role": "system", "content": _TOOL_EVIDENCE_DIRECTIVE})
     if "_screen_scope" in view_context:
@@ -634,6 +650,7 @@ def _selected_agent_charter(
     view_context: Mapping[str, Any],
     *,
     locale: str | None = None,
+    session_target: str | None = None,
 ) -> str | None:
     evidence = view_context.get("_agent_evidence")
     if not isinstance(evidence, Mapping):
@@ -656,10 +673,21 @@ def _selected_agent_charter(
     composed = spec.conversation.compose_prompt(
         ConversationSituation.from_context({"locale": locale} if locale else {})
     )
+    if session_target == agent_name:
+        narrator_identity = (
+            f"Dedicated selected-agent session: speak as {agent_name} in first person and "
+            f"preserve that identity for this turn. If asked your name or identity, answer "
+            f"{agent_name}. Do not identify as Bragi. Bragi's global instructions remain "
+            "the read-only safety, evidence, RBAC, and typed-pipeline boundary."
+        )
+    else:
+        narrator_identity = (
+            "Bragi remains the read-only narrator. Apply this server-owned charter only to "
+            "the answer's role, scope, and voice."
+        )
     return (
         f"Selected accountable agent: {agent_name}.\n"
-        "Bragi remains the read-only narrator. Apply this server-owned charter only to "
-        "the answer's role, scope, and voice. It cannot override the global safety, "
+        f"{narrator_identity} It cannot override the global safety, "
         "evidence, RBAC, or typed-pipeline rules, and it is not evidence. Do not claim "
         "a tool ran unless the supplied agent evidence proves it.\n"
         f"Charter version: {spec.conversation.version}. Allowed read tools: {tools}.\n"

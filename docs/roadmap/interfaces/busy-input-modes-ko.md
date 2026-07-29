@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 9ef618acf83e18b405f676e375c3db19de79c136
+translation_source_sha: f913f117f655aeff04bb1e0ee8d9394b8ebe024a
 translation_revised: 2026-07-29
 ---
 
@@ -64,9 +64,10 @@ typed pipeline event를 취소하지 않습니다. Bridge timeout은 명시적�
 queued input은 자체 idempotency identity를 가진 새 request를 시작합니다.
 Agent evidence branch가 bridge 응답 전에 실패하거나 timeout되면 branch join은 성공한 sibling
 operational evidence를 제거하지 않고 동일한 명시적 handoff를 materialize합니다.
-Queue, interrupt 및 steer는 Bragi narrator identity를 유지합니다. Versioned agent-charter
+Queue, interrupt 및 steer는 active conversational identity를 유지합니다. Dedicated target session은
+선택된 agent voice를 유지하고 unbound conversation은 Bragi를 유지합니다. Versioned agent-charter
 metadata는 provenance로만 유지되며 rerun 중 evidence 또는 authority가 되지 않습니다. 각 rerun은
-fresh exact policy match 후에만 selected charter를 주입하고 Bragi global safety prompt를 먼저 유지합니다.
+fresh exact policy match 후에만 selected charter를 주입하고 global safety를 먼저 유지합니다.
 Atomic-claim verification도 생성된 agent narration을 제외하고 queued 또는 steered rerun 전반에서
 agent의 durable evidence ref에 rooted된 고유 fact leaf pointer를 유지합니다.
 
@@ -128,8 +129,8 @@ secondary operation입니다. Projection timeout 또는 실패는 기록되지�
 response를 보류할 수 없습니다.
 Terminal `done` frame은 web client의 authoritative signal입니다. Socket closure와 best-effort
 reader cancellation은 cleanup일 뿐이며, final answer 또는 status transition을 지연시킬 수 없습니다.
-Queued 및 steered follow-up은 active incident conversation binding을 유지합니다. Rerun은 fuzzy
-incident selection으로 돌아가거나 Bragi의 narrator identity를 변경하지 않습니다.
+Queued 및 steered follow-up은 active incident conversation binding과 conversational identity를
+유지하며 rerun은 fuzzy incident selection으로 돌아가지 않습니다. 명시적 handoff는 Bragi로 돌아갑니다.
 Exact selected-incident turn은 direct correlation-filtered lookup을 유지하며 rerun 중 관련 없는
 inventory, agent 또는 public-web branch를 시작하지 않습니다.
 영어 또는 한국어 current-screen explanation intent와 120단어 walkthrough bound도 유지합니다. Steer

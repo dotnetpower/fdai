@@ -34,6 +34,7 @@ from fdai.delivery.read_api.routes.chat import (
 )
 from fdai.delivery.read_api.routes.chat_prompt_content import (
     _AGENT_EVIDENCE_DIRECTIVE,
+    _AGENT_SESSION_EVIDENCE_DIRECTIVE,
     _SCREEN_SCOPE_DIRECTIVE,
     _WEB_EVIDENCE_DIRECTIVE,
 )
@@ -135,29 +136,61 @@ def test_verified_selected_agent_charter_reaches_model_after_bragi_safety() -> N
             message["content"] for message in messages if message["role"] == "system"
         ]
 
-        assert "console narrator and translator" in system_messages[0]
+        assert "read-only narrator and translator" in system_messages[0]
         assert system_messages[1].endswith(spec.conversation.system_prompt)
         assert "Bragi remains the read-only narrator" in system_messages[1]
         assert "not evidence" in system_messages[1]
         assert ", ".join(spec.conversation.tools) in system_messages[1]
 
 
+def test_targeted_agent_session_assigns_verified_agent_voice() -> None:
+    spec = next(spec for spec in PANTHEON_SPECS if spec.name == "Heimdall")
+    messages = _build_messages(
+        "너 한국어로 뭐라고 불러야해?",
+        {
+            "_agent_session_target": "Heimdall",
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "answer": "관측 신호에 대해 답변할 수 있습니다.",
+                "facts": {"evidence_refs": ["agent-state:Heimdall:sha256:abc"]},
+                "conversation_policy": spec.conversation_policy(),
+            },
+        },
+        [],
+    )
+    system_messages = [message["content"] for message in messages if message["role"] == "system"]
+
+    assert "You are Bragi" in system_messages[0]
+    assert "Dedicated selected-agent session: speak as Heimdall" in system_messages[1]
+    assert "answer Heimdall" in system_messages[1]
+    assert "Bragi remains the read-only narrator" not in system_messages[1]
+    assert system_messages.count(_AGENT_SESSION_EVIDENCE_DIRECTIVE) == 1
+    assert system_messages.count(_AGENT_EVIDENCE_DIRECTIVE) == 0
+    assert "_agent_session_target" not in system_messages[0]
+
+
 def test_unverified_agent_policy_never_injects_charter() -> None:
     messages = _build_messages(
         "What is the current action status?",
         {
+            "_agent_session_target": "Thor",
             "_agent_evidence": {
                 "primary_agent": "Thor",
                 "answer": "One action is executing.",
                 "facts": {"evidence_refs": ["agent-state:Thor:sha256:abc"]},
                 "conversation_policy": {"prompt_sha256": "0" * 64},
-            }
+            },
         },
         [],
     )
 
     assert not any(
         "Selected accountable agent: Thor" in message["content"]
+        for message in messages
+        if message["role"] == "system"
+    )
+    assert any(
+        message["content"] == _AGENT_EVIDENCE_DIRECTIVE
         for message in messages
         if message["role"] == "system"
     )

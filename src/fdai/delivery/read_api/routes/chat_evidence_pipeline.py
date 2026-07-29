@@ -58,6 +58,7 @@ async def resolve_parallel_chat_evidence(
         "_current_screen_tool",
         "_operational_evidence",
         "_agent_evidence",
+        "_agent_session_target",
         "_web_evidence",
     ):
         base_context.pop(key, None)
@@ -322,6 +323,9 @@ async def resolve_parallel_chat_evidence(
             conversation_context=conversation_context,
             target_agent=target_agent,
         )
+    selected_agent = _selected_agent(prompt, conversation_context, target_agent)
+    if target_agent is not None and selected_agent is not None:
+        merged["_agent_session_target"] = selected_agent
     return merged
 
 
