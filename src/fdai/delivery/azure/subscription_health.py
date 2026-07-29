@@ -17,6 +17,8 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _MANAGEMENT_AUDIENCE: Final = "https://management.azure.com/.default"
 _ARG_API_VERSION: Final = "2022-10-01"
 _METRICS_API_VERSION: Final = "2024-02-01"
+_RESOURCE_HEALTH_API_VERSION: Final = "2025-05-01"
+_RESOURCE_HEALTH_ID_MARKER: Final = "/providers/microsoft.resourcehealth/availabilitystatuses/"
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +88,8 @@ class AzureSubscriptionHealthConfig:
     def __post_init__(self) -> None:
         if not self.subscription_id.strip() or not self.resource_groups:
             raise ValueError("subscription health requires subscription and resource groups")
+        if len(self.resource_groups) > 64:
+            raise ValueError("subscription health supports at most 64 resource groups")
         if not self.endpoint.startswith("https://"):
             raise ValueError("subscription health endpoint MUST use https")
         if not 1 <= self.max_resources <= 1_000:
@@ -142,9 +146,17 @@ class AzureSubscriptionHealthProvider:
         safe_resources = [item for item in resources if _valid_resource(item)]
         resource_truncated = len(safe_resources) > self._config.max_resources
         safe_resources = safe_resources[: self._config.max_resources]
+        resource_health_unavailable = 0
+        direct_health_truncated = False
+        if not health:
+            (
+                health,
+                resource_health_unavailable,
+                direct_health_truncated,
+            ) = await self._current_resource_health(headers)
         health_findings = _health_findings(health)
         provisioning_findings = _provisioning_findings(safe_resources)
-        health_truncated = len(health) > 64
+        health_truncated = len(health) > 64 or direct_health_truncated
         await _emit(
             progress_observer,
             kind="inventory.completed",
@@ -230,12 +242,18 @@ class AzureSubscriptionHealthProvider:
         return {
             "status": (
                 "partial"
-                if metric_unavailable or unsupported_metric_resources or truncated
+                if (
+                    resource_health_unavailable
+                    or metric_unavailable
+                    or unsupported_metric_resources
+                    or truncated
+                )
                 else "matched"
             ),
-            "source": "azure-resource-graph+azure-monitor-metrics",
+            "source": "azure-resource-graph+resource-health+azure-monitor-metrics",
             "observed_at": datetime.now(tz=UTC).isoformat(),
             "resource_count": len(safe_resources),
+            "resource_health_unavailable": resource_health_unavailable,
             "supported_metric_resources": len(supported),
             "metric_checked": len(metric_targets) - metric_unavailable,
             "metric_unavailable": metric_unavailable,
@@ -243,6 +261,83 @@ class AzureSubscriptionHealthProvider:
             "truncated": truncated,
             "findings": findings[:64],
         }
+
+    async def _current_resource_health(
+        self,
+        headers: Mapping[str, str],
+    ) -> tuple[list[Mapping[str, Any]], int, bool]:
+        semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
+
+        async def inspect(group: str) -> tuple[list[Mapping[str, Any]], bool]:
+            async with semaphore:
+                response = await self._http.get(
+                    f"{self._config.endpoint.rstrip('/')}/subscriptions/"
+                    f"{quote(self._config.subscription_id, safe='')}/resourceGroups/"
+                    f"{quote(group, safe='')}/providers/"
+                    "Microsoft.ResourceHealth/availabilityStatuses",
+                    params={"api-version": _RESOURCE_HEALTH_API_VERSION},
+                    headers=dict(headers),
+                    timeout=self._config.timeout_seconds,
+                )
+                return self._resource_health_rows(response, group)
+
+        results = await asyncio.gather(
+            *(inspect(group) for group in self._config.resource_groups),
+            return_exceptions=True,
+        )
+        rows: list[Mapping[str, Any]] = []
+        unavailable = 0
+        truncated = False
+        for result in results:
+            if isinstance(result, BaseException):
+                if isinstance(result, asyncio.CancelledError):
+                    raise result
+                unavailable += 1
+                continue
+            group_rows, group_truncated = result
+            rows.extend(group_rows)
+            truncated = truncated or group_truncated
+        return rows[:65], unavailable, truncated or len(rows) > 65
+
+    def _resource_health_rows(
+        self,
+        response: httpx.Response,
+        resource_group: str,
+    ) -> tuple[list[Mapping[str, Any]], bool]:
+        if response.status_code >= 400 or len(response.content) > self._config.max_response_bytes:
+            raise RuntimeError("Resource Health query unavailable")
+        payload = response.json()
+        values = payload.get("value") if isinstance(payload, Mapping) else None
+        if not isinstance(values, list):
+            raise RuntimeError("Resource Health response is invalid")
+        rows: list[Mapping[str, Any]] = []
+        scope_prefix = (
+            f"/subscriptions/{self._config.subscription_id.casefold()}/"
+            f"resourcegroups/{resource_group.casefold()}/"
+        )
+        for value in values:
+            if not isinstance(value, Mapping):
+                continue
+            status_id = value.get("id")
+            properties = value.get("properties")
+            if not isinstance(status_id, str) or not isinstance(properties, Mapping):
+                continue
+            marker_at = status_id.casefold().find(_RESOURCE_HEALTH_ID_MARKER)
+            target_resource_id = status_id[:marker_at] if marker_at >= 0 else ""
+            if not target_resource_id.casefold().startswith(scope_prefix):
+                continue
+            rows.append(
+                {
+                    "targetResourceId": target_resource_id,
+                    "resourceName": target_resource_id.rsplit("/", maxsplit=1)[-1],
+                    "availabilityState": properties.get("availabilityState"),
+                    "reasonType": properties.get("reasonType"),
+                    "title": properties.get("title"),
+                    "occurredTime": properties.get("occurredTime")
+                    or properties.get("reportedTime"),
+                }
+            )
+        return rows[:65], isinstance(payload.get("nextLink"), str) or len(rows) > 65
 
     async def _arg(self, headers: Mapping[str, str], query: str) -> list[Mapping[str, Any]]:
         response = await self._http.post(
@@ -371,6 +466,7 @@ def _health_findings(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "resource_name": str(row.get("resourceName") or "unknown"),
                 "status": state,
                 "reason": str(row.get("reasonType") or "unknown"),
+                "title": _bounded_text(row.get("title")),
                 "observed_at": str(row.get("occurredTime") or "unknown"),
             }
         )
@@ -410,6 +506,12 @@ def _metric_value(payload: Any, aggregation: str) -> float:
 
 def _escaped(value: str) -> str:
     return value.replace("'", "''")
+
+
+def _bounded_text(value: object) -> str:
+    if not isinstance(value, str):
+        return "unknown"
+    return " ".join(value.split())[:128] or "unknown"
 
 
 __all__ = [

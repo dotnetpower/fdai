@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 1a5182ea8bd288a810880f9e72cf2b2111306dc5
-translation_revised: 2026-07-27
+translation_source_sha: b5a61d7d9e78b12be18aadc9dab877698b9de09d
+translation_revised: 2026-07-29
 ---
 
 # Azure 읽기 조사
@@ -60,7 +60,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
 | Investigation evidence signal | 구현됨 | Bound된 read-investigation hook은 Heimdall 대화형 포트의 owned evidence로 계산되므로, 로컬 신호 window가 차기 전에도 조사 가능한 turn에는 evidence-gap prompt layer가 붙지 않습니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
-| Subscription health sweep | 구현됨 | Configured reader scope가 Resource Graph inventory와 Resource Health를 병렬 query한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
+| Subscription health sweep | 구현됨 | 명시적인 subscription 점검과 일반적인 service-outage 질문이 configured reader scope를 사용합니다. Provider는 Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 허용된 resource group별 current Resource Health status로 fallback한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
 | Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Exact resolution은 barrier이며 독립 evidence tool은 bounded parallel limit 안에서 실행됩니다. Streamed mode는 bounded progress와 SSE comment heartbeat를 전송하고, stream close는 provider work를 cancel하며, terminal event는 한 번만 발생합니다. |
@@ -126,22 +126,27 @@ unavailable을 보고합니다.
 
 ### Subscription health sweep
 
-Command Deck tool `query_subscription_health`는 configured Azure scope를 점검해 달라는 operator
-요청을 처리합니다. Scope는 server의 subscription과 resource-group allowlist에서만 가져오며 browser
-input은 이를 넓힐 수 없습니다. Provider는 다음 bounded step을 수행합니다.
+Command Deck tool `query_subscription_health`는 명시적인 subscription 점검 또는 일반적인
+service-outage 질문을 처리합니다. Deterministic routing이 narrator-model classification 전에 이 read를
+선택합니다. Scope는 server의 subscription과 resource-group allowlist에서만 가져오며 browser input은
+이를 넓힐 수 없습니다. Provider는 다음 bounded step을 수행합니다.
 
 1. Resource Graph inventory와 `HealthResources`를 병렬 query합니다.
-2. 대표 Azure Monitor metric을 확인할 supported resource를 최대 16개 선택합니다.
-3. 최대 4개 metric을 동시에 query하고 server-owned threshold와 비교합니다.
-4. Resource Health, 실패한 provisioning, metric 후보와 unsupported, unavailable, truncated count를
+2. ARG가 health row를 반환하지 않으면 공식 ARM endpoint를 통해 허용된 각 resource group의 current
+   Resource Health availability status를 나열합니다. 실패한 group은 unavailable scope로 명시합니다.
+3. 대표 Azure Monitor metric을 확인할 supported resource를 최대 16개 선택합니다.
+4. 최대 4개 metric을 동시에 query하고 server-owned threshold와 비교합니다.
+5. Resource Health, 실패한 provisioning, metric 후보와 unsupported, unavailable, truncated count를
   반환합니다.
 
 초기 metric map은 VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU 및
 Application Gateway healthy-host count를 다룹니다. Unsupported resource type은 count에 남아
-표시됩니다. Metric failure는 healthy 결론이 아니라 `partial`을 생성합니다. Terminal answer는 bounded
-evidence를 유지하지만 verification을 completed check 0건의 `unverified`로 보고합니다. 응답은
-결정적이며 narrator model을 호출하지 않습니다. Complete `matched` result는 check 1건 중 1건을
-완료했다고 보고하고 grounded terminal status를 유지합니다.
+표시됩니다. Resource Health 또는 metric failure는 healthy 결론이 아니라 `partial`을 생성합니다.
+Customer-initiated Resource Health state는 Azure platform incident가 아니라 user 또는 automation이
+시작한 상태로 설명하지만, Activity Log evidence를 수집하기 전에는 actor를 알 수 없다고 표시합니다.
+Terminal answer는 bounded evidence를 유지하지만 verification을 completed check 0건의
+`unverified`로 보고합니다. 응답은 결정적이며 narrator model을 호출하지 않습니다. Complete
+`matched` result는 check 1건 중 1건을 완료했다고 보고하고 grounded terminal status를 유지합니다.
 
 ## Evidence 계약
 

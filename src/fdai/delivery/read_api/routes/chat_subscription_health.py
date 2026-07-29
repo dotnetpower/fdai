@@ -15,6 +15,12 @@ _HEALTH: Final = re.compile(
     r"|상태|이상|장애|문제|점검|확인|비정상",
     re.IGNORECASE,
 )
+_SERVICE_HEALTH: Final = re.compile(
+    r"\b(?:service|platform|application|app|fdai)\b.{0,32}"
+    r"\b(?:health|outage|incident|issues?|degraded|unavailable|down)\b"
+    r"|(?:서비스|플랫폼|애플리케이션|앱|FDAI).{0,20}(?:상태|이상|장애|문제|비정상)",
+    re.IGNORECASE,
+)
 _MUTATION: Final = re.compile(
     r"\b(?:create|delete|restart|scale|update|change|remediate|fix)\b"
     r"|생성|삭제|재시작|스케일|변경|수정|복구",
@@ -139,7 +145,10 @@ class SubscriptionHealthChatTools:
 
 
 def needs_subscription_health(prompt: str) -> bool:
-    return bool(_SCOPE.search(prompt) and _HEALTH.search(prompt) and not _MUTATION.search(prompt))
+    asks_for_health = bool(
+        (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
+    )
+    return asks_for_health and not _MUTATION.search(prompt)
 
 
 def render_subscription_health_answer(
@@ -164,6 +173,7 @@ def render_subscription_health_answer(
             )
         )
     resource_count = _integer(result.get("resource_count"))
+    resource_health_unavailable = _integer(result.get("resource_health_unavailable"))
     metric_checked = _integer(result.get("metric_checked"))
     metric_unavailable = _integer(result.get("metric_unavailable"))
     unsupported = _integer(result.get("unsupported_metric_resources"))
@@ -178,6 +188,7 @@ def render_subscription_health_answer(
         ]
         lines.extend(_finding_lines(findings, korean=True))
         lines.append(
+            f"Resource Health 조회 불가 범위 {resource_health_unavailable}개. "
             f"메트릭 확인: {metric_checked}개, 조회 불가 {metric_unavailable}개, "
             f"미지원 {unsupported}개."
         )
@@ -185,7 +196,10 @@ def render_subscription_health_answer(
         if truncated:
             lines.append("조회 한도에 도달했으므로 추가 리소스나 후보가 있을 수 있습니다.")
         if status == "partial":
-            lines.append("일부 메트릭을 조회하지 못했으므로 전체 정상 상태를 확정하지 않았습니다.")
+            lines.append(
+                "일부 Resource Health 또는 메트릭 근거가 조회 불가이거나 미지원이므로 "
+                "전체 정상 상태를 확정하지 않았습니다."
+            )
         return "\n".join(lines)
     lines = [
         f"Checked {resource_count} resources in the allowed Azure scope and found "
@@ -193,6 +207,7 @@ def render_subscription_health_answer(
     ]
     lines.extend(_finding_lines(findings, korean=False))
     lines.append(
+        f"Resource Health: {resource_health_unavailable} scope(s) unavailable. "
         f"Metrics: {metric_checked} checked, {metric_unavailable} unavailable, "
         f"{unsupported} unsupported."
     )
@@ -201,7 +216,8 @@ def render_subscription_health_answer(
         lines.append("The bounded query limit was reached; additional resources may exist.")
     if status == "partial":
         lines.append(
-            "Some metrics were unavailable, so complete normal operation was not confirmed."
+            "Some Resource Health or metric evidence was unavailable or unsupported, so "
+            "complete normal operation was not confirmed."
         )
     return "\n".join(lines)
 
@@ -229,6 +245,26 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
         name = str(finding.get("resource_name") or "unknown")
         kind = str(finding.get("kind") or "unknown")
         status = str(finding.get("status") or "unknown")
+        if kind == "resource_health":
+            title = str(finding.get("title") or "unknown")
+            reason = str(finding.get("reason") or "unknown")
+            if korean:
+                explanation = (
+                    "Azure 플랫폼 장애가 아니라 사용자 또는 자동화 작업으로 시작된 "
+                    "상태를 나타냅니다. 실행 주체는 Activity Log 확인 전에는 특정할 수 없습니다."
+                    if reason.casefold() == "customer initiated"
+                    else f"Resource Health 원인 분류는 {reason}입니다."
+                )
+                lines.append(f"- {name}: Resource Health {status} ({title}). {explanation}")
+            else:
+                explanation = (
+                    "This indicates a user- or automation-initiated state rather than an "
+                    "Azure platform incident. The actor requires Activity Log evidence."
+                    if reason.casefold() == "customer initiated"
+                    else f"Resource Health classified the cause as {reason}."
+                )
+                lines.append(f"- {name}: Resource Health {status} ({title}). {explanation}")
+            continue
         metric = finding.get("metric")
         value = finding.get("value")
         detail = f", {metric}={value}" if isinstance(metric, str) else ""

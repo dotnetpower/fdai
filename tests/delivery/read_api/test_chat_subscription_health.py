@@ -7,7 +7,10 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.read_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.read_api.routes.chat_subscription_health import SubscriptionHealthChatTools
+from fdai.delivery.read_api.routes.chat_subscription_health import (
+    SubscriptionHealthChatTools,
+    needs_subscription_health,
+)
 
 
 class _Backend:
@@ -69,6 +72,10 @@ async def _provider(
             }
         ],
     }
+
+
+def test_generic_service_outage_question_uses_subscription_health() -> None:
+    assert needs_subscription_health("서비스 장애 나고 있는게 있어?")
 
 
 def test_partial_subscription_health_answer_fails_closed() -> None:
@@ -138,9 +145,70 @@ def test_matched_subscription_health_answer_completes_verification() -> None:
     assert backend.calls == 0
 
 
+def test_service_outage_answer_explains_customer_initiated_resource_health() -> None:
+    async def degraded(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del progress_observer
+        assert lookback_seconds == 3_600
+        return {
+            "status": "matched",
+            "source": "azure-resource-graph+resource-health+azure-monitor-metrics",
+            "observed_at": "2026-07-22T05:00:00Z",
+            "resource_count": 1,
+            "resource_health_unavailable": 0,
+            "metric_checked": 1,
+            "metric_unavailable": 0,
+            "unsupported_metric_resources": 0,
+            "truncated": False,
+            "findings": [
+                {
+                    "kind": "resource_health",
+                    "resource_name": "database-app",
+                    "status": "Degraded",
+                    "title": "Stopped",
+                    "reason": "Customer Initiated",
+                    "observed_at": "2026-07-22T04:55:00Z",
+                }
+            ],
+        }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(degraded),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={"prompt": "서비스 장애 나고 있는게 있어?", "view_context": {}},
+        )
+
+    assert response.status_code == 200
+    answer = response.json()["answer"]
+    assert "database-app" in answer
+    assert "Degraded" in answer
+    assert "Stopped" in answer
+    assert "사용자 또는 자동화 작업" in answer
+    assert "Azure 플랫폼 장애" in answer
+    assert backend.calls == 0
+
+
 def test_subscription_health_provider_failure_fails_closed() -> None:
-    async def unavailable(lookback_seconds: int) -> dict[str, Any]:
-        del lookback_seconds
+    async def unavailable(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del lookback_seconds, progress_observer
         raise RuntimeError("provider unavailable")
 
     backend = _Backend()

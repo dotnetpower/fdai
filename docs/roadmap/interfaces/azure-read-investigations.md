@@ -59,7 +59,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
 | Investigation evidence signal | Implemented | A bound read-investigation hook counts as owned evidence for Heimdall's conversational port, so an investigable turn is not composed with the evidence-gap prompt layer even before the local signal window fills. |
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
-| Subscription health sweep | Implemented | The configured reader scope queries Resource Graph inventory and Resource Health in parallel, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
+| Subscription health sweep | Implemented | Explicit subscription checks and general service-outage questions use the configured reader scope. The provider queries Resource Graph inventory and Resource Health, falls back to current Resource Health status by allowed resource group when ARG is empty, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
 | Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, streamed mode emits bounded progress and SSE comment heartbeats, stream close cancels provider work, and the terminal event occurs once. |
@@ -126,22 +126,28 @@ instead of silently falling back to direct ARM.
 
 ### Subscription health sweep
 
-The Command Deck tool `query_subscription_health` handles an operator request to inspect the
-configured Azure scope. Scope comes only from the server's subscription and resource-group
-allowlist. Browser input cannot widen it. The provider performs these bounded steps:
+The Command Deck tool `query_subscription_health` handles an explicit subscription check or a
+general service-outage question. Deterministic routing selects this read before narrator-model
+classification. Scope comes only from the server's subscription and resource-group allowlist.
+Browser input cannot widen it. The provider performs these bounded steps:
 
 1. Query Resource Graph inventory and `HealthResources` in parallel.
-2. Select up to 16 supported resources for representative Azure Monitor metrics.
-3. Query at most four metrics concurrently and compare them with server-owned thresholds.
-4. Return Resource Health, failed provisioning, and metric candidates with unsupported,
+2. If ARG returns no health rows, list current Resource Health availability statuses for each
+  allowed resource group through the official ARM endpoint. A failed group remains an explicit
+  unavailable scope.
+3. Select up to 16 supported resources for representative Azure Monitor metrics.
+4. Query at most four metrics concurrently and compare them with server-owned thresholds.
+5. Return Resource Health, failed provisioning, and metric candidates with unsupported,
    unavailable, and truncated counts.
 
 The initial metric map covers VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU,
 and Application Gateway healthy-host count. Unsupported resource types remain counted and visible.
-A metric failure produces `partial`, never a healthy conclusion. The terminal answer keeps the
-bounded evidence but reports verification as `unverified` with zero completed checks. The response
-is deterministic and does not call the narrator model. A complete `matched` result reports one of
-one checks completed and retains the grounded terminal status.
+A Resource Health or metric failure produces `partial`, never a healthy conclusion. A
+customer-initiated Resource Health state is explained as user- or automation-initiated rather than
+an Azure platform incident, but the actor remains unknown until Activity Log evidence is collected.
+The terminal answer keeps the bounded evidence but reports verification as `unverified` with zero
+completed checks. The response is deterministic and does not call the narrator model. A complete
+`matched` result reports one of one checks completed and retains the grounded terminal status.
 
 ## Evidence contract
 

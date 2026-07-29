@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -65,7 +66,7 @@ def _resource_rows() -> list[dict[str, object]]:
     return [
         {
             "id": (
-                "/subscriptions/example/resourceGroups/rg-example/providers/"
+                "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
                 "Microsoft.Compute/virtualMachines/vm-app"
             ),
             "name": "vm-app",
@@ -76,7 +77,7 @@ def _resource_rows() -> list[dict[str, object]]:
         },
         {
             "id": (
-                "/subscriptions/example/resourceGroups/rg-example/providers/"
+                "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
                 "Microsoft.KeyVault/vaults/vault-app"
             ),
             "name": "vault-app",
@@ -88,7 +89,7 @@ def _resource_rows() -> list[dict[str, object]]:
     ]
 
 
-def _handler(*, metric_status: int = 200):
+def _handler(*, metric_status: int = 200) -> Callable[[httpx.Request], httpx.Response]:
     def handle(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
             body = json.loads(request.content)
@@ -168,6 +169,69 @@ async def test_subscription_health_metric_failure_is_partial_not_healthy() -> No
     assert result["metric_checked"] == 0
     assert result["metric_unavailable"] == 1
     assert result["findings"]
+
+
+async def test_subscription_health_uses_current_resource_health_when_arg_is_empty() -> None:
+    resource = _resource_rows()[0]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            body = json.loads(request.content)
+            if body["query"].startswith("HealthResources"):
+                return httpx.Response(200, json={"data": []})
+            return httpx.Response(200, json={"data": [resource]})
+        if request.url.path.endswith(
+            "/resourceGroups/rg-example/providers/Microsoft.ResourceHealth/availabilityStatuses"
+        ):
+            assert request.url.params["api-version"] == "2025-05-01"
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": (
+                                f"{resource['id']}/providers/Microsoft.ResourceHealth/"
+                                "availabilityStatuses/current"
+                            ),
+                            "properties": {
+                                "availabilityState": "Degraded",
+                                "reasonType": "Customer Initiated",
+                                "title": "Stopped",
+                                "occurredTime": "2026-07-22T04:55:00Z",
+                            },
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"value": [{"timeseries": [{"data": [{"maximum": 10.0}]}]}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider(3_600)
+
+    assert result["resource_health_unavailable"] == 0
+    findings = result["findings"]
+    assert isinstance(findings, list)
+    assert findings == [
+        {
+            "kind": "resource_health",
+            "resource_name": "vm-app",
+            "status": "Degraded",
+            "reason": "Customer Initiated",
+            "title": "Stopped",
+            "observed_at": "2026-07-22T04:55:00Z",
+        }
+    ]
 
 
 async def test_subscription_health_bounds_parallel_metric_queries() -> None:
