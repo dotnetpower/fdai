@@ -100,11 +100,27 @@ export class ReadApiTransport {
     const headers: Record<string, string> = { accept };
     const authHeader = await this.#authorizationHeader();
     if (authHeader !== null) headers["authorization"] = authHeader;
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers,
-      credentials: "omit",
-    });
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(
+      () => controller.abort(),
+      this.#config.readApiRequestTimeoutMs,
+    );
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method: "GET",
+        headers,
+        credentials: "omit",
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ReadApiError(504, "Read API request timed out. Retry the request.");
+      }
+      throw error;
+    } finally {
+      globalThis.clearTimeout(timeout);
+    }
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
       try {

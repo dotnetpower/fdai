@@ -21,6 +21,8 @@ export interface ConsoleConfig {
   /** Maximum wait for a bearer token before the console surfaces an
    *  authentication error instead of leaving panels in a loading state. */
   readonly authTokenTimeoutMs: number;
+  /** Maximum wait for one read API response before the request is aborted. */
+  readonly readApiRequestTimeoutMs: number;
   /** When true, MSAL is bypassed and the read API is called anonymously
    *  (matches `FDAI_READ_API_DEV_MODE=1` on the API). */
   readonly devMode: boolean;
@@ -63,6 +65,7 @@ export function loadConfig(): ConsoleConfig {
     msalTenantId: envVar("VITE_MSAL_TENANT_ID"),
     msalApiScope: envVar("VITE_MSAL_API_SCOPE"),
     authTokenTimeoutMs: positiveIntegerEnv("VITE_AUTH_TOKEN_TIMEOUT_MS", "10000"),
+    readApiRequestTimeoutMs: positiveIntegerEnv("VITE_READ_API_REQUEST_TIMEOUT_MS", "30000"),
     devMode,
     localAzureCliAuth: envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1",
     localLoginPrompt: envVar("VITE_LOCAL_LOGIN_PROMPT", devMode ? "1" : "0") === "1",

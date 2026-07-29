@@ -1,11 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
-import { ReadApiError } from "../api";
-import type {
-  AutonomyPayload,
-  DashboardKpi,
-  FinOpsPayload,
-} from "../types";
 import {
   AsyncBoundary,
   DataTable,
@@ -27,7 +21,6 @@ import {
   overviewCostActions,
   overviewHealth,
   overviewT0Share,
-  type GatesSummary,
 } from "./dashboard.model";
 import { RequiredAttention, RoutingControl } from "./dashboard.distributions";
 import {
@@ -37,6 +30,10 @@ import {
 } from "./dashboard.executive";
 import { LivingRules, VerticalCards } from "./dashboard.signals";
 import { DashboardSkeleton } from "./dashboard.skeleton";
+import {
+  loadDashboardOverview,
+  type DashboardOverviewData,
+} from "./dashboard.loading";
 
 interface Props {
   readonly client: ReadApiClient;
@@ -48,29 +45,17 @@ interface Props {
  * `policy_escapes` sum > 0 blocks release per goals-and-metrics (escapes
  * MUST be exactly 0), so it also fails the health axis.
  */
-interface OverviewData {
-  readonly kpi: DashboardKpi;
-  readonly finops: FinOpsPayload | null;
-  readonly gates: GatesSummary | null;
-  readonly autonomy: AutonomyPayload | null;
-}
-
 export function DashboardRoute({ client }: Props) {
-  const [state, setState] = useState<AsyncState<OverviewData>>({ status: "loading" });
+  const [state, setState] = useState<AsyncState<DashboardOverviewData>>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // `/kpi` is the required backbone. Independent optional projections
-        // load concurrently and degrade only for their documented statuses.
-        const [kpi, finops, gates, autonomy] = await Promise.all([
-          client.dashboardMetrics(),
-          optionalOverview(() => client.finops(), [404]),
-          optionalOverview(() => client.panel<GatesSummary>("/kpi/promotion-gates"), [404, 501]),
-          optionalOverview(() => client.autonomy(), [404, 501, 502]),
-        ]);
-        if (!cancelled) setState({ status: "ready", data: { kpi, finops, gates, autonomy } });
+        const data = await loadDashboardOverview(client, (backbone) => {
+          if (!cancelled) setState({ status: "ready", data: backbone });
+        });
+        if (!cancelled) setState({ status: "ready", data });
       } catch (err) {
         if (!cancelled) {
           setState({
@@ -95,19 +80,7 @@ export function DashboardRoute({ client }: Props) {
   );
 }
 
-async function optionalOverview<T>(
-  load: () => Promise<T>,
-  unavailableStatuses: readonly number[],
-): Promise<T | null> {
-  try {
-    return await load();
-  } catch (error) {
-    if (error instanceof ReadApiError && unavailableStatuses.includes(error.status)) return null;
-    throw error;
-  }
-}
-
-function OverviewBody({ data }: { readonly data: OverviewData }) {
+function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
   const { kpi, finops, gates, autonomy } = data;
   const sampleParams = auditSampleParams(kpi);
 

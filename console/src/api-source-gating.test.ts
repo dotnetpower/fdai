@@ -12,6 +12,7 @@ const config: ConsoleConfig = {
   msalTenantId: "",
   msalApiScope: "",
   authTokenTimeoutMs: 10_000,
+  readApiRequestTimeoutMs: 30_000,
   devMode: true,
   localAzureCliAuth: false,
   localLoginPrompt: false,

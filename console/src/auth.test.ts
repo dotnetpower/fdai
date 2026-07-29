@@ -11,6 +11,7 @@ function config(overrides: Partial<ConsoleConfig> = {}): ConsoleConfig {
     msalTenantId: "",
     msalApiScope: "",
     authTokenTimeoutMs: 10_000,
+    readApiRequestTimeoutMs: 30_000,
     devMode: false,
     localAzureCliAuth: true,
     localLoginPrompt: false,

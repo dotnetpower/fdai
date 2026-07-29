@@ -98,6 +98,11 @@ While the read API completes its startup probes, the browser keeps the initial p
 retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
 seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops
 immediately at the existing access-recovery surface instead of being hidden by another retry.
+After IAM bootstrap succeeds, Dashboard treats `GET /kpi` as its required backbone and leaves the
+route skeleton as soon as that response resolves. Optional FinOps, promotion-gate, and autonomy
+projections join independently and never keep the complete Dashboard in a loading state.
+Every browser Read API request also has a configurable 30-second default timeout. A stalled fetch
+is aborted and enters the existing route error surface instead of leaving a permanent skeleton.
 Each long-running Console task permits one VS Code instance. The core task and debug launch also
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.

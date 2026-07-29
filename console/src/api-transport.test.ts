@@ -12,6 +12,7 @@ const config: ConsoleConfig = {
   msalTenantId: "",
   msalApiScope: "",
   authTokenTimeoutMs: 10_000,
+  readApiRequestTimeoutMs: 100,
   devMode: true,
   localAzureCliAuth: false,
   localLoginPrompt: true,
@@ -134,5 +135,32 @@ describe("read API authentication boundary", () => {
     } finally {
       stopObserving();
     }
+  });
+
+  test("aborts a stalled read request at the configured timeout", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      const signal = init?.signal;
+      if (!(signal instanceof AbortSignal)) {
+        throw new Error("expected a request abort signal");
+      }
+      return new Promise<Response>((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = new ReadApiTransport(config, auth());
+
+    const request = transport.getJson("/kpi");
+    const expectation = expect(request).rejects.toEqual(
+      expect.objectContaining<Partial<ReadApiError>>({
+        status: 504,
+        message: "Read API request timed out. Retry the request.",
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(100);
+
+    await expectation;
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });
