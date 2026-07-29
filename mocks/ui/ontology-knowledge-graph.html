@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Full ontology knowledge graph - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=ontology-knowledge-v2" />
-  <script src="assets/calm-slate.js?v=ontology-knowledge-v2" defer></script>
-  <script src="assets/ontology-knowledge-data.js?v=ontology-knowledge-v2"></script>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=ontology-knowledge-v3" />
+  <script src="assets/calm-slate.js?v=ontology-knowledge-v3" defer></script>
+  <script src="assets/ontology-knowledge-data.js?v=ontology-knowledge-v3"></script>
   <style>
     .kg-head { display:flex; align-items:flex-end; justify-content:space-between; gap:28px; margin-bottom:14px; }
     .kg-head-copy { max-width:80ch; }
@@ -35,6 +35,9 @@
     .kg-viewport.is-dragging { cursor:grabbing; }
     .kg-canvas { display:block; width:100%; height:100%; touch-action:none; user-select:none; }
     .kg-overlay { position:absolute; left:12px; bottom:10px; display:flex; align-items:center; gap:12px; padding:6px 8px; border:1px solid rgba(227,225,222,.88); border-radius:6px; background:rgba(255,255,255,.88); color:var(--cs-text-soft); font-size:10.5px; pointer-events:none; backdrop-filter:blur(5px); }
+    .kg-type-legend { position:absolute; top:12px; left:12px; display:grid; grid-template-columns:repeat(2,max-content); gap:5px 13px; padding:8px 10px; border:1px solid rgba(227,225,222,.9); border-radius:6px; background:rgba(255,255,255,.91); color:var(--cs-text-soft); font-size:10px; pointer-events:none; backdrop-filter:blur(5px); }
+    .kg-legend-item { display:inline-flex; align-items:center; gap:5px; }
+    .kg-swatch { width:8px; height:8px; border-radius:50%; box-shadow:0 0 0 1px rgba(255,255,255,.95),0 0 0 2px rgba(44,51,58,.14); }
     .kg-size-key { display:inline-flex; align-items:center; gap:5px; }
     .kg-dot { display:inline-block; border-radius:50%; background:var(--cs-steel); }
     .kg-dot.is-small { width:7px; height:7px; opacity:.62; }
@@ -88,25 +91,28 @@
       .kg-shell:fullscreen .kg-viewport,.kg-shell.is-fullscreen-fallback .kg-viewport { height:100%; }
       .kg-shell:fullscreen .kg-inspector,.kg-shell.is-fullscreen-fallback .kg-inspector { display:none; }
     }
+    .kg-shell:fullscreen .kg-workbench,.kg-shell.is-fullscreen-fallback .kg-workbench { display:block; }
+    .kg-shell:fullscreen .kg-viewport,.kg-shell.is-fullscreen-fallback .kg-viewport { width:100%; height:100%; }
+    .kg-shell:fullscreen .kg-inspector,.kg-shell.is-fullscreen-fallback .kg-inspector { display:none; }
   </style>
 </head>
 <body>
   <main class="cs-container cs-page">
     <header class="kg-head">
       <div class="kg-head-copy">
-        <div class="cs-eyebrow">Knowledge &middot; centrality view</div>
+        <div class="cs-eyebrow">Knowledge &middot; topology communities</div>
         <h1>Full ontology knowledge graph</h1>
         <p class="cs-lead" style="margin:0;">All 216 catalog-backed nodes share one continuous
-          graph. Node size and position follow degree centrality, so the most connected concepts
-          sit near the center without type lanes or cluster boxes.</p>
+          graph. Node size follows degree centrality, color identifies ontology kind, and weighted
+          relationships pull densely connected concepts into topology communities.</p>
       </div>
-      <div class="kg-source"><strong>Deterministic force layout</strong><code>rule-catalog</code> + <code>PANTHEON_SPECS</code></div>
+      <div class="kg-source"><strong>Deterministic community force layout</strong><code>rule-catalog</code> + <code>PANTHEON_SPECS</code></div>
     </header>
 
     <div class="kg-summary" aria-label="Knowledge graph summary">
       <div class="kg-stat"><strong id="kg-node-count">216</strong><span>Catalog nodes</span></div>
       <div class="kg-stat"><strong id="kg-edge-count">510</strong><span>Relationships</span></div>
-      <div class="kg-stat"><strong>68</strong><span>Top degree - Rule</span></div>
+      <div class="kg-stat"><strong id="kg-community-count">12</strong><span>Topology communities</span></div>
       <div class="kg-stat"><strong>44</strong><span>Actions</span></div>
       <div class="kg-stat"><strong>15</strong><span>Agents</span></div>
     </div>
@@ -134,12 +140,13 @@
       <div class="kg-workbench">
         <div class="kg-viewport" id="kg-viewport">
           <canvas class="kg-canvas" id="kg-canvas" aria-label="Interactive 216-node ontology knowledge graph"></canvas>
-          <div class="kg-overlay"><span class="kg-size-key"><i class="kg-dot is-small"></i>low degree</span><span class="kg-size-key"><i class="kg-dot is-large"></i>high degree</span><span>drag nodes or canvas &middot; wheel to zoom</span></div>
+          <div class="kg-type-legend" id="kg-type-legend" aria-label="Node type colors"></div>
+          <div class="kg-overlay"><span class="kg-size-key"><i class="kg-dot is-small"></i>low degree</span><span class="kg-size-key"><i class="kg-dot is-large"></i>high degree</span><span id="kg-community-note"></span></div>
         </div>
         <aside class="kg-inspector" id="kg-inspector" aria-live="polite"></aside>
       </div>
       <footer class="kg-foot">
-        <span>All nodes use one visual language. Size encodes degree; edge color encodes relationship evidence only.</span>
+        <span>Node color encodes ontology kind, size encodes degree, and neutral hulls encode topology communities.</span>
         <a href="ontology-map.html">Open declaration explorer</a>
       </footer>
     </section>
@@ -158,6 +165,7 @@
       var fullscreenButton = document.getElementById("kg-fullscreen");
       var nodeById = new Map(graph.nodes.map(function (node) { return [node.id,node]; }));
       var adjacency = new Map(graph.nodes.map(function (node) { return [node.id,[]]; }));
+      var communityCount = new Set(graph.nodes.map(function(node){return node.community;})).size;
       var enabledEdges = new Set(["link_type","instance_of","rule_dispatch","workflow","agent"]);
       var camera = {x:0,y:0,scale:1};
       var selectedId = null;
@@ -167,6 +175,12 @@
       var drawFrameRequested = false;
       var pointerFrameRequested = false;
       var edgeColors = {link_type:"#4f847e",instance_of:"#a5a8ab",rule_dispatch:"#6f88a5",workflow:"#7b6c9c",agent:"#bc7449"};
+      var nodeStyles = {
+        object_type:{label:"ObjectType",fill:"#44688e"},resource_type:{label:"ResourceType",fill:"#4f847e"},
+        rule:{label:"Rule",fill:"#7b6c9c"},action_type:{label:"ActionType",fill:"#bc7449"},
+        workflow:{label:"Workflow",fill:"#a58a4a"},agent:{label:"Agent",fill:"#5e8259"},
+        signal_type:{label:"SignalType",fill:"#a65d67"},property:{label:"Property",fill:"#6e747b"}
+      };
 
       graph.edges.forEach(function (edge) {
         adjacency.get(edge.source).push(edge);
@@ -218,6 +232,26 @@
         for(var y=offsetY;y<height;y+=spacing){context.moveTo(0,y);context.lineTo(width,y);}
         context.strokeStyle="rgba(68,104,142,.055)";context.lineWidth=1;context.stroke();
       }
+      function convexHull(points) {
+        if(points.length<3)return points;
+        var sorted=points.slice().sort(function(a,b){return a.x-b.x||a.y-b.y;});
+        function cross(origin,left,right){return(left.x-origin.x)*(right.y-origin.y)-(left.y-origin.y)*(right.x-origin.x);}
+        var lower=[],upper=[];
+        sorted.forEach(function(point){while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],point)<=0)lower.pop();lower.push(point);});
+        sorted.slice().reverse().forEach(function(point){while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],point)<=0)upper.pop();upper.push(point);});
+        lower.pop();upper.pop();return lower.concat(upper);
+      }
+      function drawCommunities() {
+        var groups=new Map();graph.nodes.forEach(function(node){if(!groups.has(node.community))groups.set(node.community,[]);groups.get(node.community).push(worldToScreen(node));});
+        var selectedCommunity=selectedId?nodeById.get(selectedId).community:null;
+        groups.forEach(function(points,community){
+          var hull=convexHull(points),center=hull.reduce(function(total,point){total.x+=point.x;total.y+=point.y;return total;},{x:0,y:0});center.x/=hull.length;center.y/=hull.length;
+          hull=hull.map(function(point){var deltaX=point.x-center.x,deltaY=point.y-center.y,distance=Math.max(1,Math.hypot(deltaX,deltaY)),padding=22;return{x:point.x+deltaX/distance*padding,y:point.y+deltaY/distance*padding};});
+          context.beginPath();hull.forEach(function(point,index){if(index)context.lineTo(point.x,point.y);else context.moveTo(point.x,point.y);});context.closePath();
+          context.fillStyle=community===selectedCommunity?"rgba(68,104,142,.07)":"rgba(68,104,142,.025)";context.fill();context.setLineDash([5,6]);context.strokeStyle=community===selectedCommunity?"rgba(68,104,142,.38)":"rgba(68,104,142,.16)";context.lineWidth=community===selectedCommunity?1.5:1;context.stroke();context.setLineDash([]);
+          if(camera.scale>.3){var top=hull.reduce(function(best,point){return point.y<best.y?point:best;});context.font="700 9px Segoe UI, sans-serif";context.textAlign="left";context.textBaseline="bottom";context.fillStyle="#7a838b";context.fillText("C"+community+" / "+points.length,top.x,top.y-3);}
+        });
+      }
       function drawEdge(edge) {
         if(!enabledEdges.has(edge.kind))return;
         var source=worldToScreen(nodeById.get(edge.source)),target=worldToScreen(nodeById.get(edge.target)),state=relationState(edge);
@@ -237,9 +271,9 @@
       function drawNode(node) {
         var position=worldToScreen(node),state=nodeState(node),nodeRadius=Math.max(3.2,radius(node)*Math.min(1.15,Math.max(.65,camera.scale)));
         context.globalAlpha=state==="muted"?.11:1;
+        if(state==="selected"||state==="hovered"){context.beginPath();context.arc(position.x,position.y,nodeRadius+3,0,Math.PI*2);context.strokeStyle=state==="selected"?"#1d2730":"#5f6b75";context.lineWidth=2;context.stroke();}
         context.beginPath();context.arc(position.x,position.y,nodeRadius,0,Math.PI*2);
-        context.fillStyle=state==="selected"?"#244866":state==="hovered"?"#315d7f":node.degree>=20?"#44688e":"#6f8da9";context.fill();
-        context.strokeStyle=state==="selected"?"#172d3d":"rgba(255,255,255,.95)";context.lineWidth=state==="selected"?3:1.5;context.stroke();
+        context.fillStyle=nodeStyles[node.kind].fill;context.fill();context.strokeStyle="rgba(255,255,255,.95)";context.lineWidth=1.5;context.stroke();
       }
       function drawNodeLabel(node,labelBoxes) {
         var position=worldToScreen(node),state=nodeState(node),nodeRadius=Math.max(3.2,radius(node)*Math.min(1.15,Math.max(.65,camera.scale)));
@@ -257,7 +291,7 @@
         var rect=viewport.getBoundingClientRect();context.clearRect(0,0,rect.width,rect.height);drawGrid(rect.width,rect.height);
         var ordered=graph.nodes.slice().sort(function(a,b){return a.degree-b.degree;}),labelBoxes=[];
         var labels=ordered.slice().reverse().sort(function(a,b){var aState=nodeState(a),bState=nodeState(b),priority={selected:4,hovered:3,related:2,normal:1,muted:0};return priority[bState]-priority[aState]||b.degree-a.degree;});
-        graph.edges.forEach(drawEdge);ordered.forEach(drawNode);labels.forEach(function(node){drawNodeLabel(node,labelBoxes);});context.globalAlpha=1;
+        drawCommunities();graph.edges.forEach(drawEdge);ordered.forEach(drawNode);labels.forEach(function(node){drawNodeLabel(node,labelBoxes);});context.globalAlpha=1;
       }
       function hitTest(screenX,screenY) {
         var best=null,bestDistance=Infinity;
@@ -269,13 +303,13 @@
       }
       function select(id,focus) {
         selectedId=id;var selected=nodeById.get(id),related=adjacency.get(id),neighbors=connected(id);
-        inspector.innerHTML='<span class="cs-tag is-steel">Knowledge node</span><h2><code>'+selected.label+'</code></h2><p>'+selected.detail+'</p><dl class="kg-facts"><div><dt>Evidence state</dt><dd>'+(selected.kind==="object_type"?"Declared":"Catalog-backed")+'</dd></div><div><dt>Degree</dt><dd>'+selected.degree+'</dd></div><div><dt>Relationships</dt><dd>'+related.length+'</dd></div><div><dt>Neighborhood</dt><dd>'+neighbors.size+' nodes</dd></div></dl><h3 style="margin:14px 0 4px;font-size:12px;">One-hop neighbors</h3><ul class="kg-neighbors">'+related.slice(0,28).map(function(edge){var other=edge.source===id?edge.target:edge.source,node=nodeById.get(other);return '<li><button data-node="'+other+'">'+edge.label+' -> '+node.label+'</button></li>';}).join("")+'</ul>';
+        inspector.innerHTML='<span class="cs-tag is-steel">Knowledge node</span><h2><code>'+selected.label+'</code></h2><p>'+selected.detail+'</p><dl class="kg-facts"><div><dt>Ontology kind</dt><dd>'+nodeStyles[selected.kind].label+'</dd></div><div><dt>Topology community</dt><dd>C'+selected.community+'</dd></div><div><dt>Evidence state</dt><dd>'+(selected.kind==="object_type"?"Declared":"Catalog-backed")+'</dd></div><div><dt>Degree</dt><dd>'+selected.degree+'</dd></div><div><dt>Relationships</dt><dd>'+related.length+'</dd></div><div><dt>Neighborhood</dt><dd>'+neighbors.size+' nodes</dd></div></dl><h3 style="margin:14px 0 4px;font-size:12px;">One-hop neighbors</h3><ul class="kg-neighbors">'+related.slice(0,28).map(function(edge){var other=edge.source===id?edge.target:edge.source,node=nodeById.get(other);return '<li><button data-node="'+other+'">'+edge.label+' -> '+node.label+'</button></li>';}).join("")+'</ul>';
         inspector.querySelectorAll("button[data-node]").forEach(function(button){button.onclick=function(){select(button.dataset.node,true);};});
         if(focus){camera.scale=Math.max(1.05,camera.scale);camera.x=viewport.clientWidth/2-selected.x*camera.scale;camera.y=viewport.clientHeight/2-selected.y*camera.scale;}
         requestDraw();
       }
       function clearSelection() {
-        selectedId=null;inspector.innerHTML='<span class="cs-tag">Centrality graph</span><h2>216 catalog nodes</h2><p>The graph is intentionally ungrouped. High-degree nodes settle near the center and render larger.</p><dl class="kg-facts"><div><dt>Top hub</dt><dd><code>Rule</code> - degree 68</dd></div><div><dt>Layout</dt><dd>Deterministic force relaxation</dd></div><div><dt>Relationships</dt><dd>510 edges</dd></div><div><dt>Interaction</dt><dd>drag, zoom, fullscreen</dd></div></dl>';requestDraw();
+        selectedId=null;inspector.innerHTML='<span class="cs-tag">Community graph</span><h2>216 catalog nodes</h2><p>Weighted relationships form '+communityCount+' topology communities while high-degree hubs remain central.</p><dl class="kg-facts"><div><dt>Top hub</dt><dd><code>Rule</code> - degree 68</dd></div><div><dt>Layout</dt><dd>Weighted modularity + deterministic force</dd></div><div><dt>Relationships</dt><dd>510 edges</dd></div><div><dt>Interaction</dt><dd>drag, zoom, fullscreen</dd></div></dl>';requestDraw();
       }
       function zoomAt(factor,screenX,screenY) {
         var world=screenToWorld(screenX,screenY),next=Math.max(.18,Math.min(4,camera.scale*factor));camera.x=screenX-world.x*next;camera.y=screenY-world.y*next;camera.scale=next;requestDraw();
@@ -304,7 +338,8 @@
       function enterFallback() {shell.classList.add("is-fullscreen-fallback");document.body.classList.add("kg-fullscreen-fallback");syncFullscreen();}
       function exitFallback() {shell.classList.remove("is-fullscreen-fallback");document.body.classList.remove("kg-fullscreen-fallback");syncFullscreen();}
 
-      document.getElementById("kg-node-count").textContent=graph.nodes.length;document.getElementById("kg-edge-count").textContent=graph.edges.length;
+      document.getElementById("kg-node-count").textContent=graph.nodes.length;document.getElementById("kg-edge-count").textContent=graph.edges.length;document.getElementById("kg-community-count").textContent=communityCount;document.getElementById("kg-community-note").innerHTML=communityCount+' link communities &middot; drag nodes or canvas &middot; wheel to zoom';
+      document.getElementById("kg-type-legend").innerHTML=Object.keys(nodeStyles).map(function(kind){var style=nodeStyles[kind];return '<span class="kg-legend-item"><i class="kg-swatch" style="background:'+style.fill+'"></i>'+style.label+'</span>';}).join("");
       document.getElementById("kg-node-list").innerHTML=graph.nodes.map(function(node){return '<option value="'+node.label.replaceAll('"','&quot;')+'"></option>';}).join("");
       document.getElementById("kg-find").onclick=findNode;search.addEventListener("keydown",function(event){if(event.key==="Enter")findNode();});
       document.getElementById("kg-fit").onclick=function(){fit();clearSelection();};document.getElementById("kg-zoom-in").onclick=function(){zoomAt(1.25,viewport.clientWidth/2,viewport.clientHeight/2);};document.getElementById("kg-zoom-out").onclick=function(){zoomAt(.8,viewport.clientWidth/2,viewport.clientHeight/2);};

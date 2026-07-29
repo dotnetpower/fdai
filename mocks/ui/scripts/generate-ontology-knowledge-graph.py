@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 from typing import Any
 
 import yaml
+from ontology_knowledge_layout import apply_centrality_layout
 
 from fdai.agents import PANTHEON_SPECS
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
@@ -301,93 +301,13 @@ def build() -> dict[str, Any]:
             )
 
     graph = {
-        "schemaVersion": "1.0.0",
+        "schemaVersion": "1.1.0",
         "generatedFrom": "rule-catalog + PANTHEON_SPECS",
         "nodes": nodes,
         "edges": edges,
     }
     apply_centrality_layout(graph)
     return graph
-
-
-def apply_centrality_layout(graph: dict[str, Any]) -> None:
-    """Place high-degree nodes centrally, then relax edges deterministically."""
-
-    nodes: list[dict[str, Any]] = graph["nodes"]
-    edges: list[dict[str, Any]] = graph["edges"]
-    index = {item["id"]: position for position, item in enumerate(nodes)}
-    degree = [0] * len(nodes)
-    indexed_edges: list[tuple[int, int]] = []
-    for item in edges:
-        source = index[item["source"]]
-        target = index[item["target"]]
-        degree[source] += 1
-        degree[target] += 1
-        indexed_edges.append((source, target))
-
-    order = sorted(range(len(nodes)), key=lambda item: (-degree[item], nodes[item]["id"]))
-    rank = {node_index: position for position, node_index in enumerate(order)}
-    golden_angle = math.pi * (3.0 - math.sqrt(5.0))
-    x = [0.0] * len(nodes)
-    y = [0.0] * len(nodes)
-    target_x = [0.0] * len(nodes)
-    target_y = [0.0] * len(nodes)
-    for node_index in range(len(nodes)):
-        node_rank = rank[node_index]
-        radius = 18.0 * math.sqrt(node_rank)
-        angle = node_rank * golden_angle
-        target_x[node_index] = radius * math.cos(angle)
-        target_y[node_index] = radius * math.sin(angle) * 0.72
-        x[node_index] = target_x[node_index]
-        y[node_index] = target_y[node_index]
-
-    velocity_x = [0.0] * len(nodes)
-    velocity_y = [0.0] * len(nodes)
-    for iteration in range(220):
-        force_x = [0.0] * len(nodes)
-        force_y = [0.0] * len(nodes)
-        for left in range(len(nodes)):
-            for right in range(left + 1, len(nodes)):
-                delta_x = x[left] - x[right]
-                delta_y = y[left] - y[right]
-                distance_sq = max(36.0, delta_x * delta_x + delta_y * delta_y)
-                distance = math.sqrt(distance_sq)
-                magnitude = 520.0 / distance_sq
-                push_x = delta_x / distance * magnitude
-                push_y = delta_y / distance * magnitude
-                force_x[left] += push_x
-                force_y[left] += push_y
-                force_x[right] -= push_x
-                force_y[right] -= push_y
-        for source, target in indexed_edges:
-            delta_x = x[target] - x[source]
-            delta_y = y[target] - y[source]
-            distance = max(1.0, math.hypot(delta_x, delta_y))
-            desired = 42.0 + 7.0 * math.log1p(max(degree[source], degree[target]))
-            magnitude = (distance - desired) * 0.006
-            pull_x = delta_x / distance * magnitude
-            pull_y = delta_y / distance * magnitude
-            force_x[source] += pull_x
-            force_y[source] += pull_y
-            force_x[target] -= pull_x
-            force_y[target] -= pull_y
-        temperature = 0.28 * (1.0 - iteration / 260.0)
-        for node_index in range(len(nodes)):
-            anchor = 0.015 + min(degree[node_index], 70) * 0.00015
-            force_x[node_index] += (target_x[node_index] - x[node_index]) * anchor
-            force_y[node_index] += (target_y[node_index] - y[node_index]) * anchor
-            velocity_x[node_index] = (velocity_x[node_index] + force_x[node_index]) * 0.78
-            velocity_y[node_index] = (velocity_y[node_index] + force_y[node_index]) * 0.78
-            x[node_index] += max(-8.0, min(8.0, velocity_x[node_index])) * temperature
-            y[node_index] += max(-8.0, min(8.0, velocity_y[node_index])) * temperature
-
-    min_x, max_x = min(x), max(x)
-    min_y, max_y = min(y), max(y)
-    scale = min(1900.0 / max(1.0, max_x - min_x), 1120.0 / max(1.0, max_y - min_y))
-    for node_index, item in enumerate(nodes):
-        item["degree"] = degree[node_index]
-        item["x"] = round((x[node_index] - min_x) * scale + 110.0, 2)
-        item["y"] = round((y[node_index] - min_y) * scale + 90.0, 2)
 
 
 def main() -> None:
