@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 283f070d2d740bacb2356295572bd1cc4567a738
+translation_source_sha: ba5fa3140ac8668cbc469a0bafaf5840d6733bbf
 translation_revised: 2026-07-29
 ---
 
@@ -145,8 +145,10 @@ route를 유지하고, queued next turn은 자신의 content를 분류합니다.
 결정론적으로 선택합니다. Steer rerun은 해당 read authority를 유지하며 configured subscription 또는
 resource-group allowlist를 operator text로 바꿀 수 없습니다.
 Deterministic local inventory intent는 semantic plan이 public web을 선택했더라도 rerun에서 local로
-유지합니다. 명시적인 web-search 표현만 예외입니다. Partial AKS cluster inventory는 cluster 내부
-Deployment 또는 Pod의 proof가 되지 않습니다.
+유지합니다. 여기에는 `중지된 db` 같은 구어체 database state filter도 포함되며 server-owned
+inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 않습니다. 명시적인 web-search
+표현만 예외입니다. Partial AKS cluster inventory는 cluster 내부 Deployment 또는 Pod의 proof가 되지
+않습니다.
 `latest`, `recent`, `최신` 같은 generic public freshness term은 incident, issue, outage, failure,
 problem 또는 cause 의미가 명시되지 않으면 incident scope를 만들지 않습니다. Steer rerun도 원래의
 public-web와 operational 경계를 유지합니다.
