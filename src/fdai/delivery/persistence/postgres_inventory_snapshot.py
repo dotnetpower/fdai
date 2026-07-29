@@ -56,6 +56,7 @@ class PostgresInventorySnapshotStoreConfig:
     freshness_budget_seconds: int = 86_400
     statement_timeout_ms: int = 30_000
     connect_timeout_s: int = 10
+    write_batch_size: int = 1000
 
     def __post_init__(self) -> None:
         if not self.dsn:
@@ -64,6 +65,8 @@ class PostgresInventorySnapshotStoreConfig:
             raise ValueError("freshness_budget_seconds MUST be >= 1")
         if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:
             raise ValueError("database timeouts MUST be >= 1")
+        if not 1 <= self.write_batch_size <= 10_000:
+            raise ValueError("write_batch_size MUST be between 1 and 10000")
 
 
 class PostgresInventorySnapshotStore:
@@ -104,36 +107,25 @@ class PostgresInventorySnapshotStore:
     async def stage(self, attempt_id: str, batch: InventoryBatch) -> None:
         if batch.final:
             raise ValueError("terminal inventory fences are not staged")
-        resource_rows = [
-            (
-                attempt_id,
-                item.resource_id,
-                item.type,
-                _canonical_json_mapping(item.props, "snapshot resource props"),
-                item.provider_ref,
-                item.last_seen,
-            )
-            for item in batch.resources
-        ]
-        link_rows = [
-            (
-                attempt_id,
-                item.from_id,
-                item.from_type,
-                item.link_type,
-                item.to_id,
-                item.to_type,
-                _canonical_json_mapping(item.link_props, "snapshot relationship props"),
-            )
-            for item in batch.links
-        ]
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await self._require_collecting(connection, attempt_id)
-                if batch.resources:
-                    cursor = connection.cursor()
-                    await cursor.executemany(
+                cursor = connection.cursor()
+                for offset in range(0, len(batch.resources), self._config.write_batch_size):
+                    resource_rows = [
+                        (
+                            attempt_id,
+                            item.resource_id,
+                            item.type,
+                            _canonical_json_mapping(item.props, "snapshot resource props"),
+                            item.provider_ref,
+                            item.last_seen,
+                        )
+                        for item in batch.resources[offset : offset + self._config.write_batch_size]
+                    ]
+                    await self._executemany(
+                        cursor,
                         "INSERT INTO inventory_snapshot_resource "
                         "(snapshot_id, resource_id, resource_type, props, provider_ref, last_seen) "
                         "VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
@@ -144,9 +136,21 @@ class PostgresInventorySnapshotStore:
                         "last_seen = EXCLUDED.last_seen",
                         resource_rows,
                     )
-                if batch.links:
-                    cursor = connection.cursor()
-                    await cursor.executemany(
+                for offset in range(0, len(batch.links), self._config.write_batch_size):
+                    link_rows = [
+                        (
+                            attempt_id,
+                            item.from_id,
+                            item.from_type,
+                            item.link_type,
+                            item.to_id,
+                            item.to_type,
+                            _canonical_json_mapping(item.link_props, "snapshot relationship props"),
+                        )
+                        for item in batch.links[offset : offset + self._config.write_batch_size]
+                    ]
+                    await self._executemany(
+                        cursor,
                         "INSERT INTO inventory_snapshot_link "
                         "(snapshot_id, from_id, from_type, link_type, to_id, to_type, props) "
                         "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb) "
@@ -155,6 +159,14 @@ class PostgresInventorySnapshotStore:
                         "props = EXCLUDED.props",
                         link_rows,
                     )
+
+    async def _executemany(
+        self,
+        cursor: psycopg.AsyncCursor[Any],
+        query: str,
+        rows: list[tuple[Any, ...]],
+    ) -> None:
+        await cursor.executemany(query, rows)
 
     async def promote(self, attempt_id: str, manifest: InventoryCoverageManifest) -> None:
         completed = manifest.completed_at or datetime.now(tz=UTC)

@@ -70,6 +70,15 @@ def _after_snapshot(manifest: InventoryCoverageManifest, seconds: int) -> str:
     return (manifest.started_at + timedelta(seconds=seconds)).isoformat()
 
 
+@pytest.mark.parametrize("write_batch_size", [0, 10_001])
+def test_inventory_snapshot_rejects_invalid_write_batch_size(write_batch_size: int) -> None:
+    with pytest.raises(ValueError, match="write_batch_size"):
+        PostgresInventorySnapshotStoreConfig(
+            dsn="postgresql://example.invalid/fdai",
+            write_batch_size=write_batch_size,
+        )
+
+
 async def test_inventory_delta_lock_serializes_the_same_resource() -> None:
     async with (
         await psycopg.AsyncConnection.connect(_dsn()) as first,
@@ -252,6 +261,52 @@ async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
     assert len(limited["resources"]) == 2
     assert limited["resources"][0]["id"] == "bounded-root"
     assert limited["truncated"] is True
+
+
+async def test_inventory_snapshot_stage_chunks_large_batches() -> None:
+    _upgrade()
+
+    class RecordingSnapshotStore(PostgresInventorySnapshotStore):
+        batch_sizes: list[int]
+
+        def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
+            super().__init__(config=config)
+            self.batch_sizes = []
+
+        async def _executemany(
+            self,
+            cursor: psycopg.AsyncCursor[object],
+            query: str,
+            rows: list[tuple[object, ...]],
+        ) -> None:
+            self.batch_sizes.append(len(rows))
+            await super()._executemany(cursor, query, rows)
+
+    store = RecordingSnapshotStore(
+        config=PostgresInventorySnapshotStoreConfig(dsn=_dsn(), write_batch_size=2)
+    )
+    attempt = await store.begin(_manifest("arg"))
+    resource_ids = tuple(f"chunk-resource-{index}" for index in range(5))
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=tuple(
+                ResourceRecord(resource_id, "compute.vm") for resource_id in resource_ids
+            ),
+            links=tuple(
+                LinkRecord(
+                    from_id=resource_ids[0],
+                    from_type="compute.vm",
+                    link_type="depends_on",
+                    to_id=resource_id,
+                    to_type="compute.vm",
+                )
+                for resource_id in resource_ids[1:]
+            ),
+        ),
+    )
+
+    assert store.batch_sizes == [2, 2, 1, 2, 2]
 
 
 async def test_rooted_inventory_graph_expands_frontier_fairly() -> None:

@@ -343,6 +343,9 @@ use the same view-classification rules so local and deployed consoles keep the s
   `inventory_realtime_link` until the next generation covers them. Readers merge the active
   generation and overlay into one effective ontology-shaped resource graph; they don't dual-write
   scanned resources into the generic `ontology_resource` and `ontology_link` instance store.
+  Snapshot staging converts and writes resources and links in chunks of 1,000 rows by default,
+  permits a validated ceiling of 10,000, and keeps all chunks for one input batch in the same
+  database transaction.
 - **Fail-closed**: a partial snapshot never lands in a state that would let a stale graph
   drive an autonomous decision. Either the snapshot completes and is atomically promoted,
   or the previous graph is retained and the failure is audited.
