@@ -34,6 +34,8 @@ export interface DeckOpenDetail {
    * work. Plain text, English (L0 pipeline); rendered read-only.
    */
   readonly contextNote?: string;
+  /** Optional operator-facing opening report shown instead of the grounding note. */
+  readonly openingBriefing?: string;
   /**
    * Optional session id. The deck keeps each session's transcript separate, so
    * a conversation scoped to one agent (e.g. `agent:Forseti`) never appends to
@@ -63,10 +65,9 @@ export function openDeckWithPrompt(prompt?: string): void {
 }
 
 /**
- * Raise the Command Deck and inject `contextNote` as an opening grounding
- * message (see {@link DeckOpenDetail.contextNote}), optionally also seeding a
- * draft `prompt`. Used to start a conversation already primed with context -
- * e.g. one agent's recent work - so the narrator can answer immediately.
+ * Raise the Command Deck and inject `contextNote` as opening grounding while
+ * optionally rendering a shorter `openingBriefing`. A draft `prompt` remains
+ * operator-controlled and is never submitted automatically.
  *
  * No-op outside a browser. Still read-only: it opens a primed question box,
  * it never auto-submits or executes anything.

@@ -717,3 +717,55 @@ export function agentChatContext(node: AgentNode, incidents: readonly Incident[]
   );
   return lines.join("\n");
 }
+
+/** Build the concise opening report shown for an agent-scoped conversation. */
+export function agentConversationBriefing(
+  node: AgentNode,
+  incidents: readonly Incident[],
+): string {
+  const role = AGENT_ROLE[node.name];
+  const currentWork = node.detail?.trim() || (node.observed
+    ? STATE_TASK[node.state] || node.state
+    : "Unavailable without a runtime signal");
+  const activeIncident = node.correlationId
+    ? incidents.find((incident) => incident.correlationId === node.correlationId)
+    : undefined;
+  const lines = [
+    `**${node.observed
+      ? `${node.name} is ${node.state}`
+      : `${node.name} has no current runtime signal`}.**`,
+    ...(role ? [role.summary] : []),
+    `**Current work:** ${currentWork}.`,
+  ];
+  if (activeIncident) {
+    lines.push(
+      `**Active incident:** ${activeIncident.title} ` +
+        `(${activeIncident.status}, ${activeIncident.severity}).`,
+    );
+  } else if (node.correlationId) {
+    lines.push("**Active incident:** Linked, but its summary is not in the retained stream.");
+  } else {
+    lines.push("**Active incident:** None linked in the current runtime state.");
+  }
+
+  if (incidents.length === 0) {
+    lines.push("**Recent activity:** No incident participation observed.");
+  } else {
+    const counts = new Map<string, number>();
+    for (const incident of incidents) {
+      counts.set(incident.status, (counts.get(incident.status) ?? 0) + 1);
+    }
+    const statuses = [...counts]
+      .map(([status, count]) => `${count} ${status}`)
+      .join(", ");
+    const highSeverity = incidents.filter((incident) => incident.severity === "high").length;
+    const severity = highSeverity > 0 ? `; ${highSeverity} high severity` : "";
+    lines.push(
+      `**Recent activity:** ${incidents.length} incident${incidents.length === 1 ? "" : "s"} ` +
+        `- ${statuses}${severity}.`,
+    );
+  }
+
+  lines.push(`**Evidence:** ${node.observed ? "Runtime observed" : "No runtime signal observed"}.`);
+  return lines.join("\n\n");
+}

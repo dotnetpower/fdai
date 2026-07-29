@@ -46,7 +46,12 @@ interface EventsOptions {
   readonly focusInput: () => void;
   readonly hydrateDurableTurns: (key: string) => Promise<void>;
   readonly openDeck: () => void;
-  readonly streamContextTurn: (agent: string | null, text: string, source?: string) => void;
+  readonly streamContextTurn: (
+    agent: string | null,
+    text: string,
+    source?: string,
+    groundingText?: string,
+  ) => void;
   readonly switchSession: (
     key: string,
     agent: string | null,
@@ -57,6 +62,7 @@ interface EventsOptions {
     metadata?: ConversationSummary,
     binding?: IncidentConversationBinding,
     hydrate?: boolean,
+    openingBriefing?: string,
   ) => void;
 }
 
@@ -241,6 +247,9 @@ export function useCommandDeckEvents(options: EventsOptions) {
     const onOpenDeck = (event: Event) => {
       const detail = (event as CustomEvent<DeckOpenDetail>).detail;
       const note = typeof detail?.contextNote === "string" ? detail.contextNote.trim() : "";
+      const briefing = typeof detail?.openingBriefing === "string"
+        ? detail.openingBriefing.trim()
+        : "";
       const { key, label, contextAgent, kind, hydrateDurable } = resolveDeckOpenSession(
         detail,
         userScope,
@@ -257,9 +266,15 @@ export function useCommandDeckEvents(options: EventsOptions) {
           undefined,
           normalizeIncidentBinding(detail.binding) ?? undefined,
           hydrateDurable,
+          briefing || undefined,
         );
-      } else if (note && turnsRef.current.length === 0) {
-        streamContextTurn(contextAgent, note);
+      } else if ((briefing || note) && turnsRef.current.length === 0) {
+        streamContextTurn(
+          contextAgent,
+          briefing || note,
+          "context",
+          note || undefined,
+        );
       }
       const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
       if (seed) {

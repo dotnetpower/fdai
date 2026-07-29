@@ -7,6 +7,7 @@ import {
   AGENT_RUNTIME_BINDING,
   AGENT_ROLE,
   agentChatContext,
+  agentConversationBriefing,
   engagedGroups,
   incidentsForAgent,
   isEngaged,
@@ -466,5 +467,55 @@ describe("agents.model org chart + agent events", () => {
       detail: null,
     };
     expect(agentChatContext(node, [])).toContain("has not participated in any incident");
+    const briefing = agentConversationBriefing(node, []);
+    expect(briefing).toContain("**Bragi has no current runtime signal.**");
+    expect(briefing).toContain("**Current work:** Unavailable without a runtime signal.");
+    expect(briefing).not.toContain("Bragi is idle");
+  });
+
+  it("builds an operator briefing from observed current work and incident totals", () => {
+    const node = {
+      name: "Heimdall",
+      layer: "sensing" as const,
+      state: "analyzing" as const,
+      observed: true,
+      correlationId: null,
+      since: "2026-07-29T03:00:00Z",
+      detail: "Processing object.event",
+    };
+    const incidents = [
+      {
+        correlationId: "corr-1",
+        ticketId: "INC-1",
+        title: "Discovery coverage gap",
+        severity: "high",
+        status: "investigating" as const,
+        involved: ["Heimdall"],
+        rca: null,
+        turns: [],
+        updatedAt: "2026-07-29T03:00:00Z",
+      },
+      {
+        correlationId: "corr-2",
+        ticketId: "INC-2",
+        title: "New signal",
+        severity: "unknown",
+        status: "open" as const,
+        involved: ["Heimdall"],
+        rca: null,
+        turns: [],
+        updatedAt: "2026-07-29T02:00:00Z",
+      },
+    ];
+
+    const briefing = agentConversationBriefing(node, incidents);
+
+    expect(briefing).toContain("**Heimdall is analyzing.**");
+    expect(briefing).toContain("**Current work:** Processing object.event.");
+    expect(briefing).toContain("2 incidents - 1 investigating, 1 open; 1 high severity");
+    expect(briefing).toContain("**Evidence:** Runtime observed.");
+    expect(briefing).not.toContain("Context for a conversation");
+    expect(briefing).not.toContain("Reports to");
+    expect(briefing).not.toContain("corr-1");
   });
 });

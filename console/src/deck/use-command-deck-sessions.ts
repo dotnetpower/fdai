@@ -127,7 +127,12 @@ interface SessionControllerOptions {
   readonly setActiveSearchMatch: (value: number) => void;
   readonly cancelActiveRequest: () => unknown;
   readonly focusInput: () => void;
-  readonly streamContextTurn: (agent: string | null, text: string, source?: string) => void;
+  readonly streamContextTurn: (
+    agent: string | null,
+    text: string,
+    source?: string,
+    groundingText?: string,
+  ) => void;
   readonly updateConversationIndex: (summary: ConversationSummary) => void;
 }
 
@@ -183,6 +188,7 @@ export function useCommandDeckSessionController({
     metadata?: ConversationSummary,
     binding?: IncidentConversationBinding,
     hydrate = register,
+    openingBriefing?: string,
   ) => {
     if (key !== sessionKeyRef.current) cancelActiveRequest();
     if (key !== sessionKeyRef.current) resetComposerAttachments();
@@ -231,7 +237,10 @@ export function useCommandDeckSessionController({
     sessionMetadataRef.current.set(key, summary);
     if (register) updateConversationIndex({ ...summary, updatedAt: now });
     const note = contextNote?.trim();
-    if (next.length === 0 && note) streamContextTurn(agent, note);
+    const briefing = openingBriefing?.trim();
+    if (next.length === 0 && (briefing || note)) {
+      streamContextTurn(agent, briefing || note || "", "context", note || undefined);
+    }
   }, [
     cancelActiveRequest,
     conversations,

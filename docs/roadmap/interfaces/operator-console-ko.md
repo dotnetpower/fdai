@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 7018892db23b452be88ff41491d8086c6fbc21ff
+translation_source_sha: fcc6a9f453c61b90ceccd630a3838648d34f7a18
 translation_revised: 2026-07-29
 ---
 
@@ -98,18 +98,18 @@ flowchart TD
   NARR -.tool call.-> INV
 ```
 
-- **Layer 3 (Channel)**은 얇습니다. Adapter는 wire format과 `ConversationTurn` 사이에서 한 turn을
-  변환하며 판단하지 않습니다. Streamed read는 provider task가 idle인 동안 progress 또는 evidence가
+- **Layer 3 (Channel)**은 얇습니다. Adapter는 wire format과 `ConversationTurn` 사이에서 한 turn을 변환하며 판단하지 않습니다. Streamed read는 provider task가 idle인 동안 progress 또는 evidence가
   없는 SSE comment heartbeat를 전송합니다. Stream을 닫으면 해당 task를 cancel하고 await합니다.
-  Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 handoff를 표시하고,
-  책임 observer는 canonical command/result evidence를 표시합니다. Agent conversation target 또는
+  Web, Slack 및 Teams는 같은 ordered agent-activity 계약을 렌더링합니다. Bragi는 handoff를 표시하고, 책임 observer는 canonical command/result evidence를 표시합니다. Agent conversation target 또는
   incident binding에서 선택했거나 `Ask <agent>` 또는 `@<agent>`로 지정한 agent는 response owner로
   유지됩니다. 해당 agent가 판단을 보류하고 turn을 다시 handoff한 경우에만 Bragi가 response owner가
   됩니다.
+  Agent card의 Ask는 projected state, current-work detail, 연결된 incident, 최근 status 및 severity count와 runtime observation status만 사용한 간결한 report로 시작합니다. 더 긴 고정 context
+  envelope는 화면에 표시하지 않고 bounded session replay에서 보존하며 backend history에서만 report를
+  대체합니다. 화면에 보이는 report는 bounded 2단어 burst로 stream합니다.
   일반 agent target과 incident binding의 agent 값은 일치해야 하며 conflict는 evidence retrieval 전에 차단됩니다. Model-backed answer는 global Bragi safety를 먼저 유지하고 exact `conversation_policy` match에서만 selected immutable charter를 추가합니다.
   Mismatch 또는 handoff에는 주입하지 않으며 charter는 role과 voice를 제한하지만 evidence, authority, tool permission이 아닙니다. 주입되는 charter는 해당 turn용으로 조립됩니다. Immutable baseline에 answer locale이 English가 아닐 때 operator-locale layer를 더합니다. Agent evidence는 해당 agent의 turn을 지배한 prompt의 layer manifest와 digest도 실어 나르므로, 소진된 escalation 예산이나 evidence gap이 narrator에게 constraint로 명시됩니다.
-  Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에
-  plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
+  Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에 plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
   post, stream update 및 edit에서 해당 block을 보존합니다.
   Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 책임 agent
   answer를 항상 보존합니다. Renderer는 producer-side partial evidence를

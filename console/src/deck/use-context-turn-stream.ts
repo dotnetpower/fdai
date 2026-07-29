@@ -1,7 +1,7 @@
 import { useCallback } from "preact/hooks";
 import type { Turn } from "./command-deck-presenters";
 
-const CONTEXT_TYPE_MS = 14;
+export const contextStreamPacer = { intervalMs: 16 };
 
 type StateSetter<T> = (value: T | ((current: T) => T)) => void;
 interface MutableValueRef<T> {
@@ -23,11 +23,23 @@ function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function contextChunks(text: string): string[] {
+export function contextChunks(text: string): string[] {
+  const words = text.match(/\s*\S+/gu) ?? [];
+  if (words.length <= 1) return text.match(/[\s\S]{1,12}/gu) ?? [text];
   const chunks: string[] = [];
-  const pattern = /\s*\S{1,4}|\s+$/g;
-  for (const match of text.matchAll(pattern)) chunks.push(match[0]);
-  return chunks.length > 0 ? chunks : [text];
+  let chunk = "";
+  let wordCount = 0;
+  for (const word of words) {
+    if (chunk && (wordCount >= 2 || chunk.length + word.length > 32)) {
+      chunks.push(chunk);
+      chunk = "";
+      wordCount = 0;
+    }
+    chunk += word;
+    wordCount += 1;
+  }
+  if (chunk) chunks.push(chunk);
+  return chunks;
 }
 
 export function useContextTurnStream({
@@ -39,6 +51,7 @@ export function useContextTurnStream({
     agent: string | null,
     fullText: string,
     source = "context",
+    groundingText?: string,
   ) => {
     const turnId = newId();
     const shouldAnimate =
@@ -52,6 +65,7 @@ export function useContextTurnStream({
       streaming: shouldAnimate,
       at: shortTime(),
       ...(agent ? { agent } : {}),
+      ...(groundingText ? { groundingText } : {}),
     };
     setTurns((current) => [...current, seed]);
     turnsRef.current = [...turnsRef.current, seed];
@@ -62,7 +76,7 @@ export function useContextTurnStream({
       const timer = window.setTimeout(() => {
         contextTimersRef.current.delete(timer);
         step();
-      }, CONTEXT_TYPE_MS);
+      }, contextStreamPacer.intervalMs);
       contextTimersRef.current.add(timer);
     };
     const step = (): void => {
@@ -76,12 +90,15 @@ export function useContextTurnStream({
       }
       const piece = chunks[index]!;
       index += 1;
+      const complete = index >= chunks.length;
       setTurns((current) =>
         current.map((turn) =>
-          turn.id === turnId ? { ...turn, text: turn.text + piece } : turn,
+          turn.id === turnId
+            ? { ...turn, text: turn.text + piece, streaming: !complete }
+            : turn,
         ),
       );
-      scheduleStep();
+      if (!complete) scheduleStep();
     };
     scheduleStep();
   }, [contextTimersRef, setTurns, turnsRef]);

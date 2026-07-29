@@ -101,17 +101,17 @@ flowchart TD
 ```
 
 - **Layer 3 (Channel)** is thin. Every adapter converts one turn between its wire format and a
-  `ConversationTurn`; no judgment lives here. A streamed read sends SSE comment heartbeats while the
-  provider task is idle, without progress or evidence. Stream close cancels and awaits that task.
-  Web, Slack, and Teams render the same ordered agent-activity contract: Bragi shows the handoff,
-  and the accountable observer shows canonical command/result evidence. An agent selected by an
+  `ConversationTurn`; no judgment lives here. A streamed read sends SSE comment heartbeats while the provider task is idle, without progress or evidence. Stream close cancels and awaits that task.
+  Web, Slack, and Teams render the same ordered agent-activity contract: Bragi shows the handoff, and the accountable observer shows canonical command/result evidence. An agent selected by an
   agent conversation target or incident binding, or addressed with `Ask <agent>` or `@<agent>`,
   remains the response owner.
+  An agent-card Ask opens with a concise report derived only from the projected state, current-work detail, linked incident, recent status and severity counts, and runtime observation status. The
+  longer fixed context envelope stays non-rendered, survives bounded session replay, and replaces
+  the report only in backend history. The visible report streams in bounded two-word bursts.
   When a request carries both a plain agent target and an incident binding, the two structured
   agent values must match; conflict is rejected before evidence retrieval. For model-backed answers, global Bragi safety stays first and the selected immutable charter follows only on an exact `conversation_policy` match;
   mismatch or handoff injects nothing, and the charter scopes role and voice without becoming evidence, authority, or tool permission. The injected charter is composed for the turn: the immutable baseline plus the operator-locale layer when the answer locale is not English. The agent evidence also carries the layer manifest and digest of the prompt that governed the agent's own turn, so a spent escalation budget or an evidence gap is stated to the narrator as a constraint rather than left invisible.
-  Bragi becomes the response owner only after that agent abstains and hands the turn back. Vendor
-  adapters change presentation only. Slack uses plain-text activity
+  Bragi becomes the response owner only after that agent abstains and hands the turn back. Vendor adapters change presentation only. Slack uses plain-text activity
   blocks for command and output bodies so markup characters cannot change the observed command,
   and preserves those blocks across posts, stream updates, and edits.
   Teams keeps the Adaptive Card under 24,000 bytes, counts omitted activities, and always retains

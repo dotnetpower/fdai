@@ -2,7 +2,6 @@ import { useCallback } from "preact/hooks";
 import { t } from "../i18n";
 import {
   askBackendStream,
-  type BackendTurn,
   type ConfirmedAnswerSegment,
   type EvidenceBranch,
   type InvestigationActivity,
@@ -21,6 +20,7 @@ import {
 import type { ViewSnapshot } from "./context";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import { drainStreamPaint } from "./stream-paint";
+import { backendHistoryForTurns } from "./turn-history";
 
 const MIN_PREPARING_VISIBLE_MS = 420;
 
@@ -145,12 +145,7 @@ export function useCommandDeckSubmit({
     setSrStatus("Retrieving answer...");
     setInFlight(true);
 
-    const history: BackendTurn[] = turns
-      .filter((turn) => turn.kind !== "activity")
-      .map((turn) => ({
-        role: turn.role === "operator" ? "user" : "assistant",
-        content: turn.text,
-      }));
+    const history = backendHistoryForTurns(turns);
     const deckId = newId();
     const activityTurnId = newId();
     const milestoneIds = new Set<string>();

@@ -29,6 +29,8 @@ export interface Turn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  /** Bounded non-rendered context sent in place of `text` for backend history. */
+  readonly groundingText?: string;
   readonly kind?: "message" | "activity";
   readonly activities?: readonly InvestigationActivity[];
   readonly branches?: readonly EvidenceBranch[];

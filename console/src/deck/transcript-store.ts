@@ -64,6 +64,7 @@ export interface PersistedTurn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  readonly groundingText?: string;
   readonly kind?: "message" | "activity";
   readonly activities?: readonly InvestigationActivity[];
   readonly branches?: readonly EvidenceBranch[];
@@ -118,6 +119,9 @@ export function serializeTurns(
       const codeArtifacts = parseGroundedCodeArtifacts(t.codeArtifacts);
       return {
         ...base,
+        ...(boundedString(t.groundingText, MAX_TURN_TEXT_CHARS)
+          ? { groundingText: t.groundingText }
+          : {}),
         ...(boundedString(t.source, MAX_TURN_SOURCE_CHARS) ? { source: t.source } : {}),
         ...(t.kind ? { kind: t.kind } : {}),
         ...(validActivities(t.activities) ? { activities: t.activities } : {}),
@@ -170,6 +174,9 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       role: rec.role,
       text: rec.text,
       at: rec.at,
+      ...(boundedString(rec.groundingText, MAX_TURN_TEXT_CHARS)
+        ? { groundingText: rec.groundingText }
+        : {}),
       ...(boundedString(rec.source, MAX_TURN_SOURCE_CHARS) ? { source: rec.source } : {}),
       ...(rec.kind === "message" || rec.kind === "activity" ? { kind: rec.kind } : {}),
       ...(validActivities(rec.activities) ? { activities: rec.activities } : {}),

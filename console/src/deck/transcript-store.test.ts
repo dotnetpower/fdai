@@ -113,6 +113,7 @@ describe("serializeTurns", () => {
         id: "3",
         role: "deck" as const,
         text: "Context for Forseti",
+        groundingText: "Context for a conversation about the FDAI agent Forseti.",
         at: "10:00:02",
         source: "context",
         agent: "Forseti",
@@ -136,6 +137,7 @@ describe("serializeTurns", () => {
     expect(parsed[1]!.verification?.claims?.[0]?.claim_id).toBe("c001");
     expect(parsed[1]!.verification?.evidence_manifest?.manifest_id).toBe("sha256:abc");
     expect(parsed[2]!.agent).toBe("Forseti"); // agent identity survives reload
+    expect(parsed[2]!.groundingText).toContain("FDAI agent Forseti");
   });
 
   it("drops a still-streaming turn", () => {

@@ -29,6 +29,7 @@ import {
   currentRuntimeCount,
   AGENT_ROLE,
   agentChatContext,
+  agentConversationBriefing,
   incidentsForAgent,
   isEngaged,
   makeInitialState,
@@ -498,6 +499,10 @@ export function AgentsRoute({ client }: Props) {
                   newConversation: true,
                   targetAgent: selectedAgentNode.name,
                   contextNote: agentChatContext(selectedAgentNode, selectedAgentIncidents),
+                  openingBriefing: agentConversationBriefing(
+                    selectedAgentNode,
+                    selectedAgentIncidents,
+                  ),
                   prompt: `What has ${selectedAgentNode.name} been working on?`,
                 })
               }

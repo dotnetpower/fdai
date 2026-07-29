@@ -7,6 +7,7 @@ import {
   AGENT_CONTRACT,
   AGENT_ROLE,
   agentChatContext,
+  agentConversationBriefing,
   incidentsForAgent,
   type AgentNode,
   type AgentsState,
@@ -195,6 +196,7 @@ export function AgentRoster({
                         newConversation: true,
                         targetAgent: node.name,
                         contextNote: agentChatContext(node, agentIncidents),
+                        openingBriefing: agentConversationBriefing(node, agentIncidents),
                         prompt: `What has ${node.name} been working on?`,
                       })
                     }
