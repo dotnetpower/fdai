@@ -127,6 +127,9 @@ live under `delivery`, while `runtime/readiness.py` composes four ordered phases
 bounded concurrency, but the next phase does not start until the current phase completes. The
 coordinator enforces per-probe and phase deadlines, retries, a total startup cost limit, and at
 least two samples for each enabled model candidate.
+Each probe attempt receives a synthetic correlation id derived from its probe id and deadline.
+The coordinator restores the caller's prior correlation context after the attempt, which keeps
+model warm-up cost attributable without presenting probe evidence as an operator event.
 
 The runtime persists only sanitized evidence in `runtime:startup-readiness:latest`. A decision
 change appends an audit record and publishes a JSON-Schema-validated

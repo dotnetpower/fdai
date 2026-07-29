@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: aef2339b09bb8c0a0184b5364418016d766a117e
-translation_revised: 2026-07-28
+translation_source_sha: 2012afbf22690cb1882990fe49578e7cc777b15b
+translation_revised: 2026-07-30
 ---
 
 # 시작과 라이프사이클(Startup and Lifecycle)
@@ -130,6 +130,9 @@ Provider-neutral contract와 reducer는 `core/readiness` 아래에 있습니다.
 bounded concurrency를 사용하지만 현재 단계가 끝나기 전에는 다음 단계를 시작하지 않습니다.
 Coordinator는 probe별/단계별 deadline, retry, 전체 startup cost limit 및 활성화된 model candidate별
 최소 두 sample을 적용합니다.
+각 probe attempt에는 probe id와 deadline에서 파생된 synthetic correlation id가 할당됩니다.
+Coordinator는 attempt 이후 caller의 기존 correlation context를 복원합니다. 따라서 model warm-up
+비용을 추적할 수 있으며 probe evidence를 operator event로 표시하지 않습니다.
 
 Runtime은 정제된 evidence만 `runtime:startup-readiness:latest`에 저장합니다. 결정이 변경되면 audit
 record를 append하고 JSON Schema로 검증된 `readiness_transition` event를 publish합니다. Provider error

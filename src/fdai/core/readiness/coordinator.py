@@ -33,6 +33,7 @@ from fdai.shared.providers.feasibility_probe import FindingSeverity, ProbeFindin
 from fdai.shared.providers.projection import Finding, Severity
 from fdai.shared.providers.startup_probe import StartupProbe, StartupProbeRequest
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.telemetry import with_correlation
 
 _LATEST_REPORT_KEY = "runtime:startup-readiness:latest"
 _TRANSITION_TOPIC = "runtime.readiness.transitions"
@@ -163,10 +164,12 @@ class StartupReadinessCoordinator:
                 synthetic_scope=spec.synthetic_scope,
             )
             try:
-                result = await asyncio.wait_for(
-                    probe.run(request),
-                    timeout=self._budget.per_probe_timeout_seconds,
-                )
+                correlation_id = f"startup-readiness:{spec.probe_id}:{request.deadline.isoformat()}"
+                with with_correlation(correlation_id):
+                    result = await asyncio.wait_for(
+                        probe.run(request),
+                        timeout=self._budget.per_probe_timeout_seconds,
+                    )
                 if result.probe_id != spec.probe_id:
                     return self._failure(spec, ProbeStatus.CRASHED, "probe_id_mismatch")
                 return self._validate_capability_evidence(spec, result)

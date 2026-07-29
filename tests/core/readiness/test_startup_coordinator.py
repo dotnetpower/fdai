@@ -23,6 +23,7 @@ from fdai.core.readiness.coordinator import (
 )
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.startup_probe import StartupProbeRequest
+from fdai.shared.telemetry import current_correlation_id, with_correlation
 
 _NOW = datetime(2026, 7, 23, tzinfo=UTC)
 
@@ -73,16 +74,20 @@ class _Probe:
         failure: Exception | None = None,
         delay: float = 0,
         calls: list[str] | None = None,
+        correlations: list[str | None] | None = None,
     ) -> None:
         self.probe_id = probe_id
         self._result = result
         self._failure = failure
         self._delay = delay
         self._calls = calls
+        self._correlations = correlations
         self.requests: list[StartupProbeRequest] = []
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         self.requests.append(request)
+        if self._correlations is not None:
+            self._correlations.append(current_correlation_id())
         if self._calls is not None:
             self._calls.append(self.probe_id)
         if self._delay:
@@ -174,6 +179,24 @@ async def test_phases_run_in_order_and_publish_one_validated_transition() -> Non
     assert len(validator.payloads) == 1
     assert len(bus.published) == 1
     assert bus.published[0][0] == "runtime.readiness.transitions"
+
+
+async def test_probe_binds_synthetic_correlation_and_restores_outer_context() -> None:
+    correlations: list[str | None] = []
+    spec = _spec("model.embedding", StartupPhase.CAPABILITY_WARMUP)
+    probe = _Probe(
+        spec.probe_id,
+        result=_passed(spec.probe_id),
+        correlations=correlations,
+    )
+    coordinator, _, _, _ = _coordinator([spec], [probe])
+
+    with with_correlation("outer"):
+        await coordinator.evaluate()
+        assert current_correlation_id() == "outer"
+
+    assert correlations == ["startup-readiness:model.embedding:2026-07-23T00:00:10+00:00"]
+    assert current_correlation_id() is None
 
 
 async def test_timeout_and_crash_are_sanitized_and_block_readiness() -> None:
