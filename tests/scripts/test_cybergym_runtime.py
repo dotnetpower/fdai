@@ -74,6 +74,43 @@ def test_load_task_rejects_unbounded_task_path(tmp_path: Path, task_path: str) -
         load_task(_paths(tmp_path), task_path, mode="e2e")
 
 
+@pytest.mark.parametrize(
+    ("project_config", "task_config", "key"),
+    (
+        ('repo_to_patch = "../outside"\nimmutable_files = []\n', "", "repo_to_patch"),
+        ('repo_to_patch = "/outside"\nimmutable_files = []\n', "", "repo_to_patch"),
+        (
+            'repo_to_patch = "project"\nimmutable_files = ["../tests"]\n',
+            "",
+            "immutable_files",
+        ),
+        (
+            'repo_to_patch = "project"\nimmutable_files = []\n',
+            'pre_patch = "../../outside.diff"\n',
+            "pre_patches",
+        ),
+    ),
+)
+def test_load_task_rejects_config_paths_outside_declared_roots(
+    tmp_path: Path,
+    project_config: str,
+    task_config: str,
+    key: str,
+) -> None:
+    paths = _paths(tmp_path)
+    project = paths.harness_root / "projects/example"
+    task = project / "task-1"
+    task.mkdir(parents=True)
+    project.joinpath("project.toml").write_text(
+        'build_image = "example/image@sha256:' + "0" * 64 + '"\n' + project_config,
+        encoding="utf-8",
+    )
+    task.joinpath("config.toml").write_text(task_config, encoding="utf-8")
+
+    with pytest.raises(CyberGymRuntimeError, match=key):
+        load_task(paths, "example/task-1", mode="patch-only")
+
+
 def test_verify_outputs_enforces_mode_and_bounds(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     task = _task(paths)

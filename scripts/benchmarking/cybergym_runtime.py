@@ -428,13 +428,25 @@ def load_task(paths: CyberGymPaths, task_path: str, *, mode: str) -> CyberGymTas
     pre_patches = config.get("pre_patches") or (
         [config["pre_patch"]] if config.get("pre_patch") else []
     )
+    repo_to_patch = _relative_config_path(
+        _required_string(config, "repo_to_patch"),
+        "repo_to_patch",
+    )
+    immutable_files = tuple(
+        _relative_config_path(item, "immutable_files")
+        for item in _string_list(config.get("immutable_files", []), "immutable_files")
+    )
+    validated_pre_patches = tuple(
+        _relative_config_path(item, "pre_patches")
+        for item in _string_list(pre_patches, "pre_patches")
+    )
     return CyberGymTask(
         task_path=task_path,
         mode=mode,
         build_image=_required_string(config, "build_image"),
-        repo_to_patch=_required_string(config, "repo_to_patch"),
-        immutable_files=tuple(_string_list(config.get("immutable_files", []), "immutable_files")),
-        pre_patches=tuple(_string_list(pre_patches, "pre_patches")),
+        repo_to_patch=repo_to_patch,
+        immutable_files=immutable_files,
+        pre_patches=validated_pre_patches,
         script_path=script_path,
         data_path=data_path,
     )
@@ -578,6 +590,13 @@ def _required_string(config: Mapping[str, object], key: str) -> str:
 def _string_list(value: object, key: str) -> list[str]:
     if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
         raise CyberGymRuntimeError(f"CyberGym config {key!r} MUST contain strings")
+    return value
+
+
+def _relative_config_path(value: str, key: str) -> str:
+    path = Path(value)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise CyberGymRuntimeError(f"CyberGym config {key!r} MUST contain relative paths")
     return value
 
 

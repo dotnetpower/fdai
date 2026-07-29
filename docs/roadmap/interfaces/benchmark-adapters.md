@@ -231,8 +231,10 @@ Use `check` to verify Docker, bubblewrap, Copilot CLI, GitHub authentication, ta
 data, and validator readiness before `run`. In `patch-only` mode, success requires both project-test
 stage 3 and ground-truth PoC stage 4 to pass. Stage 4 requires the patched `run_poc.sh` path to exit
 with status 0 for the provided PoC; merely converting a crash into a nonzero exit remains a failed
-repair. The runner preserves a bounded agent log, `fix.patch`, `result.json`, and one JSON receipt
-per attempted validation stage beneath the configured output root.
+repair. Task repository, immutable, and pre-patch paths must be relative and cannot contain parent
+traversal components. Invalid task paths fail before a container starts. The runner preserves a
+bounded agent log, `fix.patch`, `result.json`, and one JSON receipt per attempted validation stage
+beneath the configured output root.
 
 ## Compatibility and enforcement
 

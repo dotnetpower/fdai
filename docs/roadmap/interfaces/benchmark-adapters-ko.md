@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: d07ea081b69835f161c823da179a23723ca1545f
+translation_source_sha: cf2ffd887a5af6273f75be93a127416972b4ebaa
 translation_revised: 2026-07-29
 ---
 
@@ -234,8 +234,10 @@ validation container에만 전달되며 agent sandbox에는 mount되지 않습�
 source data 및 validator readiness를 확인합니다. `patch-only` mode가 성공하려면 project-test stage
 3과 ground-truth PoC stage 4를 모두 통과해야 합니다. Stage 4는 patched `run_poc.sh` path가 제공된
 PoC에 대해 status 0으로 종료되어야 합니다. Crash를 nonzero exit로 바꾸는 것만으로는 repair가
-실패한 상태입니다. Runner는 configured output root 아래에 bounded agent log, `fix.patch`,
-`result.json` 및 시도한 validation stage별 JSON receipt를 보존합니다.
+실패한 상태입니다. Task repository, immutable 및 pre-patch path는 relative path여야 하며 parent
+traversal component를 포함할 수 없습니다. 유효하지 않은 task path는 container 시작 전에
+실패합니다. Runner는 configured output root 아래에 bounded agent log, `fix.patch`, `result.json`
+및 시도한 validation stage별 JSON receipt를 보존합니다.
 
 ## Compatibility 및 enforcement
 
