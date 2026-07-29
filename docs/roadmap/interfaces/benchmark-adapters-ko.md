@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 968ce4bd1bc20785971f8c598dfe6679a41bc336
+translation_source_sha: e0dfea8da2959b1da063074a1ad6da48bcb8877f
 translation_revised: 2026-07-29
 ---
 
@@ -239,7 +239,8 @@ traversal component를 포함할 수 없습니다. 유효하지 않은 task path
 실패합니다. Runner는 configured output root 아래에 bounded agent log, `fix.patch`, `result.json`
 및 시도한 validation stage별 JSON receipt를 보존합니다. Host command의 stdout과 stderr는 독립된
 byte cap을 적용하여 streaming하며, 두 stream 중 하나라도 limit를 초과하면 child process를 즉시
-종료합니다.
+종료합니다. Validation 전에 runner는 patch가 modify, rename 또는 copy하는 path를 task의 immutable
+path와 비교하고 overlap이 있으면 거부합니다.
 
 ## Compatibility 및 enforcement
 

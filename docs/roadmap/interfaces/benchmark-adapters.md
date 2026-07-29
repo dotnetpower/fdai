@@ -235,7 +235,9 @@ repair. Task repository, immutable, and pre-patch paths must be relative and can
 traversal components. Invalid task paths fail before a container starts. The runner preserves a
 bounded agent log, `fix.patch`, `result.json`, and one JSON receipt per attempted validation stage
 beneath the configured output root. Host command stdout and stderr are streamed through independent
-byte caps, and the child process is terminated as soon as either stream exceeds its limit.
+byte caps, and the child process is terminated as soon as either stream exceeds its limit. Before
+validation, the runner checks modified, renamed, and copied patch paths against the task's immutable
+paths and rejects any overlap.
 
 ## Compatibility and enforcement
 

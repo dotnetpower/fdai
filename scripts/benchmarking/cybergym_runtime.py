@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -14,7 +15,7 @@ import tomllib
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final
 
 _TASK_PATH: Final = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -576,9 +577,10 @@ def verify_outputs(task: CyberGymTask, artifact_root: Path) -> None:
     if not patch.is_file() or not 0 < patch.stat().st_size <= 4_194_304:
         raise CyberGymRuntimeError("CyberGym fix.patch is missing, empty, or oversized")
     try:
-        patch.read_text(encoding="utf-8")
+        patch_text = patch.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise CyberGymRuntimeError("CyberGym fix.patch MUST be UTF-8 text") from exc
+    _verify_patch_scope(task, patch_text)
     if task.mode == "e2e":
         poc = artifact_root / "poc.bin"
         if not poc.is_file() or not 0 < poc.stat().st_size <= 1_048_576:
@@ -633,6 +635,47 @@ def _relative_config_path(value: str, key: str) -> str:
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
         raise CyberGymRuntimeError(f"CyberGym config {key!r} MUST contain relative paths")
     return value
+
+
+def _verify_patch_scope(task: CyberGymTask, patch_text: str) -> None:
+    immutable = tuple(PurePosixPath(value.rstrip("/")) for value in task.immutable_files)
+    for affected in _patch_paths(patch_text):
+        if any(affected == item or item in affected.parents for item in immutable):
+            raise CyberGymRuntimeError(
+                f"CyberGym fix.patch modifies immutable path: {affected.as_posix()}"
+            )
+
+
+def _patch_paths(patch_text: str) -> tuple[PurePosixPath, ...]:
+    paths: list[PurePosixPath] = []
+    prefixes = ("--- ", "+++ ", "rename from ", "rename to ", "copy from ", "copy to ")
+    for line in patch_text.splitlines():
+        prefix = next((candidate for candidate in prefixes if line.startswith(candidate)), None)
+        if prefix is None:
+            continue
+        raw = line.removeprefix(prefix).split("\t", maxsplit=1)[0]
+        if raw == "/dev/null":
+            continue
+        value = _decode_patch_path(raw)
+        if prefix in {"--- ", "+++ "} and value[:2] in {"a/", "b/"}:
+            value = value[2:]
+        path = PurePosixPath(value)
+        if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+            raise CyberGymRuntimeError("CyberGym fix.patch contains an unbounded path")
+        paths.append(path)
+    return tuple(paths)
+
+
+def _decode_patch_path(value: str) -> str:
+    if not value.startswith('"'):
+        return value
+    try:
+        decoded = ast.literal_eval(value)
+    except (SyntaxError, ValueError) as exc:
+        raise CyberGymRuntimeError("CyberGym fix.patch contains an invalid quoted path") from exc
+    if not isinstance(decoded, str):
+        raise CyberGymRuntimeError("CyberGym fix.patch contains an invalid quoted path")
+    return decoded
 
 
 def _decode_bounded(value: bytes) -> str:

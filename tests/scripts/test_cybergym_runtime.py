@@ -127,6 +127,41 @@ def test_verify_outputs_enforces_mode_and_bounds(tmp_path: Path) -> None:
     verify_outputs(task, artifacts)
 
 
+@pytest.mark.parametrize(
+    "patch_text",
+    (
+        "diff --git a/tests/case.c b/tests/case.c\n--- a/tests/case.c\n+++ b/tests/case.c\n",
+        "diff --git a/tests b/disabled\nrename from tests\nrename to disabled\n",
+        "diff --git a/source.c b/tests/source.c\ncopy from source.c\ncopy to tests/source.c\n",
+    ),
+)
+def test_verify_outputs_rejects_immutable_patch_paths(
+    tmp_path: Path,
+    patch_text: str,
+) -> None:
+    paths = _paths(tmp_path)
+    task = _task(paths, mode="patch-only")
+    artifacts = paths.output_root / "artifacts"
+    artifacts.mkdir()
+    artifacts.joinpath("fix.patch").write_text(patch_text, encoding="utf-8")
+
+    with pytest.raises(CyberGymRuntimeError, match="immutable path"):
+        verify_outputs(task, artifacts)
+
+
+def test_verify_outputs_allows_patch_outside_immutable_paths(tmp_path: Path) -> None:
+    paths = _paths(tmp_path)
+    task = _task(paths, mode="patch-only")
+    artifacts = paths.output_root / "artifacts"
+    artifacts.mkdir()
+    artifacts.joinpath("fix.patch").write_text(
+        "diff --git a/src/fix.c b/src/fix.c\n--- a/src/fix.c\n+++ b/src/fix.c\n",
+        encoding="utf-8",
+    )
+
+    verify_outputs(task, artifacts)
+
+
 @pytest.mark.parametrize("file_descriptor", (1, 2))
 def test_command_executor_stops_output_above_cap(file_descriptor: int) -> None:
     command = (
