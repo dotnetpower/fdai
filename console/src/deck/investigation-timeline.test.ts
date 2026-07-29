@@ -90,8 +90,19 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('<details class="deck-investigation-activity-disclosure">');
     expect(component).not.toContain('<details class="deck-investigation-activity-disclosure" open>');
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
+    expect(component).toContain('class="deck-investigation-pill"');
+    expect(component).toContain('class="deck-investigation-elapsed muted"');
+    expect(component).toContain("deck-branch-badge");
+    expect(component).toContain('t("deck.investigation.sourceSummary"');
+    expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(styles).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.deck-branch-item\s*\{[^}]*grid-template-columns:\s*18px minmax\(0, 1fr\)/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.deck-investigation\.is-running/,
+    );
+    expect(styles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.deck-branch-item\s*\{[^}]*opacity:\s*1/,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.deck-branch-item\s*\{[^}]*grid-template-columns:\s*42px minmax\(0, 1fr\)/,
     );
   });
 });

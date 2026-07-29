@@ -6467,15 +6467,48 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   box-sizing: border-box;
   padding: 2px 0 4px;
 }
+.deck-investigation.is-running {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--accent) 4%, var(--bg-elevated));
+  animation: deck-investigation-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes deck-investigation-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
 .deck-investigation-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
-  padding: 2px 2px 7px;
+  min-height: 36px;
+  padding: 0 11px;
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
 .deck-investigation-head > span {
   font-size: 11px;
+}
+.deck-investigation-spinner {
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in oklab, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: deck-rt-rot 0.7s linear infinite;
+}
+.deck-investigation-elapsed {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.deck-investigation-body {
+  min-width: 0;
+}
+.deck-investigation.is-running > .deck-investigation-body {
+  padding: 5px 6px 6px;
 }
 .deck-investigation-list {
   display: grid;
@@ -6493,14 +6526,74 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-branch-item {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 4px 7px;
+  min-height: 38px;
+  padding: 4px 8px;
+  position: relative;
+  overflow: hidden;
   border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
-  border-radius: 6px;
-  background: color-mix(in oklab, var(--bg-subtle) 55%, transparent);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  opacity: 0;
+  transform: translateY(6px) scale(0.99);
+  animation: deck-investigation-rise 0.26s ease forwards;
+  transition: border-color 0.2s, background 0.2s;
+}
+@keyframes deck-investigation-rise {
+  to { opacity: 1; transform: none; }
+}
+.deck-investigation.is-running .deck-branch-item.is-running::after,
+.deck-investigation.is-running .deck-branch-item.is-pending::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, var(--accent) 8%, transparent) 48%,
+    transparent 76%
+  );
+  transform: translateX(-110%);
+  animation: deck-rt-scan 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+.deck-branch-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.deck-branch-badge.is-agent {
+  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 18%, transparent);
+  color: var(--tier-t0, #27734f);
+}
+.deck-branch-badge.is-operational {
+  background: color-mix(in oklab, var(--fg) 14%, transparent);
+  color: var(--fg);
+}
+.deck-branch-badge.is-tool {
+  background: color-mix(in oklab, var(--tier-t1, #4f9fa5) 18%, transparent);
+  color: var(--tier-t1, #397b80);
+}
+.deck-branch-badge.is-public_web {
+  background: color-mix(in oklab, var(--warning, #a76b12) 16%, transparent);
+  color: var(--warning, #8a5a00);
+}
+.deck-branch-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .deck-branch-item.is-running .deck-investigation-state,
 .deck-branch-item.is-pending .deck-investigation-state {
@@ -6522,6 +6615,48 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-activity-disclosure[open] > summary {
   color: var(--fg);
+}
+.deck-investigation.is-settled {
+  padding: 0;
+}
+.deck-investigation-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 4px 9px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  box-shadow: var(--cs-shadow);
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+}
+.deck-investigation-pill::-webkit-details-marker { display: none; }
+.deck-investigation-pill:hover { box-shadow: var(--cs-shadow-hover); }
+.deck-investigation-pill > .deck-investigation-meta { margin-left: auto; }
+.deck-investigation.is-settled.is-completed .deck-investigation-pill > .deck-investigation-state {
+  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 18%, transparent);
+  color: var(--tier-t0, #237a4b);
+}
+.deck-investigation.is-settled.is-unavailable .deck-investigation-pill > .deck-investigation-state {
+  background: color-mix(in oklab, var(--warning, #a76b12) 16%, transparent);
+  color: var(--warning, #8a5a00);
+}
+.deck-investigation.is-settled.is-failed .deck-investigation-pill > .deck-investigation-state {
+  background: color-mix(in oklab, var(--danger, #b3261e) 14%, transparent);
+  color: var(--danger, #b3261e);
+}
+.deck-investigation.is-settled[open] > .deck-investigation-body {
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--accent) 3%, var(--bg-elevated));
 }
 .deck-investigation-item {
   min-height: 34px;
@@ -6704,11 +6839,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 @media (max-width: 640px) {
   .deck-branch-item {
-    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-columns: 42px minmax(0, 1fr);
   }
-  .deck-branch-item .deck-investigation-meta {
+  .deck-branch-item .deck-branch-status {
     grid-column: 2;
-    white-space: normal;
+    justify-self: start;
   }
 }
 
@@ -8057,12 +8192,21 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-rt-stage,
   .deck-rt-source,
   .deck-rt-source::after,
+  .deck-investigation.is-running,
+  .deck-investigation-spinner,
+  .deck-branch-item,
+  .deck-branch-item::after,
   .deck-rt-stage.is-active .deck-rt-ico,
   .deck-rt-activity span,
   .deck-turn-deck.is-streaming,
   .deck-gr-caret,
   .deck-chart-skel-fill {
     animation: none !important;
+  }
+  .deck-investigation.is-running,
+  .deck-branch-item {
+    opacity: 1;
+    transform: none;
   }
 }
 

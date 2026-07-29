@@ -105,9 +105,8 @@ flowchart TD
   Web, Slack, and Teams render the same ordered agent-activity contract: Bragi shows the handoff, and the accountable observer shows canonical command/result evidence. An agent selected by an
   agent conversation target or incident binding, or addressed with `Ask <agent>` or `@<agent>`,
   remains the response owner.
-  An agent-card Ask opens with a concise report derived only from the projected state, current-work detail, linked incident, recent status and severity counts, and runtime observation status. The
-  longer fixed context envelope stays non-rendered, survives bounded session replay, and replaces
-  the report only in backend history. The visible report streams in bounded two-word bursts.
+  An agent-card Ask opens with a concise projected-state report; its longer fixed context stays non-rendered for backend history, and the visible report streams in bounded two-word bursts.
+  Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation collapses to a duration summary pill; expanding it reveals the same bounded evidence without replaying work or inventing progress.
   When a request carries both a plain agent target and an incident binding, the two structured
   agent values must match; conflict is rejected before evidence retrieval. For model-backed answers, global read-only safety stays first and the selected immutable charter follows only on an exact `conversation_policy` match. A dedicated target session assigns that verified agent's voice across follow-up turns; ordinary screen delegation keeps Bragi as narrator.
   A policy mismatch or explicit handoff returns narration to Bragi, and the charter never becomes evidence, authority, or tool permission. The injected charter is composed for the turn: the immutable baseline plus the operator-locale layer when the answer locale is not English. Agent evidence also carries the layer manifest and digest of the prompt that governed the agent's own turn, so a spent escalation budget or evidence gap is stated as a constraint rather than left invisible.

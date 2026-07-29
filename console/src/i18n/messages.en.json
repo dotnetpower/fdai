@@ -1966,6 +1966,7 @@
       "cancelled": "Cancelled",
       "finished": "Finished",
       "branches": "Evidence branches",
+      "sourceSummary": "{count} sources",
       "executionDetails": "Execution details ({count})",
       "kind": {
         "tool": "Tool evidence",

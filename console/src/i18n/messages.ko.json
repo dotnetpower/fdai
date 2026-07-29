@@ -1966,6 +1966,7 @@
       "cancelled": "취소됨",
       "finished": "종료",
       "branches": "근거 브랜치",
+      "sourceSummary": "근거 {count}개",
       "executionDetails": "실행 상세 정보 ({count})",
       "kind": {
         "tool": "도구 근거",

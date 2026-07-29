@@ -1,3 +1,4 @@
+import { useEffect, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
@@ -67,8 +68,49 @@ function branchStatusLabel(status: EvidenceBranchStatus): string {
   return t(`deck.investigation.${status}`);
 }
 
+function branchKindBadge(kind: EvidenceBranch["kind"]): string {
+  if (kind === "public_web") return "WEB";
+  if (kind === "operational") return "OPS";
+  return kind.toUpperCase();
+}
+
 function formatDuration(durationMs: number): string {
   return durationMs < 1000 ? `${durationMs} ms` : `${(durationMs / 1000).toFixed(1)} s`;
+}
+
+function terminalDuration(branches: readonly EvidenceBranch[]): number {
+  return Math.max(0, ...branches.map((branch) => branch.durationMs ?? 0));
+}
+
+function terminalTone(
+  activities: readonly InvestigationActivity[],
+  branches: readonly EvidenceBranch[],
+): "completed" | "unavailable" | "failed" {
+  const statuses = [
+    ...activities.map((activity) => activity.status),
+    ...branches.map((branch) => branch.status),
+  ];
+  if (statuses.some((status) => ["failed", "timed_out", "cancelled"].includes(status))) {
+    return "failed";
+  }
+  return statuses.some((status) => status !== "completed") ? "unavailable" : "completed";
+}
+
+function useInvestigationElapsed(running: boolean, finalDurationMs: number): number {
+  const [elapsedMs, setElapsedMs] = useState(finalDurationMs);
+  useEffect(() => {
+    if (!running) {
+      setElapsedMs(finalDurationMs);
+      return;
+    }
+    const startedAt = performance.now();
+    setElapsedMs(0);
+    const timer = window.setInterval(() => {
+      setElapsedMs(performance.now() - startedAt);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [finalDurationMs, running]);
+  return elapsedMs;
 }
 
 function CopyIcon({ copied }: { readonly copied: boolean }) {
@@ -167,29 +209,38 @@ export function InvestigationTimeline({
   readonly branches: readonly EvidenceBranch[];
   readonly running: boolean;
 }) {
-  return (
-    <section class="deck-investigation" aria-label={t("deck.investigation.label")}>
-      <header class="deck-investigation-head">
-        <strong>{t("deck.investigation.title")}</strong>
-        <span class="muted">
-          {running ? t("deck.investigation.running") : t("deck.investigation.finished")}
-        </span>
-      </header>
+  const finalDurationMs = terminalDuration(branches);
+  const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
+  const tone = terminalTone(activities, branches);
+  const summary = branches.length > 0
+    ? t("deck.investigation.sourceSummary", { count: branches.length })
+    : t("deck.investigation.executionDetails", { count: activities.length });
+  const body = (
+    <div class="deck-investigation-body">
       {branches.length > 0 ? (
         <ol class="deck-branch-list" aria-label={t("deck.investigation.branches")}>
-          {branches.map((branch) => (
-            <li key={branch.branchId} class={`deck-branch-item is-${branch.status}`}>
-              <span class="deck-investigation-state" aria-hidden="true">
-                {branchStatusMark(branch.status)}
+          {branches.map((branch, index) => (
+            <li
+              key={branch.branchId}
+              class={`deck-branch-item is-${branch.status}`}
+              style={{ animationDelay: `${index * 55}ms` }}
+            >
+              <span class={`deck-branch-badge is-${branch.kind}`} aria-hidden="true">
+                {branchKindBadge(branch.kind)}
               </span>
               <span class="deck-investigation-copy">
                 <strong>{t(`deck.investigation.kind.${branch.kind}`)}</strong>
                 <small>{branch.summary}</small>
               </span>
-              <span class="deck-investigation-meta muted">
-                {branch.durationMs !== undefined
-                  ? formatDuration(branch.durationMs)
-                  : branchStatusLabel(branch.status)}
+              <span class={`deck-branch-status is-${branch.status}`}>
+                <span class="deck-investigation-state" aria-hidden="true">
+                  {branchStatusMark(branch.status)}
+                </span>
+                <span class="deck-investigation-meta muted">
+                  {branch.durationMs !== undefined
+                    ? formatDuration(branch.durationMs)
+                    : branchStatusLabel(branch.status)}
+                </span>
               </span>
             </li>
           ))}
@@ -201,41 +252,79 @@ export function InvestigationTimeline({
             {t("deck.investigation.executionDetails", { count: activities.length })}
           </summary>
           <ol class="deck-investigation-list">
-        {activities.map((activity) => {
-          const progress = activity.completed !== null && activity.total !== null
-            ? `${activity.completed}/${activity.total}`
-            : null;
-          return (
-            <li
-              key={activity.activityId}
-              class={`deck-investigation-item is-${activity.status}`}
-            >
-              <div class="deck-investigation-summary">
-                <span class="deck-investigation-state" aria-hidden="true">
-                  {statusMark(activity.status)}
-                </span>
-                <span class="deck-investigation-copy">
-                  <strong>{activity.label}</strong>
-                  {activity.detail ? <small>{activity.detail}</small> : null}
-                </span>
-                <span class="deck-investigation-meta muted">
-                  {progress ?? statusLabel(activity.status)}
-                </span>
-              </div>
-              {activity.execution ? (
-                <ExecutionEvidence
-                  evidence={activity.execution}
-                  status={activity.status}
-                  {...(activity.agent ? { agent: activity.agent } : {})}
-                  {...(activity.authority ? { authority: activity.authority } : {})}
-                />
-              ) : null}
-            </li>
-          );
-        })}
+            {activities.map((activity) => {
+              const progress = activity.completed !== null && activity.total !== null
+                ? `${activity.completed}/${activity.total}`
+                : null;
+              return (
+                <li
+                  key={activity.activityId}
+                  class={`deck-investigation-item is-${activity.status}`}
+                >
+                  <div class="deck-investigation-summary">
+                    <span class="deck-investigation-state" aria-hidden="true">
+                      {statusMark(activity.status)}
+                    </span>
+                    <span class="deck-investigation-copy">
+                      <strong>{activity.label}</strong>
+                      {activity.detail ? <small>{activity.detail}</small> : null}
+                    </span>
+                    <span class="deck-investigation-meta muted">
+                      {progress ?? statusLabel(activity.status)}
+                    </span>
+                  </div>
+                  {activity.execution ? (
+                    <ExecutionEvidence
+                      evidence={activity.execution}
+                      status={activity.status}
+                      {...(activity.agent ? { agent: activity.agent } : {})}
+                      {...(activity.authority ? { authority: activity.authority } : {})}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
           </ol>
         </details>
       ) : null}
+    </div>
+  );
+
+  if (!running) {
+    return (
+      <details
+        class={`deck-investigation is-settled is-${tone}`}
+        aria-label={t("deck.investigation.label")}
+      >
+        <summary class="deck-investigation-pill">
+          <span class="deck-investigation-state" aria-hidden="true">
+            {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : "!"}
+          </span>
+          <strong>{t("deck.investigation.title")}</strong>
+          <span class="muted">{summary}</span>
+          {finalDurationMs > 0 ? (
+            <span class="deck-investigation-meta muted">{formatDuration(finalDurationMs)}</span>
+          ) : null}
+        </summary>
+        {body}
+      </details>
+    );
+  }
+
+  return (
+    <section
+      class="deck-investigation is-running"
+      aria-label={t("deck.investigation.label")}
+    >
+      <header class="deck-investigation-head">
+        <span class="deck-investigation-spinner" aria-hidden="true" />
+        <strong>{t("deck.investigation.title")}</strong>
+        <span class="muted">{summary}</span>
+        <span class="deck-investigation-elapsed muted" aria-hidden="true">
+          {(elapsedMs / 1000).toFixed(1)}s
+        </span>
+      </header>
+      {body}
     </section>
   );
 }
