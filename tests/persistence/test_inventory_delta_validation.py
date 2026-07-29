@@ -286,12 +286,11 @@ async def test_inventory_locks_take_promotion_gate_then_sorted_resource_locks() 
             (_GRAPH_RECONCILIATION_LOCK,),
         ),
         call(
-            "SELECT pg_advisory_xact_lock(-1 - (hashtextextended(%s, %s) & 9223372036854775807))",
-            ("a-resource", _RESOURCE_LOCK_SEED),
-        ),
-        call(
-            "SELECT pg_advisory_xact_lock(-1 - (hashtextextended(%s, %s) & 9223372036854775807))",
-            ("z-resource", _RESOURCE_LOCK_SEED),
+            "SELECT pg_advisory_xact_lock("
+            "-1 - (hashtextextended(resource_id, %s) & 9223372036854775807)) "
+            "FROM (SELECT resource_id FROM unnest(%s::text[]) AS item(resource_id) "
+            "ORDER BY resource_id) AS ordered_resources",
+            (_RESOURCE_LOCK_SEED, ["a-resource", "z-resource"]),
         ),
     ]
 

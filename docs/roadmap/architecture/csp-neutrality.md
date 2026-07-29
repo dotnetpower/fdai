@@ -350,7 +350,9 @@ use the same view-classification rules so local and deployed consoles keep the s
   permits a validated ceiling of 10,000, and keeps all chunks for one input batch in the same
   database transaction. After validation and endpoint locking, one delta event sends all
   reconciled realtime link upserts through one batched `executemany` pipeline and retains the
-  aggregate applied-row count.
+  aggregate applied-row count. Endpoint resource ids are deduplicated, sorted, and locked by one
+  ordered PostgreSQL statement, preserving deadlock-safe order without one client round trip per
+  endpoint.
 - **Fail-closed**: a partial snapshot never lands in a state that would let a stale graph
   drive an autonomous decision. Either the snapshot completes and is atomically promoted,
   or the previous graph is retained and the failure is audited.

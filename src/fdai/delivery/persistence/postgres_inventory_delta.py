@@ -25,6 +25,12 @@ _DEFAULT_MAX_RECONCILED_LINKS = 4096
 _DEFAULT_MAX_FUTURE_SKEW_SECONDS = 300
 _RESOURCE_LOCK_SEED = 0x46444149
 _GRAPH_RECONCILIATION_LOCK = 732_410_992
+_RESOURCE_LOCK_SQL = (
+    "SELECT pg_advisory_xact_lock("
+    "-1 - (hashtextextended(resource_id, %s) & 9223372036854775807)) "
+    "FROM (SELECT resource_id FROM unnest(%s::text[]) AS item(resource_id) "
+    "ORDER BY resource_id) AS ordered_resources"
+)
 _EFFECTIVE_LINKS_CTE = (
     "WITH effective_links AS ("
     "SELECT l.from_id, l.from_type, l.link_type, l.to_id, l.to_type, l.props "
@@ -333,11 +339,9 @@ async def _acquire_inventory_gate(
 async def _acquire_resource_locks(
     connection: psycopg.AsyncConnection[Any], resource_ids: Sequence[str]
 ) -> None:
-    for resource_id in sorted(set(resource_ids)):
-        await connection.execute(
-            "SELECT pg_advisory_xact_lock(-1 - (hashtextextended(%s, %s) & 9223372036854775807))",
-            (resource_id, _RESOURCE_LOCK_SEED),
-        )
+    ordered_ids = sorted(set(resource_ids))
+    if ordered_ids:
+        await connection.execute(_RESOURCE_LOCK_SQL, (_RESOURCE_LOCK_SEED, ordered_ids))
 
 
 def _inventory_change(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:

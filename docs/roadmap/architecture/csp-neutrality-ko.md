@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 9834c5daf34016b2694a56dceb05c8173d4fc7ad
+translation_source_sha: 7b0545228d0ceefdb4cadd5668655ce8b4ef3e73
 translation_revised: 2026-07-29
 ---
 
@@ -342,7 +342,9 @@ local 및 deployed console의 의미를 일치시킵니다.
   검증된 ceiling은 10,000입니다. 하나의 input batch에 속한 모든 chunk는 같은 database
   transaction 안에서 처리합니다. Validation과 endpoint locking 이후 하나의 delta event는
   reconciled realtime link upsert 전체를 한 번의 batched `executemany` pipeline으로 보내며,
-  aggregate applied-row count를 유지합니다.
+  aggregate applied-row count를 유지합니다. Endpoint resource id는 deduplicate 및 sort한 뒤
+  하나의 ordered PostgreSQL statement로 lock하므로, endpoint마다 client round trip을 만들지
+  않으면서 deadlock-safe 순서를 보존합니다.
 - **Fail-closed**: 부분 snapshot 은 stale 그래프가 자율 결정을 구동하는 상태에 절대
   런딩하지 않음. snapshot 이 완료되고 원자적으로 승격되거나, 이전 그래프가 유지되고
   실패가 감사됨.
