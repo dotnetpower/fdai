@@ -561,3 +561,93 @@ async def test_chat_pipeline_overlaps_explicit_web_and_tool_resolvers() -> None:
 
     assert started == {"tool", "web"}
     assert merged["_web_evidence"]["status"] == "ok"
+
+
+async def test_chat_pipeline_selected_agent_emits_no_public_web_branch() -> None:
+    events: list[dict[str, Any]] = []
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del user_id, session_id
+            assert prompt == "@Heimdall 너는 어떤 역할을 담당해?"
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "I own observation signals.",
+                "facts": {"agent": "Heimdall"},
+            }
+
+    class WebResolver:
+        async def resolve(self, *args: object, **kwargs: object):
+            del args, kwargs
+            raise AssertionError("selected-agent turn must not create a public-web branch")
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        events.append(dict(event))
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-agent-role",
+        prompt="너는 어떤 역할을 담당해?",
+        view_context={"routeId": "agents"},
+        user_id="reader",
+        session_id="session-heimdall",
+        conversation_context=None,
+        target_agent="Heimdall",
+        tool_resolver=None,
+        evidence_resolver=None,
+        agent_delegate=AgentDelegate(),
+        web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert merged["_agent_evidence"]["primary_agent"] == "Heimdall"
+    assert merged["_agent_session_target"] == "Heimdall"
+    assert "_web_evidence" not in merged
+    assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {"agent"}
+
+
+async def test_chat_pipeline_selected_agent_can_request_public_web_evidence() -> None:
+    events: list[dict[str, Any]] = []
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del user_id, session_id
+            assert prompt == "@Heimdall 웹에서 최신 관측 도구를 찾아줘"
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "I will explain the observed public evidence.",
+                "facts": {"agent": "Heimdall"},
+            }
+
+    class WebResolver:
+        async def resolve(self, prompt: str, view_context: Mapping[str, Any]):
+            del view_context
+            assert prompt == "웹에서 최신 관측 도구를 찾아줘"
+            return {
+                "status": "matched",
+                "snippets": [{"title": "Example observer", "url": "https://example.com"}],
+            }
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        events.append(dict(event))
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-agent-web",
+        prompt="웹에서 최신 관측 도구를 찾아줘",
+        view_context={"routeId": "agents"},
+        user_id="reader",
+        session_id="session-heimdall",
+        conversation_context=None,
+        target_agent="Heimdall",
+        tool_resolver=None,
+        evidence_resolver=None,
+        agent_delegate=AgentDelegate(),
+        web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert merged["_agent_evidence"]["primary_agent"] == "Heimdall"
+    assert merged["_web_evidence"]["status"] == "matched"
+    assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {
+        "agent",
+        "public_web",
+    }

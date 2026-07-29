@@ -464,6 +464,7 @@ async def _with_web_evidence(
     resolver: ChatWebSearchEvidenceResolver | None,
     *,
     progress_observer: AgentProgressObserver | None = None,
+    allow_agent_request: bool = False,
 ) -> dict[str, Any]:
     """Replace client-supplied web data with a bounded server-owned snapshot."""
 
@@ -473,8 +474,8 @@ async def _with_web_evidence(
         resolver is None
         or "_behavior_evidence" in enriched
         or "_screen_scope" in enriched
-        or "_agent_evidence" in enriched
-        or _explicit_agent_requested(prompt)
+        or ("_agent_evidence" in enriched and not allow_agent_request)
+        or (_explicit_agent_requested(prompt) and not allow_agent_request)
     ):
         return enriched
     progressive = getattr(resolver, "resolve_with_progress", None)
@@ -499,6 +500,7 @@ def merge_evidence_branch_results(
     *,
     conversation_context: Mapping[str, str] | None = None,
     target_agent: str | None = None,
+    allow_agent_web: bool = False,
 ) -> dict[str, Any]:
     """Merge immutable branch snapshots with the established authority precedence."""
 
@@ -592,10 +594,9 @@ def merge_evidence_branch_results(
     if (
         web_context is not None
         and "_web_evidence" in web_context
-        and not any(
-            key in merged for key in ("_behavior_evidence", "_screen_scope", "_agent_evidence")
-        )
-        and not _explicit_agent_requested(prompt)
+        and not any(key in merged for key in ("_behavior_evidence", "_screen_scope"))
+        and ("_agent_evidence" not in merged or allow_agent_web)
+        and (not _explicit_agent_requested(prompt) or allow_agent_web)
     ):
         merged["_web_evidence"] = web_context["_web_evidence"]
     return merged

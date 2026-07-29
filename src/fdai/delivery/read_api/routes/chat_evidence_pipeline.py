@@ -85,6 +85,7 @@ async def resolve_parallel_chat_evidence(
     planned_web = planned_tool_name == "web_search"
     planned_direct_read = planned_read and planned_agent is None and not planned_web
     search_intent = classify_search_intent(prompt)
+    web_requested = planned_web if has_semantic_plan else search_intent.route == "web"
     read_investigation = (
         classify_read_investigation_intent(prompt) is not None
         and resource_name_from_question(prompt) is not None
@@ -100,21 +101,16 @@ async def resolve_parallel_chat_evidence(
     selected_incident_turn = _screen_incident_context(
         prompt, base_context
     ) is not None and not _is_explicit_tool_command(prompt)
+    selected_agent = _selected_agent(prompt, conversation_context, target_agent)
     parallel_agent = not deterministic_inventory_turn and (
         planned_agent is not None
-        or (
-            not has_semantic_plan
-            and (
-                _selected_agent(prompt, conversation_context, target_agent) is not None
-                or read_investigation
-            )
-        )
+        or selected_agent is not None
+        or (not has_semantic_plan and read_investigation)
     )
     parallel_web = (
         web_search_resolver is not None
         and not deterministic_inventory_turn
-        and (planned_web if has_semantic_plan else search_intent.route == "web")
-        and not parallel_agent
+        and web_requested
         and "_behavior_evidence" not in base_context
         and "_screen_scope" not in base_context
     )
@@ -227,6 +223,7 @@ async def resolve_parallel_chat_evidence(
                 dict(base_context),
                 web_search_resolver,
                 progress_observer=observe,
+                allow_agent_request=selected_agent is not None,
             )
 
         specs.append(
@@ -253,6 +250,7 @@ async def resolve_parallel_chat_evidence(
         results,
         conversation_context=conversation_context,
         target_agent=target_agent,
+        allow_agent_web=web_requested,
     )
 
     if not parallel_agent and not selected_incident_turn and not deterministic_inventory_turn:
@@ -287,6 +285,7 @@ async def resolve_parallel_chat_evidence(
             agent_results,
             conversation_context=conversation_context,
             target_agent=target_agent,
+            allow_agent_web=web_requested,
         )
 
     if (
@@ -294,6 +293,7 @@ async def resolve_parallel_chat_evidence(
         and web_search_resolver is not None
         and not selected_incident_turn
         and not deterministic_inventory_turn
+        and selected_agent is None
     ):
 
         async def resolve_dependent_web(observe: BranchProgressObserver) -> dict[str, Any]:
@@ -322,8 +322,8 @@ async def resolve_parallel_chat_evidence(
             web_results,
             conversation_context=conversation_context,
             target_agent=target_agent,
+            allow_agent_web=web_requested,
         )
-    selected_agent = _selected_agent(prompt, conversation_context, target_agent)
     if target_agent is not None and selected_agent is not None:
         merged["_agent_session_target"] = selected_agent
     return merged

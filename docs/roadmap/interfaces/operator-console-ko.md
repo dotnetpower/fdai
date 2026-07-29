@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: b1281df3070daab5913c1df37c2934044ee9d17a
+translation_source_sha: 24c3169c56e92a4c2572b74645183b4b21430b9d
 translation_revised: 2026-07-29
 ---
 
@@ -331,9 +331,9 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   evidence로 사용합니다. Coordinator는 해당 turn에서 관련 없는 inventory, agent 또는 public-web
   branch를 시작하지 않습니다. `query_inventory` 같은 명시적 canonical tool command는 tool authority를
   유지합니다.
-  Agent를 지정한 turn과 server-owned agent evidence가 있는 turn도 semantic public-web classification을
-  건너뜁니다. 책임 agent가 turn을 Bragi에 명시적으로 다시 handoff하고 남은 question이 독립적으로
-  web-search eligibility를 충족할 때만 public-web routing을 다시 적용합니다.
+  Agent를 지정한 turn과 server-owned agent evidence가 있는 turn은 speculative semantic public-web
+  fallback을 건너뜁니다. 명시적 또는 planned web-search request는 selected agent의 response ownership을
+  바꾸지 않고 agent branch와 함께 bounded public-web branch를 추가할 수 있습니다.
   Semantic classification을 실행하면 progress에 선택된 classifier deployment를 route source로
   표시합니다. 완료된 reply는 generation model, response owner, contributor, 명시적인 agent-to-Bragi
   handoff, verification result 및 기록된 모든 evidence reference를 유지합니다. Unverified evidence도

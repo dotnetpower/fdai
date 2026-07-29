@@ -340,9 +340,9 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   `INC-<correlation>` lookup hint, but only the server result is evidence. The coordinator doesn't
   start unrelated inventory, agent, or public-web branches for that turn. An explicit canonical
   tool command such as `query_inventory` keeps tool authority.
-  An agent-addressed turn and a turn with server-owned agent evidence also skip semantic public-web
-  classification. Public-web routing resumes only after the accountable agent explicitly hands the
-  turn back to Bragi and the remaining question independently meets web-search eligibility.
+  An agent-addressed turn and a turn with server-owned agent evidence skip speculative semantic
+  public-web fallback. An explicit or planned web-search request may add a bounded public-web branch
+  alongside the agent branch without changing the selected agent's response ownership.
   When semantic classification does run, progress identifies the selected classifier deployment as
   a route source. Completed replies preserve the generation model, response owner, contributors,
   explicit agent-to-Bragi handoff, verification result, and every recorded evidence reference.
