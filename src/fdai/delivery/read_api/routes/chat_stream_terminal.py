@@ -69,15 +69,19 @@ def build_done_payload(
     health_answer: str | None,
     screen_answer: str | None,
     concept_answer: str | None,
+    resource_answer: str | None,
     started: float,
     delegation: Mapping[str, Any] | None,
     enriched_context: Mapping[str, Any],
     answer_plan: AnswerPlan,
     answer_planning: Mapping[str, Any] | None,
     quality: AnswerQualityResult | None,
+    resource_context: Mapping[str, str] | None,
 ) -> dict[str, Any]:
     source = None
-    if evidence_fast_path:
+    if resource_answer is not None:
+        source = "evidence:read-investigation"
+    elif evidence_fast_path:
         source = f"evidence:{verification.status}"
     elif ontology_answer is not None:
         source = "evidence:ontology-snapshot"
@@ -106,4 +110,6 @@ def build_done_payload(
     }
     if quality is not None:
         payload["answer_quality"] = quality.to_dict()
+    if resource_context is not None:
+        payload["resource_context"] = dict(resource_context)
     return payload

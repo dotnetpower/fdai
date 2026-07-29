@@ -351,6 +351,28 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toBe("llm:gpt-test");
   });
 
+  test("returns bounded resource context from the terminal event", async () => {
+    const resourceContext = {
+      name: "db-current",
+      resource_type: "postgresql-server",
+      evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/current",
+    };
+    const body = `event: done\ndata: ${JSON.stringify({
+      answer: "Stopped database found.",
+      model: "evidence-verifier",
+      resource_context: resourceContext,
+    })}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+    });
+
+    expect(reply.resourceContext).toEqual(resourceContext);
+  });
+
   test("treats an explicit interrupted event as a stopped turn", async () => {
     const body =
       'event: interrupted\ndata: {"seq":1,"detail":"chat turn interrupted"}\n\n';

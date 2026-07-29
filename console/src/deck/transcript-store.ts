@@ -23,8 +23,13 @@ import {
   type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
+  type ResourceContext,
 } from "./backend";
-import { parseAnswerVerification, parseDelegation } from "./backend-normalizers";
+import {
+  parseAnswerVerification,
+  parseDelegation,
+  parseResourceContext,
+} from "./backend-normalizers";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 export const MAX_TRANSCRIPT_JSON_CHARS = 4 * 1024 * 1024;
@@ -81,6 +86,7 @@ export interface PersistedTurn {
   readonly answerPlanning?: AnswerPlanningMetadata;
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
+  readonly resourceContext?: ResourceContext;
 }
 
 interface MaybeStreamingTurn extends PersistedTurn {
@@ -117,6 +123,7 @@ export function serializeTurns(
       const answerPlanning = parseAnswerPlanning(t.answerPlanning);
       const delegation = parseDelegation(t.delegation);
       const codeArtifacts = parseGroundedCodeArtifacts(t.codeArtifacts);
+      const resourceContext = parseResourceContext(t.resourceContext);
       return {
         ...base,
         ...(boundedString(t.groundingText, MAX_TURN_TEXT_CHARS)
@@ -136,6 +143,7 @@ export function serializeTurns(
         ...(answerPlanning ? { answerPlanning } : {}),
         ...(delegation ? { delegation } : {}),
         ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+        ...(resourceContext ? { resourceContext } : {}),
       };
     });
   let serialized = JSON.stringify(persisted);
@@ -169,6 +177,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const delegation = parseDelegation(rec.delegation);
     const codeArtifacts = parseGroundedCodeArtifacts(rec.codeArtifacts);
     const verification = parseAnswerVerification(rec.verification);
+    const resourceContext = parseResourceContext(rec.resourceContext);
     const turn: PersistedTurn = {
       id: rec.id,
       role: rec.role,
@@ -193,6 +202,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(answerPlanning ? { answerPlanning } : {}),
       ...(delegation ? { delegation } : {}),
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+      ...(resourceContext ? { resourceContext } : {}),
     };
     out.push(turn);
   }

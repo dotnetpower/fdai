@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: b5a61d7d9e78b12be18aadc9dab877698b9de09d
+translation_source_sha: e4d4cc23c69e8b62e26d3e175360b2d3c294ec98
 translation_revised: 2026-07-29
 ---
 
@@ -60,6 +60,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
 | Investigation evidence signal | 구현됨 | Bound된 read-investigation hook은 Heimdall 대화형 포트의 owned evidence로 계산되므로, 로컬 신호 window가 차기 전에도 조사 가능한 turn에는 evidence-gap prompt layer가 붙지 않습니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
+| 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. 생략된 history 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 resource를 다시 resolve한 뒤 일치하는 read evidence를 직접 반환합니다. |
 | Subscription health sweep | 구현됨 | 명시적인 subscription 점검과 일반적인 service-outage 질문이 configured reader scope를 사용합니다. Provider는 Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 허용된 resource group별 current Resource Health status로 fallback한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
@@ -89,6 +90,15 @@ correlation reference, intent, resource selector, lookback, requested evidence, 
 Planner는 history를 조회하기 전에 resource name을 resolve합니다. Match가 없으면 `not_found`를
 반환합니다. 여러 match는 bounded candidate와 함께 `ambiguous`를 반환하고 추가 cloud query를 하지
 않습니다. 단일 match는 이후 tool이 확장할 수 없는 exact provider resource reference를 생성합니다.
+
+Inventory 답변이 resource 하나를 선택하면 terminal response에 bounded name, type 및 inventory
+evidence reference를 포함할 수 있습니다. Command Deck은 "언제부터 중지되어 있었어?" 같은 후속
+질문에 이 context를 다시 보냅니다. 다시 보낸 값은 selector hint일 뿐 evidence authority가 아닙니다.
+Server는 이 값을 검증하고 configured subscription 및 resource-group scope 안에서 exact resource를
+다시 resolve합니다. Resolution이 없거나 ambiguous하거나 일치하지 않으면 grounded history 답변을
+생성할 수 없습니다. Resource history 및 attribution은 bounded 30일 lookback을 사용합니다. 중지된
+resource에 대해 Heimdall은 최근 성공한 Stop, Power Off 또는 Deallocate Activity Log event를 보고하고,
+현재 중지 상태가 적어도 해당 timestamp부터 이어졌다고 명시합니다.
 
 ## Read-tool catalog
 

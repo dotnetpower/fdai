@@ -59,6 +59,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
 | Investigation evidence signal | Implemented | A bound read-investigation hook counts as owned evidence for Heimdall's conversational port, so an investigable turn is not composed with the evidence-gap prompt layer even before the local signal window fills. |
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
+| Conversational resource continuity | Implemented | Command Deck retains one server-selected inventory resource across terminal turns. Elliptical history follow-ups bypass semantic and public-web planning, then Heimdall re-resolves the resource and returns its matching read evidence directly. |
 | Subscription health sweep | Implemented | Explicit subscription checks and general service-outage questions use the configured reader scope. The provider queries Resource Graph inventory and Resource Health, falls back to current Resource Health status by allowed resource group when ARG is empty, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
@@ -89,6 +90,15 @@ The initial intent vocabulary is:
 The planner resolves a resource name before querying history. Zero matches produce `not_found`.
 Multiple matches produce `ambiguous` with bounded candidates and no further cloud query. A single
 match produces an exact provider resource reference that later tools cannot widen.
+
+When an inventory answer selects one resource, the terminal response can include its bounded name,
+type, and inventory evidence reference. Command Deck echoes that context on a later question such
+as "Since when has it been stopped?" The echoed value is a selector hint, not evidence authority:
+the server validates it and resolves the exact resource again inside its configured subscription
+and resource-group scope. A missing, ambiguous, or mismatched resolution cannot produce a grounded
+history answer. Resource history and attribution use a bounded 30-day lookback. For a stopped
+resource, Heimdall reports the latest successful Stop, Power Off, or Deallocate Activity Log event
+and states that the current stopped state is confirmed from at least that timestamp.
 
 ## Read-tool catalog
 

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a230edad40bf045958e70c07d115708f504df74c
+translation_source_sha: 6bb556d504a2a147361e210d8003df503fcd87af
 translation_revised: 2026-07-29
 ---
 
@@ -278,6 +278,12 @@ Interactive local은 configured local PostgreSQL database에 bind하고 deployme
 bind합니다. 두 profile 모두 canonical request digest, lease, usage 및 terminal result를 persist하므로
 completed retry는 provider를 다시 호출하지 않고 replay됩니다. Browser input은 ledger owner를
 선택하거나 Azure scope를 넓히거나 server-owned reader credential을 바꿀 수 없습니다.
+
+두 profile은 동일한 bounded Azure read-investigation type map을 통해 PostgreSQL Flexible Server
+resource도 resolve합니다. Terminal inventory answer는 validated resource selector 하나를 browser에
+반환할 수 있지만 이후 history 질문은 configured Azure scope 안에서 해당 name을 다시 resolve합니다.
+Heimdall은 local과 deployment에서 동일한 30일 Activity Log lookback과 최근 성공한 Stop, Power Off 또는
+Deallocate 규칙을 사용합니다. Evidence가 없거나 일치하지 않으면 unavailable 상태를 유지합니다.
 
 Local factory는 15개 agent를 기본으로 모두 시작합니다. `FDAI_START_PANTHEON`은 disable-only
 control입니다. 값이 없으면 활성화하고 `0`, `false`, `no`, `off`만 runtime을 비활성화합니다.

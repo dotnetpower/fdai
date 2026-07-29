@@ -26,6 +26,14 @@ function toBackendHistory(history: readonly BackendTurn[]): BackendTurn[] {
   }));
 }
 
+function latestResourceContext(history: readonly BackendTurn[]) {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const turn = history[index];
+    if (turn?.role === "assistant") return turn.resourceContext;
+  }
+  return undefined;
+}
+
 export function createBackendRequestPayload(
   prompt: string,
   snapshot: ViewSnapshot | null,
@@ -37,11 +45,13 @@ export function createBackendRequestPayload(
   targetAgent?: string,
 ): Record<string, unknown> {
   const normalizedBinding = normalizeIncidentBinding(binding);
+  const resourceContext = latestResourceContext(history);
   return {
     ...(requestId === undefined ? {} : { request_id: requestId }),
     prompt,
     session_id: sessionId,
     ...(targetAgent ? { target_agent: targetAgent } : {}),
+    ...(resourceContext ? { resource_context: resourceContext } : {}),
     ...(attachments && attachments.length > 0
       ? {
           attachments: attachments.map((attachment) => ({

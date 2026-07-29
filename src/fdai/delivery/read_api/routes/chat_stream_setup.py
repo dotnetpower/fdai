@@ -15,6 +15,10 @@ from fdai.delivery.read_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     resolve_document_refs,
 )
+from fdai.delivery.read_api.routes.chat_resource_context import (
+    contextualize_resource_followup,
+    parse_resource_context,
+)
 from fdai.delivery.read_api.routes.chat_route_common import (
     DEFAULT_MAX_HISTORY_ITEMS,
     AnswerPreferenceResolver,
@@ -37,6 +41,9 @@ class PreparedChatStreamRequest:
     answer_preferences: ResponsePreferenceProfile | None
     document_evidence_refs: tuple[str, ...]
     clean_prompt: str
+    evidence_prompt: str
+    resource_context: dict[str, str] | None
+    resource_followup: bool
     view_context: dict[str, Any]
     conversation_context: dict[str, str] | None
     target_agent: str | None
@@ -113,8 +120,16 @@ async def prepare_chat_stream_request(
 
     clean_prompt = prompt.strip()
     _reject_direct_override(clean_prompt)
-    answer_plan = build_answer_plan(
+    try:
+        resource_context = parse_resource_context(body.get("resource_context"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    evidence_prompt, resource_followup = contextualize_resource_followup(
         clean_prompt,
+        resource_context,
+    )
+    answer_plan = build_answer_plan(
+        evidence_prompt,
         route_id=str(view_context.get("routeId") or "") or None,
         preferences=answer_preferences,
     )
@@ -126,6 +141,9 @@ async def prepare_chat_stream_request(
         answer_preferences=answer_preferences,
         document_evidence_refs=document_evidence_refs,
         clean_prompt=clean_prompt,
+        evidence_prompt=evidence_prompt,
+        resource_context=resource_context,
+        resource_followup=resource_followup,
         view_context=view_context,
         conversation_context=conversation_context,
         target_agent=_target_agent(body, conversation_context),

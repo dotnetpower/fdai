@@ -39,6 +39,8 @@ from fdai.shared.providers.read_investigation import (
     ResourceSelector,
 )
 
+_HISTORY_LOOKBACK_SECONDS = 30 * 24 * 3_600
+
 
 class ReadInvestigationDirectExecutor(Protocol):
     @property
@@ -96,7 +98,15 @@ class HeimdallReadInvestigationResponder:
             correlation_ref=f"read:sha256:{digest}",
             intent=intent,
             selector=ResourceSelector(name=resource_name, scope_ref=self._scope_ref),
-            lookback_seconds=3_600,
+            lookback_seconds=(
+                _HISTORY_LOOKBACK_SECONDS
+                if intent
+                in {
+                    ReadInvestigationIntent.CHANGE_ATTRIBUTION,
+                    ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY,
+                }
+                else 3_600
+            ),
             requested_evidence=(),
             budget=ReadInvestigationBudget(),
             idempotency_key=f"read:sha256:{digest}",
@@ -223,6 +233,44 @@ def _render_answer(
         )
         prefix = "피어링" if korean else "peerings"
         return f"{resource_name} {prefix}: {rendered}.{caveat}"
+    if intent in {
+        ReadInvestigationIntent.CHANGE_ATTRIBUTION,
+        ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY,
+    }:
+        successful_stops = sorted(
+            (
+                record
+                for record in records
+                if record.status == "succeeded"
+                and record.operation_kind in {"stop", "deallocate", "power_off"}
+            ),
+            key=lambda record: record.occurred_at,
+            reverse=True,
+        )
+        if successful_stops:
+            latest = successful_stops[0]
+            observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+            operation = latest.operation_kind or "stop"
+            if korean:
+                return (
+                    f"{resource_name}의 최근 성공한 중지 작업은 {observed}에 Azure Activity Log에 "
+                    f"기록되었습니다. 작업 종류는 {operation}입니다. 현재 중지 상태는 적어도 이 "
+                    "시점부터 이어진 것으로 확인됩니다."
+                )
+            return (
+                f"The latest successful stop for {resource_name} was recorded in Azure Activity "
+                f"Log at {observed}. The operation was {operation}; the current stopped state is "
+                "confirmed from at least that time."
+            )
+        if korean:
+            return (
+                f"최근 30일 Azure Activity Log에서 {resource_name}의 성공한 중지 작업을 "
+                "찾지 못해 시작 시각을 확정할 수 없습니다."
+            )
+        return (
+            f"No successful stop operation for {resource_name} was found in the last 30 days of "
+            "Azure Activity Log, so the start time is unconfirmed."
+        )
     return f"Read investigation for {resource_name}: {outcome}; evidence sources={len(evidence)}."
 
 

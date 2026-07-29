@@ -65,6 +65,11 @@ class _Transport:
                 "caller_kind": "user",
                 "correlation": "provider-correlation",
             },
+            {
+                "occurred_at": NOW.isoformat(),
+                "status": "Succeeded",
+                "operation": "Microsoft.DBforPostgreSQL/flexibleServers/stop/action",
+            },
             {"_truncated": True},
         ]
 
@@ -178,6 +183,9 @@ async def test_rest_and_typed_cli_produce_the_same_normalized_envelopes() -> Non
     assert RAW_CALLER not in repr(rest_result)
     network_security = rest_result[-2]
     network_peering = rest_result[-1]
+    activity = rest_result[2]
+    assert isinstance(activity, ReadEvidenceEnvelope)
+    assert [record.operation_kind for record in activity.records] == ["deallocate", "stop"]
     assert isinstance(network_security, ReadEvidenceEnvelope)
     assert isinstance(network_peering, ReadEvidenceEnvelope)
     assert dict(network_security.records[0].details)["destination_ports"] == "443"

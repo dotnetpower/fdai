@@ -443,6 +443,7 @@ export function useCommandDeckSubmit({
                   ...(reply.delegation ? { delegation: reply.delegation } : {}),
                   ...(reply.codeArtifacts ? { codeArtifacts: reply.codeArtifacts } : {}),
                   ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
+                  ...(reply.resourceContext ? { resourceContext: reply.resourceContext } : {}),
                 }
               : turn;
           });

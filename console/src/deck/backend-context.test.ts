@@ -10,6 +10,7 @@ import type { ViewSnapshot } from "./context";
 import { askBackend } from "./backend";
 import { healthUrl, requestHeaders } from "./backend-endpoints";
 import { createBackendHealthProbe } from "./backend-health";
+import { createBackendRequestPayload } from "./backend-context";
 import { parseRouter } from "./backend-normalizers";
 import { setChatAuth } from "./auth";
 
@@ -125,6 +126,50 @@ describe("viewContextWithUser wiring", () => {
     );
 
     expect((parsed as Record<string, unknown>).target_agent).toBe("Heimdall");
+  });
+
+  test("sends the latest assistant resource as bounded follow-up context", () => {
+    const older = {
+      name: "db-old",
+      resource_type: "postgresql-server",
+      evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/old",
+    };
+    const current = {
+      name: "db-current",
+      resource_type: "postgresql-server",
+      evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/current",
+    };
+
+    const payload = createBackendRequestPayload("언제부터 중지되어 있었어?", liveSnap(), [
+      { role: "assistant", content: "old", resourceContext: older },
+      { role: "user", content: "중지된 DB 있어?" },
+      { role: "assistant", content: "current", resourceContext: current },
+    ], "session-42");
+
+    expect(payload.resource_context).toEqual(current);
+    expect(payload.history).toEqual([
+      { role: "assistant", content: "old" },
+      { role: "user", content: "중지된 DB 있어?" },
+      { role: "assistant", content: "current" },
+    ]);
+  });
+
+  test("does not reuse resource context across a later unrelated assistant turn", () => {
+    const payload = createBackendRequestPayload("언제부터였어?", liveSnap(), [
+      {
+        role: "assistant",
+        content: "db result",
+        resourceContext: {
+          name: "db-old",
+          resource_type: "postgresql-server",
+          evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/old",
+        },
+      },
+      { role: "user", content: "다른 질문" },
+      { role: "assistant", content: "unrelated answer" },
+    ], "session-42");
+
+    expect(payload.resource_context).toBeUndefined();
   });
 });
 

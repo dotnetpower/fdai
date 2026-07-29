@@ -12,6 +12,7 @@ import {
   type GroundedCodeArtifact,
   type InvestigationActivity,
   type RouterSnapshot,
+    type ResourceContext,
   type VerificationProgress,
 } from "./backend";
 import { replyAgentLabel, type DeckLayoutMode } from "./command-deck-session";
@@ -49,6 +50,7 @@ export interface Turn {
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly actionDraft?: ActionDraft;
+    readonly resourceContext?: ResourceContext;
   readonly agent?: string;
   readonly at: string;
 }

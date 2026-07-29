@@ -475,6 +475,7 @@ def _operation(raw: object) -> str | None:
     value = str(raw or "").casefold()
     for marker, operation in (
         ("deallocate", "deallocate"),
+        ("stop", "stop"),
         ("poweroff", "power_off"),
         ("power off", "power_off"),
         ("restart", "restart"),

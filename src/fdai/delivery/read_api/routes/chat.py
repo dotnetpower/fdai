@@ -154,6 +154,12 @@ from fdai.delivery.read_api.routes.chat_prompt import (
     _with_concept_evidence,
 )
 from fdai.delivery.read_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
+from fdai.delivery.read_api.routes.chat_resource_context import (
+    contextualize_resource_followup,
+    parse_resource_context,
+    resource_followup_answer,
+    response_resource_context,
+)
 from fdai.delivery.read_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     DEFAULT_MAX_HISTORY_ITEMS,
@@ -353,8 +359,16 @@ def make_chat_route(
 
         clean_prompt = prompt.strip()
         _reject_direct_override(clean_prompt)
-        answer_plan = build_answer_plan(
+        try:
+            resource_context = parse_resource_context(body.get("resource_context"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        evidence_prompt, resource_followup = contextualize_resource_followup(
             clean_prompt,
+            resource_context,
+        )
+        answer_plan = build_answer_plan(
+            evidence_prompt,
             route_id=str(view_context.get("routeId") or "") or None,
             preferences=answer_preferences,
         )
@@ -377,7 +391,7 @@ def make_chat_route(
         try:
             operator_turn = None
             semantic_plan = None
-            if turn_planner is not None:
+            if turn_planner is not None and not resource_followup:
                 try:
                     semantic_plan = await turn_planner.plan_turn(
                         prompt=clean_prompt,
@@ -448,14 +462,14 @@ def make_chat_route(
             )
             view_context = with_document_evidence(view_context, document_evidence_refs)
             view_context = _with_screen_scope(
-                clean_prompt,
+                evidence_prompt,
                 view_context,
                 agent_delegate,
                 conversation_context=conversation_context,
                 target_agent=target_agent,
             )
             view_context = await _with_behavior_evidence(
-                clean_prompt,
+                evidence_prompt,
                 view_context,
                 behavior_resolver,
             )
@@ -465,7 +479,7 @@ def make_chat_route(
 
             view_context = await resolve_parallel_chat_evidence(
                 request_id=request_id,
-                prompt=clean_prompt,
+                prompt=evidence_prompt,
                 view_context=view_context,
                 user_id=user_id,
                 session_id=session_id,
@@ -478,15 +492,16 @@ def make_chat_route(
                 web_search_resolver=web_search_resolver,
                 progress_observer=ignore_evidence_progress,
             )
-            view_context = _with_concept_evidence(clean_prompt, view_context)
-            view_context = _with_ontology_storage_contract(clean_prompt, view_context)
+            view_context = _with_concept_evidence(evidence_prompt, view_context)
+            view_context = _with_ontology_storage_contract(evidence_prompt, view_context)
             answer_plan, planning_task = start_shadow_answer_planning(
-                prompt=clean_prompt,
+                prompt=evidence_prompt,
                 plan=answer_plan,
                 delegate=(
                     None
                     if "_screen_scope" in view_context
                     or "_ontology_storage_contract" in view_context
+                    or resource_followup
                     or _uses_evidence_fast_path(view_context)
                     else answer_planning_delegate
                 ),
@@ -526,7 +541,25 @@ def make_chat_route(
                 view_context,
                 locale=response_locale,
             )
-            if _uses_evidence_fast_path(view_context):
+            contextual_answer = (
+                resource_followup_answer(view_context, resource_context)
+                if resource_followup
+                else None
+            )
+            reply: dict[str, Any]
+            if contextual_answer is not None:
+                verification = verify_answer(
+                    contextual_answer,
+                    view_context,
+                    locale=response_locale,
+                )
+                reply = {
+                    "answer": verification.answer,
+                    "model": "heimdall-read-investigation",
+                    "source": "evidence:read-investigation",
+                    "verification": verification.to_dict(),
+                }
+            elif _uses_evidence_fast_path(view_context):
                 canonical = verify_answer(
                     "",
                     view_context,
@@ -537,7 +570,7 @@ def make_chat_route(
                     view_context,
                     locale=_response_locale(clean_prompt, view_context),
                 )
-                reply: dict[str, Any] = {
+                reply = {
                     "answer": verification.answer,
                     "model": "evidence-verifier",
                     "source": f"evidence:{verification.status}",
@@ -710,6 +743,9 @@ def make_chat_route(
         enriched["answer_plan"] = answer_plan.to_dict()
         if answer_planning is not None:
             enriched["answer_planning"] = answer_planning
+        selected_resource = response_resource_context(view_context, resource_context)
+        if selected_resource is not None:
+            enriched["resource_context"] = selected_resource
         enriched["code_artifacts"] = [
             artifact.to_dict() for artifact in extract_grounded_code(verification.answer)
         ]

@@ -260,6 +260,42 @@ async def test_chat_delegate_hands_multi_source_work_off_before_cloud_io() -> No
     assert executor.calls == 0
 
 
+async def test_chat_delegate_renders_latest_successful_stop_history() -> None:
+    envelope = ReadEvidenceEnvelope(
+        status=EvidenceStatus.MATCHED,
+        authority="azure.resource_activity",
+        resource_ref="resource:one",
+        observed_at=NOW,
+        freshness=EvidenceFreshness.LIVE,
+        truncated=False,
+        records=(
+            ReadEvidenceRecord(
+                occurred_at=datetime(2026, 7, 27, 16, 17, 55, tzinfo=UTC),
+                status="succeeded",
+                operation_kind="stop",
+            ),
+            ReadEvidenceRecord(
+                occurred_at=datetime(2026, 7, 28, 15, 11, 29, tzinfo=UTC),
+                status="succeeded",
+                operation_kind="stop",
+            ),
+        ),
+        evidence_refs=("evidence:activity",),
+    )
+    executor = _NetworkExecutor(envelope)
+    result = await _delegate(executor).delegate(
+        prompt="postgres-data 변경 이력: 언제부터 중지되어 있었어?",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert "2026-07-28T15:11:29Z" in _answer(result)
+    assert "최근 성공한 중지 작업" in _answer(result)
+    assert "적어도 이 시점부터" in _answer(result)
+    assert _facts(result)["intent"] == "resource_change_history"
+
+
 async def test_chat_delegate_ignores_unrelated_question() -> None:
     executor = _Executor()
     result = await _delegate(executor).delegate(

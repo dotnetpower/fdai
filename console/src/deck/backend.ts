@@ -27,6 +27,7 @@ import {
   parseAnswerVerification,
   parseDelegation,
   parseRouter,
+    parseResourceContext,
   tokenSuffix,
 } from "./backend-normalizers";
 import {
@@ -166,6 +167,11 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).code_artifacts
       : undefined,
   );
+  const resourceContext = parseResourceContext(
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).resource_context
+      : undefined,
+  );
   if (answerText === null) {
     const local = deterministicAnswer(prompt, snapshot);
     return { ...local, source: "deterministic (no answer field)" };
@@ -200,6 +206,7 @@ export async function askBackend(
     ...(answerPlan ? { answerPlan } : {}),
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+    ...(resourceContext ? { resourceContext } : {}),
   };
 }
 

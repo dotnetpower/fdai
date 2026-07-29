@@ -278,6 +278,12 @@ Azure PostgreSQL. Both persist the canonical request digest, lease, usage, and t
 completed retry replays without another provider call. Browser input cannot select the ledger
 owner, widen the Azure scope, or replace the server-owned reader credential.
 
+Both profiles also resolve PostgreSQL Flexible Server resources through the same bounded Azure
+read-investigation type map. A terminal inventory answer can return one validated resource selector
+to the browser, but a later history question still re-resolves that name inside the configured
+Azure scope. Heimdall uses the same 30-day Activity Log lookback and latest successful Stop, Power
+Off, or Deallocate rule in local and deployment. Missing or mismatched evidence remains unavailable.
+
 The local factory starts all 15 agents by default. `FDAI_START_PANTHEON` is a disable-only control:
 unset means enabled, while `0`, `false`, `no`, or `off` disables the runtime. When Event Hubs is
 configured, the agents use that Azure transport under a dedicated local consumer group. Otherwise,

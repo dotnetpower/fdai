@@ -3,6 +3,13 @@ import type { Answer } from "./answerer";
 export interface BackendTurn {
   readonly role: "user" | "assistant";
   readonly content: string;
+  readonly resourceContext?: ResourceContext;
+}
+
+export interface ResourceContext {
+  readonly name: string;
+  readonly resource_type: string;
+  readonly evidence_ref: string;
 }
 
 export interface RouterCandidate {
@@ -242,6 +249,7 @@ export type ProgressiveAnswer = Answer & {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly confirmed?: ConfirmedAnswerSegment;
   readonly actionDraft?: ActionDraft;
+  readonly resourceContext?: ResourceContext;
 };
 
 export interface BackendHealth {

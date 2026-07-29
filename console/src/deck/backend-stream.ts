@@ -14,6 +14,7 @@ import {
   parseInvestigationActivity,
   parseInvestigationMilestone,
   parseRetrievalSourcePreviews,
+    parseResourceContext,
   parseRouter,
   parseVerificationStatus,
   tokenSuffix,
@@ -396,6 +397,7 @@ export async function askBackendStream(
   const answerPlanning = parseAnswerPlanning(done.answer_planning);
   const actionDraft = parseActionDraft(done.action_draft);
   const codeArtifacts = parseGroundedCodeArtifacts(done.code_artifacts);
+    const resourceContext = parseResourceContext(done.resource_context);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const source = explicitSource ?? (
@@ -418,6 +420,7 @@ export async function askBackendStream(
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
+    ...(resourceContext ? { resourceContext } : {}),
   };
 }
 

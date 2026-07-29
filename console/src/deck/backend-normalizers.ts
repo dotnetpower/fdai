@@ -17,12 +17,34 @@ import type {
   RetrievalSourcePreview,
   RouterCandidate,
   RouterSnapshot,
+  ResourceContext,
 } from "./backend-types";
 import { PANTHEON } from "../routes/agents.model";
 
 const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 const MAX_AGENT_NAME_CHARS = 64;
 const MAX_TRACE_REF_CHARS = 256;
+const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$/;
+const RESOURCE_TYPE_PATTERN = /^[a-z0-9][a-z0-9_.-]{1,127}$/;
+
+export function parseResourceContext(raw: unknown): ResourceContext | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (
+    typeof record.name !== "string" ||
+    !RESOURCE_NAME_PATTERN.test(record.name) ||
+    typeof record.resource_type !== "string" ||
+    !RESOURCE_TYPE_PATTERN.test(record.resource_type) ||
+    typeof record.evidence_ref !== "string" ||
+    !record.evidence_ref.startsWith("inventory:") ||
+    record.evidence_ref.length > 1024
+  ) return undefined;
+  return {
+    name: record.name,
+    resource_type: record.resource_type,
+    evidence_ref: record.evidence_ref,
+  };
+}
 
 const ACTIVITY_STATUSES = new Set<InvestigationActivityStatus>([
   "pending",

@@ -8,5 +8,6 @@ export function backendHistoryForTurns(turns: readonly Turn[]): BackendTurn[] {
     .map((turn) => ({
       role: turn.role === "operator" ? "user" : "assistant",
       content: turn.groundingText ?? turn.text,
+      ...(turn.resourceContext ? { resourceContext: turn.resourceContext } : {}),
     }));
 }

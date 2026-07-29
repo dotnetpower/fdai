@@ -4,6 +4,7 @@ import {
   parseEvidenceBranch,
   parseInvestigationActivity,
   parseInvestigationMilestone,
+  parseResourceContext,
   parseRetrievalSourcePreviews,
 } from "./backend-normalizers";
 
@@ -19,6 +20,25 @@ function activity(execution: Record<string, unknown>) {
     execution,
   };
 }
+
+describe("parseResourceContext", () => {
+  it("accepts only bounded inventory-backed context", () => {
+    expect(parseResourceContext({
+      name: "db-current",
+      resource_type: "postgresql-server",
+      evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/current",
+    })).toEqual({
+      name: "db-current",
+      resource_type: "postgresql-server",
+      evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/current",
+    });
+    expect(parseResourceContext({
+      name: "db-current",
+      resource_type: "postgresql-server",
+      evidence_ref: "client-asserted:/subscriptions/test",
+    })).toBeUndefined();
+  });
+});
 
 describe("parseInvestigationActivity execution evidence", () => {
   it("accepts bounded evidence attested as redacted", () => {

@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: ba5fa3140ac8668cbc469a0bafaf5840d6733bbf
+translation_source_sha: 3c8fc0ec02bdf20033e0300b637bab01f80595ab
 translation_revised: 2026-07-29
 ---
 
@@ -149,6 +149,11 @@ Deterministic local inventory intent는 semantic plan이 public web을 선택했
 inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 않습니다. 명시적인 web-search
 표현만 예외입니다. Partial AKS cluster inventory는 cluster 내부 Deployment 또는 Pod의 proof가 되지
 않습니다.
+Queued terminal follow-up도 이전 server inventory answer가 선택한 bounded resource 하나를 유지합니다.
+Browser는 name, type 및 inventory evidence reference만 persist합니다. "언제부터 중지되어 있었어?" 같은
+history 표현은 semantic 및 public-web planning을 우회하지만, server가 selector를 검증하고 exact
+resource를 다시 resolve한 후에만 Heimdall이 Activity Log evidence를 읽습니다. Client context는 resource
+또는 evidence authority가 되지 않습니다.
 `latest`, `recent`, `최신` 같은 generic public freshness term은 incident, issue, outage, failure,
 problem 또는 cause 의미가 명시되지 않으면 incident scope를 만들지 않습니다. Steer rerun도 원래의
 public-web와 operational 경계를 유지합니다.

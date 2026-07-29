@@ -82,6 +82,7 @@ def build_local_read_investigation(
             ),
             resource_type_map=(
                 ("Microsoft.Compute/virtualMachines", "compute.vm"),
+                ("Microsoft.DBforPostgreSQL/flexibleServers", "postgresql-server"),
                 ("Microsoft.Network/networkSecurityGroups", "network.nsg"),
                 ("Microsoft.Network/virtualNetworks", "network.vnet"),
             ),

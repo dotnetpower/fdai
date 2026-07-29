@@ -34,6 +34,11 @@ describe("serializeTurns", () => {
         followUps: ["Show T1"],
         terminal: true,
         revision: 1,
+        resourceContext: {
+          name: "db-current",
+          resource_type: "postgresql-server",
+          evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/current",
+        },
         answerPlanning: {
           mode: "shadow" as const,
           status: "completed" as const,
@@ -127,6 +132,7 @@ describe("serializeTurns", () => {
     expect(parsed[1]!.followUps).toEqual(["Show T1"]);
     expect(parsed[1]!.terminal).toBe(true);
     expect(parsed[1]!.revision).toBe(1);
+    expect(parsed[1]!.resourceContext?.name).toBe("db-current");
     expect(parsed[1]!.answerPlanning?.consulted_agents).toEqual(["Freyr", "Njord"]);
     expect(parsed[1]!.delegation).toEqual({
       primary_agent: "Heimdall",

@@ -147,6 +147,11 @@ selected public web. This includes colloquial database state filters such as `st
 retain the server-owned inventory branch and don't start agent or public-web branches. Explicit
 web-search wording is the only exception. Partial AKS cluster inventory never becomes proof of an
 in-cluster Deployment or Pod.
+A queued terminal follow-up also retains one bounded resource selected by the preceding server
+inventory answer. The browser persists only its name, type, and inventory evidence reference.
+History wording such as "Since when has it been stopped?" bypasses semantic and public-web planning,
+while the server validates the selector and re-resolves the exact resource before Heimdall reads
+Activity Log evidence. Client context never becomes resource or evidence authority.
 Generic public freshness terms such as `latest`, `recent`, or `최신` do not create incident scope
 without explicit incident, issue, outage, failure, problem, or cause semantics. A steer rerun keeps
 that original public-web versus operational boundary.

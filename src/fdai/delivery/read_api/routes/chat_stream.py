@@ -75,6 +75,10 @@ from fdai.delivery.read_api.routes.chat_prompt import (
     _with_concept_evidence,
 )
 from fdai.delivery.read_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
+from fdai.delivery.read_api.routes.chat_resource_context import (
+    resource_followup_answer,
+    response_resource_context,
+)
 from fdai.delivery.read_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     AnswerPreferenceResolver,
@@ -173,6 +177,9 @@ def make_chat_stream_route(
         preferred_model = prepared.preferred_model
         document_evidence_refs = prepared.document_evidence_refs
         clean_prompt = prepared.clean_prompt
+        evidence_prompt = prepared.evidence_prompt
+        resource_context = prepared.resource_context
+        resource_followup = prepared.resource_followup
         view_context = prepared.view_context
         conversation_context = prepared.conversation_context
         target_agent = prepared.target_agent
@@ -283,7 +290,7 @@ def make_chat_stream_route(
                     await cleanup()
                     yield frame("done", completed_payload)
                     return
-                if turn_planner is not None:
+                if turn_planner is not None and not resource_followup:
                     try:
                         semantic_plan = await turn_planner.plan_turn(
                             prompt=clean_prompt,
@@ -349,14 +356,14 @@ def make_chat_stream_route(
                     document_evidence_refs,
                 )
                 enriched_context = _with_screen_scope(
-                    clean_prompt,
+                    evidence_prompt,
                     enriched_context,
                     agent_delegate,
                     conversation_context=conversation_context,
                     target_agent=target_agent,
                 )
                 enriched_context = await _with_behavior_evidence(
-                    clean_prompt,
+                    evidence_prompt,
                     enriched_context,
                     behavior_resolver,
                 )
@@ -378,7 +385,7 @@ def make_chat_stream_route(
                 evidence_task = asyncio.create_task(
                     resolve_parallel_chat_evidence(
                         request_id=request_id,
-                        prompt=clean_prompt,
+                        prompt=evidence_prompt,
                         view_context=enriched_context,
                         user_id=user_id,
                         session_id=session_id,
@@ -410,15 +417,18 @@ def make_chat_stream_route(
                         evidence_task.cancel()
                         with suppress(asyncio.CancelledError):
                             await evidence_task
-                enriched_context = _with_concept_evidence(clean_prompt, enriched_context)
-                enriched_context = _with_ontology_storage_contract(clean_prompt, enriched_context)
+                enriched_context = _with_concept_evidence(evidence_prompt, enriched_context)
+                enriched_context = _with_ontology_storage_contract(
+                    evidence_prompt, enriched_context
+                )
                 answer_plan, planning_task = start_shadow_answer_planning(
-                    prompt=clean_prompt,
+                    prompt=evidence_prompt,
                     plan=answer_plan,
                     delegate=(
                         None
                         if "_screen_scope" in enriched_context
                         or "_ontology_storage_contract" in enriched_context
+                        or resource_followup
                         or _uses_evidence_fast_path(enriched_context)
                         else answer_planning_delegate
                     ),
@@ -446,6 +456,11 @@ def make_chat_stream_route(
                     clean_prompt,
                     enriched_context,
                     locale=response_locale,
+                )
+                contextual_answer = (
+                    resource_followup_answer(enriched_context, resource_context)
+                    if resource_followup
+                    else None
                 )
                 if vision_previews:
                     yield frame(
@@ -488,7 +503,12 @@ def make_chat_stream_route(
                 terminal_model: Any = None
                 terminal_router: Any = None
                 terminal_usage: Any = None
-                if evidence_fast_path:
+                if contextual_answer is not None:
+                    provisional_answer = contextual_answer
+                    terminal_model = "heimdall-read-investigation"
+                    for chunk in _chunk_answer_for_stream(provisional_answer):
+                        yield frame("token", {"delta": chunk})
+                elif evidence_fast_path:
                     canonical = verify_answer(
                         "",
                         enriched_context,
@@ -736,12 +756,17 @@ def make_chat_stream_route(
                     health_answer=health_answer,
                     screen_answer=screen_answer,
                     concept_answer=concept_answer,
+                    resource_answer=contextual_answer,
                     started=started,
                     delegation=delegation,
                     enriched_context=enriched_context,
                     answer_plan=answer_plan,
                     answer_planning=answer_planning,
                     quality=quality,
+                    resource_context=response_resource_context(
+                        enriched_context,
+                        resource_context,
+                    ),
                 )
                 if conversation_history_store is not None:
                     assistant_turn = await append_assistant_turn(

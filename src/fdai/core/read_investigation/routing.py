@@ -87,10 +87,10 @@ def classify_read_investigation_intent(question: str) -> ReadInvestigationIntent
         return None
     if _ATTRIBUTION.search(normalized):
         return ReadInvestigationIntent.CHANGE_ATTRIBUTION
-    if _GUEST.search(normalized):
-        return ReadInvestigationIntent.GUEST_SHUTDOWN
     if _HISTORY.search(normalized):
         return ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY
+    if _GUEST.search(normalized):
+        return ReadInvestigationIntent.GUEST_SHUTDOWN
     if _HEALTH.search(normalized):
         return ReadInvestigationIntent.PLATFORM_HEALTH
     if _STATE.search(normalized):

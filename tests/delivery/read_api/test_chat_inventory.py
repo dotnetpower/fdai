@@ -20,6 +20,7 @@ from fdai.delivery.read_api.routes.chat_inventory import (
     inventory_evidence_refs,
     render_inventory_answer,
 )
+from fdai.delivery.read_api.routes.chat_resource_context import resource_followup_answer
 from fdai.delivery.read_api.routes.chat_turn_plan import parse_turn_plan
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 
@@ -523,6 +524,164 @@ def test_stopped_db_stream_overrides_semantic_web_plan() -> None:
     assert "sql-app" not in done["answer"]
     assert "public_web" not in response.text
     assert '"branch_kind": "agent"' not in response.text
+    assert done["resource_context"] == {
+        "name": "postgres-data",
+        "resource_type": "postgresql-server",
+        "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+    }
+
+
+def test_resource_followup_reuses_verified_selector_without_planner_or_web() -> None:
+    delegated: list[str] = []
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("contextual resource follow-up must not invoke semantic planning")
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del user_id, session_id
+            delegated.append(prompt)
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "postgres-data의 최근 성공한 중지 작업은 확인된 시각부터 이어졌습니다.",
+                "facts": {"resource_name": "postgres-data"},
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": "read-investigation",
+            }
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("contextual resource follow-up must not search the public web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("contextual resource follow-up must not search the public web")
+
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                agent_delegate=AgentDelegate(),  # type: ignore[arg-type]
+                web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+                turn_planner=Planner(),  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={
+            "prompt": "언제부터 중지되어 있었어?",
+            "session_id": "session-db",
+            "resource_context": {
+                "name": "postgres-data",
+                "resource_type": "postgresql-server",
+                "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+            },
+            "view_context": {},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert delegated == ["postgres-data 변경 이력: 언제부터 중지되어 있었어?"]
+    assert payload["resource_context"]["name"] == "postgres-data"
+    assert "postgres-data" in payload["answer"]
+    assert backend.calls == 0
+
+
+def test_resource_followup_stream_returns_matching_heimdall_evidence_directly() -> None:
+    delegated: list[str] = []
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del user_id, session_id
+            delegated.append(prompt)
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "postgres-data의 최근 성공한 중지 작업은 확인된 시각부터 이어졌습니다.",
+                "facts": {"resource_name": "postgres-data"},
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": "read-investigation",
+            }
+
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                agent_delegate=AgentDelegate(),  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "prompt": "언제부터 중지되어 있었어?",
+            "session_id": "session-db",
+            "resource_context": {
+                "name": "postgres-data",
+                "resource_type": "postgresql-server",
+                "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+            },
+            "view_context": {},
+        },
+    )
+
+    assert response.status_code == 200
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert delegated == ["postgres-data 변경 이력: 언제부터 중지되어 있었어?"]
+    assert done["model"] == "heimdall-read-investigation"
+    assert done["source"] == "evidence:read-investigation"
+    assert done["resource_context"]["name"] == "postgres-data"
+    assert "postgres-data" in done["answer"]
+    assert backend.calls == 0
+
+
+def test_resource_followup_does_not_trust_mismatched_agent_evidence() -> None:
+    answer = resource_followup_answer(
+        {
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "answer": "Evidence for another resource.",
+                "facts": {"resource_name": "db-other"},
+            }
+        },
+        {
+            "name": "db-current",
+            "resource_type": "postgresql-server",
+            "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+        },
+    )
+
+    assert answer is None
+
+
+def test_resource_followup_rejects_non_inventory_context() -> None:
+    app = Starlette(routes=[make_chat_route(backend=RecordingBackend(), authorize=_allow)])
+
+    response = TestClient(app).post(
+        "/chat",
+        json={
+            "prompt": "언제부터 중지되어 있었어?",
+            "resource_context": {
+                "name": "db-current",
+                "resource_type": "postgresql-server",
+                "evidence_ref": "client-asserted:db-current",
+            },
+            "view_context": {},
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.text == "resource_context.evidence_ref MUST be an inventory reference"
 
 
 def test_twenty_inventory_weaknesses_pass_twenty_answer_rubrics() -> None:
