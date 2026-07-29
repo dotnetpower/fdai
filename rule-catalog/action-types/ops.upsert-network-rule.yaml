@@ -118,3 +118,9 @@ argument_schema:
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:ops.upsert-network-rule@1.0.0
+  content_hash: sha256:a56846d7e85c67df5c706f0f0b34c5930369c3d4d662f999c97dc7b4d3176ac2
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

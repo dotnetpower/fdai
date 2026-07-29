@@ -51,6 +51,8 @@ from fdai.core.reporting.registry import (
 )
 from fdai.core.reporting.widgets import install_default_widgets
 from fdai.core.reporting.widgets.composite import GROUP_LIKE_WIDGET_TYPES
+from fdai.shared.contracts.models import CeilingRole, OntologyObjectType
+from fdai.shared.ontology.acl import ProjectionRequest
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fdai.core.report_feed.feed import ReportFeed
@@ -83,6 +85,8 @@ def default_reporting_engine(
     log_query_provider: LogQueryProvider | None = None,
     ontology_store: OntologyInstanceStore | None = None,
     process_store: ProcessRuntimeStore | None = None,
+    ontology_object_types: tuple[OntologyObjectType, ...] = (),
+    ontology_projection_request: ProjectionRequest | None = None,
 ) -> tuple[ReportEngine, FormatRegistry]:
     """Build the upstream reporting engine + a default format registry.
 
@@ -155,8 +159,18 @@ def default_reporting_engine(
         )
 
     if ontology_store is not None and process_store is not None:
+        if not ontology_object_types:
+            raise ValueError(
+                "ontology_object_types MUST be provided when the ontology datasource is wired"
+            )
         sources.register(
-            OntologyDataSource(ontology=ontology_store, processes=process_store),
+            OntologyDataSource(
+                ontology=ontology_store,
+                processes=process_store,
+                object_types=ontology_object_types,
+                projection_request=ontology_projection_request
+                or ProjectionRequest(caller_role=CeilingRole.READER),
+            ),
             provenance=_provenance("ontology", wired=True),
         )
     else:

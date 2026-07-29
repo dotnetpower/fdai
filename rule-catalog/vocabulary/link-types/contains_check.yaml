@@ -5,3 +5,9 @@ from_type: ReviewCase
 to_type: ReviewCheck
 cardinality: one_to_many
 description: A requirement evaluated as part of a ReviewCase.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:contains_check@1.0.0
+  content_hash: sha256:44d372f0088d4f0672a72cb747f8ef0370bd8a87499effd817bff820cc5b7295
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

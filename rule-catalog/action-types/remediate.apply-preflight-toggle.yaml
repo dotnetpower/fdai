@@ -79,3 +79,9 @@ argument_schema:
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.apply-preflight-toggle@1.0.0
+  content_hash: sha256:f015db85050c939e9818b529012df7c0c0b94b70b4eefec73ff260be7f2e3acf
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

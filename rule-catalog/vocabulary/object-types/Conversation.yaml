@@ -38,3 +38,9 @@ properties:
     access_scope: owner
     purpose_binding: [user_context]
     description: Root correlation id linking this session to trace records.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Conversation@1.0.0
+  content_hash: sha256:31084f9738f17b18aaf5fe2782f7c9c2e79f08d8529b38ba21b7a68643e99f53
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

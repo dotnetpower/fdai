@@ -269,7 +269,7 @@ async def test_unknown_resource_type_abstains_at_routing(
         )
     )
     assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
-    assert result.reason == "no_rule_matches_resource_type"
+    assert result.reason == "no_rule_matches_resource_and_signal_type"
     assert publisher.records == ()
     assert len(list(audit.audit_entries)) == 1
 

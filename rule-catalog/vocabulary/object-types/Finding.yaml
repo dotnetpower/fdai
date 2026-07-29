@@ -40,3 +40,9 @@ properties:
     type: object
     required: false
     description: Open-shape context bag captured by the tier that produced the Finding.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Finding@1.0.0
+  content_hash: sha256:85479e8c5fbbb3edf5022661c289fcae42f18addc1a1ca7b2a9d2a3821e8c0ed
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

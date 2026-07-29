@@ -12,3 +12,9 @@ properties:
   created_at: {type: datetime, required: true}
   expires_at: {type: datetime, required: false}
   superseded_by: {type: string, required: false}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:UserMemoryFact@1.0.0
+  content_hash: sha256:3ef16c397dda527e03ca758732d1b054487676fd1d73e8f6297854865042ec80
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

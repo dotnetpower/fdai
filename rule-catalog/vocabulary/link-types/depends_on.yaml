@@ -11,3 +11,9 @@ from_type: Resource
 to_type: Resource
 cardinality: many_to_many
 description: Logical reference required for correct operation; broken edge degrades the dependent.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:depends_on@1.0.0
+  content_hash: sha256:e35434b2c25545e533026dfbcf86756cf45f958fbc8066c0a32c8da08c9680b8
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

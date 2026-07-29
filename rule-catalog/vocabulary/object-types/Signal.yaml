@@ -30,3 +30,9 @@ properties:
     type: object
     required: false
     description: Open-shape adapter payload consumed by the event validator and downstream tiers.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Signal@1.0.0
+  content_hash: sha256:647558748c8c80deb9c71e9a55e4baa71d9c5aa469ce3227daa1b7a1f2012447
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -1,7 +1,7 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 5ed01096cf91a49cf4b6b5ef0efa62cc497fed38
+translation_source_sha: c6650973112a5cbea6a4e3d7af95020623fa677d
 translation_revised: 2026-07-29
 ---
 
@@ -340,6 +340,10 @@ YAML 키는 **snake_case** ;
   `Signal` 에서 정확한 매칭 규칙으로 스캔 대신 두 인덱스 교집합으로 traverse 가능하게 함; 전체
   파이프라인은 [llm-strategy-ko.md § Rule-to-Decision Lookup Pipeline](../architecture/llm-strategy-ko.md#rule-to-decision-lookup-pipeline)
   에 있음.
+  `applies_to`는 resource-type 목록이며 legacy canonical `resource_type`을 반드시 포함함;
+  label/tag filter는 `scope_predicates`로 분리함. 더 좁은 signal/property metadata가 없는 source는
+  normalization 중 명시적 `"*"` baseline을 받음. source가 구체 값을 제공하면 curator는 promotion
+  전에 baseline을 구체 값으로 교체하는 것이 바람직함.
 - **`remediates` vs `remediation` - 두 필드, 하나의 개념:** `remediates` 는 이 규칙이 제안하는
   *mutation 카테고리* 를 선언하는 **ActionType id** (M:1); `remediation` 은 구체적 *how*인
   `{ template_ref, cost_impact_monthly_usd }`입니다. 두 필드는 모든 `Rule`에 함께 필수이며 loader는

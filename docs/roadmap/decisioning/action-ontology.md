@@ -187,6 +187,18 @@ provenance:
   retrieved_at: RFC3339
 ```
 
+Every shipped ObjectType, LinkType, and ActionType carries this provenance block. `content_hash`
+is `sha256:<hex>` over the Pydantic-normalized declaration encoded as canonical JSON with the
+`provenance` field excluded. Catalog loaders recompute it and block startup on mismatch, so a
+declaration edit cannot retain stale evidence. `resolved_ref` identifies the authored declaration
+version; `source_url` identifies its reviewable source.
+
+Precondition parameters are typed references, not free-form labels. At catalog load,
+`link_exists` and `link_absent` resolve `link_type` against the combined upstream and fork
+LinkType registry. Unknown names block startup. A precondition kind also carries only the
+parameters defined for that kind; missing required parameters and unrelated parameters are
+rejected before an action can reach the risk gate.
+
 The catalog backfill has completed with:
 
 - `trigger_kind.kind = rule_violation`

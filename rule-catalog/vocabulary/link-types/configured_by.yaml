@@ -12,3 +12,9 @@ from_type: Agent
 to_type: UserPreference
 cardinality: many_to_many
 description: UserPreference records that configure a pantheon Agent.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:configured_by@1.0.0
+  content_hash: sha256:ad5015ff636a4adaae63018250bf1a370aff75daba2bf64450985b83fa1606a8
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

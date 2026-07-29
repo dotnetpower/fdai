@@ -75,13 +75,16 @@ class TrustRouter:
                 reason="event_payload_missing_resource_type",
             )
 
-        candidates = self._index.rules_for_type(resource_type)
+        candidates = self._index.rules_for_signal(
+            resource_type=resource_type,
+            signal_type=event.event_type,
+        )
         if not candidates:
             return RoutingDecision(
                 tier=RoutingTier.T1,
                 resource_type=resource_type,
                 candidate_rule_ids=(),
-                reason="no_rule_matches_resource_type",
+                reason="no_rule_matches_resource_and_signal_type",
             )
 
         return RoutingDecision(

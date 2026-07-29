@@ -153,7 +153,14 @@ def _serialize_detail(rule: Rule, origin: str) -> dict[str, object]:
         "remediates": rule.remediates,
         "alternatives": list(rule.alternatives),
         "parameters": dict(rule.parameters),
-        "applies_to": dict(rule.applies_to),
+        "applies_to": list(rule.applies_to),
+        "triggered_by": list(rule.triggered_by),
+        "evaluates": list(rule.evaluates),
+        "required_interfaces": [item.value for item in rule.required_interfaces],
+        "submission_criteria": [
+            {"kind": item.kind.value, "value": item.value} for item in rule.submission_criteria
+        ],
+        "scope_predicates": dict(rule.scope_predicates),
         "provenance": {
             "source_url": prov.source_url,
             "source_version": prov.source_version,

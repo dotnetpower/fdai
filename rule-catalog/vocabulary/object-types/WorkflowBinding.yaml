@@ -15,3 +15,9 @@ properties:
   revision: {type: integer, required: true}
   created_at: {type: datetime, required: true}
   updated_at: {type: datetime, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:WorkflowBinding@1.0.0
+  content_hash: sha256:fc5f7bd9621970cc7ebfa8d89aa7da29a6018cd7b9f1e70f0808735f92394459
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

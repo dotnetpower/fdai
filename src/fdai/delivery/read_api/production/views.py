@@ -34,9 +34,7 @@ from fdai.delivery.read_api.routes.reporting import ReportingConfig
 from fdai.delivery.read_api.routes.workflow_authoring import WorkflowAuthoringConfig
 from fdai.delivery.read_api.routes.workflow_execution import WorkflowExecutionConfig
 from fdai.delivery.reporting import install_pdf_format_if_available
-from fdai.rule_catalog.schema.action_type import load_action_type_catalog
-from fdai.rule_catalog.schema.link_type import load_link_type_catalog
-from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.shared.contracts.models import (
     OntologyActionType,
@@ -67,20 +65,14 @@ def _build_dynamic_views(
     WorkflowExecutionConfig,
 ]:
     schema_registry = PackageResourceSchemaRegistry()
-    object_types = load_object_type_catalog(
-        _REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types",
-        schema_registry=schema_registry,
-    )
-    link_types = load_link_type_catalog(
-        _REPO_ROOT / "rule-catalog" / "vocabulary" / "link-types",
-        schema_registry=schema_registry,
-        object_types=object_types,
-    )
-    action_types = load_action_type_catalog(
-        _REPO_ROOT / "rule-catalog" / "action-types",
+    ontology_catalog = load_ontology_catalog(
+        _REPO_ROOT / "rule-catalog",
         schema_registry=schema_registry,
         probes_root=None,
     )
+    object_types = ontology_catalog.object_types
+    link_types = ontology_catalog.link_types
+    action_types = ontology_catalog.action_types
     workflows = load_workflow_catalog(
         _REPO_ROOT / "rule-catalog" / "workflows",
         schema_registry=schema_registry,
@@ -115,6 +107,7 @@ def _build_dynamic_views(
         report_feed=ReportFeed((report_signal_store,)),
         ontology_store=ontology_store,
         process_store=process_store,
+        ontology_object_types=object_types,
     )
     install_pdf_format_if_available(formats)
     view_specs = load_view_catalog(

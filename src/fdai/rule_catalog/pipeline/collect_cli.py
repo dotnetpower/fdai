@@ -39,7 +39,7 @@ from fdai.rule_catalog.pipeline.parse import (
     build_parser,
     verify_parsed_rules,
 )
-from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
@@ -199,11 +199,11 @@ def _run_verify(
 
     schema_registry = PackageResourceSchemaRegistry()
     probes_root = catalog_root / "probes"
-    action_types = load_action_type_catalog(
-        action_types_root,
+    action_types = load_ontology_catalog(
+        catalog_root,
         schema_registry=schema_registry,
         probes_root=probes_root if probes_root.is_dir() else None,
-    )
+    ).action_types
     with vocab_file.open("r", encoding="utf-8") as fh:
         resource_types = load_resource_type_registry_from_mapping(yaml.safe_load(fh))
 

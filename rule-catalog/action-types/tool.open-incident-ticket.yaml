@@ -85,3 +85,9 @@ argument_schema:
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:tool.open-incident-ticket@1.0.0
+  content_hash: sha256:a1c057b684b4c7ee153d8e0e19923d630a7724b20db3c01628d0600cf27a2566
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

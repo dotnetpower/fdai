@@ -47,13 +47,18 @@ def _load_action_types():  # type: ignore[no-untyped-def]
 
 def _valid_raw() -> dict[str, object]:
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "id": "object-storage.public-access.deny",
         "version": "1.0.0",
         "source": "mcsb",
         "severity": "high",
         "category": "security",
         "resource_type": "object-storage",
+        "applies_to": ["object-storage"],
+        "triggered_by": ["*"],
+        "evaluates": ["*"],
+        "required_interfaces": ["Evaluable", "Remediable"],
+        "submission_criteria": [{"kind": "resource_type_registered", "value": "object-storage"}],
         "check_logic": {
             "kind": "rego",
             "reference": "policies/object_storage/public_access.rego",
@@ -131,6 +136,42 @@ def test_single_valid_mapping_round_trips() -> None:
     assert rule.severity is Severity.HIGH
     assert rule.category is Category.SECURITY
     assert rule.alternatives == []
+
+
+def test_applies_to_must_include_canonical_resource_type() -> None:
+    raw = _valid_raw()
+    raw["applies_to"] = ["compute.vm"]
+    with pytest.raises(RuleCatalogError, match="MUST contain canonical resource_type"):
+        load_rule_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            action_type_names={"remediate.disable-public-access"},
+            resource_type_ids={"object-storage", "compute.vm"},
+        )
+
+
+def test_applies_to_rejects_unknown_resource_type() -> None:
+    raw = _valid_raw()
+    raw["applies_to"] = ["object-storage", "unknown.resource"]
+    with pytest.raises(RuleCatalogError, match="unknown applies_to resource type"):
+        load_rule_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            action_type_names={"remediate.disable-public-access"},
+            resource_type_ids={"object-storage"},
+        )
+
+
+def test_submission_criterion_rejects_unknown_resource_type() -> None:
+    raw = _valid_raw()
+    raw["submission_criteria"] = [{"kind": "resource_type_registered", "value": "unknown.resource"}]
+    with pytest.raises(RuleCatalogError, match="unknown registered resource type"):
+        load_rule_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            action_type_names={"remediate.disable-public-access"},
+            resource_type_ids={"object-storage"},
+        )
 
 
 def test_missing_remediates_is_rejected_by_schema() -> None:

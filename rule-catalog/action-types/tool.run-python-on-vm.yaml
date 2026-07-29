@@ -79,3 +79,9 @@ argument_schema:
       x-fdai-audit-safe: true
       minLength: 10
       maxLength: 200
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:tool.run-python-on-vm@1.0.0
+  content_hash: sha256:9d2184a47fbe185c879d9d09b2a4fea492283ee8110c043a43b51f1dfb72281d
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/rule/1.0.0",
+  "$id": "https://fdai.dev/schemas/rule/2.0.0",
   "title": "Rule",
   "description": "Normalized, CSP-neutral rule entry in the catalog. Sources map into this shape; runtime never reads a source-specific format.",
   "type": "object",
@@ -169,9 +169,53 @@
       "description": "Auditable origin. Missing provenance = rule is rejected at load."
     },
     "applies_to": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "description": "Resource types this rule may evaluate. MUST include resource_type."
+    },
+    "triggered_by": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(\\*|[a-z0-9][a-z0-9._-]{0,127})$"
+      },
+      "uniqueItems": true,
+      "description": "Event types that trigger evaluation. '*' is an explicit legacy catch-all."
+    },
+    "evaluates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "description": "Resource properties read by the policy; '*' is an explicit legacy baseline."
+    },
+    "required_interfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "enum": ["Evaluable", "Remediable"]},
+      "uniqueItems": true
+    },
+    "submission_criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "value"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["resource_type_registered", "property_exists", "link_exists"]
+          },
+          "value": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "scope_predicates": {
       "type": "object",
       "additionalProperties": true,
-      "description": "Scope predicates (labels, tags, tenants). CSP-neutral vocabulary."
+      "description": "Optional labels, tags, and tenant-neutral scope filters."
     },
     "remediates": {
       "type": "string",
@@ -192,5 +236,26 @@
       "additionalProperties": true,
       "description": "Optional typed inputs to `check_logic` (e.g. retention thresholds, CVSS version). Defaults live on the rule; per-assignment overrides live in rule-governance."
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"schema_version": {"const": "2.0.0"}},
+        "required": ["schema_version"]
+      },
+      "then": {
+        "required": [
+          "applies_to",
+          "triggered_by",
+          "evaluates",
+          "required_interfaces",
+          "submission_criteria"
+        ],
+        "properties": {
+          "applies_to": {"minItems": 1},
+          "submission_criteria": {"minItems": 1}
+        }
+      }
+    }
+  ]
 }

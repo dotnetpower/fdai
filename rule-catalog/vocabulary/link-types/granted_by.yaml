@@ -5,3 +5,9 @@ from_type: Approval
 to_type: Principal
 cardinality: many_to_one
 description: Principal that recorded an approval decision.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:granted_by@1.0.0
+  content_hash: sha256:d552f56c1c1209591c908e7ce1319add97839bf19dc63a51a85d04aefee99398
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -12,3 +12,9 @@ properties:
   required: {type: boolean, required: true}
   description: {type: string, required: true}
   updated_at: {type: datetime, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ReviewCheck@1.0.0
+  content_hash: sha256:14705a26d64ca32a1173736b8bc5009483efd1ee87e43ae7c8593b63c5799e2a
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

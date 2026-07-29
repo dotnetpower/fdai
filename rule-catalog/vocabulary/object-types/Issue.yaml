@@ -85,3 +85,9 @@ properties:
     type: string
     required: false
     description: PR url that promoted the resolving rule / capability (present only when status = closed).
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Issue@1.0.0
+  content_hash: sha256:9bb205f737d2e59cf2d2ec9b2823f3f7b9994c46f493c469dd95d0081f582dc4
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

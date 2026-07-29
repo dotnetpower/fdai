@@ -67,3 +67,9 @@ properties:
     type: boolean
     required: false
     description: Fork toggle. Disabling a domain agent (e.g. Loki in a fork without chaos) is legal; disabling Saga or Vidar is refused (hard dependencies).
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Agent@1.0.0
+  content_hash: sha256:60fa6c3159a10464ff6fdbc02a98ed025e1a8568417c0c39ec777868a3cf8f5d
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

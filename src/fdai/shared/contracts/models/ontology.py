@@ -8,6 +8,8 @@ catalog loader, not by these models - the models only guarantee shape.
 
 from __future__ import annotations
 
+from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any
 
 from pydantic import Field, field_validator
@@ -43,6 +45,14 @@ class PropertyDecl(_Base):
     )
 
 
+class OntologyProvenance(_Base):
+    source_url: Annotated[str, Field(min_length=1)]
+    resolved_ref: Annotated[str, Field(min_length=1)]
+    content_hash: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+    license: Annotated[str, Field(min_length=1)]
+    retrieved_at: datetime
+
+
 class LifecycleCriterion(_Base):
     code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
     when: Annotated[str, Field(min_length=1)]
@@ -56,8 +66,26 @@ class LifecycleDeduplication(_Base):
     on_repeat: Annotated[str, Field(min_length=1)]
 
 
+class LifecycleOwner(StrEnum):
+    ODIN = "Odin"
+    THOR = "Thor"
+    FORSETI = "Forseti"
+    HUGINN = "Huginn"
+    HEIMDALL = "Heimdall"
+    VAR = "Var"
+    VIDAR = "Vidar"
+    BRAGI = "Bragi"
+    SAGA = "Saga"
+    MIMIR = "Mimir"
+    NORNS = "Norns"
+    MUNINN = "Muninn"
+    NJORD = "Njord"
+    FREYR = "Freyr"
+    LOKI = "Loki"
+
+
 class ObjectLifecycle(_Base):
-    owner: Annotated[str, Field(min_length=1)]
+    owner: LifecycleOwner
     creation: list[LifecycleCriterion] = Field(min_length=1)
     deduplication: LifecycleDeduplication | None = None
     closure: list[LifecycleCriterion] = Field(default_factory=list)
@@ -72,6 +100,7 @@ class OntologyObjectType(_Base):
     properties: dict[str, PropertyDecl]
     description: str | None = None
     lifecycle: ObjectLifecycle | None = None
+    provenance: OntologyProvenance | None = None
 
 
 class OntologyLinkType(_Base):
@@ -84,7 +113,9 @@ class OntologyLinkType(_Base):
     is_transitive: bool = False
     is_causal: bool = False
     temporal_order: bool = False
+    order_by_property: str | None = None
     description: str | None = None
+    provenance: OntologyProvenance | None = None
 
 
 class PromotionGate(_Base):
@@ -186,6 +217,7 @@ class OntologyActionType(_Base):
     prod_downgrade: ProdDowngrade | None = None
     argument_schema: dict[str, Any] | None = None
     live_probe_ref: str | None = None
+    provenance: OntologyProvenance | None = None
 
 
 __all__ = [
@@ -195,10 +227,12 @@ __all__ = [
     "CeilingByTier",
     "LifecycleCriterion",
     "LifecycleDeduplication",
+    "LifecycleOwner",
     "ObjectLifecycle",
     "OntologyActionType",
     "OntologyLinkType",
     "OntologyObjectType",
+    "OntologyProvenance",
     "ProdDowngrade",
     "PromotionGate",
     "PropertyDecl",

@@ -47,3 +47,9 @@ properties:
     type: string
     required: true
     description: ISO 8601 timestamp.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:HandoffEscalation@1.0.0
+  content_hash: sha256:1a8e14be9ae7402368d54fc14130c76317e93c35b709b641858df605e9c285ea
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

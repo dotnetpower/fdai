@@ -11,4 +11,11 @@ from_type: Conversation
 to_type: Turn
 cardinality: one_to_many
 temporal_order: true
+order_by_property: turn_index
 description: Ordered turns owned by a Conversation (append-only).
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:has_turn@1.0.0
+  content_hash: sha256:3cb3e26e3a6d3f9c71270041211d4b34944d3edbc0d3375c17740788b97f7f3b
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

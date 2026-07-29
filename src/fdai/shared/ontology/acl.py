@@ -44,6 +44,11 @@ from fdai.shared.contracts.models import (
     OntologyObjectType,
 )
 from fdai.shared.ontology.audit import ProjectionAuditEvent, RedactedFieldRecord
+from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
 
 
 class RedactionReason(StrEnum):
@@ -94,6 +99,10 @@ class ProjectionRequest:
 
     caller_role: CeilingRole
     declared_purposes: frozenset[str] = frozenset()
+
+
+class OntologyProjectionError(ValueError):
+    """A graph cannot be projected without a complete ObjectType registry."""
 
 
 def redact_properties(
@@ -168,6 +177,56 @@ def serialize_projection(
     return values, redactions
 
 
+def project_graph_snapshot(
+    snapshot: OntologyGraphSnapshot,
+    *,
+    object_types: Mapping[str, OntologyObjectType],
+    request: ProjectionRequest,
+) -> OntologyGraphSnapshot:
+    """Apply ObjectType property ACLs to every object in a graph snapshot."""
+
+    projected_objects: list[OntologyObjectRecord] = []
+    projected_ids: dict[str, str] = {}
+    for index, record in enumerate(snapshot.objects, start=1):
+        declaration = object_types.get(record.object_type)
+        if declaration is None:
+            raise OntologyProjectionError(
+                f"missing ObjectType declaration for projection: {record.object_type!r}"
+            )
+        projected = redact_properties(declaration, record.properties, request)
+        values, redactions = serialize_projection(projected)
+        if redactions:
+            values["__redactions__"] = redactions
+        projected_id = (
+            f"redacted-object-{index}"
+            if values.get(declaration.key) == REDACTED_PLACEHOLDER
+            else record.id
+        )
+        projected_ids[record.id] = projected_id
+        projected_objects.append(
+            OntologyObjectRecord(
+                id=projected_id,
+                object_type=record.object_type,
+                properties=values,
+                revision=record.revision,
+            )
+        )
+    return OntologyGraphSnapshot(
+        objects=tuple(projected_objects),
+        links=tuple(
+            OntologyLinkRecord(
+                link_type=link.link_type,
+                from_id=projected_ids[link.from_id],
+                to_id=projected_ids[link.to_id],
+                properties=link.properties,
+            )
+            for link in snapshot.links
+            if link.from_id in projected_ids and link.to_id in projected_ids
+        ),
+        truncated=snapshot.truncated,
+    )
+
+
 def declared_purposes_from_iterable(purposes: Iterable[str]) -> frozenset[str]:
     """Normalize an incoming purpose list (from HTTP query or CLI) to a frozenset.
 
@@ -227,10 +286,12 @@ def build_projection_audit_event(
 __all__ = [
     "REDACTED_PLACEHOLDER",
     "ProjectionRequest",
+    "OntologyProjectionError",
     "RedactedField",
     "RedactionReason",
     "build_projection_audit_event",
     "declared_purposes_from_iterable",
+    "project_graph_snapshot",
     "redact_properties",
     "redactions_for_audit",
     "serialize_projection",

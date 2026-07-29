@@ -256,6 +256,9 @@
     "live_probe_ref": {
       "type": "string",
       "description": "Points to a probe under rule-catalog/probes/. Month-1+; unset on Day 1. See execution-model.md 4."
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
     }
   },
   "$defs": {
@@ -272,6 +275,18 @@
           "type": "string",
           "enum": ["reader", "contributor", "approver", "owner"]
         }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"}
       }
     }
   }

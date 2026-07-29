@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType, PropertyType
+from fdai.shared.contracts.models import (
+    LinkCardinality,
+    OntologyLinkType,
+    OntologyObjectType,
+    PropertyType,
+)
 
 OntologyDirection = Literal["outgoing", "incoming", "both"]
 
@@ -62,12 +69,86 @@ class OntologyInstanceValidationError(ValueError):
     """An instance does not satisfy its registered ontology declaration."""
 
 
+def normalize_json_value(value: Any, *, path: str = "value") -> Any:
+    """Return deterministic JSON data or fail closed on unsupported values."""
+
+    if value is None or isinstance(value, (str, bool)):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise OntologyInstanceValidationError(f"{path} MUST contain finite numbers")
+        return value
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise OntologyInstanceValidationError(f"{path} datetime MUST be timezone-aware")
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise OntologyInstanceValidationError(f"{path} mapping keys MUST be strings")
+        normalized: dict[str, Any] = {}
+        for key in sorted(value):
+            normalized[key] = normalize_json_value(value[key], path=f"{path}.{key}")
+        return normalized
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [
+            normalize_json_value(item, path=f"{path}[{index}]") for index, item in enumerate(value)
+        ]
+    raise OntologyInstanceValidationError(
+        f"{path} MUST contain canonical JSON data, got {type(value).__name__}"
+    )
+
+
+def canonical_json_mapping(value: Mapping[str, Any], *, path: str) -> tuple[dict[str, Any], str]:
+    """Normalize and encode one mapping using the replay-stable JSON form."""
+
+    normalized = normalize_json_value(value, path=path)
+    if not isinstance(normalized, dict):  # pragma: no cover - Mapping always normalizes to dict
+        raise OntologyInstanceValidationError(f"{path} MUST be a JSON object")
+    encoded = json.dumps(
+        normalized,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return normalized, encoded
+
+
+def normalize_object_record(record: OntologyObjectRecord) -> OntologyObjectRecord:
+    properties, _ = canonical_json_mapping(
+        record.properties,
+        path=f"{record.object_type}.properties",
+    )
+    return OntologyObjectRecord(
+        id=record.id,
+        object_type=record.object_type,
+        properties=properties,
+        revision=record.revision,
+    )
+
+
+def normalize_link_record(record: OntologyLinkRecord) -> OntologyLinkRecord:
+    properties, _ = canonical_json_mapping(
+        record.properties,
+        path=f"{record.link_type}.properties",
+    )
+    return OntologyLinkRecord(
+        link_type=record.link_type,
+        from_id=record.from_id,
+        to_id=record.to_id,
+        properties=properties,
+    )
+
+
 def validate_object_record(
     record: OntologyObjectRecord,
     object_types: Mapping[str, OntologyObjectType],
 ) -> None:
     """Validate key, required, unknown, and property types at the write boundary."""
 
+    canonical_json_mapping(record.properties, path=f"{record.object_type}.properties")
     declaration = object_types.get(record.object_type)
     if declaration is None:
         raise OntologyInstanceValidationError(
@@ -105,9 +186,11 @@ def validate_link_record(
     *,
     link_types: Mapping[str, OntologyLinkType],
     objects: Mapping[str, OntologyObjectRecord],
+    existing_links: Sequence[OntologyLinkRecord] = (),
 ) -> None:
-    """Validate link declaration and endpoint object types."""
+    """Validate link declaration, endpoints, properties, and cardinality."""
 
+    canonical_json_mapping(record.properties, path=f"{record.link_type}.properties")
     declaration = link_types.get(record.link_type)
     if declaration is None:
         raise OntologyInstanceValidationError(f"unknown ontology link type {record.link_type!r}")
@@ -125,6 +208,61 @@ def validate_link_record(
             f"{record.link_type} requires {declaration.from_type}->{declaration.to_type}, "
             f"got {source.object_type}->{target.object_type}"
         )
+    _validate_cardinality(record, declaration=declaration, existing_links=existing_links)
+
+
+def _validate_cardinality(
+    record: OntologyLinkRecord,
+    *,
+    declaration: OntologyLinkType,
+    existing_links: Sequence[OntologyLinkRecord],
+) -> None:
+    for existing in existing_links:
+        if existing.link_type != record.link_type:
+            continue
+        if existing.from_id == record.from_id and existing.to_id == record.to_id:
+            continue
+        source_conflict = existing.from_id == record.from_id
+        target_conflict = existing.to_id == record.to_id
+        cardinality = declaration.cardinality
+        if cardinality is LinkCardinality.ONE_TO_ONE and (source_conflict or target_conflict):
+            break
+        if cardinality is LinkCardinality.ONE_TO_MANY and target_conflict:
+            break
+        if cardinality is LinkCardinality.MANY_TO_ONE and source_conflict:
+            break
+    else:
+        return
+    raise OntologyInstanceValidationError(
+        f"{record.link_type} violates {declaration.cardinality.value} cardinality"
+    )
+
+
+def can_repeat_link(previous_link_type: str | None, current: OntologyLinkType) -> bool:
+    """Return whether traversal may follow ``current`` after the same LinkType."""
+
+    return previous_link_type != current.name or current.is_transitive
+
+
+def ontology_link_sort_key(
+    link: OntologyLinkRecord,
+    *,
+    link_types: Mapping[str, OntologyLinkType],
+    objects: Mapping[str, OntologyObjectRecord],
+) -> tuple[str, str, int, float, str, str]:
+    """Order temporal links by their declared target property, then identity."""
+
+    declaration = link_types[link.link_type]
+    value = None
+    if declaration.temporal_order and declaration.order_by_property is not None:
+        target = objects.get(link.to_id)
+        if target is not None:
+            value = target.properties.get(declaration.order_by_property)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return (link.link_type, link.from_id, 0, float(value), "", link.to_id)
+    if isinstance(value, str):
+        return (link.link_type, link.from_id, 1, 0.0, value, link.to_id)
+    return (link.link_type, link.from_id, 2, 0.0, "", link.to_id)
 
 
 def _matches_property_type(value: Any, expected: PropertyType) -> bool:
@@ -201,12 +339,18 @@ class OntologyInstanceStore(Protocol):
 
 
 __all__ = [
+    "canonical_json_mapping",
+    "can_repeat_link",
     "OntologyDirection",
     "OntologyGraphSnapshot",
     "OntologyInstanceStore",
     "OntologyInstanceValidationError",
     "OntologyLinkRecord",
     "OntologyObjectRecord",
+    "normalize_json_value",
+    "normalize_link_record",
+    "normalize_object_record",
+    "ontology_link_sort_key",
     "validate_link_record",
     "validate_object_record",
 ]

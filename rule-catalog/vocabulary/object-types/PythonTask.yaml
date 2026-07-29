@@ -40,3 +40,9 @@ properties:
     type: datetime
     required: true
     description: RFC 3339 artifact registration timestamp.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:PythonTask@1.0.0
+  content_hash: sha256:07d65653c3e63a636820e3fb9b27fc6c753a98dc8783337dcd6ddf70ef3c0727
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

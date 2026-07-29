@@ -13,8 +13,7 @@ import yaml
 from fdai.core.tiers.t0_deterministic.opa_evaluator import MissingOpaBinaryError
 from fdai.delivery.read_api.app.catalog_reference import load_best_practice_reference
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
-from fdai.rule_catalog.schema.link_type import load_link_type_catalog
-from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
@@ -54,15 +53,16 @@ def build_local_catalog_wiring(
     object_types: tuple[Any, ...] = ()
     link_types: tuple[Any, ...] = ()
     action_types: tuple[Any, ...] = ()
-    if object_types_root.is_dir():
-        object_types = load_object_type_catalog(object_types_root, schema_registry=registry)
-        if link_types_root.is_dir():
-            link_types = load_link_type_catalog(
-                link_types_root,
-                schema_registry=registry,
-                object_types=object_types,
-            )
-    if action_types_root.is_dir():
+    if object_types_root.is_dir() and link_types_root.is_dir() and action_types_root.is_dir():
+        ontology_catalog = load_ontology_catalog(
+            repo_root / "rule-catalog",
+            schema_registry=registry,
+            probes_root=None,
+        )
+        object_types = ontology_catalog.object_types
+        link_types = ontology_catalog.link_types
+        action_types = ontology_catalog.action_types
+    elif action_types_root.is_dir():
         action_types = load_action_type_catalog(
             action_types_root,
             schema_registry=registry,

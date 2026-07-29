@@ -5,3 +5,9 @@ from_type: Principal
 to_type: BriefingSubscription
 cardinality: one_to_many
 description: Proactive briefing subscriptions configured by a Principal.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:subscribed_to_briefing@1.0.0
+  content_hash: sha256:515b7161325cee7ef5dd6dd8fb91b5519abd431d02fc821ff22d31e7383af71e
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

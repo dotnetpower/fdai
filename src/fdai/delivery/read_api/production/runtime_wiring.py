@@ -22,7 +22,7 @@ from fdai.delivery.read_api.production.config import (
     _require_env,
 )
 from fdai.delivery.read_api.routes.hil_callback import HilCallbackConfig
-from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 
@@ -199,11 +199,11 @@ def build_production_runtime(
                 delegate=RoutedIncidentLifecycleNotifier(dispatcher=notification_router),
                 delivery_store=PostgresIncidentNotificationDeliveryStore(config=state_store_config),
             )
-            action_types = load_action_type_catalog(
-                repo_root / "rule-catalog" / "action-types",
+            action_types = load_ontology_catalog(
+                repo_root / "rule-catalog",
                 schema_registry=PackageResourceSchemaRegistry(),
                 probes_root=repo_root / "rule-catalog" / "probes",
-            )
+            ).action_types
             console_action = ConsoleActionSubmitter(
                 event_bus=event_bus,
                 raw_event_topic=event_topic,

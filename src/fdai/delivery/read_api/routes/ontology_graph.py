@@ -83,6 +83,9 @@ def make_ontology_graph_route(
                 "lifecycle": ot.lifecycle.model_dump(mode="json")
                 if ot.lifecycle is not None
                 else None,
+                "provenance": ot.provenance.model_dump(mode="json")
+                if ot.provenance is not None
+                else None,
             }
             for ot in object_types
         ]
@@ -97,7 +100,11 @@ def make_ontology_graph_route(
                 "is_transitive": lt.is_transitive,
                 "is_causal": lt.is_causal,
                 "temporal_order": lt.temporal_order,
+                "order_by_property": lt.order_by_property,
                 "description": lt.description,
+                "provenance": lt.provenance.model_dump(mode="json")
+                if lt.provenance is not None
+                else None,
             }
             for lt in link_types
         ]

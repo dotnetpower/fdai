@@ -15,6 +15,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
+from fdai.rule_catalog.schema.ontology_provenance import ontology_provenance_error
 from fdai.rule_catalog.schema.probe import (
     ProbeCatalogError,
     load_probe_catalog,
@@ -25,7 +26,9 @@ from fdai.shared.contracts.models import (
     Autonomy,
     Mode,
     OntologyActionType,
+    OntologyLinkType,
     Operation,
+    PreconditionKind,
     TriggerKind,
 )
 from fdai.shared.contracts.registry import SchemaRegistry
@@ -144,6 +147,7 @@ def load_action_type_catalog(
     schema_registry: SchemaRegistry,
     overlay_root: Path | None = None,
     probes_root: Path | None = None,
+    link_types: Iterable[OntologyLinkType] | None = None,
 ) -> tuple[OntologyActionType, ...]:
     """Load every ActionType YAML under ``root`` (non-recursive).
 
@@ -163,6 +167,10 @@ def load_action_type_catalog(
     omits.
 
     ``probes_root`` is optional; when provided, every ActionType with a
+
+        ``link_types`` is optional for isolated fixtures. When supplied by a
+        composition root, every ``link_exists`` / ``link_absent`` precondition
+        MUST resolve against that combined upstream and fork registry.
     ``live_probe_ref`` is cross-checked against the probe catalog at
     ``probes_root``. An unknown probe id is a hard load error so a
     misspelled reference is caught at startup, not at first probe call
@@ -227,6 +235,21 @@ def load_action_type_catalog(
             aggregated.append(ActionTypeIssue(key=path.name, message="top-level must be a mapping"))
             continue
 
+        try:
+            upstream_model = load_action_type_from_mapping(
+                raw,
+                schema_registry=schema_registry,
+                origin=path.name,
+            )
+        except ActionTypeCatalogError as exc:
+            aggregated.extend(exc.issues)
+            continue
+        provenance_error = ontology_provenance_error(upstream_model)
+        if provenance_error is not None:
+            aggregated.append(
+                ActionTypeIssue(key=f"{path.name}:provenance", message=provenance_error)
+            )
+
         upstream_name = raw.get("name")
         merged: Mapping[str, Any] = raw
         if isinstance(upstream_name, str) and upstream_name in overlays:
@@ -269,7 +292,14 @@ def load_action_type_catalog(
         aggregated.extend(_check_live_probe_refs(loaded, probes_root, seen_names))
 
     aggregated.extend(_check_name_collisions(seen_names))
-    aggregated.extend(_check_catalog_policy(loaded, seen_names))
+    known_link_types = {link.name for link in link_types} if link_types is not None else None
+    aggregated.extend(
+        _check_catalog_policy(
+            loaded,
+            seen_names,
+            known_link_types=known_link_types,
+        )
+    )
 
     if aggregated:
         raise ActionTypeCatalogError(aggregated)
@@ -323,6 +353,8 @@ def _check_live_probe_refs(
 def _check_catalog_policy(
     action_types: list[OntologyActionType],
     origin_by_name: Mapping[str, str],
+    *,
+    known_link_types: set[str] | None = None,
 ) -> list[ActionTypeIssue]:
     """Catalog-entry policy: safety-critical fields the JSON Schema leaves
     optional (the Day-1 non-breaking backfill in action-ontology.md 10)
@@ -444,6 +476,88 @@ def _check_catalog_policy(
                             ),
                         )
                     )
+        issues.extend(
+            _check_precondition_policy(
+                at,
+                origin=origin,
+                known_link_types=known_link_types,
+            )
+        )
+    return issues
+
+
+_PRECONDITION_REQUIRED_FIELDS: dict[PreconditionKind, frozenset[str]] = {
+    PreconditionKind.GRAPH_FRESH_WITHIN_SECONDS: frozenset({"value"}),
+    PreconditionKind.LINK_EXISTS: frozenset({"link_type"}),
+    PreconditionKind.LINK_ABSENT: frozenset({"link_type"}),
+    PreconditionKind.NO_CONFLICTING_OPEN_ACTION_ON_RESOURCE: frozenset(),
+    PreconditionKind.MAINTENANCE_WINDOW_ACTIVE: frozenset(),
+    PreconditionKind.RESOURCE_PROPERTY_EQUALS: frozenset({"property", "value"}),
+    PreconditionKind.RESOURCE_TAG_PRESENT: frozenset({"tag"}),
+}
+
+
+def _check_precondition_policy(
+    action_type: OntologyActionType,
+    *,
+    origin: str,
+    known_link_types: set[str] | None,
+) -> list[ActionTypeIssue]:
+    issues: list[ActionTypeIssue] = []
+    parameter_names = frozenset({"value", "link_type", "property", "tag"})
+    for index, condition in enumerate(action_type.preconditions):
+        prefix = f"{origin}:preconditions[{index}]"
+        required = _PRECONDITION_REQUIRED_FIELDS[condition.kind]
+        supplied = {name for name in parameter_names if getattr(condition, name) is not None}
+        missing = required - supplied
+        if missing:
+            issues.append(
+                ActionTypeIssue(
+                    key=prefix,
+                    message=(
+                        f"precondition {condition.kind.value!r} requires "
+                        f"{', '.join(sorted(missing))}"
+                    ),
+                )
+            )
+        unrelated = supplied - required
+        if unrelated:
+            issues.append(
+                ActionTypeIssue(
+                    key=prefix,
+                    message=(
+                        f"precondition {condition.kind.value!r} does not accept "
+                        f"{', '.join(sorted(unrelated))}"
+                    ),
+                )
+            )
+        if condition.kind is PreconditionKind.GRAPH_FRESH_WITHIN_SECONDS and (
+            isinstance(condition.value, bool)
+            or not isinstance(condition.value, (int, float))
+            or condition.value <= 0
+        ):
+            issues.append(
+                ActionTypeIssue(
+                    key=f"{prefix}.value",
+                    message="graph_fresh_within_seconds value MUST be a positive number",
+                )
+            )
+        if condition.kind in (PreconditionKind.LINK_EXISTS, PreconditionKind.LINK_ABSENT):
+            link_type = condition.link_type
+            if (
+                known_link_types is not None
+                and link_type is not None
+                and link_type not in known_link_types
+            ):
+                issues.append(
+                    ActionTypeIssue(
+                        key=f"{prefix}.link_type",
+                        message=(
+                            f"unknown LinkType {link_type!r} "
+                            "(not registered in the combined LinkType catalog)"
+                        ),
+                    )
+                )
     return issues
 
 

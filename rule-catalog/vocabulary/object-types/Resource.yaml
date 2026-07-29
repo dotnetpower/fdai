@@ -36,3 +36,9 @@ properties:
     type: object
     required: false
     description: Open-shape bag of adapter-projected resource properties consumed by policy-as-code (Rego) and the assurance twin.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Resource@1.0.0
+  content_hash: sha256:a2fd216d183ec34a33fb414f2f384835d7f3e239e91d23535e3355d3deefad5b
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -55,3 +55,9 @@ ceiling_by_tier:
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.disable-public-access@1.0.0
+  content_hash: sha256:4d67eca44a70574cb1917ec8f251104d2cb5c9bbacdf214bd852803317a706c8
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

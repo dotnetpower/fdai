@@ -13,3 +13,9 @@ from_type: Agent
 to_type: HandoffEscalation
 cardinality: many_to_many
 description: Agents that produced or co-signed a HandoffEscalation.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:escalates@1.0.0
+  content_hash: sha256:35190c52b674167fc8165293d074ce9f55b8e7c2d9465e78d275e318262a72b7
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

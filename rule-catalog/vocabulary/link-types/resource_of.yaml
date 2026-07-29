@@ -10,3 +10,9 @@ from_type: Signal
 to_type: Resource
 cardinality: many_to_one
 description: Which Resource the Signal is about.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:resource_of@1.0.0
+  content_hash: sha256:c0e1707e7c44015b6c20cd26d827fcf4d836f62b24379228b887cf2e2a8dcc4c
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

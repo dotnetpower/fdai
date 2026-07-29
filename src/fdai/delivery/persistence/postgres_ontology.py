@@ -18,6 +18,12 @@ from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
+    can_repeat_link,
+    canonical_json_mapping,
+    normalize_json_value,
+    normalize_link_record,
+    normalize_object_record,
+    ontology_link_sort_key,
     validate_link_record,
     validate_object_record,
 )
@@ -83,11 +89,16 @@ class PostgresOntologyInstanceStore:
                 for link_type in self._link_types.values():
                     await connection.execute(
                         "INSERT INTO ontology_link_type "
-                        "(name, version, from_type, to_type, cardinality, description) "
-                        "VALUES (%s, %s, %s, %s, %s, %s) "
+                        "(name, version, from_type, to_type, cardinality, is_transitive, "
+                        "is_causal, temporal_order, order_by_property, description) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                         "ON CONFLICT (name) DO UPDATE SET version = EXCLUDED.version, "
                         "from_type = EXCLUDED.from_type, to_type = EXCLUDED.to_type, "
                         "cardinality = EXCLUDED.cardinality, "
+                        "is_transitive = EXCLUDED.is_transitive, "
+                        "is_causal = EXCLUDED.is_causal, "
+                        "temporal_order = EXCLUDED.temporal_order, "
+                        "order_by_property = EXCLUDED.order_by_property, "
                         "description = EXCLUDED.description",
                         (
                             link_type.name,
@@ -95,6 +106,10 @@ class PostgresOntologyInstanceStore:
                             link_type.from_type,
                             link_type.to_type,
                             link_type.cardinality.value,
+                            link_type.is_transitive,
+                            link_type.is_causal,
+                            link_type.temporal_order,
+                            link_type.order_by_property,
                             link_type.description,
                         ),
                     )
@@ -105,7 +120,12 @@ class PostgresOntologyInstanceStore:
         *,
         expected_revision: int | None = None,
     ) -> OntologyObjectRecord:
+        record = normalize_object_record(record)
         validate_object_record(record, self._object_types)
+        _, properties_json = canonical_json_mapping(
+            record.properties,
+            path=f"{record.object_type}.properties",
+        )
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
@@ -123,7 +143,7 @@ class PostgresOntologyInstanceStore:
                         (
                             record.id,
                             record.object_type,
-                            json.dumps(dict(record.properties), default=str),
+                            properties_json,
                             revision,
                         ),
                     )
@@ -174,18 +194,40 @@ class PostgresOntologyInstanceStore:
             "UPDATE ontology_resource "
             "SET properties = %s::jsonb, revision = %s, updated_at = NOW() "
             "WHERE id = %s",
-            (json.dumps(dict(record.properties), default=str), revision, record.id),
+            (
+                canonical_json_mapping(
+                    record.properties,
+                    path=f"{record.object_type}.properties",
+                )[1],
+                revision,
+                record.id,
+            ),
         )
         return revision
 
     async def upsert_link(self, record: OntologyLinkRecord) -> None:
+        record = normalize_link_record(record)
+        _, properties_json = canonical_json_mapping(
+            record.properties,
+            path=f"{record.link_type}.properties",
+        )
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
+                await connection.execute(
+                    "SELECT name FROM ontology_link_type WHERE name = %s FOR UPDATE",
+                    (record.link_type,),
+                )
                 objects = await self._load_objects(
                     connection, identifiers=(record.from_id, record.to_id)
                 )
-                validate_link_record(record, link_types=self._link_types, objects=objects)
+                existing_links = await self._cardinality_links(connection, record)
+                validate_link_record(
+                    record,
+                    link_types=self._link_types,
+                    objects=objects,
+                    existing_links=existing_links,
+                )
                 await connection.execute(
                     "INSERT INTO ontology_link "
                     "(link_type, from_id, to_id, properties) "
@@ -196,7 +238,7 @@ class PostgresOntologyInstanceStore:
                         record.link_type,
                         record.from_id,
                         record.to_id,
-                        json.dumps(dict(record.properties), default=str),
+                        properties_json,
                     ),
                 )
 
@@ -235,7 +277,8 @@ class PostgresOntologyInstanceStore:
             params.append(list(object_types))
         if property_equals:
             clauses.append("properties @> %s::jsonb")
-            params.append(json.dumps(dict(property_equals), default=str))
+            normalized = normalize_json_value(property_equals, path="property_equals")
+            params.append(canonical_json_mapping(normalized, path="property_equals")[1])
         where: sql.Composable
         if clauses:
             where = sql.SQL("WHERE ") + sql.SQL(" AND ").join(map(sql.SQL, clauses))
@@ -254,7 +297,18 @@ class PostgresOntologyInstanceStore:
             rows = await cursor.fetchall()
             truncated = len(rows) > limit
             objects = tuple(_object_from_row(row) for row in rows[:limit])
-            links = await self._links_within(connection, tuple(item.id for item in objects))
+            objects_by_id = {item.id: item for item in objects}
+            raw_links = await self._links_within(connection, tuple(objects_by_id))
+            links = tuple(
+                sorted(
+                    raw_links,
+                    key=lambda link: ontology_link_sort_key(
+                        link,
+                        link_types=self._link_types,
+                        objects=objects_by_id,
+                    ),
+                )
+            )
         return OntologyGraphSnapshot(objects=objects, links=links, truncated=truncated)
 
     async def traverse(
@@ -275,36 +329,62 @@ class PostgresOntologyInstanceStore:
             await self._set_timeout(connection)
             roots = await self._load_objects(connection, identifiers=tuple(root_ids))
             visited = set(roots)
-            frontier = set(roots)
+            frontier: set[tuple[str, str | None]] = {(root_id, None) for root_id in roots}
+            expanded: set[tuple[str, str | None]] = set()
             selected_links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
             truncated = False
             for _ in range(max_depth):
-                if not frontier:
+                states = frontier - expanded
+                if not states:
                     break
+                expanded.update(states)
+                frontier_ids = {object_id for object_id, _ in states}
                 edges = await self._adjacent_links(
                     connection,
-                    frontier=frontier,
+                    frontier=frontier_ids,
                     link_types=link_types,
                     direction=direction,
                     limit=limit + 1,
                 )
-                next_frontier = _unvisited_endpoints(edges, visited)
-                for edge in edges:
-                    selected_links[(edge.from_id, edge.link_type, edge.to_id)] = edge
+                next_states: set[tuple[str, str]] = set()
+                for object_id, previous_link_type in sorted(states):
+                    for edge in edges:
+                        next_id = _next_endpoint(edge, object_id=object_id, direction=direction)
+                        if next_id is None:
+                            continue
+                        declaration = self._link_types[edge.link_type]
+                        if not can_repeat_link(previous_link_type, declaration):
+                            continue
+                        selected_links[(edge.from_id, edge.link_type, edge.to_id)] = edge
+                        next_states.add((next_id, edge.link_type))
                 room = limit - len(visited)
-                if len(next_frontier) > room:
-                    next_frontier = set(sorted(next_frontier)[:room])
+                new_ids = sorted({object_id for object_id, _ in next_states} - visited)
+                allowed_new_ids = set(new_ids[:room])
+                if len(new_ids) > room:
                     truncated = True
-                visited.update(next_frontier)
-                frontier = next_frontier
+                visited.update(allowed_new_ids)
+                frontier = {
+                    state
+                    for state in next_states
+                    if state[0] in visited or state[0] in allowed_new_ids
+                }
                 if len(edges) > limit or len(visited) >= limit:
                     truncated = True
                     break
             objects_by_id = await self._load_objects(connection, identifiers=tuple(sorted(visited)))
         links = tuple(
-            edge
-            for _, edge in sorted(selected_links.items())
-            if edge.from_id in objects_by_id and edge.to_id in objects_by_id
+            sorted(
+                (
+                    edge
+                    for edge in selected_links.values()
+                    if edge.from_id in objects_by_id and edge.to_id in objects_by_id
+                ),
+                key=lambda link: ontology_link_sort_key(
+                    link,
+                    link_types=self._link_types,
+                    objects=objects_by_id,
+                ),
+            )
         )
         return OntologyGraphSnapshot(
             objects=tuple(objects_by_id[key] for key in sorted(objects_by_id)),
@@ -353,6 +433,19 @@ class PostgresOntologyInstanceStore:
         )
         return tuple(_link_from_row(row) for row in await cursor.fetchall())
 
+    async def _cardinality_links(
+        self,
+        connection: psycopg.AsyncConnection[Any],
+        record: OntologyLinkRecord,
+    ) -> tuple[OntologyLinkRecord, ...]:
+        cursor = await connection.execute(
+            "SELECT link_type, from_id, to_id, properties FROM ontology_link "
+            "WHERE link_type = %s AND (from_id = %s OR to_id = %s) "
+            "ORDER BY from_id, to_id",
+            (record.link_type, record.from_id, record.to_id),
+        )
+        return tuple(_link_from_row(row) for row in await cursor.fetchall())
+
     async def _adjacent_links(
         self,
         connection: psycopg.AsyncConnection[Any],
@@ -385,13 +478,17 @@ class PostgresOntologyInstanceStore:
         return tuple(_link_from_row(row) for row in await cursor.fetchall())
 
 
-def _unvisited_endpoints(edges: Sequence[OntologyLinkRecord], visited: set[str]) -> set[str]:
-    return {
-        identifier
-        for edge in edges
-        for identifier in (edge.from_id, edge.to_id)
-        if identifier not in visited
-    }
+def _next_endpoint(
+    edge: OntologyLinkRecord,
+    *,
+    object_id: str,
+    direction: OntologyDirection,
+) -> str | None:
+    if direction in {"outgoing", "both"} and edge.from_id == object_id:
+        return edge.to_id
+    if direction in {"incoming", "both"} and edge.to_id == object_id:
+        return edge.from_id
+    return None
 
 
 def _object_from_row(row: Mapping[str, Any]) -> OntologyObjectRecord:

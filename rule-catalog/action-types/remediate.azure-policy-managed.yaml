@@ -89,3 +89,9 @@ argument_schema:
       type: boolean
       default: true
       description: True forces a shadow no-op even if a fork has authored real logic.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.azure-policy-managed@1.0.0
+  content_hash: sha256:769bcc5265b3467fb3ec62ba61ed13d31b3c5bced791d18033a3b2b9c89f06c7
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

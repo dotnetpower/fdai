@@ -54,3 +54,9 @@ ceiling_by_tier:
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.remove-orphan-resource@1.0.0
+  content_hash: sha256:321fd0591b09d94c27b0f69a798728406bbd02b9226030ff606d6f3aafd80004
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

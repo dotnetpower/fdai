@@ -16,3 +16,9 @@ properties:
   owner_ref: {type: string, required: false, access_scope: owner, purpose_binding: [workflow_authoring]}
   derived_from: {type: string, required: false}
   created_at: {type: datetime, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:WorkflowDefinition@1.0.0
+  content_hash: sha256:90f7e4d1f36587842d93af0c11317a3e9bb165ab95f09d10525820a62a2665d9
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

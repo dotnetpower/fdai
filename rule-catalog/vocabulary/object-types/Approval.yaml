@@ -12,3 +12,9 @@ properties:
   requested_at: {type: datetime, required: true}
   decided_at: {type: datetime, required: false}
   justification_hash: {type: string, required: false}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Approval@1.0.0
+  content_hash: sha256:d455bda610e300203736b3642e8c06a674de7aaf2d0f4c6219f05a7bd24674a5
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

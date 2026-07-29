@@ -7,13 +7,16 @@ from pathlib import Path
 
 from fdai.core.reporting.composition import default_reporting_engine
 from fdai.core.reporting.datasources.ontology import OntologyDataSource
+from fdai.core.reporting.models import QuerySpec
 from fdai.shared.contracts.models import (
+    CeilingRole,
     LinkCardinality,
     OntologyLinkType,
     OntologyObjectType,
     PropertyDecl,
     PropertyType,
 )
+from fdai.shared.ontology.acl import REDACTED_PLACEHOLDER, ProjectionRequest
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
@@ -40,32 +43,41 @@ def _object_type(name: str, extra: dict[str, PropertyDecl]) -> OntologyObjectTyp
     )
 
 
+def _object_types() -> tuple[OntologyObjectType, ...]:
+    return (
+        _object_type("Process", {}),
+        _object_type(
+            "ReviewCase",
+            {
+                "design_status": PropertyDecl(type=PropertyType.STRING),
+                "production_status": PropertyDecl(type=PropertyType.STRING),
+                "private_note": PropertyDecl(
+                    type=PropertyType.STRING,
+                    access_scope=CeilingRole.OWNER,
+                    purpose_binding=["architecture_review"],
+                ),
+            },
+        ),
+        _object_type(
+            "ReviewCheck",
+            {
+                "check_key": PropertyDecl(type=PropertyType.STRING),
+                "status": PropertyDecl(type=PropertyType.STRING),
+                "description": PropertyDecl(type=PropertyType.STRING),
+                "updated_at": PropertyDecl(type=PropertyType.DATETIME),
+                "category": PropertyDecl(type=PropertyType.STRING),
+                "severity": PropertyDecl(type=PropertyType.STRING),
+            },
+        ),
+        _object_type("EvidenceArtifact", {}),
+        _object_type("Principal", {}),
+        _object_type("Decision", {}),
+    )
+
+
 def _ontology() -> InMemoryOntologyInstanceStore:
     return InMemoryOntologyInstanceStore(
-        object_types=(
-            _object_type("Process", {}),
-            _object_type(
-                "ReviewCase",
-                {
-                    "design_status": PropertyDecl(type=PropertyType.STRING),
-                    "production_status": PropertyDecl(type=PropertyType.STRING),
-                },
-            ),
-            _object_type(
-                "ReviewCheck",
-                {
-                    "check_key": PropertyDecl(type=PropertyType.STRING),
-                    "status": PropertyDecl(type=PropertyType.STRING),
-                    "description": PropertyDecl(type=PropertyType.STRING),
-                    "updated_at": PropertyDecl(type=PropertyType.DATETIME),
-                    "category": PropertyDecl(type=PropertyType.STRING),
-                    "severity": PropertyDecl(type=PropertyType.STRING),
-                },
-            ),
-            _object_type("EvidenceArtifact", {}),
-            _object_type("Principal", {}),
-            _object_type("Decision", {}),
-        ),
+        object_types=_object_types(),
         link_types=(
             OntologyLinkType(
                 schema_version="1.0.0",
@@ -122,6 +134,7 @@ async def test_architecture_review_report_renders_from_ontology() -> None:
                 "id": "review-1",
                 "design_status": "conditional",
                 "production_status": "blocked",
+                "private_note": "restricted design evidence",
             },
         )
     )
@@ -150,6 +163,7 @@ async def test_architecture_review_report_renders_from_ontology() -> None:
         reports_root=_ROOT / "rule-catalog" / "reports",
         ontology_store=ontology,
         process_store=process_store,
+        ontology_object_types=_object_types(),
     )
 
     report = await engine.render(
@@ -162,4 +176,89 @@ async def test_architecture_review_report_renders_from_ontology() -> None:
     assert widgets["production_status"].data["value"] == "blocked"
     assert widgets["checks"].data["summary"]["fail"] == 1
     assert widgets["graph"].data["nodes"]
-    assert isinstance(OntologyDataSource(ontology, process_store).name, str)
+    assert isinstance(OntologyDataSource(ontology, process_store, _object_types()).name, str)
+
+
+async def test_ontology_report_projection_applies_acl_context() -> None:
+    ontology = _ontology()
+    process_store = InMemoryProcessRuntimeStore()
+    await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id="process-1",
+            workflow_ref="architecture-review",
+            workflow_version="1.0.0",
+            status=ProcessStatus.WAITING,
+            current_step="evidence",
+            target_resource_id="scope-1",
+            started_at=_NOW,
+            updated_at=_NOW,
+            correlation_id="corr-1",
+        ),
+        event=ProcessEvent(
+            event_id="event-acl-1",
+            process_id="process-1",
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="process-1:acl-create",
+            recorded_at=_NOW,
+            correlation_id="corr-1",
+        ),
+    )
+    await ontology.upsert_object(
+        OntologyObjectRecord(id="process-1", object_type="Process", properties={"id": "process-1"})
+    )
+    await ontology.upsert_object(
+        OntologyObjectRecord(
+            id="review-1",
+            object_type="ReviewCase",
+            properties={
+                "id": "review-1",
+                "design_status": "ready",
+                "production_status": "ready",
+                "private_note": "restricted design evidence",
+            },
+        )
+    )
+    await ontology.upsert_link(
+        OntologyLinkRecord(link_type="runs_review", from_id="process-1", to_id="review-1")
+    )
+    spec = QuerySpec(
+        datasource="ontology",
+        parameters={
+            "projection": "objects",
+            "process_id": "process-1",
+            "object_type": "ReviewCase",
+        },
+    )
+
+    reader = OntologyDataSource(ontology, process_store, _object_types())
+    reader_result = await reader.query(spec, since=_NOW, until=_NOW, variables={})
+    assert reader_result.rows[0]["private_note"] == REDACTED_PLACEHOLDER
+    assert "restricted design evidence" not in str(reader_result.rows)
+    assert reader_result.rows[0]["__redactions__"]["private_note"]["reason"] == "access_scope"
+    scalar_result = await reader.query(
+        QuerySpec(
+            datasource="ontology",
+            parameters={
+                "projection": "process_property",
+                "process_id": "process-1",
+                "field": "private_note",
+            },
+        ),
+        since=_NOW,
+        until=_NOW,
+        variables={},
+    )
+    assert scalar_result.scalar == REDACTED_PLACEHOLDER
+    assert scalar_result.metadata["redaction"]["reason"] == "access_scope"
+
+    trusted = OntologyDataSource(
+        ontology,
+        process_store,
+        _object_types(),
+        projection_request=ProjectionRequest(
+            caller_role=CeilingRole.OWNER,
+            declared_purposes=frozenset({"architecture_review"}),
+        ),
+    )
+    trusted_result = await trusted.query(spec, since=_NOW, until=_NOW, variables={})
+    assert trusted_result.rows[0]["private_note"] == "restricted design evidence"

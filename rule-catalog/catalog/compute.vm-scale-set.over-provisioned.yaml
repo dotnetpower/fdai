@@ -1,10 +1,22 @@
-schema_version: "1.0.0"
+schema_version: "2.0.0"
 id: compute.vm-scale-set.over-provisioned
 version: "1.0.0"
 source: azure_advisor
 severity: medium
 category: cost
 resource_type: compute.vm-scale-set
+applies_to:
+- compute.vm-scale-set
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: compute.vm-scale-set
 check_logic:
   kind: rego
   reference: policies/compute/vmss_over_provisioned.rego

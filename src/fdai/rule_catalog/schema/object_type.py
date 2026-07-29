@@ -33,6 +33,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
+from fdai.rule_catalog.schema.ontology_provenance import ontology_provenance_error
 from fdai.shared.contracts.models import OntologyObjectType
 from fdai.shared.contracts.registry import SchemaRegistry
 
@@ -159,6 +160,12 @@ def load_object_type_catalog(
             )
             continue
         seen_names[model.name] = path.name
+        provenance_error = ontology_provenance_error(model)
+        if provenance_error is not None:
+            aggregated.append(
+                ObjectTypeIssue(key=f"{path.name}:provenance", message=provenance_error)
+            )
+            continue
         loaded.append(model)
 
     if aggregated:

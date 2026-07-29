@@ -32,3 +32,9 @@ properties:
     type: string
     required: true
     description: ActionType name (M:1) this rule proposes on match; resolved against rule-catalog/action-types/.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Rule@1.0.0
+  content_hash: sha256:50092f8f630eb8a61bde19c94940073de58f3eaa75af5b6385a45ce060964dc4
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

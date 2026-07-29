@@ -23,7 +23,7 @@ from fdai.core.risk_gate import ActionPromotionRegistry, RiskGate
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.tiers.t0_deterministic import OpaRegoEvaluator, RuleIndex, T0Engine
 from fdai.core.trust_router import TrustRouter
-from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -144,10 +144,10 @@ class FrozenScenarioReplayer:
     def _build_loop(self) -> tuple[ControlLoop, dict[str, Any]]:
         catalog_root = self._root / "rule-catalog"
         registry = PackageResourceSchemaRegistry()
-        action_types = load_action_type_catalog(
-            catalog_root / "action-types",
+        action_types = load_ontology_catalog(
+            catalog_root,
             schema_registry=registry,
-        )
+        ).action_types
         vocabulary = load_resource_type_registry_from_mapping(
             yaml.safe_load(
                 (catalog_root / "vocabulary" / "resource-types.yaml").read_text(encoding="utf-8")

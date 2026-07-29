@@ -176,6 +176,14 @@ Every datasource is **read-only, async**. `core/` never imports
 `delivery/`; the `audit` adapter takes a narrow duck-typed Protocol so
 the wire-up stays one-way.
 
+The `ontology` datasource MUST project every ObjectType property through its declared
+`access_scope` and `purpose_binding` before a widget sees it. The composition root supplies the
+trusted ObjectType registry and projection request; the default is `reader` with no declared
+purpose, so missing caller context fails closed. Report YAML, query parameters, and report
+variables cannot raise that role or add a purpose. Redacted values use the shared placeholder and
+carry bounded `__redactions__` metadata; raw object keys are not emitted through topology edges
+when the key property itself is redacted.
+
 A fork adds a new source (Cost Management, cluster inventory, custom
 Postgres view) by implementing `ReportDataSource` and calling
 `DataSourceRegistry.register`.

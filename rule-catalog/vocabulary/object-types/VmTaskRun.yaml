@@ -44,3 +44,9 @@ properties:
     type: string
     required: false
     description: Bounded audit-safe provider status summary.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:VmTaskRun@1.0.0
+  content_hash: sha256:8281f060f56fe65564310888fcef3e3fcac0932ad5dd9b46818be51dbbabdc1c
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

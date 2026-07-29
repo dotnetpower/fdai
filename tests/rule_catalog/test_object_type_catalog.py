@@ -45,6 +45,10 @@ def test_shipped_object_types_load() -> None:
         "Rule",
         "Signal",
         "Finding",
+        "ActionType",
+        "ResourceType",
+        "SignalType",
+        "Property",
         "ChangeSummary",
         # Pantheon (docs/roadmap/agents/agent-pantheon.md)
         "Agent",
@@ -147,6 +151,30 @@ def test_lifecycle_criterion_requires_authority_reference() -> None:
         load_object_type_from_mapping(raw, schema_registry=_registry())
 
     assert any("source_refs" in f"{issue.key} {issue.message}" for issue in info.value.issues)
+
+
+def test_lifecycle_owner_must_be_a_registered_pantheon_name() -> None:
+    raw = {
+        "schema_version": "1.0.0",
+        "name": "OwnedType",
+        "version": "1.0.0",
+        "key": "id",
+        "properties": {"id": {"type": "string", "required": True}},
+        "lifecycle": {
+            "owner": "UnknownAgent",
+            "creation": [
+                {
+                    "code": "created",
+                    "when": "A trigger fires.",
+                    "result": "The object is created.",
+                    "source_refs": ["example.py#create"],
+                }
+            ],
+            "authority_refs": ["example.py#create"],
+        },
+    }
+    with pytest.raises(ObjectTypeCatalogError, match="UnknownAgent"):
+        load_object_type_from_mapping(raw, schema_registry=_registry())
 
 
 def test_duplicate_name_across_files_fails(tmp_path: Path) -> None:

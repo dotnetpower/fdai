@@ -5,3 +5,9 @@ from_type: Principal
 to_type: ConversationPolicy
 cardinality: one_to_many
 description: Confirmed typed conversation policies owned by a Principal.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:has_conversation_policy@1.0.0
+  content_hash: sha256:2a7eb0442385f91b05744fd12a83fead7f386942710b90d65036bd30a0893405
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -58,6 +58,11 @@ def test_shipped_link_types_load() -> None:
         "targets",
         "advances",
     }
+    by_name = {link.name: link for link in catalog}
+    assert by_name["applies_to"].to_type == "ResourceType"
+    assert by_name["triggered_by"].to_type == "SignalType"
+    assert by_name["evaluates"].to_type == "Property"
+    assert by_name["remediates"].to_type == "ActionType"
 
 
 def test_transitive_flag_round_trips() -> None:
@@ -80,6 +85,29 @@ def test_temporal_order_flag_round_trips() -> None:
     )
     by_name = {link.name: link for link in catalog}
     assert by_name["precedes"].temporal_order is True
+    assert by_name["precedes"].order_by_property == "evaluation_ts"
+
+
+def test_temporal_order_property_must_resolve_on_target() -> None:
+    raw = {
+        "schema_version": "1.0.0",
+        "name": "ordered_findings",
+        "version": "1.0.0",
+        "from_type": "Finding",
+        "to_type": "Finding",
+        "cardinality": "many_to_many",
+        "temporal_order": True,
+        "order_by_property": "missing_timestamp",
+    }
+    object_types = _object_types()
+    by_name = {item.name: item for item in object_types}
+    with pytest.raises(LinkTypeCatalogError, match="missing_timestamp"):
+        load_link_type_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            object_type_names=set(by_name),
+            object_types_by_name=by_name,
+        )
 
 
 def test_unknown_from_type_fails() -> None:

@@ -22,7 +22,12 @@ from fdai.shared.contracts.models import (
 )
 
 
-def _rule(rule_id: str, resource_type: str) -> Rule:
+def _rule(
+    rule_id: str,
+    resource_type: str,
+    *,
+    triggered_by: list[str] | None = None,
+) -> Rule:
     return Rule(
         schema_version="1.0.0",
         id=rule_id,
@@ -31,6 +36,8 @@ def _rule(rule_id: str, resource_type: str) -> Rule:
         severity=Severity.HIGH,
         category=Category.SECURITY,
         resource_type=resource_type,
+        applies_to=[resource_type],
+        triggered_by=triggered_by or ["*"],
         check_logic=CheckLogic(kind=CheckLogicKind.REGO, reference="policies/x.rego"),
         remediation=Remediation(template_ref="remediation/x.tftpl"),
         remediates="remediate.tag-add",
@@ -89,7 +96,17 @@ def test_routes_t1_when_no_rule_matches_known_resource_type() -> None:
     assert decision.tier is RoutingTier.T1
     assert decision.resource_type == "object-storage"
     assert decision.candidate_rule_ids == ()
-    assert decision.reason == "no_rule_matches_resource_type"
+    assert decision.reason == "no_rule_matches_resource_and_signal_type"
+
+
+def test_routes_t1_when_resource_matches_but_signal_does_not() -> None:
+    router = TrustRouter(
+        index=_index([_rule("r.x", "compute.vm", triggered_by=["availability.probe_failed"])])
+    )
+    decision = router.route(_event({"resource": {"type": "compute.vm"}}))
+    assert decision.tier is RoutingTier.T1
+    assert decision.candidate_rule_ids == ()
+    assert decision.reason == "no_rule_matches_resource_and_signal_type"
 
 
 def test_flat_resource_type_key_is_accepted() -> None:

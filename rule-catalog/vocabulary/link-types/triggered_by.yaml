@@ -1,4 +1,4 @@
-# LinkType: triggered_by (Rule -> Signal, M:M)
+# LinkType: triggered_by (Rule -> SignalType, M:M)
 #
 # Which signal subtypes cause a Rule to be evaluated. Used by
 # `event-ingest` and the trust-router to build the index that turns a
@@ -8,6 +8,12 @@ schema_version: "1.0.0"
 name: triggered_by
 version: "1.0.0"
 from_type: Rule
-to_type: Signal
+to_type: SignalType
 cardinality: many_to_many
 description: Which signal subtypes cause the Rule to be evaluated.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:triggered_by@1.0.0
+  content_hash: sha256:84aaac497ad0541263fa351d9c2ce591ca17c6edea741f1d9ec6bb25d9007a52
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

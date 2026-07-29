@@ -5,16 +5,12 @@ Signal of type ``S`` targeting a Resource of type ``R``?" in O(indexed
 lookup), never a linear scan (see
 ``docs/roadmap/architecture/llm-strategy.md § Rule-to-Decision Lookup Pipeline``).
 
-P1 W-2 implementation
----------------------
-The Rule contract today carries ``resource_type`` (a single value) as the
-primary ``applies_to`` axis. Full ontology dispatch (multi-value
-``applies_to`` × ``triggered_by`` × ``evaluates`` × ``required_interfaces``
-× ``submission_criteria``) is documented and reserved - the loader
-already validates every rule's ``remediates`` cross-reference against the
-ActionType catalog. This module's index widens deterministically as those
-fields land on the Rule model; the public API (:meth:`rules_for_type`,
-:meth:`rules_for_signal`) does not change.
+Ontology dispatch
+-----------------
+The index compiles the Rule v2 ``applies_to`` and ``triggered_by`` axes.
+An explicit ``*`` trigger is a catch-all baseline; otherwise an event type
+must match exactly. ``evaluates``, ``required_interfaces``, and
+``submission_criteria`` are registration gates enforced by the catalog loader.
 
 Determinism guarantees
 ----------------------
@@ -60,11 +56,13 @@ class RuleIndex:
     """
 
     _by_resource_type: dict[str, tuple[Rule, ...]]
+    _by_signal_type: dict[str, frozenset[str]]
     _by_id: dict[str, Rule]
 
     @classmethod
     def build(cls, rules: Iterable[Rule]) -> RuleIndex:
         by_type: dict[str, list[Rule]] = {}
+        by_signal: dict[str, set[str]] = {}
         by_id: dict[str, Rule] = {}
         for rule in rules:
             if rule.id in by_id:
@@ -72,12 +70,20 @@ class RuleIndex:
                 # bypasses it, fail loudly rather than silently overwrite.
                 raise ValueError(f"duplicate rule id in index build: {rule.id!r}")
             by_id[rule.id] = rule
-            by_type.setdefault(rule.resource_type, []).append(rule)
+            applies_to = rule.applies_to or [rule.resource_type]
+            for resource_type in applies_to:
+                by_type.setdefault(resource_type, []).append(rule)
+            for signal_type in rule.triggered_by or ["*"]:
+                by_signal.setdefault(signal_type, set()).add(rule.id)
 
         frozen: dict[str, tuple[Rule, ...]] = {
             key: tuple(sorted(items, key=_severity_order_key)) for key, items in by_type.items()
         }
-        return cls(_by_resource_type=frozen, _by_id=by_id)
+        return cls(
+            _by_resource_type=frozen,
+            _by_signal_type={key: frozenset(ids) for key, ids in by_signal.items()},
+            _by_id=by_id,
+        )
 
     def rules_for_type(self, resource_type: str) -> tuple[Rule, ...]:
         """Return every rule whose ``resource_type`` matches, severity-ordered."""
@@ -88,14 +94,13 @@ class RuleIndex:
     ) -> tuple[Rule, ...]:
         """Return every rule that would evaluate for this Signal.
 
-        ``signal_type`` is accepted for API stability - the future
-        ``applies_to ∩ triggered_by`` intersection will filter on it. In
-        P1 W-2 we route strictly by ``resource_type`` and treat
-        ``signal_type`` as informational so the trust router can already
-        thread it through without a follow-up API change.
+        The result is the ``applies_to`` resource candidates intersected
+        with exact ``triggered_by`` matches plus explicit ``*`` rules.
         """
-        del signal_type  # reserved for full ontology dispatch (see docstring)
-        return self.rules_for_type(resource_type)
+        allowed_ids = set(self._by_signal_type.get("*", ()))
+        if signal_type is not None:
+            allowed_ids.update(self._by_signal_type.get(signal_type, ()))
+        return tuple(rule for rule in self.rules_for_type(resource_type) if rule.id in allowed_ids)
 
     def rule(self, rule_id: str) -> Rule:
         try:

@@ -56,10 +56,41 @@
     "temporal_order": {
       "type": "boolean",
       "default": false,
-      "description": "True when this link's endpoints have a strict time ordering (Finding `precedes`/`follows`). Queries over the link must respect the timestamp on the endpoints."
+      "description": "True when links of this type are returned in target-property order. Requires order_by_property."
+    },
+    "order_by_property": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target ObjectType property used to order temporal links. The catalog loader verifies that it exists and has an ordered scalar type."
     },
     "description": {
       "type": "string"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"temporal_order": {"const": true}},
+        "required": ["temporal_order"]
+      },
+      "then": {"required": ["order_by_property"]}
+    }
+  ],
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
     }
   }
 }

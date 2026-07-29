@@ -67,3 +67,9 @@ prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
 live_probe_ref: vm_traffic_last_5m
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:ops.restart-service@1.0.0
+  content_hash: sha256:541c082a33874d471a7b9ffdfb165c48fc0299b921ebaf896f2693f1ad2fdd14
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: object-storage.min-tls-version
 version: 1.0.0
 source: mcsb
 severity: medium
 category: security
 resource_type: object-storage
+applies_to:
+- object-storage
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: object-storage
 check_logic:
   kind: rego
   reference: policies/object_storage/min_tls_version.rego

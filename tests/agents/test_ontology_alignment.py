@@ -13,6 +13,7 @@ from pathlib import Path
 import yaml
 
 from fdai.agents import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.shared.contracts.models import LifecycleOwner
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AGENT_YAML = REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types" / "Agent.yaml"
@@ -50,6 +51,10 @@ def test_pantheon_names_are_ascii_capitalized() -> None:
     for name in PANTHEON_NAMES:
         assert name.isascii(), f"{name!r} is not ASCII"
         assert name[0].isupper(), f"{name!r} is not capitalized"
+
+
+def test_lifecycle_owner_contract_matches_pantheon() -> None:
+    assert {owner.value for owner in LifecycleOwner} == set(PANTHEON_NAMES)
 
 
 def test_every_agent_has_at_least_one_owned_type_or_is_governance_planner() -> None:

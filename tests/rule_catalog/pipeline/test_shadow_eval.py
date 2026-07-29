@@ -178,7 +178,7 @@ def test_unmatched_resource_type_scenario_routes_to_t1() -> None:
     )
     outcome = report.outcomes[0]
     assert outcome.actual_tier == "t1"
-    assert outcome.reason == "no_rule_matches_resource_type"
+    assert outcome.reason == "no_rule_matches_resource_and_signal_type"
 
 
 def test_known_resource_type_without_rules_routes_to_t1() -> None:
@@ -197,7 +197,7 @@ def test_known_resource_type_without_rules_routes_to_t1() -> None:
     assert outcome.actual_tier == "t1"
     assert outcome.actual_pipeline_stage == "abstain"
     assert outcome.matched_rule_ids == ()
-    assert outcome.reason == "no_rule_matches_resource_type"
+    assert outcome.reason == "no_rule_matches_resource_and_signal_type"
 
 
 # ---------------------------------------------------------------------------

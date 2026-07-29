@@ -8,3 +8,9 @@ properties:
   kind: {type: string, required: true}
   role: {type: string, required: true}
   escalation_ref: {type: string, required: true, access_scope: approver, purpose_binding: [architecture_review]}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Principal@1.0.0
+  content_hash: sha256:a7751d9d85ee66286f53252f255a2c684728100fddb7e62efffb1a9c38af63dc
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

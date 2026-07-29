@@ -45,3 +45,9 @@ ceiling_by_tier:
   t2:
     max_autonomy: shadow_only
     min_role: approver
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.assign-identity@1.0.0
+  content_hash: sha256:f6df91fc5293eed4980d443a2e2018790c9e5fa4744e2076deec538b603b21db
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

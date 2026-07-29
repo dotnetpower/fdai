@@ -673,8 +673,11 @@ canonical, hashable signature.
 
 ### Ontology Foundation
 
-Every runtime concept is one of four **ObjectTypes**. Concrete instances live in
-`shared/contracts/` and `rule-catalog/schema/`.
+The control-loop foundation starts with four **ObjectTypes**. The registry is intentionally
+extensible: product objects such as Process, Conversation, and ReviewCase, plus meta objects such
+as ResourceType, SignalType, Property, and ActionType, are first-class ObjectTypes rather than
+being folded into Rule or Resource. Concrete declarations live in `rule-catalog/vocabulary/` and
+runtime instances use the shared ontology store.
 
 | ObjectType | Meaning | Backing |
 |------------|---------|---------|
@@ -683,10 +686,24 @@ Every runtime concept is one of four **ObjectTypes**. Concrete instances live in
 | `Signal` | a typed observation (Activity Log line, drift diff, cost anomaly, canary result) - the primitive that enters `event-ingest` | `shared/contracts/event` |
 | `Finding` | a rule match on a resource at a point in time, with context and severity | derived at runtime; persisted in the audit store |
 
+Meta ObjectTypes make LinkType endpoints honest. `applies_to` targets `ResourceType`,
+`triggered_by` targets `SignalType`, `evaluates` targets `Property`, and `remediates` targets
+`ActionType`. They may have zero runtime instances on a deployment that reads the corresponding
+catalog directly; their declarations still prevent endpoint aliases such as modeling an
+ActionType as a Rule.
+
+Every shipped ObjectType, LinkType, and ActionType declaration is evidence-governed: it cites a
+source URL and resolved declaration version, records license and retrieval time, and carries a
+loader-verified canonical content hash. Missing or stale provenance blocks catalog composition.
+
 Relationships are **typed LinkTypes** with cardinality metadata, so traversal is O(indexed
 lookup), not scan. Each declaration also carries `is_transitive`, `is_causal`, and
 `temporal_order` flags so the traversal engine knows when a recursive expansion is safe and
-when a Finding-chain query must respect time.
+when a query must respect time. A temporal LinkType also declares `order_by_property`, which
+MUST resolve to an ordered property on its target ObjectType. The instance store enforces
+cardinality before every link write, permits a repeated same-LinkType traversal only when
+`is_transitive` is true, and returns temporal links in target-property order. These are runtime
+invariants, not visualization hints.
 
 | LinkType | Cardinality | Transitive | Meaning |
 |----------|-------------|:---------:|---------|
@@ -719,11 +736,17 @@ source is the [inventory contract](csp-neutrality.md#5-inventory-contract--resou
 unrecognized link, like an unrecognized `ResourceType`, opens an issue rather than
 auto-registering (self-extending ontology, see [Fork Extension](#fork-extension-self-extending-ontology)).
 
+Runtime ObjectType properties and LinkType properties MUST be canonical JSON data. Mapping keys
+are strings, numbers are finite, datetimes are timezone-aware and normalized to RFC 3339 UTC, and
+unsupported Python objects are rejected at the write boundary. Both the in-memory and PostgreSQL
+stores apply the same normalization so replay does not depend on the selected adapter.
+
 ### Rule as Ontology Artifact
 
-The rule schema in [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md) is extended
-with the ontology fields the pipeline dispatches on. Existing fields are unchanged;
-ontology fields are additive and validated by CI at load.
+Rule schema v2 in
+[rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md) carries the
+ontology fields the pipeline dispatches on. It migrates the former scope-map meaning of
+`applies_to` to `scope_predicates`; every dispatch field is validated by CI at load.
 
 ```yaml
 # rule-catalog/rules/example.yaml (illustrative fragment; full schema in rule-catalog-collection.md)
@@ -740,11 +763,12 @@ remediation: <action-ref>                 # points to an ontology ActionType ins
 applies_to:    [object-storage]
 triggered_by:  [property.public_access.changed, config.public_access.enabled]
 evaluates:     [object-storage.public_access]
+scope_predicates: {}                         # optional labels/tags/scope filters
 remediates:    remediate.disable-public-access
 required_interfaces: [Evaluable, Remediable]   # submission_criteria enforced at load
 submission_criteria:
-  - property_exists: object-storage.public_access
-  - link_exists: resource_of                    # a Signal MUST reference a Resource
+  - kind: resource_type_registered
+    value: object-storage
 provenance: { ... }
 ```
 
@@ -753,6 +777,13 @@ Functions-plus-Interfaces pattern as the referenced ontology design: a rule is o
 dispatchable when its interface contract is satisfied on the runtime object, and CI
 rejects a rule whose `applies_to` / `triggered_by` cannot be resolved against the
 schema registry.
+
+`resource_type` remains the canonical single target used by existing policy and remediation
+code; it MUST occur in `applies_to`. `scope_predicates` carries the former label/tag scope map so
+it cannot be confused with the type axis. Existing and newly collected rules are backfilled with
+`triggered_by: ["*"]` and `evaluates: ["*"]` only when the upstream source supplies no narrower
+metadata. The wildcard is an explicit catch-all, not an inferred signal. TrustRouter and T0 use
+the same `applies_to` x (`triggered_by` exact or `*`) intersection.
 
 ### Pipeline Stages and ActionTypes (distinct concepts)
 

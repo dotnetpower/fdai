@@ -69,3 +69,9 @@ argument_schema:
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:ops.flush-cache@1.0.0
+  content_hash: sha256:30dcc5715c3755032059eb6b01def4f56fdda32a9a821b344dd1f3b824497e91
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

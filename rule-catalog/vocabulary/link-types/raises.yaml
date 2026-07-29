@@ -12,3 +12,9 @@ from_type: Agent
 to_type: Issue
 cardinality: many_to_many
 description: Agents that raised or contributed observations to an Issue.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:raises@1.0.0
+  content_hash: sha256:f9603d8f89f0c54ee10f84c18881e0e100b1ea27d433ea17054a85025ec74c1c
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -14,6 +14,11 @@ from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
+    can_repeat_link,
+    normalize_json_value,
+    normalize_link_record,
+    normalize_object_record,
+    ontology_link_sort_key,
     validate_link_record,
     validate_object_record,
 )
@@ -39,6 +44,7 @@ class InMemoryOntologyInstanceStore:
         *,
         expected_revision: int | None = None,
     ) -> OntologyObjectRecord:
+        record = normalize_object_record(record)
         validate_object_record(record, self._object_types)
         existing = self._objects.get(record.id)
         current_revision = existing.revision if existing is not None else 0
@@ -57,7 +63,13 @@ class InMemoryOntologyInstanceStore:
         return stored
 
     async def upsert_link(self, record: OntologyLinkRecord) -> None:
-        validate_link_record(record, link_types=self._link_types, objects=self._objects)
+        record = normalize_link_record(record)
+        validate_link_record(
+            record,
+            link_types=self._link_types,
+            objects=self._objects,
+            existing_links=tuple(self._links.values()),
+        )
         self._links[(record.from_id, record.link_type, record.to_id)] = record
 
     async def get_object(self, object_id: str) -> OntologyObjectRecord | None:
@@ -83,7 +95,7 @@ class InMemoryOntologyInstanceStore:
     ) -> OntologyGraphSnapshot:
         _validate_limit(limit)
         selected_types = set(object_types)
-        filters = property_equals or {}
+        filters = normalize_json_value(property_equals or {}, path="property_equals")
         matches = [
             item
             for item in sorted(self._objects.values(), key=lambda value: value.id)
@@ -115,15 +127,20 @@ class InMemoryOntologyInstanceStore:
         if direction not in {"outgoing", "incoming", "both"}:
             raise ValueError("direction MUST be outgoing, incoming, or both")
         allowed_links = set(link_types)
-        queue = deque((root_id, 0) for root_id in root_ids if root_id in self._objects)
+        queue: deque[tuple[str, int, str | None]] = deque(
+            (root_id, 0, None) for root_id in root_ids if root_id in self._objects
+        )
         visited: set[str] = set()
+        expanded: set[tuple[str, str | None]] = set()
         included_links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
         truncated = False
         while queue:
-            object_id, depth = queue.popleft()
-            if object_id in visited:
+            object_id, depth, previous_link_type = queue.popleft()
+            state = (object_id, previous_link_type)
+            if state in expanded:
                 continue
-            if len(visited) >= limit:
+            expanded.add(state)
+            if object_id not in visited and len(visited) >= limit:
                 truncated = True
                 break
             visited.add(object_id)
@@ -132,6 +149,9 @@ class InMemoryOntologyInstanceStore:
             for key, link in sorted(self._links.items()):
                 if allowed_links and link.link_type not in allowed_links:
                     continue
+                declaration = self._link_types[link.link_type]
+                if not can_repeat_link(previous_link_type, declaration):
+                    continue
                 next_id: str | None = None
                 if direction in {"outgoing", "both"} and link.from_id == object_id:
                     next_id = link.to_id
@@ -139,13 +159,19 @@ class InMemoryOntologyInstanceStore:
                     next_id = link.from_id
                 if next_id is not None:
                     included_links[key] = link
-                    queue.append((next_id, depth + 1))
+                    queue.append((next_id, depth + 1, link.link_type))
         objects = tuple(self._objects[identifier] for identifier in sorted(visited))
         links = tuple(
-            link
-            for _, link in sorted(included_links.items())
-            if link.from_id in visited and link.to_id in visited
+            sorted(
+                included_links.values(),
+                key=lambda link: ontology_link_sort_key(
+                    link,
+                    link_types=self._link_types,
+                    objects=self._objects,
+                ),
+            )
         )
+        links = tuple(link for link in links if link.from_id in visited and link.to_id in visited)
         return OntologyGraphSnapshot(objects=objects, links=links, truncated=truncated)
 
 

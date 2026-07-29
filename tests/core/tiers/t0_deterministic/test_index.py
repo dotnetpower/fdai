@@ -50,6 +50,7 @@ def _make_rule(
     resource_type: str,
     severity: Severity,
     remediates: str = "remediate.tag-add",
+    triggered_by: list[str] | None = None,
 ) -> Rule:
     return Rule(
         schema_version="1.0.0",
@@ -62,6 +63,8 @@ def _make_rule(
         check_logic=CheckLogic(kind=CheckLogicKind.REGO, reference="policies/x.rego"),
         remediation=Remediation(template_ref="remediation/x.tftpl"),
         remediates=remediates,
+        applies_to=[resource_type],
+        triggered_by=triggered_by or ["*"],
         provenance=Provenance(
             source_url="https://example.com/x",
             resolved_ref="0" * 40,
@@ -122,12 +125,30 @@ def test_index_ids_and_resource_types_helpers() -> None:
     assert index.resource_types() == frozenset({"compute.vm", "object-storage"})
 
 
-def test_index_rules_for_signal_ignores_signal_type_for_now() -> None:
-    """P1 W-2: routing is by resource_type only; signal_type reserved.
+def test_index_intersects_resource_and_signal_types() -> None:
+    exact = _make_rule(
+        rule_id="a.exact",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+        triggered_by=["config.changed"],
+    )
+    wildcard = _make_rule(
+        rule_id="b.wildcard",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    other = _make_rule(
+        rule_id="c.other",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+        triggered_by=["cost.changed"],
+    )
+    index = RuleIndex.build([exact, wildcard, other])
 
-    Guards the API-stability promise in :meth:`RuleIndex.rules_for_signal`.
-    """
-    r = _make_rule(rule_id="a.x", resource_type="compute.vm", severity=Severity.LOW)
-    index = RuleIndex.build([r])
-    assert index.rules_for_signal(resource_type="compute.vm") == (r,)
-    assert index.rules_for_signal(resource_type="compute.vm", signal_type="anything.at.all") == (r,)
+    assert index.rules_for_signal(resource_type="compute.vm", signal_type="config.changed") == (
+        exact,
+        wildcard,
+    )
+    assert index.rules_for_signal(resource_type="compute.vm", signal_type="unknown.changed") == (
+        wildcard,
+    )

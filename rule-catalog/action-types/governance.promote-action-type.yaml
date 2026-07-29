@@ -60,3 +60,9 @@ argument_schema:
       x-fdai-audit-safe: true
       minLength: 20
       maxLength: 500
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:governance.promote-action-type@1.0.0
+  content_hash: sha256:2930418ed031ac4d1d419489ce30fba9262e3edc2520c084d3734aa2e5d3a4cb
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

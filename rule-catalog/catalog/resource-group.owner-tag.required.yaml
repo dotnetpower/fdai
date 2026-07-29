@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: resource-group.owner-tag.required
 version: 1.0.0
 source: cis
 severity: low
 category: config_drift
 resource_type: resource-group
+applies_to:
+- resource-group
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: resource-group
 check_logic:
   kind: rego
   reference: policies/resource_group/owner_tag_required.rego

@@ -62,3 +62,9 @@ properties:
     type: string
     required: false
     description: Correlation id chain linking this turn to any typed-port events it triggered.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Turn@1.1.0
+  content_hash: sha256:d5f415a0eaab05ba01ea945bd134f79196651ba8362c9714039d7bb053bdc8e0
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

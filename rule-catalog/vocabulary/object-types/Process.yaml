@@ -58,3 +58,9 @@ properties:
     type: integer
     required: true
     description: Optimistic concurrency revision from the Process runtime snapshot.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Process@1.0.0
+  content_hash: sha256:b111e9bcf4e106b1b52c49e3d7bbe684824a1b15418646f9ba6ed6fb95573f0f
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -14,3 +14,9 @@ properties:
   item_count: {type: integer, required: true}
   evidence_refs: {type: array, required: true}
   source_error_count: {type: integer, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:BriefingRun@1.0.0
+  content_hash: sha256:602d42e71e00cece1e637ec7869bba064d877fb338842fa8ba5a27de6ffc5792
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

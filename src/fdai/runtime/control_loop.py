@@ -62,8 +62,7 @@ from fdai.core.workflow import (
 )
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
-from fdai.rule_catalog.schema.link_type import load_link_type_catalog
-from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
@@ -221,31 +220,29 @@ def _build_control_loop(
 
     registry = container.schema_registry
     probes_root = catalog_root / "probes"
-    action_types = load_action_type_catalog(
-        action_types_root,
-        schema_registry=registry,
-        probes_root=probes_root if probes_root.is_dir() else None,
-    )
+    if object_types_root.is_dir() and link_types_root.is_dir():
+        ontology_catalog = load_ontology_catalog(
+            catalog_root,
+            schema_registry=registry,
+            probes_root=probes_root if probes_root.is_dir() else None,
+        )
+        action_types = ontology_catalog.action_types
+        ontology_object_types = ontology_catalog.object_types
+        ontology_link_types = ontology_catalog.link_types
+    else:
+        action_types = load_action_type_catalog(
+            action_types_root,
+            schema_registry=registry,
+            probes_root=probes_root if probes_root.is_dir() else None,
+        )
+        ontology_object_types = ()
+        ontology_link_types = ()
     resource_types = _load_resource_types()
 
     # Ontology ObjectType / LinkType catalogs (fail-closed if directories
     # exist but any file is invalid). Missing directories are tolerated
     # so unit tests running against a stub catalog root do not require
     # every fixture to ship the vocabulary tree.
-    ontology_object_types = (
-        load_object_type_catalog(object_types_root, schema_registry=registry)
-        if object_types_root.is_dir()
-        else ()
-    )
-    ontology_link_types = (
-        load_link_type_catalog(
-            link_types_root,
-            schema_registry=registry,
-            object_types=ontology_object_types,
-        )
-        if link_types_root.is_dir() and ontology_object_types
-        else ()
-    )
     if ontology_object_types or ontology_link_types:
         container = replace(
             container,

@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+name: ResourceType
+version: "1.0.0"
+key: id
+description: Meta object describing one CSP-neutral resource type declaration.
+properties:
+  id: {type: string, required: true}
+  category: {type: string, required: true}
+  provider_type: {type: string, required: false}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ResourceType@1.0.0
+  content_hash: sha256:fbe156309c3a8308dbc4ca7af4e97d6b6281d5dc81bfa1a28d32660a28ab5a1b
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: network.vnet.ddos-plan.required
 version: 1.0.0
 source: mcsb
 severity: medium
 category: security
 resource_type: network.vnet
+applies_to:
+- network.vnet
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: network.vnet
 check_logic:
   kind: rego
   reference: policies/network/vnet_ddos_plan_required.rego

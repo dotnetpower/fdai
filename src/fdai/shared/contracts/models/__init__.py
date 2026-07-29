@@ -115,17 +115,27 @@ from .ontology import (
     CeilingByTier,
     LifecycleCriterion,
     LifecycleDeduplication,
+    LifecycleOwner,
     ObjectLifecycle,
     OntologyActionType,
     OntologyLinkType,
     OntologyObjectType,
+    OntologyProvenance,
     ProdDowngrade,
     PromotionGate,
     PropertyDecl,
     TierCeiling,
     TriggerKindDecl,
 )
-from .rule import CheckLogic, Provenance, Remediation, Rule
+from .rule import (
+    CheckLogic,
+    Provenance,
+    Remediation,
+    Rule,
+    RuleInterface,
+    SubmissionCriterion,
+    SubmissionCriterionKind,
+)
 from .workflow import Workflow, WorkflowStep, WorkflowTrigger
 
 __all__ = [
@@ -184,6 +194,7 @@ __all__ = [
     "IncidentState",
     "LifecycleCriterion",
     "LifecycleDeduplication",
+    "LifecycleOwner",
     "ObjectLifecycle",
     "OntologyActionType",
     "ProdDowngrade",
@@ -191,6 +202,7 @@ __all__ = [
     "TriggerKindDecl",
     "OntologyLinkType",
     "OntologyObjectType",
+    "OntologyProvenance",
     "PropertyDecl",
     "Provenance",
     "Remediation",
@@ -200,6 +212,9 @@ __all__ = [
     "RequirementStatus",
     "RollbackRef",
     "Rule",
+    "RuleInterface",
+    "SubmissionCriterion",
+    "SubmissionCriterionKind",
     "Workflow",
     "WorkflowStep",
     "WorkflowTrigger",

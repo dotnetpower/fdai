@@ -8,6 +8,7 @@ rejected at load, matching the discovery-loop rule in
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any
 
 from pydantic import Field
@@ -46,6 +47,22 @@ class Provenance(_Base):
     mapped_by: Annotated[str, Field(min_length=1)] | None = None
 
 
+class RuleInterface(StrEnum):
+    EVALUABLE = "Evaluable"
+    REMEDIABLE = "Remediable"
+
+
+class SubmissionCriterionKind(StrEnum):
+    RESOURCE_TYPE_REGISTERED = "resource_type_registered"
+    PROPERTY_EXISTS = "property_exists"
+    LINK_EXISTS = "link_exists"
+
+
+class SubmissionCriterion(_Base):
+    kind: SubmissionCriterionKind
+    value: Annotated[str, Field(min_length=1)]
+
+
 class Rule(_Base):
     """Normalized, CSP-neutral rule entry.
 
@@ -73,7 +90,22 @@ class Rule(_Base):
     )
     parameters: dict[str, Any] = Field(default_factory=dict)
     provenance: Provenance
-    applies_to: dict[str, Any] = Field(default_factory=dict)
+    applies_to: list[Annotated[str, Field(min_length=1)]] = Field(default_factory=list)
+    triggered_by: list[Annotated[str, Field(min_length=1)]] = Field(default_factory=lambda: ["*"])
+    evaluates: list[Annotated[str, Field(min_length=1)]] = Field(default_factory=lambda: ["*"])
+    required_interfaces: list[RuleInterface] = Field(
+        default_factory=lambda: [RuleInterface.EVALUABLE, RuleInterface.REMEDIABLE]
+    )
+    submission_criteria: list[SubmissionCriterion] = Field(default_factory=list)
+    scope_predicates: dict[str, Any] = Field(default_factory=dict)
 
 
-__all__ = ["CheckLogic", "Provenance", "Remediation", "Rule"]
+__all__ = [
+    "CheckLogic",
+    "Provenance",
+    "Remediation",
+    "Rule",
+    "RuleInterface",
+    "SubmissionCriterion",
+    "SubmissionCriterionKind",
+]

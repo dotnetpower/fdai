@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: compute.vm.managed-identity.assigned
 version: 1.0.0
 source: mcsb
 severity: medium
 category: security
 resource_type: compute.vm
+applies_to:
+- compute.vm
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: compute.vm
 check_logic:
   kind: rego
   reference: policies/compute/vm_managed_identity_assigned.rego

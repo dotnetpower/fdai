@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: sql-database.audit-enabled
 version: 1.0.0
 source: mcsb
 severity: high
 category: security
 resource_type: sql-database
+applies_to:
+- sql-database
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: sql-database
 check_logic:
   kind: rego
   reference: policies/sql_database/audit_enabled.rego

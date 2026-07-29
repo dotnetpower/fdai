@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+name: Property
+version: "1.0.0"
+key: id
+description: Meta object describing one resource property referenced by a Rule.
+properties:
+  id: {type: string, required: true}
+  resource_type: {type: string, required: true}
+  path: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Property@1.0.0
+  content_hash: sha256:cf97c5908d307f19b413782963d693ee789c9933bd687cbc57eb91197270afd6
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

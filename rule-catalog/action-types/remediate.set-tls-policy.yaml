@@ -43,3 +43,9 @@ ceiling_by_tier:
   t2:
     max_autonomy: shadow_only
     min_role: approver
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.set-tls-policy@1.0.0
+  content_hash: sha256:e295a45e93edae038e4a4bb3243ecb6c38a321efeb447e6b6c43be615bde1141
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

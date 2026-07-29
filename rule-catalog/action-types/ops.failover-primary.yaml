@@ -64,3 +64,9 @@ argument_schema:
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:ops.failover-primary@1.0.0
+  content_hash: sha256:f71b7135a95575da3b75c6987946a42941338f60c403b31f64abe2fc8b7661cc
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: network.load-balancer.unused-backend
 version: 1.0.0
 source: azure_advisor
 severity: low
 category: cost
 resource_type: network.load-balancer
+applies_to:
+- network.load-balancer
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: network.load-balancer
 check_logic:
   kind: rego
   reference: policies/network/lb_unused_backend.rego

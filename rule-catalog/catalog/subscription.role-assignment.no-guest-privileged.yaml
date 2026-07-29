@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: subscription.role-assignment.no-guest-privileged
 version: 1.0.0
 source: mcsb
 severity: critical
 category: security
 resource_type: subscription
+applies_to:
+- subscription
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: subscription
 check_logic:
   kind: rego
   reference: policies/subscription/no_guest_privileged.rego

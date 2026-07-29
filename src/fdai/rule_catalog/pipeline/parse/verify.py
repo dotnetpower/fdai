@@ -13,9 +13,10 @@ in.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from fdai.rule_catalog.pipeline.parse.parser import ParsedRule
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
@@ -89,8 +90,9 @@ def verify_parsed_rules(
 
     for parsed in rules:
         try:
+            normalized = _with_dispatch_baseline(parsed.raw)
             rule = load_rule_from_mapping(
-                parsed.raw,
+                normalized,
                 schema_registry=schema_registry,
                 action_type_names=action_type_names,
                 resource_type_ids=resource_type_ids,
@@ -126,3 +128,23 @@ def verify_parsed_rules(
         verified=tuple(verified),
         issues=tuple(issues),
     )
+
+
+def _with_dispatch_baseline(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """Add explicit Rule v2 dispatch metadata when an upstream source omits it."""
+
+    normalized = dict(raw)
+    resource_type = normalized.get("resource_type")
+    if isinstance(resource_type, str) and resource_type:
+        normalized.setdefault("applies_to", [resource_type])
+        normalized.setdefault(
+            "submission_criteria",
+            [{"kind": "resource_type_registered", "value": resource_type}],
+        )
+    normalized.setdefault("triggered_by", ["*"])
+    normalized.setdefault("evaluates", ["*"])
+    normalized.setdefault("required_interfaces", ["Evaluable", "Remediable"])
+    normalized.setdefault("scope_predicates", {})
+    if normalized.get("schema_version") == "1.0.0":
+        normalized["schema_version"] = "2.0.0"
+    return normalized

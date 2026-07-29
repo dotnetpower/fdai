@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 61b22b28deeeba0f865502f84de446d9b7b9fbe8
-translation_revised: 2026-07-22
+translation_source_sha: 170351e918c68c277741f635b3ba3df0610a0e0a
+translation_revised: 2026-07-29
 ---
 
 # Action 온톨로지
@@ -184,6 +184,18 @@ provenance:
   license: string
   retrieved_at: RFC3339
 ```
+
+shipped ObjectType, LinkType, ActionType은 모두 이 provenance block을 운반합니다.
+`content_hash`는 Pydantic-normalized declaration에서 `provenance` 필드를 제외하고 canonical
+JSON으로 인코딩한 값의 `sha256:<hex>`입니다. catalog loader가 이를 다시 계산하고 mismatch 시
+시작을 차단하므로 declaration 변경이 stale evidence를 유지할 수 없습니다. `resolved_ref`는
+authored declaration version을, `source_url`은 review 가능한 source를 식별합니다.
+
+Precondition 매개 변수는 자유 형식 레이블이 아니라 타입이 지정된 참조입니다. 카탈로그를
+로드할 때 `link_exists`와 `link_absent`의 `link_type`은 upstream 및 fork LinkType을 합친
+registry에서 확인합니다. 알 수 없는 이름이 있으면 시작을 차단합니다. 각 precondition kind는
+해당 kind에 정의된 매개 변수만 사용할 수 있으며, 필수 매개 변수가 없거나 관련 없는 매개
+변수가 있으면 액션이 risk gate에 도달하기 전에 차단됩니다.
 
 Catalog backfill은 다음 상태로 완료되었습니다:
 

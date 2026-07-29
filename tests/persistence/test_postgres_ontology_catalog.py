@@ -64,5 +64,9 @@ async def test_sync_catalog_upserts_objects_before_links() -> None:
         "WorkflowDefinition",
         "WorkflowDefinition",
         "many_to_one",
+        False,
+        False,
+        False,
+        None,
         None,
     )

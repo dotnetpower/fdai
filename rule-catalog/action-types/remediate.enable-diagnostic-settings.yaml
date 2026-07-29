@@ -44,3 +44,9 @@ ceiling_by_tier:
   t2:
     max_autonomy: shadow_only
     min_role: approver
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.enable-diagnostic-settings@1.0.0
+  content_hash: sha256:f50a5fb06ee625cfdd150432ec804d0f7d643ae9bc4f29a210a9c7393c542fd3
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

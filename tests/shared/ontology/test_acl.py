@@ -7,7 +7,7 @@ read surface (read-API panels, assurance twin, exported reports).
 from __future__ import annotations
 
 from fdai.rule_catalog.schema.object_type import load_object_type_from_mapping
-from fdai.shared.contracts.models import CeilingRole
+from fdai.shared.contracts.models import CeilingRole, OntologyObjectType
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.acl import (
     REDACTED_PLACEHOLDER,
@@ -15,8 +15,14 @@ from fdai.shared.ontology.acl import (
     RedactedField,
     RedactionReason,
     declared_purposes_from_iterable,
+    project_graph_snapshot,
     redact_properties,
     serialize_projection,
+)
+from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
 )
 
 
@@ -24,7 +30,7 @@ def _registry() -> PackageResourceSchemaRegistry:
     return PackageResourceSchemaRegistry()
 
 
-def _object_type(props: dict[str, dict]) -> object:
+def _object_type(props: dict[str, dict]) -> OntologyObjectType:
     return load_object_type_from_mapping(
         {
             "schema_version": "1.0.0",
@@ -200,3 +206,78 @@ def test_declared_purposes_from_iterable_normalises_input() -> None:
         ["audit-review", " audit-review ", "", "incident-response"]
     )
     assert result == frozenset({"audit-review", "incident-response"})
+
+
+def test_graph_projection_remaps_restricted_keys_and_edges() -> None:
+    object_type = _object_type(
+        {
+            "id": {
+                "type": "string",
+                "required": True,
+                "access_scope": "owner",
+                "purpose_binding": ["user_context"],
+            },
+            "label": {"type": "string"},
+        }
+    )
+    snapshot = OntologyGraphSnapshot(
+        objects=(
+            OntologyObjectRecord(
+                id="principal-secret",
+                object_type="TestOT",
+                properties={"id": "principal-secret", "label": "Principal"},
+            ),
+        ),
+        links=(
+            OntologyLinkRecord(
+                link_type="self_link",
+                from_id="principal-secret",
+                to_id="principal-secret",
+            ),
+        ),
+    )
+
+    projected = project_graph_snapshot(
+        snapshot,
+        object_types={object_type.name: object_type},
+        request=ProjectionRequest(caller_role=CeilingRole.READER),
+    )
+
+    assert projected.objects[0].id == "redacted-object-1"
+    assert projected.objects[0].properties["id"] == REDACTED_PLACEHOLDER
+    assert projected.links[0].from_id == "redacted-object-1"
+    assert "principal-secret" not in str(projected)
+
+
+def test_graph_projection_preserves_key_for_trusted_purpose() -> None:
+    object_type = _object_type(
+        {
+            "id": {
+                "type": "string",
+                "required": True,
+                "access_scope": "owner",
+                "purpose_binding": ["user_context"],
+            }
+        }
+    )
+    snapshot = OntologyGraphSnapshot(
+        objects=(
+            OntologyObjectRecord(
+                id="principal-1",
+                object_type="TestOT",
+                properties={"id": "principal-1"},
+            ),
+        )
+    )
+
+    projected = project_graph_snapshot(
+        snapshot,
+        object_types={object_type.name: object_type},
+        request=ProjectionRequest(
+            caller_role=CeilingRole.OWNER,
+            declared_purposes=frozenset({"user_context"}),
+        ),
+    )
+
+    assert projected.objects[0].id == "principal-1"
+    assert projected.objects[0].properties["id"] == "principal-1"

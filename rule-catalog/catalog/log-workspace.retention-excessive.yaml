@@ -1,10 +1,22 @@
-schema_version: 1.0.0
+schema_version: "2.0.0"
 id: log-workspace.retention-excessive
 version: 1.0.0
 source: waf
 severity: low
 category: cost
 resource_type: log-workspace
+applies_to:
+- log-workspace
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: log-workspace
 check_logic:
   kind: rego
   reference: policies/log_workspace/retention_excessive.rego

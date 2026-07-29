@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 34fd1b9914e9167b9f65198fa83d86598bdb6415
-translation_revised: 2026-07-21
+translation_source_sha: d7a305eb4152e8fc0bcb6b215089369659383c92
+translation_revised: 2026-07-29
 ---
 # 리포팅 서브시스템
 
@@ -182,6 +182,14 @@ consumer를 위한 backend builder로 남지만 생성된 WorkflowApp surface에
 모든 datasource는 **read-only, async**입니다. `core/`는
 `delivery/`를 import하지 않으며, `audit` 어댑터는 좁은 duck-typed
 Protocol을 받아 wire-up을 한 방향으로 유지합니다.
+
+`ontology` datasource는 widget에 전달하기 전에 모든 ObjectType 속성을 선언된
+`access_scope`와 `purpose_binding`으로 projection해야 합니다. composition root가 신뢰된
+ObjectType registry와 projection request를 제공하며, 기본값은 purpose가 없는 `reader`이므로
+caller context 누락은 fail-closed입니다. report YAML, query parameter, report variable은 이 role을
+높이거나 purpose를 추가할 수 없습니다. redacted 값은 공유 placeholder와 bounded
+`__redactions__` metadata를 사용하며, key 속성 자체가 redacted되면 raw object key를 topology
+edge로 내보내지 않습니다.
 
 포크는 `ReportDataSource`를 구현하고
 `DataSourceRegistry.register`를 호출해 새 source(Cost Management,

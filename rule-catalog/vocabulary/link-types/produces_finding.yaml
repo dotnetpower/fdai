@@ -5,3 +5,9 @@ from_type: ReviewCheck
 to_type: Finding
 cardinality: one_to_many
 description: Finding emitted when a ReviewCheck does not pass.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:produces_finding@1.0.0
+  content_hash: sha256:09dbd191a729b86919344cbaadd170390be040bd3a96267c46bedcb9f9940a98
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -5,4 +5,11 @@ from_type: Conversation
 to_type: BriefingRun
 cardinality: one_to_many
 temporal_order: true
+order_by_property: scheduled_for
 description: Opening briefings rendered once in a Conversation.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:received_briefing@1.0.0
+  content_hash: sha256:c306a918345f4229fd5bab47f6f1ea5cf830903fc4cd5de864ae76bbdd7d3a0a
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

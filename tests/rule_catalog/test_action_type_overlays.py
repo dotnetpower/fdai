@@ -16,16 +16,21 @@ from fdai.rule_catalog.schema.action_type import (
     ActionTypeCatalogError,
     load_action_type_catalog,
 )
+from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
+from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 
 def _write_yaml(path: Path, data: dict) -> None:
+    if "provenance" in data:
+        declaration = OntologyActionType.model_validate(data)
+        data["provenance"]["content_hash"] = ontology_content_hash(declaration)
     with path.open("w") as f:
         yaml.dump(data, f, sort_keys=False)
 
 
 def _minimal_upstream(name: str = "remediate.example") -> dict:
-    return {
+    raw = {
         "schema_version": "1.0.0",
         "name": name,
         "version": "1.0.0",
@@ -53,6 +58,15 @@ def _minimal_upstream(name: str = "remediate.example") -> dict:
             "t2": {"max_autonomy": "shadow_only", "min_role": "approver"},
         },
     }
+    declaration = OntologyActionType.model_validate(raw)
+    raw["provenance"] = {
+        "source_url": "https://example.com/fdai/ontology",
+        "resolved_ref": f"action-type:{name}@1.0.0",
+        "content_hash": ontology_content_hash(declaration),
+        "license": "MIT",
+        "retrieved_at": "2026-07-29T00:00:00Z",
+    }
+    return raw
 
 
 def test_overlay_missing_root_is_noop(tmp_path):

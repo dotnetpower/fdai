@@ -48,3 +48,9 @@ ceiling_by_tier:
   t2:
     max_autonomy: shadow_only
     min_role: approver
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.enable-purge-protection@1.0.0
+  content_hash: sha256:5bf22746ab002c3d3f5f0b806898d470e1e3d749b6671f4167a71a2ea0bf89eb
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

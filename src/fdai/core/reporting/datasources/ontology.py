@@ -8,6 +8,11 @@ from datetime import datetime
 from typing import Any
 
 from fdai.core.reporting.models import DataSet, QuerySpec
+from fdai.shared.contracts.models import CeilingRole, OntologyObjectType
+from fdai.shared.ontology.acl import (
+    ProjectionRequest,
+    project_graph_snapshot,
+)
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyInstanceStore
 from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 
@@ -16,7 +21,13 @@ from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 class OntologyDataSource:
     ontology: OntologyInstanceStore
     processes: ProcessRuntimeStore
+    object_types: tuple[OntologyObjectType, ...]
+    projection_request: ProjectionRequest = ProjectionRequest(caller_role=CeilingRole.READER)
     name: str = "ontology"
+
+    def __post_init__(self) -> None:
+        if not self.object_types:
+            raise ValueError("OntologyDataSource requires a non-empty ObjectType registry")
 
     async def query(
         self,
@@ -69,7 +80,12 @@ class OntologyDataSource:
             return DataSet(scalar=values[field])
         graph = await self._graph(process_id, parameters)
         review = next((item for item in graph.objects if item.object_type == "ReviewCase"), None)
-        return DataSet(scalar=review.properties.get(field) if review is not None else None)
+        if review is None:
+            return DataSet(scalar=None)
+        redactions = review.properties.get("__redactions__", {})
+        field_redaction = redactions.get(field) if isinstance(redactions, Mapping) else None
+        metadata = {"redaction": field_redaction} if field_redaction is not None else {}
+        return DataSet(scalar=review.properties.get(field), metadata=metadata)
 
     async def _process_events(self, process_id: str) -> DataSet:
         events = await self.processes.events(process_id)
@@ -94,12 +110,20 @@ class OntologyDataSource:
     ) -> OntologyGraphSnapshot:
         depth = int(parameters.get("depth", 4))
         limit = int(parameters.get("limit", 500))
-        return await self.ontology.traverse(
+        snapshot = await self.ontology.traverse(
             root_ids=(process_id,),
             direction="both",
             max_depth=depth,
             limit=limit,
         )
+        return project_graph_snapshot(
+            snapshot,
+            object_types=self._object_types_by_name(),
+            request=self.projection_request,
+        )
+
+    def _object_types_by_name(self) -> dict[str, OntologyObjectType]:
+        return {item.name: item for item in self.object_types}
 
 
 def _review_checks(graph: OntologyGraphSnapshot) -> DataSet:
@@ -125,7 +149,7 @@ def _review_checks(graph: OntologyGraphSnapshot) -> DataSet:
 
 def _objects(graph: OntologyGraphSnapshot, *, object_type: str) -> DataSet:
     rows = tuple(
-        {"id": item.id, "object_type": item.object_type, **dict(item.properties)}
+        {"object_type": item.object_type, **dict(item.properties)}
         for item in graph.objects
         if not object_type or item.object_type == object_type
     )
@@ -140,6 +164,7 @@ def _topology(graph: OntologyGraphSnapshot) -> DataSet:
             "label": item.properties.get("title") or item.properties.get("check_key") or item.id,
             "group": item.object_type,
             "value": item.properties.get("status"),
+            "redactions": item.properties.get("__redactions__", {}),
         }
         for item in graph.objects
     ]

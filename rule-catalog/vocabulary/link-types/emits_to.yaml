@@ -1,0 +1,19 @@
+# LinkType: emits_to (Resource -> Resource, M:M)
+#
+# A telemetry-producing Resource routes logs, metrics, or traces to an
+# observability Resource. The edge is directional and non-transitive: a
+# diagnostic setting may target more than one sink, and one sink may receive
+# telemetry from many resources.
+schema_version: "1.0.0"
+name: emits_to
+version: "1.0.0"
+from_type: Resource
+to_type: Resource
+cardinality: many_to_many
+description: A Resource routes telemetry to an observability Resource.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:emits_to@1.0.0
+  content_hash: sha256:705ee7cd1104753c1aa63d843b7160f9fd10a836b8c0f79ec5ff62448afff7b2
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

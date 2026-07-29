@@ -14,3 +14,9 @@ properties:
   workflow_ref: {type: string, required: true}
   opened_at: {type: datetime, required: true}
   updated_at: {type: datetime, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ReviewCase@1.0.0
+  content_hash: sha256:98e3bfa72208fc00bff07aecc2bd3d34779d6e45e5caf37d4b79275058ee5026
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -5,3 +5,9 @@ from_type: Principal
 to_type: WorkflowBinding
 cardinality: one_to_many
 description: Workflow bindings owned by one authenticated Principal.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:owns_workflow_binding@1.0.0
+  content_hash: sha256:e7f20850325731231164e6852b817efcc0df8d2ec8cae719a433585dac0198c5
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

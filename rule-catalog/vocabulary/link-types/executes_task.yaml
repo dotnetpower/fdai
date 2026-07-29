@@ -5,3 +5,9 @@ from_type: VmTaskRun
 to_type: PythonTask
 cardinality: many_to_one
 description: The immutable PythonTask artifact selected by a VM task run.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:executes_task@1.0.0
+  content_hash: sha256:521cb560ff89a03ea3a1abf1ce1ad7193724eb4bbd17f24be8fd8f212b81d6d8
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

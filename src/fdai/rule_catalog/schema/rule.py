@@ -41,7 +41,11 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
-from fdai.shared.contracts.models import OntologyActionType, Rule
+from fdai.shared.contracts.models import (
+    OntologyActionType,
+    Rule,
+    SubmissionCriterionKind,
+)
 from fdai.shared.contracts.registry import SchemaRegistry
 
 _RULE_SCHEMA_NAME = "rule"
@@ -89,6 +93,34 @@ def _cross_reference_issues(
                 ),
             )
         )
+
+    for idx, resource_type in enumerate(rule.applies_to):
+        if resource_type not in resource_type_ids:
+            issues.append(
+                RuleIssue(
+                    key=f"{origin}:applies_to[{idx}]",
+                    message=f"unknown applies_to resource type {resource_type!r}",
+                )
+            )
+    if rule.resource_type not in rule.applies_to:
+        issues.append(
+            RuleIssue(
+                key=f"{origin}:applies_to",
+                message=(f"applies_to MUST contain canonical resource_type {rule.resource_type!r}"),
+            )
+        )
+
+    for idx, criterion in enumerate(rule.submission_criteria):
+        if (
+            criterion.kind is SubmissionCriterionKind.RESOURCE_TYPE_REGISTERED
+            and criterion.value not in resource_type_ids
+        ):
+            issues.append(
+                RuleIssue(
+                    key=f"{origin}:submission_criteria[{idx}]",
+                    message=f"unknown registered resource type {criterion.value!r}",
+                )
+            )
 
     if rule.remediates not in action_type_names:
         issues.append(
@@ -252,6 +284,16 @@ def load_rule_from_mapping(
         else:
             issues.append(RuleIssue(key=f"{origin}:<root>", message=str(exc)))
         raise RuleCatalogError(issues) from exc
+
+    if model.schema_version != "2.0.0":
+        raise RuleCatalogError(
+            [
+                RuleIssue(
+                    key=f"{origin}:schema_version",
+                    message="runtime rule catalog requires schema_version 2.0.0",
+                )
+            ]
+        )
 
     xref_issues = _cross_reference_issues(
         model,

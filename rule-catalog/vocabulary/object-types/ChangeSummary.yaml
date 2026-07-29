@@ -60,3 +60,9 @@ properties:
     type: string
     required: false
     description: External reference (PR url, page id, ticket id) once the delivery adapter publishes the report.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ChangeSummary@1.0.0
+  content_hash: sha256:2392be0c8cd1a8d8ea567156bdc0e69007933d214437c2e519e923e9ee4355f9
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

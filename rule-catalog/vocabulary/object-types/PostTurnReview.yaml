@@ -25,3 +25,9 @@ properties:
     access_scope: owner
     purpose_binding: [learning]
     description: Consent-filtered review input; raw bodies are absent unless the operator opted in.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:PostTurnReview@1.0.0
+  content_hash: sha256:6f0c5025731253ffe18ca70864347319dc3a24b05d6b65325e967253be8ecc11
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

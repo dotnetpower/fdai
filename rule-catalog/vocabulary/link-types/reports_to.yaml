@@ -13,3 +13,9 @@ from_type: Agent
 to_type: Agent
 cardinality: many_to_one
 description: Org-chart parent of a pantheon Agent (self-reference).
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:reports_to@1.0.0
+  content_hash: sha256:ccd8e7b6a8134400ae49ce48428c7c7ab1f0c1f190b822001cfb8587344da22e
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

@@ -12,3 +12,9 @@ properties:
   classification: {type: string, required: true}
   captured_at: {type: datetime, required: true}
   expires_at: {type: datetime, required: false}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:EvidenceArtifact@1.0.0
+  content_hash: sha256:b8d338342997ba186e939d36687d10b65ccf2b2bb2af27ae0a27107071bc5e2b
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

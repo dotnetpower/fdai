@@ -22,7 +22,12 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
-from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
+from fdai.rule_catalog.schema.ontology_provenance import ontology_provenance_error
+from fdai.shared.contracts.models import (
+    OntologyLinkType,
+    OntologyObjectType,
+    PropertyType,
+)
 from fdai.shared.contracts.registry import SchemaRegistry
 
 _LINK_TYPE_SCHEMA_NAME = "ontology/link-type"
@@ -54,6 +59,7 @@ def _cross_reference_issues(
     *,
     origin: str,
     object_type_names: set[str],
+    object_types_by_name: Mapping[str, OntologyObjectType] | None = None,
 ) -> list[LinkTypeIssue]:
     issues: list[LinkTypeIssue] = []
     if link.from_type not in object_type_names:
@@ -76,6 +82,34 @@ def _cross_reference_issues(
                 ),
             )
         )
+    elif link.temporal_order and object_types_by_name is not None:
+        target = object_types_by_name[link.to_type]
+        order_property = link.order_by_property
+        declaration = target.properties.get(order_property or "")
+        if declaration is None:
+            issues.append(
+                LinkTypeIssue(
+                    key=f"{origin}:order_by_property",
+                    message=(
+                        f"unknown target property {order_property!r} on ObjectType {target.name!r}"
+                    ),
+                )
+            )
+        elif declaration.type not in {
+            PropertyType.DATETIME,
+            PropertyType.INTEGER,
+            PropertyType.NUMBER,
+            PropertyType.STRING,
+        }:
+            issues.append(
+                LinkTypeIssue(
+                    key=f"{origin}:order_by_property",
+                    message=(
+                        f"target property {target.name}.{order_property} MUST use an "
+                        "ordered scalar type"
+                    ),
+                )
+            )
     return issues
 
 
@@ -84,6 +118,7 @@ def load_link_type_from_mapping(
     *,
     schema_registry: SchemaRegistry,
     object_type_names: set[str],
+    object_types_by_name: Mapping[str, OntologyObjectType] | None = None,
     origin: str = "<mapping>",
 ) -> OntologyLinkType:
     """Validate a single LinkType mapping and return the pydantic model.
@@ -116,7 +151,12 @@ def load_link_type_from_mapping(
             issues.append(LinkTypeIssue(key=f"{origin}:<root>", message=str(exc)))
         raise LinkTypeCatalogError(issues) from exc
 
-    xref_issues = _cross_reference_issues(model, origin=origin, object_type_names=object_type_names)
+    xref_issues = _cross_reference_issues(
+        model,
+        origin=origin,
+        object_type_names=object_type_names,
+        object_types_by_name=object_types_by_name,
+    )
     if xref_issues:
         raise LinkTypeCatalogError(xref_issues)
 
@@ -140,7 +180,8 @@ def load_link_type_catalog(
     the caller (typically the result of
     :func:`load_object_type_catalog`).
     """
-    object_type_names_set = {o.name for o in object_types}
+    object_types_by_name = {item.name: item for item in object_types}
+    object_type_names_set = set(object_types_by_name)
 
     aggregated: list[LinkTypeIssue] = []
     loaded: list[OntologyLinkType] = []
@@ -160,6 +201,7 @@ def load_link_type_catalog(
                 raw,
                 schema_registry=schema_registry,
                 object_type_names=object_type_names_set,
+                object_types_by_name=object_types_by_name,
                 origin=path.name,
             )
         except LinkTypeCatalogError as exc:
@@ -176,6 +218,12 @@ def load_link_type_catalog(
             )
             continue
         seen_names[model.name] = path.name
+        provenance_error = ontology_provenance_error(model)
+        if provenance_error is not None:
+            aggregated.append(
+                LinkTypeIssue(key=f"{path.name}:provenance", message=provenance_error)
+            )
+            continue
         loaded.append(model)
 
     if aggregated:

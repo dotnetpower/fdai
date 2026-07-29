@@ -11,3 +11,9 @@ from_type: Rule
 to_type: SecurityEvent
 cardinality: many_to_many
 description: Which SecurityEvent kinds a Rule matches on.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:detects@1.0.0
+  content_hash: sha256:eae87f4f507bd6987dd3e83fa1eac1b31c2a1ec37277c6eb6d5b652bb488cf0a
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

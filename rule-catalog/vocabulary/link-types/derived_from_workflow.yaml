@@ -5,3 +5,9 @@ from_type: WorkflowDefinition
 to_type: WorkflowDefinition
 cardinality: many_to_one
 description: Built-in or shared definition cloned into a distinct immutable definition.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:derived_from_workflow@1.0.0
+  content_hash: sha256:451551ebcbe660d05f45cd9359a892ce5ebd1af8a298952607855b83e64ef8c5
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

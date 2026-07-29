@@ -62,7 +62,7 @@ from fdai.core.tiers.t0_deterministic import (
 from fdai.core.trust_router import TrustRouter
 from fdai.delivery.read_api.streaming.agent_activity_projection import stage_agent
 from fdai.delivery.read_api.streaming.live_stream import LiveEmitter
-from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
@@ -228,7 +228,10 @@ class ControlLoopLiveEmitter(LiveEmitter):
 
         try:
             registry = PackageResourceSchemaRegistry()
-            action_types = load_action_type_catalog(action_types_root, schema_registry=registry)
+            action_types = load_ontology_catalog(
+                repo_root / "rule-catalog",
+                schema_registry=registry,
+            ).action_types
             with vocabulary_file.open("r", encoding="utf-8") as fh:
                 resource_types = load_resource_type_registry_from_mapping(yaml.safe_load(fh))
             rules = load_rule_catalog(

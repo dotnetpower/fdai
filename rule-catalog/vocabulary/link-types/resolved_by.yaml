@@ -5,4 +5,11 @@ from_type: ReviewCase
 to_type: Decision
 cardinality: one_to_many
 temporal_order: true
+order_by_property: recorded_at
 description: Ordered decisions that resolved or conditioned a ReviewCase.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:resolved_by@1.0.0
+  content_hash: sha256:2276f1b9ce21bc12ed42fa9870fadf68676e181f475a91ed4bf25e0c6e4ccf7b
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

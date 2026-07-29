@@ -284,6 +284,7 @@ async def _build_dynamic_process_views(
         metric_provider=metric_provider,
         ontology_store=ontology,
         process_store=runtime,
+        ontology_object_types=object_types,
     )
     from fdai.core.reporting.models import DataSourceProvenance
 

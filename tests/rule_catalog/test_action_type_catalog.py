@@ -15,17 +15,23 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 from fdai.rule_catalog.schema.action_type import (
     ActionTypeCatalogError,
     load_action_type_catalog,
     load_action_type_from_mapping,
 )
-from fdai.shared.contracts.models import Mode, Operation, RollbackKind
+from fdai.rule_catalog.schema.link_type import load_link_type_catalog
+from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
+from fdai.shared.contracts.models import Mode, OntologyActionType, Operation, RollbackKind
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
+OBJECT_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types"
+LINK_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "vocabulary" / "link-types"
 
 
 def _registry() -> PackageResourceSchemaRegistry:
@@ -43,6 +49,50 @@ def test_shipped_action_types_load() -> None:
         "remediate.rotate-secret",
         "remediate.enable-tde",
     }
+
+
+def _link_types() -> tuple:
+    object_types = load_object_type_catalog(OBJECT_TYPES_ROOT, schema_registry=_registry())
+    return load_link_type_catalog(
+        LINK_TYPES_ROOT,
+        schema_registry=_registry(),
+        object_types=object_types,
+    )
+
+
+def test_shipped_precondition_link_types_resolve() -> None:
+    catalog = load_action_type_catalog(
+        CATALOG_ROOT,
+        schema_registry=_registry(),
+        link_types=_link_types(),
+    )
+    assert catalog
+
+
+def test_unknown_precondition_link_type_is_rejected(tmp_path: Path) -> None:
+    body = _complete_ops_yaml() + (
+        "preconditions:\n- kind: link_exists\n  link_type: misspelled_link\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(
+            root,
+            schema_registry=_registry(),
+            link_types=_link_types(),
+        )
+    assert "misspelled_link" in " ".join(issue.message for issue in info.value.issues)
+
+
+def test_precondition_rejects_missing_and_unrelated_parameters(tmp_path: Path) -> None:
+    body = _complete_ops_yaml() + (
+        "preconditions:\n- kind: link_absent\n- kind: maintenance_window_active\n  tag: unrelated\n"
+    )
+    root = _write_catalog(tmp_path, body)
+    with pytest.raises(ActionTypeCatalogError) as info:
+        load_action_type_catalog(root, schema_registry=_registry())
+    joined = " ".join(issue.message for issue in info.value.issues)
+    assert "requires link_type" in joined
+    assert "does not accept tag" in joined
 
 
 def test_every_shipped_action_type_defaults_to_shadow() -> None:
@@ -523,6 +573,15 @@ def _complete_ops_yaml(*, omit: str | None = None, argument_schema: str | None =
 def _write_catalog(tmp_path: Path, body: str) -> Path:
     root = tmp_path / "action-types"
     root.mkdir()
+    declaration = OntologyActionType.model_validate(yaml.safe_load(body))
+    body += (
+        "provenance:\n"
+        "  source_url: https://example.com/fdai/ontology\n"
+        f"  resolved_ref: action-type:{declaration.name}@{declaration.version}\n"
+        f"  content_hash: {ontology_content_hash(declaration)}\n"
+        "  license: MIT\n"
+        '  retrieved_at: "2026-07-29T00:00:00Z"\n'
+    )
     (root / "ops.example.yaml").write_text(body, encoding="utf-8")
     return root
 

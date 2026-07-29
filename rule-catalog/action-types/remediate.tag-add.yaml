@@ -43,3 +43,9 @@ ceiling_by_tier:
   t2:
     max_autonomy: shadow_only
     min_role: approver
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.tag-add@1.0.0
+  content_hash: sha256:3566c51d326a802820fd6910018b341ed27e809e49f34c4795586025f17387a9
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

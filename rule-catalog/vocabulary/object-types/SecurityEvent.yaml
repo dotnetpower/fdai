@@ -46,3 +46,9 @@ properties:
     type: object
     required: false
     description: Structured context (recent attempts, prior denials, actor pattern) - used by Heimdall correlator.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:SecurityEvent@1.0.0
+  content_hash: sha256:9f299708f61a0a9887f116b046a7862a0a5a9ae61e11a9e12948294ad7c98ad7
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

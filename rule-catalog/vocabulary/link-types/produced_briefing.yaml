@@ -5,4 +5,11 @@ from_type: BriefingSubscription
 to_type: BriefingRun
 cardinality: one_to_many
 temporal_order: true
+order_by_property: scheduled_for
 description: Briefing runs produced by a recurring subscription.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:produced_briefing@1.0.0
+  content_hash: sha256:fe8941d2a01853b98f3560d828eebb6b78c2c508aa10eeb19e6eb4639cf425dd
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

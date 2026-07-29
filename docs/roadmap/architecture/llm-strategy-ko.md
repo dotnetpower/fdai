@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: a13269b456ca31c36596e182bc11d9ffa8b6176c
-translation_revised: 2026-07-21
+translation_source_sha: 92d37aceaad2d5f9774074e13d02155c71a1d0b2
+translation_revised: 2026-07-29
 ---
 
 # LLM 전략(LLM Strategy)
@@ -634,8 +634,10 @@ interfaces` 와 `submission_criteria` 통해 액션에 통합된 함수) 로부�
 
 ### 온톨로지 기반
 
-모든 런타임 개념은 네 **ObjectType** 중 하나. 구체 인스턴스는 `shared/contracts/` 와
-`rule-catalog/schema/` 에 존재.
+control-loop foundation은 네 **ObjectType**으로 시작함. registry는 의도적으로 확장 가능하며
+Process, Conversation, ReviewCase 같은 product object와 ResourceType, SignalType, Property,
+ActionType 같은 meta object도 Rule이나 Resource에 접지 않고 first-class ObjectType으로 둠.
+구체 선언은 `rule-catalog/vocabulary/`에 있고 runtime instance는 shared ontology store를 사용함.
 
 | ObjectType | 의미 | 백업 |
 |------------|------|------|
@@ -644,10 +646,22 @@ interfaces` 와 `submission_criteria` 통해 액션에 통합된 함수) 로부�
 | `Signal` | 타입된 관찰(Activity Log 라인, drift diff, 비용 이상, canary 결과) - `event-ingest` 에 진입하는 기본형 | `shared/contracts/event` |
 | `Finding` | 시점의 리소스에 대한 규칙 매칭, 컨텍스트와 심각도 포함 | 런타임에 파생; 감사 저장소에 지속 |
 
+meta ObjectType은 LinkType endpoint를 정직하게 만듦. `applies_to`는 `ResourceType`,
+`triggered_by`는 `SignalType`, `evaluates`는 `Property`, `remediates`는 `ActionType`을 target으로
+함. 해당 catalog를 직접 읽는 배포에서는 runtime instance가 0개일 수 있지만, 선언 자체가
+ActionType을 Rule로 모델링하는 endpoint alias를 방지함.
+
+shipped ObjectType, LinkType, ActionType declaration은 모두 evidence-governed임. source URL과
+resolved declaration version을 인용하고 license와 retrieval time을 기록하며 loader가 검증하는
+canonical content hash를 운반함. provenance가 없거나 stale이면 catalog composition을 차단함.
+
 관계는 cardinality 메타데이터 있는 **타입된 LinkType** - 그래서 traversal은 스캔이 아니라
 O(인덱스 lookup). 각 선언은 `is_transitive`, `is_causal`, `temporal_order` 플래그도 함께
-운반하므로 traversal 엔진이 재귀 확장이 안전한 시점과 Finding-체인 쿼리가 시간을 존중해야
-하는 시점을 알 수 있음.
+운반하므로 traversal 엔진이 재귀 확장이 안전한 시점과 쿼리가 시간을 존중해야 하는 시점을
+알 수 있음. 시간 LinkType은 target ObjectType의 정렬 가능한 속성으로 resolve해야 하는
+`order_by_property`도 선언함. instance store는 모든 링크 쓰기 전에 cardinality를 강제하고,
+`is_transitive`가 true일 때만 같은 LinkType을 반복해서 순회하며, 시간 링크를 target 속성
+순서로 반환함. 이 값들은 시각화 힌트가 아니라 runtime invariant임.
 
 | LinkType | Cardinality | Transitive | 의미 |
 |----------|-------------|:---------:|------|
@@ -680,11 +694,16 @@ SDK 로 조회하지 않음. 새 링크 종류는 어댑터가 emit 하기 전�
 동일하게, 미인식 링크는 자동 등록이 아니라 이슈 오픈 (self-extending ontology,
 [포크 확장](#포크-확장-self-extending-온톨로지) 참조).
 
+runtime ObjectType 속성과 LinkType 속성은 canonical JSON 데이터여야 함. mapping key는
+문자열이고, 숫자는 finite이며, datetime은 timezone-aware이고 RFC 3339 UTC로 정규화됨.
+지원하지 않는 Python 객체는 write boundary에서 거부함. in-memory와 PostgreSQL store가
+같은 정규화를 적용하므로 replay는 선택한 adapter에 따라 달라지지 않음.
+
 ### 온톨로지 아티팩트로서의 규칙
 
-[rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 의 규칙 스키마는 파이프라인이
-dispatch하는 온톨로지 필드로 확장. 기존 필드는 변경 없음; 온톨로지 필드는 추가적이며 로드 시
-CI로 검증.
+[rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md)의 Rule schema v2는
+파이프라인이 dispatch하는 온톨로지 필드를 운반함. 이전 `applies_to` scope-map 의미는
+`scope_predicates`로 migration하며 모든 dispatch 필드는 로드 시 CI로 검증함.
 
 ```yaml
 # rule-catalog/rules/example.yaml (illustrative fragment; full schema in rule-catalog-collection.md)
@@ -701,11 +720,12 @@ remediation: <action-ref>                 # 온톨로지 ActionType 인스턴스
 applies_to:    [object-storage]
 triggered_by:  [property.public_access.changed, config.public_access.enabled]
 evaluates:     [object-storage.public_access]
+scope_predicates: {}                         # 선택 labels/tags/scope filter
 remediates:    remediate.disable-public-access
 required_interfaces: [Evaluable, Remediable]   # submission_criteria enforced at load
 submission_criteria:
-  - property_exists: object-storage.public_access
-  - link_exists: resource_of                    # Signal은 Resource를 참조해야 함
+  - kind: resource_type_registered
+    value: object-storage
 provenance: { ... }
 ```
 
@@ -713,6 +733,13 @@ provenance: { ... }
 Functions-plus-Interfaces 패턴 따름: 규칙은 인터페이스 계약이 런타임 객체에서 충족될 때만
 dispatchable, 스키마 레지스트리에 대해 `applies_to` / `triggered_by` 가 해결될 수 없는 규칙을
 CI가 거부.
+
+`resource_type`은 기존 policy와 remediation 코드가 사용하는 canonical 단일 target으로
+유지하며 `applies_to`에 반드시 포함해야 함. `scope_predicates`는 이전 label/tag scope map을
+담아 type 축과 혼동되지 않게 함. upstream source가 더 좁은 metadata를 제공하지 않을 때만 기존
+및 신규 수집 rule을 `triggered_by: ["*"]`, `evaluates: ["*"]`로 backfill함. wildcard는 명시적
+catch-all이지 추론된 signal이 아님. TrustRouter와 T0는 같은 `applies_to` x (`triggered_by` exact
+또는 `*`) 교집합을 사용함.
 
 ### 파이프라인 스테이지와 ActionType (구분되는 개념)
 

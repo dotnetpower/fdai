@@ -343,6 +343,10 @@ contradictory:
   They let the runtime traverse from a `Signal` to the exact matching rules with two index
   intersections instead of a scan; the full pipeline lives in
   [llm-strategy.md § Rule-to-Decision Lookup Pipeline](../architecture/llm-strategy.md#rule-to-decision-lookup-pipeline).
+  `applies_to` is a resource-type list and MUST contain the legacy canonical `resource_type`;
+  label/tag filters live separately in `scope_predicates`. A source without narrower signal or
+  property metadata receives the explicit `"*"` baseline during normalization. Curators SHOULD
+  replace that baseline with concrete values before promotion when the source provides them.
 - **`remediates` vs `remediation` - two fields, one concept:** `remediates` is the
   **ActionType id** (M:1) declaring *which category of mutation* this rule proposes;
   `remediation` is the concrete *how*: `{ template_ref, cost_impact_monthly_usd }`. Both fields

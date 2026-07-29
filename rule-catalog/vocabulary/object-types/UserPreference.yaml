@@ -67,3 +67,9 @@ properties:
     type: string
     required: false
     description: ISO 8601 timestamp of most recent preference update.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:UserPreference@1.1.0
+  content_hash: sha256:8138eb305c3e4d96ed0fb036ae442552127770c9969567ae192269fc35b480af
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

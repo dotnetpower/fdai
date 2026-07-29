@@ -5,3 +5,9 @@ from_type: VmTaskRun
 to_type: Resource
 cardinality: many_to_one
 description: The inventory Resource targeted by a VM task run.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:runs_on@1.0.0
+  content_hash: sha256:c38db8fac53d187fc8c94a78bfd4713c1af500d72baa00b0c840f0e12defbd1f
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"

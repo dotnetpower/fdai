@@ -60,3 +60,9 @@ argument_schema:
       x-fdai-audit-safe: true
       minLength: 20
       maxLength: 500
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:governance.retire-rule@1.0.0
+  content_hash: sha256:4ffa541db3cc34a58a9f258cb77bdfe16aaf0e1c3a45255474d8ae9a9e8101ba
+  license: MIT
+  retrieved_at: "2026-07-29T00:00:00Z"
