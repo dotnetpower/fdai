@@ -79,6 +79,7 @@ class _InventoryAfterFinal(_Inventory):
 class _AksInventory(_Inventory):
     async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
         del since
+        self.calls += 1
         yield InventoryBatch(
             resources=(
                 ResourceRecord(
@@ -635,12 +636,12 @@ def test_cache_identity_mismatch_forces_new_snapshot(tmp_path: Path) -> None:
     assert len(graph["resources"]) == 3
 
 
-def test_aks_power_state_projection_version_forces_new_snapshot(tmp_path: Path) -> None:
+def test_service_state_projection_version_forces_new_snapshot(tmp_path: Path) -> None:
     cache_path = tmp_path / "inventory.json"
     cache_path.write_text(
         json.dumps(
             {
-                "version": 8,
+                "version": 7,
                 "identity": "expected-subscription",
                 "max_resources": 500,
                 "cached_at": datetime.now(tz=UTC).isoformat(),
@@ -660,6 +661,43 @@ def test_aks_power_state_projection_version_forces_new_snapshot(tmp_path: Path) 
 
     assert inventory.calls == 1
     assert len(graph["resources"]) == 3
+
+
+def test_v8_cache_migrates_nested_aks_power_state_without_blocking_refresh(
+    tmp_path: Path,
+) -> None:
+    cache_path, identity = inventory_cache_path(
+        repo_root=tmp_path,
+        subscription_id="subscription-example",
+        azure_config_dir=None,
+    )
+    asyncio.run(
+        AzureCliInventoryGraphProvider(
+            inventory=_AksInventory(),
+            cache_path=cache_path,
+            cache_identity=identity,
+        )(None, 4, ("contains",))
+    )
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    payload["version"] = 8
+    aks = next(
+        item for item in payload["graph"]["resources"] if item["type"] == "kubernetes-cluster"
+    )
+    aks["status"] = "unknown"
+    cache_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    inventory = _AksInventory()
+    graph = asyncio.run(
+        AzureCliInventoryGraphProvider(
+            inventory=inventory,
+            cache_path=cache_path,
+            cache_identity=identity,
+        )(None, 4, ("contains",))
+    )
+
+    migrated = next(item for item in graph["resources"] if item["type"] == "kubernetes-cluster")
+    assert migrated["status"] == "Stopped"
+    assert inventory.calls == 0
 
 
 def test_cache_limit_change_forces_new_snapshot(tmp_path: Path) -> None:

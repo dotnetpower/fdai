@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 240b423beb0f351b0d356d74404271904b0c59b6
+translation_source_sha: 39de96da28809107fc10f14738104f6716ce5646
 translation_revised: 2026-07-30
 ---
 
@@ -208,8 +208,8 @@ keyword를 요구합니다. Relationship-filter count와 text length는 provider
 제한합니다. Read route는 malformed resource, unknown 또는 dangling relationship, duplicate
 resource id, invalid truncation metadata, oversized provider output을 차단합니다. 두 profile은
 nested AKS `powerState.code`를 포함한 observed operational state를 provisioning state로 대체하지
-않고 보존합니다. Projection 변경은 persistent cache version을 올려 이전 `unknown` status가 restart
-후에도 남지 않게 합니다. Rooted output은
+않고 보존합니다. Local reader는 valid v8 AKS cache를 memory에서 migrate하여 첫 질문이 전체 Azure
+refresh를 기다리지 않게 하고 이후 snapshot은 v9로 기록합니다. Rooted output은
 요청된 resource cap과 이에 대응하는 edge cap을 사용하고, named view는 기존
 5,000-resource 및 40,000-link response ceiling을 유지합니다.
 두 profile은 resource, adjacent-edge, internal-edge, source cap으로 구성된 같은 truncation
