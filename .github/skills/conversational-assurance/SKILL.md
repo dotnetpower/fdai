@@ -28,9 +28,12 @@ Before each cycle, skip without generating a question when any of these conditio
 - A current Copilot transcript or legacy debug log changed inside the configured idle window.
 - A Copilot CLI process or explicit FDAI session lease is active.
 - Another improvement runner owns the lock.
-- The primary worktree is dirty.
 - The daily question or hardening budget is exhausted.
 - `.improve/STOP` exists.
+
+A dirty primary worktree does not block a cycle after all sessions are idle. Hardening starts from
+the committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
+primary worktree's uncommitted changes.
 
 Do not infer idleness only from process names. Current VS Code builds record activity under
 `GitHub.copilot-chat/transcripts/*.jsonl`; retain legacy `debug-logs/*/main.jsonl` support.
