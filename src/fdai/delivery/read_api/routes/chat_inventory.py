@@ -4,101 +4,41 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
+from fdai.delivery.read_api.routes.chat_inventory_activity import (
+    MAX_ACTIVITY_EVENTS,
+    project_inventory_activity,
+    render_inventory_activity,
+)
+from fdai.delivery.read_api.routes.chat_inventory_compiler import (
+    compile_inventory_query,
+    is_inventory_question,
+)
+from fdai.delivery.read_api.routes.chat_inventory_query import (
+    InventoryField,
+    InventoryOperator,
+    InventoryQuery,
+    InventoryQueryKind,
+    InventoryQuerySource,
+    inventory_query_argument_schema,
+    inventory_query_matches,
+)
 from fdai.delivery.read_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.read_api.routes.chat_turn_plan import TurnTool
 from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphProvider
 
-_RESOURCE_INTENT: Final = re.compile(
-    r"\b(?:azure\s+)?(?:resources?|assets?|inventory|virtual machines?|storage accounts?|"
-    r"databases?|dbs?|postgres(?:ql)?|sql databases?|kubernetes clusters?|vnets?|"
-    r"virtual networks?|managed identit(?:y|ies)|key vaults?|resource groups?|public ips?|"
-    r"nsgs?)\b"
-    r"|(?<![A-Za-z0-9_])(?:aks|vms?)(?![A-Za-z0-9_])"
-    r"|Azure\s*리소스|인벤토리|가상\s*머신|스토리지\s*계정|데이터베이스|"
-    r"쿠버네티스|클러스터|가상\s*네트워크|관리형\s*ID|키\s*볼트|리소스\s*그룹|"
-    r"공인\s*IP|네트워크\s*보안\s*그룹",
-    re.IGNORECASE,
-)
-_QUESTION_INTENT: Final = re.compile(
-    r"\b(?:how many|count|list|show|which|what|where|find|named|location|status|"
-    r"group|types?|summary|exist|depend|attach|connect)\b|\?"
-    r"|몇\s*개|개수|목록|보여|어떤|어디|찾아|이름|위치|상태|그룹|종류|유형|"
-    r"의존|연결|붙어|뭐|있어",
-    re.IGNORECASE,
-)
-_MUTATION_INTENT: Final = re.compile(
-    r"\b(?:create|delete|drop|restart|scale|restore|update)\b"
-    r"|생성|삭제|재시작|스케일|복구|수정",
-    re.IGNORECASE,
-)
-_DIAGNOSIS_INTENT: Final = re.compile(
-    r"\b(?:why|cause|latency|slow)\b|왜|원인|지연|느려",
-    re.IGNORECASE,
-)
-_NON_INVENTORY_METRIC_INTENT: Final = re.compile(
-    r"\b(?:cpu|memory|latency|throughput|usage|utilization|eps)\b"
-    r"|메트릭|사용률|이용률|처리량|지연",
-    re.IGNORECASE,
-)
-_IMPACT_SCOPE_INTENT: Final = re.compile(
-    r"\b(?:affected|impact(?:ed)?|blast\s+radius)\b|영향|영향\s*범위",
-    re.IGNORECASE,
-)
-_COUNT_INTENT: Final = re.compile(r"\b(?:how many|count)\b|몇\s*개|개수", re.IGNORECASE)
-_TYPE_SUMMARY_INTENT: Final = re.compile(
-    r"\b(?:resource types?|types? exist|inventory summary)\b|"
-    r"리소스\s*(?:종류|유형)|인벤토리\s*요약",
-    re.IGNORECASE,
-)
-_RELATIONSHIP_INTENT: Final = re.compile(
-    r"\b(?:depend|dependency|attached|connected|relationship)\b|의존|연결|붙어|관계",
-    re.IGNORECASE,
-)
-_LOCATION_INTENT: Final = re.compile(r"\b(?:where|location|region)\b|어디|위치|리전", re.IGNORECASE)
-_STATUS_INTENT: Final = re.compile(
-    r"\b(?:status|stopped|deallocated|running)\b|상태|중지|정지|실행\s*중|가동\s*중",
-    re.IGNORECASE,
-)
 _WORKLOAD_INTENT: Final = re.compile(
     r"\b(?:deploy(?:ed|ing|ments?)?|pods?|workloads?|running apps?)\b"
     r"|배포|파드|워크로드|실행\s*중인\s*앱",
     re.IGNORECASE,
 )
-_GROUP_FILTER: Final = re.compile(
-    r"(?:resource\s*group|리소스\s*그룹)(?:\s*(?:named|이름(?:이|은)?))?\s*[:=]?\s*([A-Za-z0-9_.-]+)",
-    re.IGNORECASE,
-)
-_NAME_FILTER: Final = re.compile(
-    r"(?:named|name(?:d)?|이름(?:이|은)?)\s*[:=]?\s*([A-Za-z0-9_.-]+)",
-    re.IGNORECASE,
-)
-
-_TYPE_ALIASES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("compute.vm", ("virtual machine", "virtual machines", " vm ", "vms", "가상 머신")),
-    ("object-storage", ("storage account", "storage accounts", "스토리지 계정")),
-    ("postgresql-server", ("postgres", "postgresql", "postgres server", " db ")),
-    ("sql-database", ("sql database", "sql databases", "데이터베이스", " db ")),
-    ("kubernetes-cluster", ("aks", "kubernetes cluster", "쿠버네티스", "클러스터")),
-    ("network.vnet", ("vnet", "virtual network", "virtual networks", "가상 네트워크")),
-    ("managed-identity", ("managed identity", "managed identities", "관리형 id")),
-    ("secret-store", ("key vault", "key vaults", "키 볼트")),
-    ("resource-group", ("resource group", "resource groups", "리소스 그룹")),
-    ("network.public-ip", ("public ip", "public ips", "공인 ip")),
-    ("network.nsg", ("nsg", "nsgs", "network security group", "네트워크 보안 그룹")),
-)
-_STATUS_FILTERS: Final[tuple[tuple[re.Pattern[str], tuple[str, ...]], ...]] = (
-    (
-        re.compile(r"\b(?:stopped|deallocated)\b|중지|정지", re.IGNORECASE),
-        ("stopped", "deallocated"),
-    ),
-    (re.compile(r"\brunning\b|실행\s*중|가동\s*중", re.IGNORECASE), ("running",)),
-)
 _MAX_RESOURCES = 40
 _MAX_LINKS = 40
 KubernetesWorkloadProvider = Callable[[], Awaitable[Mapping[str, Any]]]
+InventoryActivityProvider = Callable[[int, int], Awaitable[Mapping[str, Any]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +48,36 @@ class InventoryChatTools:
     provider: InventoryGraphProvider
     fallback: ChatToolResolver | None = None
     workload_provider: KubernetesWorkloadProvider | None = None
+    activity_provider: InventoryActivityProvider | None = None
+
+    def turn_tools(self) -> tuple[TurnTool, ...]:
+        """Return the strict semantic capability for generalized resource reads."""
+
+        return (
+            TurnTool(
+                name="query_inventory",
+                description=(
+                    "Read current resources or bounded resource changes with verified predicates."
+                ),
+                side_effect_class="read",
+                argument_schema=inventory_query_argument_schema(),
+            ),
+        )
+
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> dict[str, Any] | None:
+        """Execute one verified semantic inventory plan without reclassifying text."""
+
+        del principal_id
+        if tool_name != "query_inventory":
+            return None
+        query = InventoryQuery.from_mapping(arguments)
+        return await self._resolve_query(query)
 
     async def resolve(
         self,
@@ -119,16 +89,70 @@ class InventoryChatTools:
             return await self._fallback(prompt, principal_id=principal_id)
         try:
             graph = dict(await self.provider(None, 4, ("contains", "attached_to", "depends_on")))
-            result = _project_inventory_result(prompt, graph)
+            safe_payload = _safe_inventory_payload(graph)
+            if safe_payload is None:
+                raise ValueError("invalid_inventory_payload")
+            resources, raw_links = safe_payload
+            managed = [item for item in resources if item["type"] != "subscription"]
+            query = compile_inventory_query(prompt, resources=managed)
+            if query is None:
+                return await self._fallback(prompt, principal_id=principal_id)
+            activity = await self._activity(query)
+            result = _project_verified_inventory_result(
+                query,
+                graph,
+                activity=activity,
+                prompt=prompt,
+                projected=(resources, raw_links),
+            )
             if result.get("coverage_gap") == "kubernetes_workloads":
                 result = await self._resolve_workloads(result)
         except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
             result = {"status": "unavailable", "reason": type(exc).__name__}
         return {
             "tool": "query_inventory",
-            "authority": "server_inventory_graph",
+            "authority": (
+                "server_inventory_activity"
+                if result.get("query_source") == InventoryQuerySource.ACTIVITY.value
+                else "server_inventory_graph"
+            ),
             "result": result,
         }
+
+    async def _resolve_query(
+        self,
+        query: InventoryQuery,
+        *,
+        prompt: str | None = None,
+    ) -> dict[str, Any]:
+        graph = dict(await self.provider(None, 4, ("contains", "attached_to", "depends_on")))
+        activity = await self._activity(query)
+        result = (
+            _project_inventory_result(prompt, graph, activity=activity)
+            if prompt is not None
+            else _project_verified_inventory_result(query, graph, activity=activity)
+        )
+        return {
+            "tool": "query_inventory",
+            "authority": (
+                "server_inventory_activity"
+                if query.source is InventoryQuerySource.ACTIVITY
+                else "server_inventory_graph"
+            ),
+            "result": result,
+        }
+
+    async def _activity(self, query: InventoryQuery) -> Mapping[str, Any] | None:
+        if query.source is not InventoryQuerySource.ACTIVITY:
+            return None
+        if self.activity_provider is None:
+            return {"status": "unavailable", "reason": "activity_provider_unavailable"}
+        return dict(
+            await self.activity_provider(
+                query.lookback_seconds or 0,
+                MAX_ACTIVITY_EVENTS,
+            )
+        )
 
     async def _resolve_workloads(self, result: dict[str, Any]) -> dict[str, Any]:
         if self.workload_provider is None:
@@ -171,74 +195,70 @@ class InventoryChatTools:
 def needs_inventory_evidence(prompt: str) -> bool:
     """Return whether a question asks for observed Azure resource inventory."""
 
-    return bool(
-        not _MUTATION_INTENT.search(prompt)
-        and not _DIAGNOSIS_INTENT.search(prompt)
-        and not _NON_INVENTORY_METRIC_INTENT.search(prompt)
-        and not _IMPACT_SCOPE_INTENT.search(prompt)
-        and _RESOURCE_INTENT.search(prompt)
-        and _QUESTION_INTENT.search(prompt)
+    return is_inventory_question(prompt)
+
+
+def _project_inventory_result(
+    prompt: str,
+    graph: Mapping[str, Any],
+    *,
+    activity: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    projected = _safe_inventory_payload(graph)
+    if projected is None:
+        return {"status": "unavailable", "reason": "invalid_inventory_payload"}
+    resources, raw_links = projected
+    managed = [item for item in resources if item["type"] != "subscription"]
+    query = compile_inventory_query(prompt, resources=managed)
+    if query is None:
+        return {"status": "unavailable", "reason": "inventory_query_unrecognized"}
+    return _project_verified_inventory_result(
+        query,
+        graph,
+        activity=activity,
+        prompt=prompt,
+        projected=(resources, raw_links),
     )
 
 
-def _project_inventory_result(prompt: str, graph: Mapping[str, Any]) -> dict[str, Any]:
-    raw_resources = graph.get("resources")
-    raw_links = graph.get("links")
-    if not isinstance(raw_resources, (list, tuple)) or not isinstance(raw_links, (list, tuple)):
+def _project_verified_inventory_result(
+    query: InventoryQuery,
+    graph: Mapping[str, Any],
+    *,
+    activity: Mapping[str, Any] | None = None,
+    prompt: str = "",
+    projected: tuple[list[dict[str, Any]], Sequence[Any]] | None = None,
+) -> dict[str, Any]:
+    safe_payload = projected or _safe_inventory_payload(graph)
+    if safe_payload is None:
         return {"status": "unavailable", "reason": "invalid_inventory_payload"}
-
-    resources: list[dict[str, Any]] = []
-    for raw_resource in raw_resources:
-        if not isinstance(raw_resource, Mapping):
-            continue
-        resource = _safe_resource(raw_resource)
-        if resource is not None:
-            resources.append(resource)
+    resources, raw_links = safe_payload
     id_to_name = {str(item["id"]): str(item["name"]) for item in resources}
     managed = [item for item in resources if item["type"] != "subscription"]
-    group_filter = _capture(_GROUP_FILTER, prompt)
-    requested_types = _requested_types(prompt)
-    status_filter = _requested_statuses(prompt)
-    if (
-        group_filter
-        and "resource-group" in requested_types
-        and re.search(
-            r"\b(?:azure\s+)?resources?\b|Azure\s*리소스",
-            prompt,
-            re.IGNORECASE,
-        )
-    ):
-        requested_types = tuple(item for item in requested_types if item != "resource-group")
-    name_filter = _capture(_NAME_FILTER, prompt)
-    matched = [
-        item
-        for item in managed
-        if (not requested_types or item["type"] in requested_types)
-        and (
-            not status_filter
-            or any(state in str(item["status"]).casefold() for state in status_filter)
-        )
-        and (
-            not group_filter
-            or str(item.get("resource_group", "")).casefold() == group_filter.casefold()
-        )
-        and (not name_filter or name_filter.casefold() in str(item["name"]).casefold())
-    ]
+    if query.source is InventoryQuerySource.ACTIVITY:
+        return project_inventory_activity(query, activity, managed)
+    matched = [item for item in managed if inventory_query_matches(query, item)]
     links = [
-        projected
+        safe_link
         for item in raw_links
-        if isinstance(item, Mapping) and (projected := _safe_link(item, id_to_name)) is not None
+        if isinstance(item, Mapping) and (safe_link := _safe_link(item, id_to_name)) is not None
     ]
-    if _RELATIONSHIP_INTENT.search(prompt) and matched:
+    if query.kind is InventoryQueryKind.RELATIONSHIPS and matched:
         names = {str(item["name"]) for item in matched}
         links = [item for item in links if item["source"] in names or item["target"] in names]
 
+    requested_types = _predicate_values(query, InventoryField.RESOURCE_TYPE)
+    status_filter = _predicate_values(query, InventoryField.STATUS)
+    group_filter = _single_predicate_value(query, InventoryField.RESOURCE_GROUP)
+    name_filter = _single_predicate_value(query, InventoryField.NAME)
     workload_query = bool(
         _WORKLOAD_INTENT.search(prompt) and "kubernetes-cluster" in requested_types
     )
     return {
         "status": "partial" if workload_query else "matched",
-        "query_kind": _query_kind(prompt),
+        "query_source": query.source.value,
+        "query_kind": query.kind.value,
+        "query": query.to_dict(),
         "requested_types": list(requested_types),
         "status_filter": list(status_filter),
         "resource_group": group_filter,
@@ -255,9 +275,24 @@ def _project_inventory_result(prompt: str, graph: Mapping[str, Any]) -> dict[str
             {key: value for key, value in item.items() if key != "id"}
             for item in matched[:_MAX_RESOURCES]
         ],
-        "links": links[:_MAX_LINKS] if _RELATIONSHIP_INTENT.search(prompt) else [],
+        "links": links[:_MAX_LINKS] if query.kind is InventoryQueryKind.RELATIONSHIPS else [],
         "coverage_gap": "kubernetes_workloads" if workload_query else None,
     }
+
+
+def _safe_inventory_payload(
+    graph: Mapping[str, Any],
+) -> tuple[list[dict[str, Any]], Sequence[Any]] | None:
+    raw_resources = graph.get("resources")
+    raw_links = graph.get("links")
+    if not isinstance(raw_resources, (list, tuple)) or not isinstance(raw_links, (list, tuple)):
+        return None
+    resources = [
+        resource
+        for raw in raw_resources
+        if isinstance(raw, Mapping) and (resource := _safe_resource(raw)) is not None
+    ]
+    return resources, raw_links
 
 
 def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) -> str | None:
@@ -269,6 +304,8 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
     if not isinstance(result, Mapping):
         return None
     korean = bool(locale and locale.casefold().startswith("ko"))
+    if result.get("query_source") == InventoryQuerySource.ACTIVITY.value:
+        return render_inventory_activity(result, korean=korean)
     if result.get("status") not in {"matched", "partial"}:
         return (
             "Azure 인벤토리 근거를 조회할 수 없어 리소스 상태를 확정하지 않았습니다."
@@ -414,7 +451,12 @@ def inventory_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
         return ()
     source = result.get("source")
     snapshot = result.get("snapshot_at")
-    refs = [f"inventory:{source}@{snapshot}"] if source and snapshot else []
+    prefix = (
+        "activity"
+        if result.get("query_source") == InventoryQuerySource.ACTIVITY.value
+        else "inventory"
+    )
+    refs = [f"{prefix}:{source}@{snapshot}"] if source and snapshot else []
     workload = result.get("workload")
     if isinstance(workload, Mapping):
         workload_source = workload.get("source")
@@ -451,38 +493,18 @@ def _safe_link(raw: Mapping[str, Any], id_to_name: Mapping[str, str]) -> dict[st
     return {"source": source, "target": target, "type": link_type}
 
 
-def _requested_types(prompt: str) -> tuple[str, ...]:
-    lowered = f" {prompt.casefold()} "
-    return tuple(
-        resource_type
-        for resource_type, aliases in _TYPE_ALIASES
-        if any(alias in lowered for alias in aliases)
-    )
+def _predicate_values(query: InventoryQuery, field: InventoryField) -> tuple[str, ...]:
+    predicate = next((item for item in query.predicates if item.field is field), None)
+    if predicate is None:
+        return ()
+    if predicate.operator is InventoryOperator.IN and isinstance(predicate.value, tuple):
+        return predicate.value
+    return (predicate.value,) if isinstance(predicate.value, str) else ()
 
 
-def _requested_statuses(prompt: str) -> tuple[str, ...]:
-    return tuple(
-        state for pattern, states in _STATUS_FILTERS if pattern.search(prompt) for state in states
-    )
-
-
-def _query_kind(prompt: str) -> str:
-    if _TYPE_SUMMARY_INTENT.search(prompt):
-        return "types"
-    if _RELATIONSHIP_INTENT.search(prompt):
-        return "relationships"
-    if _COUNT_INTENT.search(prompt):
-        return "count"
-    if _LOCATION_INTENT.search(prompt):
-        return "location"
-    if _STATUS_INTENT.search(prompt):
-        return "status"
-    return "list"
-
-
-def _capture(pattern: re.Pattern[str], value: str) -> str | None:
-    match = pattern.search(value)
-    return match.group(1) if match else None
+def _single_predicate_value(query: InventoryQuery, field: InventoryField) -> str | None:
+    values = _predicate_values(query, field)
+    return values[0] if len(values) == 1 else None
 
 
 def _optional_text(value: Any) -> str | None:
@@ -501,6 +523,7 @@ def _resource_line(resource: Mapping[str, Any], *, korean: bool) -> str:
 
 __all__ = [
     "InventoryChatTools",
+    "InventoryActivityProvider",
     "KubernetesWorkloadProvider",
     "inventory_evidence_refs",
     "needs_inventory_evidence",

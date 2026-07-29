@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Collection
+from collections.abc import Awaitable, Callable, Collection, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -40,6 +40,7 @@ from fdai.delivery.read_api.routes.chat_detection_readiness import DetectionRead
 from fdai.delivery.read_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.read_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.read_api.routes.chat_inventory import (
+    InventoryActivityProvider,
     InventoryChatTools,
     KubernetesWorkloadProvider,
 )
@@ -68,6 +69,30 @@ from fdai.shared.providers.user_context import ConversationHistoryStore, UserPre
 from fdai.shared.telemetry import ConversationProgressMetrics
 
 
+class _PlannedToolChain:
+    """Try independently validating planned read resolvers in registration order."""
+
+    def __init__(self, *resolvers: Any) -> None:
+        self._resolvers = resolvers
+
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> dict[str, Any] | None:
+        for resolver in self._resolvers:
+            result = await resolver.resolve_planned(
+                tool_name,
+                arguments,
+                principal_id=principal_id,
+            )
+            if result is not None:
+                return dict(result)
+        return None
+
+
 def append_chat_routes(
     routes: list[BaseRoute],
     *,
@@ -81,6 +106,7 @@ def append_chat_routes(
     conversation_history_store: ConversationHistoryStore | None = None,
     conversation_search: ConversationSearch | None = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
+    inventory_activity_provider: InventoryActivityProvider | None = None,
     kubernetes_workload_provider: KubernetesWorkloadProvider | None = None,
     detection_readiness_reader: DetectionReadinessReader | None = None,
     subscription_health_provider: SubscriptionHealthProvider | None = None,
@@ -115,15 +141,17 @@ def append_chat_routes(
         if log_query_provider is None
         else LogQueryChatTools(log_query_provider, fallback=read_tools)
     )
-    inventory_tools = (
-        log_tools
+    inventory_chat_tools = (
+        None
         if inventory_graph_provider is None
         else InventoryChatTools(
             inventory_graph_provider,
             fallback=log_tools,
             workload_provider=kubernetes_workload_provider,
+            activity_provider=inventory_activity_provider,
         )
     )
+    inventory_tools = inventory_chat_tools or log_tools
     subscription_health_tools = (
         inventory_tools
         if subscription_health_provider is None
@@ -160,9 +188,14 @@ def append_chat_routes(
     action_names = getattr(console_action, "action_type_names", ())
     turn_tools = (
         *read_tools.turn_tools(),
+        *(inventory_chat_tools.turn_tools() if inventory_chat_tools is not None else ()),
         *agent_turn_tools(),
         *((web_search_turn_tool(),) if web_search_resolver is not None else ()),
         *(action_turn_tools(tuple(action_names)) if console_action is not None else ()),
+    )
+    planned_tools = _PlannedToolChain(
+        read_tools,
+        *((inventory_chat_tools,) if inventory_chat_tools is not None else ()),
     )
     routes.extend(
         (
@@ -172,7 +205,7 @@ def append_chat_routes(
                 behavior_resolver=behavior,
                 evidence_resolver=evidence,
                 tool_resolver=tools,
-                planned_tool_resolver=read_tools,
+                planned_tool_resolver=planned_tools,
                 web_search_resolver=web_search_resolver,
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),
@@ -199,7 +232,7 @@ def append_chat_routes(
                 behavior_resolver=behavior,
                 evidence_resolver=evidence,
                 tool_resolver=tools,
-                planned_tool_resolver=read_tools,
+                planned_tool_resolver=planned_tools,
                 web_search_resolver=web_search_resolver,
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),

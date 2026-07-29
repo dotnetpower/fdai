@@ -100,6 +100,24 @@ history answer. Resource history and attribution use a bounded 30-day lookback. 
 resource, Heimdall reports the latest successful Stop, Power Off, or Deallocate Activity Log event
 and states that the current stopped state is confirmed from at least that timestamp.
 
+Collection questions use a separate typed activity query. The server fixes the Azure subscription
+and resource-group allowlist, caps the lookback at 30 days and the returned events at 200, and
+projects only event time, normalized operation and status, resource name, resource type, and
+resource group. Caller identity and raw resource IDs do not enter collection answers. The provider
+may join a current inventory resource to recover its neutral type, but a deleted resource remains a
+bounded ARM type instead of disappearing or being relabeled. A model-proposed activity predicate
+has no authority until the deterministic inventory-query verifier accepts it.
+
+Every accepted current or activity collection compiles to one immutable `InventoryQuery` with a
+source, result kind, at most eight predicates, and an optional bounded lookback. Allowlisted fields
+are `resource_type`, `status`, `name`, `resource_group`, `location`, `operation`, and
+`event_status`; operators are `eq`, `ne`, `in`, `contains`, `exists`, and `missing`. The
+deterministic compiler matches facets actually observed in the current provider, so a new status
+does not require another routing expression. Unmatched modifiers abstain instead of widening to all
+resources. A semantic planner can propose the same strict shape only after deterministic
+abstention, and the verifier rechecks the complete query before I/O. Imperative changes remain
+action drafts and cannot enter this read path.
+
 ## Read-tool catalog
 
 Each tool has Reader RBAC, `side_effect_class=read`, a server-owned query template, a fixed timeout,

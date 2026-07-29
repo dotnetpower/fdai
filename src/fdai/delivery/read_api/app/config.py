@@ -201,6 +201,14 @@ class ReadApiConfig:
     Reader-gated ``GET /inventory/graph``. The provider reads the inventory
     projection only; the console never receives a cloud or executor identity."""
 
+    inventory_activity_provider: Any = None
+    """Optional server-scoped resource-change collection for Command Deck.
+
+    The async callable accepts only ``(lookback_seconds, max_events)``. Subscription,
+    resource groups, identity, and endpoint remain composition-owned and cannot be
+    supplied by the browser or semantic planner.
+    """
+
     kubernetes_workload_provider: Any = None
     """Optional server-owned read-only Kubernetes workload projection. The
     provider owns its kubeconfig and context binding; browser input cannot

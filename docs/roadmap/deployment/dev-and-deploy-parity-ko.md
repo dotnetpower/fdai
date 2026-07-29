@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: abaa09b2867c49d8aef3c547000440dd81a373e1
+translation_source_sha: 35032f4fd5988b36437642532be2a705304f384f
 translation_revised: 2026-07-29
 ---
 
@@ -290,11 +290,12 @@ bind합니다. 두 profile 모두 canonical request digest, lease, usage 및 ter
 completed retry는 provider를 다시 호출하지 않고 replay됩니다. Browser input은 ledger owner를
 선택하거나 Azure scope를 넓히거나 server-owned reader credential을 바꿀 수 없습니다.
 
-두 profile은 동일한 bounded Azure read-investigation type map을 통해 PostgreSQL Flexible Server
-resource도 resolve합니다. Terminal inventory answer는 validated resource selector 하나를 browser에
-반환할 수 있지만 이후 history 질문은 configured Azure scope 안에서 해당 name을 다시 resolve합니다.
-Heimdall은 local과 deployment에서 동일한 30일 Activity Log lookback과 최근 성공한 Stop, Power Off 또는
-Deallocate 규칙을 사용합니다. Evidence가 없거나 일치하지 않으면 unavailable 상태를 유지합니다.
+두 profile은 bounded PostgreSQL type map과 `InventoryQuery` verifier를 공유합니다. Interactive local은
+Azure CLI graph와 reader token으로 current state 및 scope가 제한된 Activity Log를 읽고 deployment는
+promoted PostgreSQL inventory와 전용 reader managed identity를 사용합니다. 두 profile 모두 composition에서
+subscription/resource-group scope를 고정하고 follow-up selector를 다시 resolve하며 동일한 30일 Activity
+Log 규칙을 적용합니다. Browser/model input은 scope를 넓힐 수 없고 history evidence가 없거나 일치하지
+않으면 snapshot inference로 fallback하지 않고 unavailable 상태를 유지합니다.
 
 Local factory는 15개 agent를 기본으로 모두 시작합니다. `FDAI_START_PANTHEON`은 disable-only
 control입니다. 값이 없으면 활성화하고 `0`, `false`, `no`, `off`만 runtime을 비활성화합니다.

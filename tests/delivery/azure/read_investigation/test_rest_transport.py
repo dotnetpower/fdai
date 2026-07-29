@@ -44,13 +44,17 @@ class _Identity:
         )
 
 
-def _config(*, max_attempts: int = 3) -> AzureReadRestConfig:
+def _config(
+    *,
+    max_attempts: int = 3,
+    resource_groups: tuple[str, ...] = ("rg-example",),
+) -> AzureReadRestConfig:
     return AzureReadRestConfig(
         scopes=(
             AzureReadScopeBinding(
                 "scope:allowed",
                 "sub-example",
-                ("rg-example",),
+                resource_groups,
                 "workspace-example",
             ),
         ),
@@ -176,6 +180,100 @@ async def test_rest_transport_executes_only_server_owned_bounded_queries() -> No
     assert identity.audiences.count("https://management.azure.com/.default") == 5
     assert identity.audiences[-1] == "https://api.loganalytics.io/.default"
     assert len(requests) == 6
+
+
+async def test_scope_activity_is_group_bounded_and_strips_identity_and_resource_id() -> None:
+    captured_filters: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_filters.append(request.url.params["$filter"])
+        if "rg-secondary" in captured_filters[-1]:
+            return httpx.Response(200, json={"value": []})
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "eventTimestamp": NOW.isoformat(),
+                        "status": {"value": "Succeeded"},
+                        "operationName": {
+                            "value": "Microsoft.Compute/virtualMachines/start/action"
+                        },
+                        "resourceId": RESOURCE_ID,
+                        "resourceGroupName": "rg-example",
+                        "caller": "must-not-leak@example.com",
+                    },
+                    {
+                        "eventTimestamp": NOW.isoformat(),
+                        "status": {"value": "Succeeded"},
+                        "operationName": {"value": "delete"},
+                        "resourceId": RESOURCE_ID.replace("rg-example", "rg-outside"),
+                        "resourceGroupName": "rg-outside",
+                    },
+                ],
+                "nextLink": "https://management.azure.com/next-page",
+            },
+        )
+
+    identity = _Identity()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = AzureRestReadTransport(
+            config=_config(resource_groups=("rg-example", "rg-secondary")),
+            identity=identity,
+            http_client=client,
+            clock=lambda: NOW,
+        )
+        result = await transport.query_scope_activity(
+            "scope:allowed",
+            lookback_seconds=7 * 24 * 3_600,
+            max_events=8,
+        )
+
+    assert captured_filters == [
+        "eventTimestamp ge '2026-07-15T00:00:00Z' and "
+        "eventTimestamp le '2026-07-22T00:00:00Z' and "
+        "resourceGroupName eq 'rg-example'",
+        "eventTimestamp ge '2026-07-15T00:00:00Z' and "
+        "eventTimestamp le '2026-07-22T00:00:00Z' and "
+        "resourceGroupName eq 'rg-secondary'",
+    ]
+    assert result["truncated"] is True
+    events = result["events"]
+    assert isinstance(events, list)
+    assert events == [
+        {
+            "occurred_at": NOW.isoformat(),
+            "event_status": "Succeeded",
+            "operation": "start",
+            "name": "vm-01",
+            "type": "compute.vm",
+            "resource_group": "rg-example",
+        }
+    ]
+    assert RESOURCE_ID not in repr(result)
+    assert "must-not-leak" not in repr(result)
+
+
+@pytest.mark.parametrize("lookback,max_events", [(3599, 8), (31 * 24 * 3_600, 8), (3_600, 201)])
+async def test_scope_activity_rejects_unbounded_requests(
+    lookback: int,
+    max_events: int,
+) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(500))
+    ) as client:
+        transport = AzureRestReadTransport(
+            config=_config(),
+            identity=_Identity(),
+            http_client=client,
+            clock=lambda: NOW,
+        )
+        with pytest.raises((AzureReadRestError, ValueError)):
+            await transport.query_scope_activity(
+                "scope:allowed",
+                lookback_seconds=lookback,
+                max_events=max_events,
+            )
 
 
 async def test_scope_mismatch_is_rejected_before_http() -> None:

@@ -288,11 +288,12 @@ Azure PostgreSQL. Both persist the canonical request digest, lease, usage, and t
 completed retry replays without another provider call. Browser input cannot select the ledger
 owner, widen the Azure scope, or replace the server-owned reader credential.
 
-Both profiles also resolve PostgreSQL Flexible Server resources through the same bounded Azure
-read-investigation type map. A terminal inventory answer can return one validated resource selector
-to the browser, but a later history question still re-resolves that name inside the configured
-Azure scope. Heimdall uses the same 30-day Activity Log lookback and latest successful Stop, Power
-Off, or Deallocate rule in local and deployment. Missing or mismatched evidence remains unavailable.
+Both profiles share the bounded PostgreSQL type map and `InventoryQuery` verifier. Interactive local
+reads current state from the Azure CLI graph and scoped Activity Log through its reader token;
+deployment uses promoted PostgreSQL inventory and its dedicated reader managed identity. Both fix
+subscription and resource-group scope at composition, re-resolve follow-up selectors, and apply the
+same 30-day Activity Log rules. Browser or model input cannot widen scope, and missing or mismatched
+history evidence remains unavailable instead of falling back to snapshot inference.
 
 The local factory starts all 15 agents by default. `FDAI_START_PANTHEON` is a disable-only control:
 unset means enabled, while `0`, `false`, `no`, or `off` disables the runtime. When Event Hubs is

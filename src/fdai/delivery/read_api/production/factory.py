@@ -429,6 +429,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     read_latency_store = None
     read_investigation_run_store = None
     read_investigation_ledger_config = None
+    inventory_activity_provider = None
     reader_scope_ref = None
     reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
     reader_client_id = env.get("FDAI_AZURE_READER_CLIENT_ID", "").strip()
@@ -513,6 +514,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 ),
                 resource_type_map=(
                     ("Microsoft.Compute/virtualMachines", "compute.vm"),
+                    ("Microsoft.DBforPostgreSQL/flexibleServers", "postgresql-server"),
                     ("Microsoft.Network/networkSecurityGroups", "network.nsg"),
                     ("Microsoft.Network/virtualNetworks", "network.vnet"),
                 ),
@@ -520,6 +522,18 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             identity=reader_identity,
             http_client=reader_http,
         )
+
+        async def _inventory_activity_provider(
+            lookback_seconds: int,
+            max_events: int,
+        ) -> Mapping[str, object]:
+            return await reader_transport.query_scope_activity(
+                reader_scope_ref,
+                lookback_seconds=lookback_seconds,
+                max_events=max_events,
+            )
+
+        inventory_activity_provider = _inventory_activity_provider
         read_latency_store = StateStoreReadLatencyProfileStore(store=state_store)
         read_investigation_service = ReadInvestigationService(
             AzureRestReadInvestigationAdapter(reader_transport),
@@ -661,6 +675,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 connect_timeout_s=read_model._config.connect_timeout_s,
             )
         ),
+        inventory_activity_provider=inventory_activity_provider,
         subscription_health_provider=subscription_health_provider,
         detection_readiness_reader=state_store,
         best_practice_controls=load_best_practice_reference(_REPO_ROOT),

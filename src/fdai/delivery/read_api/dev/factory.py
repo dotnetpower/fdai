@@ -680,6 +680,11 @@ def build_local_app(
             runtime_settings=runtime_settings,
             workflow_definitions=workflow_definitions,
             inventory_graph_provider=_build_inventory_graph_provider(),
+            inventory_activity_provider=(
+                local_read_investigation.inventory_activity_provider
+                if local_read_investigation is not None
+                else None
+            ),
             kubernetes_workload_provider=_build_kubernetes_workload_provider(),
             detection_readiness_reader=(
                 persistence.state_store if persistence is not None else None

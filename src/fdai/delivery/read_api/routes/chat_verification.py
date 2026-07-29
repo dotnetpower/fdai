@@ -295,16 +295,26 @@ def verify_answer(
             )
         result = tool.get("result")
         state = result.get("status") if isinstance(result, Mapping) else None
+        inventory_activity = bool(
+            isinstance(result, Mapping) and result.get("query_source") == "activity"
+        )
+        inventory_authority = (
+            "server_inventory_activity" if inventory_activity else "server_inventory_graph"
+        )
         inventory_refs = inventory_evidence_refs(tool)
         if state == "matched":
             return AnswerVerification(
                 status=_changed(provisional, inventory_answer),
                 answer=inventory_answer,
-                authority="server_inventory_graph",
+                authority=inventory_authority,
                 checks_completed=1,
                 checks_total=1,
                 evidence_refs=inventory_refs,
-                reason_code="inventory_snapshot_grounded",
+                reason_code=(
+                    "inventory_activity_grounded"
+                    if inventory_activity
+                    else "inventory_snapshot_grounded"
+                ),
             )
         if state == "partial":
             return AnswerVerification(
@@ -319,7 +329,7 @@ def verify_answer(
         return AnswerVerification(
             status="unverified",
             answer=inventory_answer,
-            authority="server_inventory_graph",
+            authority=inventory_authority,
             checks_completed=0,
             checks_total=1,
             evidence_refs=inventory_refs,

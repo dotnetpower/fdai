@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: e4d4cc23c69e8b62e26d3e175360b2d3c294ec98
+translation_source_sha: a6f5d0554e3f06f2e0dd9041720d94fb56cb4374
 translation_revised: 2026-07-29
 ---
 
@@ -99,6 +99,23 @@ Server는 이 값을 검증하고 configured subscription 및 resource-group sco
 생성할 수 없습니다. Resource history 및 attribution은 bounded 30일 lookback을 사용합니다. 중지된
 resource에 대해 Heimdall은 최근 성공한 Stop, Power Off 또는 Deallocate Activity Log event를 보고하고,
 현재 중지 상태가 적어도 해당 timestamp부터 이어졌다고 명시합니다.
+
+Collection 질문은 별도의 typed activity query를 사용합니다. Server는 Azure subscription 및
+resource-group allowlist를 고정하고 lookback을 최대 30일, 반환 event를 최대 200개로 제한하며 event
+time, normalized operation/status, resource name, resource type 및 resource group만 projection합니다.
+Caller identity와 raw resource ID는 collection answer에 들어가지 않습니다. Provider는 neutral type을
+복원하기 위해 current inventory resource를 join할 수 있지만 deleted resource는 사라지거나 다른 type으로
+표시되지 않고 bounded ARM type으로 유지됩니다. Model이 제안한 activity predicate는 deterministic
+inventory-query verifier가 수락하기 전에는 authority가 없습니다.
+
+수락된 모든 current 또는 activity collection은 source, result kind, 최대 8개 predicate 및 optional
+bounded lookback을 가진 immutable `InventoryQuery` 하나로 compile됩니다. Allowlist field는
+`resource_type`, `status`, `name`, `resource_group`, `location`, `operation`, `event_status`이고 operator는
+`eq`, `ne`, `in`, `contains`, `exists`, `missing`입니다. Deterministic compiler는 current provider에
+실제로 관찰된 facet을 match하므로 새 status마다 routing expression을 추가할 필요가 없습니다. Match되지
+않은 modifier는 전체 resource로 확장하지 않고 abstain합니다. Semantic planner는 deterministic abstain
+후에만 동일한 strict shape를 제안할 수 있고 verifier가 I/O 전에 query 전체를 다시 확인합니다.
+Imperative change는 action draft로 유지되며 이 read path에 들어갈 수 없습니다.
 
 ## Read-tool catalog
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import pytest
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
@@ -131,6 +132,38 @@ async def _provider(
     }
 
 
+async def _activity_provider(
+    lookback_seconds: int,
+    max_events: int,
+) -> dict[str, Any]:
+    assert lookback_seconds == 7 * 24 * 3_600
+    assert max_events == 200
+    return {
+        "status": "matched",
+        "source": "azure-activity-log",
+        "observed_at": "2026-07-29T10:00:00Z",
+        "truncated": False,
+        "events": [
+            {
+                "occurred_at": "2026-07-29T09:00:00Z",
+                "event_status": "Succeeded",
+                "operation": "start",
+                "name": "vm-app",
+                "type": "compute.vm",
+                "resource_group": "rg-app",
+            },
+            {
+                "occurred_at": "2026-07-29T08:00:00Z",
+                "event_status": "Succeeded",
+                "operation": "delete",
+                "name": "vm-old",
+                "type": "compute.vm",
+                "resource_group": "rg-app",
+            },
+        ],
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class AzureQuestion:
     prompt: str
@@ -200,6 +233,15 @@ INVENTORY_WEAKNESS_CASES = (
     InventoryWeaknessCase("compare VM and storage architecture", False),
     InventoryWeaknessCase("how many resources are affected?", False),
     InventoryWeaknessCase("what is the database CPU usage?", False),
+)
+
+GENERALIZED_RESOURCE_CASES = (
+    InventoryWeaknessCase("running resources?", True, ("vm-app",), korean=False),
+    InventoryWeaknessCase("실행 중인 리소스 있어?", True, ("vm-app",), korean=True),
+    InventoryWeaknessCase("deallocated VMs?", True, ("vm-job",), korean=False),
+    InventoryWeaknessCase("중지된 VM은?", True, ("vm-job",), korean=True),
+    InventoryWeaknessCase("resources in koreacentral?", True, ("vm-app",), korean=False),
+    InventoryWeaknessCase("resource group rg-data resources?", True, ("postgres-data", "sql-app")),
 )
 
 INVENTORY_RUBRIC_NAMES = (
@@ -293,6 +335,44 @@ def test_inventory_provider_failure_is_unverified_and_fail_closed() -> None:
     assert payload["verification"]["reason_code"] == "inventory_evidence_unavailable"
     assert "확정하지 않았습니다" in payload["answer"]
     assert backend.calls == 0
+
+
+async def test_activity_collection_filters_and_verifies_server_scoped_changes() -> None:
+    evidence = await InventoryChatTools(
+        _provider,
+        activity_provider=_activity_provider,
+    ).resolve("최근 7일 시작된 리소스", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["authority"] == "server_inventory_activity"
+    assert evidence["result"]["matched_count"] == 1
+    assert evidence["result"]["events"][0]["name"] == "vm-app"
+    assert "vm-old" not in repr(evidence)
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "vm-app" in answer
+    assert "start" in answer
+    assert "2026-07-29T09:00:00Z" in answer
+    verification = verify_answer("", {"_tool_evidence": evidence}, locale="ko")
+    assert verification.status == "corrected"
+    assert verification.authority == "server_inventory_activity"
+    assert verification.reason_code == "inventory_activity_grounded"
+    assert inventory_evidence_refs(evidence) == (
+        "activity:azure-activity-log@2026-07-29T10:00:00Z",
+    )
+
+
+async def test_activity_collection_is_explicitly_unavailable_without_provider() -> None:
+    evidence = await InventoryChatTools(_provider).resolve(
+        "변경된 리소스 보여줘",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "Activity Log 근거를 사용할 수 없어" in answer
 
 
 async def test_aks_workload_question_reports_cluster_only_coverage() -> None:
@@ -531,6 +611,98 @@ def test_stopped_db_stream_overrides_semantic_web_plan() -> None:
     }
 
 
+def test_semantic_inventory_plan_executes_verified_long_tail_predicate() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "status",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [{"field": "status", "operator": "eq", "value": "stopped"}],
+                        "lookback_seconds": None,
+                    },
+                    "clarification": None,
+                    "confidence": 0.9,
+                }
+            )
+
+    tools = InventoryChatTools(_provider)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=RecordingBackend(),
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={"prompt": "Which Azure assets are dormant?", "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "vm-job" in payload["answer"]
+    assert "postgres-data" in payload["answer"]
+    assert "vm-app" not in payload["answer"]
+    assert payload["verification"]["reason_code"] == "inventory_snapshot_grounded"
+
+
+def test_deterministic_inventory_filter_precedes_semantic_inventory_plan() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "status",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [],
+                        "lookback_seconds": None,
+                    },
+                    "clarification": None,
+                    "confidence": 0.9,
+                }
+            )
+
+    tools = InventoryChatTools(_provider)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=RecordingBackend(),
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={"prompt": "중지된 VM은?", "view_context": {}},
+    )
+
+    payload = response.json()
+    assert "vm-job" in payload["answer"]
+    assert "vm-app" not in payload["answer"]
+    assert payload["verification"]["authority"] == "server_inventory_graph"
+
+
 def test_resource_followup_reuses_verified_selector_without_planner_or_web() -> None:
     delegated: list[str] = []
 
@@ -751,6 +923,54 @@ def test_twenty_inventory_weaknesses_pass_twenty_answer_rubrics() -> None:
                     failures.append(f"Q{case_number:02d} {rubric}: {case.prompt}")
 
     assert not failures, f"inventory rubric score {passed}/{total}\n" + "\n".join(failures)
+
+
+def test_generalized_resource_conditions_stay_deterministic_and_local() -> None:
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_provider),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        for case in GENERALIZED_RESOURCE_CASES:
+            calls_before = backend.calls
+            response = client.post("/chat", json={"prompt": case.prompt, "view_context": {}})
+            payload = response.json()
+            assert response.status_code == 200, case.prompt
+            assert payload["verification"]["authority"] == "server_inventory_graph", case.prompt
+            assert payload["verification"]["status"] == "verified", case.prompt
+            assert backend.calls == calls_before, case.prompt
+            assert all(value in payload["answer"] for value in case.expected), case.prompt
+
+
+@pytest.mark.parametrize(
+    "prompt,expected_operation,expected_name",
+    [
+        ("최근 7일 시작된 리소스", "start", "vm-app"),
+        ("resources deleted in the last 7 days", "delete", "vm-old"),
+    ],
+)
+async def test_generalized_activity_conditions_use_activity_authority(
+    prompt: str,
+    expected_operation: str,
+    expected_name: str,
+) -> None:
+    evidence = await InventoryChatTools(
+        _provider,
+        activity_provider=_activity_provider,
+    ).resolve(prompt, principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["authority"] == "server_inventory_activity"
+    assert evidence["result"]["matched_count"] == 1
+    assert evidence["result"]["events"][0]["operation"] == expected_operation
+    assert evidence["result"]["events"][0]["name"] == expected_name
 
 
 def _score_inventory_answer(

@@ -83,6 +83,7 @@ async def resolve_parallel_chat_evidence(
         else None
     )
     planned_web = planned_tool_name == "web_search"
+    planned_inventory = planned_tool_name == "query_inventory"
     planned_direct_read = planned_read and planned_agent is None and not planned_web
     search_intent = classify_search_intent(prompt)
     web_requested = planned_web if has_semantic_plan else search_intent.route == "web"
@@ -119,12 +120,22 @@ async def resolve_parallel_chat_evidence(
         planned_direct_read
         and planned_tool_resolver is not None
         and not selected_incident_turn
-        and not deterministic_inventory_turn
+        and (not deterministic_inventory_turn or planned_inventory)
     ):
         selected_tool_name = cast(str, planned_tool_name)
         selected_arguments = cast(Mapping[str, object], planned_arguments)
 
-        async def resolve_planned_tool(_observe: BranchProgressObserver) -> dict[str, Any]:
+        async def resolve_planned_tool(observe: BranchProgressObserver) -> dict[str, Any]:
+            if planned_inventory and deterministic_inventory_turn and tool_resolver is not None:
+                deterministic = await _with_tool_evidence(
+                    prompt,
+                    dict(base_context),
+                    tool_resolver,
+                    principal_id=user_id,
+                    progress_observer=observe,
+                )
+                if "_tool_evidence" in deterministic:
+                    return deterministic
             resolved = await planned_tool_resolver.resolve_planned(
                 selected_tool_name,
                 selected_arguments,

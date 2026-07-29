@@ -239,6 +239,118 @@ class AzureRestReadTransport:
             rows.append({"_truncated": True})
         return tuple(rows)
 
+    async def query_scope_activity(
+        self,
+        scope_ref: str,
+        *,
+        lookback_seconds: int,
+        max_events: int,
+    ) -> Mapping[str, object]:
+        """Return a bounded, identity-free Activity Log collection for configured groups."""
+
+        scope = self._scope(scope_ref)
+        if (
+            not 3_600
+            <= lookback_seconds
+            <= min(
+                self._config.activity_retention_seconds,
+                30 * 24 * 3_600,
+            )
+        ):
+            raise AzureReadRestError("scope Activity Log lookback is out of bounds")
+        if not 1 <= max_events <= 200:
+            raise ValueError("scope Activity Log max_events MUST be in [1, 200]")
+        observed_at = self._clock()
+        start = observed_at - timedelta(seconds=lookback_seconds)
+        limits = ReadToolLimits(
+            timeout_seconds=self._config.timeout_seconds,
+            max_results=min(max_events, 64),
+            max_output_bytes=self._config.max_raw_response_bytes,
+        )
+        url = (
+            f"{self._config.management_endpoint.rstrip('/')}/subscriptions/"
+            f"{scope.subscription_id}/providers/Microsoft.Insights/"
+            "eventtypes/management/values"
+        )
+        events: list[dict[str, str]] = []
+        truncated = False
+        for group_index, resource_group in enumerate(scope.resource_groups):
+            remaining = max_events - len(events)
+            if remaining <= 0:
+                truncated = group_index < len(scope.resource_groups)
+                break
+            payload = await self._json_request(
+                "GET",
+                url,
+                audience=_MANAGEMENT_AUDIENCE,
+                limits=limits,
+                params={
+                    "api-version": _ACTIVITY_API_VERSION,
+                    "$filter": (
+                        f"eventTimestamp ge "
+                        f"'{start.astimezone(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}' and "
+                        f"eventTimestamp le "
+                        f"'{observed_at.astimezone(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}' and "
+                        f"resourceGroupName eq '{_escaped(resource_group)}'"
+                    ),
+                    "$select": ("eventTimestamp,status,operationName,resourceId,resourceGroupName"),
+                },
+            )
+            values = payload.get("value")
+            if not isinstance(values, list):
+                raise AzureReadRestError("Activity Log response missing value array")
+            events.extend(
+                event
+                for value in values[:remaining]
+                if isinstance(value, Mapping)
+                and (event := self._scope_activity_event(value, scope)) is not None
+            )
+            truncated = (
+                truncated or len(values) > remaining or isinstance(payload.get("nextLink"), str)
+            )
+        return {
+            "status": "matched",
+            "source": "azure-activity-log",
+            "observed_at": observed_at.isoformat(),
+            "truncated": truncated,
+            "events": events,
+        }
+
+    def _scope_activity_event(
+        self,
+        value: Mapping[str, object],
+        scope: AzureReadScopeBinding,
+    ) -> dict[str, str] | None:
+        resource_id = _nested(value, "resourceId")
+        occurred_at = _string(value.get("eventTimestamp"))
+        event_status = _nested(value, "status")
+        raw_operation = _nested(value, "operationName")
+        if (
+            resource_id is None
+            or occurred_at is None
+            or event_status is None
+            or raw_operation is None
+        ):
+            return None
+        resource_group = _nested(value, "resourceGroupName") or _resource_group(resource_id)
+        if resource_group is None or not any(
+            resource_group.casefold() == allowed.casefold() for allowed in scope.resource_groups
+        ):
+            return None
+        try:
+            arm_type = _resource_type(resource_id)
+        except AzureReadRestError:
+            return None
+        operation = _activity_operation(raw_operation)
+        return {
+            "occurred_at": occurred_at,
+            "event_status": event_status,
+            "operation": operation,
+            "name": resource_id.rstrip("/").rsplit("/", maxsplit=1)[-1][:128],
+            "type": self._neutral_by_arm.get(arm_type, f"arm:{arm_type}")[:128],
+            "resource_group": resource_group[:128],
+        }
+
     async def query_resource_health(
         self,
         provider_ref: str,
@@ -603,6 +715,31 @@ def _resource_type(resource_id: str) -> str:
         return f"{parts[provider_index + 1]}/{parts[provider_index + 2]}".casefold()
     except (StopIteration, IndexError) as exc:
         raise AzureReadRestError("resolved resource has an invalid provider type") from exc
+
+
+def _resource_group(resource_id: str) -> str | None:
+    parts = resource_id.strip("/").split("/")
+    for index, part in enumerate(parts[:-1]):
+        if part.casefold() == "resourcegroups":
+            return parts[index + 1]
+    return None
+
+
+def _activity_operation(raw: str) -> str:
+    normalized = raw.casefold()
+    for marker, operation in (
+        ("deallocate", "deallocate"),
+        ("poweroff", "power off"),
+        ("power off", "power off"),
+        ("restart", "restart"),
+        ("start", "start"),
+        ("stop", "stop"),
+        ("delete", "delete"),
+        ("write", "write"),
+    ):
+        if marker in normalized:
+            return operation
+    return " ".join(normalized.replace("/", " ").replace("_", " ").split())[:256]
 
 
 def _joined_values(

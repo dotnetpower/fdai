@@ -28,6 +28,7 @@ from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthProvider,
 )
 from fdai.delivery.persistence import StateStoreReadLatencyProfileStore
+from fdai.delivery.read_api.routes.chat_inventory import InventoryActivityProvider
 from fdai.delivery.read_api.routes.read_investigation_responder import (
     HeimdallReadInvestigationChatDelegate,
     HeimdallReadInvestigationResponder,
@@ -42,6 +43,7 @@ from fdai.delivery.read_api.routes.read_investigations import (
 class LocalReadInvestigationWiring:
     chat_delegate: HeimdallReadInvestigationChatDelegate
     subscription_health_provider: AzureSubscriptionHealthProvider
+    inventory_activity_provider: InventoryActivityProvider
     read_transport: AzureReadTransport
     http_client: httpx.AsyncClient
 
@@ -112,6 +114,17 @@ def build_local_read_investigation(
         AzureRestReadInvestigationAdapter(transport),
         latency_store=latency_store,
     )
+
+    async def inventory_activity_provider(
+        lookback_seconds: int,
+        max_events: int,
+    ) -> Mapping[str, object]:
+        return await direct_transport.query_scope_activity(
+            scope_ref,
+            lookback_seconds=lookback_seconds,
+            max_events=max_events,
+        )
+
     return LocalReadInvestigationWiring(
         chat_delegate=HeimdallReadInvestigationChatDelegate(
             responder=HeimdallReadInvestigationResponder(
@@ -138,6 +151,7 @@ def build_local_read_investigation(
             identity=identity,
             http_client=http_client,
         ),
+        inventory_activity_provider=inventory_activity_provider,
         read_transport=transport,
         http_client=http_client,
     )
