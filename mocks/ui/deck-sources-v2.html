@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Command deck - Execution timeline - FDAI Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <style>
+    :root {
+      --ex-ink: #25292e;
+      --ex-muted: #6e7781;
+      --ex-line: #d8dee4;
+      --ex-canvas: #f6f8fa;
+      --ex-terminal: #1f2428;
+      --ex-blue: #356d9b;
+      --ex-green: #4f7d55;
+    }
+    .ex-page { max-width: 1180px; }
+    .ex-page-header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+    .ex-page-header h1 { margin-bottom: 4px; }
+    .ex-page-header p { max-width: 690px; margin: 0; color: var(--cs-text-soft); }
+    .ex-controls { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+    .ex-control { min-height: 34px; padding: 6px 11px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); color: var(--cs-text); font: 600 12px var(--cs-font); cursor: pointer; }
+    .ex-control:hover { border-color: #b9c0c8; background: var(--cs-shade); }
+    .ex-control:focus-visible, .ex-step-toggle:focus-visible, .ex-summary-toggle:focus-visible, .ex-copy:focus-visible { outline: 2px solid rgba(53,109,155,.42); outline-offset: 2px; }
+
+    .ex-workbench { width: min(900px, 100%); margin: 0 auto; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 8px; background: #fff; box-shadow: 0 10px 34px rgba(31,36,40,.08); }
+    .ex-windowbar { min-height: 39px; display: flex; align-items: center; gap: 7px; padding: 0 13px; border-bottom: 1px solid var(--ex-line); background: #f3f4f6; color: var(--ex-muted); font-size: 11.5px; }
+    .ex-window-dot { width: 9px; height: 9px; border-radius: 50%; background: #c8cdd2; }
+    .ex-window-title { margin-left: 5px; color: var(--ex-ink); font-weight: 600; }
+    .ex-window-context { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 10.5px; }
+
+    .ex-thread { min-height: 640px; padding: 22px clamp(16px, 4vw, 42px) 26px; background: #fff; }
+    .ex-turn { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+    .ex-turn + .ex-turn { margin-top: 20px; }
+    .ex-avatar { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--cs-navy); color: #fff; font-size: 10px; font-weight: 800; }
+    .ex-avatar.is-deck { background: var(--cs-plum); }
+    .ex-turn-body { min-width: 0; }
+    .ex-turn-name { height: 24px; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--ex-ink); }
+    .ex-turn-time { color: var(--ex-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+    .ex-user-message { margin: 2px 0 0; color: var(--ex-ink); font-size: 13.5px; line-height: 1.6; }
+    .ex-answer-lead { margin: 2px 0 10px; color: var(--ex-ink); font-size: 13.5px; line-height: 1.55; }
+
+    .ex-session { margin-top: 8px; background: #fff; }
+    .ex-session-head { min-height: 42px; display: flex; align-items: center; gap: 9px; padding: 0 3px 7px; }
+    .ex-session-state { min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+    .ex-session-title { color: var(--ex-ink); font-size: 12.5px; font-weight: 700; }
+    .ex-session-meta { color: var(--ex-muted); font-size: 11px; }
+    .ex-session-badge { margin-left: auto; padding: 2px 7px; border: 1px solid rgba(53,109,155,.24); border-radius: 999px; background: rgba(53,109,155,.08); color: var(--ex-blue); font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .ex-session.is-complete .ex-session-badge { border-color: rgba(79,125,85,.24); background: rgba(79,125,85,.08); color: var(--ex-green); }
+    .ex-spinner { width: 13px; height: 13px; flex: 0 0 auto; border: 2px solid rgba(53,109,155,.2); border-top-color: var(--ex-blue); border-radius: 50%; animation: ex-spin .72s linear infinite; }
+    .ex-session.is-complete .ex-spinner { animation: none; border: 0; border-radius: 0; }
+    .ex-session.is-complete .ex-spinner::before { content: "\2713"; color: var(--ex-green); font-weight: 900; }
+    @keyframes ex-spin { to { transform: rotate(360deg); } }
+
+    .ex-steps { position: relative; margin: 0; padding: 0; list-style: none; }
+    .ex-steps::before { content: ""; position: absolute; top: 15px; bottom: 24px; left: 10px; width: 1px; background: #cbd2d9; }
+    .ex-step { position: relative; padding: 0 0 8px 34px; }
+    .ex-step::before {
+      content: ""; position: absolute; z-index: 2; top: 17px; left: 5px; width: 9px; height: 9px;
+      box-sizing: border-box; border: 2px solid #aeb7c0; border-radius: 50%; background: #fff;
+    }
+    .ex-step::after { content: ""; position: absolute; top: 21px; left: 14px; width: 15px; border-top: 1px solid #cbd2d9; }
+    .ex-step.is-active::before { border-color: var(--ex-blue); border-top-color: transparent; animation: ex-spin .72s linear infinite; }
+    .ex-step.is-complete::before { content: "\2713"; width: 15px; height: 15px; top: 14px; left: 2px; border: 0; background: var(--ex-green); color: #fff; font: 800 9px/15px var(--cs-font); text-align: center; }
+    .ex-step-toggle { width: 100%; min-height: 43px; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ex-ink); font: inherit; text-align: left; cursor: pointer; }
+    .ex-step-toggle:hover { background: #f6f8fa; }
+    .ex-step.is-active .ex-step-toggle { background: rgba(53,109,155,.06); }
+    .ex-step-icon { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #d8dee4; border-radius: 5px; background: #f6f8fa; color: var(--ex-muted); font: 700 9px "JetBrains Mono", monospace; }
+    .ex-step.is-active .ex-step-icon { border-color: rgba(53,109,155,.28); background: rgba(53,109,155,.08); color: var(--ex-blue); }
+    .ex-step.is-complete .ex-step-icon { color: var(--ex-green); }
+    .ex-step-copy { min-width: 0; }
+    .ex-step-title { display: block; overflow: hidden; color: var(--ex-ink); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+    .ex-step.is-active .ex-step-title::after { content: " running"; color: var(--ex-blue); font-weight: 500; }
+    .ex-step-note { display: block; overflow: hidden; margin-top: 1px; color: var(--ex-muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+    .ex-step-duration { color: var(--ex-muted); font: 10.5px "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+    .ex-chevron { width: 7px; height: 7px; border-right: 1.5px solid var(--ex-muted); border-bottom: 1.5px solid var(--ex-muted); transform: rotate(45deg) translateY(-2px); transition: transform .16s ease; }
+    .ex-step-toggle[aria-expanded="true"] .ex-chevron { transform: rotate(225deg) translate(-1px, -1px); }
+
+    .ex-step-detail { overflow: hidden; margin: 2px 0 2px 8px; border-radius: 6px; background: var(--ex-terminal); box-shadow: 0 4px 14px rgba(31,36,40,.12); }
+    .ex-commandbar { min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #343b42; color: #aeb7c0; font-size: 10px; }
+    .ex-command-kind { color: #d8dee4; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .ex-command-safety { color: #87b28c; }
+    .ex-copy { margin-left: auto; padding: 3px 6px; border: 1px solid #46505a; border-radius: 4px; background: transparent; color: #bbc3cb; font: 600 9.5px var(--cs-font); cursor: pointer; }
+    .ex-copy:hover { color: #fff; border-color: #69747f; }
+    .ex-terminal { min-height: 82px; margin: 0; padding: 10px 12px 12px; overflow-x: auto; color: #d7dde3; font: 11px/1.55 "JetBrains Mono", monospace; white-space: pre; }
+    .ex-prompt { color: #7fb3dd; }
+    .ex-output { color: #b8c1ca; }
+    .ex-output.is-success { color: #8fc394; }
+    .ex-output.is-warning { color: #d5a66a; }
+
+    .ex-summary { display: none; margin-left: 34px; }
+    .ex-session.is-complete .ex-summary { display: block; }
+    .ex-summary-toggle { width: 100%; min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 0; border-top: 1px solid #e8ebee; background: transparent; color: var(--ex-muted); font: 11px var(--cs-font); cursor: pointer; }
+    .ex-summary-toggle:hover { background: #f5f7f8; }
+    .ex-summary-toggle strong { color: var(--ex-ink); }
+    .ex-summary-toggle .ex-chevron { margin-left: auto; }
+    .ex-summary-toggle[aria-expanded="true"] .ex-chevron { transform: rotate(225deg) translate(-1px, -1px); }
+    .ex-summary-detail { display: flex; flex-wrap: wrap; gap: 6px; padding: 7px 8px 2px; border-top: 1px solid #e8ebee; }
+    .ex-stat { min-width: 108px; padding: 7px 9px; border-radius: 5px; background: #f6f8fa; }
+    .ex-stat-value { display: block; color: var(--ex-ink); font: 600 12px "JetBrains Mono", monospace; }
+    .ex-stat-label { display: block; margin-top: 2px; color: var(--ex-muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; }
+
+    .ex-final { display: none; opacity: 0; transform: translateY(4px); }
+    .ex-final.is-visible { display: grid; animation: ex-arrive .24s ease forwards; }
+    @keyframes ex-arrive { to { opacity: 1; transform: none; } }
+    .ex-final-copy { color: var(--ex-ink); font-size: 13.5px; line-height: 1.62; }
+    .ex-final-copy p { margin: 0 0 9px; }
+    .ex-final-copy code { color: #425467; }
+    .ex-result-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .ex-result-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 5px; background: #f8f9fa; color: var(--ex-muted); font-size: 10.5px; }
+    .ex-result-chip strong { color: var(--ex-ink); }
+    .ex-result-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ex-green); }
+
+    .ex-composer { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-top: 1px solid var(--ex-line); background: #f8f9fa; }
+    .ex-composer-input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fff; color: var(--ex-muted); font-size: 11.5px; }
+    .ex-send { width: 32px; height: 32px; border: 0; border-radius: 6px; background: var(--ex-blue); color: #fff; font-size: 14px; cursor: pointer; }
+    [hidden] { display: none !important; }
+    @media (max-width: 720px) {
+      .ex-page-header { align-items: flex-start; flex-direction: column; }
+      .ex-controls { width: 100%; }
+      .ex-control { flex: 1; }
+      .ex-thread { min-height: 590px; padding: 17px 12px 20px; }
+      .ex-window-context { display: none; }
+      .ex-step-toggle { grid-template-columns: 18px minmax(0, 1fr) 16px; }
+      .ex-step-duration { display: none; }
+      .ex-step { padding-left: 30px; }
+      .ex-step::after { width: 11px; }
+      .ex-summary { margin-left: 30px; }
+      .ex-stat { min-width: calc(50% - 3px); box-sizing: border-box; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page ex-page">
+    <header class="ex-page-header">
+      <div>
+        <div class="cs-eyebrow">Command deck v2</div>
+        <h1>Execution timeline</h1>
+        <p>Long-running investigation, code, and command work stays inspectable without taking over the conversation.</p>
+      </div>
+      <div class="ex-controls" aria-label="Demo controls">
+        <button class="ex-control" id="ex-replay" type="button">Replay</button>
+        <button class="ex-control" id="ex-finish" type="button">Show result</button>
+      </div>
+    </header>
+
+    <section class="ex-workbench" aria-label="Command deck execution mock">
+      <div class="ex-windowbar">
+        <span class="ex-window-dot"></span><span class="ex-window-dot"></span><span class="ex-window-dot"></span>
+        <span class="ex-window-title">FDAI Command deck</span>
+        <span class="ex-window-context">task / probe-diagnostics</span>
+      </div>
+      <div class="ex-thread">
+        <article class="ex-turn">
+          <span class="ex-avatar">MC</span>
+          <div class="ex-turn-body">
+            <div class="ex-turn-name">You <span class="ex-turn-time">10:42</span></div>
+            <p class="ex-user-message">Find why the example API health probe keeps failing. Check Azure, fix the validator script, and run it.</p>
+          </div>
+        </article>
+        <article class="ex-turn">
+          <span class="ex-avatar is-deck">BR</span>
+          <div class="ex-turn-body">
+            <div class="ex-turn-name">Bragi <span class="ex-turn-time">10:42</span></div>
+            <p class="ex-answer-lead">I will inspect the resource state and the local probe validator, then verify the smallest safe change.</p>
+            <section class="ex-session is-running" id="ex-session" aria-live="polite">
+              <header class="ex-session-head">
+                <span class="ex-spinner" aria-hidden="true"></span>
+                <span class="ex-session-state"><span class="ex-session-title" id="ex-session-title">Investigating probe failures</span><span class="ex-session-meta" id="ex-session-meta">starting task session</span></span>
+                <span class="ex-session-badge" id="ex-session-badge">Running</span>
+              </header>
+              <ol class="ex-steps" id="ex-steps"></ol>
+              <div class="ex-summary">
+                <button class="ex-summary-toggle" id="ex-summary-toggle" type="button" aria-expanded="false" aria-controls="ex-summary-detail">
+                  <span><strong>5 steps completed</strong> - commands and outputs remain available</span><span class="ex-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="ex-summary-detail" id="ex-summary-detail" hidden>
+                  <span class="ex-stat"><strong class="ex-stat-value">2</strong><span class="ex-stat-label">Commands</span></span>
+                  <span class="ex-stat"><strong class="ex-stat-value">1</strong><span class="ex-stat-label">File changed</span></span>
+                  <span class="ex-stat"><strong class="ex-stat-value">4/4</strong><span class="ex-stat-label">Checks passed</span></span>
+                  <span class="ex-stat"><strong class="ex-stat-value">8.4s</strong><span class="ex-stat-label">Elapsed</span></span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </article>
+        <article class="ex-turn ex-final" id="ex-final">
+          <span class="ex-avatar is-deck">BR</span>
+          <div class="ex-turn-body">
+            <div class="ex-turn-name">Bragi <span class="ex-turn-time">10:43</span></div>
+            <div class="ex-final-copy">
+              <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
+              <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
+              <div class="ex-result-line">
+                <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>Read-only</strong> Azure query</span>
+                <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>1</strong> local file changed</span>
+                <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>4/4</strong> checks passed</span>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+      <footer class="ex-composer">
+        <div class="ex-composer-input">Ask a follow-up or review a completed step...</div>
+        <button class="ex-send" type="button" aria-label="Send message" title="Send message">&#8593;</button>
+      </footer>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+      var ACTIVITIES = [
+        { icon: "S", title: "Searched the workspace", note: "Found the probe validator and its focused tests", duration: "0.8s", kind: "Search", safety: "read-only", command: "rg -n \"health|probe|status_code\" scripts/ops tests/ops", output: ["scripts/ops/check_probe.py:41: if response.status_code != 200:", "tests/ops/test_check_probe.py:28: def test_accepts_healthy_response():", "2 files matched"] },
+        { icon: ">_", title: "Ran Azure Resource Graph query", note: "Confirmed the example API is running and the probe path is configured", duration: "1.7s", kind: "Azure CLI", safety: "read-only", command: "az graph query -q \"Resources | where name == 'api-example' | project name, resourceGroup, properties.state\" --first 20", output: ["Name          Resource group   State", "api-example   rg-example-app   Running", "Query returned 1 resource"] },
+        { icon: "PY", title: "Ran the validator in dry-run mode", note: "Reproduced the false failure on HTTP 204", duration: "1.2s", kind: "Python", safety: "dry-run", command: "python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["GET /healthz -> 204 No Content", "validator: unhealthy (expected 200)", "Exit code 1"], warning: true },
+        { icon: "+-", title: "Updated the probe validator", note: "Accepted any 2xx response without changing the command contract", duration: "0.6s", kind: "Edit", safety: "local file", command: "scripts/ops/check_probe.py", output: ["- if response.status_code != 200:", "+ if not 200 <= response.status_code < 300:", "1 file changed, 1 insertion, 1 deletion"] },
+        { icon: "T", title: "Ran focused checks", note: "Validator tests and a dry-run verification passed", duration: "4.1s", kind: "Test", safety: "local execution", command: "pytest -q tests/ops/test_check_probe.py && python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["tests/ops/test_check_probe.py ....                              [100%]", "4 passed in 0.31s", "validator: healthy (204)", "Exit code 0"], success: true }
+      ];
+      var stepsHost = document.getElementById("ex-steps");
+      var session = document.getElementById("ex-session");
+      var sessionTitle = document.getElementById("ex-session-title");
+      var sessionMeta = document.getElementById("ex-session-meta");
+      var sessionBadge = document.getElementById("ex-session-badge");
+      var finalAnswer = document.getElementById("ex-final");
+      var summaryToggle = document.getElementById("ex-summary-toggle");
+      var summaryDetail = document.getElementById("ex-summary-detail");
+      var runToken = 0;
+      var waits = [];
+
+      function create(tag, className, text) { var node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
+      function wait(ms, token) { return new Promise(function (resolve) { var timer = setTimeout(function () { resolve(token === runToken); }, ms); waits.push(timer); }); }
+      function clearWaits() { waits.forEach(clearTimeout); waits = []; }
+      function setExpanded(step, expanded) { var toggle = step.querySelector(".ex-step-toggle"); var detail = step.querySelector(".ex-step-detail"); toggle.setAttribute("aria-expanded", String(expanded)); detail.hidden = !expanded; }
+
+      function renderSteps() {
+        stepsHost.innerHTML = "";
+        ACTIVITIES.forEach(function (activity, index) {
+          var step = create("li", "ex-step");
+          step.dataset.index = String(index);
+          var toggle = create("button", "ex-step-toggle");
+          toggle.type = "button";
+          toggle.setAttribute("aria-expanded", "false");
+          toggle.setAttribute("aria-controls", "ex-detail-" + index);
+          var icon = create("span", "ex-step-icon");
+          icon.setAttribute("aria-hidden", "true");
+          icon.appendChild(create("span", "", activity.icon));
+          toggle.appendChild(icon);
+          var copy = create("span", "ex-step-copy");
+          copy.appendChild(create("span", "ex-step-title", activity.title));
+          copy.appendChild(create("span", "ex-step-note", activity.note));
+          toggle.appendChild(copy);
+          toggle.appendChild(create("span", "ex-step-duration", activity.duration));
+          toggle.appendChild(create("span", "ex-chevron"));
+          var detail = create("div", "ex-step-detail");
+          detail.id = "ex-detail-" + index;
+          detail.hidden = true;
+          var commandBar = create("div", "ex-commandbar");
+          commandBar.appendChild(create("span", "ex-command-kind", activity.kind));
+          commandBar.appendChild(create("span", "ex-command-safety", activity.safety));
+          var copyButton = create("button", "ex-copy", "Copy");
+          copyButton.type = "button";
+          copyButton.title = "Copy command";
+          copyButton.addEventListener("click", function (event) {
+            event.stopPropagation();
+            navigator.clipboard.writeText(activity.command).then(function () { copyButton.textContent = "Copied"; setTimeout(function () { copyButton.textContent = "Copy"; }, 1200); });
+          });
+          commandBar.appendChild(copyButton);
+          detail.appendChild(commandBar);
+          var terminal = create("pre", "ex-terminal");
+          terminal.appendChild(create("span", "ex-prompt", "$ " + activity.command + "\n"));
+          detail.appendChild(terminal);
+          toggle.addEventListener("click", function () { setExpanded(step, toggle.getAttribute("aria-expanded") !== "true"); });
+          step.appendChild(toggle);
+          step.appendChild(detail);
+          stepsHost.appendChild(step);
+        });
+      }
+
+      function reset() {
+        runToken += 1;
+        clearWaits();
+        renderSteps();
+        session.className = "ex-session is-running";
+        sessionTitle.textContent = "Investigating probe failures";
+        sessionMeta.textContent = "starting task session";
+        sessionBadge.textContent = "Running";
+        finalAnswer.classList.remove("is-visible");
+        summaryToggle.setAttribute("aria-expanded", "false");
+        summaryDetail.hidden = true;
+        return runToken;
+      }
+
+      function appendOutput(step, activity, line) {
+        var output = create("span", "ex-output", line + "\n");
+        if (activity.success && (line.indexOf("passed") >= 0 || line.indexOf("Exit code 0") >= 0)) output.classList.add("is-success");
+        if (activity.warning && (line.indexOf("unhealthy") >= 0 || line.indexOf("Exit code 1") >= 0)) output.classList.add("is-warning");
+        step.querySelector(".ex-terminal").appendChild(output);
+      }
+
+      function completeSession() {
+        Array.prototype.forEach.call(stepsHost.children, function (step, index) {
+          var activity = ACTIVITIES[index];
+          step.classList.remove("is-active");
+          step.classList.add("is-complete");
+          if (!step.querySelector(".ex-output")) activity.output.forEach(function (line) { appendOutput(step, activity, line); });
+          setExpanded(step, false);
+        });
+        session.className = "ex-session is-complete";
+        sessionTitle.textContent = "Investigation completed";
+        sessionMeta.textContent = "5 steps - 8.4s";
+        sessionBadge.textContent = "Complete";
+        finalAnswer.classList.add("is-visible");
+      }
+
+      async function run() {
+        var token = reset();
+        if (!await wait(450, token)) return;
+        for (var index = 0; index < ACTIVITIES.length; index += 1) {
+          if (token !== runToken) return;
+          var activity = ACTIVITIES[index];
+          var step = stepsHost.children[index];
+          step.classList.add("is-active");
+          setExpanded(step, true);
+          sessionMeta.textContent = "step " + (index + 1) + " of " + ACTIVITIES.length;
+          if (!await wait(260, token)) return;
+          for (var lineIndex = 0; lineIndex < activity.output.length; lineIndex += 1) {
+            appendOutput(step, activity, activity.output[lineIndex]);
+            if (!await wait(310, token)) return;
+          }
+          step.classList.remove("is-active");
+          step.classList.add("is-complete");
+          setExpanded(step, false);
+          if (!await wait(240, token)) return;
+        }
+        completeSession();
+      }
+
+      summaryToggle.addEventListener("click", function () { var expanded = summaryToggle.getAttribute("aria-expanded") === "true"; summaryToggle.setAttribute("aria-expanded", String(!expanded)); summaryDetail.hidden = expanded; });
+      document.getElementById("ex-replay").addEventListener("click", run);
+      document.getElementById("ex-finish").addEventListener("click", function () { runToken += 1; clearWaits(); completeSession(); });
+      run();
+    }());
+  </script>
+</body>
+</html>
