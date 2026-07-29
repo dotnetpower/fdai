@@ -45,6 +45,15 @@
     .ex-user-message { margin: 2px 0 0; color: var(--ex-ink); font-size: 13.5px; line-height: 1.6; }
     .ex-answer-lead { margin: 2px 0 10px; color: var(--ex-ink); font-size: 13.5px; line-height: 1.55; }
 
+    .ex-run { display: flex; flex-direction: column; gap: 2px; }
+    .ex-phase { display: none; }
+    .ex-phase.is-visible { display: block; animation: ex-arrive .2s ease both; }
+    .ex-progress-note { display: flex; gap: 9px; margin: 14px 0 8px; padding: 1px 3px; }
+    .ex-progress-mark { width: 16px; padding-top: 3px; flex: 0 0 auto; color: var(--ex-blue); font: 700 9px "JetBrains Mono", monospace; text-align: center; }
+    .ex-progress-body { min-width: 0; padding-left: 10px; border-left: 2px solid rgba(53,109,155,.24); }
+    .ex-progress-label { display: block; margin-bottom: 3px; color: var(--ex-blue); font-size: 9.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .ex-progress-copy { margin: 0; color: var(--ex-ink); font-size: 12.5px; line-height: 1.55; }
+
     .ex-session { margin-top: 8px; background: #fff; }
     .ex-session-head { min-height: 42px; display: flex; align-items: center; gap: 9px; padding: 0 3px 7px; }
     .ex-session-state { min-width: 0; display: flex; align-items: baseline; gap: 7px; }
@@ -93,18 +102,6 @@
     .ex-output.is-success { color: #8fc394; }
     .ex-output.is-warning { color: #d5a66a; }
 
-    .ex-summary { display: none; margin-left: 34px; }
-    .ex-session.is-complete .ex-summary { display: block; }
-    .ex-summary-toggle { width: 100%; min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 0; border-top: 1px solid #e8ebee; background: transparent; color: var(--ex-muted); font: 11px var(--cs-font); cursor: pointer; }
-    .ex-summary-toggle:hover { background: #f5f7f8; }
-    .ex-summary-toggle strong { color: var(--ex-ink); }
-    .ex-summary-toggle .ex-chevron { margin-left: auto; }
-    .ex-summary-toggle[aria-expanded="true"] .ex-chevron { transform: rotate(225deg) translate(-1px, -1px); }
-    .ex-summary-detail { display: flex; flex-wrap: wrap; gap: 6px; padding: 7px 8px 2px; border-top: 1px solid #e8ebee; }
-    .ex-stat { min-width: 108px; padding: 7px 9px; border-radius: 5px; background: #f6f8fa; }
-    .ex-stat-value { display: block; color: var(--ex-ink); font: 600 12px "JetBrains Mono", monospace; }
-    .ex-stat-label { display: block; margin-top: 2px; color: var(--ex-muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; }
-
     .ex-final { display: none; opacity: 0; transform: translateY(4px); }
     .ex-final.is-visible { display: grid; animation: ex-arrive .24s ease forwards; }
     @keyframes ex-arrive { to { opacity: 1; transform: none; } }
@@ -130,8 +127,7 @@
       .ex-step-duration { display: none; }
       .ex-step { padding-left: 30px; }
       .ex-step::after { width: 11px; }
-      .ex-summary { margin-left: 30px; }
-      .ex-stat { min-width: calc(50% - 3px); box-sizing: border-box; }
+      .ex-progress-note { margin-top: 12px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -170,26 +166,8 @@
           <span class="ex-avatar is-deck">BR</span>
           <div class="ex-turn-body">
             <div class="ex-turn-name">Bragi <span class="ex-turn-time">10:42</span></div>
-            <p class="ex-answer-lead">I will inspect the resource state and the local probe validator, then verify the smallest safe change.</p>
-            <section class="ex-session is-running" id="ex-session" aria-live="polite">
-              <header class="ex-session-head">
-                <span class="ex-spinner" aria-hidden="true"></span>
-                <span class="ex-session-state"><span class="ex-session-title" id="ex-session-title">Investigating probe failures</span><span class="ex-session-meta" id="ex-session-meta">starting task session</span></span>
-                <span class="ex-session-badge" id="ex-session-badge">Running</span>
-              </header>
-              <ol class="ex-steps" id="ex-steps"></ol>
-              <div class="ex-summary">
-                <button class="ex-summary-toggle" id="ex-summary-toggle" type="button" aria-expanded="false" aria-controls="ex-summary-detail">
-                  <span><strong>5 steps completed</strong> - commands and outputs remain available</span><span class="ex-chevron" aria-hidden="true"></span>
-                </button>
-                <div class="ex-summary-detail" id="ex-summary-detail" hidden>
-                  <span class="ex-stat"><strong class="ex-stat-value">2</strong><span class="ex-stat-label">Commands</span></span>
-                  <span class="ex-stat"><strong class="ex-stat-value">1</strong><span class="ex-stat-label">File changed</span></span>
-                  <span class="ex-stat"><strong class="ex-stat-value">4/4</strong><span class="ex-stat-label">Checks passed</span></span>
-                  <span class="ex-stat"><strong class="ex-stat-value">8.4s</strong><span class="ex-stat-label">Elapsed</span></span>
-                </div>
-              </div>
-            </section>
+            <p class="ex-answer-lead">I will check the deployed state first, then follow the local failure through the validator before changing anything.</p>
+            <div class="ex-run" id="ex-run" aria-live="polite"></div>
           </div>
         </article>
         <article class="ex-turn ex-final" id="ex-final">
@@ -200,7 +178,7 @@
               <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
               <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
               <div class="ex-result-line">
-                <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>Read-only</strong> Azure query</span>
+                <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>5</strong> commands inspected</span>
                 <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>1</strong> local file changed</span>
                 <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>4/4</strong> checks passed</span>
               </div>
@@ -218,21 +196,34 @@
   <script>
     (function () {
       "use strict";
-      var ACTIVITIES = [
-        { icon: "S", title: "Searched the workspace", note: "Found the probe validator and its focused tests", duration: "0.8s", kind: "Search", safety: "read-only", command: "rg -n \"health|probe|status_code\" scripts/ops tests/ops", output: ["scripts/ops/check_probe.py:41: if response.status_code != 200:", "tests/ops/test_check_probe.py:28: def test_accepts_healthy_response():", "2 files matched"] },
-        { icon: ">_", title: "Ran Azure Resource Graph query", note: "Confirmed the example API is running and the probe path is configured", duration: "1.7s", kind: "Azure CLI", safety: "read-only", command: "az graph query -q \"Resources | where name == 'api-example' | project name, resourceGroup, properties.state\" --first 20", output: ["Name          Resource group   State", "api-example   rg-example-app   Running", "Query returned 1 resource"] },
-        { icon: "PY", title: "Ran the validator in dry-run mode", note: "Reproduced the false failure on HTTP 204", duration: "1.2s", kind: "Python", safety: "dry-run", command: "python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["GET /healthz -> 204 No Content", "validator: unhealthy (expected 200)", "Exit code 1"], warning: true },
-        { icon: "+-", title: "Updated the probe validator", note: "Accepted any 2xx response without changing the command contract", duration: "0.6s", kind: "Edit", safety: "local file", command: "scripts/ops/check_probe.py", output: ["- if response.status_code != 200:", "+ if not 200 <= response.status_code < 300:", "1 file changed, 1 insertion, 1 deletion"] },
-        { icon: "T", title: "Ran focused checks", note: "Validator tests and a dry-run verification passed", duration: "4.1s", kind: "Test", safety: "local execution", command: "pytest -q tests/ops/test_check_probe.py && python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["tests/ops/test_check_probe.py ....                              [100%]", "4 passed in 0.31s", "validator: healthy (204)", "Exit code 0"], success: true }
+      var PHASES = [
+        {
+          update: "I am checking the live resource state and locating the validator with its focused tests first.",
+          title: "Exploring deployed and local state", completeTitle: "Exploration completed", elapsed: "2 calls - 2.5s",
+          activities: [
+            { icon: "S", title: "Searched the workspace", note: "Found the probe validator and its focused tests", duration: "0.8s", kind: "Search", safety: "read-only", command: "rg -n \"health|probe|status_code\" scripts/ops tests/ops", output: ["scripts/ops/check_probe.py:41: if response.status_code != 200:", "tests/ops/test_check_probe.py:28: def test_accepts_healthy_response():", "2 files matched"] },
+            { icon: ">_", title: "Ran Azure Resource Graph query", note: "Confirmed the example API is running and the probe path is configured", duration: "1.7s", kind: "Azure CLI", safety: "read-only", command: "az graph query -q \"Resources | where name == 'api-example' | project name, resourceGroup, properties.state\" --first 20", output: ["Name          Resource group   State", "api-example   rg-example-app   Running", "Query returned 1 resource"] }
+          ]
+        },
+        {
+          update: "Azure reports the API as running. I am reproducing the local failure now, then I will read the exact condition that rejected the response.",
+          title: "Tracing the false failure", completeTitle: "Failure isolated", elapsed: "2 calls - 1.8s",
+          activities: [
+            { icon: "PY", title: "Ran the validator in dry-run mode", note: "Reproduced the false failure on HTTP 204", duration: "1.2s", kind: "Python", safety: "dry-run", command: "python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["GET /healthz -> 204 No Content", "validator: unhealthy (expected 200)", "Exit code 1"], warning: true },
+            { icon: "R", title: "Read the response handling branch", note: "Confirmed the validator accepts only HTTP 200", duration: "0.6s", kind: "Read file", safety: "read-only", command: "sed -n '32,52p' scripts/ops/check_probe.py", output: ["response = client.get(probe_url, timeout=args.timeout)", "if response.status_code != 200:", "    return ProbeResult(healthy=False, status=response.status_code)"] }
+          ]
+        },
+        {
+          update: "The endpoint returns a valid 204, but the validator accepts only 200. I am changing that one condition and rerunning the focused path.",
+          title: "Applying and verifying the fix", completeTitle: "Fix verified", elapsed: "2 calls - 4.7s",
+          activities: [
+            { icon: "+-", title: "Updated the probe validator", note: "Accepted any 2xx response without changing the command contract", duration: "0.6s", kind: "Edit", safety: "local file", command: "scripts/ops/check_probe.py", output: ["- if response.status_code != 200:", "+ if not 200 <= response.status_code < 300:", "1 file changed, 1 insertion, 1 deletion"] },
+            { icon: "T", title: "Ran focused checks", note: "Validator tests and a dry-run verification passed", duration: "4.1s", kind: "Test", safety: "local execution", command: "pytest -q tests/ops/test_check_probe.py && python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["tests/ops/test_check_probe.py ....                              [100%]", "4 passed in 0.31s", "validator: healthy (204)", "Exit code 0"], success: true }
+          ]
+        }
       ];
-      var stepsHost = document.getElementById("ex-steps");
-      var session = document.getElementById("ex-session");
-      var sessionTitle = document.getElementById("ex-session-title");
-      var sessionMeta = document.getElementById("ex-session-meta");
-      var sessionBadge = document.getElementById("ex-session-badge");
+      var runHost = document.getElementById("ex-run");
       var finalAnswer = document.getElementById("ex-final");
-      var summaryToggle = document.getElementById("ex-summary-toggle");
-      var summaryDetail = document.getElementById("ex-summary-detail");
       var runToken = 0;
       var waits = [];
 
@@ -241,15 +232,14 @@
       function clearWaits() { waits.forEach(clearTimeout); waits = []; }
       function setExpanded(step, expanded) { var toggle = step.querySelector(".ex-step-toggle"); var detail = step.querySelector(".ex-step-detail"); toggle.setAttribute("aria-expanded", String(expanded)); detail.hidden = !expanded; }
 
-      function renderSteps() {
-        stepsHost.innerHTML = "";
-        ACTIVITIES.forEach(function (activity, index) {
+      function renderSteps(stepsHost, activities, phaseIndex) {
+        activities.forEach(function (activity, index) {
           var step = create("li", "ex-step");
           step.dataset.index = String(index);
           var toggle = create("button", "ex-step-toggle");
           toggle.type = "button";
           toggle.setAttribute("aria-expanded", "false");
-          toggle.setAttribute("aria-controls", "ex-detail-" + index);
+          toggle.setAttribute("aria-controls", "ex-detail-" + phaseIndex + "-" + index);
           var icon = create("span", "ex-step-icon");
           icon.setAttribute("aria-hidden", "true");
           icon.appendChild(create("span", "", activity.icon));
@@ -261,7 +251,7 @@
           toggle.appendChild(create("span", "ex-step-duration", activity.duration));
           toggle.appendChild(create("span", "ex-chevron"));
           var detail = create("div", "ex-step-detail");
-          detail.id = "ex-detail-" + index;
+          detail.id = "ex-detail-" + phaseIndex + "-" + index;
           detail.hidden = true;
           var commandBar = create("div", "ex-commandbar");
           commandBar.appendChild(create("span", "ex-command-kind", activity.kind));
@@ -285,17 +275,40 @@
         });
       }
 
+      function renderRun() {
+        runHost.innerHTML = "";
+        PHASES.forEach(function (phase, phaseIndex) {
+          var phaseNode = create("section", "ex-phase");
+          phaseNode.dataset.phase = String(phaseIndex);
+          var progress = create("div", "ex-progress-note");
+          progress.appendChild(create("span", "ex-progress-mark", "0" + (phaseIndex + 1)));
+          var progressBody = create("div", "ex-progress-body");
+          progressBody.appendChild(create("span", "ex-progress-label", phaseIndex === 0 ? "Starting work" : "Progress update"));
+          progressBody.appendChild(create("p", "ex-progress-copy", phase.update));
+          progress.appendChild(progressBody);
+          phaseNode.appendChild(progress);
+          var session = create("section", "ex-session is-running");
+          var header = create("header", "ex-session-head");
+          header.appendChild(create("span", "ex-spinner"));
+          var state = create("span", "ex-session-state");
+          state.appendChild(create("span", "ex-session-title", phase.title));
+          state.appendChild(create("span", "ex-session-meta", "waiting"));
+          header.appendChild(state);
+          header.appendChild(create("span", "ex-session-badge", "Running"));
+          session.appendChild(header);
+          var steps = create("ol", "ex-steps");
+          renderSteps(steps, phase.activities, phaseIndex);
+          session.appendChild(steps);
+          phaseNode.appendChild(session);
+          runHost.appendChild(phaseNode);
+        });
+      }
+
       function reset() {
         runToken += 1;
         clearWaits();
-        renderSteps();
-        session.className = "ex-session is-running";
-        sessionTitle.textContent = "Investigating probe failures";
-        sessionMeta.textContent = "starting task session";
-        sessionBadge.textContent = "Running";
+        renderRun();
         finalAnswer.classList.remove("is-visible");
-        summaryToggle.setAttribute("aria-expanded", "false");
-        summaryDetail.hidden = true;
         return runToken;
       }
 
@@ -306,47 +319,65 @@
         step.querySelector(".ex-terminal").appendChild(output);
       }
 
-      function completeSession() {
+      function completePhase(phaseNode, phase) {
+        var stepsHost = phaseNode.querySelector(".ex-steps");
         Array.prototype.forEach.call(stepsHost.children, function (step, index) {
-          var activity = ACTIVITIES[index];
+          var activity = phase.activities[index];
           step.classList.remove("is-active");
           step.classList.add("is-complete");
           if (!step.querySelector(".ex-output")) activity.output.forEach(function (line) { appendOutput(step, activity, line); });
           setExpanded(step, false);
         });
+        var session = phaseNode.querySelector(".ex-session");
         session.className = "ex-session is-complete";
-        sessionTitle.textContent = "Investigation completed";
-        sessionMeta.textContent = "5 steps - 8.4s";
-        sessionBadge.textContent = "Complete";
+        session.querySelector(".ex-session-title").textContent = phase.completeTitle;
+        session.querySelector(".ex-session-meta").textContent = phase.elapsed;
+        session.querySelector(".ex-session-badge").textContent = "Complete";
+      }
+
+      function completeRun() {
+        Array.prototype.forEach.call(runHost.children, function (phaseNode, phaseIndex) {
+          phaseNode.classList.add("is-visible");
+          completePhase(phaseNode, PHASES[phaseIndex]);
+        });
         finalAnswer.classList.add("is-visible");
       }
 
       async function run() {
         var token = reset();
         if (!await wait(450, token)) return;
-        for (var index = 0; index < ACTIVITIES.length; index += 1) {
-          if (token !== runToken) return;
-          var activity = ACTIVITIES[index];
-          var step = stepsHost.children[index];
-          step.classList.add("is-active");
-          setExpanded(step, true);
-          sessionMeta.textContent = "step " + (index + 1) + " of " + ACTIVITIES.length;
-          if (!await wait(260, token)) return;
-          for (var lineIndex = 0; lineIndex < activity.output.length; lineIndex += 1) {
-            appendOutput(step, activity, activity.output[lineIndex]);
-            if (!await wait(310, token)) return;
+        for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
+          var phase = PHASES[phaseIndex];
+          var phaseNode = runHost.children[phaseIndex];
+          phaseNode.classList.add("is-visible");
+          if (!await wait(520, token)) return;
+          var stepsHost = phaseNode.querySelector(".ex-steps");
+          var sessionMeta = phaseNode.querySelector(".ex-session-meta");
+          for (var index = 0; index < phase.activities.length; index += 1) {
+            if (token !== runToken) return;
+            var activity = phase.activities[index];
+            var step = stepsHost.children[index];
+            step.classList.add("is-active");
+            setExpanded(step, true);
+            sessionMeta.textContent = "call " + (index + 1) + " of " + phase.activities.length;
+            if (!await wait(260, token)) return;
+            for (var lineIndex = 0; lineIndex < activity.output.length; lineIndex += 1) {
+              appendOutput(step, activity, activity.output[lineIndex]);
+              if (!await wait(280, token)) return;
+            }
+            step.classList.remove("is-active");
+            step.classList.add("is-complete");
+            setExpanded(step, false);
+            if (!await wait(240, token)) return;
           }
-          step.classList.remove("is-active");
-          step.classList.add("is-complete");
-          setExpanded(step, false);
-          if (!await wait(240, token)) return;
+          completePhase(phaseNode, phase);
+          if (!await wait(620, token)) return;
         }
-        completeSession();
+        finalAnswer.classList.add("is-visible");
       }
 
-      summaryToggle.addEventListener("click", function () { var expanded = summaryToggle.getAttribute("aria-expanded") === "true"; summaryToggle.setAttribute("aria-expanded", String(!expanded)); summaryDetail.hidden = expanded; });
       document.getElementById("ex-replay").addEventListener("click", run);
-      document.getElementById("ex-finish").addEventListener("click", function () { runToken += 1; clearWaits(); completeSession(); });
+      document.getElementById("ex-finish").addEventListener("click", function () { reset(); runToken += 1; clearWaits(); completeRun(); });
       run();
     }());
   </script>
