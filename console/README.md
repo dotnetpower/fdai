@@ -363,7 +363,7 @@ detected issues deep-link into the full Architecture panel when they carry a res
 
 The **Knowledge > Rules** panel ([`src/routes/rule-catalog.tsx`](src/routes/rule-catalog.tsx))
 answers "what does this rule enforce, why does it matter, and which resources
-violate it" over three GET routes
+violate it" and shows versioned control-framework coverage over five GET routes
 ([`src/fdai/delivery/read_api/rule_catalog.py`](../src/fdai/delivery/read_api/routes/rule_catalog.py)):
 
 | Route | Purpose |
@@ -371,9 +371,13 @@ violate it" over three GET routes
 | `GET /rules` | Paginated, faceted list over the active catalog + collected corpus, tagged `origin=active\|collected`. Server-side filter (`origin`/`category`/`severity`/`source`/`q`) + `limit`/`offset`. |
 | `GET /rules/{id}` | Full detail: sandboxed Rego + fix template bodies, plus an `explanation` (why it matters / risk) parsed from the Rego `# METADATA` block or the `azure_policy` / `kube_bench` params - grounded, never fabricated. |
 | `GET /rules/{id}/findings` | Affected resources (resource + the attribute at fault) behind a `findings_provider` seam. Upstream ships none -> honest `evaluated=false`; a fork wires an inventory-evaluation source. |
+| `GET /mcsb-controls` | Versioned MCSB definitions, domain and implementation-coverage facets, exact policy-profile counts, and paging. Coverage is a catalog crosswalk, not a workload compliance result. |
+| `GET /mcsb-controls/{version}/{control_id}` | Reviewed rule, runtime-observation, manual-evidence, and pinned-source references for one MCSB control. |
 
 The bounded origin, category, and severity facets use compact chips. Source is an open-ended facet,
 so it uses a count-bearing select that stays within the filter toolbar at narrow viewport widths.
+The Controls view switches between Azure WAF, MCSB v1, and MCSB v2 preview. MCSB v1 renders the
+complete 86-control import and its implementation crosswalk; v2 remains visibly metadata-only.
 
 The seams are `ReadApiConfig.rule_catalog_rules`, `_collected_rules`,
 `_policies_root`, `_remediation_root`, and `_findings_provider`. Interactive

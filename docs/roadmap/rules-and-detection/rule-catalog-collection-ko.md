@@ -1,7 +1,7 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: b1a621f61d770d8968d21ce5dda55c920c917524
+translation_source_sha: 30105c8c7632cc9cfbabc1daba4de24f9b2e2ee4
 translation_revised: 2026-07-29
 ---
 
@@ -26,8 +26,9 @@ FDAI가 체크리스트, 모범 사례, 정책, 베이스라인을 어떻게 **�
 > continuous pipeline stages 및 CandidateGuard가 구현되어 있습니다. `BestPractice`에도 strict
 > schema, loader, typed-reference catalog 검증, 전체 Azure WAF Reliability 및 Operational
 > Excellence control set가 구현되어 있습니다. Config-baseline 및 measurement-baseline 전용
-> schema/loader는 목표 shape로 남아 있습니다. Source 목록은 지원 목표와 shipped
-> implementation을 함께 설명합니다.
+> schema/loader는 목표 shape로 남아 있습니다. 버전별 MCSB 카탈로그는 v1 컨트롤 86개를 모두
+> 가져오고 구현 crosswalk를 검증하며, v2 미리 보기는 컨트롤 정의를 가져올 때까지 metadata-only로
+> 별도 추적합니다. Source 목록은 지원 목표와 shipped implementation을 함께 설명합니다.
 
 ## 무엇을 수집하는가
 
@@ -67,6 +68,46 @@ security/config만 커버하는 소스 테이블은 세 버티컬 중 둘을 미
 행은 [observability-and-detection-ko.md](observability-and-detection-ko.md) (이상, 예보,
 상관관계, RCA) 가 소비하는 베이스라인, 임계, 상관관계 키를 공급. 컨트롤을 규제 프레임워크
 (NIST/PCI/ISO) 에 매핑하는 것은 연기 - [Open Decisions](#open-decisions) 참조.
+
+### MCSB 컨트롤 및 구현 커버리지
+
+FDAI는 Microsoft Cloud Security Benchmark(MCSB) 컨트롤을 실행 가능한 규칙과 분리해서
+저장합니다. 하나의 벤치마크 컨트롤에는 여러 규칙, 런타임 관찰, 수동 증거 레코드가 필요할 수
+있으며, 일부 전략 또는 프로세스 컨트롤은 리소스 구성만으로 평가할 수 없습니다.
+
+| 버전 | 가져온 컨트롤 | Azure Policy 프로필 참조 | 상태 |
+|------|--------------:|---------------------------:|------|
+| `v1` | 12개 도메인의 86개 | 버전 지정 222개 + 현재 169개 | 컨트롤 가져오기 완료 |
+| `v2-preview` | 0개 | 410개 | 미리 보기 메타데이터만 제공 |
+
+현재 v1 crosswalk는 컨트롤 16개를 부분 자동화, 9개를 수동 증거, 61개를 미매핑으로 분류합니다.
+매핑된 검사는 기술 중립 컨트롤의 일부만 다루므로 완전 자동화로 표시한 컨트롤은 없습니다. 이 값은
+FDAI 구현 커버리지를 설명하며 워크로드의 MCSB 통과 여부를 뜻하지 않습니다. 런타임 규정 준수에는
+권위 있는 관찰 증거가 필요하며 별도 평가로 유지됩니다.
+
+버전별 아티팩트는 `rule-catalog/compliance/mcsb/` 아래에 있습니다.
+
+- `controls.yaml`은 벤치마크 ID, 버전, 소스 고정값, 컨트롤 정의를 소유합니다.
+- `crosswalk.yaml`은 FDAI 규칙, Azure Policy 프로필, 런타임 관찰, 수동 증거에 대한 검토된
+  연결을 소유합니다.
+- crosswalk에 없는 항목은 `unmapped`로 구체화됩니다. 알 수 없는 참조, 중복 컨트롤, 잘못된
+  도메인 접두사, 모순된 커버리지는 안전하게 실패합니다.
+
+다운로드한 workbook에서 v1 정의를 다시 생성한 후 strict gate를 실행합니다.
+
+```bash
+.venv/bin/python scripts/catalog/import_mcsb_workbook.py \
+  --input <Microsoft_cloud_security_benchmark_v1.xlsx> \
+  --output rule-catalog/compliance/mcsb/v1/controls.yaml \
+  --artifact-url <immutable-source-url> \
+  --resolved-ref <immutable-source-revision> \
+  --retrieved-at <rfc3339-timestamp>
+PYTHONPATH=src .venv/bin/python scripts/catalog/validate-catalog-full.py \
+  --only mcsb_deep
+```
+
+Importer는 workbook SHA-256을 기록하며 로컬 다운로드 경로를 카탈로그에 복사하지 않습니다.
+MCSB v1과 v2는 독립 버전으로 유지되며, v1 매핑을 v2 커버리지로 바꾸어 표시하지 않습니다.
 
 ### 보안 소스 (심층)
 

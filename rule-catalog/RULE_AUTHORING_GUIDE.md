@@ -185,6 +185,28 @@ Run the dedicated deep gate after editing either artifact:
   --only best_practice_deep
 ```
 
+## Mapping an MCSB rule
+
+An MCSB control is a technology-neutral objective, not a one-to-one executable rule. When a rule
+uses `source: mcsb`, add that rule id to the reviewed control entry in
+`rule-catalog/compliance/mcsb/<version>/crosswalk.yaml` in the same change.
+
+- Use the exact benchmark control id, such as `DP-3` or `PV-2`.
+- Keep `coverage: partial` unless the complete control is demonstrably covered by the combined
+  rule, runtime-observation, and manual-evidence set.
+- Never copy a v1 mapping into `v2-preview`; benchmark versions stay independent.
+- Add manual evidence for organizational or process controls instead of inventing a resource rule.
+- A new runtime observation belongs in the canonical Azure posture MCSB registry before the
+  crosswalk can reference it.
+
+Run the strict crosswalk gate after any MCSB control, rule, observation, evidence, or policy-profile
+mapping change:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/catalog/validate-catalog-full.py \
+  --only mcsb_deep
+```
+
 ## Extending the ontology
 
 ### New ActionType
