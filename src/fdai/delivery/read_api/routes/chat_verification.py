@@ -37,6 +37,9 @@ from fdai.delivery.read_api.routes.chat_log_query import (
     log_query_evidence_refs,
     render_log_query_answer,
 )
+from fdai.delivery.read_api.routes.chat_prompt_ontology import (
+    _render_ontology_storage_answer,
+)
 from fdai.delivery.read_api.routes.chat_subscription_health import (
     render_subscription_health_answer,
     subscription_health_evidence_refs,
@@ -143,6 +146,29 @@ def verify_answer(
             checks_completed=0,
             checks_total=1,
             reason_code="answer_text_invalid",
+        )
+
+    ontology_storage = view_context.get("_ontology_storage_contract")
+    if isinstance(ontology_storage, Mapping):
+        ontology_answer = _render_ontology_storage_answer(ontology_storage, locale=locale)
+        evidence_ref = ontology_storage.get("evidence_ref")
+        if ontology_answer is None or not isinstance(evidence_ref, str):
+            return AnswerVerification(
+                status="unverified",
+                answer="Ontology catalog storage evidence could not be rendered.",
+                authority="ontology_catalog",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="ontology_storage_evidence_invalid",
+            )
+        return AnswerVerification(
+            status=_changed(provisional, ontology_answer),
+            answer=ontology_answer,
+            authority="ontology_catalog",
+            checks_completed=1,
+            checks_total=1,
+            evidence_refs=(evidence_ref,),
+            reason_code="ontology_storage_contract",
         )
 
     tool = view_context.get("_tool_evidence")

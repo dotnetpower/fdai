@@ -222,6 +222,17 @@ This display contract does not grant execution authority:
 `GET /ontology/graph` is the read-only registry projection for the web
 console's three ontology views:
 
+Storage questions use a deterministic catalog contract rather than treating the requested path as
+a missing screen field. Built-in ObjectType and LinkType definitions come from
+`rule-catalog/vocabulary/object-types/` and `rule-catalog/vocabulary/link-types/`; ActionType
+definitions come from `rule-catalog/action-types/`. A downstream composition can inject additional
+validated roots. At startup, the Read API loads the combined definitions into an immutable
+in-memory catalog, and `/ontology/graph` provides its read-only projection. Runtime ontology
+instances are stored in PostgreSQL `ontology_resource` and `ontology_link`. ObjectType and LinkType
+metadata can also be synchronized to PostgreSQL as validated references for foreign-key checks,
+but those rows aren't the authoring source or source of truth for the definitions. The SPA stores
+no separate copy. JSON and SSE chat return the same contract answer without calling the narrator.
+
 - **Objects**: ObjectTypes and LinkType edges render as one selected,
   deterministic one-hop neighborhood. The inspector shows recorded properties
   plus incoming and outgoing relationships.

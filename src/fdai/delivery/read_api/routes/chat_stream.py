@@ -74,6 +74,7 @@ from fdai.delivery.read_api.routes.chat_prompt import (
     _response_locale,
     _with_concept_evidence,
 )
+from fdai.delivery.read_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
 from fdai.delivery.read_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     AnswerPreferenceResolver,
@@ -410,12 +411,14 @@ def make_chat_stream_route(
                         with suppress(asyncio.CancelledError):
                             await evidence_task
                 enriched_context = _with_concept_evidence(clean_prompt, enriched_context)
+                enriched_context = _with_ontology_storage_contract(clean_prompt, enriched_context)
                 answer_plan, planning_task = start_shadow_answer_planning(
                     prompt=clean_prompt,
                     plan=answer_plan,
                     delegate=(
                         None
                         if "_screen_scope" in enriched_context
+                        or "_ontology_storage_contract" in enriched_context
                         or _uses_evidence_fast_path(enriched_context)
                         else answer_planning_delegate
                     ),

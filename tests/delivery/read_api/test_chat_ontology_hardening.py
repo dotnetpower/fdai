@@ -37,6 +37,8 @@ def _context() -> dict[str, object]:
         ("how do I view cost data?", False),
         ("why does ontology exist?", False),
         ("delete ontology data", False),
+        ("온톨로지는 어디에 저장돼?", True),
+        ("where is the ontology persisted?", True),
     ),
 )
 def test_round_one_intent_boundary(prompt: str, expected: bool) -> None:

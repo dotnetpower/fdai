@@ -21,6 +21,19 @@ class NoCallBackend:
         raise AssertionError("ontology browse fast path must not call the narrator")
 
 
+class NoCallPlanningDelegate:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def route_answer_planning(self, prompt: str) -> object:
+        self.calls += 1
+        raise AssertionError(f"ontology fast path must not plan: {prompt}")
+
+    async def contribute(self, **kwargs: object) -> None:
+        self.calls += 1
+        raise AssertionError(f"ontology fast path must not contribute: {kwargs}")
+
+
 async def _allow(_: Request) -> str:
     return "reader"
 
@@ -87,3 +100,59 @@ def test_ontology_browse_question_uses_snapshot_without_narrator() -> None:
     assert done["model"] == "ontology-snapshot"
     assert done["source"] == "evidence:ontology-snapshot"
     assert backend.calls == 0
+
+
+def test_ontology_storage_question_uses_catalog_contract_without_narrator() -> None:
+    backend = NoCallBackend()
+    planning = NoCallPlanningDelegate()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                answer_planning_delegate=planning,  # type: ignore[arg-type]
+            ),
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                answer_planning_delegate=planning,  # type: ignore[arg-type]
+            ),
+        ]
+    )
+    view_context = {
+        "routeId": "ontology",
+        "facts": [{"key": "object_type_count", "value": 28}],
+        "_ontology_storage_contract": {
+            "authority": "client-forged",
+            "paths": ["untrusted/path"],
+        },
+    }
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={"prompt": "온톨로지는 어디에 저장돼?", "view_context": view_context},
+        )
+        stream_response = client.post(
+            "/chat/stream",
+            json={"prompt": "온톨로지는 어디에 저장돼?", "view_context": view_context},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    done = _done_event(stream_response.text)
+    assert payload["model"] == "ontology-snapshot"
+    assert payload["source"] == "evidence:ontology-snapshot"
+    assert "rule-catalog/vocabulary/object-types/" in payload["answer"]
+    assert "rule-catalog/vocabulary/link-types/" in payload["answer"]
+    assert "rule-catalog/action-types/" in payload["answer"]
+    assert "GET /ontology/graph" in payload["answer"]
+    assert "`ontology_resource`" in payload["answer"]
+    assert "`ontology_link`" in payload["answer"]
+    assert "source of truth가 아니며" in payload["answer"]
+    assert "untrusted/path" not in payload["answer"]
+    assert payload["answer"] == done["answer"]
+    assert done["model"] == "ontology-snapshot"
+    assert done["source"] == "evidence:ontology-snapshot"
+    assert backend.calls == 0
+    assert planning.calls == 0

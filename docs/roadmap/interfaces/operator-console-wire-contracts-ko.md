@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: e584b3d96e3049301ef6066cd2a95cf8f7afc9ac
-translation_revised: 2026-07-28
+translation_source_sha: 1699873febc9d88e63f31f050acc6142b66850f7
+translation_revised: 2026-07-29
 ---
 
 # Operator Console - Data and Wire Contracts
@@ -218,6 +218,17 @@ entry 를 제거합니다.
 
 `GET /ontology/graph` 는 웹 콘솔의 세 가지 온톨로지 뷰를 위한 read-only
 레지스트리 projection 입니다.
+
+저장 위치 질문은 요청한 경로를 누락된 화면 필드로 취급하지 않고 결정적 catalog contract를
+사용합니다. 기본 ObjectType과 LinkType 정의는 `rule-catalog/vocabulary/object-types/` 및
+`rule-catalog/vocabulary/link-types/`에서, ActionType 정의는 `rule-catalog/action-types/`에서
+가져옵니다. Downstream composition은 검증된 추가 root를 주입할 수 있습니다. Read API는 시작할
+때 합성된 정의를 immutable in-memory catalog로 로드하고 `/ontology/graph`가 그 catalog를
+read-only projection으로 제공합니다. 운영 ontology instance는 PostgreSQL의
+`ontology_resource`와 `ontology_link`에 저장됩니다. ObjectType과 LinkType metadata도 FK 검증용
+reference로 PostgreSQL에 동기화될 수 있지만, 해당 row는 정의의 authoring source 또는 source of
+truth가 아닙니다. SPA는 별도 복사본을 저장하지 않습니다. JSON 및 SSE chat은 narrator를 호출하지
+않고 동일한 contract 답변을 반환합니다.
 
 - **Objects**: ObjectType 과 LinkType edge 를 선택된 하나의 결정적 one-hop
   neighborhood 로 렌더링합니다. Inspector 는 기록된 property 와 incoming 및

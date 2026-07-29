@@ -153,6 +153,7 @@ from fdai.delivery.read_api.routes.chat_prompt import (
     _trim_view_context,
     _with_concept_evidence,
 )
+from fdai.delivery.read_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
 from fdai.delivery.read_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     DEFAULT_MAX_HISTORY_ITEMS,
@@ -478,12 +479,15 @@ def make_chat_route(
                 progress_observer=ignore_evidence_progress,
             )
             view_context = _with_concept_evidence(clean_prompt, view_context)
+            view_context = _with_ontology_storage_contract(clean_prompt, view_context)
             answer_plan, planning_task = start_shadow_answer_planning(
                 prompt=clean_prompt,
                 plan=answer_plan,
                 delegate=(
                     None
-                    if "_screen_scope" in view_context or _uses_evidence_fast_path(view_context)
+                    if "_screen_scope" in view_context
+                    or "_ontology_storage_contract" in view_context
+                    or _uses_evidence_fast_path(view_context)
                     else answer_planning_delegate
                 ),
             )
