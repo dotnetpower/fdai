@@ -11,6 +11,10 @@ import {
 import { takeComposerAttachments } from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
+import {
+  settleInvestigationTurn,
+  settleInvestigationTurns,
+} from "./investigation-turn-state";
 import { provisionalReplyAgent, replyAgent, sessionIdFor } from "./command-deck-session";
 import {
   conversationLabelForPrompt,
@@ -147,9 +151,20 @@ export function useCommandDeckSubmit({
 
     const history = backendHistoryForTurns(turns);
     const deckId = newId();
-    const activityTurnId = newId();
+    let activityTurnId = newId();
+    const activityTurnIds = new Set<string>();
     const milestoneIds = new Set<string>();
     let hasActivityTurn = false;
+    const settleCurrentActivityTurn = () => {
+      if (!activityTurnIds.has(activityTurnId)) return;
+      const settledTurnId = activityTurnId;
+      setTurns((current) => {
+        const next = settleInvestigationTurn(current, settledTurnId);
+        turnsRef.current = next;
+        return next;
+      });
+      activityTurnId = newId();
+    };
     try {
       let started = false;
       let visibleAcc = "";
@@ -246,11 +261,13 @@ export function useCommandDeckSubmit({
           onActivity: (activity: InvestigationActivity) => {
             if (!isCurrent()) return;
             hasActivityTurn = true;
+            const targetActivityTurnId = activityTurnId;
+            activityTurnIds.add(targetActivityTurnId);
             setPending(false);
             setRetrievalProgress(null);
             setSrStatus(activity.label);
             setTurns((current) => {
-              const existing = current.find((turn) => turn.id === activityTurnId);
+              const existing = current.find((turn) => turn.id === targetActivityTurnId);
               const activities = upsertInvestigationActivity(
                 existing?.activities ?? [],
                 activity,
@@ -260,13 +277,13 @@ export function useCommandDeckSubmit({
                 ...activities.map((item) => item.label),
               ].join("\n");
               const next = existing
-                ? current.map((turn) => turn.id === activityTurnId
+                ? current.map((turn) => turn.id === targetActivityTurnId
                   ? { ...turn, text, activities }
                   : turn)
                 : [
                     ...current,
                     {
-                      id: activityTurnId,
+                      id: targetActivityTurnId,
                       role: "deck" as const,
                       kind: "activity" as const,
                       text,
@@ -285,24 +302,26 @@ export function useCommandDeckSubmit({
           onBranch: (branch: EvidenceBranch) => {
             if (!isCurrent()) return;
             hasActivityTurn = true;
+            const targetActivityTurnId = activityTurnId;
+            activityTurnIds.add(targetActivityTurnId);
             setPending(false);
             setRetrievalProgress(null);
             setSrStatus(branch.summary);
             setTurns((current) => {
-              const existing = current.find((turn) => turn.id === activityTurnId);
+              const existing = current.find((turn) => turn.id === targetActivityTurnId);
               const branches = upsertEvidenceBranch(existing?.branches ?? [], branch);
               const text = [
                 ...branches.map((item) => item.summary),
                 ...(existing?.activities ?? []).map((item) => item.label),
               ].join("\n");
               const next = existing
-                ? current.map((turn) => turn.id === activityTurnId
+                ? current.map((turn) => turn.id === targetActivityTurnId
                   ? { ...turn, text, branches }
                   : turn)
                 : [
                     ...current,
                     {
-                      id: activityTurnId,
+                      id: targetActivityTurnId,
                       role: "deck" as const,
                       kind: "activity" as const,
                       text,
@@ -321,6 +340,7 @@ export function useCommandDeckSubmit({
           onMilestone: (milestone: InvestigationMilestone) => {
             if (!isCurrent() || milestoneIds.has(milestone.messageId)) return;
             milestoneIds.add(milestone.messageId);
+            settleCurrentActivityTurn();
             setPending(false);
             setRetrievalProgress(null);
             setSrStatus(milestone.text);
@@ -422,7 +442,7 @@ export function useCommandDeckSubmit({
       if (isCurrent()) {
         setTurns((current) => {
           const next = current.map((turn) => {
-            if (turn.id === activityTurnId) {
+            if (activityTurnIds.has(turn.id)) {
               return { ...turn, streaming: false, terminal: true };
             }
             return turn.id === deckId
@@ -456,9 +476,7 @@ export function useCommandDeckSubmit({
       if (isCurrent()) {
         if (hasActivityTurn) {
           setTurns((current) => {
-            const next = current.map((turn) => turn.id === activityTurnId
-              ? { ...turn, streaming: false, terminal: true }
-              : turn);
+            const next = settleInvestigationTurns(current, activityTurnIds);
             turnsRef.current = next;
             return next;
           });

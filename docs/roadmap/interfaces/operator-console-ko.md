@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 1e94c24cf7882b3007e93d15e0ee0698f66966d6
+translation_source_sha: 98218e6ae7afcdc72412402af45f0726e5cf584c
 translation_revised: 2026-07-30
 ---
 
@@ -106,6 +106,9 @@ flowchart TD
   됩니다.
   Agent card의 Ask는 compact projected-state line list로 시작합니다. 더 긴 고정 context는 backend history용으로 화면에 표시하지 않으며 visible report는 bounded 2단어 burst로 stream합니다.
   Web Investigation은 수신한 branch frame만 elapsed time, typed badge 및 staggered status row로 animate합니다. Terminal investigation은 duration summary pill로 접히며, 펼치면 작업을 replay하거나 progress를 invent하지 않고 같은 bounded evidence를 표시합니다.
+  Narrator milestone은 다음 group이 시작되기 전에 앞선 activity group을 settled 상태로 바꿉니다.
+  Web은 milestone을 compact progress note로 표시하고 현재 group만 펼치며 completed group을 causal
+  order로 복원합니다. Slack과 Teams는 같은 cumulative redacted activity projection을 수정합니다.
   일반 agent target과 incident binding의 agent 값은 일치해야 하며 conflict는 evidence retrieval 전에 차단됩니다. Model-backed answer는 global read-only safety를 먼저 유지하고 exact `conversation_policy` match에서만 selected immutable charter를 추가합니다. Dedicated target session은 follow-up turn 전반에서 검증된 agent voice를 사용하고 self-role 질문은 content-addressed capability fact에서 결정론적으로 렌더링하며, 일반 screen delegation은 Bragi narrator를 유지합니다.
   Policy mismatch 또는 명시적 handoff는 narration을 Bragi로 돌려보내며 charter는 evidence, authority 또는 tool permission이 되지 않습니다. 주입되는 charter는 해당 turn용 immutable baseline과 operator-locale layer로 조립됩니다. Agent evidence는 해당 agent turn의 prompt layer manifest와 digest도 제공하므로 소진된 escalation 예산이나 evidence gap이 constraint로 명시됩니다.
   Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에 plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,

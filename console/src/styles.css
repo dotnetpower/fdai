@@ -6463,6 +6463,32 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-turn-activity {
   width: min(100%, 780px);
 }
+.deck-progress-note {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  width: min(100%, 780px);
+  padding: 8px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--accent) 3%, var(--bg-elevated));
+}
+.deck-progress-note-mark {
+  width: 8px;
+  height: 8px;
+  margin: 5px 0 0 4px;
+  border: 2px solid color-mix(in oklab, var(--accent) 45%, var(--border));
+  border-radius: 50%;
+  background: var(--bg-elevated);
+}
+.deck-progress-note p {
+  margin: 0;
+  color: var(--fg);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
 .deck-investigation {
   width: 100%;
   box-sizing: border-box;
@@ -6512,11 +6538,22 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 5px 6px 6px;
 }
 .deck-investigation-list {
+  position: relative;
   display: grid;
   gap: 3px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.deck-investigation-list::before {
+  content: "";
+  position: absolute;
+  top: 17px;
+  bottom: 17px;
+  left: 15px;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
 }
 .deck-branch-list {
   display: grid;
@@ -6660,11 +6697,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: color-mix(in oklab, var(--accent) 3%, var(--bg-elevated));
 }
 .deck-investigation-item {
+  position: relative;
   min-height: 34px;
-  padding: 4px 7px;
-  border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
-  border-radius: 6px;
-  background: color-mix(in oklab, var(--bg-subtle) 55%, transparent);
+  padding: 4px 7px 4px 3px;
+  border: 0;
+  background: transparent;
+  animation: deck-investigation-rise 0.22s ease forwards;
 }
 .deck-investigation-summary {
   display: grid;
@@ -6674,12 +6712,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   min-height: 34px;
 }
 .deck-investigation-state {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: color-mix(in oklab, var(--fg-muted) 18%, transparent);
+  background: color-mix(in oklab, var(--fg-muted) 18%, var(--bg-elevated));
   color: var(--fg-muted);
   font-size: 11px;
   font-weight: 800;

@@ -24,9 +24,11 @@ from fdai.shared.providers.conversation_channel import (
     ChannelProgressStatus,
     ChannelProgressUpdate,
     ConversationChannelAdapter,
+    ConversationProgressPresentation,
     InboundTurn,
     ObservedExecutionActivity,
     OutboundResponse,
+    select_conversation_progress_presentation,
 )
 from fdai.shared.providers.conversation_delivery import OutboundDeliveryRecord
 from fdai.shared.telemetry.transitions import (
@@ -461,6 +463,7 @@ def _to_response(
     attachment_evidence: tuple[str, ...] = (),
 ) -> OutboundResponse:
     if isinstance(result, ToolResult):
+        progress_presentation = select_conversation_progress_presentation(result.activities)
         return OutboundResponse(
             channel_kind=turn.channel_kind,
             channel_id=turn.channel_id,
@@ -471,7 +474,12 @@ def _to_response(
             data=result.data,
             evidence_refs=tuple(dict.fromkeys((*result.evidence_refs, *attachment_evidence))),
             activities=result.activities,
-            progress_updates=_progress_updates(result),
+            progress_presentation=progress_presentation,
+            progress_updates=(
+                _progress_updates(result)
+                if progress_presentation is ConversationProgressPresentation.TIMELINE
+                else ()
+            ),
         )
     return OutboundResponse(
         channel_kind=turn.channel_kind,

@@ -21,6 +21,7 @@ from fdai.delivery.persistence import (
 from fdai.delivery.read_api.routes.background_tasks import BackgroundTaskRoutesConfig
 from fdai.shared.providers.conversation_channel import (
     ConversationChannelKind,
+    ConversationProgressPresentation,
     OutboundResponse,
 )
 from fdai.shared.providers.conversation_delivery import (
@@ -173,6 +174,7 @@ class ConversationBackgroundTaskCompletionSink:
                 thread_id=attempt.task.origin.thread_id,
                 status=attempt.status.value,
                 text=content,
+                progress_presentation=ConversationProgressPresentation.DETACHED,
                 data={
                     "source": "background-task",
                     "task_id": attempt.task.task_id,

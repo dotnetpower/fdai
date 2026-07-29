@@ -107,6 +107,9 @@ flowchart TD
   remains the response owner.
   An agent-card Ask opens with a compact projected-state line list; its longer fixed context stays non-rendered for backend history, and the visible report streams in bounded two-word bursts.
   Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation collapses to a duration summary pill; expanding it reveals the same bounded evidence without replaying work or inventing progress.
+  A narrator milestone settles the preceding activity group before the next group begins. Web shows
+  the milestone as a compact progress note, opens only the current group, and restores completed
+  groups in causal order. Slack and Teams edit the same cumulative redacted activity projection.
   When a request carries both a plain agent target and an incident binding, the two structured
   agent values must match; conflict is rejected before evidence retrieval. For model-backed answers, global read-only safety stays first and the selected immutable charter follows only on an exact `conversation_policy` match. A dedicated target session assigns that verified agent's voice across follow-up turns and renders self-role questions deterministically from content-addressed capability facts; ordinary screen delegation keeps Bragi as narrator.
   A policy mismatch or explicit handoff returns narration to Bragi, and the charter never becomes evidence, authority, or tool permission. The injected charter is composed for the turn: the immutable baseline plus the operator-locale layer when the answer locale is not English. Agent evidence also carries the layer manifest and digest of the prompt that governed the agent's own turn, so a spent escalation budget or evidence gap is stated as a constraint rather than left invisible.

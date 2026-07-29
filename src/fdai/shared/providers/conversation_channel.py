@@ -74,6 +74,13 @@ class ChannelProgressStatus(StrEnum):
     CONFIRMED = "confirmed"
 
 
+class ConversationProgressPresentation(StrEnum):
+    NONE = "none"
+    COMPACT = "compact"
+    TIMELINE = "timeline"
+    DETACHED = "detached"
+
+
 @dataclass(frozen=True, slots=True)
 class AgentHandoffActivity:
     """Visible Bragi routing handoff without direct-call authority."""
@@ -261,6 +268,7 @@ class OutboundResponse:
     evidence_refs: tuple[str, ...] = ()
     mentions: tuple[ChannelMention, ...] = ()
     activities: tuple[ConversationActivity, ...] = ()
+    progress_presentation: ConversationProgressPresentation = ConversationProgressPresentation.NONE
     stream_chunks: tuple[str, ...] = ()
     progress_updates: tuple[ChannelProgressUpdate, ...] = ()
     edit_message_id: str | None = None
@@ -375,6 +383,7 @@ def outbound_response_to_json(response: OutboundResponse) -> dict[str, Any]:
             for mention in response.mentions
         ],
         "activities": [_activity_to_json(activity) for activity in response.activities],
+        "progress_presentation": response.progress_presentation.value,
         "stream_chunks": list(response.stream_chunks),
         "progress_updates": [
             {
@@ -426,6 +435,9 @@ def outbound_response_from_json(value: object) -> OutboundResponse:
             for item in cast(list[Mapping[str, object]], mentions)
         ),
         activities=tuple(_activity_from_json(item) for item in activities),
+        progress_presentation=ConversationProgressPresentation(
+            str(value.get("progress_presentation", "none"))
+        ),
         stream_chunks=tuple(str(item) for item in value.get("stream_chunks", ())),
         progress_updates=tuple(
             _progress_update_from_json(item)
@@ -466,6 +478,25 @@ def _bounded(name: str, value: str, maximum: int) -> None:
         raise ValueError(f"InboundTurn.{name} MUST be non-empty")
     if len(value) > maximum:
         raise ValueError(f"InboundTurn.{name} exceeds cap ({len(value)} > {maximum})")
+
+
+def select_conversation_progress_presentation(
+    activities: tuple[ConversationActivity, ...],
+    *,
+    detached: bool = False,
+) -> ConversationProgressPresentation:
+    """Select the smallest presentation justified by observed work."""
+    if detached:
+        return ConversationProgressPresentation.DETACHED
+    if not activities:
+        return ConversationProgressPresentation.NONE
+    if (
+        len(activities) == 1
+        and isinstance(activities[0], ObservedExecutionActivity)
+        and activities[0].status is ConversationExecutionStatus.COMPLETED
+    ):
+        return ConversationProgressPresentation.COMPACT
+    return ConversationProgressPresentation.TIMELINE
 
 
 def _safe_bounded(name: str, value: str, maximum: int) -> None:
@@ -624,6 +655,7 @@ __all__ = [
     "ConversationChannelKind",
     "ConversationActivity",
     "ConversationExecutionStatus",
+    "ConversationProgressPresentation",
     "InboundTurn",
     "MAX_ATTACHMENT_COUNT",
     "MAX_ACTIVITY_COUNT",
@@ -635,4 +667,5 @@ __all__ = [
     "ObservedExecutionActivity",
     "outbound_response_from_json",
     "outbound_response_to_json",
+    "select_conversation_progress_presentation",
 ]

@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 7925631ca4e4911de8f28b087870a488b86a0f80
-translation_revised: 2026-07-28
+translation_source_sha: 144349a86fd813006854743a20f3c9dc08b313cd
+translation_revised: 2026-07-30
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -252,6 +252,30 @@ class ConversationChannelAdapter(Protocol):
   ([channels-and-notifications.md](channels-and-notifications-ko.md))는
   pull adapter와 **병합 안 됨**; config를 통해서만 credential 공유. 이는
   `send-only`와 `receive-plus-send` blast-radius를 별개로 유지.
+
+### 5.4 대화 작업 진행
+
+Web, Slack, Teams는 하나의 순서가 있는 작업 진행 projection을 사용합니다. Projection은 제한된
+narrator milestone과 stable activity update를 포함하며 채널은 presentation만 변경합니다. Milestone은
+앞선 activity group을 닫고 관측된 사실과 다음 제한 작업을 설명합니다. 숨겨진 reasoning을 노출하거나
+tool, approval 또는 execution authority를 부여하지 않습니다.
+
+서버는 prompt wording이 아니라 실제 작업을 기준으로 필요한 최소 presentation을 선택합니다.
+
+| Presentation | 선택 기준 | 채널 동작 |
+|--------------|-----------|-----------|
+| None | Activity, handoff, background task 없음 | Answer만 렌더링합니다. |
+| Compact | Failure, retry, handoff가 없는 terminal read activity 하나 | 접힌 result summary 하나를 렌더링합니다. |
+| Timeline | 여러 activity, handoff, failure, retry, code 또는 file change, non-read authority 중 하나 이상 | Milestone과 activity group을 causal order로 배치합니다. |
+| Detached | Execution policy가 durable background task를 선택 | Durable task summary를 렌더링하고 이후 progress 또는 completion을 originating thread에 전달합니다. |
+
+Web은 현재 activity group만 펼칩니다. Milestone 또는 terminal frame은 앞선 group을 settled 상태로
+바꾸고 접습니다. Operator는 작업을 replay하지 않고 완료 activity를 다시 펼칠 수 있습니다. Slack과
+Teams는 acknowledgement를 받은 메시지 하나를 cumulative snapshot으로 수정합니다. Update는 revision과
+activity count 기준으로 monotonic하고 redacted evidence를 보존하며 canonical answer로 끝납니다. Provider
+limit 때문에 이전 detail을 생략할 수 있지만 작업 순서를 바꾸거나 truncation marker를 제거하거나
+accountable actor를 대체할 수 없습니다. Restart 또는 delivery retry는 저장된 immutable snapshot을
+사용하며 tool을 다시 실행하지 않습니다.
 
 ## 6. 세션 모델 + memory
 

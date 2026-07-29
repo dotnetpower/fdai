@@ -247,7 +247,7 @@ export function InvestigationTimeline({
         </ol>
       ) : null}
       {activities.length > 0 ? (
-        <details class="deck-investigation-activity-disclosure">
+        <details class="deck-investigation-activity-disclosure" open={running}>
           <summary>
             {t("deck.investigation.executionDetails", { count: activities.length })}
           </summary>

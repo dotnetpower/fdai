@@ -86,15 +86,29 @@ describe("upsertEvidenceBranch", () => {
       fileURLToPath(new URL("../styles.css", import.meta.url)),
       "utf8",
     );
+    const presenter = readFileSync(
+      fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
+      "utf8",
+    );
 
-    expect(component).toContain('<details class="deck-investigation-activity-disclosure">');
-    expect(component).not.toContain('<details class="deck-investigation-activity-disclosure" open>');
+    expect(component).toContain(
+      '<details class="deck-investigation-activity-disclosure" open={running}>',
+    );
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
     expect(component).toContain('class="deck-investigation-pill"');
     expect(component).toContain('class="deck-investigation-elapsed muted"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
+    expect(presenter).toContain('turn.source === "investigation"');
+    expect(presenter).toContain('class="deck-progress-note" role="status"');
+    expect(styles).toContain(".deck-progress-note {");
+    expect(styles).toMatch(
+      /\.deck-investigation-list::before\s*\{[^}]*background:\s*var\(--border\)/,
+    );
+    expect(styles).toMatch(
+      /\.deck-investigation-item\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/,
+    );
     expect(styles).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.deck-investigation\.is-running/,
     );

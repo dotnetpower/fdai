@@ -16,6 +16,7 @@ from fdai.shared.providers.conversation_channel import (
     ChannelProgressUpdate,
     ConversationChannelKind,
     ConversationExecutionStatus,
+    ConversationProgressPresentation,
     ObservedExecutionActivity,
     OutboundResponse,
     outbound_response_from_json,
@@ -63,6 +64,7 @@ def test_mentions_keep_opaque_target_separate_from_fallback_text() -> None:
 
 def test_agent_activity_round_trips_through_durable_response() -> None:
     response = _response(
+        progress_presentation=ConversationProgressPresentation.TIMELINE,
         activities=(
             AgentHandoffActivity(
                 from_agent="Bragi",
@@ -82,12 +84,13 @@ def test_agent_activity_round_trips_through_durable_response() -> None:
                 duration_ms=42,
                 authority="server_read_model",
             ),
-        )
+        ),
     )
 
     restored = outbound_response_from_json(outbound_response_to_json(response))
 
     assert restored.activities == response.activities
+    assert restored.progress_presentation is ConversationProgressPresentation.TIMELINE
 
 
 @pytest.mark.parametrize(

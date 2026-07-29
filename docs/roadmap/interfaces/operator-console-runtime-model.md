@@ -266,6 +266,30 @@ class ConversationChannelAdapter(Protocol):
   only. This keeps `send-only` and `receive-plus-send` blast-radius
   distinct.
 
+### 5.4 Conversation work progress
+
+Web, Slack, and Teams consume one ordered work-progress projection. The projection contains
+bounded narrator milestones and stable activity updates; a channel changes presentation only. A
+milestone closes the preceding activity group and states observed facts plus the next bounded
+operation. It never exposes hidden reasoning or grants tool, approval, or execution authority.
+
+The server selects the smallest sufficient presentation from actual work, never from prompt wording:
+
+| Presentation | Selection | Channel behavior |
+|--------------|-----------|------------------|
+| None | No activity, handoff, or background task | Render only the answer. |
+| Compact | One terminal read activity with no failure, retry, or handoff | Render one collapsed result summary. |
+| Timeline | Multiple activities, any handoff, failure, retry, code or file change, or non-read authority | Interleave milestones and activity groups in causal order. |
+| Detached | The execution policy selects a durable background task | Render a durable task summary and deliver later progress or completion in the originating thread. |
+
+Web keeps only the current activity group expanded. A milestone or terminal frame settles and
+collapses the preceding group; the operator can reopen any completed activity without replaying
+work. Slack and Teams edit one acknowledged message with cumulative snapshots. Updates are
+monotonic by revision and activity count, preserve redacted evidence, and finish with the canonical
+answer. Provider limits can omit older detail but cannot reorder work, remove truncation markers,
+or replace the accountable actor. A restart or delivery retry uses the stored immutable snapshots
+and never reruns a tool.
+
 ## 6. Session model + memory
 
 A `ConversationSession` is a bounded working projection over the

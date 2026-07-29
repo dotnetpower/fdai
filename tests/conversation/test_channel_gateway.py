@@ -29,9 +29,11 @@ from fdai.shared.providers.conversation_channel import (
     ChannelAttachment,
     ConversationChannelKind,
     ConversationExecutionStatus,
+    ConversationProgressPresentation,
     InboundTurn,
     ObservedExecutionActivity,
     OutboundResponse,
+    select_conversation_progress_presentation,
 )
 from fdai.shared.providers.conversation_delivery import (
     InMemoryConversationDeliveryStore,
@@ -300,8 +302,39 @@ async def test_routes_authenticated_turn_back_to_same_thread() -> None:
     assert adapter.sent[0].thread_id == "thread-1"
     assert adapter.sent[0].in_reply_to == "message-1"
     assert adapter.sent[0].text == "found storage"
+    assert adapter.sent[0].progress_presentation is ConversationProgressPresentation.TIMELINE
     assert [update.revision for update in adapter.sent[0].progress_updates] == [0, 1, 2]
     assert adapter.sent[0].progress_updates[-1].text == "found storage"
+
+
+def test_progress_presentation_uses_smallest_observed_surface() -> None:
+    execution = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Read bounded evidence",
+        tool="query_inventory",
+        command="query_inventory --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+    )
+    handoff = AgentHandoffActivity(
+        from_agent="Bragi",
+        to_agent="Heimdall",
+        task="Inspect bounded evidence.",
+    )
+
+    assert select_conversation_progress_presentation(()) is ConversationProgressPresentation.NONE
+    assert (
+        select_conversation_progress_presentation((execution,))
+        is ConversationProgressPresentation.COMPACT
+    )
+    assert (
+        select_conversation_progress_presentation((handoff, execution))
+        is ConversationProgressPresentation.TIMELINE
+    )
+    assert (
+        select_conversation_progress_presentation((), detached=True)
+        is ConversationProgressPresentation.DETACHED
+    )
 
 
 async def test_channel_gateway_emits_stable_handled_transition() -> None:

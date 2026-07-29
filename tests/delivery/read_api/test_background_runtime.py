@@ -19,6 +19,7 @@ from fdai.delivery.read_api.routes.background_runtime import (
 )
 from fdai.shared.providers.conversation_channel import (
     ConversationChannelKind,
+    ConversationProgressPresentation,
     OutboundResponse,
 )
 from fdai.shared.providers.conversation_delivery import (
@@ -221,6 +222,7 @@ async def test_completion_sink_enqueues_one_verified_origin_delivery() -> None:
     assert outbound.send_immediately == [False, False]
     assert outbound.responses[0].in_reply_to == "message-one"
     assert outbound.responses[0].evidence_refs == ("evidence-one",)
+    assert outbound.responses[0].progress_presentation is ConversationProgressPresentation.DETACHED
     assert attempt.result == result
     actions = [entry["entry"]["action_kind"] for entry in audit.audit_entries]
     assert actions.count("background-task.completed") == 1

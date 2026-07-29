@@ -240,6 +240,7 @@ export function TurnBubble({
 }) {
   const isDeck = turn.role === "deck";
   const isActivity = turn.kind === "activity";
+  const isProgressMessage = turn.kind === "message" && turn.source === "investigation";
   return (
     <article
       id={`deck-turn-${turn.id}`}
@@ -258,7 +259,7 @@ export function TurnBubble({
             />
             {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
-          {turn.source ? (
+          {turn.source && !isProgressMessage ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
               <span class="deck-turn-source">{turn.source}</span>
             </Tooltip>
@@ -271,6 +272,11 @@ export function TurnBubble({
           branches={turn.branches ?? []}
           running={turn.streaming === true}
         />
+      ) : isProgressMessage ? (
+        <div class="deck-progress-note" role="status">
+          <span class="deck-progress-note-mark" aria-hidden="true" />
+          <p>{turn.text}</p>
+        </div>
       ) : isDeck ? (
         <GroundedReply
           turnId={turn.id}

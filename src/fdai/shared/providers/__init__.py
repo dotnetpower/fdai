@@ -67,9 +67,11 @@ from .conversation_channel import (
     ConversationChannelAdapter,
     ConversationChannelKind,
     ConversationExecutionStatus,
+    ConversationProgressPresentation,
     InboundTurn,
     ObservedExecutionActivity,
     OutboundResponse,
+    select_conversation_progress_presentation,
 )
 from .conversation_search import (
     ConversationLineage,
@@ -318,6 +320,7 @@ __all__ = [
     "ConversationChannelAdapter",
     "ConversationChannelKind",
     "ConversationExecutionStatus",
+    "ConversationProgressPresentation",
     "ConversationPolicyKind",
     "ConversationPolicyRecord",
     "ConversationPolicyStore",
@@ -395,6 +398,7 @@ __all__ = [
     "OntologyLinkRecord",
     "OntologyObjectRecord",
     "OutboundResponse",
+    "select_conversation_progress_presentation",
     "ObservedExecutionActivity",
     "PrPublishReceipt",
     "PreflightCheck",

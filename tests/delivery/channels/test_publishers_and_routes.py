@@ -33,6 +33,7 @@ from fdai.shared.providers.conversation_channel import (
     ChannelThreadMode,
     ConversationChannelKind,
     ConversationExecutionStatus,
+    ConversationProgressPresentation,
     ObservedExecutionActivity,
     OutboundResponse,
 )
@@ -136,6 +137,96 @@ async def test_teams_publisher_uses_server_owned_endpoint_and_identity() -> None
     assert captured["url"] == "https://bot.example.com/conversations/1/activities"
     assert captured["authorization"] == "Bearer workload-token"
     assert captured["body"] == {"type": "message", "text": "reply", "replyToId": "message-1"}
+
+
+async def test_detached_result_is_labeled_consistently_in_slack_and_teams() -> None:
+    slack_body: dict[str, object] = {}
+    teams_body: dict[str, object] = {}
+
+    def slack_handler(request: httpx.Request) -> httpx.Response:
+        slack_body.update(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+
+    def teams_handler(request: httpx.Request) -> httpx.Response:
+        teams_body.update(json.loads(request.content))
+        return httpx.Response(201, json={"id": "activity-2"})
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(slack_handler)) as slack_client,
+        httpx.AsyncClient(transport=httpx.MockTransport(teams_handler)) as teams_client,
+    ):
+        response = {
+            "text": "The bounded investigation completed.",
+            "progress_presentation": ConversationProgressPresentation.DETACHED,
+        }
+        await SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(), token="app-token", http_client=slack_client
+        ).publish(_response(ConversationChannelKind.SLACK, **response))
+        await TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=teams_client,
+        ).publish(_response(ConversationChannelKind.TEAMS, **response))
+
+    slack_text = slack_body["text"]
+    teams_text = teams_body["text"]
+    assert isinstance(slack_text, str)
+    assert isinstance(teams_text, str)
+    assert slack_text.startswith("Background task result\n\n")
+    assert teams_text.startswith("Background task result\n\n")
+
+
+async def test_compact_result_omits_command_and_output_detail_in_both_channels() -> None:
+    slack_body: dict[str, object] = {}
+    teams_body: dict[str, object] = {}
+    activity = ObservedExecutionActivity(
+        agent="Heimdall",
+        label="Read bounded health evidence",
+        tool="query_resource_health",
+        command="query_resource_health --scope <redacted>",
+        status=ConversationExecutionStatus.COMPLETED,
+        redacted=True,
+        output='{"status":"available"}',
+        duration_ms=42,
+    )
+
+    def slack_handler(request: httpx.Request) -> httpx.Response:
+        slack_body.update(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "ts": "2.0"})
+
+    def teams_handler(request: httpx.Request) -> httpx.Response:
+        teams_body.update(json.loads(request.content))
+        return httpx.Response(201, json={"id": "activity-2"})
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(slack_handler)) as slack_client,
+        httpx.AsyncClient(transport=httpx.MockTransport(teams_handler)) as teams_client,
+    ):
+        response = {
+            "activities": (activity,),
+            "progress_presentation": ConversationProgressPresentation.COMPACT,
+        }
+        await SlackWebApiReplyPublisher(
+            config=SlackReplyPublisherConfig(), token="app-token", http_client=slack_client
+        ).publish(_response(ConversationChannelKind.SLACK, **response))
+        await TeamsBotFrameworkReplyPublisher(
+            config=TeamsReplyPublisherConfig(),
+            identity=_Identity(),
+            endpoint_resolver=lambda _: "https://bot.example.com/conversations/1/activities",
+            http_client=teams_client,
+        ).publish(_response(ConversationChannelKind.TEAMS, **response))
+
+    assert "Heimdall - Read bounded health evidence [query_resource_health - 42 ms]" in str(
+        slack_body["blocks"]
+    )
+    assert "Heimdall - Read bounded health evidence [query_resource_health - 42 ms]" in str(
+        teams_body["attachments"]
+    )
+    assert activity.command not in str(slack_body["blocks"])
+    assert activity.command not in str(teams_body["attachments"])
+    assert activity.output not in str(slack_body["blocks"])
+    assert activity.output not in str(teams_body["attachments"])
 
 
 async def test_slack_publisher_renders_agent_activity_blocks() -> None:
@@ -529,7 +620,9 @@ async def test_slack_progress_snapshots_post_once_then_edit_canonical_answer() -
         )
 
     assert [path for path, _body in calls] == ["/api/chat.postMessage", "/api/chat.update"]
-    assert "blocks" not in calls[0][1]
+    assert "blocks" in calls[0][1]
+    assert "Bragi" in str(calls[0][1]["blocks"])
+    assert "query_resource_health" not in str(calls[0][1]["blocks"])
     final_blocks = calls[1][1]["blocks"]
     assert str(final_blocks).count("Inspect evidence") == 1
     assert str(final_blocks).count("query_resource_health --scope <redacted>") == 1
@@ -733,13 +826,20 @@ async def test_teams_native_rich_operations_return_acknowledgements() -> None:
 async def test_teams_progress_snapshots_post_once_then_edit_canonical_answer() -> None:
     calls: list[tuple[str, dict[str, object]]] = []
     endpoint = "https://bot.example.com/conversations/1/activities"
-    activity = ObservedExecutionActivity(
-        agent="Heimdall",
-        label="Inspect health",
-        tool="query_resource_health",
-        command="query_resource_health --scope <redacted>",
-        status=ConversationExecutionStatus.COMPLETED,
-        redacted=True,
+    activities = (
+        AgentHandoffActivity(
+            from_agent="Bragi",
+            to_agent="Heimdall",
+            task="Inspect bounded health evidence",
+        ),
+        ObservedExecutionActivity(
+            agent="Heimdall",
+            label="Inspect health",
+            tool="query_resource_health",
+            command="query_resource_health --scope <redacted>",
+            status=ConversationExecutionStatus.COMPLETED,
+            redacted=True,
+        ),
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -759,18 +859,20 @@ async def test_teams_progress_snapshots_post_once_then_edit_canonical_answer() -
             _response(
                 ConversationChannelKind.TEAMS,
                 text="Canonical answer",
-                activities=(activity,),
+                activities=activities,
                 progress_updates=(
-                    ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Inspecting", 0),
+                    ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Inspecting", 1),
                     ChannelProgressUpdate(
-                        1, ChannelProgressStatus.CONFIRMED, "Canonical answer", 1
+                        1, ChannelProgressStatus.CONFIRMED, "Canonical answer", 2
                     ),
                 ),
             )
         )
 
     assert [method for method, _body in calls] == ["POST", "PUT"]
-    assert "attachments" not in calls[0][1]
+    assert "attachments" in calls[0][1]
+    assert "Bragi" in str(calls[0][1])
+    assert "query_resource_health" not in str(calls[0][1])
     assert "Inspect health" in str(calls[1][1])
     assert "Canonical answer" in str(calls[1][1])
     assert metrics.snapshot().counts["terminal_completed"] == 1

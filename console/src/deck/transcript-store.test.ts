@@ -206,6 +206,66 @@ describe("serializeTurns", () => {
     expect(parsed[0]?.activities?.[0]?.execution?.output).toContain("available");
   });
 
+  it("restores phased activity groups around progress milestones in causal order", () => {
+    const turns = [
+      {
+        id: "activity-1",
+        role: "deck" as const,
+        kind: "activity" as const,
+        text: "Resolve resource",
+        at: "10:00:00",
+        streaming: false,
+        terminal: true,
+        activities: [{
+          activityId: "resource",
+          kind: "resource.resolved",
+          status: "completed" as const,
+          label: "Resource resolved",
+          completed: 1,
+          total: 1,
+        }],
+      },
+      {
+        id: "milestone-resource",
+        role: "deck" as const,
+        kind: "message" as const,
+        text: "The resource is resolved. I am checking evidence next.",
+        at: "10:00:01",
+        streaming: false,
+        terminal: true,
+      },
+      {
+        id: "activity-2",
+        role: "deck" as const,
+        kind: "activity" as const,
+        text: "Check health",
+        at: "10:00:02",
+        streaming: false,
+        terminal: true,
+        activities: [{
+          activityId: "health",
+          kind: "health.completed",
+          status: "completed" as const,
+          label: "Resource Health checked",
+          completed: 1,
+          total: 1,
+        }],
+      },
+    ];
+
+    const parsed = parseTurns(serializeTurns(turns));
+
+    expect(parsed.map((turn) => turn.id)).toEqual([
+      "activity-1",
+      "milestone-resource",
+      "activity-2",
+    ]);
+    expect(parsed.map((turn) => turn.kind)).toEqual(["activity", "message", "activity"]);
+    expect(parsed.filter((turn) => turn.kind === "activity").every(
+      (turn) => turn.terminal === true,
+    )).toBe(true);
+  });
+
   it("drops a stopped provisional assistant turn", () => {
     const turns = [
       { id: "1", role: "operator" as const, text: "hi", at: "10:00:00" },

@@ -8,6 +8,7 @@ from typing import Any
 from fdai.shared.providers.conversation_channel import (
     AgentHandoffActivity,
     ConversationActivity,
+    ConversationProgressPresentation,
     ObservedExecutionActivity,
     OutboundResponse,
 )
@@ -28,8 +29,15 @@ def render_slack_text(
         for mention in response.mentions
     )
     rendered = f"{mention_text} {text}" if mention_text else text
+    if response.progress_presentation is ConversationProgressPresentation.DETACHED:
+        rendered = f"Background task result\n\n{rendered}"
     if response.activities:
-        rendered = f"{activity_fallback(response)}\n\nBragi: {rendered}"
+        activity_text = (
+            compact_activity_summary(response.activities[0])
+            if response.progress_presentation is ConversationProgressPresentation.COMPACT
+            else activity_fallback(response)
+        )
+        rendered = f"{activity_text}\n\nBragi: {rendered}"
     if include_operation_fallback and response.reaction is not None:
         rendered = f"{rendered}\n\nReaction: {response.reaction}"
     elif include_operation_fallback and response.edit_message_id is not None:
@@ -78,6 +86,8 @@ def teams_message_body(
         if response.activities
         else text
     )
+    if response.progress_presentation is ConversationProgressPresentation.DETACHED:
+        rendered_text = f"Background task result\n\n{rendered_text}"
     body: dict[str, Any] = {"type": "message", "text": rendered_text}
     if response.activities:
         body["attachments"] = [
@@ -124,6 +134,14 @@ def activity_fallback(response: OutboundResponse) -> str:
 
 
 def slack_activity_blocks(response: OutboundResponse, answer: str) -> list[dict[str, object]]:
+    if (
+        response.progress_presentation is ConversationProgressPresentation.COMPACT
+        and len(response.activities) == 1
+    ):
+        return [
+            slack_section(compact_activity_summary(response.activities[0])),
+            slack_section(f"*Bragi*\n{slack_escape(answer)}"),
+        ]
     blocks: list[dict[str, object]] = []
     for activity in response.activities:
         if isinstance(activity, AgentHandoffActivity):
@@ -201,6 +219,27 @@ def _teams_activity_card_result(
     response: OutboundResponse,
     answer: str,
 ) -> tuple[dict[str, object], int, bool]:
+    if (
+        response.progress_presentation is ConversationProgressPresentation.COMPACT
+        and len(response.activities) == 1
+    ):
+        answer_block, answer_truncated = _teams_answer_block(answer, [])
+        return (
+            teams_card(
+                [
+                    {
+                        "type": "TextBlock",
+                        "text": compact_activity_summary(response.activities[0]),
+                        "wrap": True,
+                        "spacing": "Small",
+                        "isSubtle": True,
+                    },
+                    answer_block,
+                ]
+            ),
+            0,
+            answer_truncated,
+        )
     body: list[dict[str, object]] = []
     omission_reserve = (
         [teams_omission_block(len(response.activities))] if response.activities else []
@@ -299,6 +338,13 @@ def teams_activity_blocks(activity: ConversationActivity) -> list[dict[str, obje
             }
         )
     return blocks
+
+
+def compact_activity_summary(activity: ConversationActivity) -> str:
+    if isinstance(activity, AgentHandoffActivity):
+        return f"{activity.from_agent} -> @{activity.to_agent}: {activity.task}"
+    duration = f" - {activity.duration_ms} ms" if activity.duration_ms is not None else ""
+    return f"{activity.agent} - {activity.label} [{activity.tool}{duration}]"
 
 
 def teams_omission_block(count: int) -> dict[str, object]:
