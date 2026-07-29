@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ontology map - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <style>
+    .om-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+    .om-head-copy { max-width: 76ch; }
+    .om-head h1 { margin-bottom: 6px; }
+    .om-source { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; padding: 8px 0 8px 14px; border-left: 2px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 11.5px; }
+    .om-source img { width: 20px; height: 20px; }
+    .om-source strong { display: block; color: var(--cs-text); font-size: 12px; }
+
+    .om-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px; overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+    .om-stat { padding: 10px 13px; border-right: 1px solid var(--cs-hairline); }
+    .om-stat:last-child { border-right: 0; }
+    .om-stat strong, .om-stat span { display: block; }
+    .om-stat strong { font-size: 20px; line-height: 1.1; }
+    .om-stat span { margin-top: 4px; color: var(--cs-text-soft); font-size: 10.5px; text-transform: uppercase; }
+
+    .om-panel { overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .om-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 48px; padding: 10px 14px; border-bottom: 1px solid var(--cs-hairline); background: var(--cs-shade); }
+    .om-panel-head h2 { margin: 0; font-size: 14px; }
+    .om-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--cs-text-soft); font-size: 11.5px; }
+    .om-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .om-legend i { display: inline-block; width: 20px; height: 2px; }
+    .om-legend .is-contains i { background: var(--cs-steel); }
+    .om-legend .is-attached i { background: repeating-linear-gradient(90deg, var(--cs-teal) 0 5px, transparent 5px 9px); }
+    .om-legend .is-depends i { background: repeating-linear-gradient(90deg, var(--cs-plum) 0 2px, transparent 2px 6px); }
+
+    .om-scroll { max-width: 100%; overflow-x: auto; padding-bottom: 8px; scrollbar-color: var(--cs-hairline) transparent; }
+    .om-map { display: block; width: 100%; min-width: 980px; height: auto; background: radial-gradient(circle at 46% 46%, rgba(68,104,142,.045), transparent 34%); }
+    .om-map .scope-ring { fill: none; stroke: var(--cs-hairline); stroke-width: 1; stroke-dasharray: 3 5; }
+    .om-map .scope-label { fill: var(--cs-text-soft); font: 700 9.5px/1 "Segoe UI",sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+    .om-map .link { fill: none; stroke-width: 1.6; }
+    .om-map .link.is-contains { stroke: var(--cs-steel); }
+    .om-map .link.is-attached { stroke: var(--cs-teal); stroke-dasharray: 6 4; }
+    .om-map .link.is-depends { stroke: var(--cs-plum); stroke-dasharray: 2 4; }
+    .om-map .link-label { fill: var(--cs-text-soft); font: 600 9.5px/1 "Cascadia Code","Consolas",monospace; paint-order: stroke; stroke: var(--cs-card); stroke-width: 5px; stroke-linejoin: round; }
+
+    .om-map .resource { cursor: pointer; outline: none; }
+    .om-map .resource .node-ring { fill: var(--cs-card); stroke: var(--cs-hairline); stroke-width: 2; }
+    .om-map .resource .icon-disc { fill: var(--cs-shade); }
+    .om-map .resource .resource-icon { fill: none; stroke: var(--cs-text-soft); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .om-map .resource .node-label { fill: var(--cs-card); stroke: var(--cs-hairline); }
+    .om-map .resource .node-name { fill: var(--cs-text); font: 650 11px/1 "Segoe UI",sans-serif; text-anchor: middle; }
+    .om-map .resource .node-type { fill: var(--cs-text-soft); font: 9px/1 "Segoe UI",sans-serif; text-anchor: middle; }
+    .om-map .resource.is-network .node-ring { stroke: var(--cs-teal); }
+    .om-map .resource.is-data .node-ring { stroke: var(--cs-plum); }
+    .om-map .resource.is-security .node-ring { stroke: var(--cs-terracotta); }
+    .om-map .resource.is-selected .node-ring { fill: rgba(68,104,142,.09); stroke: var(--cs-steel); stroke-width: 3; }
+    .om-map .resource.is-selected .icon-disc { fill: rgba(68,104,142,.12); }
+    .om-map .resource.is-selected .node-label { stroke: var(--cs-steel); }
+    .om-map .resource:hover .node-ring,
+    .om-map .resource:focus-visible .node-ring { stroke-width: 3; }
+
+    .om-detail { display: grid; grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(130px, 1fr)); border-top: 1px solid var(--cs-hairline); background: var(--cs-shade); }
+    .om-detail > div { min-width: 0; padding: 11px 14px; border-right: 1px solid var(--cs-hairline); }
+    .om-detail > div:last-child { border-right: 0; }
+    .om-detail span, .om-detail strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .om-detail span { color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
+    .om-detail strong { margin-top: 3px; font-size: 12.5px; font-weight: 600; }
+    .om-foot { display: flex; justify-content: space-between; gap: 18px; padding: 10px 14px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 11.5px; }
+    .om-foot a { flex: 0 0 auto; }
+
+    @media (max-width: 760px) {
+      .om-head { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .om-source { padding-left: 0; border-left: 0; }
+      .om-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .om-stat:nth-child(2) { border-right: 0; }
+      .om-stat:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+      .om-panel-head, .om-foot { align-items: flex-start; flex-direction: column; gap: 8px; }
+      .om-map { min-width: 920px; }
+      .om-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .om-detail > div:nth-child(2) { border-right: 0; }
+      .om-detail > div:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page">
+    <header class="om-head">
+      <div class="om-head-copy">
+        <h1>Ontology map</h1>
+        <p class="cs-lead" style="margin:0;">A resource-centered view of one bounded inventory
+          neighborhood. Each named node is a synthetic <code>Resource</code> instance; every line
+          uses a registered Resource-to-Resource LinkType.</p>
+      </div>
+      <div class="om-source">
+        <img src="../../tools/architecture-diagrams/assets/azure/resource-graph.svg" alt="" />
+        <span><strong>Inventory projection</strong>Azure Resource Graph sample</span>
+      </div>
+    </header>
+
+    <div class="om-summary" aria-label="Map summary">
+      <div class="om-stat"><strong>11</strong><span>Resources shown</span></div>
+      <div class="om-stat"><strong>3</strong><span>LinkTypes</span></div>
+      <div class="om-stat"><strong>3</strong><span>Resource scopes</span></div>
+      <div class="om-stat"><strong>0</strong><span>Unknown links</span></div>
+    </div>
+
+    <section class="om-panel" aria-labelledby="om-heading">
+      <div class="om-panel-head">
+        <h2 id="om-heading">Neighborhood of <code>example-cluster</code></h2>
+        <div class="om-legend" aria-label="Relationship legend">
+          <span class="is-contains"><i></i><code>contains</code></span>
+          <span class="is-attached"><i></i><code>attached_to</code></span>
+          <span class="is-depends"><i></i><code>depends_on</code></span>
+        </div>
+      </div>
+
+      <div class="om-scroll">
+        <svg class="om-map" viewBox="0 0 1080 650" role="img" aria-labelledby="om-title om-desc">
+          <title id="om-title">Resource-centered ontology map</title>
+          <desc id="om-desc">Eleven synthetic cloud resources connected by contains, attached_to, and depends_on relationships.</desc>
+          <defs>
+            <symbol id="icon-scope" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 9h8M8 13h5" /></symbol>
+            <symbol id="icon-group" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></symbol>
+            <symbol id="icon-network" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M8.3 10.9l7.4-3.8M8.3 13.1l7.4 3.8" /></symbol>
+            <symbol id="icon-subnet" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M7 4v16M17 4v16" /><circle cx="12" cy="12" r="2.5" /></symbol>
+            <symbol id="icon-cluster" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><circle cx="12" cy="12" r="3" /><path d="M12 9V5M9.4 13.5L6 15.5M14.6 13.5L18 15.5" /></symbol>
+            <symbol id="icon-pool" viewBox="0 0 24 24"><rect x="4" y="5" width="7" height="7" rx="1" /><rect x="13" y="12" width="7" height="7" rx="1" /><path d="M11 8.5h4a2 2 0 0 1 2 2V12" /></symbol>
+            <symbol id="icon-workload" viewBox="0 0 24 24"><path d="M5 7l7-4 7 4-7 4zM5 7v9l7 5 7-5V7M12 11v10" /></symbol>
+            <symbol id="icon-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4" /><path d="M12 12h8M17 12v3M20 12v2" /></symbol>
+            <symbol id="icon-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" /></symbol>
+            <symbol id="icon-storage" viewBox="0 0 24 24"><path d="M4 7h16l-2 12H6zM8 7V4h8v3M9 12h6" /></symbol>
+            <symbol id="icon-log" viewBox="0 0 24 24"><path d="M4 18V6h16v12zM7 14l3-3 2 2 4-5 2 2" /></symbol>
+          </defs>
+
+          <ellipse class="scope-ring" cx="535" cy="318" rx="300" ry="242" />
+          <text class="scope-label" x="300" y="92">example-platform scope</text>
+
+          <!-- Relationships render behind resources. -->
+          <path class="link is-contains" d="M118 318 L188 318" /><text class="link-label" x="132" y="308">contains</text>
+          <path class="link is-contains" d="M268 300 C 320 260, 350 180, 392 132" /><text class="link-label" x="305" y="225">contains</text>
+          <path class="link is-contains" d="M268 318 L458 318" /><text class="link-label" x="340" y="308">contains</text>
+          <path class="link is-contains" d="M448 112 L572 112" /><text class="link-label" x="487" y="102">contains</text>
+          <path class="link is-contains" d="M542 318 L648 286" /><text class="link-label" x="574" y="289">contains</text>
+          <path class="link is-contains" d="M712 278 L834 278" /><text class="link-label" x="750" y="268">contains</text>
+
+          <path class="link is-attached" d="M510 278 C 525 205, 575 160, 604 144" /><text class="link-label" x="530" y="204">attached_to</text>
+          <path class="link is-attached" d="M870 312 C 850 380, 785 427, 740 452" /><text class="link-label" x="790" y="392">attached_to</text>
+          <path class="link is-attached" d="M500 362 C 490 430, 478 485, 470 518" /><text class="link-label" x="480" y="440">attached_to</text>
+
+          <path class="link is-depends" d="M898 310 C 930 342, 940 380, 934 410" /><text class="link-label" x="924" y="352">depends_on</text>
+          <path class="link is-depends" d="M900 300 C 980 345, 1000 470, 954 528" /><text class="link-label" x="975" y="430">depends_on</text>
+
+          <!-- Resource nodes. Click or focus to update the detail band. -->
+          <g class="resource" tabindex="0" role="button" aria-label="example-subscription, Subscription" data-name="example-subscription" data-type="Subscription" data-scope="tenant root" data-links="1 outgoing" transform="translate(80,318)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-scope" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-66" y="48" width="132" height="42" rx="6" /><text class="node-name" y="65">example-subscription</text><text class="node-type" y="80">SUBSCRIPTION</text>
+          </g>
+          <g class="resource" tabindex="0" role="button" aria-label="example-platform, Resource group" data-name="example-platform" data-type="Resource group" data-scope="example-subscription" data-links="4 outgoing" transform="translate(228,318)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-group" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-61" y="48" width="122" height="42" rx="6" /><text class="node-name" y="65">example-platform</text><text class="node-type" y="80">RESOURCE GROUP</text>
+          </g>
+          <g class="resource is-network" tabindex="0" role="button" aria-label="example-network, Virtual network" data-name="example-network" data-type="Virtual network" data-scope="example-platform" data-links="1 outgoing" transform="translate(410,112)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-network" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-58" y="48" width="116" height="42" rx="6" /><text class="node-name" y="65">example-network</text><text class="node-type" y="80">VIRTUAL NETWORK</text>
+          </g>
+          <g class="resource is-network" tabindex="0" role="button" aria-label="workload-subnet, Subnet" data-name="workload-subnet" data-type="Subnet" data-scope="example-network" data-links="2 incoming" transform="translate(610,112)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-subnet" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-57" y="48" width="114" height="42" rx="6" /><text class="node-name" y="65">workload-subnet</text><text class="node-type" y="80">SUBNET</text>
+          </g>
+          <g class="resource is-selected" tabindex="0" role="button" aria-label="example-cluster, Kubernetes cluster, selected" data-name="example-cluster" data-type="Kubernetes cluster" data-scope="example-platform" data-links="4 relationships" transform="translate(500,318)">
+            <circle class="node-ring" r="46" /><circle class="icon-disc" r="30" /><use class="resource-icon" href="#icon-cluster" x="-16" y="-16" width="32" height="32" />
+            <rect class="node-label" x="-62" y="56" width="124" height="44" rx="6" /><text class="node-name" y="74">example-cluster</text><text class="node-type" y="89">KUBERNETES CLUSTER</text>
+          </g>
+          <g class="resource" tabindex="0" role="button" aria-label="system-pool, Node pool" data-name="system-pool" data-type="Node pool" data-scope="example-cluster" data-links="2 relationships" transform="translate(680,278)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-pool" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-51" y="48" width="102" height="42" rx="6" /><text class="node-name" y="65">system-pool</text><text class="node-type" y="80">NODE POOL</text>
+          </g>
+          <g class="resource" tabindex="0" role="button" aria-label="example-api, Workload" data-name="example-api" data-type="Workload" data-scope="example-cluster" data-links="4 relationships" transform="translate(870,278)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-workload" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-50" y="48" width="100" height="42" rx="6" /><text class="node-name" y="65">example-api</text><text class="node-type" y="80">WORKLOAD</text>
+          </g>
+          <g class="resource is-security" tabindex="0" role="button" aria-label="workload-identity, Managed identity" data-name="workload-identity" data-type="Managed identity" data-scope="example-platform" data-links="1 incoming" transform="translate(710,470)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-key" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-62" y="48" width="124" height="42" rx="6" /><text class="node-name" y="65">workload-identity</text><text class="node-type" y="80">MANAGED IDENTITY</text>
+          </g>
+          <g class="resource is-data" tabindex="0" role="button" aria-label="example-db, PostgreSQL" data-name="example-db" data-type="PostgreSQL" data-scope="example-platform" data-links="1 incoming" transform="translate(930,450)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-db" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-50" y="48" width="100" height="42" rx="6" /><text class="node-name" y="65">example-db</text><text class="node-type" y="80">POSTGRESQL</text>
+          </g>
+          <g class="resource is-data" tabindex="0" role="button" aria-label="evidence-store, Object storage" data-name="evidence-store" data-type="Object storage" data-scope="example-platform" data-links="1 incoming" transform="translate(930,550)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-storage" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-55" y="48" width="110" height="42" rx="6" /><text class="node-name" y="65">evidence-store</text><text class="node-type" y="80">OBJECT STORAGE</text>
+          </g>
+          <g class="resource is-data" tabindex="0" role="button" aria-label="operations-log, Log workspace" data-name="operations-log" data-type="Log workspace" data-scope="example-platform" data-links="1 incoming" transform="translate(465,550)">
+            <circle class="node-ring" r="38" /><circle class="icon-disc" r="25" /><use class="resource-icon" href="#icon-log" x="-13" y="-13" width="26" height="26" />
+            <rect class="node-label" x="-56" y="48" width="112" height="42" rx="6" /><text class="node-name" y="65">operations-log</text><text class="node-type" y="80">LOG WORKSPACE</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="om-detail" aria-live="polite">
+        <div><span>Selected resource</span><strong id="om-detail-name">example-cluster</strong></div>
+        <div><span>Resource type</span><strong id="om-detail-type">Kubernetes cluster</strong></div>
+        <div><span>Scope</span><strong id="om-detail-scope">example-platform</strong></div>
+        <div><span>Relationships</span><strong id="om-detail-links">4 relationships</strong></div>
+      </div>
+      <div class="om-foot">
+        <span>Illustrative synthetic inventory. Unknown LinkTypes are dropped before projection.</span>
+        <a href="ontology.html">Open ontology registry</a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+      var resources = Array.from(document.querySelectorAll(".om-map .resource"));
+      var detailName = document.getElementById("om-detail-name");
+      var detailType = document.getElementById("om-detail-type");
+      var detailScope = document.getElementById("om-detail-scope");
+      var detailLinks = document.getElementById("om-detail-links");
+      var graphScroll = document.querySelector(".om-scroll");
+
+      function selectResource(resource) {
+        resources.forEach(function (candidate) {
+          candidate.classList.toggle("is-selected", candidate === resource);
+        });
+        detailName.textContent = resource.dataset.name;
+        detailType.textContent = resource.dataset.type;
+        detailScope.textContent = resource.dataset.scope;
+        detailLinks.textContent = resource.dataset.links;
+      }
+
+      resources.forEach(function (resource) {
+        resource.addEventListener("click", function () { selectResource(resource); });
+        resource.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectResource(resource);
+          }
+        });
+      });
+
+      window.addEventListener("load", function () {
+        var selected = document.querySelector(".om-map .resource.is-selected");
+        if (!graphScroll || !selected || !window.matchMedia("(max-width: 760px)").matches) return;
+        var selectedRect = selected.getBoundingClientRect();
+        var scrollRect = graphScroll.getBoundingClientRect();
+        graphScroll.scrollLeft += (selectedRect.left + selectedRect.width / 2) -
+          (scrollRect.left + scrollRect.width / 2);
+      });
+    })();
+  </script>
+</body>
+</html>
