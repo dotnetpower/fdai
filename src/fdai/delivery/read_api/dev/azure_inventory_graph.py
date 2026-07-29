@@ -29,7 +29,7 @@ from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecor
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 8
+_CACHE_VERSION: Final[int] = 9
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 _ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
@@ -630,9 +630,10 @@ def _resource_payload(
     width: float | None = None,
     height: float | None = None,
 ) -> dict[str, Any]:
+    operational_status = record.props.get("status")
     power_state = record.props.get("powerState")
     provisioning_state = record.props.get("provisioningState")
-    status = str(power_state or provisioning_state or "unknown")
+    status = str(operational_status or power_state or provisioning_state or "unknown")
     payload: dict[str, Any] = {
         "id": record.resource_id,
         "type": record.type,

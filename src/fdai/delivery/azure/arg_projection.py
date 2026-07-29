@@ -61,10 +61,21 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
 
     properties = row.get("properties")
     nested = properties if isinstance(properties, Mapping) else {}
-    for value in (row.get("powerState"), row.get("state"), nested.get("state")):
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    for value in (
+        row.get("powerState"),
+        row.get("state"),
+        nested.get("powerState"),
+        nested.get("state"),
+    ):
+        state = _state_text(value)
+        if state is not None:
+            return state
     return None
+
+
+def _state_text(value: object) -> str | None:
+    candidate = value.get("code") if isinstance(value, Mapping) else value
+    return candidate.strip() if isinstance(candidate, str) and candidate.strip() else None
 
 
 def extract_rg_contains_links(

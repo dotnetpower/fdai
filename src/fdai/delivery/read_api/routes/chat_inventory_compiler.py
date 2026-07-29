@@ -121,11 +121,11 @@ _TYPE_ALIASES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
 )
 _STATUS_ALIASES: Final[tuple[tuple[re.Pattern[str], frozenset[str]], ...]] = (
     (
-        re.compile(r"\b(?:stopped|deallocated)\b|중지|정지", re.IGNORECASE),
+        re.compile(r"\b(?:stopped|deallocated)\b|중지|정지|멈춘|멈춰\s*있는", re.IGNORECASE),
         frozenset({"stopped", "deallocated"}),
     ),
     (
-        re.compile(r"\brunning\b|실행\s*중|가동\s*중", re.IGNORECASE),
+        re.compile(r"\brunning\b|실행\s*중(?!지)|가동\s*중(?!지)", re.IGNORECASE),
         frozenset({"running"}),
     ),
 )
@@ -195,7 +195,7 @@ def compile_inventory_query(
             lookback_seconds=_lookback_seconds(prompt),
         )
 
-    statuses = _status_values(prompt, resources)
+    statuses = _status_values(prompt, resources, resource_types=resource_types)
     if statuses:
         predicates.append(_in_or_eq(InventoryField.STATUS, statuses))
     location = _facet_value(prompt, resources, "location")
@@ -263,12 +263,15 @@ def _resource_types(
 def _status_values(
     prompt: str,
     resources: Sequence[Mapping[str, Any]],
+    *,
+    resource_types: Sequence[str],
 ) -> tuple[str, ...]:
     normalized_prompt = f" {normalize_inventory_value(prompt)} "
     observed = {
         normalize_inventory_value(item["status"])
         for item in resources
         if item.get("status") not in (None, "")
+        and (not resource_types or str(item.get("type")) in resource_types)
     }
     matched = {status for status in observed if _contains_phrase(normalized_prompt, status)}
     for pattern, terminal_states in _STATUS_ALIASES:
@@ -352,6 +355,8 @@ def _has_unresolved_filter(
     group: str | None,
     name: str | None,
 ) -> bool:
+    if any(pattern.search(prompt) for pattern, _states in _STATUS_ALIASES) and not statuses:
+        return True
     if resource_types or statuses or location or group or name:
         return False
     prefix = _PREFIX_FILTER.search(prompt)

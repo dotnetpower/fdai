@@ -204,6 +204,9 @@ deterministic order. Named-view requests keep the original three-argument provid
 only rooted requests require the extended keywords. Relationship-filter count and text length are
 bounded before provider dispatch. The read route rejects malformed resources, unknown or dangling
 relationships, duplicate resource ids, invalid truncation metadata, and oversized provider output.
+Both profiles preserve observed operational state, including nested AKS `powerState.code`, instead
+of replacing it with provisioning state. A projection change increments the persistent cache
+version so an older `unknown` status cannot survive a restart.
 Rooted output uses the requested resource cap and matching edge cap; named views keep the existing
 5,000-resource and 40,000-link response ceilings.
 Both profiles expose the same truncation reason vocabulary: resource, adjacent-edge,

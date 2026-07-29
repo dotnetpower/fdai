@@ -35,6 +35,11 @@ _WORKLOAD_INTENT: Final = re.compile(
     r"|배포|파드|워크로드|실행\s*중인\s*앱",
     re.IGNORECASE,
 )
+_NAME_LIST_INTENT: Final = re.compile(
+    r"(?:\b(?:list|show)\b.{0,24}\bnames?\b|\bnames?\b.{0,24}\b(?:list|show)\b)|"
+    r"(?:이름(?:만|을|이|은)?.{0,12}(?:목록|보여|알려)|(?:목록|보여).{0,12}이름)",
+    re.IGNORECASE,
+)
 _MAX_RESOURCES = 40
 _MAX_LINKS = 40
 KubernetesWorkloadProvider = Callable[[], Awaitable[Mapping[str, Any]]]
@@ -258,6 +263,7 @@ def _project_verified_inventory_result(
         "status": "partial" if workload_query else "matched",
         "query_source": query.source.value,
         "query_kind": query.kind.value,
+        "display_projection": "names" if _NAME_LIST_INTENT.search(prompt) else "details",
         "query": query.to_dict(),
         "requested_types": list(requested_types),
         "status_filter": list(status_filter),
@@ -373,6 +379,8 @@ def _answer_detail_lines(
     if isinstance(workload, Mapping):
         return _workload_lines(workload, korean=korean)
     query_kind = str(result.get("query_kind") or "list")
+    if query_kind == "list" and result.get("display_projection") == "names":
+        return [f"- {item.get('name')}" for item in resources]
     if query_kind == "types":
         counts = result.get("type_counts", {})
         return (

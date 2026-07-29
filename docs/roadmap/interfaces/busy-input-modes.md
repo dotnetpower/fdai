@@ -145,8 +145,11 @@ configured subscription or resource-group allowlist with operator text.
 A deterministic local inventory intent remains local during a rerun even when a semantic plan
 selected public web. This includes colloquial database state filters such as `stopped db`; they
 retain the server-owned inventory branch and don't start agent or public-web branches. Explicit
-web-search wording is the only exception. Partial AKS cluster inventory never becomes proof of an
-in-cluster Deployment or Pod.
+web-search wording is the only exception. Status facets remain scoped to the selected resource
+type, so an AKS question cannot borrow a VM status or silently widen when the requested state is
+unobserved. Explicit name-list wording narrows presentation to matched names without dropping the
+structured evidence. Partial AKS cluster inventory never becomes proof of an in-cluster Deployment
+or Pod.
 A queued terminal follow-up also retains one bounded resource selected by the preceding server
 inventory answer. The browser persists only its name, type, and inventory evidence reference.
 History wording such as "Since when has it been stopped?" bypasses semantic and public-web planning,

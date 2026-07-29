@@ -131,6 +131,27 @@ def test_unobserved_filter_abstains_instead_of_widening_to_all_resources(prompt:
     assert compile_inventory_query(prompt, resources=_RESOURCES) is None
 
 
+def test_stopped_aks_question_does_not_drop_unobserved_status_filter() -> None:
+    resources = (
+        *_RESOURCES,
+        {
+            "type": "kubernetes-cluster",
+            "name": "aks-example",
+            "status": "unknown",
+            "location": "koreacentral",
+        },
+    )
+
+    assert is_inventory_question("중지된 AKS 클러스터 이름 목록으로 보여줄래?")
+    assert (
+        compile_inventory_query(
+            "중지된 AKS 클러스터 이름 목록으로 보여줄래?",
+            resources=resources,
+        )
+        is None
+    )
+
+
 def test_activity_window_is_bounded_by_query_contract() -> None:
     query = compile_inventory_query("resources deleted in the last 2 weeks", resources=_RESOURCES)
     assert query is not None

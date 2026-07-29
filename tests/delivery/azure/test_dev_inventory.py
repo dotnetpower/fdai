@@ -171,6 +171,35 @@ class TestFullSnapshot:
         assert record.props["status"] == "Stopped"
         assert record.props["powerState"] == "Stopped"
 
+    def test_aks_maps_nested_power_state_code(self) -> None:
+        payload = json.dumps(
+            [
+                {
+                    "id": (
+                        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                        "resourceGroups/rg-app/providers/Microsoft.ContainerService/"
+                        "managedClusters/aks-example"
+                    ),
+                    "name": "aks-example",
+                    "resourceGroup": "rg-app",
+                    "location": "koreacentral",
+                    "properties": {
+                        "powerState": {"code": "Stopped"},
+                        "provisioningState": "Succeeded",
+                    },
+                }
+            ]
+        )
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            return_value=_completed(payload),
+        ):
+            batches = asyncio.run(_drain(AzureCliInventory(resource_types=("kubernetes-cluster",))))
+
+        record = batches[0].resources[0]
+        assert record.props["status"] == "Stopped"
+
     def test_resource_group_recovered_from_arm_id_when_field_absent(self) -> None:
         # A row missing the explicit `resourceGroup` field still recovers it
         # from the ARM path.

@@ -76,6 +76,40 @@ class _InventoryAfterFinal(_Inventory):
         yield InventoryBatch(resources=(), cursor="late", final=False)
 
 
+class _AksInventory(_Inventory):
+    async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
+        del since
+        yield InventoryBatch(
+            resources=(
+                ResourceRecord(
+                    resource_id="resourcegroups/rg-example",
+                    type="resource-group",
+                    props={
+                        "name": "rg-example",
+                        "resourceGroup": "rg-example",
+                        "tags": {"fdai:managed": "true", "fdai:workload": "fdai"},
+                    },
+                ),
+                ResourceRecord(
+                    resource_id="resourcegroups/rg-example/providers/managedclusters/aks-example",
+                    type="kubernetes-cluster",
+                    props={
+                        "name": "aks-example",
+                        "resourceGroup": "rg-example",
+                        "status": "Stopped",
+                        "tags": {"fdai:managed": "true", "fdai:workload": "fdai"},
+                        "properties": {
+                            "powerState": {"code": "Stopped"},
+                            "provisioningState": "Succeeded",
+                        },
+                    },
+                ),
+            ),
+            cursor="page-1",
+        )
+        yield InventoryBatch(cursor="done", final=True)
+
+
 class _InventoryWithLinks(_Inventory):
     async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
         async for batch in super().full_snapshot(since):
@@ -267,6 +301,20 @@ def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
             "type": "contains",
         },
     ]
+
+
+def test_projects_normalized_aks_operational_status() -> None:
+    provider = AzureCliInventoryGraphProvider(
+        inventory=_AksInventory(),
+        cache_ttl_seconds=60,
+    )
+
+    graph = asyncio.run(provider(None, 4, ("contains",)))
+
+    aks = next(
+        resource for resource in graph["resources"] if resource["type"] == "kubernetes-cluster"
+    )
+    assert aks["status"] == "Stopped"
 
 
 def test_preserves_discovered_links_and_ignores_generated_duplicates(
@@ -587,12 +635,12 @@ def test_cache_identity_mismatch_forces_new_snapshot(tmp_path: Path) -> None:
     assert len(graph["resources"]) == 3
 
 
-def test_service_state_projection_version_forces_new_snapshot(tmp_path: Path) -> None:
+def test_aks_power_state_projection_version_forces_new_snapshot(tmp_path: Path) -> None:
     cache_path = tmp_path / "inventory.json"
     cache_path.write_text(
         json.dumps(
             {
-                "version": 7,
+                "version": 8,
                 "identity": "expected-subscription",
                 "max_resources": 500,
                 "cached_at": datetime.now(tz=UTC).isoformat(),

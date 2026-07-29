@@ -306,6 +306,67 @@ def test_twenty_azure_resource_questions_are_grounded_and_deterministic() -> Non
     assert backend.calls == 0
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "중지된 AKS 클러스터 이름 목록으로 보여줄래?",
+        "중지 상태인 AKS 클러스터 이름을 보여줘",
+        "AKS 중 멈춰 있는 클러스터 목록은?",
+        "가동 중지된 쿠버네티스 클러스터 이름만 알려줘",
+    ),
+)
+async def test_stopped_aks_name_list_keeps_type_and_status_scoped_together(
+    prompt: str,
+) -> None:
+    async def aks_inventory(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types)
+        resources = [
+            {
+                **resource,
+                "status": "stopped" if resource["name"] == "aks-app" else resource["status"],
+            }
+            for resource in graph["resources"]
+        ]
+        resources.append(
+            _resource(
+                "aks-running",
+                "kubernetes-cluster",
+                "aks-running",
+                group="rg-app",
+                location="koreacentral",
+                status="running",
+            )
+        )
+        return {**graph, "resources": resources}
+
+    evidence = await InventoryChatTools(aks_inventory).resolve(
+        prompt,
+        principal_id="reader",
+    )
+    assert evidence is not None
+
+    answer = render_inventory_answer(evidence, locale="ko")
+
+    assert "aks-app" in answer
+    assert "aks-running" not in answer
+    assert "vm-job" not in answer
+    if "이름" in prompt:
+        assert "- aks-app" in answer
+        assert "kubernetes-cluster" not in answer
+    assert evidence["result"]["query"]["predicates"] == [
+        {
+            "field": "resource_type",
+            "operator": "eq",
+            "value": "kubernetes-cluster",
+        },
+        {"field": "status", "operator": "eq", "value": "stopped"},
+    ]
+
+
 def test_inventory_provider_failure_is_unverified_and_fail_closed() -> None:
     async def unavailable(
         scope: str | None,
