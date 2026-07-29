@@ -587,6 +587,33 @@ def test_cache_identity_mismatch_forces_new_snapshot(tmp_path: Path) -> None:
     assert len(graph["resources"]) == 3
 
 
+def test_service_state_projection_version_forces_new_snapshot(tmp_path: Path) -> None:
+    cache_path = tmp_path / "inventory.json"
+    cache_path.write_text(
+        json.dumps(
+            {
+                "version": 7,
+                "identity": "expected-subscription",
+                "max_resources": 500,
+                "cached_at": datetime.now(tz=UTC).isoformat(),
+                "graph": {"resources": [], "links": []},
+            }
+        ),
+        encoding="utf-8",
+    )
+    inventory = _Inventory()
+    provider = AzureCliInventoryGraphProvider(
+        inventory=inventory,
+        cache_path=cache_path,
+        cache_identity="expected-subscription",
+    )
+
+    graph = asyncio.run(provider(None, 4, ("contains",)))
+
+    assert inventory.calls == 1
+    assert len(graph["resources"]) == 3
+
+
 def test_cache_limit_change_forces_new_snapshot(tmp_path: Path) -> None:
     cache_path, identity = inventory_cache_path(
         repo_root=tmp_path,
