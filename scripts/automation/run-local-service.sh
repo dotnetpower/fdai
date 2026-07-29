@@ -46,6 +46,19 @@ fi
 touch "$log_file"
 chmod 600 "$log_file"
 
+cleanup_stale_output_pipes() {
+  local candidate
+  local candidate_pid
+  for candidate in "$log_dir/.$service.output."*; do
+    [[ -p "$candidate" ]] || continue
+    candidate_pid="${candidate##*.}"
+    [[ "$candidate_pid" =~ ^[1-9][0-9]*$ ]] || continue
+    if ! kill -0 "$candidate_pid" 2>/dev/null; then
+      rm -f -- "$candidate"
+    fi
+  done
+}
+
 rotate_log() {
   local required_bytes="${1:-0}"
   local generation
@@ -96,6 +109,7 @@ capture_output() {
 rotate_log
 write_marker "starting"
 
+cleanup_stale_output_pipes
 output_pipe="$log_dir/.${service}.output.$$"
 rm -f "$output_pipe"
 mkfifo -m 600 "$output_pipe"

@@ -50,6 +50,38 @@ def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> 
     assert _TIMESTAMP_PREFIX.match(lines[-1])
 
 
+def test_runner_removes_only_stale_output_fifos(tmp_path: Path) -> None:
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    stale_fifo = log_dir / ".read-api.output.999999999"
+    live_fifo = log_dir / f".read-api.output.{os.getpid()}"
+    regular_file = log_dir / ".read-api.output.999999998"
+    os.mkfifo(stale_fifo)
+    os.mkfifo(live_fifo)
+    regular_file.touch()
+
+    result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
+        [
+            _BASH,
+            str(_RUNNER),
+            "read-api",
+            str(log_dir / "read-api.log"),
+            "--",
+            sys.executable,
+            "-c",
+            "print('ready')",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert not stale_fifo.exists()
+    assert live_fifo.exists()
+    assert regular_file.exists()
+
+
 def test_runner_rotates_three_bounded_previous_logs(tmp_path: Path) -> None:
     log_file = tmp_path / "core-runtime.log"
     environment = os.environ.copy()
