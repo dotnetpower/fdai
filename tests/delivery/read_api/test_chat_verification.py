@@ -399,6 +399,83 @@ def test_operational_summary_remains_authoritative_with_agent_evidence() -> None
     assert result.evidence_refs == ("incident:corr-high",)
 
 
+def test_selected_agent_role_question_uses_capability_facts_in_korean() -> None:
+    evidence_ref = "agent-state:Heimdall:sha256:" + "a" * 64
+    result = verify_answer(
+        "저는 관찰을 돕습니다.",
+        {
+            "routeId": "agents",
+            "_answer_plan": {"subject": "너는 주로 어떤 일을해?"},
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "answer": "Watching 0 resources; 0 security events in window.",
+                "facts": {
+                    "agent": "Heimdall",
+                    "layer": "pipeline",
+                    "owns": ["Anomaly", "Drift", "Forecast", "ForecastOutcome"],
+                    "question_domains": ["anomaly", "drift", "forecast", "discovery_health"],
+                    "evidence_refs": [evidence_ref],
+                },
+            },
+        },
+        locale="ko",
+    )
+
+    assert result.status == "corrected"
+    assert result.authority == "pantheon_runtime"
+    assert result.reason_code == "agent_capability_facts"
+    assert result.evidence_refs == (evidence_ref,)
+    assert result.answer.startswith("저는 Heimdall이며 파이프라인 계층의 에이전트입니다.")
+    assert "Anomaly, Drift, Forecast, ForecastOutcome" in result.answer
+    assert "discovery health" in result.answer
+
+
+def test_selected_agent_status_question_does_not_use_capability_renderer() -> None:
+    result = verify_answer(
+        "Heimdall is watching.",
+        {
+            "routeId": "agents",
+            "_answer_plan": {"subject": "지금 뭘 관찰하고 있어?"},
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "facts": {
+                    "agent": "Heimdall",
+                    "layer": "pipeline",
+                    "owns": ["Anomaly"],
+                    "question_domains": ["anomaly"],
+                    "evidence_refs": ["agent-state:Heimdall:sha256:" + "a" * 64],
+                },
+            },
+        },
+        locale="ko",
+    )
+
+    assert result.reason_code != "agent_capability_facts"
+
+
+def test_selected_agent_role_question_rejects_another_agents_evidence_ref() -> None:
+    result = verify_answer(
+        "I describe observed signals.",
+        {
+            "routeId": "agents",
+            "_answer_plan": {"subject": "what do you do?"},
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "facts": {
+                    "agent": "Heimdall",
+                    "layer": "pipeline",
+                    "owns": ["Anomaly"],
+                    "question_domains": ["anomaly"],
+                    "evidence_refs": ["agent-state:Njord:sha256:" + "a" * 64],
+                },
+            },
+        },
+        locale="en",
+    )
+
+    assert result.reason_code != "agent_capability_facts"
+
+
 def test_summary_state_renders_korean_answer_without_requesting_selection() -> None:
     result = verify_answer(
         "인시던트를 선택해 주세요.",

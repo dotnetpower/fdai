@@ -767,5 +767,5 @@ export function agentConversationBriefing(
   }
 
   lines.push(`**Evidence:** ${node.observed ? "Runtime observed" : "No runtime signal observed"}.`);
-  return lines.join("\n\n");
+  return lines.join("\n");
 }

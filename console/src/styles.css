@@ -7398,6 +7398,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
    the backend returned, grounded in the screen snapshot. */
 .deck-rich { display: flex; flex-direction: column; gap: 10px; }
 .deck-rich .deck-turn-line:not(:last-child) { margin-bottom: 4px; }
+.deck-turn.is-context .deck-rich { gap: 3px; }
+.deck-turn.is-context .deck-rich .deck-turn-line { margin-bottom: 0; }
 .deck-rich-heading {
   margin: 4px 0 0;
   color: var(--fg);

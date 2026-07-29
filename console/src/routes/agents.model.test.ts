@@ -517,5 +517,6 @@ describe("agents.model org chart + agent events", () => {
     expect(briefing).not.toContain("Context for a conversation");
     expect(briefing).not.toContain("Reports to");
     expect(briefing).not.toContain("corr-1");
+    expect(briefing).not.toContain("\n\n");
   });
 });

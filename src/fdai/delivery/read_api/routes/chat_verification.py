@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -73,6 +74,15 @@ from fdai.delivery.read_api.routes.chat_verification_text import (
 )
 
 VerificationStatus = Literal["verified", "consistent", "corrected", "unverified"]
+
+_AGENT_SELF_CAPABILITY_QUESTION = re.compile(
+    r"\b(?:what\s+do\s+you\s+do|what\s+is\s+your\s+role|what\s+are\s+your\s+"
+    r"responsibilities|describe\s+your\s+role|your\s+primary\s+work)\b"
+    r"|(?:너|네|당신)(?:는|가)?\s*(?:주로\s*)?(?:어떤|무슨)?\s*(?:일|역할)"
+    r"|(?:무슨\s*일|뭐\s*하는\s*일|담당하는\s*일)",
+    re.IGNORECASE,
+)
+_AGENT_STATE_REF = re.compile(r"^agent-state:([A-Za-z][A-Za-z0-9-]*):sha256:[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -393,6 +403,14 @@ def verify_answer(
                 checks_total=1,
                 reason_code="agent_evidence_unavailable",
             )
+        capability = _verify_agent_self_capability(
+            provisional,
+            view_context,
+            agent,
+            locale=locale,
+        )
+        if capability is not None:
+            return capability
 
     if not isinstance(raw, Mapping):
         screen = verify_screen_claims(provisional, view_context)
@@ -697,6 +715,66 @@ def _result(
         checks_total=1,
         evidence_refs=refs,
         reason_code=reason_code,
+    )
+
+
+def _verify_agent_self_capability(
+    provisional: str,
+    view_context: Mapping[str, Any],
+    agent_evidence: Mapping[str, Any],
+    *,
+    locale: str | None,
+) -> AnswerVerification | None:
+    """Render a selected agent's role only from its content-addressed capability facts."""
+
+    plan = view_context.get("_answer_plan")
+    subject = plan.get("subject") if isinstance(plan, Mapping) else None
+    if not isinstance(subject, str) or _AGENT_SELF_CAPABILITY_QUESTION.search(subject) is None:
+        return None
+    primary_agent = _optional_text(agent_evidence.get("primary_agent"))
+    facts = agent_evidence.get("facts")
+    if primary_agent is None or not isinstance(facts, Mapping):
+        return None
+    fact_agent = _optional_text(facts.get("agent"))
+    layer = _optional_text(facts.get("layer"))
+    owns = _strings(facts.get("owns"))
+    domains = _strings(facts.get("question_domains"))
+    refs = tuple(
+        ref
+        for ref in _strings(facts.get("evidence_refs"))
+        if (match := _AGENT_STATE_REF.fullmatch(ref)) is not None
+        and match.group(1) == primary_agent
+    )
+    if fact_agent != primary_agent or layer is None or not owns or not domains or not refs:
+        return None
+
+    owned_text = ", ".join(owns)
+    domain_text = ", ".join(domain.replace("_", " ") for domain in domains)
+    if _is_korean(locale):
+        layer_text = {
+            "pipeline": "파이프라인",
+            "domain": "도메인",
+            "governance": "거버넌스",
+        }.get(layer, layer)
+        answer = (
+            f"저는 {primary_agent}이며 {layer_text} 계층의 에이전트입니다. "
+            f"주로 {owned_text} 관련 신호를 담당합니다. "
+            f"{domain_text} 영역의 질문에 답합니다."
+        )
+    else:
+        answer = (
+            f"I am {primary_agent}, a {layer}-layer agent. "
+            f"My primary owned signals are {owned_text}. "
+            f"I answer questions about {domain_text}."
+        )
+    return AnswerVerification(
+        status=_changed(provisional, answer),
+        answer=answer,
+        authority="pantheon_runtime",
+        checks_completed=1,
+        checks_total=1,
+        evidence_refs=tuple(dict.fromkeys(refs)),
+        reason_code="agent_capability_facts",
     )
 
 

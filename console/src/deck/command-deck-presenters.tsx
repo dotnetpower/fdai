@@ -241,7 +241,7 @@ export function TurnBubble({
   return (
     <article
       id={`deck-turn-${turn.id}`}
-      class={`deck-turn deck-turn-${turn.role}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}`}
+      class={`deck-turn deck-turn-${turn.role}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}`}
     >
       {isDeck && !isActivity ? (
         <header class="deck-turn-head">
