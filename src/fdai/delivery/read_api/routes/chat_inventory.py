@@ -13,7 +13,7 @@ from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphProvider
 
 _RESOURCE_INTENT: Final = re.compile(
     r"\b(?:azure\s+)?(?:resources?|assets?|inventory|virtual machines?|storage accounts?|"
-    r"databases?|postgres(?:ql)?|sql databases?|kubernetes clusters?|vnets?|"
+    r"databases?|dbs?|postgres(?:ql)?|sql databases?|kubernetes clusters?|vnets?|"
     r"virtual networks?|managed identit(?:y|ies)|key vaults?|resource groups?|public ips?|"
     r"nsgs?)\b"
     r"|(?<![A-Za-z0-9_])(?:aks|vms?)(?![A-Za-z0-9_])"
@@ -58,7 +58,10 @@ _RELATIONSHIP_INTENT: Final = re.compile(
     re.IGNORECASE,
 )
 _LOCATION_INTENT: Final = re.compile(r"\b(?:where|location|region)\b|어디|위치|리전", re.IGNORECASE)
-_STATUS_INTENT: Final = re.compile(r"\bstatus\b|상태", re.IGNORECASE)
+_STATUS_INTENT: Final = re.compile(
+    r"\b(?:status|stopped|deallocated|running)\b|상태|중지|정지|실행\s*중|가동\s*중",
+    re.IGNORECASE,
+)
 _WORKLOAD_INTENT: Final = re.compile(
     r"\b(?:deploy(?:ed|ing|ments?)?|pods?|workloads?|running apps?)\b"
     r"|배포|파드|워크로드|실행\s*중인\s*앱",
@@ -76,8 +79,8 @@ _NAME_FILTER: Final = re.compile(
 _TYPE_ALIASES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("compute.vm", ("virtual machine", "virtual machines", " vm ", "vms", "가상 머신")),
     ("object-storage", ("storage account", "storage accounts", "스토리지 계정")),
-    ("postgresql-server", ("postgres", "postgresql", "postgres server")),
-    ("sql-database", ("sql database", "sql databases", "데이터베이스")),
+    ("postgresql-server", ("postgres", "postgresql", "postgres server", " db ")),
+    ("sql-database", ("sql database", "sql databases", "데이터베이스", " db ")),
     ("kubernetes-cluster", ("aks", "kubernetes cluster", "쿠버네티스", "클러스터")),
     ("network.vnet", ("vnet", "virtual network", "virtual networks", "가상 네트워크")),
     ("managed-identity", ("managed identity", "managed identities", "관리형 id")),
@@ -85,6 +88,13 @@ _TYPE_ALIASES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("resource-group", ("resource group", "resource groups", "리소스 그룹")),
     ("network.public-ip", ("public ip", "public ips", "공인 ip")),
     ("network.nsg", ("nsg", "nsgs", "network security group", "네트워크 보안 그룹")),
+)
+_STATUS_FILTERS: Final[tuple[tuple[re.Pattern[str], tuple[str, ...]], ...]] = (
+    (
+        re.compile(r"\b(?:stopped|deallocated)\b|중지|정지", re.IGNORECASE),
+        ("stopped", "deallocated"),
+    ),
+    (re.compile(r"\brunning\b|실행\s*중|가동\s*중", re.IGNORECASE), ("running",)),
 )
 _MAX_RESOURCES = 40
 _MAX_LINKS = 40
@@ -188,6 +198,7 @@ def _project_inventory_result(prompt: str, graph: Mapping[str, Any]) -> dict[str
     managed = [item for item in resources if item["type"] != "subscription"]
     group_filter = _capture(_GROUP_FILTER, prompt)
     requested_types = _requested_types(prompt)
+    status_filter = _requested_statuses(prompt)
     if (
         group_filter
         and "resource-group" in requested_types
@@ -203,6 +214,10 @@ def _project_inventory_result(prompt: str, graph: Mapping[str, Any]) -> dict[str
         item
         for item in managed
         if (not requested_types or item["type"] in requested_types)
+        and (
+            not status_filter
+            or any(state in str(item["status"]).casefold() for state in status_filter)
+        )
         and (
             not group_filter
             or str(item.get("resource_group", "")).casefold() == group_filter.casefold()
@@ -225,6 +240,7 @@ def _project_inventory_result(prompt: str, graph: Mapping[str, Any]) -> dict[str
         "status": "partial" if workload_query else "matched",
         "query_kind": _query_kind(prompt),
         "requested_types": list(requested_types),
+        "status_filter": list(status_filter),
         "resource_group": group_filter,
         "name_filter": name_filter,
         "snapshot_at": _optional_text(graph.get("snapshot_at")),
@@ -441,6 +457,12 @@ def _requested_types(prompt: str) -> tuple[str, ...]:
         resource_type
         for resource_type, aliases in _TYPE_ALIASES
         if any(alias in lowered for alias in aliases)
+    )
+
+
+def _requested_statuses(prompt: str) -> tuple[str, ...]:
+    return tuple(
+        state for pattern, states in _STATUS_FILTERS if pattern.search(prompt) for state in states
     )
 
 

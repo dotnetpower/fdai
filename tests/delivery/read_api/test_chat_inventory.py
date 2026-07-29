@@ -99,6 +99,7 @@ async def _provider(
             "postgres-data",
             group="rg-data",
             location="koreacentral",
+            status="stopped",
         ),
         _resource("sql-app", "sql-database", "sql-app", group="rg-data", location="koreacentral"),
         _resource(
@@ -417,7 +418,7 @@ def test_aks_workload_stream_overrides_semantic_web_plan() -> None:
             raise AssertionError("deterministic AKS evidence must not start answer planning")
 
     class Planner:
-        async def plan_turn(self, **_kwargs: object):
+        async def plan_turn(self, **_kwargs: object) -> Any:
             return parse_turn_plan(
                 {
                     "kind": "read_tool",
@@ -466,6 +467,62 @@ def test_aks_workload_stream_overrides_semantic_web_plan() -> None:
     assert "Deployment와 Pod는 포함하지 않습니다" in done["answer"]
     assert "public_web" not in response.text
     assert planning.calls == 0
+
+
+def test_stopped_db_stream_overrides_semantic_web_plan() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "status",
+                    "tool_name": "web_search",
+                    "action_type": None,
+                    "arguments": {"query": "stopped databases", "goal": "current_fact"},
+                    "clarification": None,
+                    "confidence": 0.8,
+                }
+            )
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("local database status must not search the public web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("local database status must not search the public web")
+
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=RecordingBackend(),
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_provider),
+                web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+                turn_planner=Planner(),  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "prompt": "중지된 db 도 있어?",
+            "view_context": {
+                "routeId": "agents",
+                "facts": [{"key": "status", "value": "in-progress"}],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert done["verification"]["reason_code"] == "inventory_snapshot_grounded"
+    assert "postgres-data" in done["answer"]
+    assert "stopped" in done["answer"]
+    assert "sql-app" not in done["answer"]
+    assert "public_web" not in response.text
+    assert '"branch_kind": "agent"' not in response.text
 
 
 def test_twenty_inventory_weaknesses_pass_twenty_answer_rubrics() -> None:

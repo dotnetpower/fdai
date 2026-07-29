@@ -56,6 +56,17 @@ def truncate_props(props: Mapping[str, Any], *, max_bytes: int) -> dict[str, Any
     return {"_truncated": True, "resource_id_hint": props.get("name")}
 
 
+def resource_operational_status(row: Mapping[str, Any]) -> str | None:
+    """Return an observed service or power state without inferring health."""
+
+    properties = row.get("properties")
+    nested = properties if isinstance(properties, Mapping) else {}
+    for value in (row.get("powerState"), row.get("state"), nested.get("state")):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 def extract_rg_contains_links(
     resources: Sequence[ResourceRecord],
 ) -> tuple[LinkRecord, ...]:

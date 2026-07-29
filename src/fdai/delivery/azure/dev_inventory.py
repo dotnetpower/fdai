@@ -50,6 +50,7 @@ from fdai.delivery.azure.arg_projection import (
     extract_depends_on_links_from_row,
     extract_rg_contains_links,
     materialize_nested_subnets,
+    resource_operational_status,
     to_neutral_id,
     truncate_props,
 )
@@ -91,10 +92,9 @@ _NEUTRAL_TYPE_TO_AZ_ARGS: Final[dict[str, tuple[str, ...]]] = {
         "json",
     ),
     "postgresql-server": (
-        "resource",
+        "postgres",
+        "flexible-server",
         "list",
-        "--resource-type",
-        "Microsoft.DBforPostgreSQL/flexibleServers",
         "--output",
         "json",
     ),
@@ -115,9 +115,12 @@ _NEUTRAL_TYPE_TO_AZ_ARGS: Final[dict[str, tuple[str, ...]]] = {
     ),
 }
 _DEFAULT_ARM_TYPES: Final[dict[str, str]] = {
-    resource_type: args[args.index("--resource-type") + 1]
-    for resource_type, args in _NEUTRAL_TYPE_TO_AZ_ARGS.items()
-    if "--resource-type" in args
+    **{
+        resource_type: args[args.index("--resource-type") + 1]
+        for resource_type, args in _NEUTRAL_TYPE_TO_AZ_ARGS.items()
+        if "--resource-type" in args
+    },
+    "postgresql-server": "Microsoft.DBforPostgreSQL/flexibleServers",
 }
 
 
@@ -416,6 +419,10 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
     for key in ("kind", "sku", "properties"):
         if row.get(key) is not None:
             props[key] = row[key]
+    if status := resource_operational_status(row):
+        props["status"] = status
+        if resource_type == "postgresql-server":
+            props["powerState"] = status
     # Carry the owning resource-group so a console read can scope by it
     # (parity with the production ARG adapter, which projects `resourceGroup`).
     # `az resource list` rows already include it; a resource-group row owns

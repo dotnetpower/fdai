@@ -126,6 +126,40 @@ async def test_inventory_preserves_sku_and_kind_for_security_assessment() -> Non
     assert resources[0].props["sku"] == {"name": "Base", "tier": "Free"}
 
 
+@pytest.mark.asyncio
+async def test_inventory_promotes_nested_service_state_to_status() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.DBforPostgreSQL/"
+        "flexibleServers/postgres-example"
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=arm_id,
+                        arm_type="Microsoft.DBforPostgreSQL/flexibleServers",
+                        extra={"properties": {"state": "Stopped"}},
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        resources, _ = await factory.build_query_fn()("postgresql-server")
+
+    assert resources[0].props["status"] == "Stopped"
+
+
 def _make_client(
     handler: httpx.MockTransport,
 ) -> httpx.AsyncClient:

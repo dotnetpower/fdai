@@ -138,6 +138,39 @@ class TestFullSnapshot:
         assert record.props["powerState"] == "VM running"
         assert record.props["provisioningState"] == "Succeeded"
 
+    def test_postgresql_uses_service_list_and_maps_state(self) -> None:
+        payload = json.dumps(
+            [
+                {
+                    "id": (
+                        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                        "resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/"
+                        "flexibleServers/postgres-data"
+                    ),
+                    "name": "postgres-data",
+                    "resourceGroup": "rg-data",
+                    "location": "koreacentral",
+                    "state": "Stopped",
+                }
+            ]
+        )
+        captured: dict[str, list[str]] = {}
+
+        def _side_effect(*args, **kwargs):  # type: ignore[no-untyped-def]
+            captured["argv"] = list(args[0])
+            return _completed(payload)
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=_side_effect,
+        ):
+            batches = asyncio.run(_drain(AzureCliInventory(resource_types=("postgresql-server",))))
+
+        record = batches[0].resources[0]
+        assert captured["argv"][1:4] == ["postgres", "flexible-server", "list"]
+        assert record.props["status"] == "Stopped"
+        assert record.props["powerState"] == "Stopped"
+
     def test_resource_group_recovered_from_arm_id_when_field_absent(self) -> None:
         # A row missing the explicit `resourceGroup` field still recovers it
         # from the ARM path.

@@ -97,6 +97,7 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_projection import (
     materialize_nested_subnets as _materialize_nested_subnets,
 )
+from fdai.delivery.azure.arg_projection import resource_operational_status
 from fdai.delivery.azure.arg_projection import (
     to_neutral_id as _to_neutral_id,
 )
@@ -327,6 +328,8 @@ class AzureArgQueryFactory:
         for key in ("name", "location", "kind", "sku", "tags", "properties", "resourceGroup"):
             if key in row and row[key] is not None:
                 props[key] = row[key]
+        if status := resource_operational_status(row):
+            props["status"] = status
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
 
