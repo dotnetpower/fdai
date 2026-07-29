@@ -13,6 +13,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from fdai.core.views.architecture_graph import project_architecture_graph
+from fdai.delivery.persistence.postgres_inventory_graph import load_rooted_inventory_graph
 from fdai.shared.providers.inventory import InventoryBatch
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
@@ -283,9 +284,14 @@ class PostgresInventoryGraphProvider:
         self._config = config
 
     async def __call__(
-        self, scope: str | None, depth: int, link_types: tuple[str, ...]
+        self,
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
     ) -> Mapping[str, Any]:
-        del depth
         async with await self._connect() as connection:
             await self._set_timeout(connection)
             await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
@@ -311,22 +317,36 @@ class PostgresInventoryGraphProvider:
                 "FROM inventory_realtime_resource"
             )
             overlay = await overlay_cursor.fetchone()
-            resources_cursor = await connection.execute(
-                _ALL_RESOURCES_QUERY,
-                (snapshot["id"], _MAX_GRAPH_ROWS + 1),
-            )
-            rows = await resources_cursor.fetchall()
-            truncated = len(rows) > _MAX_GRAPH_ROWS
-            rows = rows[:_MAX_GRAPH_ROWS]
-            ids = [str(row["resource_id"]) for row in rows]
-            links: Sequence[Mapping[str, Any]] = ()
-            if ids:
-                classification_link_types = tuple(dict.fromkeys((*link_types, "contains")))
-                links_cursor = await connection.execute(
-                    _SELECT_EFFECTIVE_LINKS_QUERY,
-                    (snapshot["id"], ids, ids, list(classification_link_types)),
+            rows: Sequence[Mapping[str, Any]]
+            if root is not None:
+                rooted = await load_rooted_inventory_graph(
+                    connection,
+                    snapshot_id=str(snapshot["id"]),
+                    root=root,
+                    depth=depth,
+                    link_types=link_types,
+                    limit=limit,
                 )
-                links = await links_cursor.fetchall()
+                rows = rooted.resources
+                links: Sequence[Mapping[str, Any]] = rooted.links
+                truncated = rooted.truncated
+            else:
+                resources_cursor = await connection.execute(
+                    _ALL_RESOURCES_QUERY,
+                    (snapshot["id"], _MAX_GRAPH_ROWS + 1),
+                )
+                rows = await resources_cursor.fetchall()
+                truncated = len(rows) > _MAX_GRAPH_ROWS
+                rows = rows[:_MAX_GRAPH_ROWS]
+                ids = [str(row["resource_id"]) for row in rows]
+                links = ()
+                if ids:
+                    classification_link_types = tuple(dict.fromkeys((*link_types, "contains")))
+                    links_cursor = await connection.execute(
+                        _SELECT_EFFECTIVE_LINKS_QUERY,
+                        (snapshot["id"], ids, ids, list(classification_link_types)),
+                    )
+                    links = await links_cursor.fetchall()
         completed = snapshot["completed_at"]
         now = datetime.now(tz=UTC)
         age = max(0, int((now - completed).total_seconds()))
@@ -356,11 +376,23 @@ class PostgresInventoryGraphProvider:
             {"source": row["from_id"], "target": row["to_id"], "type": row["link_type"]}
             for row in links
         ]
-        projection = project_architecture_graph(
-            resources=[_resource_payload(row, include_props=True) for row in rows],
-            links=graph_links,
-            requested_view=scope,
-        )
+        resources = [_resource_payload(row, include_props=True) for row in rows]
+        if root is None:
+            projection = project_architecture_graph(
+                resources=resources,
+                links=graph_links,
+                requested_view=scope,
+            )
+        else:
+            projection = {
+                "active_view": scope or f"resource:{root}",
+                "resources": [
+                    {key: value for key, value in resource.items() if key != "props"}
+                    for resource in resources
+                ],
+                "links": graph_links,
+                "views": [],
+            }
         return {
             "snapshot_id": snapshot["id"],
             "snapshot_at": completed.isoformat(),

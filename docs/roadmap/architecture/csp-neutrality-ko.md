@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: c1b092af16ef09a53c8a9ed75124327affecaeb4
-translation_revised: 2026-07-27
+translation_source_sha: 48c307795a2bad17c0e674aa15749bf6f7dc9e11
+translation_revised: 2026-07-29
 ---
 
 # CSP-중립성 계약
@@ -263,6 +263,14 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
 링크, 스냅샷 신선도, 잘림 메타데이터를 반환합니다. 이 경로는 Azure Resource Graph를
 직접 호출하지 않으며 실행자 ID를 전달받지 않습니다.
 
+리소스 중심 요청은 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`을 지정합니다.
+Provider는 active snapshot과 순서가 보장된 실시간 overlay에서 허용된 incoming 및
+outgoing link를 모두 탐색합니다. 경계가 제한된 neighborhood만 반환하며 resource 또는
+relationship cap에 도달하면 `truncated=true`로 표시합니다. 알 수 없는 root는 named view나
+전체 inventory로 범위를 넓히지 않고 `404`를 반환합니다. 이 rooted mode를 사용하면 큰
+tenant graph를 전부 로드하지 않고 console에서 리소스를 하나씩 확장할 수 있습니다.
+`scope`와 `root`는 함께 사용할 수 없으며 custom `limit`은 `root`와 함께만 허용됩니다.
+
 이 프로젝션은 이름이 지정된 아키텍처 뷰를 제공합니다. `scope` 없는 요청은 권위 있는
 `fdai:managed=true`와 `fdai:workload=fdai` 인벤토리 tag pair로 식별된 FDAI 자체
 컨트롤 플레인만 반환합니다. 값이 정확히 `fdai`인 모호하지 않은 허용 service tag도 전체
@@ -313,9 +321,14 @@ local 및 deployed console의 의미를 일치시킵니다.
   `ResourceType` 으로 샤딩 (하나의 타입이 너무 넓으면 스코프로 더 세분화), semaphore 하에서
   fan-out 쿼리, 배치를 ingest 파이프라인으로 스트리밍. 코어는 절대 단일-연결 블로킹
   스캔을 가정하지 않음.
-- 중립 `resource_id` 와 `(from_id, link_type, to_id)` 로 keyed 된 `ontology_resource` +
-  `ontology_link` 에 **멱등 upsert**; full scan 을 재실행해도 그래프가 수렴할 뿐 중복
-  안 함.
+- **멱등 generation 저장**은 complete scan을 `inventory_snapshot_resource`와
+  `inventory_snapshot_link`에 stage하며, generation과 중립 `resource_id` 또는
+  `(from_id, link_type, to_id)`를 key로 사용합니다. Complete fence가 `inventory_active`
+  pointer를 원자적으로 교체합니다. 순서가 보장된 변경은 다음 generation이 포함할 때까지
+  `inventory_realtime_resource`와 `inventory_realtime_link`에 저장됩니다. Reader는 active
+  generation과 overlay를 하나의 유효한 ontology 형태 resource graph로 병합하며, 스캔된
+  resource를 generic `ontology_resource` 및 `ontology_link` instance store에 이중 기록하지
+  않습니다.
 - **Fail-closed**: 부분 snapshot 은 stale 그래프가 자율 결정을 구동하는 상태에 절대
   런딩하지 않음. snapshot 이 완료되고 원자적으로 승격되거나, 이전 그래프가 유지되고
   실패가 감사됨.

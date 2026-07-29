@@ -11,6 +11,7 @@ from fdai.delivery.read_api.auth import build_authenticator
 from fdai.delivery.read_api.main import ReadApiConfig, build_app
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.routes.demo_inventory_graph import demo_inventory_graph_provider
+from fdai.shared.providers.inventory import InventoryGraphViewNotFoundError
 
 
 @pytest.fixture(autouse=True)
@@ -18,7 +19,14 @@ def _dev_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FDAI_READ_API_DEV_MODE", "1")
 
 
-async def _provider(scope: str | None, depth: int, links: tuple[str, ...]) -> dict[str, Any]:
+async def _provider(
+    scope: str | None,
+    depth: int,
+    links: tuple[str, ...],
+    *,
+    root: str | None = None,
+    limit: int = 500,
+) -> dict[str, Any]:
     return {
         "snapshot_at": "2026-07-13T00:00:00Z",
         "freshness": "fresh",
@@ -36,7 +44,13 @@ async def _provider(scope: str | None, depth: int, links: tuple[str, ...]) -> di
             }
         ],
         "truncated": False,
-        "provider_echo": {"scope": scope, "depth": depth, "links": list(links)},
+        "provider_echo": {
+            "scope": scope,
+            "depth": depth,
+            "links": list(links),
+            "root": root,
+            "limit": limit,
+        },
     }
 
 
@@ -66,9 +80,49 @@ def test_inventory_graph_returns_projection_and_query_manifest() -> None:
     assert body["views"][0]["kind"] == "fdai"
 
 
+def test_inventory_graph_forwards_bounded_root_query() -> None:
+    response = _client(wired=True).get(
+        "/inventory/graph",
+        params={
+            "root": "resource-root",
+            "depth": "2",
+            "limit": "25",
+            "include": "contains,attached_to",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["root"] == "resource-root"
+    assert body["limit"] == 25
+    assert body["provider_echo"]["root"] == "resource-root"
+    assert body["provider_echo"]["limit"] == 25
+
+
 @pytest.mark.parametrize("depth", ["zero", "0", "9"])
 def test_inventory_graph_rejects_invalid_depth(depth: str) -> None:
     response = _client(wired=True).get("/inventory/graph", params={"depth": depth})
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("limit", ["many", "0", "1001"])
+def test_inventory_graph_rejects_invalid_limit(limit: str) -> None:
+    response = _client(wired=True).get(
+        "/inventory/graph",
+        params={"root": "resource-root", "limit": limit},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"limit": "25"},
+        {"scope": "service-a", "root": "resource-root"},
+    ],
+)
+def test_inventory_graph_rejects_ambiguous_query_modes(params: dict[str, str]) -> None:
+    response = _client(wired=True).get("/inventory/graph", params=params)
     assert response.status_code == 400
 
 
@@ -121,3 +175,28 @@ async def test_demo_provider_defaults_to_fdai_and_separates_application_views() 
         ("web-api", "event-hub"),
         ("event-hub", "event-worker"),
     }
+
+
+async def test_demo_provider_bounds_rooted_neighborhood() -> None:
+    graph = await demo_inventory_graph_provider(
+        None,
+        1,
+        ("depends_on",),
+        root="web-api",
+        limit=2,
+    )
+
+    assert [resource["id"] for resource in graph["resources"]] == ["web-api", "event-hub"]
+    assert graph["links"] == [{"source": "web-api", "target": "event-hub", "type": "depends_on"}]
+    assert graph["truncated"] is True
+
+
+async def test_demo_provider_rejects_unknown_root() -> None:
+    with pytest.raises(InventoryGraphViewNotFoundError, match="missing-root"):
+        await demo_inventory_graph_provider(
+            None,
+            1,
+            ("contains",),
+            root="missing-root",
+            limit=10,
+        )

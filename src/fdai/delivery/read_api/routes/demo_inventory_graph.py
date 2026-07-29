@@ -6,6 +6,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphViewNotFoundError
+from fdai.delivery.read_api.routes.inventory_graph_bounds import (
+    project_bounded_inventory_neighborhood,
+)
 
 _FDAI_RESOURCES: tuple[dict[str, Any], ...] = (
     {
@@ -545,6 +548,9 @@ async def demo_inventory_graph_provider(
     scope: str | None,
     depth: int,
     link_types: tuple[str, ...],
+    *,
+    root: str | None = None,
+    limit: int = 500,
 ) -> dict[str, Any]:
     """Return a stable dev graph filtered by link type.
 
@@ -552,11 +558,22 @@ async def demo_inventory_graph_provider(
     complete so navigation and deep-link demos stay deterministic.
     """
 
-    del depth
     if scope is not None and scope not in _VIEW_GRAPHS:
         raise InventoryGraphViewNotFoundError(f"architecture view not found: {scope}")
     active_view = scope or "fdai-control-plane"
     resources, links = _VIEW_GRAPHS[active_view]
+    neighborhood: dict[str, Any] | None = None
+    if root is not None:
+        neighborhood = project_bounded_inventory_neighborhood(
+            resources=resources,
+            links=links,
+            root=root,
+            depth=depth,
+            link_types=link_types,
+            limit=limit,
+        )
+        resources = tuple(neighborhood["resources"])
+        links = tuple(neighborhood["links"])
     return {
         "snapshot_at": datetime.now(UTC).isoformat(),
         "freshness": "fresh",
@@ -565,7 +582,7 @@ async def demo_inventory_graph_provider(
         "views": [dict(view) for view in _VIEWS],
         "resources": [dict(resource) for resource in resources],
         "links": [dict(link) for link in links if link["type"] in link_types],
-        "truncated": False,
+        "truncated": bool(neighborhood["truncated"]) if neighborhood is not None else False,
         "cursor": None,
     }
 

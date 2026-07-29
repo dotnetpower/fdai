@@ -22,6 +22,9 @@ from fdai.delivery.inventory_cache_invalidation import (
     inventory_cache_path,
     inventory_invalidation_path,
 )
+from fdai.delivery.read_api.routes.inventory_graph_bounds import (
+    project_bounded_inventory_neighborhood,
+)
 from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecord
 
 _ROOT_ID = "azure-subscription"
@@ -66,9 +69,27 @@ class AzureCliInventoryGraphProvider:
         scope: str | None,
         depth: int,
         link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
     ) -> dict[str, Any]:
-        del depth
         graph = await self._graph()
+        if root is not None:
+            neighborhood = project_bounded_inventory_neighborhood(
+                resources=graph["resources"],
+                links=graph["links"],
+                root=root,
+                depth=depth,
+                link_types=link_types,
+                limit=limit,
+            )
+            return {
+                **graph,
+                **neighborhood,
+                "active_view": scope or f"resource:{root}",
+                "views": [],
+                "truncated": bool(graph.get("truncated")) or neighborhood["truncated"],
+            }
         projection = project_architecture_graph(
             resources=graph["resources"],
             links=graph["links"],

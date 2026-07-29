@@ -169,6 +169,111 @@ async def test_failed_candidate_retains_last_active_snapshot() -> None:
     assert await context_provider("missing-resource") is None
 
 
+async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    provider = PostgresInventoryGraphProvider(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("bounded-root", "resource-group", {"name": "root"}),
+                ResourceRecord("bounded-child-a", "compute.vm", {"name": "child-a"}),
+                ResourceRecord("bounded-child-b", "compute.vm", {"name": "child-b"}),
+                ResourceRecord("bounded-grandchild", "compute.vm", {"name": "grandchild"}),
+                ResourceRecord("bounded-unrelated", "compute.vm", {"name": "unrelated"}),
+            ),
+            links=(
+                LinkRecord(
+                    from_id="bounded-root",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="bounded-child-a",
+                    to_type="compute.vm",
+                ),
+                LinkRecord(
+                    from_id="bounded-root",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="bounded-child-b",
+                    to_type="compute.vm",
+                ),
+                LinkRecord(
+                    from_id="bounded-child-a",
+                    from_type="compute.vm",
+                    link_type="depends_on",
+                    to_id="bounded-grandchild",
+                    to_type="compute.vm",
+                ),
+            ),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    direct = await provider(
+        None,
+        1,
+        ("contains", "depends_on"),
+        root="bounded-root",
+        limit=10,
+    )
+    assert {resource["id"] for resource in direct["resources"]} == {
+        "bounded-root",
+        "bounded-child-a",
+        "bounded-child-b",
+    }
+    assert direct["truncated"] is False
+
+    transitive = await provider(
+        None,
+        2,
+        ("contains", "depends_on"),
+        root="bounded-root",
+        limit=10,
+    )
+    assert {resource["id"] for resource in transitive["resources"]} == {
+        "bounded-root",
+        "bounded-child-a",
+        "bounded-child-b",
+        "bounded-grandchild",
+    }
+    assert transitive["truncated"] is False
+
+    limited = await provider(
+        None,
+        2,
+        ("contains", "depends_on"),
+        root="bounded-root",
+        limit=2,
+    )
+    assert len(limited["resources"]) == 2
+    assert limited["resources"][0]["id"] == "bounded-root"
+    assert limited["truncated"] is True
+
+
+async def test_inventory_graph_reverse_indexes_are_migrated() -> None:
+    _upgrade()
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        cursor = await connection.execute(
+            "SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() "
+            "AND indexname=ANY(%s::text[]) ORDER BY indexname",
+            (
+                [
+                    "idx_inventory_realtime_link_reverse",
+                    "idx_inventory_snapshot_link_reverse",
+                ],
+            ),
+        )
+
+        assert [row[0] for row in await cursor.fetchall()] == [
+            "idx_inventory_realtime_link_reverse",
+            "idx_inventory_snapshot_link_reverse",
+        ]
+
+
 async def test_promotion_rejects_dangling_link() -> None:
     _upgrade()
     store = PostgresInventorySnapshotStore(config=PostgresInventorySnapshotStoreConfig(dsn=_dsn()))

@@ -272,6 +272,14 @@ records plus `contains` / `attached_to` / `depends_on` links, snapshot freshness
 truncation metadata. The route never calls Azure Resource Graph directly and never receives
 the executor identity.
 
+A resource-centered request supplies `root=<resource-id>`, `depth=1..8`, and
+`limit=1..1000`. The provider traverses both incoming and outgoing allowlisted links over the
+active snapshot plus its ordered real-time overlay. It returns only the bounded neighborhood and
+sets `truncated=true` when either the resource or relationship cap is reached. An unknown root
+returns `404`; it never widens to a named view or the complete inventory. This rooted mode lets
+the console expand one resource at a time without loading a large tenant graph. `scope` and `root`
+are mutually exclusive, and a custom `limit` is accepted only with `root`.
+
 The projection publishes named architecture views. A request without `scope` returns only
 FDAI's own control plane, identified by the authoritative `fdai:managed=true` plus
 `fdai:workload=fdai` inventory-tag pair. An unambiguous accepted service tag whose value is
@@ -322,9 +330,13 @@ use the same view-classification rules so local and deployed consoles keep the s
   workload by `ResourceType` (and further by scope when a single type is too broad), fans
   out queries under a semaphore, and streams batches into the ingest pipeline. The core
   never assumes a single-connection blocking scan.
-- **Idempotent upsert** into `ontology_resource` + `ontology_link` keyed by the neutral
-  `resource_id` and `(from_id, link_type, to_id)`; re-running the full scan converges the
-  graph, it never duplicates.
+- **Idempotent generation storage** stages a complete scan in
+  `inventory_snapshot_resource` and `inventory_snapshot_link`, keyed by generation plus the
+  neutral `resource_id` or `(from_id, link_type, to_id)`. A complete fence atomically swaps the
+  `inventory_active` pointer. Ordered changes land in `inventory_realtime_resource` and
+  `inventory_realtime_link` until the next generation covers them. Readers merge the active
+  generation and overlay into one effective ontology-shaped resource graph; they don't dual-write
+  scanned resources into the generic `ontology_resource` and `ontology_link` instance store.
 - **Fail-closed**: a partial snapshot never lands in a state that would let a stale graph
   drive an autonomous decision. Either the snapshot completes and is atomically promoted,
   or the previous graph is retained and the failure is audited.

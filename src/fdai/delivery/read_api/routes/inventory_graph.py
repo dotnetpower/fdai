@@ -8,7 +8,7 @@ behind the injected provider at the composition root.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Any
+from typing import Any, Protocol
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -18,11 +18,20 @@ from fdai.shared.providers.inventory import InventoryGraphViewNotFoundError
 
 DEFAULT_ROUTE_PATH = "/inventory/graph"
 _ALLOWED_LINKS = frozenset({"contains", "attached_to", "depends_on"})
+_DEFAULT_LIMIT = 500
+_MAX_LIMIT = 1000
 
-InventoryGraphProvider = Callable[
-    [str | None, int, tuple[str, ...]],
-    Awaitable[Mapping[str, Any]],
-]
+
+class InventoryGraphProvider(Protocol):
+    async def __call__(
+        self,
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = _DEFAULT_LIMIT,
+    ) -> Mapping[str, Any]: ...
 
 
 def make_inventory_graph_route(
@@ -36,12 +45,25 @@ def make_inventory_graph_route(
     async def handler(request: Request) -> Response:
         await authorize(request)
         scope = request.query_params.get("scope") or None
+        root = request.query_params.get("root") or None
+        if root is not None and len(root) > 512:
+            return _error(400, "root must be at most 512 characters")
+        if scope is not None and root is not None:
+            return _error(400, "scope and root cannot be combined")
         try:
             depth = int(request.query_params.get("depth", "4"))
         except ValueError:
             return _error(400, "depth must be an integer")
         if not 1 <= depth <= 8:
             return _error(400, "depth must be between 1 and 8")
+        try:
+            limit = int(request.query_params.get("limit", str(_DEFAULT_LIMIT)))
+        except ValueError:
+            return _error(400, "limit must be an integer")
+        if not 1 <= limit <= _MAX_LIMIT:
+            return _error(400, f"limit must be between 1 and {_MAX_LIMIT}")
+        if root is None and "limit" in request.query_params:
+            return _error(400, "limit requires root")
 
         raw_links: Sequence[str] = request.query_params.getlist("link")
         if not raw_links:
@@ -53,7 +75,15 @@ def make_inventory_graph_route(
             return _error(400, f"unsupported link type(s): {', '.join(unknown)}")
 
         try:
-            payload = dict(await provider(scope, depth, links))
+            payload = dict(
+                await provider(
+                    scope,
+                    depth,
+                    links,
+                    root=root,
+                    limit=limit,
+                )
+            )
         except InventoryGraphViewNotFoundError as exc:
             return _error(404, str(exc))
         resources = payload.get("resources")
@@ -63,7 +93,9 @@ def make_inventory_graph_route(
         payload.update(
             {
                 "scope": scope,
+                "root": root,
                 "depth": depth,
+                "limit": limit,
                 "included_link_types": list(links),
                 "resources": list(resources),
                 "links": list(graph_links),
