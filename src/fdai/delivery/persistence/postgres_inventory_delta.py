@@ -44,6 +44,23 @@ _EFFECTIVE_RESOURCE_TYPES_QUERY = (
     "SELECT resource_id, resource_type FROM effective_resources "
     "WHERE resource_id=ANY(%s::text[])"
 )
+_UPSERT_REALTIME_LINK = (
+    "INSERT INTO inventory_realtime_link "
+    "(from_id, from_type, link_type, to_id, to_type, change_kind, props, "
+    "observed_at, event_id, idempotency_key) "
+    "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s) "
+    "ON CONFLICT (from_id, link_type, to_id) DO UPDATE SET "
+    "from_type=EXCLUDED.from_type, to_type=EXCLUDED.to_type, "
+    "change_kind=EXCLUDED.change_kind, props=EXCLUDED.props, "
+    "observed_at=EXCLUDED.observed_at, event_id=EXCLUDED.event_id, "
+    "idempotency_key=EXCLUDED.idempotency_key, applied_at=NOW() "
+    "WHERE inventory_realtime_link.observed_at < EXCLUDED.observed_at "
+    "OR (inventory_realtime_link.observed_at = EXCLUDED.observed_at "
+    "AND ((inventory_realtime_link.change_kind <> 'delete' "
+    "AND EXCLUDED.change_kind = 'delete') OR "
+    "(inventory_realtime_link.change_kind = EXCLUDED.change_kind "
+    "AND inventory_realtime_link.event_id < EXCLUDED.event_id)))"
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -231,11 +248,11 @@ class PostgresInventoryDeltaProjector:
                     snapshot_id=str(coverage["id"]),
                     links=effective_links,
                 )
-                applied_links = 0
                 incoming_props_by_key = {
                     _link_key(link): props_json
                     for link, props_json in zip(links, link_props_json, strict=True)
                 }
+                link_rows: list[tuple[Any, ...]] = []
                 for link, link_kind in zip(effective_links, effective_link_kinds, strict=True):
                     link_type = _choice(link, "link_type", _LINK_TYPES)
                     link_props_json_value = incoming_props_by_key.get(_link_key(link))
@@ -243,22 +260,7 @@ class PostgresInventoryDeltaProjector:
                         link_props_json_value = _canonical_json_mapping(
                             link.get("props", {}), "inventory relationship props"
                         )
-                    link_cursor = await connection.execute(
-                        "INSERT INTO inventory_realtime_link "
-                        "(from_id, from_type, link_type, to_id, to_type, change_kind, props, "
-                        "observed_at, event_id, idempotency_key) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s) "
-                        "ON CONFLICT (from_id, link_type, to_id) DO UPDATE SET "
-                        "from_type=EXCLUDED.from_type, to_type=EXCLUDED.to_type, "
-                        "change_kind=EXCLUDED.change_kind, props=EXCLUDED.props, "
-                        "observed_at=EXCLUDED.observed_at, event_id=EXCLUDED.event_id, "
-                        "idempotency_key=EXCLUDED.idempotency_key, applied_at=NOW() "
-                        "WHERE inventory_realtime_link.observed_at < EXCLUDED.observed_at "
-                        "OR (inventory_realtime_link.observed_at = EXCLUDED.observed_at "
-                        "AND ((inventory_realtime_link.change_kind <> 'delete' "
-                        "AND EXCLUDED.change_kind = 'delete') OR "
-                        "(inventory_realtime_link.change_kind = EXCLUDED.change_kind "
-                        "AND inventory_realtime_link.event_id < EXCLUDED.event_id)))",
+                    link_rows.append(
                         (
                             _required_str(link, "from_id"),
                             _required_str(link, "from_type"),
@@ -270,9 +272,9 @@ class PostgresInventoryDeltaProjector:
                             observed_at,
                             event_id,
                             idempotency_key,
-                        ),
+                        )
                     )
-                    applied_links += max(0, link_cursor.rowcount)
+                applied_links = await self._upsert_link_rows(connection, link_rows)
         return InventoryDeltaApplyResult(
             resources=max(0, resource_cursor.rowcount),
             links=applied_links,
@@ -295,6 +297,17 @@ class PostgresInventoryDeltaProjector:
             "SELECT set_config('lock_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
+
+    async def _upsert_link_rows(
+        self,
+        connection: psycopg.AsyncConnection[Any],
+        rows: Sequence[tuple[Any, ...]],
+    ) -> int:
+        if not rows:
+            return 0
+        cursor = connection.cursor()
+        await cursor.executemany(_UPSERT_REALTIME_LINK, rows)
+        return max(0, cursor.rowcount)
 
 
 async def _acquire_inventory_locks(

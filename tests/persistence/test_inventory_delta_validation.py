@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, call
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
@@ -294,6 +294,37 @@ async def test_inventory_locks_take_promotion_gate_then_sorted_resource_locks() 
             ("z-resource", _RESOURCE_LOCK_SEED),
         ),
     ]
+
+
+async def test_delta_link_rows_use_one_batched_write() -> None:
+    projector = PostgresInventoryDeltaProjector(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+    connection = MagicMock()
+    cursor = AsyncMock()
+    cursor.rowcount = 2
+    connection.cursor.return_value = cursor
+    rows = [
+        (
+            "resource-a",
+            "compute.vm",
+            "depends_on",
+            f"resource-{suffix}",
+            "postgresql",
+            "upsert",
+            "{}",
+            _NOW,
+            "event-1",
+            "key-1",
+        )
+        for suffix in ("b", "c")
+    ]
+
+    applied = await projector._upsert_link_rows(connection, rows)
+
+    cursor.executemany.assert_awaited_once()
+    assert len(cursor.executemany.await_args.args[1]) == 2
+    assert applied == 2
 
 
 async def test_delete_reconciles_all_incident_links_to_tombstones() -> None:
