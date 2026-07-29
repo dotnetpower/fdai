@@ -77,6 +77,7 @@ from fdai.delivery.read_api.app.authoritative_proxy import (  # noqa: E402
     AUTHORITATIVE_READ_API_ENV,
     authoritative_read_proxy_from_env,
 )
+from fdai.delivery.read_api.app.catalog_reference import load_mcsb_reference  # noqa: E402
 from fdai.delivery.read_api.auth import (  # noqa: E402
     UnsafeClaimsExtractor,
     build_authenticator,
@@ -690,6 +691,7 @@ def build_local_app(
             ),
             log_query_provider=log_query_provider,
             best_practice_controls=tuple(best_practice_controls),
+            mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),
             rule_catalog_rules=tuple(rule_catalog_rules),
             rule_catalog_collected_rules=tuple(rule_catalog_collected),
             rule_catalog_policies_root=policies_root if policies_root.is_dir() else None,

@@ -233,6 +233,12 @@ class ReadApiConfig:
     The route reports ``unknown`` and ``not_connected`` until an authoritative
     evidence projection is explicitly composed."""
 
+    mcsb_catalogs: tuple[Any, ...] = ()
+    """Validated versioned MCSB controls and implementation crosswalks.
+
+    The route reports catalog coverage, never runtime compliance. Empty by
+    default; when populated it registers read-only ``GET /mcsb-controls``."""
+
     rule_catalog_rules: tuple[Any, ...] = ()
     """Opt-in rule-catalog explorer input: the *active* catalog. Tuple of
     :class:`~fdai.shared.contracts.models.Rule` loaded at

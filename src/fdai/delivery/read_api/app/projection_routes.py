@@ -92,6 +92,22 @@ def append_projection_routes(
             )
         )
 
+    if config.mcsb_catalogs:
+        from fdai.delivery.read_api.routes.mcsb_controls import (
+            DEFAULT_ROUTE_PATH,
+            DETAIL_ROUTE_PATH,
+            make_mcsb_control_routes,
+        )
+
+        for path in (DEFAULT_ROUTE_PATH, DETAIL_ROUTE_PATH):
+            _ensure_available(path, "MCSB control path", core_paths, panel_paths)
+        routes.extend(
+            make_mcsb_control_routes(
+                catalogs=config.mcsb_catalogs,
+                authorize=authorize,
+            )
+        )
+
     if config.rule_catalog_rules or config.rule_catalog_collected_rules:
         from fdai.delivery.read_api.routes.rule_catalog import (
             DEFAULT_ROUTE_PATH,
