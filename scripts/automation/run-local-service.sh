@@ -34,6 +34,15 @@ fi
 log_dir="$(dirname "$log_file")"
 mkdir -p "$log_dir"
 chmod 700 "$log_dir"
+
+lock_file="${log_file}.lock"
+exec {service_lock_fd}> "$lock_file"
+chmod 600 "$lock_file"
+if ! flock -n "$service_lock_fd"; then
+  echo "service already running: $service" >&2
+  exit 75
+fi
+
 touch "$log_file"
 chmod 600 "$log_file"
 

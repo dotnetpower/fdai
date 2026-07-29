@@ -210,3 +210,51 @@ def test_runner_flushes_output_while_child_is_running(tmp_path: Path) -> None:
     finally:
         process.terminate()
         process.wait(timeout=5)
+
+
+def test_runner_rejects_a_second_instance_of_the_same_service(
+    tmp_path: Path,
+) -> None:
+    log_file = tmp_path / "logs" / "read-api.log"
+    first_process = subprocess.Popen(  # noqa: S603 - fixed test command
+        [
+            _BASH,
+            str(_RUNNER),
+            "read-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            "import time; print('first-ready', flush=True); time.sleep(10)",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        assert first_process.stdout is not None
+        assert first_process.stdout.readline().rstrip().endswith("event=starting")
+        assert first_process.stdout.readline().rstrip() == "first-ready"
+
+        second_result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "read-api",
+                str(log_file),
+                "--",
+                sys.executable,
+                "-c",
+                "print('second-child-ran')",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert second_result.returncode == 75
+        assert "service already running: read-api" in second_result.stderr
+        assert "second-child-ran" not in log_file.read_text(encoding="utf-8")
+    finally:
+        first_process.terminate()
+        first_process.wait(timeout=5)
