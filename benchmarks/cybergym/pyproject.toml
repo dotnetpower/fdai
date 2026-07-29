@@ -7,6 +7,9 @@ dependencies = [
     "fdai-evaluation-sdk>=0.1,<0.2",
 ]
 
+[project.entry-points."fdai.evaluation.adapters"]
+cybergym = "fdai_bench_cybergym.plugin:create_plugin"
+
 [project.optional-dependencies]
 dev = [
     "mypy>=1.13,<2",
