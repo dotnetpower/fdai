@@ -35,6 +35,22 @@ The console reads projections from the state and audit stores. It does not use
 the executor identity, it cannot approve a change, and it never calls an Azure
 API that changes anything.
 
+## Azure deployment topology
+
+Use the deployment view to trace the production private-network baseline rather
+than the logical control-loop responsibilities. Numbered connectors follow the
+primary signal, decision, evidence, approval, and delivery paths. Nested
+boundaries show the Azure region, virtual network, and delegated subnets.
+
+<fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-deployment-topology.manifest.json" locale="en" style="display:block">
+  <img src="../diagrams/generated/fdai-azure-deployment-topology.en.svg" alt="Azure platform signals and scheduled probes enter Azure Event Hubs through its Kafka endpoint. A VNet-integrated Container Apps environment runs the FDAI core, scheduled jobs, and a separately identified read API. The core uses managed identity to read Azure Resource Graph, request optional Azure OpenAI models, obtain Key Vault references, and write governed state and append-only audit evidence to PostgreSQL. Private endpoints and private DNS keep supported data-plane traffic inside the virtual network. Operators authenticate with Microsoft Entra ID, inspect the read-only console, approve high-risk work through Teams, and receive governed changes through Git pull requests. Application Insights and Log Analytics observe every runtime path without becoming a decision surface." loading="lazy" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+The diagram maps the parameterized Terraform deployment, not one tenant's
+resource names. Azure OpenAI and some private endpoints remain optional. Human
+App Roles and the privileged executor managed identity stay separate in every
+profile.
+
 ## The five architecture layers
 
 | Layer | Responsibility | Primary boundary |

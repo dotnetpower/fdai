@@ -5,10 +5,35 @@
   "published": "2026-07-08",
   "archiveSha256": "921594ccd1bf3d9c0a1bd7b6d924e050551a59342f2b353bb74bdcf761c35141",
   "icons": {
+    "azure-openai": {
+      "file": "azure-openai.svg",
+      "productName": "Azure OpenAI",
+      "sha256": "4859f2c78b6b81acbbaf94e7348cb7dcbe97955a038be903de01cf46a7206aad"
+    },
+    "container-apps": {
+      "file": "container-apps.svg",
+      "productName": "Azure Container Apps",
+      "sha256": "3cf4ba9242e31496f778a27e92c9c2b2a09664f105c58325d5e2dcb142d3c3b9"
+    },
+    "container-registry": {
+      "file": "container-registry.svg",
+      "productName": "Azure Container Registry",
+      "sha256": "c134b0a442f203a7eeeb6f99a1f02ed34e51373d7fca59f96c9f125874c9d7d4"
+    },
     "event-hubs": {
       "file": "event-hubs.svg",
       "productName": "Azure Event Hubs",
       "sha256": "55187fecea1de7b135e53cc100bc765ad06ab419365263456bf548906c3107f8"
+    },
+    "key-vault": {
+      "file": "key-vault.svg",
+      "productName": "Azure Key Vault",
+      "sha256": "712b426f54f0fc50d0816dc79df709daa7ac5f93ccaf4e9b3527f627f6e9ad97"
+    },
+    "managed-identity": {
+      "file": "managed-identity.svg",
+      "productName": "Managed Identities",
+      "sha256": "2100bf636095348d0b75220450b5d88672c720f49c79972e95916e41e91ae169"
     },
     "monitor": {
       "file": "monitor.svg",
@@ -20,10 +45,20 @@
       "productName": "Azure Database for PostgreSQL",
       "sha256": "8232e8ecfbd607ce3b54646199805a823646d71e552f9aa71e7a3952cde35620"
     },
+    "private-endpoint": {
+      "file": "private-endpoint.svg",
+      "productName": "Private Endpoints",
+      "sha256": "96de0bb7f0aeb1220d0fd6d337578d5e93dca017d6ea7d42d887aa329b2fd90d"
+    },
     "resource-graph": {
       "file": "resource-graph.svg",
       "productName": "Azure Resource Graph",
       "sha256": "6e9262653086bd4e83184ba6abb2e8b39a29e676107540c1fcfa41b4c8c0db37"
+    },
+    "static-web-app": {
+      "file": "static-web-app.svg",
+      "productName": "Azure Static Web Apps",
+      "sha256": "c3075406ba25213b52f9fdbee5dfeb3cc31217be17a867ed6dca32020ec03646"
     }
   }
 }

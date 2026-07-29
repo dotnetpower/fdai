@@ -1,0 +1,270 @@
+id: fdai-azure-deployment-topology
+version: 1
+kind: deployment
+updated: 2026-07-29
+locales:
+  en:
+    title: FDAI Azure deployment topology
+    description: A private, identity-separated Azure deployment for the FDAI control plane, operator console, governed data services, and delivery channels.
+    alt: Azure platform signals and scheduled probes enter Azure Event Hubs through its Kafka endpoint. A VNet-integrated Container Apps environment runs the FDAI core, scheduled jobs, and a separately identified read API. The core uses managed identity to read Azure Resource Graph, request optional Azure OpenAI models, obtain Key Vault references, and write governed state and append-only audit evidence to PostgreSQL. Private endpoints and private DNS keep supported data-plane traffic inside the virtual network. Operators authenticate with Microsoft Entra ID, inspect the read-only console, approve high-risk work through Teams, and receive governed changes through Git pull requests. Application Insights and Log Analytics observe every runtime path without becoming a decision surface.
+  ko:
+    title: FDAI Azure 배포 토폴로지
+    description: FDAI 컨트롤 플레인, 운영자 콘솔, 통제된 데이터 서비스 및 전달 채널을 위한 프라이빗 Azure 배포입니다.
+    alt: Azure 플랫폼 신호와 예약 점검이 Kafka endpoint를 통해 Azure Event Hubs로 들어갑니다. VNet에 통합된 Container Apps 환경에서 FDAI core, 예약 job, 별도 identity를 사용하는 read API가 실행됩니다. Core는 managed identity로 Azure Resource Graph를 읽고, 선택적인 Azure OpenAI 모델을 호출하며, Key Vault 참조를 가져오고, 통제된 상태와 추가 전용 감사 근거를 PostgreSQL에 기록합니다. Private endpoint와 private DNS는 지원되는 data plane 트래픽을 virtual network 안에 유지합니다. 운영자는 Microsoft Entra ID로 인증하고 읽기 전용 콘솔을 확인하며, Teams에서 고위험 작업을 승인하고 Git pull request로 통제된 변경을 전달받습니다. Application Insights와 Log Analytics는 의사 결정에 개입하지 않고 모든 runtime 경로를 관찰합니다.
+canvas:
+  width: 1680
+  height: 940
+  direction: RIGHT
+  padding: 28
+groups:
+  - id: signal-sources
+    kind: layer
+    label: { en: Signal sources, ko: 신호 원천 }
+    direction: DOWN
+  - id: azure-boundary
+    kind: cloud
+    label: { en: Azure deployment region, ko: Azure 배포 region }
+    direction: RIGHT
+  - id: platform-ingress
+    parent: azure-boundary
+    kind: layer
+    label: { en: Ingress and workload identity, ko: 수집 및 workload identity }
+    direction: DOWN
+  - id: fdai-vnet
+    parent: azure-boundary
+    kind: network
+    label: { en: FDAI virtual network, ko: FDAI virtual network }
+    direction: RIGHT
+  - id: container-apps-subnet
+    parent: fdai-vnet
+    kind: subnet
+    label: { en: Container Apps infrastructure subnet, ko: Container Apps infrastructure subnet }
+    direction: DOWN
+  - id: private-endpoint-subnet
+    parent: fdai-vnet
+    kind: subnet
+    label: { en: Private endpoint subnet, ko: Private endpoint subnet }
+    direction: DOWN
+  - id: postgres-subnet
+    parent: fdai-vnet
+    kind: subnet
+    label: { en: PostgreSQL delegated subnet, ko: PostgreSQL delegated subnet }
+    direction: DOWN
+  - id: service-dependencies
+    parent: azure-boundary
+    kind: layer
+    label: { en: Governed service dependencies, ko: 통제된 service dependency }
+    direction: DOWN
+  - id: human-delivery
+    kind: layer
+    label: { en: Operator and delivery channels, ko: 운영자 및 전달 채널 }
+    direction: DOWN
+nodes:
+  - id: azure-signals
+    parent: signal-sources
+    kind: azure-service
+    icon: resource-graph
+    label: { en: Azure platform signals, ko: Azure 플랫폼 신호 }
+    description: { en: "Resource changes, health, metrics, and cost signals", ko: "리소스 변경, 상태, 메트릭 및 비용 신호" }
+  - id: scheduled-probes
+    parent: signal-sources
+    kind: process
+    label: { en: Scheduled probes, ko: 예약 점검 }
+    description: { en: "Inventory, resilience, forecast, and cost checks", ko: "Inventory, resilience, forecast 및 비용 점검" }
+  - id: operators
+    parent: signal-sources
+    kind: person
+    label: { en: Operators, ko: 운영자 }
+    description: { en: "Reader, contributor, approver, owner, and break-glass roles", ko: "Reader, contributor, approver, owner 및 break-glass 역할" }
+  - id: event-hubs
+    parent: platform-ingress
+    kind: azure-service
+    icon: event-hubs
+    label: { en: Azure Event Hubs, ko: Azure Event Hubs }
+    description: { en: "Kafka :9093 topics, control topics, and dead-letter streams", ko: "Kafka :9093 topic, control topic 및 dead-letter stream" }
+  - id: key-vault
+    parent: service-dependencies
+    kind: azure-service
+    icon: key-vault
+    label: { en: Azure Key Vault, ko: Azure Key Vault }
+    description: { en: Native Container Apps secret references, ko: Container Apps native secret 참조 }
+  - id: container-registry
+    parent: platform-ingress
+    kind: azure-service
+    icon: container-registry
+    label: { en: Azure Container Registry, ko: Azure Container Registry }
+    description: { en: Signed images pinned by digest, ko: Digest로 고정된 서명 image }
+  - id: azure-openai
+    parent: service-dependencies
+    kind: azure-service
+    icon: azure-openai
+    label: { en: Azure OpenAI, ko: Azure OpenAI }
+    description: { en: Optional governed T2 model capabilities, ko: 선택적인 통제된 T2 model capability }
+  - id: core-runtime
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: FDAI core Container App, ko: FDAI core Container App }
+    description: { en: "Fifteen agents, trust router, risk gate, and privileged executor", ko: "15개 agent, trust router, risk gate 및 권한 있는 executor" }
+  - id: scheduled-jobs
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Container Apps Jobs, ko: Container Apps Jobs }
+    description: { en: "Inventory, detection, canary, measurement, and resilience jobs", ko: "Inventory, detection, canary, measurement 및 resilience job" }
+  - id: read-api
+    parent: container-apps-subnet
+    kind: service
+    icon: container-apps
+    label: { en: Read API Container App, ko: Read API Container App }
+    description: { en: "Entra JWT, App Roles, read identity, and command transport identity", ko: "Entra JWT, App Role, read identity 및 command transport identity" }
+  - id: private-link
+    parent: private-endpoint-subnet
+    kind: service
+    icon: private-endpoint
+    label: { en: Private endpoints and DNS, ko: Private endpoint 및 DNS }
+    description: { en: "Event Hubs, Key Vault, registry, storage, and model data planes", ko: "Event Hubs, Key Vault, registry, storage 및 model data plane" }
+  - id: postgres
+    parent: postgres-subnet
+    kind: azure-service
+    icon: postgresql
+    label: { en: Azure Database for PostgreSQL, ko: Azure Database for PostgreSQL }
+    description: { en: "State, append-only audit, operator memory, and pgvector", ko: "상태, 추가 전용 감사, operator memory 및 pgvector" }
+  - id: workload-identities
+    parent: platform-ingress
+    kind: service
+    icon: managed-identity
+    label: { en: User-assigned managed identities, ko: User-assigned managed identity }
+    description: { en: "Separate executor, inventory, read, command, and job principals", ko: "분리된 executor, inventory, read, command 및 job principal" }
+  - id: monitor
+    parent: service-dependencies
+    kind: azure-service
+    icon: monitor
+    label: { en: Application Insights and Log Analytics, ko: Application Insights 및 Log Analytics }
+    description: { en: "Traces, metrics, logs, alerts, and correlation", ko: "Trace, metric, log, alert 및 correlation" }
+  - id: entra-id
+    parent: human-delivery
+    kind: external
+    label: { en: Microsoft Entra ID, ko: Microsoft Entra ID }
+    description: { en: Browser authentication and App Roles, ko: Browser 인증 및 App Role }
+  - id: operator-console
+    parent: human-delivery
+    kind: service
+    icon: static-web-app
+    label: { en: Read-only operator console, ko: 읽기 전용 운영자 콘솔 }
+    description: { en: "Evidence, incidents, approvals, and runtime projections", ko: "근거, incident, approval 및 runtime projection" }
+  - id: teams-approval
+    parent: human-delivery
+    kind: external
+    label: { en: Teams approval channel, ko: Teams 승인 채널 }
+    description: { en: Human approval with separate approver identity, ko: 분리된 approver identity를 사용하는 사람 승인 }
+  - id: git-delivery
+    parent: human-delivery
+    kind: external
+    label: { en: Git remediation pull request, ko: Git 수정 pull request }
+    description: { en: "Reviewable, reversible change delivery", ko: 검토 및 되돌리기가 가능한 변경 전달 }
+edges:
+  - id: signals-to-event-hubs
+    from: azure-signals
+    to: event-hubs
+    kind: event
+    label: { en: 1. Platform events, ko: 1. 플랫폼 이벤트 }
+  - id: probes-to-event-hubs
+    from: scheduled-probes
+    to: event-hubs
+    kind: event
+    label: { en: 1. Probe findings, ko: 1. 점검 finding }
+  - id: event-hubs-to-core
+    from: event-hubs
+    to: core-runtime
+    kind: event
+    label: { en: 2. Kafka OAUTHBEARER, ko: 2. Kafka OAUTHBEARER }
+  - id: jobs-to-event-hubs
+    from: scheduled-jobs
+    to: event-hubs
+    kind: event
+  - id: private-link-to-openai
+    from: private-link
+    to: azure-openai
+    kind: request
+    label: { en: 3. Verified T2 request, ko: 3. 검증된 T2 요청 }
+  - id: core-to-postgres
+    from: core-runtime
+    to: postgres
+    kind: audit
+    label: { en: 4. State and audit, ko: 4. 상태 및 감사 }
+  - id: read-api-to-postgres
+    from: read-api
+    to: postgres
+    kind: read
+    label: { en: Audited projection, ko: 감사 projection }
+  - id: private-link-to-key-vault
+    from: private-link
+    to: key-vault
+    kind: read
+    label: { en: Secret references, ko: Secret 참조 }
+  - id: registry-to-runtime
+    from: container-registry
+    to: core-runtime
+    kind: read
+    label: { en: Signed image, ko: 서명 image }
+  - id: runtime-to-private-link
+    from: core-runtime
+    to: private-link
+    kind: request
+    label: { en: Private data plane, ko: Private data plane }
+  - id: identities-to-runtime
+    from: workload-identities
+    to: core-runtime
+    kind: approval
+    label: { en: Scoped OIDC identity, ko: 범위가 제한된 OIDC identity }
+  - id: operators-to-entra
+    from: operators
+    to: entra-id
+    kind: request
+    label: { en: Sign in, ko: 로그인 }
+  - id: entra-to-console
+    from: entra-id
+    to: operator-console
+    kind: approval
+    label: { en: App Role token, ko: App Role token }
+  - id: read-api-to-console
+    from: read-api
+    to: operator-console
+    kind: read
+    label: { en: 5. Read evidence, ko: 5. 근거 조회 }
+  - id: core-to-teams
+    from: core-runtime
+    to: teams-approval
+    kind: approval
+    label: { en: 6. Approval request, ko: 6. 승인 요청 }
+  - id: core-to-git
+    from: core-runtime
+    to: git-delivery
+    kind: mutation
+    label: { en: 7. Governed change, ko: 7. 통제된 변경 }
+  - id: core-to-monitor
+    from: core-runtime
+    to: monitor
+    kind: audit
+  - id: jobs-to-monitor
+    from: scheduled-jobs
+    to: monitor
+    kind: audit
+  - id: read-api-to-monitor
+    from: read-api
+    to: monitor
+    kind: audit
+legend:
+  - kind: event
+    label: { en: Asynchronous event, ko: 비동기 이벤트 }
+  - kind: request
+    label: { en: Service request, ko: 서비스 요청 }
+  - kind: approval
+    label: { en: Identity or approval, ko: Identity 또는 승인 }
+  - kind: mutation
+    label: { en: Governed change, ko: 통제된 변경 }
+  - kind: audit
+    label: { en: State or telemetry write, ko: 상태 또는 telemetry 쓰기 }
+  - kind: read
+    label: { en: Read path, ko: 읽기 경로 }

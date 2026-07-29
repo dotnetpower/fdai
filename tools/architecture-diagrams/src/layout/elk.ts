@@ -473,7 +473,8 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
       "elk.algorithm": "layered",
       "elk.direction": spec.canvas.direction,
       "elk.edgeRouting": "ORTHOGONAL",
-      "elk.hierarchyHandling": "SEPARATE_CHILDREN",
+      "elk.hierarchyHandling":
+        spec.kind === "deployment" ? "INCLUDE_CHILDREN" : "SEPARATE_CHILDREN",
       "elk.padding": `[top=${spec.canvas.padding ?? 40},left=${spec.canvas.padding ?? 40},bottom=${spec.canvas.padding ?? 40},right=${spec.canvas.padding ?? 40}]`,
       "elk.spacing.nodeNode": "28",
       "elk.layered.spacing.nodeNodeBetweenLayers": "52",
