@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import selectors
 import shutil
 import subprocess
 import tempfile
+import time
 import tomllib
 import uuid
 from collections.abc import Mapping, Sequence
@@ -65,21 +68,53 @@ class CommandExecutor:
         timeout: float,
         env: Mapping[str, str] | None = None,
     ) -> ProcessResult:
+        process = subprocess.Popen(
+            tuple(argv),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=dict(env) if env is not None else None,
+        )
+        stdout = bytearray()
+        stderr = bytearray()
+        deadline = time.monotonic() + timeout
         try:
-            completed = subprocess.run(
-                tuple(argv),
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                env=dict(env) if env is not None else None,
-                timeout=timeout,
-                check=False,
-            )
+            with selectors.DefaultSelector() as selector:
+                if process.stdout is None or process.stderr is None:
+                    raise CyberGymRuntimeError("CyberGym command output pipes are unavailable")
+                selector.register(process.stdout, selectors.EVENT_READ, stdout)
+                selector.register(process.stderr, selectors.EVENT_READ, stderr)
+                while selector.get_map():
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise CyberGymRuntimeError("CyberGym command timed out")
+                    for key, _ in selector.select(remaining):
+                        chunk = os.read(key.fd, 65_536)
+                        if not chunk:
+                            selector.unregister(key.fileobj)
+                            continue
+                        output = key.data
+                        if len(output) + len(chunk) > _MAX_COMMAND_OUTPUT:
+                            raise CyberGymRuntimeError(
+                                "CyberGym command output exceeded its byte cap"
+                            )
+                        output.extend(chunk)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise CyberGymRuntimeError("CyberGym command timed out")
+            returncode = process.wait(timeout=remaining)
+        except CyberGymRuntimeError:
+            process.kill()
+            process.wait()
+            raise
         except subprocess.TimeoutExpired as exc:
+            process.kill()
+            process.wait()
             raise CyberGymRuntimeError("CyberGym command timed out") from exc
         return ProcessResult(
-            completed.returncode,
-            _decode_bounded(completed.stdout),
-            _decode_bounded(completed.stderr),
+            returncode,
+            _decode_bounded(bytes(stdout)),
+            _decode_bounded(bytes(stderr)),
         )
 
 

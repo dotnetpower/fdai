@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
 from scripts.benchmarking.cybergym_runtime import (
+    CommandExecutor,
     CyberGymDockerRuntime,
     CyberGymPaths,
     CyberGymRuntimeError,
@@ -123,6 +125,31 @@ def test_verify_outputs_enforces_mode_and_bounds(tmp_path: Path) -> None:
 
     artifacts.joinpath("poc.bin").write_bytes(b"poc")
     verify_outputs(task, artifacts)
+
+
+@pytest.mark.parametrize("file_descriptor", (1, 2))
+def test_command_executor_stops_output_above_cap(file_descriptor: int) -> None:
+    command = (
+        sys.executable,
+        "-c",
+        f"import os; os.write({file_descriptor}, b'x' * (2 * 1024 * 1024 + 1))",
+    )
+
+    with pytest.raises(CyberGymRuntimeError, match="byte cap"):
+        CommandExecutor().run(command, timeout=10)
+
+
+def test_command_executor_preserves_bounded_output_streams() -> None:
+    result = CommandExecutor().run(
+        (
+            sys.executable,
+            "-c",
+            "import sys; print('out'); print('err', file=sys.stderr)",
+        ),
+        timeout=10,
+    )
+
+    assert result == ProcessResult(0, "out\n", "err\n")
 
 
 def test_copilot_sandbox_exposes_only_task_and_output_writes(tmp_path: Path) -> None:
