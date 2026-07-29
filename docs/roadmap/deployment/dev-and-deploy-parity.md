@@ -102,7 +102,8 @@ Each long-running Console task permits one VS Code instance. The core task and d
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.
 The core runtime, read API, and frontend tasks use separate dedicated terminal groups and clear only
-their own previous output when restarted. VS Code marks each background task ready only after the
+their own previous output when restarted. Read API startup stays silent and never takes editor focus.
+VS Code marks each background task ready only after the
 Pantheon bridge starts, Uvicorn completes application startup, or Vite publishes its local address,
 respectively, so a spawned process isn't presented as a ready service.
 The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is

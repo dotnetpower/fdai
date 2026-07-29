@@ -323,6 +323,12 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert "--allow-loopback-http" in tasks
     assert core_env["FDAI_RUNTIME_LOCK_FILE"] == "${workspaceFolder}/.fdai/core-runtime.lock"
     assert tasks.count('"instanceLimit": 1') >= 5
+    read_api_task = tasks.split('"label": "console: read API (Local Entra)"', 1)[1].split(
+        '"label": "console: frontend (Browser Entra)"',
+        1,
+    )[0]
+    assert '"reveal": "silent"' in read_api_task
+    assert '"focus": false' in read_api_task
     for terminal_group in (
         "console-core-runtime",
         "console-read-api",

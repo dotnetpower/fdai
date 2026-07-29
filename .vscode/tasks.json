@@ -186,7 +186,8 @@
         }
       },
       "presentation": {
-        "reveal": "always",
+        "reveal": "silent",
+        "focus": false,
         "panel": "dedicated",
         "group": "console-read-api",
         "clear": true,

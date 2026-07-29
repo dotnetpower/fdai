@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f8ddbf3ab35d3e1468fd1d8f6423428c9446c07c
+translation_source_sha: d67a3fdb7319a64294919a8f410838a7d833d8f6
 translation_revised: 2026-07-29
 ---
 
@@ -105,7 +105,8 @@ HTTP response, authentication failure, malformed payload 또는 소진된 schedu
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
 실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.
 Core runtime, read API 및 frontend task는 각각 별도의 dedicated terminal group을 사용하며 재시작할 때
-자신의 이전 output만 지웁니다. VS Code는 Pantheon bridge 시작, Uvicorn application startup 완료 또는
+자신의 이전 output만 지웁니다. Read API startup은 조용히 유지되며 editor focus를 가져가지 않습니다.
+VS Code는 Pantheon bridge 시작, Uvicorn application startup 완료 또는
 Vite local address 게시를 각각 확인한 뒤에만 background task를 ready로 표시합니다. 따라서 process가
 생성되기만 한 상태를 준비된 service로 표시하지 않습니다.
 표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로,
