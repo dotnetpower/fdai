@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 6bb556d504a2a147361e210d8003df503fcd87af
+translation_source_sha: cfead6e5d91ea4635216b5bec9ef0959a5815b86
 translation_revised: 2026-07-29
 ---
 
@@ -201,6 +201,11 @@ neighborhood를 반환합니다. 알 수 없는 root는 `404`를 반환하고 ca
 `truncated=true`로 표시합니다. Local Azure CLI provider는 authoritative cached snapshot에
 동일한 제한을 적용하며 deployed PostgreSQL provider는 active snapshot과 real-time overlay
 내부에 적용합니다. 어느 profile도 rooted request를 complete inventory로 확장하지 않습니다.
+Deployed provider는 유효 graph를 하나의 repeatable-read, read-only transaction에서 읽으며,
+두 profile 모두 같은 depth의 frontier resource를 결정론적 순서로 round-robin 확장합니다.
+Named-view request는 기존 3-argument provider call contract를 유지하며 rooted request만 확장
+keyword를 요구합니다. Relationship-filter count와 text length는 provider dispatch 전에
+제한합니다.
 
 Runtime policies는 deployment와 local PostgreSQL이 구성된 경우 동일한 StateStore record를
 사용합니다. Durable local state가 없으면 source manifest는 persistence를 주장하지 않고 settings

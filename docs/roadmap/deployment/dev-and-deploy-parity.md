@@ -198,7 +198,11 @@ a deterministic named architecture view. The mutually exclusive rooted mode uses
 an unknown root returns `404`, and a cap sets `truncated=true`. The local Azure CLI provider applies
 the same bounds to its authoritative cached snapshot that the deployed PostgreSQL provider applies
 inside the active snapshot plus real-time overlay. Neither profile widens a rooted request to the
-complete inventory.
+complete inventory. The deployed provider reads that effective graph in one repeatable-read,
+read-only transaction, and both profiles expand same-depth frontier resources round-robin in a
+deterministic order. Named-view requests keep the original three-argument provider call contract;
+only rooted requests require the extended keywords. Relationship-filter count and text length are
+bounded before provider dispatch.
 
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
 configured. Without durable local state, the source manifest reports the settings store as
