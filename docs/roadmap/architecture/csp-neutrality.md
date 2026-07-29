@@ -281,7 +281,9 @@ returns `404`; it never widens to a named view or the complete inventory. This r
 the console expand one resource at a time without loading a large tenant graph. `scope` and `root`
 are mutually exclusive, and a custom `limit` is accepted only with `root`. Relationship filters
 accept at most 64 repeated `link` values, and each `link` or comma-separated `include` value is
-bounded to 512 characters before parsing.
+bounded to 512 characters before parsing. Within one depth, traversal orders edges deterministically
+and expands unseen neighbors round-robin by frontier resource, so one high-degree resource cannot
+consume every remaining result slot.
 
 The projection publishes named architecture views. A request without `scope` returns only
 FDAI's own control plane, identified by the authoritative `fdai:managed=true` plus

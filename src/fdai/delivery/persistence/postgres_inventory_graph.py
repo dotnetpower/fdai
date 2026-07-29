@@ -35,10 +35,21 @@ _SELECT_RESOURCES = (
     "FROM effective_resources WHERE resource_id=ANY(%s::text[]) ORDER BY resource_id"
 )
 _SELECT_ADJACENT_LINKS = (
-    _EFFECTIVE_LINKS_CTE + "SELECT from_id, from_type, link_type, to_id, to_type, props "
-    "FROM effective_links WHERE (from_id=ANY(%s::text[]) OR to_id=ANY(%s::text[])) "
-    "AND link_type=ANY(%s::text[]) "
-    "ORDER BY LEAST(from_id, to_id), GREATEST(from_id, to_id), link_type LIMIT %s"
+    _EFFECTIVE_LINKS_CTE  # noqa: S608 - static SQL fragments; all values are bound
+    + ", incident_links AS ("
+    "SELECT l.*, l.from_id AS frontier_id FROM effective_links l "
+    "WHERE l.from_id=ANY(%s::text[]) AND NOT (l.to_id=ANY(%s::text[])) "
+    "UNION ALL "
+    "SELECT l.*, l.to_id AS frontier_id FROM effective_links l "
+    "WHERE l.to_id=ANY(%s::text[]) AND NOT (l.from_id=ANY(%s::text[]))), "
+    "ranked_links AS ("
+    "SELECT from_id, from_type, link_type, to_id, to_type, props, frontier_id, "
+    "ROW_NUMBER() OVER (PARTITION BY frontier_id ORDER BY LEAST(from_id, to_id), "
+    "GREATEST(from_id, to_id), link_type, from_id, to_id) AS edge_rank "
+    "FROM incident_links WHERE link_type=ANY(%s::text[])) "
+    "SELECT from_id, from_type, link_type, to_id, to_type, props FROM ranked_links "
+    "ORDER BY edge_rank, frontier_id, LEAST(from_id, to_id), GREATEST(from_id, to_id), "
+    "link_type, from_id, to_id LIMIT %s"
 )
 _SELECT_INTERNAL_LINKS = (
     _EFFECTIVE_LINKS_CTE + "SELECT from_id, from_type, link_type, to_id, to_type, props "
@@ -82,7 +93,9 @@ async def load_rooted_inventory_graph(
             (
                 snapshot_id,
                 sorted(frontier),
+                sorted(selected),
                 sorted(frontier),
+                sorted(selected),
                 list(link_types),
                 edge_cap + 1,
             ),

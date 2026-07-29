@@ -254,6 +254,79 @@ async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
     assert limited["truncated"] is True
 
 
+async def test_rooted_inventory_graph_expands_frontier_fairly() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    provider = PostgresInventoryGraphProvider(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    child_ids = tuple(f"fair-a-child-{index:03d}" for index in range(65))
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("fair-root", "resource-group"),
+                ResourceRecord("fair-a", "compute.vm"),
+                ResourceRecord("fair-z", "compute.vm"),
+                *(ResourceRecord(child_id, "compute.vm") for child_id in child_ids),
+                ResourceRecord("fair-z-child", "compute.vm"),
+            ),
+            links=(
+                LinkRecord(
+                    from_id="fair-root",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="fair-a",
+                    to_type="compute.vm",
+                ),
+                LinkRecord(
+                    from_id="fair-root",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="fair-z",
+                    to_type="compute.vm",
+                ),
+                *(
+                    LinkRecord(
+                        from_id="fair-a",
+                        from_type="compute.vm",
+                        link_type="contains",
+                        to_id=child_id,
+                        to_type="compute.vm",
+                    )
+                    for child_id in child_ids
+                ),
+                LinkRecord(
+                    from_id="fair-z",
+                    from_type="compute.vm",
+                    link_type="contains",
+                    to_id="fair-z-child",
+                    to_type="compute.vm",
+                ),
+            ),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    graph = await provider(
+        None,
+        2,
+        ("contains",),
+        root="fair-root",
+        limit=5,
+    )
+
+    assert [resource["id"] for resource in graph["resources"]] == [
+        "fair-root",
+        "fair-a",
+        "fair-z",
+        "fair-a-child-000",
+        "fair-z-child",
+    ]
+    assert graph["truncated"] is True
+
+
 async def test_inventory_graph_read_uses_consistent_read_only_transaction() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())

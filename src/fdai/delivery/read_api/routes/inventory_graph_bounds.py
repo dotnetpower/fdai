@@ -23,14 +23,12 @@ def project_bounded_inventory_neighborhood(
     if root not in by_id:
         raise InventoryGraphViewNotFoundError(f"inventory resource not found: {root}")
     allowed_links = [link for link in links if str(link.get("type")) in link_types]
-    adjacency: dict[str, list[str]] = defaultdict(list)
+    adjacency: dict[str, set[str]] = defaultdict(set)
     for link in allowed_links:
         source = str(link["source"])
         target = str(link["target"])
-        adjacency[source].append(target)
-        adjacency[target].append(source)
-    for neighbors in adjacency.values():
-        neighbors.sort()
+        adjacency[source].add(target)
+        adjacency[target].add(source)
 
     selected = {root}
     selected_order = [root]
@@ -38,8 +36,17 @@ def project_bounded_inventory_neighborhood(
     truncated = False
     for _ in range(depth):
         next_frontier: list[str] = []
-        for resource_id in frontier:
-            for neighbor in adjacency.get(resource_id, ()):
+        candidates = {
+            resource_id: sorted(adjacency.get(resource_id, set()) - selected)
+            for resource_id in sorted(frontier)
+        }
+        candidate_depth = max((len(neighbors) for neighbors in candidates.values()), default=0)
+        for neighbor_index in range(candidate_depth):
+            for resource_id in sorted(frontier):
+                neighbors = candidates[resource_id]
+                if neighbor_index >= len(neighbors):
+                    continue
+                neighbor = neighbors[neighbor_index]
                 if neighbor in selected or neighbor not in by_id:
                     continue
                 if len(selected_order) >= limit:
