@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalReadApiUnavailable } from "../api";
 import type { ReadApiClient } from "../api";
 import { bestPracticeHref, rulesCatalogViewFromSearch } from "./best-practice-controls.model";
-import { BestPracticeControlsRoute } from "./best-practice-controls";
+import { ControlsCatalogRoute } from "./controls-catalog";
 import {
   ErrorState,
   LoadingState,
@@ -86,7 +86,7 @@ export function RuleCatalogRoute({ client }: Props) {
         <a class={view === "rules" ? "is-active" : undefined} aria-current={view === "rules" ? "page" : undefined} href={routeHref("rules")}>{t("governance.rules.view.rules")}</a>
         <a class={view === "controls" ? "is-active" : undefined} aria-current={view === "controls" ? "page" : undefined} href={bestPracticeHref({ pillar: "", status: "", q: "" }, null)}>{t("governance.rules.view.controls")}</a>
       </nav>
-      {view === "controls" ? <BestPracticeControlsRoute client={client} /> : <AtomicRuleCatalogRoute client={client} />}
+      {view === "controls" ? <ControlsCatalogRoute client={client} /> : <AtomicRuleCatalogRoute client={client} />}
     </div>
   );
 }

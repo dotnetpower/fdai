@@ -280,6 +280,12 @@
       "routeUnavailable": "Best-practice controls are not available in this deployment.",
       "loadFailed": "Failed to load controls: {message}",
       "loading": "Loading controls...",
+      "framework": {
+        "aria": "Control framework",
+        "waf": "Azure WAF",
+        "mcsbV1": "MCSB v1",
+        "mcsbV2": "MCSB v2 preview"
+      },
       "context": {
         "routeLabel": "Controls",
         "purpose": "Version-pinned Best Practice definitions and their evidence requirements. Catalog presence is reference data, not runtime compliance evidence.",
@@ -324,6 +330,58 @@
         "requirements": "Evidence requirements"
       }
     },
+    "mcsb": {
+      "routeUnavailable": "MCSB controls are not available in this deployment.",
+      "loadFailed": "Failed to load MCSB controls: {message}",
+      "loading": "Loading MCSB controls...",
+      "context": {
+        "routeLabel": "MCSB controls",
+        "purpose": "Versioned benchmark definitions and reviewed implementation mappings. Coverage describes FDAI implementation, not workload compliance.",
+        "headline": "MCSB {version}: {total} controls; {unmapped} remain unmapped"
+      },
+      "banner": {
+        "title": "Implementation coverage, not compliance status.",
+        "body": "The v1 workbook is pinned and mapped to FDAI rules, runtime observations, and manual evidence. {policyRefs} Azure Policy references are tracked at benchmark level and do not prove a control passed.",
+        "metadataTitle": "MCSB v2 is tracked separately as preview metadata.",
+        "metadataBody": "The preview policy profile is pinned, but v2 control definitions are not imported. No v1 mapping is reused or relabeled as v2 coverage."
+      },
+      "kpi": {
+        "total": "MCSB controls",
+        "automated": "Automated",
+        "partial": "Partial",
+        "manual": "Manual evidence",
+        "unmapped": "Unmapped"
+      },
+      "column": {
+        "domain": "Domain",
+        "coverage": "Coverage",
+        "rules": "Rules",
+        "runtime": "Runtime",
+        "manual": "Manual"
+      },
+      "filter": {
+        "domain": "Domain",
+        "coverage": "Coverage",
+        "searchAria": "Search MCSB controls",
+        "searchPlaceholder": "e.g. DP-3 or encryption"
+      },
+      "result": {
+        "empty": "No MCSB controls match the current filters.",
+        "metadataOnly": "Control definitions for this preview version are not imported.",
+        "showing": "Showing {filtered} of {total} MCSB controls"
+      },
+      "detail": {
+        "aria": "MCSB control detail",
+        "title": "MCSB control detail",
+        "loading": "Loading MCSB control detail...",
+        "loadFailed": "Failed to load MCSB control detail: {message}",
+        "boundary": "Coverage records reviewed implementation links. It does not assert that a workload satisfies this control.",
+        "rules": "FDAI rules",
+        "runtime": "Runtime observations",
+        "manual": "Manual evidence",
+        "none": "No reviewed mapping is recorded."
+      }
+    },
     "severityRisk": {
       "critical": "Critical - a violation is an immediate, high-impact exposure.",
       "high": "High - a violation is a serious risk that should be fixed promptly.",
@@ -357,6 +415,27 @@
       "stale": "Stale",
       "unknown": "Unknown",
       "not_applicable": "Not applicable"
+    },
+    "mcsbCoverage": {
+      "automated": "Automated",
+      "partial": "Partial",
+      "manual": "Manual evidence",
+      "unmapped": "Unmapped"
+    },
+    "mcsbDomain": {
+      "NS": "Network security",
+      "IM": "Identity management",
+      "PA": "Privileged access",
+      "DP": "Data protection",
+      "AM": "Asset management",
+      "LT": "Logging and threat detection",
+      "IR": "Incident response",
+      "PV": "Posture and vulnerability management",
+      "ES": "Endpoint security",
+      "BR": "Backup and recovery",
+      "DS": "DevOps security",
+      "GS": "Governance and strategy",
+      "AI": "Artificial intelligence security"
     },
     "severity": {
       "critical": "Critical",
