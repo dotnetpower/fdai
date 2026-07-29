@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/catalog/mcsb-controls/1.0.0",
+  "title": "MCSB control catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "benchmark",
+    "benchmark_version",
+    "status",
+    "control_import_status",
+    "title",
+    "source",
+    "controls"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "kind": {"const": "mcsb-controls"},
+    "benchmark": {"const": "mcsb"},
+    "benchmark_version": {"type": "string", "pattern": "^v[0-9]+(?:-preview)?$"},
+    "status": {"enum": ["stable", "preview", "legacy"]},
+    "control_import_status": {"enum": ["complete", "partial", "metadata_only"]},
+    "title": {"type": "string", "minLength": 1, "maxLength": 256},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_url",
+        "artifact_url",
+        "resolved_ref",
+        "content_hash",
+        "license",
+        "redistribution",
+        "retrieved_at"
+      ],
+      "properties": {
+        "source_url": {"type": "string", "format": "uri"},
+        "artifact_url": {"type": ["string", "null"], "format": "uri"},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^(sha256:[0-9a-f]{64}|git:[0-9a-f]{40})$"},
+        "license": {"type": "string", "minLength": 1},
+        "redistribution": {"enum": ["embeddable", "reference-only"]},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "domain", "title"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^(NS|IM|PA|DP|AM|LT|IR|PV|ES|BR|DS|GS|AI)-[1-9][0-9]*$"},
+          "domain": {"enum": ["NS", "IM", "PA", "DP", "AM", "LT", "IR", "PV", "ES", "BR", "DS", "GS", "AI"]},
+          "title": {"type": "string", "minLength": 1, "maxLength": 256}
+        }
+      }
+    }
+  }
+}

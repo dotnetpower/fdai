@@ -1,0 +1,16 @@
+schema_version: 1.0.0
+kind: mcsb-controls
+benchmark: mcsb
+benchmark_version: v2-preview
+status: preview
+control_import_status: metadata_only
+title: Microsoft Cloud Security Benchmark v2 preview
+source:
+  source_url: https://learn.microsoft.com/security/benchmark/azure/overview
+  artifact_url: null
+  resolved_ref: 730b807e29a747a417d3b9880ee9c375ab82df3b
+  content_hash: git:730b807e29a747a417d3b9880ee9c375ab82df3b
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: "2026-07-29T01:20:00Z"
+controls: []

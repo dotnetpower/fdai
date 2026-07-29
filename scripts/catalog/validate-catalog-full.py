@@ -27,6 +27,8 @@ What it runs (in order)
                           rule ids + extends dag for every profile
 * best_practice_deep    - strict typed refs + complete Azure WAF control
                           set + version-pinned rule-set members
+* mcsb_deep             - versioned v1/v2 control imports + strict rule,
+                          runtime, evidence, and policy-profile crosswalks
 * action_type_deep      - schema + argument_schema is valid draft-2020-12
                           + shadow default => promotion_gate present
 * remediation_deep      - schema + action_type_id points to an existing
@@ -85,6 +87,7 @@ from catalog_validation import common as _common
 from catalog_validation.catalog_steps import (
     step_action_type_deep,
     step_best_practice_deep,
+    step_mcsb_deep,
     step_profile_deep,
     step_remediation_deep,
     step_risk_classification,
@@ -141,6 +144,7 @@ ALL_STEPS: list[tuple[str, Callable[[Runner], StepResult]]] = [
     ("rule_deep", step_rule_deep),
     ("profile_deep", step_profile_deep),
     ("best_practice_deep", step_best_practice_deep),
+    ("mcsb_deep", step_mcsb_deep),
     ("action_type_deep", step_action_type_deep),
     ("remediation_deep", step_remediation_deep),
     ("risk_classification", step_risk_classification),

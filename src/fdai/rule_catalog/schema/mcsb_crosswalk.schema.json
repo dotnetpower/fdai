@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/catalog/mcsb-crosswalk/1.0.0",
+  "title": "MCSB implementation crosswalk",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "benchmark", "benchmark_version", "policy_profiles", "mappings"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "kind": {"const": "mcsb-crosswalk"},
+    "benchmark": {"const": "mcsb"},
+    "benchmark_version": {"type": "string", "pattern": "^v[0-9]+(?:-preview)?$"},
+    "policy_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["profile_id", "policy_ref_count"],
+        "properties": {
+          "profile_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "policy_ref_count": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["control_id", "coverage", "rule_ids", "runtime_observation_ids", "manual_evidence_refs"],
+        "properties": {
+          "control_id": {"type": "string", "pattern": "^(NS|IM|PA|DP|AM|LT|IR|PV|ES|BR|DS|GS|AI)-[1-9][0-9]*$"},
+          "coverage": {"enum": ["automated", "partial", "manual", "unmapped"]},
+          "rule_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          "runtime_observation_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          "manual_evidence_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
+        }
+      }
+    }
+  }
+}

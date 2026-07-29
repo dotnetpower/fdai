@@ -1,0 +1,180 @@
+schema_version: 1.0.0
+kind: mcsb-crosswalk
+benchmark: mcsb
+benchmark_version: v1
+policy_profiles:
+  - profile_id: compliance.security-center.microsoft-cloud-security-b-57-56-0
+    policy_ref_count: 222
+  - profile_id: compliance.security-center.microsoft-cloud-security-benchmark
+    policy_ref_count: 169
+mappings:
+  - control_id: NS-2
+    coverage: partial
+    rule_ids:
+      - object-storage.private-endpoint.required
+      - object-storage.public-access.deny
+      - secret-store.public-network-access.disabled
+    runtime_observation_ids:
+      - mysql-public-access
+    manual_evidence_refs: []
+  - control_id: NS-5
+    coverage: partial
+    rule_ids:
+      - network.vnet.ddos-plan.required
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: NS-8
+    coverage: partial
+    rule_ids:
+      - network.nsg.no-inbound-any-rdp
+      - network.nsg.no-inbound-any-ssh
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: IM-1
+    coverage: partial
+    rule_ids: []
+    runtime_observation_ids:
+      - aks-rbac
+      - aks-entra-integration
+    manual_evidence_refs: []
+  - control_id: IM-3
+    coverage: partial
+    rule_ids:
+      - compute.vm.managed-identity.assigned
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: IM-8
+    coverage: partial
+    rule_ids:
+      - object-storage.shared-key-access.disabled
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: PA-1
+    coverage: partial
+    rule_ids:
+      - resource-group.role-assignment.owner-count-within-limit
+      - subscription.role-assignment.no-guest-privileged
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: PA-2
+    coverage: partial
+    rule_ids:
+      - subscription.role-assignment.no-standing-privileged-access
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: PA-7
+    coverage: partial
+    rule_ids:
+      - managed-identity.role-assignment.no-privileged-subscription-scope
+      - managed-identity.role-assignment.no-wildcard-action
+      - secret-store.rbac-authorization.enabled
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: DP-3
+    coverage: partial
+    rule_ids:
+      - object-storage.https-only.required
+      - object-storage.min-tls-version
+      - postgresql-server.ssl-enforcement
+    runtime_observation_ids:
+      - mysql-tls
+    manual_evidence_refs: []
+  - control_id: DP-4
+    coverage: partial
+    rule_ids:
+      - object-storage.encryption-at-rest.required
+      - postgresql-server.encryption-at-rest
+      - sql-database.tde-required
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: DP-6
+    coverage: partial
+    rule_ids:
+      - secret-store.rotation-overdue
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: DP-8
+    coverage: partial
+    rule_ids:
+      - secret-store.purge-protection.enabled
+      - secret-store.soft-delete.enabled
+    runtime_observation_ids: []
+    manual_evidence_refs: []
+  - control_id: LT-1
+    coverage: partial
+    rule_ids: []
+    runtime_observation_ids:
+      - aks-container-insights
+    manual_evidence_refs: []
+  - control_id: LT-3
+    coverage: partial
+    rule_ids:
+      - secret-store.diagnostic-settings-required
+      - sql-database.audit-enabled
+    runtime_observation_ids:
+      - aks-diagnostics
+      - mysql-audit-log
+      - mysql-diagnostics
+    manual_evidence_refs: []
+  - control_id: IR-1
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - incident-response-plan
+  - control_id: IR-7
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - incident-response-drill
+  - control_id: PV-2
+    coverage: partial
+    rule_ids: []
+    runtime_observation_ids:
+      - aks-policy-addon
+    manual_evidence_refs: []
+  - control_id: BR-4
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - restore-failover-drill
+  - control_id: DS-1
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - security-threat-model
+  - control_id: GS-1
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - target-architecture
+  - control_id: GS-3
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - privacy-impact-assessment
+  - control_id: GS-7
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - incident-response-plan
+  - control_id: GS-8
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - disaster-recovery-plan
+      - rpo-rto-approval
+  - control_id: GS-10
+    coverage: manual
+    rule_ids: []
+    runtime_observation_ids: []
+    manual_evidence_refs:
+      - development-practices
+      - development-quality-standards

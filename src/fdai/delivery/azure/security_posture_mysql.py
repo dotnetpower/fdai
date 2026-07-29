@@ -24,6 +24,7 @@ from fdai.delivery.azure.security_posture_helpers import (
     private_mysql_value,
     tls_status,
 )
+from fdai.delivery.azure.security_posture_mcsb import mcsb_controls
 from fdai.delivery.azure.security_posture_models import AzureResourceSecurityEvidence
 from fdai.shared.providers.inventory import ResourceRecord
 
@@ -114,7 +115,7 @@ def mysql_controls(
             validation="Negotiate supported and rejected TLS versions.",
             priority="critical",
             due_days=1,
-            compliance=("MCSB-DP-3",),
+            compliance=mcsb_controls("mysql-tls"),
             source_url=_MYSQL_GUIDANCE,
         ),
         control(
@@ -133,7 +134,7 @@ def mysql_controls(
             validation="Verify the public endpoint cannot be reached.",
             priority="critical",
             due_days=1,
-            compliance=("MCSB-NS-2",),
+            compliance=mcsb_controls("mysql-public-access"),
             source_url=_MYSQL_GUIDANCE,
         ),
         control(
@@ -252,7 +253,7 @@ def mysql_controls(
             validation="Generate a test event and verify its immutable log record.",
             priority="critical",
             due_days=1,
-            compliance=("CIS-MYSQL-6.1", "MCSB-LT-3"),
+            compliance=("CIS-MYSQL-6.1", *mcsb_controls("mysql-audit-log")),
             source_url=_MYSQL_GUIDANCE,
         ),
         control(
@@ -271,7 +272,7 @@ def mysql_controls(
             validation="Generate a connection event and verify its retained record.",
             priority="high",
             due_days=7,
-            compliance=("MCSB-LT-3",),
+            compliance=mcsb_controls("mysql-diagnostics"),
             source_url=_MYSQL_GUIDANCE,
         ),
         control(

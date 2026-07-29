@@ -18,6 +18,7 @@ from fdai.delivery.azure.security_posture_helpers import (
     optional_bool_status,
     presence_status,
 )
+from fdai.delivery.azure.security_posture_mcsb import mcsb_controls
 from fdai.delivery.azure.security_posture_models import AzureResourceSecurityEvidence
 from fdai.shared.providers.inventory import ResourceRecord
 
@@ -94,7 +95,7 @@ def aks_controls(
             validation="Verify least-privilege role assignments with an authorization probe.",
             priority="critical",
             due_days=1,
-            compliance=("MCSB-IM-1",),
+            compliance=mcsb_controls("aks-rbac"),
             source_url=_AKS_GUIDANCE,
         ),
         control(
@@ -131,7 +132,7 @@ def aks_controls(
             validation="Verify group-based access and reject local-only authorization.",
             priority="critical",
             due_days=1,
-            compliance=("MCSB-IM-1",),
+            compliance=mcsb_controls("aks-entra-integration"),
             source_url=_AKS_GUIDANCE,
         ),
         control(
@@ -222,7 +223,7 @@ def aks_controls(
             validation="Verify compliance state for the baseline controls.",
             priority="medium",
             due_days=30,
-            compliance=("MCSB-PV-2",),
+            compliance=mcsb_controls("aks-policy-addon"),
             source_url=_AKS_GUIDANCE,
         ),
         control(
@@ -297,7 +298,7 @@ def aks_controls(
             validation="Verify recent pod and node telemetry in the workspace.",
             priority="high",
             due_days=7,
-            compliance=("MCSB-LT-1",),
+            compliance=mcsb_controls("aks-container-insights"),
             source_url=_AKS_GUIDANCE,
         ),
         control(
@@ -316,7 +317,7 @@ def aks_controls(
             validation="Generate a test event and verify its retained record.",
             priority="high",
             due_days=7,
-            compliance=("MCSB-LT-3",),
+            compliance=mcsb_controls("aks-diagnostics"),
             source_url=_AKS_GUIDANCE,
         ),
     )

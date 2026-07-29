@@ -1,0 +1,8 @@
+schema_version: 1.0.0
+kind: mcsb-crosswalk
+benchmark: mcsb
+benchmark_version: v2-preview
+policy_profiles:
+  - profile_id: compliance.security-center.preview-microsoft-cloud-security-benc
+    policy_ref_count: 410
+mappings: []

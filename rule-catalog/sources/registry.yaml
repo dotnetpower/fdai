@@ -22,15 +22,16 @@ sources:
   - id: mcsb
     name: Microsoft Cloud Security Benchmark
     url_prefix: https://learn.microsoft.com/security/benchmark/azure/
-    license: LicenseRef-reference-only
-    redistribution: reference-only
+    license: CC-BY-4.0
+    redistribution: embeddable
     scope: >-
       Baseline security controls Microsoft publishes for Azure; combines
       NIST 800-53, PCI DSS, and CIS controls into a single Azure-mapped
       matrix. Domains: Network, Identity, Privileged Access, Data
       Protection, Asset Management, Logging & Threat Detection, Incident
       Response, Posture & Vulnerability Management, Endpoint Security,
-      Backup & Recovery, DevOps Security, Governance & Strategy.
+      Backup & Recovery, DevOps Security, Governance & Strategy. FDAI
+      imports the pinned v1 workbook and tracks v2 preview separately.
     maintainer_url: https://learn.microsoft.com/security/benchmark/azure/introduction
 
   - id: waf

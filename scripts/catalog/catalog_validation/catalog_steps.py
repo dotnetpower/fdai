@@ -252,6 +252,83 @@ def step_best_practice_deep(runner: Runner) -> StepResult:
     )
 
 
+def step_mcsb_deep(runner: Runner) -> StepResult:
+    """Validate versioned MCSB controls and every implementation cross-reference."""
+
+    from fdai.delivery.azure.security_posture_mcsb import MCSB_CONTROLS_BY_OBSERVATION
+    from fdai.rule_catalog.schema.mcsb_catalog import McsbCatalogError, load_mcsb_catalogs
+
+    rule_sources: dict[str, str] = {}
+    for path in iter_rule_files():
+        data = load_yaml(path)
+        if isinstance(data, dict) and "id" in data and "source" in data:
+            rule_sources[str(data["id"])] = str(data["source"])
+    profile_counts: dict[str, int] = {}
+    for path in sorted((PROFILES_DIR / "collected").glob("*.yaml")):
+        data = load_yaml(path)
+        if isinstance(data, dict) and "id" in data:
+            rules = data.get("rules")
+            profile_counts[str(data["id"])] = len(rules) if isinstance(rules, list) else 0
+    review_raw = load_yaml(ARCHITECTURE_REVIEW)
+    manual_evidence: set[str] = set()
+    if isinstance(review_raw, dict) and isinstance(review_raw.get("architecture_review"), dict):
+        review = review_raw["architecture_review"]
+        artifacts = review.get("artifacts")
+        if isinstance(artifacts, list):
+            manual_evidence.update(
+                str(artifact["id"])
+                for artifact in artifacts
+                if isinstance(artifact, dict) and "id" in artifact
+            )
+        gate = review.get("production_gate")
+        if isinstance(gate, dict) and isinstance(gate.get("required_evidence"), list):
+            manual_evidence.update(str(value) for value in gate["required_evidence"])
+
+    findings: list[str] = []
+    catalogs = ()
+    try:
+        catalogs = load_mcsb_catalogs(
+            CATALOG_ROOT / "compliance" / "mcsb",
+            known_rule_ids=set(rule_sources),
+            known_policy_profiles=profile_counts,
+            known_runtime_observation_ids=set(MCSB_CONTROLS_BY_OBSERVATION),
+            known_manual_evidence_refs=manual_evidence,
+        )
+    except (FileNotFoundError, McsbCatalogError) as exc:
+        findings.append(str(exc))
+    by_version = {catalog.benchmark_version: catalog for catalog in catalogs}
+    if set(by_version) != {"v1", "v2-preview"}:
+        findings.append("MCSB catalogs MUST contain separate v1 and v2-preview versions")
+    v1 = by_version.get("v1")
+    if v1 is not None:
+        if len(v1.controls) != 86:
+            findings.append(f"MCSB v1 MUST contain 86 controls, found {len(v1.controls)}")
+        expected_coverage = {"manual": 9, "partial": 16, "unmapped": 61}
+        if v1.coverage_counts() != expected_coverage:
+            findings.append(
+                f"MCSB v1 coverage differs: {v1.coverage_counts()} != {expected_coverage}"
+            )
+        mapped_rules = {rule_id for mapping in v1.mappings for rule_id in mapping.rule_ids}
+        expected_rules = {rule_id for rule_id, source in rule_sources.items() if source == "mcsb"}
+        if mapped_rules != expected_rules:
+            findings.append("MCSB v1 crosswalk does not cover every curated MCSB rule exactly")
+    v2 = by_version.get("v2-preview")
+    if v2 is not None and (v2.control_import_status != "metadata_only" or v2.controls):
+        findings.append("MCSB v2 preview MUST remain metadata-only until controls are imported")
+    return StepResult(
+        name="mcsb_deep",
+        ok=not findings,
+        duration_s=0.0,
+        findings=findings,
+        stats={
+            "versions_checked": len(catalogs),
+            "controls_checked": sum(len(catalog.controls) for catalog in catalogs),
+            "mcsb_rules_checked": sum(source == "mcsb" for source in rule_sources.values()),
+            "runtime_observations_checked": len(MCSB_CONTROLS_BY_OBSERVATION),
+        },
+    )
+
+
 def step_action_type_deep(runner: Runner) -> StepResult:
     if not ACTION_TYPES_DIR.is_dir():
         return StepResult(
