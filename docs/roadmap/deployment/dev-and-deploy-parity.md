@@ -192,6 +192,14 @@ cluster name must match the Azure inventory result before Deployment or Pod evid
 an AKS answer. With all three values absent, workload coverage remains explicitly unavailable; a
 partial binding fails startup instead of using the implicit current context.
 
+Local and deployed inventory projections use the same two query modes. `scope=<view-id>` selects
+a deterministic named architecture view. The mutually exclusive rooted mode uses
+`root=<resource-id>`, `depth=1..8`, and `limit=1..1000` to return one bidirectional neighborhood;
+an unknown root returns `404`, and a cap sets `truncated=true`. The local Azure CLI provider applies
+the same bounds to its authoritative cached snapshot that the deployed PostgreSQL provider applies
+inside the active snapshot plus real-time overlay. Neither profile widens a rooted request to the
+complete inventory.
+
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
 configured. Without durable local state, the source manifest reports the settings store as
 unavailable or non-durable instead of claiming persistence. Readers see the sanitized environment,

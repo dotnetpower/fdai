@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9edbf09c8b4913afcbc7cf3a085c7e335514fd8b
+translation_source_sha: 4764320cca9a905c7c2c584f4486a82f3bbb40a8
 translation_revised: 2026-07-29
 ---
 
@@ -193,6 +193,14 @@ binding합니다. Deployment 또는 Pod evidence가 AKS answer의 coverage를 �
 Azure inventory result와 일치해야 합니다. 세 값이 모두 없으면 workload coverage는 명시적으로
 unavailable 상태를 유지하며, 일부만 설정된 binding은 implicit current context를 사용하는 대신
 startup에 실패합니다.
+
+Local 및 deployed inventory projection은 같은 두 query mode를 사용합니다.
+`scope=<view-id>`는 결정론적 named architecture view를 선택합니다. 이 mode와 함께 사용할 수
+없는 rooted mode는 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`으로 하나의 양방향
+neighborhood를 반환합니다. 알 수 없는 root는 `404`를 반환하고 cap에 도달하면
+`truncated=true`로 표시합니다. Local Azure CLI provider는 authoritative cached snapshot에
+동일한 제한을 적용하며 deployed PostgreSQL provider는 active snapshot과 real-time overlay
+내부에 적용합니다. 어느 profile도 rooted request를 complete inventory로 확장하지 않습니다.
 
 Runtime policies는 deployment와 local PostgreSQL이 구성된 경우 동일한 StateStore record를
 사용합니다. Durable local state가 없으면 source manifest는 persistence를 주장하지 않고 settings
