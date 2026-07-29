@@ -254,7 +254,8 @@ no separate copy. JSON and SSE chat return the same contract answer without call
   current root retries in place without adding a duplicate history entry. The view preserves source,
   freshness, snapshot time, and stable truncation reasons from the provider, and handles an unavailable
   inventory route without disabling the three registry views. Before browser serialization, the Read API
-  rejects missing or invalid snapshot time, freshness, resource name, and resource status fields.
+  rejects missing or invalid snapshot time, freshness, resource name, and resource status fields. Shared
+  canvas, resource-selector, and layer labels follow the operator locale, including accessible names.
 
 The ActionType projection is additive: `action_type_count` and `action_types`
 may be zero or absent on an older deployment, while ObjectType and LinkType

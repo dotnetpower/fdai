@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 19225fdc9df9598844435fc1a88af5a5624c88fb
+translation_source_sha: 1c971d8ffc64f26333414a3d6cdd048cd1598f6e
 translation_revised: 2026-07-30
 ---
 
@@ -252,7 +252,8 @@ truth가 아닙니다. SPA는 별도 복사본을 저장하지 않습니다. JSO
   추가하지 않고 제자리에서 재시도합니다. 이 뷰는 provider의 원본, 최신 상태, 스냅샷
   시각, 안정적인 잘림 사유를 유지하고, 인벤토리 라우트를 사용할 수 없어도 세 가지
   레지스트리 뷰를 비활성화하지 않습니다. Read API는 browser serialization 전에 누락되거나
-  잘못된 snapshot time, freshness, resource name 및 resource status field를 거부합니다.
+  잘못된 snapshot time, freshness, resource name 및 resource status field를 거부합니다. Shared
+  canvas, resource selector 및 layer label은 accessible name을 포함해 operator locale을 따릅니다.
 
 ActionType projection 은 additive 입니다. 이전 deployment 에서는
 `action_type_count` 와 `action_types` 가 없거나 0일 수 있지만 ObjectType 과

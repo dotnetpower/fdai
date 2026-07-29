@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
-import { architectureResourceFromValue } from "./architecture-map";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLocale } from "../i18n";
+import {
+  architectureMapAriaLabel,
+  architectureMapLayerLabel,
+  architectureMapSelectLabel,
+  architectureMapSelectOptionLabel,
+  architectureResourceFromValue,
+} from "./architecture-map";
 import {
   ARCHITECTURE_RESOURCE_ABBREVIATIONS,
   architectureResourceAbbreviation,
@@ -46,6 +53,8 @@ const overviewPanelSource = readFileSync(
   "utf8",
 );
 
+afterEach(() => setLocale("en"));
+
 describe("architecture resource navigator", () => {
   it("selects only an exact resource id", () => {
     const resources = [
@@ -68,6 +77,15 @@ describe("architecture resource navigator", () => {
 });
 
 describe("architecture map labels", () => {
+  it("localizes shared map controls for Korean routes", () => {
+    setLocale("ko");
+
+    expect(architectureMapLayerLabel("scope")).toBe("범위 및 경계");
+    expect(architectureMapAriaLabel(3)).toBe("리소스 3개의 아키텍처 지도");
+    expect(architectureMapSelectLabel()).toBe("아키텍처 리소스 선택");
+    expect(architectureMapSelectOptionLabel()).toBe("리소스 선택");
+  });
+
   it("grows labels with zoom while preserving readable bounds", () => {
     expect(architectureLabelFontSize(22)).toBe(13);
     expect(architectureLabelFontSize(23)).toBeGreaterThan(13);
