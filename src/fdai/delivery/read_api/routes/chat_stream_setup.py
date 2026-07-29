@@ -15,6 +15,9 @@ from fdai.delivery.read_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     resolve_document_refs,
 )
+from fdai.delivery.read_api.routes.chat_inventory_followup import (
+    contextualize_inventory_scope_followup,
+)
 from fdai.delivery.read_api.routes.chat_resource_context import (
     contextualize_resource_followup,
     parse_resource_context,
@@ -44,6 +47,7 @@ class PreparedChatStreamRequest:
     evidence_prompt: str
     resource_context: dict[str, str] | None
     resource_followup: bool
+    inventory_scope_followup: bool
     view_context: dict[str, Any]
     conversation_context: dict[str, str] | None
     target_agent: str | None
@@ -128,6 +132,10 @@ async def prepare_chat_stream_request(
         clean_prompt,
         resource_context,
     )
+    evidence_prompt, inventory_scope_followup = contextualize_inventory_scope_followup(
+        evidence_prompt,
+        history,
+    )
     answer_plan = build_answer_plan(
         evidence_prompt,
         route_id=str(view_context.get("routeId") or "") or None,
@@ -144,6 +152,7 @@ async def prepare_chat_stream_request(
         evidence_prompt=evidence_prompt,
         resource_context=resource_context,
         resource_followup=resource_followup,
+        inventory_scope_followup=inventory_scope_followup,
         view_context=view_context,
         conversation_context=conversation_context,
         target_agent=_target_agent(body, conversation_context),

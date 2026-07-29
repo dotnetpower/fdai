@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 98218e6ae7afcdc72412402af45f0726e5cf584c
+translation_source_sha: fcaf82db0a9e58495b34c4391aa49e9c68a4049f
 translation_revised: 2026-07-30
 ---
 
@@ -315,7 +315,7 @@ descriptor만 반환합니다. Narrator는 principal role에 허용된 같은 de
   Current-screen, audit, inventory, catalog 및 sensitive-data 경계는 semantic fallback 전에 적용됩니다.
   `AKS에`처럼 ASCII resource token 뒤에 한국어 조사가 붙은 경우와 `중지된 db` 같은 database status
   filter를 포함한 deterministic local inventory intent는 operator가 web search를 명시적으로 요청하지
-  않는 한 semantic public-web plan보다 우선합니다. Coordinator는 local tool branch만 실행합니다. Cluster inventory만 연결된 상태의 AKS 앱
+  않는 한 semantic public-web plan보다 우선합니다. Coordinator는 local tool branch만 실행합니다. Scope-only next turn은 최신 user inventory question만 재사용하고 server provider scope만 변경하며 typed facet과 projection을 유지하고 client tool evidence는 무시하며 최신 turn이 inventory가 아니면 unresolved 상태를 유지합니다. Cluster inventory만 연결된 상태의 AKS 앱
   배포 질문은 partial로 유지하고 관찰된 cluster resource와 Kubernetes workload evidence 누락을 함께
   표시합니다.
   Deterministic evidence fast path는 contributor prose를 사용하지 않으므로 shadow answer-planning

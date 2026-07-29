@@ -180,6 +180,7 @@ def make_chat_stream_route(
         evidence_prompt = prepared.evidence_prompt
         resource_context = prepared.resource_context
         resource_followup = prepared.resource_followup
+        deterministic_followup = resource_followup or prepared.inventory_scope_followup
         view_context = prepared.view_context
         conversation_context = prepared.conversation_context
         target_agent = prepared.target_agent
@@ -290,7 +291,7 @@ def make_chat_stream_route(
                     await cleanup()
                     yield frame("done", completed_payload)
                     return
-                if turn_planner is not None and not resource_followup:
+                if turn_planner is not None and not deterministic_followup:
                     try:
                         semantic_plan = await turn_planner.plan_turn(
                             prompt=clean_prompt,
@@ -428,7 +429,7 @@ def make_chat_stream_route(
                         None
                         if "_screen_scope" in enriched_context
                         or "_ontology_storage_contract" in enriched_context
-                        or resource_followup
+                        or deterministic_followup
                         or _uses_evidence_fast_path(enriched_context)
                         else answer_planning_delegate
                     ),

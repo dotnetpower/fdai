@@ -111,6 +111,9 @@ from fdai.delivery.read_api.routes.chat_history import (
     completed_replay_payload,
     replay_metadata,
 )
+from fdai.delivery.read_api.routes.chat_inventory_followup import (
+    contextualize_inventory_scope_followup,
+)
 from fdai.delivery.read_api.routes.chat_prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,
     _AGENT_NAME_TOKEN,
@@ -367,6 +370,11 @@ def make_chat_route(
             clean_prompt,
             resource_context,
         )
+        evidence_prompt, inventory_scope_followup = contextualize_inventory_scope_followup(
+            evidence_prompt,
+            history,
+        )
+        deterministic_followup = resource_followup or inventory_scope_followup
         answer_plan = build_answer_plan(
             evidence_prompt,
             route_id=str(view_context.get("routeId") or "") or None,
@@ -391,7 +399,7 @@ def make_chat_route(
         try:
             operator_turn = None
             semantic_plan = None
-            if turn_planner is not None and not resource_followup:
+            if turn_planner is not None and not deterministic_followup:
                 try:
                     semantic_plan = await turn_planner.plan_turn(
                         prompt=clean_prompt,
@@ -501,7 +509,7 @@ def make_chat_route(
                     None
                     if "_screen_scope" in view_context
                     or "_ontology_storage_contract" in view_context
-                    or resource_followup
+                    or deterministic_followup
                     or _uses_evidence_fast_path(view_context)
                     else answer_planning_delegate
                 ),

@@ -17,6 +17,11 @@ from fdai.delivery.read_api.routes.chat_inventory_compiler import (
     compile_inventory_query,
     is_inventory_question,
 )
+from fdai.delivery.read_api.routes.chat_inventory_followup import (
+    SUBSCRIPTION_ROOT,
+    SUBSCRIPTION_ROOT_LIMIT,
+    requests_subscription_inventory,
+)
 from fdai.delivery.read_api.routes.chat_inventory_query import (
     InventoryField,
     InventoryOperator,
@@ -93,7 +98,20 @@ class InventoryChatTools:
         if not needs_inventory_evidence(prompt):
             return await self._fallback(prompt, principal_id=principal_id)
         try:
-            graph = dict(await self.provider(None, 4, ("contains", "attached_to", "depends_on")))
+            if requests_subscription_inventory(prompt):
+                graph = dict(
+                    await self.provider(
+                        None,
+                        4,
+                        ("contains", "attached_to", "depends_on"),
+                        root=SUBSCRIPTION_ROOT,
+                        limit=SUBSCRIPTION_ROOT_LIMIT,
+                    )
+                )
+            else:
+                graph = dict(
+                    await self.provider(None, 4, ("contains", "attached_to", "depends_on"))
+                )
             safe_payload = _safe_inventory_payload(graph)
             if safe_payload is None:
                 raise ValueError("invalid_inventory_payload")

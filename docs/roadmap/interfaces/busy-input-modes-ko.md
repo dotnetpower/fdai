@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 47fff0f51396a6dcf457a388ccf8eb4c8dae49ae
+translation_source_sha: 55efc7f0e3cfae8f9d375e0ba8c393186d3771d5
 translation_revised: 2026-07-30
 ---
 
@@ -151,6 +151,11 @@ inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 
 가져오거나 요청한 state가 관측되지 않았을 때 조용히 넓어지지 않습니다. 명시적인 name-list 표현은
 structured evidence를 제거하지 않고 presentation만 matched name으로 좁힙니다. Partial AKS cluster
 inventory는 cluster 내부 Deployment 또는 Pod의 proof가 되지 않습니다.
+`in the subscription` 또는 `구독에서` 같은 queued scope-only fragment는 최신 user inventory
+question을 다시 compile하고 provider scope만 subscription root로 변경합니다. Resource type, status
+predicate 및 projection을 유지하고 client가 제공한 tool evidence는 무시하며 semantic 및 public-web
+planning을 생략합니다. 최신 user turn이 없거나 inventory 질문이 아니면 더 오래된 intent를 가져오지
+않고 fragment를 unresolved 상태로 유지합니다.
 Queued terminal follow-up도 이전 server inventory answer가 선택한 bounded resource 하나를 유지합니다.
 Browser는 name, type 및 inventory evidence reference만 persist합니다. "언제부터 중지되어 있었어?" 같은
 history 표현은 semantic 및 public-web planning을 우회하지만, server가 selector를 검증하고 exact

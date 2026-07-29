@@ -150,6 +150,11 @@ type, so an AKS question cannot borrow a VM status or silently widen when the re
 unobserved. Explicit name-list wording narrows presentation to matched names without dropping the
 structured evidence. Partial AKS cluster inventory never becomes proof of an in-cluster Deployment
 or Pod.
+A queued scope-only fragment such as `in the subscription` or `구독에서` recompiles the latest user
+inventory question and changes only its provider scope to the subscription root. It preserves the
+resource type, status predicates, and projection, ignores client-provided tool evidence, and skips
+semantic and public-web planning. A missing or non-inventory latest user turn leaves the fragment
+unresolved instead of borrowing older intent.
 A queued terminal follow-up also retains one bounded resource selected by the preceding server
 inventory answer. The browser persists only its name, type, and inventory evidence reference.
 History wording such as "Since when has it been stopped?" bypasses semantic and public-web planning,

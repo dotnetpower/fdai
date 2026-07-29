@@ -324,7 +324,7 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   A deterministic local inventory intent, including an ASCII resource token followed by a Korean
   particle such as `AKS에` and a database state filter such as `stopped db`, overrides a semantic
   public-web plan unless the operator explicitly requests a web search. The coordinator runs only
-  the local tool branch. An AKS application
+  the local tool branch. A scope-only next turn reuses only the latest user inventory question, changes only its server provider scope, preserves typed facets and projection, ignores client tool evidence, and stays unresolved when that latest turn isn't inventory. An AKS application
   deployment question remains partial when only cluster inventory is connected; it lists the
   observed cluster resources and states that Kubernetes workload evidence is missing.
   A deterministic evidence fast path doesn't start the shadow answer-planning round because it

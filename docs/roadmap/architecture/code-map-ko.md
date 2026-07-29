@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1588235caf5183b2867400839668b2ada3777fe3
+translation_source_sha: a0f99d0649a3ab5f92b3345534b5acdfcbd843f1
 translation_revised: 2026-07-30
 ---
 # 코드 맵
@@ -116,6 +116,12 @@ shared 패키지를 커버한다.
 완료된 결과를 primary answer로 사용합니다. 선택된 read가 실패하면 generic 또는 contributor
 fallback 없이 handoff합니다. Delivery adapter는 완료된 답변에 무관한 tool evidence를 추가하지
 않습니다.
+
+Inventory scope-only follow-up은
+[`chat_inventory_followup.py`](../../../src/fdai/delivery/read_api/routes/chat_inventory_followup.py)에
+분리되어 있습니다. 이 helper는 최신 user inventory intent만 재사용하며 `chat.py`와
+`chat_stream.py`는 동일한 deterministic planning bypass와 subscription-root provider scope를
+적용합니다.
 
 ## 룰 카탈로그, 배포, 플랫폼
 

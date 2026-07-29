@@ -115,6 +115,11 @@ the final T0/T1 owner route, runs one uniquely highest-scoring owned read, and u
 result as the primary answer. A selected read failure hands off without generic or contributor
 fallback. The delivery adapter never adds unrelated tool evidence to a completed answer.
 
+Inventory scope-only follow-ups are isolated in
+[`chat_inventory_followup.py`](../../../src/fdai/delivery/read_api/routes/chat_inventory_followup.py).
+The helper reuses only the latest user inventory intent, while `chat.py` and `chat_stream.py` apply
+the same deterministic planning bypass and subscription-root provider scope.
+
 ## Rule catalog, deploy, and platform
 
 | Subsystem | Responsibility | Source | Tests |

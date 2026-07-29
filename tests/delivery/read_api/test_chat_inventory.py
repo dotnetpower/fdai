@@ -21,6 +21,9 @@ from fdai.delivery.read_api.routes.chat_inventory import (
     inventory_evidence_refs,
     render_inventory_answer,
 )
+from fdai.delivery.read_api.routes.chat_inventory_followup import (
+    contextualize_inventory_scope_followup,
+)
 from fdai.delivery.read_api.routes.chat_resource_context import resource_followup_answer
 from fdai.delivery.read_api.routes.chat_turn_plan import parse_turn_plan
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
@@ -365,6 +368,194 @@ async def test_stopped_aks_name_list_keeps_type_and_status_scoped_together(
         },
         {"field": "status", "operator": "eq", "value": "stopped"},
     ]
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    (
+        "구독에서",
+        "구독 전체에서",
+        "전체 구독 범위로",
+    ),
+)
+def test_subscription_scope_followup_reuses_prior_inventory_intent(fragment: str) -> None:
+    provider_calls: list[dict[str, object]] = []
+
+    async def subscription_inventory(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        provider_calls.append({"scope": scope, "root": root, "limit": limit})
+        graph = await _provider(scope, depth, link_types)
+        resources = [
+            {
+                **resource,
+                "status": "stopped" if resource["name"] == "aks-app" else resource["status"],
+            }
+            for resource in graph["resources"]
+        ]
+        resources.append(
+            _resource(
+                "aks-running",
+                "kubernetes-cluster",
+                "aks-running",
+                group="rg-app",
+                location="koreacentral",
+                status="running",
+            )
+        )
+        return {
+            **graph,
+            "active_view": "resource:azure-subscription",
+            "resources": resources,
+        }
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("deterministic scope follow-up must not invoke planning")
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("deterministic scope follow-up must not search the web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("deterministic scope follow-up must not search the web")
+
+    backend = RecordingBackend()
+    tools = InventoryChatTools(subscription_inventory)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+                web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={
+            "prompt": fragment,
+            "view_context": {},
+            "history": [
+                {
+                    "role": "user",
+                    "content": "중지된 AKS 클러스터 이름 목록으로 보여줄래?",
+                },
+                {
+                    "role": "assistant",
+                    "content": "현재 view에서 중지된 AKS 클러스터 이름을 확인했습니다.",
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "aks-app" in payload["answer"]
+    assert "aks-running" not in payload["answer"]
+    assert "kubernetes-cluster" not in payload["answer"]
+    assert provider_calls == [{"scope": None, "root": "azure-subscription", "limit": 1000}]
+    assert payload["verification"]["authority"] == "server_inventory_graph"
+    assert backend.calls == 0
+
+
+def test_subscription_fragment_does_not_reuse_missing_or_stale_inventory_intent() -> None:
+    assert contextualize_inventory_scope_followup("구독에서", ()) == ("구독에서", False)
+    assert contextualize_inventory_scope_followup(
+        "구독에서",
+        (
+            {
+                "role": "user",
+                "content": "중지된 AKS 클러스터 이름 목록으로 보여줄래?",
+            },
+            {"role": "assistant", "content": "두 개를 확인했습니다."},
+            {"role": "user", "content": "고마워"},
+            {"role": "assistant", "content": "도움이 되어 기쁩니다."},
+        ),
+    ) == ("구독에서", False)
+    assert contextualize_inventory_scope_followup(
+        "구독에서 장애가 있어?",
+        ({"role": "user", "content": "중지된 AKS 클러스터 목록"},),
+    ) == ("구독에서 장애가 있어?", False)
+
+
+def test_subscription_scope_followup_stream_uses_subscription_root() -> None:
+    provider_calls: list[dict[str, object]] = []
+
+    async def subscription_inventory(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        provider_calls.append({"scope": scope, "root": root, "limit": limit})
+        graph = await _provider(scope, depth, link_types)
+        return {
+            **graph,
+            "active_view": "resource:azure-subscription",
+            "resources": [
+                {
+                    **resource,
+                    "status": ("stopped" if resource["name"] == "aks-app" else resource["status"]),
+                }
+                for resource in graph["resources"]
+            ],
+        }
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("deterministic scope follow-up must not invoke planning")
+
+    backend = RecordingBackend()
+    tools = InventoryChatTools(subscription_inventory)
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "prompt": "구독에서",
+            "view_context": {},
+            "history": [
+                {
+                    "role": "user",
+                    "content": "중지된 AKS 클러스터 이름 목록으로 보여줄래?",
+                },
+                {"role": "assistant", "content": "두 개를 확인했습니다."},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert "aks-app" in done["answer"]
+    assert "kubernetes-cluster" not in done["answer"]
+    assert provider_calls == [{"scope": None, "root": "azure-subscription", "limit": 1000}]
+    assert done["verification"]["authority"] == "server_inventory_graph"
+    assert backend.calls == 0
 
 
 def test_inventory_provider_failure_is_unverified_and_fail_closed() -> None:
