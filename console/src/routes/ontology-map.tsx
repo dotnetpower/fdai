@@ -28,6 +28,13 @@ export function normalizeOntologyMapRoot(value: string | null): string | null {
   return normalized && normalized.length <= MAX_ROOT_LENGTH ? normalized : null;
 }
 
+export function ontologyMapRootAction(
+  currentRoot: string | null,
+  nextRoot: string,
+): "reload" | "navigate" {
+  return currentRoot === nextRoot ? "reload" : "navigate";
+}
+
 export function loadOntologyMapGraph(
   client: PanelClient,
   root: null,
@@ -59,6 +66,7 @@ export function OntologyMapView({ client }: { readonly client: ReadApiClient }) 
   const [draftRoot, setDraftRoot] = useState(routeRoot ?? "");
   const [state, setState] = useState<AsyncState<InventoryGraphResponse>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(routeRoot);
+  const [requestRevision, setRequestRevision] = useState(0);
 
   useEffect(() => {
     const sync = () => {
@@ -96,9 +104,13 @@ export function OntologyMapView({ client }: { readonly client: ReadApiClient }) 
     return () => {
       cancelled = true;
     };
-  }, [client, root]);
+  }, [client, requestRevision, root]);
 
   const openRoot = (resourceId: string): void => {
+    if (ontologyMapRootAction(root, resourceId) === "reload") {
+      setRequestRevision((revision) => revision + 1);
+      return;
+    }
     navigate(routeHref("ontology", { params: { view: "map", root: resourceId } }));
   };
   const submitRoot = (event: Event): void => {

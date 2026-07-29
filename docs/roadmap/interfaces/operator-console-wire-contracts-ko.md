@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 792f1046d147b6a81b367d3008e4001c90f4eb87
+translation_source_sha: 6a870b6fad33cb179602fddb48f37e5febc7f963
 translation_revised: 2026-07-30
 ---
 
@@ -248,7 +248,8 @@ truth가 아닙니다. SPA는 별도 복사본을 저장하지 않습니다. JSO
 - **온톨로지 맵**: operator가 루트 리소스 id를 입력하기 전에는 콘솔이 인벤토리 요청을
   보내지 않습니다. 입력 후에는 `depth=2`, `limit=200`,
   `contains,attached_to,depends_on`으로 제한된 인접 관계만 요청합니다. 인접 리소스를
-  선택해 쿼리 루트를 변경할 수 있습니다. 이 뷰는 provider의 원본, 최신 상태, 스냅샷
+  선택해 쿼리 루트를 변경할 수 있으며, 현재 루트를 다시 제출하면 중복 history entry를
+  추가하지 않고 제자리에서 재시도합니다. 이 뷰는 provider의 원본, 최신 상태, 스냅샷
   시각, 안정적인 잘림 사유를 유지하고, 인벤토리 라우트를 사용할 수 없어도 세 가지
   레지스트리 뷰를 비활성화하지 않습니다.
 

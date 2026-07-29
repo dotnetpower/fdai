@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   loadOntologyMapGraph,
   normalizeOntologyMapRoot,
+  ontologyMapRootAction,
   ontologyMapTruncationReasonLabel,
 } from "./ontology-map";
 
@@ -17,6 +18,12 @@ describe("ontology resource map", () => {
 
     await expect(loadOntologyMapGraph({ panel }, null)).resolves.toBeNull();
     expect(panel).not.toHaveBeenCalled();
+  });
+
+  it("retries the current root without adding duplicate history", () => {
+    expect(ontologyMapRootAction("resource-a", "resource-a")).toBe("reload");
+    expect(ontologyMapRootAction("resource-a", "resource-b")).toBe("navigate");
+    expect(ontologyMapRootAction(null, "resource-a")).toBe("navigate");
   });
 
   it("loads only the bounded neighborhood around the selected root", async () => {
