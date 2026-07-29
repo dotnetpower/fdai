@@ -8786,7 +8786,7 @@ main { padding-bottom: 60px !important; }
 /* Ontology registry views ------------------------------------------------ */
 .ontology-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   padding: 3px;
   border: 1px solid var(--border);
@@ -8820,6 +8820,52 @@ main { padding-bottom: 60px !important; }
   color: var(--fg-muted);
   font-size: 10.5px;
   text-align: center;
+}
+.ontology-runtime-map { display: grid; gap: 16px; min-width: 0; }
+.ontology-map-query {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, .75fr);
+  gap: 24px;
+  align-items: end;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--bg-elevated);
+}
+.ontology-map-query h3 { margin: 0 0 6px; font-size: 17px; }
+.ontology-map-query p { max-width: 72ch; margin: 0; color: var(--fg-muted); font-size: 12px; line-height: 1.5; }
+.ontology-map-query form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.ontology-map-query label { display: grid; gap: 5px; min-width: 0; color: var(--fg-muted); font-size: 11px; font-weight: 650; }
+.ontology-map-query input { width: 100%; min-width: 0; min-height: 38px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg); color: var(--fg); padding: 7px 9px; font: inherit; font-size: 12px; }
+.ontology-map-idle { display: grid; place-items: center; min-height: 260px; border: 1px dashed var(--border); color: var(--fg-muted); text-align: center; }
+.ontology-map-idle strong { color: var(--fg); }
+.ontology-map-idle p { max-width: 56ch; margin: 6px 16px 0; font-size: 12px; }
+.ontology-map-result { min-width: 0; border: 1px solid var(--border); border-radius: var(--cs-radius); background: var(--bg-elevated); overflow: clip; }
+.ontology-map-metadata { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; border-bottom: 1px solid var(--border); }
+.ontology-map-metadata > div { min-width: 0; padding: 10px 14px; border-right: 1px solid var(--border); }
+.ontology-map-metadata > div:last-child { border-right: 0; }
+.ontology-map-metadata dt { color: var(--fg-muted); font-size: 10px; text-transform: uppercase; }
+.ontology-map-metadata dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 11px; }
+.ontology-map-truncated { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--warning) 10%, var(--bg-elevated)); color: var(--warning); font-size: 11px; }
+.ontology-map-stage { display: grid; grid-template-columns: minmax(0, 1fr) 280px; min-width: 0; }
+.ontology-map-inspector { min-width: 0; padding: 18px; border-left: 1px solid var(--border); }
+.ontology-map-inspector .eyebrow { color: var(--fg-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; }
+.ontology-map-inspector h3 { margin: 5px 0 14px; overflow-wrap: anywhere; font-size: 17px; }
+.ontology-map-inspector dl { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 8px; margin: 0 0 18px; font-size: 11px; }
+.ontology-map-inspector dt { color: var(--fg-muted); }
+.ontology-map-inspector dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .ontology-map-query { grid-template-columns: minmax(0, 1fr); }
+  .ontology-map-stage { grid-template-columns: minmax(0, 1fr); }
+  .ontology-map-inspector { border-top: 1px solid var(--border); border-left: 0; }
+}
+@media (max-width: 620px) {
+  .ontology-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ontology-map-query { padding: 14px; }
+  .ontology-map-query form { grid-template-columns: minmax(0, 1fr); }
+  .ontology-map-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ontology-map-metadata > div:nth-child(2) { border-right: 0; }
+  .ontology-map-metadata > div:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
 }
 .ontology-object-toolbar {
   display: flex;

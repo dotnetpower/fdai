@@ -53,11 +53,14 @@ export interface InventoryGraphResponse {
   readonly freshness: "fresh" | "stale" | "unknown";
   readonly source?: string;
   readonly scope: string | null;
+  readonly root?: string | null;
   readonly depth: number;
+  readonly limit?: number;
   readonly included_link_types: readonly string[];
   readonly resources: readonly InventoryResource[];
   readonly links: readonly InventoryLink[];
   readonly truncated: boolean;
+  readonly truncation_reasons?: readonly string[];
   readonly cursor?: string | null;
   readonly cache?: {
     readonly status: "fresh" | "stale" | "refreshing";

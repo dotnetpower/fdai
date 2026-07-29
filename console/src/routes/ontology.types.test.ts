@@ -7,6 +7,7 @@ describe("ontology view model", () => {
     expect(ontologyView("unknown")).toBe("objects");
     expect(ontologyView("links")).toBe("links");
     expect(ontologyView("actions")).toBe("actions");
+    expect(ontologyView("map")).toBe("map");
   });
 
   it("formats nested safety contract records without inventing fields", () => {

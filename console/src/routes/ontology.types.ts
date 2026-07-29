@@ -1,6 +1,6 @@
 import type { OntologyEdge, OntologyNode } from "../components/ontology-graph";
 
-export type OntologyView = "objects" | "links" | "actions";
+export type OntologyView = "objects" | "links" | "actions" | "map";
 export type UnknownRecord = Readonly<Record<string, unknown>>;
 
 export interface OntologyActionTypeRecord {
@@ -40,7 +40,7 @@ export interface OntologyGraphResponse {
 }
 
 export function ontologyView(value: string | null): OntologyView {
-  return value === "links" || value === "actions" ? value : "objects";
+  return value === "links" || value === "actions" || value === "map" ? value : "objects";
 }
 
 export function recordValue(record: UnknownRecord | undefined, key: string): string | null {

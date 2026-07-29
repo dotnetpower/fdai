@@ -21,6 +21,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
 import { OntologyActionsView, requestedOntologyAction } from "./ontology-actions";
 import { OntologyLinksView } from "./ontology-links";
+import { OntologyMapView } from "./ontology-map";
 import { formatNumber, t } from "./i18n/ontology";
 import {
   ontologyView,
@@ -181,6 +182,7 @@ export function OntologyRoute({ client }: Props) {
       <AsyncBoundary state={state} resourceLabel={t("ontology.route.loadingLabel")}>
         {(data) => (
           <OntologyBody
+            client={client}
             data={data}
             includeProperties={includeProperties}
             onIncludePropertiesChange={changeIncludeProperties}
@@ -192,10 +194,12 @@ export function OntologyRoute({ client }: Props) {
 }
 
 function OntologyBody({
+  client,
   data,
   includeProperties,
   onIncludePropertiesChange,
 }: {
+  readonly client: ReadApiClient;
   readonly data: OntologyGraphResponse;
   readonly includeProperties: boolean;
   readonly onIncludePropertiesChange: (value: boolean) => void;
@@ -322,6 +326,7 @@ function OntologyBody({
         <OntologyTab view="objects" active={view} count={data.object_type_count} label={t("ontology.common.objects")} />
         <OntologyTab view="links" active={view} count={data.link_type_count} label={t("ontology.common.links")} />
         <OntologyTab view="actions" active={view} count={data.action_type_count ?? actionTypes.length} label={t("ontology.common.actions")} />
+        <OntologyTab view="map" active={view} label={t("ontology.common.map")} />
       </nav>
 
       {view === "objects" ? (
@@ -390,6 +395,8 @@ function OntologyBody({
       {view === "actions" ? (
         <OntologyActionsView actions={actionTypes} selectedName={selectedAction} />
       ) : null}
+
+      {view === "map" ? <OntologyMapView client={client} /> : null}
     </div>
   );
 }
@@ -402,7 +409,7 @@ function OntologyTab({
 }: {
   readonly view: OntologyView;
   readonly active: OntologyView;
-  readonly count: number;
+  readonly count?: number;
   readonly label: string;
 }) {
   return (
@@ -412,7 +419,7 @@ function OntologyTab({
       aria-current={view === active ? "page" : undefined}
     >
       <span>{label}</span>
-      <strong>{formatNumber(count)}</strong>
+      {count === undefined ? null : <strong>{formatNumber(count)}</strong>}
     </a>
   );
 }

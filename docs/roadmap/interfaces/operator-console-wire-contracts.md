@@ -222,6 +222,11 @@ This display contract does not grant execution authority:
 `GET /ontology/graph` is the read-only registry projection for the web
 console's three ontology views:
 
+The Ontology screen also exposes a fourth **Ontology map** view backed independently by
+`GET /inventory/graph`. It is a runtime resource projection, not another copy of the declaration
+catalog or the generic ontology-instance tables. This separation lets the registry views remain
+available when runtime inventory is unavailable.
+
 Storage questions use a deterministic catalog contract rather than treating the requested path as
 a missing screen field. Built-in ObjectType and LinkType definitions come from
 `rule-catalog/vocabulary/object-types/` and `rule-catalog/vocabulary/link-types/`; ActionType
@@ -243,9 +248,14 @@ no separate copy. JSON and SSE chat return the same contract answer without call
   safety-contract records. The catalog view exposes category, trigger,
   execution path, rollback contract, default mode, preconditions, stop
   conditions, blast-radius declaration, tier ceilings, and promotion gate.
+- **Ontology map**: the console sends no inventory request until the operator provides a root
+  resource id. It then requests only that bounded neighborhood with `depth=2`, `limit=200`, and
+  `contains,attached_to,depends_on`. Selecting a neighbor can re-root the query. The view preserves
+  source, freshness, snapshot time, and stable truncation reasons from the provider, and handles an
+  unavailable inventory route without disabling the three registry views.
 
 The ActionType projection is additive: `action_type_count` and `action_types`
 may be zero or absent on an older deployment, while ObjectType and LinkType
 exploration continues to work. ActionTypes stay out of the ObjectType graph so
-a large action catalog doesn't obscure resource relationships. All three views
+a large action catalog doesn't obscure resource relationships. All four views
 are GET-only and issue no action or approval call.

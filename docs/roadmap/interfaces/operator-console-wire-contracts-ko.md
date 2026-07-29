@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1699873febc9d88e63f31f050acc6142b66850f7
-translation_revised: 2026-07-29
+translation_source_sha: 792f1046d147b6a81b367d3008e4001c90f4eb87
+translation_revised: 2026-07-30
 ---
 
 # Operator Console - Data and Wire Contracts
@@ -219,6 +219,11 @@ entry 를 제거합니다.
 `GET /ontology/graph` 는 웹 콘솔의 세 가지 온톨로지 뷰를 위한 read-only
 레지스트리 projection 입니다.
 
+온톨로지 화면에는 `GET /inventory/graph`를 독립적으로 사용하는 네 번째 **온톨로지 맵**
+뷰도 있습니다. 이 뷰는 런타임 리소스 projection이며 선언 카탈로그 또는 범용 온톨로지
+인스턴스 테이블의 별도 복사본이 아닙니다. 이 분리를 통해 런타임 인벤토리를 사용할 수
+없어도 레지스트리 뷰는 계속 사용할 수 있습니다.
+
 저장 위치 질문은 요청한 경로를 누락된 화면 필드로 취급하지 않고 결정적 catalog contract를
 사용합니다. 기본 ObjectType과 LinkType 정의는 `rule-catalog/vocabulary/object-types/` 및
 `rule-catalog/vocabulary/link-types/`에서, ActionType 정의는 `rule-catalog/action-types/`에서
@@ -240,9 +245,15 @@ truth가 아닙니다. SPA는 별도 복사본을 저장하지 않습니다. JSO
   포함합니다. Catalog 뷰는 category, trigger, execution path, rollback contract,
   default mode, precondition, stop condition, blast-radius declaration, tier ceiling,
   promotion gate 를 표시합니다.
+- **온톨로지 맵**: operator가 루트 리소스 id를 입력하기 전에는 콘솔이 인벤토리 요청을
+  보내지 않습니다. 입력 후에는 `depth=2`, `limit=200`,
+  `contains,attached_to,depends_on`으로 제한된 인접 관계만 요청합니다. 인접 리소스를
+  선택해 쿼리 루트를 변경할 수 있습니다. 이 뷰는 provider의 원본, 최신 상태, 스냅샷
+  시각, 안정적인 잘림 사유를 유지하고, 인벤토리 라우트를 사용할 수 없어도 세 가지
+  레지스트리 뷰를 비활성화하지 않습니다.
 
 ActionType projection 은 additive 입니다. 이전 deployment 에서는
 `action_type_count` 와 `action_types` 가 없거나 0일 수 있지만 ObjectType 과
 LinkType 탐색은 계속 동작합니다. 큰 action catalog 가 resource relationship 을
-가리지 않도록 ActionType 은 ObjectType graph 에 넣지 않습니다. 세 뷰는 모두
+가리지 않도록 ActionType 은 ObjectType graph 에 넣지 않습니다. 네 뷰는 모두
 GET-only 이며 action 또는 approval 호출을 실행하지 않습니다.
