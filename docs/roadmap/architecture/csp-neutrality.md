@@ -283,7 +283,8 @@ are mutually exclusive, and a custom `limit` is accepted only with `root`. Relat
 accept at most 64 repeated `link` values, and each `link` or comma-separated `include` value is
 bounded to 512 characters before parsing. Within one depth, traversal orders edges deterministically
 and expands unseen neighbors round-robin by frontier resource, so one high-degree resource cannot
-consume every remaining result slot.
+consume every remaining result slot. Local and deployed providers also sort internal relationships
+and return at most `max(64, limit * 8)` edges, marking the neighborhood truncated when more exist.
 
 The projection publishes named architecture views. A request without `scope` returns only
 FDAI's own control plane, identified by the authoritative `fdai:managed=true` plus

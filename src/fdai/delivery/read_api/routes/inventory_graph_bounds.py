@@ -8,6 +8,9 @@ from typing import Any
 
 from fdai.shared.providers.inventory import InventoryGraphViewNotFoundError
 
+_MAX_EDGE_MULTIPLIER = 8
+_MIN_EDGE_CAP = 64
+
 
 def project_bounded_inventory_neighborhood(
     *,
@@ -59,13 +62,22 @@ def project_bounded_inventory_neighborhood(
         if not frontier:
             break
 
-    return {
-        "resources": [dict(by_id[resource_id]) for resource_id in selected_order],
-        "links": [
+    internal_links = sorted(
+        (
             dict(link)
             for link in allowed_links
             if str(link["source"]) in selected and str(link["target"]) in selected
-        ],
+        ),
+        key=lambda link: (str(link["source"]), str(link["type"]), str(link["target"])),
+    )
+    edge_cap = max(_MIN_EDGE_CAP, limit * _MAX_EDGE_MULTIPLIER)
+    if len(internal_links) > edge_cap:
+        truncated = True
+        internal_links = internal_links[:edge_cap]
+
+    return {
+        "resources": [dict(by_id[resource_id]) for resource_id in selected_order],
+        "links": internal_links,
         "truncated": truncated,
     }
 

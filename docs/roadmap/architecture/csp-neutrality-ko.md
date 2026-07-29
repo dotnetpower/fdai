@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 1d16d911aac7a819dc43e11d0ea84f0ae37a1c96
+translation_source_sha: 69a309021465888a7de8ea883cc3b6c32f223ca5
 translation_revised: 2026-07-29
 ---
 
@@ -274,7 +274,9 @@ tenant graph를 전부 로드하지 않고 console에서 리소스를 하나씩 
 Relationship filter는 반복 `link` 값을 최대 64개까지 허용하며, 각 `link` 또는 comma로
 구분된 `include` 값은 parsing 전에 512자로 제한합니다. 같은 depth에서는 edge를
 결정론적으로 정렬하고 frontier resource별로 보이지 않은 neighbor를 round-robin 확장하므로,
-하나의 high-degree resource가 남은 result slot을 모두 차지할 수 없습니다.
+하나의 high-degree resource가 남은 result slot을 모두 차지할 수 없습니다. Local 및 deployed
+provider는 internal relationship도 정렬하고 최대 `max(64, limit * 8)`개 edge를 반환하며,
+더 많은 edge가 있으면 neighborhood를 truncated로 표시합니다.
 
 이 프로젝션은 이름이 지정된 아키텍처 뷰를 제공합니다. `scope` 없는 요청은 권위 있는
 `fdai:managed=true`와 `fdai:workload=fdai` 인벤토리 tag pair로 식별된 FDAI 자체

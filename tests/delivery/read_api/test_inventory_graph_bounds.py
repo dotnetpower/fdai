@@ -47,3 +47,27 @@ def test_bounded_neighborhood_expands_frontier_fairly() -> None:
         "fair-z-child",
     ]
     assert graph["truncated"] is True
+
+
+def test_bounded_neighborhood_caps_internal_links() -> None:
+    resource_ids = tuple(f"dense-{index}" for index in range(10))
+    resources = [{"id": resource_id, "type": "test"} for resource_id in resource_ids]
+    links = [
+        {"source": source, "target": target, "type": "depends_on"}
+        for source in resource_ids
+        for target in resource_ids
+        if source != target
+    ]
+
+    graph = project_bounded_inventory_neighborhood(
+        resources=resources,
+        links=links,
+        root="dense-0",
+        depth=1,
+        link_types=("depends_on",),
+        limit=10,
+    )
+
+    assert len(graph["resources"]) == 10
+    assert len(graph["links"]) == 80
+    assert graph["truncated"] is True
