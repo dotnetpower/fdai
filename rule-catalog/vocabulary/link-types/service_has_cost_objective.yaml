@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: service_has_cost_objective
+version: "1.0.0"
+from_type: BusinessService
+to_type: CostObjective
+cardinality: one_to_many
+description: Cost objectives that govern a business service.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:service_has_cost_objective@1.0.0
+  content_hash: sha256:4658b1e6f97d90601d53c0e59d86c75c4e50d465b75df245dea2160bd6487695
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

@@ -15,6 +15,12 @@ budgets, evidence, and resource instances.
 > **Safety boundary:** Ontology context can only preserve or lower autonomy. Missing, stale,
 > conflicting, or unproven context holds a decision for review. It never supplies permission to
 > execute.
+>
+> **Implementation status (2026-07-31):** O1 semantic-spine declarations and competency queries,
+> O2 immutable context materialization and Forseti ceiling wiring, O3/O4 shared decision-case
+> selection and response closure, and O5 balanced cohort intake through Norns and Mimir are
+> implemented. Deployment-specific service, objective, ownership, and evidence instances remain
+> unavailable until their approved providers populate the graph.
 
 ## Design at a glance
 
@@ -146,6 +152,12 @@ The initial relationship set should stay small and query-driven.
 Cardinality, causal direction, temporal ordering, and allowed endpoint combinations belong in each
 LinkType declaration. A relation that cannot support a required competency question should not be
 added for visualization alone.
+
+The current LinkType schema has one source and one target type per declaration. Conceptual union
+links therefore compile to explicit physical names such as `workload_runs_on`,
+`workload_depends_on`, `service_has_service_objective`, `service_has_recovery_objective`,
+`service_has_cost_objective`, `service_has_architecture_constraint`, `service_owned_by`,
+`workload_owned_by`, and `objective_owned_by`. This keeps endpoint validation deterministic.
 
 ## Identity and time
 
@@ -291,11 +303,11 @@ unknown cases. A new type or link is justified by a failing fixture, then retain
 | Wave | Deliverable | Exit criteria |
 |------|-------------|---------------|
 | O0 - Constitution | This authority, competency fixtures, identity/time rules, and ownership matrix. | Terms, authorities, unknown handling, and extension boundaries are agreed before schema work. |
-| O1 - Semantic spine | Catalog declarations for service, workload, objectives, constraints, and minimum links. | Loader, provenance, cardinality, versioning, and query tests pass with no runtime writer. |
-| O2 - Context projection | Service/resource/objective adapters and immutable `OperationalContextSnapshot`. | Fresh, stale, conflicting, and unmapped scenarios replay; stale context lowers autonomy. |
-| O3 - Reliability loop | Objective-aware finding, forecast, decision, and outcome closure. | One frozen SRE scenario traverses service -> objective -> option -> action -> effect with one correlation. |
-| O4 - ARB and cost loops | Twin graph diff, architecture constraints, cost forecasts, and settlement. | Change and cost cases share DecisionCase and preserve protected reliability objectives. |
-| O5 - Governed learning | Case projection, balanced pattern cohorts, and Norns/Mimir routing. | No outcome edits a live rule, workflow, or ontology declaration directly. |
+| O1 - Semantic spine | Implemented: catalog declarations and deterministic query fixtures. | Loader, provenance, cardinality, versioning, and query tests pass with no catalog-owned runtime writer. |
+| O2 - Context projection | Implemented: immutable `OperationalContextSnapshot`, materializer, runtime store sharing, and Forseti ceiling. | Fresh context preserves authority; stale, conflicting, and unmapped context lowers auto to human approval. |
+| O3 - Reliability loop | Implemented core: objective-aware decision case, option selection, and `ResponseOutcome` closure. | Frozen tests traverse service -> objective -> option -> action -> effect with one correlation. |
+| O4 - ARB and cost loops | Implemented core: architecture-constraint exclusion and protected-objective cost tradeoff. | Cost options cannot trade away protected reliability objectives. |
+| O5 - Governed learning | Implemented: balanced pattern compiler and Muninn -> Norns -> Mimir intake. | Success-only cohorts are held and no outcome edits a live catalog declaration directly. |
 
 The first code slice after O0 should add only the semantic-spine declarations, link constraints,
 and query fixtures. Runtime writers, decision changes, and execution behavior belong to later,

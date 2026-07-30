@@ -1,0 +1,29 @@
+schema_version: "1.0.0"
+name: CostObjective
+version: "1.0.0"
+key: id
+description: A budget, run-rate, unit-cost, or variance objective.
+properties:
+  id: {type: string, required: true}
+  objective_kind: {type: string, required: true}
+  currency: {type: string, required: true}
+  target: {type: number, required: true}
+  period_seconds: {type: integer, required: true}
+  measurement_source_ref: {type: string, required: true}
+  freshness_seconds: {type: integer, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+lifecycle:
+  owner: Njord
+  creation:
+    - code: approved_cost_objective
+      when: An approved cost source declares a budget or unit-cost target.
+      result: Create an effective-time cost objective revision.
+      source_refs: [docs/roadmap/architecture/goals-and-metrics.md]
+  authority_refs: [docs/roadmap/architecture/goals-and-metrics.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:CostObjective@1.0.0
+  content_hash: sha256:ce14e23932867f09401d275006aacf60017a902c3017d04e1e413bb9db07bbf3
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

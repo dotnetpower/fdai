@@ -445,6 +445,15 @@ def _build_control_loop(
     )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 
+    ontology_instance_store = (
+        _build_ontology_instance_store(
+            object_types=ontology_object_types,
+            link_types=ontology_link_types,
+        )
+        if ontology_object_types and ontology_link_types
+        else None
+    )
+
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -469,14 +478,7 @@ def _build_control_loop(
             action_types_by_name=action_types_by_name,
             audit_store=audit_store,
             process_store=_build_process_store(),
-            ontology_store=(
-                _build_ontology_instance_store(
-                    object_types=ontology_object_types,
-                    link_types=ontology_link_types,
-                )
-                if ontology_object_types and ontology_link_types
-                else None
-            ),
+            ontology_store=ontology_instance_store,
         ),
         governance_assignments=governance_catalog.assignments,
         inventory_age_provider=_build_inventory_age_provider(),
@@ -487,6 +489,7 @@ def _build_control_loop(
         kill_switch_refresher=kill_switch.refresh,
         mscp_expected_effect_provider=container.mscp_expected_effect_provider,
         mscp_effect_observer=container.mscp_effect_observer,
+        ontology_instance_store=ontology_instance_store,
     )
 
 

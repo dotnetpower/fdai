@@ -1,0 +1,30 @@
+schema_version: "1.0.0"
+name: ServiceObjective
+version: "1.0.0"
+key: id
+description: A service availability, latency, correctness, or freshness objective.
+properties:
+  id: {type: string, required: true}
+  objective_kind: {type: string, required: true}
+  metric: {type: string, required: true}
+  unit: {type: string, required: true}
+  target: {type: number, required: true}
+  window_seconds: {type: integer, required: true}
+  measurement_source_ref: {type: string, required: true}
+  freshness_seconds: {type: integer, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+lifecycle:
+  owner: Muninn
+  creation:
+    - code: approved_service_objective
+      when: An approved SLO source declares the objective.
+      result: Create an effective-time objective revision.
+      source_refs: [docs/roadmap/fork-and-sequencing/scope-expansion.md]
+  authority_refs: [docs/roadmap/fork-and-sequencing/scope-expansion.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ServiceObjective@1.0.0
+  content_hash: sha256:df7a50c61cff20bb67bc07aee625a13e0daee679c7b5f813f7649cb197eca726
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

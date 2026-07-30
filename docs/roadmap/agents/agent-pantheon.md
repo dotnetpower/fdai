@@ -217,10 +217,10 @@ sources cover repeated fingerprints (`new`), high rollback rates (`threshold_adj
 overrides or approval rejections (`revision` / `retirement`), and optional scenario gaps
 (`new-scenario`). Every source passes the same consensus boundary.
 
-Every proposal records numeric evidence so Mimir and the quality gate can judge measured data.
-The separate trajectory intake accepts only a human-reviewed `ReviewedTrajectoryDataset` with a
-manifest checksum and aggregate counts. It rejects raw records, deduplicates by checksum, and
-creates no candidate, training run, or promotion from consumption alone.
+Every proposal records numeric evidence. Trajectory intake accepts only reviewed aggregates and
+creates no candidate by itself. Muninn `operating_pattern_cohort` intake requires one reusable and
+one negative/control case for the same ActionType; all other cohorts remain held, while accepted
+cohorts still emit only inert candidates through consensus and Mimir `CandidateGuard`.
 
 ## 4. Agent catalog
 
@@ -239,7 +239,7 @@ operations / interface), `3` = governance staff.
 |------|------|-------|-------------------|-----------------------|-------------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | (produces verdicts; no executor role) | yes (T2 abstain only) |
+| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | produces verdicts; optional context can only lower autonomy; no executor role | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event | ingest_event | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |

@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: service_has_service_objective
+version: "1.0.0"
+from_type: BusinessService
+to_type: ServiceObjective
+cardinality: one_to_many
+description: Service-level objectives that govern a business service.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:service_has_service_objective@1.0.0
+  content_hash: sha256:b3867d68d479dcc66f53d118aa31d72f66483581fbd5021f7e2ed695ebfbc9c9
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

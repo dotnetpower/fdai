@@ -66,6 +66,7 @@ from fdai.core.learning import (
     RuleCandidateHint,
     review_input_from_mapping,
 )
+from fdai.core.operational_learning import OperatingPatternCompiler, PatternCase
 from fdai.core.trajectory import ReviewedTrajectoryDataset
 
 # Adverse outcomes that count against an action's success record.
@@ -92,6 +93,7 @@ class Norns(Agent):
         post_turn_review: PostTurnReviewCoordinator | None = None,
         forecast_error_threshold: int = 3,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
+        operating_pattern_compiler: OperatingPatternCompiler | None = None,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
         # impossible evidence (e.g. min_outcome_samples=0 fires on a single
@@ -170,6 +172,7 @@ class Norns(Agent):
         self._forecast_error_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._counted_case_revisions: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._case_history_analyzer = case_history_analyzer
+        self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
 
     def observe_reviewed_trajectory_dataset(self, dataset: ReviewedTrajectoryDataset) -> bool:
         """Consume one reviewed aggregate without training or promoting anything.
@@ -200,13 +203,34 @@ class Norns(Agent):
         elif topic == "object.post-turn-review":
             await self._observe_post_turn_review(payload)
         elif topic == "object.context-index":
-            await self._observe_forecast_case(payload)
+            if payload.get("kind") == "operating_pattern_cohort":
+                self._observe_operating_pattern_cohort(payload)
+            else:
+                await self._observe_forecast_case(payload)
         # object.override is deliberately NOT handled here: it is not a pantheon
         # bus topic (agent-pantheon.md 2 - overrides flow through the exemption
         # / rule-catalog machinery). That machinery calls observe_override()
         # directly.
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
         await self.flush_candidates()
+
+    def _observe_operating_pattern_cohort(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Muninn":
+            raise ValueError("operating pattern cohort MUST be published by Muninn")
+        raw_cases = payload.get("cases")
+        if not isinstance(raw_cases, list):
+            raise ValueError("operating pattern cohort cases MUST be an array")
+        cases = tuple(
+            PatternCase.from_mapping(item) for item in raw_cases if isinstance(item, dict)
+        )
+        if len(cases) != len(raw_cases):
+            raise ValueError("operating pattern cohort cases MUST be objects")
+        candidate = self._operating_pattern_compiler.compile(cases)
+        if candidate is None:
+            self.record_behavior("operating_pattern_cohort_held")
+            return
+        self.pending_candidates.append(candidate.to_rule_candidate_mapping())
+        self.record_behavior("operating_pattern_candidate_created")
 
     async def _observe_forecast_case(self, payload: dict[str, Any]) -> None:
         if payload.get("kind") != "forecast_case_history":

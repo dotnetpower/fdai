@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 5142d7bda09d00766a48416fb69ac7e7e537f099
+translation_source_sha: 1c826cc4d4d9a13f5ccb6bbd0bc3f5973dc99510
 translation_revised: 2026-07-31
 ---
 # 코드 맵
@@ -85,6 +85,9 @@ shared 패키지를 커버한다.
 | conversation_progress | Deterministic `none` / `compact` / `timeline` / `detached` presentation 선택, Web/Slack/Teams용 ordered redacted activity snapshot, request 또는 identity payload를 저장하지 않는 bounded aggregate progress counter 및 latency | [conversation_channel.py](../../../src/fdai/shared/providers/conversation_channel.py), [channel_gateway.py](../../../src/fdai/core/conversation/channel_gateway.py), [publishers.py](../../../src/fdai/delivery/channels/publishers.py), [conversation_progress.py](../../../src/fdai/shared/telemetry/conversation_progress.py) | [test_channel_gateway.py](../../../tests/conversation/test_channel_gateway.py), [test_publishers_and_routes.py](../../../tests/delivery/channels/test_publishers_and_routes.py), [test_rich_contract.py](../../../tests/delivery/channels/test_rich_contract.py), [test_conversation_progress_metrics.py](../../../tests/shared/test_conversation_progress_metrics.py), focused Web recovery test |
 | user_context_projection | 사용자 context 및 workflow binding metadata만 runtime ontology에 projection | [src/fdai/core/user_context_projection.py](../../../src/fdai/core/user_context_projection.py) | [tests/core/test_user_context_projection.py](../../../tests/core/test_user_context_projection.py) |
 | working_context | 턴당 프롬프트 조립, invariant validation, capability-gated policy lifecycle, bounded shadow 비교 및 approved-fixture replay ([설계](../decisioning/context-selection-policy-ko.md)) | [src/fdai/core/working_context/](../../../src/fdai/core/working_context/) | [tests/core/working_context/](../../../tests/core/working_context/) |
+| operational_context | Autonomy를 높이지 않는 freshness/conflict ceiling이 있는 immutable service/workload/objective graph snapshot ([설계](operating-ontology-ko.md)) | [src/fdai/core/operational_context/](../../../src/fdai/core/operational_context/) | [tests/core/operational_context/](../../../tests/core/operational_context/) |
+| decision_case | Protected-objective selection과 `ResponseOutcome` closure를 공유하는 reliability, ARB, cost option | [src/fdai/core/decision_case/](../../../src/fdai/core/decision_case/) | [tests/core/decision_case/](../../../tests/core/decision_case/) |
+| operational_learning | Positive/negative outcome이 균형 잡힌 cohort를 inert Norns candidate로 compile | [src/fdai/core/operational_learning/](../../../src/fdai/core/operational_learning/) | [test_norns_operating_pattern.py](../../../tests/agents/test_norns_operating_pattern.py) |
 | prompts | catalog-as-code 프롬프트 컴포저 | [src/fdai/core/prompts/](../../../src/fdai/core/prompts/) | [tests/core/](../../../tests/core/) |
 | skills | Progressive disclosure, governed bundle, durable approved-source quarantine ([bundle 설계](../decisioning/governed-skill-bundles-ko.md), [source 설계](../interfaces/skill-source-management-ko.md)) | [src/fdai/core/skills/](../../../src/fdai/core/skills/) 및 [src/fdai/core/supply_chain/](../../../src/fdai/core/supply_chain/) | [tests/core/skills/](../../../tests/core/skills/), [tests/core/supply_chain/](../../../tests/core/supply_chain/), [tests/persistence/](../../../tests/persistence/) |
 | programmatic_pipeline | Run capability, durable receipt, isolated runner, compact result를 사용하는 검토된 bounded read-only tool loop ([설계](../interfaces/programmatic-tool-pipelines-ko.md)) | [src/fdai/core/programmatic_pipeline/](../../../src/fdai/core/programmatic_pipeline/) | [tests/core/programmatic_pipeline/](../../../tests/core/programmatic_pipeline/) 및 [tests/delivery/programmatic_pipeline/](../../../tests/delivery/programmatic_pipeline/) |

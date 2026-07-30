@@ -38,6 +38,7 @@ from fdai.core.workflow.coordinator import WorkflowTriggerCoordinator
 from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.shared.contracts.models import Event, OntologyActionType, Rule
 from fdai.shared.providers.cost_estimator import CostEstimator
+from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.stage_publisher import NullStagePublisher, StagePublisher
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.resilience import DegradationController, KillSwitch
@@ -92,6 +93,7 @@ class ControlLoop(
         promotion_state_refresher: Callable[[str], Awaitable[None]] | None = None,
         mscp_expected_effect_provider: ExpectedEffectProvider | None = None,
         mscp_effect_observer: IndependentEffectObserver | None = None,
+        ontology_instance_store: OntologyInstanceStore | None = None,
     ) -> None:
         if (mscp_expected_effect_provider is None) != (mscp_effect_observer is None):
             raise ValueError(
@@ -119,6 +121,7 @@ class ControlLoop(
         self._promotion_state_refresher = promotion_state_refresher
         self._mscp_expected_effect_provider = mscp_expected_effect_provider
         self._mscp_effect_observer = mscp_effect_observer
+        self._ontology_instance_store = ontology_instance_store
         self._cost_estimator = cost_estimator
         self._direct_api_executor = direct_api_executor
         self._tool_executor = tool_executor
@@ -164,6 +167,11 @@ class ControlLoop(
     def action_types(self) -> tuple[OntologyActionType, ...]:
         """Return the immutable ActionType catalog loaded by this loop."""
         return tuple(self._action_types_by_name.values())
+
+    @property
+    def ontology_instance_store(self) -> OntologyInstanceStore | None:
+        """Return the shared read-model store used by runtime projections."""
+        return self._ontology_instance_store
 
 
 __all__ = ["ControlLoop"]

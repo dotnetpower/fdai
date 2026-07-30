@@ -1,0 +1,26 @@
+schema_version: "1.0.0"
+name: Workload
+version: "1.0.0"
+key: id
+description: A deployable or operable unit that implements a business service.
+properties:
+  id: {type: string, required: true}
+  name: {type: string, required: true}
+  workload_kind: {type: string, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+  source_ref: {type: string, required: true}
+lifecycle:
+  owner: Muninn
+  creation:
+    - code: approved_workload_manifest
+      when: An approved service manifest declares the workload.
+      result: Create an effective-time workload revision.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Workload@1.0.0
+  content_hash: sha256:b93e911eb3991f90fa0f92b2479c996b7588c39bfe1fba97c22d594629b13ca0
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

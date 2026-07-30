@@ -1,0 +1,26 @@
+schema_version: "1.0.0"
+name: BusinessService
+version: "1.0.0"
+key: id
+description: Stable service identity used for ownership, criticality, objectives, and impact.
+properties:
+  id: {type: string, required: true}
+  name: {type: string, required: true}
+  criticality: {type: string, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+  source_ref: {type: string, required: true}
+lifecycle:
+  owner: Muninn
+  creation:
+    - code: approved_service_catalog
+      when: An approved service catalog declares the service.
+      result: Create an effective-time service revision.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:BusinessService@1.0.0
+  content_hash: sha256:7098456ef57d9bea4d0d42acf60de27302a26ace0ea91fc72994a0131edf3b61
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

@@ -1,0 +1,26 @@
+schema_version: "1.0.0"
+name: ArchitectureConstraint
+version: "1.0.0"
+key: id
+description: A reviewed architecture condition used by ARB and change assurance.
+properties:
+  id: {type: string, required: true}
+  constraint_kind: {type: string, required: true}
+  expression_ref: {type: string, required: true}
+  severity: {type: string, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+lifecycle:
+  owner: Mimir
+  creation:
+    - code: reviewed_architecture_constraint
+      when: A governed architecture review accepts the constraint.
+      result: Create an effective-time constraint revision.
+      source_refs: [docs/roadmap/architecture/architecture-review-board.md]
+  authority_refs: [docs/roadmap/architecture/architecture-review-board.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ArchitectureConstraint@1.0.0
+  content_hash: sha256:28736ed6618769c5bb13f3c6d39208ed302ada283477a0a11ec4868beaf4962a
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

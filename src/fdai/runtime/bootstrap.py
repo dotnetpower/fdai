@@ -23,6 +23,7 @@ from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
+from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.readiness import AuthorityCeiling
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
@@ -508,6 +509,11 @@ async def _run() -> int:
                     ),
                     case_history_analyzer=(
                         case_history_runtime.analyzer if case_history_runtime is not None else None
+                    ),
+                    operational_context_materializer=(
+                        OperationalContextMaterializer(store=control_loop.ontology_instance_store)
+                        if control_loop.ontology_instance_store is not None
+                        else None
                     ),
                     case_history_retention=(
                         case_history_runtime.retention if case_history_runtime is not None else None

@@ -1,0 +1,25 @@
+schema_version: "1.0.0"
+name: BusinessCapability
+version: "1.0.0"
+key: id
+description: A generic business outcome delivered by one or more services.
+properties:
+  id: {type: string, required: true}
+  name: {type: string, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+  source_ref: {type: string, required: true}
+lifecycle:
+  owner: Muninn
+  creation:
+    - code: approved_service_catalog
+      when: An approved service catalog declares the capability.
+      result: Create an effective-time capability revision.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:BusinessCapability@1.0.0
+  content_hash: sha256:d6c83ec50b8aa2322138f1eb0157d2d5c79f0d1621f410a238a3afe893a4a699
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

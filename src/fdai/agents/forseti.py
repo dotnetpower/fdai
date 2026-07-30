@@ -12,6 +12,8 @@ in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from fdai.agents._framework.action_semantics import (
@@ -29,6 +31,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
+from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 
 # ---------------------------------------------------------------------------
@@ -80,11 +83,13 @@ class Forseti(Agent):
         bus: PantheonBus | None = None,
         rbac: dict[str, frozenset[str]] | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
+        operational_context: OperationalContextMaterializer | None = None,
     ) -> None:
         super().__init__(spec=_FORSETI)
         self.bus = bus
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
+        self._operational_context = operational_context
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
@@ -495,13 +500,6 @@ class Forseti(Agent):
             reason = "arbitration_unresolved"
         else:
             reason = "rule_match"
-        # Measurable behaviour: the verdict distribution + why. A scenario
-        # test reads verdict:auto / verdict:hil / verdict:deny counts and the
-        # rbac_denied tally to assert invariants (deny never auto, an RBAC
-        # violation always denies) without touching private state.
-        self.record_behavior(f"verdict:{risk_verdict}")
-        if rbac_denied:
-            self.record_behavior("rbac_denied")
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": event.get("correlation_id", ""),
@@ -525,9 +523,71 @@ class Forseti(Agent):
             # approver principal downstream can enforce no-self-approval.
             "initiator_principal": event.get("initiator_principal"),
         }
+        await self._attach_operational_context(event, verdict)
+        # Measurable behaviour records the final verdict after every
+        # never-raising context ceiling has been applied.
+        self.record_behavior(f"verdict:{verdict['risk_verdict']}")
+        if rbac_denied:
+            self.record_behavior("rbac_denied")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         return verdict
+
+    async def _attach_operational_context(
+        self,
+        event: dict[str, Any],
+        verdict: dict[str, Any],
+    ) -> None:
+        materializer = self._operational_context
+        if materializer is None:
+            return
+        resource_id = str(event.get("resource_id") or "")
+        detected_at = event.get("detected_at")
+        if not resource_id or not isinstance(detected_at, str):
+            self._hold_for_context(verdict, "operational_context_input_missing")
+            return
+        try:
+            cutoff = datetime.fromisoformat(detected_at.replace("Z", "+00:00"))
+            if cutoff.tzinfo is None:
+                raise ValueError("detected_at MUST be timezone-aware")
+            raw_versions = event.get("catalog_versions")
+            versions = (
+                {str(key): str(value) for key, value in raw_versions.items()}
+                if isinstance(raw_versions, Mapping)
+                else {}
+            )
+            freshness = _source_freshness(event.get("source_freshness"))
+            snapshot = await materializer.materialize(
+                target_resource_id=resource_id,
+                cutoff=cutoff,
+                catalog_versions=versions,
+                source_freshness=freshness,
+            )
+        except (TypeError, ValueError):
+            self._hold_for_context(verdict, "operational_context_invalid")
+            return
+        except Exception:  # noqa: BLE001 - optional context failure lowers authority
+            self.record_behavior("operational_context_failed")
+            self._hold_for_context(verdict, "operational_context_unavailable")
+            return
+        verdict["operational_context"] = {
+            "snapshot_id": snapshot.snapshot_id,
+            "service_ids": list(snapshot.service_ids),
+            "workload_ids": list(snapshot.workload_ids),
+            "objective_ids": list(snapshot.objective_ids),
+            "constraint_ids": list(snapshot.constraint_ids),
+            "stale_sources": list(snapshot.stale_sources),
+            "conflicts": list(snapshot.conflicts),
+            "autonomy_ceiling": snapshot.autonomy_ceiling.value,
+        }
+        if snapshot.review_required:
+            self._hold_for_context(verdict, "operational_context_ceiling")
+
+    @staticmethod
+    def _hold_for_context(verdict: dict[str, Any], reason: str) -> None:
+        if verdict.get("risk_verdict") == "auto":
+            verdict["risk_verdict"] = "hil"
+            verdict["reason"] = reason
 
     async def _emit_security_event(
         self,
@@ -642,3 +702,25 @@ def _signal_impact(domain: str, payload: dict[str, Any]) -> float:
         except (TypeError, ValueError):
             return 1.0
     return 1.0
+
+
+def _source_freshness(raw: object) -> tuple[SourceFreshness, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise ValueError("source_freshness MUST be an array")
+    items: list[SourceFreshness] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise ValueError("source_freshness entries MUST be objects")
+        observed_at = item.get("observed_at")
+        if not isinstance(observed_at, str):
+            raise ValueError("source_freshness observed_at MUST be a timestamp")
+        items.append(
+            SourceFreshness(
+                source=str(item.get("source") or ""),
+                observed_at=datetime.fromisoformat(observed_at.replace("Z", "+00:00")),
+                max_age_seconds=int(item.get("max_age_seconds") or 0),
+            )
+        )
+    return tuple(items)

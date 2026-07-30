@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 32bd5cb6f8f531ef254469f2cf73bca87130e8eb
-translation_revised: 2026-07-29
+translation_source_sha: 01aa8765ff0aba9d80b0d04c5cfe57227240da1e
+translation_revised: 2026-07-31
 ---
 
 # 에이전트 판테온
@@ -201,8 +201,8 @@ bounded `norns_consensus` 하나를 내보내고, 불일치는 자유 형식 추
 결정론적 후보 source는 반복 fingerprint (`new`), rollback rate (`threshold_adjustment`), override나
 승인 거절 (`revision` / `retirement`), 선택적 scenario gap (`new-scenario`)이며 모두 같은 합의 경계를 거칩니다.
 
-모든 제안은 수치 근거를 기록합니다. 별도 trajectory intake는 review receipt, manifest checksum,
-aggregate count가 있는 `ReviewedTrajectoryDataset`만 받고 자동 candidate/training/promotion은 하지 않습니다.
+모든 제안은 수치 근거를 기록합니다. Trajectory intake는 reviewed aggregate만 받고 자체 candidate를 만들지 않습니다.
+Muninn cohort는 동일 ActionType의 reusable 및 negative/control case를 요구하며 consensus와 Mimir `CandidateGuard`를 통해 inert candidate만 방출합니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).
@@ -219,7 +219,7 @@ operations / interface), `3` = governance staff.
 |------|------|-------|-------------------|-------------------|---------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatch 만; 직접 소유 없음 - §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | (verdict 생성; executor 역할 없음) | yes (T2 abstain 시만) |
+| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | verdict 생성; optional context는 autonomy를 낮출 수만 있음; executor 역할 없음 | yes (T2 abstain 시만) |
 | Huginn | Event Collector / 실시간 Resource Discovery | 2 | Event | ingest_event | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |

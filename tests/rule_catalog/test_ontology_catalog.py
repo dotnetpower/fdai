@@ -26,6 +26,39 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
     assert {item.name for item in catalog.action_types} >= {"remediate.enable-diagnostic-settings"}
 
 
+def test_shipped_ontology_catalog_contains_operating_semantic_spine() -> None:
+    catalog = load_ontology_catalog(
+        REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=REPO_ROOT / "rule-catalog" / "probes",
+    )
+
+    assert {item.name for item in catalog.object_types} >= {
+        "BusinessCapability",
+        "BusinessService",
+        "Workload",
+        "Environment",
+        "ServiceObjective",
+        "RecoveryObjective",
+        "CostObjective",
+        "ArchitectureConstraint",
+        "Ownership",
+    }
+    assert {item.name for item in catalog.link_types} >= {
+        "delivered_by",
+        "implemented_by",
+        "workload_runs_on",
+        "workload_depends_on",
+        "service_has_service_objective",
+        "service_has_recovery_objective",
+        "service_has_cost_objective",
+        "service_has_architecture_constraint",
+        "service_owned_by",
+        "workload_owned_by",
+        "objective_owned_by",
+    }
+
+
 def test_integrated_catalog_rejects_dangling_precondition_link(tmp_path: Path) -> None:
     catalog_root = tmp_path / "rule-catalog"
     vocabulary_root = catalog_root / "vocabulary"

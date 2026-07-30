@@ -1,0 +1,26 @@
+schema_version: "1.0.0"
+name: Ownership
+version: "1.0.0"
+key: id
+description: An accountable operating owner and escalation reference.
+properties:
+  id: {type: string, required: true}
+  owner_ref: {type: string, required: true, access_scope: approver}
+  escalation_ref: {type: string, required: true, access_scope: approver}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+  source_ref: {type: string, required: true}
+lifecycle:
+  owner: Muninn
+  creation:
+    - code: approved_ownership_binding
+      when: An approved service catalog binds an accountable owner.
+      result: Create an effective-time ownership revision.
+      source_refs: [docs/roadmap/architecture/architecture-review-board.md]
+  authority_refs: [docs/roadmap/architecture/architecture-review-board.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Ownership@1.0.0
+  content_hash: sha256:68f22aad4feba32b619276464c11493406b12974b566dfd15d6e6a7cf77d586e
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

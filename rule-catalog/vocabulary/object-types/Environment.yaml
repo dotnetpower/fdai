@@ -1,0 +1,25 @@
+schema_version: "1.0.0"
+name: Environment
+version: "1.0.0"
+key: id
+description: A governed lifecycle scope such as production or non-production.
+properties:
+  id: {type: string, required: true}
+  classification: {type: string, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+  source_ref: {type: string, required: true}
+lifecycle:
+  owner: Muninn
+  creation:
+    - code: approved_environment_mapping
+      when: An approved environment classifier declares the scope.
+      result: Create an effective-time environment revision.
+      source_refs: [docs/roadmap/decisioning/risk-classification.md]
+  authority_refs: [docs/roadmap/decisioning/risk-classification.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Environment@1.0.0
+  content_hash: sha256:77570a95fd245567542d93788b10f0c33dbc8e3b070e9c9f11aa148a156091a0
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

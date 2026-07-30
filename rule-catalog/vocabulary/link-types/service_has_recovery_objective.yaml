@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: service_has_recovery_objective
+version: "1.0.0"
+from_type: BusinessService
+to_type: RecoveryObjective
+cardinality: one_to_many
+description: Recovery objectives that govern a business service.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:service_has_recovery_objective@1.0.0
+  content_hash: sha256:c00497de059628d15dc79e1a5042a0aba04aeba5f4f26fe847cf2ac33bbd3a66
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

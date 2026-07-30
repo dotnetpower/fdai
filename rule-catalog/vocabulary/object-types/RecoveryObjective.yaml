@@ -1,0 +1,27 @@
+schema_version: "1.0.0"
+name: RecoveryObjective
+version: "1.0.0"
+key: id
+description: RTO and RPO targets for a service or workload.
+properties:
+  id: {type: string, required: true}
+  rto_seconds: {type: integer, required: true}
+  rpo_seconds: {type: integer, required: true}
+  measurement_source_ref: {type: string, required: true}
+  freshness_seconds: {type: integer, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+lifecycle:
+  owner: Muninn
+  creation:
+    - code: approved_recovery_objective
+      when: An approved reliability source declares RTO and RPO.
+      result: Create an effective-time recovery objective revision.
+      source_refs: [docs/roadmap/architecture/architecture-review-board.md]
+  authority_refs: [docs/roadmap/architecture/architecture-review-board.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:RecoveryObjective@1.0.0
+  content_hash: sha256:22ad58a4b9edd942f0341535f2be00495c01ef3689e5a17695da0f5e8349aa44
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

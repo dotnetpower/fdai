@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: implemented_by
+version: "1.0.0"
+from_type: BusinessService
+to_type: Workload
+cardinality: one_to_many
+description: Workloads that implement a business service.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:implemented_by@1.0.0
+  content_hash: sha256:93d119230b5c96641b3f9ecb47e2ce8dbd1d9be0957565ff409b30e0ebebf1ed
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

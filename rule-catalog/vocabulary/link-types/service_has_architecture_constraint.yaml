@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: service_has_architecture_constraint
+version: "1.0.0"
+from_type: BusinessService
+to_type: ArchitectureConstraint
+cardinality: one_to_many
+description: Reviewed architecture constraints that govern a business service.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:service_has_architecture_constraint@1.0.0
+  content_hash: sha256:093b030a88bff5f540fb44230a26810b20fd27eb016d1bd34e3a3ddc34a9cdc0
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

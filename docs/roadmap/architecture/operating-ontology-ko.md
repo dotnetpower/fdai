@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 1f26a1473dbb1296ba847e058380be20cbeae7b6
+translation_source_sha: f13a40ff22ea1fcdbd186e747cd83c3d93ba932e
 translation_revised: 2026-07-31
 ---
 # FDAI 운영 온톨로지
@@ -18,6 +18,11 @@ resource instance를 제공합니다.
 > **안전 경계:** Ontology context는 autonomy를 유지하거나 낮출 수만 있습니다. 누락되거나
 > 오래되거나 충돌하거나 입증되지 않은 context는 결정을 검토 대기로 보냅니다. 실행 권한을
 > 제공하지 않습니다.
+>
+> **구현 상태(2026-07-31):** O1 semantic-spine declaration과 competency query, O2 immutable
+> context materialization 및 Forseti ceiling wiring, O3/O4 공유 decision-case selection과 response
+> closure, O5 Norns/Mimir balanced cohort intake를 구현했습니다. Deployment별 service, objective,
+> ownership, evidence instance는 승인된 provider가 graph를 채울 때까지 unavailable 상태입니다.
 
 ## 한눈에 보는 설계
 
@@ -148,6 +153,13 @@ Saga, replay consumer가 같은 사실을 참조하게 하는 immutable semantic
 Cardinality, causal direction, temporal ordering, allowed endpoint combination은 각 LinkType
 declaration에 둡니다. 필수 competency question을 지원하지 못하는 relation은 visualization만을
 위해 추가하지 않는 것이 좋습니다.
+
+현재 LinkType schema는 declaration마다 source 및 target type을 하나씩 사용합니다. 따라서 union
+관계는 `workload_runs_on`, `workload_depends_on`, `service_has_service_objective`,
+`service_has_recovery_objective`, `service_has_cost_objective`,
+`service_has_architecture_constraint`, `service_owned_by`, `workload_owned_by`,
+`objective_owned_by`와 같은 명시적인 물리 이름으로 compile합니다. Endpoint validation은
+deterministic하게 유지됩니다.
 
 ## Identity와 시간
 
@@ -290,11 +302,11 @@ Ontology 품질은 object 수가 아니라 deterministic question으로 측정�
 | Wave | Deliverable | 종료 기준 |
 |------|-------------|-----------|
 | O0 - Constitution | 이 authority, competency fixture, identity/time rule, ownership matrix입니다. | Schema work 전에 term, authority, unknown handling, extension boundary 검토가 합의됩니다. |
-| O1 - Semantic spine | Service, workload, objective, constraint와 최소 link의 catalog declaration입니다. | Runtime writer 없이 loader, provenance, cardinality, versioning, query test가 통과합니다. |
-| O2 - Context projection | Service/resource/objective adapter와 immutable `OperationalContextSnapshot`입니다. | Fresh, stale, conflicting, unmapped scenario가 replay되고 stale context가 autonomy를 낮춥니다. |
-| O3 - Reliability loop | Objective-aware finding, forecast, decision, outcome closure입니다. | 하나의 frozen SRE scenario가 service -> objective -> option -> action -> effect를 하나의 correlation으로 통과합니다. |
-| O4 - ARB 및 cost loop | Twin graph diff, architecture constraint, cost forecast, settlement입니다. | Change와 cost case가 DecisionCase를 공유하고 protected reliability objective를 보존합니다. |
-| O5 - Governed learning | Case projection, balanced pattern cohort, Norns/Mimir routing입니다. | Outcome이 live rule, workflow, ontology declaration을 직접 수정하지 않습니다. |
+| O1 - Semantic spine | 구현됨: catalog declaration과 deterministic query fixture입니다. | Catalog-owned runtime writer 없이 loader, provenance, cardinality, versioning, query test가 통과합니다. |
+| O2 - Context projection | 구현됨: immutable `OperationalContextSnapshot`, materializer, runtime store 공유, Forseti ceiling입니다. | Fresh context는 authority를 유지하고 stale, conflicting, unmapped context는 auto를 사람 승인으로 낮춥니다. |
+| O3 - Reliability loop | Core 구현됨: objective-aware decision case, option selection, `ResponseOutcome` closure입니다. | Frozen test가 service -> objective -> option -> action -> effect를 하나의 correlation으로 통과합니다. |
+| O4 - ARB 및 cost loop | Core 구현됨: architecture-constraint exclusion과 protected-objective cost tradeoff입니다. | Cost option이 protected reliability objective를 희생할 수 없습니다. |
+| O5 - Governed learning | 구현됨: balanced pattern compiler와 Muninn -> Norns -> Mimir intake입니다. | Success-only cohort를 보류하고 outcome이 live catalog declaration을 직접 수정하지 않습니다. |
 
 O0 이후 첫 code slice는 semantic-spine declaration, link constraint, query fixture만 추가하는 것이
 좋습니다. Runtime writer, decision 변경, execution behavior는 이후 별도로 검증하는 slice에 둡니다.

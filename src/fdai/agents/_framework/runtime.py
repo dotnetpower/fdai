@@ -43,9 +43,7 @@ from fdai.agents._framework.conversation_tools import (
     AgentConversationToolRegistry,
     AgentToolResult,
 )
-from fdai.agents._framework.deliberation import (
-    T2ConversationSynthesizer,
-)
+from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.pantheon import (
@@ -54,10 +52,7 @@ from fdai.agents._framework.pantheon import (
     PANTHEON_SPECS,
 )
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
-from fdai.agents._framework.semantic_routing import (
-    SemanticAgentRouter,
-    SemanticRouterConfig,
-)
+from fdai.agents._framework.semantic_routing import SemanticAgentRouter, SemanticRouterConfig
 from fdai.agents._framework.tool_answer import answer_from_owned_tools
 from fdai.agents._framework.tool_planner import (
     MAX_TOOL_PLANS,
@@ -88,6 +83,7 @@ from fdai.core.learning import PostTurnReviewCoordinator
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
+from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
@@ -150,6 +146,7 @@ class PantheonRuntime:
         post_turn_review: PostTurnReviewCoordinator | None = None,
         case_history_materializer: CaseHistoryMaterializer | None = None,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
+        operational_context_materializer: OperationalContextMaterializer | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
         forecast_closer: ForecastClosureCoordinator | None = None,
@@ -275,10 +272,14 @@ class PantheonRuntime:
                 case_retention_days=case_retention_days,
                 case_deletion_days=case_deletion_days,
             )
-        if operator_rbac is not None or action_semantics is not None:
+        if any(
+            value is not None
+            for value in (operator_rbac, action_semantics, operational_context_materializer)
+        ):
             instantiated["Forseti"] = Forseti(
                 rbac=operator_rbac,
                 action_semantics=action_semantics,
+                operational_context=operational_context_materializer,
             )
         if (forecast_evaluator is None) != (forecast_closer is None) or (
             forecast_evaluator is None
