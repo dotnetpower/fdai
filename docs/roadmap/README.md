@@ -66,6 +66,7 @@ Read the reference docs first, then the phases in order.
 | 9 | [rule-governance.md](rules-and-detection/rule-governance.md) | how admins author, scope, enable, and exempt rules (Azure Policy-like) |
 | 10 | [observability-and-detection.md](rules-and-detection/observability-and-detection.md) | event correlation, anomaly detection, forecasting, root-cause analysis |
 | 10a | [manual-distillation.md](rules-and-detection/manual-distillation.md) | compiling an adopting company's operational / deployment manuals into deterministic rules / workflows / policies (vs runtime RAG), and verifying the distillation |
+| 10b | [operational-learning-ontology.md](rules-and-detection/operational-learning-ontology.md) | converting benchmark and live incident outcomes into immutable cases, deterministic failure fingerprints, governed rule candidates, and reusable promoted operating patterns |
 | 11 | [deploy-and-onboard.md](deployment/deploy-and-onboard.md) | concrete Azure resource inventory, bootstrap sequence, fork vs core split |
 | 11a | [deployment-resource-conventions.md](deployment/deployment-resource-conventions.md) | deterministic CAF resource names, ownership tags, and deployment-supplied tag rules |
 | 11b | [hyperscale-cell-architecture.md](architecture/hyperscale-cell-architecture.md) | scale-out blueprint for 300 subscriptions: cell-based streaming, policy-driven fan-in, two-plane logging, CQRS audit indexing over ADX, cost envelope, standard/sovereign profiles, Container Apps default (AKS deferred) |

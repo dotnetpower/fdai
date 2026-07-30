@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 0adf7ca825788e831689f8d04a4883b80fe4fc70
-translation_revised: 2026-07-30
+translation_source_sha: 5142d7bda09d00766a48416fb69ac7e7e537f099
+translation_revised: 2026-07-31
 ---
 # 코드 맵
 
@@ -55,7 +55,7 @@ shared 패키지를 커버한다.
 | 서브시스템 | 책임 | 소스 | 테스트 |
 |-----------|------|------|--------|
 | detection | Anomaly와 operational-insight producer, 변경 불가능한 positive/negative/abstained forecast episode, event-time closure 및 publication outbox | [src/fdai/core/detection/](../../../src/fdai/core/detection/), [src/fdai/runtime/forecast_learning.py](../../../src/fdai/runtime/forecast_learning.py), [src/fdai/delivery/persistence/postgres_forecast_episode.py](../../../src/fdai/delivery/persistence/postgres_forecast_episode.py) | [tests/core/detection/](../../../tests/core/detection/), [tests/runtime/test_forecast_learning.py](../../../tests/runtime/test_forecast_learning.py), [tests/persistence/test_postgres_forecast_episode.py](../../../tests/persistence/test_postgres_forecast_episode.py) |
-| case_history | Canonical case revision, StateStore-to-PostgreSQL shadow migration, 전체 chain backfill, retention 및 governed Norns 분석 ([설계](../rules-and-detection/prediction-learning-and-case-history-ko.md)) | [src/fdai/core/case_history/](../../../src/fdai/core/case_history/), [src/fdai/shared/providers/case_history.py](../../../src/fdai/shared/providers/case_history.py), [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) | [tests/core/case_history/](../../../tests/core/case_history/), [tests/persistence/test_case_history_backfill.py](../../../tests/persistence/test_case_history_backfill.py), [tests/persistence/test_postgres_case_history.py](../../../tests/persistence/test_postgres_case_history.py), [tests/agents/test_forecast_learning_chain.py](../../../tests/agents/test_forecast_learning_chain.py) |
+| case_history | Canonical case revision, StateStore-to-PostgreSQL shadow migration, 전체 chain backfill, retention, governed Norns 분석, 계획된 operational-case learning projection ([case-history 설계](../rules-and-detection/prediction-learning-and-case-history-ko.md), [operational-learning 설계](../rules-and-detection/operational-learning-ontology-ko.md)) | [src/fdai/core/case_history/](../../../src/fdai/core/case_history/), [src/fdai/shared/providers/case_history.py](../../../src/fdai/shared/providers/case_history.py), [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) | [tests/core/case_history/](../../../tests/core/case_history/), [tests/persistence/test_case_history_backfill.py](../../../tests/persistence/test_case_history_backfill.py), [tests/persistence/test_postgres_case_history.py](../../../tests/persistence/test_postgres_case_history.py), [tests/agents/test_forecast_learning_chain.py](../../../tests/agents/test_forecast_learning_chain.py) |
 | rca | 근본원인 분석과 predictive precedence까지만 허용하는 leakage-safe lag correlation evidence | [src/fdai/core/rca/](../../../src/fdai/core/rca/) | [tests/core/rca/](../../../tests/core/rca/) |
 | incident | 인시던트 라이프사이클 레지스트리 + 상태 머신 | [src/fdai/core/incident/](../../../src/fdai/core/incident/) | [tests/core/incident/](../../../tests/core/incident/) |
 | slo | 워크로드 SLO / burn-rate 평가자 | [src/fdai/core/slo/](../../../src/fdai/core/slo/) | [tests/core/slo/](../../../tests/core/slo/) |

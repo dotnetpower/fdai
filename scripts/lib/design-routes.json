@@ -48,10 +48,12 @@
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/architecture/project-structure.md",
-        "docs/roadmap/interfaces/benchmark-adapters.md"
+        "docs/roadmap/interfaces/benchmark-adapters.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/benchmark-adapters.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
@@ -169,10 +171,12 @@
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/agent-pantheon.instructions.md",
         "docs/roadmap/rules-and-detection/prediction-learning-and-case-history.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
         "docs/roadmap/architecture/data-governance.md"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/prediction-learning-and-case-history.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
