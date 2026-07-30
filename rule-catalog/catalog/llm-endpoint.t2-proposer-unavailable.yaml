@@ -1,0 +1,33 @@
+schema_version: "2.0.0"
+id: llm-endpoint.t2-proposer-unavailable
+version: "1.0.0"
+source: custom
+severity: high
+category: reliability
+resource_type: llm-endpoint
+applies_to:
+- llm-endpoint
+triggered_by:
+- "*"
+evaluates:
+- "*"
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: llm-endpoint
+check_logic:
+  kind: rego
+  reference: policies/llm_endpoint/t2_proposer_unavailable.rego
+remediation:
+  template_ref: remediation/llm_endpoint/switch_t2_proposer_route.tftpl
+  cost_impact_monthly_usd: 0
+remediates: ops.switch-t2-proposer-route
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: rule:llm-endpoint.t2-proposer-unavailable@1.0.0
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: "2026-07-31T00:00:00Z"
