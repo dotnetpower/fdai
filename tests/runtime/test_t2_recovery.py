@@ -7,7 +7,11 @@ from fdai.core.tiers.t2_reasoning import (
     T2AttemptReceipt,
     T2FailureClass,
 )
-from fdai.runtime.t2_recovery import DurableT2RecoveryObserver, bind_t2_recovery_observer
+from fdai.runtime.t2_recovery import (
+    DurableT2RecoveryObserver,
+    T2RecoveryMaintenance,
+    bind_t2_recovery_observer,
+)
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
@@ -17,6 +21,18 @@ class _Ingress:
 
     async def ingest(self, raw: dict[str, object]) -> None:
         self.events.append(raw)
+
+
+class _FlakyIngress(_Ingress):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failures = 1
+
+    async def ingest(self, raw: dict[str, object]) -> None:
+        if self.failures:
+            self.failures -= 1
+            raise RuntimeError("transport unavailable")
+        await super().ingest(raw)
 
 
 def _receipt(
@@ -31,6 +47,7 @@ def _receipt(
         event_id="event-1",
         correlation_id="correlation-1",
         route_ref="primary" if attempt == 1 else "secondary",
+        preferred_route_ref="primary",
         attempt=attempt,
         candidate_count=2,
         status=status,
@@ -90,6 +107,7 @@ async def test_terminal_failure_is_incident_correlated_high_severity() -> None:
     assert event["severity"] == "high"
     assert event["attributes"] == {
         "route_ref": "secondary",
+        "preferred_route_ref": "primary",
         "attempt": 2,
         "candidate_count": 2,
         "status": "failed",
@@ -148,3 +166,72 @@ def test_binding_helper_binds_only_observable_proposers() -> None:
         )
         is not None
     )
+
+
+async def test_reconcile_retries_only_unforwarded_durable_receipts() -> None:
+    store = InMemoryStateStore()
+    ingress = _FlakyIngress()
+    observer = DurableT2RecoveryObserver(store=store, ingress=ingress.ingest)
+
+    try:
+        await observer.observe(_receipt())
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("the first transport attempt must fail")
+
+    before = (await store.read_states("t2-recovery:receipt:", limit=1))[0]
+    assert before["forwarded"] is False
+    assert await observer.reconcile(limit=10) == 1
+    after = (await store.read_states("t2-recovery:receipt:", limit=1))[0]
+    assert after["forwarded"] is True
+    assert len(ingress.events) == 1
+    assert await observer.reconcile(limit=10) == 0
+
+
+async def test_legacy_backfill_is_idempotent_and_never_calls_provider() -> None:
+    store = InMemoryStateStore()
+    ingress = _Ingress()
+    observer = DurableT2RecoveryObserver(store=store, ingress=ingress.ingest)
+    legacy = {
+        "event_id": "legacy-event",
+        "correlation_id": "legacy-correlation",
+        "t2_reason": "t2_proposer_error:RuntimeError",
+        "recorded_at": "2026-07-30T00:00:00+00:00",
+    }
+
+    assert await observer.backfill((legacy,)) == 1
+    assert await observer.backfill((legacy,)) == 0
+    assert len(ingress.events) == 1
+    attributes = ingress.events[0]["attributes"]
+    assert isinstance(attributes, dict)
+    assert attributes["failure_class"] == "provider_error"
+
+
+async def test_maintenance_cycle_reconciles_and_backfills() -> None:
+    class _LegacyReader:
+        calls = 0
+
+        async def read_failures(self, *, limit: int) -> tuple[dict[str, object], ...]:
+            self.calls += 1
+            assert limit == 100
+            return (
+                {
+                    "event_id": "legacy-event",
+                    "correlation_id": "legacy-correlation",
+                    "t2_reason": "t2_proposer_error:TimeoutError",
+                    "recorded_at": "2026-07-30T00:00:00+00:00",
+                },
+            )
+
+    store = InMemoryStateStore()
+    ingress = _Ingress()
+    observer = DurableT2RecoveryObserver(store=store, ingress=ingress.ingest)
+    reader = _LegacyReader()
+    maintenance = T2RecoveryMaintenance(observer=observer, legacy_reader=reader)
+
+    result = await maintenance.run_once()
+
+    assert result == {"reconciled": 0, "backfilled": 1}
+    assert reader.calls == 1
+    assert len(ingress.events) == 1

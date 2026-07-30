@@ -679,6 +679,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         inventory_activity_provider=inventory_activity_provider,
         subscription_health_provider=subscription_health_provider,
         detection_readiness_reader=state_store,
+        t2_recovery_reader=state_store,
         best_practice_controls=load_best_practice_reference(_REPO_ROOT),
         mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),
         scope_source=scope_source,

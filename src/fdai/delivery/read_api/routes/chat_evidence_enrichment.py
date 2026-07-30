@@ -31,6 +31,7 @@ from fdai.delivery.read_api.routes.chat_prompt import (
     _is_concept_query,
 )
 from fdai.delivery.read_api.routes.chat_subscription_health import needs_subscription_health
+from fdai.delivery.read_api.routes.chat_t2_recovery import needs_t2_recovery_evidence
 
 
 class OperationalEvidenceResolverProtocol(Protocol):
@@ -418,6 +419,7 @@ async def _with_tool_evidence(
     inventory_question = needs_inventory_evidence(prompt)
     subscription_health_question = needs_subscription_health(prompt)
     read_source_question = needs_read_source_evidence(prompt)
+    t2_recovery_question = needs_t2_recovery_evidence(prompt)
     if (
         resolver is None
         or (
@@ -426,12 +428,14 @@ async def _with_tool_evidence(
             and not inventory_question
             and not subscription_health_question
             and not read_source_question
+            and not t2_recovery_question
         )
         or (
             not explicit_command
             and not inventory_question
             and not subscription_health_question
             and not read_source_question
+            and not t2_recovery_question
             and ("_behavior_evidence" in enriched or "_operational_evidence" in enriched)
         )
     ):
@@ -462,6 +466,7 @@ async def _with_tool_evidence(
             "get_current_time",
             "query_inventory",
             "query_subscription_health",
+            "query_t2_recovery",
         }:
             enriched.pop("_behavior_evidence", None)
             enriched.pop("_operational_evidence", None)
@@ -482,6 +487,7 @@ def _tool_execution_progress_event(
     commands = {
         "query_inventory": "query_inventory --scope <server-owned> --query <redacted>",
         "query_subscription_health": "query_subscription_health --scope <server-owned>",
+        "query_t2_recovery": "query_t2_recovery --scope <server-owned>",
     }
     if not isinstance(tool, str) or tool not in commands:
         return None

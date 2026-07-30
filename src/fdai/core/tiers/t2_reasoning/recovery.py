@@ -32,6 +32,7 @@ class T2AttemptReceipt:
     event_id: str
     correlation_id: str
     route_ref: str
+    preferred_route_ref: str
     attempt: int
     candidate_count: int
     status: str
@@ -48,6 +49,7 @@ class T2AttemptReceipt:
             "event_id": self.event_id,
             "correlation_id": self.correlation_id,
             "route_ref": self.route_ref,
+            "preferred_route_ref": self.preferred_route_ref,
             "attempt": self.attempt,
             "candidate_count": self.candidate_count,
             "status": self.status,
@@ -65,6 +67,12 @@ class T2RecoveryObserver(Protocol):
     async def observe(self, receipt: T2AttemptReceipt) -> None: ...
 
 
+class T2RouteSelector(Protocol):
+    """Return the preferred route ref from durable control-plane state."""
+
+    async def preferred_route(self, available_routes: tuple[str, ...]) -> str: ...
+
+
 class T2ProposerBudgetExhaustedError(RuntimeError):
     """No declared call budget remains for another proposer candidate."""
 
@@ -76,13 +84,14 @@ class T2ProposerCandidatesExhaustedError(RuntimeError):
 class BoundedFailoverT2Proposer:
     """Try at most two distinct proposer routes under per-attempt budget."""
 
-    __slots__ = ("_candidates", "_clock", "_observer")
+    __slots__ = ("_candidates", "_clock", "_observer", "_route_selector")
 
     def __init__(
         self,
         *,
         candidates: Sequence[tuple[str, T2Proposer]],
         observer: T2RecoveryObserver | None = None,
+        route_selector: T2RouteSelector | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         bounded = tuple(candidates)
@@ -103,6 +112,7 @@ class BoundedFailoverT2Proposer:
             raise ValueError("T2 proposer route refs MUST be bounded lowercase identifiers")
         self._candidates = bounded
         self._observer = observer
+        self._route_selector = route_selector
         self._clock = clock
 
     def bind_observer(self, observer: T2RecoveryObserver) -> None:
@@ -111,6 +121,13 @@ class BoundedFailoverT2Proposer:
         if self._observer is not None and self._observer is not observer:
             raise RuntimeError("T2 recovery observer is already bound")
         self._observer = observer
+
+    def bind_route_selector(self, selector: T2RouteSelector) -> None:
+        """Bind the runtime route registry before the control loop starts."""
+
+        if self._route_selector is not None and self._route_selector is not selector:
+            raise RuntimeError("T2 proposer route selector is already bound")
+        self._route_selector = selector
 
     async def propose(self, *, context: T2ProposalContext) -> QualityCandidate | None:
         """Reject unbudgeted direct use; T2Tier supplies the shared reservation."""
@@ -127,12 +144,15 @@ class BoundedFailoverT2Proposer:
         """Try candidates in order, reserving every actual model invocation."""
 
         failed = False
-        candidate_count = len(self._candidates)
-        for index, (route_ref, proposer) in enumerate(self._candidates, start=1):
+        candidates = await self._ordered_candidates()
+        candidate_count = len(candidates)
+        preferred_route_ref = candidates[0][0]
+        for index, (route_ref, proposer) in enumerate(candidates, start=1):
             if not await reserve_attempt():
                 await self._emit(
                     context=context,
                     route_ref=route_ref,
+                    preferred_route_ref=preferred_route_ref,
                     attempt=index,
                     status="skipped",
                     failure_class=T2FailureClass.BUDGET_EXHAUSTED,
@@ -149,6 +169,7 @@ class BoundedFailoverT2Proposer:
                 await self._emit(
                     context=context,
                     route_ref=route_ref,
+                    preferred_route_ref=preferred_route_ref,
                     attempt=index,
                     status="failed",
                     failure_class=_classify_failure(exc),
@@ -164,6 +185,7 @@ class BoundedFailoverT2Proposer:
             await self._emit(
                 context=context,
                 route_ref=route_ref,
+                preferred_route_ref=preferred_route_ref,
                 attempt=index,
                 status="abstained" if candidate is None else "succeeded",
                 failure_class=None,
@@ -174,11 +196,29 @@ class BoundedFailoverT2Proposer:
             return candidate
         raise AssertionError("bounded candidates are non-empty")
 
+    async def _ordered_candidates(self) -> tuple[tuple[str, T2Proposer], ...]:
+        selector = self._route_selector
+        if selector is None:
+            return self._candidates
+        try:
+            preferred = await selector.preferred_route(
+                tuple(route_ref for route_ref, _ in self._candidates)
+            )
+        except Exception:  # noqa: BLE001 - selector outage retains bounded failover
+            return self._candidates
+        selected = tuple(candidate for candidate in self._candidates if candidate[0] == preferred)
+        if not selected:
+            return self._candidates
+        return selected + tuple(
+            candidate for candidate in self._candidates if candidate[0] != preferred
+        )
+
     async def _emit(
         self,
         *,
         context: T2ProposalContext,
         route_ref: str,
+        preferred_route_ref: str,
         attempt: int,
         status: str,
         failure_class: T2FailureClass | None,
@@ -196,6 +236,7 @@ class BoundedFailoverT2Proposer:
                 event_id=str(context.event.event_id),
                 correlation_id=str(context.event.correlation_id or context.event.event_id),
                 route_ref=route_ref,
+                preferred_route_ref=preferred_route_ref,
                 attempt=attempt,
                 candidate_count=len(self._candidates),
                 status=status,
@@ -228,4 +269,5 @@ __all__ = [
     "T2ProposerBudgetExhaustedError",
     "T2ProposerCandidatesExhaustedError",
     "T2RecoveryObserver",
+    "T2RouteSelector",
 ]

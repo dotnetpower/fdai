@@ -109,6 +109,7 @@ def append_chat_routes(
     inventory_activity_provider: InventoryActivityProvider | None = None,
     kubernetes_workload_provider: KubernetesWorkloadProvider | None = None,
     detection_readiness_reader: DetectionReadinessReader | None = None,
+    t2_recovery_reader: Any = None,
     subscription_health_provider: SubscriptionHealthProvider | None = None,
     log_query_provider: Any = None,
     data_sources: tuple[ReadDataSourceStatus, ...] = (),
@@ -168,10 +169,17 @@ def append_chat_routes(
             fallback=subscription_health_tools,
         )
     )
-    skill_tools = (
+    from fdai.delivery.read_api.routes.chat_t2_recovery import T2RecoveryChatTools
+
+    t2_recovery_tools = (
         detection_readiness_tools
+        if t2_recovery_reader is None
+        else T2RecoveryChatTools(t2_recovery_reader, fallback=detection_readiness_tools)
+    )
+    skill_tools = (
+        t2_recovery_tools
         if skill_disclosure is None
-        else RuntimeSkillChatTools(skill_disclosure, fallback=detection_readiness_tools)
+        else RuntimeSkillChatTools(skill_disclosure, fallback=t2_recovery_tools)
     )
     data_source_tools = DataSourceChatTools(data_sources, fallback=skill_tools)
     system_health_tools = SystemHealthChatTools(

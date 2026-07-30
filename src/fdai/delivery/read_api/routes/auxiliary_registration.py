@@ -84,6 +84,7 @@ def append_auxiliary_routes(
         inventory_activity_provider=config.inventory_activity_provider,
         kubernetes_workload_provider=config.kubernetes_workload_provider,
         detection_readiness_reader=config.detection_readiness_reader,
+        t2_recovery_reader=config.t2_recovery_reader,
         subscription_health_provider=config.subscription_health_provider,
         log_query_provider=config.log_query_provider,
         data_sources=config.data_sources,

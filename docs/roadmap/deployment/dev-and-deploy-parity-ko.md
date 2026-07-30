@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 2e733d7e251bdfbe91f7a5662e90869be22cfd80
-translation_revised: 2026-07-30
+translation_source_sha: b2dd1c9c7bbeadcf788f0bb4bb488a953b1f70c8
+translation_revised: 2026-08-13
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -43,7 +43,7 @@ profile에서 활성화되지 않습니다.
 | Rule catalog 로더 + shadow eval 파이프라인 | 파일시스템 YAML | 클라우드 콜 없음 |
 | Risk gate + promotion registry | 인-메모리 `ActionPromotionRegistry` | seam 스왑 가능 |
 | Executor + resource lock | 인-프로세스 | fixture 전용이며 interactive executor가 아님 |
-| Audit store | `InMemoryStateStore` (hash-chain 검증) | prod backend = Postgres |
+| Audit + T2 recovery state | `InMemoryStateStore` (hash-chain 검증) | prod backend = Postgres이며 같은 receipt/route key가 deterministic chat read를 제공합니다 |
 | Event ingest + trust router | 인-프로세스 | 버스 미배선 |
 | Verticals (Resilience / FinOps / Change Safety) | 순수 결정 모듈 | 클라우드 없음 |
 | Quality gate | `StaticVerifier` + `MatchTypeCrossCheckModel` + `InMemoryGroundingSource` | [llm-strategy-ko.md § T2](../architecture/llm-strategy-ko.md#t2--reasoning-tier-quality-gate-required) 참조 |

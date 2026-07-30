@@ -47,7 +47,10 @@ from fdai.agents._framework.pantheon import (
     PANTHEON_NAMES,
     PANTHEON_SPECS,
 )
-from fdai.agents._framework.provider_adapters import StateStoreAuditChainAdapter
+from fdai.agents._framework.provider_adapters import (
+    StateStoreActionRunStore,
+    StateStoreAuditChainAdapter,
+)
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
@@ -102,6 +105,7 @@ __all__ = [
     "Saga",
     "SemanticRouterConfig",
     "ShadowDivergenceLedger",
+    "StateStoreActionRunStore",
     "StateStoreAuditChainAdapter",
     "SynthesisOutcome",
     "T2ConversationSynthesizer",

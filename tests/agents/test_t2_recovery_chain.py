@@ -6,10 +6,17 @@ from copy import deepcopy
 from threading import Lock
 from typing import Any
 
+from fdai.agents._framework.provider_adapters import (
+    StateStoreActionRunStore,
+    StateStoreAuditChainAdapter,
+)
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.heimdall import Heimdall
+from fdai.agents.saga import Saga
 from fdai.agents.var import Var
+from fdai.runtime.t2_route_registry import T2RouteRegistry
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _RAW_TOPIC = "fdai.events"
 
@@ -81,6 +88,7 @@ def _raw_event(*, recovered: bool = False) -> dict[str, object]:
         "severity": "info" if recovered else "high",
         "attributes": {
             "route_ref": "secondary",
+            "preferred_route_ref": "primary",
             "attempt": 2,
             "candidate_count": 2,
             "status": "succeeded" if recovered else "failed",
@@ -114,6 +122,42 @@ async def _drive(
         pass
 
 
+async def _drive_approved(
+    runtime: PantheonRuntime,
+    provider: LiveInMemoryEventBus,
+    registry: T2RouteRegistry,
+    *,
+    expected_route: str,
+    expected_action_state: str,
+) -> None:
+    task = asyncio.create_task(runtime.run())
+    payload = _raw_event()
+    await provider.publish(_RAW_TOPIC, str(payload["id"]), payload)
+    for _ in range(3000):
+        await asyncio.sleep(0)
+        var = runtime.agents["Var"]
+        if isinstance(var, Var) and var.pending_tickets():
+            await var.decide(
+                "corr-t2-recovery",
+                approver="approver@example.com",
+                decision="approve",
+            )
+            break
+    for _ in range(3000):
+        await asyncio.sleep(0)
+        if (
+            await registry.preferred_route(("primary", "secondary")) == expected_route
+            and runtime.shadow_decisions[f"action_run:{expected_action_state}"] >= 1
+        ):
+            break
+    await runtime.stop()
+    task.cancel()
+    try:
+        await task
+    except (asyncio.CancelledError, Exception):  # noqa: S110 - cleanup
+        pass
+
+
 def test_terminal_proposer_failure_reaches_real_hil_chain() -> None:
     provider = LiveInMemoryEventBus()
     runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
@@ -128,6 +172,12 @@ def test_terminal_proposer_failure_reaches_real_hil_chain() -> None:
     assert runtime.shadow_decisions["verdict:hil"] >= 1
     assert runtime.shadow_decisions["action_run:hil_pending"] >= 1
     assert var.behavior_snapshot().get("ticket_pending") == 1
+    assert var.pending_tickets()[0].params == {
+        "target_resource_ref": "control-plane:t2-proposer",
+        "target_route_ref": "secondary",
+        "prior_route_ref": "primary",
+        "reason_code": "t2_proposer_candidates_exhausted",
+    }
 
 
 def test_recovered_proposer_signal_does_not_create_hil() -> None:
@@ -143,3 +193,64 @@ def test_recovered_proposer_signal_does_not_create_hil() -> None:
     assert heimdall.behavior_snapshot().get("t2_proposer:recovered") == 1
     assert runtime.shadow_decisions["verdict:hil"] == 0
     assert var.behavior_snapshot().get("ticket_pending") is None
+
+
+def test_approved_failure_switches_persistent_route_through_thor() -> None:
+    provider = LiveInMemoryEventBus()
+    store = InMemoryStateStore()
+    registry = T2RouteRegistry(store=store)
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        enforce=True,
+        thor_executor=registry.execute,
+        thor_state_store=StateStoreActionRunStore(store),
+        saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
+        rollback_executors={"state_forward_only": registry.rollback},
+    )
+
+    asyncio.run(
+        _drive_approved(
+            runtime,
+            provider,
+            registry,
+            expected_route="secondary",
+            expected_action_state="succeeded",
+        )
+    )
+
+    assert asyncio.run(registry.preferred_route(("primary", "secondary"))) == "secondary"
+    assert runtime.shadow_decisions["action_run:succeeded"] >= 1
+
+
+def test_vidar_restores_route_when_thor_verification_fails() -> None:
+    provider = LiveInMemoryEventBus()
+    store = InMemoryStateStore()
+    registry = T2RouteRegistry(store=store)
+
+    async def switch_then_fail(context: dict[str, Any]) -> bool:
+        assert await registry.execute(context) is True
+        return False
+
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        enforce=True,
+        thor_executor=switch_then_fail,
+        thor_state_store=StateStoreActionRunStore(store),
+        saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
+        rollback_executors={"state_forward_only": registry.rollback},
+    )
+
+    asyncio.run(
+        _drive_approved(
+            runtime,
+            provider,
+            registry,
+            expected_route="primary",
+            expected_action_state="rolled_back",
+        )
+    )
+
+    assert asyncio.run(registry.preferred_route(("primary", "secondary"))) == "primary"
+    assert runtime.shadow_decisions["action_run:rolled_back"] >= 1

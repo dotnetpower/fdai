@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 4b098a17b7979c41e6a6620662251150d24ae5de
-translation_revised: 2026-07-31
+translation_source_sha: aca4945ca9c4f5bb87f85a8f84f706d9ae926726
+translation_revised: 2026-08-13
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -241,6 +241,7 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `query_inventory(resource_type, filter)` | Server-owned Azure inventory-view count, list, type, location, resource-group, name, status, relationship query입니다. 제한된 allowlist field, active view, snapshot source/freshness만 반환합니다. Local VM 상태는 `az vm list --show-details`에서 읽고 local PostgreSQL Flexible Server 상태는 `az postgres flexible-server list`에서 읽으며, deployed Resource Graph row는 관찰된 service `properties.state`를 normalize합니다. `중지된 db` 및 `중지된 디비` 같은 구어체 database status filter는 이 deterministic local tool에 유지되며 operator가 web search를 명시적으로 요청하지 않으면 agent 또는 public-web branch를 시작하지 않습니다. Server read가 완료되면 stream은 server scope와 query value를 redaction한 canonical `query_inventory` operation 및 bounded status/count summary를 제공합니다. Provider 실패는 unavailable로 표시합니다. Server-owned workload provider가 kubeconfig, context 및 inventory와 일치하는 cluster name에 명시적으로 binding되지 않으면 AKS result는 cluster resource만 포함합니다. 유효한 binding은 해당 cluster의 bounded Deployment와 Pod readiness 및 observation time을 추가하고, 일치하는 다른 cluster는 명시적인 coverage gap으로 유지합니다. | Reader | `InventoryGraphProvider`, `KubernetesWorkloadProvider` |
 | `query_subscription_health()` | 명시적인 subscription 점검과 일반적인 service-outage 질문에 대해 server-configured Azure reader scope를 점검합니다. Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 허용된 resource group별 current Resource Health status로 fallback한 다음 bounded representative metric을 확인합니다. Caller-supplied scope를 허용하지 않고 finding, cause classification, coverage gap, freshness 및 truncation을 반환합니다. | Reader | `SubscriptionHealthProvider` |
 | `query_detection_readiness()` | Muninn StateSnapshot에서 Heimdall의 최신 AKS readiness 판정을 읽고 6축 coverage gap과 authority ceiling을 반환합니다. Azure를 probe하거나 readiness를 다시 계산하지 않습니다. | Reader | `DetectionReadinessReader` |
+| `query_t2_recovery()` | Server StateStore에서 sanitized proposer attempt receipt를 읽습니다. Provider error text를 노출하지 않고 retained attempt count, recovery state, route role, failure class, observation time 및 명시적인 legacy-detail gap을 반환합니다. | Reader | `T2RecoveryStateReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는

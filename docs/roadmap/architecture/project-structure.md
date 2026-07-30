@@ -20,7 +20,7 @@ fdai/
 │   │   ├── tiers/
 │   │   │   ├── t0_deterministic/    # deterministic-engine: policy, checklist, what-if, drift eval
 │   │   │   ├── t1_lightweight/      # embedding similarity, learned-action reuse, small-model classify; non-finite reuse evidence abstains
-│   │   │   └── t2_reasoning/        # frontier-model reasoning plus bounded proposer failover and sanitized attempt receipts
+│   │   │   └── t2_reasoning/        # frontier-model reasoning plus budgeted proposer failover, durable route selection, and sanitized attempt receipts
 │   │   ├── prompts/            # catalog-as-code prompt composer (loads `rule-catalog/prompts/`, supplies T2)
 │   │   ├── tools/              # T2 tool-catalog registry + `ToolExecutor` (shadow-mode gated)
 │   │   ├── web_search/         # last-resort web-search seam (`NoOpWebSearchProvider` default; domain allowlist + sanitizer)
@@ -118,7 +118,7 @@ fdai/
 │   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, and typed ingress
 │   ├── benchmarking/          # temporary 0.1.x compatibility facade for legacy benchmark contracts and runners
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders
-│   ├── runtime/               # headless lifecycle and composition, including operating-model startup projection/status, durable T2 recovery observation, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
+│   ├── runtime/               # headless lifecycle and composition, including operating-model startup projection/status, durable T2 recovery observation/backfill, StateStore-backed proposer route selection with Thor/Vidar execution and rollback, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── evaluation-sdk/            # independently packageable neutral evaluation contracts and runner; no FDAI implementation imports
 ├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel

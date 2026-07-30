@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e0739db6f8042821bdbe162d65ccd7d5ed16e9ea
-translation_revised: 2026-07-31
+translation_source_sha: ec01e9b2f209c2fd3f1a305f4031e2074851db17
+translation_revised: 2026-08-13
 ---
 
 # 에이전트 판테온
@@ -634,8 +634,8 @@ replay 는 judge-only: Saga 는 과거 결정을 재구성할 수 있지만 절�
    assert; schema registry 는 malformed proposal 을 거부.
 2. **Verdict 시.** Forseti 는 schema + policy + what-if / dry-run 을 재실행;
    실패 시 verdict 를 `deny` 또는 `hil` 로 downgrade.
-3. **Execute 시.** Thor 가 mutation 직전에 한 번 더 검증, 타깃 상태에
-   대한 race 를 잡기 위해.
+3. **Execute 시.** Params 는 Verdict, `ActionRun`, Approval, audit에서 그대로
+  유지되며 Thor가 mutation 전에 다시 검증해 target-state race를 잡습니다.
 
 Idempotency key 는 action 당 (`action_run_id`) 과 attempt 당
 (`attempt_id`) 존재. 같은 key 로 재전송된 publish 는 executor 에서 no-op;

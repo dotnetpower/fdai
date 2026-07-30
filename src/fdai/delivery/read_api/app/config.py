@@ -223,6 +223,9 @@ class ReadApiConfig:
     The route projects agent-owned state and never probes Azure or recomputes a
     readiness decision."""
 
+    t2_recovery_reader: Any = None
+    """Optional durable T2 proposer receipt reader for grounded chat explanations."""
+
     subscription_health_provider: Any = None
     """Optional bounded read-only Azure scope health provider for ChatOps.
     It owns subscription and resource-group scope, Resource Graph templates,

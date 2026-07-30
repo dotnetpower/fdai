@@ -14,6 +14,7 @@ from fdai.agents import (
     OWNED_OBJECT_TOPICS,
     PantheonRuntime,
     ShadowDivergenceLedger,
+    StateStoreActionRunStore,
 )
 from fdai.composition import (
     LlmBindings,
@@ -117,6 +118,7 @@ from fdai.runtime.readiness import (
     StartupReadinessRuntime,
     build_startup_readiness_runtime,
 )
+from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_selector
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
@@ -148,6 +150,7 @@ async def _run() -> int:
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
     forecast_learning_runtime: ForecastLearningRuntime | None = None
     startup_readiness_runtime: StartupReadinessRuntime | None = None
+    t2_recovery_maintenance: Any = None
 
     try:
         telemetry_requested = bool(
@@ -422,6 +425,12 @@ async def _run() -> int:
                 # decision; joined by correlation id to measure shadow
                 # agreement (the promotion baseline).
                 divergence_ledger = ShadowDivergenceLedger()
+                t2_proposer = container.require_llm_bindings().require_t2_proposer()
+                t2_route_registry = T2RouteRegistry(store=incident_audit_store)
+                t2_route_selector_bound = bind_t2_route_selector(
+                    proposer=t2_proposer,
+                    registry=t2_route_registry,
+                )
                 post_turn_models: tuple[PostTurnProposalModel, ...] = ()
                 if container.config.llm.mode == LlmMode.AZURE:
                     if http_client is None or identity is None:
@@ -514,6 +523,21 @@ async def _run() -> int:
                         "fdai-pantheon",
                     ).strip(),
                     enforce=pantheon_enforce,
+                    thor_executor=(
+                        t2_route_registry.execute
+                        if pantheon_enforce and t2_route_selector_bound
+                        else None
+                    ),
+                    thor_state_store=(
+                        StateStoreActionRunStore(incident_audit_store)
+                        if pantheon_enforce and t2_route_selector_bound
+                        else None
+                    ),
+                    rollback_executors=(
+                        {"state_forward_only": t2_route_registry.rollback}
+                        if pantheon_enforce and t2_route_selector_bound
+                        else None
+                    ),
                     saga=_build_runtime_saga(incident_audit_store),
                     muninn_state_store=incident_audit_store,
                     disabled_agents=disabled_agents,
@@ -597,13 +621,32 @@ async def _run() -> int:
                     ),
                     semantic_router_config=_semantic_router_config_from_env(),
                 )
-                from fdai.runtime.t2_recovery import bind_t2_recovery_observer
+                from fdai.runtime.t2_recovery import (
+                    T2RecoveryMaintenance,
+                    bind_t2_recovery_observer,
+                )
 
-                bind_t2_recovery_observer(
-                    proposer=container.require_llm_bindings().require_t2_proposer(),
+                recovery_observer = bind_t2_recovery_observer(
+                    proposer=t2_proposer,
                     store=incident_audit_store,
                     ingress=pantheon_runtime.ingest_raw_event,
                 )
+                if recovery_observer is not None:
+                    legacy_reader = None
+                    state_store_dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+                    if state_store_dsn:
+                        from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
+                        from fdai.delivery.persistence.postgres_t2_recovery import (
+                            PostgresT2RecoveryLegacyReader,
+                        )
+
+                        legacy_reader = PostgresT2RecoveryLegacyReader(
+                            config=PostgresStateStoreConfig(dsn=state_store_dsn)
+                        )
+                    t2_recovery_maintenance = T2RecoveryMaintenance(
+                        observer=recovery_observer,
+                        legacy_reader=legacy_reader,
+                    )
                 agent_introspection_server = EventBusAgentIntrospectionServer(
                     event_bus=bus,
                     runtime=pantheon_runtime,
@@ -752,6 +795,7 @@ async def _run() -> int:
             pantheon_task: asyncio.Task[None] | None = None
             agent_introspection_task: asyncio.Task[None] | None = None
             runtime_state_task: asyncio.Task[None] | None = None
+            t2_recovery_task: asyncio.Task[None] | None = None
             case_history_retention_task: asyncio.Task[None] | None = None
             if pantheon_runtime is not None:
                 pantheon_task = asyncio.create_task(
@@ -778,6 +822,14 @@ async def _run() -> int:
                     ),
                     name="pantheon-runtime-state",
                 )
+            if t2_recovery_maintenance is not None:
+                t2_recovery_task = asyncio.create_task(
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: t2_recovery_maintenance.run(stop),
+                    ),
+                    name="t2-recovery-maintenance",
+                )
             if case_history_retention_publisher is not None:
                 case_history_retention_task = asyncio.create_task(
                     startup_readiness_runtime.run_when_ready(
@@ -802,6 +854,7 @@ async def _run() -> int:
                     pantheon_task,
                     agent_introspection_task,
                     runtime_state_task,
+                    t2_recovery_task,
                 ),
             )
         else:

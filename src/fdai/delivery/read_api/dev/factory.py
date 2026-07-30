@@ -689,6 +689,7 @@ def build_local_app(
             detection_readiness_reader=(
                 persistence.state_store if persistence is not None else None
             ),
+            t2_recovery_reader=(persistence.state_store if persistence is not None else None),
             subscription_health_provider=(
                 local_read_investigation.subscription_health_provider
                 if local_read_investigation is not None

@@ -227,6 +227,16 @@ class Heimdall(Agent):
         if not correlation_id or not resource_id or not evidence_key:
             self.record_behavior("t2_proposer:invalid")
             return
+        preferred_route = str(attributes.get("preferred_route_ref") or "")
+        if preferred_route == "legacy":
+            preferred_route = "primary"
+        alternate_route = (
+            "secondary"
+            if preferred_route == "primary"
+            else "primary"
+            if preferred_route == "secondary"
+            else ""
+        )
         anomaly = {
             "producer_principal": "Heimdall",
             "correlation_id": correlation_id,
@@ -239,6 +249,8 @@ class Heimdall(Agent):
             "evidence_key": evidence_key,
             "evidence_keys": [evidence_key],
             "failure_class": str(attributes.get("failure_class") or "provider_error"),
+            "prior_route_ref": preferred_route,
+            "alternate_route_ref": alternate_route,
         }
         self.record_behavior("t2_proposer:unavailable")
         if self.bus is not None:

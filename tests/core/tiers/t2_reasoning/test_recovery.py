@@ -73,6 +73,19 @@ class _Recorder:
         self.receipts.append(receipt)
 
 
+class _Selector:
+    def __init__(self, preferred: str = "secondary", error: Exception | None = None) -> None:
+        self.preferred = preferred
+        self.error = error
+        self.available_routes: tuple[str, ...] = ()
+
+    async def preferred_route(self, available_routes: tuple[str, ...]) -> str:
+        self.available_routes = available_routes
+        if self.error is not None:
+            raise self.error
+        return self.preferred
+
+
 async def test_primary_failure_fails_over_and_records_sanitized_recovery() -> None:
     primary = _StaticProposer(error=RuntimeError("secret endpoint payload"))
     secondary = _StaticProposer(result=_candidate())
@@ -169,3 +182,47 @@ async def test_candidate_routes_must_be_unique_and_bounded() -> None:
     context = _context()
     changed = replace(context, target_resource_ref="resource:example/rg/y")
     assert changed.target_resource_ref.endswith("/y")
+
+
+async def test_persistent_selector_moves_secondary_to_first_attempt() -> None:
+    primary = _StaticProposer(error=RuntimeError("must not run"))
+    secondary = _StaticProposer(result=_candidate())
+    recorder = _Recorder()
+    selector = _Selector()
+    proposer = BoundedFailoverT2Proposer(
+        candidates=(("primary", primary), ("secondary", secondary)),
+        observer=recorder,
+        route_selector=selector,
+    )
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=1, max_calls_total=1))
+
+    result = await proposer.propose_with_budget(
+        context=_context(),
+        reserve_attempt=lambda: ledger.reserve("event", calls=1, cost_microusd=0),
+    )
+
+    assert result == _candidate()
+    assert selector.available_routes == ("primary", "secondary")
+    assert secondary.calls == 1
+    assert primary.calls == 0
+    assert recorder.receipts[0].route_ref == "secondary"
+    assert recorder.receipts[0].attempt == 1
+
+
+async def test_selector_failure_retains_primary_first_bounded_failover() -> None:
+    primary = _StaticProposer(result=_candidate())
+    secondary = _StaticProposer(error=RuntimeError("must not run"))
+    proposer = BoundedFailoverT2Proposer(
+        candidates=(("primary", primary), ("secondary", secondary)),
+        route_selector=_Selector(error=RuntimeError("state store unavailable")),
+    )
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=1, max_calls_total=1))
+
+    result = await proposer.propose_with_budget(
+        context=_context(),
+        reserve_attempt=lambda: ledger.reserve("event", calls=1, cost_microusd=0),
+    )
+
+    assert result == _candidate()
+    assert primary.calls == 1
+    assert secondary.calls == 0

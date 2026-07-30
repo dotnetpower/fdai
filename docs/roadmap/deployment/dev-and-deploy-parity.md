@@ -40,7 +40,7 @@ enabled by that launch profile.
 | Rule catalog loader + shadow eval pipeline | filesystem YAML | no cloud calls |
 | Risk gate + promotion registry | in-memory `ActionPromotionRegistry` | seam swappable |
 | Executor + resource lock | in-process | fixture-only; never an interactive executor |
-| Audit store | `InMemoryStateStore` (hash-chain verified) | prod backend = Postgres |
+| Audit + T2 recovery state | `InMemoryStateStore` (hash-chain verified) | prod backend = Postgres; the same receipt and route keys feed deterministic chat reads |
 | Event ingest + trust router | in-process | no bus wired |
 | Verticals (Resilience / FinOps / Change Safety) | pure decision modules | no cloud |
 | Quality gate | `StaticVerifier` + `MatchTypeCrossCheckModel` + `InMemoryGroundingSource` | see [llm-strategy.md § T2](../architecture/llm-strategy.md#t2--reasoning-tier-quality-gate-required) |

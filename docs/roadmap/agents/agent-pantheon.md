@@ -659,8 +659,8 @@ Three validation checks, all deterministic:
    `argument_schema`; the schema registry rejects malformed proposals.
 2. **At verdict.** Forseti re-runs schema + policy + what-if / dry-run;
    any failure downgrades the verdict to `deny` or `hil`.
-3. **At execute.** Thor validates once more just before mutation, to
-   catch races on target state.
+3. **At execute.** Params remain unchanged on Verdict, `ActionRun`, Approval,
+  and audit; Thor validates them again before mutation to catch target-state races.
 
 Idempotency keys are per-action (`action_run_id`) and per-attempt
 (`attempt_id`). A retried publish with the same key is a no-op at the

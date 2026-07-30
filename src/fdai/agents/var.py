@@ -9,6 +9,7 @@ window and the last-seen counter is incremented on repeat.
 from __future__ import annotations
 
 import inspect
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -36,6 +37,7 @@ class PendingHilTicket:
     resource_id: str | None
     quorum_required: int
     initiator_principal: str | None = None
+    params: dict[str, Any] = field(default_factory=dict)
     kind: str = "action"
     document_id: str | None = None
     upload_id: str | None = None
@@ -123,6 +125,7 @@ class Var(Agent):
             resource_id=payload.get("resource_id"),
             quorum_required=quorum,
             initiator_principal=raw_initiator.strip() if raw_initiator else None,
+            params=(dict(payload["params"]) if isinstance(payload.get("params"), Mapping) else {}),
             decision_case=(
                 dict(payload["decision_case"])
                 if isinstance(payload.get("decision_case"), dict)
@@ -217,6 +220,7 @@ class Var(Agent):
                 "state": final,
                 "approvers": list(ticket.approvers),
                 "decision_case": ticket.decision_case,
+                "params": dict(ticket.params),
             }
             if ticket.kind == "document_ingestion":
                 approval.update(

@@ -44,6 +44,10 @@ from fdai.delivery.read_api.routes.chat_subscription_health import (
     render_subscription_health_answer,
     subscription_health_evidence_refs,
 )
+from fdai.delivery.read_api.routes.chat_t2_recovery import (
+    render_t2_recovery_answer,
+    t2_recovery_evidence_refs,
+)
 from fdai.delivery.read_api.routes.chat_verification_rendering import (
     agent_activity_lines as _agent_activity_lines,
 )
@@ -172,6 +176,27 @@ def verify_answer(
         )
 
     tool = view_context.get("_tool_evidence")
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_t2_recovery":
+        recovery_answer = render_t2_recovery_answer(tool, locale=locale)
+        recovery_refs = t2_recovery_evidence_refs(tool)
+        if recovery_answer is None:
+            return AnswerVerification(
+                status="unverified",
+                answer="T2 proposer recovery evidence could not be rendered.",
+                authority="server_t2_recovery_ledger",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="t2_recovery_evidence_invalid",
+            )
+        return AnswerVerification(
+            status=_changed(provisional, recovery_answer),
+            answer=recovery_answer,
+            authority="server_t2_recovery_ledger",
+            checks_completed=len(recovery_refs),
+            checks_total=len(recovery_refs),
+            evidence_refs=recovery_refs,
+            reason_code=("t2_recovery_grounded" if recovery_refs else "t2_recovery_not_observed"),
+        )
     if isinstance(tool, Mapping) and tool.get("tool") == "get_current_time":
         time_answer = render_current_time_answer(tool, locale=locale)
         if time_answer is None:

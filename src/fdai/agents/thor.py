@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
@@ -67,6 +68,7 @@ class ActionRun:
     resource_id: str | None
     state: ActionRunState
     verdict: str  # auto | hil | deny
+    params: dict[str, Any] = field(default_factory=dict)
     shadow_mode: bool = False
     quorum_required: int = 1
     outcome: str | None = None
@@ -88,6 +90,7 @@ class ActionRun:
             "resource_id": self.resource_id,
             "state": self.state.value,
             "verdict": self.verdict,
+            "params": deepcopy(self.params),
             "shadow_mode": self.shadow_mode,
             "quorum_required": self.quorum_required,
             "outcome": self.outcome,
@@ -106,6 +109,7 @@ class ActionRun:
             resource_id=data.get("resource_id"),
             state=ActionRunState(data["state"]),
             verdict=str(data["verdict"]),
+            params=deepcopy(dict(data.get("params") or {})),
             shadow_mode=bool(data.get("shadow_mode", False)),
             quorum_required=int(data.get("quorum_required", 1)),
             outcome=data.get("outcome"),
@@ -282,6 +286,8 @@ class Thor(Agent):
         # action execute with no approver; Thor MUST NOT hard-code 1 and drop
         # the judge's two-approver requirement.
         quorum_required = max(1, int(verdict.get("quorum_required", 1)))
+        raw_params = verdict.get("params")
+        params = deepcopy(dict(raw_params)) if isinstance(raw_params, Mapping) else {}
 
         run = ActionRun(
             correlation_id=correlation,
@@ -289,6 +295,7 @@ class Thor(Agent):
             resource_id=resource_id,
             state=ActionRunState.VERDICTED,
             verdict=risk_verdict,
+            params=params,
             shadow_mode=shadow_mode,
             quorum_required=quorum_required,
             initiator_principal=verdict.get("initiator_principal"),
@@ -465,6 +472,7 @@ class Thor(Agent):
             "shadow_mode": run.shadow_mode,
             "outcome": run.outcome,
             "verdict": run.verdict,
+            "params": deepcopy(run.params),
             "quorum_required": run.quorum_required,
             "initiator_principal": run.initiator_principal,
             "rollback_contract": run.rollback_contract,

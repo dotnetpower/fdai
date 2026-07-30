@@ -641,6 +641,23 @@ class Forseti(Agent):
             reason = "arbitration_unresolved"
         else:
             reason = "rule_match"
+        raw_params = event.get("params")
+        params = dict(raw_params) if isinstance(raw_params, Mapping) else {}
+        if action_type == "ops.switch-t2-proposer-route":
+            prior_route = str(event.get("prior_route_ref") or "")
+            target_route = str(event.get("alternate_route_ref") or "")
+            if prior_route in {"primary", "secondary"} and target_route in {
+                "primary",
+                "secondary",
+            }:
+                params = {
+                    "target_resource_ref": str(event.get("resource_id") or ""),
+                    "target_route_ref": target_route,
+                    "prior_route_ref": prior_route,
+                    "reason_code": str(
+                        event.get("reason_code") or "t2_proposer_candidates_exhausted"
+                    ),
+                }
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": event.get("correlation_id", ""),
@@ -648,6 +665,7 @@ class Forseti(Agent):
             "action_type": action_type,
             "risk_verdict": risk_verdict,
             "reason": reason,
+            "params": params,
             "detection_readiness": readiness,
             # Distinct-approver quorum: an irreversible action MUST clear two
             # approvers (agent-pantheon.md 4.6). The judge sets it on the
