@@ -2,9 +2,8 @@
 
 Verifies:
 
-- When ``direct_api_executor`` is not wired, every action goes through
-  the PR-native ``ShadowExecutor`` regardless of the ActionType's
-  ``execution_path`` (backward-compatible default).
+- When an ActionType declares ``direct_api`` but its executor is not wired,
+    dispatch fails closed without calling the PR-native executor.
 - When ``direct_api_executor`` IS wired AND the ActionType declares
   ``execution_path == direct_api``, the direct-API sibling receives the
   dispatch call.
@@ -136,21 +135,21 @@ def _make_loop(
 # ---------------------------------------------------------------------------
 
 
-async def test_default_uses_pr_executor_only() -> None:
-    """No direct_api_executor wired -> every action goes to the PR path."""
-
-    pr_result = ExecutionResult(
-        action_id="00000000-0000-0000-0000-000000000010",
-        outcome=ExecutorOutcome.PUBLISHED,
-    )
+async def test_declared_direct_api_without_executor_fails_closed() -> None:
     pr_exec = MagicMock()
-    pr_exec.execute = AsyncMock(return_value=pr_result)
+    pr_exec.execute = AsyncMock()
 
-    loop = _make_loop(pr_executor=pr_exec, direct_api_executor=None)
+    action_type = _action_type(execution_path=ExecutionPath.DIRECT_API)
+    loop = _make_loop(
+        pr_executor=pr_exec,
+        direct_api_executor=None,
+        action_types_by_name={"ops.scale-out": action_type},
+    )
     got = await loop._dispatch_action(action=_action(), rule=_rule())
 
-    assert got is pr_result
-    pr_exec.execute.assert_awaited_once()
+    assert got.outcome is ExecutorOutcome.REJECTED_INVARIANT
+    assert got.reason == "execution_path 'direct_api' has no wired executor"
+    pr_exec.execute.assert_not_called()
 
 
 async def test_direct_api_executor_selected_when_action_type_opts_in() -> None:

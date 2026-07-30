@@ -147,7 +147,7 @@
     "src/fdai/core/control_loop/_audit_helpers.py": "5ecf0cf7f6dc8af12f1aabb3d8694dfb59d1414497c69a261d941ecab66ab3cd",
     "src/fdai/core/control_loop/_boundary.py": "63408f62e54e31518d2c38435ad5370227372e2cb5102013cdf2560259014470",
     "src/fdai/core/control_loop/_canary.py": "37e5c4b72d481376fab31ee9a2734bb31993ac27e8ae3961b2d360a95183c04f",
-    "src/fdai/core/control_loop/_execution.py": "3b0718a1a1bf8ac8aec862d189a990fecca45199b966ea7814821158dc8be316",
+    "src/fdai/core/control_loop/_execution.py": "59b05b2da3f85fa6bc78d41258ecc3a2bae227ddaa9e2ac4b871fca9a664dce5",
     "src/fdai/core/control_loop/_fallback.py": "b578dad54f1388c46a9d8b15085345e2c0049118e58b7d0a2bc2feea82f9c989",
     "src/fdai/core/control_loop/_helpers.py": "96323502707a0e6f952360155734fc64bb0114847c684db7128f0529dd5ba606",
     "src/fdai/core/control_loop/_notification_helpers.py": "bd16e3abebdff293e0941ff96fbc2d804edbb182a55ffae3909a0f902c17dfbe",
@@ -828,7 +828,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-30T19:02:19Z",
+  "generated_at": "2026-07-30T19:14:46Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -11,7 +11,7 @@ from fdai.core.control_loop._helpers import (
     build_shadow_authority_audit,
     evaluate_unified,
 )
-from fdai.core.executor import ExecutionResult, ShadowExecutor
+from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from fdai.core.executor.direct_api import (
     DirectApiExecutionResult,
     DirectApiShadowExecutor,
@@ -146,18 +146,23 @@ class ControlLoopExecutionMixin:
             result = await self._direct_api_executor.execute(action=action)
         elif path is ExecutionPath.TOOL_CALL and self._tool_executor is not None:
             result = await self._tool_executor.execute(action=action)
+        elif path in (ExecutionPath.DIRECT_API, ExecutionPath.TOOL_CALL):
+            reason = f"execution_path {path.value!r} has no wired executor"
+            _LOGGER.warning(
+                "action_dispatch_executor_unavailable",
+                extra={
+                    "action_type": action.action_type,
+                    "execution_path": path.value,
+                    "idempotency_key": action.idempotency_key,
+                },
+            )
+            result = ExecutionResult(
+                action_id=str(action.action_id),
+                outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                mode=action.mode,
+                reason=reason,
+            )
         else:
-            if path in (ExecutionPath.DIRECT_API, ExecutionPath.TOOL_CALL):
-                _LOGGER.warning(
-                    "action_type opts into %s but no matching executor is wired; "
-                    "falling back to PR-native (which cannot render this path)",
-                    path.value,
-                    extra={
-                        "action_type": action.action_type,
-                        "execution_path": path.value,
-                        "idempotency_key": action.idempotency_key,
-                    },
-                )
             result = await self._executor.execute(action=action, rule=rule)
         await self._record_mscp_effect_shadow(
             action=action,
