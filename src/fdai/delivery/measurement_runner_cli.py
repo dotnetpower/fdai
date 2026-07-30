@@ -16,11 +16,17 @@ from fdai.composition import (
     default_container_from_env,
     wire_azure_container,
 )
+from fdai.core.assurance_twin import StateStoreEffectModelRegistry
 from fdai.core.measurement.regression import RegressionDetector
-from fdai.core.measurement.runners import AutomatedBaselineRunner, PatternGrowthIntakeRunner
+from fdai.core.measurement.runners import (
+    AutomatedBaselineRunner,
+    DynamicLearningRunner,
+    PatternGrowthIntakeRunner,
+)
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.measurement.postgres_growth import (
+    PostgresResponseOutcomeSource,
     PostgresVerifiedOutcomeSource,
     PostgresVerifiedPatternBuilder,
 )
@@ -122,6 +128,14 @@ async def _run_growth() -> int:
             writer=PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn)),
             audit_store=state_store,
         ).run_once()
+        dynamic_report = await DynamicLearningRunner(
+            outcome_source=PostgresResponseOutcomeSource(
+                dsn=dsn,
+                state_store=state_store,
+            ),
+            registry=StateStoreEffectModelRegistry(state_store),
+            audit_store=state_store,
+        ).run_once()
     _LOGGER.info(
         "measurement_growth_complete",
         extra={
@@ -129,6 +143,9 @@ async def _run_growth() -> int:
             "accepted_count": report.accepted_count,
             "rejected_count": report.rejected_count,
             "build_failures": report.build_failures,
+            "dynamic_total_outcomes": dynamic_report.total_outcomes,
+            "dynamic_accepted_count": dynamic_report.accepted_count,
+            "dynamic_rejected_count": dynamic_report.rejected_count,
         },
     )
     return 0

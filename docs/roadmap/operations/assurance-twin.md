@@ -184,6 +184,14 @@ complicates the design.
   count or above a MAPE bar is not reliable, so the caller keeps it in (or demotes
   it back to) shadow. This stops an unmeasured what-if from acting as an oracle -
   a simulation that does not come true loses its enforce eligibility automatically.
+- **Adaptive but promotion-gated**: `effect_model.py` evaluates no-op and action branches with a
+  versioned active model while a separate challenger learns only from post-cutoff, scorable
+  `ResponseOutcome` records. The scheduled growth job persists challenger revisions through
+  optimistic concurrency. It never replaces the active key. Active/challenger divergence and
+  evidence below `quasi_experimental` force review. `rca/temporal_causality.py` adds differenced,
+  lagged correlation with optional confounder adjustment, reverse-direction checks, and multiple-
+  testing correction; this observational path can reach only `predictive_precedence`, never an
+  experimental causal grade.
 
 ## Assessment report (subscription posture, on demand)
 

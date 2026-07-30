@@ -66,6 +66,7 @@ def test_registry_names_covers_expected_set(
     expected = {
         "event",
         "forecast-outcome",
+        "response-outcome",
         "action",
         "rule",
         "incident",

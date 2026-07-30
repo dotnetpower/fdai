@@ -294,6 +294,14 @@ forecast label. For safety-critical actions FDAI does not withhold a proven resp
 a control group; use shadow-only predictions, naturally untreated episodes, matched historical
 cohorts, or a reviewed stepped rollout for counterfactual evidence.
 
+The response ledger's first runtime slice is implemented. The control loop emits the strict
+`ResponseOutcome` contract after independent effect observation, including expected range,
+observed value, time window, verification, execution mode, rollback result, target digest, and an
+explicit `scorable` marker. The existing scheduled growth job consumes these records under an
+independent watermark and updates only registered shadow challenger models. SLO recovery,
+recurrence closure, matched cohorts, and promotion to `quasi_experimental` or `interventional`
+evidence remain follow-up work and are not inferred from a verified effect alone.
+
 **Leakage-safe evaluation.** Backtests use rolling-origin time splits and group all events from
 one incident into one split. Features, topology, maintenance state, and labels are read only as of
 the prediction cutoff. The incumbent and candidate run over the same frozen replay and then the

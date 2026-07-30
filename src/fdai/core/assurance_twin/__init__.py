@@ -24,9 +24,25 @@ The subsystem holds no privileged identity and never mutates.
 
 from __future__ import annotations
 
+from fdai.core.assurance_twin.effect_model import (
+    BranchPrediction,
+    CausalEvidenceGrade,
+    ChallengerUpdate,
+    DynamicSimulationResult,
+    EffectModel,
+    EffectModelStatus,
+    SimulationBranch,
+    SimulationSnapshot,
+    simulate_effect_branches,
+    update_challenger,
+)
 from fdai.core.assurance_twin.fidelity import (
     FidelityStat,
     SimulationFidelityLedger,
+)
+from fdai.core.assurance_twin.model_registry import (
+    RegistryUpdate,
+    StateStoreEffectModelRegistry,
 )
 from fdai.core.assurance_twin.projection import (
     InMemoryProjection,
@@ -62,8 +78,14 @@ from fdai.core.assurance_twin.review import (
 __all__ = [
     "AbstainCode",
     "AbstainResult",
+    "BranchPrediction",
+    "CausalEvidenceGrade",
+    "ChallengerUpdate",
     "CompiledQuery",
     "DeterministicPatternCompiler",
+    "DynamicSimulationResult",
+    "EffectModel",
+    "EffectModelStatus",
     "InMemoryProjection",
     "NlQueryCompiler",
     "PostureAssessmentReport",
@@ -77,11 +99,17 @@ __all__ = [
     "QueryVerifier",
     "ReviewOutcome",
     "ReviewResult",
+    "RegistryUpdate",
     "FidelityStat",
     "SimulationFidelityLedger",
+    "SimulationBranch",
+    "SimulationSnapshot",
+    "StateStoreEffectModelRegistry",
     "TypedQuery",
     "build_baseline_projection",
     "build_posture_assessment_report",
     "execute_query",
     "publish_review",
+    "simulate_effect_branches",
+    "update_challenger",
 ]

@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: e4c24671485db67b5839a8359c82e3a80533e02a
-translation_revised: 2026-07-21
+translation_source_sha: 812f51d53e40d8df37739acba5e8c326a9e3d499
+translation_revised: 2026-07-30
 ---
 # MSCP Operational Profile
 
@@ -45,7 +45,7 @@ vocabulary를 계속 사용합니다.
 | FDAI 메커니즘 | MSCP provenance | FDAI adaptation | v1 상태 |
 |---------------|-----------------|-----------------|---------|
 | Profile provenance | Cross-level protocol versioning | 불변 profile id, source revision 및 non-conformance 선언 | 구현됨 |
-| Effect verification | Level 3 prediction gating | 예상 metric 범위를 독립적으로 관찰한 correlation 및 시간 제한 값과 비교 | Optional shadow runtime wiring 구현됨 |
+| Effect verification | Level 3 prediction gating | 예상 metric 범위를 독립적으로 관찰한 correlation 및 시간 제한 값과 비교 | Optional shadow runtime wiring 및 `ResponseOutcome` projection 구현됨 |
 | Cycle guard | Level 3 meta-escalation, oscillation 및 cognitive budget | Caller가 소유한 cycle, 경과 시간, cost, rollback 또는 sign-change limit에 도달하면 hold | Pure policy 구현, runtime wiring 연기 |
 | Runtime integrity | Level 3 identity continuity | 사전 hash된 runtime component의 canonical manifest 비교, persona 또는 mutable identity model 없음 | Pure policy 구현, runtime wiring 연기 |
 | Decision context | Level 2 persistent world model | 새로운 system of record를 만들지 않고 authoritative ontology, incident, workflow 및 audit state를 projection | 계획됨 |
@@ -107,6 +107,12 @@ mismatch는 `hold` 또는 `mismatch` shadow evidence를 생성합니다. Executo
 terminal ControlLoop outcome은 변경하지 않습니다. Shadow audit write failure도 log만 남기고 primary
 result를 유지합니다.
 
+같은 observation은 이제 strict `ResponseOutcome`을 `measurement.action_outcome.v1`로 기록합니다.
+계약은 resource reference 대신 target digest를 저장하고 누락되거나 stale한 evidence를
+`unscorable`로 표시하며 scheduled Dynamic challenger-learning pass가 소비하는 독립 watermark를
+제공합니다. 이 추가 record는 계속 shadow evidence입니다. Effect model을 promote하거나 execution
+authority를 변경할 수 없습니다.
+
 Shadow observation에서 gating으로 전환하는 작업은 별도의 향후 governed change입니다. Measured
 evidence window, rollback target 및 profile이 기존 authority decision을 유지하거나 낮출 수만 있다는
 증명이 필요합니다.
@@ -129,6 +135,7 @@ distribution은 safety profile을 선택하거나 변경하지 않습니다. 특
 - 레벨 비종속 profile identity 및 필수 non-conformance 선언
 - 안정적이고 source가 고정된 audit provenance
 - 예상 effect와 관찰 effect의 time, target, metric 및 correlation 검사
+- Strict `ResponseOutcome` schema parity 및 privacy-minimized audit projection
 - Default-off composition, pair-only activation 및 predict-execute-observe 순서
 - Mismatch, provider failure 또는 shadow audit failure에서도 변경되지 않는 executor result
 - Caller 소유 cycle budget 및 bounded sign-change detection

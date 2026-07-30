@@ -77,6 +77,7 @@ from .enums import (
     BlastRadiusComputation,
     BlastRadiusScope,
     Category,
+    CausalEvidenceGrade,
     CeilingRole,
     CheckLogicKind,
     Decision,
@@ -127,6 +128,11 @@ from .ontology import (
     TierCeiling,
     TriggerKindDecl,
 )
+from .response_outcome import (
+    ResponseOutcome,
+    ResponseOutcomeLabel,
+    ResponseVerificationStatus,
+)
 from .rule import (
     CheckLogic,
     Provenance,
@@ -147,6 +153,7 @@ __all__ = [
     "BlastRadiusComputation",
     "BlastRadiusScope",
     "Category",
+    "CausalEvidenceGrade",
     "CeilingRole",
     "CEILING_ROLE_RANK",
     "CheckLogicKind",
@@ -210,6 +217,9 @@ __all__ = [
     "RequirementMode",
     "RequirementOutcome",
     "RequirementStatus",
+    "ResponseOutcome",
+    "ResponseOutcomeLabel",
+    "ResponseVerificationStatus",
     "RollbackRef",
     "Rule",
     "RuleInterface",

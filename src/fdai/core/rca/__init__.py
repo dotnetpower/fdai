@@ -38,6 +38,12 @@ from fdai.core.rca.member_source import IncidentMemberSource, NoopIncidentMember
 from fdai.core.rca.reasoner import RcaReasoner
 from fdai.core.rca.t0 import t0_root_cause
 from fdai.core.rca.t1 import CorrelatedEvent, t1_causal_chain
+from fdai.core.rca.temporal_causality import (
+    TemporalCausalClaim,
+    TemporalCausalityAnalyzer,
+    TemporalCausalityConfig,
+    TemporalSeries,
+)
 
 __all__ = [
     "CausalChain",
@@ -63,6 +69,10 @@ __all__ = [
     "Relationship",
     "RootCauseHypothesis",
     "TelemetryEvidenceGatherer",
+    "TemporalCausalClaim",
+    "TemporalCausalityAnalyzer",
+    "TemporalCausalityConfig",
+    "TemporalSeries",
     "chain_to_hypothesis",
     "enforce_grounding",
     "parse_rca_response",

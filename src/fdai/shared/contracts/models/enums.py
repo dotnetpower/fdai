@@ -51,6 +51,15 @@ class IncidentCorrelation(StrEnum):
     NONE = "none"
 
 
+class CausalEvidenceGrade(StrEnum):
+    """Strength of evidence supporting a causal mechanism claim."""
+
+    ASSOCIATION = "association"
+    PREDICTIVE_PRECEDENCE = "predictive_precedence"
+    QUASI_EXPERIMENTAL = "quasi_experimental"
+    INTERVENTIONAL = "interventional"
+
+
 class Operation(StrEnum):
     """Executor operation vocabulary shared by Action and ontology ActionType."""
 
@@ -342,6 +351,7 @@ __all__ = [
     "Tier",
     "Decision",
     "Mode",
+    "CausalEvidenceGrade",
     "Operation",
     # rule
     "Severity",

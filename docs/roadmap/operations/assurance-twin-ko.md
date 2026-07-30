@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 7487fcce4bd49387ac5687265127ba60fdaef404
-translation_revised: 2026-07-21
+translation_source_sha: 03f8177cb6a030be8e0e906b19d36357e64026cf
+translation_revised: 2026-07-30
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -167,6 +167,14 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
   승격 신호로 바꾼다: 최소 표본 수 미만이거나 MAPE 기준 초과인 예측기는 신뢰할 수 없으므로,
   호출자는 그것을 shadow 에 유지(또는 강등)한다. 이는 측정되지 않은 what-if 가 oracle 로
   작동하는 것을 막는다 - 실현되지 않는 시뮬레이션은 enforce 자격을 자동으로 잃는다.
+- **적응하지만 promotion-gated**: `effect_model.py`는 versioned active model로 no-op 및 action
+  branch를 평가하고 별도 challenger는 cutoff 이후의 scorable `ResponseOutcome`에서만 학습합니다.
+  Scheduled growth job은 optimistic concurrency로 challenger revision을 저장하며 active key를
+  교체하지 않습니다. Active/challenger divergence 또는 `quasi_experimental` 미만 evidence는
+  review를 요구합니다. `rca/temporal_causality.py`는 optional confounder 조정, reverse-direction
+  검사 및 multiple-testing 보정을 포함한 differenced lag correlation을 추가합니다. 이
+  observational 경로는 최대 `predictive_precedence`까지만 도달하고 experimental causal grade를
+  만들지 않습니다.
 
 ## Assessment 리포트 (구독 자세, 온디맨드)
 

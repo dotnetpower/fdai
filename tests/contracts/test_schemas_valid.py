@@ -14,6 +14,7 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 SCHEMA_NAMES = [
     "event",
     "forecast-outcome",
+    "response-outcome",
     "action",
     "rule",
     "incident",

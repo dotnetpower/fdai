@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: fe344132db64420496d109260da8874ec3709e12
-translation_revised: 2026-07-28
+translation_source_sha: 63ea4397408abd11ce87418fd0ea2154a5481e85
+translation_revised: 2026-07-30
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -282,6 +282,13 @@ rollback, SLO recovery, recurrence window를 저장합니다. Intervention이 �
 forecast label로 사용하지 않습니다. 안전에 중요한 action에서는 control group을 만들기 위해 입증된
 대응을 보류하지 않습니다. Counterfactual evidence에는 shadow-only prediction, 자연적으로 untreated인
 episode, 매칭된 historical cohort 또는 검토된 단계적 rollout을 사용합니다.
+
+Response ledger의 첫 runtime slice는 구현되어 있습니다. Control loop는 independent effect
+observation 후 strict `ResponseOutcome` 계약을 emit하며 expected range, observed value, time window,
+verification, execution mode, rollback result, target digest 및 명시적 `scorable` marker를 포함합니다.
+기존 scheduled growth job은 독립 watermark로 이 record를 소비하고 등록된 shadow challenger
+model만 update합니다. SLO recovery, recurrence closure, matched cohort 및 `quasi_experimental` 또는
+`interventional` evidence로의 promotion은 후속 작업이며 verified effect 하나에서 추론하지 않습니다.
 
 **Leakage 없는 평가.** Backtest는 rolling-origin time split을 사용하고 한 incident의 모든 event를
 하나의 split에 넣습니다. Feature, topology, maintenance state, label은 prediction cutoff 시점에 알 수

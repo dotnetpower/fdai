@@ -44,7 +44,7 @@ domain vocabulary rather than MSCP terminology.
 | FDAI mechanism | MSCP provenance | FDAI adaptation | v1 status |
 |----------------|-----------------|-----------------|-----------|
 | Profile provenance | Cross-level protocol versioning | Immutable profile id, source revision, and non-conformance declaration | Implemented |
-| Effect verification | Level 3 prediction gating | Compare one expected metric range with an independently observed, correlated, time-bounded value | Optional shadow runtime wiring implemented |
+| Effect verification | Level 3 prediction gating | Compare one expected metric range with an independently observed, correlated, time-bounded value | Optional shadow runtime wiring and `ResponseOutcome` projection implemented |
 | Cycle guard | Level 3 meta-escalation, oscillation, and cognitive budget | Hold when caller-owned cycle, elapsed-time, cost, rollback, or sign-change limits are reached | Pure policy implemented; runtime wiring deferred |
 | Runtime integrity | Level 3 identity continuity | Compare canonical manifests of pre-hashed runtime components; no persona or mutable identity model | Pure policy implemented; runtime wiring deferred |
 | Decision context | Level 2 persistent world model | Project authoritative ontology, incident, workflow, and audit state without creating a new system of record | Planned |
@@ -104,6 +104,12 @@ value mismatch produce `hold` or `mismatch` shadow evidence. They do not alter t
 the risk decision, or the terminal ControlLoop outcome. A shadow-audit write failure is logged and
 also leaves the primary result unchanged.
 
+The same observation now writes a strict `ResponseOutcome` as
+`measurement.action_outcome.v1`. The contract stores a target digest rather than the resource
+reference, marks missing or stale evidence `unscorable`, and supplies the independent watermark
+consumed by the scheduled Dynamic challenger-learning pass. This additional record remains shadow
+evidence. It cannot promote an effect model or change execution authority.
+
 Moving from shadow observation to gating is a separate, future governed change. It requires a
 measured evidence window, a rollback target, and a proof that the profile can only preserve or lower
 the existing authority decision.
@@ -127,6 +133,7 @@ Focused tests under `tests/core/mscp_profile/` cover:
 - level-neutral profile identity and the mandatory non-conformance declaration;
 - stable, source-pinned audit provenance;
 - time, target, metric, and correlation checks for expected and observed effects;
+- strict `ResponseOutcome` schema parity and privacy-minimized audit projection;
 - default-off composition, pair-only activation, and predict-execute-observe ordering;
 - unchanged executor results across mismatch and provider or shadow-audit failure;
 - caller-owned cycle budgets and bounded sign-change detection;

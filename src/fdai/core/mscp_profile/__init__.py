@@ -23,6 +23,10 @@ from fdai.core.mscp_profile.effect_verification import (
     verify_effect,
 )
 from fdai.core.mscp_profile.profile import DEFAULT_PROFILE, OperationalProfile
+from fdai.core.mscp_profile.response_outcome import (
+    build_response_outcome,
+    response_outcome_audit_entry,
+)
 from fdai.core.mscp_profile.runtime_integrity import (
     RuntimeComponent,
     RuntimeIntegrityResult,
@@ -59,7 +63,9 @@ __all__ = [
     "RuntimeSafetyManifest",
     "default_runtime_manifest",
     "build_shadow_effect_audit",
+    "build_response_outcome",
     "evaluate_cycle_guard",
+    "response_outcome_audit_entry",
     "verify_effect",
     "verify_runtime_integrity",
 ]

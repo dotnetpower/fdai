@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 76e378ad21499fa670351e9399d432a12c0c659b
+translation_source_sha: 9d851f3ac30bc95bd94033abc01a29da10763d03
 translation_revised: 2026-07-30
 ---
 
@@ -59,11 +59,11 @@ fdai/
 │   │   ├── programmatic_pipeline/ # capability-scoped read-only tool loop: immutable contract, broker, receipt, compact result, deterministic benchmark
 │   │   ├── postmortem/         # LLM 옵션 postmortem / PIR 드래프트 생성기
 │   │   ├── rule_catalog_profiles/  # 프로파일 / 팩 레이어 - 이름 붙은 룰 번들 (`extends` 체인 + overrides)
-│   │   ├── measurement/        # Phase-4 지속 측정 (regression, pattern growth, model tracking, latency budget, prompt probe, runners)
+│   │   ├── measurement/        # Phase-4 지속 측정 (regression, pattern growth, Dynamic challenger learning, model tracking, latency budget, runners)
 │   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard 및 runtime-integrity policy
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
-│   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query 리뷰 / Q&A / assessment (제안만, 실행 안 함)
+│   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, active/challenger effect model, 결정론적 branch simulation (제안만, 실행 안 함)
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator console intent/tool 조정, conflict-aware read plan, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
@@ -74,6 +74,7 @@ fdai/
 │   │   ├── contracts/          # models.py + registry.py + validation.py + JSON 스키마들
 │   │   │   ├── event/          # event/schema.json
 │   │   │   ├── action/         # action/schema.json
+│   │   │   ├── response-outcome/ # expected-versus-observed action effect outcome
 │   │   │   ├── rule/           # rule/schema.json
 │   │   │   ├── ontology/       # object/link/action 스키마; ObjectType은 lifecycle 기준 + provenance 선언 가능
 │   │   │   └── workflow/       # workflow/schema.json (프로세스 자동화 카탈로그)

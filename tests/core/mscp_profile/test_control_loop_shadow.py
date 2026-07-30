@@ -106,6 +106,10 @@ def _audit_payloads(store: InMemoryStateStore) -> tuple[dict[str, Any], ...]:
     return tuple(dict(record["entry"]) for record in store.audit_entries)
 
 
+def _entry(entries: tuple[dict[str, Any], ...], action_kind: str) -> dict[str, Any]:
+    return next(item for item in entries if item["action_kind"] == action_kind)
+
+
 def test_partial_binding_fails_fast() -> None:
     async def predict(_action: Action) -> ExpectedEffect:
         return _expected()
@@ -166,11 +170,17 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
 
     assert result.outcome is ExecutorOutcome.PUBLISHED
     assert order == ["predict", "execute", "observe"]
-    assert len(entries) == 1
-    assert entries[0]["action_kind"] == "effect_verification.shadow"
-    assert entries[0]["verification_status"] == "verified"
-    assert entries[0]["safety_profile"] == "mscp-operational-v1"
-    assert entries[0]["mode"] == "shadow"
+    assert len(entries) == 2
+    effect_entry = _entry(entries, "effect_verification.shadow")
+    assert effect_entry["verification_status"] == "verified"
+    assert effect_entry["safety_profile"] == "mscp-operational-v1"
+    assert effect_entry["mode"] == "shadow"
+    response_entry = _entry(entries, "measurement.action_outcome.v1")
+    assert response_entry["label"] == "verified"
+    assert response_entry["scorable"] is True
+    assert response_entry["verification_passed"] is True
+    assert response_entry["decision"] == "auto"
+    assert "target_resource_ref" not in response_entry
 
 
 async def test_mismatch_is_audited_without_changing_execution_result() -> None:
@@ -198,7 +208,7 @@ async def test_mismatch_is_audited_without_changing_execution_result() -> None:
     )
 
     result = await loop._dispatch_action(action=_action(), rule=_rule())
-    entry = _audit_payloads(audit)[0]
+    entry = _entry(_audit_payloads(audit), "measurement.action_outcome.v1")
 
     assert result is expected_result
     assert entry["verification_status"] == "mismatch"
@@ -235,11 +245,16 @@ async def test_provider_failure_holds_without_breaking_dispatch(failure_side: st
     )
 
     result = await loop._dispatch_action(action=_action(), rule=_rule())
-    entry = _audit_payloads(audit)[0]
+    entries = _audit_payloads(audit)
+    entry = _entry(entries, "effect_verification.shadow")
+    response_entry = _entry(entries, "measurement.action_outcome.v1")
 
     assert result is expected_result
     assert entry["verification_status"] == "hold"
     assert entry["verification_reason"] == f"{failure_side}_provider_failed"
+    assert response_entry["label"] == "unscorable"
+    assert response_entry["scorable"] is False
+    assert "observed_at" not in response_entry
 
 
 async def test_prediction_target_mismatch_skips_observer_and_holds() -> None:
@@ -267,10 +282,11 @@ async def test_prediction_target_mismatch_skips_observer_and_holds() -> None:
     )
 
     await loop._dispatch_action(action=_action(), rule=_rule())
-    entry = _audit_payloads(audit)[0]
+    entry = _entry(_audit_payloads(audit), "measurement.action_outcome.v1")
 
     observer.assert_not_awaited()
     assert entry["verification_reason"] == "prediction_target_mismatch"
+    assert entry["scorable"] is False
 
 
 async def test_shadow_audit_failure_does_not_change_execution_result() -> None:

@@ -13,9 +13,11 @@ from psycopg.rows import dict_row
 from fdai.core.measurement.pattern_growth import OutcomeRecord
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel, LearnedAction
 from fdai.delivery.measurement.outcome_contract import accepted_outcome_timestamp
+from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 
 _WATERMARK_KEY = "measurement:pattern_growth:watermark"
+_RESPONSE_WATERMARK_KEY = "measurement:dynamic_learning:watermark"
 _OUTCOME_KIND = "measurement.action_outcome.v1"
 
 
@@ -67,6 +69,60 @@ class PostgresVerifiedOutcomeSource:
             )
             cursor = await connection.execute(
                 "SELECT seq, entry, created_at FROM audit_log WHERE seq > %s "
+                "AND action_kind = %s ORDER BY seq ASC LIMIT 1000",
+                (after_seq, _OUTCOME_KIND),
+            )
+            return list(await cursor.fetchall())
+
+
+class PostgresResponseOutcomeSource:
+    """Yield strict ResponseOutcome records under an independent watermark."""
+
+    def __init__(
+        self,
+        *,
+        dsn: str,
+        state_store: StateStore,
+        statement_timeout_ms: int = 15_000,
+        connect_timeout_s: int = 10,
+    ) -> None:
+        if not dsn:
+            raise ValueError("dsn MUST be non-empty")
+        self._dsn = dsn
+        self._state_store = state_store
+        self._statement_timeout_ms = statement_timeout_ms
+        self._connect_timeout_s = connect_timeout_s
+
+    def outcomes(self) -> AsyncIterator[ResponseOutcome]:
+        return self._iterate()
+
+    async def _iterate(self) -> AsyncIterator[ResponseOutcome]:
+        state = await self._state_store.read_state(_RESPONSE_WATERMARK_KEY) or {}
+        after_seq = int(state.get("seq") or 0)
+        rows = await self._rows(after_seq)
+        high_water = max((int(row["seq"]) for row in rows), default=after_seq)
+        for row in rows:
+            outcome = _response_outcome(_mapping(row["entry"]))
+            if outcome is not None:
+                yield outcome
+        if high_water > after_seq:
+            await self._state_store.write_state(
+                _RESPONSE_WATERMARK_KEY,
+                {"seq": high_water},
+            )
+
+    async def _rows(self, after_seq: int) -> list[Mapping[str, Any]]:
+        async with await psycopg.AsyncConnection.connect(
+            self._dsn,
+            row_factory=dict_row,
+            connect_timeout=self._connect_timeout_s,
+        ) as connection:
+            await connection.execute(
+                "SELECT set_config('statement_timeout', %s, true)",
+                (str(self._statement_timeout_ms),),
+            )
+            cursor = await connection.execute(
+                "SELECT seq, entry FROM audit_log WHERE seq > %s "
                 "AND action_kind = %s ORDER BY seq ASC LIMIT 1000",
                 (after_seq, _OUTCOME_KIND),
             )
@@ -199,4 +255,27 @@ def _outcome_record(
     )
 
 
-__all__ = ["PostgresVerifiedOutcomeSource", "PostgresVerifiedPatternBuilder"]
+def _response_outcome(entry: Mapping[str, Any]) -> ResponseOutcome | None:
+    contract = {
+        key: value
+        for key, value in entry.items()
+        if key
+        not in {
+            "actor",
+            "action_kind",
+            "mode",
+            "scorable",
+            "verification_passed",
+        }
+    }
+    try:
+        return ResponseOutcome.model_validate(contract)
+    except ValueError:
+        return None
+
+
+__all__ = [
+    "PostgresResponseOutcomeSource",
+    "PostgresVerifiedOutcomeSource",
+    "PostgresVerifiedPatternBuilder",
+]

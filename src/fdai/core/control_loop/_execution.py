@@ -28,7 +28,9 @@ from fdai.core.mscp_profile import (
     ExpectedEffectProvider,
     IndependentEffectObserver,
     ObservedEffect,
+    build_response_outcome,
     build_shadow_effect_audit,
+    response_outcome_audit_entry,
     verify_effect,
 )
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
@@ -231,16 +233,29 @@ class ControlLoopExecutionMixin:
                     )
                 )
 
+        recorded_at = datetime.now(tz=UTC)
         entry = build_shadow_effect_audit(
             action=action,
             execution_outcome=result.outcome.value,
             verification=verification,
-            recorded_at=datetime.now(tz=UTC),
+            recorded_at=recorded_at,
             expected=expected,
             observed=observed,
         )
+        response_outcome = build_response_outcome(
+            action=action,
+            execution_outcome=result.outcome.value,
+            verification=verification,
+            recorded_at=recorded_at,
+            expected=expected,
+            observed=observed,
+            rollback_succeeded=getattr(result, "rollback_succeeded", None),
+        )
         try:
             await self._audit_store.append_audit_entry(entry)
+            await self._audit_store.append_audit_entry(
+                response_outcome_audit_entry(response_outcome)
+            )
         except Exception:  # noqa: BLE001 - side-consumer never changes executor result
             _LOGGER.warning(
                 "mscp_effect_shadow_audit_failed",

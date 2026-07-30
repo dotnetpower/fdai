@@ -52,6 +52,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
+from fdai.core.assurance_twin.model_registry import RegistryUpdate
 from fdai.core.measurement.pattern_growth import (
     IntakeDecision,
     IntakeOutcome,
@@ -66,7 +67,7 @@ from fdai.core.measurement.regression import (
 )
 from fdai.core.risk_gate.gate import ActionPromotionRegistry
 from fdai.core.tiers.t1_lightweight.tier import LearnedAction
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import Mode, ResponseOutcome
 from fdai.shared.providers.pattern_library_writer import PatternLibraryWriter
 from fdai.shared.providers.state_store import StateStore
 
@@ -127,6 +128,20 @@ class OutcomeSource(Protocol):
     """
 
     def outcomes(self) -> AsyncIterator[OutcomeRecord]: ...
+
+
+@runtime_checkable
+class ResponseOutcomeSource(Protocol):
+    """Stream standardized response outcomes from the audit trail."""
+
+    def outcomes(self) -> AsyncIterator[ResponseOutcome]: ...
+
+
+@runtime_checkable
+class ChallengerUpdater(Protocol):
+    """Update only a registered shadow challenger model."""
+
+    async def update_from_outcome(self, outcome: ResponseOutcome) -> RegistryUpdate: ...
 
 
 @runtime_checkable
@@ -339,6 +354,63 @@ class PatternGrowthReport:
     intake_decisions: tuple[IntakeDecision, ...] = field(default_factory=tuple)
 
 
+@dataclass(frozen=True, slots=True)
+class DynamicLearningReport:
+    total_outcomes: int = 0
+    accepted_count: int = 0
+    rejected_count: int = 0
+    reasons: tuple[tuple[str, int], ...] = ()
+
+
+class DynamicLearningRunner:
+    """Apply response outcomes to registered challengers without promotion."""
+
+    def __init__(
+        self,
+        *,
+        outcome_source: ResponseOutcomeSource,
+        registry: ChallengerUpdater,
+        audit_store: StateStore,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._outcome_source = outcome_source
+        self._registry = registry
+        self._audit_store = audit_store
+        self._clock = clock or _default_clock
+
+    async def run_once(self) -> DynamicLearningReport:
+        total = 0
+        accepted = 0
+        reasons: dict[str, int] = {}
+        async for outcome in self._outcome_source.outcomes():
+            total += 1
+            result = await self._registry.update_from_outcome(outcome)
+            if result.accepted:
+                accepted += 1
+            reasons[result.reason] = reasons.get(result.reason, 0) + 1
+        rejected = total - accepted
+        ordered_reasons = tuple(sorted(reasons.items()))
+        await self._audit_store.append_audit_entry(
+            {
+                "actor": "Norns",
+                "producer_principal": "Norns",
+                "action_kind": "dynamic.learning.run",
+                "mode": Mode.SHADOW.value,
+                "total_outcomes": total,
+                "accepted_count": accepted,
+                "rejected_count": rejected,
+                "reasons": dict(ordered_reasons),
+                "recorded_at": self._clock().isoformat(),
+            }
+        )
+        return DynamicLearningReport(
+            total_outcomes=total,
+            accepted_count=accepted,
+            rejected_count=rejected,
+            reasons=ordered_reasons,
+        )
+
+
 class PatternGrowthIntakeRunner:
     """Audit-driven growth runner for the T1 pattern library.
 
@@ -483,9 +555,13 @@ class PatternGrowthIntakeRunner:
 __all__ = [
     "AutomatedBaselineRunner",
     "BaselineRunReport",
+    "ChallengerUpdater",
+    "DynamicLearningReport",
+    "DynamicLearningRunner",
     "OutcomeSource",
     "PatternBuilder",
     "PatternGrowthIntakeRunner",
     "PatternGrowthReport",
+    "ResponseOutcomeSource",
     "ScenarioReplayer",
 ]
