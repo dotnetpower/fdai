@@ -69,7 +69,7 @@ def build_local_command_transport(
         kind: Literal["local", "azure"] = "local"
     else:
         event_bus = EventHubsKafkaBus(
-            identity=AsyncAzureCliWorkloadIdentity(),
+            identity=AsyncAzureCliWorkloadIdentity.from_env(env),
             config=EventHubsKafkaBusConfig(
                 bootstrap_servers=bootstrap,
                 client_id="fdai-local-command",

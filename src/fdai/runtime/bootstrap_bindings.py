@@ -29,7 +29,7 @@ def build_runtime_workload_identity(
     ):
         from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 
-        return AsyncAzureCliWorkloadIdentity()
+        return AsyncAzureCliWorkloadIdentity.from_env()
 
     from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 

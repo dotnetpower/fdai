@@ -86,10 +86,10 @@ The compound completes `console: prepare full stack` once before starting any ch
 so PostgreSQL migration, runtime environment generation, and Entra synchronization are not repeated
 by both backend launches. Run that preparation task first when starting the standalone Core Runtime
 or Read API debug configuration.
-The preparation sequence safely retries synchronization of `http://localhost:5273` and
-`http://127.0.0.1:5273` into the configured Entra SPA registration. The helper preserves existing
-redirects, permits HTTP only for those loopback hosts, and stops before service startup when the
-active tenant is wrong or the operator cannot read or update the registration.
+The preparation sequence safely retries both fixed loopback origins into the configured Entra SPA
+registration. The helper preserves redirects, permits loopback HTTP only, and stops when the active
+tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared
+`AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`; default-account changes cannot replace their issuer.
 When a resolved-model artifact is present, the same preparation step validates its narrator
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
 private local runtime environment. A missing or malformed narrator endpoint stops preparation

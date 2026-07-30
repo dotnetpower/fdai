@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 5fcd2be7153b990bf881daba8fed204d2ebc8888
-translation_revised: 2026-07-28
+translation_source_sha: 123290076f819d1778fd7d8079476728a21247fd
+translation_revised: 2026-07-30
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -459,7 +459,8 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
   모드입니다. 브라우저는 Entra로 로그인하고 API는 production과 동일하게 JWT 서명, issuer,
   audience, lifetime, App Role을 검증합니다. 서버의 Azure CLI 세션은 Microsoft Graph, Azure
   Resource Graph, Azure OpenAI 같은 Azure adapter에만 단기 token을 제공하며 브라우저
-  principal을 대체하지 않습니다. App Role이 없는 principal에는 접근 요청 페이지가 표시되고,
+  principal을 대체하지 않습니다. Event Hubs token refresh는 변경 가능한 Azure CLI default account가 아니라
+  준비된 runtime tenant와 subscription에 고정됩니다. App Role이 없는 principal에는 접근 요청 페이지가 표시되고,
   bearer token이 없으면 fail closed합니다. Full-stack 준비 단계는 두 개의 고정 loopback origin을
   구성된 SPA 등록에 안전하게 재시도할 수 있는 방식으로 동기화합니다. Tenant가 다르거나 Graph
   권한이 부족하면 sign-in 후 redirect가 깨진 상태로 남지 않도록 startup을 중단합니다.

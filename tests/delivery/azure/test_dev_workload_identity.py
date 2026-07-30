@@ -220,6 +220,23 @@ class TestGetTokenSync:
         resource = argv[argv.index("--resource") + 1]
         assert resource == "https://cognitiveservices.azure.com"
 
+    def test_from_env_pins_subscription_and_tenant_on_every_fetch(self) -> None:
+        wi = AzureCliWorkloadIdentity.from_env(
+            {
+                "AZURE_SUBSCRIPTION_ID": "subscription-a",
+                "AZURE_TENANT_ID": "tenant-a",
+            }
+        )
+        with patch(
+            "fdai.delivery.azure.dev_workload_identity.subprocess.run",
+            return_value=_completed(_valid_payload()),
+        ) as run:
+            wi.get_token_sync("https://example.servicebus.windows.net/.default")
+
+        command = run.call_args.args[0]
+        assert command[command.index("--subscription") + 1] == "subscription-a"
+        assert command[command.index("--tenant") + 1] == "tenant-a"
+
 
 async def test_async_adapter_returns_cli_token() -> None:
     credential = AzureCliWorkloadIdentity()

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
+from fdai.delivery.azure.event_bus import EventHubsKafkaBus
 from fdai.delivery.read_api.dev.command_transport import build_local_command_transport
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.streaming.agent_activity_stream import AgentActivityEvent
@@ -56,10 +58,16 @@ def test_configured_transport_uses_real_broadcasters_without_connecting_eagerly(
             "KAFKA_TOPIC_EVENTS": "fdai.events",
             "FDAI_STAGE_TOPIC": "fdai.stage-events",
             "FDAI_READ_API_CONSUMER_INSTANCE": "local-developer-a",
+            "AZURE_SUBSCRIPTION_ID": "subscription-a",
+            "AZURE_TENANT_ID": "tenant-a",
         },
     )
 
     assert wiring.kind == "azure"
+    assert isinstance(wiring.event_bus, EventHubsKafkaBus)
+    assert isinstance(wiring.event_bus._identity, AsyncAzureCliWorkloadIdentity)
+    assert wiring.event_bus._identity.credential.subscription_id == "subscription-a"
+    assert wiring.event_bus._identity.credential.tenant_id == "tenant-a"
     assert wiring.live_stream.broadcaster_factory is not None
     assert wiring.live_stream.emitter_factory is None
     assert wiring.agent_activity.broadcaster_factory is not None

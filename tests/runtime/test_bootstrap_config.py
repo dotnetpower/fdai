@@ -46,11 +46,15 @@ async def test_dev_runtime_uses_explicit_azure_cli_identity(
 ) -> None:
     monkeypatch.setenv("RUNTIME_ENV", "dev")
     monkeypatch.setenv("FDAI_RUNTIME_LOCAL_AZURE_CLI", "1")
+    monkeypatch.setenv("AZURE_SUBSCRIPTION_ID", "subscription-a")
+    monkeypatch.setenv("AZURE_TENANT_ID", "tenant-a")
 
     async with httpx.AsyncClient() as http_client:
         identity = _build_runtime_workload_identity(http_client)
 
     assert isinstance(identity, AsyncAzureCliWorkloadIdentity)
+    assert identity.credential.subscription_id == "subscription-a"
+    assert identity.credential.tenant_id == "tenant-a"
 
 
 async def test_non_dev_runtime_keeps_managed_identity(

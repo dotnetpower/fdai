@@ -473,7 +473,8 @@ Human users never hold PATs or long-lived secrets:
   verifies the JWT signature, issuer, audience, lifetime, and App Roles exactly as
   production does. The server's Azure CLI session supplies short-lived tokens only to
   Azure adapters such as Microsoft Graph, Azure Resource Graph, and Azure OpenAI; it
-  never replaces the browser principal. A principal with no App Role sees the
+  never replaces the browser principal. Event Hubs token refreshes are pinned to the prepared runtime tenant
+  and subscription rather than the mutable Azure CLI default account. A principal with no App Role sees the
   access-request page, and a missing bearer token fails closed. The full-stack preparation
   idempotently synchronizes both fixed loopback origins into the configured SPA registration;
   a tenant mismatch or insufficient Graph permission stops startup instead of leaving a broken

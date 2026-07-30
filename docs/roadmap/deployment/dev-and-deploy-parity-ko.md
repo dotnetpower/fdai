@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 39de96da28809107fc10f14738104f6716ce5646
+translation_source_sha: 2e733d7e251bdfbe91f7a5662e90869be22cfd80
 translation_revised: 2026-07-30
 ---
 
@@ -92,7 +92,9 @@ Compound는 child configuration을 시작하기 전에 `console: prepare full st
 준비 순서에서는 구성된 Entra SPA 등록에 `http://localhost:5273`과
 `http://127.0.0.1:5273`을 안전하게 재시도할 수 있는 방식으로 동기화합니다. Helper는 기존
 redirect를 보존하고 해당 loopback host에만 HTTP를 허용하며, 활성 tenant가 다르거나 운영자가
-등록을 읽거나 업데이트할 수 없으면 service 시작 전에 중단합니다.
+등록을 읽거나 업데이트할 수 없으면 service 시작 전에 중단합니다. Local Event Hubs token refresh는
+준비된 `AZURE_TENANT_ID`와 `AZURE_SUBSCRIPTION_ID`에 고정되므로 이후 default account가 바뀌어도
+실행 중인 service의 Event Hubs issuer를 바꿀 수 없습니다.
 Resolved-model artifact가 있으면 같은 준비 단계에서 narrator endpoint가 HTTPS origin인지 검증하고
 `FDAI_LLM_ENDPOINT`와 `LLM_RESOLVED_MODELS_PATH`를 private local runtime environment에 기록합니다.
 Narrator endpoint가 없거나 올바르지 않으면 core runtime을 시작한 뒤 실패하게 두지 않고 Terraform

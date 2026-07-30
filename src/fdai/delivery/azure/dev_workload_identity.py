@@ -29,7 +29,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Final
@@ -62,7 +64,22 @@ class AzureCliWorkloadIdentity:
 
     executable: str = "az"
     skew: timedelta = _DEFAULT_SKEW
+    subscription_id: str | None = None
+    tenant_id: str | None = None
     _cache: dict[str, _CacheEntry] = field(default_factory=dict, init=False)
+
+    @classmethod
+    def from_env(
+        cls,
+        environ: Mapping[str, str] | None = None,
+    ) -> AzureCliWorkloadIdentity:
+        """Bind token refreshes to the configured local runtime account."""
+
+        env = os.environ if environ is None else environ
+        return cls(
+            subscription_id=env.get("AZURE_SUBSCRIPTION_ID", "").strip() or None,
+            tenant_id=env.get("AZURE_TENANT_ID", "").strip() or None,
+        )
 
     def get_token_sync(self, audience: str) -> IdentityToken:
         """Return a cached or freshly-fetched token for ``audience``."""
@@ -87,17 +104,22 @@ class AzureCliWorkloadIdentity:
         # Identity adapter; normalize here so the same audience works
         # against both backends.
         resource = audience[: -len("/.default")] if audience.endswith("/.default") else audience
+        command = [
+            self.executable,
+            "account",
+            "get-access-token",
+            "--resource",
+            resource,
+            "--output",
+            "json",
+        ]
+        if self.subscription_id is not None:
+            command.extend(("--subscription", self.subscription_id))
+        if self.tenant_id is not None:
+            command.extend(("--tenant", self.tenant_id))
         try:
             proc = subprocess.run(  # noqa: S603 - executable path validated + timeout enforced
-                [
-                    self.executable,
-                    "account",
-                    "get-access-token",
-                    "--resource",
-                    resource,
-                    "--output",
-                    "json",
-                ],
+                command,
                 capture_output=True,
                 text=True,
                 timeout=_AZ_TIMEOUT_SECONDS,
@@ -159,6 +181,13 @@ class AsyncAzureCliWorkloadIdentity:
 
     credential: AzureCliWorkloadIdentity = field(default_factory=AzureCliWorkloadIdentity)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+
+    @classmethod
+    def from_env(
+        cls,
+        environ: Mapping[str, str] | None = None,
+    ) -> AsyncAzureCliWorkloadIdentity:
+        return cls(credential=AzureCliWorkloadIdentity.from_env(environ))
 
     async def get_token(self, audience: str) -> IdentityToken:
         async with self._lock:
