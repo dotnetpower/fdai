@@ -115,7 +115,7 @@ class AzureCliWorkloadIdentity:
         ]
         if self.subscription_id is not None:
             command.extend(("--subscription", self.subscription_id))
-        if self.tenant_id is not None:
+        elif self.tenant_id is not None:
             command.extend(("--tenant", self.tenant_id))
         try:
             proc = subprocess.run(  # noqa: S603 - executable path validated + timeout enforced

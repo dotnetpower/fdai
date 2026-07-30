@@ -220,7 +220,7 @@ class TestGetTokenSync:
         resource = argv[argv.index("--resource") + 1]
         assert resource == "https://cognitiveservices.azure.com"
 
-    def test_from_env_pins_subscription_and_tenant_on_every_fetch(self) -> None:
+    def test_from_env_prefers_subscription_for_account_pinning(self) -> None:
         wi = AzureCliWorkloadIdentity.from_env(
             {
                 "AZURE_SUBSCRIPTION_ID": "subscription-a",
@@ -235,6 +235,18 @@ class TestGetTokenSync:
 
         command = run.call_args.args[0]
         assert command[command.index("--subscription") + 1] == "subscription-a"
+        assert "--tenant" not in command
+
+    def test_from_env_uses_tenant_when_subscription_is_absent(self) -> None:
+        wi = AzureCliWorkloadIdentity.from_env({"AZURE_TENANT_ID": "tenant-a"})
+        with patch(
+            "fdai.delivery.azure.dev_workload_identity.subprocess.run",
+            return_value=_completed(_valid_payload()),
+        ) as run:
+            wi.get_token_sync("https://example.servicebus.windows.net/.default")
+
+        command = run.call_args.args[0]
+        assert "--subscription" not in command
         assert command[command.index("--tenant") + 1] == "tenant-a"
 
 
