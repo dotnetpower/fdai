@@ -14,6 +14,7 @@ from fdai.agents.heimdall import Heimdall
 from fdai.agents.loki import Loki
 from fdai.agents.njord import _MAX_SAMPLES as _NJORD_MAX_SAMPLES
 from fdai.agents.njord import Njord
+from fdai.agents.odin import Odin
 
 
 def _specialist_event(event_type: str, **attributes: object) -> dict[str, object]:
@@ -32,6 +33,52 @@ def test_specialists_subscribe_to_canonical_event_ingress() -> None:
     for name in ("Njord", "Freyr", "Loki"):
         spec = load_pantheon().get(name)
         assert "object.event" in spec.subscribes
+
+
+def test_specialist_advice_reaches_a_human_review_verdict() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    freyr = Freyr(bus=bus, scale_up_threshold=0.5)
+    forseti = Forseti(bus=bus)
+    odin = Odin(bus=bus)
+    bus.subscribe("object.cost-anomaly", "Forseti", forseti.on_typed_message)
+    bus.subscribe("object.capacity-forecast", "Forseti", forseti.on_typed_message)
+    bus.subscribe("object.arbitration-request", "Odin", odin.on_typed_message)
+    bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)
+
+    for _ in range(3):
+        asyncio.run(
+            njord.ingest_cost_sample(
+                scope="scope-1",
+                resource_id="resource-1",
+                amount_usd=100.0,
+                correlation_id="specialist-conflict",
+            )
+        )
+    asyncio.run(
+        njord.ingest_cost_sample(
+            scope="scope-1",
+            resource_id="resource-1",
+            amount_usd=200.0,
+            correlation_id="specialist-conflict",
+        )
+    )
+    asyncio.run(
+        freyr.ingest_utilization(
+            resource_id="resource-1",
+            utilization=0.9,
+            correlation_id="specialist-conflict",
+        )
+    )
+
+    assert len(bus.messages_on("object.arbitration-request")) == 1
+    assert len(bus.messages_on("object.arbitration-decision")) == 1
+    verdict = bus.messages_on("object.verdict")[-1].payload
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["reason"] == "arbitration_unresolved"
+    assert set(verdict["arbitration"]["losing_domains"]) | {
+        verdict["arbitration"]["winning_domain"]
+    } == {"cost", "capacity"}
 
 
 # ---------------------------------------------------------------------------

@@ -14,8 +14,9 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
+from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 # ---------------------------------------------------------------------------
 # Audit chain (Saga)
@@ -156,6 +157,26 @@ class GitHubIssue:
     closed_by_pr: str | None = None
 
 
+class IssueTrackerAdapter(Protocol):
+    @property
+    def issues(self) -> Mapping[str, GitHubIssue]: ...
+
+    def create_or_comment(
+        self,
+        *,
+        fingerprint: str,
+        title: str,
+        body: str,
+    ) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]: ...
+
+    def close(
+        self,
+        fingerprint: str,
+        *,
+        closed_by_pr: str,
+    ) -> None | Awaitable[None]: ...
+
+
 @dataclass
 class InMemoryGithubIssueAdapter:
     """Stand-in for the real GitHub App integration.
@@ -213,14 +234,32 @@ class AdminCard:
     counter: int
 
 
+class AdminNotificationAdapter(Protocol):
+    def upsert(
+        self,
+        dedup_key: tuple[str, str],
+        card: AdminCard,
+    ) -> AdminCard | Awaitable[AdminCard]: ...
+
+
 @dataclass
 class InMemoryAdminChannel:
     """In-memory sink for admin notifications; fork adapter posts to Teams."""
 
     cards: list[AdminCard] = field(default_factory=list)
+    _positions: dict[tuple[str, str], int] = field(default_factory=dict)
 
     def send(self, card: AdminCard) -> None:
         self.cards.append(card)
+
+    def upsert(self, dedup_key: tuple[str, str], card: AdminCard) -> AdminCard:
+        position = self._positions.get(dedup_key)
+        if position is None:
+            self._positions[dedup_key] = len(self.cards)
+            self.cards.append(card)
+        else:
+            self.cards[position] = card
+        return card
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +275,7 @@ def _digest(obj: Any) -> str:
 
 __all__ = [
     "AdminCard",
+    "AdminNotificationAdapter",
     "AuditChainError",
     "AuditEntry",
     "GitHubIssue",
@@ -243,4 +283,5 @@ __all__ = [
     "InMemoryAuditChain",
     "InMemoryGithubIssueAdapter",
     "InMemoryStateStore",
+    "IssueTrackerAdapter",
 ]

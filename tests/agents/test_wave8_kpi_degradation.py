@@ -7,10 +7,22 @@ import asyncio
 import pytest
 
 from fdai.agents._framework.bus import InMemoryBus
-from fdai.agents._framework.kpi import KpiCollector, PromotionGate, PromotionGateThreshold
+from fdai.agents._framework.kpi import (
+    DECLARED_AGENT_KPIS,
+    KpiCollector,
+    KpiEvidenceState,
+    PromotionGate,
+    PromotionGateThreshold,
+)
 from fdai.agents._framework.registry import PantheonRegistryError, load_pantheon
+from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.runtime_health import AGENT_DEGRADATION_POLICIES
+from fdai.agents._framework.workflows import workflow
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRunState, Thor
+from fdai.core.workflow.definition import built_in_workflow_lifecycle
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from fdai.shared.providers.workflow_definition import WorkflowLifecycle
 
 # ---------------------------------------------------------------------------
 # KPI collector
@@ -33,6 +45,42 @@ def test_kpi_collector_all_for_returns_agent_samples() -> None:
     thor_samples = c.all_for("Thor")
     assert len(thor_samples) == 1
     assert thor_samples[0].metric == "execution_success_rate"
+
+
+def test_all_fifteen_agents_report_every_declared_kpi_without_fabricating_values() -> None:
+    registry = load_pantheon()
+    assert set(DECLARED_AGENT_KPIS) == registry.names()
+    collector = KpiCollector()
+
+    for agent in sorted(registry.names()):
+        samples = collector.report_declared(agent=agent)
+        assert {sample.metric for sample in samples} == set(DECLARED_AGENT_KPIS[agent])
+        assert all(sample.value is None for sample in samples)
+        assert all(sample.evidence_state is KpiEvidenceState.NOT_MEASURED for sample in samples)
+
+    for item in collector.coverage().values():
+        assert item["reported"] == item["declared"]
+        assert item["measured"] == 0
+
+
+def test_declared_health_report_preserves_newer_measured_evidence() -> None:
+    collector = KpiCollector()
+    collector.record(agent="Forseti", metric="verdict_accuracy", value=0.97)
+    collector.report_declared(agent="Forseti")
+    sample = collector.latest(agent="Forseti", metric="verdict_accuracy")
+    assert sample is not None
+    assert sample.value == 0.97
+    assert sample.evidence_state is KpiEvidenceState.MEASURED
+
+
+def test_runtime_health_reports_declared_kpi_coverage_for_all_agents() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+    )
+    coverage = runtime.health()["kpi_coverage"]
+    assert set(coverage) == load_pantheon().names()
+    assert all(item["reported"] == item["declared"] for item in coverage.values())
 
 
 def test_kpi_collector_ring_is_bounded_and_latest_survives_eviction() -> None:
@@ -72,6 +120,30 @@ def test_promotion_gate_passes_when_all_thresholds_met() -> None:
     assert outcomes["Forseti.verdict_accuracy"] is True
 
 
+def test_passing_gate_promotes_one_workflow_without_changing_its_shadow_default() -> None:
+    collector = KpiCollector()
+    collector.record(agent="Forseti", metric="verdict_accuracy", value=0.97)
+    collector.record(agent="Forseti", metric="t2_escalation_rate", value=0.05)
+    gate = PromotionGate(
+        workflow_id="security-escalation",
+        thresholds=(
+            PromotionGateThreshold(metric="Forseti.verdict_accuracy", min=0.95),
+            PromotionGateThreshold(metric="Forseti.t2_escalation_rate", max=0.10),
+        ),
+    )
+    passed, _outcomes = gate.evaluate(collector)
+    promoted = frozenset({gate.workflow_id}) if passed else frozenset()
+
+    assert workflow(gate.workflow_id).default_mode == "shadow"
+    assert (
+        built_in_workflow_lifecycle(
+            gate.workflow_id,
+            promoted_workflows=promoted,
+        )
+        is WorkflowLifecycle.PUBLISHED
+    )
+
+
 def test_promotion_gate_fails_when_min_not_met() -> None:
     c = KpiCollector()
     c.record(agent="Forseti", metric="verdict_accuracy", value=0.80)
@@ -104,9 +176,43 @@ def test_promotion_gate_fails_when_metric_missing() -> None:
     assert passed is False
 
 
+def test_promotion_gate_fails_when_metric_is_reported_but_not_measured() -> None:
+    collector = KpiCollector()
+    collector.report_declared(agent="Forseti")
+    gate = PromotionGate(
+        workflow_id="wf",
+        thresholds=(PromotionGateThreshold(metric="Forseti.verdict_accuracy", min=0.95),),
+    )
+    passed, outcomes = gate.evaluate(collector)
+    assert passed is False
+    assert outcomes == {"Forseti.verdict_accuracy": False}
+
+
 # ---------------------------------------------------------------------------
 # Degradation drills
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("agent_name", sorted(AGENT_DEGRADATION_POLICIES))
+def test_each_agent_failure_activates_declared_degradation(
+    agent_name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+    )
+
+    def fail_health() -> dict[str, object]:
+        raise RuntimeError("injected health failure")
+
+    monkeypatch.setattr(runtime.agents[agent_name], "health", fail_health)
+    degradation = runtime.health()["degradation"]
+    policy = AGENT_DEGRADATION_POLICIES[agent_name]
+    assert degradation["unavailable_agents"] == [agent_name]
+    assert degradation["effects"] == {agent_name: policy.safe_effect}
+    assert degradation["blocks_mutation"] is policy.blocks_mutation
+    assert degradation["effective_mode"] == ("shadow" if policy.blocks_mutation else "configured")
 
 
 def test_degradation_thor_demotes_to_shadow_when_vidar_absent() -> None:

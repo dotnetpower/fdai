@@ -1,10 +1,4 @@
-"""Saga - Auditor (Wave 2 behavior).
-
-Saga is the append-only audit principal and executor of
-`governance.escalate-to-github-issue`. Every terminal state a topic
-emits (verdict, action-run, rollback, approval, security-event) is
-recorded on the audit chain by Saga's typed handler.
-"""
+"""Saga - append-only audit and typed issue-handoff materialization."""
 
 from __future__ import annotations
 
@@ -19,6 +13,7 @@ from fdai.agents._framework.adapters import (
     InMemoryAuditChain,
     InMemoryGithubIssueAdapter,
     InMemoryStateStore,
+    IssueTrackerAdapter,
 )
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.introspection import (
@@ -56,7 +51,7 @@ class Saga(Agent):
         *,
         audit_chain: SagaAuditChain | None = None,
         state_store: InMemoryStateStore | None = None,
-        github: InMemoryGithubIssueAdapter | None = None,
+        github: IssueTrackerAdapter | None = None,
     ) -> None:
         super().__init__(spec=_SAGA)
         self.audit_chain: SagaAuditChain = audit_chain or InMemoryAuditChain()
@@ -301,11 +296,12 @@ class Saga(Agent):
                 body_lines.append(f"- {k}: {v}")
         body = "\n".join(body_lines)
 
-        issue, created = self.github.create_or_comment(
+        issue_result = self.github.create_or_comment(
             fingerprint=fingerprint,
             title=title,
             body=body,
         )
+        issue, created = await issue_result if inspect.isawaitable(issue_result) else issue_result
         self.state_store.put(
             _FINGERPRINT_BUCKET,
             fingerprint,
@@ -347,8 +343,10 @@ class Saga(Agent):
             "occurrence_count": 1 + len(issue.comments),
         }
 
-    def close_issue(self, *, fingerprint: str, closed_by_pr: str) -> None:
-        self.github.close(fingerprint, closed_by_pr=closed_by_pr)
+    async def close_issue(self, *, fingerprint: str, closed_by_pr: str) -> None:
+        result = self.github.close(fingerprint, closed_by_pr=closed_by_pr)
+        if inspect.isawaitable(result):
+            await result
         state = self.state_store.get(_FINGERPRINT_BUCKET, fingerprint) or {}
         state["closed_by_pr"] = closed_by_pr
         self.state_store.put(_FINGERPRINT_BUCKET, fingerprint, state)

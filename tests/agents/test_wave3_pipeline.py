@@ -745,13 +745,23 @@ def test_forseti_conflicting_domain_signals_raise_weighted_arbitration() -> None
     asyncio.run(
         f.on_typed_message(
             "object.cost-anomaly",
-            {"resource_id": "vm-7", "recommendation": "scale_down", "ratio": 1.5},
+            {
+                "correlation_id": "weighted-arbitration",
+                "resource_id": "vm-7",
+                "recommendation": "scale_down",
+                "ratio": 1.5,
+            },
         )
     )
     asyncio.run(
         f.on_typed_message(
             "object.capacity-forecast",
-            {"resource_id": "vm-7", "recommendation": "scale_up", "forecast_util": 0.9},
+            {
+                "correlation_id": "weighted-arbitration",
+                "resource_id": "vm-7",
+                "recommendation": "scale_up",
+                "forecast_util": 0.9,
+            },
         )
     )
     requests = bus.messages_on("object.arbitration-request")
@@ -791,7 +801,13 @@ def test_forseti_signal_impact_falls_back_on_non_numeric_fields() -> None:
     asyncio.run(
         f.on_typed_message(
             "object.cost-anomaly",
-            {"resource_id": "vm-8", "recommendation": "scale_down", "impact": "x", "ratio": "y"},
+            {
+                "correlation_id": "fallback-impact",
+                "resource_id": "vm-8",
+                "recommendation": "scale_down",
+                "impact": "x",
+                "ratio": "y",
+            },
         )
     )
     asyncio.run(
@@ -799,6 +815,7 @@ def test_forseti_signal_impact_falls_back_on_non_numeric_fields() -> None:
             "object.capacity-forecast",
             {
                 "resource_id": "vm-8",
+                "correlation_id": "fallback-impact",
                 "recommendation": "scale_up",
                 "impact": "x",
                 "forecast_util": "z",
@@ -1330,8 +1347,8 @@ def test_end_to_end_shadow_verdict_loop() -> None:
     ):
         bus.subscribe(terminal, "Saga", saga.on_typed_message)
 
-    # Fire 10 restart_needed events - each matches Forseti's auto rule
-    for i in range(10):
+    # Fire 100 restart_needed events - each matches Forseti's auto rule.
+    for i in range(100):
         asyncio.run(
             huginn.ingest(
                 {
@@ -1347,9 +1364,9 @@ def test_end_to_end_shadow_verdict_loop() -> None:
     action_runs = bus.messages_on("object.action-run")
 
     # Every event that has a rule match must yield exactly one verdict.
-    assert len(verdicts) == 10
+    assert len(verdicts) == 100
     # Every verdict must produce (at least) verdicted/executing/succeeded states.
-    assert len(action_runs) >= 30
+    assert len(action_runs) >= 300
     # Zero policy escapes: no state == 'failed' or 'deny_dropped'
     escaped = [a for a in action_runs if a.payload["state"] in ("failed", "deny_dropped")]
     assert escaped == []

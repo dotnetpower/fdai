@@ -4,7 +4,7 @@ Two endpoints:
 
 - ``GET /pantheon/graph`` - the 15 agents + their org chart edges + owned
   object types + subscribed / published topics + LLM hot-path flag.
-- ``GET /pantheon/workflows`` - the 10 cross-agent workflows with
+- ``GET /pantheon/workflows`` - the 13 cross-agent workflows with
   primary agent, participants, trigger, promotion gate.
 
 Both routes are pure projections of the in-memory pantheon registry
@@ -58,6 +58,7 @@ def _serialize_workflow(w: WorkflowSpec) -> dict[str, object]:
         "trigger": w.trigger,
         "default_mode": w.default_mode,
         "promotion_gate": w.promotion_gate,
+        "trace_ref": w.trace_ref,
     }
 
 

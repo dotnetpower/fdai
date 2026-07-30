@@ -22,11 +22,13 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > adapters follow the layout in
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md).
 
-> **Implementation status (2026-07-20):** W0-W8 are implemented. The sections
+> **Implementation status (2026-07-31):** W0-W8 are implemented. The sections
 > below preserve the rollout order and acceptance intent. Current shared agent
 > machinery lives under `src/fdai/agents/_framework/`; current wave coverage
 > lives in `tests/agents/test_wave2_governance.py` through
-> `test_wave8_kpi_degradation.py`.
+> `test_wave8_kpi_degradation.py`. The workflow inventory carries executable
+> trace refs, KPI reports distinguish measured values from unavailable evidence,
+> and every agent has an injected degradation drill.
 ## 1. Why this doc exists
 
 The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
@@ -37,10 +39,10 @@ The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
 - **Ontology**: a new `Agent` object type plus 5 supporting object types
   (`Conversation`, `Turn`, `UserPreference`, `SecurityEvent`, `Issue`)
   join the existing catalog under `rule-catalog/vocabulary/object-types/`.
-- **ActionType catalog**: four new action types
-  (`escalate_to_github_issue`, `notify_admin_privilege_violation`,
-  `arbitrate_domain_conflict`, plus each agent's `question_domains`
-  handler pseudo-action) join `rule-catalog/action-types/`.
+- **Typed capabilities**: arbitration, handoff, notification, and rule-candidate
+  publication use their owner agent's schema-checked object topics. They are not
+  catalog ActionTypes; `governance.*` remains reserved for `pr_native`
+  catalog-as-code changes.
 - **Python core**: `src/fdai/agents/` with 15 flat specialist modules and
   shared base, registry, topic, bus, runtime, and two-port machinery under
   `_framework/`.
@@ -83,14 +85,14 @@ measurable; a wave does not close on prose.
 | **W4** | Bragi + Odin: conversational port with routing, per-user context, arbitration | one operator NL query walks routing -> primary + contributors -> aggregated response; Odin arbitrates a synthetic domain_conflict |
 | **W5** | Domain specialists: Njord, Freyr, Loki with advisory bindings to Forseti | cost / capacity / chaos advice attaches to a synthetic verdict; Loki experiment runs in shadow with blast-radius respected |
 | **W6** | Handoff + security escalation: Issue dedup, fingerprint index, admin-channel notification | (a) synthetic unhandled request produces exactly one GitHub issue + comment on repeat; (b) RBAC-insufficient proposal produces exactly one admin card + dedup on repeat |
-| **W7** | Cross-agent workflows: the 12 workflows from [agent-workflows.md](agent-workflows.md) in shadow, one at a time | each workflow: shadow trace end-to-end + KPI baseline captured; no workflow promoted to enforce yet |
+| **W7** | Cross-agent workflows: the 13 workflows from [agent-workflows.md](agent-workflows.md) in shadow, one at a time | each workflow has an executable shadow trace ref; no workflow defaults to enforce |
 | **W8** | Promotion gates + measurement: per-agent KPI collectors, promotion_gate wiring, degradation drills | (a) each agent reports its declared KPI; (b) each degradation policy verified by injected failure; (c) any single workflow may be promoted enforce-mode on separate PR after its gate passes |
 
 ## 4. Wave 0 - Docs foundation
 
 **Scope**
 
-- **`docs/roadmap/agents/agent-workflows.md` (+ ko)** - the 12 cross-agent
+- **`docs/roadmap/agents/agent-workflows.md` (+ ko)** - the 13 cross-agent
   workflows with sequence diagrams and exit criteria. See §5 of this doc
   for the workflow inventory.
 - **`docs/roadmap/agents/agent-pantheon.md` §4 detail** - each of the 15 agents
@@ -103,15 +105,11 @@ measurable; a wave does not close on prose.
   - `conversation.yaml`, `turn.yaml`, `user-preference.yaml`
   - `security-event.yaml`, `issue.yaml`
   - `rule-candidate.yaml`, `handoff-escalation.yaml`
-- **Four new `rule-catalog/action-types/` entries** (deferred to W2
-  when Saga / Mimir / Var executors are implemented, to keep the
-  strict `test_action_type_catalog.py` invariants intact - the
-  existing test suite requires every catalog entry ships with its
-  executor, promotion_gate, and PR-native or documented category):
-  - `governance.escalate-to-github-issue.yaml`
-  - `governance.notify-admin-privilege-violation.yaml`
-  - `governance.arbitrate-domain-conflict.yaml`
-  - `governance.propose-rule-candidate.yaml`
+- **Typed capability alignment** - `HandoffEscalation`, `Issue`,
+  `SecurityEvent`, `ArbitrationRequest`, `ArbitrationDecision`, and
+  `RuleCandidate` retain single-writer topic ownership. Registry tests reject
+  an `AgentSpec.executes` or `AgentSpec.initiates` value that does not resolve
+  to a shipped ActionType.
 
 **Exit gate**
 
@@ -436,7 +434,7 @@ defaults and never invokes the privileged executor.
 
 ## 11. Wave 7 - Cross-agent workflows in shadow
 
-Each of the 12 workflows in [agent-workflows.md](agent-workflows.md)
+Each of the 13 workflows in [agent-workflows.md](agent-workflows.md)
 lands as its own PR with its own shadow-mode gate. Rough sequence:
 
 1. Cost-aware remediation (Njord + Forseti + Thor)
@@ -448,7 +446,10 @@ lands as its own PR with its own shadow-mode gate. Rough sequence:
 7. Agent health degradation (Heimdall + Odin + Bragi)
 8. Judgment coherence audit (Forseti + Norns + Mimir)
 9. Rollback rehearsal (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir); 11. Operational readiness handoff (Forseti); 12. Scheduled governed Python task (Forseti + Thor)
+10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
+11. Operational readiness handoff (Forseti)
+12. Scheduled governed Python task (Forseti + Thor)
+13. Detection readiness assurance (Huginn + Heimdall + Muninn + Forseti + Saga + Bragi)
 
 **Per-workflow exit gate**
 
@@ -469,9 +470,12 @@ lands as its own PR with its own shadow-mode gate. Rough sequence:
 
 **Scope**
 
-- **KPI collectors** - each agent emits its declared KPIs (see
+- **KPI collectors** - each agent reports its declared KPIs (see
   pantheon doc §4 detail from W0) to the existing measurement
-  pipeline ([goals-and-metrics.md](../architecture/goals-and-metrics.md)).
+  pipeline ([goals-and-metrics.md](../architecture/goals-and-metrics.md)). A
+  missing outcome reports `value: null` with an evidence state such as
+  `not_measured`; it never becomes a fabricated zero, and promotion fails
+  closed until a measured sample arrives.
 - **Promotion gates** - each ActionType's `promotion_gate` block
   gains machine-readable exit criteria matching the pantheon KPI
   table. Standard shape:
@@ -505,8 +509,9 @@ lands as its own PR with its own shadow-mode gate. Rough sequence:
 
 - All 15 agents emit their KPIs into the measurement pipeline.
 - All degradation drills pass.
-- At least one workflow from W7 promoted to enforce after passing
-  its promotion_gate (separate PR).
+- A passing gate can place one workflow in the authoritative promoted set and
+  resolve its shared lifecycle as published while the upstream default remains
+  shadow. Deployment authority still requires the separate reviewed promotion.
 
 **Dependencies**
 
@@ -792,7 +797,7 @@ durable Postgres `llm_invocation` store across the headless core and read API.
 
 ## 14. Timeline shape (not commitments)
 
-Waves are strictly sequential (W0 -> W8). W7 is the widest wave (12
+Waves are strictly sequential (W0 -> W8). W7 is the widest wave (13
 sub-PRs, one per workflow) and will overlap with W8 (KPI collectors
 can land in parallel with workflows).
 
@@ -806,8 +811,8 @@ timeline
     W4 : Interface : Bragi + Odin
     W5 : Specialists : Njord + Freyr + Loki
     W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 12 workflows in shadow
-    W8 : KPI + Promotion : gates + drills + first enforce
+    W7 : Workflows : 13 workflows in shadow
+    W8 : KPI + Promotion : evidence states + 15 drills + gated lifecycle
 ```
 
 ## 15. Not in scope
@@ -829,7 +834,7 @@ timeline
 | To learn about | Read |
 |----------------|------|
 | The pantheon design (roles, ontology, contract) | [agent-pantheon.md](agent-pantheon.md) |
-| The 12 workflows landed in W7 | [agent-workflows.md](agent-workflows.md) (W0) |
+| The 13 workflows landed in W7 | [agent-workflows.md](agent-workflows.md) (W0) |
 | ActionType schema referenced by W0 | [action-ontology.md](../decisioning/action-ontology.md) |
 | KPI measurement pipeline referenced by W8 | [goals-and-metrics.md](../architecture/goals-and-metrics.md) |
 | Fork seams referenced by W2, W5, W6 | [project-structure.md](../architecture/project-structure.md#customization-via-dependency-injection), [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide.md) |

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 
+from fdai.agents import AdminCard, GitHubIssue
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
@@ -23,9 +24,77 @@ from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.agents.var import Var
 
+
+class _AsyncIssueTracker:
+    def __init__(self) -> None:
+        self.issues: dict[str, GitHubIssue] = {}
+        self.closed = False
+
+    async def create_or_comment(
+        self,
+        *,
+        fingerprint: str,
+        title: str,
+        body: str,
+    ) -> tuple[GitHubIssue, bool]:
+        issue = GitHubIssue(number=1, fingerprint=fingerprint, title=title, body=body)
+        self.issues[fingerprint] = issue
+        return issue, True
+
+    async def close(self, fingerprint: str, *, closed_by_pr: str) -> None:
+        self.issues[fingerprint].open = False
+        self.issues[fingerprint].closed_by_pr = closed_by_pr
+        self.closed = True
+
+
+class _AsyncAdminChannel:
+    def __init__(self) -> None:
+        self.calls: list[tuple[tuple[str, str], AdminCard]] = []
+
+    async def upsert(self, dedup_key: tuple[str, str], card: AdminCard) -> AdminCard:
+        self.calls.append((dedup_key, card))
+        return card
+
+
 # ---------------------------------------------------------------------------
 # Security escalation: RBAC deny -> SecurityEvent -> admin card
 # ---------------------------------------------------------------------------
+
+
+def test_async_delivery_adapters_are_awaited() -> None:
+    issue_tracker = _AsyncIssueTracker()
+    saga = Saga(github=issue_tracker)
+    asyncio.run(
+        saga.escalate_to_github_issue(
+            fingerprint="async-fingerprint",
+            emitting_agent="Bragi",
+            intent_category="unknown_request",
+            failure_reason_code="no_route",
+            correlation_id="async-correlation",
+        )
+    )
+    asyncio.run(
+        saga.close_issue(
+            fingerprint="async-fingerprint",
+            closed_by_pr="https://example.invalid/pr/1",
+        )
+    )
+    assert issue_tracker.closed is True
+
+    admin_channel = _AsyncAdminChannel()
+    var = Var(admin_channel=admin_channel)
+    payload = {
+        "initiator_principal": "user@example.com",
+        "attempted_action": "ops.restart-service",
+        "severity": "high",
+        "counter": 1,
+    }
+    asyncio.run(var.deliver_admin_card(payload))
+    asyncio.run(var.deliver_admin_card({**payload, "counter": 2}))
+    assert [key for key, _card in admin_channel.calls] == [
+        ("user@example.com", "ops.restart-service"),
+        ("user@example.com", "ops.restart-service"),
+    ]
 
 
 def test_security_high_severity_produces_one_admin_card() -> None:
@@ -288,6 +357,6 @@ def test_bragi_abstain_creates_saga_issue_and_promotes_via_norns() -> None:
     mimir.promote("auto.gen.route", source="handoff")
 
     # Auto-close by Saga after promotion
-    saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/7")
+    asyncio.run(saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/7"))
     assert saga.github.issues[fp].open is False
     assert "pr/7" in " ".join(saga.github.issues[fp].comments)

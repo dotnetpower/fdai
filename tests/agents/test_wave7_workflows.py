@@ -10,6 +10,7 @@ reused here; W7 only asserts the workflow-level composition.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -27,8 +28,20 @@ from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 
 
-def test_workflow_catalog_has_ten_entries() -> None:
-    assert len(WORKFLOWS) == 11
+def test_workflow_catalog_has_thirteen_entries() -> None:
+    assert len(WORKFLOWS) == 13
+
+
+def test_every_workflow_starts_in_shadow() -> None:
+    assert all(item.default_mode == "shadow" for item in WORKFLOWS)
+
+
+def test_every_workflow_trace_ref_resolves() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    for item in WORKFLOWS:
+        path, separator, node = item.trace_ref.partition("::")
+        assert separator and node, item.id
+        assert (repo_root / path).is_file(), item.trace_ref
 
 
 def test_every_workflow_participant_is_a_real_agent() -> None:
@@ -43,6 +56,11 @@ def test_workflow_lookup_by_id() -> None:
     w = workflow("dr-drill-orchestration")
     assert w.name == "DR drill orchestration"
     assert "Loki" in w.participating_agents
+
+
+def test_late_wave_workflows_are_registered() -> None:
+    assert workflow("operational-readiness-handoff").primary_agent == "Forseti"
+    assert "Thor" in workflow("scheduled-governed-python-task").participating_agents
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +229,7 @@ def test_workflow_handoff_capability_promotes_and_closes_issue() -> None:
         )
     )
     mimir.promote("auto.route.capacity", source="handoff")
-    saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/9")
+    asyncio.run(saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/9"))
     assert saga.github.issues[fp].open is False
 
 

@@ -36,6 +36,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from fdai.agents._framework import runtime_health
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
@@ -46,6 +47,7 @@ from fdai.agents._framework.conversation_tools import (
 from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
+from fdai.agents._framework.kpi import KpiCollector
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     PANTHEON_NAMES,
@@ -111,6 +113,7 @@ class PantheonRuntime:
     raw_event_topic: str
     subscription_count: int
     enforce: bool
+    kpi_collector: KpiCollector = field(default_factory=KpiCollector)
     _ingress_dropped: int = 0
     shadow_decisions: Counter[str] = field(default_factory=Counter)
     disabled: frozenset[str] = frozenset()
@@ -133,6 +136,7 @@ class PantheonRuntime:
         muninn_state_store: StateStore | None = None,
         disabled_agents: frozenset[str] | None = None,
         divergence: ShadowDivergenceLedger | None = None,
+        kpi_collector: KpiCollector | None = None,
         thor_executor: ActionExecutor | None = None,
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
@@ -412,6 +416,7 @@ class PantheonRuntime:
             raw_event_topic=raw_event_topic,
             subscription_count=subscription_count + (1 if huginn_active else 0),
             enforce=enforce,
+            kpi_collector=kpi_collector or KpiCollector(),
             disabled=disabled,
             divergence=divergence,
             _bragi=bragi_ref,
@@ -689,9 +694,8 @@ class PantheonRuntime:
         ActionRuns, dedup pressure, etc. - not just bridge-level counters.
         """
         snap = self.bridge.snapshot()
-        agent_health = {
-            name: self._safe_agent_health(name, agent) for name, agent in self.agents.items()
-        }
+        agent_health = runtime_health.snapshot_agent_health(self.agents)
+        runtime_health.report_agent_kpis(self.kpi_collector, agent_health)
         for agent_name in HARD_DEPENDENCY_AGENTS:
             health = agent_health.get(agent_name)
             if isinstance(health, dict) and health.get("status") == "error":
@@ -704,16 +708,30 @@ class PantheonRuntime:
             for consumer, state in self._continuity_failures.items()
             if consumer.split(":", 1)[0] in HARD_DEPENDENCY_AGENTS
         }
+        unavailable_agents = set(self.disabled)
+        unavailable_agents.update(
+            name for name, health in agent_health.items() if health.get("status") == "error"
+        )
+        unavailable_agents.update(
+            consumer.split(":", 1)[0] for consumer in self._continuity_failures
+        )
+        degradation = runtime_health.evaluate_degradation(unavailable_agents)
+        if degradation.blocks_mutation:
+            thor = self.agents.get("Thor")
+            if isinstance(thor, Thor):
+                thor.set_shadow(True)
         return {
             "agents": len(self.agents),
             "disabled": sorted(self.disabled),
             "enforce": self.enforce,
-            "effective_enforce": self.enforce and not hard_dependency_failures,
+            "effective_enforce": self.enforce and not degradation.blocks_mutation,
             "continuity_failures": dict(sorted(self._continuity_failures.items())),
             "hard_dependency_failures": dict(sorted(hard_dependency_failures.items())),
             "ingress_dropped": self._ingress_dropped,
             "shadow_decisions": dict(self.shadow_decisions),
             "agent_health": agent_health,
+            "kpi_coverage": self.kpi_collector.coverage(),
+            "degradation": degradation.to_mapping(),
             "divergence": self.divergence.report() if self.divergence else None,
             "conversational_port": self._bragi is not None,
             "conversation_tools": (
@@ -736,25 +754,6 @@ class PantheonRuntime:
             "pantheon_hard_dependency_consumer_terminal",
             extra={"agent": agent, "topic": topic, "state": state},
         )
-
-    @staticmethod
-    def _safe_agent_health(name: str, agent: Agent) -> dict[str, Any]:
-        """Read one agent's health, isolating a raising probe.
-
-        A single agent whose ``health()`` raises MUST NOT collapse the
-        whole snapshot (which Heimdall's probe and the heartbeat depend
-        on); surface the error for that agent instead. The measurable-
-        behavior snapshot is merged in even for agents that override
-        ``health()`` (Thor / Huginn) so every agent's observed behaviour is
-        visible uniformly.
-        """
-        try:
-            snap = agent.health()
-            snap.setdefault("behavior", agent.behavior_snapshot())
-            return snap
-        except Exception as exc:  # noqa: BLE001 - health probe must not crash
-            _LOG.warning("pantheon_agent_health_error", extra={"agent": name, "error": str(exc)})
-            return {"agent": name, "status": "error", "error": str(exc)}
 
     async def _heartbeat(self, interval: float) -> None:
         while True:

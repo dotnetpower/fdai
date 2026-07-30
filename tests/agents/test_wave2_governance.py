@@ -220,7 +220,7 @@ def test_saga_close_issue_records_promoting_pr() -> None:
             correlation_id="corr-close",
         )
     )
-    saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/42")
+    asyncio.run(saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/42"))
     issue = saga.github.issues[fp]
     assert issue.open is False
     assert issue.closed_by_pr == "https://example.invalid/pr/42"
@@ -607,7 +607,7 @@ def test_end_to_end_handoff_flow_via_bus() -> None:
 
     # Mimir promotes; Saga can now close the fingerprinted issue.
     mimir.promote("auto-generated", source="handoff")
-    saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/1")
+    asyncio.run(saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/1"))
     assert saga.github.issues[fp].open is False
 
 

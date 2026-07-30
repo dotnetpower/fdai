@@ -311,7 +311,10 @@ and self-improvement. **X**-agent participates in the workflows named in
 
 Every agent MUST emit these metrics into the measurement pipeline
 ([goals-and-metrics.md](../architecture/goals-and-metrics.md)) so shadow -> enforce
-promotion gates can evaluate deterministically.
+promotion gates can evaluate deterministically. The runtime reports every
+declared metric on each health snapshot. A metric without sufficient outcome
+evidence carries `value: null` and an explicit evidence state; promotion gates
+treat it as a failure rather than interpreting absence as zero.
 
 | Agent | Success KPI | Degradation KPI (early warning) |
 |-------|-------------|--------------------------------|

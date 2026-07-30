@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 483839bfcb3f56debb15607e1a15d0731de532fc
-translation_revised: 2026-07-29
+translation_source_sha: 338562a90e04a051313e6c87006402ebdc3b02ca
+translation_revised: 2026-07-31
 ---
 
 # 에이전트 판테온 구현 계획
@@ -24,11 +24,13 @@ translation_revised: 2026-07-29
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 > 의 배치를 따른다.
 
-> **구현 상태 (2026-07-20):** W0-W8은 구현되었습니다. 아래 섹션은 rollout
+> **구현 상태 (2026-07-31):** W0-W8은 구현되었습니다. 아래 섹션은 rollout
 > 순서와 acceptance 의도를 보존합니다. 현재 공유 에이전트 구성 요소는
 > `src/fdai/agents/_framework/`에 있고, 현재 wave coverage는
 > `tests/agents/test_wave2_governance.py`부터
-> `test_wave8_kpi_degradation.py`까지에 있습니다.
+> `test_wave8_kpi_degradation.py`까지에 있습니다. Workflow inventory는 executable
+> trace ref를 포함하며 KPI report는 measured value와 unavailable evidence를 구분하고,
+> 모든 agent는 injected degradation drill을 가집니다.
 ## 1. 이 문서가 존재하는 이유
 
 판테온 문서 ([agent-pantheon.md](agent-pantheon-ko.md)) 는 15개 에이전트 계약을
@@ -39,10 +41,10 @@ translation_revised: 2026-07-29
 - **온톨로지**: 새 `Agent` object type + 5개 지원 object type
   (`Conversation`, `Turn`, `UserPreference`, `SecurityEvent`, `Issue`) 이
   `rule-catalog/vocabulary/object-types/` 아래 기존 카탈로그에 합류.
-- **ActionType 카탈로그**: 4개 새 action type
-  (`escalate_to_github_issue`, `notify_admin_privilege_violation`,
-  `arbitrate_domain_conflict`, 각 에이전트의 `question_domains` 핸들러
-  pseudo-action) 이 `rule-catalog/action-types/` 에 합류.
+- **Typed capability**: arbitration, handoff, notification, rule-candidate
+  publication은 owner agent의 schema-checked object topic을 사용합니다. 이 동작은
+  catalog ActionType이 아니며 `governance.*`는 `pr_native` catalog-as-code 변경에만
+  사용합니다.
 - **Python core**: `src/fdai/agents/` 아래 15개 flat specialist module과
   `_framework/` 아래 공유 base, registry, topic, bus, runtime, two-port 구성 요소.
 - **테스트**: registry 무결성, single-writer topic 강제, ActionType 역할
@@ -84,7 +86,7 @@ translation_revised: 2026-07-29
 | **W4** | Bragi + Odin: routing, per-user context, arbitration 이 있는 conversational port | 오퍼레이터 NL query 하나가 routing -> primary + contributors -> aggregated response 로 walk-through; Odin 이 합성 domain_conflict 를 arbitrate |
 | **W5** | Domain specialists: Njord, Freyr, Loki 가 Forseti 에 advisory 바인딩 | cost / capacity / chaos advice 가 합성 verdict 에 attach; Loki 실험이 blast-radius 존중하며 shadow 로 실행 |
 | **W6** | Handoff + security escalation: Issue dedup, fingerprint index, admin-channel notification | (a) 합성 unhandled request 가 정확히 1개 GitHub issue + repeat 시 comment 생성; (b) RBAC-insufficient proposal 이 정확히 1개 admin card + repeat 시 dedup 생성 |
-| **W7** | Cross-agent workflows: [agent-workflows.md](agent-workflows-ko.md) 의 12개 워크플로우가 shadow 로, 한 번에 하나씩 | 각 워크플로우: shadow trace 종단간 + KPI baseline 캡처; 아직 어떤 워크플로우도 enforce 로 승격 안 됨 |
+| **W7** | Cross-agent workflows: [agent-workflows.md](agent-workflows-ko.md)의 13개 workflow가 한 번에 하나씩 shadow로 동작 | 각 workflow는 executable shadow trace ref를 가지며 어떤 workflow도 enforce를 default로 사용하지 않음 |
 | **W8** | Promotion gates + measurement: per-agent KPI collector, promotion_gate 배선, degradation drill | (a) 각 에이전트가 선언된 KPI 를 리포트; (b) 각 degradation policy 가 주입 실패로 검증; (c) 임의 단일 워크플로우가 gate 통과 후 별도 PR 로 enforce 모드 승격 가능 |
 
 ## 4. Wave 0 - Docs foundation
@@ -92,7 +94,7 @@ translation_revised: 2026-07-29
 **Scope**
 
 - **`docs/roadmap/agents/agent-workflows.md` (+ ko)** - sequence diagram 과 exit
-  criteria 가 있는 12개 cross-agent 워크플로우. 워크플로우 인벤토리는 이
+  criteria 가 있는 13개 cross-agent 워크플로우. 워크플로우 인벤토리는 이
   문서 §5 참고.
 - **`docs/roadmap/agents/agent-pantheon.md` §4 detail** - 15개 에이전트 각각이
   네 개의 서브섹션 (Recurring / Event / Meta / Cross-agent tasks) + KPI
@@ -104,15 +106,11 @@ translation_revised: 2026-07-29
   - `conversation.yaml`, `turn.yaml`, `user-preference.yaml`
   - `security-event.yaml`, `issue.yaml`
   - `rule-candidate.yaml`, `handoff-escalation.yaml`
-- **`rule-catalog/action-types/` 4개 신규 entry** (Saga / Mimir / Var
-  executor 가 구현되는 W2 로 연기; 기존 `test_action_type_catalog.py`
-  invariant 를 유지하기 위해 - 기존 test suite 는 카탈로그 entry 가
-  executor, promotion_gate, PR-native 또는 documented category 와 함께
-  ship 되기를 요구):
-  - `governance.escalate-to-github-issue.yaml`
-  - `governance.notify-admin-privilege-violation.yaml`
-  - `governance.arbitrate-domain-conflict.yaml`
-  - `governance.propose-rule-candidate.yaml`
+- **Typed capability 정합성** - `HandoffEscalation`, `Issue`,
+  `SecurityEvent`, `ArbitrationRequest`, `ArbitrationDecision`,
+  `RuleCandidate`는 single-writer topic ownership을 유지합니다. Registry test는
+  shipped ActionType으로 resolve되지 않는 `AgentSpec.executes` 또는
+  `AgentSpec.initiates` 값을 거부합니다.
 
 **Exit gate**
 
@@ -420,7 +418,7 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 ## 11. Wave 7 - Shadow 로 cross-agent workflows
 
-[agent-workflows.md](agent-workflows-ko.md) 의 12개 워크플로우 각각이 자기
+[agent-workflows.md](agent-workflows-ko.md)의 13개 워크플로우 각각이 자기
 shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
 
 1. Cost-aware remediation (Njord + Forseti + Thor)
@@ -432,7 +430,10 @@ shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
 7. Agent health degradation (Heimdall + Odin + Bragi)
 8. Judgment coherence audit (Forseti + Norns + Mimir)
 9. Rollback rehearsal (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir); 11. Operational readiness handoff (Forseti); 12. Scheduled governed Python task (Forseti + Thor)
+10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
+11. Operational readiness handoff (Forseti)
+12. Scheduled governed Python task (Forseti + Thor)
+13. Detection readiness assurance (Huginn + Heimdall + Muninn + Forseti + Saga + Bragi)
 
 **Per-workflow exit gate**
 
@@ -453,9 +454,12 @@ shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
 
 **Scope**
 
-- **KPI collectors** - 각 에이전트가 선언된 KPI 를 기존 measurement
-  파이프라인 ([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)) 로 emit
-  (W0 에서 온 판테온 문서 §4 detail 참고).
+- **KPI collectors** - 각 agent는 pantheon 문서 §4 detail에서 선언한 KPI를
+  기존 measurement pipeline
+  ([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md))에 report합니다.
+  Outcome evidence가 없으면 `value: null`과 `not_measured` 같은 evidence state를
+  기록합니다. Fabricated zero를 만들지 않으며 measured sample이 도착할 때까지
+  promotion은 fail-closed합니다.
 - **Promotion gates** - 각 ActionType 의 `promotion_gate` 블록이 판테온
   KPI 테이블에 매칭되는 machine-readable exit criteria 획득. 표준
   shape:
@@ -489,8 +493,9 @@ shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
 
 - 15개 에이전트 모두 KPI 를 measurement 파이프라인으로 emit.
 - 모든 degradation drill 통과.
-- W7 의 최소 하나의 워크플로우가 promotion_gate 통과 후 enforce 로
-  승격 (별도 PR).
+- Gate를 통과한 하나의 workflow는 authoritative promoted set에 포함되어 shared
+  lifecycle이 published로 resolve될 수 있습니다. Upstream default는 shadow로
+  유지되며 deployment authority에는 별도 reviewed promotion이 필요합니다.
 
 **Dependencies**
 
@@ -766,7 +771,7 @@ dev harness는 하나의 in-memory sink를 공유하고 production은 durable Po
 ## 14. 타임라인 shape (commitment 아님)
 
 웨이브는 strictly sequential (W0 -> W8). W7 이 가장 넓은 웨이브 (워크플로우당
-sub-PR 12개) 이고 W8 과 overlap (KPI collector 는 워크플로우와 병렬로
+sub-PR 13개) 이고 W8 과 overlap (KPI collector 는 워크플로우와 병렬로
 착지 가능).
 
 ```mermaid
@@ -779,8 +784,8 @@ timeline
     W4 : Interface : Bragi + Odin
     W5 : Specialists : Njord + Freyr + Loki
     W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 12 workflows in shadow
-    W8 : KPI + Promotion : gates + drills + first enforce
+    W7 : Workflows : 13 workflows in shadow
+    W8 : KPI + Promotion : evidence states + 15 drills + gated lifecycle
 ```
 
 ## 15. Scope 밖
@@ -801,7 +806,7 @@ timeline
 | 학습 주제 | 읽기 |
 |----------|------|
 | 판테온 설계 (역할, ontology, 계약) | [agent-pantheon.md](agent-pantheon-ko.md) |
-| W7 에서 착지하는 12개 워크플로우 | [agent-workflows.md](agent-workflows-ko.md) (W0) |
+| W7 에서 착지하는 13개 워크플로우 | [agent-workflows.md](agent-workflows-ko.md) (W0) |
 | W0 이 참조하는 ActionType 스키마 | [action-ontology.md](../decisioning/action-ontology-ko.md) |
 | W8 이 참조하는 KPI measurement 파이프라인 | [goals-and-metrics.md](../architecture/goals-and-metrics-ko.md) |
 | W2, W5, W6 이 참조하는 fork seam | [project-structure.md](../architecture/project-structure-ko.md#customization-via-dependency-injection), [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide-ko.md) |

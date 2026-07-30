@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f196f4151f7b5deb0abbd39afbfd6fe1c0d3985b
+translation_source_sha: eeadb9b506d934631dc51158c12f99e968b7b5a4
 translation_revised: 2026-07-31
 ---
 
@@ -290,7 +290,10 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 
 모든 에이전트는 measurement 파이프라인
 ([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)) 에 이 metric 을 emit
-해야 shadow -> enforce promotion gate 가 deterministic 하게 평가 가능.
+해야 shadow -> enforce promotion gate가 deterministic하게 평가할 수 있습니다. Runtime은
+health snapshot마다 모든 declared metric을 report합니다. Outcome evidence가 충분하지
+않은 metric은 `value: null`과 명시적 evidence state를 사용하며 promotion gate는
+absence를 zero로 해석하지 않고 실패로 처리합니다.
 
 | Agent | 성공 KPI | Degradation KPI (조기 경고) |
 |-------|----------|----------------------------|

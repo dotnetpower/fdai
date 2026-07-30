@@ -8,10 +8,15 @@ window and the last-seen counter is incremented on repeat.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Any
 
-from fdai.agents._framework.adapters import AdminCard, InMemoryAdminChannel
+from fdai.agents._framework.adapters import (
+    AdminCard,
+    AdminNotificationAdapter,
+    InMemoryAdminChannel,
+)
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
@@ -65,7 +70,7 @@ class Var(Agent):
         self,
         *,
         bus: PantheonBus | None = None,
-        admin_channel: InMemoryAdminChannel | None = None,
+        admin_channel: AdminNotificationAdapter | None = None,
     ) -> None:
         super().__init__(spec=_VAR)
         self.bus = bus
@@ -255,29 +260,17 @@ class Var(Agent):
         severity = str(payload.get("severity", "high"))
         counter = int(payload.get("counter", 1))
         key = (initiator, action)
-        existing = self._last_cards.get(key)
-        if existing is not None:
-            # Repeat: update counter in place rather than post a new card.
-            new_card = AdminCard(
-                severity=severity,
-                initiator_principal=initiator,
-                attempted_action=action,
-                counter=counter,
-            )
-            self._last_cards[key] = new_card
-            # Update the last delivered card's counter too
-            self.admin_channel.cards[-1] = new_card
-            return new_card
         card = AdminCard(
             severity=severity,
             initiator_principal=initiator,
             attempted_action=action,
             counter=counter,
         )
-        self.admin_channel.send(card)
-        self._last_cards[key] = card
+        delivery = self.admin_channel.upsert(key, card)
+        delivered = await delivery if inspect.isawaitable(delivery) else delivery
+        self._last_cards[key] = delivered
         _evict_oldest_ticket(self._last_cards, self._MAX_CARDS, keep=key)
-        return card
+        return delivered
 
     # ---- conversational port -------------------------------------------
 

@@ -10,6 +10,12 @@ scaffolding only.
 Design authority: `docs/roadmap/agents/agent-pantheon.md`.
 """
 
+from fdai.agents._framework.adapters import (
+    AdminCard,
+    AdminNotificationAdapter,
+    GitHubIssue,
+    IssueTrackerAdapter,
+)
 from fdai.agents._framework.base import (
     Agent,
     AgentSpec,
@@ -64,6 +70,8 @@ from fdai.agents.saga import Saga
 
 __all__ = [
     "Agent",
+    "AdminCard",
+    "AdminNotificationAdapter",
     "BASELINE_LAYER_IDS",
     "CONSTRAINT_LAYER_IDS",
     "AgentHandlerObserver",
@@ -84,6 +92,8 @@ __all__ = [
     "DeliberationClaim",
     "DeliberationRequest",
     "Heimdall",
+    "GitHubIssue",
+    "IssueTrackerAdapter",
     "Layer",
     "Norns",
     "PantheonBus",

@@ -81,11 +81,13 @@ def test_pantheon_workflows_returns_registered_catalog() -> None:
     resp = client.get("/pantheon/workflows")
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["count"] == 11
+    assert body["count"] == 13
     ids = {w["id"] for w in body["workflows"]}
     assert "handoff-capability" in ids
     assert "security-escalation" in ids
     assert "detection-readiness-assurance" in ids
+    assert "operational-readiness-handoff" in ids
+    assert "scheduled-governed-python-task" in ids
 
 
 def test_pantheon_workflows_include_primary_agent_and_gate() -> None:
@@ -113,6 +115,7 @@ def test_pantheon_workflows_include_primary_agent_and_gate() -> None:
             ]
         }
         assert w["promotion_gate"]  # non-empty string
+        assert w["trace_ref"].startswith("tests/")
 
 
 def test_pantheon_endpoints_are_get_only() -> None:
