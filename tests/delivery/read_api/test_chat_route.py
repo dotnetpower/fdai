@@ -159,6 +159,22 @@ class _RecordingIdentity:
         )
 
 
+def test_azure_chat_fallback_identity_pins_runtime_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AZURE_SUBSCRIPTION_ID", "subscription-a")
+    monkeypatch.setenv("AZURE_TENANT_ID", "tenant-a")
+    backend = AzureAdChatBackend(
+        endpoint="https://example.openai.azure.com",
+        deployment="narrator-mini",
+    )
+
+    identity = backend._identity()
+
+    assert identity.subscription_id == "subscription-a"
+    assert identity.tenant_id == "tenant-a"
+
+
 def _app(backend: ChatBackend) -> Starlette:
     return Starlette(routes=[make_chat_route(backend=backend, authorize=_allow)])
 

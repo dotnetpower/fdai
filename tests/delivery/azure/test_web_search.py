@@ -6,8 +6,10 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
 import httpx
+import pytest
 
 from fdai.core.web_search import WebSearchQuery, WebSearchResult, WebSnippet
+from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
 from fdai.delivery.azure.web_search import (
     AzureResponsesWebSearchCandidate,
     AzureResponsesWebSearchConfig,
@@ -24,6 +26,36 @@ class _Identity:
             expires_at=datetime.now(tz=UTC) + timedelta(minutes=5),
             audience=audience,
         )
+
+
+async def test_azure_candidate_fallback_identity_pins_runtime_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AZURE_SUBSCRIPTION_ID", "subscription-a")
+    monkeypatch.setenv("AZURE_TENANT_ID", "tenant-a")
+
+    def get_token_sync(
+        _identity: AzureCliWorkloadIdentity,
+        audience: str,
+    ) -> IdentityToken:
+        return IdentityToken(
+            token="test-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(minutes=5),
+            audience=audience,
+        )
+
+    monkeypatch.setattr(AzureCliWorkloadIdentity, "get_token_sync", get_token_sync)
+    candidate = AzureResponsesWebSearchCandidate(
+        config=AzureResponsesWebSearchConfig(
+            endpoint="https://example.openai.azure.com",
+            deployment="mini-fast",
+        ),
+    )
+
+    assert await candidate._access_token() == "test-token"
+    assert candidate._fallback_identity is not None
+    assert candidate._fallback_identity.subscription_id == "subscription-a"
+    assert candidate._fallback_identity.tenant_id == "tenant-a"
 
 
 class _Candidate:

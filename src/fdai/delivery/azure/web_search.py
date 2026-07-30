@@ -238,7 +238,7 @@ class AzureResponsesWebSearchCandidate:
         if self._fallback_identity is None:
             from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
 
-            self._fallback_identity = AzureCliWorkloadIdentity()
+            self._fallback_identity = AzureCliWorkloadIdentity.from_env()
         token = await asyncio.to_thread(self._fallback_identity.get_token_sync, _AI_SCOPE)
         return token.token
 

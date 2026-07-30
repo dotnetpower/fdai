@@ -81,7 +81,7 @@ class AzureAdChatBackend:
         if self._identity_cached is None:
             from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
 
-            self._identity_cached = AzureCliWorkloadIdentity()
+            self._identity_cached = AzureCliWorkloadIdentity.from_env()
         return self._identity_cached
 
     async def answer(

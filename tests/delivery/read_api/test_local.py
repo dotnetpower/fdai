@@ -309,6 +309,8 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
 
     assert core_env["PYTHONPATH"] == "${workspaceFolder}/src"
     assert api_env["PYTHONPATH"] == "${workspaceFolder}/src"
+    assert core_env["AZURE_CONFIG_DIR"] is None
+    assert api_env["AZURE_CONFIG_DIR"] is None
     assert api_env["FDAI_READ_API_LOCAL_ENTRA"] == "1"
     assert api_env["FDAI_READ_API_DEV_MODE"] == "0"
     assert api_env["FDAI_READ_API_LOCAL_AZURE_CLI"] == "0"
@@ -338,6 +340,11 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     frontend_task = tasks.split('"label": "console: frontend (Browser Entra)"', 1)[1]
     assert '"reveal": "silent"' in read_api_task
     assert '"focus": false' in read_api_task
+    assert "env -u AZURE_CONFIG_DIR -u FDAI_READ_API_DEV_MODE" in read_api_task
+    assert (
+        "env -u AZURE_CONFIG_DIR bash scripts/deployment/azure/prepare-local-runtime-env.sh"
+        in tasks
+    )
     for terminal_group in (
         "console-core-runtime",
         "console-read-api",
