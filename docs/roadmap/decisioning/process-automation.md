@@ -193,6 +193,14 @@ LinkTypes cover only the runtime graph edges between first-class object types.
 
 Moved to a focused owner document: [workflow-control-loop-integration.md](workflow-control-loop-integration.md). It covers the governed shadow and enforce orchestrator, the guard evaluation seam, the runtime journal and ontology projection, the manual shadow or enforce command, governed Python tasks and cron schedules, and governed command and shell artifacts.
 
+Runtime delivery has one catalog-root invariant across catalog-backed tools. When
+the control loop is composed with an explicit `catalog_root`, it must pass
+`catalog_root / "chaos-scenarios"` to both the chaos executor (all and promoted
+entries) and the RCA symptom index. Execution eligibility, promotion state, and
+diagnostic evidence therefore use the same deployed or test catalog instead of
+silently falling back to the repository default. Composition without an
+explicit override retains the default catalog.
+
 ## 5. Saga compensation
 
 A multi-step process that fails partway MUST be able to undo the steps that

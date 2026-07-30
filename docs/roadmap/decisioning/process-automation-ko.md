@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 3003d51024981042d190bce3ef5440e1781ab0ff
-translation_revised: 2026-07-23
+translation_source_sha: 1e24e4957a4981c1a69154563600e84d4f409142
+translation_revised: 2026-07-30
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -189,6 +189,13 @@ audit 로그를 복제하지 않으면서 실행 중 프로세스를 그래프�
 ## 4. 컨트롤 루프 통합
 
 focused owner 문서로 이동했습니다: [workflow-control-loop-integration-ko.md](workflow-control-loop-integration-ko.md). governed shadow/enforce orchestrator, guard 평가 seam, runtime journal과 ontology projection, manual shadow/enforce command, governed Python task 및 cron schedule, governed command 및 shell artifact를 다룹니다.
+
+런타임 전달에는 카탈로그 기반 도구 전체에 적용되는 하나의 catalog-root 불변식이
+있습니다. 명시적 `catalog_root`로 컨트롤 루프를 구성하면 chaos 실행기(전체 및
+승격 엔트리)와 RCA symptom index 모두에 `catalog_root / "chaos-scenarios"`를
+전달해야 합니다. 따라서 실행 자격, 승격 상태, 진단 근거는 저장소 기본값으로
+조용히 되돌아가지 않고 동일한 배포 또는 테스트 카탈로그를 사용합니다. 명시적
+override가 없는 구성은 기본 카탈로그를 유지합니다.
 
 ## 5. saga 보상(saga compensation)
 
