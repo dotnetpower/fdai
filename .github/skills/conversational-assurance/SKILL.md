@@ -22,6 +22,9 @@ a recurring timer, not a busy loop:
 - Daily question and hardening budgets reset by UTC day; they bound cost without ending the service.
 - `.improve/STOP` is the immediate local stop switch.
 - A failed or skipped cycle does not disable the next timer invocation.
+- Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
+   retries produce a redacted `cycle_hold` ledger record and a successful service exit, so one
+   transient generation failure cannot disable or obscure later timer invocations.
 
 Before each cycle, skip without generating a question when any of these conditions is true:
 
