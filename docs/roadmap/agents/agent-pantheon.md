@@ -608,22 +608,26 @@ publication is different: arbitration, findings, candidates, audit entries,
 handoffs, and notifications stay under their single-writer topic contracts and
 do not masquerade as catalog actions.
 
-### 7.1 Extended ActionType schema
+### 7.1 Global action role binding
 
-Each `ActionType` MUST bind the five roles below. All are references to
-`Agent`; a role that is not applicable (e.g., no HIL) uses `null`.
+Action lifecycle roles are global single-writer bindings, not fields repeated
+on every `ActionType`:
 
 ```yaml
-initiators: [Agent]     # who may propose this action
-judge: Agent            # who issues the verdict (always Forseti today)
-approver: Agent?        # who signs off on HIL (Var when HIL applies)
-executor: Agent         # the sole principal that mutates
-auditor: Agent          # who appends the audit trail (Saga)
-rollback_contract: RollbackKind    # required for every ActionType
+judge: Forseti
+approver: Var
+executor: Thor
+auditor: Saga
+rollback_owner: Vidar
 ```
 
-The registry rejects an ActionType whose `producer_principal` on any
-lifecycle event does not match the declared role.
+`PANTHEON_SPECS`, topic ownership, and runtime producer checks enforce these
+roles for every action. ActionType entries cannot redeclare them, and the
+schema rejects unknown role fields. Initiator eligibility is evaluated from
+the ActionType's `trigger_kind` and scenario restrictions together with
+AgentSpec capabilities or server-owned operator ingress. This keeps role
+ownership in one source of truth while the ActionType remains the source of
+truth for operation, safety, and execution-path semantics.
 
 ### 7.2 Lifecycle state machine
 

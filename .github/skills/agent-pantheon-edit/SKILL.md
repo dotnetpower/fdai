@@ -36,8 +36,11 @@ pantheon file, plus the traps that trip up cross-agent edits.
    pantheon members flat, framework code under `_framework/`.
 3. Is your change ambiguous about which agent is the executor / judge /
    approver / auditor / initiator for an ActionType? If yes, STOP.
-   Those five role fields are **fork-locked**; upstream design change
-   only.
+  Judge, approver, executor, auditor, and rollback ownership are global
+  **fork-locked** pantheon bindings, not ActionType fields. Initiator
+  eligibility is governed by the ActionType trigger and AgentSpec/server
+  ingress capabilities. Changing either model requires an upstream design
+  change.
 
 ## The 15 Agents (canonical)
 
@@ -109,9 +112,9 @@ Each `AgentSpec` in `pantheon.py` carries:
 
 1. Read the affected `AgentSpec`. Confirm your change keeps it
    consistent.
-2. If the change touches an `ActionType` binding, remember five
-   role fields are fork-locked (`initiators`, `judge`, `executor`,
-   `approver`, `auditor`).
+2. If the change touches an `ActionType`, remember that it cannot repoint the
+  global Forseti/Var/Thor/Saga/Vidar lifecycle ownership. Check its
+  `trigger_kind`, safety contract, and any matching AgentSpec capability.
 3. Run the layout test first:
    ```
    pytest tests/agents/test_framework_layout.py -q --no-cov

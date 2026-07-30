@@ -125,10 +125,13 @@ MAY publish that object type's topic.
    A change MUST NOT allow a mutation to proceed when Saga (audit) or Vidar
    (rollback) is unavailable; a terminal consumer or failed health probe forces
    sticky shadow until restart. Degrade to shadow, never fail open.
-8. **Fork-locked ActionType bindings (MUST).** The five role fields on every
-   ActionType - `initiators`, `judge`, `approver`, `executor`, `auditor` - plus
-   `compensating_action`, `irreversible`, and `rollback_contract` are pantheon
-   safety boundaries. Code and config MUST NOT repoint them per fork.
+8. **Fork-locked action roles (MUST).** Action lifecycle roles are global
+   single-writer bindings in `PANTHEON_SPECS` and the typed runtime: Forseti
+   judges, Var approves, Thor executes, Saga audits, and Vidar rolls back.
+   ActionType entries MUST NOT redeclare or repoint those roles. Initiator
+   eligibility comes from `trigger_kind`, scenario restrictions, AgentSpec
+   capabilities, and server-owned ingress. `irreversible` and
+   `rollback_contract` remain ActionType safety boundaries.
 9. **Two ports share nothing but the trace (MUST).** The typed pub/sub port and
    the conversational port are separate. A conversational answer MUST NOT bypass
    the typed pipeline's judge/approve/execute steps.

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ec01e9b2f209c2fd3f1a305f4031e2074851db17
+translation_source_sha: d9478b69f9192b855778b5b7903bfef99199611e
 translation_revised: 2026-08-13
 ---
 
@@ -583,22 +583,25 @@ Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
 별도입니다. Arbitration, finding, candidate, audit entry, handoff, notification은 각
 single-writer topic 계약을 따르며 catalog action으로 가장하지 않습니다.
 
-### 7.1 확장된 ActionType 스키마
+### 7.1 전역 action role binding
 
-각 `ActionType` 은 아래 5개 역할을 반드시 바인딩한다. 모두 `Agent` 참조;
-적용되지 않는 역할 (예: HIL 없음) 은 `null`.
+Action lifecycle role은 각 `ActionType`에 반복하는 field가 아니라 global single-writer
+binding입니다:
 
 ```yaml
-initiators: [Agent]     # 누가 이 action 을 propose 할 수 있는가
-judge: Agent            # verdict 발행자 (오늘은 항상 Forseti)
-approver: Agent?        # HIL 승인자 (HIL 적용 시 Var)
-executor: Agent         # 유일한 mutation principal
-auditor: Agent          # audit trail 을 append 하는 자 (Saga)
-rollback_contract: RollbackKind    # 모든 ActionType에서 필수
+judge: Forseti
+approver: Var
+executor: Thor
+auditor: Saga
+rollback_owner: Vidar
 ```
 
-Registry 는 lifecycle 이벤트의 `producer_principal` 이 선언된 역할과
-일치하지 않는 ActionType 을 거부.
+`PANTHEON_SPECS`, topic ownership, runtime producer check가 모든 action에서 이 role을
+강제합니다. ActionType entry는 이를 다시 선언할 수 없으며 schema는 알 수 없는 role field를
+거부합니다. Initiator eligibility는 ActionType의 `trigger_kind` 및 scenario restriction과
+AgentSpec capability 또는 server-owned operator ingress를 함께 평가합니다. 따라서 role
+ownership은 하나의 source of truth에 유지되고 ActionType은 operation, safety, execution-path
+semantics의 source of truth로 남습니다.
 
 ### 7.2 Lifecycle 상태 머신
 

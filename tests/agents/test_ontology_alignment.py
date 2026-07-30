@@ -8,7 +8,9 @@ divergence between the ontology contract and the runtime instances.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -17,11 +19,17 @@ from fdai.shared.contracts.models import LifecycleOwner
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AGENT_YAML = REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types" / "Agent.yaml"
+ACTION_TYPE_SCHEMA = (
+    REPO_ROOT / "src" / "fdai" / "shared" / "contracts" / "ontology" / "action-type.json"
+)
 
 
-def _load_yaml() -> dict:
+def _load_yaml() -> dict[str, Any]:
     with AGENT_YAML.open("r", encoding="utf-8") as fh:
-        return yaml.safe_load(fh)
+        raw = yaml.safe_load(fh)
+    if not isinstance(raw, dict):
+        raise TypeError("Agent ontology declaration MUST be an object")
+    return {str(key): value for key, value in raw.items()}
 
 
 def test_agent_yaml_declares_expected_properties() -> None:
@@ -63,3 +71,17 @@ def test_every_agent_has_at_least_one_owned_type_or_is_governance_planner() -> N
     # advisory-only agents, revisit this test.
     for spec in PANTHEON_SPECS:
         assert len(spec.owns) >= 1, f"agent {spec.name!r} owns no ObjectType"
+
+
+def test_action_roles_are_global_and_not_redeclared_by_action_types() -> None:
+    owned_by_agent = {spec.name: set(spec.owns) for spec in PANTHEON_SPECS}
+    assert "Verdict" in owned_by_agent["Forseti"]
+    assert "Approval" in owned_by_agent["Var"]
+    assert {"ActionRun", "ActionAttempt"} <= owned_by_agent["Thor"]
+    assert "AuditEntry" in owned_by_agent["Saga"]
+    assert "Rollback" in owned_by_agent["Vidar"]
+
+    schema = json.loads(ACTION_TYPE_SCHEMA.read_text(encoding="utf-8"))
+    assert schema["additionalProperties"] is False
+    properties = schema["properties"]
+    assert not {"initiators", "judge", "approver", "executor", "auditor"} & properties.keys()
