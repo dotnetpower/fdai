@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 371a2f0da68c4a79a6ad50474f8fae4cb47d2104
+translation_source_sha: 00a46a69999482c6ab43603681c3aa335780d6cb
 translation_revised: 2026-07-31
 ---
 
@@ -49,6 +49,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 3 | [tech-stack-ko.md](architecture/tech-stack-ko.md) | 언어, 프레임워크, 데이터 스토어, 이벤트 버스 |
 | 4 | [csp-neutrality-ko.md](architecture/csp-neutrality-ko.md) | 코어를 CSP-neutral로 유지하는 wire-level 계약 |
 | 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | tier별 모델 선택, mixed-model 게이트, 추상화 |
+| 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | Service, workload, objective, decision, effect, agent ownership, 통제된 확장을 위한 공유 cloud-operations 의미 |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 identity, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | Canonical ARB 패킷: 결정 경계, evidence contract, owner, dependency, production 종료 gate |

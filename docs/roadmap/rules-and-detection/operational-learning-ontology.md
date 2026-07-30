@@ -10,6 +10,9 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > **Authority boundary:** A benchmark pass is evidence, not permission. It cannot create an active
 > rule, promote an `ActionType`, or raise autonomy.
 >
+> **Semantic authority:** [FDAI Operating Ontology](../architecture/operating-ontology.md) owns the
+> shared service, objective, decision, and effect model. This document owns evidence-to-pattern learning.
+>
 > **Scope:** Benchmark names, customer resource names, raw logs, and model prose never become
 > reusable identifiers. The reusable unit is a generic failure mechanism supported by redacted,
 > content-addressed evidence.
@@ -208,6 +211,7 @@ This slice proves that FDAI can remember the remedy correctly before it attempts
 
 | To learn about | Read |
 |----------------|------|
+| Shared service, objective, decision, and effect semantics | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
 | Immutable case revisions and governed analysis | [Prediction learning and case history](prediction-learning-and-case-history.md) |
 | Action safety and promotion fields | [Action ontology](../decisioning/action-ontology.md) |
 | External harness authority boundaries | [Benchmark adapters](../interfaces/benchmark-adapters.md) |

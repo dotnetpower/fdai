@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: a9b7742329016db11497d605cbec5514afd8013c
+translation_source_sha: b2ee144a805bafc698988de8e4ef21ddea0dfed5
 translation_revised: 2026-07-31
 ---
 # 운영 학습 온톨로지
@@ -12,6 +12,9 @@ translation_revised: 2026-07-31
 
 > **권한 경계:** 벤치마크 통과는 증거이지 권한이 아닙니다. 활성 rule 생성,
 > `ActionType` 승격, 자율성 상향을 직접 수행할 수 없습니다.
+>
+> **의미 권위:** [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md)가 공유 service,
+> objective, decision, effect model을 소유합니다. 이 문서는 evidence-to-pattern learning을 소유합니다.
 >
 > **범위:** 벤치마크 이름, 고객 리소스 이름, 원시 로그, 모델 설명은 재사용 식별자가
 > 되지 않습니다. 재사용 단위는 redaction되고 content-addressed된 증거가 뒷받침하는
@@ -213,6 +216,7 @@ model을 바꾸지 않고 Azure Kubernetes Service delivery binding을 제공합
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 공유 service, objective, decision, effect 의미 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | Immutable case revision과 governed analysis | [Prediction learning and case history](prediction-learning-and-case-history-ko.md) |
 | Action safety 및 promotion field | [Action ontology](../decisioning/action-ontology-ko.md) |
 | External harness authority boundary | [Benchmark adapters](../interfaces/benchmark-adapters-ko.md) |

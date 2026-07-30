@@ -49,6 +49,7 @@
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/interfaces/benchmark-adapters.md",
+        "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
       ],
       "docs_update": [
@@ -77,6 +78,40 @@
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md"
+      ]
+    },
+    {
+      "id": "operating-ontology",
+      "paths": [
+        "docs/roadmap/architecture/operating-ontology*.md",
+        "src/fdai/shared/contracts/ontology/**",
+        "src/fdai/shared/contracts/models/ontology.py",
+        "src/fdai/shared/ontology/**",
+        "src/fdai/core/ontology_explorer.py",
+        "rule-catalog/vocabulary/object-types/**",
+        "rule-catalog/vocabulary/link-types/**",
+        "rule-catalog/vocabulary/resource-types.yaml",
+        "tests/rule_catalog/test_ontology_*.py",
+        "tests/providers/test_ontology_instance.py",
+        "tests/core/test_ontology_explorer.py",
+        "tests/agents/test_ontology_alignment.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/decisioning/action-ontology.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/rule_catalog/test_ontology_catalog.py tests/rule_catalog/test_ontology_provenance.py tests/providers/test_ontology_instance.py tests/core/test_ontology_explorer.py tests/agents/test_ontology_alignment.py"
       ]
     },
     {
@@ -170,6 +205,7 @@
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/rules-and-detection/prediction-learning-and-case-history.md",
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
         "docs/roadmap/architecture/data-governance.md"

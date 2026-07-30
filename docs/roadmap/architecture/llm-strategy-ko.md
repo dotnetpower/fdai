@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 7d4dbed99b2cf12b862a817ea4246bd39e6eaefa
-translation_revised: 2026-07-30
+translation_source_sha: 85c56b8be07288b9f1f02322c3a15ef1366effac
+translation_revised: 2026-07-31
 ---
 
 # LLM 전략(LLM Strategy)
@@ -634,10 +634,10 @@ interfaces` 와 `submission_criteria` 통해 액션에 통합된 함수) 로부�
 
 ### 온톨로지 기반
 
-control-loop foundation은 네 **ObjectType**으로 시작함. registry는 의도적으로 확장 가능하며
+저수준 rule-dispatch foundation은 네 **ObjectType**으로 시작함. Service, objective, decision,
+effect 의미는 [FDAI 운영 온톨로지](operating-ontology-ko.md)가 소유함. Registry는 확장 가능하며
 Process, Conversation, ReviewCase 같은 product object와 ResourceType, SignalType, Property,
-ActionType 같은 meta object도 Rule이나 Resource에 접지 않고 first-class ObjectType으로 둠.
-구체 선언은 `rule-catalog/vocabulary/`에 있고 runtime instance는 shared ontology store를 사용함.
+ActionType 같은 meta object를 first-class로 둠. 선언은 `rule-catalog/vocabulary/`에 있고 runtime instance는 shared ontology store를 사용함.
 
 | ObjectType | 의미 | 백업 |
 |------------|------|------|

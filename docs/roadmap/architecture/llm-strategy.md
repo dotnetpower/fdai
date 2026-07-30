@@ -673,10 +673,10 @@ canonical, hashable signature.
 
 ### Ontology Foundation
 
-The control-loop foundation starts with four **ObjectTypes**. The registry is intentionally
-extensible: product objects such as Process, Conversation, and ReviewCase, plus meta objects such
-as ResourceType, SignalType, Property, and ActionType, are first-class ObjectTypes rather than
-being folded into Rule or Resource. Concrete declarations live in `rule-catalog/vocabulary/` and
+The low-level rule-dispatch foundation starts with four **ObjectTypes**; service, objective,
+decision, and effect semantics are owned by [FDAI Operating Ontology](operating-ontology.md). The
+registry is extensible: product objects such as Process, Conversation, and ReviewCase, plus meta
+objects such as ResourceType, SignalType, Property, and ActionType, stay first-class. Declarations live in `rule-catalog/vocabulary/` and
 runtime instances use the shared ontology store.
 
 | ObjectType | Meaning | Backing |
