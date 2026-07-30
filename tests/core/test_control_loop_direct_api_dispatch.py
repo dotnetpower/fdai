@@ -77,6 +77,7 @@ def _action(action_type_name: str = "ops.scale-out") -> Action:
             "operation": "scale",
             "params": {},
             "stop_condition": "provider_api_error_streak",
+            "stop_conditions": [{"kind": "provider_api_error_streak", "count": 3}],
             "rollback_ref": {"kind": "state_forward_only"},
             "blast_radius": {"scope": "resource", "count": 1, "rate_per_minute": 5},
             "mode": "shadow",
