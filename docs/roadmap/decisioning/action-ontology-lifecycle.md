@@ -76,9 +76,11 @@ cannot act.
 - **Declared preconditions fail closed.** RiskGate checks graph freshness from
   the bounded inventory age and requires one indexed `PreconditionEvaluation`
   for every other declared precondition. A missing, duplicate, mismatched, or
-  failed evaluation routes the action to human approval. Until composition
-  wires a deterministic evaluator for a condition kind, an ActionType that
-  declares that kind cannot auto-execute.
+  failed evaluation routes the action to human approval. The default
+  `EventPreconditionEvaluator` checks `resource_property_equals` and
+  `resource_tag_present` against the canonical event snapshot. Composition can
+  inject a `PreconditionEvaluator` for link, conflicting-action, and maintenance
+  window evidence; an unbound condition remains in human approval.
 - **`operator_request` -> typed proposal dispatch is live** (#6, #7).
   The optional `/chat/action` route and Bragi proposal sink translate a registered
   operator command into an `ActionProposal`, enforce server-derived RBAC, and publish

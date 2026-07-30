@@ -50,6 +50,7 @@ from enum import StrEnum
 from math import isfinite
 from typing import Literal
 
+from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.shared.contracts.models import (
     Action,
     BlastRadiusScope,
@@ -222,19 +223,6 @@ class RiskGateConfig:
     max_affected_resources: int = 10
     max_rate_per_minute: int = 30
     max_precondition_age_seconds: int = 900
-
-
-@dataclass(frozen=True, slots=True)
-class PreconditionEvaluation:
-    """One deterministic result for an indexed ActionType precondition."""
-
-    condition_index: int
-    kind: PreconditionKind
-    satisfied: bool
-
-    def __post_init__(self) -> None:
-        if self.condition_index < 0:
-            raise ValueError("condition_index MUST be >= 0")
 
 
 @dataclass(frozen=True, slots=True)

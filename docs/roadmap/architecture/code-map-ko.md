@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ccdb13aea66c17f79c52b3d2e5415a2cea44c1cf
+translation_source_sha: 303d382c2ccf2bc98846c5655421921db7f91902
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -42,7 +42,7 @@ shared 패키지를 커버한다.
 | tiers/t1_lightweight | 유사도 재사용 + 소형 모델 분류 | [src/fdai/core/tiers/t1_lightweight/](../../../src/fdai/core/tiers/t1_lightweight/) | [tests/core/tiers/](../../../tests/core/tiers/) | project-structure-ko.md |
 | tiers/t2_reasoning | 신규 케이스용 프론티어 모델 추론, 후보별 call budgeting, bounded primary-to-secondary proposer failover, durable preferred-route selection, sanitized attempt receipt, fail-closed HIL exhaustion. 금액 한도는 metering 기록에 위치 | [src/fdai/core/tiers/t2_reasoning/](../../../src/fdai/core/tiers/t2_reasoning/) | [tests/core/tiers/](../../../tests/core/tiers/) | [llm-strategy-ko.md](llm-strategy-ko.md) |
 | quality_gate | 정규화된 action type과 parameters 전체에 대한 혼합 모델 quorum + verifier + grounding (T2 가드) | [src/fdai/core/quality_gate/](../../../src/fdai/core/quality_gate/) | [tests/core/quality_gate/](../../../tests/core/quality_gate/) | [architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2) |
-| risk_gate | 통합 auto vs HIL vs deny 권위. Ceiling override는 Rego를 렌더하므로 삽입되는 모든 field는 pattern으로 제한되고 escape됩니다. 요청이 정책을 쓸 수 있어서는 안 됩니다. | [src/fdai/core/risk_gate/](../../../src/fdai/core/risk_gate/) | [tests/core/risk_gate/](../../../tests/core/risk_gate/) | [decisioning/](../decisioning/) |
+| risk_gate | 통합 auto vs HIL vs deny 권위. 선언된 모든 ActionType precondition에 indexed deterministic evidence를 요구하며, evidence가 없거나 실패하면 사람 승인으로 라우팅합니다. Ceiling override는 Rego를 렌더하므로 삽입되는 모든 field는 pattern으로 제한되고 escape됩니다. 요청이 정책을 쓸 수 있어서는 안 됩니다. | [src/fdai/core/risk_gate/](../../../src/fdai/core/risk_gate/) | [tests/core/risk_gate/](../../../tests/core/risk_gate/) | [decisioning/](../decisioning/) |
 | hil_resume | 사람 결정까지 park/resume합니다. Principal identity는 대소문자를 구분하지 않고 비교하므로, object id의 표기를 바꿔 한 사람을 두 사람처럼 보이게 해서 no-self-approval 바닥을 무너뜨릴 수 없습니다. no-drop load plan, group당 initial dispatch 1개, atomic expiry reaping, bounded reminder, durable decision-delivery recovery 제공 | [src/fdai/core/hil_resume/](../../../src/fdai/core/hil_resume/), [hil_registry.py](../../../src/fdai/shared/providers/hil_registry.py), [hil_decision.py](../../../src/fdai/delivery/chatops/hil_decision.py) | [tests/core/hil_resume/](../../../tests/core/hil_resume/), [test_hil_callback.py](../../../tests/delivery/read_api/test_hil_callback.py), [test_hil_decision.py](../../../tests/delivery/test_hil_decision.py) | [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) |
 | executor | 리소스별 lock, 멱등 적용, 그리고 세 실행 경로가 공유하는 단일 blast-radius ceiling. 영향 count를 선언하지 않은 action은 통과가 아니라 거부됩니다 | [src/fdai/core/executor/](../../../src/fdai/core/executor/) | [tests/core/](../../../tests/core/) (executor 관련) | project-structure-ko.md |
 | execution_backend | Profile intersection, 기록된 profile이 사라지면 fail closed하는 exact-version durable reconciliation, shadow health probe를 제공하며 eligibility authority는 없음 ([설계](../interfaces/execution-backends-ko.md)) | [src/fdai/core/execution_backend/](../../../src/fdai/core/execution_backend/) | [tests/core/execution_backend/](../../../tests/core/execution_backend/) | [execution-backends-ko.md](../interfaces/execution-backends-ko.md) |

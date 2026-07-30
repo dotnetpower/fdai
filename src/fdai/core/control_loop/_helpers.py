@@ -10,7 +10,7 @@ shrinks to its class-only shape.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
@@ -28,6 +28,7 @@ from fdai.core.risk_gate.authority import (
 )
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision, combine
 from fdai.core.risk_gate.gate import RiskGate
+from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.core.trust_router import RoutingDecision
 from fdai.shared.contracts.models import (
@@ -166,6 +167,7 @@ def evaluate_unified(
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
+    precondition_evaluations: Sequence[PreconditionEvaluation] = (),
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
@@ -182,6 +184,7 @@ def evaluate_unified(
         rule=rule,
         action_type=action_type,
         inventory_age_seconds=inventory_age_seconds,
+        precondition_evaluations=precondition_evaluations,
     )
     authority = _compute_authority(
         event=event,
@@ -224,6 +227,7 @@ def build_unified_risk_audit(
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
+    precondition_evaluations: Sequence[PreconditionEvaluation] = (),
 ) -> dict[str, Any]:
     """Build the ``risk_gate.unified`` audit entry combining gate + authority.
 
@@ -248,6 +252,7 @@ def build_unified_risk_audit(
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
         inventory_age_seconds=inventory_age_seconds,
+        precondition_evaluations=precondition_evaluations,
     )
     return _unified_audit_dict(event=event, action=action, unified=unified)
 

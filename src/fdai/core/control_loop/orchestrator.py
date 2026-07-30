@@ -28,6 +28,10 @@ from fdai.core.mscp_profile import ExpectedEffectProvider, IndependentEffectObse
 from fdai.core.notifications.router import NotificationRouter
 from fdai.core.rca import IncidentMemberSource, RcaCoordinator
 from fdai.core.risk_gate.gate import RiskGate
+from fdai.core.risk_gate.preconditions import (
+    EventPreconditionEvaluator,
+    PreconditionEvaluator,
+)
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.core.tiers.t1_lightweight.tier import T1Tier
@@ -90,6 +94,7 @@ class ControlLoop(
         inventory_context_provider: (
             Callable[[str], Awaitable[Mapping[str, Any] | None]] | None
         ) = None,
+        precondition_evaluator: PreconditionEvaluator | None = None,
         promotion_state_refresher: Callable[[str], Awaitable[None]] | None = None,
         mscp_expected_effect_provider: ExpectedEffectProvider | None = None,
         mscp_effect_observer: IndependentEffectObserver | None = None,
@@ -119,6 +124,7 @@ class ControlLoop(
         self._governance_assignments = tuple(governance_assignments)
         self._inventory_age_provider = inventory_age_provider
         self._inventory_context_provider = inventory_context_provider
+        self._precondition_evaluator = precondition_evaluator or EventPreconditionEvaluator()
         self._promotion_state_refresher = promotion_state_refresher
         self._mscp_expected_effect_provider = mscp_expected_effect_provider
         self._mscp_effect_observer = mscp_effect_observer

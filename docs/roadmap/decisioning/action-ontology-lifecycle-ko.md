@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: 26cbbfca536704189f3193bae267cf62bdb1a8ec
+translation_source_sha: a2a7f057c405c50a1b2fe902e47dfd4c98f05d70
 translation_revised: 2026-07-31
 ---
 
@@ -76,8 +76,10 @@ ActionType 은 act 할 수 없다.
   제한된 inventory age로 graph freshness를 확인하고, 그 밖의 모든 선언된
   precondition에는 index가 일치하는 `PreconditionEvaluation` 하나를 요구합니다.
   평가가 없거나 중복되거나 종류가 일치하지 않거나 실패하면 사람 승인으로
-  라우팅합니다. Composition이 condition kind의 deterministic evaluator를 연결하기
-  전에는 해당 kind를 선언한 ActionType이 자동 실행되지 않습니다.
+  라우팅합니다. 기본 `EventPreconditionEvaluator`는 canonical event snapshot에서
+  `resource_property_equals`와 `resource_tag_present`를 확인합니다. Composition은
+  link, conflicting-action, maintenance window evidence를 위한 `PreconditionEvaluator`를
+  주입할 수 있으며, 연결되지 않은 condition은 사람 승인 상태로 유지됩니다.
 - **`operator_request` -> typed proposal dispatch는 live** (#6, #7).
   Optional `/chat/action` route와 Bragi proposal sink는 등록된 operator command를
   `ActionProposal`로 변환하고 server-derived RBAC를 강제한 뒤 canonical ingress topic에

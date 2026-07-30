@@ -35,6 +35,10 @@ from fdai.core.mscp_profile import (
 )
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
+from fdai.core.risk_gate.preconditions import (
+    PreconditionEvaluation,
+    PreconditionEvaluator,
+)
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.rule_catalog.schema.assignment import (
     Assignment,
@@ -77,6 +81,7 @@ class ControlLoopExecutionMixin:
     _mscp_expected_effect_provider: ExpectedEffectProvider | None
     _response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None
     _promotion_state_refresher: Callable[[str], Awaitable[None]] | None
+    _precondition_evaluator: PreconditionEvaluator
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
     _tool_executor: ToolCallShadowExecutor | None
@@ -321,6 +326,19 @@ class ControlLoopExecutionMixin:
                     extra={"action_type": action.action_type},
                     exc_info=True,
                 )
+        precondition_evaluations: tuple[PreconditionEvaluation, ...] = ()
+        try:
+            precondition_evaluations = await self._precondition_evaluator.evaluate(
+                event=event,
+                action=action,
+                action_type=action_type,
+            )
+        except Exception:  # noqa: BLE001 - missing evidence fails closed in RiskGate
+            _LOGGER.warning(
+                "action_precondition_evaluation_failed",
+                extra={"action_type": action.action_type},
+                exc_info=True,
+            )
         if self._risk_gate is not None:
             unified = evaluate_unified(
                 event=event,
@@ -333,6 +351,7 @@ class ControlLoopExecutionMixin:
                 system_degraded=system_degraded,
                 kill_switch_engaged=kill_switch_engaged,
                 inventory_age_seconds=inventory_age_seconds,
+                precondition_evaluations=precondition_evaluations,
             )
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
             entry["recorded_at"] = datetime.now(tz=UTC).isoformat()

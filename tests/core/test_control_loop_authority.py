@@ -4,20 +4,30 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 from fdai.core.control_loop import (
+    ControlLoop,
     _extract_environment,
     build_shadow_authority_audit,
     build_unified_risk_audit,
 )
-from fdai.core.risk_gate.gate import ActionPromotionRegistry, RiskGate
+from fdai.core.risk_gate import (
+    ActionPromotionRegistry,
+    PreconditionEvaluation,
+    PromotionMetrics,
+    RiskDecisionOutcome,
+    RiskGate,
+)
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.shared.contracts.models import (
     Action,
     ActionInterface,
+    ActionPrecondition,
     Event,
     OntologyActionType,
     Operation,
+    PreconditionKind,
     PromotionGate,
     RollbackKind,
     Rule,
@@ -190,6 +200,120 @@ def test_build_unified_risk_audit_destructive_is_hil(
     )
     # destructive -> authority hil; combined result is at least HIL.
     assert entry["decision"] in {"hil", "shadow", "deny"}
+
+
+async def test_control_loop_evaluates_event_backed_action_preconditions(
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    action_type = OntologyActionType.model_validate(valid_ontology_action_type).model_copy(
+        update={
+            "preconditions": [
+                ActionPrecondition(
+                    kind=PreconditionKind.RESOURCE_PROPERTY_EQUALS,
+                    property="public_access",
+                    value="enabled",
+                )
+            ]
+        }
+    )
+    event = Event.model_validate(valid_event).model_copy(
+        update={"payload": {"resource": {"props": {"public_access": "enabled"}}}}
+    )
+    action = Action.model_validate(valid_action).model_copy(
+        update={"action_type": action_type.name}
+    )
+    rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
+    registry = ActionPromotionRegistry()
+    registry.consider_promotion(
+        action_type=action_type,
+        metrics=PromotionMetrics(
+            action_type=action_type.name,
+            shadow_days=action_type.promotion_gate.min_shadow_days,
+            samples=action_type.promotion_gate.min_samples,
+            accuracy=1.0,
+            policy_escapes=0,
+        ),
+    )
+    audit_store = MagicMock()
+    audit_store.append_audit_entry = AsyncMock()
+    loop = ControlLoop(
+        event_ingest=MagicMock(),
+        trust_router=MagicMock(),
+        t0_engine=MagicMock(),
+        action_builder=MagicMock(),
+        executor=MagicMock(),
+        audit_store=audit_store,
+        rules_by_id={rule.id: rule},
+        risk_table=load_risk_table(TABLE_PATH),
+        action_types_by_name={action_type.name: action_type},
+        risk_gate=RiskGate(registry=registry),
+    )
+
+    unified = await loop._evaluate_and_audit(event=event, action=action, rule=rule)
+
+    assert unified is not None
+    assert unified.gate.outcome is RiskDecisionOutcome.AUTO
+    audit_store.append_audit_entry.assert_awaited_once()
+
+
+async def test_control_loop_precondition_evaluator_failure_is_hil(
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    class RaisingEvaluator:
+        async def evaluate(
+            self,
+            *,
+            event: Event,
+            action: Action,
+            action_type: OntologyActionType,
+        ) -> tuple[PreconditionEvaluation, ...]:
+            del event, action, action_type
+            raise RuntimeError("evidence provider unavailable")
+
+    action_type = OntologyActionType.model_validate(valid_ontology_action_type).model_copy(
+        update={
+            "preconditions": [
+                ActionPrecondition(
+                    kind=PreconditionKind.RESOURCE_PROPERTY_EQUALS,
+                    property="public_access",
+                    value="enabled",
+                )
+            ]
+        }
+    )
+    event = Event.model_validate(valid_event)
+    action = Action.model_validate(valid_action).model_copy(
+        update={"action_type": action_type.name}
+    )
+    rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
+    audit_store = MagicMock()
+    audit_store.append_audit_entry = AsyncMock()
+    loop = ControlLoop(
+        event_ingest=MagicMock(),
+        trust_router=MagicMock(),
+        t0_engine=MagicMock(),
+        action_builder=MagicMock(),
+        executor=MagicMock(),
+        audit_store=audit_store,
+        rules_by_id={rule.id: rule},
+        risk_table=load_risk_table(TABLE_PATH),
+        action_types_by_name={action_type.name: action_type},
+        risk_gate=RiskGate(registry=ActionPromotionRegistry()),
+        precondition_evaluator=RaisingEvaluator(),
+    )
+
+    unified = await loop._evaluate_and_audit(event=event, action=action, rule=rule)
+
+    assert unified is not None
+    assert unified.gate.outcome is RiskDecisionOutcome.HIL
+    assert any(reason.startswith("precondition_unresolved:") for reason in unified.gate.reasons)
+    audit_store.append_audit_entry.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------

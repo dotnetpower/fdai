@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f55264a1edd0f8a076730447d81fea06ba53f41a
+translation_source_sha: 8a922cace0a6301d0b11e023a2bb72467b3947bc
 translation_revised: 2026-08-13
 ---
 
@@ -485,6 +485,7 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | Cloud provider | provider client | (위 여덟 seam을 사용) | reference/generic Azure 어댑터 | 특정 CSP 어댑터 |
 | **Schema source** | `SchemaRegistry` (원시 JSON Schema 로더) | - | `PackageResourceSchemaRegistry` (패키지 내장 스키마) | 원격 schema-registry 어댑터; content hash 로 핀된 스냅샷 |
 | **Boundary validation** | `ContractValidator` / `EventValidator` (fail-closed 입력 검사) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | 포크가 `core/` 편집 없이 도메인 특이 체크(예: 소스 allowlist) 추가 가능 |
+| **Action precondition evidence** | `core/risk_gate/preconditions.py`의 `PreconditionEvaluator`; RiskGate가 consume하는 indexed `PreconditionEvaluation` record | - | `EventPreconditionEvaluator`가 canonical event snapshot의 resource property와 tag를 확인하고 graph freshness는 bounded inventory age를 사용하며, 다른 condition kind는 사람 승인 상태로 유지 | 모든 선언된 condition index와 fail-closed omission을 보존하면서 authoritative graph, open-action, maintenance-window evidence를 결합하는 async evaluator를 주입 |
 | **관리형 trajectory dataset** | `shared/providers/trajectory.py`의 immutable audit / conversation / tool / approval / outcome snapshot Protocol, `TrajectoryAccessAuthorizer`, `TrajectoryDatasetStore`; `core/trajectory/`의 `TrajectoryJoinService`, `TrajectoryDatasetAdminService` | - | Deny-by-default allowlist authorizer, in-memory metadata store, deterministic JSONL exporter, PostgreSQL metadata/quarantine adapter, Owner-only GET projection, offline validator | authorization-before-materialization, bounded excerpt, checksum, retention/legal hold, reviewed-only Norns intake를 유지하며 policy-backed scope authorization과 immutable source reader를 주입 ([설계](../interfaces/governed-trajectory-datasets-ko.md)) |
 | Rule / policy source | rule-catalog + `policies/` 로더 | - | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
 | **Capability bundle runtime** | `core/capability_catalog/`의 `CapabilityRuntime` + `CapabilityBundle` 및 trust-verified `ExtensionManager`; `composition/`의 `install_capability_bundle(...)` | - | fork binding이 없는 기본 discovery catalog, extension은 disabled 상태로 설치 | review된 reasoning tool provider 추가 또는 capability를 기존 `ActionType` / `Workflow`에 binding; digest, trust, compatibility, manifest parity, 모든 reference를 activation 전에 검증 |
