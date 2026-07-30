@@ -49,6 +49,7 @@ from fdai.core.quality_gate.gate import (
     QualityDecision,
     QualityOutcome,
 )
+from fdai.core.tiers.t2_reasoning.recovery import T2ProposerBudgetExhaustedError
 from fdai.shared.contracts.models import Event, Rule
 
 
@@ -177,17 +178,30 @@ class T2Tier:
         later one. The pipeline's unit of work is the event.
         """
         budget_key = str(context.event.event_id)
-        # Reserve atomically: asking whether the allowance fits and then
-        # taking it lets two concurrent events past one declared total.
-        if not await self._ledger.reserve(budget_key, calls=1, cost_microusd=0):
+        budgeted_propose = getattr(self._proposer, "propose_with_budget", None)
+        try:
+            if callable(budgeted_propose):
+                candidate = await budgeted_propose(
+                    context=context,
+                    reserve_attempt=lambda: self._ledger.reserve(
+                        budget_key,
+                        calls=1,
+                        cost_microusd=0,
+                    ),
+                )
+            else:
+                # Reserve atomically: asking whether the allowance fits and then
+                # taking it lets two concurrent events past one declared total.
+                if not await self._ledger.reserve(budget_key, calls=1, cost_microusd=0):
+                    raise T2ProposerBudgetExhaustedError("T2 proposer budget exhausted")
+                candidate = await self._proposer.propose(context=context)
+        except T2ProposerBudgetExhaustedError:
             return T2Decision(
                 outcome=T2Outcome.ESCALATE,
                 candidate=None,
                 quality_decision=None,
                 reason="t2_budget_exhausted",
             )
-        try:
-            candidate = await self._proposer.propose(context=context)
         except Exception as exc:  # noqa: BLE001 - model/provider boundary
             return T2Decision(
                 outcome=T2Outcome.ESCALATE,

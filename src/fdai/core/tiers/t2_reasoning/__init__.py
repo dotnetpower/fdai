@@ -7,6 +7,14 @@ orchestrator over the :class:`T2Proposer` seam and the existing
 
 from __future__ import annotations
 
+from fdai.core.tiers.t2_reasoning.recovery import (
+    BoundedFailoverT2Proposer,
+    T2AttemptReceipt,
+    T2FailureClass,
+    T2ProposerBudgetExhaustedError,
+    T2ProposerCandidatesExhaustedError,
+    T2RecoveryObserver,
+)
 from fdai.core.tiers.t2_reasoning.tier import (
     QualityGateProtocol,
     T2Decision,
@@ -17,10 +25,16 @@ from fdai.core.tiers.t2_reasoning.tier import (
 )
 
 __all__ = [
+    "BoundedFailoverT2Proposer",
     "QualityGateProtocol",
+    "T2AttemptReceipt",
     "T2Decision",
+    "T2FailureClass",
     "T2Outcome",
     "T2ProposalContext",
     "T2Proposer",
+    "T2ProposerBudgetExhaustedError",
+    "T2ProposerCandidatesExhaustedError",
+    "T2RecoveryObserver",
     "T2Tier",
 ]

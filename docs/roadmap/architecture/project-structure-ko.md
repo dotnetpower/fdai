@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d4778652d73bec9b73d44b0101e87c272cf92139
+translation_source_sha: e5ce1b913f804e2c4c5eb2da802c5cc0abc39341
 translation_revised: 2026-07-31
 ---
 
@@ -25,7 +25,7 @@ fdai/
 │   │   ├── tiers/
 │   │   │   ├── t0_deterministic/    # deterministic-engine: policy, checklist, what-if, drift eval
 │   │   │   ├── t1_lightweight/      # 임베딩 유사도, 학습된 액션 재사용, 소형 모델 분류; non-finite reuse evidence는 abstain
-│   │   │   └── t2_reasoning/        # 신규/모호 케이스에만 사용하는 프론티어 모델 추론
+│   │   │   └── t2_reasoning/        # 프론티어 모델 추론과 bounded proposer failover 및 sanitized attempt receipt
 │   │   ├── prompts/            # catalog-as-code 프롬프트 컴포저 (`rule-catalog/prompts/` 로드, T2에 공급)
 │   │   ├── tools/              # T2 툴 카탈로그 레지스트리 + `ToolExecutor` (shadow-mode 게이팅)
 │   │   ├── web_search/         # 최후 수단 웹 검색 seam (`NoOpWebSearchProvider` 기본; 도메인 allowlist + sanitizer)
@@ -123,7 +123,7 @@ fdai/
 │   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody 및 typed ingress
 │   ├── benchmarking/          # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + focused `wire_*` binder
-│   ├── runtime/               # Operating-model startup projection/status, transport/identity binding, startup readiness, worker gating, post-turn review를 포함한 headless lifecycle/composition
+│   ├── runtime/               # Operating-model startup projection/status, durable T2 recovery observation, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
 ├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음

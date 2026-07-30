@@ -536,6 +536,12 @@ class PantheonRuntime:
             return None
         return self._bragi.route(question)
 
+    async def ingest_raw_event(self, payload: dict[str, Any]) -> dict[str, Any] | None:
+        huginn = self.agents.get(_INGRESS_PRINCIPAL)
+        if not isinstance(huginn, Huginn):
+            raise RuntimeError("Pantheon raw ingress requires active Huginn")
+        return await huginn.ingest(payload)
+
     def should_delegate_conversation(
         self,
         question: str,
@@ -772,13 +778,7 @@ class PantheonRuntime:
     def _make_ingress(
         self, agents: dict[str, Agent]
     ) -> Callable[[str, dict[str, Any]], Awaitable[None]]:
-        """Return the raw-event handler that feeds Huginn.
-
-        Huginn.ingest normalizes + dedups + republishes as ``object.event``.
-        A raw event missing a stable key is dropped with a warning (not
-        dead-lettered): the P1 loop still processes the same record, so
-        flooding the DLQ from the shadow pantheon would be noise.
-        """
+        """Return the raw-event handler that feeds Huginn without DLQ noise."""
         huginn = agents[_INGRESS_PRINCIPAL]
         if not isinstance(huginn, Huginn):  # pragma: no cover - factory guarantees it
             raise TypeError("Huginn agent is missing from the pantheon")

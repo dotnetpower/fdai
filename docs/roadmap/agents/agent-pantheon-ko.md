@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: eeadb9b506d934631dc51158c12f99e968b7b5a4
+translation_source_sha: e0739db6f8042821bdbe162d65ccd7d5ed16e9ea
 translation_revised: 2026-07-31
 ---
 
@@ -274,7 +274,7 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 | Thor | execution-path health check, retry-strategy 캐시 warmup | verdict dispatch, rollback trigger, rate-limit 강제 | high-risk action pre-flight simulation | 1 (Cost-aware remediation), 2 (Predictive scale), 11 (Readiness), 12 (Scheduled Python) |
 | Forseti | rule-cache 리프레시, retrospective what-if batch, verdict coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict emit, SecurityEvent emit | novelty drift 감지 (T0 vs T2 mix) | 1, 2, 5 (Security escalation), 8 (Judgment coherence), 11, 12 |
 | Huginn | source health check, discovery cursor/backpressure check, dedup window 유지 | resource create/update/delete Event 정규화 + dedup + correlate + publish | 적응형 스키마 학습 (T1 clustering, off-path) | 모든 워크플로우에 feed |
-| Heimdall | anomaly baseline 업데이트, forecast 리프레시, discovery freshness/coverage probe, external-actor 리스트 리프레시, agent-health probe | anomaly detect, drift detect, discovery degradation correlate, SecurityEvent correlate, notify_admin | multi-signal 다신호 상관 | 1, 2, 3 (DR drill), 5, 7 (Agent health), 9 (Rollback rehearsal) |
+| Heimdall | anomaly baseline 업데이트, forecast 리프레시, discovery freshness/coverage probe, T2 proposer health receipt reduction, external-actor 리스트 리프레시, agent-health probe | anomaly detect, drift detect, terminal proposer exhaustion correlate, discovery degradation correlate, SecurityEvent correlate, notify_admin | multi-signal 다신호 상관 | 1, 2, 3 (DR drill), 5, 7 (Agent health), 9 (Rollback rehearsal) |
 | Vidar | rollback-path 검증, DR readiness score, recovery-time SLI | perform_rollback, dr_failover | rollback rehearsal (shadow) | 3, 9 |
 | Var | approval SLA 모니터, approver 가용성 tracking | HIL 카드 제시, quorum 강제, timeout / escalation | approval provenance 기록 | 4 (Override -> Discovery), 5, 11, 12 |
 | Bragi | 만료 세션 정리, UserPreference index 리프레시 | NL routing, multi-agent aggregation, NL 렌더링 | intent classifier 재학습 (T1, off-path) | 7, 10 (Retrospective what-if), 12 |
@@ -301,7 +301,7 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 | Thor | 실행 성공률, 실행 지연 p99 | rollback trigger 율, race 실패 |
 | Forseti | post-hoc override 대비 verdict 정확도, T2 escalation rate (목표 < 10%) | mixed-model 불일치율, grounding 누락률 |
 | Huginn | 이벤트 처리 지연 p99, discovery delivery 지연 p99, dedup 정확도 | 스키마 매칭 실패율, discovery cursor lag |
-| Heimdall | anomaly precision + recall, forecast MAPE, discovery coverage 감지 | false-positive rate, missed critical, stale inventory 감지 지연 |
+| Heimdall | anomaly precision + recall, forecast MAPE, discovery coverage 감지, T2 proposer recovery 감지 | false-positive rate, missed critical, stale inventory 감지 지연, proposer exhaustion-to-HIL 지연 |
 | Vidar | rollback 성공률, MTTR | rollback-path 검증 실패 |
 | Var | HIL SLA 준수율, quorum 준수 | 만료율, 반복 escalation |
 | Bragi | 라우팅 정확도 (post-audit), 세션 만족도 | handoff 비율 (목표 < 5%) |

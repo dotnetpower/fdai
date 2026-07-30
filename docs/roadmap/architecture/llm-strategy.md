@@ -1012,7 +1012,11 @@ The complete storage, schema, and boot/reload design now lives in
   an ungated auto-action.
 - **Provider failure handling**: on timeout, rate-limit, or outage, fail **closed** - retry
   with bounded backoff, fall back to the secondary provider, then a circuit breaker degrades
-  to HIL. Never retry indefinitely and never auto-execute an unverified candidate.
+  to HIL. Each actual proposer candidate reserves one call from the shared budget. Sanitized
+  attempt receipts retain only route role, failure class, status, and trace identity. Terminal
+  exhaustion enters Huginn, Heimdall, and Forseti so a real HIL ActionRun is created; recovery
+  success remains an observation and does not open another approval. Never retry indefinitely
+  and never auto-execute an unverified candidate.
 - **Event-driven**: models are invoked only on the residual events that reach T1/T2.
 
 ## Improving T1 (Distillation)

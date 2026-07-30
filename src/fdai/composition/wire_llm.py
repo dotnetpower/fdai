@@ -32,6 +32,7 @@ from ..core.quality_gate.gate import CrossCheckModel
 from ..core.quality_gate.judge import JudgeModel
 from ..core.quality_gate.testing import MatchTypeCrossCheckModel, MismatchCrossCheckModel
 from ..core.rca import LlmRcaReasoner, RcaReasoner
+from ..core.tiers.t2_reasoning import BoundedFailoverT2Proposer, T2Proposer
 from ..core.tiers.t2_reasoning.testing import AbstainingT2Proposer
 from ..rule_catalog.schema.llm_resolver import ResolvedCapability
 from ..rule_catalog.schema.model_endpoint import ModelAuthKind, ModelEndpointBinding
@@ -261,7 +262,7 @@ def bind_azure_llm_bindings(
             )
         )
 
-    proposer = (
+    proposer: T2Proposer = (
         AzureOpenAIProposer(
             identity=identity,
             http_client=http_client,
@@ -440,6 +441,24 @@ def bind_azure_llm_bindings(
         metering=_emitter_for("t2.reasoner.secondary", secondary_cap, "T2"),
         gateway_route_sink=model_health_sink,
     )
+    if proposer_system_prompt:
+        secondary_proposer = AzureOpenAIProposer(
+            identity=identity,
+            http_client=http_client,
+            config=AzureOpenAIProposerConfig(
+                **_target(
+                    "t2.reasoner.secondary",
+                    legacy_deployment=secondary_cap.name,
+                    legacy_api_version="2024-06-01",
+                ),
+                system_prompt=proposer_system_prompt,
+            ),
+            metering=_emitter_for("t2.reasoner.secondary", secondary_cap, "T2"),
+            gateway_route_sink=model_health_sink,
+        )
+        proposer = BoundedFailoverT2Proposer(
+            candidates=(("primary", proposer), ("secondary", secondary_proposer))
+        )
     # Wave 4 beta-2: opt-in Critic binding. Only bind when both the
     # ``t2.critic`` capability resolves AND the caller supplied a
     # ``critic_system_prompt``. A fork that omits either keeps the

@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 4fbb832df5fc00998047b3a8252127bec7106fca
-translation_revised: 2026-07-29
+translation_source_sha: a2968b04dd6ccc7f2b095683ffcf77835961598e
+translation_revised: 2026-07-31
 ---
 
 # Action 온톨로지
@@ -254,6 +254,9 @@ idempotent call 인 액션 별로 `direct_api` 로 override MAY.
 - `ops.rotate-cert` - TLS cert 회전 (App Gateway / Front Door).
 - `ops.failover-primary` - 복제 리소스에서 failover 트리거. 더 큰 tier 로
   failover 시 `cost_impact_monthly` 선언 MUST.
+- `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤
+  T2 proposer 역할 하나를 검증된 secondary route로 전환합니다. Shadow-first를 유지하고
+  사람 승인을 요구하며 전환 후 검증이 실패하면 이전 route를 복원합니다.
 - `ops.publish-change-summary` - resource-group 에 대해 정해진 시간
   범위의 변경 이력을 rendered Markdown 요약으로 만들어 delivery adapter 에
   전달. Non-Resource 비즈니스-오브젝트 flow 의 reference 예제; 짝을 이루는

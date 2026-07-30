@@ -46,6 +46,7 @@ _RULE_MATCH: dict[str, str] = {
     "unencrypted_disk": "remediate.enable-encryption",
     "restart_needed": "ops.restart-service",
     "chaos_experiment_request": "ops.restart-service",
+    "control_plane.t2_proposer_failure": "ops.switch-t2-proposer-route",
 }
 
 # ``ActionType id -> default risk verdict`` (deterministic per
@@ -57,6 +58,7 @@ _RISK_VERDICT: dict[str, str] = {
     "ops.restart-service": "auto",
     "governance.notify-admin-privilege-violation": "auto",
     "ops.failover-primary": "hil",
+    "ops.switch-t2-proposer-route": "hil",
     "remediate.delete-storage": "deny",  # irreversible
 }
 
@@ -130,6 +132,11 @@ class Forseti(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.event" and str(payload.get("event_type") or "").startswith(
+            "control_plane.t2_proposer_"
+        ):
+            self.record_behavior("t2_proposer_observation:deferred")
+            return
         if topic == "object.event" and str(payload.get("event_type") or "").startswith(
             SPECIALIST_EVENT_PREFIX
         ):

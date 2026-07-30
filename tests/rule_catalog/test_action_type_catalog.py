@@ -423,6 +423,7 @@ _DOC_OPS_ACTION_TYPES: frozenset[str] = frozenset(
         "ops.drain-connection",
         "ops.rotate-cert",
         "ops.failover-primary",
+        "ops.switch-t2-proposer-route",
         "ops.publish-change-summary",
         "ops.start-vm",
         "ops.deallocate-vm",

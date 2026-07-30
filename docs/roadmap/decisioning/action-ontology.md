@@ -258,6 +258,10 @@ Operator-requested runtime actions. Shipped Day 1:
 - `ops.rotate-cert` - rotate a TLS cert (App Gateway / Front Door).
 - `ops.failover-primary` - trigger a failover on a replicated resource.
   MUST declare `cost_impact_monthly` when failover targets a larger tier.
+- `ops.switch-t2-proposer-route` - switch one T2 proposer role to a verified
+  secondary route after Heimdall confirms that every in-request candidate failed.
+  It stays shadow-first, requires human approval, and restores the prior route when
+  post-switch verification fails.
 - `ops.publish-change-summary` - render a rendered Markdown change
   summary for a resource-group over a bounded time window and hand it
   to the delivery adapter. Reference example of a non-Resource

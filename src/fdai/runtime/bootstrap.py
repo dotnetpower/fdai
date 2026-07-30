@@ -597,6 +597,13 @@ async def _run() -> int:
                     ),
                     semantic_router_config=_semantic_router_config_from_env(),
                 )
+                from fdai.runtime.t2_recovery import bind_t2_recovery_observer
+
+                bind_t2_recovery_observer(
+                    proposer=container.require_llm_bindings().require_t2_proposer(),
+                    store=incident_audit_store,
+                    ingress=pantheon_runtime.ingest_raw_event,
+                )
                 agent_introspection_server = EventBusAgentIntrospectionServer(
                     event_bus=bus,
                     runtime=pantheon_runtime,

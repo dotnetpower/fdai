@@ -187,6 +187,9 @@ class Heimdall(Agent):
             if payload.get("event_type") == "forecast.evaluation_due":
                 await self._run_forecast_tick(payload)
                 return
+            if str(payload.get("event_type") or "").startswith("control_plane.t2_proposer_"):
+                await self._observe_t2_proposer_health(payload)
+                return
             if (
                 payload.get("kind") == "document_ingestion"
                 and payload.get("event_type") == "document.inspected"
@@ -198,6 +201,58 @@ class Heimdall(Agent):
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
+
+    async def _observe_t2_proposer_health(self, event: dict[str, Any]) -> None:
+        """Reduce one sanitized proposer receipt without another model call."""
+
+        attributes = event.get("attributes")
+        if not isinstance(attributes, dict):
+            self.record_behavior("t2_proposer:invalid")
+            return
+        recovered = (
+            event.get("event_type") == "control_plane.t2_proposer_recovered"
+            and attributes.get("status") == "succeeded"
+            and attributes.get("recovered") is True
+        )
+        if recovered:
+            self.record_behavior("t2_proposer:recovered")
+            return
+        terminal = attributes.get("terminal") is True and attributes.get("status") == "failed"
+        if not terminal:
+            self.record_behavior("t2_proposer:degraded")
+            return
+        correlation_id = str(event.get("correlation_id") or "")
+        resource_id = str(event.get("resource_id") or "")
+        evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "")
+        if not correlation_id or not resource_id or not evidence_key:
+            self.record_behavior("t2_proposer:invalid")
+            return
+        anomaly = {
+            "producer_principal": "Heimdall",
+            "correlation_id": correlation_id,
+            "resource_id": resource_id,
+            "target_type": "llm-endpoint",
+            "event_type": "control_plane.t2_proposer_failure",
+            "severity": "high",
+            "incident_correlation": "correlate",
+            "reason_code": "t2_proposer_candidates_exhausted",
+            "evidence_key": evidence_key,
+            "evidence_keys": [evidence_key],
+            "failure_class": str(attributes.get("failure_class") or "provider_error"),
+        }
+        self.record_behavior("t2_proposer:unavailable")
+        if self.bus is not None:
+            await self.bus.publish("Heimdall", "object.anomaly", anomaly)
+        if self._incident_candidate_hook is None:
+            return
+        try:
+            accepted = await self._incident_candidate_hook(anomaly)
+        except Exception:  # noqa: BLE001 - next receipt retries the durable candidate
+            self.record_behavior("t2_proposer:incident_failed")
+            return
+        self.record_behavior(
+            "t2_proposer:incident_opened" if accepted else "t2_proposer:incident_held"
+        )
 
     async def _observe_detection_readiness(self, event: dict[str, Any]) -> None:
         """Validate one probe fact and publish the agent-owned reduction."""

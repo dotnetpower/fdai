@@ -1,0 +1,76 @@
+schema_version: 1.0.0
+name: ops.switch-t2-proposer-route
+version: 1.0.0
+operation: failover
+interfaces:
+- ControlPlane
+- IdempotentByKey
+- RateLimited
+rollback_contract: state_forward_only
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.99
+  max_policy_escapes: 0
+preconditions:
+- kind: no_conflicting_open_action_on_resource
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 120
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Switch the T2 proposer primary route to a verified secondary capability. The change is HIL-only and restores the prior route when verification fails.
+category: ops
+trigger_kind:
+  kind: rule_violation
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_resource_ref
+  - target_route_ref
+  - prior_route_ref
+  - reason_code
+  properties:
+    target_resource_ref:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 1
+      maxLength: 200
+    target_route_ref:
+      type: string
+      x-fdai-audit-safe: true
+      pattern: ^[a-z0-9._-]{1,64}$
+    prior_route_ref:
+      type: string
+      x-fdai-audit-safe: true
+      pattern: ^[a-z0-9._-]{1,64}$
+    reason_code:
+      type: string
+      x-fdai-audit-safe: true
+      pattern: ^[a-z0-9._-]{1,128}$
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:ops.switch-t2-proposer-route@1.0.0
+  content_hash: sha256:fcdcb7e99085c795eaecc98511b2c05f80e7601679ef21e2e795cfbe3de744b9
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

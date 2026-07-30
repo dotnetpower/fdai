@@ -17,6 +17,7 @@ from fdai.composition import (
     default_container,
     install_capability_bundle,
 )
+from fdai.core.tiers.t2_reasoning import BoundedFailoverT2Proposer
 from fdai.shared.config import AppConfig
 from fdai.shared.config.models import LlmMode
 from fdai.shared.providers.workload_identity import (
@@ -210,6 +211,27 @@ def test_bind_azure_llm_bindings_attaches_adapters(tmp_path: Path) -> None:
     bindings = finalized.require_llm_bindings()
     assert bindings.embedding_model is not None
     assert len(bindings.cross_check_models) == 2
+
+
+def test_bind_azure_llm_bindings_enables_bounded_proposer_failover(tmp_path: Path) -> None:
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    finalized = bind_azure_llm_bindings(
+        container,
+        identity=_StaticIdentity(),
+        http_client=http,
+        endpoint="https://oai-test.openai.azure.com",
+        system_prompt=_TEST_SYSTEM_PROMPT,
+        proposer_system_prompt="bounded proposer prompt",
+    )
+
+    assert isinstance(
+        finalized.require_llm_bindings().require_t2_proposer(),
+        BoundedFailoverT2Proposer,
+    )
 
 
 def _resolved_models_json_with_endpoint_bindings() -> str:
