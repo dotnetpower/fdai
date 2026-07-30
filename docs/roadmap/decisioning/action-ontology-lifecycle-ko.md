@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: 4d0513727067b602208a8779e82b537affb9bf49
-translation_revised: 2026-07-30
+translation_source_sha: 26cbbfca536704189f3193bae267cf62bdb1a8ec
+translation_revised: 2026-07-31
 ---
 
 # Action 온톨로지 라이프사이클
@@ -72,6 +72,12 @@ ActionType 은 act 할 수 없다.
   ActionBuilder -> RiskGate -> Executor loop (§4.1) 이 오늘 remediation
   ActionType 을 dispatch 한다. 이것이 primary autonomy surface 이며 완전히
   wired 됨.
+- **선언된 precondition은 불확실할 때 안전한 쪽을 선택합니다.** RiskGate는
+  제한된 inventory age로 graph freshness를 확인하고, 그 밖의 모든 선언된
+  precondition에는 index가 일치하는 `PreconditionEvaluation` 하나를 요구합니다.
+  평가가 없거나 중복되거나 종류가 일치하지 않거나 실패하면 사람 승인으로
+  라우팅합니다. Composition이 condition kind의 deterministic evaluator를 연결하기
+  전에는 해당 kind를 선언한 ActionType이 자동 실행되지 않습니다.
 - **`operator_request` -> typed proposal dispatch는 live** (#6, #7).
   Optional `/chat/action` route와 Bragi proposal sink는 등록된 operator command를
   `ActionProposal`로 변환하고 server-derived RBAC를 강제한 뒤 canonical ingress topic에

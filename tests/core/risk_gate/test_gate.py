@@ -11,6 +11,7 @@ import yaml
 
 from fdai.core.risk_gate import (
     ActionPromotionRegistry,
+    PreconditionEvaluation,
     PromotionMetrics,
     RiskDecisionOutcome,
     RiskGate,
@@ -28,6 +29,7 @@ from fdai.shared.contracts.models import (
     Mode,
     OntologyActionType,
     Operation,
+    PreconditionKind,
     RollbackKind,
     RollbackRef,
     Rule,
@@ -154,6 +156,20 @@ def _enforced_registry(action_type_name: str) -> ActionPromotionRegistry:
     return registry
 
 
+def _satisfied_preconditions(
+    action_type: OntologyActionType,
+) -> tuple[PreconditionEvaluation, ...]:
+    return tuple(
+        PreconditionEvaluation(
+            condition_index=index,
+            kind=precondition.kind,
+            satisfied=True,
+        )
+        for index, precondition in enumerate(action_type.preconditions)
+        if precondition.kind is not PreconditionKind.GRAPH_FRESH_WITHIN_SECONDS
+    )
+
+
 @pytest.mark.parametrize(
     ("scope", "fail_closed"),
     [
@@ -177,7 +193,13 @@ def test_unknown_count_fails_closed_by_scope(scope: BlastRadiusScope, fail_close
         count=None,
         scope=scope,
     )
-    decision = gate.evaluate(action=action, rule=rule, action_type=at, inventory_age_seconds=60)
+    decision = gate.evaluate(
+        action=action,
+        rule=rule,
+        action_type=at,
+        inventory_age_seconds=60,
+        precondition_evaluations=_satisfied_preconditions(at),
+    )
     if fail_closed:
         assert decision.outcome is RiskDecisionOutcome.HIL
         assert any("blast_radius_count_unknown_for_scope" in r for r in decision.reasons)
@@ -269,9 +291,60 @@ def test_fresh_inventory_passes_precondition_check() -> None:
         rule=rule,
         action_type=action_type,
         inventory_age_seconds=60,
+        precondition_evaluations=_satisfied_preconditions(action_type),
     )
     assert decision.outcome is RiskDecisionOutcome.AUTO
     assert decision.reasons == ()
+
+
+def test_non_fresh_precondition_without_evaluation_is_hil() -> None:
+    registry = _enforced_registry("remediate.disable-public-access")
+    gate = RiskGate(registry=registry)
+    action_type = _shipped_action_types()["remediate.disable-public-access"]
+    rule = _shipped_rules_by_id()["object-storage.public-access.deny"]
+
+    decision = gate.evaluate(
+        action=_action(
+            action_type=action_type.name,
+            citing_rules=[rule.id],
+        ),
+        rule=rule,
+        action_type=action_type,
+        inventory_age_seconds=60,
+    )
+
+    assert decision.outcome is RiskDecisionOutcome.HIL
+    assert any(reason.startswith("precondition_unresolved:") for reason in decision.reasons)
+
+
+def test_false_non_fresh_precondition_evaluation_is_hil() -> None:
+    registry = _enforced_registry("remediate.disable-public-access")
+    gate = RiskGate(registry=registry)
+    action_type = _shipped_action_types()["remediate.disable-public-access"]
+    rule = _shipped_rules_by_id()["object-storage.public-access.deny"]
+    evaluations = tuple(
+        PreconditionEvaluation(
+            condition_index=index,
+            kind=precondition.kind,
+            satisfied=precondition.kind is not PreconditionKind.RESOURCE_PROPERTY_EQUALS,
+        )
+        for index, precondition in enumerate(action_type.preconditions)
+        if precondition.kind is not PreconditionKind.GRAPH_FRESH_WITHIN_SECONDS
+    )
+
+    decision = gate.evaluate(
+        action=_action(
+            action_type=action_type.name,
+            citing_rules=[rule.id],
+        ),
+        rule=rule,
+        action_type=action_type,
+        inventory_age_seconds=60,
+        precondition_evaluations=evaluations,
+    )
+
+    assert decision.outcome is RiskDecisionOutcome.HIL
+    assert any(reason.startswith("precondition_failed:") for reason in decision.reasons)
 
 
 # ---------------------------------------------------------------------------
@@ -510,6 +583,7 @@ def test_upstream_abstain_produces_abstain_when_no_other_reason() -> None:
         rule=rule,
         action_type=action_type,
         inventory_age_seconds=60,
+        precondition_evaluations=_satisfied_preconditions(action_type),
         upstream_signal="abstain",
     )
     assert decision.outcome is RiskDecisionOutcome.ABSTAIN
@@ -647,6 +721,7 @@ def test_no_exemption_match_yields_normal_outcome() -> None:
         rule=rule,
         action_type=action_type,
         inventory_age_seconds=60,
+        precondition_evaluations=_satisfied_preconditions(action_type),
     )
     assert decision.outcome is RiskDecisionOutcome.AUTO
     assert decision.reasons == ()

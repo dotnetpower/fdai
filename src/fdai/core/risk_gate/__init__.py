@@ -15,6 +15,7 @@ Public exports (P2-D + P2-E):
 from fdai.core.risk_gate.gate import (
     ActionModeRecord,
     ActionPromotionRegistry,
+    PreconditionEvaluation,
     PromotionMetrics,
     RiskDecision,
     RiskDecisionOutcome,
@@ -37,6 +38,7 @@ __all__ = [
     "PrecedenceDecision",
     "PrecedenceOutcome",
     "PrecedenceResolver",
+    "PreconditionEvaluation",
     "PromotionMetrics",
     "RiskDecision",
     "RiskDecisionOutcome",

@@ -73,6 +73,12 @@ cannot act.
   T0Engine -> ActionBuilder -> RiskGate -> Executor loop (§4.1)
   dispatches remediation ActionTypes today. This is the primary
   autonomy surface and is fully wired.
+- **Declared preconditions fail closed.** RiskGate checks graph freshness from
+  the bounded inventory age and requires one indexed `PreconditionEvaluation`
+  for every other declared precondition. A missing, duplicate, mismatched, or
+  failed evaluation routes the action to human approval. Until composition
+  wires a deterministic evaluator for a condition kind, an ActionType that
+  declares that kind cannot auto-execute.
 - **`operator_request` -> typed proposal dispatch is live** (#6, #7).
   The optional `/chat/action` route and Bragi proposal sink translate a registered
   operator command into an `ActionProposal`, enforce server-derived RBAC, and publish

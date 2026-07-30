@@ -43,6 +43,7 @@ the pipeline / KPI job's responsibility (P2-A + phase-0 KPI dashboard).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -54,6 +55,7 @@ from fdai.shared.contracts.models import (
     BlastRadiusScope,
     Mode,
     OntologyActionType,
+    PreconditionKind,
     Rule,
 )
 from fdai.shared.providers.exemption import (
@@ -223,6 +225,19 @@ class RiskGateConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class PreconditionEvaluation:
+    """One deterministic result for an indexed ActionType precondition."""
+
+    condition_index: int
+    kind: PreconditionKind
+    satisfied: bool
+
+    def __post_init__(self) -> None:
+        if self.condition_index < 0:
+            raise ValueError("condition_index MUST be >= 0")
+
+
+@dataclass(frozen=True, slots=True)
 class RiskDecision:
     """Frozen record emitted by :meth:`RiskGate.evaluate`."""
 
@@ -261,6 +276,7 @@ class RiskGate:
         rule: Rule,
         action_type: OntologyActionType,
         inventory_age_seconds: int | None = None,
+        precondition_evaluations: Sequence[PreconditionEvaluation] = (),
         upstream_signal: Literal["deny", "abstain"] | None = None,
     ) -> RiskDecision:
         """Return a :class:`RiskDecision` for the proposed action.
@@ -351,6 +367,32 @@ class RiskGate:
                     reasons.append(
                         f"graph_fresh_precondition_stale:age={inventory_age_seconds}>max={floor}"
                     )
+
+        evaluations_by_index: dict[int, PreconditionEvaluation] = {}
+        for candidate_evaluation in precondition_evaluations:
+            if candidate_evaluation.condition_index in evaluations_by_index:
+                reasons.append(
+                    "precondition_evaluation_duplicate:"
+                    f"index={candidate_evaluation.condition_index}"
+                )
+                continue
+            evaluations_by_index[candidate_evaluation.condition_index] = candidate_evaluation
+
+        for index, precondition in enumerate(action_type.preconditions):
+            if precondition.kind is PreconditionKind.GRAPH_FRESH_WITHIN_SECONDS:
+                continue
+            resolved_evaluation = evaluations_by_index.get(index)
+            if resolved_evaluation is None:
+                reasons.append(
+                    f"precondition_unresolved:index={index}:kind={precondition.kind.value}"
+                )
+            elif resolved_evaluation.kind is not precondition.kind:
+                reasons.append(
+                    f"precondition_evaluation_mismatch:index={index}:"
+                    f"expected={precondition.kind.value}:actual={resolved_evaluation.kind.value}"
+                )
+            elif not resolved_evaluation.satisfied:
+                reasons.append(f"precondition_failed:index={index}:kind={precondition.kind.value}")
 
         # 4. Missing safety-invariant fields (defense in depth against a
         # partial Action that slipped past pydantic; unreachable via the
