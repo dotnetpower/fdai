@@ -44,6 +44,7 @@ def append_projection_routes(
                 object_types=config.ontology_object_types,
                 link_types=config.ontology_link_types,
                 action_types=config.ontology_action_types,
+                status_reader=config.operating_model_status_reader,
                 authorize=authorize,
             )
         )

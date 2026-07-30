@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9d851f3ac30bc95bd94033abc01a29da10763d03
-translation_revised: 2026-07-30
+translation_source_sha: d4778652d73bec9b73d44b0101e87c272cf92139
+translation_revised: 2026-07-31
 ---
 
 # 프로젝트 구조
@@ -41,6 +41,9 @@ fdai/
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gate와 replay-only gated-state recovery
 │   │   ├── working_context/    # 턴당 경계 프롬프트 조립: 불변 selection policy + 필수 validator + shadow evidence/replay + planner/orchestrator fold + summarizer/retriever seam
+│   │   ├── operational_context/ # atomic owned-subgraph replacement와 time-consistent service/workload/objective snapshot
+│   │   ├── decision_case/      # protected-objective option, deterministic selection, response closure
+│   │   ├── operational_learning/ # strict outcome classification과 balanced inert pattern cohort
 │   │   ├── quality_gate/       # mixed-model 교차 검사, verifier, grounding; 실패한 fan-out은 sibling을 cancel+drain (T2 방어)
 │   │   ├── rca/                # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)
 │   │   ├── risk_gate/          # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 4개 안전 불변식 강제
@@ -79,7 +82,7 @@ fdai/
 │   │   │   ├── ontology/       # object/link/action 스키마; ObjectType은 lifecycle 기준 + provenance 선언 가능
 │   │   │   └── workflow/       # workflow/schema.json (프로세스 자동화 카탈로그)
 │   │   ├── ontology/           # 런타임 온톨로지 헬퍼 (ACL, 감사 purposes, purpose taxonomy)
-│   │   ├── providers/          # CSP-중립 클라우드 프로바이더 인터페이스 (어댑터가 구현)
+│   │   ├── providers/          # OperatingModelProvider를 포함한 CSP-중립 클라우드 프로바이더 인터페이스 (어댑터가 구현)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / 채널 / RBAC seam
 │   │   │                       # `providers/local/` = group별 in-flight lease와 독립적인 group/publisher 진행을 보장하는 process-local transport adapter (`LocalEventBus`, bounded `LocalSseSink`)와 명시적 offline helper (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
@@ -93,6 +96,7 @@ fdai/
 │   │   ├── chatops/            # 채널 어댑터 (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # 채널별 sender; sibling `incident_platform/`은 PagerDuty/ServiceNow lifecycle 및 PagerDuty roster adapter 제공
 │   │   ├── persistence/        # Forecast episode/outbox 및 relational case-history backfill을 포함한 Postgres / pgvector store
+│   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only, all-before-write
 │   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
 │   │   ├── pgvector/           # persistent document 및 behavior vector index
@@ -119,7 +123,7 @@ fdai/
 │   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody 및 typed ingress
 │   ├── benchmarking/          # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + focused `wire_*` binder
-│   ├── runtime/               # Focused transport/identity bootstrap binding, Pantheon 전 startup readiness, continuous worker gating 및 Norns에 연결되는 durable post-turn review를 포함한 headless lifecycle/composition
+│   ├── runtime/               # Operating-model startup projection/status, transport/identity binding, startup readiness, worker gating, post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
 ├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음

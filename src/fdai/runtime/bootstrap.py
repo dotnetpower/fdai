@@ -102,6 +102,7 @@ from fdai.runtime.forecast_learning import (
     build_forecast_learning_runtime,
 )
 from fdai.runtime.health import RuntimeHealthServer
+from fdai.runtime.operating_model import project_operating_model_from_env
 from fdai.runtime.post_turn_review import (
     build_azure_post_turn_models,
     build_post_turn_review_runtime,
@@ -319,6 +320,23 @@ async def _run() -> int:
                 )
 
             runtime_symptom_index = build_from_promoted()
+
+            async def _relay_response_outcome(outcome: Any) -> None:
+                await bus.publish(
+                    container.config.kafka.topic_events,
+                    outcome.idempotency_key,
+                    {
+                        "id": outcome.idempotency_key,
+                        "event_id": str(outcome.event_id),
+                        "correlation_id": str(outcome.action_id),
+                        "idempotency_key": outcome.idempotency_key,
+                        "source": "fdai.measurement",
+                        "event_type": "measurement.action_outcome.v1",
+                        "resource_id": outcome.target_digest,
+                        "attributes": outcome.model_dump(mode="json", exclude_none=True),
+                    },
+                )
+
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
@@ -327,6 +345,13 @@ async def _run() -> int:
                 tool_receipt_observer=_observe_tool_receipt,
                 symptom_index=runtime_symptom_index,
                 identity=identity,
+                response_outcome_sink=_relay_response_outcome,
+            )
+            operating_model_result = await project_operating_model_from_env(
+                store=control_loop.ontology_instance_store,
+                object_types=container.ontology_object_types,
+                link_types=container.ontology_link_types,
+                status_store=incident_audit_store,
             )
             _LOGGER.info(
                 "control_loop_ready",
@@ -334,6 +359,11 @@ async def _run() -> int:
                     "topic": container.config.kafka.topic_events,
                     "stage_topic": stage_topic,
                     "group_id": "fdai-core",
+                    "operating_model_revision": (
+                        operating_model_result.source_revision
+                        if operating_model_result is not None
+                        else None
+                    ),
                 },
             )
             startup_readiness_runtime = build_startup_readiness_runtime(

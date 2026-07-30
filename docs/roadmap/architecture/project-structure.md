@@ -36,6 +36,9 @@ fdai/
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprints, and scoped continuations
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gates and replay-only gated-state recovery
 │   │   ├── working_context/    # bounded per-turn prompt assembly: immutable selection policy + mandatory validator + shadow evidence/replay + planner/orchestrator folds + summarizer/retriever seams
+│   │   ├── operational_context/ # atomic owned-subgraph replacement and time-consistent service/workload/objective snapshots
+│   │   ├── decision_case/      # protected-objective options, deterministic selection, and response closure
+│   │   ├── operational_learning/ # strict outcome classification and balanced inert pattern cohorts
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding; failed fan-out cancels and drains siblings (guards T2)
 │   │   ├── rca/                # root-cause analysis (T0 deterministic + T2 reasoner behind seam; grounding-gated)
 │   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics and enforces the four safety invariants
@@ -74,7 +77,7 @@ fdai/
 │   │   │   ├── ontology/       # object/link/action schemas; ObjectType may declare lifecycle criteria + provenance
 │   │   │   └── workflow/       # workflow/schema.json (process-automation catalog)
 │   │   ├── ontology/           # runtime ontology helpers (ACL, audit purposes, purpose taxonomy)
-│   │   ├── providers/          # CSP-neutral cloud provider interfaces (adapters implement them)
+│   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / channel / RBAC seams
 │   │   │                       # `providers/local/` = process-local transport adapters (`LocalEventBus` with per-group in-flight leases and independent group/publisher progress, bounded `LocalSseSink`) plus explicit offline helpers (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
@@ -88,6 +91,7 @@ fdai/
 │   │   ├── chatops/            # channel adapters (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # per-channel senders; sibling `incident_platform/` provides PagerDuty/ServiceNow lifecycle and PagerDuty roster adapters
 │   │   ├── persistence/        # Postgres / pgvector stores, including forecast episodes/outbox and relational case-history backfill
+│   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only and all-before-write
 │   │   ├── runtime_settings.py  # allowlisted env defaults + revisioned StateStore overrides; no executor identity or promotion authority
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds
 │   │   ├── pgvector/           # persistent document and behavior vector indexes
@@ -114,7 +118,7 @@ fdai/
 │   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, and typed ingress
 │   ├── benchmarking/          # temporary 0.1.x compatibility facade for legacy benchmark contracts and runners
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders
-│   ├── runtime/               # headless lifecycle and composition, including focused transport/identity bootstrap bindings, pre-Pantheon startup readiness, continuous worker gating, and durable post-turn review wiring into Norns
+│   ├── runtime/               # headless lifecycle and composition, including operating-model startup projection/status, transport/identity bindings, startup readiness, worker gating, and post-turn review
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── evaluation-sdk/            # independently packageable neutral evaluation contracts and runner; no FDAI implementation imports
 ├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel

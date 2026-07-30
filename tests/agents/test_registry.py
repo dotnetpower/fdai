@@ -6,6 +6,8 @@ Any change here MUST reflect a corresponding doc change (docs-first).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from fdai.agents import (
@@ -16,6 +18,10 @@ from fdai.agents import (
     load_pantheon,
 )
 from fdai.agents._framework.registry import PantheonRegistryError
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_pantheon_has_exactly_fifteen_named_agents() -> None:
@@ -60,6 +66,18 @@ def test_llm_hot_path_allowlist_is_bragi_forseti_norns() -> None:
 def test_registry_loads_cleanly() -> None:
     reg = load_pantheon()
     assert reg.names() == PANTHEON_NAMES
+
+
+def test_action_type_bindings_resolve_in_shipped_catalog() -> None:
+    catalog = load_action_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+    shipped = {action.name for action in catalog}
+    bound = {
+        action_type for spec in PANTHEON_SPECS for action_type in (*spec.executes, *spec.initiates)
+    }
+    assert bound <= shipped, f"undeclared AgentSpec ActionTypes: {sorted(bound - shipped)}"
 
 
 def test_owns_sets_are_pairwise_disjoint() -> None:

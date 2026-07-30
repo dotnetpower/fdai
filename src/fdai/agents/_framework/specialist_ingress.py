@@ -22,6 +22,7 @@ class CostSampleSignal:
     amount_usd: float
     resource_id: str | None
     correlation_id: str
+    observed_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +30,7 @@ class CapacitySampleSignal:
     resource_id: str
     utilization: float
     correlation_id: str
+    observed_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +55,7 @@ def parse_cost_sample(payload: Mapping[str, Any]) -> CostSampleSignal | None:
         amount_usd=amount,
         resource_id=resource_id,
         correlation_id=_correlation_id(payload),
+        observed_at=_observed_at(payload),
     )
 
 
@@ -68,6 +71,7 @@ def parse_capacity_sample(payload: Mapping[str, Any]) -> CapacitySampleSignal | 
         resource_id=resource_id,
         utilization=utilization,
         correlation_id=_correlation_id(payload),
+        observed_at=_observed_at(payload),
     )
 
 
@@ -124,6 +128,11 @@ def _finite_number(value: object) -> float | None:
 
 def _correlation_id(payload: Mapping[str, Any]) -> str:
     value = _bounded_string(payload.get("correlation_id"), required=False)
+    return value or ""
+
+
+def _observed_at(payload: Mapping[str, Any]) -> str:
+    value = _bounded_string(payload.get("detected_at"), required=False)
     return value or ""
 
 

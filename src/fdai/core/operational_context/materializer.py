@@ -90,8 +90,11 @@ class OperationalContextMaterializer:
             elif (cutoff - freshness.observed_at).total_seconds() > freshness.max_age_seconds:
                 stale_sources.append(freshness.source)
 
+        service_objective_ids = _ids(by_type, "ServiceObjective")
+        recovery_objective_ids = _ids(by_type, "RecoveryObjective")
+        cost_objective_ids = _ids(by_type, "CostObjective")
         objective_ids = tuple(
-            sorted(item.id for item in objects if item.object_type in _OBJECTIVE_TYPES)
+            sorted((*service_objective_ids, *recovery_objective_ids, *cost_objective_ids))
         )
         constraint_ids = _ids(by_type, "ArchitectureConstraint")
         dependency_ids = tuple(
@@ -126,6 +129,9 @@ class OperationalContextMaterializer:
             service_ids=service_ids,
             workload_ids=workload_ids,
             objective_ids=objective_ids,
+            service_objective_ids=service_objective_ids,
+            recovery_objective_ids=recovery_objective_ids,
+            cost_objective_ids=cost_objective_ids,
             constraint_ids=constraint_ids,
             ownership_ids=ownership_ids,
             dependency_ids=dependency_ids,

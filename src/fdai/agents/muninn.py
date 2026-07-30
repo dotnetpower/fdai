@@ -7,6 +7,8 @@ persistent backend (Postgres, pgvector).
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -21,8 +23,9 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _MUNINN
 from fdai.core.case_history import CaseHistoryMaterializer, CaseHistoryRetentionService
+from fdai.core.operational_learning import PatternCase, pattern_case_from_response_outcome
 from fdai.core.readiness import DetectionReadinessSnapshot, detection_readiness_state_key
-from fdai.shared.contracts.models import ForecastOutcome
+from fdai.shared.contracts.models import ForecastOutcome, ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 
 
@@ -35,6 +38,9 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
     except ValueError:
         return None
     return generated_at if generated_at.tzinfo is not None else None
+
+
+_MAX_OPERATING_PATTERN_CASES = 100
 
 
 class Muninn(Agent):
@@ -87,10 +93,65 @@ class Muninn(Agent):
             await self._request_document_index(payload)
         elif topic == "object.forecast-outcome":
             await self._materialize_forecast_outcome(payload)
+        elif (
+            topic == "object.event" and payload.get("event_type") == "measurement.action_outcome.v1"
+        ):
+            await self._materialize_response_outcome(payload)
         elif topic == "object.event" and payload.get("event_type") == (
             "case_history.retention_due"
         ):
             await self._apply_case_history_retention(payload)
+
+    async def _materialize_response_outcome(self, payload: dict[str, Any]) -> None:
+        attributes = payload.get("attributes")
+        if payload.get("producer_principal") != "Huginn" or not isinstance(attributes, dict):
+            self.record_behavior("operating_pattern:invalid")
+            return
+        try:
+            outcome = ResponseOutcome.model_validate(
+                {
+                    name: attributes[name]
+                    for name in ResponseOutcome.model_fields
+                    if name in attributes
+                }
+            )
+        except ValueError:
+            self.record_behavior("operating_pattern:invalid")
+            return
+        case = pattern_case_from_response_outcome(outcome)
+        if case is None:
+            self.record_behavior("operating_pattern:held")
+            return
+        state_key = _operating_pattern_state_key(case.action_type)
+        state = self.state_store.get("operating_pattern_cohorts", case.action_type)
+        if state is None and self._durable_state_store is not None:
+            state = await self._durable_state_store.read_state(state_key)
+        cohort = _append_pattern_case(state, case, recorded_at=outcome.recorded_at)
+        self.state_store.put("operating_pattern_cohorts", case.action_type, cohort)
+        if self._durable_state_store is not None:
+            await self._durable_state_store.write_state(state_key, cohort)
+        cases = cohort["cases"]
+        digest = _cohort_digest(cases) if len(cases) >= 2 else None
+        if digest is None or digest == cohort.get("last_emitted_digest") or self.bus is None:
+            self.record_behavior("operating_pattern:stored")
+            return
+        await self.bus.publish(
+            "Muninn",
+            "object.context-index",
+            {
+                "producer_principal": "Muninn",
+                "kind": "operating_pattern_cohort",
+                "correlation_id": str(outcome.action_id),
+                "idempotency_key": f"operating-pattern-cohort:{digest}",
+                "action_type": case.action_type,
+                "cases": [record["case"] for record in cases],
+            },
+        )
+        cohort["last_emitted_digest"] = digest
+        self.state_store.put("operating_pattern_cohorts", case.action_type, cohort)
+        if self._durable_state_store is not None:
+            await self._durable_state_store.write_state(state_key, cohort)
+        self.record_behavior("operating_pattern:published")
 
     async def _materialize_detection_readiness(self, payload: dict[str, Any]) -> None:
         """Persist and publish one validated Heimdall readiness snapshot."""
@@ -297,6 +358,55 @@ class Muninn(Agent):
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _operating_pattern_state_key(action_type: str) -> str:
+    digest = hashlib.sha256(action_type.encode()).hexdigest()
+    return f"operating-pattern-cohort:{digest}"
+
+
+def _append_pattern_case(
+    state: object,
+    case: PatternCase,
+    *,
+    recorded_at: datetime,
+) -> dict[str, Any]:
+    current = dict(state) if isinstance(state, Mapping) else {}
+    raw_cases = current.get("cases")
+    records = (
+        [dict(item) for item in raw_cases if isinstance(item, Mapping)]
+        if isinstance(raw_cases, list)
+        else []
+    )
+    mapping = {
+        "case_id": case.case_id,
+        "action_type": case.action_type,
+        "outcome_id": case.outcome_id,
+        "reusable": case.reusable,
+        "evidence_refs": list(case.evidence_refs),
+    }
+    records = [
+        record for record in records if record.get("case", {}).get("case_id") != case.case_id
+    ]
+    records.append({"recorded_at": recorded_at.isoformat(), "case": mapping})
+    records.sort(
+        key=lambda record: (
+            str(record.get("recorded_at", "")),
+            str(record.get("case", {}).get("case_id", "")),
+        )
+    )
+    return {
+        "schema_version": "1.0.0",
+        "action_type": case.action_type,
+        "cases": records[-_MAX_OPERATING_PATTERN_CASES:],
+        "last_emitted_digest": current.get("last_emitted_digest"),
+    }
+
+
+def _cohort_digest(cases: list[dict[str, Any]]) -> str:
+    return hashlib.sha256(
+        json.dumps(cases, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
 
 
 __all__ = ["Muninn"]

@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fdai.core.decision_case import (
     ActionOption,
+    DomainDecisionCoordinator,
     ObjectiveEffect,
     build_decision_case,
     close_decision,
@@ -44,6 +45,9 @@ def _context() -> OperationalContextSnapshot:
         service_ids=("service-example",),
         workload_ids=("workload-example",),
         objective_ids=("reliability", "cost"),
+        service_objective_ids=("reliability",),
+        recovery_objective_ids=(),
+        cost_objective_ids=("cost",),
         constraint_ids=("constraint-private-network",),
         ownership_ids=("owner-example",),
         dependency_ids=(),
@@ -84,6 +88,27 @@ def test_cost_option_cannot_trade_away_protected_reliability() -> None:
     assert selected.selected_option_id == "scale-out"
     assert selected.requires_human_approval is False
     assert "scale-in:protected_objective" in selected.reason
+
+
+def test_domain_baseline_uses_each_objective_family_impact() -> None:
+    context = _context()
+    projection = DomainDecisionCoordinator().build(
+        correlation_id="correlation-baseline",
+        context=context,
+        advice={"capacity": "scale_up", "cost": "scale_down"},
+        impacts={"capacity": 0.9, "cost": 0.2},
+        created_at=NOW,
+    )
+
+    assert projection is not None
+    baseline = {effect.objective_id: effect.utility for effect in projection.case.no_action_effects}
+    assert baseline["reliability"] == -0.9
+    assert baseline["cost"] == -0.2
+    mapping = projection.to_mapping()
+    assert mapping["evidence_refs"]
+    options = mapping["options"]
+    assert isinstance(options, list)
+    assert len(options) == 2
 
 
 def test_verified_response_outcome_closes_case_as_reusable() -> None:
@@ -136,3 +161,20 @@ def test_verified_response_outcome_closes_case_as_reusable() -> None:
     assert closure.effect_verified is True
     assert closure.guard_regression is False
     assert closure.reusable is True
+
+
+def test_domain_coordinator_rejects_cost_savings_that_harm_reliability() -> None:
+    projection = DomainDecisionCoordinator().build(
+        correlation_id="correlation-example",
+        context=_context(),
+        advice={"cost": "scale_down", "capacity": "scale_up"},
+        impacts={"cost": 0.9, "capacity": 0.8},
+        created_at=NOW,
+    )
+
+    assert projection is not None
+    assert projection.selection.selected_option_id == "capacity:scale_up"
+    assert "cost:scale_down:protected_objective" in projection.selection.reason
+    capacity_option = projection.option_for_domain("capacity")
+    assert capacity_option is not None
+    assert capacity_option.action_type == "ops.scale-out"

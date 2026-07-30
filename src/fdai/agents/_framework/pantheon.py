@@ -59,7 +59,7 @@ _ODIN = AgentSpec(
             "verdict_outcomes",
         ),
     ),
-    executes=("governance.arbitrate-domain-conflict",),
+    executes=(),
     initiates=(),
     subscribes=(
         "object.arbitration-request",
@@ -147,10 +147,7 @@ _FORSETI = AgentSpec(
         ),
     ),
     executes=(),
-    initiates=(
-        "governance.arbitrate-domain-conflict",
-        "governance.escalate-to-github-issue",
-    ),
+    initiates=(),
     subscribes=(
         "object.event",
         "object.anomaly",
@@ -244,10 +241,7 @@ _HEIMDALL = AgentSpec(
         ),
     ),
     executes=(),
-    initiates=(
-        "governance.notify-admin-privilege-violation",
-        "governance.escalate-to-github-issue",
-    ),
+    initiates=(),
     subscribes=("object.event", "object.security-event", "object.chaos-experiment"),
     question_domains=(
         "resource_change_history",
@@ -330,7 +324,7 @@ _VAR = AgentSpec(
             "owns",
         ),
     ),
-    executes=("governance.notify-admin-privilege-violation",),
+    executes=(),
     initiates=(),
     subscribes=("object.action-run", "object.audit-entry"),  # action + document HIL
     question_domains=("hil_pending", "approval_backlog"),
@@ -365,7 +359,7 @@ _BRAGI = AgentSpec(
         ),
     ),
     executes=(),
-    initiates=("governance.escalate-to-github-issue",),
+    initiates=(),
     subscribes=("object.verdict", "object.action-run"),  # for progress rendering
     question_domains=("help", "capability_list"),
     owns_code_paths=("src/fdai/agents/bragi.py",),
@@ -401,7 +395,7 @@ _SAGA = AgentSpec(
             "issues_open",
         ),
     ),
-    executes=("governance.escalate-to-github-issue",),
+    executes=(),
     initiates=(),
     subscribes=(
         "object.action-run",
@@ -454,8 +448,8 @@ _MIMIR = AgentSpec(
             "policy_history_available",
         ),
     ),
-    executes=("governance.propose-rule-candidate",),
-    initiates=("governance.propose-rule-candidate",),
+    executes=(),
+    initiates=(),
     subscribes=("object.rule-candidate", "object.issue"),
     question_domains=("rule_lookup", "policy_explain", "rule_history"),
     owns_code_paths=("src/fdai/agents/mimir.py", "rule-catalog/**"),
@@ -535,8 +529,8 @@ _NORNS = AgentSpec(
             "consensus_holds",
         ),
     ),
-    executes=("governance.propose-rule-candidate",),
-    initiates=("governance.propose-rule-candidate",),
+    executes=(),
+    initiates=(),
     subscribes=(
         "object.audit-entry",
         "object.issue",

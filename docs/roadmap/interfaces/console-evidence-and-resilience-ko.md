@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 672dd0df25480977e4e02c513cb575b7b866ad19
-translation_revised: 2026-07-29
+translation_source_sha: 12cf3489451b058fd73116b0724bd8b06b10a16f
+translation_revised: 2026-07-31
 ---
 
 # 콘솔 근거 및 복원력
@@ -218,6 +218,8 @@ evidence에서 결정론적으로 렌더링됩니다. Ontology browse는 target�
 allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복되거나 malformed인 count와
 selection을 unavailable로 표시합니다. Ontology projection과 결정론적 browse answer는 일반 prompt
 assembly와 분리된 자체 prompt module에 위치합니다.
+Reader-gated `/ontology/graph` projection은 operating-model status, source revision, aggregate
+object 및 link count만 포함합니다. Deployment instance property는 반환하지 않습니다.
 일반 delegated answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로
 표시합니다. Dedicated target session은 명시적 handoff가 narration을 Bragi로 돌려보낼 때까지 해당
 specialist의 검증된 voice를 사용합니다.

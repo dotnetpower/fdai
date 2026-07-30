@@ -110,6 +110,12 @@ reference, marks missing or stale evidence `unscorable`, and supplies the indepe
 consumed by the scheduled Dynamic challenger-learning pass. This additional record remains shadow
 evidence. It cannot promote an effect model or change execution authority.
 
+After both durable audit records are written, an optional composition-owned sink republishes the
+strict contract through raw ingress. Audit failure suppresses the relay, so unaudited outcomes
+cannot enter learning. Huginn and Muninn then feed the governed operating-pattern cohort path. Sink
+failure is logged and cannot alter the executor result. The relay does not make a shadow outcome
+reusable: the cohort projector accepts only verified enforce outcomes as positive evidence.
+
 Moving from shadow observation to gating is a separate, future governed change. It requires a
 measured evidence window, a rollback target, and a proof that the profile can only preserve or lower
 the existing authority decision.

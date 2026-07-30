@@ -17,6 +17,7 @@ from fdai.shared.contracts.models import (
 )
 
 OntologyDirection = Literal["outgoing", "incoming", "both"]
+_MAX_JSON_DEPTH = 32
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,8 +70,18 @@ class OntologyInstanceValidationError(ValueError):
     """An instance does not satisfy its registered ontology declaration."""
 
 
-def normalize_json_value(value: Any, *, path: str = "value") -> Any:
+def normalize_json_value(
+    value: Any,
+    *,
+    path: str = "value",
+    _depth: int = 0,
+) -> Any:
     """Return deterministic JSON data or fail closed on unsupported values."""
+
+    if _depth > _MAX_JSON_DEPTH:
+        raise OntologyInstanceValidationError(
+            f"{path} exceeds maximum JSON nesting depth {_MAX_JSON_DEPTH}"
+        )
 
     if value is None or isinstance(value, (str, bool)):
         return value
@@ -89,11 +100,14 @@ def normalize_json_value(value: Any, *, path: str = "value") -> Any:
             raise OntologyInstanceValidationError(f"{path} mapping keys MUST be strings")
         normalized: dict[str, Any] = {}
         for key in sorted(value):
-            normalized[key] = normalize_json_value(value[key], path=f"{path}.{key}")
+            normalized[key] = normalize_json_value(
+                value[key], path=f"{path}.{key}", _depth=_depth + 1
+            )
         return normalized
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [
-            normalize_json_value(item, path=f"{path}[{index}]") for index, item in enumerate(value)
+            normalize_json_value(item, path=f"{path}[{index}]", _depth=_depth + 1)
+            for index, item in enumerate(value)
         ]
     raise OntologyInstanceValidationError(
         f"{path} MUST contain canonical JSON data, got {type(value).__name__}"
@@ -305,6 +319,17 @@ class OntologyInstanceStore(Protocol):
 
     async def upsert_link(self, record: OntologyLinkRecord) -> None:
         """Idempotently insert or replace one typed link."""
+        ...
+
+    async def replace_subgraph(
+        self,
+        *,
+        objects: Sequence[OntologyObjectRecord],
+        links: Sequence[OntologyLinkRecord],
+        previous_object_ids: Sequence[str] = (),
+        previous_link_keys: Sequence[tuple[str, str, str]] = (),
+    ) -> None:
+        """Atomically replace one caller-owned subgraph or write nothing."""
         ...
 
     async def get_object(self, object_id: str) -> OntologyObjectRecord | None:

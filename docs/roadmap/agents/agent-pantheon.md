@@ -218,9 +218,9 @@ overrides or approval rejections (`revision` / `retirement`), and optional scena
 (`new-scenario`). Every source passes the same consensus boundary.
 
 Every proposal records numeric evidence. Trajectory intake accepts only reviewed aggregates and
-creates no candidate by itself. Muninn `operating_pattern_cohort` intake requires one reusable and
-one negative/control case for the same ActionType; all other cohorts remain held, while accepted
-cohorts still emit only inert candidates through consensus and Mimir `CandidateGuard`.
+creates no candidate by itself. Strict outcomes return through Huginn raw ingress; Muninn publishes
+bounded `operating_pattern_cohort` context for Norns and Mimir without direct agent calls. A cohort
+requires reusable verified-enforce and negative/control cases for one ActionType; shadow success, malformed, unscorable, and success-only evidence stays held, and every candidate remains inert.
 
 ## 4. Agent catalog
 
@@ -599,9 +599,11 @@ State is partitioned by `user_id`:
 
 ## 7. Ontology actions
 
-Every action a pantheon agent can take is one `ActionType` entry (existing
-schema in [action-ontology.md](../decisioning/action-ontology.md), extended below).
-Nothing in the pantheon runs code outside this table.
+Every substrate mutation or tool invocation uses one cataloged `ActionType`
+([action-ontology.md](../decisioning/action-ontology.md)). Typed object
+publication is different: arbitration, findings, candidates, audit entries,
+handoffs, and notifications stay under their single-writer topic contracts and
+do not masquerade as catalog actions.
 
 ### 7.1 Extended ActionType schema
 
@@ -691,25 +693,15 @@ and `state_forward_only`. Examples:
 distinct approvers, no self-approval. Forseti attaches `quorum_required:
 2` to the verdict; Var enforces it.
 
-### 7.6 Handoff as an ActionType
+### 7.6 Handoff as typed delivery
 
-Escalation to GitHub issues (§6.4) is itself an `ActionType`, so it
-inherits the same lifecycle, audit, and override machinery:
-
-```yaml
-name: governance.escalate-to-github-issue
-category: governance
-initiators: [Bragi, Forseti, Heimdall, Norns, Saga]
-judge: Forseti
-approver: null                 # auto-approved for informational escalations
-executor: Saga
-auditor: Saga
-side_effect_class: external
-rollback_contract: state_forward_only
-default_mode: shadow
-promotion_gate: {min_shadow_days: 7, min_samples: 50, min_accuracy: 0.99, max_policy_escapes: 0}
-irreversible: false
-```
+Handoff escalation is not a `governance.*` ActionType. That category is
+reserved for reviewed catalog-as-code changes using `pr_native`. Bragi, the
+single writer of `object.handoff-escalation`, publishes the bounded request;
+Saga consumes it, applies fingerprint deduplication, materializes `object.issue`,
+and appends the audit evidence. A live issue tracker remains an injected
+delivery adapter, so the typed ownership and audit boundary stay the same in
+local and deployed runtimes.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 
@@ -824,13 +816,14 @@ Heimdall subscribes to `object.security-event` and classifies:
 
 Severity is deterministic (table + counters), not LLM-scored.
 
-### 9.3 Notification action
+### 9.3 Notification delivery
 
-Heimdall proposes `notify_admin_privilege_violation` (see §7.6 for the
-ActionType shape). Forseti fast-approves governance notifications (no HIL
-loop for informational alerts). The delivery adapter posts to the
-configured ChatOps admin channel using the same infra as HIL cards, with
-a distinct template.
+Heimdall classifies `object.security-event` and invokes the bounded admin
+notification adapter for medium-or-higher alerts. This informational delivery
+is not a `governance.*` ActionType and does not enter Thor's mutation path. Saga
+already audits the authoritative `SecurityEvent`; the adapter posts to the
+configured ChatOps admin channel with a distinct template, fingerprint dedup,
+and rate limits.
 
 ### 9.4 Alert deduplication and rate limits
 

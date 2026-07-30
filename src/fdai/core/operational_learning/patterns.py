@@ -7,6 +7,8 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from fdai.shared.contracts.models import Mode, ResponseOutcome, ResponseOutcomeLabel
+
 
 @dataclass(frozen=True, slots=True)
 class PatternCase:
@@ -95,6 +97,25 @@ class OperatingPatternCompiler:
         )
 
 
+def pattern_case_from_response_outcome(outcome: ResponseOutcome) -> PatternCase | None:
+    """Return only outcome evidence that can safely participate in a cohort."""
+    if outcome.label is ResponseOutcomeLabel.UNSCORABLE:
+        return None
+    if outcome.label is ResponseOutcomeLabel.VERIFIED:
+        if outcome.execution_mode is not Mode.ENFORCE:
+            return None
+        reusable = outcome.rollback_succeeded is not True
+    else:
+        reusable = False
+    return PatternCase(
+        case_id=f"response-outcome:{outcome.outcome_id}",
+        action_type=outcome.action_type_id,
+        outcome_id=str(outcome.outcome_id),
+        reusable=reusable,
+        evidence_refs=outcome.evidence_refs,
+    )
+
+
 def _required(value: Mapping[str, object], key: str) -> str:
     item = value.get(key)
     if not isinstance(item, str) or not item:
@@ -102,4 +123,9 @@ def _required(value: Mapping[str, object], key: str) -> str:
     return item
 
 
-__all__ = ["OperatingPatternCandidate", "OperatingPatternCompiler", "PatternCase"]
+__all__ = [
+    "OperatingPatternCandidate",
+    "OperatingPatternCompiler",
+    "PatternCase",
+    "pattern_case_from_response_outcome",
+]

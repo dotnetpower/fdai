@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: f13a40ff22ea1fcdbd186e747cd83c3d93ba932e
+translation_source_sha: 69b8328fdd1b9d0c066d168d60fac2e58f6af1c7
 translation_revised: 2026-07-31
 ---
 # FDAI 운영 온톨로지
@@ -21,8 +21,9 @@ resource instance를 제공합니다.
 >
 > **구현 상태(2026-07-31):** O1 semantic-spine declaration과 competency query, O2 immutable
 > context materialization 및 Forseti ceiling wiring, O3/O4 공유 decision-case selection과 response
-> closure, O5 Norns/Mimir balanced cohort intake를 구현했습니다. Deployment별 service, objective,
-> ownership, evidence instance는 승인된 provider가 graph를 채울 때까지 unavailable 상태입니다.
+> closure, O5 Norns/Mimir balanced cohort intake를 구현했습니다. Bounded JSON
+> `OperatingModelProvider`가 startup에서 deployment instance를 project할 수 있으며, Reader-gated
+> ontology projection에서 revision과 aggregate count를 확인할 수 있습니다.
 
 ## 한눈에 보는 설계
 
@@ -239,6 +240,22 @@ expected effect, protected objective, violated constraint, uncertainty, evidence
 Odin은 eligible option이 objective 사이에서 충돌할 때만 중재합니다. 사람 승인이 필요하면 Var가 같은
 case를 받고, Saga는 replay를 위해 digest를 기록합니다.
 
+Production startup은 provider boundary를 통해 `FDAI_OPERATING_MODEL_PATH`를 읽고, 전체 object/link
+snapshot을 검증한 뒤 provider-owned subgraph를 atomically replace합니다. `applying` manifest는 stale
+deletion과 crash recovery를 위해 이전 및 현재 owned identity의 union을 보존합니다. Replacement가
+성공하면 `projected` manifest는 current ownership으로 compact되므로 historical revision이 configured
+model bound를 초과하지 않습니다. Startup은 다른 snapshot을 stage하기 전에 중단된 `applying` union을
+정리하므로 반복 crash가 revision 사이의 ownership을 누적하지 않습니다. 선택적
+`FDAI_OPERATING_MODEL_MAX_BYTES` ceiling의 기본값은 16 MiB입니다. `GET /ontology/graph`는 projection
+status, source revision, aggregate count만 노출하며 deployment instance property는 반환하지 않습니다.
+
+Cost 및 capacity specialist의 event-time은 advice와 함께 전달됩니다. Forseti는 하나의
+time-consistent snapshot을 materialize하고 공유 case를 만들어 arbitration request에 포함합니다.
+Odin이 resolve한 선택은 Forseti verdict로 돌아오고, Thor의 durable `ActionRun`과 Var의 HIL ticket은
+bounded baseline, option effect, constraint, evidence를 보존합니다. Thor는 verdict action이 selected
+option과 정확히 일치하는지 확인합니다. Case evidence가 없거나 malformed 또는 mismatched이면 승인이나
+실행 authority를 만들지 않고 deny합니다.
+
 ## 지속 운영 루프
 
 "살아있는 에이전트"는 effect를 닫는 event-driven 및 time-driven control loop를 의미합니다. LLM이
@@ -263,6 +280,17 @@ condition, reject, hold할 수 있지만 `ActionType`을 활성화하거나 exec
 
 Cost optimization은 선택한 option이 service 및 recovery objective를 보존할 때만 유효합니다. Estimated
 savings는 observed outcome이 settlement window를 닫기 전까지 prediction으로 유지됩니다.
+
+### Outcome learning 루프
+
+선택적 effect observer는 strict `ResponseOutcome`을 기록합니다. Effect 및 outcome audit record가
+모두 persist된 뒤에만 composition이 ordinary ingress를 통해 그 contract를 다시 publish합니다. Audit
+failure는 relay를 중단하므로 unaudited outcome은 learning evidence가 될 수 없습니다. Huginn이
+normalization을 소유하고, Muninn은 ActionType별 최대
+100개 case를 durable하게 group하여 `ContextIndex` cohort를 publish합니다. Norns는 balanced positive
+및 negative evidence가 있어야 inert candidate를 emit하며, Mimir가 기존 guard를 적용합니다. Verified
+enforce outcome만 reusable positive evidence이고 mismatch는 negative evidence입니다. Unscorable 및
+shadow-success outcome은 cohort 밖에서 hold합니다.
 
 ## 확장 모델
 

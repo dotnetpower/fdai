@@ -79,6 +79,7 @@ class Njord(Agent):
             amount_usd=signal.amount_usd,
             correlation_id=signal.correlation_id,
             resource_id=signal.resource_id,
+            observed_at=signal.observed_at,
         )
 
     # ---- ingestion -----------------------------------------------------
@@ -90,6 +91,7 @@ class Njord(Agent):
         amount_usd: float,
         correlation_id: str = "",
         resource_id: str | None = None,
+        observed_at: str = "",
     ) -> dict[str, Any] | None:
         history = self._samples.setdefault(scope, [])
         anomaly_payload: dict[str, Any] | None = None
@@ -116,6 +118,7 @@ class Njord(Agent):
                     # Cost pressure recommends shrinking to save spend; this
                     # can conflict with a capacity scale_up (Forseti arbitrates).
                     "recommendation": "scale_down",
+                    "observed_at": observed_at,
                 }
                 # Advisory proposal: rate-limited per the agent's declared
                 # rate_limits (agent-pantheon.md 7.9). The anomaly is still

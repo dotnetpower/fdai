@@ -88,6 +88,7 @@ def _loop(
     audit_store: Any,
     expected_effect_provider: Any = None,
     effect_observer: Any = None,
+    response_outcome_sink: Any = None,
 ) -> ControlLoop:
     return ControlLoop(
         event_ingest=MagicMock(),
@@ -99,6 +100,7 @@ def _loop(
         rules_by_id={_rule().id: _rule()},
         mscp_expected_effect_provider=expected_effect_provider,
         mscp_effect_observer=effect_observer,
+        response_outcome_sink=response_outcome_sink,
     )
 
 
@@ -155,6 +157,10 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
             observed_at=_NOW + timedelta(minutes=1),
         )
 
+    async def relay(outcome: Any) -> None:
+        order.append("relay")
+        assert outcome.label.value == "verified"
+
     executor = MagicMock()
     executor.execute = AsyncMock(side_effect=execute)
     audit = InMemoryStateStore()
@@ -163,13 +169,14 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
         audit_store=audit,
         expected_effect_provider=predict,
         effect_observer=observe,
+        response_outcome_sink=relay,
     )
 
     result = await loop._dispatch_action(action=_action(), rule=_rule())
     entries = _audit_payloads(audit)
 
     assert result.outcome is ExecutorOutcome.PUBLISHED
-    assert order == ["predict", "execute", "observe"]
+    assert order == ["predict", "execute", "observe", "relay"]
     assert len(entries) == 2
     effect_entry = _entry(entries, "effect_verification.shadow")
     assert effect_entry["verification_status"] == "verified"
@@ -307,13 +314,16 @@ async def test_shadow_audit_failure_does_not_change_execution_result() -> None:
     executor.execute = AsyncMock(return_value=expected_result)
     audit = MagicMock()
     audit.append_audit_entry = AsyncMock(side_effect=RuntimeError("audit unavailable"))
+    relay = AsyncMock()
     loop = _loop(
         executor=executor,
         audit_store=audit,
         expected_effect_provider=predict,
         effect_observer=observe,
+        response_outcome_sink=relay,
     )
 
     result = await loop._dispatch_action(action=_action(), rule=_rule())
 
     assert result is expected_result
+    relay.assert_not_awaited()

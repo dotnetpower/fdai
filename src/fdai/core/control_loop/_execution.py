@@ -47,6 +47,7 @@ from fdai.shared.contracts.models import (
     Event,
     ExecutionPath,
     OntologyActionType,
+    ResponseOutcome,
     Rule,
 )
 from fdai.shared.providers.cost_estimator import (
@@ -74,6 +75,7 @@ class ControlLoopExecutionMixin:
     _kill_switch_refresher: Callable[[], Awaitable[None]] | None
     _mscp_effect_observer: IndependentEffectObserver | None
     _mscp_expected_effect_provider: ExpectedEffectProvider | None
+    _response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None
     _promotion_state_refresher: Callable[[str], Awaitable[None]] | None
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
@@ -262,6 +264,16 @@ class ControlLoopExecutionMixin:
                 extra={"action_type": action.action_type},
                 exc_info=True,
             )
+            return
+        if self._response_outcome_sink is not None:
+            try:
+                await self._response_outcome_sink(response_outcome)
+            except Exception:  # noqa: BLE001 - learning relay never changes executor result
+                _LOGGER.warning(
+                    "response_outcome_relay_failed",
+                    extra={"action_type": action.action_type},
+                    exc_info=True,
+                )
 
     async def _evaluate_and_audit(
         self, *, event: Event, action: Action, rule: Rule

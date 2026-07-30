@@ -73,6 +73,7 @@ class Freyr(Agent):
             resource_id=signal.resource_id,
             utilization=signal.utilization,
             correlation_id=signal.correlation_id,
+            observed_at=signal.observed_at,
         )
 
     async def ingest_utilization(
@@ -81,6 +82,7 @@ class Freyr(Agent):
         resource_id: str,
         utilization: float,
         correlation_id: str = "",
+        observed_at: str = "",
     ) -> None:
         prev = self._smoothed.get(resource_id, utilization)
         smoothed = self._alpha * utilization + (1 - self._alpha) * prev
@@ -118,6 +120,7 @@ class Freyr(Agent):
                     # (scale_up under high utilization can conflict with a
                     # cost-driven scale_down).
                     "recommendation": self.sizing_advice(resource_id).action,
+                    "observed_at": observed_at,
                 },
             )
 

@@ -8,10 +8,15 @@ window and the last-seen counter is incremented on repeat.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Any
 
-from fdai.agents._framework.adapters import AdminCard, InMemoryAdminChannel
+from fdai.agents._framework.adapters import (
+    AdminCard,
+    AdminNotificationAdapter,
+    InMemoryAdminChannel,
+)
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
@@ -36,6 +41,7 @@ class PendingHilTicket:
     upload_id: str | None = None
     stage: str | None = None
     idempotency_key: str = ""
+    decision_case: dict[str, Any] | None = None
     approvers: list[str] = field(default_factory=list)
     rejected: bool = False
 
@@ -64,7 +70,7 @@ class Var(Agent):
         self,
         *,
         bus: PantheonBus | None = None,
-        admin_channel: InMemoryAdminChannel | None = None,
+        admin_channel: AdminNotificationAdapter | None = None,
     ) -> None:
         super().__init__(spec=_VAR)
         self.bus = bus
@@ -98,13 +104,30 @@ class Var(Agent):
         # never yield a zero-or-negative quorum that would approve with no
         # approver (the two-approver requirement for irreversible actions is
         # set by Forseti; this only prevents a downgrade below one).
-        quorum = max(1, int(payload.get("quorum_required", 1)))
+        raw_quorum = payload.get("quorum_required", 1)
+        if isinstance(raw_quorum, bool):
+            self.record_behavior("ticket_invalid_quorum")
+            return
+        try:
+            quorum = max(1, int(raw_quorum))
+        except (TypeError, ValueError):
+            self.record_behavior("ticket_invalid_quorum")
+            return
+        raw_initiator = payload.get("initiator_principal")
+        if raw_initiator is not None and not isinstance(raw_initiator, str):
+            self.record_behavior("ticket_invalid_initiator")
+            return
         self._pending[correlation] = PendingHilTicket(
             correlation_id=correlation,
             action_type=str(payload.get("action_type", "")),
             resource_id=payload.get("resource_id"),
             quorum_required=quorum,
-            initiator_principal=payload.get("initiator_principal"),
+            initiator_principal=raw_initiator.strip() if raw_initiator else None,
+            decision_case=(
+                dict(payload["decision_case"])
+                if isinstance(payload.get("decision_case"), dict)
+                else None
+            ),
         )
         self.record_behavior("ticket_pending")
         _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
@@ -193,6 +216,7 @@ class Var(Agent):
                 "action_type": ticket.action_type,
                 "state": final,
                 "approvers": list(ticket.approvers),
+                "decision_case": ticket.decision_case,
             }
             if ticket.kind == "document_ingestion":
                 approval.update(
@@ -236,29 +260,17 @@ class Var(Agent):
         severity = str(payload.get("severity", "high"))
         counter = int(payload.get("counter", 1))
         key = (initiator, action)
-        existing = self._last_cards.get(key)
-        if existing is not None:
-            # Repeat: update counter in place rather than post a new card.
-            new_card = AdminCard(
-                severity=severity,
-                initiator_principal=initiator,
-                attempted_action=action,
-                counter=counter,
-            )
-            self._last_cards[key] = new_card
-            # Update the last delivered card's counter too
-            self.admin_channel.cards[-1] = new_card
-            return new_card
         card = AdminCard(
             severity=severity,
             initiator_principal=initiator,
             attempted_action=action,
             counter=counter,
         )
-        self.admin_channel.send(card)
-        self._last_cards[key] = card
+        delivery = self.admin_channel.upsert(key, card)
+        delivered = await delivery if inspect.isawaitable(delivery) else delivery
+        self._last_cards[key] = delivered
         _evict_oldest_ticket(self._last_cards, self._MAX_CARDS, keep=key)
-        return card
+        return delivered
 
     # ---- conversational port -------------------------------------------
 

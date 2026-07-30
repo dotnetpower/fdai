@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
+
+import pytest
 
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -58,6 +61,27 @@ def test_forseti_no_arbitration_on_single_domain() -> None:
         )
     )
     assert request is None
+
+
+def test_forseti_rejects_arbitration_without_correlation() -> None:
+    bus = _bus()
+    forseti = Forseti(bus=bus)
+
+    with pytest.raises(ValueError, match="identities MUST be non-empty"):
+        asyncio.run(
+            forseti.maybe_request_arbitration(
+                {
+                    "resource_id": "vm-1",
+                    "domain_advice": {
+                        "cost": "scale_down",
+                        "capacity": "scale_up",
+                    },
+                }
+            )
+        )
+
+    assert bus.messages_on("object.arbitration-request") == []
+    assert forseti.behavior_snapshot()["arbitration_invalid_identity"] == 1
 
 
 def test_odin_resolves_conflict_by_priority() -> None:
@@ -138,7 +162,11 @@ def test_forseti_aggregates_cross_domain_conflict() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.cost-anomaly",
-            {"resource_id": "vm-1", "recommendation": "scale_down"},
+            {
+                "correlation_id": "corr-cross-domain",
+                "resource_id": "vm-1",
+                "recommendation": "scale_down",
+            },
         )
     )
     assert bus.messages_on("object.arbitration-request") == []
@@ -146,7 +174,11 @@ def test_forseti_aggregates_cross_domain_conflict() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.capacity-forecast",
-            {"resource_id": "vm-1", "recommendation": "scale_up"},
+            {
+                "correlation_id": "corr-cross-domain",
+                "resource_id": "vm-1",
+                "recommendation": "scale_up",
+            },
         )
     )
     reqs = bus.messages_on("object.arbitration-request")
@@ -317,13 +349,19 @@ def test_forseti_forwards_impacts_from_signals() -> None:
     asyncio.run(
         forseti.on_typed_message(
             "object.cost-anomaly",
-            {"resource_id": "vm-1", "recommendation": "scale_down", "ratio": 2.0},
+            {
+                "correlation_id": "corr-impact",
+                "resource_id": "vm-1",
+                "recommendation": "scale_down",
+                "ratio": 2.0,
+            },
         )
     )
     asyncio.run(
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "correlation_id": "corr-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
                 "forecast_util": 0.9,
@@ -386,6 +424,7 @@ def test_forseti_prefers_specialist_impact_over_raw_ratio() -> None:
         forseti.on_typed_message(
             "object.cost-anomaly",
             {
+                "correlation_id": "corr-specialist-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_down",
                 "ratio": 10.0,  # legacy fallback would give impact 1.0
@@ -397,6 +436,7 @@ def test_forseti_prefers_specialist_impact_over_raw_ratio() -> None:
         forseti.on_typed_message(
             "object.capacity-forecast",
             {
+                "correlation_id": "corr-specialist-impact",
                 "resource_id": "vm-1",
                 "recommendation": "scale_up",
                 "impact": 0.9,
@@ -469,10 +509,20 @@ def test_forseti_clears_advice_after_arbitration() -> None:
 
     async def _run() -> int:
         await forseti._ingest_domain_signal(
-            "cost", {"resource_id": "vm-1", "recommendation": "scale_down"}
+            "cost",
+            {
+                "correlation_id": "corr-clear",
+                "resource_id": "vm-1",
+                "recommendation": "scale_down",
+            },
         )
         await forseti._ingest_domain_signal(
-            "capacity", {"resource_id": "vm-1", "recommendation": "scale_up"}
+            "capacity",
+            {
+                "correlation_id": "corr-clear",
+                "resource_id": "vm-1",
+                "recommendation": "scale_up",
+            },
         )
         # Conflict surfaced -> advice consumed for vm-1.
         assert "vm-1" not in forseti._domain_advice
@@ -767,7 +817,13 @@ def test_policy_returning_negative_weight_is_rejected() -> None:
     class BadPolicy(TemporalPolicy):
         name = "bad"
 
-        def adjust(self, *, base_weights, domains, history):  # type: ignore[no-untyped-def]
+        def adjust(
+            self,
+            *,
+            base_weights: dict[str, float],
+            domains: tuple[str, ...],
+            history: Sequence[RecentDecision],
+        ) -> dict[str, float]:
             return {"cost": -1.0, "capacity": 0.5}
 
     arbiter = MultiObjectiveArbiter()
@@ -786,7 +842,13 @@ def test_policy_returning_non_dict_is_rejected() -> None:
     class BadPolicy(TemporalPolicy):
         name = "bad"
 
-        def adjust(self, *, base_weights, domains, history):  # type: ignore[no-untyped-def]
+        def adjust(
+            self,
+            *,
+            base_weights: dict[str, float],
+            domains: tuple[str, ...],
+            history: Sequence[RecentDecision],
+        ) -> dict[str, float]:
             return [("cost", 0.5)]  # type: ignore[return-value]
 
     arbiter = MultiObjectiveArbiter()

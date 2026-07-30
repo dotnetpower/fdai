@@ -121,3 +121,40 @@ async def test_postgres_ontology_round_trip_and_traversal() -> None:
     assert {item.id for item in graph.objects} == {review_id, check_id}
     assert len(graph.links) == 1
     assert any(item.id == check_id for item in selected.objects)
+
+
+async def test_postgres_replace_subgraph_removes_prior_owned_records() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    review_id = f"review-{suffix}"
+    check_id = f"check-{suffix}"
+    review = OntologyObjectRecord(
+        id=review_id,
+        object_type="ReviewCase",
+        properties={"id": review_id, "status": "open"},
+    )
+    check = OntologyObjectRecord(
+        id=check_id,
+        object_type="ReviewCheck",
+        properties={"id": check_id, "status": "blocked"},
+    )
+    link = OntologyLinkRecord(
+        link_type="contains_check",
+        from_id=review_id,
+        to_id=check_id,
+    )
+    await store.replace_subgraph(objects=(review, check), links=(link,))
+
+    await store.replace_subgraph(
+        objects=(review,),
+        links=(),
+        previous_object_ids=(review_id, check_id),
+        previous_link_keys=((review_id, "contains_check", check_id),),
+    )
+
+    assert await store.get_object(review_id) is not None
+    assert await store.get_object(check_id) is None
+    graph = await store.traverse(root_ids=(review_id,), max_depth=1)
+    assert graph.links == ()

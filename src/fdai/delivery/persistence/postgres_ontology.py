@@ -29,6 +29,7 @@ from fdai.shared.providers.ontology_instance import (
 )
 
 _MAX_LIMIT: Final[int] = 1000
+_SUBGRAPH_REPLACEMENT_LOCK: Final[int] = 8_419_450_001
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +242,104 @@ class PostgresOntologyInstanceStore:
                         properties_json,
                     ),
                 )
+
+    async def replace_subgraph(
+        self,
+        *,
+        objects: Sequence[OntologyObjectRecord],
+        links: Sequence[OntologyLinkRecord],
+        previous_object_ids: Sequence[str] = (),
+        previous_link_keys: Sequence[tuple[str, str, str]] = (),
+    ) -> None:
+        normalized_objects = tuple(normalize_object_record(item) for item in objects)
+        normalized_links = tuple(normalize_link_record(item) for item in links)
+        if len({item.id for item in normalized_objects}) != len(normalized_objects):
+            raise OntologyInstanceValidationError("replacement object ids MUST be unique")
+        if len({(item.from_id, item.link_type, item.to_id) for item in normalized_links}) != len(
+            normalized_links
+        ):
+            raise OntologyInstanceValidationError("replacement link keys MUST be unique")
+        for object_record in normalized_objects:
+            validate_object_record(object_record, self._object_types)
+        desired_ids = {item.id for item in normalized_objects}
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await connection.execute(
+                    "SELECT pg_advisory_xact_lock(%s)",
+                    (_SUBGRAPH_REPLACEMENT_LOCK,),
+                )
+                for object_record in normalized_objects:
+                    cursor = await connection.execute(
+                        "SELECT object_type, revision FROM ontology_resource "
+                        "WHERE id = %s FOR UPDATE",
+                        (object_record.id,),
+                    )
+                    existing = await cursor.fetchone()
+                    if existing is None:
+                        await connection.execute(
+                            "INSERT INTO ontology_resource "
+                            "(id, object_type, properties, revision) "
+                            "VALUES (%s, %s, %s::jsonb, 1)",
+                            (
+                                object_record.id,
+                                object_record.object_type,
+                                canonical_json_mapping(
+                                    object_record.properties,
+                                    path=f"{object_record.object_type}.properties",
+                                )[1],
+                            ),
+                        )
+                    else:
+                        await self._update_existing(
+                            connection,
+                            record=object_record,
+                            existing=existing,
+                            expected_revision=None,
+                        )
+                for from_id, link_type, to_id in previous_link_keys:
+                    await connection.execute(
+                        "DELETE FROM ontology_link "
+                        "WHERE from_id = %s AND link_type = %s AND to_id = %s",
+                        (from_id, link_type, to_id),
+                    )
+                for object_id in set(previous_object_ids) - desired_ids:
+                    await connection.execute(
+                        "DELETE FROM ontology_link WHERE from_id = %s OR to_id = %s",
+                        (object_id, object_id),
+                    )
+                    await connection.execute(
+                        "DELETE FROM ontology_resource WHERE id = %s",
+                        (object_id,),
+                    )
+                for link_record in normalized_links:
+                    link_objects = await self._load_objects(
+                        connection,
+                        identifiers=(link_record.from_id, link_record.to_id),
+                    )
+                    existing_links = await self._cardinality_links(connection, link_record)
+                    validate_link_record(
+                        link_record,
+                        link_types=self._link_types,
+                        objects=link_objects,
+                        existing_links=existing_links,
+                    )
+                    await connection.execute(
+                        "INSERT INTO ontology_link "
+                        "(link_type, from_id, to_id, properties) "
+                        "VALUES (%s, %s, %s, %s::jsonb) "
+                        "ON CONFLICT (from_id, link_type, to_id) "
+                        "DO UPDATE SET properties = EXCLUDED.properties",
+                        (
+                            link_record.link_type,
+                            link_record.from_id,
+                            link_record.to_id,
+                            canonical_json_mapping(
+                                link_record.properties,
+                                path=f"{link_record.link_type}.properties",
+                            )[1],
+                        ),
+                    )
 
     async def get_object(self, object_id: str) -> OntologyObjectRecord | None:
         async with await self._connect() as connection:
@@ -497,10 +596,13 @@ def _object_from_row(row: Mapping[str, Any]) -> OntologyObjectRecord:
         properties = json.loads(properties)
     if not isinstance(properties, Mapping):
         raise RuntimeError("ontology_resource.properties MUST be a JSON object")
+    normalized = normalize_json_value(properties, path="ontology_resource.properties")
+    if not isinstance(normalized, dict):  # pragma: no cover - Mapping normalizes to dict
+        raise RuntimeError("ontology_resource.properties MUST be a JSON object")
     return OntologyObjectRecord(
         id=str(row["id"]),
         object_type=str(row["object_type"]),
-        properties=dict(properties),
+        properties=normalized,
         revision=int(row["revision"]),
     )
 
@@ -511,11 +613,14 @@ def _link_from_row(row: Mapping[str, Any]) -> OntologyLinkRecord:
         properties = json.loads(properties)
     if not isinstance(properties, Mapping):
         raise RuntimeError("ontology_link.properties MUST be a JSON object")
+    normalized = normalize_json_value(properties, path="ontology_link.properties")
+    if not isinstance(normalized, dict):  # pragma: no cover - Mapping normalizes to dict
+        raise RuntimeError("ontology_link.properties MUST be a JSON object")
     return OntologyLinkRecord(
         link_type=str(row["link_type"]),
         from_id=str(row["from_id"]),
         to_id=str(row["to_id"]),
-        properties=dict(properties),
+        properties=normalized,
     )
 
 

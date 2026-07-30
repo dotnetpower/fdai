@@ -31,6 +31,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
+from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 
@@ -84,12 +85,14 @@ class Forseti(Agent):
         rbac: dict[str, frozenset[str]] | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
         operational_context: OperationalContextMaterializer | None = None,
+        decision_coordinator: DomainDecisionCoordinator | None = None,
     ) -> None:
         super().__init__(spec=_FORSETI)
         self.bus = bus
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
         self._operational_context = operational_context
+        self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
@@ -113,6 +116,10 @@ class Forseti(Agent):
         # from the signal (cost overspend ratio, capacity forecast util). Fed
         # to Odin so arbitration weighs magnitude, not just priority.
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
+        self._domain_observed_at: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
+        self._pending_decision_cases: BoundedLruDict[str, DomainDecisionProjection] = (
+            BoundedLruDict(_MAX_RESOURCES)
+        )
         self._detection_readiness: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
             _MAX_RESOURCES
         )
@@ -187,10 +194,16 @@ class Forseti(Agent):
         normalized = {str(k): str(v) for k, v in advice.items()}
         if not _is_conflict(normalized):
             return None
+        correlation_id = str(event.get("correlation_id") or "")
+        resource_id = str(event.get("resource_id") or "")
+        if not correlation_id or not resource_id:
+            self.record_behavior("arbitration_invalid_identity")
+            raise ValueError("arbitration input identities MUST be non-empty")
         return await self._emit_arbitration_request(
-            resource_id=event.get("resource_id"),
+            resource_id=resource_id,
             advice=normalized,
-            correlation_id=str(event.get("correlation_id", "")),
+            correlation_id=correlation_id,
+            observed_at=str(event.get("detected_at") or ""),
         )
 
     async def _ingest_domain_signal(
@@ -216,13 +229,21 @@ class Forseti(Agent):
             impacts = {}
             self._domain_impact.set(resource_id, impacts)
         impacts[domain] = _signal_impact(domain, payload)
+        observed_at = str(payload.get("observed_at") or "")
+        if observed_at:
+            self._domain_observed_at.set(resource_id, observed_at)
         if not _is_conflict(advice):
             return None
+        correlation_id = str(payload.get("correlation_id") or "")
+        if not correlation_id:
+            self.record_behavior("arbitration_invalid_identity")
+            raise ValueError("arbitration input correlation_id MUST be non-empty")
         request = await self._emit_arbitration_request(
             resource_id=resource_id,
             advice=dict(advice),
-            correlation_id=str(payload.get("correlation_id", "")),
+            correlation_id=correlation_id,
             impacts=dict(impacts),
+            observed_at=self._domain_observed_at.get(resource_id) or "",
         )
         # Consume the accumulated advice once the conflict is surfaced.
         # Leaving it in place would (a) grow both maps without bound over
@@ -231,6 +252,7 @@ class Forseti(Agent):
         # very next signal for this resource. Fresh signals re-accumulate.
         self._domain_advice.pop(resource_id, None)
         self._domain_impact.pop(resource_id, None)
+        self._domain_observed_at.pop(resource_id, None)
         return request
 
     async def _emit_arbitration_request(
@@ -240,7 +262,10 @@ class Forseti(Agent):
         advice: dict[str, str],
         correlation_id: str,
         impacts: dict[str, float] | None = None,
+        observed_at: str = "",
     ) -> dict[str, Any]:
+        if not correlation_id or not str(resource_id or ""):
+            raise ValueError("arbitration request identities MUST be non-empty")
         request = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
@@ -249,8 +274,17 @@ class Forseti(Agent):
             "advice": advice,
             "impacts": impacts or {},
         }
-        if correlation_id:
-            self._arbitration_resources.set(correlation_id, str(resource_id or ""))
+        projection = await self._build_domain_decision_projection(
+            resource_id=str(resource_id or ""),
+            correlation_id=correlation_id,
+            advice=advice,
+            impacts=impacts or {},
+            observed_at=observed_at,
+        )
+        if projection is not None:
+            request["decision_case"] = projection.to_mapping()
+            self._pending_decision_cases.set(correlation_id, projection)
+        self._arbitration_resources.set(correlation_id, str(resource_id))
         # Decision semantics: the judge decided to raise arbitration. Recorded
         # independent of a bus (delivery is measured by the bus metrics, not
         # here), so a bus-less unit still measures the decision.
@@ -274,6 +308,96 @@ class Forseti(Agent):
             self.arbitrations.pop(next(iter(self.arbitrations)))
         if decision.get("escalate_hil") is True:
             await self._escalate_arbitration(correlation_id, decision)
+            return
+        projection = self._pending_decision_cases.pop(correlation_id, None)
+        if projection is None:
+            if self._arbitration_resources.get(correlation_id) is not None:
+                await self._escalate_arbitration(correlation_id, decision)
+            return
+        if projection.selection.requires_human_approval:
+            await self._escalate_arbitration(correlation_id, decision)
+            return
+        winning_domain = str(decision.get("winning_domain") or "")
+        option = projection.option_for_domain(winning_domain)
+        eligible_options = {
+            option_id for option_id, _score in projection.selection.objective_scores
+        }
+        if option is None or option.option_id not in eligible_options or option.action_type is None:
+            await self._escalate_arbitration(correlation_id, decision)
+            return
+        await self._publish_resolved_arbitration_verdict(
+            correlation_id=correlation_id,
+            decision=decision,
+            projection=projection,
+            action_type=option.action_type,
+        )
+
+    async def _build_domain_decision_projection(
+        self,
+        *,
+        resource_id: str,
+        correlation_id: str,
+        advice: dict[str, str],
+        impacts: dict[str, float],
+        observed_at: str,
+    ) -> DomainDecisionProjection | None:
+        if self._operational_context is None or not resource_id or not observed_at:
+            return None
+        try:
+            cutoff = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+            if cutoff.tzinfo is None:
+                return None
+            context = await self._operational_context.materialize(
+                target_resource_id=resource_id,
+                cutoff=cutoff,
+                catalog_versions={},
+            )
+            if context.review_required:
+                return None
+            return self._decision_coordinator.build(
+                correlation_id=correlation_id,
+                context=context,
+                advice=advice,
+                impacts=impacts,
+                created_at=cutoff,
+            )
+        except (TypeError, ValueError):
+            self.record_behavior("decision_case:invalid")
+            return None
+        except Exception:  # noqa: BLE001 - optional decision projection fails closed
+            self.record_behavior("decision_case:unavailable")
+            return None
+
+    async def _publish_resolved_arbitration_verdict(
+        self,
+        *,
+        correlation_id: str,
+        decision: dict[str, Any],
+        projection: DomainDecisionProjection,
+        action_type: str,
+    ) -> None:
+        risk_verdict = _RISK_VERDICT.get(action_type, "hil")
+        verdict = {
+            "producer_principal": "Forseti",
+            "correlation_id": correlation_id,
+            "resource_id": self._arbitration_resources.get(correlation_id) or "",
+            "action_type": action_type,
+            "risk_verdict": risk_verdict,
+            "reason": "arbitration_resolved",
+            "arbitration": {
+                "winning_domain": decision.get("winning_domain"),
+                "losing_domains": decision.get("losing_domains") or [],
+                "margin": decision.get("margin"),
+            },
+            "decision_case": projection.to_mapping(),
+            "quorum_required": quorum_for(action_type, self._action_semantics),
+            "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
+            "initiator_principal": None,
+        }
+        self.record_behavior(f"verdict:{risk_verdict}")
+        self.record_behavior("arbitration_resolved")
+        if self.bus is not None:
+            await self.bus.publish("Forseti", "object.verdict", verdict)
 
     async def _escalate_arbitration(
         self,
@@ -296,11 +420,21 @@ class Forseti(Agent):
         if self._unresolved_arbitrations.get(correlation_id) is not None:
             return None
         losing = [str(domain) for domain in decision.get("losing_domains") or []]
+        winning_domain = str(decision.get("winning_domain", ""))
         grounding = {
-            "winning_domain": str(decision.get("winning_domain", "")),
+            "winning_domain": winning_domain,
             "losing_domains": losing,
             "margin": decision.get("margin"),
         }
+        projection = self._pending_decision_cases.pop(correlation_id, None)
+        winning_option = (
+            projection.option_for_domain(winning_domain) if projection is not None else None
+        )
+        action_type = (
+            winning_option.action_type
+            if winning_option is not None and winning_option.action_type is not None
+            else ""
+        )
         self._unresolved_arbitrations.set(correlation_id, grounding)
         self.record_behavior("verdict:hil")
         self.record_behavior("arbitration_escalated")
@@ -308,15 +442,15 @@ class Forseti(Agent):
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
             "resource_id": self._arbitration_resources.get(correlation_id) or "",
-            # No single ActionType resolves the conflict - the human picks
-            # which domain's recommendation to pursue. Empty string (not
-            # None) so Thor's str() coercion yields "" rather than "None".
-            "action_type": "",
+            # Odin's winner is the concrete recommendation under review; the
+            # complete DecisionCase keeps every alternative visible.
+            "action_type": action_type,
             "risk_verdict": "hil",
             "reason": "arbitration_unresolved",
             "arbitration": grounding,
-            # No known irreversible action; the single-approver default.
-            "quorum_required": 1,
+            "decision_case": projection.to_mapping() if projection is not None else None,
+            "quorum_required": quorum_for(action_type, self._action_semantics),
+            "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
             "initiator_principal": None,
         }
         if self.bus is not None:

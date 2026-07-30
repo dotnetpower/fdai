@@ -173,6 +173,7 @@ class Norns(Agent):
         self._counted_case_revisions: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._case_history_analyzer = case_history_analyzer
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
+        self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
 
     def observe_reviewed_trajectory_dataset(self, dataset: ReviewedTrajectoryDataset) -> bool:
         """Consume one reviewed aggregate without training or promoting anything.
@@ -229,6 +230,10 @@ class Norns(Agent):
         if candidate is None:
             self.record_behavior("operating_pattern_cohort_held")
             return
+        if candidate.pattern_id in self._operating_pattern_ids:
+            self.record_behavior("operating_pattern_cohort_duplicate")
+            return
+        self._operating_pattern_ids.add(candidate.pattern_id)
         self.pending_candidates.append(candidate.to_rule_candidate_mapping())
         self.record_behavior("operating_pattern_candidate_created")
 

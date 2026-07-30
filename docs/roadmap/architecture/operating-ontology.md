@@ -19,8 +19,8 @@ budgets, evidence, and resource instances.
 > **Implementation status (2026-07-31):** O1 semantic-spine declarations and competency queries,
 > O2 immutable context materialization and Forseti ceiling wiring, O3/O4 shared decision-case
 > selection and response closure, and O5 balanced cohort intake through Norns and Mimir are
-> implemented. Deployment-specific service, objective, ownership, and evidence instances remain
-> unavailable until their approved providers populate the graph.
+> implemented. A bounded JSON `OperatingModelProvider` can project deployment instances at startup;
+> its revision and aggregate counts are available through the Reader-gated ontology projection.
 
 ## Design at a glance
 
@@ -238,6 +238,23 @@ bounded options, expected effects, protected objectives, violated constraints, u
 evidence references. Odin arbitrates only when eligible options conflict across objectives. Var
 receives the same case when human approval is required, and Saga records its digest for replay.
 
+Production startup reads `FDAI_OPERATING_MODEL_PATH` through the provider boundary, validates the
+complete object/link snapshot, and atomically replaces the provider-owned subgraph. A monotonic
+`applying` manifest retains the union of prior and current owned identities for stale deletion and
+crash recovery. After replacement succeeds, the `projected` manifest compacts to current ownership
+so historical revisions cannot exceed the configured model bounds. Startup cleans an interrupted
+`applying` union before it stages another snapshot, preventing repeated crashes from accumulating
+ownership across revisions. The optional
+`FDAI_OPERATING_MODEL_MAX_BYTES` ceiling defaults to 16 MiB. `GET /ontology/graph` exposes only the
+projection status, source revision, and aggregate counts, never deployment instance properties.
+
+Cost and capacity specialist event-time travels with their advice. Forseti materializes one
+time-consistent snapshot, builds the shared case, and includes it in the arbitration request. Odin's
+resolved choice returns through Forseti as a verdict, and Thor's durable `ActionRun` plus Var's HIL
+ticket preserve the bounded baseline, option effects, constraints, and evidence. Thor requires the
+verdict action to match the selected option exactly. Missing, malformed, or mismatched case evidence
+is denied rather than creating approval or execution authority.
+
 ## Continuous operating loops
 
 "Living agents" means event-driven and time-driven control loops that close effects. It does not
@@ -264,6 +281,17 @@ checks.
 Cost optimization is valid only when the selected option preserves service and recovery
 objectives. Estimated savings remain predictions until an observed outcome closes the settlement
 window.
+
+### Outcome learning loop
+
+The optional effect observer writes a strict `ResponseOutcome`. After both effect and outcome audit
+records persist, composition republishes that contract through ordinary ingress. Audit failure
+suppresses the relay, so unaudited outcomes cannot become learning evidence. Huginn owns
+normalization; Muninn durably groups at most 100
+cases per ActionType and publishes a `ContextIndex` cohort; Norns requires balanced positive and
+negative evidence before emitting an inert candidate; Mimir applies the ordinary guard. Only a
+verified enforce outcome is reusable positive evidence. Mismatch is negative evidence, while
+unscorable and shadow-success outcomes are held outside the cohort.
 
 ## Extension model
 

@@ -178,6 +178,7 @@ from .ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from .operating_model import OperatingModelProvider, OperatingModelSnapshot
 from .preflight_check import (
     PreflightCheck,
     PreflightCheckPublisher,
@@ -397,6 +398,8 @@ __all__ = [
     "OntologyInstanceValidationError",
     "OntologyLinkRecord",
     "OntologyObjectRecord",
+    "OperatingModelProvider",
+    "OperatingModelSnapshot",
     "OutboundResponse",
     "select_conversation_progress_presentation",
     "ObservedExecutionActivity",

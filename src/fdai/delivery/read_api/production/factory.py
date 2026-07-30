@@ -665,6 +665,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         ontology_object_types=object_types,
         ontology_link_types=link_types,
         ontology_action_types=action_types,
+        operating_model_status_reader=state_store,
         inventory_graph_provider=PostgresInventoryGraphProvider(
             config=PostgresInventorySnapshotStoreConfig(
                 dsn=read_model._config.dsn,

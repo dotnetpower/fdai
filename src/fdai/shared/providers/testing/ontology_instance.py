@@ -72,6 +72,53 @@ class InMemoryOntologyInstanceStore:
         )
         self._links[(record.from_id, record.link_type, record.to_id)] = record
 
+    async def replace_subgraph(
+        self,
+        *,
+        objects: Sequence[OntologyObjectRecord],
+        links: Sequence[OntologyLinkRecord],
+        previous_object_ids: Sequence[str] = (),
+        previous_link_keys: Sequence[tuple[str, str, str]] = (),
+    ) -> None:
+        normalized_objects = tuple(normalize_object_record(item) for item in objects)
+        normalized_links = tuple(normalize_link_record(item) for item in links)
+        if len({item.id for item in normalized_objects}) != len(normalized_objects):
+            raise OntologyInstanceValidationError("replacement object ids MUST be unique")
+        working_objects = dict(self._objects)
+        working_links = dict(self._links)
+        desired_ids = {item.id for item in normalized_objects}
+        for object_id in set(previous_object_ids) - desired_ids:
+            working_objects.pop(object_id, None)
+            working_links = {
+                key: link
+                for key, link in working_links.items()
+                if link.from_id != object_id and link.to_id != object_id
+            }
+        for key in previous_link_keys:
+            working_links.pop(key, None)
+        for object_record in normalized_objects:
+            validate_object_record(object_record, self._object_types)
+            existing = working_objects.get(object_record.id)
+            if existing is not None and existing.object_type != object_record.object_type:
+                raise OntologyInstanceValidationError(
+                    f"ontology object {object_record.id!r} cannot change type "
+                    f"from {existing.object_type} to {object_record.object_type}"
+                )
+            revision = existing.revision + 1 if existing is not None else 1
+            working_objects[object_record.id] = replace(object_record, revision=revision)
+        for link_record in normalized_links:
+            validate_link_record(
+                link_record,
+                link_types=self._link_types,
+                objects=working_objects,
+                existing_links=tuple(working_links.values()),
+            )
+            working_links[(link_record.from_id, link_record.link_type, link_record.to_id)] = (
+                link_record
+            )
+        self._objects = working_objects
+        self._links = working_links
+
     async def get_object(self, object_id: str) -> OntologyObjectRecord | None:
         return self._objects.get(object_id)
 

@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 812f51d53e40d8df37739acba5e8c326a9e3d499
-translation_revised: 2026-07-30
+translation_source_sha: c0c5bffd0ab03fedf47c47b077fe4e3a5e212556
+translation_revised: 2026-07-31
 ---
 # MSCP Operational Profile
 
@@ -112,6 +112,12 @@ result를 유지합니다.
 `unscorable`로 표시하며 scheduled Dynamic challenger-learning pass가 소비하는 독립 watermark를
 제공합니다. 이 추가 record는 계속 shadow evidence입니다. Effect model을 promote하거나 execution
 authority를 변경할 수 없습니다.
+
+두 durable audit record가 모두 기록된 뒤 선택적 composition-owned sink가 strict contract를 raw
+ingress로 다시 publish합니다. Audit failure는 relay를 중단하므로 unaudited outcome이 learning에
+진입할 수 없습니다. 이후 Huginn과 Muninn이 governed operating-pattern cohort path에 공급합니다.
+Sink failure는 log에 남지만 executor result를 변경할 수 없습니다. 이 relay는 shadow outcome을
+reusable로 만들지 않으며 cohort projector는 verified enforce outcome만 positive evidence로 수락합니다.
 
 Shadow observation에서 gating으로 전환하는 작업은 별도의 향후 governed change입니다. Measured
 evidence window, rollback target 및 profile이 기존 authority decision을 유지하거나 낮출 수만 있다는

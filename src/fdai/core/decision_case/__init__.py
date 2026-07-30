@@ -1,5 +1,6 @@
 """Objective-aware decision cases shared by reliability, ARB, and cost loops."""
 
+from .domain import DomainDecisionCoordinator, DomainDecisionProjection
 from .models import (
     ActionOption,
     DecisionCase,
@@ -14,6 +15,8 @@ __all__ = [
     "DecisionCase",
     "DecisionClosure",
     "DecisionSelection",
+    "DomainDecisionCoordinator",
+    "DomainDecisionProjection",
     "ObjectiveEffect",
     "build_decision_case",
     "close_decision",

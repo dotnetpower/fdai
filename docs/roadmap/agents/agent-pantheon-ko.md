@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 01aa8765ff0aba9d80b0d04c5cfe57227240da1e
+translation_source_sha: f196f4151f7b5deb0abbd39afbfd6fe1c0d3985b
 translation_revised: 2026-07-31
 ---
 
@@ -202,7 +202,7 @@ bounded `norns_consensus` 하나를 내보내고, 불일치는 자유 형식 추
 승인 거절 (`revision` / `retirement`), 선택적 scenario gap (`new-scenario`)이며 모두 같은 합의 경계를 거칩니다.
 
 모든 제안은 수치 근거를 기록합니다. Trajectory intake는 reviewed aggregate만 받고 자체 candidate를 만들지 않습니다.
-Muninn cohort는 동일 ActionType의 reusable 및 negative/control case를 요구하며 consensus와 Mimir `CandidateGuard`를 통해 inert candidate만 방출합니다.
+Strict outcome은 Huginn raw ingress로 돌아오며, Muninn은 agent 직접 호출 없이 bounded `operating_pattern_cohort` context를 Norns와 Mimir에 제공합니다. Cohort는 동일 ActionType의 reusable verified-enforce 및 negative/control case를 요구합니다. Shadow success, malformed, unscorable, success-only evidence는 hold되고 모든 candidate는 inert 상태를 유지합니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).
@@ -574,9 +574,11 @@ Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
 
 ## 7. 온톨로지 액션
 
-판테온 에이전트가 취할 수 있는 모든 action 은 하나의 `ActionType` entry
-(기존 스키마는 [action-ontology.md](../decisioning/action-ontology-ko.md), 아래 확장). 판테온의
-어떤 것도 이 테이블 밖에서 실행되지 않는다.
+모든 substrate mutation 또는 tool invocation은 catalog에 등록된 하나의
+`ActionType`을 사용합니다
+([action-ontology.md](../decisioning/action-ontology-ko.md)). Typed object publication은
+별도입니다. Arbitration, finding, candidate, audit entry, handoff, notification은 각
+single-writer topic 계약을 따르며 catalog action으로 가장하지 않습니다.
 
 ### 7.1 확장된 ActionType 스키마
 
@@ -665,25 +667,15 @@ Per-resource 순서는 partition key 로 보존; cross-resource 순서는 함의
 서로 다른 approver, self-approval 금지. Forseti 는 verdict 에
 `quorum_required: 2` 를 부착; Var 가 강제.
 
-### 7.6 ActionType 으로서의 Handoff
+### 7.6 Typed delivery로서의 Handoff
 
-GitHub issue 로의 escalation (§6.4) 은 그 자체가 `ActionType` 이므로 동일
-lifecycle, audit, override 메커니즘을 상속:
-
-```yaml
-name: governance.escalate-to-github-issue
-category: governance
-initiators: [Bragi, Forseti, Heimdall, Norns, Saga]
-judge: Forseti
-approver: null                 # informational escalation 은 auto-approve
-executor: Saga
-auditor: Saga
-side_effect_class: external
-rollback_contract: state_forward_only
-default_mode: shadow
-promotion_gate: {min_shadow_days: 7, min_samples: 50, min_accuracy: 0.99, max_policy_escapes: 0}
-irreversible: false
-```
+Handoff escalation은 `governance.*` ActionType이 아닙니다. 이 category는
+`pr_native`를 사용하는 reviewed catalog-as-code 변경에만 사용합니다. Bragi는
+`object.handoff-escalation`의 single writer로서 bounded request를 publish합니다.
+Saga는 이를 consume하고 fingerprint deduplication을 적용한 뒤 `object.issue`를
+materialize하고 audit evidence를 append합니다. Live issue tracker는 injected delivery
+adapter로 유지되므로 local과 deployed runtime이 동일한 typed ownership과 audit
+boundary를 지킵니다.
 
 ### 7.7 Conversational port MUST-NOT-Bypass 규칙
 
@@ -794,13 +786,13 @@ Heimdall 은 `object.security-event` 를 구독하고 분류:
 
 심각도는 deterministic (테이블 + counter), LLM-scored 아님.
 
-### 9.3 알림 action
+### 9.3 알림 delivery
 
-Heimdall 은 `notify_admin_privilege_violation` 을 propose (ActionType
-shape 는 §7.6 참고). Forseti 는 governance notification 을 fast-approve
-(informational alert 에는 HIL loop 없음). Delivery adapter 는 HIL 카드와
-동일 인프라를 사용해 구성된 ChatOps admin 채널에 posting 하되, 별도
-템플릿 사용.
+Heimdall은 `object.security-event`를 분류하고 medium 이상 alert에 bounded admin
+notification adapter를 호출합니다. 이 informational delivery는 `governance.*`
+ActionType이 아니며 Thor의 mutation path로 진입하지 않습니다. Saga는 authoritative
+`SecurityEvent`를 이미 audit합니다. Adapter는 fingerprint dedup, rate limit, 별도
+template을 적용하여 구성된 ChatOps admin channel에 post합니다.
 
 ### 9.4 알림 중복 제거와 rate limit
 

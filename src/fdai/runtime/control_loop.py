@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -86,6 +86,7 @@ from fdai.runtime.providers import (
     _build_process_store,
     _build_resource_lock,
 )
+from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import StagePublisher
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
@@ -203,6 +204,7 @@ def _build_control_loop(
     tool_receipt_observer: ToolReceiptObserver | None = None,
     symptom_index: SymptomIndex | None = None,
     identity: WorkloadIdentity | None = None,
+    response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -489,6 +491,7 @@ def _build_control_loop(
         kill_switch_refresher=kill_switch.refresh,
         mscp_expected_effect_provider=container.mscp_expected_effect_provider,
         mscp_effect_observer=container.mscp_effect_observer,
+        response_outcome_sink=response_outcome_sink,
         ontology_instance_store=ontology_instance_store,
     )
 

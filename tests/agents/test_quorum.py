@@ -182,6 +182,42 @@ class TestThorPropagatesQuorum:
 
 
 class TestEndToEndQuorum:
+    def test_malformed_initiator_is_rejected_without_ticket(self) -> None:
+        var = Var()
+
+        asyncio.run(
+            var.on_typed_message(
+                "object.action-run",
+                {
+                    "correlation_id": "malformed-initiator",
+                    "state": "hil_pending",
+                    "action_type": "ops.scale-out",
+                    "initiator_principal": {"principal": "operator-example"},
+                },
+            )
+        )
+
+        assert var.pending_tickets() == ()
+        assert var.behavior_snapshot()["ticket_invalid_initiator"] == 1
+
+    def test_malformed_quorum_is_rejected_without_ticket(self) -> None:
+        var = Var()
+
+        asyncio.run(
+            var.on_typed_message(
+                "object.action-run",
+                {
+                    "correlation_id": "malformed-quorum",
+                    "state": "hil_pending",
+                    "action_type": "ops.scale-out",
+                    "quorum_required": "two",
+                },
+            )
+        )
+
+        assert var.pending_tickets() == ()
+        assert var.behavior_snapshot()["ticket_invalid_quorum"] == 1
+
     def test_irreversible_hil_needs_two_distinct_approvers(self) -> None:
         bus = _bus()
         var = Var(bus=bus)

@@ -25,6 +25,7 @@ from fdai.shared.contracts.models import (
     OntologyLinkType,
     OntologyObjectType,
 )
+from fdai.shared.providers.state_store import StateStore
 
 DEFAULT_ROUTE_PATH = "/ontology/graph"
 
@@ -34,6 +35,7 @@ def make_ontology_graph_route(
     object_types: Sequence[OntologyObjectType],
     link_types: Sequence[OntologyLinkType],
     action_types: Sequence[OntologyActionType] = (),
+    status_reader: StateStore | None = None,
     authorize: Callable[[Request], Awaitable[str]],
     path: str = DEFAULT_ROUTE_PATH,
 ) -> Route:
@@ -112,6 +114,23 @@ def make_ontology_graph_route(
             action_type.model_dump(mode="json", exclude_none=True)
             for action_type in sorted(action_types, key=lambda item: item.name)
         ]
+        operating_model = {"status": "unavailable"}
+        if status_reader is not None:
+            from fdai.runtime.operating_model import OPERATING_MODEL_STATUS_KEY
+
+            stored_status = await status_reader.read_state(OPERATING_MODEL_STATUS_KEY)
+            if stored_status is not None:
+                operating_model = {
+                    key: stored_status[key]
+                    for key in (
+                        "schema_version",
+                        "status",
+                        "source_revision",
+                        "object_count",
+                        "link_count",
+                    )
+                    if key in stored_status
+                }
         return JSONResponse(
             {
                 "mermaid": rendered.mermaid,
@@ -123,6 +142,7 @@ def make_ontology_graph_route(
                 "action_types": actions,
                 "nodes": nodes,
                 "edges": edges,
+                "operating_model": operating_model,
             }
         )
 

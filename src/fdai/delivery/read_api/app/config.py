@@ -194,6 +194,10 @@ class ReadApiConfig:
     Empty by default; ObjectType and LinkType exploration remains available
     without an ActionType catalog."""
 
+    operating_model_status_reader: Any = None
+    """Optional StateStore reader for bounded operating-model startup status.
+    The ontology route returns only status, revision, and aggregate counts."""
+
     inventory_graph_provider: Any = None
     """Opt-in deployed-inventory graph projection. An async callable
     ``(scope, depth, link_types) -> mapping`` returning CSP-neutral
@@ -450,7 +454,7 @@ class ReadApiConfig:
     """Opt-in pantheon graph + workflows endpoints. When True, registers
     two read-only routes: ``GET /pantheon/graph`` (15 agents, org chart
     edges, owned object types, LLM hot-path flag) and
-    ``GET /pantheon/workflows`` (10 cross-agent workflow catalog). Both
+    ``GET /pantheon/workflows`` (13 cross-agent workflow catalog). Both
     are pure projections of the in-memory pantheon registry
     (``fdai.agents``); no state, no side effects. Reader-role gate.
     See :mod:`fdai.delivery.read_api.pantheon`."""

@@ -60,3 +60,18 @@ async def test_balanced_operating_cohort_reaches_mimir_guard() -> None:
 
     assert len(mimir.pending_candidates()) == 1
     assert mimir.pending_candidates()[0]["source_signal"] == "operating_pattern_cohort"
+
+
+async def test_replayed_operating_cohort_emits_one_candidate() -> None:
+    norns = Norns()
+    payload = {
+        "producer_principal": "Muninn",
+        "kind": "operating_pattern_cohort",
+        "cases": [_case("success", reusable=True), _case("control", reusable=False)],
+    }
+
+    await norns.on_typed_message("object.context-index", payload)
+    await norns.on_typed_message("object.context-index", payload)
+
+    assert len(norns.pending_candidates) == 1
+    assert norns.behavior_snapshot()["operating_pattern_cohort_duplicate"] == 1

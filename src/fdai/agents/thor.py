@@ -13,7 +13,8 @@ Hard dependencies (per pantheon 4.3):
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import json
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
@@ -72,6 +73,7 @@ class ActionRun:
     initiator_principal: str | None = None
     rollback_contract: str = "state_forward_only"
     rollback_ref: str | None = None
+    decision_case: dict[str, Any] | None = None
     history: list[ActionRunState] = field(default_factory=list)
 
     def transition(self, new_state: ActionRunState) -> None:
@@ -92,6 +94,7 @@ class ActionRun:
             "initiator_principal": self.initiator_principal,
             "rollback_contract": self.rollback_contract,
             "rollback_ref": self.rollback_ref,
+            "decision_case": self.decision_case,
             "history": [s.value for s in self.history],
         }
 
@@ -109,6 +112,7 @@ class ActionRun:
             initiator_principal=data.get("initiator_principal"),
             rollback_contract=str(data.get("rollback_contract", "state_forward_only")),
             rollback_ref=data.get("rollback_ref"),
+            decision_case=_bounded_decision_case(data.get("decision_case")),
         )
         run.history = [ActionRunState(s) for s in data.get("history", [])]
         return run
@@ -232,6 +236,20 @@ class Thor(Agent):
         action_type = str(verdict.get("action_type", ""))
         risk_verdict = str(verdict.get("risk_verdict", "hil"))
         resource_id = verdict.get("resource_id")
+        raw_decision_case = verdict.get("decision_case")
+        decision_case = _bounded_decision_case(raw_decision_case)
+        semantic_arbitration = verdict.get("reason") in {
+            "arbitration_resolved",
+            "arbitration_unresolved",
+        }
+        invalid_decision_case = raw_decision_case is not None and (
+            decision_case is None
+            or not action_type
+            or not _selected_action_matches(decision_case, action_type)
+        )
+        if (semantic_arbitration and decision_case is None) or invalid_decision_case:
+            risk_verdict = "deny"
+            action_type = ""
 
         # Idempotency: at-least-once delivery means the same verdict can arrive
         # twice. Keying the run by correlation is not enough - a re-delivery
@@ -275,6 +293,7 @@ class Thor(Agent):
             quorum_required=quorum_required,
             initiator_principal=verdict.get("initiator_principal"),
             rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
+            decision_case=decision_case,
         )
         self.action_runs[correlation] = run
         if resource_id:
@@ -450,6 +469,7 @@ class Thor(Agent):
             "initiator_principal": run.initiator_principal,
             "rollback_contract": run.rollback_contract,
             "rollback_ref": run.rollback_ref,
+            "decision_case": run.decision_case,
         }
         await self.bus.publish("Thor", "object.action-run", payload)
 
@@ -515,3 +535,53 @@ async def _default_executor(context: dict[str, Any]) -> bool:
 
 
 __all__ = ["Thor", "ActionRun", "ActionRunState", "ActionExecutor", "ActionRunStore"]
+
+
+def _bounded_decision_case(raw: object) -> dict[str, Any] | None:
+    if not isinstance(raw, Mapping):
+        return None
+    required_strings = (
+        "case_id",
+        "correlation_id",
+        "context_snapshot_id",
+        "created_at",
+        "selected_option_id",
+    )
+    if any(
+        not isinstance(raw.get(field), str) or not str(raw[field]).strip()
+        for field in required_strings
+    ):
+        return None
+    required_arrays = (
+        "protected_objective_ids",
+        "active_constraint_ids",
+        "no_action_effects",
+        "options",
+        "evidence_refs",
+    )
+    if any(not isinstance(raw.get(field), list) for field in required_arrays):
+        return None
+    if not raw["no_action_effects"] or not raw["options"] or not raw["evidence_refs"]:
+        return None
+    try:
+        encoded = json.dumps(raw, allow_nan=False, ensure_ascii=True, sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+    if len(encoded) > 16_384:
+        return None
+    return dict(raw)
+
+
+def _selected_action_matches(decision_case: Mapping[str, Any], action_type: str) -> bool:
+    selected = decision_case.get("selected_option_id")
+    options = decision_case.get("options")
+    if not isinstance(selected, str) or not isinstance(options, list):
+        return False
+    return any(
+        isinstance(option, Mapping)
+        and option.get("option_id") == selected
+        and option.get("action_type") == action_type
+        and isinstance(option.get("effects"), list)
+        and bool(option["effects"])
+        for option in options
+    )

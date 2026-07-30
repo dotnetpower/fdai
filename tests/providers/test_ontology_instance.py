@@ -17,8 +17,18 @@ from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
+    normalize_json_value,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+
+
+def test_normalize_json_value_rejects_excessive_nesting() -> None:
+    nested: object = "leaf"
+    for _ in range(34):
+        nested = {"next": nested}
+
+    with pytest.raises(OntologyInstanceValidationError, match="nesting depth"):
+        normalize_json_value(nested)
 
 
 def _object_type(name: str) -> OntologyObjectType:
