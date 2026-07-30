@@ -25,6 +25,7 @@ from fdai.delivery.read_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
 )
 from fdai.delivery.read_api.routes.chat_resource_context import resource_followup_answer
+from fdai.delivery.read_api.routes.chat_subscription_health import SubscriptionHealthChatTools
 from fdai.delivery.read_api.routes.chat_turn_plan import parse_turn_plan
 from fdai.delivery.read_api.routes.chat_verification import verify_answer
 
@@ -434,7 +435,7 @@ def test_subscription_scope_followup_reuses_prior_inventory_intent(fragment: str
                 authorize=_allow,
                 tool_resolver=tools,
                 planned_tool_resolver=tools,
-                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_planner=Planner(),
                 turn_tools=tools.turn_tools(),
                 web_search_resolver=WebResolver(),  # type: ignore[arg-type]
             )
@@ -863,6 +864,100 @@ def test_stopped_db_stream_overrides_semantic_web_plan() -> None:
     }
 
 
+def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "status",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [
+                            {
+                                "field": "status",
+                                "operator": "in",
+                                "value": ["stopped", "deallocated"],
+                            }
+                        ],
+                        "lookback_seconds": 3_600,
+                    },
+                    "clarification": None,
+                    "confidence": 0.9,
+                }
+            )
+
+    async def subscription_provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        assert root == "azure-subscription"
+        assert limit == 1_000
+        return await _provider(scope, depth, link_types)
+
+    async def health_provider(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del lookback_seconds, progress_observer
+        raise AssertionError("specific inventory request must not use subscription health")
+
+    backend = RecordingBackend()
+    tools = InventoryChatTools(subscription_provider)
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(health_provider, fallback=tools),
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "prompt": "지금 구독에서 중지된 디비가 있는지 확인해봐",
+            "view_context": {
+                "routeId": "agents",
+                "facts": [{"key": "status", "value": "in-progress"}],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert done["verification"]["reason_code"] == "inventory_snapshot_grounded"
+    assert "postgres-data" in done["answer"]
+    assert "stopped" in done["answer"]
+    assert "sql-app" not in done["answer"]
+    assert '"branch_kind": "agent"' not in response.text
+    assert '"branch_kind": "public_web"' not in response.text
+    assert "event: activity" in response.text
+    assert '"tool": "query_inventory"' in response.text
+    assert '"command": "query_inventory --scope <server-owned> --query <redacted>"' in response.text
+    assert '"redacted": true' in response.text
+    activity = _stream_event(response.text, "activity")
+    assert activity is not None
+    execution = activity["execution"]
+    assert isinstance(execution, dict)
+    output = json.loads(execution["output"])
+    assert output == {"matched_count": 1, "status": "matched", "total_resources": 13}
+    assert backend.calls == 0
+
+
 def test_semantic_inventory_plan_executes_verified_long_tail_predicate() -> None:
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:
@@ -1273,8 +1368,12 @@ def _score_inventory_answer(
 
 
 def _inventory_done_event(body: str) -> dict[str, Any] | None:
+    return _stream_event(body, "done")
+
+
+def _stream_event(body: str, event_name: str) -> dict[str, Any] | None:
     for block in body.split("\n\n"):
-        if not block.startswith("event: done\n"):
+        if not block.startswith(f"event: {event_name}\n"):
             continue
         data = next(line[6:] for line in block.splitlines() if line.startswith("data: "))
         payload = json.loads(data)

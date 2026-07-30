@@ -21,7 +21,7 @@ _RESOURCE_SUBJECT: Final = re.compile(
     r"storage accounts?|databases?|dbs?|postgres(?:ql)?|sql databases?|"
     r"kubernetes clusters?|vnets?|"
     r"virtual networks?|managed identit(?:y|ies)|key vaults?|resource groups?|public ips?|"
-    r"nsgs?)\b|Azure\s*리소스|인벤토리|가상\s*머신|스토리지\s*계정|데이터베이스|"
+    r"nsgs?)\b|Azure\s*리소스|인벤토리|가상\s*머신|스토리지\s*계정|데이터베이스|디비|"
     r"쿠버네티스|클러스터|가상\s*네트워크|관리형\s*ID|키\s*볼트|리소스\s*그룹|"
     r"공인\s*IP|네트워크\s*보안\s*그룹|리소스",
     re.IGNORECASE,
@@ -109,8 +109,8 @@ _GENERIC_PREFIXES: Final = frozenset(
 _TYPE_ALIASES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("compute.vm", ("virtual machine", "virtual machines", " vm ", " vms ", "가상 머신")),
     ("object-storage", ("storage account", "storage accounts", "스토리지 계정")),
-    ("postgresql-server", ("postgres", "postgresql", "postgres server", " db ")),
-    ("sql-database", ("sql database", "sql databases", "데이터베이스", " db ")),
+    ("postgresql-server", ("postgres", "postgresql", "postgres server", " db ", "디비")),
+    ("sql-database", ("sql database", "sql databases", "데이터베이스", " db ", "디비")),
     ("kubernetes-cluster", ("aks", "kubernetes cluster", "쿠버네티스", "클러스터")),
     ("network.vnet", ("vnet", "virtual network", "virtual networks", "가상 네트워크")),
     ("managed-identity", ("managed identity", "managed identities", "관리형 id")),
@@ -154,6 +154,12 @@ def is_inventory_question(prompt: str) -> bool:
         and (_RESOURCE_SUBJECT.search(prompt) or _RESOURCE_TOKEN.search(prompt))
         and _READ_MARKER.search(prompt)
     )
+
+
+def is_specific_inventory_question(prompt: str) -> bool:
+    """Return whether an inventory read names at least one concrete resource type."""
+
+    return is_inventory_question(prompt) and bool(_resource_types(prompt, ()))
 
 
 def compile_inventory_query(

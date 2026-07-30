@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
+from fdai.delivery.read_api.routes.chat_inventory_compiler import is_specific_inventory_question
 from fdai.delivery.read_api.routes.chat_system_health import ChatToolResolver
 
 _SCOPE: Final = re.compile(r"\b(?:azure\s+)?subscriptions?\b|구독", re.IGNORECASE)
@@ -145,6 +146,8 @@ class SubscriptionHealthChatTools:
 
 
 def needs_subscription_health(prompt: str) -> bool:
+    if is_specific_inventory_question(prompt):
+        return False
     asks_for_health = bool(
         (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
     )

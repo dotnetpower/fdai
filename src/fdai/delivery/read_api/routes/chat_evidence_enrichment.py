@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import re
+import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from datetime import UTC, datetime
 from inspect import Parameter, signature
 from typing import Any, Protocol
 
@@ -417,7 +420,13 @@ async def _with_tool_evidence(
     read_source_question = needs_read_source_evidence(prompt)
     if (
         resolver is None
-        or ("_screen_scope" in enriched and not explicit_command)
+        or (
+            "_screen_scope" in enriched
+            and not explicit_command
+            and not inventory_question
+            and not subscription_health_question
+            and not read_source_question
+        )
         or (
             not explicit_command
             and not inventory_question
@@ -427,6 +436,8 @@ async def _with_tool_evidence(
         )
     ):
         return enriched
+    started_at = datetime.now(UTC)
+    started = time.monotonic()
     progressive = getattr(resolver, "resolve_with_progress", None)
     evidence = (
         await progressive(
@@ -437,6 +448,14 @@ async def _with_tool_evidence(
         if progress_observer is not None and callable(progressive)
         else await resolver.resolve(prompt, principal_id=principal_id)
     )
+    if evidence is not None and progress_observer is not None:
+        execution_event = _tool_execution_progress_event(
+            evidence,
+            started_at=started_at,
+            duration_ms=max(0, round((time.monotonic() - started) * 1_000)),
+        )
+        if execution_event is not None:
+            await progress_observer(execution_event)
     if evidence is not None:
         if explicit_command or evidence.get("tool") in {
             "describe_read_sources",
@@ -451,6 +470,59 @@ async def _with_tool_evidence(
         else:
             enriched["_tool_evidence"] = dict(evidence)
     return enriched
+
+
+def _tool_execution_progress_event(
+    evidence: Mapping[str, Any],
+    *,
+    started_at: datetime,
+    duration_ms: int,
+) -> dict[str, object] | None:
+    tool = evidence.get("tool")
+    commands = {
+        "query_inventory": "query_inventory --scope <server-owned> --query <redacted>",
+        "query_subscription_health": "query_subscription_health --scope <server-owned>",
+    }
+    if not isinstance(tool, str) or tool not in commands:
+        return None
+    result = evidence.get("result")
+    if not isinstance(result, Mapping):
+        return None
+    result_status = str(result.get("status") or "unavailable")
+    completed = result_status in {"matched", "partial", "none", "ambiguous"}
+    summary: dict[str, object] = {"status": result_status}
+    for key in (
+        "matched_count",
+        "total_resources",
+        "resource_count",
+        "metric_checked",
+        "metric_unavailable",
+    ):
+        value = result.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            summary[key] = value
+    completed_at = datetime.now(UTC)
+    return {
+        "event": "activity",
+        "activity_id": f"{tool}-execution",
+        "kind": "read.execution",
+        "status": "completed" if completed else "unavailable",
+        "label": "Inspect server-owned read evidence",
+        "completed": 1 if completed else 0,
+        "total": 1,
+        "authority": str(evidence.get("authority") or "server_read_model"),
+        "observed_at": completed_at.isoformat(),
+        "execution": {
+            "tool": tool,
+            "command": commands[tool],
+            "redacted": True,
+            "output": json.dumps(summary, sort_keys=True, separators=(",", ":")),
+            "exit_code": 0 if completed else None,
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+            "duration_ms": duration_ms,
+        },
+    }
 
 
 def _is_explicit_tool_command(prompt: str) -> bool:

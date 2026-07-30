@@ -78,6 +78,10 @@ def test_generic_service_outage_question_uses_subscription_health() -> None:
     assert needs_subscription_health("서비스 장애 나고 있는게 있어?")
 
 
+def test_specific_subscription_inventory_question_skips_health_sweep() -> None:
+    assert not needs_subscription_health("지금 구독에서 중지된 디비가 있는지 확인해봐")
+
+
 def test_partial_subscription_health_answer_fails_closed() -> None:
     backend = _Backend()
     app = Starlette(
@@ -260,9 +264,12 @@ def test_subscription_health_stream_emits_activity_and_milestones() -> None:
 
     assert response.status_code == 200
     body = response.text
-    assert body.count("event: activity") == 3
+    assert body.count("event: activity") == 4
     assert body.count("event: milestone") == 2
     assert body.index("event: activity") < body.index("event: done")
     assert '"activity_id": "inventory"' in body
+    assert '"tool": "query_subscription_health"' in body
+    assert '"command": "query_subscription_health --scope <server-owned>"' in body
+    assert '"redacted": true' in body
     assert '"message_id": "subscription-inventory-completed"' in body
     assert backend.calls == 0

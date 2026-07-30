@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 55efc7f0e3cfae8f9d375e0ba8c393186d3771d5
-translation_revised: 2026-07-30
+translation_source_sha: 4400bfaa308f91dd1698e4546faf628af8aed8b8
+translation_revised: 2026-07-31
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -147,7 +147,9 @@ resource-group allowlist를 operator text로 바꿀 수 없습니다.
 Deterministic local inventory intent는 semantic plan이 public web을 선택했더라도 rerun에서 local로
 유지합니다. 여기에는 `중지된 db` 같은 구어체 database state filter도 포함되며 server-owned
 inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 않습니다. 명시적인 web-search
-표현만 예외입니다. Status facet은 선택된 resource type 범위에 유지되므로 AKS 질문이 VM status를
+표현만 예외입니다. 명시적인 subscription-scoped inventory 질문은 새로운 server-owned cross-screen
+read이므로 관련 없는 current-screen fact가 이를 대체하거나 차단할 수 없습니다. Status facet은 선택된
+resource type 범위에 유지되므로 AKS 질문이 VM status를
 가져오거나 요청한 state가 관측되지 않았을 때 조용히 넓어지지 않습니다. 명시적인 name-list 표현은
 structured evidence를 제거하지 않고 presentation만 matched name으로 좁힙니다. Partial AKS cluster
 inventory는 cluster 내부 Deployment 또는 Pod의 proof가 되지 않습니다.

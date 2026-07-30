@@ -145,7 +145,9 @@ configured subscription or resource-group allowlist with operator text.
 A deterministic local inventory intent remains local during a rerun even when a semantic plan
 selected public web. This includes colloquial database state filters such as `stopped db`; they
 retain the server-owned inventory branch and don't start agent or public-web branches. Explicit
-web-search wording is the only exception. Status facets remain scoped to the selected resource
+web-search wording is the only exception. An explicit subscription-scoped inventory question is a
+new server-owned cross-screen read, so unrelated current-screen facts cannot replace or block it.
+Status facets remain scoped to the selected resource
 type, so an AKS question cannot borrow a VM status or silently widen when the requested state is
 unobserved. Explicit name-list wording narrows presentation to matched names without dropping the
 structured evidence. Partial AKS cluster inventory never becomes proof of an in-cluster Deployment
