@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: c7f814da0c6aea94fb4f1a9de8da3c33baff75f5
-translation_revised: 2026-07-22
+translation_source_sha: e8f0ae932ff427a9e85be4aebfd5dbbf9bdd17b5
+translation_revised: 2026-07-31
 ---
 
 # Execution 모델
@@ -456,7 +456,9 @@ Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance
 - Executor 가 substrate API 를 직접 호출 (Azure ARM, kubectl,
   `src/fdai/delivery/` 아래 해당 delivery adapter 를 통한 Redis).
 - `auto` 결정 시, call 이 HIL 없이 진행; ActionType 의 `stop_conditions`
-  와 `preconditions` 가 call 전후로 executor 에 의해 enforce.
+  와 `preconditions` 가 call 전후로 executor 에 의해 enforce. Adapter는 모든
+  threshold, window, seconds, count parameter를 포함한 complete ordered
+  stop-condition tuple을 받으며 singular string은 compatibility shorthand로만 유지.
 - `hil` 결정 시, executor 가 HIL item 을 enqueue (PR-manual 큐와 동일
   하지만 item 에 `mutation_target=direct` 로); approver 가 콘솔로
   accept; 그 후 executor 가 dispatch.
@@ -623,7 +625,8 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
   execution result를 기록한 뒤에만 in-memory dedupe cache를 채우므로 transient durable
   write failure는 retryable 상태로 남습니다.
 - `auto` 결정 시, HIL 없이 call 진행; ActionType 의 `preconditions` 와
-  `stop_conditions` 를 executor 가 enforce.
+  `stop_conditions` 를 executor 가 enforce. Tool adapter는 첫 condition name만이
+  아니라 authored parameter를 모두 포함한 complete ordered stop-condition tuple을 받음.
 - `hil` 결정 시, executor 가 액션을 park 하고 `direct_api` 와 동일한 HIL
   왕복 (§5.5) 으로 승인 후 resume.
 - Rollback 은 ActionType 의 `rollback_contract` 로부터 - 보통

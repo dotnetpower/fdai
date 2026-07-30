@@ -216,7 +216,7 @@ domain agents consume those canonical Events before publishing their owned advis
 
 | Package | Purpose | Source |
 |---------|---------|--------|
-| contracts | Cross-package Pydantic contracts, including optional ObjectType lifecycle criteria | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
+| contracts | Cross-package Pydantic contracts, including ObjectType lifecycle criteria and shared structured stop-condition value objects used by ActionType declarations and runtime Actions | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
 | ontology | Domain ontology (ObjectType / LinkType / ActionType) | [src/fdai/shared/ontology/](../../../src/fdai/shared/ontology/) |
 | providers | Provider Protocols including `ExecutionBackend`, non-cached ephemeral typed-command output with bounded diagnostic receipts, strictly decoded, count-, character-, and secret-scanned durable channel-neutral handoff/execution activities, a process-local EventBus with serialized same-group leases and independent group progress, bounded SSE, isolated programmatic pipeline runners, [access-scoped conversation search](../interfaces/conversation-search.md), and [structured behavior knowledge](../interfaces/behavior-knowledge.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
 | config | Config loader, schema, and shared runtime activation flags | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |

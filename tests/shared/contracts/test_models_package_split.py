@@ -130,7 +130,13 @@ def test_action_model_is_frozen() -> None:
         action_type="noop",
         target_resource_ref="rg-a",
         operation=models.Operation.TAG,
-        stop_condition="never",
+        stop_condition="provider_api_error_streak",
+        stop_conditions=[
+            models.ActionStopCondition(
+                kind=models.StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            )
+        ],
         rollback_ref=models.RollbackRef(kind=models.RollbackKind.PR_REVERT),
         blast_radius=models.BlastRadius(scope=models.BlastRadiusScope.RESOURCE),
         mode=models.Mode.SHADOW,
@@ -154,7 +160,13 @@ def test_action_model_forbids_unknown_fields() -> None:
             action_type="noop",
             target_resource_ref="rg-a",
             operation=models.Operation.TAG,
-            stop_condition="never",
+            stop_condition="provider_api_error_streak",
+            stop_conditions=[
+                models.ActionStopCondition(
+                    kind=models.StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                    count=3,
+                )
+            ],
             rollback_ref=models.RollbackRef(kind=models.RollbackKind.PR_REVERT),
             blast_radius=models.BlastRadius(scope=models.BlastRadiusScope.RESOURCE),
             mode=models.Mode.SHADOW,
@@ -191,11 +203,12 @@ def test_no_split_file_exceeds_400_loc() -> None:
 
 
 _ALLOWED_INTRA_MODEL_IMPORTS: dict[str, set[str]] = {
-    "action": {"_base", "enums"},
+    "action": {"_base", "enums", "safety"},
     "event": {"_base", "enums"},
     "incident": {"_base", "enums"},
     "rule": {"_base", "enums"},
-    "ontology": {"_base", "enums"},
+    "ontology": {"_base", "enums", "safety"},
+    "safety": {"_base", "enums"},
     "workflow": {"_base", "enums", "ontology"},  # Workflow -> PromotionGate
 }
 

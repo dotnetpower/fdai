@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8a922cace0a6301d0b11e023a2bb72467b3947bc
+translation_source_sha: f7bf0efc96a661f1f3d6d0904045f8d2cbdfe519
 translation_revised: 2026-08-13
 ---
 
@@ -74,7 +74,7 @@ fdai/
 │   │   ├── control_loop/       # P1 파이프라인: `orchestrator.py` (ControlLoop 조립), `_process.py` (순서가 보존된 이벤트 단계), `_fallback.py` (T1/T2), `_execution.py` (거버넌스/리스크/디스패치), `_rca.py` (shadow RCA), `_boundary.py` (감사/알림/stage 어댑터), `models.py` (typed result), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (순수 유틸), `stages/` (Stage Protocol 스캐폴드)
 │   │   └── ontology_explorer.py    # 로드된 ObjectType / LinkType 카탈로그를 결정론적 Mermaid 로 렌더
 │   ├── shared/                # 크로스컷팅; core/ 로부터 import 금지
-│   │   ├── contracts/          # models.py + registry.py + validation.py + JSON 스키마들
+│   │   ├── contracts/          # domain별 model + 공유 safety value object + registry.py + validation.py + JSON 스키마들
 │   │   │   ├── event/          # event/schema.json
 │   │   │   ├── action/         # action/schema.json
 │   │   │   ├── response-outcome/ # expected-versus-observed action effect outcome

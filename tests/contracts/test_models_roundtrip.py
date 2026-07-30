@@ -16,6 +16,7 @@ from fdai.shared.contracts.models import (
     Action,
     ActionCategory,
     ActionInterface,
+    ActionStopCondition,
     Autonomy,
     BlastRadius,
     BlastRadiusScope,
@@ -39,6 +40,7 @@ from fdai.shared.contracts.models import (
     Rule,
     RuleSource,
     Severity,
+    StopConditionKind,
     TierCeiling,
     TriggerKind,
     TriggerKindDecl,
@@ -99,7 +101,13 @@ def test_action_model_defaults_shadow_when_constructed_from_code() -> None:
         action_type="tag_missing_owner",
         target_resource_ref="resource:example/rg/example",
         operation=Operation.TAG,
-        stop_condition="target_already_tagged",
+        stop_condition="provider_api_error_streak",
+        stop_conditions=[
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            )
+        ],
         rollback_ref=RollbackRef(kind=RollbackKind.PR_REVERT, reference="example-pr-99"),
         blast_radius=BlastRadius(scope=BlastRadiusScope.RESOURCE, count=1, rate_per_minute=5),
         mode=Mode.SHADOW,

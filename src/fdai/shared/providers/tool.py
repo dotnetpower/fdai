@@ -48,7 +48,7 @@ from enum import StrEnum
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import ActionStopCondition, Mode
 
 
 class ToolCallOutcome(StrEnum):
@@ -161,6 +161,9 @@ class ToolCallRequest:
 
     mode: Mode = Mode.SHADOW
     """New actions ship shadow-first."""
+
+    stop_conditions: tuple[ActionStopCondition, ...] = ()
+    """Complete ordered halt contract copied from the ActionType."""
 
     metadata: Mapping[str, str] = field(default_factory=dict)
     """Optional adapter-neutral k/v pairs (correlation id, locale, ...).

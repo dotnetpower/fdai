@@ -199,6 +199,12 @@ LinkType registry. Unknown names block startup. A precondition kind also carries
 parameters defined for that kind; missing required parameters and unrelated parameters are
 rejected before an action can reach the risk gate.
 
+Runtime `Action` records preserve the complete ordered `stop_conditions` list, including
+`threshold`, `window_seconds`, `seconds`, and `count`. The singular `stop_condition` field remains
+only as a compatibility shorthand and must equal the first structured condition's `kind`. The
+Action JSON Schema requires a non-empty structured list, and direct-API and tool-call requests plus
+audit entries carry the same list without flattening it.
+
 The catalog backfill has completed with:
 
 - `trigger_kind.kind = rule_violation`

@@ -69,7 +69,7 @@ fdai/
 │   │   ├── control_loop/       # P1 pipeline: `orchestrator.py` (ControlLoop composition), `_process.py` (ordered event stages), `_fallback.py` (T1/T2), `_execution.py` (governance/risk/dispatch), `_rca.py` (shadow RCA), `_boundary.py` (audit/notification/stage adapters), `models.py` (typed results), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (pure utilities), and `stages/` (Stage Protocol scaffold)
 │   │   └── ontology_explorer.py    # deterministic Mermaid renderer for the loaded ObjectType / LinkType catalog
 │   ├── shared/                # cross-cutting; MUST NOT import from core/
-│   │   ├── contracts/          # models.py + registry.py + validation.py + JSON Schemas
+│   │   ├── contracts/          # per-domain models + shared safety value objects + registry.py + validation.py + JSON Schemas
 │   │   │   ├── event/          # event/schema.json
 │   │   │   ├── action/         # action/schema.json
 │   │   │   ├── response-outcome/ # expected-versus-observed action-effect outcome

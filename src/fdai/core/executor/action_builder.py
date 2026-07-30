@@ -99,6 +99,7 @@ class ActionBuilder:
             operation=action_type.operation,
             params=params,
             stop_condition=stop_condition,
+            stop_conditions=list(action_type.stop_conditions),
             rollback_ref=rollback,
             blast_radius=blast_radius,
             mode=Mode.SHADOW,
@@ -152,6 +153,7 @@ class ActionBuilder:
             operation=action_type.operation,
             params=dict(candidate.params),
             stop_condition=_derive_stop_condition(action_type),
+            stop_conditions=list(action_type.stop_conditions),
             rollback_ref=RollbackRef(
                 kind=action_type.rollback_contract,
                 reference=None,
@@ -224,6 +226,7 @@ class ActionBuilder:
                 operation=action_type.operation,
                 params=dict(params),
                 stop_condition=_derive_stop_condition(action_type),
+                stop_conditions=list(action_type.stop_conditions),
                 rollback_ref=RollbackRef(kind=action_type.rollback_contract, reference=None),
                 blast_radius=_derive_blast_radius(action_type),
                 mode=Mode.SHADOW,

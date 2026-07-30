@@ -35,6 +35,7 @@ from fdai.core.hil_resume import (
 from fdai.core.oncall import OnCallResolver
 from fdai.shared.contracts.models import (
     Action,
+    ActionStopCondition,
     BlastRadius,
     BlastRadiusScope,
     Category,
@@ -50,6 +51,7 @@ from fdai.shared.contracts.models import (
     Rule,
     RuleSource,
     Severity,
+    StopConditionKind,
 )
 from fdai.shared.providers.hil_channel import HilChannelError, HilDecision
 from fdai.shared.providers.oncall_schedule import OnCallShift, StaticOnCallSchedule
@@ -111,7 +113,13 @@ def _action(
         target_resource_ref=target,
         operation=Operation.TAG,
         params={"tag_value": "team-a"},
-        stop_condition="target_already_tagged",
+        stop_condition="provider_api_error_streak",
+        stop_conditions=[
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            )
+        ],
         rollback_ref=RollbackRef(kind=RollbackKind.PR_REVERT, reference="pr-99"),
         blast_radius=BlastRadius(scope=BlastRadiusScope.RESOURCE, count=1, rate_per_minute=5),
         mode=Mode.SHADOW,

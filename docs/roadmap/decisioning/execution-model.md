@@ -466,7 +466,9 @@ governance changes.
   via the corresponding delivery adapter under `src/fdai/delivery/`).
 - On `auto` decision, the call proceeds without HIL; the ActionType's
   `stop_conditions` and `preconditions` are enforced by the executor
-  before and during the call.
+  before and during the call. The adapter receives the complete ordered
+  stop-condition tuple, including every threshold, window, seconds, and count
+  parameter; the singular string is only a compatibility shorthand.
 - On `hil` decision, the executor enqueues a HIL item (identical to
   the PR-manual queue but with `mutation_target=direct` in the item);
   an approver accepts via the console; the executor then dispatches.
@@ -642,7 +644,9 @@ router is an optional seam: absent, the loop behaves exactly as before.
   durable execution result is recorded, so a transient durable-write failure
   remains retryable.
 - On `auto` decision, the call proceeds without HIL; the ActionType's
-  `preconditions` and `stop_conditions` are enforced by the executor.
+  `preconditions` and `stop_conditions` are enforced by the executor. The tool
+  adapter receives the complete ordered stop-condition tuple with all authored
+  parameters rather than only the first condition name.
 - On `hil` decision, the executor parks the action and resumes it on
   approval through the same HIL round-trip as `direct_api` (§5.5).
 - Rollback comes from the ActionType's `rollback_contract` - usually

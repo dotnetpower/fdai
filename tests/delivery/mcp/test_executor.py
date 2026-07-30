@@ -384,11 +384,13 @@ async def test_shadow_action_through_core_executor_makes_no_network_call() -> No
     )
     from fdai.shared.contracts.models import (
         Action,
+        ActionStopCondition,
         BlastRadius,
         BlastRadiusScope,
         Operation,
         RollbackKind,
         RollbackRef,
+        StopConditionKind,
     )
     from fdai.shared.providers.testing import InMemoryStateStore
 
@@ -416,7 +418,13 @@ async def test_shadow_action_through_core_executor_makes_no_network_call() -> No
         target_resource_ref="ticket-queue",
         operation=Operation.CREATE,
         params={"summary": "disk full"},
-        stop_condition="tool_time_box_exceeded",
+        stop_condition="time_box_exceeded_seconds",
+        stop_conditions=[
+            ActionStopCondition(
+                kind=StopConditionKind.TIME_BOX_EXCEEDED_SECONDS,
+                seconds=60,
+            )
+        ],
         rollback_ref=RollbackRef(kind=RollbackKind.STATE_FORWARD_ONLY, reference="close-ticket"),
         blast_radius=BlastRadius(scope=BlastRadiusScope.RESOURCE, count=1, rate_per_minute=5),
         mode=Mode.SHADOW,

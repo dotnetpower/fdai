@@ -112,7 +112,6 @@ from .incident import Incident
 from .ontology import (
     ActionBlastRadius,
     ActionPrecondition,
-    ActionStopCondition,
     CeilingByTier,
     LifecycleCriterion,
     LifecycleDeduplication,
@@ -142,6 +141,7 @@ from .rule import (
     SubmissionCriterion,
     SubmissionCriterionKind,
 )
+from .safety import ActionStopCondition
 from .workflow import Workflow, WorkflowStep, WorkflowTrigger
 
 __all__ = [

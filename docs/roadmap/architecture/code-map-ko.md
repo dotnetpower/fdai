@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 303d382c2ccf2bc98846c5655421921db7f91902
+translation_source_sha: df07d26fe540fab3a0abf8b74250393237c985ad
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -220,7 +220,7 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 
 | 패키지 | 목적 | 소스 |
 |--------|------|------|
-| contracts | optional ObjectType lifecycle 기준을 포함한 크로스 패키지 Pydantic 계약 | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
+| contracts | ObjectType lifecycle 기준과 ActionType declaration 및 runtime Action이 공유하는 structured stop-condition value object를 포함한 크로스 패키지 Pydantic 계약 | [src/fdai/shared/contracts/](../../../src/fdai/shared/contracts/) |
 | ontology | 도메인 온톨로지 (ObjectType / LinkType / ActionType) | [src/fdai/shared/ontology/](../../../src/fdai/shared/ontology/) |
 | providers | `ExecutionBackend`, bounded diagnostic receipt와 분리되고 cache되지 않는 ephemeral typed-command output, strict decode와 count/character bound 및 secret scan이 있는 durable channel-neutral handoff/execution activity를 포함한 Provider Protocol, same-group lease를 직렬화하고 독립 group 진행을 보장하는 process-local EventBus, bounded SSE, isolated programmatic pipeline runner, [access-scoped conversation search](../interfaces/conversation-search-ko.md), [structured behavior knowledge](../interfaces/behavior-knowledge-ko.md) | [src/fdai/shared/providers/](../../../src/fdai/shared/providers/) |
 | config | 설정 로더, 스키마, shared runtime activation flag | [src/fdai/shared/config/](../../../src/fdai/shared/config/) |

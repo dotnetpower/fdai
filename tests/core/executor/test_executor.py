@@ -31,6 +31,7 @@ from fdai.core.executor import (
 )
 from fdai.shared.contracts.models import (
     Action,
+    ActionStopCondition,
     BlastRadius,
     BlastRadiusScope,
     Category,
@@ -46,6 +47,7 @@ from fdai.shared.contracts.models import (
     Rule,
     RuleSource,
     Severity,
+    StopConditionKind,
 )
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
@@ -96,7 +98,7 @@ def _action(
     rate: int | None = 5,
     citing_rules: tuple[str, ...] = ("object-storage.owner-tag.required",),
     params: dict[str, Any] | None = None,
-    stop_condition: str = "target_already_tagged",
+    stop_condition: str = "provider_api_error_streak",
 ) -> Action:
     return Action(
         schema_version="1.0.0",
@@ -108,6 +110,12 @@ def _action(
         operation=Operation.TAG,
         params=params or {"tag_value": "team-a"},
         stop_condition=stop_condition,
+        stop_conditions=[
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            )
+        ],
         rollback_ref=RollbackRef(kind=RollbackKind.PR_REVERT, reference="pr-99"),
         blast_radius=BlastRadius(
             scope=BlastRadiusScope.RESOURCE, count=count, rate_per_minute=rate

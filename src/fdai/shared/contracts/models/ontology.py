@@ -30,9 +30,9 @@ from .enums import (
     PreconditionKind,
     PropertyType,
     RollbackKind,
-    StopConditionKind,
     TriggerKind,
 )
+from .safety import ActionStopCondition
 
 
 class PropertyDecl(_Base):
@@ -131,14 +131,6 @@ class ActionPrecondition(_Base):
     link_type: str | None = None
     property: str | None = None
     tag: str | None = None
-
-
-class ActionStopCondition(_Base):
-    kind: StopConditionKind
-    threshold: float | None = None
-    window_seconds: Annotated[int, Field(ge=1)] | None = None
-    seconds: Annotated[int, Field(ge=1)] | None = None
-    count: Annotated[int, Field(ge=1)] | None = None
 
 
 class ActionBlastRadius(_Base):

@@ -179,13 +179,14 @@ def test_graph_derived_blast_radius_carries_max_count() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_stop_condition_uses_first_action_type_stop_kind() -> None:
+def test_stop_conditions_preserve_complete_action_type_contract() -> None:
     rule = _rule("r1", "remediate.tag-add")
     builder = ActionBuilder(action_types_by_name=_shipped_action_types())  # type: ignore[arg-type]
     action = builder.build_from_finding(event=_event(), finding=_finding(rule), rule=rule)
     # `remediate.tag-add`'s first stop_condition is
     # `kind: provider_api_error_streak`.
     assert action.stop_condition == "provider_api_error_streak"
+    assert action.stop_conditions == _shipped_action_types()["remediate.tag-add"].stop_conditions
 
 
 def test_action_type_without_stop_conditions_raises(tmp_path: Path) -> None:

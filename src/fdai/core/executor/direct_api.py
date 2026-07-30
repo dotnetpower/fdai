@@ -425,6 +425,9 @@ class DirectApiShadowExecutor:
             "rollback_kind": action.rollback_ref.kind.value,
             "rollback_reference": action.rollback_ref.reference,
             "stop_condition": action.stop_condition,
+            "stop_conditions": [
+                condition.model_dump(mode="json") for condition in action.stop_conditions
+            ],
             "blast_radius": {
                 "scope": action.blast_radius.scope.value,
                 "count": action.blast_radius.count,
@@ -455,6 +458,7 @@ def _build_direct_api_request(action: Action) -> DirectApiRequest:
         arguments=dict(action.params),
         labels=(("enforce",) if action.mode is Mode.ENFORCE else ("shadow",)),
         mode=action.mode,
+        stop_conditions=tuple(action.stop_conditions),
         metadata={
             "audit_ref": f"action:{action.action_id}",
             "stop_condition": action.stop_condition,

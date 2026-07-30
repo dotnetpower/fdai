@@ -31,12 +31,14 @@ from fdai.core.executor import (
 )
 from fdai.shared.contracts.models import (
     Action,
+    ActionStopCondition,
     BlastRadius,
     BlastRadiusScope,
     Mode,
     Operation,
     RollbackKind,
     RollbackRef,
+    StopConditionKind,
 )
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
@@ -61,7 +63,13 @@ def _action(
     rate: int | None = 5,
     citing_rules: tuple[str, ...] = ("tool.generate-pdf",),
     params: dict[str, Any] | None = None,
-    stop_condition: str = "render_time_box_exceeded",
+    stop_condition: str = "time_box_exceeded_seconds",
+    stop_conditions: tuple[ActionStopCondition, ...] = (
+        ActionStopCondition(
+            kind=StopConditionKind.TIME_BOX_EXCEEDED_SECONDS,
+            seconds=120,
+        ),
+    ),
 ) -> Action:
     return Action(
         schema_version="1.0.0",
@@ -73,6 +81,7 @@ def _action(
         operation=Operation.CREATE,
         params=params or {"report_kind": "resilience_summary", "window_days": 30},
         stop_condition=stop_condition,
+        stop_conditions=list(stop_conditions),
         rollback_ref=RollbackRef(kind=RollbackKind.STATE_FORWARD_ONLY, reference="delete-artifact"),
         blast_radius=BlastRadius(
             scope=BlastRadiusScope.RESOURCE, count=count, rate_per_minute=rate
@@ -146,6 +155,33 @@ class TestHappyPath:
         assert request.arguments == {"report_kind": "cost_report", "window_days": 7}
         assert request.action_type_name == "tool.generate-pdf"
         assert request.tool_ref == "document:reports/resilience/2026-07"
+
+    @pytest.mark.asyncio
+    async def test_structured_stop_conditions_reach_adapter_and_audit(self) -> None:
+        conditions = (
+            ActionStopCondition(
+                kind=StopConditionKind.TIME_BOX_EXCEEDED_SECONDS,
+                seconds=120,
+            ),
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=2,
+            ),
+        )
+        exec_, adapter, audit = _executor()
+
+        await exec_.execute(
+            action=_action(
+                stop_condition=conditions[0].kind.value,
+                stop_conditions=conditions,
+            )
+        )
+
+        assert adapter.records[0].stop_conditions == conditions
+        entry = _unwrap(list(audit.audit_entries)[0])
+        assert entry["stop_conditions"] == [
+            condition.model_dump(mode="json") for condition in conditions
+        ]
 
     @pytest.mark.asyncio
     async def test_successful_receipt_observer_runs_before_terminal_success(self) -> None:

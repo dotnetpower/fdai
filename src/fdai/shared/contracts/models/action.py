@@ -12,10 +12,11 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ._base import IdempotencyKey, SemVer, _Base
 from .enums import BlastRadiusScope, Mode, Operation, RollbackKind
+from .safety import ActionStopCondition
 
 
 class RollbackRef(_Base):
@@ -41,11 +42,18 @@ class Action(_Base):
     operation: Operation
     params: dict[str, Any] = Field(default_factory=dict)
     stop_condition: Annotated[str, Field(min_length=1)]
+    stop_conditions: Annotated[list[ActionStopCondition], Field(min_length=1)]
     rollback_ref: RollbackRef
     blast_radius: BlastRadius
     mode: Mode
     citing_rules: Annotated[list[str], Field(min_length=1)]
     created_at: datetime
+
+    @model_validator(mode="after")
+    def _stop_condition_shorthand_matches_contract(self) -> Action:
+        if self.stop_conditions and self.stop_condition != self.stop_conditions[0].kind.value:
+            raise ValueError("stop_condition MUST match the first structured stop condition")
+        return self
 
 
 __all__ = ["Action", "BlastRadius", "RollbackRef"]

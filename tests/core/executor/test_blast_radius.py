@@ -13,12 +13,14 @@ from uuid import uuid4
 from fdai.core.executor.blast_radius import blast_radius_refusal
 from fdai.shared.contracts.models import (
     Action,
+    ActionStopCondition,
     BlastRadius,
     BlastRadiusScope,
     Mode,
     Operation,
     RollbackKind,
     RollbackRef,
+    StopConditionKind,
 )
 
 
@@ -43,7 +45,13 @@ def _action(*, count: int | None, rate: int | None = None) -> Action:
             count=count,
             rate_per_minute=rate,
         ),
-        stop_condition="target_not_healthy",
+        stop_condition="provider_api_error_streak",
+        stop_conditions=[
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            )
+        ],
         rollback_ref=RollbackRef(kind=RollbackKind.SCRIPTED, reference="rb-99"),
         mode=Mode.SHADOW,
         citing_rules=["ops.restart-service"],

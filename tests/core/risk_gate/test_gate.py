@@ -24,6 +24,7 @@ from fdai.rule_catalog.schema.resource_type import (
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.shared.contracts.models import (
     Action,
+    ActionStopCondition,
     BlastRadius,
     BlastRadiusScope,
     Mode,
@@ -33,6 +34,7 @@ from fdai.shared.contracts.models import (
     RollbackKind,
     RollbackRef,
     Rule,
+    StopConditionKind,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
@@ -84,7 +86,13 @@ def _action(
         target_resource_ref="resource:example/rg/x",
         operation=Operation.TAG,
         params={},
-        stop_condition="target_state_reached",
+        stop_condition="provider_api_error_streak",
+        stop_conditions=[
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            )
+        ],
         rollback_ref=RollbackRef(kind=RollbackKind.PR_REVERT, reference=None),
         blast_radius=BlastRadius(scope=scope, count=count, rate_per_minute=rate),
         mode=Mode.SHADOW,

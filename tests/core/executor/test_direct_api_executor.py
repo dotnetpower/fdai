@@ -32,12 +32,14 @@ from fdai.core.executor import (
 )
 from fdai.shared.contracts.models import (
     Action,
+    ActionStopCondition,
     BlastRadius,
     BlastRadiusScope,
     Mode,
     Operation,
     RollbackKind,
     RollbackRef,
+    StopConditionKind,
 )
 from fdai.shared.providers.direct_api import (
     DirectApiOutcome,
@@ -60,7 +62,13 @@ def _action(
     rate: int | None = 5,
     citing_rules: tuple[str, ...] = ("ops.restart-service",),
     params: dict[str, Any] | None = None,
-    stop_condition: str = "target_not_healthy",
+    stop_condition: str = "provider_api_error_streak",
+    stop_conditions: tuple[ActionStopCondition, ...] = (
+        ActionStopCondition(
+            kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+            count=3,
+        ),
+    ),
 ) -> Action:
     return Action(
         schema_version="1.0.0",
@@ -72,6 +80,7 @@ def _action(
         operation=Operation.RESTART,
         params=params or {"cooldown_seconds": 30},
         stop_condition=stop_condition,
+        stop_conditions=list(stop_conditions),
         rollback_ref=RollbackRef(kind=RollbackKind.SCRIPTED, reference="rb-99"),
         blast_radius=BlastRadius(
             scope=BlastRadiusScope.RESOURCE, count=count, rate_per_minute=rate
@@ -165,6 +174,33 @@ class TestHappyPath:
         assert request.action_type_name == "ops.restart-service"
 
     @pytest.mark.asyncio
+    async def test_structured_stop_conditions_reach_adapter_and_audit(self) -> None:
+        conditions = (
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            ),
+            ActionStopCondition(
+                kind=StopConditionKind.TIME_BOX_EXCEEDED_SECONDS,
+                seconds=60,
+            ),
+        )
+        exec_, adapter, audit = _executor()
+
+        await exec_.execute(
+            action=_action(
+                stop_condition=conditions[0].kind.value,
+                stop_conditions=conditions,
+            )
+        )
+
+        assert adapter.records[0].stop_conditions == conditions
+        entry = _unwrap(list(audit.audit_entries)[0])
+        assert entry["stop_conditions"] == [
+            condition.model_dump(mode="json") for condition in conditions
+        ]
+
+    @pytest.mark.asyncio
     async def test_explicit_enforce_dispatch_forwards_safety_metadata(self) -> None:
         executor, adapter, audit = _enforce_executor()
         result = await executor.execute(action=_action(mode=Mode.ENFORCE))
@@ -175,7 +211,7 @@ class TestHappyPath:
         assert request.labels == ("enforce",)
         assert request.metadata == {
             "audit_ref": f"action:{request.action_id}",
-            "stop_condition": "target_not_healthy",
+            "stop_condition": "provider_api_error_streak",
             "rollback_ref": "scripted:rb-99",
             "max_resources": "1",
         }

@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: a2968b04dd6ccc7f2b095683ffcf77835961598e
+translation_source_sha: dac9ed28b7df607ab238b6c5c4d1466bb739dbc5
 translation_revised: 2026-07-31
 ---
 
@@ -196,6 +196,12 @@ Precondition 매개 변수는 자유 형식 레이블이 아니라 타입이 지
 registry에서 확인합니다. 알 수 없는 이름이 있으면 시작을 차단합니다. 각 precondition kind는
 해당 kind에 정의된 매개 변수만 사용할 수 있으며, 필수 매개 변수가 없거나 관련 없는 매개
 변수가 있으면 액션이 risk gate에 도달하기 전에 차단됩니다.
+
+Runtime `Action` record는 `threshold`, `window_seconds`, `seconds`, `count`를 포함한 전체 ordered
+`stop_conditions` list를 보존합니다. Singular `stop_condition` field는 compatibility shorthand로만
+유지되며 첫 structured condition의 `kind`와 같아야 합니다. Action JSON Schema는 비어 있지 않은
+structured list를 요구하고 direct-API 및 tool-call request와 audit entry는 같은 list를 flatten하지
+않고 전달합니다.
 
 Catalog backfill은 다음 상태로 완료되었습니다:
 
