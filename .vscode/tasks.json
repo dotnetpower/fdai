@@ -144,7 +144,6 @@
       "label": "console: core runtime (Azure transport, local PostgreSQL)",
       "type": "shell",
       "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh core-runtime \"$PWD/.fdai/logs/core-runtime.log\" -- env -u AZURE_CONFIG_DIR FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
-      "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-core-runtime",
@@ -172,7 +171,6 @@
       "label": "console: read API (Local Entra)",
       "type": "shell",
       "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh read-api \"$PWD/.fdai/logs/read-api.log\" -- env -u FDAI_READ_API_DEV_MODE -u FDAI_READ_API_LOCAL_AZURE_CLI PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" FDAI_READ_API_LOCAL_ENTRA=1 FDAI_READ_API_EMBED_PANTHEON=0 FDAI_READ_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273 .venv/bin/python -m uvicorn fdai.delivery.read_api.dev.local:server_app --factory --host 127.0.0.1 --port 8010 --no-access-log",
-      "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-read-api",

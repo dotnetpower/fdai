@@ -323,10 +323,19 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert "--allow-loopback-http" in tasks
     assert core_env["FDAI_RUNTIME_LOCK_FILE"] == "${workspaceFolder}/.fdai/core-runtime.lock"
     assert tasks.count('"instanceLimit": 1') >= 5
+    prepare_task = tasks.split('"label": "console: prepare full stack"', 1)[1].split(
+        '"label": "console: core runtime (Azure transport, local PostgreSQL)"',
+        1,
+    )[0]
+    core_task = tasks.split(
+        '"label": "console: core runtime (Azure transport, local PostgreSQL)"',
+        1,
+    )[1].split('"label": "console: read API (Local Entra)"', 1)[0]
     read_api_task = tasks.split('"label": "console: read API (Local Entra)"', 1)[1].split(
         '"label": "console: frontend (Browser Entra)"',
         1,
     )[0]
+    frontend_task = tasks.split('"label": "console: frontend (Browser Entra)"', 1)[1]
     assert '"reveal": "silent"' in read_api_task
     assert '"focus": false' in read_api_task
     for terminal_group in (
@@ -339,6 +348,16 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert "Application startup complete" in tasks
     assert "Local:\\\\s+http://" in tasks
     assert compound["preLaunchTask"] == "console: prepare full stack"
+    for preparation in (
+        "console: prepare local state",
+        "console: prepare local runtime env",
+        "console: sync local Entra redirects",
+    ):
+        assert preparation in prepare_task
+    assert all(
+        '"dependsOn"' not in standalone_task
+        for standalone_task in (core_task, read_api_task, frontend_task)
+    )
     assert "preLaunchTask" not in configs["Console Web: Core Runtime"]
     assert "preLaunchTask" not in configs["Console Web: Read API"]
     assert configs["Console Web: Read API"]["envFile"].endswith("/.fdai/local-runtime.env")
