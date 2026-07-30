@@ -362,6 +362,7 @@ def _build_control_loop(
         receipt_observer=tool_receipt_observer,
         http_client=http_client,
         metric_provider=container.metric_provider,
+        chaos_catalog_root=catalog_root / "chaos-scenarios",
     )
 
     # Detection-and-explanation seams (observability-and-detection.md).
@@ -383,7 +384,11 @@ def _build_control_loop(
     # grounding gate abstains rather than fabricating.
     rca_coordinator = RcaCoordinator(
         reasoner=rca_reasoner,
-        symptom_index=symptom_index if symptom_index is not None else build_from_promoted(),
+        symptom_index=(
+            symptom_index
+            if symptom_index is not None
+            else build_from_promoted(catalog_root / "chaos-scenarios")
+        ),
         evidence_gatherer=TelemetryEvidenceGatherer(
             log_provider=container.log_query_provider,
             trace_provider=container.trace_query_provider,

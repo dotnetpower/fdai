@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, cast
 
 import httpx
@@ -254,6 +255,7 @@ def _build_tool_executor(
     receipt_observer: ToolReceiptObserver | None = None,
     http_client: httpx.AsyncClient | None = None,
     metric_provider: Any = None,
+    chaos_catalog_root: Path | None = None,
 ) -> ToolCallShadowExecutor | None:
     """Select the tool-call executor for this process.
 
@@ -332,8 +334,16 @@ def _build_tool_executor(
         chaos_signal_writer = PostgresReportSignalStore(
             config=PostgresReportSignalStoreConfig(dsn=state_dsn)
         )
-    all_chaos_scenarios = load_all_chaos_scenarios()
-    promoted_chaos_scenarios = load_promoted_chaos_scenarios()
+    all_chaos_scenarios = (
+        load_all_chaos_scenarios(root=chaos_catalog_root)
+        if chaos_catalog_root is not None
+        else load_all_chaos_scenarios()
+    )
+    promoted_chaos_scenarios = (
+        load_promoted_chaos_scenarios(root=chaos_catalog_root)
+        if chaos_catalog_root is not None
+        else load_promoted_chaos_scenarios()
+    )
     chaos_tool = ChaosExperimentToolExecutor(
         entries=all_chaos_scenarios,
         promoted_ids=frozenset(entry.id for entry in promoted_chaos_scenarios),

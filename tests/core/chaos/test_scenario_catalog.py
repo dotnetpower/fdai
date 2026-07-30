@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 from textwrap import dedent
 
@@ -108,6 +109,19 @@ def test_load_all_includes_collected(tmp_path: pathlib.Path) -> None:
     _write(root, "collected/chaos-mesh", "c", _valid_body("chaos.aks.pod-kill-b"))
     ids = {e.id for e in load_all(root=root)}
     assert ids == {"chaos.aks.pod-kill-a", "chaos.aks.pod-kill-b"}
+
+
+def test_custom_root_uses_its_own_schema(tmp_path: pathlib.Path) -> None:
+    root = _stage_root(tmp_path)
+    schema_path = root / "schema" / "chaos-scenario.schema.json"
+    schema_path.write_text(
+        json.dumps({"type": "object", "required": ["custom_required"]}),
+        encoding="utf-8",
+    )
+    _write(root, "promoted", "scenario", _valid_body())
+
+    with pytest.raises(ScenarioCatalogError, match="custom_required"):
+        load_promoted(root=root)
 
 
 def test_schema_violation_is_hard_error(tmp_path: pathlib.Path) -> None:

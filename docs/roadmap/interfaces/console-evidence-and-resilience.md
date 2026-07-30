@@ -219,13 +219,17 @@ rendered deterministically from typed evidence. Ontology browse requires a targe
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly.
-Agent answers keep Bragi as narrator while displaying the verified specialist as response owner.
+Ordinary delegated answers keep Bragi as narrator while displaying the verified specialist as
+response owner. A dedicated target session instead uses that specialist's verified voice until an
+explicit handoff returns narration to Bragi.
 An agent-targeted Web turn displays that selected specialist from the first provisional token and
 keeps the label stable until terminal delegation either confirms the owner or shows a handoff.
 When an explicit handoff returns the turn to Bragi, the Web labels ownership as
 `specialist -> Bragi` in the reply header and answer-plan row. If the handoff carries no specialist
 answer, deterministic verification returns an unavailable-evidence response and never validates
 narrator prose against unrelated current-screen facts.
+When a selected agent and server-owned operational evidence both resolve, the coordinator retains
+both; deterministic verification still owns incident summaries, absence claims, and causes.
 Bragi completes the T0/T1 owner route once, then the ordinary answer path selects one uniquely
 highest-scoring read tool from that owner. A completed tool result becomes the primary specialist
 answer, and its scoped facts enter the existing agent-evidence manifest. A tie or no match keeps the
@@ -253,11 +257,10 @@ incident and names the required follow-up. Audit and technical activity remain a
 records exist. Root-cause analysis and its dossier become links only after an `rca.*` record exists;
 otherwise the rows state that no evidence-backed hypothesis has been recorded. The RCA route also
 hides its generic audit fallback response when no hypothesis exists, so `incident.members` is never
-presented as a response plan or cause.
-The Trace route leads with an interpretation summary that separates notification escalation,
-response-decision evidence, RCA evidence, and named pipeline stages before showing the raw ordered
-table. Generic correlated activity remains technical history, not a cause claim.
-
+presented as a response plan or cause. The Trace route leads with an interpretation summary that
+separates notification escalation, response-decision evidence, RCA evidence, and named pipeline
+stages before showing the raw ordered table; generic correlated activity remains technical history,
+not a cause claim.
 
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without
@@ -265,12 +268,6 @@ requiring a single incident selection. Model prose cannot change the selected in
 scope, supported cause, collection membership, or absence claim. A source with
 `availability=unavailable` never reports `reachable=true`; unconfigured or unprobed sources use
 `reachable=null`.
-On the Incidents route, a prompt that references the one selected incident by title, correlation
-id, or a phrase such as "this incident" uses that selection as a lookup hint. The server rechecks
-the incident id and correlation id against the authorized read model before answering. Exact
-selected-incident evidence takes precedence over an inventory tool matched only from natural-language
-keywords. The coordinator doesn't start unrelated inventory, agent, or public-web branches for
-that turn; an explicit canonical tool command such as `query_inventory` keeps tool authority.
 Generic recency words such as `latest`, `recent`, or `최신` do not create incident authority by
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the
@@ -321,7 +318,8 @@ cross-origin direct-upload target receives the content headers but never the rea
 Command Deck and pull-direction ChatOps use one channel-neutral progressive conversation model.
 After deterministic scope and authority routing, the coordinator can start eligible independent
 read branches concurrently. A branch is an immutable evidence operation, not a nested narrator
-session and not a direct agent call. Bragi remains the presentation translator. The accountable
+session and not a direct agent call. The active conversational identity remains the presentation
+translator. The accountable
 tool or agent owns the branch evidence, while deterministic verification owns every confirmed
 answer segment.
 

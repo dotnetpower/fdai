@@ -44,7 +44,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.core.chaos.scenario_catalog import CatalogEntry, load_all, load_promoted
+from fdai.core.chaos.scenario_catalog import DEFAULT_ROOT, CatalogEntry, load_all, load_promoted
 
 _HERE = pathlib.Path(__file__).resolve()
 _REPO_ROOT = _HERE.parents[4]
@@ -168,12 +168,12 @@ def build_from_entries(entries: Iterable[CatalogEntry]) -> SymptomIndex:
     return SymptomIndex(by_key=_bucketize(entries))
 
 
-def build_from_promoted() -> SymptomIndex:
-    return build_from_entries(load_promoted())
+def build_from_promoted(root: pathlib.Path = DEFAULT_ROOT) -> SymptomIndex:
+    return build_from_entries(load_promoted(root=root))
 
 
-def build_from_all() -> SymptomIndex:
-    return build_from_entries(load_all())
+def build_from_all(root: pathlib.Path = DEFAULT_ROOT) -> SymptomIndex:
+    return build_from_entries(load_all(root=root))
 
 
 def _key_to_str(k: SymptomKey) -> str:

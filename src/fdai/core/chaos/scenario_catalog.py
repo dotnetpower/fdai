@@ -43,7 +43,6 @@ _HERE = pathlib.Path(__file__).resolve()
 _REPO_ROOT = _HERE.parents[4]
 
 DEFAULT_ROOT: pathlib.Path = _REPO_ROOT / "rule-catalog" / "chaos-scenarios"
-_SCHEMA_PATH: pathlib.Path = DEFAULT_ROOT / "schema" / "chaos-scenario.schema.json"
 
 # Forks add / override in these siblings of `chaos-scenarios/`.
 _FORK_CUSTOM_DIR = "chaos-scenarios-custom"
@@ -95,8 +94,9 @@ class ScenarioCatalogError(Exception):
     violation, an unknown signal, or an id collision."""
 
 
-def _load_schema() -> Mapping[str, Any]:
-    with _SCHEMA_PATH.open("r", encoding="utf-8") as f:
+def _load_schema(root: pathlib.Path) -> Mapping[str, Any]:
+    schema_path = root / "schema" / "chaos-scenario.schema.json"
+    with schema_path.open("r", encoding="utf-8") as f:
         schema: Mapping[str, Any] = json.load(f)
     return schema
 
@@ -155,7 +155,7 @@ def _load_one(path: pathlib.Path, validator: jsonschema.Draft202012Validator) ->
 
 
 def _apply_overrides(
-    entries: list[CatalogEntry], overrides_dir: pathlib.Path
+    entries: list[CatalogEntry], overrides_dir: pathlib.Path, root: pathlib.Path
 ) -> list[CatalogEntry]:
     """Merge override YAMLs onto matching entries by id.
 
@@ -168,7 +168,7 @@ def _apply_overrides(
     """
     if not overrides_dir.exists():
         return entries
-    validator = jsonschema.Draft202012Validator(_load_schema())
+    validator = jsonschema.Draft202012Validator(_load_schema(root))
     by_id = {e.id: e for e in entries}
     for path in _iter_yaml_files(overrides_dir):
         with path.open("r", encoding="utf-8") as f:
@@ -212,8 +212,8 @@ def _dedupe_by_id(entries: list[CatalogEntry], scope: str) -> list[CatalogEntry]
     return entries
 
 
-def _load_from(directories: list[pathlib.Path]) -> list[CatalogEntry]:
-    schema = _load_schema()
+def _load_from(directories: list[pathlib.Path], root: pathlib.Path) -> list[CatalogEntry]:
+    schema = _load_schema(root)
     validator = jsonschema.Draft202012Validator(schema)
     entries: list[CatalogEntry] = []
     for d in directories:
@@ -228,9 +228,9 @@ def load_promoted(root: pathlib.Path = DEFAULT_ROOT) -> list[CatalogEntry]:
     fork_custom = root.parent / _FORK_CUSTOM_DIR
     if fork_custom.exists():
         dirs.append(fork_custom)
-    entries = _dedupe_by_id(_load_from(dirs), scope="promoted+custom")
+    entries = _dedupe_by_id(_load_from(dirs, root), scope="promoted+custom")
     fork_overrides = root.parent / _FORK_OVERRIDES_DIR
-    return _apply_overrides(entries, fork_overrides)
+    return _apply_overrides(entries, fork_overrides, root)
 
 
 def load_all(root: pathlib.Path = DEFAULT_ROOT) -> list[CatalogEntry]:
@@ -239,9 +239,9 @@ def load_all(root: pathlib.Path = DEFAULT_ROOT) -> list[CatalogEntry]:
     fork_custom = root.parent / _FORK_CUSTOM_DIR
     if fork_custom.exists():
         dirs.append(fork_custom)
-    entries = _dedupe_by_id(_load_from(dirs), scope="all")
+    entries = _dedupe_by_id(_load_from(dirs, root), scope="all")
     fork_overrides = root.parent / _FORK_OVERRIDES_DIR
-    return _apply_overrides(entries, fork_overrides)
+    return _apply_overrides(entries, fork_overrides, root)
 
 
 def catalog_fingerprint(entries: list[CatalogEntry]) -> str:

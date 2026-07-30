@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 11fa979b165e091ad5d52f1c3de712b8c3057a4c
+translation_source_sha: 672dd0df25480977e4e02c513cb575b7b866ad19
 translation_revised: 2026-07-29
 ---
 
@@ -218,13 +218,17 @@ evidence에서 결정론적으로 렌더링됩니다. Ontology browse는 target�
 allowlisted identity field와 256자 이하 prompt value만 전달하며, 중복되거나 malformed인 count와
 selection을 unavailable로 표시합니다. Ontology projection과 결정론적 browse answer는 일반 prompt
 assembly와 분리된 자체 prompt module에 위치합니다.
-Agent answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로 표시합니다.
+일반 delegated answer는 Bragi를 narrator로 유지하면서 verified specialist를 response owner로
+표시합니다. Dedicated target session은 명시적 handoff가 narration을 Bragi로 돌려보낼 때까지 해당
+specialist의 검증된 voice를 사용합니다.
 Agent-targeted Web turn은 첫 provisional token부터 선택한 specialist를 표시하고 terminal delegation이
 owner를 확인하거나 handoff를 표시할 때까지 label을 안정적으로 유지합니다.
 명시적 handoff로 turn이 Bragi에 돌아오면 Web은 reply header와 answer-plan row에
 `specialist -> Bragi`로 소유권 흐름을 표시합니다. Handoff에 specialist answer가 없으면 결정론적
 verification은 근거를 사용할 수 없다는 응답을 반환하고, 관련 없는 current-screen fact로 narrator
 문장을 검증하지 않습니다.
+선택한 agent와 server-owned operational evidence가 모두 resolve되면 coordinator는 둘 다 유지하며,
+incident summary, absence claim 및 cause는 계속 결정론적 verification이 소유합니다.
 Bragi가 T0/T1 owner route를 한 번 완료한 뒤, 일반 answer path는 그 owner에서 점수가 유일하게
 가장 높은 read tool 하나를 선택합니다. 완료된 tool result가 primary specialist answer가 되고,
 범위 한정 fact는 기존 agent-evidence manifest로 들어갑니다. 동점이거나 일치 항목이 없으면 owner의
@@ -251,11 +255,9 @@ notification-delivery escalation이 있으면 이를 우선 표시하고 필요�
 있으면 audit 및 technical activity를 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
 record가 생긴 뒤에만 link가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
 route도 hypothesis가 없으면 generic audit fallback response를 숨겨 `incident.members`를 response plan
-또는 cause로 표시하지 않습니다.
-Trace route는 raw ordered table보다 먼저 notification escalation, response-decision evidence,
-RCA evidence 및 named pipeline stage를 분리한 interpretation summary를 표시합니다. Generic
-correlated activity는 cause claim이 아니라 technical history로 유지합니다.
-
+또는 cause로 표시하지 않습니다. Trace route는 raw ordered table보다 먼저 notification escalation,
+response-decision evidence, RCA evidence 및 named pipeline stage를 분리한 interpretation summary를
+표시합니다. Generic correlated activity는 cause claim이 아니라 technical history로 유지합니다.
 
 Operational evidence는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 요구하지 않고 bounded matching
@@ -263,12 +265,6 @@ set을 즉시 렌더링합니다. Model prose는 선택된 incident, search scop
 membership 또는 absence claim을 바꿀 수 없습니다.
 `availability=unavailable`인 source는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 probe하지
 않은 source는 `reachable=null`을 사용합니다.
-Incidents route에서 prompt가 단일 selected incident를 title, correlation id 또는 "이 인시던트" 같은
-표현으로 참조하면 해당 selection을 lookup hint로 사용합니다. Server는 답변 전에 incident id와
-correlation id를 authorized read model에서 다시 확인합니다. 정확한 selected-incident evidence는
-자연어 keyword로만 일치한 inventory tool보다 우선합니다. Coordinator는 해당 turn에서 관련 없는
-inventory, agent 또는 public-web branch를 시작하지 않으며 `query_inventory` 같은 명시적 canonical
-tool command는 tool authority를 유지합니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
@@ -318,7 +314,8 @@ Cross-origin direct-upload target에는 content header를 보내지만 read API 
 Command Deck과 pull-direction ChatOps는 하나의 channel-neutral 점진적 대화 모델을 사용합니다.
 결정론적 scope 및 authority routing 이후 coordinator는 조건을 충족한 독립 read branch를 동시에
 시작할 수 있습니다. Branch는 immutable evidence operation이며 nested narrator session이나 direct
-agent call이 아닙니다. Bragi는 presentation translator로 유지됩니다. 책임 tool 또는 agent가 branch
+agent call이 아닙니다. Active conversational identity가 presentation translator로 유지됩니다. 책임
+tool 또는 agent가 branch
 evidence를 소유하고, 결정론적 verification이 확인된 모든 answer segment를 소유합니다.
 
 각 branch event는 다음 bounded field를 전달합니다.
