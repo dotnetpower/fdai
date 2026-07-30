@@ -1,0 +1,1 @@
+../../../../../../docs/user-guide/deck/l100-act3-adopt-ko.md
