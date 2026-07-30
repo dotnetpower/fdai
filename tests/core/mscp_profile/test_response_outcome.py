@@ -30,6 +30,7 @@ def _action() -> Action:
             "operation": "scale",
             "params": {},
             "stop_condition": "provider_api_error_streak",
+            "stop_conditions": [{"kind": "provider_api_error_streak", "count": 3}],
             "rollback_ref": {"kind": "state_forward_only"},
             "blast_radius": {"scope": "resource", "count": 1},
             "mode": "shadow",
