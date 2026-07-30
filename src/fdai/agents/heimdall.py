@@ -230,6 +230,9 @@ class Heimdall(Agent):
         preferred_route = str(attributes.get("preferred_route_ref") or "")
         if preferred_route == "legacy":
             preferred_route = "primary"
+        if preferred_route not in {"primary", "secondary"}:
+            self.record_behavior("t2_proposer:invalid_route_hint")
+            return
         alternate_route = (
             "secondary"
             if preferred_route == "primary"

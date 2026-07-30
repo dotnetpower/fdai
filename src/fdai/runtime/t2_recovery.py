@@ -190,7 +190,7 @@ def _receipt_from_mapping(value: Mapping[str, object]) -> T2AttemptReceipt:
         event_id=str(value["event_id"]),
         correlation_id=str(value["correlation_id"]),
         route_ref=str(value["route_ref"]),
-        preferred_route_ref=str(value["preferred_route_ref"]),
+        preferred_route_ref=str(value.get("preferred_route_ref") or "primary"),
         attempt=_positive_integer(value.get("attempt"), field="attempt"),
         candidate_count=_positive_integer(value.get("candidate_count"), field="candidate_count"),
         status=str(value["status"]),

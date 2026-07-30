@@ -226,3 +226,24 @@ async def test_selector_failure_retains_primary_first_bounded_failover() -> None
     assert result == _candidate()
     assert primary.calls == 1
     assert secondary.calls == 0
+
+
+async def test_failover_abstention_is_terminal_but_not_recovered() -> None:
+    primary = _StaticProposer(error=RuntimeError("provider down"))
+    secondary = _StaticProposer(result=None)
+    recorder = _Recorder()
+    proposer = BoundedFailoverT2Proposer(
+        candidates=(("primary", primary), ("secondary", secondary)),
+        observer=recorder,
+    )
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=2, max_calls_total=2))
+
+    result = await proposer.propose_with_budget(
+        context=_context(),
+        reserve_attempt=lambda: ledger.reserve("event", calls=1, cost_microusd=0),
+    )
+
+    assert result is None
+    assert recorder.receipts[-1].status == "abstained"
+    assert recorder.receipts[-1].terminal is True
+    assert recorder.receipts[-1].recovered is False

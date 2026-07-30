@@ -82,6 +82,28 @@ async def test_first_receipt_persists_atomically_then_enters_huginn() -> None:
     assert "secret" not in event_text
 
 
+async def test_reconcile_defaults_pre_selector_receipt_to_primary_route() -> None:
+    store = InMemoryStateStore()
+    ingress = _Ingress()
+    observer = DurableT2RecoveryObserver(store=store, ingress=ingress.ingest)
+    legacy_state = _receipt(attempt=2, terminal=True).to_dict()
+    legacy_state.pop("preferred_route_ref")
+    await store.write_state(
+        "t2-recovery:receipt:old-schema",
+        {
+            **legacy_state,
+            "receipt_id": "old-schema",
+            "forwarded": False,
+            "revision": 1,
+        },
+    )
+
+    assert await observer.reconcile() == 1
+    attributes = ingress.events[0]["attributes"]
+    assert isinstance(attributes, dict)
+    assert attributes["preferred_route_ref"] == "primary"
+
+
 async def test_duplicate_receipt_does_not_duplicate_audit_or_event() -> None:
     store = InMemoryStateStore()
     ingress = _Ingress()

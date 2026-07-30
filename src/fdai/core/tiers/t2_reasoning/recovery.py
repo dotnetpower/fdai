@@ -191,7 +191,7 @@ class BoundedFailoverT2Proposer:
                 failure_class=None,
                 retryable=False,
                 terminal=True,
-                recovered=failed,
+                recovered=failed and candidate is not None,
             )
             return candidate
         raise AssertionError("bounded candidates are non-empty")

@@ -195,6 +195,25 @@ def test_recovered_proposer_signal_does_not_create_hil() -> None:
     assert var.behavior_snapshot().get("ticket_pending") is None
 
 
+def test_invalid_route_hint_does_not_create_unexecutable_hil() -> None:
+    provider = LiveInMemoryEventBus()
+    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    payload = _raw_event()
+    attributes = payload["attributes"]
+    assert isinstance(attributes, dict)
+    attributes["preferred_route_ref"] = "unknown"
+
+    asyncio.run(_drive(runtime, provider, payload))
+
+    heimdall = runtime.agents["Heimdall"]
+    var = runtime.agents["Var"]
+    assert isinstance(heimdall, Heimdall)
+    assert isinstance(var, Var)
+    assert heimdall.behavior_snapshot().get("t2_proposer:invalid_route_hint") == 1
+    assert runtime.shadow_decisions["verdict:hil"] == 0
+    assert var.pending_tickets() == ()
+
+
 def test_approved_failure_switches_persistent_route_through_thor() -> None:
     provider = LiveInMemoryEventBus()
     store = InMemoryStateStore()
