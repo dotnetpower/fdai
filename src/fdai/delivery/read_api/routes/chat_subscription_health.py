@@ -64,7 +64,7 @@ class ResourceTypeFilteredSubscriptionHealthProvider(Protocol):
         lookback_seconds: int,
         *,
         resource_types: tuple[str, ...],
-        kind_tokens: tuple[str, ...],
+        kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
         availability_states: tuple[str, ...],
         include_metrics: bool,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
@@ -211,7 +211,7 @@ class SubscriptionHealthChatTools:
         resolver = default_inventory_resource_type_resolver()
         requested_types = resolver.resolve(prompt)
         provider_types = resolver.provider_types_for(requested_types)
-        kind_tokens = resolver.provider_kind_tokens_for(requested_types)
+        kind_tokens_by_resource_type = resolver.provider_kind_tokens_for(requested_types)
         language = default_inventory_query_language_resolver()
         include_metrics = language.has(language.registry.signals, "diagnosis", prompt)
         availability_states = tuple(
@@ -226,7 +226,7 @@ class SubscriptionHealthChatTools:
                 await self.provider.query_resource_types(
                     3_600,
                     resource_types=provider_types,
-                    kind_tokens=kind_tokens,
+                    kind_tokens_by_resource_type=kind_tokens_by_resource_type,
                     availability_states=availability_states,
                     include_metrics=include_metrics,
                     progress_observer=progress_observer,

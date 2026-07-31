@@ -376,7 +376,7 @@ async def test_subscription_health_prefilters_one_provider_resource_type() -> No
                     "('degraded', 'unavailable')" in query
                 )
                 return httpx.Response(200, json={"data": []})
-            assert "type in~ ('Microsoft.Storage/storageAccounts')" in query
+            assert "type =~ 'Microsoft.Storage/storageAccounts'" in query
             return httpx.Response(200, json={"data": [storage]})
         raise AssertionError("typed state query must not widen to REST or metrics")
 
@@ -442,7 +442,7 @@ async def test_subscription_health_projects_requested_resource_state() -> None:
         result = await provider.query_resource_types(
             3_600,
             resource_types=("Microsoft.Web/sites",),
-            kind_tokens=(),
+            kind_tokens_by_resource_type={},
             availability_states=("stopped", "failed", "degraded", "unavailable"),
             include_metrics=False,
         )
@@ -465,7 +465,7 @@ async def test_subscription_health_prefilters_shared_arm_type_by_kind() -> None:
         query = json.loads(request.content)["query"]
         if query.startswith("HealthResources"):
             return httpx.Response(200, json={"data": []})
-        assert "type in~ ('Microsoft.Web/sites')" in query
+        assert "type =~ 'Microsoft.Web/sites'" in query
         assert "kind has 'app'" in query
         return httpx.Response(200, json={"data": []})
 
@@ -481,7 +481,7 @@ async def test_subscription_health_prefilters_shared_arm_type_by_kind() -> None:
         result = await provider.query_resource_types(
             3_600,
             resource_types=("Microsoft.Web/sites",),
-            kind_tokens=("app",),
+            kind_tokens_by_resource_type={"Microsoft.Web/sites": ("app",)},
             availability_states=("stopped", "failed", "degraded", "unavailable"),
             include_metrics=False,
         )

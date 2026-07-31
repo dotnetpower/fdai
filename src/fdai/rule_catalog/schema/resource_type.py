@@ -48,6 +48,14 @@ class ResourceTypeEntry(BaseModel):
     typical_parents: tuple[str, ...] = ()
 
 
+class ResourceTypeQueryGroup(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]*$")]
+    terms: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...]
+    members: tuple[str, ...]
+
+
 class ResourceTypeRegistry(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -56,6 +64,7 @@ class ResourceTypeRegistry(BaseModel):
     category_query_terms: Mapping[ResourceTypeCategory, tuple[str, ...]] = Field(
         default_factory=dict
     )
+    query_groups: tuple[ResourceTypeQueryGroup, ...] = ()
     types: tuple[ResourceTypeEntry, ...]
 
     def model_post_init(self, __context: Any) -> None:
@@ -64,6 +73,15 @@ class ResourceTypeRegistry(BaseModel):
             "category_query_terms",
             MappingProxyType(dict(self.category_query_terms)),
         )
+        type_ids = self.ids()
+        group_ids = [group.id for group in self.query_groups]
+        if len(group_ids) != len(set(group_ids)):
+            raise ValueError("resource query group ids must be unique")
+        for group in self.query_groups:
+            if len(group.members) < 2 or len(group.members) != len(set(group.members)):
+                raise ValueError(f"resource query group {group.id} requires unique members")
+            if any(member not in type_ids for member in group.members):
+                raise ValueError(f"resource query group {group.id} has unknown members")
 
     def ids(self) -> set[str]:
         return {t.id for t in self.types}
@@ -460,6 +478,7 @@ __all__ = [
     "ResourceTypeCategory",
     "ResourceTypeEntry",
     "ResourceTypeIssue",
+    "ResourceTypeQueryGroup",
     "ResourceTypeRegistry",
     "ResourceTypeRegistryError",
     "load_resource_type_registry_from_mapping",

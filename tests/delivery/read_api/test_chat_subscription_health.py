@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from starlette.applications import Starlette
@@ -277,7 +278,7 @@ async def test_specific_storage_state_query_skips_unrequested_metrics() -> None:
             lookback_seconds: int,
             *,
             resource_types: tuple[str, ...],
-            kind_tokens: tuple[str, ...],
+            kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
             availability_states: tuple[str, ...],
             include_metrics: bool,
             progress_observer: Any = None,
@@ -285,7 +286,7 @@ async def test_specific_storage_state_query_skips_unrequested_metrics() -> None:
             del progress_observer
             assert lookback_seconds == 3_600
             assert resource_types == ("Microsoft.Storage/storageAccounts",)
-            assert kind_tokens == ()
+            assert kind_tokens_by_resource_type == {}
             assert availability_states == ("degraded", "unavailable")
             assert include_metrics is False
             return {
@@ -375,7 +376,7 @@ async def test_app_service_not_running_or_ready_query_preserves_zero_groups() ->
             lookback_seconds: int,
             *,
             resource_types: tuple[str, ...],
-            kind_tokens: tuple[str, ...],
+            kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
             availability_states: tuple[str, ...],
             include_metrics: bool,
             progress_observer: Any = None,
@@ -383,7 +384,7 @@ async def test_app_service_not_running_or_ready_query_preserves_zero_groups() ->
             del progress_observer
             assert lookback_seconds == 3_600
             assert resource_types == ("Microsoft.Web/sites",)
-            assert kind_tokens == ("app",)
+            assert kind_tokens_by_resource_type == {"Microsoft.Web/sites": ("app",)}
             assert availability_states == (
                 "stopped",
                 "deallocated",
@@ -417,6 +418,61 @@ async def test_app_service_not_running_or_ready_query_preserves_zero_groups() ->
     assert "리소스 0개" in answer
     assert "**실행 중 아님**\n- 확인한 근거에서는 관찰되지 않았습니다." in answer
     assert "**준비되지 않음**\n- 확인한 근거에서는 관찰되지 않았습니다." in answer
+
+
+async def test_function_or_container_not_ready_query_scopes_kind_by_provider() -> None:
+    class FilteredProvider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("typed serverless query must use the filtered provider path")
+
+        async def query_resource_types(
+            self,
+            lookback_seconds: int,
+            *,
+            resource_types: tuple[str, ...],
+            kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
+            availability_states: tuple[str, ...],
+            include_metrics: bool,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            assert lookback_seconds == 3_600
+            assert resource_types == (
+                "Microsoft.App/containerApps",
+                "Microsoft.Web/sites",
+            )
+            assert kind_tokens_by_resource_type == {"Microsoft.Web/sites": ("functionapp",)}
+            assert availability_states == ("failed", "degraded", "unavailable")
+            assert include_metrics is False
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health",
+                "observed_at": "2026-08-01T04:10:00Z",
+                "resource_count": 3,
+                "resource_health_unavailable": 0,
+                "metrics_requested": False,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [],
+            }
+
+    evidence = await SubscriptionHealthChatTools(FilteredProvider()).resolve(
+        "Which function or container applications are not ready?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    answer = render_subscription_health_answer(evidence, locale="en")
+    assert answer is not None
+    assert "Checked 3 resources" in answer
+    assert "**Not ready**\n- Not observed in the checked evidence." in answer
 
 
 def test_current_subscription_question_uses_server_scope_metadata() -> None:

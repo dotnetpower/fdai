@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
 
@@ -53,6 +53,16 @@ class InventoryResourceTypeResolver:
                 key=lambda item: (-len(item[0]), item[0], item[1]),
             )
         )
+        self._group_forms = tuple(
+            sorted(
+                (
+                    (normalize_inventory_value(term), group.members)
+                    for group in registry.query_groups
+                    for term in group.terms
+                ),
+                key=lambda item: (-len(item[0]), item[0], item[1]),
+            )
+        )
 
     def resolve(
         self,
@@ -61,6 +71,17 @@ class InventoryResourceTypeResolver:
         observed_types: tuple[str, ...] = (),
     ) -> tuple[str, ...]:
         """Return one longest exact type match, or a category expansion."""
+
+        group_matches = [
+            (surface, members)
+            for surface, members in self._group_forms
+            if self._language.contains_any(prompt, (surface,))
+        ]
+        if group_matches:
+            longest = max(len(surface) for surface, _members in group_matches)
+            member_sets = {members for surface, members in group_matches if len(surface) == longest}
+            if len(member_sets) == 1:
+                return tuple(sorted(next(iter(member_sets))))
 
         type_matches = [
             (surface, type_id)
@@ -115,20 +136,18 @@ class InventoryResourceTypeResolver:
             )
         )
 
-    def provider_kind_tokens_for(self, type_ids: Sequence[str]) -> tuple[str, ...]:
-        """Return Azure kind tokens for selected canonical resource types."""
+    def provider_kind_tokens_for(
+        self,
+        type_ids: Sequence[str],
+    ) -> Mapping[str, tuple[str, ...]]:
+        """Return Azure kind tokens keyed by selected provider resource type."""
 
         selected = set(type_ids)
-        return tuple(
-            sorted(
-                {
-                    token
-                    for entry in self._registry
-                    if entry.id in selected
-                    for token in entry.azure_kind_tokens
-                }
-            )
-        )
+        return {
+            entry.azure_arm_type: entry.azure_kind_tokens
+            for entry in self._registry
+            if entry.id in selected and entry.azure_arm_type is not None and entry.azure_kind_tokens
+        }
 
 
 @lru_cache(maxsize=1)

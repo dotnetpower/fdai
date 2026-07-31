@@ -273,6 +273,9 @@ resulting parent graph must remain acyclic.
   concrete type. Each normalized category term belongs to exactly one category, and the loader
   also rejects the same term at the category and concrete levels. A longer concrete type term
   still takes precedence over a shorter category term in the same question.
+- Use top-level `query_groups` when one reviewed phrase intentionally selects two or more concrete
+  types. Every member must resolve in the same registry. Do not add a bare ambiguous term to one
+  type just to parse a coordinated phrase; keep conceptual questions outside inventory routing.
 - When two semantic types share one Azure ARM type, declare `azure_kind_tokens` on every variant.
   For example, Azure Functions and Web Apps both use `Microsoft.Web/sites`; the observed Azure
   `kind` separates them. Tokens use the lowercase ASCII provider-machine form, are unique within

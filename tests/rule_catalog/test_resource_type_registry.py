@@ -28,6 +28,10 @@ def test_shipped_vocabulary_loads() -> None:
     registry = _shipped()
     assert registry.schema_version == "1.0.0"
     assert len(registry.types) >= 20  # P1 coverage target for 3 verticals
+    assert registry.query_groups[0].members == (
+        "compute.function",
+        "compute.container-app",
+    )
 
 
 def test_shipped_vocabulary_has_no_duplicate_ids() -> None:

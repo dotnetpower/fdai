@@ -197,7 +197,7 @@ class AzureSubscriptionHealthProvider:
         return await self._query(
             lookback_seconds,
             resource_types=(),
-            kind_tokens=(),
+            kind_tokens_by_resource_type={},
             availability_states=(),
             include_metrics=True,
             progress_observer=progress_observer,
@@ -208,7 +208,7 @@ class AzureSubscriptionHealthProvider:
         lookback_seconds: int,
         *,
         resource_types: tuple[str, ...],
-        kind_tokens: tuple[str, ...] = (),
+        kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]] | None = None,
         availability_states: tuple[str, ...] = (),
         include_metrics: bool = True,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
@@ -218,7 +218,10 @@ class AzureSubscriptionHealthProvider:
         return await self._query(
             lookback_seconds,
             resource_types=_validated_resource_types(resource_types),
-            kind_tokens=_validated_kind_tokens(kind_tokens),
+            kind_tokens_by_resource_type=_validated_kind_token_map(
+                resource_types,
+                kind_tokens_by_resource_type or {},
+            ),
             availability_states=_validated_availability_states(availability_states),
             include_metrics=include_metrics,
             progress_observer=progress_observer,
@@ -229,7 +232,7 @@ class AzureSubscriptionHealthProvider:
         lookback_seconds: int,
         *,
         resource_types: tuple[str, ...],
-        kind_tokens: tuple[str, ...],
+        kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
         availability_states: tuple[str, ...],
         include_metrics: bool,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None,
@@ -251,12 +254,22 @@ class AzureSubscriptionHealthProvider:
             label="Checking Resource Health",
         )
         resources, health = await asyncio.gather(
-            self._arg(headers, self._resource_query(resource_types, kind_tokens)),
+            self._arg(
+                headers,
+                self._resource_query(resource_types, kind_tokens_by_resource_type),
+            ),
             self._arg(headers, self._health_query(resource_types, availability_states)),
         )
         safe_resources = [item for item in resources if _valid_resource(item)]
         resource_truncated = len(safe_resources) > self._config.max_resources
         safe_resources = safe_resources[: self._config.max_resources]
+        if resource_types:
+            selected_ids = {str(item["id"]).casefold() for item in safe_resources}
+            health = [
+                item
+                for item in health
+                if str(item.get("targetResourceId") or "").casefold() in selected_ids
+            ]
         resource_health_unavailable = 0
         direct_health_truncated = False
         if not health and not availability_states:
@@ -549,14 +562,24 @@ class AzureSubscriptionHealthProvider:
     def _resource_query(
         self,
         resource_types: tuple[str, ...],
-        kind_tokens: tuple[str, ...],
+        kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
     ) -> str:
         scope_filter = self._scope_filter("resourceGroup")
         filters = [scope_filter] if scope_filter is not None else []
         if resource_types:
-            values = ", ".join(f"'{_escaped(item)}'" for item in resource_types)
-            filters.append(f"type in~ ({values})")
-        filters.extend(f"kind has '{_escaped(token)}'" for token in kind_tokens)
+            kind_lookup = {
+                resource_type.casefold(): tokens
+                for resource_type, tokens in kind_tokens_by_resource_type.items()
+            }
+            clauses: list[str] = []
+            for resource_type in resource_types:
+                clause = f"type =~ '{_escaped(resource_type)}'"
+                tokens = kind_lookup.get(resource_type.casefold(), ())
+                if tokens:
+                    token_clause = " or ".join(f"kind has '{_escaped(token)}'" for token in tokens)
+                    clause = f"({clause} and ({token_clause}))"
+                clauses.append(clause)
+            filters.append(f"({' or '.join(clauses)})")
         where = "".join(f"| where {item} " for item in filters)
         return (
             f"Resources {where}"
@@ -617,6 +640,18 @@ def _validated_kind_tokens(values: Sequence[str]) -> tuple[str, ...]:
     ):
         raise ValueError("kind token filter contains an invalid value")
     return normalized
+
+
+def _validated_kind_token_map(
+    resource_types: Sequence[str],
+    values: Mapping[str, Sequence[str]],
+) -> Mapping[str, tuple[str, ...]]:
+    known_types = {item.casefold() for item in resource_types}
+    if any(resource_type.casefold() not in known_types for resource_type in values):
+        raise ValueError("kind token filter contains an unknown resource type")
+    return {
+        resource_type: _validated_kind_tokens(tokens) for resource_type, tokens in values.items()
+    }
 
 
 def _validated_availability_states(values: Sequence[str]) -> tuple[str, ...]:

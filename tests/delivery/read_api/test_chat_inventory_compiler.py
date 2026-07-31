@@ -382,6 +382,21 @@ def test_app_service_question_separates_not_running_and_not_ready() -> None:
     ]
 
 
+def test_function_or_container_application_group_is_bounded() -> None:
+    query = compile_inventory_query(
+        "Which function or container applications are not ready?",
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == (
+        "compute.container-app",
+        "compute.function",
+    )
+    assert by_field[InventoryField.STATUS] == ("failed", "degraded", "unavailable")
+    assert compile_inventory_query("What is a function?") is None
+
+
 def test_observed_type_and_location_are_dynamic_facets() -> None:
     resources = (
         *_RESOURCES,
