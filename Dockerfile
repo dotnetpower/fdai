@@ -22,13 +22,16 @@ FROM ${BASE_IMAGE_REGISTRY}/library/golang@sha256:0178a641fbb4858c5f1b48e34bdaab
 
 ARG OPA_VERSION=v1.18.2
 ARG OPA_GRPC_VERSION=v1.82.1
+ARG OPA_X_TEXT_VERSION=v0.39.0
 RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VERSION}" \
     && opa_dir="$(/usr/local/go/bin/go env GOPATH)/pkg/mod/github.com/open-policy-agent/opa@${OPA_VERSION}" \
     && chmod -R u+w "${opa_dir}" \
     && cd "${opa_dir}" \
     && /usr/local/go/bin/go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}" \
+    && /usr/local/go/bin/go mod edit -require="golang.org/x/text@${OPA_X_TEXT_VERSION}" \
     && CGO_ENABLED=0 /usr/local/go/bin/go build -mod=mod -o /go/bin/opa . \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "google.golang.org/grpc" {print $3}')" = "${OPA_GRPC_VERSION}" \
+    && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/text" {print $3}')" = "${OPA_X_TEXT_VERSION}" \
     && /go/bin/opa version
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS builder

@@ -32,11 +32,14 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     assert ci.count("dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa") == 2
 
 
-def test_container_opa_build_overrides_vulnerable_grpc() -> None:
+def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
     dockerfile = (_ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "ARG OPA_VERSION=v1.18.2" in dockerfile
     assert "ARG OPA_GRPC_VERSION=v1.82.1" in dockerfile
+    assert "ARG OPA_X_TEXT_VERSION=v0.39.0" in dockerfile
     assert 'go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}"' in dockerfile
+    assert 'go mod edit -require="golang.org/x/text@${OPA_X_TEXT_VERSION}"' in dockerfile
     assert "go build -mod=mod -o /go/bin/opa ." in dockerfile
     assert "awk '$2 == \"google.golang.org/grpc\" {print $3}'" in dockerfile
+    assert "awk '$2 == \"golang.org/x/text\" {print $3}'" in dockerfile
