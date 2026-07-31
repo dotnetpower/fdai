@@ -55,6 +55,27 @@ def test_refuting_only_evidence_marks_candidate_refuted() -> None:
     assert hypothesis.status is CausalHypothesisStatus.REFUTED
 
 
+def test_competing_support_and_refutation_is_inconclusive() -> None:
+    hypothesis = _hypothesis(refuting_refs=("metric:healthy",))
+    assert hypothesis.status is CausalHypothesisStatus.INCONCLUSIVE
+
+
+def test_hypothesis_creation_cannot_precede_evidence_cutoff() -> None:
+    with pytest.raises(ValueError, match="MUST NOT precede evidence cutoff"):
+        build_causal_hypothesis(
+            incident_id="incident-1",
+            cause_ref="change-1",
+            effect_ref="finding-1",
+            mechanism="deployment_error",
+            graph_revision="graph-1",
+            evidence_cutoff=_NOW,
+            method_version="causal-v1",
+            evidence_grade=CausalEvidenceGrade.ASSOCIATION,
+            assessment=_assessment(),
+            created_at=_NOW - timedelta(seconds=1),
+        )
+
+
 def test_refuted_closure_demotes_evidence_grade() -> None:
     closed = close_causal_hypothesis(
         _hypothesis(),
@@ -82,6 +103,7 @@ def test_confirmed_closure_requires_independent_outcome_and_becomes_intervention
     )
     assert closed.evidence_grade is CausalEvidenceGrade.INTERVENTIONAL
     assert closed.to_ontology_object().object_type == "CausalHypothesis"
+    assert closed.to_ontology_object().properties["closure"] == "confirmed"
 
 
 @pytest.mark.parametrize("value", [-0.1, 1.1, float("nan"), float("inf")])

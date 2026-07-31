@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai.core.assurance_twin import DynamicRuntimeCoordinator
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
 from fdai.core.hil_resume import HilResumeCoordinator
@@ -26,6 +28,7 @@ _T2_OUTCOME_MAP: Mapping[T2Outcome, ControlLoopOutcome] = {
     T2Outcome.DENIED: ControlLoopOutcome.T2_DENIED,
     T2Outcome.ABSTAIN: ControlLoopOutcome.T2_ABSTAINED,
 }
+_LOGGER = logging.getLogger("fdai.core.control_loop.fallback")
 
 
 class ControlLoopFallbackMixin:
@@ -39,6 +42,7 @@ class ControlLoopFallbackMixin:
     _rules_by_id: Mapping[str, Rule]
     _t1_engine: T1Tier | None
     _t2_engine: T2Tier | None
+    _dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None
 
     async def _emit_stage(
         self,
@@ -67,6 +71,55 @@ class ControlLoopFallbackMixin:
         self, *, event: Event, decision: RoutingDecision, t2: T2Decision
     ) -> None: ...
 
+    async def _simulate_and_audit_dynamic(self, *, event: Event, t1: T1Decision) -> None:
+        coordinator = self._dynamic_runtime_coordinator
+        if coordinator is None or t1.best_match is None:
+            return
+        try:
+            result = await coordinator.simulate(event=event, action=t1.best_match.action)
+            simulation = result.simulation
+            await self._audit_store.append_audit_entry(
+                {
+                    "event_id": str(event.event_id),
+                    "correlation_id": event.correlation_id or str(event.event_id),
+                    "idempotency_key": f"{event.idempotency_key}:dynamic_simulation",
+                    "actor": "fdai.core.assurance_twin",
+                    "action_kind": "dynamic.simulation",
+                    "mode": Mode.SHADOW.value,
+                    "simulation_reason": result.reason,
+                    "simulation_id": simulation.simulation_id if simulation else None,
+                    "simulation_requires_review": (
+                        simulation.requires_review if simulation else True
+                    ),
+                    "ordered_branch_ids": (
+                        list(simulation.ordered_branch_ids) if simulation else []
+                    ),
+                    "recorded_at": datetime.now(tz=UTC).isoformat(),
+                }
+            )
+        except Exception:  # noqa: BLE001 - simulation never changes the fallback decision
+            try:
+                await self._audit_store.append_audit_entry(
+                    {
+                        "event_id": str(event.event_id),
+                        "correlation_id": event.correlation_id or str(event.event_id),
+                        "idempotency_key": f"{event.idempotency_key}:dynamic_simulation_failed",
+                        "actor": "fdai.core.assurance_twin",
+                        "action_kind": "dynamic.simulation",
+                        "mode": Mode.SHADOW.value,
+                        "simulation_reason": "simulation_failed",
+                        "simulation_requires_review": True,
+                        "ordered_branch_ids": [],
+                        "recorded_at": datetime.now(tz=UTC).isoformat(),
+                    }
+                )
+            except Exception:  # noqa: BLE001 - optional side-path audit is best-effort
+                _LOGGER.warning(
+                    "dynamic_simulation_audit_failed",
+                    extra={"event_id": str(event.event_id)},
+                    exc_info=True,
+                )
+
     async def _evaluate_fallback_tiers(
         self,
         *,
@@ -93,6 +146,7 @@ class ControlLoopFallbackMixin:
             )
             await self._write_t1_audit(event=event, decision=decision, t1=t1_decision)
             if t1_decision.outcome is T1Outcome.REUSED:
+                await self._simulate_and_audit_dynamic(event=event, t1=t1_decision)
                 await self._emit_stage(
                     event_id=event_id,
                     correlation_id=correlation_id,

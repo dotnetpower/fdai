@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b7d00a93661af606abeb3c4496c4dcae44ea8b10
+translation_source_sha: 49f37b03b4f54bb491fb2f26711e0b0a727292e7
 translation_revised: 2026-08-01
 ---
 
@@ -408,6 +408,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **현재 T1 reuse evidence**: `CurrentReuseVerifier`는 immutable operational case를 위해 fresh
   resource, topology, graph, owner, policy, dry-run, safety fact를 수집하며 execution authority는
   부여하지 않습니다. Binding이 없으면 operational reuse는 abstain하고 legacy pattern은 계속됩니다.
+- **Causal 및 Dynamic runtime evidence**: `TemporalCausalEvidenceProvider`는 bounded pre-cutoff
+  series와 graph fact를 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
+  branch를 제공합니다. 둘 다 read-only이며 binding이 없으면 해당 shadow side path가 비활성화됩니다.
 
 ### Capability Bundle
 

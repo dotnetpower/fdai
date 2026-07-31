@@ -17,6 +17,7 @@ properties:
   evidence_cutoff: {type: datetime, required: true}
   method_version: {type: string, required: true}
   created_at: {type: datetime, required: true}
+  closure: {type: string, required: false}
 lifecycle:
   owner: Forseti
   creation:
@@ -33,6 +34,6 @@ lifecycle:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:CausalHypothesis@1.0.0
-  content_hash: sha256:053364817735ae68c46e24fee737d3e01fc53d1362fc5a4fbd2281e874e3578b
+  content_hash: sha256:90a9056ce11021d9748dc5c627f594eb2a997efd1464fe64e861a9717f96cbd9
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"

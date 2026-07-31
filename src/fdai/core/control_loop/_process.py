@@ -60,6 +60,8 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             host, event=event, event_id=event_id, correlation_id=correlation_id
         )
 
+    await host._analyze_and_audit_temporal_causality(event=event, incident_id=incident_id)
+
     cs_decision: ChangeSafetyDecision | None = None
     if host._change_safety_detector is not None and host._change_safety_detector.is_activity_log(
         event

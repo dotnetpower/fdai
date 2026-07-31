@@ -168,3 +168,29 @@ def test_association_grade_never_yields_review_free_simulation() -> None:
 
     assert result.requires_review is True
     assert result.predictions[0].reason == "causal_evidence_below_quasi_experimental"
+
+
+def test_simulation_identity_binds_snapshot_time_and_raw_branch_values() -> None:
+    model = _model(action_type="noop", status=EffectModelStatus.ACTIVE)
+    first = simulate_effect_branches(
+        snapshot=SimulationSnapshot("snapshot-1", "0" * 64, "latency_p99_ms", _NOW),
+        branches=(SimulationBranch("noop", "noop", 100.0, 5.0),),
+        active_models={"noop": model},
+    )
+    changed_value = simulate_effect_branches(
+        snapshot=SimulationSnapshot("snapshot-1", "0" * 64, "latency_p99_ms", _NOW),
+        branches=(SimulationBranch("noop", "noop", 101.0, 5.0),),
+        active_models={"noop": model},
+    )
+    changed_time = simulate_effect_branches(
+        snapshot=SimulationSnapshot(
+            "snapshot-1",
+            "0" * 64,
+            "latency_p99_ms",
+            _NOW + timedelta(seconds=1),
+        ),
+        branches=(SimulationBranch("noop", "noop", 100.0, 5.0),),
+        active_models={"noop": model},
+    )
+
+    assert len({first.simulation_id, changed_value.simulation_id, changed_time.simulation_id}) == 3

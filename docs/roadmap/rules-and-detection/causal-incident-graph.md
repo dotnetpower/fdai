@@ -10,11 +10,11 @@ time-consistent graph while keeping execution authority in the existing control 
 > **Authority boundary:** A causal graph is evidence for a decision, not permission to act. The
 > rule verifier, safety check, approval policy, executor, and audit ledger remain authoritative.
 >
-> **Implementation status (2026-07-31):** The typed hypothesis lifecycle, weakest-link scoring,
+> **Implementation status (2026-08-01):** The typed hypothesis lifecycle, weakest-link scoring,
 > bounded time-consistent graph materializer, support/refutation and closure links, immutable
-> ontology projector, and regression tests are implemented. Existing T0/T1 RCA audit remains the
-> live control-loop explanation path; deploying graph-backed closure requires the runtime's
-> ontology and independent outcome providers to be bound.
+> ontology projector, lagged temporal analyzer, runtime coordinator, shadow control-loop caller,
+> independent closure classifier, and regression tests are implemented. Deployments bind bounded
+> temporal-series, ontology, and independent outcome providers; no causal result grants execution.
 
 ## Design at a glance
 
@@ -79,6 +79,7 @@ observation creates a new revision instead of rewriting the claim used by an ear
 | `evidence_cutoff` | datetime | Latest event time eligible for the claim. |
 | `method_version` | string | Deterministic scorer or reviewed reasoner version. |
 | `created_at` | datetime | Time FDAI accepted this revision. |
+| `closure` | string | Optional terminal result: `confirmed`, `refuted`, `inconclusive`, or `unsafe`. |
 
 The object stores identifiers and scores only. Evidence bodies remain in their authoritative
 stores and are cited through opaque references.

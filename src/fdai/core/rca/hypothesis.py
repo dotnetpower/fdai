@@ -105,6 +105,8 @@ class CausalHypothesisRecord:
             raise ValueError("ambiguity MUST be >= 1")
         if self.evidence_cutoff.tzinfo is None or self.created_at.tzinfo is None:
             raise ValueError("causal hypothesis timestamps MUST be timezone-aware")
+        if self.created_at < self.evidence_cutoff:
+            raise ValueError("causal hypothesis creation MUST NOT precede evidence cutoff")
 
     def to_ontology_object(self) -> OntologyObjectRecord:
         return OntologyObjectRecord(
@@ -124,6 +126,7 @@ class CausalHypothesisRecord:
                 "evidence_cutoff": self.evidence_cutoff,
                 "method_version": self.method_version,
                 "created_at": self.created_at,
+                "closure": self.closure.value if self.closure is not None else None,
             },
         )
 
@@ -150,13 +153,14 @@ def build_causal_hypothesis(
         evidence_cutoff=evidence_cutoff,
         method_version=method_version,
     )
-    status = (
-        CausalHypothesisStatus.REFUTED
-        if assessment.refuting_refs and not assessment.supporting_refs
-        else CausalHypothesisStatus.SUPPORTED
-        if assessment.supporting_refs
-        else CausalHypothesisStatus.CANDIDATE
-    )
+    if assessment.supporting_refs and assessment.refuting_refs:
+        status = CausalHypothesisStatus.INCONCLUSIVE
+    elif assessment.refuting_refs:
+        status = CausalHypothesisStatus.REFUTED
+    elif assessment.supporting_refs:
+        status = CausalHypothesisStatus.SUPPORTED
+    else:
+        status = CausalHypothesisStatus.CANDIDATE
     return CausalHypothesisRecord(
         hypothesis_id=f"causal-{identity[:32]}",
         incident_id=incident_id,

@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import timedelta
 from typing import Any
 
+from fdai.core.assurance_twin import DynamicRuntimeCoordinator
 from fdai.core.control_loop._boundary import ControlLoopBoundaryMixin
 from fdai.core.control_loop._canary import process_canary
 from fdai.core.control_loop._execution import ControlLoopExecutionMixin
@@ -26,7 +27,7 @@ from fdai.core.executor.tool_call import ToolCallShadowExecutor
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
 from fdai.core.notifications.router import NotificationRouter
-from fdai.core.rca import IncidentMemberSource, RcaCoordinator
+from fdai.core.rca import CausalRuntimeCoordinator, IncidentMemberSource, RcaCoordinator
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
     EventPreconditionEvaluator,
@@ -80,6 +81,7 @@ class ControlLoop(
         direct_api_executor: DirectApiShadowExecutor | None = None,
         tool_executor: ToolCallShadowExecutor | None = None,
         t1_engine: T1Tier | None = None,
+        dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
         t2_engine: T2Tier | None = None,
         stage_publisher: StagePublisher | None = None,
         notification_router: NotificationRouter | None = None,
@@ -87,6 +89,7 @@ class ControlLoop(
         rca_coordinator: RcaCoordinator | None = None,
         event_correlator: EventCorrelator | None = None,
         incident_member_source: IncidentMemberSource | None = None,
+        causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
         causal_chain_window: timedelta | None = None,
         resource_dependency_graph: Mapping[str, Iterable[str]] | None = None,
         workflow_coordinator: WorkflowTriggerCoordinator | None = None,
@@ -145,6 +148,7 @@ class ControlLoop(
         self._direct_api_executor = direct_api_executor
         self._tool_executor = tool_executor
         self._t1_engine = t1_engine
+        self._dynamic_runtime_coordinator = dynamic_runtime_coordinator
         self._t2_engine = t2_engine
         self._stage_publisher: StagePublisher = stage_publisher or NullStagePublisher()
         self._notification_router = notification_router
@@ -152,6 +156,7 @@ class ControlLoop(
         self._rca_coordinator = rca_coordinator
         self._event_correlator = event_correlator
         self._incident_member_source = incident_member_source
+        self._causal_runtime_coordinator = causal_runtime_coordinator
         # ``is None``, not ``or``: timedelta(0) is falsy, so an operator
         # who declares a zero window would silently get fifteen minutes.
         self._causal_chain_window = (

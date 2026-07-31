@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: 77517f723848cbffe43c4ef181d020d7ed451cb6
-translation_revised: 2026-07-31
+translation_source_sha: 45a0f4f05f879ec055de5bd4c7bb3aaec41d7036
+translation_revised: 2026-08-01
 ---
 # 인과 incident graph
 
@@ -13,11 +13,11 @@ Event correlation과 root-cause analysis(RCA)를 ontology 기반의 time-consist
 > **권한 경계:** Causal graph는 결정을 위한 evidence이며 실행 허가가 아닙니다. Rule verifier,
 > safety check, approval policy, executor, audit ledger가 계속 authority를 가집니다.
 >
-> **구현 상태(2026-07-31):** Typed hypothesis lifecycle, weakest-link scoring, bounded
+> **구현 상태(2026-08-01):** Typed hypothesis lifecycle, weakest-link scoring, bounded
 > time-consistent graph materializer, support/refutation 및 closure link, immutable ontology
-> projector와 regression test를 구현했습니다. 기존 T0/T1 RCA audit는 현재 control-loop의 live
-> explanation path입니다. Graph-backed closure를 배포하려면 runtime ontology와 independent
-> outcome provider binding이 필요합니다.
+> projector, lagged temporal analyzer, runtime coordinator, shadow control-loop caller,
+> independent closure classifier 및 regression test를 구현했습니다. Deployment는 bounded
+> temporal-series, ontology, independent outcome provider를 bind하며 causal result는 execution을 허가하지 않습니다.
 
 ## 설계 개요
 
@@ -83,6 +83,7 @@ Graph는 다음 질문에 결정론적으로 답하거나 명시적인 unknown�
 | `evidence_cutoff` | datetime | Claim에 사용할 수 있는 가장 늦은 event time입니다. |
 | `method_version` | string | Deterministic scorer 또는 reviewed reasoner version입니다. |
 | `created_at` | datetime | FDAI가 이 revision을 수락한 시간입니다. |
+| `closure` | string | Optional terminal result인 `confirmed`, `refuted`, `inconclusive`, `unsafe` 중 하나입니다. |
 
 Object는 identifier와 score만 저장합니다. Evidence body는 authoritative store에 남고 opaque
 reference로 인용합니다.

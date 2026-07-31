@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 03f8177cb6a030be8e0e906b19d36357e64026cf
-translation_revised: 2026-07-30
+translation_source_sha: 981f273ae1ba1b0e1b88549df3a150bc0c3b1416
+translation_revised: 2026-08-01
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -38,8 +38,10 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 기존 부품의 조합입니다.
 
 > **구현 상태**: `core/assurance_twin/`에는 in-memory projection, 검증된 deterministic query,
-> posture report 조립, publisher-neutral review glue, simulation fidelity ledger가 있고 focused
-> tests가 이를 검증합니다. Production inventory composition, model-backed NL compiler, ChatOps
+> posture report 조립, publisher-neutral review glue, simulation fidelity ledger,
+> active/challenger effect model 및 bounded Dynamic runtime coordinator가 있고 focused tests가 이를
+> 검증합니다. T1 reuse는 injected current-state request provider와 model registry를 통해 이를 호출하고
+> execution eligibility를 바꾸지 않는 shadow audit을 기록합니다. Production inventory composition, model-backed NL compiler, ChatOps
 > intent, Checks API publisher, discovery-loop hook, twin 전용 ReadPanel은 아직 연결되지 않았습니다.
 > 아래 ambient review, action-bridging, self-improving delivery 흐름은 목표 설계입니다. 별도의
 > Security Assessment report feed와 Azure analyzer는 현재 reporting subsystem에 구현되어 있습니다.
@@ -175,6 +177,9 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
   검사 및 multiple-testing 보정을 포함한 differenced lag correlation을 추가합니다. 이
   observational 경로는 최대 `predictive_precedence`까지만 도달하고 experimental causal grade를
   만들지 않습니다.
+  `runtime.py`는 최대 32개 current-state branch의 active 및 challenger model을 로드합니다. Active
+  model 누락, 낮은 evidence 또는 divergence는 review를 요구하며 T1 caller는 abstain 상태를 유지하고
+  learned action을 정상 re-verification 경로로 보냅니다.
 
 ## Assessment 리포트 (구독 자세, 온디맨드)
 

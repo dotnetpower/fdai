@@ -216,15 +216,22 @@ def simulate_effect_branches(
         "snapshot_id": snapshot.snapshot_id,
         "target_digest": snapshot.target_digest,
         "metric": snapshot.metric,
+        "observed_at": snapshot.observed_at.isoformat(),
         "objective": objective,
         "branches": [
             {
-                "branch_id": item.branch_id,
-                "action_type_id": item.action_type_id,
-                "active_model_ref": item.active_model_ref,
-                "challenger_model_ref": item.challenger_model_ref,
+                "branch_id": branch.branch_id,
+                "action_type_id": branch.action_type_id,
+                "raw_prediction": branch.raw_prediction,
+                "raw_interval_radius": branch.raw_interval_radius,
+                "active_model_ref": prediction.active_model_ref,
+                "challenger_model_ref": prediction.challenger_model_ref,
             }
-            for item in predictions
+            for branch, prediction in zip(
+                sorted(branches, key=lambda item: item.branch_id),
+                predictions,
+                strict=True,
+            )
         ],
     }
     digest = hashlib.sha256(

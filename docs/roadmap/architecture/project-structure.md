@@ -421,6 +421,9 @@ clean (see the fork model in
 - **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,
   graph, owner, policy, dry-run, and safety facts for an immutable operational case. It grants no
   execution authority. An absent binding makes operational reuse abstain while legacy patterns continue.
+- **Causal and Dynamic runtime evidence**: `TemporalCausalEvidenceProvider` supplies bounded
+  pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-
+  state branches. Both are read-only; absent bindings disable their shadow side paths.
 
 ### Capability Bundles
 

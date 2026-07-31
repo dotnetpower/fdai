@@ -19,6 +19,7 @@ from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewProjector,
 )
+from fdai.core.assurance_twin import DynamicRuntimeCoordinator
 from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
@@ -40,7 +41,12 @@ from fdai.core.quality_gate import (
     RuleBasedVerifier,
 )
 from fdai.core.rbac.resolver import GroupMapping
-from fdai.core.rca import KnowledgeEvidenceGatherer, RcaCoordinator, TelemetryEvidenceGatherer
+from fdai.core.rca import (
+    CausalRuntimeCoordinator,
+    KnowledgeEvidenceGatherer,
+    RcaCoordinator,
+    TelemetryEvidenceGatherer,
+)
 from fdai.core.risk_gate import ActionPromotionRegistry, RiskGate
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.tiers.t0_deterministic import T0Engine
@@ -207,6 +213,8 @@ def _build_control_loop(
     identity: WorkloadIdentity | None = None,
     response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
     current_reuse_verifier: CurrentReuseVerifier | None = None,
+    causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
+    dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -478,11 +486,13 @@ def _build_control_loop(
         action_types_by_name=action_types_by_name,
         risk_gate=risk_gate,
         t1_engine=t1,
+        dynamic_runtime_coordinator=dynamic_runtime_coordinator,
         t2_engine=t2,
         direct_api_executor=direct_api_executor,
         tool_executor=tool_executor,
         event_correlator=event_correlator,
         rca_coordinator=rca_coordinator,
+        causal_runtime_coordinator=causal_runtime_coordinator,
         hil_resume_coordinator=hil_resume_coordinator,
         workflow_coordinator=_build_workflow_coordinator(
             catalog_root=catalog_root,

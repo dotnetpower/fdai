@@ -41,7 +41,9 @@ is composition of existing parts.
 
 > **Implementation status**: `core/assurance_twin/` contains an in-memory projection,
 > verified deterministic query execution, posture-report assembly, publisher-neutral review
-> glue, and a simulation-fidelity ledger, all covered by focused tests. Production inventory
+> glue, a simulation-fidelity ledger, active/challenger effect models, and a bounded Dynamic
+> runtime coordinator. T1 reuse can invoke it through an injected current-state request provider
+> and model registry, then writes a shadow audit without changing execution eligibility. Production inventory
 > composition, a model-backed NL compiler, ChatOps intent, Checks API publisher, discovery-loop
 > hook, and twin-specific ReadPanel aren't wired yet. The ambient-review, action-bridging, and
 > self-improving delivery flows below are target design. A separate Security Assessment report
@@ -192,6 +194,9 @@ complicates the design.
   lagged correlation with optional confounder adjustment, reverse-direction checks, and multiple-
   testing correction; this observational path can reach only `predictive_precedence`, never an
   experimental causal grade.
+  `runtime.py` loads active and challenger models for at most 32 current-state branches. Missing
+  active models, low evidence, or divergence require review; the T1 caller remains abstained and
+  sends the learned action through normal re-verification.
 
 ## Assessment report (subscription posture, on demand)
 
