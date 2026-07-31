@@ -6023,12 +6023,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 /* Body: conversation history + transcript + digest ------------------- */
 .deck-body {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 340px;
+  grid-template-columns: 210px minmax(760px, 1fr) 280px;
   min-height: 0;
   overflow: hidden;
 }
-@media (max-width: 1100px) {
-  .deck-body { grid-template-columns: 220px minmax(0, 1fr); }
+@media (max-width: 1399px) {
+  .deck-body { grid-template-columns: 200px minmax(760px, 1fr); }
   .deck-digest { display: none; }
 }
 .deck-conversations {
@@ -6198,6 +6198,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: flex;
   flex-direction: column;
   gap: 16px;
+  font-size: 15px;
 }
 .deck-jump {
   position: sticky;
@@ -6518,6 +6519,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-head > span {
   font-size: 11px;
 }
+.deck-investigation-phase {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--accent-strong);
+  font: 700 9.5px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
 .deck-investigation-spinner {
   width: 13px;
   height: 13px;
@@ -6713,6 +6725,23 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 8px;
   min-height: 34px;
 }
+.deck-investigation-summary.has-kind-badge {
+  grid-template-columns: 18px 42px minmax(0, 1fr) auto;
+}
+.deck-investigation-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 22px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--tier-t1, #4f9fa5) 18%, transparent);
+  color: var(--tier-t1, #397b80);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
 .deck-investigation-state {
   position: relative;
   z-index: 1;
@@ -6823,6 +6852,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: #d7dde3;
+  background: #1f2428;
+}
+.deck-investigation-command code,
+.deck-investigation-output code {
+  color: inherit;
+  background: transparent;
 }
 .deck-investigation-result {
   display: flex;

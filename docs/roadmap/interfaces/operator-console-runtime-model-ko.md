@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 67ead5134ac3e8534014358bb66e75ccd1748867
+translation_source_sha: fa2e2a722b96404387e28bef2563b04c787813fa
 translation_revised: 2026-07-31
 ---
 
@@ -265,7 +265,7 @@ tool, approval 또는 execution authority를 부여하지 않습니다.
 | Presentation | 선택 기준 | 채널 동작 |
 |--------------|-----------|-----------|
 | None | Activity, handoff, background task 없음 | Answer만 렌더링합니다. |
-| Compact | Failure, retry, handoff가 없는 terminal read activity 하나 | Compact session header와 observed step을 계속 표시하며 raw output과 timestamp만 접습니다. |
+| Compact | Failure, retry, handoff가 없는 terminal read activity 하나 | Compact session header와 observed step을 계속 표시하고 linked source marker를 해당 step에 통합하며 raw output과 timestamp만 접습니다. |
 | Timeline | 여러 activity, handoff, failure, retry, code 또는 file change, non-read authority 중 하나 이상 | Milestone과 activity group을 causal order로 배치합니다. |
 | Detached | Execution policy가 durable background task를 선택 | Durable task summary를 렌더링하고 이후 progress 또는 completion을 originating thread에 전달합니다. |
 

@@ -106,7 +106,7 @@ flowchart TD
   agent conversation target or incident binding, or addressed with `Ask <agent>` or `@<agent>`,
   remains the response owner.
   An agent-card Ask opens with a compact projected-state line list; its longer fixed context stays non-rendered for backend history, and the visible report streams in bounded two-word bursts.
-  Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation keeps its session header and observed steps visible beside the final answer; only redacted command output and timestamps remain in disclosures. The browser never replays work or invents progress.
+  Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation keeps its session header and observed steps visible beside the final answer; only redacted command output and timestamps remain in disclosures. A source branch linked to an observed execution step is represented once on that step rather than repeated as a separate row. Full workspace reserves at least 760 px for the desktop transcript and uses the full mobile viewport without horizontal overflow. Phase markers, a 15 px conversation scale, and one dark command/code surface keep the production hierarchy aligned with the execution mock. The browser never replays work or invents progress.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows
   the milestone as a compact progress note, opens only the current group, and restores completed
   groups in causal order. Slack and Teams edit the same cumulative redacted activity projection.

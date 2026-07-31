@@ -36,6 +36,18 @@ export function upsertInvestigationActivity(
   return activities.map((item, itemIndex) => itemIndex === index ? incoming : item);
 }
 
+export function unrepresentedEvidenceBranches(
+  branches: readonly EvidenceBranch[],
+  activities: readonly InvestigationActivity[],
+): readonly EvidenceBranch[] {
+  const representedBranchIds = new Set(
+    activities
+      .filter((activity) => activity.execution !== undefined && activity.branchId)
+      .map((activity) => activity.branchId),
+  );
+  return branches.filter((branch) => !representedBranchIds.has(branch.branchId));
+}
+
 function canAdvanceActivity(
   current: InvestigationActivity["status"],
   incoming: InvestigationActivity["status"],
@@ -212,14 +224,15 @@ export function InvestigationTimeline({
   const finalDurationMs = terminalDuration(branches);
   const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
   const tone = terminalTone(activities, branches);
+  const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
   const summary = branches.length > 0
     ? t("deck.investigation.sourceSummary", { count: branches.length })
     : t("deck.investigation.executionDetails", { count: activities.length });
   const body = (
     <div class="deck-investigation-body">
-      {branches.length > 0 ? (
+      {visibleBranches.length > 0 ? (
         <ol class="deck-branch-list" aria-label={t("deck.investigation.branches")}>
-          {branches.map((branch, index) => (
+          {visibleBranches.map((branch, index) => (
             <li
               key={branch.branchId}
               class={`deck-branch-item is-${branch.status}`}
@@ -261,10 +274,15 @@ export function InvestigationTimeline({
                   key={activity.activityId}
                   class={`deck-investigation-item is-${activity.status}`}
                 >
-                  <div class="deck-investigation-summary">
+                  <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
                     <span class="deck-investigation-state" aria-hidden="true">
                       {statusMark(activity.status)}
                     </span>
+                    {activity.execution ? (
+                      <span class="deck-investigation-kind-badge is-tool" aria-hidden="true">
+                        TOOL
+                      </span>
+                    ) : null}
                     <span class="deck-investigation-copy">
                       <strong>{activity.label}</strong>
                       {activity.detail ? <small>{activity.detail}</small> : null}
@@ -297,6 +315,7 @@ export function InvestigationTimeline({
         aria-label={t("deck.investigation.label")}
       >
         <header class="deck-investigation-head">
+          <span class="deck-investigation-phase" aria-hidden="true">01</span>
           <span class="deck-investigation-state" aria-hidden="true">
             {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : "!"}
           </span>
@@ -320,6 +339,7 @@ export function InvestigationTimeline({
       aria-label={t("deck.investigation.label")}
     >
       <header class="deck-investigation-head">
+        <span class="deck-investigation-phase" aria-hidden="true">01</span>
         <span class="deck-investigation-spinner" aria-hidden="true" />
         <strong>{t("deck.investigation.title")}</strong>
         <span class="muted">{summary}</span>

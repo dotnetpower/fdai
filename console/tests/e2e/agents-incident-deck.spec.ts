@@ -37,7 +37,10 @@ function sse(route: Route, frames: readonly string[]): Promise<void> {
   });
 }
 
-async function installReadApiFixture(page: Page): Promise<{
+async function installReadApiFixture(
+  page: Page,
+  options: { readonly executionTimeline?: boolean } = {},
+): Promise<{
   readonly chatBody: () => Record<string, unknown> | null;
 }> {
   let capturedChatBody: Record<string, unknown> | null = null;
@@ -99,9 +102,47 @@ async function installReadApiFixture(page: Page): Promise<{
         "The cause cannot be confirmed.\n\nCurrent recorded agent activity:\n" +
         "- Var: hil.requested at 2026-07-22T00:01:00Z\n" +
         "- Forseti: risk_gate.decided at 2026-07-22T00:00:30Z";
-      await sse(route, [
-        `event: done\ndata: ${JSON.stringify({
+      const frames = options.executionTimeline ? [
+        `event: branch\ndata: ${JSON.stringify({
           seq: 1,
+          revision: 0,
+          branch_id: "request-1:tool",
+          branch_kind: "tool",
+          parent_branch_id: null,
+          status: "completed",
+          summary: "tool evidence ready",
+          started_at: "2026-07-22T00:01:00Z",
+          completed_at: "2026-07-22T00:01:00.008Z",
+          duration_ms: 8,
+          evidence_refs: ["tool:inventory:1"],
+        })}`,
+        `event: activity\ndata: ${JSON.stringify({
+          seq: 2,
+          revision: 0,
+          activity_id: "inspect-inventory",
+          branch_id: "request-1:tool",
+          kind: "inventory.querying",
+          status: "completed",
+          label: "Inspect server-owned read evidence",
+          completed: 1,
+          total: 1,
+          authority: "server_inventory_graph",
+          execution: {
+            tool: "query_inventory",
+            command: "query_inventory --scope <server-owned> --query <redacted>",
+            redacted: true,
+            output: "7 resource groups",
+            output_truncated: false,
+            exit_code: 0,
+            started_at: "2026-07-22T00:01:00Z",
+            completed_at: "2026-07-22T00:01:00.008Z",
+            duration_ms: 8,
+          },
+        })}`,
+      ] : [];
+      frames.push(
+        `event: done\ndata: ${JSON.stringify({
+          seq: options.executionTimeline ? 3 : 1,
           revision: 1,
           answer,
           model: "narrator-test",
@@ -117,7 +158,8 @@ async function installReadApiFixture(page: Page): Promise<{
             failed_claim_ids: [],
           },
         })}`,
-      ]);
+      );
+      await sse(route, frames);
       return;
     }
     await json(route, { detail: `unmocked browser-test route: ${url.pathname}` }, 404);
@@ -162,6 +204,58 @@ test("defaults to the right dock and restores the last display mode", async ({ p
   await page.getByRole("button", { name: "Open command deck" }).click();
   workspace = page.getByRole("dialog", { name: "Command deck" });
   await expect(workspace).toHaveClass(/deck-overlay-mode-workspace/);
+});
+
+test("keeps a mock-aligned execution timeline in full workspace", async ({ page }) => {
+  await installReadApiFixture(page, { executionTimeline: true });
+  await page.goto(
+    `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
+  );
+
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  const dock = page.getByRole("complementary", { name: "Command deck" });
+  await dock.getByRole("button", { name: "Full workspace" }).click();
+  const workspace = page.getByRole("dialog", { name: "Command deck" });
+  const prompt = workspace.getByPlaceholder(/Ask anything/i);
+  await prompt.fill("List resource groups");
+  await workspace.getByRole("button", { name: "Send" }).click();
+
+  await expect(workspace.getByText(/no grounded root cause with citations is recorded/i))
+    .toBeVisible();
+  const investigation = workspace.locator(".deck-investigation.is-settled");
+  await expect(investigation).toBeVisible();
+  await expect(investigation.locator(".deck-investigation-phase")).toHaveText("01");
+  await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
+  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
+  await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("TOOL");
+
+  const metrics = await workspace.evaluate((root) => {
+    const transcript = root.querySelector<HTMLElement>(".deck-transcript");
+    const command = root.querySelector<HTMLElement>(".deck-investigation-command");
+    const code = command?.querySelector<HTMLElement>("code");
+    return {
+      viewportWidth: window.innerWidth,
+      transcriptWidth: transcript?.clientWidth ?? 0,
+      bodyOverflow: document.body.scrollWidth > document.body.clientWidth,
+      investigationOverflow: (() => {
+        const investigation = root.querySelector<HTMLElement>(".deck-investigation");
+        return investigation
+          ? investigation.scrollWidth > investigation.clientWidth
+          : true;
+      })(),
+      commandBackground: command ? getComputedStyle(command).backgroundColor : "",
+      codeBackground: code ? getComputedStyle(code).backgroundColor : "",
+    };
+  });
+  if (metrics.viewportWidth >= 900) {
+    expect(metrics.transcriptWidth).toBeGreaterThanOrEqual(760);
+  } else {
+    expect(metrics.transcriptWidth).toBeGreaterThanOrEqual(metrics.viewportWidth - 1);
+  }
+  expect(metrics.bodyOverflow).toBe(false);
+  expect(metrics.investigationOverflow).toBe(false);
+  expect(metrics.commandBackground).toBe("rgb(31, 36, 40)");
+  expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
 });
 
 test("pins a Var incident through the deck and renders a grounded Bragi answer", async ({

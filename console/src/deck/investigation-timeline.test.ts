@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { InvestigationActivity } from "./backend";
-import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
+import {
+  unrepresentedEvidenceBranches,
+  upsertEvidenceBranch,
+  upsertInvestigationActivity,
+} from "./investigation-timeline";
 import type { EvidenceBranch } from "./backend";
 
 function activity(
@@ -77,6 +81,22 @@ describe("upsertEvidenceBranch", () => {
     expect(stale).toBe(completed);
   });
 
+  it("removes a source row when the linked execution step already represents it", () => {
+    const linkedActivity = {
+      ...activity("inventory", "completed"),
+      branchId: "request:tool",
+      execution: {
+        tool: "query_inventory",
+        command: "query_inventory --scope <server-owned>",
+        redacted: true as const,
+      },
+    };
+
+    expect(unrepresentedEvidenceBranches([branch("completed")], [linkedActivity])).toEqual([]);
+    expect(unrepresentedEvidenceBranches([branch("completed")], [activity("health", "completed")]))
+      .toHaveLength(1);
+  });
+
   it("keeps execution evidence folded and branch summaries accessible on narrow screens", () => {
     const component = readFileSync(
       fileURLToPath(new URL("./investigation-timeline.tsx", import.meta.url)),
@@ -99,12 +119,20 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('class={`deck-investigation-badge is-${tone}`}');
     expect(component).toContain('class="deck-investigation-elapsed muted"');
     expect(component).toContain("deck-branch-badge");
+    expect(component).toContain('class="deck-investigation-phase"');
+    expect(component).toContain('class="deck-investigation-kind-badge is-tool"');
     expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
     expect(presenter).toContain("{isDeck ? (");
     expect(presenter).toContain('class="deck-progress-note" role="status"');
     expect(styles).toContain(".deck-progress-note {");
+    expect(styles).toMatch(
+      /\.deck-body\s*\{[^}]*grid-template-columns:\s*210px minmax\(760px, 1fr\) 280px/,
+    );
+    expect(styles).toMatch(
+      /\.deck-investigation-command,[\s\S]*?\.deck-investigation-output\s*\{[^}]*background:\s*#1f2428/,
+    );
     expect(styles).toMatch(
       /\.deck-investigation-list::before\s*\{[^}]*background:\s*var\(--border\)/,
     );

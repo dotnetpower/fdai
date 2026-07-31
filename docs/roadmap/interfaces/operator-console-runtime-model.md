@@ -278,7 +278,7 @@ The server selects the smallest sufficient presentation from actual work, never 
 | Presentation | Selection | Channel behavior |
 |--------------|-----------|------------------|
 | None | No activity, handoff, or background task | Render only the answer. |
-| Compact | One terminal read activity with no failure, retry, or handoff | Keep the compact session header and observed step visible; fold only raw output and timestamps. |
+| Compact | One terminal read activity with no failure, retry, or handoff | Keep the compact session header and observed step visible, merge its linked source marker into the step, and fold only raw output and timestamps. |
 | Timeline | Multiple activities, any handoff, failure, retry, code or file change, or non-read authority | Interleave milestones and activity groups in causal order. |
 | Detached | The execution policy selects a durable background task | Render a durable task summary and deliver later progress or completion in the originating thread. |
 

@@ -8,6 +8,7 @@ import {
   type OntologyKnowledgeNode,
 } from "./ontology-knowledge-graph.model";
 import { ONTOLOGY_NODE_STYLES } from "./ontology-knowledge-graph.renderer";
+import { Tooltip } from "./tooltip";
 import { useOntologyKnowledgeGraphController } from "./use-ontology-knowledge-graph-controller";
 
 export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: OntologyKnowledgeGraph }) {
@@ -84,8 +85,12 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
             {graph.nodes.map((node) => <option key={node.id} value={node.label} />)}
           </datalist>
           <button type="button" onClick={findNode}>{t("ontology.map.find")}</button>
-          <button type="button" class="is-icon" onClick={controller.zoomIn} aria-label={t("ontology.map.zoomIn")} title={t("ontology.map.zoomIn")}>+</button>
-          <button type="button" class="is-icon" onClick={controller.zoomOut} aria-label={t("ontology.map.zoomOut")} title={t("ontology.map.zoomOut")}>-</button>
+          <Tooltip content={t("ontology.map.zoomIn")}>
+            <button type="button" class="is-icon" onClick={controller.zoomIn} aria-label={t("ontology.map.zoomIn")}>+</button>
+          </Tooltip>
+          <Tooltip content={t("ontology.map.zoomOut")}>
+            <button type="button" class="is-icon" onClick={controller.zoomOut} aria-label={t("ontology.map.zoomOut")}>-</button>
+          </Tooltip>
           <button type="button" onClick={() => { controller.fit(); setSelectedId(null); }}>{t("ontology.map.fit")}</button>
           <button type="button" onClick={() => void toggleFullscreen()} aria-pressed={fullscreen}>
             {t(fullscreen ? "ontology.map.exitFullscreen" : "ontology.map.fullscreen")}
