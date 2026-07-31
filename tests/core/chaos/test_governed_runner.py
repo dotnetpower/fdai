@@ -297,6 +297,49 @@ async def test_governed_runner_denies_stale_pre_injection_resume() -> None:
     assert dispatcher.calls == []
 
 
+async def test_governed_runner_never_redispatches_recovery_from_verifying() -> None:
+    injector = ShadowFaultInjector(fault_type="pod_kill")
+    dispatcher = _Dispatcher()
+    state_store = InMemoryStateStore()
+    run_store = ChaosRunStore(state_store=state_store)
+    snapshot = await run_store.create(run_id="run-1", at=_NOW)
+    for state in (
+        ChaosRunState.IMPACT_CHECKED,
+        ChaosRunState.DRY_RUN_VERIFIED,
+        ChaosRunState.APPROVED,
+        ChaosRunState.INJECTING,
+        ChaosRunState.OBSERVING,
+        ChaosRunState.VERIFIED,
+        ChaosRunState.RECOVERING,
+        ChaosRunState.VERIFYING,
+    ):
+        snapshot = await run_store.transition(
+            snapshot,
+            target=state,
+            idempotency_key=f"run-1:{state.value}",
+            at=_NOW,
+        )
+    runner = GovernedChaosRunner(
+        harness=FaultInjectionHarness(injectors=(injector,), probe=_Probe(), sleeper=_sleeper),
+        run_store=run_store,
+        recovery=PreauthorizedRecoveryController(dispatcher=dispatcher),
+        evidence_collector=_EvidenceCollector(),
+        clock=lambda: _NOW,
+    )
+
+    result = await runner.run_enforce(
+        run_id="run-1",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+
+    assert result.state.state is ChaosRunState.ESCALATED
+    assert result.recovery is None
+    assert dispatcher.calls == []
+
+
 async def test_governed_runner_escalates_when_recovery_evidence_is_incomplete() -> None:
     injector = ShadowFaultInjector(fault_type="pod_kill")
     dispatcher = _Dispatcher()

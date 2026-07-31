@@ -52,3 +52,21 @@ async def test_transition_rejects_stale_snapshot_revision() -> None:
             idempotency_key="run-1:stale",
             at=_NOW + timedelta(seconds=2),
         )
+
+
+async def test_transition_reconciles_duplicate_retry() -> None:
+    store = ChaosRunStore(state_store=InMemoryStateStore())
+    planned = await store.create(run_id="run-1", at=_NOW)
+    first = await store.transition(
+        planned,
+        target=ChaosRunState.IMPACT_CHECKED,
+        idempotency_key="run-1:impact_checked",
+        at=_NOW,
+    )
+    retried = await store.transition(
+        planned,
+        target=ChaosRunState.IMPACT_CHECKED,
+        idempotency_key="run-1:impact_checked",
+        at=_NOW,
+    )
+    assert retried == first

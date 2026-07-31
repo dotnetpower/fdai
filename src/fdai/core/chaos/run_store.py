@@ -62,6 +62,13 @@ class ChaosRunStore:
             audit_entry=_audit(updated, from_state=snapshot.state),
         )
         if not applied:
+            current = await self.get(snapshot.run_id)
+            if (
+                current is not None
+                and current.state is target
+                and current.last_idempotency_key == idempotency_key
+            ):
+                return current
             raise ChaosRunConflictError("chaos run revision changed concurrently")
         return updated
 

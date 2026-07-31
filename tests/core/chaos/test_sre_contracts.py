@@ -9,6 +9,7 @@ import yaml
 
 from fdai.core.chaos.promotion_evidence import (
     ScenarioEvidenceKey,
+    ScenarioPromotionError,
     ScenarioPromotionEvidence,
     ScenarioPromotionLedger,
     ScenarioPromotionState,
@@ -168,6 +169,23 @@ def test_safe_observation_keeps_enforce_eligibility() -> None:
     assert reasons == ()
     assert ledger.is_enforce_eligible(_KEY)
     assert actions.mode_of("ops.scale-out") is Mode.ENFORCE
+
+
+def test_regression_evidence_requires_grounded_reasons() -> None:
+    ledger = _promoted_ledger()
+    with pytest.raises(ScenarioPromotionError, match="requires reasons"):
+        ledger.append(
+            ScenarioPromotionEvidence(
+                evidence_id="ungrounded-regression",
+                key=_KEY,
+                from_state=ScenarioPromotionState.ENFORCE_ELIGIBLE,
+                to_state=ScenarioPromotionState.REGRESSED,
+                actor_principal="Mimir",
+                audit_ref="audit:missing-reason",
+                observed_at=_NOW,
+                runner_version="runner/1",
+            )
+        )
 
 
 def test_regression_rejects_unpromoted_action_without_partial_demotion() -> None:

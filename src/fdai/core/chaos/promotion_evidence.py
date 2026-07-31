@@ -196,6 +196,10 @@ class ScenarioPromotionLedger:
         elif evidence.to_state is ScenarioPromotionState.REGRESSED:
             if evidence.actor_principal != "Mimir":
                 raise ScenarioPromotionError("only Mimir may regress a scenario")
+            if not evidence.regression_reasons or any(
+                not reason.strip() for reason in evidence.regression_reasons
+            ):
+                raise ScenarioPromotionError("regression evidence requires reasons")
 
     @staticmethod
     def _validate_shadow_evidence(evidence: ScenarioPromotionEvidence) -> None:
