@@ -26,6 +26,29 @@ class InventoryQueryKind(StrEnum):
     RELATIONSHIPS = "relationships"
 
 
+class InventoryQueryScope(StrEnum):
+    """Server-owned inventory boundary selected by the typed query."""
+
+    ACTIVE_VIEW = "active_view"
+    SUBSCRIPTION = "subscription"
+
+
+class InventoryQueryGrouping(StrEnum):
+    """Evidence-backed grouping requested for deterministic rendering."""
+
+    NONE = "none"
+    RESOURCE_TYPE = "resource_type"
+    STATUS = "status"
+    LOCATION = "location"
+
+
+class InventoryQueryProjection(StrEnum):
+    """Bounded detail projection selected before evidence retrieval."""
+
+    DETAILS = "details"
+    NAMES = "names"
+
+
 class InventoryField(StrEnum):
     """Allowlisted fields a query predicate may inspect."""
 
@@ -125,6 +148,22 @@ class InventoryPredicate:
 
 
 @dataclass(frozen=True, slots=True)
+class InventoryQueryValueGroup:
+    """One catalog semantic group over canonical provider values."""
+
+    id: str
+    values: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        normalized_id = _bounded_value(self.id)
+        normalized_values = tuple(_bounded_value(value) for value in self.values)
+        if not normalized_values or len(set(normalized_values)) != len(normalized_values):
+            raise ValueError("inventory query value group requires unique values")
+        object.__setattr__(self, "id", normalized_id)
+        object.__setattr__(self, "values", normalized_values)
+
+
+@dataclass(frozen=True, slots=True)
 class InventoryQuery:
     """One immutable, bounded, read-only resource query."""
 
@@ -132,6 +171,12 @@ class InventoryQuery:
     kind: InventoryQueryKind
     predicates: tuple[InventoryPredicate, ...] = ()
     lookback_seconds: int | None = None
+    scope: InventoryQueryScope = InventoryQueryScope.ACTIVE_VIEW
+    group_by: InventoryQueryGrouping = InventoryQueryGrouping.NONE
+    projection: InventoryQueryProjection = InventoryQueryProjection.DETAILS
+    require_fresh: bool = False
+    include_workloads: bool = False
+    status_groups: tuple[InventoryQueryValueGroup, ...] = ()
 
     def __post_init__(self) -> None:
         if len(self.predicates) > _MAX_PREDICATES:
@@ -325,8 +370,12 @@ __all__ = [
     "InventoryOperator",
     "InventoryPredicate",
     "InventoryQuery",
+    "InventoryQueryGrouping",
     "InventoryQueryKind",
+    "InventoryQueryProjection",
+    "InventoryQueryScope",
     "InventoryQuerySource",
+    "InventoryQueryValueGroup",
     "inventory_query_argument_schema",
     "inventory_query_matches",
     "normalize_inventory_value",

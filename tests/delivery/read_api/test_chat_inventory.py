@@ -73,10 +73,15 @@ async def _provider(
     scope: str | None,
     depth: int,
     link_types: tuple[str, ...],
+    *,
+    root: str | None = None,
+    limit: int = 500,
 ) -> dict[str, Any]:
     assert scope is None
     assert depth == 4
     assert link_types == ("contains", "attached_to", "depends_on")
+    assert root in {None, "azure-subscription"}
+    assert limit in {500, 1_000}
     resources = [
         _resource("sub", "subscription", "Example subscription"),
         _resource("rg-app", "resource-group", "rg-app", group="rg-app"),
@@ -208,15 +213,20 @@ async def test_inventory_chart_format_emits_valid_chart_json() -> None:
     }
 
 
-async def test_korean_database_grouping_uses_only_matched_stopped_or_paused_types() -> None:
+async def test_korean_database_grouping_uses_only_matched_stopped_types() -> None:
     async def provider(
         scope: str | None,
         depth: int,
         link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
     ) -> dict[str, Any]:
         assert scope is None
         assert depth == 4
         assert link_types == ("contains", "attached_to", "depends_on")
+        assert root == "azure-subscription"
+        assert limit == 1_000
         return {
             "snapshot_at": "2026-07-20T10:00:00Z",
             "freshness": "fresh",
@@ -245,6 +255,149 @@ async def test_korean_database_grouping_uses_only_matched_stopped_or_paused_type
     assert "sql-database: 1개" in answer
     assert "compute.vm" not in answer
     assert evidence["result"]["matched_count"] == 3
+
+
+async def test_explicit_database_states_render_separately_with_grounded_zero_group() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        assert scope is None
+        assert depth == 4
+        assert link_types == ("contains", "attached_to", "depends_on")
+        assert root == "azure-subscription"
+        assert limit == 1_000
+        return {
+            "snapshot_at": "2026-07-20T10:00:00Z",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "resources": [
+                _resource("mysql", "mysql-server", "mysql-data", status="Stopped"),
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "List stopped and paused database services separately.",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    answer = render_inventory_answer(evidence, locale="en")
+    assert answer is not None
+    assert "**Stopped**" in answer
+    assert "Resource mysql-data: mysql-server, Stopped" in answer
+    assert "**Paused**" in answer
+    assert "No matching resources in this scope." in answer
+    assert evidence["result"]["status_filter"] == ["stopped", "paused"]
+
+
+async def test_current_state_query_waits_for_fresh_inventory() -> None:
+    class RefreshingProvider:
+        def __init__(self) -> None:
+            self.fresh = False
+            self.calls = 0
+            self.waits = 0
+
+        async def __call__(
+            self,
+            scope: str | None,
+            depth: int,
+            link_types: tuple[str, ...],
+            *,
+            root: str | None = None,
+            limit: int = 500,
+        ) -> dict[str, Any]:
+            del scope, depth, link_types, root, limit
+            self.calls += 1
+            return {
+                "snapshot_at": "2026-07-20T10:00:00Z",
+                "freshness": "fresh" if self.fresh else "stale",
+                "source": "test-inventory",
+                "active_view": "all-test-resources",
+                "truncated": False,
+                "resources": [
+                    _resource("mysql", "mysql-server", "mysql-data", status="Stopped"),
+                ],
+                "links": [],
+            }
+
+        async def wait_for_refresh(self) -> None:
+            self.waits += 1
+            self.fresh = True
+
+    provider = RefreshingProvider()
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "Are any databases stopped right now?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["freshness"] == "fresh"
+    assert evidence["result"]["matched_count"] == 1
+    assert provider.calls == 2
+    assert provider.waits == 1
+
+
+async def test_current_state_query_without_refresh_barrier_fails_closed() -> None:
+    async def stale_provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        del scope, depth, link_types, root, limit
+        return {
+            "snapshot_at": "2026-07-20T10:00:00Z",
+            "freshness": "stale",
+            "source": "test-inventory",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(stale_provider).resolve(
+        "Are any databases stopped right now?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"] == {
+        "status": "unavailable",
+        "reason": "fresh_inventory_required",
+        "query_source": "current",
+        "query": {
+            "source": "current",
+            "kind": "list",
+            "predicates": [
+                {
+                    "field": "resource_type",
+                    "operator": "in",
+                    "value": [
+                        "cache",
+                        "mysql-server",
+                        "nosql-database",
+                        "postgresql-server",
+                        "redis-enterprise",
+                        "sql-database",
+                    ],
+                },
+                {"field": "status", "operator": "in", "value": ["stopped", "deallocated"]},
+            ],
+            "lookback_seconds": None,
+        },
+        "freshness": "stale",
+    }
 
 
 @pytest.mark.parametrize(
@@ -414,10 +567,15 @@ async def test_common_azure_resource_queries_filter_inventory_graph(
         scope: str | None,
         depth: int,
         link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
     ) -> dict[str, Any]:
         assert scope is None
         assert depth == 4
         assert link_types == ("contains", "attached_to", "depends_on")
+        assert root == "azure-subscription"
+        assert limit == 1_000
         return {
             "resources": resources,
             "links": [],
@@ -509,8 +667,11 @@ async def test_stopped_aks_name_list_keeps_type_and_status_scoped_together(
         scope: str | None,
         depth: int,
         link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
     ) -> dict[str, Any]:
-        graph = await _provider(scope, depth, link_types)
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
         resources = [
             {
                 **resource,
@@ -886,8 +1047,11 @@ async def test_bound_kubernetes_evidence_does_not_cover_other_clusters() -> None
         scope: str | None,
         depth: int,
         link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
     ) -> dict[str, Any]:
-        graph = await _provider(scope, depth, link_types)
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
         graph["resources"].append(
             _resource(
                 "aks-other",

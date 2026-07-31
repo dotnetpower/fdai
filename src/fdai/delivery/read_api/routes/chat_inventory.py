@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, Protocol, runtime_checkable
 
 from fdai.delivery.read_api.routes.chat_inventory_activity import (
     MAX_ACTIVITY_EVENTS,
@@ -16,40 +15,38 @@ from fdai.delivery.read_api.routes.chat_inventory_activity import (
 )
 from fdai.delivery.read_api.routes.chat_inventory_compiler import (
     compile_inventory_query,
+    inventory_query_scope,
     is_inventory_question,
 )
 from fdai.delivery.read_api.routes.chat_inventory_followup import (
     SUBSCRIPTION_ROOT,
     SUBSCRIPTION_ROOT_LIMIT,
-    requests_subscription_inventory,
 )
 from fdai.delivery.read_api.routes.chat_inventory_query import (
     InventoryField,
     InventoryOperator,
     InventoryQuery,
+    InventoryQueryGrouping,
     InventoryQueryKind,
+    InventoryQueryScope,
     InventoryQuerySource,
     inventory_query_argument_schema,
     inventory_query_matches,
+    normalize_inventory_value,
 )
 from fdai.delivery.read_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.read_api.routes.chat_turn_plan import TurnTool
 from fdai.delivery.read_api.routes.inventory_graph import InventoryGraphProvider
 
-_WORKLOAD_INTENT: Final = re.compile(
-    r"\b(?:deploy(?:ed|ing|ments?)?|pods?|workloads?|running apps?)\b"
-    r"|배포|파드|워크로드|실행\s*중인\s*앱",
-    re.IGNORECASE,
-)
-_NAME_LIST_INTENT: Final = re.compile(
-    r"(?:\b(?:list|show)\b.{0,24}\bnames?\b|\bnames?\b.{0,24}\b(?:list|show)\b)|"
-    r"(?:이름(?:만|을|이|은)?.{0,12}(?:목록|보여|알려)|(?:목록|보여).{0,12}이름)",
-    re.IGNORECASE,
-)
 _MAX_RESOURCES = 40
 _MAX_LINKS = 40
 KubernetesWorkloadProvider = Callable[[], Awaitable[Mapping[str, Any]]]
 InventoryActivityProvider = Callable[[int, int], Awaitable[Mapping[str, Any]]]
+
+
+@runtime_checkable
+class InventoryRefreshBarrier(Protocol):
+    async def wait_for_refresh(self) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,20 +96,7 @@ class InventoryChatTools:
         if not needs_inventory_evidence(prompt):
             return await self._fallback(prompt, principal_id=principal_id)
         try:
-            if requests_subscription_inventory(prompt):
-                graph = dict(
-                    await self.provider(
-                        None,
-                        4,
-                        ("contains", "attached_to", "depends_on"),
-                        root=SUBSCRIPTION_ROOT,
-                        limit=SUBSCRIPTION_ROOT_LIMIT,
-                    )
-                )
-            else:
-                graph = dict(
-                    await self.provider(None, 4, ("contains", "attached_to", "depends_on"))
-                )
+            graph = await self._graph_for_scope(inventory_query_scope(prompt))
             safe_payload = _safe_inventory_payload(graph)
             if safe_payload is None:
                 raise ValueError("invalid_inventory_payload")
@@ -121,12 +105,17 @@ class InventoryChatTools:
             query = compile_inventory_query(prompt, resources=managed)
             if query is None:
                 return await self._fallback(prompt, principal_id=principal_id)
+            if query.require_fresh and graph.get("freshness") != "fresh":
+                graph = await self._graph_for_query(query, graph=graph)
+                safe_payload = _safe_inventory_payload(graph)
+                if safe_payload is None:
+                    raise ValueError("invalid_inventory_payload")
+                resources, raw_links = safe_payload
             activity = await self._activity(query)
             result = _project_verified_inventory_result(
                 query,
                 graph,
                 activity=activity,
-                prompt=prompt,
                 projected=(resources, raw_links),
             )
             if result.get("coverage_gap") == "kubernetes_workloads":
@@ -149,7 +138,7 @@ class InventoryChatTools:
         *,
         prompt: str | None = None,
     ) -> dict[str, Any]:
-        graph = dict(await self.provider(None, 4, ("contains", "attached_to", "depends_on")))
+        graph = await self._graph_for_query(query)
         activity = await self._activity(query)
         result = (
             _project_inventory_result(prompt, graph, activity=activity)
@@ -165,6 +154,42 @@ class InventoryChatTools:
             ),
             "result": result,
         }
+
+    async def _graph_for_query(
+        self,
+        query: InventoryQuery,
+        *,
+        graph: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        graph = graph or await self._graph_for_scope(query.scope)
+        if query.require_fresh and graph.get("freshness") != "fresh":
+            if isinstance(self.provider, InventoryRefreshBarrier):
+                await self.provider.wait_for_refresh()
+                graph = await self._graph_for_scope(query.scope)
+            if graph.get("freshness") != "fresh":
+                return {
+                    **graph,
+                    "resources": [],
+                    "links": [],
+                    "freshness": str(graph.get("freshness") or "unknown"),
+                    "unavailable_reason": "fresh_inventory_required",
+                }
+        return graph
+
+    async def _graph_for_scope(self, scope: InventoryQueryScope) -> dict[str, Any]:
+        if scope is InventoryQueryScope.SUBSCRIPTION:
+            graph = dict(
+                await self.provider(
+                    None,
+                    4,
+                    ("contains", "attached_to", "depends_on"),
+                    root=SUBSCRIPTION_ROOT,
+                    limit=SUBSCRIPTION_ROOT_LIMIT,
+                )
+            )
+        else:
+            graph = dict(await self.provider(None, 4, ("contains", "attached_to", "depends_on")))
+        return graph
 
     async def _activity(self, query: InventoryQuery) -> Mapping[str, Any] | None:
         if query.source is not InventoryQuerySource.ACTIVITY:
@@ -240,7 +265,6 @@ def _project_inventory_result(
         query,
         graph,
         activity=activity,
-        prompt=prompt,
         projected=(resources, raw_links),
     )
 
@@ -250,7 +274,6 @@ def _project_verified_inventory_result(
     graph: Mapping[str, Any],
     *,
     activity: Mapping[str, Any] | None = None,
-    prompt: str = "",
     projected: tuple[list[dict[str, Any]], Sequence[Any]] | None = None,
 ) -> dict[str, Any]:
     safe_payload = projected or _safe_inventory_payload(graph)
@@ -261,6 +284,14 @@ def _project_verified_inventory_result(
     managed = [item for item in resources if item["type"] != "subscription"]
     if query.source is InventoryQuerySource.ACTIVITY:
         return project_inventory_activity(query, activity, managed)
+    if graph.get("unavailable_reason"):
+        return {
+            "status": "unavailable",
+            "reason": str(graph["unavailable_reason"]),
+            "query_source": query.source.value,
+            "query": query.to_dict(),
+            "freshness": _optional_text(graph.get("freshness")),
+        }
     matched = [item for item in managed if inventory_query_matches(query, item)]
     links = [
         safe_link
@@ -275,17 +306,24 @@ def _project_verified_inventory_result(
     status_filter = _predicate_values(query, InventoryField.STATUS)
     group_filter = _single_predicate_value(query, InventoryField.RESOURCE_GROUP)
     name_filter = _single_predicate_value(query, InventoryField.NAME)
-    workload_query = bool(
-        _WORKLOAD_INTENT.search(prompt) and "kubernetes-cluster" in requested_types
-    )
+    workload_query = query.include_workloads and "kubernetes-cluster" in requested_types
     return {
         "status": "partial" if workload_query else "matched",
         "query_source": query.source.value,
         "query_kind": query.kind.value,
-        "display_projection": "names" if _NAME_LIST_INTENT.search(prompt) else "details",
+        "query_scope": query.scope.value,
+        "group_by": query.group_by.value,
+        "display_projection": (
+            "status_groups"
+            if query.group_by is InventoryQueryGrouping.STATUS
+            else query.projection.value
+        ),
         "query": query.to_dict(),
         "requested_types": list(requested_types),
         "status_filter": list(status_filter),
+        "status_groups": [
+            {"id": group.id, "values": list(group.values)} for group in query.status_groups
+        ],
         "resource_group": group_filter,
         "name_filter": name_filter,
         "snapshot_at": _optional_text(graph.get("snapshot_at")),
@@ -605,6 +643,8 @@ def _answer_detail_lines(
     query_kind = str(result.get("query_kind") or "list")
     if query_kind == "list" and result.get("display_projection") == "names":
         return [f"- {item.get('name')}" for item in resources]
+    if query_kind == "list" and result.get("display_projection") == "status_groups":
+        return _status_group_lines(result, resources, korean=korean)
     if query_kind == "types":
         counts = result.get("matched_type_counts", {})
         return (
@@ -620,6 +660,40 @@ def _answer_detail_lines(
     if query_kind == "count":
         return []
     return [_resource_line(item, korean=korean) for item in resources]
+
+
+def _status_group_lines(
+    result: Mapping[str, Any],
+    resources: list[Mapping[str, Any]],
+    *,
+    korean: bool,
+) -> list[str]:
+    raw_groups = result.get("status_groups")
+    groups = (
+        [item for item in raw_groups if isinstance(item, Mapping)]
+        if isinstance(raw_groups, list)
+        else []
+    )
+    lines: list[str] = []
+    for group in groups:
+        group_id = str(group.get("id") or "unknown")
+        raw_values = group.get("values")
+        values = {str(value) for value in raw_values} if isinstance(raw_values, list) else set()
+        lines.append(f"**{group_id.title()}**")
+        matched = [
+            item
+            for item in resources
+            if normalize_inventory_value(item.get("status")).rsplit(" ", 1)[-1] in values
+        ]
+        if matched:
+            lines.extend(_resource_line(item, korean=korean) for item in matched)
+        else:
+            lines.append(
+                "- 이 범위에서 일치하는 리소스가 없습니다."
+                if korean
+                else "- No matching resources in this scope."
+            )
+    return lines
 
 
 def _workload_lines(workload: Mapping[str, Any], *, korean: bool) -> list[str]:

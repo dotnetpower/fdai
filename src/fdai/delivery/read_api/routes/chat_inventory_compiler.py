@@ -1,18 +1,25 @@
-"""Deterministic natural-language compiler for verified inventory queries."""
+"""Catalog-driven natural-language compiler for verified inventory queries."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, Sequence
-from typing import Any, Final
+from typing import Any
 
+from fdai.delivery.read_api.routes.chat_inventory_language import (
+    InventoryQueryLanguageResolver,
+    default_inventory_query_language_resolver,
+)
 from fdai.delivery.read_api.routes.chat_inventory_query import (
     InventoryField,
     InventoryOperator,
     InventoryPredicate,
     InventoryQuery,
+    InventoryQueryGrouping,
     InventoryQueryKind,
+    InventoryQueryProjection,
+    InventoryQueryScope,
     InventoryQuerySource,
+    InventoryQueryValueGroup,
     normalize_inventory_value,
 )
 from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
@@ -20,129 +27,31 @@ from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
     default_inventory_resource_type_resolver,
 )
 
-_RESOURCE_SUBJECT: Final = re.compile(
-    r"\b(?:azure\s+)?(?:resources?|assets?|inventory)\b|Azure\s*리소스|인벤토리|리소스",
-    re.IGNORECASE,
-)
-_READ_MARKER: Final = re.compile(
-    r"\b(?:how many|count|list|show|which|what|where|find|status|types?|summary|exist|"
-    r"recent|last|changed|created|deleted|started|stopped|updated)\b|\?|"
-    r"몇\s*개|개수|목록|보여|어떤|어디|찾아|상태|종류|유형|있어|최근|지난|"
-    r"변경된|생성된|삭제된|시작된|중지된|수정된",
-    re.IGNORECASE,
-)
-_MUTATION_REQUEST: Final = re.compile(
-    r"^\s*(?:please\s+)?(?:create|delete|drop|restart|scale|restore|update|start|stop)\b|"
-    r"(?:생성|삭제|재시작|스케일|복구|수정|시작|중지).{0,12}"
-    r"(?:해줘|해주세요|하자|시켜|적용해|실행해)",
-    re.IGNORECASE,
-)
-_DIAGNOSIS_OR_METRIC: Final = re.compile(
-    r"\b(?:why|cause|latency|slow|cpu|memory|throughput|usage|utilization|eps)\b|"
-    r"\b(?:affected|impact(?:ed)?|blast\s+radius)\b|"
-    r"왜|원인|지연|느려|메트릭|사용률|이용률|처리량|영향|영향\s*범위",
-    re.IGNORECASE,
-)
-_ACTIVITY_EXPLICIT: Final = re.compile(
-    r"\b(?:changed|created|deleted|updated)\s+(?:azure\s+)?(?:resources?|assets?)\b|"
-    r"\b(?:resources?|assets?)\s+(?:changed|created|deleted|updated)\b|"
-    r"(?:변경된|생성된|삭제된|수정된)\s*(?:Azure\s*)?리소스",
-    re.IGNORECASE,
-)
-_ACTIVITY_TEMPORAL: Final = re.compile(
-    r"\b(?:recent|recently|last|past|history)\b|최근|지난|이력|언제|누가",
-    re.IGNORECASE,
-)
-_ACTIVITY_OPERATION: Final = re.compile(
-    r"\b(?:started|stopped|changed|created|deleted|updated)\b|"
-    r"시작된|중지된|변경된|생성된|삭제된|수정된",
-    re.IGNORECASE,
-)
-_COUNT: Final = re.compile(r"\b(?:how many|count)\b|몇\s*개|개수", re.IGNORECASE)
-_TYPES: Final = re.compile(
-    r"\b(?:resource types?|types? exist|inventory summary|by\s+(?:resource\s+)?types?)\b|"
-    r"리소스\s*(?:종류|유형)|(?:종류|유형)별|인벤토리\s*요약",
-    re.IGNORECASE,
-)
-_RELATIONSHIPS: Final = re.compile(
-    r"\b(?:depend|dependency|attached|connected|relationship)\b|의존|연결|붙어|관계",
-    re.IGNORECASE,
-)
-_GROUP_FILTER: Final = re.compile(
-    r"(?:resource\s*group|리소스\s*그룹)(?:\s*(?:named|이름(?:이|은)?))?"
-    r"\s*[:=]?\s*([A-Za-z0-9_.-]+)",
-    re.IGNORECASE,
-)
-_NAME_FILTER: Final = re.compile(
-    r"(?:named|name(?:d)?|이름(?:이|은)?)\s*[:=]?\s*([A-Za-z0-9_.-]+)",
-    re.IGNORECASE,
-)
-_ENGLISH_WINDOW: Final = re.compile(
-    r"\b(?:last|past)\s+([1-9][0-9]{0,2})\s*(hours?|days?|weeks?)\b",
-    re.IGNORECASE,
-)
-_KOREAN_WINDOW: Final = re.compile(r"(?:최근|지난)\s*([1-9][0-9]{0,2})\s*(시간|일|주)")
-_PREFIX_FILTER: Final = re.compile(
-    r"^\s*([A-Za-z][A-Za-z0-9_.-]{1,63}|[가-힣]{2,20})\s*"
-    r"(?:된|중인)?\s*(?:Azure\s*)?(?:resources?|assets?|리소스)\b",
-    re.IGNORECASE,
-)
-_LOCATION_FILTER: Final = re.compile(
-    r"\b(?:resources?|assets?)\s+(?:in|at)\s+([A-Za-z0-9_.-]+)\b|"
-    r"([A-Za-z0-9_.-]+)(?:의|에|에서)\s*(?:Azure\s*)?리소스",
-    re.IGNORECASE,
-)
-_COPULA_FILTER: Final = re.compile(
-    r"\b(?:resources?|assets?)\s+(?:are|is)\s+([A-Za-z][A-Za-z0-9_.-]{1,63})\b",
-    re.IGNORECASE,
-)
-_GENERIC_PREFIXES: Final = frozenset(
-    {"all", "any", "azure", "current", "list", "show", "what", "which", "어떤", "전체"}
-)
-
-_STATUS_ALIASES: Final[tuple[tuple[re.Pattern[str], frozenset[str]], ...]] = (
-    (
-        re.compile(r"\b(?:stopped|deallocated)\b|중지|정지", re.IGNORECASE),
-        frozenset({"stopped", "deallocated"}),
-    ),
-    (
-        re.compile(r"멈춘|멈춰\s*있는", re.IGNORECASE),
-        frozenset({"stopped", "deallocated", "paused"}),
-    ),
-    (re.compile(r"\bpaused\b|일시\s*정지", re.IGNORECASE), frozenset({"paused"})),
-    (
-        re.compile(r"\brunning\b|실행\s*중(?!지)|가동\s*중(?!지)", re.IGNORECASE),
-        frozenset({"running"}),
-    ),
-)
-_OPERATION_ALIASES: Final[tuple[tuple[re.Pattern[str], tuple[str, ...]], ...]] = (
-    (re.compile(r"\bstarted\b|시작된", re.IGNORECASE), ("start",)),
-    (
-        re.compile(r"\bstopped\b|중지된|정지된", re.IGNORECASE),
-        ("stop", "deallocate", "power off"),
-    ),
-    (re.compile(r"\bdeleted\b|삭제된", re.IGNORECASE), ("delete",)),
-    (
-        re.compile(r"\b(?:changed|created|updated)\b|변경된|생성된|수정된", re.IGNORECASE),
-        ("write",),
-    ),
-)
-_DEFAULT_ACTIVITY_LOOKBACK_SECONDS = 7 * 24 * 3_600
-
 
 def is_inventory_question(
     prompt: str,
     *,
     resolver: InventoryResourceTypeResolver | None = None,
+    language: InventoryQueryLanguageResolver | None = None,
 ) -> bool:
-    """Return whether text is an observed resource read rather than a mutation or diagnosis."""
+    """Return whether catalog signals identify a bounded inventory read."""
 
+    lexical = language or default_inventory_query_language_resolver()
+    registry = lexical.registry
+    resource_types = _resolver(resolver).resolve(prompt)
+    semantic_marker = bool(
+        lexical.matched_value_groups(registry.states, prompt)
+        or lexical.matched_value_groups(registry.operations, prompt)
+        or lexical.matched_ids(registry.query_kinds, prompt)
+        or lexical.matched_ids(registry.groupings, prompt)
+        or lexical.has(registry.signals, "workload", prompt)
+    )
     return bool(
         prompt.strip()
-        and not _MUTATION_REQUEST.search(prompt)
-        and not _DIAGNOSIS_OR_METRIC.search(prompt)
-        and (_RESOURCE_SUBJECT.search(prompt) or _resolver(resolver).resolve(prompt))
-        and _READ_MARKER.search(prompt)
+        and not lexical.has(registry.signals, "mutation", prompt)
+        and not lexical.has(registry.signals, "diagnosis", prompt)
+        and (lexical.has(registry.signals, "resource_subject", prompt) or resource_types)
+        and (lexical.has(registry.signals, "read", prompt) or semantic_marker or "?" in prompt)
     )
 
 
@@ -150,14 +59,17 @@ def is_specific_inventory_question(
     prompt: str,
     *,
     resolver: InventoryResourceTypeResolver | None = None,
+    language: InventoryQueryLanguageResolver | None = None,
 ) -> bool:
-    """Return whether an inventory read names at least one concrete resource type."""
+    """Return whether an inventory read selects a concrete resource family."""
 
     resource_type_resolver = _resolver(resolver)
     resource_types = _resource_types(prompt, (), resolver=resource_type_resolver)
-    return is_inventory_question(prompt, resolver=resource_type_resolver) and bool(
-        set(resource_types) - {"subscription"}
-    )
+    return is_inventory_question(
+        prompt,
+        resolver=resource_type_resolver,
+        language=language,
+    ) and bool(set(resource_types) - {"subscription"})
 
 
 def compile_inventory_query(
@@ -165,30 +77,41 @@ def compile_inventory_query(
     *,
     resources: Sequence[Mapping[str, Any]] = (),
     resolver: InventoryResourceTypeResolver | None = None,
+    language: InventoryQueryLanguageResolver | None = None,
 ) -> InventoryQuery | None:
-    """Compile one high-confidence resource read into a verified typed query."""
+    """Compile one high-confidence catalog match into a verified typed query."""
 
+    lexical = language or default_inventory_query_language_resolver()
+    registry = lexical.registry
     resource_type_resolver = _resolver(resolver)
-    if not is_inventory_question(prompt, resolver=resource_type_resolver):
+    if not is_inventory_question(
+        prompt,
+        resolver=resource_type_resolver,
+        language=lexical,
+    ):
         return None
-    source = _source(prompt)
-    predicates: list[InventoryPredicate] = []
-    group = _capture(_GROUP_FILTER, prompt)
+
     resource_types = _resource_types(prompt, resources, resolver=resource_type_resolver)
+    group = _facet_value(prompt, resources, "resource_group", language=lexical)
     if group:
         resource_types = tuple(item for item in resource_types if item != "resource-group")
+    name = _facet_value(prompt, resources, "name", language=lexical)
+    if name == group:
+        name = None
+    operations = lexical.matched_values(registry.operations, prompt)
+    source = _source(prompt, operations=operations, language=lexical)
+
+    predicates: list[InventoryPredicate] = []
     if resource_types:
         predicates.append(_in_or_eq(InventoryField.RESOURCE_TYPE, resource_types))
     if group:
         predicates.append(
             InventoryPredicate(InventoryField.RESOURCE_GROUP, InventoryOperator.EQ, group)
         )
-    name = _capture(_NAME_FILTER, prompt)
     if name:
         predicates.append(InventoryPredicate(InventoryField.NAME, InventoryOperator.CONTAINS, name))
 
     if source is InventoryQuerySource.ACTIVITY:
-        operations = _operation_values(prompt)
         if operations:
             predicates.append(_in_or_eq(InventoryField.OPERATION, operations))
         predicates.append(
@@ -196,51 +119,129 @@ def compile_inventory_query(
         )
         return InventoryQuery(
             source=source,
-            kind=_kind(prompt, source),
+            kind=_kind(prompt, source, language=lexical),
             predicates=tuple(predicates),
-            lookback_seconds=_lookback_seconds(prompt),
+            lookback_seconds=(
+                lexical.parse_window_seconds(prompt) or registry.default_activity_lookback_seconds
+            ),
+            scope=_scope(prompt, language=lexical),
+            group_by=_grouping(prompt, language=lexical),
+            projection=_projection(prompt, language=lexical),
         )
 
-    statuses = _status_values(prompt, resources, resource_types=resource_types)
+    statuses = _status_values(
+        prompt,
+        resources,
+        resource_types=resource_types,
+        language=lexical,
+        resolver=resource_type_resolver,
+    )
     if statuses:
         predicates.append(_in_or_eq(InventoryField.STATUS, statuses))
-    location = _facet_value(prompt, resources, "location")
+    location = _facet_value(prompt, resources, "location", language=lexical)
     if location:
         predicates.append(
             InventoryPredicate(InventoryField.LOCATION, InventoryOperator.EQ, location)
         )
-    if _has_unresolved_filter(
-        prompt,
-        resource_types=resource_types,
-        statuses=statuses,
-        location=location,
-        group=group,
-        name=name,
+    if (
+        not predicates
+        and not lexical.matched_ids(registry.query_kinds, prompt)
+        and not lexical.matched_ids(registry.groupings, prompt)
+        and not lexical.has(registry.signals, "unfiltered", prompt)
     ):
         return None
     return InventoryQuery(
         source=source,
-        kind=_kind(prompt, source),
+        kind=_kind(prompt, source, language=lexical),
         predicates=tuple(predicates),
+        scope=_scope(prompt, language=lexical),
+        group_by=_grouping(prompt, language=lexical),
+        projection=_projection(prompt, language=lexical),
+        require_fresh=registry.current_requires_fresh,
+        include_workloads=lexical.has(registry.signals, "workload", prompt),
+        status_groups=tuple(
+            InventoryQueryValueGroup(id=entry_id, values=values)
+            for entry_id, values, _preserve in _state_groups(
+                prompt,
+                resource_types=resource_types,
+                language=lexical,
+                resolver=resource_type_resolver,
+            )
+        ),
     )
 
 
-def _source(prompt: str) -> InventoryQuerySource:
-    if _ACTIVITY_EXPLICIT.search(prompt) or (
-        _ACTIVITY_TEMPORAL.search(prompt) and _ACTIVITY_OPERATION.search(prompt)
+def inventory_query_scope(
+    prompt: str,
+    *,
+    language: InventoryQueryLanguageResolver | None = None,
+) -> InventoryQueryScope:
+    """Resolve only the server-owned scope before evidence-dependent facets."""
+
+    lexical = language or default_inventory_query_language_resolver()
+    return _scope(prompt, language=lexical)
+
+
+def _source(
+    prompt: str,
+    *,
+    operations: Sequence[str],
+    language: InventoryQueryLanguageResolver,
+) -> InventoryQuerySource:
+    registry = language.registry
+    if language.has(registry.signals, "activity", prompt) or (
+        operations and language.has(registry.signals, "temporal", prompt)
     ):
         return InventoryQuerySource.ACTIVITY
     return InventoryQuerySource.CURRENT
 
 
-def _kind(prompt: str, source: InventoryQuerySource) -> InventoryQueryKind:
-    if _COUNT.search(prompt):
-        return InventoryQueryKind.COUNT
-    if _TYPES.search(prompt):
-        return InventoryQueryKind.TYPES
-    if source is InventoryQuerySource.CURRENT and _RELATIONSHIPS.search(prompt):
-        return InventoryQueryKind.RELATIONSHIPS
+def _kind(
+    prompt: str,
+    source: InventoryQuerySource,
+    *,
+    language: InventoryQueryLanguageResolver,
+) -> InventoryQueryKind:
+    matched = language.matched_ids(language.registry.query_kinds, prompt)
+    for candidate in InventoryQueryKind:
+        if candidate.value in matched and not (
+            candidate is InventoryQueryKind.RELATIONSHIPS
+            and source is InventoryQuerySource.ACTIVITY
+        ):
+            return candidate
     return InventoryQueryKind.LIST
+
+
+def _scope(
+    prompt: str,
+    *,
+    language: InventoryQueryLanguageResolver,
+) -> InventoryQueryScope:
+    matched = language.matched_ids(language.registry.scopes, prompt)
+    selected = matched[0] if len(matched) == 1 else language.registry.default_scope
+    return InventoryQueryScope(selected)
+
+
+def _grouping(
+    prompt: str,
+    *,
+    language: InventoryQueryLanguageResolver,
+) -> InventoryQueryGrouping:
+    matched = language.matched_ids(language.registry.groupings, prompt)
+    if len(matched) != 1:
+        return InventoryQueryGrouping.NONE
+    return InventoryQueryGrouping(matched[0])
+
+
+def _projection(
+    prompt: str,
+    *,
+    language: InventoryQueryLanguageResolver,
+) -> InventoryQueryProjection:
+    matched = language.matched_ids(language.registry.projections, prompt)
+    if len(matched) != 1:
+        return InventoryQueryProjection.DETAILS
+    return InventoryQueryProjection(matched[0])
 
 
 def _resource_types(
@@ -272,106 +273,67 @@ def _status_values(
     resources: Sequence[Mapping[str, Any]],
     *,
     resource_types: Sequence[str],
+    language: InventoryQueryLanguageResolver,
+    resolver: InventoryResourceTypeResolver,
 ) -> tuple[str, ...]:
-    normalized_prompt = f" {normalize_inventory_value(prompt)} "
     observed = {
         normalize_inventory_value(item["status"])
         for item in resources
         if item.get("status") not in (None, "")
         and (not resource_types or str(item.get("type")) in resource_types)
     }
-    matched = {status for status in observed if _contains_phrase(normalized_prompt, status)}
-    for pattern, terminal_states in _STATUS_ALIASES:
-        if pattern.search(prompt):
-            matched.update(
-                status for status in observed if status.rsplit(" ", 1)[-1] in terminal_states
-            )
-    return tuple(sorted(matched))
-
-
-def _operation_values(prompt: str) -> tuple[str, ...]:
-    return tuple(
-        dict.fromkeys(
-            operation
-            for pattern, operations in _OPERATION_ALIASES
-            if pattern.search(prompt)
-            for operation in operations
+    matched: list[str] = []
+    for _entry_id, requested, preserve in _state_groups(
+        prompt,
+        resource_types=resource_types,
+        language=language,
+        resolver=resolver,
+    ):
+        observed_group = sorted(
+            status for status in observed if status.rsplit(" ", 1)[-1] in requested
         )
+        matched.extend(requested if preserve else observed_group or requested)
+    matched.extend(
+        status for status in sorted(observed) if language.contains_any(prompt, (status,))
     )
+    return tuple(dict.fromkeys(matched))
 
 
-def _lookback_seconds(prompt: str) -> int:
-    match = _ENGLISH_WINDOW.search(prompt)
-    if match is not None:
-        value = int(match.group(1))
-        unit = match.group(2).casefold()
-        multiplier = (
-            3_600 if unit.startswith("hour") else 86_400 if unit.startswith("day") else 604_800
-        )
-        return value * multiplier
-    match = _KOREAN_WINDOW.search(prompt)
-    if match is not None:
-        value = int(match.group(1))
-        multiplier = {"시간": 3_600, "일": 86_400, "주": 604_800}[match.group(2)]
-        return value * multiplier
-    return _DEFAULT_ACTIVITY_LOOKBACK_SECONDS
+def _state_groups(
+    prompt: str,
+    *,
+    resource_types: Sequence[str],
+    language: InventoryQueryLanguageResolver,
+    resolver: InventoryResourceTypeResolver,
+) -> tuple[tuple[str, tuple[str, ...], bool], ...]:
+    categories = resolver.categories_for(resource_types)
+    groups: list[tuple[str, tuple[str, ...], bool]] = []
+    for entry_id, entry in language.registry.states.items():
+        if not language.contains_any(prompt, entry.terms):
+            continue
+        category = categories[0] if len(categories) == 1 else None
+        values = entry.category_values.get(category, entry.values) if category else entry.values
+        preserve = entry.preserve_values or category in entry.preserve_categories
+        groups.append((entry_id, values, preserve))
+    return tuple(groups)
 
 
 def _facet_value(
     prompt: str,
     resources: Sequence[Mapping[str, Any]],
     field: str,
+    *,
+    language: InventoryQueryLanguageResolver,
 ) -> str | None:
-    normalized_prompt = f" {normalize_inventory_value(prompt)} "
     values = sorted(
         {str(item[field]) for item in resources if item.get(field) not in (None, "")},
         key=len,
         reverse=True,
     )
     return next(
-        (
-            value
-            for value in values
-            if _contains_phrase(normalized_prompt, normalize_inventory_value(value))
-        ),
+        (value for value in values if language.contains_any(prompt, (value,))),
         None,
     )
-
-
-def _contains_phrase(normalized_prompt: str, normalized_value: str) -> bool:
-    if not normalized_value:
-        return False
-    if f" {normalized_value} " in normalized_prompt:
-        return True
-    return bool(
-        re.search(
-            rf"(?<![a-z0-9_.-]){re.escape(normalized_value)}"
-            r"(?=(?:은|는|이|가|의|에|에서|을|를)?(?:\s|[?!,.;:]|$))",
-            normalized_prompt,
-            re.IGNORECASE,
-        )
-    )
-
-
-def _has_unresolved_filter(
-    prompt: str,
-    *,
-    resource_types: Sequence[str],
-    statuses: Sequence[str],
-    location: str | None,
-    group: str | None,
-    name: str | None,
-) -> bool:
-    if any(pattern.search(prompt) for pattern, _states in _STATUS_ALIASES) and not statuses:
-        return True
-    if resource_types or statuses or location or group or name:
-        return False
-    prefix = _PREFIX_FILTER.search(prompt)
-    if prefix is not None:
-        candidate = normalize_inventory_value(prefix.group(1))
-        if candidate not in _GENERIC_PREFIXES:
-            return True
-    return _LOCATION_FILTER.search(prompt) is not None or _COPULA_FILTER.search(prompt) is not None
 
 
 def _in_or_eq(field: InventoryField, values: Sequence[str]) -> InventoryPredicate:
@@ -383,9 +345,4 @@ def _in_or_eq(field: InventoryField, values: Sequence[str]) -> InventoryPredicat
     )
 
 
-def _capture(pattern: re.Pattern[str], prompt: str) -> str | None:
-    match = pattern.search(prompt)
-    return match.group(1) if match is not None else None
-
-
-__all__ = ["compile_inventory_query", "is_inventory_question"]
+__all__ = ["compile_inventory_query", "inventory_query_scope", "is_inventory_question"]

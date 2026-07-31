@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, Final
 
@@ -16,6 +17,7 @@ _RESOURCE_GROUP_TYPE: Final[str] = "resource-group"
 _VNET_TYPE: Final[str] = "network.vnet"
 _SUBNET_TYPE: Final[str] = "network.subnet"
 _SUBNET_ARM_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
+_LOGGER = logging.getLogger(__name__)
 
 
 def to_neutral_id(arm_id: str) -> str:
@@ -68,6 +70,9 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         row.get("state"),
         nested.get("powerState"),
         nested.get("state"),
+        nested.get("status"),
+        nested.get("userVisibleState"),
+        nested.get("resourceState"),
     ):
         state = _state_text(value)
         if state is not None:
@@ -188,6 +193,12 @@ def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
     for entry in registry:
         if entry.azure_arm_type is not None:
             by_arm_type.setdefault(entry.azure_arm_type.lower(), []).append(entry.id)
+    ambiguous_count = sum(1 for type_ids in by_arm_type.values() if len(type_ids) > 1)
+    if ambiguous_count:
+        _LOGGER.warning(
+            "azure_arm_reverse_map_ambiguous_types",
+            extra={"count": ambiguous_count},
+        )
     return {
         arm_type: type_ids[0] for arm_type, type_ids in by_arm_type.items() if len(type_ids) == 1
     }

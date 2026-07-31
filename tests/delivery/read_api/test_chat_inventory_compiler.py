@@ -181,7 +181,29 @@ def test_database_category_with_korean_object_particle_preserves_status_scope() 
     assert "compute.vm" not in resource_types
     assert query.kind.value == "types"
     assert by_field[InventoryField.STATUS].operator is InventoryOperator.IN
-    assert by_field[InventoryField.STATUS].value == ("paused", "stopped")
+    assert by_field[InventoryField.STATUS].value == ("stopped", "deallocated", "paused")
+
+
+def test_explicit_paused_database_filter_is_preserved_when_unobserved() -> None:
+    resources = (
+        {
+            "type": "mysql-server",
+            "name": "mysql-data",
+            "status": "Stopped",
+        },
+    )
+
+    query = compile_inventory_query(
+        "List stopped and paused database services separately.",
+        resources=resources,
+    )
+
+    assert query is not None
+    status = next(
+        predicate for predicate in query.predicates if predicate.field is InventoryField.STATUS
+    )
+    assert status.operator is InventoryOperator.IN
+    assert status.value == ("stopped", "paused")
 
 
 @pytest.mark.parametrize(
@@ -257,8 +279,6 @@ def test_observed_type_and_location_are_dynamic_facets() -> None:
 @pytest.mark.parametrize(
     "prompt",
     [
-        "suspended resources?",
-        "degraded resources?",
         "resources in unknownregion?",
         "Which Azure assets are dormant?",
         "점검중인 리소스 있어?",
@@ -267,6 +287,26 @@ def test_observed_type_and_location_are_dynamic_facets() -> None:
 def test_unobserved_filter_abstains_instead_of_widening_to_all_resources(prompt: str) -> None:
     assert is_inventory_question(prompt)
     assert compile_inventory_query(prompt, resources=_RESOURCES) is None
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("suspended resources?", "paused"),
+        ("degraded resources?", "degraded"),
+    ],
+)
+def test_known_unobserved_state_is_preserved_as_zero_result_query(
+    prompt: str,
+    expected: str,
+) -> None:
+    query = compile_inventory_query(prompt, resources=_RESOURCES)
+
+    assert query is not None
+    status = next(
+        predicate for predicate in query.predicates if predicate.field is InventoryField.STATUS
+    )
+    assert status.value == expected
 
 
 def test_stopped_aks_question_does_not_drop_unobserved_status_filter() -> None:
@@ -281,13 +321,14 @@ def test_stopped_aks_question_does_not_drop_unobserved_status_filter() -> None:
     )
 
     assert is_inventory_question("중지된 AKS 클러스터 이름 목록으로 보여줄래?")
-    assert (
-        compile_inventory_query(
-            "중지된 AKS 클러스터 이름 목록으로 보여줄래?",
-            resources=resources,
-        )
-        is None
+    query = compile_inventory_query(
+        "중지된 AKS 클러스터 이름 목록으로 보여줄래?",
+        resources=resources,
     )
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == "kubernetes-cluster"
+    assert by_field[InventoryField.STATUS] == ("stopped", "deallocated")
 
 
 def test_activity_window_is_bounded_by_query_contract() -> None:

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-import re
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 
 import yaml
 
+from fdai.delivery.read_api.routes.chat_inventory_language import (
+    InventoryQueryLanguageResolver,
+    default_inventory_query_language_resolver,
+)
 from fdai.delivery.read_api.routes.chat_inventory_query import normalize_inventory_value
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
@@ -18,8 +22,13 @@ from fdai.rule_catalog.schema.resource_type import (
 class InventoryResourceTypeResolver:
     """Resolve bounded natural-language terms to canonical resource-type ids."""
 
-    def __init__(self, registry: ResourceTypeRegistry) -> None:
+    def __init__(
+        self,
+        registry: ResourceTypeRegistry,
+        language: InventoryQueryLanguageResolver | None = None,
+    ) -> None:
         self._registry = registry
+        self._language = language or default_inventory_query_language_resolver()
         self._type_forms = tuple(
             sorted(
                 (
@@ -53,11 +62,10 @@ class InventoryResourceTypeResolver:
     ) -> tuple[str, ...]:
         """Return one longest exact type match, or a category expansion."""
 
-        normalized = f" {normalize_inventory_value(prompt)} "
         type_matches = [
             (surface, type_id)
             for surface, type_id in self._type_forms
-            if _contains_phrase(normalized, surface)
+            if self._language.contains_any(prompt, (surface,))
         ]
         if type_matches:
             return tuple(sorted({type_id for _surface, type_id in type_matches}))
@@ -65,7 +73,7 @@ class InventoryResourceTypeResolver:
         category_matches = [
             (surface, category)
             for surface, category in self._category_forms
-            if _contains_phrase(normalized, surface)
+            if self._language.contains_any(prompt, (surface,))
         ]
         if category_matches:
             longest = max(len(surface) for surface, _category in category_matches)
@@ -83,24 +91,17 @@ class InventoryResourceTypeResolver:
             sorted(
                 observed_type
                 for observed_type in observed_types
-                if _contains_phrase(normalized, normalize_inventory_value(observed_type))
+                if self._language.contains_any(prompt, (normalize_inventory_value(observed_type),))
             )
         )
 
+    def categories_for(self, type_ids: Sequence[str]) -> tuple[str, ...]:
+        """Return catalog categories represented by canonical type ids."""
 
-def _contains_phrase(normalized_prompt: str, normalized_term: str) -> bool:
-    if not normalized_term:
-        return False
-    if f" {normalized_term} " in normalized_prompt:
-        return True
-    return bool(
-        re.search(
-            rf"(?<![a-z0-9_.-]){re.escape(normalized_term)}"
-            r"(?=(?:은|는|이|가|의|에|에서|을|를)?(?:\s|[?!,.;:]|$))",
-            normalized_prompt,
-            re.IGNORECASE,
+        selected = set(type_ids)
+        return tuple(
+            sorted({entry.category.value for entry in self._registry if entry.id in selected})
         )
-    )
 
 
 @lru_cache(maxsize=1)

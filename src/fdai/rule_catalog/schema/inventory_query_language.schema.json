@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/rule-catalog/inventory-query-language/1.0.0",
+  "title": "InventoryQueryLanguageRegistry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "version", "default_scope", "default_activity_lookback_seconds",
+    "current_requires_fresh", "suffixes", "signals", "query_kinds", "groupings",
+    "projections", "scopes", "states", "operations", "time_units"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0.0"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "default_scope": {"type": "string", "enum": ["active_view", "subscription"]},
+    "default_activity_lookback_seconds": {"type": "integer", "minimum": 3600, "maximum": 2592000},
+    "current_requires_fresh": {"type": "boolean"},
+    "suffixes": {"$ref": "#/$defs/terms"},
+    "signals": {"$ref": "#/$defs/termMap"},
+    "query_kinds": {"$ref": "#/$defs/termMap"},
+    "groupings": {"$ref": "#/$defs/termMap"},
+    "projections": {"$ref": "#/$defs/termMap"},
+    "scopes": {"$ref": "#/$defs/termMap"},
+    "states": {"$ref": "#/$defs/valueMap"},
+    "operations": {"$ref": "#/$defs/valueMap"},
+    "time_units": {"$ref": "#/$defs/multiplierMap"}
+  },
+  "$defs": {
+    "terms": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "termEntry": {
+      "type": "object", "additionalProperties": false, "required": ["terms"],
+      "properties": {"terms": {"$ref": "#/$defs/terms"}}
+    },
+    "valueEntry": {
+      "type": "object", "additionalProperties": false, "required": ["terms", "values"],
+      "properties": {
+        "terms": {"$ref": "#/$defs/terms"},
+        "values": {"$ref": "#/$defs/terms"},
+        "preserve_values": {"type": "boolean", "default": false},
+        "category_values": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/terms"},
+          "default": {}
+        },
+        "preserve_categories": {"$ref": "#/$defs/terms"}
+      }
+    },
+    "multiplierEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["terms", "multiplier_seconds"],
+      "properties": {
+        "terms": {"$ref": "#/$defs/terms"},
+        "multiplier_seconds": {"type": "integer", "minimum": 1, "maximum": 604800}
+      }
+    },
+    "termMap": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/termEntry"}},
+    "valueMap": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/valueEntry"}},
+    "multiplierMap": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/multiplierEntry"}}
+  }
+}

@@ -102,6 +102,7 @@ class TestFullSnapshot:
                     "location": "koreacentral",
                     "resourceGroup": "rg-payments",
                     "tags": {},
+                    "properties": {"status": "Paused"},
                 }
             ]
         )
@@ -117,6 +118,7 @@ class TestFullSnapshot:
         assert rec.type == "sql-database"
         assert rec.props["name"] == "orders"
         assert rec.props["resourceGroup"] == "rg-payments"
+        assert rec.props["status"] == "Paused"
 
     def test_vm_uses_show_details_and_maps_power_state(self) -> None:
         payload = json.dumps(

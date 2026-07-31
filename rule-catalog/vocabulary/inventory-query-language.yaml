@@ -1,0 +1,93 @@
+schema_version: "1.0.0"
+version: "1.0.0"
+default_scope: subscription
+default_activity_lookback_seconds: 604800
+current_requires_fresh: true
+suffixes: [은, 는, 이, 가, 의, 에, 에서, 을, 를, 도, 만, 인, 로, 으로, 야, 된, 되고]
+signals:
+  resource_subject:
+    terms: [resource, resources, asset, assets, inventory, azure resource, azure resources, 리소스, 인벤토리, Azure 리소스]
+  read:
+    terms: [how many, count, list, show, which, what, where, find, status, summary, exist, are any, 몇 개, 개수, 목록, 보여줘, 보여, 어떤, 어디, 찾아, 찾아줘, 상태, 있어, 알려줘]
+  mutation:
+    terms: [create, delete, drop, restart, scale, restore, update, start, stop, 생성해줘, 삭제해줘, 재시작해줘, 스케일해줘, 복구해줘, 수정해줘, 시작해줘, 중지해줘]
+  diagnosis:
+    terms: [why, cause, latency, slow, cpu, memory, throughput, usage, utilization, affected, impact, blast radius, 왜, 원인, 지연, 느려, 메트릭, 사용률, 이용률, 처리량, 영향, 영향 범위]
+  temporal:
+    terms: [recent, recently, last, past, history, 최근, 지난, 이력, 언제, 누가]
+  activity:
+    terms: [changed resources, created resources, deleted resources, updated resources, resource changes, 변경된 리소스, 생성된 리소스, 삭제된 리소스, 수정된 리소스]
+  workload:
+    terms: [deployment, deployments, deploying, pod, pods, workload, workloads, running apps, 배포, 파드, 워크로드, 실행 중인 앱]
+  unfiltered:
+    terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, Azure 리소스 뭐 있어, Azure 인벤토리 목록]
+query_kinds:
+  count:
+    terms: [how many, count, 몇 개, 개수]
+  types:
+    terms: [resource type, resource types, types exist, inventory summary, by type, by types, by resource type, by resource types, 리소스 종류, 리소스 유형, 종류별, 유형별, 형식별, 인벤토리 요약]
+  relationships:
+    terms: [depend, dependency, attached, connected, relationship, 의존, 연결, 붙어, 관계]
+groupings:
+  resource_type:
+    terms: [by type, by types, by resource type, by resource types, 종류별, 유형별, 형식별]
+  status:
+    terms: [separately, by status, 상태별, 상태 구분, 별도로, 구분해서]
+  location:
+    terms: [by location, by region, 위치별, 지역별]
+projections:
+  names:
+    terms: [list names, show names, names only, name list, 이름만, 이름 목록, 이름을 보여줘, 이름으로 보여줘, 이름만 알려줘]
+scopes:
+  subscription:
+    terms: [subscription, subscription wide, subscription scope, in subscription, in the subscription, from subscription, from the subscription, across subscription, across the subscription, entire subscription, whole subscription, 구독, 구독 범위, 구독 전체, 전체 구독, 전체 구독 범위]
+  active_view:
+    terms: [this view, current view, this screen, current screen, 현재 보기, 현재 화면, 이 화면]
+states:
+  stopped:
+    terms: [stopped, deallocated, powered off, 중지, 중지된, 정지, 정지된]
+    values: [stopped, deallocated]
+  inactive:
+    terms: [not running, inactive, 멈춘, 멈춰 있는, 비활성]
+    values: [stopped, deallocated]
+    category_values:
+      database: [stopped, deallocated, paused]
+    preserve_categories: [database]
+  paused:
+    terms: [paused, suspended, 일시 정지, 일시정지]
+    values: [paused]
+  running:
+    terms: [running, active, 실행 중, 가동 중]
+    values: [running]
+  failed:
+    terms: [failed, failure, 실패, 실패한]
+    values: [failed]
+  degraded:
+    terms: [degraded, 성능 저하, 저하된]
+    values: [degraded]
+  unavailable:
+    terms: [unavailable, 사용할 수 없는, 사용 불가]
+    values: [unavailable]
+operations:
+  start:
+    terms: [started, 시작된]
+    values: [start]
+  stop:
+    terms: [stopped, powered off, deallocated, 중지된, 정지된]
+    values: [stop, deallocate, power off]
+  delete:
+    terms: [deleted, removed, 삭제된, 제거된]
+    values: [delete]
+  write:
+    terms: [changed, created, updated, modified, 변경된, 생성된, 수정된, 갱신된]
+    values: [write]
+time_units:
+  hour:
+    terms: [hour, hours, 시간]
+    multiplier_seconds: 3600
+  day:
+    terms: [day, days, 일]
+    multiplier_seconds: 86400
+  week:
+    terms: [week, weeks, 주]
+    multiplier_seconds: 604800
