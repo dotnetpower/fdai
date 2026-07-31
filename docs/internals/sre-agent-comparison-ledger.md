@@ -662,6 +662,29 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 1 | 2 | 1 | 4 | 3 | 4 | 19/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0026: Selected resource-group details
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q018` |
+| Executed | `2026-08-01` |
+| Question | `List resources in this group with type, region, and state.` |
+| Scope alignment | Both products used the same explicitly selected resource group. The group name and resource names were redacted. |
+| Azure SRE Agent answer | Returned a 32-row current Resource Graph table with name, provider type, region, and a coalesced state. Several virtual machines showed provisioning success rather than their operational power state. |
+| FDAI answer | Returned the same 32 provider-native resources with canonical type, region, and state. It reported observed stopped or deallocated compute state ahead of generic provisioning success. |
+| Evidence | Current-screen selected-group hint, exact resource-group, container-exclusion, and provider-type-existence predicates, allowlisted named-view fields, fresh snapshot time, no truncation, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products covered the same complete resource set. FDAI exposed stronger operational-state semantics, kept topology-derived children out of the provider-native list, and disclosed source, freshness, truncation, and one-of-one verification. |
+| Winner | FDAI for equal list completeness with stronger state correctness and evidence integrity. |
+| General fix | `This group` wording is catalog-owned active-view scope. Named Architecture projections retain only allowlisted detail fields, generic resources preserve provisioning state as a final fallback, and scoped lists require provider-type evidence while preferring operational or power state. |
+| Status | `fdai-win` |
+
+#### RUN-0026 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 3 | 4 | 4 | 3 | 4 | 3 | 4 | 25/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -688,7 +711,7 @@ existing seed.
 | Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | compared |
 | Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | compared |
 | Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | compared |
-| Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | queued |
+| Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | compared |
 | Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | queued |
 | Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | queued |
 | Q021 | ko | Platform health | 현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어? | `HEALTH` | queued |
