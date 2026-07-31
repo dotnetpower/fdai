@@ -29,7 +29,6 @@ import type {
   VerificationProgress,
 } from "./backend";
 import { confirmActionDraft, renderActionResult } from "./backend";
-import { replyAgentLabel } from "./command-deck-session";
 import { RichContent } from "./rich-content";
 import { relevantCitations, type Citation } from "./citations";
 import {
@@ -132,6 +131,7 @@ export function GroundedReply({
     : confirmed
     ? "confirmed"
     : "complete";
+  const showAnswerState = answerState !== "complete";
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(
@@ -156,10 +156,6 @@ export function GroundedReply({
       {answerPlan ? (
         <Tooltip content={t(`deck.answerPlan.format.${answerPlan.format}`)}>
           <div class="deck-answer-plan">
-            <span>
-              {replyAgentLabel(delegation?.primary_agent ?? "Bragi", delegation)}
-            </span>
-            <span aria-hidden="true">·</span>
             <span>{t(`deck.answerPlan.intent.${answerPlan.intent}`)}</span>
             <span aria-hidden="true">·</span>
             <span>{t(`deck.answerPlan.detail.${answerPlan.detail_level}`)}</span>
@@ -196,9 +192,11 @@ export function GroundedReply({
         </div>
       ) : null}
       <div class="deck-turn-body">
-        <span class={`deck-answer-state is-${answerState}`} role="status">
-          {t(`deck.answerState.${answerState}`)}
-        </span>
+        {showAnswerState ? (
+          <span class={`deck-answer-state is-${answerState}`} role="status">
+            {t(`deck.answerState.${answerState}`)}
+          </span>
+        ) : null}
         <RichContent
           text={text}
           streaming={streaming}

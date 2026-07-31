@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { setLocale } from "../i18n";
 import type { AnswerVerification } from "./backend";
 import { verificationLabel } from "./grounded-reply";
@@ -71,5 +73,20 @@ describe("verificationLabel", () => {
     } finally {
       setLocale("en");
     }
+  });
+});
+
+describe("grounded reply presentation", () => {
+  it("leaves agent ownership to the turn header and hides redundant complete chrome", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).not.toContain(
+      'replyAgentLabel(delegation?.primary_agent ?? "Bragi", delegation)',
+    );
+    expect(component).toContain('const showAnswerState = answerState !== "complete";');
+    expect(component).toContain("{showAnswerState ? (");
   });
 });
