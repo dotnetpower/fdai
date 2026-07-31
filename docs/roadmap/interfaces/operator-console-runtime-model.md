@@ -65,7 +65,10 @@ pages only and uses medium search context to request at least three distinct pro
 filtering: self references, generic homepages, conceptual guidance, editorial or blog pages,
 documentation indexes, and duplicate product identities are removed before evidence reaches Bragi.
 Invalid, low-confidence, or unavailable output stays `none`; it cannot override local or
-sensitive-data denials. This classifier prompt is separate from Bragi's answer-generation prompt.
+sensitive-data denials. For non-alternative goals, extra model-generated subject or capability
+fields are discarded because they do not affect routing; malformed required fields still fail closed.
+The bounded candidate output budget applies to classification so reasoning tokens cannot truncate a
+valid structured decision. This classifier prompt is separate from Bragi's answer-generation prompt.
 
 ### 4.1.1 Cross-process agent introspection
 

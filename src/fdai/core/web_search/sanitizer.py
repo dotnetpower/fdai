@@ -114,6 +114,16 @@ def _snippet_host(url: str) -> str | None:
     return host or None
 
 
+def is_web_host_allowed(host: str, allowed_domains: tuple[str, ...]) -> bool:
+    """Return whether a host is an allowed domain or one of its subdomains."""
+
+    normalized_host = host.lower().rstrip(".")
+    allowlist = {domain.lower().rstrip(".") for domain in allowed_domains}
+    return any(
+        normalized_host == domain or normalized_host.endswith(f".{domain}") for domain in allowlist
+    )
+
+
 def validate_snippet_domain(
     *,
     snippet: WebSnippet,
@@ -143,8 +153,7 @@ def validate_snippet_domain(
             "invalid_url",
             f"snippet url {snippet.url!r} is not a valid http(s) URL with a host",
         )
-    allowlist = {d.lower().rstrip(".") for d in allowed_domains}
-    if host not in allowlist:
+    if not is_web_host_allowed(host, allowed_domains):
         raise WebSnippetPolicyError(
             "off_allowlist",
             f"snippet url host {host!r} is not in the allowlist {allowed_domains!r}",
@@ -267,6 +276,7 @@ __all__ = [
     "SanitizedWebResult",
     "WebSnippetPolicyError",
     "detect_snippet_injection_markers",
+    "is_web_host_allowed",
     "sanitize_web_result",
     "validate_snippet_domain",
     "wrap_web_snippet",

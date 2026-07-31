@@ -13,6 +13,7 @@ from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
 from fdai.delivery.azure.web_search import (
     AzureResponsesWebSearchCandidate,
     AzureResponsesWebSearchConfig,
+    AzureWebSearchRequestError,
     LatencyRoutedWebSearchProvider,
 )
 from fdai.delivery.azure.web_search_response import _alternative_source_allowed
@@ -118,6 +119,12 @@ class _Candidate:
         }
 
 
+class _BlockedCandidate(_Candidate):
+    async def search(self, query: WebSearchQuery) -> WebSearchResult:
+        self.search_calls += 1
+        raise AzureWebSearchRequestError("tool_blocked")
+
+
 async def test_latency_router_benchmarks_and_prefers_fastest_candidate() -> None:
     slow = _Candidate(delay_ms=20)
     fast = _Candidate(delay_ms=1)
@@ -149,6 +156,20 @@ async def test_latency_router_fails_over_when_fastest_candidate_errors() -> None
     assert failing.search_calls == 1
     assert healthy.search_calls == 1
     assert "model:healthy" in result.reasons
+
+
+async def test_latency_router_does_not_retry_terminal_tool_block() -> None:
+    blocked = _BlockedCandidate(delay_ms=1)
+    unused = _Candidate(delay_ms=1)
+    provider = LatencyRoutedWebSearchProvider(candidates=[("blocked", blocked), ("unused", unused)])
+
+    with pytest.raises(AzureWebSearchRequestError, match="tool_blocked"):
+        await provider.search(
+            WebSearchQuery(text="latest release", allowed_domains=("example.com",))
+        )
+
+    assert blocked.search_calls == 1
+    assert unused.search_calls == 0
 
 
 async def test_latency_router_fails_over_when_fastest_candidate_has_no_snippets() -> None:
@@ -213,6 +234,13 @@ async def test_azure_candidate_enforces_filters_and_parses_citations() -> None:
                                         "url": "https://offlist.example.net/post",
                                         "title": "Off-list",
                                     },
+                                    {
+                                        "type": "url_citation",
+                                        "start_index": 34,
+                                        "end_index": 53,
+                                        "url": "https://docs.example.com/blog/release",
+                                        "title": "Release blog",
+                                    },
                                 ],
                             }
                         ],
@@ -232,7 +260,7 @@ async def test_azure_candidate_enforces_filters_and_parses_citations() -> None:
     result = await candidate.search(
         WebSearchQuery(
             text="latest release",
-            allowed_domains=("docs.example.com",),
+            allowed_domains=("example.com",),
             max_results=3,
         )
     )
@@ -240,7 +268,7 @@ async def test_azure_candidate_enforces_filters_and_parses_citations() -> None:
     assert captured["authorization"] == "Bearer test-token"
     body = captured["body"]
     assert isinstance(body, dict)
-    assert body["tools"][0]["filters"]["allowed_domains"] == ["docs.example.com"]
+    assert body["tools"][0]["filters"]["allowed_domains"] == ["example.com"]
     assert [snippet.url for snippet in result.snippets] == ["https://docs.example.com/release"]
     assert result.snippets[0].text == "Version 2 is the latest release."
 
@@ -302,6 +330,80 @@ async def test_azure_candidate_classifies_multilingual_search_intent_as_strict_j
     assert body["text"]["format"]["strict"] is True
     assert body["input"][1]["role"] == "user"
     assert "¿Puedes investigar alternativas a Grafana?" in body["input"][1]["content"]
+
+
+async def test_azure_candidate_normalizes_unused_intent_fields_with_configured_budget() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "output_text": json.dumps(
+                    {
+                        "route": "web",
+                        "confidence": 0.95,
+                        "reason": "current_external_info",
+                        "query": "Azure web search changes this week",
+                        "goal": "current_fact",
+                        "subject": "Azure web search",
+                        "capabilities": ["current product updates"],
+                    }
+                )
+            },
+        )
+
+    candidate = AzureResponsesWebSearchCandidate(
+        config=AzureResponsesWebSearchConfig(
+            endpoint="https://example.openai.azure.com",
+            deployment="mini-fast",
+            max_output_tokens=1_024,
+        ),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    result = await candidate.classify_intent(
+        "What changed in Azure web search this week?",
+        budget_ms=1_000,
+    )
+
+    assert result["subject"] == ""
+    assert result["capabilities"] == []
+    body = captured["body"]
+    assert isinstance(body, dict)
+    assert body["max_output_tokens"] == 1_024
+
+
+async def test_azure_candidate_classifies_organization_tool_block_without_leaking_body() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={
+                "error": {"message": "Tool 'web_search_preview' disabled for this organization."}
+            },
+        )
+
+    candidate = AzureResponsesWebSearchCandidate(
+        config=AzureResponsesWebSearchConfig(
+            endpoint="https://example.openai.azure.com",
+            deployment="mini-fast",
+        ),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    with pytest.raises(AzureWebSearchRequestError) as info:
+        await candidate.search(
+            WebSearchQuery(
+                text="latest release",
+                allowed_domains=("example.com",),
+            )
+        )
+
+    assert info.value.reason == "tool_blocked"
+    assert "organization" not in str(info.value)
 
 
 async def test_azure_candidate_probe_uses_bounded_output_token_budget() -> None:

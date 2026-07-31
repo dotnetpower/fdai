@@ -166,6 +166,25 @@ class TestDomainValidation:
             allowed_domains=("docs.example.com",),
         )
 
+    def test_allowlisted_domain_includes_subdomains_but_not_suffix_confusion(self) -> None:
+        validate_snippet_domain(
+            snippet=_snippet(
+                domain="docs.example.com",
+                url="https://docs.example.com/x",
+            ),
+            allowed_domains=("example.com",),
+        )
+
+        with pytest.raises(WebSnippetPolicyError) as info:
+            validate_snippet_domain(
+                snippet=_snippet(
+                    domain="attacker-example.com",
+                    url="https://attacker-example.com/x",
+                ),
+                allowed_domains=("example.com",),
+            )
+        assert info.value.code == "off_allowlist"
+
     def test_empty_allowlist_is_refused(self) -> None:
         with pytest.raises(WebSnippetPolicyError) as info:
             validate_snippet_domain(snippet=_snippet(), allowed_domains=())

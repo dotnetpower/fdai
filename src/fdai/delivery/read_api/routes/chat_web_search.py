@@ -24,6 +24,7 @@ from fdai.core.web_search import (
 from fdai.delivery.azure.web_search import (
     AzureResponsesWebSearchCandidate,
     AzureResponsesWebSearchConfig,
+    AzureWebSearchRequestError,
     LatencyRoutedWebSearchProvider,
     WebSearchModelCandidate,
 )
@@ -265,9 +266,10 @@ class ChatWebSearchResolver:
         try:
             result = await self._provider.search(query)
         except Exception as exc:  # noqa: BLE001 - web evidence fails closed
+            reason = exc.reason if isinstance(exc, AzureWebSearchRequestError) else "provider_error"
             _LOG.warning(
                 "chat.web_search_failed",
-                extra={"error_type": type(exc).__name__},
+                extra={"error_type": type(exc).__name__, "reason": reason},
             )
             await _report_progress(
                 progress_observer,
@@ -276,7 +278,7 @@ class ChatWebSearchResolver:
             )
             return {
                 "status": "unavailable",
-                "reason": "provider_error",
+                "reason": reason,
                 "sources": [],
             }
 

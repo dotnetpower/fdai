@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 3902df9d59868daacdf58ff7065e6a29f7d4ffc7
-translation_revised: 2026-07-21
+translation_source_sha: b59fa244f3ade7fcf89eb6c185d3fa003228e2d1
+translation_revised: 2026-08-01
 ---
 
 # 진화하는 시스템 프롬프트
@@ -267,8 +267,7 @@ Web search는 최후의 수단 툴입니다. 배포별 opt-in이며 절대 groun
   -> cost budget -> grounding-gap 필요 -> novelty threshold)를 평가하고 SKIP
   사유를 audit 로그에 기록하므로, "언제 web search가 실행되는가"는 문단이
   아니라 테스트로 답합니다.
-- **도메인 allowlist**: primary source만 (vendor docs, RFC, NVD, CVE 레지스트리).
-  블로그, 포럼, 소셜 미디어는 금지.
+- **도메인 allowlist**: primary source만 사용합니다(vendor docs, RFC, NVD, CVE 레지스트리). Allowlist 도메인은 DNS 하위 도메인을 포함하지만 label boundary 검사는 suffix-confusion host를 차단합니다. 블로그, 포럼 및 소셜 미디어는 지원되지 않습니다.
 - **Snippet 처리**: HTML strip. prompt-유사 패턴(`ignore previous`, `system:` 등)
   탐지 및 플래그. inject 전에 `<web_snippet trusted="false">...</web_snippet>`
   로 wrap.
@@ -284,7 +283,7 @@ Web search는 최후의 수단 툴입니다. 배포별 opt-in이며 절대 groun
   `allowed_domains`를 보내며, 실제 `web_search_call` 발생을 검증합니다.
   Allowlist 밖 citation은 거부하고 sanitized evidence snapshot은 durable
   conversation turn에 저장합니다. 제한된 operator query만 FDAI 밖으로 나가며
-  화면 snapshot과 대화 history는 검색 호출에 전송되지 않습니다. Allowlist가
+  화면 snapshot과 대화 history는 검색 호출에 전송되지 않습니다. Provider 실패는 `tool_blocked`, `provider_unauthorized`, `provider_rate_limited` 같은 제한된 reason code로 변환하며 raw response body는 대화에 포함하지 않습니다. 조직 전체 차단 및 authorization 실패는 model failover를 중단하고 transient 실패만 다음 deployment를 시도합니다. Allowlist가
   `web.search`를 담은 capability는 `rule-catalog/llm-registry.yaml`에
   `tool_calling_required: true`를 설정합니다. 부트스트랩 resolver는 대상 리전에
   function-calling 가능 family가 없으면 `hil-only`로 강등합니다.
@@ -646,7 +645,7 @@ composer가 모든 T2 event마다 조회할 수 있게 합니다. Step B의 나�
   `operator_memory`, Python 정책과 미러링된 CHECK 제약:
   `scope_kind IN ('resource-group', 'resource')`,
   `btrim(body) <> ''`, `btrim(scope_ref) <> ''`,
-  `category IN (…)`, `ttl_seconds IS NULL OR ttl_seconds > 0`,
+  `category IN (...)`, `ttl_seconds IS NULL OR ttl_seconds > 0`,
   `lower(btrim(author)) <> lower(btrim(approved_by))`. Python-side
   validator를 우회하는 caller도 리뷰되지 않은 또는 self-approved
   entry를 랜딩할 수 없습니다.

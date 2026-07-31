@@ -10,6 +10,7 @@ from starlette.testclient import TestClient
 
 from fdai.core.conversation.answer_plan import build_answer_plan
 from fdai.core.web_search import WebSearchQuery, WebSearchResult, WebSnippet
+from fdai.delivery.azure.web_search import AzureWebSearchRequestError
 from fdai.delivery.read_api.routes.chat import make_chat_health_route, make_chat_route
 from fdai.delivery.read_api.routes.chat_web_search import (
     ChatWebSearchConfig,
@@ -74,6 +75,11 @@ class _Provider:
                 ),
             ),
         )
+
+
+class _BlockedProvider:
+    async def search(self, query: WebSearchQuery) -> WebSearchResult:
+        raise AzureWebSearchRequestError("tool_blocked")
 
 
 class _IntentClassifier:
@@ -186,6 +192,24 @@ async def test_latest_public_fact_searches_and_returns_sanitized_evidence() -> N
     assert len(provider.calls) == 1
     assert provider.calls[0].metadata["tier"] == "chat-t2"
     assert evidence["snippets"][0].startswith('<web_snippet trusted="false"')
+
+
+async def test_blocked_provider_returns_stable_unavailable_reason() -> None:
+    resolver = ChatWebSearchResolver(
+        provider=_BlockedProvider(),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+
+    evidence = await resolver.resolve(
+        "Search the web for the latest Azure SDK version.",
+        {},
+    )
+
+    assert evidence == {
+        "status": "unavailable",
+        "reason": "tool_blocked",
+        "sources": [],
+    }
 
 
 async def test_explicit_search_can_fill_gap_after_internal_evidence() -> None:

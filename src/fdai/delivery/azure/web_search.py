@@ -25,6 +25,9 @@ _AI_SCOPE: Final[str] = "https://ai.azure.com/.default"
 _WINDOW_SIZE: Final[int] = 8
 _WARMUP_SAMPLES: Final[int] = 2
 _FAILURE_PENALTY_MS: Final[int] = 30_000
+_TERMINAL_FAILURE_REASONS: Final[frozenset[str]] = frozenset(
+    {"tool_blocked", "provider_unauthorized"}
+)
 _INTENT_SYSTEM_PROMPT: Final[str] = """\
 Classify whether an operator utterance requests public-web evidence.
 Return route=web only for an explicit public search or current external information.
@@ -72,6 +75,14 @@ _INTENT_SCHEMA: Final[dict[str, Any]] = {
     ],
     "additionalProperties": False,
 }
+
+
+class AzureWebSearchRequestError(RuntimeError):
+    """A safe, stable classification of one failed Azure Responses request."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(f"Azure web search request failed: {reason}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,7 +197,7 @@ class AzureResponsesWebSearchCandidate:
                         "schema": _INTENT_SCHEMA,
                     }
                 },
-                "max_output_tokens": 256,
+                "max_output_tokens": self._config.max_output_tokens,
             },
             timeout_seconds=budget_ms / 1000,
         )
@@ -217,9 +228,9 @@ class AzureResponsesWebSearchCandidate:
                 timeout=max(0.1, timeout_seconds),
             )
         except httpx.HTTPError as exc:
-            raise RuntimeError("Azure web search endpoint is unreachable") from exc
+            raise AzureWebSearchRequestError("provider_unreachable") from exc
         if response.status_code >= 400:
-            raise RuntimeError(f"Azure web search returned HTTP {response.status_code}")
+            raise AzureWebSearchRequestError(_response_error_reason(response))
         try:
             envelope = response.json()
         except ValueError as exc:
@@ -241,6 +252,29 @@ class AzureResponsesWebSearchCandidate:
             self._fallback_identity = AzureCliWorkloadIdentity.from_env()
         token = await asyncio.to_thread(self._fallback_identity.get_token_sync, _AI_SCOPE)
         return token.token
+
+
+def _response_error_reason(response: httpx.Response) -> str:
+    status = response.status_code
+    if status in {401, 403}:
+        return "provider_unauthorized"
+    if status == 429:
+        return "provider_rate_limited"
+    if status >= 500:
+        return "provider_unavailable"
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {}
+    error = payload.get("error") if isinstance(payload, Mapping) else None
+    message = error.get("message") if isinstance(error, Mapping) else None
+    code = error.get("code") if isinstance(error, Mapping) else None
+    detail = f"{code or ''} {message or ''}".casefold()
+    if "disabled for this organization" in detail or (
+        "tool" in detail and ("blocked" in detail or "disabled" in detail)
+    ):
+        return "tool_blocked"
+    return "provider_rejected"
 
 
 class LatencyRoutedWebSearchProvider:
@@ -314,6 +348,11 @@ class LatencyRoutedWebSearchProvider:
                     "web_search_router.candidate_failed",
                     extra={"candidate": name, "error_type": type(exc).__name__},
                 )
+                if (
+                    isinstance(exc, AzureWebSearchRequestError)
+                    and exc.reason in _TERMINAL_FAILURE_REASONS
+                ):
+                    raise
                 continue
             finally:
                 self._in_flight[name] = max(0, self._in_flight[name] - 1)
@@ -424,6 +463,7 @@ def _p95(samples: deque[int]) -> float:
 __all__ = [
     "AzureResponsesWebSearchCandidate",
     "AzureResponsesWebSearchConfig",
+    "AzureWebSearchRequestError",
     "LatencyRoutedWebSearchProvider",
     "WebSearchModelCandidate",
 ]

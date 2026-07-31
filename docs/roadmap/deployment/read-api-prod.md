@@ -87,7 +87,7 @@ Optional (defaults apply):
 | `FDAI_IAM_ENTRA_GRAPH_BASE_URL` | `https://graph.microsoft.com/v1.0` | Microsoft Graph base URL for sovereign-cloud or test overrides. Used only when the directory provider is `entra`. |
 | `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` | `300` | Seconds between routed narrator latency probes. Minimum `30`; each periodic round adds one model-only sample per candidate. |
 | `FDAI_WEB_SEARCH_ENABLED` | `false` | Enables controlled Azure Responses web search for eligible Chat T2 turns. Requires resolved narrator candidates and an allowed-domain list. |
-| `FDAI_WEB_SEARCH_ALLOWED_DOMAINS` | empty | Comma-separated public source hosts. Required when web search is enabled; at most 100 exact hosts. |
+| `FDAI_WEB_SEARCH_ALLOWED_DOMAINS` | empty | Comma-separated public source domains. Required when web search is enabled; at most 100 domains. Each entry also allows its DNS subdomains. |
 | `FDAI_WEB_SEARCH_MAX_RESULTS` | `3` | Maximum citations retained from one search, from `1` through `10`. |
 | `FDAI_WEB_SEARCH_BUDGET_MS` | `15000` | Per-search endpoint timeout in milliseconds. |
 | `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` | `300` | Seconds between web-search candidate model probes. Minimum `30`; probes don't invoke the search tool. |

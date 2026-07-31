@@ -10,7 +10,12 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
-from fdai.core.web_search import WebSearchQuery, WebSearchResult, WebSnippet
+from fdai.core.web_search import (
+    WebSearchQuery,
+    WebSearchResult,
+    WebSnippet,
+    is_web_host_allowed,
+)
 
 _INTENT_REASONS = frozenset(
     {
@@ -56,6 +61,8 @@ def result_from_envelope(
             continue
         title = annotation.get("title")
         safe_title = title.strip() if isinstance(title, str) and title.strip() else host
+        if not _source_path_allowed(url):
+            continue
         if query.metadata.get("goal") == "alternatives" and not _alternative_source_allowed(
             url,
             safe_title,
@@ -157,7 +164,6 @@ def intent_from_envelope(envelope: Mapping[str, Any]) -> dict[str, object]:
         not isinstance(subject, str)
         or len(subject) > 128
         or (goal == "alternatives" and not subject.strip())
-        or (goal != "alternatives" and subject)
     ):
         raise RuntimeError("Azure search intent returned an invalid subject")
     if (
@@ -168,17 +174,20 @@ def intent_from_envelope(envelope: Mapping[str, Any]) -> dict[str, object]:
             for capability in capabilities
         )
         or (goal == "alternatives" and len(capabilities) < 2)
-        or (goal != "alternatives" and capabilities)
     ):
         raise RuntimeError("Azure search intent returned invalid capabilities")
+    normalized_subject = subject.strip() if goal == "alternatives" else ""
+    normalized_capabilities = (
+        [capability.strip() for capability in capabilities] if goal == "alternatives" else []
+    )
     return {
         "route": route,
         "confidence": float(confidence),
         "reason": reason,
         "query": query.strip(),
         "goal": goal,
-        "subject": subject.strip(),
-        "capabilities": [capability.strip() for capability in capabilities],
+        "subject": normalized_subject,
+        "capabilities": normalized_capabilities,
     }
 
 
@@ -212,8 +221,7 @@ def _allowed_host(url: str, allowed_domains: tuple[str, ...]) -> str | None:
     if parsed.scheme.lower() not in {"http", "https"}:
         return None
     host = (parsed.hostname or "").lower().rstrip(".")
-    allowed = {domain.lower().rstrip(".") for domain in allowed_domains}
-    return host if host in allowed else None
+    return host if is_web_host_allowed(host, allowed_domains) else None
 
 
 def _alternative_source_allowed(url: str, title: str, *, subject: str) -> bool:
@@ -229,9 +237,12 @@ def _alternative_source_allowed(url: str, title: str, *, subject: str) -> bool:
     segments = [segment.casefold() for segment in parsed.path.split("/") if segment]
     if segments and len(segments[0]) in {2, 5} and segments[0].replace("-", "").isalpha():
         segments = segments[1:]
-    if _EDITORIAL_PATH_SEGMENTS.intersection(segments):
-        return False
     return bool(segments)
+
+
+def _source_path_allowed(url: str) -> bool:
+    segments = {segment.casefold() for segment in urlsplit(url).path.split("/") if segment}
+    return not _EDITORIAL_PATH_SEGMENTS.intersection(segments)
 
 
 def _distinct_alternative_products(snippets: list[WebSnippet]) -> list[WebSnippet]:

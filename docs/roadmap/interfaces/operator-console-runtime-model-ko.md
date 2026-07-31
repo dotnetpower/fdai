@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 645dca54f9e04eb873c27a0329d1cd42573640d8
-translation_revised: 2026-07-31
+translation_source_sha: e8df6a23af6b19a483cd992038ae59ba3c6c4a57
+translation_revised: 2026-08-01
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -66,8 +66,11 @@ coordinator가 해당 capability에서 실제 query를 다시 구성합니다. C
 서로 다른 product를 최소 3개 요청합니다. Self reference, generic homepage, conceptual guidance, editorial 또는
 blog page, documentation index 및 duplicate product identity는 evidence가 Bragi에 도달하기 전에 제거합니다.
 Invalid, low-confidence 또는 unavailable output은 `none`을 유지하며
-local 또는 sensitive-data denial을 override할 수 없습니다. 이 classifier prompt는 Bragi answer-generation
-prompt와 분리됩니다.
+local 또는 sensitive-data denial을 override할 수 없습니다. Alternative가 아닌 goal에서는 routing에
+영향을 주지 않는 model-generated subject 또는 capability field를 폐기하지만, malformed required field는
+계속 fail closed합니다. Candidate의 제한된 output budget을 classification에도 적용하므로 reasoning token이
+valid structured decision을 truncate하지 않습니다. 이 classifier prompt는 Bragi answer-generation prompt와
+분리됩니다.
 
 ### 4.1.1 Cross-process agent introspection
 

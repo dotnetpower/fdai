@@ -689,10 +689,10 @@
     "src/fdai/core/views/engine.py": "ec9a15d19f3b4fac82a162f12217a0851dbc5264d8249958b856a1ce04165afe",
     "src/fdai/core/views/models.py": "8f9dddfdcaaae43f5e19c7a0e6c275e8ec466db00253bda69696de845a04eea4",
     "src/fdai/core/views/workflow_apps.py": "9f26f09a52879850dbfdaaef09f6e80b69ce89180a5ca27857a0f5e3356b48a7",
-    "src/fdai/core/web_search/__init__.py": "f7c93d01b3575042b8f6923556ff1c8851baf2fb9d52edc4c6a7102bc7a225eb",
+    "src/fdai/core/web_search/__init__.py": "c98524ae7bfbf88fa34a3c09639c9d30bc397291c7e558f4fe5a6cd1b27387cd",
     "src/fdai/core/web_search/policy.py": "6903713ac2579ce073a298dc97738bb091a6900d01dd4eceb4bb0bfa60b8ae12",
     "src/fdai/core/web_search/provider.py": "35b6cf6a5103b492ae1dfba181bbd3a2b40910d9966c4ddddc147f814f91640c",
-    "src/fdai/core/web_search/sanitizer.py": "d15ac7f2d63495689951680dee76965319810db26dd414ba3e034360fc6eea27",
+    "src/fdai/core/web_search/sanitizer.py": "5dfec4449ff18991a43c6d1e64ff463c6bdb32aa365c0f7b87d4e6ac398f483c",
     "src/fdai/core/web_search/types.py": "53e3b040cc540f1e08c09568ddbe85df8c4e116a21875a060e7fae35396df332",
     "src/fdai/core/workflow/__init__.py": "63cd606da0456dd76d2f3de78fd9ca48f7956ba504bb013acbb0fa547a0559ec",
     "src/fdai/core/workflow/approval.py": "4b1ccd96890330c2788e3ad569b2264e33817ab06ed6114afc6d71b0dce3e047",
@@ -877,7 +877,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T15:32:45Z",
+  "generated_at": "2026-07-31T20:34:28Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

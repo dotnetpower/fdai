@@ -270,8 +270,7 @@ grounding source.
   budget -> cost budget -> grounding-gap required -> novelty threshold) and
   records the SKIP reason in the audit log, so "when web search runs" is
   answered by a test, not a paragraph.
-- **Domain allowlist**: primary sources only (vendor docs, RFCs, NVD, CVE
-  registries). Blogs, forums, and social media are prohibited.
+- **Domain allowlist**: primary sources only (vendor docs, RFCs, NVD, CVE registries). An allowlisted domain includes its DNS subdomains, while label-boundary checks reject suffix-confusion hosts. Blogs, forums, and social media are not supported.
 - **Snippet handling**: HTML stripped; prompt-like patterns
   (`ignore previous`, `system:`, etc.) detected and flagged; content wrapped in
   `<web_snippet trusted="false">...</web_snippet>` before injection.
@@ -288,7 +287,8 @@ grounding source.
   occurred, rejects citations outside the allowlist, and stores the sanitized
   evidence snapshot with the durable conversation turn. Only the bounded
   operator query leaves FDAI; the screen snapshot and conversation history are
-  never sent to the search call. The capability whose allowlist carries
+  never sent to the search call. Provider failures become bounded reason codes such as `tool_blocked`,
+  `provider_unauthorized`, or `provider_rate_limited`; raw response bodies never enter the conversation. Organization-wide and authorization failures stop model failover, while transient failures can try the next deployment. The capability whose allowlist carries
   `web.search` sets
   `tool_calling_required: true` in `rule-catalog/llm-registry.yaml`; the
   bootstrap resolver degrades it to `hil-only` when the target region has no
@@ -670,7 +670,7 @@ separate follow-up and is still `planned` in the rollout table.
   `operator_memory`, with CHECK constraints that mirror the Python
   policy: `scope_kind IN ('resource-group', 'resource')`,
   `btrim(body) <> ''`, `btrim(scope_ref) <> ''`,
-  `category IN (…)`, `ttl_seconds IS NULL OR ttl_seconds > 0`, and
+  `category IN (...)`, `ttl_seconds IS NULL OR ttl_seconds > 0`, and
   `lower(btrim(author)) <> lower(btrim(approved_by))`. Even a caller
   bypassing the Python-side validator cannot land an unreviewed or
   self-approved entry.
