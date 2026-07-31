@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 2f4b241590633f64447b65a907da0229adfab7cc
+translation_source_sha: d8cf40a2156d84392b2d82c6a2987e16c9806c28
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -159,6 +159,10 @@ scope의 sample은 지원 하한을 충족하기 위해 합산되지 않습니�
 후보는 narrator prompt pack, glossary, 읽기 전용 route, 근거 선택, 응답 렌더링, locale 표현,
 narrator 모델 순서를 변경할 수 있습니다. 루브릭, benchmark label, evaluator prompt, 근거
 verifier, RBAC, 위험 정책, agent 역할, 승인 규칙 또는 executor 동작은 변경할 수 없습니다.
+각 candidate는 stage를 제외하면 해당 `principal_scope` 안에서 immutable입니다. durable ledger는
+candidate content를 멱등하게 추가하고, `from_stage`가 저장된 stage와 일치할 때만 transition을
+적용하며 append-only transition history를 기록합니다. 이미 적용된 transition 재생은 no-op이고,
+stale 또는 cross-scope transition은 거부됩니다.
 
 ### 블라인드 승격과 롤백
 

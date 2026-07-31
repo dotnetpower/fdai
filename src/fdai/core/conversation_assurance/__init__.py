@@ -28,6 +28,10 @@ from fdai.core.conversation_assurance.models import (
     EvaluatorOutput,
     TurnAssessmentInput,
 )
+from fdai.core.conversation_assurance.policy_store import (
+    ConversationPolicyCandidateStore,
+    InMemoryConversationPolicyCandidateStore,
+)
 from fdai.core.conversation_assurance.promotion import (
     ChatPolicyCandidate,
     ChatPolicyTarget,
@@ -50,6 +54,7 @@ __all__ = [
     "ConversationAssuranceEvaluator",
     "ConversationAssuranceCoordinator",
     "ConversationAssuranceLedger",
+    "ConversationPolicyCandidateStore",
     "CriterionScore",
     "DebateContext",
     "DeterministicAssessment",
@@ -58,6 +63,7 @@ __all__ = [
     "EvaluatorOutput",
     "FailureCluster",
     "InMemoryConversationAssuranceLedger",
+    "InMemoryConversationPolicyCandidateStore",
     "MixedFamilyAssuranceReviewer",
     "TurnAssessmentInput",
     "ChatPolicyCandidate",

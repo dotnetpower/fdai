@@ -36,11 +36,20 @@ _NEXT_STAGE = {
 @dataclass(frozen=True, slots=True)
 class ChatPolicyCandidate:
     candidate_id: str
+    principal_scope: str
     cluster_id: str
     target: ChatPolicyTarget
     policy_digest: str
     incumbent_policy_digest: str
     stage: PolicyStage = PolicyStage.SHADOW
+
+    def __post_init__(self) -> None:
+        if not self.candidate_id.strip() or not self.principal_scope.strip():
+            raise ValueError("policy candidate identity and principal_scope MUST be non-empty")
+        if not self.cluster_id.strip():
+            raise ValueError("policy candidate cluster_id MUST be non-empty")
+        if len(self.policy_digest) != 64 or len(self.incumbent_policy_digest) != 64:
+            raise ValueError("policy candidate digests MUST be 64 characters")
 
 
 @dataclass(frozen=True, slots=True)

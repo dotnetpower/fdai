@@ -15,12 +15,18 @@ from fdai.core.conversation_assurance import (
     AssessmentRecord,
     AssuranceDecision,
     AssuranceVerdict,
+    ChatPolicyCandidate,
+    ChatPolicyTarget,
     DisputeReason,
     DisputeRecord,
+    PolicyStage,
+    PolicyTransition,
 )
 from fdai.delivery.persistence import (
     PostgresConversationAssuranceLedger,
     PostgresConversationAssuranceLedgerConfig,
+    PostgresConversationPolicyCandidateStore,
+    PostgresConversationPolicyCandidateStoreConfig,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -120,3 +126,49 @@ async def test_assessment_and_dispute_survive_restart() -> None:
         )
         is None
     )
+
+
+@pytest.mark.integration
+async def test_policy_candidate_transition_survives_restart() -> None:
+    dsn = _requires_live_db()
+    _upgrade_head()
+    suffix = uuid.uuid4().hex
+    store = PostgresConversationPolicyCandidateStore(
+        config=PostgresConversationPolicyCandidateStoreConfig(dsn=dsn)
+    )
+    candidate = ChatPolicyCandidate(
+        candidate_id=f"candidate-{suffix}",
+        principal_scope=f"principal-{suffix}",
+        cluster_id=f"cluster-{suffix}",
+        target=ChatPolicyTarget.NARRATOR_PROMPT,
+        policy_digest="p" * 64,
+        incumbent_policy_digest="i" * 64,
+    )
+    transition = PolicyTransition(
+        candidate_id=candidate.candidate_id,
+        from_stage=PolicyStage.SHADOW,
+        to_stage=PolicyStage.CANARY_1,
+        reasons=("promotion_guards_passed",),
+    )
+
+    assert await store.append_candidate(candidate)
+    updated = await store.apply_transition(
+        principal_scope=candidate.principal_scope,
+        transition=transition,
+    )
+    restarted = PostgresConversationPolicyCandidateStore(
+        config=PostgresConversationPolicyCandidateStoreConfig(dsn=dsn)
+    )
+
+    assert updated.stage is PolicyStage.CANARY_1
+    assert (
+        await restarted.get_candidate(
+            principal_scope=candidate.principal_scope,
+            candidate_id=candidate.candidate_id,
+        )
+        == updated
+    )
+    assert await restarted.list_transitions(
+        principal_scope=candidate.principal_scope,
+        candidate_id=candidate.candidate_id,
+    ) == (transition,)

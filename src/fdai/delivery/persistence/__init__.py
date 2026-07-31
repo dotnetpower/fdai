@@ -49,6 +49,10 @@ from fdai.delivery.persistence.postgres_conversation_assurance import (
     PostgresConversationAssuranceLedger,
     PostgresConversationAssuranceLedgerConfig,
 )
+from fdai.delivery.persistence.postgres_conversation_assurance_policy import (
+    PostgresConversationPolicyCandidateStore,
+    PostgresConversationPolicyCandidateStoreConfig,
+)
 from fdai.delivery.persistence.postgres_conversation_search import (
     PostgresConversationSearch,
 )
@@ -213,6 +217,8 @@ __all__ = [
     "PostgresConversationHistoryStore",
     "PostgresConversationAssuranceLedger",
     "PostgresConversationAssuranceLedgerConfig",
+    "PostgresConversationPolicyCandidateStore",
+    "PostgresConversationPolicyCandidateStoreConfig",
     "PostgresConversationSearch",
     "PostgresConversationPolicyStore",
     "PostgresExecutionSubmissionLedger",

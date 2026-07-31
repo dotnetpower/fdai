@@ -162,6 +162,10 @@ Candidates may change narrator prompt packs, glossary entries, read-only routing
 response rendering, locale phrasing, and narrator model ordering. Candidates cannot change the
 rubric, benchmark labels, evaluator prompts, evidence verifier, RBAC, risk policy, agent roles,
 approval rules, or executor behavior.
+Each candidate is immutable within its `principal_scope` except for its stage. The durable ledger
+appends candidate content idempotently, applies a transition only when its `from_stage` matches the
+stored stage, and records an append-only transition history. Replaying an already applied transition
+is a no-op; a stale or cross-scope transition is rejected.
 
 ### Blind promotion and rollback
 

@@ -15,7 +15,9 @@ from fdai.core.conversation_assurance import (
     DisputeReason,
     DisputeRecord,
     InMemoryConversationAssuranceLedger,
+    InMemoryConversationPolicyCandidateStore,
     PolicyStage,
+    PolicyTransition,
     PolicyTrialMetrics,
     cluster_failures,
     evaluate_policy_transition,
@@ -107,6 +109,7 @@ def test_failure_clusters_do_not_combine_principal_scopes() -> None:
 def _candidate(stage: PolicyStage = PolicyStage.SHADOW) -> ChatPolicyCandidate:
     return ChatPolicyCandidate(
         candidate_id="candidate-1",
+        principal_scope="principal-1",
         cluster_id="cluster-1",
         target=ChatPolicyTarget.NARRATOR_PROMPT,
         policy_digest="p" * 64,
@@ -134,6 +137,59 @@ def test_policy_advances_one_stage_after_guards_pass() -> None:
     transition = evaluate_policy_transition(_candidate(), _metrics())
 
     assert transition.to_stage is PolicyStage.CANARY_1
+
+
+async def test_candidate_store_scopes_and_replays_transitions() -> None:
+    store = InMemoryConversationPolicyCandidateStore()
+    candidate = _candidate()
+    transition = evaluate_policy_transition(candidate, _metrics())
+
+    assert await store.append_candidate(candidate)
+    assert not await store.append_candidate(candidate)
+    assert (
+        await store.get_candidate(
+            principal_scope="principal-2",
+            candidate_id=candidate.candidate_id,
+        )
+        is None
+    )
+    updated = await store.apply_transition(
+        principal_scope=candidate.principal_scope,
+        transition=transition,
+    )
+    replayed = await store.apply_transition(
+        principal_scope=candidate.principal_scope,
+        transition=transition,
+    )
+
+    assert updated.stage is PolicyStage.CANARY_1
+    assert replayed == updated
+    assert await store.list_transitions(
+        principal_scope=candidate.principal_scope,
+        candidate_id=candidate.candidate_id,
+    ) == (transition,)
+
+
+async def test_candidate_store_rejects_stale_transition() -> None:
+    store = InMemoryConversationPolicyCandidateStore()
+    candidate = _candidate()
+    await store.append_candidate(candidate)
+    advanced = evaluate_policy_transition(candidate, _metrics())
+    await store.apply_transition(
+        principal_scope=candidate.principal_scope,
+        transition=advanced,
+    )
+
+    with pytest.raises(ValueError, match="from_stage is stale"):
+        await store.apply_transition(
+            principal_scope=candidate.principal_scope,
+            transition=PolicyTransition(
+                candidate_id=candidate.candidate_id,
+                from_stage=PolicyStage.SHADOW,
+                to_stage=PolicyStage.ROLLED_BACK,
+                reasons=("late_guard",),
+            ),
+        )
 
 
 @pytest.mark.parametrize(
