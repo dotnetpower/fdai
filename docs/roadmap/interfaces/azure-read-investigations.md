@@ -12,6 +12,10 @@ provider adapters gather evidence without using Thor's execution identity.
 > log fallback, configured NSG rules, VNet peering topology, execution-time prediction, progress
 > delivery, and detached investigation sessions.
 > It does not authorize or execute an Azure change.
+>
+> **Discovery command coverage:** Provider-wide resource discovery, ARG-specialized tables,
+> sanitized reproduction commands, and coverage reconciliation are defined in
+> [Azure Resource Discovery Command Coverage](azure-resource-discovery-commands.md).
 
 ## Design at a glance
 

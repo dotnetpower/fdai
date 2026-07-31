@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: a748c720112d2f94ea693de38fbd7e64a9269ed9
-translation_revised: 2026-07-31
+translation_source_sha: 8a386a881d155dbdeabdb2e85b049c063f920507
+translation_revised: 2026-08-01
 ---
 
 # Azure 읽기 조사
@@ -14,6 +14,10 @@ Thor의 execution identity를 사용하지 않고 evidence를 수집합니다.
 > **범위:** 이 설계는 resource 조회, Activity Log attribution, Resource Health, guest log fallback,
 > 구성된 NSG rule, VNet peering topology, 실행시간 예측, progress 전달 및 detached investigation
 > session을 다룹니다. Azure 변경을 승인하거나 실행하지 않습니다.
+>
+> **검색 명령 커버리지:** Provider 전체 resource 검색, ARG 특수 table, 정제된 재현 command 및
+> coverage reconciliation은
+> [Azure Resource Discovery Command Coverage](azure-resource-discovery-commands-ko.md)에서 정의합니다.
 
 ## 설계 개요
 

@@ -347,19 +347,22 @@
         "tests/**/read_investigation/**",
         "tests/delivery/azure/test_subscription_health.py",
         "tests/delivery/read_api/test_chat_subscription_health.py",
-        "docs/roadmap/interfaces/azure-read-investigations*.md"
+        "docs/roadmap/interfaces/azure-read-investigations*.md",
+        "docs/roadmap/interfaces/azure-resource-discovery-commands*.md"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
         ".github/instructions/agent-pantheon.instructions.md",
         "docs/roadmap/interfaces/azure-read-investigations.md",
+        "docs/roadmap/interfaces/azure-resource-discovery-commands.md",
         "docs/roadmap/interfaces/background-task-sessions.md",
         "docs/roadmap/agents/bounded-task-workers.md",
         "docs/roadmap/architecture/security-and-identity.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/azure-read-investigations.md",
+        "docs/roadmap/interfaces/azure-resource-discovery-commands.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/agents/agent-pantheon.md",
         "docs/roadmap/architecture/code-map.md",
