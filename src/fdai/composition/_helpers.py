@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..agents import T2ConversationSynthesizer
+from ..core.assurance_twin import DynamicSimulationRequestProvider, EffectModelReader
 from ..core.browser_evidence.service import BrowserEvidenceCaptureService
 from ..core.browser_evidence.surfaces import (
     BrowserEvidenceConsoleTool,
@@ -28,9 +29,9 @@ from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.gate import CrossCheckModel
 from ..core.quality_gate.judge import JudgeModel
 from ..core.quality_gate.rubric import RubricEvaluator
-from ..core.rca import RcaReasoner
+from ..core.rca import RcaReasoner, TemporalCausalEvidenceProvider, TemporalCausalityConfig
 from ..core.readiness import StartupProbeResult, StartupProbeSpec
-from ..core.tiers.t1_lightweight.tier import EmbeddingModel
+from ..core.tiers.t1_lightweight import CurrentReuseVerifier, EmbeddingModel
 from ..core.tiers.t2_reasoning import T2Proposer
 from ..core.trajectory import TrajectoryJoinService
 from ..core.working_context import ContextSelectionPolicyAuthority
@@ -210,6 +211,11 @@ class Container:
     execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None
     execution_access_grant_sink: ExecutionAccessGrantSink | None = None
     execution_authorization_required: bool = False
+    current_reuse_verifier: CurrentReuseVerifier | None = None
+    temporal_causal_evidence_provider: TemporalCausalEvidenceProvider | None = None
+    temporal_causality_config: TemporalCausalityConfig | None = None
+    dynamic_simulation_request_provider: DynamicSimulationRequestProvider | None = None
+    effect_model_reader: EffectModelReader | None = None
 
     def __post_init__(self) -> None:
         if self.execution_authorization_required and self.execution_authorization_evaluator is None:
@@ -219,6 +225,16 @@ class Container:
         if (self.mscp_expected_effect_provider is None) != (self.mscp_effect_observer is None):
             raise ValueError(
                 "Container MSCP expected-effect provider and observer MUST be bound together"
+            )
+        if (self.temporal_causal_evidence_provider is None) != (
+            self.temporal_causality_config is None
+        ):
+            raise ValueError(
+                "Container temporal causal evidence provider and config MUST be bound together"
+            )
+        if (self.dynamic_simulation_request_provider is None) != (self.effect_model_reader is None):
+            raise ValueError(
+                "Container Dynamic request provider and effect model reader MUST be bound together"
             )
         if self.context_selection_policy_authority is None:
             object.__setattr__(

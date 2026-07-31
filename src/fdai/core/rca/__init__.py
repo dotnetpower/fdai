@@ -48,6 +48,7 @@ from fdai.core.rca.incident_graph import (
 from fdai.core.rca.knowledge_evidence import KnowledgeEvidenceGatherer
 from fdai.core.rca.llm import LlmRcaReasoner, RcaModel, parse_rca_response
 from fdai.core.rca.member_source import IncidentMemberSource, NoopIncidentMemberSource
+from fdai.core.rca.projection import CausalHypothesisProjector
 from fdai.core.rca.reasoner import RcaReasoner
 from fdai.core.rca.runtime import (
     CausalClosureObservation,
@@ -75,6 +76,7 @@ __all__ = [
     "CausalClosureObservation",
     "CausalEvidenceAssessment",
     "CausalHypothesisRecord",
+    "CausalHypothesisProjector",
     "CausalHypothesisStatus",
     "CausalIncidentGraph",
     "CausalIncidentGraphMaterializer",

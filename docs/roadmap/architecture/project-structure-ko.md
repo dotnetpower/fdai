@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 49f37b03b4f54bb491fb2f26711e0b0a727292e7
+translation_source_sha: 13ab68d6d47825c71056c3fb4e84888b995d5430
 translation_revised: 2026-08-01
 ---
 
@@ -103,7 +103,7 @@ fdai/
 │   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
 │   │   ├── pgvector/           # persistent document 및 behavior vector index
-│   │   ├── azure/              # bounded log/metric/App Insights trace evidence를 포함한 Azure 전용 adapter (`azure-*` import 허용 트리)
+│   │   ├── azure/              # bounded log/metric/App Insights trace와 promoted inventory 기반 strict operational-learning evidence를 포함한 Azure 전용 adapter
 │   │   │                       #   `case_history_artifacts.py`는 workload identity로 private Blob에 content-addressed case revision 저장
 │   │   │                       #   `vm_task.py` 는 Managed Run Command 사용; `container_apps_job_backend.py` 는 pinned Job template만 시작; `llm/python_task_author.py` 는 inert draft 생성
 │   │   ├── vm_task/            # planning-only read adapter + ontology ToolExecutor bridge; cloud SDK import 없음
@@ -411,6 +411,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Causal 및 Dynamic runtime evidence**: `TemporalCausalEvidenceProvider`는 bounded pre-cutoff
   series와 graph fact를 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
   branch를 제공합니다. 둘 다 read-only이며 binding이 없으면 해당 shadow side path가 비활성화됩니다.
+- **Azure operational evidence**: `bind_azure_operational_evidence`는 strict promoted-inventory
+  snapshot reader, current safety evaluator, configured Azure metric, bounded branch estimator,
+  effect-model reader를 조립합니다. Partial binding은 container construction에서 실패합니다.
 
 ### Capability Bundle
 

@@ -45,6 +45,8 @@ Current adapters
   template; untrusted labels are filtered in memory (no KQL injection),
   the query is bounded server-side by `timespan` + `max_rows`, and any
   partial / malformed result fail-closes via `MetricProviderError`.
+- [`operational_evidence.py`](operational_evidence.py) - strict promoted-inventory and metric
+  adapters for contextual T1 reuse, temporal causal evidence, and bounded Dynamic requests.
 - [`deployment_history.py`](deployment_history.py) -
   `AzureResourceGraphDeploymentHistory`, the Azure Resource Graph
   (`resourcechanges`-shaped) implementation of the

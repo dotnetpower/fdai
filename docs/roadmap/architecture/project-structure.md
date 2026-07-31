@@ -98,7 +98,7 @@ fdai/
 │   │   ├── runtime_settings.py  # allowlisted env defaults + revisioned StateStore overrides; no executor identity or promotion authority
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds
 │   │   ├── pgvector/           # persistent document and behavior vector indexes
-│   │   ├── azure/              # Azure-specific adapters, including bounded logs/metrics/App Insights trace evidence (the only tree allowed to import `azure-*`)
+│   │   ├── azure/              # Azure-specific adapters, including bounded logs/metrics/App Insights traces and strict operational-learning evidence over promoted inventory
 │   │   │                       #   `case_history_artifacts.py` stores content-addressed case revisions in private Blob through workload identity
 │   │   │                       #   `vm_task.py` uses Managed Run Command; `container_apps_job_backend.py` starts pinned Job templates; `llm/python_task_author.py` generates inert drafts
 │   │   ├── vm_task/            # planning-only read adapter + ontology ToolExecutor bridge; no cloud SDK imports
@@ -424,6 +424,9 @@ clean (see the fork model in
 - **Causal and Dynamic runtime evidence**: `TemporalCausalEvidenceProvider` supplies bounded
   pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-
   state branches. Both are read-only; absent bindings disable their shadow side paths.
+- **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
+  inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
+  estimator, and effect-model reader. Partial binding fails at container construction.
 
 ### Capability Bundles
 

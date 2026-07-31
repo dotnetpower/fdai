@@ -42,10 +42,12 @@ from fdai.core.quality_gate import (
 )
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rca import (
+    CausalHypothesisProjector,
     CausalRuntimeCoordinator,
     KnowledgeEvidenceGatherer,
     RcaCoordinator,
     TelemetryEvidenceGatherer,
+    TemporalCausalityAnalyzer,
 )
 from fdai.core.risk_gate import ActionPromotionRegistry, RiskGate
 from fdai.core.risk_gate.risk_table import load_risk_table
@@ -101,6 +103,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 from fdai.shared.resilience import StateStoreKillSwitch
 
 _LOGGER = logging.getLogger("fdai.startup")
+_TEMPORAL_CAUSAL_METHOD_VERSION = "temporal-causality-v1"
 
 
 async def _pending_index_writer(store: Any, approval_id: str) -> None:
@@ -344,7 +347,7 @@ def _build_control_loop(
     t1 = T1Tier(
         embedding_model=llm_bindings.embedding_model,
         pattern_library=_build_pattern_library(),
-        current_reuse_verifier=current_reuse_verifier,
+        current_reuse_verifier=(current_reuse_verifier or container.current_reuse_verifier),
     )
     rules_by_id = {rule.id: rule for rule in rules}
     quality_gate = QualityGate(
@@ -473,6 +476,24 @@ def _build_control_loop(
         if ontology_object_types and ontology_link_types
         else None
     )
+    if causal_runtime_coordinator is None and container.temporal_causal_evidence_provider:
+        if ontology_instance_store is None or container.temporal_causality_config is None:
+            raise RuntimeError(
+                "temporal causal evidence requires an ontology store and analyzer config"
+            )
+        causal_runtime_coordinator = CausalRuntimeCoordinator(
+            evidence_provider=container.temporal_causal_evidence_provider,
+            analyzer=TemporalCausalityAnalyzer(container.temporal_causality_config),
+            projector=CausalHypothesisProjector(store=ontology_instance_store),
+            method_version=_TEMPORAL_CAUSAL_METHOD_VERSION,
+        )
+    if dynamic_runtime_coordinator is None and container.dynamic_simulation_request_provider:
+        if container.effect_model_reader is None:
+            raise RuntimeError("Dynamic runtime requires an effect model reader")
+        dynamic_runtime_coordinator = DynamicRuntimeCoordinator(
+            request_provider=container.dynamic_simulation_request_provider,
+            model_reader=container.effect_model_reader,
+        )
 
     return ControlLoop(
         event_ingest=event_ingest,

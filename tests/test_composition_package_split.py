@@ -26,6 +26,9 @@ _EXPECTED_FILES = frozenset(
         "_helpers.py",
         "wire_llm.py",
         "wire_azure.py",
+        # Binds strict promoted-inventory, current safety, temporal metric,
+        # Dynamic branch, and effect-model providers without adding authority.
+        "wire_azure_operational_evidence.py",
         "wire_change_feed.py",
         # Durable execution profile and ledger binding.
         "wire_execution_backends.py",
@@ -63,6 +66,7 @@ _PUBLIC_NAMES = (
     "AzureWireOverrides",
     "wire_azure_container",
     "bind_azure_llm_bindings",
+    "bind_azure_operational_evidence",
     "bind_azure_monitor_logs",
     "bind_azure_inventory",
     "bind_embedding_knowledge_source",
@@ -86,6 +90,7 @@ _ALL_MEMBERS = (
     "AzureWireOverrides",
     "wire_azure_container",
     "bind_azure_llm_bindings",
+    "bind_azure_operational_evidence",
     "load_pricing_table",
     "install_capability_bundle",
     "OperationalReadinessService",

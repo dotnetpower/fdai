@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 58126c09e9494ceed4b0c3b17e77c06a2a9f1263
+translation_source_sha: cba3414dc30d5a2e85c529740d23d869e11bce84
 translation_revised: 2026-08-01
 ---
 # 운영 학습 온톨로지
@@ -214,12 +214,12 @@ idempotency, postcondition, rollback, audit를 우회하지 않습니다.
 | O2 - Cohort compiler | 구현됨: Huginn이 strict operational-case event를 전달하고 Muninn이 bounded fingerprint cohort를 seal 및 저장하며 Norns가 consensus와 rate limit을 거쳐 기존 inert `RuleCandidate` mapping을 emit합니다. | 이름이 다른 같은 fingerprint case는 합류하고 다른 mechanism은 합류하지 않습니다. Success-only 및 raw `ResponseOutcome` evidence는 보류되며 balanced evidence는 immutable revision 인용과 함께 한 번만 emit됩니다. |
 | O3 - Catalog compilation | Core 구현됨: Mimir는 승인된 candidate를 draft Rule, 선택적인 explicit shadow-first `ActionType`, schema, policy, replay, shadow receipt가 포함된 immutable review package로 컴파일할 수 있습니다. Production validator 및 PR publisher binding은 deployment 작업으로 남습니다. | 실패하거나 충돌하는 receipt는 candidate를 quarantine합니다. Operational candidate는 Mimir의 direct runtime promotion method를 사용할 수 없으며 catalog 변경은 reviewed PR을 요구합니다. |
 | O4 - T1 reuse | Core 및 persistence 구현됨: T1은 immutable operational-case context를 저장하고 injected current-evidence verifier를 받아 failure fingerprint, resource type, topology role, graph, owner, precondition, identity, blast radius, policy, dry-run, idempotency, rollback state를 다시 확인합니다. Concrete Kubernetes 및 Azure collector는 O5/O6 binding입니다. | Verifier 또는 evidence 누락, stale 또는 변경된 context, safety check 실패는 mutation 없이 항상 검토 보류됩니다. Legacy incident pattern은 기존 동작을 유지합니다. |
-| O5 - AKS delivery | Deployment configuration, workload identity 또는 approved kubeconfig, Kubernetes RBAC, private API connectivity를 통해 AKS Kubernetes API 및 Azure management-plane evidence를 bind합니다. | 모든 Kubernetes treatment가 non-production AKS drill을 가집니다. AKS-integrated fault는 관련 Resource Graph, Activity Log, Azure Monitor 또는 managed Prometheus evidence도 연결합니다. Production은 unavailable로 유지합니다. |
-| O6 - Azure resource absorption | Non-Kubernetes treatment를 canonical resource type, 주입된 Azure evidence provider, 일반 agent ownership, 통제된 action provider에 매핑합니다. | Non-production Azure drill에서 benchmark import 없이 diagnosis, approval, dry-run 또는 no-mutation, postcondition, 적용 가능한 rollback, audit, restart replay를 증명합니다. |
+| O5 - AKS delivery | 구현 및 non-production live 검증 완료: 기존 Kubernetes 및 Azure read seam이 current reuse, temporal causality, Dynamic request에 evidence를 제공합니다. One-pod invalid-image fault는 server dry-run, isolated namespace, 45초 observation window를 사용했습니다. | Kubernetes는 `ErrImagePull` 및 `ImagePullBackOff`를 보고했고 Azure Monitor는 pod `Pending`, Log Analytics는 pull failure와 terminating evidence, Activity Log는 cluster lifecycle을 보존했습니다. Namespace 삭제로 rollback을 완료하고 one-node cluster는 `Stopped` / `Succeeded`로 돌아갔습니다. Production은 unavailable로 유지했습니다. |
+| O6 - Azure resource absorption | 구현됨: strict promoted-inventory snapshot과 configured Azure metric이 Kubernetes 및 non-Kubernetes resource type에 generic current-reuse, causal, Dynamic evidence binding을 제공합니다. | Read-only non-production Container App drill에서 healthy active revision 1개, replica 1개, restart 0회, administrative write 없이 동일한 pre/post state를 관측했습니다. Unit evidence는 benchmark import 없이 policy/precondition/dry-run fail-closed, ontology projection, bounded query, deterministic restart replay를 증명합니다. |
 | O7 - Promotion measurement | 하나의 immutable FDAI revision으로 frozen benchmark suite와 live shadow cohort를 실행합니다. | 별도 promotion review 전에 action별 sample, accuracy, observation day, rollback, recurrence, zero-policy-escape gate를 통과합니다. |
 
-O0부터 O4까지는 cloud-provider-neutral입니다. O5는 learned pattern이나 control-loop authority
-model을 바꾸지 않고 Azure Kubernetes Service delivery binding을 제공합니다.
+O0부터 O4까지는 cloud-provider-neutral입니다. O5와 O6는 learned pattern이나 control-loop
+authority model을 바꾸지 않고 Azure evidence binding을 제공합니다.
 
 ## 초기 구현 범위
 
