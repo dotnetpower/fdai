@@ -111,6 +111,12 @@ def test_shipped_dockerfile_satisfies_the_base_image_contract() -> None:
     assert module._validate_base_images() == []
 
 
+def test_shipped_build_context_is_complete_or_materialized() -> None:
+    module = _load_contract_module()
+
+    assert module._validate_build_context() == []
+
+
 def test_resolved_model_manifest_reaches_container_build_context() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     dockerfile = (repo_root / "Dockerfile").read_text(encoding="utf-8")

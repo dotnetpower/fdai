@@ -123,6 +123,23 @@ def test_text_gates_batch_full_repository_scans(git_repo: Path) -> None:
     assert "5 file(s) scanned" in guids.stdout
 
 
+def test_text_gates_ignore_tracked_broken_symlinks(git_repo: Path) -> None:
+    (git_repo / "clean.txt").write_text("clean\n", encoding="utf-8")
+    try:
+        (git_repo / "missing-link.txt").symlink_to("missing-target.txt")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+
+    punctuation = _run(git_repo, "bash", str(_PUNCTUATION))
+    guids = _run(git_repo, "bash", str(_GUIDS))
+
+    assert punctuation.returncode == 0, punctuation.stderr
+    assert "1 file(s) scanned" in punctuation.stdout
+    assert guids.returncode == 0, guids.stderr
+    assert "1 file(s) scanned" in guids.stdout
+
+
 def test_punctuation_baseline_only_allows_the_exact_blob(git_repo: Path) -> None:
     path = git_repo / "legacy.txt"
     path.write_text("legacy \u2026 text\n", encoding="utf-8")

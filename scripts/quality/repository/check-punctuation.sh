@@ -57,6 +57,12 @@ else
   )
 fi
 
+regular_files=()
+for file in "${files[@]}"; do
+  [[ -f "$file" ]] && regular_files+=("$file")
+done
+files=("${regular_files[@]}")
+
 if (( ${#files[@]} == 0 )); then
   echo "check-punctuation: OK (no text files to scan)"
   exit 0

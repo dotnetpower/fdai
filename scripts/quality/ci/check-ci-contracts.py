@@ -89,6 +89,14 @@ def _docker_copy_sources() -> tuple[str, ...]:
 def _validate_build_context() -> list[str]:
     errors: list[str] = []
     tracked = _tracked_paths()
+    container_workflow = REPO_ROOT / ".github" / "workflows" / "container-supply-chain.yml"
+    workflow_text = container_workflow.read_text(encoding="utf-8")
+    materialized_sources = {
+        "resolved-models.json": (
+            "Materialize resolved model manifest",
+            'Path("resolved-models.json").write_text(',
+        )
+    }
     for path in REQUIRED_TRACKED_PATHS:
         if path not in tracked:
             errors.append(f"required clean-checkout input is not tracked: {path}")
@@ -96,6 +104,15 @@ def _validate_build_context() -> list[str]:
     docker_sources = _docker_copy_sources()
     for source in docker_sources:
         if any(character in source for character in "*?["):
+            continue
+        materialization_contract = materialized_sources.get(source.rstrip("/"))
+        if materialization_contract is not None:
+            for fragment in materialization_contract:
+                if fragment not in workflow_text:
+                    errors.append(
+                        f"container-supply-chain.yml does not materialize Docker source "
+                        f"{source}: missing {fragment}"
+                    )
             continue
         if not (REPO_ROOT / source.rstrip("/")).exists():
             errors.append(f"Dockerfile COPY source is missing: {source}")
