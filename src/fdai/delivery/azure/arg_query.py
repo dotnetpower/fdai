@@ -327,15 +327,25 @@ class AzureArgQueryFactory:
         if not isinstance(arm_id, str) or not arm_id:
             return None
         arm_type = self._resource_types.get(resource_type).azure_arm_type
+        if arm_type is None:
+            return None
+        resolved_type = resolve_azure_resource_type(
+            self._resource_types,
+            arm_type=arm_type,
+            kind=row.get("kind"),
+        )
         if (
-            arm_type is None
-            or resolve_azure_resource_type(
-                self._resource_types,
-                arm_type=arm_type,
-                kind=row.get("kind"),
+            resolved_type is None
+            and sum(
+                1
+                for entry in self._resource_types
+                if entry.azure_arm_type is not None
+                and entry.azure_arm_type.casefold() == arm_type.casefold()
             )
-            != resource_type
+            > 1
         ):
+            raise ArgQueryError("shared Azure ARM type row has ambiguous kind")
+        if resolved_type != resource_type:
             return None
 
         neutral_id = _to_neutral_id(arm_id)

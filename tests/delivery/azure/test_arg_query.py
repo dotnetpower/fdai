@@ -1296,6 +1296,30 @@ async def test_web_and_function_shards_are_disambiguated_by_kind() -> None:
     ]
 
 
+@pytest.mark.asyncio
+async def test_shared_arm_row_without_kind_fails_shard() -> None:
+    row = _arm_row(
+        arm_id=(
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/rg-example/providers/Microsoft.Web/sites/app-example"
+        ),
+        arm_type="Microsoft.Web/sites",
+    )
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": [row]})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        query = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_query_fn()
+        with pytest.raises(ArgQueryError, match="ambiguous"):
+            await query("compute.function")
+
+
 # ---------------------------------------------------------------------------
 # _extract_depends_on_links_from_row - soft-dependency whitelist
 # ---------------------------------------------------------------------------
