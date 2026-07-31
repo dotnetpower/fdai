@@ -112,7 +112,10 @@ class PostgresConversationAssuranceLedger:
             created = await cursor.fetchone() is not None
             if created:
                 return True
-            existing = await self._get_dispute(record.dispute_id)
+            existing = await self.get_dispute(
+                principal_scope=record.principal_scope,
+                dispute_id=record.dispute_id,
+            )
             if existing is not None:
                 if not same_dispute_request(existing, record):
                     raise ValueError("dispute id already belongs to different content")
@@ -134,6 +137,22 @@ class PostgresConversationAssuranceLedger:
             )
             row = await cursor.fetchone()
         return _assessment(row) if row is not None else None
+
+    async def get_dispute(
+        self,
+        *,
+        principal_scope: str,
+        dispute_id: str,
+    ) -> DisputeRecord | None:
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                f"SELECT {_DISPUTE_COLUMNS} FROM conversation_assurance_dispute "  # noqa: S608
+                "WHERE principal_scope = %s AND dispute_id = %s",
+                (principal_scope, dispute_id),
+            )
+            row = await cursor.fetchone()
+        return _dispute(row) if row is not None else None
 
     async def list_assessments(
         self,
@@ -178,17 +197,6 @@ class PostgresConversationAssuranceLedger:
                 )
             rows = await cursor.fetchall()
         return tuple(_dispute(row) for row in rows)
-
-    async def _get_dispute(self, dispute_id: str) -> DisputeRecord | None:
-        async with await self._connect() as connection:
-            await self._set_timeout(connection)
-            cursor = await connection.execute(
-                f"SELECT {_DISPUTE_COLUMNS} FROM conversation_assurance_dispute "  # noqa: S608
-                "WHERE dispute_id = %s",
-                (dispute_id,),
-            )
-            row = await cursor.fetchone()
-        return _dispute(row) if row is not None else None
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(

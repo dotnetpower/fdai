@@ -133,15 +133,13 @@ def make_conversation_assurance_routes(
             ) from exc
         returned = dispute
         if not created:
-            known = await ledger.list_disputes(
+            stored = await ledger.get_dispute(
                 principal_scope=scope,
-                assessment_id=assessment_id,
-                limit=1_000,
+                dispute_id=dispute.dispute_id,
             )
-            returned = next(
-                (item for item in known if item.dispute_id == dispute.dispute_id),
-                dispute,
-            )
+            if stored is None:
+                raise HTTPException(status_code=500, detail="stored dispute could not be read")
+            returned = stored
         return JSONResponse(
             {"dispute": _dispute_mapping(returned), "duplicate": not created},
             status_code=201 if created else 200,

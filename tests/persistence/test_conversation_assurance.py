@@ -106,3 +106,17 @@ async def test_assessment_and_dispute_survive_restart() -> None:
         principal_scope=assessment.principal_scope,
         assessment_id=assessment.assessment_id,
     ) == (dispute,)
+    assert (
+        await restarted.get_dispute(
+            principal_scope=assessment.principal_scope,
+            dispute_id=dispute.dispute_id,
+        )
+        == dispute
+    )
+    assert (
+        await restarted.get_dispute(
+            principal_scope="other-principal",
+            dispute_id=dispute.dispute_id,
+        )
+        is None
+    )

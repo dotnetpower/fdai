@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 304617ec9328f2dfb1fe597a707c97103e3a7d1b
+translation_source_sha: 3cead739b642c7671b0ed4cc74fdc679f7783aa5
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -180,6 +180,8 @@ $$
 Conversation Assurance 콘솔은 읽기 중심입니다. 인증된 운영자는 잘못된 사실, 의도 누락,
 오래된 근거, 잘못된 범위, 부적절한 판단 보류 또는 언어 품질을 보고할 수 있습니다. 보고는
 append-only 이의 제기 이벤트이며 승인이나 직접 정책 편집이 아닙니다.
+멱등 재시도는 제한된 projection 목록 대신 ledger 단건 조회를 통해 최초 timestamp를 포함한
+원래 principal-scoped dispute record를 반환합니다.
 
 검증된 이의 제기는 회귀 corpus에 들어가며 롤백을 촉발할 수 있습니다. 지원되지 않은 보고는
 품질 label을 바꾸지 않고 미해결 상태로 표시합니다.

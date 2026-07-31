@@ -21,6 +21,13 @@ class ConversationAssuranceLedger(Protocol):
         assessment_id: str,
     ) -> AssessmentRecord | None: ...
 
+    async def get_dispute(
+        self,
+        *,
+        principal_scope: str,
+        dispute_id: str,
+    ) -> DisputeRecord | None: ...
+
     async def list_assessments(
         self,
         *,
@@ -75,6 +82,15 @@ class InMemoryConversationAssuranceLedger:
         assessment_id: str,
     ) -> AssessmentRecord | None:
         record = self._assessments.get(assessment_id)
+        return record if record is not None and record.principal_scope == principal_scope else None
+
+    async def get_dispute(
+        self,
+        *,
+        principal_scope: str,
+        dispute_id: str,
+    ) -> DisputeRecord | None:
+        record = self._disputes.get(dispute_id)
         return record if record is not None and record.principal_scope == principal_scope else None
 
     async def list_assessments(

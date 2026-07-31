@@ -214,7 +214,7 @@
     "src/fdai/core/conversation_assurance/deterministic.py": "0dfc2513c4a5cbe7b928be557a414d8ea3c6b7b6451d1f91eec79fbfe36fe87d",
     "src/fdai/core/conversation_assurance/identity.py": "f1568698320300442c93ae4b05be8686b8b3e41a690968b8d13a2ece4d348d9b",
     "src/fdai/core/conversation_assurance/learning.py": "beaf0eb807a1c3e5e371184e535db1f9effc10bb0831e1330d50984d0f922d4d",
-    "src/fdai/core/conversation_assurance/ledger.py": "fade052a2345eefbf828473d3f225189bf634523a0de4a891464536f6a1c001d",
+    "src/fdai/core/conversation_assurance/ledger.py": "e70a631c4c7f42002f226bb495fcbc990b1522a65b006d15c4d46bbe573b7757",
     "src/fdai/core/conversation_assurance/models.py": "a7794e3706abb3f1cd99cef806d9e494953f8ba5c0b77a23651c2dc9c4ffab71",
     "src/fdai/core/conversation_assurance/promotion.py": "06f9a82d6008058252bb1bf0a6de53bb5d704e8f64b6d46506a5d72acc1cd6fe",
     "src/fdai/core/conversation_assurance/service.py": "0d9d16c317749528255765db2608fbba659a9f0f8855f4dd14a5c367d2881ac6",
@@ -862,7 +862,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T09:33:46Z",
+  "generated_at": "2026-07-31T09:36:38Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

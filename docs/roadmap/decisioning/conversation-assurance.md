@@ -184,6 +184,8 @@ immutable policy.
 The Conversation Assurance console is read-mostly. An authenticated operator can report wrong
 facts, missing intent, stale evidence, wrong scope, inappropriate abstention, or language quality.
 The report is an append-only dispute event, not an approval or direct policy edit.
+An idempotent retry returns the original principal-scoped dispute record, including its first
+timestamp, through a direct ledger lookup rather than a bounded projection list.
 
 A verified dispute joins the regression corpus and can trigger rollback. An unsupported report
 remains visible as unresolved without changing the quality label.

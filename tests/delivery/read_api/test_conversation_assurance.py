@@ -80,6 +80,7 @@ def test_projection_and_idempotent_dispute() -> None:
     assert first.status_code == 201
     assert duplicate.status_code == 200
     assert duplicate.json()["duplicate"] is True
+    assert duplicate.json()["dispute"]["reported_at"] == first.json()["dispute"]["reported_at"]
 
 
 def test_cross_scope_assessment_is_not_visible() -> None:
