@@ -13,6 +13,7 @@ from fdai.core.chaos.promotion_evidence import (
     ScenarioPromotionState,
 )
 from fdai.core.risk_gate import ActionPromotionRegistry
+from fdai.shared.contracts.models import Mode
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,9 +65,21 @@ class ChaosPromotionGuard:
         reasons = observation.regression_reasons()
         if not reasons or not self._scenario_ledger.is_enforce_eligible(key):
             return reasons
+        if not action_type_names or any(not name.strip() for name in action_type_names):
+            raise ValueError("regression requires non-empty ActionType names")
+        if any(
+            self._action_registry.mode_of(name) is not Mode.ENFORCE for name in action_type_names
+        ):
+            raise ValueError("regression ActionTypes MUST all be enforce-promoted")
         identity = hashlib.sha256(
-            f"{key.scenario_id}|{observation.observed_at.isoformat()}|{'|'.join(reasons)}".encode()
+            (
+                f"{key.scenario_id}|{key.scenario_version}|{key.catalog_fingerprint}|"
+                f"{observation.observed_at.isoformat()}|{observation.audit_ref}|"
+                f"{observation.runner_version}|{'|'.join(reasons)}"
+            ).encode()
         ).hexdigest()
+        for action_type_name in action_type_names:
+            self._action_registry.demote(action_type_name)
         self._scenario_ledger.append(
             ScenarioPromotionEvidence(
                 evidence_id=f"regression-{identity[:24]}",
@@ -83,8 +96,6 @@ class ChaosPromotionGuard:
                 regression_reasons=reasons,
             )
         )
-        for action_type_name in action_type_names:
-            self._action_registry.demote(action_type_name)
         return reasons
 
 

@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 import yaml
 
 from fdai.core.chaos.promotion_evidence import (
@@ -163,5 +164,33 @@ def test_safe_observation_keeps_enforce_eligibility() -> None:
         ),
     )
     assert reasons == ()
+    assert ledger.is_enforce_eligible(_KEY)
+    assert actions.mode_of("ops.scale-out") is Mode.ENFORCE
+
+
+def test_regression_rejects_unpromoted_action_without_partial_demotion() -> None:
+    ledger = _promoted_ledger()
+    actions = _promoted_action_registry()
+    observation = ChaosPromotionObservation(
+        observed_at=_NOW,
+        audit_ref="audit:unsafe",
+        runner_version="runner/1",
+        containment_compliant=False,
+        recovery_within_objective=True,
+        telemetry_complete=True,
+        stop_observed=True,
+        rollback_succeeded=True,
+    )
+
+    with pytest.raises(ValueError, match="enforce-promoted"):
+        ChaosPromotionGuard(
+            scenario_ledger=ledger,
+            action_registry=actions,
+        ).observe(
+            key=_KEY,
+            action_type_names=("ops.scale-out", "ops.unrelated"),
+            observation=observation,
+        )
+
     assert ledger.is_enforce_eligible(_KEY)
     assert actions.mode_of("ops.scale-out") is Mode.ENFORCE

@@ -140,7 +140,7 @@
     "src/fdai/core/chaos/harness.py": "85fc5f8d9a7984a0b1233c2a97f65cdadc0854c3ddc37a5ad777f279aa3387f8",
     "src/fdai/core/chaos/injector.py": "7c91f3a11917aeba472d24d6789e41406adec5a0dc19bbd917dafd9d9c8e3497",
     "src/fdai/core/chaos/promotion_evidence.py": "116b87874a13d9e74d3422fa79a287ed347d6101f6fab49e4f90226af94137f4",
-    "src/fdai/core/chaos/promotion_guard.py": "01f05948efff6f4c6b847687b5f05887bc43b2d1682d6d6e9adc436f52f5648f",
+    "src/fdai/core/chaos/promotion_guard.py": "daff6954418fa5905283202cb0f2e1336786712584a409473132c9a107e084e2",
     "src/fdai/core/chaos/run_state.py": "fc1d1884d47814a5c2b1f53b8e62f038f080ba884e0480205540f26d6d6b9189",
     "src/fdai/core/chaos/run_store.py": "c1a4c55dfd3c39d179f943ee73988d8d49029ccef15af86f66875ef10a5bc2fb",
     "src/fdai/core/chaos/runner.py": "c637f927056fecc7e7f481e6267971ecb5736510c86b6555b5c5fd6f9b326188",
@@ -862,7 +862,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T09:47:03Z",
+  "generated_at": "2026-07-31T09:49:23Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
