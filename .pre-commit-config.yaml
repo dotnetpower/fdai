@@ -11,9 +11,9 @@
 # Run explicitly against everything:
 #   uv run pre-commit run --all-files
 #
-# The hooks mirror the CI jobs in .github/workflows/ci.yml. New CI gates
-# should land here in the same PR so a contributor sees the same failure
-# locally that CI would surface.
+# Worker-session hooks keep commits cheap and deterministic. Full strict mypy,
+# diff-selected tests, and repository-wide gates run once per stable batch
+# through `make validation-run`; CI remains the authoritative merge gate.
 
 repos:
   # 1. Ruff - fast Python lint + format check. `ruff format --check`
@@ -44,12 +44,6 @@ repos:
   #    tracked file set itself.
   - repo: local
     hooks:
-      - id: mypy-strict
-        name: mypy --strict
-        entry: uv run mypy
-        language: system
-        pass_filenames: false
-        files: ^(src/|pyproject\.toml$)
       - id: resign-integrity
         name: resign-if-surface-staged.sh (auto re-sign manifest, upstream signer only)
         entry: bash scripts/integrity/resign-if-surface-staged.sh

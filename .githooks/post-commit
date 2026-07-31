@@ -1,0 +1,17 @@
+#!/usr/bin/env -S LC_ALL=C LANG=C bash
+# Post-commit hook - register every new commit with the shared validation queue.
+set -uo pipefail
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$repo_root" || exit 0
+
+queue_script="scripts/automation/validation_queue.py"
+if [ ! -f "$queue_script" ]; then
+  exit 0
+fi
+
+if ! python3 "$queue_script" enqueue HEAD >/dev/null; then
+  echo "post-commit: warning - failed to enqueue HEAD for integration validation" >&2
+fi
+
+exit 0

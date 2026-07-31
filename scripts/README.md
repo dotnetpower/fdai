@@ -77,13 +77,32 @@ cap with `FDAI_PYTEST_MAX_WORKERS`.
 
 ## Verification
 
-Run the fast repository checks after changing script wiring:
+Parallel worker sessions run focused tests only. Every successful commit is
+automatically added to a queue under the shared Git common directory, so linked
+worktrees feed the same validator without writing runtime state into the repository.
+
+Open one VS Code chat with the `Integration Validator` custom agent. Inspect and
+process the accumulated batch from that session:
 
 ```bash
-bash scripts/verify.sh --fast
+make validation-status
+make validation-run
 ```
 
-Use `bash scripts/verify.sh --full <path>` for a focused pytest target. Use
-`bash scripts/verify.sh --all` once before merging changes that alter shared
-script behavior or cross-domain automation; do not repeat it for an unchanged
-commit.
+The runner takes a non-blocking repository-wide lock, creates an isolated detached
+worktree at the current integration `HEAD`, reuses local dependency caches, caps
+changed-test workers at two by default, and runs changed tests plus the fast gates
+once for the entire reachable pending batch. A failed gate leaves the commits
+pending. A successful run writes per-commit receipts, and the pre-push hook blocks
+outgoing commits without those receipts.
+
+Run the whole repository suite only at an explicit merge or release boundary:
+
+```bash
+make validation-all
+```
+
+Worker sessions may still use `bash scripts/verify.sh --full <path>` for one
+focused pytest target. Direct fast/all verification and unscoped test-tool runs
+are denied by the workspace `PreToolUse` hook so parallel sessions cannot duplicate
+the centralized load.

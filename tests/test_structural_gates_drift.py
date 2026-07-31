@@ -85,5 +85,5 @@ def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
     assert 'git worktree add --quiet --detach "$validation_root" HEAD' in body
     assert 'git worktree remove --force "$validation_root"' in body
     assert body.index("git worktree add --quiet --detach") < body.index(
-        "# 2. Merge-conflict marker guard."
+        "# 3. Merge-conflict marker guard."
     )

@@ -7,6 +7,7 @@ import fnmatch
 import hashlib
 import json
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +16,15 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "scripts/lib/design-routes.json"
 EDIT_TOOL_NAMES = frozenset({"apply_patch", "create_file"})
+TERMINAL_TOOL_NAMES = frozenset({"run_in_terminal"})
+HEAVY_VALIDATION_PATTERNS = (
+    re.compile(
+        r"(?:^|\s)(?:bash\s+)?scripts/verify\.sh(?:\s+(?:--fast|--all))?"
+        r"(?=\s*(?:&&|;|\||$))"
+    ),
+    re.compile(r"(?:^|\s)make\s+(?:check|test|operator|lint|gates)(?:\s|$)"),
+    re.compile(r"scripts/quality/ci/(?:run-python-tests|run-operator-surfaces)\.sh"),
+)
 PATCH_PATH = re.compile(
     r"^\*\*\* (?:Add|Update|Delete) File: (?P<path>.+?)(?: -> .+)?$",
     re.MULTILINE,
@@ -183,10 +193,79 @@ def enforce_edit(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _has_focused_path(arguments: list[str]) -> bool:
+    path_markers = (
+        "tests",
+        "src",
+        "scripts",
+        "tools",
+        "console",
+        "cli",
+        "evaluation-sdk",
+        "benchmarks",
+    )
+    return any(
+        "::" in argument
+        or argument in path_markers
+        or argument.startswith(tuple(f"{marker}/" for marker in path_markers))
+        or any(f"/{marker}/" in argument for marker in path_markers)
+        for argument in arguments
+    )
+
+
+def _is_unscoped_cli_check(command: str) -> bool:
+    for segment in re.split(r"&&|;|\|\|?", command):
+        try:
+            tokens = shlex.split(segment)
+        except ValueError:
+            continue
+        for executable in ("pytest", "mypy"):
+            if executable in tokens:
+                arguments = tokens[tokens.index(executable) + 1 :]
+                if not _has_focused_path(arguments):
+                    return True
+        if (
+            "make" in tokens
+            and "test-changed" in tokens
+            and not any(token.startswith("DIFF=") for token in tokens)
+        ):
+            return True
+    return False
+
+
+def enforce_validation_route(payload: dict[str, Any]) -> dict[str, Any]:
+    tool_name = _tool_name(payload)
+    tool_input = _tool_input(payload)
+    is_broad_test_tool = tool_name == "runTests" and not tool_input.get("files")
+    command = str(tool_input.get("command") or "") if tool_name in TERMINAL_TOOL_NAMES else ""
+    is_direct_heavy_command = any(
+        pattern.search(command) for pattern in HEAVY_VALIDATION_PATTERNS
+    ) or _is_unscoped_cli_check(command)
+    if not is_broad_test_tool and not is_direct_heavy_command:
+        return {"continue": True}
+    reason = (
+        "Heavy FDAI validation is centralized to prevent duplicate CPU, memory, and disk load. "
+        "Run focused tests in this worker session. The dedicated integration session must run "
+        "'make validation-run' for the shared queue, or 'make validation-all' at a merge or "
+        "release boundary."
+    )
+    return {
+        "systemMessage": reason,
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        },
+    }
+
+
 def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
     if _tool_name(payload) == "read_file":
         return record_read(payload)
-    return enforce_edit(payload)
+    edit_result = enforce_edit(payload)
+    if edit_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+        return edit_result
+    return enforce_validation_route(payload)
 
 
 def main(argv: list[str]) -> int:

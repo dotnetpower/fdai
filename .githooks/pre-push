@@ -53,6 +53,26 @@ if [ -z "$range" ]; then
   exit 0
 fi
 
+# ---------------------------------------------------------------------------
+# 2. Central validation receipt guard. Every outgoing commit is registered in
+#    the Git-common-dir queue, shared by all linked worktrees. The dedicated
+#    integration session validates a stable batch once; worker sessions cannot
+#    push the batch until every outgoing commit has a receipt.
+# ---------------------------------------------------------------------------
+validation_queue="scripts/automation/validation_queue.py"
+if [ ! -f "$validation_queue" ]; then
+  echo "pre-push: BLOCKED - required validation queue is missing: $validation_queue"
+  exit 1
+fi
+if ! python3 "$validation_queue" ensure-range "$range" >/dev/null; then
+  echo "pre-push: BLOCKED - failed to register the outgoing validation range."
+  exit 1
+fi
+if ! python3 "$validation_queue" check-range "$range"; then
+  echo "pre-push: BLOCKED - centralized integration validation is pending."
+  exit 1
+fi
+
 # Files changed in the commits being pushed (skip deletions).
 mapfile -t changed < <(git diff --name-only --diff-filter=d "$range" 2>/dev/null || true)
 if [ "${#changed[@]}" -eq 0 ]; then
@@ -80,7 +100,7 @@ cd "$validation_root" || exit 1
 echo "pre-push: validating committed HEAD in an isolated worktree..."
 
 # ---------------------------------------------------------------------------
-# 2. Merge-conflict marker guard.
+# 3. Merge-conflict marker guard.
 # Only the two brace-marker forms are unambiguous - the middle '=======' also
 # matches RST/Markdown header underlines (e.g. 'Purpose\n=======\n') and
 # would cause a false positive on any doc using that style.
@@ -98,7 +118,7 @@ if [ -n "$markers" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Fast ruff lint on changed Python files under src/ and tests/.
+# 4. Fast ruff lint on changed Python files under src/ and tests/.
 # ---------------------------------------------------------------------------
 py=()
 for f in "${changed[@]}"; do
@@ -126,7 +146,7 @@ if [ "${#py[@]}" -gt 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Framework-surface guard. Upstream: advisory warning (exit 0, never
+# 5. Framework-surface guard. Upstream: advisory warning (exit 0, never
 #    blocks a push). Fork (FDAI_FORK=1 / .fdai-fork / git config fdai.fork):
 #    hard block on any edit under src/fdai/core, composition.py, the provider
 #    Protocols, contracts, agents, rule-catalog/schema, or .github/instructions.
@@ -139,7 +159,7 @@ if [ -x scripts/integrity/check-protected-paths.sh ] || [ -f scripts/integrity/c
 fi
 
 # ---------------------------------------------------------------------------
-# 4b. Framework-surface integrity (offline signed manifest). Verifies the
+# 5b. Framework-surface integrity (offline signed manifest). Verifies the
 #     signature + content of every framework-surface file against the
 #     upstream-signed security/integrity/manifest.json. Fork: a content
 #     mismatch (edited/added/deleted surface file) is a HARD BLOCK. Upstream:
@@ -154,7 +174,7 @@ if [ -f scripts/integrity/check-integrity.sh ] && [ -f security/integrity/manife
 fi
 
 # ---------------------------------------------------------------------------
-# 4c. Design-document impact. Routes behavior-bearing paths through the
+# 5c. Design-document impact. Routes behavior-bearing paths through the
 #     machine-readable design registry and requires an owning design doc in
 #     the same pushed range.
 # ---------------------------------------------------------------------------
@@ -172,7 +192,7 @@ if [ -f scripts/quality/architecture/check-document-size.py ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Structural gates (warn-only in the hook - CI is the authoritative
+# 6. Structural gates (warn-only in the hook - CI is the authoritative
 #    fail surface). Kept lightweight so pushes stay fast. Tracker #14,
 #    issue #22.
 # ---------------------------------------------------------------------------

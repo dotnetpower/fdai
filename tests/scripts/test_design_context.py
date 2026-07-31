@@ -98,3 +98,90 @@ def test_recorded_current_reads_allow_edit(monkeypatch: pytest.MonkeyPatch, tmp_
     result = module.enforce_edit(payload)
 
     assert result["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash scripts/verify.sh --fast",
+        "scripts/verify.sh --all",
+        "make check",
+        "make test",
+        "make operator",
+        "make lint",
+        "make gates",
+        "make test-changed",
+        "uv run pytest -q --no-cov",
+        "uv run mypy",
+        "bash scripts/quality/ci/run-python-tests.sh",
+        "bash scripts/quality/ci/run-operator-surfaces.sh",
+    ],
+)
+def test_pre_tool_use_routes_heavy_terminal_validation_to_queue(command: str) -> None:
+    module = _load_module()
+    payload = {
+        "session_id": "worker-session",
+        "tool_name": "run_in_terminal",
+        "tool_input": {"command": command},
+    }
+
+    result = module.pre_tool_use(payload)
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert "make validation-run" in result["systemMessage"]
+
+
+def test_pre_tool_use_allows_central_validation_runner() -> None:
+    module = _load_module()
+    payload = {
+        "session_id": "integration-session",
+        "tool_name": "run_in_terminal",
+        "tool_input": {"command": "make validation-run"},
+    }
+
+    assert module.pre_tool_use(payload) == {"continue": True}
+
+
+def test_pre_tool_use_allows_focused_verify_path() -> None:
+    module = _load_module()
+    payload = {
+        "tool_name": "run_in_terminal",
+        "tool_input": {
+            "command": "bash scripts/verify.sh --full tests/scripts/test_design_context.py"
+        },
+    }
+
+    assert module.pre_tool_use(payload) == {"continue": True}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run pytest -q --no-cov tests/scripts/test_design_context.py",
+        "uv run mypy scripts/agent/design_context.py",
+        "make test-changed DIFF=HEAD^..HEAD",
+    ],
+)
+def test_pre_tool_use_allows_focused_cli_checks(command: str) -> None:
+    module = _load_module()
+    payload = {
+        "tool_name": "run_in_terminal",
+        "tool_input": {"command": command},
+    }
+
+    assert module.pre_tool_use(payload) == {"continue": True}
+
+
+def test_pre_tool_use_denies_only_unscoped_test_tool() -> None:
+    module = _load_module()
+    broad = {
+        "tool_name": "runTests",
+        "tool_input": {},
+    }
+    focused = {
+        "tool_name": "runTests",
+        "tool_input": {"files": ["tests/scripts/test_design_context.py"]},
+    }
+
+    assert module.pre_tool_use(broad)["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert module.pre_tool_use(focused) == {"continue": True}

@@ -37,10 +37,15 @@ specific instruction wins a conflict.
 1. Read every route-selected design document before editing.
 2. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
    generated runtime artifacts.
-3. Run the narrowest executable check that can falsify the change. Follow the diff-scoped and
-   parallel-worktree rules in
+3. Worker sessions run only the narrowest executable check that can falsify their change. They
+   MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`.
+   Follow the diff-scoped and parallel-worktree rules in
    [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
-4. Commit each validated user-requested change before reporting completion unless the user says
+4. Every commit is automatically registered in the Git-common-dir validation queue. The dedicated
+   `Integration Validator` session runs `make validation-run` once per stable batch; use
+   `make validation-all` only at an explicit merge or release boundary. Normal pushes are blocked
+   until every outgoing commit has a centralized validation receipt.
+5. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 
 ## Issue Lifecycle (MUST)

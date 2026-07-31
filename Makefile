@@ -6,7 +6,8 @@
 # Real deployment lives under `infra/` (Terraform); see the roadmap.
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
-	lint format test test-changed operator gates check pre-commit-install hooks-install \
+	lint format test test-changed operator gates check validation-status validation-run \
+	validation-all pre-commit-install hooks-install \
         azd-up genesis-up
 
 help: ## show this help
@@ -60,6 +61,15 @@ gates: ## repo hygiene: punctuation / guids / translations / core-imports
 	bash scripts/quality/architecture/check-core-imports.sh
 
 check: lint gates test operator ## full local CI parity
+
+validation-status: ## show commits waiting for centralized integration validation
+	@python3 scripts/automation/validation_queue.py status
+
+validation-run: ## validate the pending batch with changed tests + fast gates
+	@python3 scripts/automation/validation_queue.py run
+
+validation-all: ## validate the pending batch with whole-repository gates
+	@python3 scripts/automation/validation_queue.py run --all
 
 pre-commit-install: hooks-install ## backwards-compatible alias for hooks-install
 	@echo "pre-commit-install is configured through the tracked .githooks/pre-commit hook."
