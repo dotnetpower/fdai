@@ -190,6 +190,25 @@ def _shared_arm_kind_collisions(
     )
 
 
+def _unknown_typical_parents(
+    entries: Iterable[Mapping[str, Any]],
+) -> list[tuple[str, str]]:
+    entry_list = tuple(entries)
+    known_ids = {entry.get("id") for entry in entry_list if isinstance(entry.get("id"), str)}
+    unknown: list[tuple[str, str]] = []
+    for entry in entry_list:
+        entry_id = entry.get("id")
+        parents = entry.get("typical_parents", ())
+        if not isinstance(entry_id, str) or not isinstance(parents, list):
+            continue
+        unknown.extend(
+            (entry_id, parent)
+            for parent in parents
+            if isinstance(parent, str) and parent not in known_ids
+        )
+    return sorted(unknown)
+
+
 def load_resource_type_registry_from_mapping(
     raw: Mapping[str, Any],
 ) -> ResourceTypeRegistry:
@@ -249,6 +268,13 @@ def load_resource_type_registry_from_mapping(
                 ResourceTypeIssue(
                     key=f"azure_arm_type[{arm_type}].azure_kind_tokens[{token}]",
                     message=f"kind token is shared by resource types {list(owners)}",
+                )
+            )
+        for entry_id, parent in _unknown_typical_parents(entries):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"types[id={entry_id}].typical_parents",
+                    message=f"unknown typical_parent {parent!r}",
                 )
             )
 

@@ -200,6 +200,24 @@ def test_typical_parents_reference_only_registered_ids() -> None:
             )
 
 
+def test_loader_rejects_unknown_typical_parent() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.vm",
+                "category": "compute",
+                "description": "Virtual machine",
+                "typical_parents": ["missing-parent"],
+            }
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="unknown typical_parent"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_only_subscription_has_no_parents() -> None:
     """`subscription` is the graph root; everyone else `contains`-descends from it."""
     registry = _shipped()
