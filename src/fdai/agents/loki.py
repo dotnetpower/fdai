@@ -38,6 +38,9 @@ class ChaosProposal:
     targets: tuple[str, ...]
     accepted: bool
     reason: str
+    causal_hypothesis_ref: str = ""
+    impact_envelope_id: str = ""
+    recovery_plan_id: str = ""
 
 
 class Loki(Agent):
@@ -82,6 +85,11 @@ class Loki(Agent):
         action_type: str,
         targets: tuple[str, ...],
         correlation_id: str = "",
+        causal_hypothesis_ref: str = "",
+        refutation_query_ref: str = "",
+        impact_envelope_id: str = "",
+        recovery_plan_id: str = "",
+        dry_run_receipt: str = "",
     ) -> ChaosProposal:
         # Enforce cap BEFORE emitting anything so a proposal storm does
         # not exceed the declared radius.
@@ -114,6 +122,9 @@ class Loki(Agent):
             targets=selected,
             accepted=True,
             reason="within_radius",
+            causal_hypothesis_ref=causal_hypothesis_ref,
+            impact_envelope_id=impact_envelope_id,
+            recovery_plan_id=recovery_plan_id,
         )
         self.proposals.append(proposal)
         if self.bus is not None:
@@ -127,6 +138,12 @@ class Loki(Agent):
                     "action_type": action_type,
                     "targets": list(selected),
                     "blast_radius_used": len(selected),
+                    "causal_hypothesis_ref": causal_hypothesis_ref,
+                    "refutation_query_ref": refutation_query_ref,
+                    "impact_envelope_id": impact_envelope_id,
+                    "recovery_plan_id": recovery_plan_id,
+                    "dry_run_receipt": dry_run_receipt,
+                    "human_approval_required": True,
                 },
             )
         return proposal

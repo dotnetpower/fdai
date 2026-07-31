@@ -1,0 +1,29 @@
+schema_version: "1.0.0"
+name: ObservedOutcome
+version: "1.0.0"
+key: id
+description: Independent observation of action, recovery, objective, and recurrence effects.
+properties:
+  id: {type: string, required: true}
+  action_run_id: {type: string, required: true}
+  expected_effect_ref: {type: string, required: false}
+  verification: {type: string, required: true}
+  recovery_status: {type: string, required: true}
+  observed_values: {type: object, required: true}
+  telemetry_complete: {type: boolean, required: true}
+  scorable: {type: boolean, required: true}
+  observed_at: {type: datetime, required: true}
+lifecycle:
+  owner: Heimdall
+  creation:
+    - code: independent_effect_observation
+      when: A configured observer evaluates an action or recovery window.
+      result: Create an immutable observed-outcome record.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ObservedOutcome@1.0.0
+  content_hash: sha256:f4b24b9776cc1272daec7032d5c59d5d054815f6bfad1d51a74bb14201086920
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

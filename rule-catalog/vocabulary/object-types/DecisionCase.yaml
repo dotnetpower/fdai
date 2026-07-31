@@ -1,0 +1,28 @@
+schema_version: "1.0.0"
+name: DecisionCase
+version: "1.0.0"
+key: id
+description: Immutable context, evidence, objectives, and bounded options for one governed decision.
+properties:
+  id: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  evidence_cutoff: {type: datetime, required: true}
+  context_digest: {type: string, required: true}
+  no_action_baseline: {type: object, required: true}
+  uncertainty: {type: number, required: true}
+  status: {type: string, required: true}
+  created_at: {type: datetime, required: true}
+lifecycle:
+  owner: Forseti
+  creation:
+    - code: immutable_decision_context
+      when: A finding has a time-consistent operational context snapshot.
+      result: Create a bounded decision case with a no-action option.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:DecisionCase@1.0.0
+  content_hash: sha256:205ebafbaf3567936e78021b52d5576d712591620a0a300ad846f68fd2d8cd56
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

@@ -1,0 +1,28 @@
+schema_version: "1.0.0"
+name: ActionOption
+version: "1.0.0"
+key: id
+description: One bounded response option considered by a DecisionCase, including hold and no-op.
+properties:
+  id: {type: string, required: true}
+  decision_case_id: {type: string, required: true}
+  action_type_ref: {type: string, required: true}
+  arguments: {type: object, required: true}
+  expected_effect_ref: {type: string, required: false}
+  preconditions: {type: array, required: true}
+  estimated_cost: {type: number, required: false}
+  option_kind: {type: string, required: true}
+lifecycle:
+  owner: Forseti
+  creation:
+    - code: bounded_action_option
+      when: A DecisionCase considers a catalog-grounded response or explicit hold.
+      result: Create an immutable option revision.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ActionOption@1.0.0
+  content_hash: sha256:54df9f4b9852fc63ce22328a95298f84ba17a5641cc827c5f4c1202b943d2491
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

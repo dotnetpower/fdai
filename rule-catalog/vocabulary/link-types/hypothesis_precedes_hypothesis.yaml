@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+name: hypothesis_precedes_hypothesis
+version: "1.0.0"
+from_type: CausalHypothesis
+to_type: CausalHypothesis
+cardinality: many_to_many
+temporal_order: true
+order_by_property: created_at
+description: Revision and narrowing order between immutable causal hypotheses.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:hypothesis_precedes_hypothesis@1.0.0
+  content_hash: sha256:c4e261da282f4945a43f776b0894358443a96e679a2a57e58cfe42c0f7628f83
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

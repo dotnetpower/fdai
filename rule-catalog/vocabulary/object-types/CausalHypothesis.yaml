@@ -1,0 +1,38 @@
+schema_version: "1.0.0"
+name: CausalHypothesis
+version: "1.0.0"
+key: id
+description: Immutable machine-evaluable causal claim over one incident evidence cutoff.
+properties:
+  id: {type: string, required: true}
+  incident_id: {type: string, required: true}
+  status: {type: string, required: true}
+  cause_ref: {type: string, required: true}
+  effect_ref: {type: string, required: true}
+  mechanism: {type: string, required: true}
+  evidence_grade: {type: string, required: true}
+  confidence: {type: number, required: true}
+  ambiguity: {type: integer, required: true}
+  graph_revision: {type: string, required: true}
+  evidence_cutoff: {type: datetime, required: true}
+  method_version: {type: string, required: true}
+  created_at: {type: datetime, required: true}
+lifecycle:
+  owner: Forseti
+  creation:
+    - code: grounded_causal_candidate
+      when: A bounded incident graph supports a replayable causal candidate.
+      result: Create an immutable hypothesis revision.
+      source_refs: [docs/roadmap/rules-and-detection/causal-incident-graph.md]
+  closure:
+    - code: outcome_closure
+      when: Independent outcome evidence confirms, refutes, or leaves the claim inconclusive.
+      result: Create a terminal hypothesis revision without rewriting prior evidence.
+      source_refs: [docs/roadmap/rules-and-detection/causal-incident-graph.md]
+  authority_refs: [docs/roadmap/rules-and-detection/causal-incident-graph.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:CausalHypothesis@1.0.0
+  content_hash: sha256:053364817735ae68c46e24fee737d3e01fc53d1362fc5a4fbd2281e874e3578b
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

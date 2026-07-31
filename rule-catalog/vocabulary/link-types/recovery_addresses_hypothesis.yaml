@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: recovery_addresses_hypothesis
+version: "1.0.0"
+from_type: RecoveryPlan
+to_type: CausalHypothesis
+cardinality: many_to_one
+is_causal: true
+description: Grounded causal hypothesis that a recovery plan intends to reverse.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:recovery_addresses_hypothesis@1.0.0
+  content_hash: sha256:2f69f676fa7a3be077989fab306293a586b3002952e9db51610b8dbad613fb2e
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: envelope_protects_objective
+version: "1.0.0"
+from_type: ImpactEnvelope
+to_type: ServiceObjective
+cardinality: one_to_many
+description: Service objective whose degradation is bounded by an impact envelope.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:envelope_protects_objective@1.0.0
+  content_hash: sha256:ea9d8875472e79a13255dbd78a2fba951d8ab5b692573aefc7d140839daedaa2
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

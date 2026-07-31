@@ -586,6 +586,9 @@ class Forseti(Agent):
 
         initiator = str(event.get("initiator_principal", event.get("producer_principal", "")))
         risk_verdict = _RISK_VERDICT.get(action_type, "hil")
+        explicit_hil = event.get("human_approval_required") is True
+        if explicit_hil:
+            risk_verdict = "hil"
 
         # RBAC check: if initiator is set (e.g. operator-requested action),
         # verify permission. Rule-fired actions have no operator initiator;
@@ -639,6 +642,8 @@ class Forseti(Agent):
             reason = "detection_readiness_ceiling"
         elif arbitration_limited:
             reason = "arbitration_unresolved"
+        elif explicit_hil:
+            reason = "human_approval_required"
         else:
             reason = "rule_match"
         raw_params = event.get("params")

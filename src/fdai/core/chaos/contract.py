@@ -98,6 +98,7 @@ class ExperimentResult:
     injected: bool
     stopped: bool
     error: str | None = None
+    stop_reason: str | None = None
 
     @property
     def reverted(self) -> bool:

@@ -53,6 +53,7 @@ class ScenarioPromotionEvidence:
     latency_budget_ms: int | None = None
     approval_ref: str | None = None
     approval_principal: str | None = None
+    regression_reasons: tuple[str, ...] = ()
     schema_version: int = 1
 
     def __post_init__(self) -> None:
@@ -91,6 +92,7 @@ class ScenarioPromotionEvidence:
             "latency_budget_ms": self.latency_budget_ms,
             "approval_ref": self.approval_ref,
             "approval_principal": self.approval_principal,
+            "regression_reasons": list(self.regression_reasons),
         }
 
     @classmethod
@@ -118,6 +120,7 @@ class ScenarioPromotionEvidence:
                 latency_budget_ms=_optional_int(raw.get("latency_budget_ms")),
                 approval_ref=_optional_str(raw.get("approval_ref")),
                 approval_principal=_optional_str(raw.get("approval_principal")),
+                regression_reasons=_string_tuple(raw.get("regression_reasons")),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ScenarioPromotionError("malformed promotion evidence record") from exc
@@ -247,6 +250,14 @@ def _optional_str(value: object) -> str | None:
     if not isinstance(value, str):
         raise TypeError("expected string or null")
     return value
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise TypeError("expected string array or null")
+    return tuple(value)
 
 
 __all__ = [

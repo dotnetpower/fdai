@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: outcome_evaluates_envelope
+version: "1.0.0"
+from_type: ObservedOutcome
+to_type: ImpactEnvelope
+cardinality: many_to_one
+description: Independent comparison of observed and approved impact.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:outcome_evaluates_envelope@1.0.0
+  content_hash: sha256:7561e8018f065b9daffbfd64693d1cb4abfc9d871156252be6a6c6c4c2b2cf33
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

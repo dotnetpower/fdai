@@ -1,0 +1,35 @@
+schema_version: "1.0.0"
+name: ActionRun
+version: "1.0.0"
+key: id
+description: Durable execution identity and terminal receipt for one governed ActionType invocation.
+properties:
+  id: {type: string, required: true}
+  action_type_ref: {type: string, required: true}
+  action_type_version: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  status: {type: string, required: true}
+  mode: {type: string, required: true}
+  idempotency_key: {type: string, required: true}
+  started_at: {type: datetime, required: true}
+  ended_at: {type: datetime, required: false}
+  receipt_ref: {type: string, required: false}
+lifecycle:
+  owner: Thor
+  creation:
+    - code: governed_execution_attempt
+      when: An approved or automatic decision enters the executor.
+      result: Create one idempotent action-run identity.
+      source_refs: [docs/roadmap/decisioning/action-ontology.md]
+  closure:
+    - code: terminal_execution_receipt
+      when: The executor records success, failure, or cancellation.
+      result: Close the run without rewriting its prior attempts.
+      source_refs: [docs/roadmap/decisioning/action-ontology.md]
+  authority_refs: [docs/roadmap/decisioning/action-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ActionRun@1.0.0
+  content_hash: sha256:86c09af376145c56200389c12a6f3c18ddcb2c56f7c4db2e09b56558ef39ed0c
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

@@ -1,0 +1,34 @@
+schema_version: "1.0.0"
+name: Experiment
+version: "1.0.0"
+key: id
+description: Bounded chaos or validation intervention proposed for governed execution.
+properties:
+  id: {type: string, required: true}
+  scenario_id: {type: string, required: true}
+  scenario_version: {type: string, required: true}
+  fault_type: {type: string, required: true}
+  target_set_digest: {type: string, required: true}
+  expected_signal: {type: string, required: true}
+  duration_seconds: {type: integer, required: true}
+  status: {type: string, required: true}
+  proposed_at: {type: datetime, required: true}
+lifecycle:
+  owner: Loki
+  creation:
+    - code: bounded_experiment_proposal
+      when: A catalog scenario resolves explicit targets and expected evidence.
+      result: Create an inert experiment proposal.
+      source_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
+  closure:
+    - code: terminal_experiment_receipt
+      when: Recovery verification records a terminal outcome.
+      result: Close the experiment while retaining every execution revision.
+      source_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
+  authority_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Experiment@1.0.0
+  content_hash: sha256:f747775f326db341da1d6c0e6eb79da6dea9553dab4c8d9bc267176b27134a36
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

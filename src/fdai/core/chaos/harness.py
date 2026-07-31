@@ -25,6 +25,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fdai.core.chaos.contract import ExperimentOutcome, ExperimentResult, FaultScenario
+from fdai.core.chaos.guard import ChaosStopEvent, ImpactGuard
 from fdai.core.chaos.injector import (
     DetectionOnlyInjector,
     ExperimentRecorder,
@@ -114,7 +115,11 @@ class FaultInjectionHarness:
         *,
         approved_targets: Sequence[str],
         mode: Mode = Mode.SHADOW,
+        impact_guard: ImpactGuard | None = None,
+        guard_interval_seconds: float = 5.0,
     ) -> ExperimentResult:
+        if guard_interval_seconds <= 0:
+            raise ValueError("guard_interval_seconds MUST be positive")
         started = self._wall_clock()
         experiment_id = f"chaos-{uuid4().hex[:12]}"
         # Normalize the approved set before anything reads it: strip each
@@ -198,6 +203,7 @@ class FaultInjectionHarness:
         injected_targets: list[str] = []
         detected = False
         error: str | None = None
+        stop_event: ChaosStopEvent | None = None
         cancelled = False
         try:
             for target in targets:
@@ -209,11 +215,18 @@ class FaultInjectionHarness:
             # Cap time-in-fault: an over-large authored duration cannot hold
             # the perturbation past the harness ceiling.
             hold = min(scenario.duration_seconds, self._max_hold)
-            await self._sleeper(hold)
-            detected = await asyncio.wait_for(
-                self._probe.observed(signal=scenario.expected_signal, targets=targets),
-                timeout=self._op_timeout,
+            stop_event = await self._hold_with_guard(
+                hold=hold,
+                guard=impact_guard,
+                interval=guard_interval_seconds,
             )
+            if stop_event is None:
+                detected = await asyncio.wait_for(
+                    self._probe.observed(signal=scenario.expected_signal, targets=targets),
+                    timeout=self._op_timeout,
+                )
+            else:
+                error = f"impact_guard:{stop_event.reason.value}"
         except asyncio.CancelledError:
             # Cancellation (task shutdown, upstream timeout) is a BaseException
             # that `except Exception` deliberately does NOT catch. Handle it
@@ -262,12 +275,36 @@ class FaultInjectionHarness:
             injected=injected,
             stopped=stopped,
             error=error,
+            stop_reason=stop_event.reason.value if stop_event is not None else None,
         )
         if cancelled:
             # Rollback + audit are done; propagate the cancellation so the
             # caller's shutdown / timeout semantics are preserved.
             raise asyncio.CancelledError
         return result
+
+    async def _hold_with_guard(
+        self,
+        *,
+        hold: float,
+        guard: ImpactGuard | None,
+        interval: float,
+    ) -> ChaosStopEvent | None:
+        if guard is None:
+            await self._sleeper(hold)
+            return None
+        elapsed = 0.0
+        initial = await asyncio.wait_for(guard(elapsed), timeout=self._op_timeout)
+        if initial is not None:
+            return initial
+        while elapsed < hold:
+            step = min(interval, hold - elapsed)
+            await self._sleeper(step)
+            elapsed += step
+            stop = await asyncio.wait_for(guard(elapsed), timeout=self._op_timeout)
+            if stop is not None:
+                return stop
+        return None
 
     async def _run_detection_only(
         self,
@@ -354,6 +391,7 @@ class FaultInjectionHarness:
         injected: bool,
         stopped: bool,
         error: str | None = None,
+        stop_reason: str | None = None,
     ) -> ExperimentResult:
         result = ExperimentResult(
             experiment_id=experiment_id,
@@ -368,6 +406,7 @@ class FaultInjectionHarness:
             injected=injected,
             stopped=stopped,
             error=error,
+            stop_reason=stop_reason,
         )
         try:
             await self._recorder.record(result)

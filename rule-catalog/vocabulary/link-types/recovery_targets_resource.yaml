@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: recovery_targets_resource
+version: "1.0.0"
+from_type: RecoveryPlan
+to_type: Resource
+cardinality: one_to_many
+description: Direct resource target allowed by a recovery plan.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:recovery_targets_resource@1.0.0
+  content_hash: sha256:b7154fd2928625e35b3407db502653d6b166b4d6baf77c4f38b4628a65a018dc
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

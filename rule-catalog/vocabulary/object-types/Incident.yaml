@@ -1,0 +1,31 @@
+schema_version: "1.0.0"
+name: Incident
+version: "1.0.0"
+key: id
+description: Correlated operational episode with bounded membership and lifecycle state.
+properties:
+  id: {type: string, required: true}
+  correlation_id: {type: string, required: true}
+  status: {type: string, required: true}
+  severity: {type: string, required: true}
+  opened_at: {type: datetime, required: true}
+  updated_at: {type: datetime, required: true}
+lifecycle:
+  owner: Heimdall
+  creation:
+    - code: grounded_incident_candidate
+      when: A bounded finding set satisfies incident correlation policy.
+      result: Create or update one idempotent incident revision.
+      source_refs: [docs/roadmap/rules-and-detection/observability-and-detection.md]
+  closure:
+    - code: verified_recovery
+      when: Independent recovery verification closes the recurrence window.
+      result: Close the incident without rewriting prior revisions.
+      source_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
+  authority_refs: [docs/roadmap/rules-and-detection/observability-and-detection.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Incident@1.0.0
+  content_hash: sha256:8e052445f160983b6a0f9fb3c7dc7a546f340e06b99f2d1c0fe4b988df10b31b
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

@@ -32,6 +32,19 @@ from fdai.core.rca.coordinator import RcaCoordinator
 from fdai.core.rca.deployment_member_source import DeploymentHistoryMemberSource
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
+from fdai.core.rca.hypothesis import (
+    CausalClosure,
+    CausalEvidenceAssessment,
+    CausalHypothesisRecord,
+    CausalHypothesisStatus,
+    build_causal_hypothesis,
+    close_causal_hypothesis,
+)
+from fdai.core.rca.incident_graph import (
+    CausalIncidentGraph,
+    CausalIncidentGraphMaterializer,
+    IncidentGraphBounds,
+)
 from fdai.core.rca.knowledge_evidence import KnowledgeEvidenceGatherer
 from fdai.core.rca.llm import LlmRcaReasoner, RcaModel, parse_rca_response
 from fdai.core.rca.member_source import IncidentMemberSource, NoopIncidentMemberSource
@@ -50,11 +63,18 @@ __all__ = [
     "CausalChainAnalyzer",
     "CausalChainConfig",
     "CausalHop",
+    "CausalClosure",
+    "CausalEvidenceAssessment",
+    "CausalHypothesisRecord",
+    "CausalHypothesisStatus",
+    "CausalIncidentGraph",
+    "CausalIncidentGraphMaterializer",
     "Citation",
     "CitationKind",
     "CorrelatedEvent",
     "DeploymentHistoryMemberSource",
     "IncidentMemberSource",
+    "IncidentGraphBounds",
     "LlmRcaReasoner",
     "KnowledgeEvidenceGatherer",
     "NoopIncidentMemberSource",
@@ -74,6 +94,8 @@ __all__ = [
     "TemporalCausalityConfig",
     "TemporalSeries",
     "chain_to_hypothesis",
+    "build_causal_hypothesis",
+    "close_causal_hypothesis",
     "enforce_grounding",
     "parse_rca_response",
     "t0_root_cause",

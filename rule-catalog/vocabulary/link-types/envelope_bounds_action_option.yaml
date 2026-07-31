@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: envelope_bounds_action_option
+version: "1.0.0"
+from_type: ImpactEnvelope
+to_type: ActionOption
+cardinality: one_to_many
+description: Approved impact boundary for a recovery action option.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:envelope_bounds_action_option@1.0.0
+  content_hash: sha256:04a96f49e4d55103021197784d3be7b28759c98441e17155125960b903d2edb1
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

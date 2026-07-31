@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: hypothesis_claims_experiment
+version: "1.0.0"
+from_type: CausalHypothesis
+to_type: Experiment
+cardinality: many_to_many
+is_causal: true
+description: Intervention used to test a claimed mechanism.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:hypothesis_claims_experiment@1.0.0
+  content_hash: sha256:39ec9610476afa5bfa5bb7cd687c223ead77e10ec730cd470214a901b5205664
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

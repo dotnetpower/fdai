@@ -1,0 +1,28 @@
+schema_version: "1.0.0"
+name: Observation
+version: "1.0.0"
+key: id
+description: Normalized measured value with an event-time cutoff and immutable evidence reference.
+properties:
+  id: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  metric: {type: string, required: true}
+  value: {type: number, required: true}
+  unit: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  evidence_ref: {type: string, required: true}
+  source_revision: {type: string, required: true}
+lifecycle:
+  owner: Huginn
+  creation:
+    - code: normalized_observation
+      when: A configured evidence provider emits a schema-valid sample.
+      result: Create an immutable event-time observation.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Observation@1.0.0
+  content_hash: sha256:5110980e2f919be0a0489863919a9175c204ee4de89b80198ad35669d7f7debd
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

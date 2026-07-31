@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: evidence_supports_hypothesis
+version: "1.0.0"
+from_type: EvidenceArtifact
+to_type: CausalHypothesis
+cardinality: many_to_many
+description: Immutable evidence consistent with a hypothesis prediction.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:evidence_supports_hypothesis@1.0.0
+  content_hash: sha256:d6ea6432cbe06dc65789f1b6ee24f9cec9335b9b865f8ac4a7b5ac2b7b5aa8a9
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

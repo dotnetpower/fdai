@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: outcome_tests_hypothesis
+version: "1.0.0"
+from_type: ObservedOutcome
+to_type: CausalHypothesis
+cardinality: many_to_many
+is_causal: true
+description: Independent post-action or experiment observation used for causal closure.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:outcome_tests_hypothesis@1.0.0
+  content_hash: sha256:3ab1a120b7a355f89107a148c20a766e66eaa248223eb9b0f8f19bcb905a5810
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

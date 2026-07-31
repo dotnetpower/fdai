@@ -365,6 +365,38 @@ def test_loki_consumes_bounded_scheduled_trigger_events() -> None:
     assert experiments[0].payload["targets"] == ["resource-1", "resource-2"]
 
 
+def test_chaos_proposal_flows_through_heimdall_and_forseti_as_hil() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    loki = Loki(bus=bus, blast_radius_cap=1)
+    heimdall = Heimdall(bus=bus)
+    forseti = Forseti(bus=bus)
+
+    asyncio.run(
+        loki.propose_experiment(
+            experiment_id="experiment-1",
+            action_type="ops.restart-service",
+            targets=("resource-1",),
+            causal_hypothesis_ref="causal-1",
+            refutation_query_ref="query-1",
+            impact_envelope_id="impact-1",
+            recovery_plan_id="recovery-1",
+            dry_run_receipt="dry-run-1",
+        )
+    )
+    proposal = bus.messages_on("object.chaos-experiment")[-1].payload
+    assert proposal["human_approval_required"] is True
+
+    asyncio.run(heimdall.on_typed_message("object.chaos-experiment", proposal))
+    anomaly = bus.messages_on("object.anomaly")[-1].payload
+    assert anomaly["evidence_complete"] is True
+    assert anomaly["human_approval_required"] is True
+
+    asyncio.run(forseti.on_typed_message("object.anomaly", anomaly))
+    verdict = bus.messages_on("object.verdict")[-1].payload
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["reason"] == "human_approval_required"
+
+
 def test_sensing_and_judgment_defer_specialist_source_events() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     heimdall = Heimdall(bus=bus, rate_threshold=1)

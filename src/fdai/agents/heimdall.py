@@ -197,10 +197,56 @@ class Heimdall(Agent):
                 await self._emit_document_safety_signal(payload)
                 return
             await self._maybe_emit_anomaly(payload)
+        elif topic == "object.chaos-experiment":
+            await self._observe_chaos_experiment(payload)
         elif topic == "object.security-event":
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
+
+    async def _observe_chaos_experiment(self, proposal: dict[str, Any]) -> None:
+        experiment_id = str(proposal.get("experiment_id") or "")
+        action_type = str(proposal.get("action_type") or "")
+        raw_targets = proposal.get("targets")
+        targets = (
+            tuple(str(item) for item in raw_targets if isinstance(item, str) and item.strip())
+            if isinstance(raw_targets, list)
+            else ()
+        )
+        if not experiment_id or not action_type or not targets:
+            self.record_behavior("chaos_experiment:invalid")
+            return
+        evidence_fields = (
+            "causal_hypothesis_ref",
+            "refutation_query_ref",
+            "impact_envelope_id",
+            "recovery_plan_id",
+            "dry_run_receipt",
+        )
+        evidence_complete = all(str(proposal.get(field) or "").strip() for field in evidence_fields)
+        anomaly = {
+            "producer_principal": "Heimdall",
+            "correlation_id": str(proposal.get("correlation_id") or experiment_id),
+            "resource_id": targets[0],
+            "target_type": "experiment",
+            "event_type": "chaos_experiment_request",
+            "action_type": action_type,
+            "severity": "high",
+            "incident_correlation": "correlate",
+            "initiator_principal": "Loki",
+            "human_approval_required": True,
+            "evidence_complete": evidence_complete,
+            "params": {
+                "experiment_id": experiment_id,
+                "targets": list(targets),
+                **{field: str(proposal.get(field) or "") for field in evidence_fields},
+            },
+        }
+        self.record_behavior(
+            "chaos_experiment:grounded" if evidence_complete else "chaos_experiment:incomplete"
+        )
+        if self.bus is not None:
+            await self.bus.publish("Heimdall", "object.anomaly", anomaly)
 
     async def _observe_t2_proposer_health(self, event: dict[str, Any]) -> None:
         """Reduce one sanitized proposer receipt without another model call."""

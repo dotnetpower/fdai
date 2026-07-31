@@ -1,0 +1,36 @@
+schema_version: "1.0.0"
+name: RecoveryPlan
+version: "1.0.0"
+key: id
+description: Version-pinned recovery sequence with readiness, compensation, and verification evidence.
+properties:
+  id: {type: string, required: true}
+  strategy: {type: string, required: true}
+  status: {type: string, required: true}
+  workflow_ref: {type: string, required: true}
+  action_type_refs: {type: array, required: true}
+  compensation_order: {type: array, required: true}
+  impact_envelope_id: {type: string, required: true}
+  recovery_objective_ref: {type: string, required: true}
+  verification_probes: {type: array, required: true}
+  last_rehearsed_at: {type: datetime, required: true}
+  expires_at: {type: datetime, required: true}
+lifecycle:
+  owner: Vidar
+  creation:
+    - code: compiled_recovery_plan
+      when: Every action, inverse, probe, and objective resolves against pinned catalogs.
+      result: Create a draft or ready immutable recovery-plan revision.
+      source_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
+  closure:
+    - code: verified_recovery_outcome
+      when: Independent probes record recovered, escalated, or failed terminal evidence.
+      result: Create a terminal plan revision.
+      source_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
+  authority_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:RecoveryPlan@1.0.0
+  content_hash: sha256:eda0203b8a8d4ae90c0b08f3e961a02c7c3f7463a037c24bd3403cfe408d20c5
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

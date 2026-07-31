@@ -1,0 +1,29 @@
+schema_version: "1.0.0"
+name: ExpectedEffect
+version: "1.0.0"
+key: id
+description: Versioned prediction of an action or experiment effect before execution.
+properties:
+  id: {type: string, required: true}
+  metric: {type: string, required: true}
+  direction: {type: string, required: true}
+  lower_bound: {type: number, required: false}
+  upper_bound: {type: number, required: false}
+  window_seconds: {type: integer, required: true}
+  uncertainty: {type: number, required: true}
+  predictor_version: {type: string, required: true}
+  created_at: {type: datetime, required: true}
+lifecycle:
+  owner: Forseti
+  creation:
+    - code: pre_execution_prediction
+      when: A DecisionCase records a measurable response option.
+      result: Create an immutable expected-effect envelope.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ExpectedEffect@1.0.0
+  content_hash: sha256:a9567701e7006f8b5d99f75f1c333c525caaceaf95986944668b8a082410b7d5
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"
