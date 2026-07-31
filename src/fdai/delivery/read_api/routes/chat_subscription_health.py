@@ -185,7 +185,11 @@ def needs_subscription_health(prompt: str) -> bool:
 
 
 def needs_subscription_context(prompt: str) -> bool:
-    return bool(_SUBSCRIPTION_CONTEXT.search(prompt)) and not needs_subscription_health(prompt)
+    return (
+        bool(_SUBSCRIPTION_CONTEXT.search(prompt))
+        and not is_specific_inventory_question(prompt)
+        and not needs_subscription_health(prompt)
+    )
 
 
 def render_subscription_scope_answer(

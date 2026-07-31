@@ -9,6 +9,7 @@ from starlette.testclient import TestClient
 from fdai.delivery.read_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.read_api.routes.chat_subscription_health import (
     SubscriptionHealthChatTools,
+    needs_subscription_context,
     needs_subscription_health,
 )
 
@@ -102,7 +103,10 @@ def test_generic_service_outage_question_uses_subscription_health() -> None:
 
 
 def test_specific_subscription_inventory_question_skips_health_sweep() -> None:
-    assert not needs_subscription_health("지금 구독에서 중지된 디비가 있는지 확인해봐")
+    prompt = "지금 구독에서 중지된 디비가 있는지 확인해봐"
+
+    assert not needs_subscription_health(prompt)
+    assert not needs_subscription_context(prompt)
 
 
 def test_current_subscription_question_uses_server_scope_metadata() -> None:
