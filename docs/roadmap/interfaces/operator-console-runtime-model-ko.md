@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 144349a86fd813006854743a20f3c9dc08b313cd
-translation_revised: 2026-07-30
+translation_source_sha: 67ead5134ac3e8534014358bb66e75ccd1748867
+translation_revised: 2026-07-31
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -265,12 +265,12 @@ tool, approval 또는 execution authority를 부여하지 않습니다.
 | Presentation | 선택 기준 | 채널 동작 |
 |--------------|-----------|-----------|
 | None | Activity, handoff, background task 없음 | Answer만 렌더링합니다. |
-| Compact | Failure, retry, handoff가 없는 terminal read activity 하나 | 접힌 result summary 하나를 렌더링합니다. |
+| Compact | Failure, retry, handoff가 없는 terminal read activity 하나 | Compact session header와 observed step을 계속 표시하며 raw output과 timestamp만 접습니다. |
 | Timeline | 여러 activity, handoff, failure, retry, code 또는 file change, non-read authority 중 하나 이상 | Milestone과 activity group을 causal order로 배치합니다. |
 | Detached | Execution policy가 durable background task를 선택 | Durable task summary를 렌더링하고 이후 progress 또는 completion을 originating thread에 전달합니다. |
 
-Web은 현재 activity group만 펼칩니다. Milestone 또는 terminal frame은 앞선 group을 settled 상태로
-바꾸고 접습니다. Operator는 작업을 replay하지 않고 완료 activity를 다시 펼칠 수 있습니다. Slack과
+Web은 현재 activity group과 completed activity group의 shell을 계속 표시합니다. Milestone 또는 terminal frame은 앞선 group을 settled 상태로
+바꾸되 observed step을 제거하지 않습니다. Raw output과 timestamp는 접힌 상태로 유지하며 operator는 작업을 replay하지 않고 다시 펼칠 수 있습니다. Slack과
 Teams는 acknowledgement를 받은 메시지 하나를 cumulative snapshot으로 수정합니다. Update는 revision과
 activity count 기준으로 monotonic하고 redacted evidence를 보존하며 canonical answer로 끝납니다. Provider
 limit 때문에 이전 detail을 생략할 수 있지만 작업 순서를 바꾸거나 truncation marker를 제거하거나

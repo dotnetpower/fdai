@@ -247,7 +247,7 @@ export function InvestigationTimeline({
         </ol>
       ) : null}
       {activities.length > 0 ? (
-        <details class="deck-investigation-activity-disclosure" open={running}>
+        <details class="deck-investigation-activity-disclosure" open>
           <summary>
             {t("deck.investigation.executionDetails", { count: activities.length })}
           </summary>
@@ -292,22 +292,25 @@ export function InvestigationTimeline({
 
   if (!running) {
     return (
-      <details
+      <section
         class={`deck-investigation is-settled is-${tone}`}
         aria-label={t("deck.investigation.label")}
       >
-        <summary class="deck-investigation-pill">
+        <header class="deck-investigation-head">
           <span class="deck-investigation-state" aria-hidden="true">
             {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : "!"}
           </span>
           <strong>{t("deck.investigation.title")}</strong>
           <span class="muted">{summary}</span>
+          <span class={`deck-investigation-badge is-${tone}`}>
+            {statusLabel(tone)}
+          </span>
           {finalDurationMs > 0 ? (
             <span class="deck-investigation-meta muted">{formatDuration(finalDurationMs)}</span>
           ) : null}
-        </summary>
+        </header>
         {body}
-      </details>
+      </section>
     );
   }
 

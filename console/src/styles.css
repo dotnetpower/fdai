@@ -6461,7 +6461,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 
 .deck-turn-activity {
-  width: min(100%, 780px);
+  width: min(100%, 820px);
 }
 .deck-progress-note {
   display: grid;
@@ -6492,14 +6492,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation {
   width: 100%;
   box-sizing: border-box;
-  padding: 2px 0 4px;
-}
-.deck-investigation.is-running {
-  padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in oklab, var(--accent) 4%, var(--bg-elevated));
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px color-mix(in oklab, #1f2428 8%, transparent);
+}
+.deck-investigation.is-running {
   animation: deck-investigation-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 @keyframes deck-investigation-enter {
@@ -6510,9 +6509,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 0 11px;
+  min-height: 42px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 55%, var(--bg-elevated));
   font-size: 12px;
 }
 .deck-investigation-head > span {
@@ -6531,11 +6531,39 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
+.deck-investigation-badge {
+  margin-left: auto;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--fg-muted);
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.deck-investigation-badge.is-completed {
+  border-color: color-mix(in oklab, var(--tier-t0, #4dab7a) 28%, var(--border));
+  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 9%, var(--bg-elevated));
+  color: var(--tier-t0, #237a4b);
+}
+.deck-investigation-badge.is-unavailable {
+  border-color: color-mix(in oklab, var(--warning, #a76b12) 30%, var(--border));
+  background: color-mix(in oklab, var(--warning, #a76b12) 8%, var(--bg-elevated));
+  color: var(--warning, #8a5a00);
+}
+.deck-investigation-badge.is-failed {
+  border-color: color-mix(in oklab, var(--danger, #b3261e) 28%, var(--border));
+  background: color-mix(in oklab, var(--danger, #b3261e) 7%, var(--bg-elevated));
+  color: var(--danger, #b3261e);
+}
 .deck-investigation-body {
   min-width: 0;
+  padding: 7px 8px 9px;
 }
 .deck-investigation.is-running > .deck-investigation-body {
-  padding: 5px 6px 6px;
+  padding: 7px 8px 9px;
 }
 .deck-investigation-list {
   position: relative;
@@ -6642,59 +6670,33 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   animation: deck-rt-rot 0.8s linear infinite;
 }
 .deck-investigation-activity-disclosure {
-  margin-top: 5px;
-  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  border: 0;
 }
 .deck-investigation-activity-disclosure > summary {
-  padding: 7px 2px;
+  padding: 5px 7px 7px;
   cursor: pointer;
   color: var(--fg-muted);
   font-size: 11px;
+  font-weight: 650;
 }
 .deck-investigation-activity-disclosure[open] > summary {
   color: var(--fg);
 }
 .deck-investigation.is-settled {
-  padding: 0;
+  animation: deck-investigation-enter 0.18s ease both;
 }
-.deck-investigation-pill {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
-  max-width: 100%;
-  min-height: 30px;
-  padding: 4px 9px;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-elevated);
-  box-shadow: var(--cs-shadow);
-  cursor: pointer;
-  font-size: 11px;
-  list-style: none;
-}
-.deck-investigation-pill::-webkit-details-marker { display: none; }
-.deck-investigation-pill:hover { box-shadow: var(--cs-shadow-hover); }
-.deck-investigation-pill > .deck-investigation-meta { margin-left: auto; }
-.deck-investigation.is-settled.is-completed .deck-investigation-pill > .deck-investigation-state {
+.deck-investigation.is-settled.is-completed .deck-investigation-head > .deck-investigation-state {
   background: color-mix(in oklab, var(--tier-t0, #4dab7a) 18%, transparent);
   color: var(--tier-t0, #237a4b);
 }
-.deck-investigation.is-settled.is-unavailable .deck-investigation-pill > .deck-investigation-state {
+.deck-investigation.is-settled.is-unavailable .deck-investigation-head > .deck-investigation-state {
   background: color-mix(in oklab, var(--warning, #a76b12) 16%, transparent);
   color: var(--warning, #8a5a00);
 }
-.deck-investigation.is-settled.is-failed .deck-investigation-pill > .deck-investigation-state {
+.deck-investigation.is-settled.is-failed .deck-investigation-head > .deck-investigation-state {
   background: color-mix(in oklab, var(--danger, #b3261e) 14%, transparent);
   color: var(--danger, #b3261e);
-}
-.deck-investigation.is-settled[open] > .deck-investigation-body {
-  margin-top: 6px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: color-mix(in oklab, var(--accent) 3%, var(--bg-elevated));
 }
 .deck-investigation-item {
   position: relative;
@@ -6768,9 +6770,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-execution {
   margin: 2px 0 5px 26px;
   overflow: hidden;
-  border: 1px solid color-mix(in oklab, var(--border) 88%, transparent);
-  border-radius: 5px;
-  background: color-mix(in oklab, var(--bg) 78%, #111 22%);
+  border: 1px solid #343b42;
+  border-radius: 6px;
+  background: #1f2428;
+  color: #d7dde3;
+  box-shadow: 0 4px 14px rgba(31, 36, 40, 0.12);
 }
 .deck-investigation-command-head {
   display: flex;
@@ -6778,13 +6782,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   min-height: 30px;
   padding: 0 8px;
   gap: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid #343b42;
+  color: #aeb7c0;
   font-size: 10.5px;
   font-weight: 650;
 }
 .deck-investigation-redacted {
   margin-left: auto;
-  color: var(--fg-muted);
+  color: #87b28c;
   font-weight: 450;
 }
 .deck-investigation-copy-command {
@@ -6796,9 +6801,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--fg-muted);
+  color: #bbc3cb;
 }
-.deck-investigation-copy-command:hover { background: var(--bg-hover); color: var(--fg); }
+.deck-investigation-copy-command:hover { background: #343b42; color: #fff; }
 .deck-investigation-copy-command svg {
   width: 14px;
   height: 14px;
@@ -6817,6 +6822,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font: 10.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  color: #d7dde3;
 }
 .deck-investigation-result {
   display: flex;
@@ -6825,8 +6831,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 7px;
   min-height: 31px;
   padding: 0 9px;
-  border-top: 1px solid var(--border);
-  color: var(--fg-muted);
+  border-top: 1px solid #343b42;
+  color: #aeb7c0;
   font-size: 10.5px;
 }
 .deck-investigation-result-status {
@@ -6844,7 +6850,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--danger, #b3261e);
 }
 .deck-investigation-disclosure {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid #343b42;
 }
 .deck-investigation-disclosure > summary {
   display: flex;
@@ -6853,13 +6859,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   min-height: 34px;
   padding: 0 10px;
   cursor: pointer;
+  color: #bbc3cb;
   font-size: 11px;
 }
 .deck-investigation-disclosure > summary > .muted { margin-left: auto; }
 .deck-investigation-output {
   max-height: 420px;
-  border-top: 1px solid var(--border);
-  color: var(--tier-t0, #4dab7a);
+  border-top: 1px solid #343b42;
+  color: #8fc394;
 }
 .deck-investigation-timestamps {
   display: grid;
@@ -6867,10 +6874,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 5px 12px;
   margin: 0;
   padding: 9px 10px 11px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid #343b42;
+  color: #d7dde3;
   font-size: 10.5px;
 }
-.deck-investigation-timestamps dt { color: var(--fg-muted); }
+.deck-investigation-timestamps dt { color: #aeb7c0; }
 .deck-investigation-timestamps dd {
   min-width: 0;
   margin: 0;

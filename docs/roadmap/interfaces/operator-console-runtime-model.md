@@ -278,13 +278,13 @@ The server selects the smallest sufficient presentation from actual work, never 
 | Presentation | Selection | Channel behavior |
 |--------------|-----------|------------------|
 | None | No activity, handoff, or background task | Render only the answer. |
-| Compact | One terminal read activity with no failure, retry, or handoff | Render one collapsed result summary. |
+| Compact | One terminal read activity with no failure, retry, or handoff | Keep the compact session header and observed step visible; fold only raw output and timestamps. |
 | Timeline | Multiple activities, any handoff, failure, retry, code or file change, or non-read authority | Interleave milestones and activity groups in causal order. |
 | Detached | The execution policy selects a durable background task | Render a durable task summary and deliver later progress or completion in the originating thread. |
 
-Web keeps only the current activity group expanded. A milestone or terminal frame settles and
-collapses the preceding group; the operator can reopen any completed activity without replaying
-work. Slack and Teams edit one acknowledged message with cumulative snapshots. Updates are
+Web keeps the current and completed activity group shells visible. A milestone or terminal frame
+settles the preceding group without removing its observed steps; raw output and timestamps remain
+folded and can be reopened without replaying work. Slack and Teams edit one acknowledged message with cumulative snapshots. Updates are
 monotonic by revision and activity count, preserve redacted evidence, and finish with the canonical
 answer. Provider limits can omit older detail but cannot reorder work, remove truncation markers,
 or replace the accountable actor. A restart or delivery retry uses the stored immutable snapshots

@@ -92,15 +92,17 @@ describe("upsertEvidenceBranch", () => {
     );
 
     expect(component).toContain(
-      '<details class="deck-investigation-activity-disclosure" open={running}>',
+      '<details class="deck-investigation-activity-disclosure" open>',
     );
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
-    expect(component).toContain('class="deck-investigation-pill"');
+    expect(component).toContain('class={`deck-investigation is-settled is-${tone}`}');
+    expect(component).toContain('class={`deck-investigation-badge is-${tone}`}');
     expect(component).toContain('class="deck-investigation-elapsed muted"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
+    expect(presenter).toContain("{isDeck ? (");
     expect(presenter).toContain('class="deck-progress-note" role="status"');
     expect(styles).toContain(".deck-progress-note {");
     expect(styles).toMatch(

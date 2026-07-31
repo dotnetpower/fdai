@@ -246,7 +246,7 @@ export function TurnBubble({
       id={`deck-turn-${turn.id}`}
       class={`deck-turn deck-turn-${turn.role}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}`}
     >
-      {isDeck && !isActivity ? (
+      {isDeck ? (
         <header class="deck-turn-head">
           <span class="deck-turn-role deck-turn-agent">
             <span
@@ -259,7 +259,7 @@ export function TurnBubble({
             />
             {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
-          {turn.source && !isProgressMessage ? (
+          {turn.source && !isProgressMessage && !isActivity ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
               <span class="deck-turn-source">{turn.source}</span>
             </Tooltip>
