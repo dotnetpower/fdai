@@ -529,6 +529,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0020: Cache availability and memory pressure
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q012` |
+| Executed | `2026-08-01` |
+| Question | `Are any cache services unavailable or under memory pressure?` |
+| Azure SRE Agent answer | Found one enterprise cache, reported it available, measured zero percent memory usage, and observed zero evictions during the recent window. Deployment-owned values were redacted. |
+| FDAI answer | Found the same one enterprise cache, reported no unavailable state, and measured zero percent memory usage against a ninety-percent pressure threshold. Deployment-owned values were redacted. |
+| Evidence | Server-owned subscription health, typed standard and enterprise cache provider filters, Resource Health, one successful memory observation, explicit threshold, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products reached the same requested conclusion. SRE Agent added eviction evidence; FDAI exposed exact scope, source composition, observation time, threshold evaluation, and one-of-one verification. |
+| Winner | FDAI for equal requested-outcome completeness with stronger evidence integrity and deterministic verification. |
+| General fix | Cache-family terms and provider mappings are catalog data. A concrete health-authority query may retain bounded diagnosis intent, official memory probes preserve normal observations, and metric windows use RFC 3339 UTC timestamps. |
+| Status | `fdai-win` |
+
+#### RUN-0020 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -549,7 +571,7 @@ existing seed.
 | Q009 | ko | Kubernetes state | 비정상 상태인 AKS 클러스터나 노드가 있어? | `HEALTH` | compared |
 | Q010 | en | Kubernetes state | Show unhealthy Kubernetes workloads and when they became unhealthy. | `HEALTH` | compared |
 | Q011 | ko | Storage state | 사용 불가능하거나 성능이 저하된 스토리지 계정이 있어? | `HEALTH` | compared |
-| Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | queued |
+| Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | compared |
 | Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | queued |
 | Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | queued |
 | Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | queued |
