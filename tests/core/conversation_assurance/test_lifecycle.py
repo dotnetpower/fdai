@@ -105,6 +105,24 @@ async def test_lifecycle_promotes_after_measured_publish() -> None:
     assert publisher.restored == 0
 
 
+async def test_lifecycle_preserves_stage_across_repeated_candidate_proposal() -> None:
+    publisher = _Publisher()
+    coordinator = ConversationAssuranceLifecycleCoordinator(
+        store=InMemoryConversationPolicyCandidateStore(),
+        proposer=_Proposer(),
+        measurer=_Measurer(),
+        publisher=publisher,
+        min_cluster_samples=2,
+    )
+
+    (first,) = await coordinator.run((_fail("a"), _fail("b")))
+    (second,) = await coordinator.run((_fail("a"), _fail("b")))
+
+    assert first.stage is PolicyStage.CANARY_1
+    assert second.stage is PolicyStage.CANARY_5
+    assert publisher.published == 2
+
+
 class _FailingStore(InMemoryConversationPolicyCandidateStore):
     async def apply_transition(
         self,

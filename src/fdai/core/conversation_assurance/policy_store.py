@@ -54,7 +54,7 @@ class InMemoryConversationPolicyCandidateStore:
                 raise ValueError("new policy candidates MUST start in shadow")
             existing = self._candidates.get(candidate.candidate_id)
             if existing is not None:
-                if existing != candidate:
+                if not same_candidate_content(existing, candidate):
                     raise ValueError("candidate id already belongs to different content")
                 return False
             self._candidates[candidate.candidate_id] = candidate
@@ -110,7 +110,24 @@ def _require_limit(limit: int) -> None:
         raise ValueError("policy transition limit MUST be in [1, 1000]")
 
 
+def same_candidate_content(
+    first: ChatPolicyCandidate,
+    second: ChatPolicyCandidate,
+) -> bool:
+    """Compare immutable candidate identity while preserving the current stage."""
+
+    return (
+        first.candidate_id == second.candidate_id
+        and first.principal_scope == second.principal_scope
+        and first.cluster_id == second.cluster_id
+        and first.target is second.target
+        and first.policy_digest == second.policy_digest
+        and first.incumbent_policy_digest == second.incumbent_policy_digest
+    )
+
+
 __all__ = [
     "ConversationPolicyCandidateStore",
     "InMemoryConversationPolicyCandidateStore",
+    "same_candidate_content",
 ]

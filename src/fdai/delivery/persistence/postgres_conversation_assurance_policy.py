@@ -15,6 +15,7 @@ from fdai.core.conversation_assurance import (
     PolicyStage,
     PolicyTransition,
 )
+from fdai.core.conversation_assurance.policy_store import same_candidate_content
 
 _CANDIDATE_COLUMNS: Final = (
     "candidate_id, principal_scope, cluster_id, target, policy_digest, "
@@ -63,7 +64,7 @@ class PostgresConversationPolicyCandidateStore:
                 principal_scope=candidate.principal_scope,
                 candidate_id=candidate.candidate_id,
             )
-            if existing != candidate:
+            if existing is None or not same_candidate_content(existing, candidate):
                 raise ValueError("candidate id already belongs to different content")
             return False
 
