@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: eee794c3e2c6ccd9add9f4a63a1355e4207aa093
+translation_source_sha: bbf37f9dd9b72d1c7368f38034f752aefff6c104
 translation_revised: 2026-08-01
 ---
 # 운영 학습 온톨로지
@@ -19,6 +19,11 @@ translation_revised: 2026-08-01
 > **범위:** 벤치마크 이름, 고객 리소스 이름, 원시 로그, 모델 설명은 재사용 식별자가
 > 되지 않습니다. 재사용 단위는 redaction되고 content-addressed된 증거가 뒷받침하는
 > generic failure mechanism입니다.
+>
+> **구현 상태(2026-08-01):** O0는 구현되었습니다. O1의 변경 불가능한
+> `OperationalCaseProjection`과 canonical `FailureFingerprint` model은
+> `core/case_history` 아래에 구현되었습니다. Standard receipt compilation과 writer intake는
+> O1에 남아 있습니다.
 
 ## 한눈에 보는 설계
 
@@ -199,8 +204,8 @@ idempotency, postcondition, rollback, audit를 우회하지 않습니다.
 
 | Wave | 변경 | 종료 기준 |
 |------|------|-----------|
-| O0 - Contract fixture | 문서와 테스트에 canonical operational-case source record shape와 failure-fingerprint fixture를 정의합니다. | 이름이 다른 두 환경이 같은 fingerprint를 만들고 mechanism 또는 topology 변경은 다른 fingerprint를 만듭니다. |
-| O1 - Case projection | `core/case_history` 아래에 pure projection/fingerprint module을 추가하고 기존 case-history writer를 통해 benchmark와 production input을 seal합니다. | Canonical digest, redaction, byte ceiling, duplicate delivery, negative-outcome test가 통과합니다. Adapter는 rule/action catalog를 쓰지 않습니다. |
+| O0 - Contract fixture | 구현됨: canonical operational-case 및 failure-fingerprint model과 fixture입니다. | 이름이 다른 두 환경이 같은 fingerprint를 만들고 mechanism 또는 topology 변경은 다른 fingerprint를 만듭니다. |
+| O1 - Case projection | 부분 구현: pure immutable projection/fingerprint module이 구현되었고 standard receipt compilation과 case-history writer intake가 남아 있습니다. | Canonical digest, redaction, byte ceiling, duplicate delivery, negative-outcome test가 통과합니다. Adapter는 rule/action catalog를 쓰지 않습니다. |
 | O2 - Cohort compiler | Norns가 검토된 case를 묶고 성공, 실패, rollback, control evidence가 균형 잡힌 기존 `RuleCandidate` record를 방출합니다. | 단일 성공과 success-only cohort는 거부되고 모든 candidate가 immutable case revision을 인용합니다. |
 | O3 - Catalog compilation | Mimir가 승인된 candidate를 draft Rule 및 기존 또는 draft `ActionType`으로 컴파일한 후 schema, policy, replay, shadow check를 실행합니다. | Candidate output은 inert하며 catalog 변경은 검토된 PR을 요구하고 direct runtime promotion path는 0개입니다. |
 | O4 - T1 reuse | Filtered case retrieval과 learned-action proposal을 T1에 추가하고 현재 evidence/precondition을 재검증합니다. | Stale graph, 변경된 owner, 누락 evidence, idempotency conflict, dry-run 실패는 mutation 없이 항상 검토 보류됩니다. |
@@ -211,20 +216,21 @@ idempotency, postcondition, rollback, audit를 우회하지 않습니다.
 O0부터 O4까지는 cloud-provider-neutral입니다. O5는 learned pattern이나 control-loop authority
 model을 바꾸지 않고 Azure Kubernetes Service delivery binding을 제공합니다.
 
-## 첫 구현 범위
+## 초기 구현 범위
 
-첫 code batch는 의도적으로 작게 유지하는 것이 좋습니다.
+첫 code batch는 다음 foundation을 구현했습니다.
 
-1. `src/fdai/core/case_history/` 아래에 pure immutable model인
-   `OperationalCaseProjection`과 `FailureFingerprint`를 추가합니다.
-2. 기존 audit, action, response-outcome, evaluation receipt에서 canonical source record를
-   컴파일합니다.
-3. 기존 case-history provider를 통해 기록합니다.
-4. Benchmark-name independence, secret rejection, negative-outcome retention, idempotent replay를
-   검증하는 test를 추가합니다.
-5. Candidate generation 또는 ontology schema extension 전에 멈춥니다.
+1. `OperationalCaseProjection`과 `FailureFingerprint`는
+   `src/fdai/core/case_history/` 아래의 pure immutable model입니다.
+2. Canonical identifier, 정렬 및 중복 제거된 graph descriptor, schema version만 fingerprint
+   input을 구성합니다.
+3. Sealed case revision identity와 evidence reference가 immutable learning projection을
+   구성합니다.
+4. Test는 environment-name 및 input-order independence와 mechanism/topology sensitivity를
+   검증합니다.
 
-이 범위는 FDAI가 노하우를 일반화하기 전에 remedy를 정확히 기억할 수 있음을 증명합니다.
+남은 O1 작업은 candidate generation을 시작하기 전에 standard receipt를 projection으로
+compile하고 기존 case-history provider를 통해 기록합니다.
 
 ## 검증 매트릭스
 

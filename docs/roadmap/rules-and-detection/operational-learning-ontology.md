@@ -16,6 +16,10 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > **Scope:** Benchmark names, customer resource names, raw logs, and model prose never become
 > reusable identifiers. The reusable unit is a generic failure mechanism supported by redacted,
 > content-addressed evidence.
+>
+> **Implementation status (2026-08-01):** O0 is implemented. The O1 immutable
+> `OperationalCaseProjection` and canonical `FailureFingerprint` models are implemented under
+> `core/case_history`; standard receipt compilation and writer intake remain in O1.
 
 ## Design at a glance
 
@@ -195,8 +199,8 @@ human approval, dry-run, resource lock, idempotency, postcondition, rollback, or
 
 | Wave | Change | Exit criteria |
 |------|--------|---------------|
-| O0 - Contract fixtures | Define canonical operational-case source record shapes and failure-fingerprint fixtures in docs and tests. | Two differently named environments produce the same fingerprint; mechanism or topology changes produce a different fingerprint. |
-| O1 - Case projection | Add pure projection and fingerprint modules under `core/case_history`; seal benchmark and production inputs through the existing case-history writer. | Canonical digest, redaction, byte ceiling, duplicate delivery, and negative-outcome tests pass. No adapter writes a rule or action catalog. |
+| O0 - Contract fixtures | Implemented: canonical operational-case and failure-fingerprint models plus fixtures. | Two differently named environments produce the same fingerprint; mechanism or topology changes produce a different fingerprint. |
+| O1 - Case projection | Partial: pure immutable projection and fingerprint modules are implemented; standard receipt compilation and case-history writer intake remain. | Canonical digest, redaction, byte ceiling, duplicate delivery, and negative-outcome tests pass. No adapter writes a rule or action catalog. |
 | O2 - Cohort compiler | Let Norns group reviewed cases and emit existing `RuleCandidate` records with balanced success, failure, rollback, and control evidence. | A single success and a success-only cohort are rejected; every candidate cites immutable case revisions. |
 | O3 - Catalog compilation | Let Mimir compile an accepted candidate into a draft Rule plus an existing or draft `ActionType`, then run schema, policy, replay, and shadow checks. | Candidate output is inert; catalog changes require a reviewed PR; zero direct runtime promotion paths exist. |
 | O4 - T1 reuse | Add filtered case retrieval and learned-action proposal to T1, with current evidence and precondition revalidation. | Stale graph, changed owner, missing evidence, idempotency conflict, or failed dry-run always holds for review without mutation. |
@@ -207,20 +211,20 @@ human approval, dry-run, resource lock, idempotency, postcondition, rollback, or
 O0 through O4 are cloud-provider-neutral. O5 supplies the Azure Kubernetes Service delivery binding
 without changing the learned pattern or control-loop authority model.
 
-## First implementation slice
+## Initial implementation slice
 
-The first code batch should remain deliberately small:
+The first code batch implemented these foundations:
 
-1. add `OperationalCaseProjection` and `FailureFingerprint` as pure immutable models under
+1. `OperationalCaseProjection` and `FailureFingerprint` are pure immutable models under
    `src/fdai/core/case_history/`;
-2. compile canonical source records from existing audit, action, response-outcome, and evaluation
-   receipts;
-3. write them through the existing case-history provider;
-4. add tests proving benchmark-name independence, secret rejection, negative-outcome retention,
-   and idempotent replay;
-5. stop before candidate generation or any ontology schema extension.
+2. canonical identifiers, sorted and deduplicated graph descriptors, and schema version form the
+  only fingerprint input;
+3. sealed case revision identity and evidence references form the immutable learning projection;
+4. tests prove environment-name and input-order independence plus mechanism and topology
+  sensitivity.
 
-This slice proves that FDAI can remember the remedy correctly before it attempts to generalize it.
+The remaining O1 work compiles standard receipts into the projection and writes them through the
+existing case-history provider before candidate generation begins.
 
 ## Verification matrix
 
