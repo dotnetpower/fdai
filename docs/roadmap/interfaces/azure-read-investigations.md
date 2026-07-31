@@ -134,6 +134,9 @@ filter remains on the inventory path rather than widening to a subscription heal
 When the catalog can compile a complete inventory query, a generic search verb such as `find` or
 `찾아줘` does not select public web evidence. Public web takes precedence only when the operator
 names that medium or another explicit web context.
+Two or more requested state groups automatically produce a status-grouped answer. When a broad
+group overlaps a more specific requested group, the specific group owns that provider value so one
+resource is not repeated across sections.
 
 ## Read-tool catalog
 

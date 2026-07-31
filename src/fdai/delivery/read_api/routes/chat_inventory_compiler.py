@@ -151,23 +151,25 @@ def compile_inventory_query(
         and not lexical.has(registry.signals, "unfiltered", prompt)
     ):
         return None
+    status_groups = inventory_query_status_groups(
+        prompt,
+        resource_types=resource_types,
+        language=lexical,
+        resolver=resource_type_resolver,
+    )
+    grouping = _grouping(prompt, language=lexical)
+    if grouping is InventoryQueryGrouping.NONE and len(status_groups) > 1:
+        grouping = InventoryQueryGrouping.STATUS
     return InventoryQuery(
         source=source,
         kind=_kind(prompt, source, language=lexical),
         predicates=tuple(predicates),
         scope=_scope(prompt, language=lexical),
-        group_by=_grouping(prompt, language=lexical),
+        group_by=grouping,
         projection=_projection(prompt, language=lexical),
         require_fresh=registry.current_requires_fresh,
         include_workloads=lexical.has(registry.signals, "workload", prompt),
-        status_groups=tuple(
-            inventory_query_status_groups(
-                prompt,
-                resource_types=resource_types,
-                language=lexical,
-                resolver=resource_type_resolver,
-            )
-        ),
+        status_groups=status_groups,
     )
 
 
@@ -213,7 +215,7 @@ def inventory_query_status_groups(
 
     lexical = language or default_inventory_query_language_resolver()
     resource_type_resolver = _resolver(resolver)
-    return tuple(
+    groups = tuple(
         InventoryQueryValueGroup(
             id=entry_id,
             values=values,
@@ -226,6 +228,30 @@ def inventory_query_status_groups(
             resolver=resource_type_resolver,
         )
     )
+    return _disjoint_value_groups(groups)
+
+
+def _disjoint_value_groups(
+    groups: Sequence[InventoryQueryValueGroup],
+) -> tuple[InventoryQueryValueGroup, ...]:
+    """Assign overlapping values to the most specific requested semantic group."""
+
+    value_sets = [set(group.values) for group in groups]
+    normalized: list[InventoryQueryValueGroup] = []
+    for index, group in enumerate(groups):
+        values = value_sets[index].copy()
+        for other_index, other_values in enumerate(value_sets):
+            if other_index != index and other_values < value_sets[index]:
+                values.difference_update(other_values)
+        if values:
+            normalized.append(
+                InventoryQueryValueGroup(
+                    id=group.id,
+                    values=tuple(value for value in group.values if value in values),
+                    labels=group.labels,
+                )
+            )
+    return tuple(normalized)
 
 
 def _source(

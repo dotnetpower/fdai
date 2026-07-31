@@ -257,6 +257,42 @@ async def test_korean_deallocated_vm_question_uses_verified_inventory_without_mo
     assert backend.calls == 0
 
 
+async def test_multiple_vm_states_render_as_disjoint_status_groups() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+        resources = [
+            _resource("vm-running", "compute.vm", "vm-running", status="VM running"),
+            _resource("vm-stopped", "compute.vm", "vm-stopped", status="VM stopped"),
+            _resource(
+                "vm-deallocated",
+                "compute.vm",
+                "vm-deallocated",
+                status="VM deallocated",
+            ),
+        ]
+        return {**graph, "resources": resources}
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "Which virtual machines are running, stopped, or deallocated?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    answer = render_inventory_answer(evidence, locale="en")
+    assert answer is not None
+    assert "**Stopped**\n- Resource vm-stopped" in answer
+    assert "**Deallocated**\n- Resource vm-deallocated" in answer
+    assert "**Running**\n- Resource vm-running" in answer
+    assert answer.count("vm-deallocated") == 1
+
+
 def test_korean_deallocated_vm_ignores_invalid_semantic_plan_and_web() -> None:
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:

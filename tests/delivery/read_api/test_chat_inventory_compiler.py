@@ -13,6 +13,7 @@ from fdai.delivery.read_api.routes.chat_inventory_compiler import (
 from fdai.delivery.read_api.routes.chat_inventory_query import (
     InventoryField,
     InventoryOperator,
+    InventoryQueryGrouping,
     InventoryQuerySource,
 )
 from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
@@ -264,6 +265,21 @@ def test_korean_deallocated_vm_question_preserves_type_and_state() -> None:
     by_field = {predicate.field: predicate.value for predicate in query.predicates}
     assert by_field[InventoryField.RESOURCE_TYPE] == "compute.vm"
     assert by_field[InventoryField.STATUS] == "vm deallocated"
+
+
+def test_multiple_vm_states_group_without_overlapping_deallocated_values() -> None:
+    query = compile_inventory_query(
+        "Which virtual machines are running, stopped, or deallocated?",
+        resources=_RESOURCES,
+    )
+
+    assert query is not None
+    assert query.group_by is InventoryQueryGrouping.STATUS
+    assert [(group.id, group.values) for group in query.status_groups] == [
+        ("stopped", ("stopped",)),
+        ("deallocated", ("deallocated",)),
+        ("running", ("running",)),
+    ]
 
 
 def test_observed_type_and_location_are_dynamic_facets() -> None:

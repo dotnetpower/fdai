@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 50058c78971b3272e35c52d0d1d80953ff8a5d16
+translation_source_sha: aa2107e634df73f8aed5699d045c9e92d277d7a9
 translation_revised: 2026-08-01
 ---
 
@@ -133,6 +133,9 @@ health sweep으로 확장하지 않고 inventory path에 유지됩니다.
 Catalog가 complete inventory query를 compile할 수 있으면 `find` 또는 `찾아줘` 같은 일반적인 search
 verb는 public web evidence를 선택하지 않습니다. Operator가 해당 medium이나 다른 명시적인 web
 context를 지정한 경우에만 public web이 우선합니다.
+두 개 이상의 state group을 요청하면 status-grouped answer를 자동으로 생성합니다. Broad group이 더
+구체적인 requested group과 겹치면 구체적인 group이 해당 provider value를 소유하므로 한 resource가
+여러 section에 반복되지 않습니다.
 
 ## Read-tool catalog
 
