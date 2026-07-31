@@ -23,6 +23,7 @@ _RESOURCE_HEALTH_API_VERSION: Final = "2025-05-01"
 _SUBSCRIPTIONS_API_VERSION: Final = "2022-12-01"
 _RESOURCE_HEALTH_ID_MARKER: Final = "/providers/microsoft.resourcehealth/availabilitystatuses/"
 _PROVIDER_RESOURCE_TYPE: Final = re.compile(r"[A-Za-z0-9.-]+(?:/[A-Za-z0-9.-]+)+")
+_PROVIDER_KIND_TOKEN: Final = re.compile(r"[a-z0-9.-]{1,64}")
 _AVAILABILITY_STATE: Final = re.compile(r"[A-Za-z][A-Za-z0-9 -]{0,63}")
 
 
@@ -196,6 +197,7 @@ class AzureSubscriptionHealthProvider:
         return await self._query(
             lookback_seconds,
             resource_types=(),
+            kind_tokens=(),
             availability_states=(),
             include_metrics=True,
             progress_observer=progress_observer,
@@ -206,6 +208,7 @@ class AzureSubscriptionHealthProvider:
         lookback_seconds: int,
         *,
         resource_types: tuple[str, ...],
+        kind_tokens: tuple[str, ...] = (),
         availability_states: tuple[str, ...] = (),
         include_metrics: bool = True,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
@@ -215,6 +218,7 @@ class AzureSubscriptionHealthProvider:
         return await self._query(
             lookback_seconds,
             resource_types=_validated_resource_types(resource_types),
+            kind_tokens=_validated_kind_tokens(kind_tokens),
             availability_states=_validated_availability_states(availability_states),
             include_metrics=include_metrics,
             progress_observer=progress_observer,
@@ -225,6 +229,7 @@ class AzureSubscriptionHealthProvider:
         lookback_seconds: int,
         *,
         resource_types: tuple[str, ...],
+        kind_tokens: tuple[str, ...],
         availability_states: tuple[str, ...],
         include_metrics: bool,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None,
@@ -246,7 +251,7 @@ class AzureSubscriptionHealthProvider:
             label="Checking Resource Health",
         )
         resources, health = await asyncio.gather(
-            self._arg(headers, self._resource_query(resource_types)),
+            self._arg(headers, self._resource_query(resource_types, kind_tokens)),
             self._arg(headers, self._health_query(resource_types, availability_states)),
         )
         safe_resources = [item for item in resources if _valid_resource(item)]
@@ -262,6 +267,7 @@ class AzureSubscriptionHealthProvider:
             ) = await self._current_resource_health(headers, resource_types)
         health_findings = _health_findings(health)
         provisioning_findings = _provisioning_findings(safe_resources)
+        state_findings = _resource_state_findings(safe_resources, availability_states)
         health_truncated = len(health) > 64 or direct_health_truncated
         await _emit(
             progress_observer,
@@ -342,7 +348,12 @@ class AzureSubscriptionHealthProvider:
             completed=metric_completed - metric_unavailable,
             total=len(metric_targets),
         )
-        findings = [*health_findings, *provisioning_findings, *metric_findings]
+        findings = [
+            *health_findings,
+            *provisioning_findings,
+            *state_findings,
+            *metric_findings,
+        ]
         unsupported_metric_resources = (
             len(safe_resources) - len(supported) if include_metrics else 0
         )
@@ -535,17 +546,24 @@ class AzureSubscriptionHealthProvider:
         values = ", ".join(f"'{_escaped(group)}'" for group in self._config.resource_groups)
         return f"{field} in~ ({values})"
 
-    def _resource_query(self, resource_types: tuple[str, ...]) -> str:
+    def _resource_query(
+        self,
+        resource_types: tuple[str, ...],
+        kind_tokens: tuple[str, ...],
+    ) -> str:
         scope_filter = self._scope_filter("resourceGroup")
         filters = [scope_filter] if scope_filter is not None else []
         if resource_types:
             values = ", ".join(f"'{_escaped(item)}'" for item in resource_types)
             filters.append(f"type in~ ({values})")
+        filters.extend(f"kind has '{_escaped(token)}'" for token in kind_tokens)
         where = "".join(f"| where {item} " for item in filters)
         return (
             f"Resources {where}"
             "| project id, name, type, resourceGroup, location, "
-            "provisioningState=tostring(properties.provisioningState) "
+            "provisioningState=tostring(properties.provisioningState), "
+            "state=tostring(properties.state), status=tostring(properties.status), "
+            "resourceState=tostring(properties.resourceState) "
             f"| take {self._config.max_resources + 1}"
         )
 
@@ -589,6 +607,15 @@ def _validated_resource_types(values: Sequence[str]) -> tuple[str, ...]:
         len(item) > 256 or _PROVIDER_RESOURCE_TYPE.fullmatch(item) is None for item in normalized
     ):
         raise ValueError("resource type filter contains an invalid provider type")
+    return normalized
+
+
+def _validated_kind_tokens(values: Sequence[str]) -> tuple[str, ...]:
+    normalized = tuple(dict.fromkeys(item.strip() for item in values))
+    if len(normalized) > 16 or any(
+        _PROVIDER_KIND_TOKEN.fullmatch(item) is None for item in normalized
+    ):
+        raise ValueError("kind token filter contains an invalid value")
     return normalized
 
 
@@ -696,6 +723,35 @@ def _provisioning_findings(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, 
         for row in rows
         if str(row.get("provisioningState") or "").casefold() in bad
     ]
+
+
+def _resource_state_findings(
+    rows: Sequence[Mapping[str, Any]],
+    requested_states: Sequence[str],
+) -> list[dict[str, Any]]:
+    requested = {state.casefold() for state in requested_states}
+    findings: list[dict[str, Any]] = []
+    for row in rows:
+        observed = next(
+            (
+                str(row[field])
+                for field in ("state", "status", "resourceState")
+                if isinstance(row.get(field), str) and str(row[field]).strip()
+            ),
+            "",
+        )
+        if observed.casefold() not in requested:
+            continue
+        findings.append(
+            {
+                "kind": "resource_state",
+                "resource_name": str(row["name"]),
+                "resource_type": str(row["type"]),
+                "resource_group": str(row["resourceGroup"]),
+                "status": observed,
+            }
+        )
+    return findings
 
 
 def _metric_value(payload: Any, aggregation: str) -> float:

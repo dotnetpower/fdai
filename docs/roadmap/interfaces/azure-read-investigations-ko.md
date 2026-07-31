@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 19f6f9d9a856a143c702d06a65d2129eb20e33b6
+translation_source_sha: 49eb4feb74ad64fed209efd854f2666935cf2d37
 translation_revised: 2026-08-01
 ---
 
@@ -244,11 +244,15 @@ Customer-initiated Resource Health state는 Azure platform incident가 아니라
 시작한 상태로 설명하지만, Activity Log evidence를 수집하기 전에는 actor를 알 수 없다고 표시합니다.
 명시적인 status collection의 terminal answer는 근거 있는 empty group을 포함하여 요청된 모든 catalog
 state를 request 순서로 렌더링하고, normalized state가 해당 group에 속하는 finding만 나열합니다.
-구체적인 family query는 catalog의 provider type과 requested availability state로 `Resources`와
-`HealthResources`를 prefilter합니다. 질문에 CPU, memory 또는 throughput 같은 diagnosis 의미도 있는
-경우에만 representative metric을 실행합니다. Resource Health가 display name을 생략하면 provider는
-scope가 검증된 target ID에서 bounded resource name, provider type 및 resource group을 파생합니다.
-Raw target ID는 answer 또는 narrator context에 들어가지 않습니다.
+구체적인 family query는 catalog의 provider type, Azure kind token 및 requested availability state로
+`Resources`와 `HealthResources`를 prefilter합니다. Kind token은 Web App과 Function App처럼 하나의
+ARM type을 공유하는 semantic type을 분리합니다. 질문에 CPU, memory 또는 throughput 같은 diagnosis
+의미도 있는 경우에만 representative metric을 실행합니다. Resource Health가 display name을 생략하면
+provider는 scope가 검증된 target ID에서 bounded resource name, provider type 및 resource group을
+파생합니다. Raw target ID는 answer 또는 narrator context에 들어가지 않습니다.
+Resource projection은 bounded `state`, `status`, `resourceState` field도 유지합니다. 값이 requested
+catalog state에 속할 때만 finding이 되므로 not-running collection은 모든 observed state를
+anomalous로 취급하지 않고 resource state와 Resource Health를 결합할 수 있습니다.
 Metric window는 RFC 3339 UTC `Z` timestamp를 사용합니다. Provider는 threshold 이내인 성공적인
 observation도 유지하므로 answer가 측정된 정상 상태와 query되지 않은 metric을 구분할 수 있습니다.
 Deterministic renderer는 value, comparison 및 threshold를 표시합니다.

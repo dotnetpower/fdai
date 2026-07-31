@@ -277,6 +277,7 @@ async def test_specific_storage_state_query_skips_unrequested_metrics() -> None:
             lookback_seconds: int,
             *,
             resource_types: tuple[str, ...],
+            kind_tokens: tuple[str, ...],
             availability_states: tuple[str, ...],
             include_metrics: bool,
             progress_observer: Any = None,
@@ -284,6 +285,7 @@ async def test_specific_storage_state_query_skips_unrequested_metrics() -> None:
             del progress_observer
             assert lookback_seconds == 3_600
             assert resource_types == ("Microsoft.Storage/storageAccounts",)
+            assert kind_tokens == ()
             assert availability_states == ("degraded", "unavailable")
             assert include_metrics is False
             return {
@@ -356,6 +358,65 @@ async def test_cache_pressure_query_renders_normal_memory_observation() -> None:
     assert "**Unavailable**" in answer
     assert "redis-example: usedmemorypercentage=0.0" in answer
     assert "threshold gt 90.0 (within threshold)" in answer
+
+
+async def test_app_service_not_running_or_ready_query_preserves_zero_groups() -> None:
+    class FilteredProvider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("typed app query must use the filtered provider path")
+
+        async def query_resource_types(
+            self,
+            lookback_seconds: int,
+            *,
+            resource_types: tuple[str, ...],
+            kind_tokens: tuple[str, ...],
+            availability_states: tuple[str, ...],
+            include_metrics: bool,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            assert lookback_seconds == 3_600
+            assert resource_types == ("Microsoft.Web/sites",)
+            assert kind_tokens == ("app",)
+            assert availability_states == (
+                "stopped",
+                "deallocated",
+                "failed",
+                "degraded",
+                "unavailable",
+            )
+            assert include_metrics is False
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health",
+                "observed_at": "2026-08-01T04:10:00Z",
+                "resource_count": 0,
+                "resource_health_unavailable": 0,
+                "metrics_requested": False,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [],
+            }
+
+    evidence = await SubscriptionHealthChatTools(FilteredProvider()).resolve(
+        "실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘.",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    answer = render_subscription_health_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "리소스 0개" in answer
+    assert "**실행 중 아님**\n- 확인한 근거에서는 관찰되지 않았습니다." in answer
+    assert "**준비되지 않음**\n- 확인한 근거에서는 관찰되지 않았습니다." in answer
 
 
 def test_current_subscription_question_uses_server_scope_metadata() -> None:

@@ -403,3 +403,88 @@ async def test_subscription_health_prefilters_one_provider_resource_type() -> No
     assert result["unsupported_metric_resources"] == 0
     assert result["source"] == "azure-resource-graph+resource-health"
     assert result["truncated"] is False
+
+
+async def test_subscription_health_projects_requested_resource_state() -> None:
+    app = {
+        "id": (
+            "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
+            "Microsoft.Web/sites/app-example"
+        ),
+        "name": "app-example",
+        "type": "microsoft.web/sites",
+        "resourceGroup": "rg-example",
+        "location": "example-region",
+        "provisioningState": "Succeeded",
+        "state": "Stopped",
+        "status": "",
+        "resourceState": "",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            query = json.loads(request.content)["query"]
+            if query.startswith("HealthResources"):
+                return httpx.Response(200, json={"data": []})
+            assert "state=tostring(properties.state)" in query
+            return httpx.Response(200, json={"data": [app]})
+        raise AssertionError("state-only app query must not request metrics")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_resource_types(
+            3_600,
+            resource_types=("Microsoft.Web/sites",),
+            kind_tokens=(),
+            availability_states=("stopped", "failed", "degraded", "unavailable"),
+            include_metrics=False,
+        )
+
+    assert result["findings"] == [
+        {
+            "kind": "resource_state",
+            "resource_name": "app-example",
+            "resource_type": "microsoft.web/sites",
+            "resource_group": "rg-example",
+            "status": "Stopped",
+        }
+    ]
+
+
+async def test_subscription_health_prefilters_shared_arm_type_by_kind() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method != "POST":
+            raise AssertionError("kind-filtered state query must not use REST or metrics")
+        query = json.loads(request.content)["query"]
+        if query.startswith("HealthResources"):
+            return httpx.Response(200, json={"data": []})
+        assert "type in~ ('Microsoft.Web/sites')" in query
+        assert "kind has 'app'" in query
+        return httpx.Response(200, json={"data": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_resource_types(
+            3_600,
+            resource_types=("Microsoft.Web/sites",),
+            kind_tokens=("app",),
+            availability_states=("stopped", "failed", "degraded", "unavailable"),
+            include_metrics=False,
+        )
+
+    assert result["status"] == "matched"
+    assert result["resource_count"] == 0

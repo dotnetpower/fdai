@@ -115,6 +115,21 @@ class InventoryResourceTypeResolver:
             )
         )
 
+    def provider_kind_tokens_for(self, type_ids: Sequence[str]) -> tuple[str, ...]:
+        """Return Azure kind tokens for selected canonical resource types."""
+
+        selected = set(type_ids)
+        return tuple(
+            sorted(
+                {
+                    token
+                    for entry in self._registry
+                    if entry.id in selected
+                    for token in entry.azure_kind_tokens
+                }
+            )
+        )
+
 
 @lru_cache(maxsize=1)
 def default_inventory_resource_type_resolver() -> InventoryResourceTypeResolver:

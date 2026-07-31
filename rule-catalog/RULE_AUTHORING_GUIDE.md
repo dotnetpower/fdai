@@ -292,6 +292,11 @@ runtime freezes the loaded registry before it compiles any prompt. Catalog terms
 a typed read query only. They never become runtime evidence, widen provider scope beyond the
 server-owned scope policy, grant an action, or bypass verification.
 
+A state entry can declare `suppresses` with other state ids when a longer semantic phrase contains
+a shorter contradictory term. For example, a reviewed not-running phrase can suppress the embedded
+running state. Suppression targets must exist, cannot reference the declaring state, and affect only
+state compilation; they never change provider evidence.
+
 ## Ontology & LLM handoff
 
 The rule catalog is **the ontology surface an LLM can consult** when

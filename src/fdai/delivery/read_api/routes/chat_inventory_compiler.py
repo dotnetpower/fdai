@@ -388,9 +388,17 @@ def _state_groups(
     resolver: InventoryResourceTypeResolver,
 ) -> tuple[tuple[str, tuple[str, ...], bool], ...]:
     categories = resolver.categories_for(resource_types)
+    matched_entries = tuple(
+        (entry_id, entry)
+        for entry_id, entry in language.registry.states.items()
+        if language.contains_any(prompt, entry.terms)
+    )
+    suppressed = {
+        suppressed_id for _entry_id, entry in matched_entries for suppressed_id in entry.suppresses
+    }
     groups: list[tuple[str, tuple[str, ...], bool]] = []
-    for entry_id, entry in language.registry.states.items():
-        if not language.contains_any(prompt, entry.terms):
+    for entry_id, entry in matched_entries:
+        if entry_id in suppressed:
             continue
         category = categories[0] if len(categories) == 1 else None
         values = entry.category_values.get(category, entry.values) if category else entry.values

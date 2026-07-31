@@ -33,6 +33,7 @@ class QueryValues(QueryTerms):
         default_factory=dict
     )
     preserve_values: bool = False
+    suppresses: tuple[str, ...] = ()
     category_values: Mapping[str, tuple[str, ...]] = Field(default_factory=dict)
     preserve_categories: tuple[str, ...] = ()
 
@@ -64,6 +65,12 @@ class InventoryQueryLanguageRegistry(BaseModel):
     time_units: Mapping[str, TimeUnit]
 
     def model_post_init(self, __context: Any) -> None:
+        state_ids = set(self.states)
+        for state_id, state in self.states.items():
+            if state_id in state.suppresses or any(
+                suppressed not in state_ids for suppressed in state.suppresses
+            ):
+                raise ValueError(f"state {state_id} has invalid suppression targets")
         for field in (
             "signals",
             "query_kinds",

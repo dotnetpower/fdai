@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.2"
+version: "0.3.3"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 types:
@@ -70,7 +70,7 @@ types:
     description: Managed web application hosted by an application service plan.
     azure_arm_type: Microsoft.Web/sites
     azure_kind_tokens: [app]
-    query_terms: [web app, web apps, app service, app services, 웹 앱, 웹앱]
+    query_terms: [web app, web apps, app service, app services, 웹 앱, 웹앱, 앱 서비스, 앱서비스]
     typical_parents: [resource-group]
   - id: app-service-plan
     category: compute

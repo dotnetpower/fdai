@@ -248,11 +248,15 @@ an Azure platform incident, but the actor remains unknown until Activity Log evi
 For an explicit status collection, the terminal answer renders every requested catalog state in
 request order, including a grounded empty group, and lists only findings whose normalized state
 belongs to that group. A concrete family query prefilters `Resources` and `HealthResources` by the
-catalog's provider type and requested availability states. It runs representative metrics only
-when the question also contains diagnosis semantics such as CPU, memory, or throughput. If Resource
-Health omits its display name, the provider derives the bounded resource name, provider type, and
-resource group from the scope-validated target ID. The raw target ID does not enter the answer or
-narrator context.
+catalog's provider type, Azure kind tokens, and requested availability states. Kind tokens keep
+semantic types such as Web Apps and Function Apps separate when they share one ARM type. It runs
+representative metrics only when the question also contains diagnosis semantics such as CPU,
+memory, or throughput. If Resource Health omits its display name, the provider derives the bounded
+resource name, provider type, and resource group from the scope-validated target ID. The raw target
+ID does not enter the answer or narrator context.
+The resource projection also retains bounded `state`, `status`, and `resourceState` fields. A value
+becomes a finding only when it belongs to a requested catalog state, so a not-running collection can
+combine resource state with Resource Health without treating every observed state as anomalous.
 Metric windows use RFC 3339 UTC `Z` timestamps. The provider retains successful observations even
 when they remain inside the threshold, so an answer can distinguish measured normal operation from
 an unqueried metric. The deterministic renderer shows the value, comparison, and threshold.

@@ -24,10 +24,18 @@ def test_shipped_inventory_query_language_loads() -> None:
     assert {"stopped", "paused", "failed", "degraded", "unavailable"} <= set(registry.states)
     assert registry.states["degraded"].evidence_authority == "subscription_health"
     assert registry.states["unavailable"].evidence_authority == "subscription_health"
+    assert registry.states["inactive"].suppresses == ("running",)
 
 
 def test_inventory_query_language_rejects_unknown_fields() -> None:
     raw = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
     raw["question_specific_override"] = True
+    with pytest.raises(InventoryQueryLanguageRegistryError):
+        load_inventory_query_language_from_mapping(raw)
+
+
+def test_inventory_query_language_rejects_unknown_state_suppression() -> None:
+    raw = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    raw["states"]["inactive"]["suppresses"] = ["not-a-state"]
     with pytest.raises(InventoryQueryLanguageRegistryError):
         load_inventory_query_language_from_mapping(raw)

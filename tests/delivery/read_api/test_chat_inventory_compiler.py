@@ -361,6 +361,27 @@ def test_cache_service_health_question_selects_both_cache_provider_types() -> No
     assert by_field[InventoryField.STATUS] == "unavailable"
 
 
+def test_app_service_question_separates_not_running_and_not_ready() -> None:
+    query = compile_inventory_query(
+        "실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘.",
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == "compute.web-app"
+    assert by_field[InventoryField.STATUS] == (
+        "stopped",
+        "deallocated",
+        "failed",
+        "degraded",
+        "unavailable",
+    )
+    assert [(group.id, group.values) for group in query.status_groups] == [
+        ("inactive", ("stopped", "deallocated")),
+        ("not ready", ("failed", "degraded", "unavailable")),
+    ]
+
+
 def test_observed_type_and_location_are_dynamic_facets() -> None:
     resources = (
         *_RESOURCES,

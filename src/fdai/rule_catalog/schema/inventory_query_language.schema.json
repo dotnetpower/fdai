@@ -54,6 +54,7 @@
           "default": {}
         },
         "preserve_values": {"type": "boolean", "default": false},
+        "suppresses": {"$ref": "#/$defs/terms"},
         "category_values": {
           "type": "object",
           "additionalProperties": {"$ref": "#/$defs/terms"},
