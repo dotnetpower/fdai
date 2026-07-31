@@ -149,6 +149,119 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI candidate | 3 | 4 | 1 | 4 | 4 | 2 | 4 | 22/28 |
 
+### RUN-0004: Q002 fresh-cache candidate rerun
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q002` |
+| Executed | `2026-08-01` |
+| Locale | English |
+| Question | `Are any databases stopped right now?` |
+| Prior run | `RUN-0003` |
+| Candidate state | Same uncommitted catalog-driven resolver after the local inventory background refresh completed. |
+| Azure SRE Agent answer | Reused the matched `RUN-0002` baseline: four stopped MySQL or PostgreSQL servers and one separately identified paused SQL database. |
+| FDAI answer | Reported exactly four stopped MySQL or PostgreSQL servers from a newly refreshed inventory and excluded unrelated resource types. Names were redacted. |
+| FDAI evidence | Compiled the database-category and stopped-state intersection, returned four matches from a fresh snapshot, and exposed source, exact observation time, verification, and zero model calls. |
+| Material difference | Both products found the four stopped servers. FDAI answered only the requested stopped condition and exposed stronger evidence and process accounting; Azure SRE Agent added one adjacent paused database and a running-list offer. |
+| Winner | FDAI for equal factual coverage, more precise scope, stronger evidence integrity, and explicit freshness. |
+| FDAI advantage | Typed query, exact snapshot timestamp, fresh-state label, consumed evidence reference, deterministic verification, and zero model calls in 2.1 seconds. |
+| Residual risk | After a long idle period, the local stale-while-revalidate provider can return one honestly stale answer before its background refresh completes. |
+| General fix | Preserve the current candidate and add a bounded fresh-read contract for explicit current-state intent so the first post-idle answer refreshes or holds instead of claiming `right now` from stale evidence. |
+| Regression cohort | `Q001-Q004`, `Q035`, `Q036`, and first-request-after-idle scenarios. |
+| Status | `candidate-win-residual-open` |
+
+#### RUN-0004 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI candidate | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
+### RUN-0005: Korean database grouping
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q003` |
+| Executed | `2026-08-01` |
+| Locale | Korean |
+| Question | `현재 멈춰 있는 DB를 종류별로 보여줘.` |
+| Scope alignment | Same signed-in Azure subscription and near-adjacent execution time. |
+| Azure SRE Agent answer | Grouped two stopped MySQL servers, two stopped PostgreSQL servers, and one paused SQL database by service type. Names were redacted. |
+| FDAI answer | Reported zero matching resources and then listed the type counts for the complete 192-resource inventory. |
+| Azure SRE Agent evidence | Executed a current Azure Resource Graph query constrained to database types and stopped or paused state. |
+| FDAI evidence | The deterministic inventory branch had evidence, but local intent resolution did not accept the object particle in `DB를`. Public-web planning then ran, and terminal verification accepted an incorrect broad inventory projection. |
+| Material difference | FDAI failed both the requested database scope and the type-grouped answer shape. Its source and freshness disclosure did not compensate for the incorrect result. |
+| Winner | Azure SRE Agent for correctness, completeness, intent resolution, and presentation. |
+| FDAI advantage | Explicit branch availability, evidence references, snapshot provenance, and terminal verification state. |
+| Root gap | Korean object particles after a catalog term were not accepted by deterministic phrase matching, allowing a routine local inventory question to escape into broader planning. |
+| General fix | Accept Korean object particles at catalog and facet boundaries, preserve local inventory authority, and regression-test the exact question before evaluating grouped presentation. |
+| Regression cohort | `Q001-Q004` plus Korean topic, subject, object, and additive particle variants. |
+| Status | `gap-confirmed` |
+
+#### RUN-0005 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 0 | 0 | 1 | 3 | 4 | 0 | 1 | 9/28 |
+
+### RUN-0006: Q003 object-particle candidate rerun
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q003` |
+| Executed | `2026-08-01` |
+| Locale | Korean |
+| Question | `현재 멈춰 있는 DB를 종류별로 보여줘.` |
+| Prior run | `RUN-0005` |
+| Candidate state | Korean object particles accepted by catalog and inventory facet phrase matching. |
+| Azure SRE Agent answer | Reused the matched `RUN-0005` baseline: stopped MySQL and PostgreSQL servers plus one paused SQL database grouped by service type. |
+| FDAI answer | Correctly listed four stopped MySQL or PostgreSQL servers and excluded unrelated resources. It did not group the result by type or include the paused SQL database. |
+| FDAI evidence | Executed only the server-owned inventory branch with a database-category and stopped-state intersection; public-web and agent branches did not run. |
+| Material difference | The candidate closed the routing and zero-result defects but still missed the requested type grouping and the natural paused-state interpretation. The first post-idle snapshot was stale. |
+| Winner | Azure SRE Agent for fuller state coverage, requested grouping, and current evidence. |
+| FDAI advantage | Typed query, explicit stale snapshot, consumed evidence reference, deterministic verification, zero model calls, and 2.8-second completion. |
+| Root gap | The compiler does not classify `종류별` as a grouped type result, and the colloquial stopped-state vocabulary excludes paused databases. |
+| General fix | Recognize by-type wording, group only matched records, distinguish stopped and paused states, and retain the first-request freshness guard. |
+| Regression cohort | `Q001-Q004`, Korean grouping paraphrases, and stopped-versus-paused fixtures. |
+| Status | `routing-fixed-presentation-open` |
+
+#### RUN-0006 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI candidate | 3 | 2 | 1 | 4 | 4 | 2 | 3 | 19/28 |
+
+### RUN-0007: Q003 grouped candidate rerun
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q003` |
+| Executed | `2026-08-01` |
+| Locale | Korean |
+| Question | `현재 멈춰 있는 DB를 종류별로 보여줘.` |
+| Prior run | `RUN-0006` |
+| Candidate state | By-type wording and stopped-or-paused Korean state semantics added to deterministic inventory compilation and rendering. |
+| Azure SRE Agent answer | Reused the matched `RUN-0005` baseline: two stopped MySQL servers, two stopped PostgreSQL servers, and one paused SQL database grouped by type. |
+| FDAI answer | Grouped two stopped MySQL and two stopped PostgreSQL servers by type. It did not include the paused SQL database. |
+| FDAI evidence | Executed only the server-owned inventory branch and grouped matched records. The evidence source was the stale `fdai-control-plane` active view. |
+| External scope check | Azure Resource Graph contained two SQL databases outside the active FDAI view: one online and one paused. Only aggregate type and state counts were inspected. |
+| Material difference | Grouping and local routing now match the request, but the products queried different effective scopes. Azure SRE Agent used the subscription; FDAI used its narrower active architecture view. |
+| Winner | Azure SRE Agent for complete subscription-level coverage and current evidence. |
+| FDAI advantage | Deterministic local-only routing, typed predicates, matched-only grouping, explicit scope and stale snapshot, verification, and zero model calls. |
+| Root gap | An unqualified cross-screen inventory question defaults to the FDAI architecture view instead of a clearly declared managed scope aligned with the comparison baseline. |
+| General fix | Define and display the default inventory scope contract. For subscription-wide intent, query the server-owned subscription root; otherwise state the active-view limit and avoid a subscription-wide conclusion. |
+| Regression cohort | `Q001-Q004`, `Q015-Q020`, explicit subscription variants, and active-view variants. |
+| Status | `grouping-fixed-scope-open` |
+
+#### RUN-0007 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI candidate | 3 | 2 | 1 | 4 | 4 | 2 | 4 | 20/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -160,7 +273,7 @@ existing seed.
 |----|--------|--------|----------|----------|--------|
 | Q001 | ko | Database state | 중지된 데이터베이스 있어? | `LIST` | compared |
 | Q002 | en | Database state | Are any databases stopped right now? | `LIST` | compared |
-| Q003 | ko | Database state | 현재 멈춰 있는 DB를 종류별로 보여줘. | `LIST` | queued |
+| Q003 | ko | Database state | 현재 멈춰 있는 DB를 종류별로 보여줘. | `LIST` | compared |
 | Q004 | en | Database state | List stopped and paused database services separately. | `LIST` | queued |
 | Q005 | ko | Resource state | 실패 상태인 Azure 리소스가 있어? | `LIST` | queued |
 | Q006 | en | Resource state | Which resources are failed, degraded, or unavailable? | `LIST` | queued |
