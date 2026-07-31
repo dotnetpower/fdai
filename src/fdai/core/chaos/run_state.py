@@ -29,9 +29,9 @@ class ChaosRunState(StrEnum):
 
 _ALLOWED: dict[ChaosRunState, frozenset[ChaosRunState]] = {
     ChaosRunState.PLANNED: frozenset({ChaosRunState.IMPACT_CHECKED, ChaosRunState.DENIED}),
-    ChaosRunState.IMPACT_CHECKED: frozenset({ChaosRunState.DRY_RUN_VERIFIED}),
-    ChaosRunState.DRY_RUN_VERIFIED: frozenset({ChaosRunState.APPROVED}),
-    ChaosRunState.APPROVED: frozenset({ChaosRunState.INJECTING}),
+    ChaosRunState.IMPACT_CHECKED: frozenset({ChaosRunState.DRY_RUN_VERIFIED, ChaosRunState.DENIED}),
+    ChaosRunState.DRY_RUN_VERIFIED: frozenset({ChaosRunState.APPROVED, ChaosRunState.DENIED}),
+    ChaosRunState.APPROVED: frozenset({ChaosRunState.INJECTING, ChaosRunState.DENIED}),
     ChaosRunState.INJECTING: frozenset(
         {ChaosRunState.OBSERVING, ChaosRunState.STOP_TRIGGERED, ChaosRunState.FAILED}
     ),

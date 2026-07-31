@@ -170,3 +170,79 @@ async def test_governed_runner_escalates_when_recovery_receipt_is_missing() -> N
     )
     assert result.state.state is ChaosRunState.ESCALATED
     assert result.recovery is not None and not result.recovery.succeeded
+
+
+async def test_governed_runner_resumes_observing_with_recovery_not_reinjection() -> None:
+    injector = ShadowFaultInjector(fault_type="pod_kill")
+    dispatcher = _Dispatcher()
+    state_store = InMemoryStateStore()
+    run_store = ChaosRunStore(state_store=state_store)
+    snapshot = await run_store.create(run_id="run-1", at=_NOW)
+    for state in (
+        ChaosRunState.IMPACT_CHECKED,
+        ChaosRunState.DRY_RUN_VERIFIED,
+        ChaosRunState.APPROVED,
+        ChaosRunState.INJECTING,
+        ChaosRunState.OBSERVING,
+    ):
+        snapshot = await run_store.transition(
+            snapshot,
+            target=state,
+            idempotency_key=f"run-1:{state.value}",
+            at=_NOW,
+        )
+    runner = GovernedChaosRunner(
+        harness=FaultInjectionHarness(
+            injectors=(injector,),
+            probe=_Probe(),
+            sleeper=_sleeper,
+        ),
+        run_store=run_store,
+        recovery=PreauthorizedRecoveryController(dispatcher=dispatcher),
+        clock=lambda: _NOW,
+    )
+
+    result = await runner.run_enforce(
+        run_id="run-1",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+
+    assert result.state.state is ChaosRunState.RECOVERED
+    assert result.experiment is None
+    assert injector.injected == []
+    assert dispatcher.calls == ["restore"]
+
+
+async def test_governed_runner_denies_stale_pre_injection_resume() -> None:
+    injector = ShadowFaultInjector(fault_type="pod_kill")
+    dispatcher = _Dispatcher()
+    state_store = InMemoryStateStore()
+    run_store = ChaosRunStore(state_store=state_store)
+    snapshot = await run_store.create(run_id="run-1", at=_NOW)
+    await run_store.transition(
+        snapshot,
+        target=ChaosRunState.IMPACT_CHECKED,
+        idempotency_key="run-1:impact_checked",
+        at=_NOW,
+    )
+    runner = GovernedChaosRunner(
+        harness=FaultInjectionHarness(injectors=(injector,), probe=_Probe(), sleeper=_sleeper),
+        run_store=run_store,
+        recovery=PreauthorizedRecoveryController(dispatcher=dispatcher),
+        clock=lambda: _NOW,
+    )
+
+    result = await runner.run_enforce(
+        run_id="run-1",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(graph_complete=False),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+
+    assert result.state.state is ChaosRunState.DENIED
+    assert injector.injected == []
+    assert dispatcher.calls == []

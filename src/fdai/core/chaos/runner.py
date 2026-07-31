@@ -60,17 +60,36 @@ class GovernedChaosRunner:
     ) -> GovernedChaosRunResult:
         state = await self._run_store.create(run_id=run_id, at=self._now())
         decision = evaluate_chaos_eligibility(eligibility_context)
+        if state.state.terminal:
+            return GovernedChaosRunResult(run_id, decision, state, None, None)
+        if state.state in {
+            ChaosRunState.INJECTING,
+            ChaosRunState.OBSERVING,
+            ChaosRunState.VERIFIED,
+            ChaosRunState.STOP_TRIGGERED,
+            ChaosRunState.RECOVERING,
+        }:
+            return await self._recover_resumed(
+                run_id=run_id,
+                decision=decision,
+                state=state,
+                recovery_plan=recovery_plan,
+            )
         if not decision.eligible:
             state = await self._advance(state, ChaosRunState.DENIED)
             return GovernedChaosRunResult(run_id, decision, state, None, None)
 
-        for target_state in (
+        pre_injection_states = (
             ChaosRunState.IMPACT_CHECKED,
             ChaosRunState.DRY_RUN_VERIFIED,
             ChaosRunState.APPROVED,
             ChaosRunState.INJECTING,
             ChaosRunState.OBSERVING,
-        ):
+        )
+        current_index = (
+            pre_injection_states.index(state.state) if state.state in pre_injection_states else -1
+        )
+        for target_state in pre_injection_states[current_index + 1 :]:
             state = await self._advance(state, target_state)
 
         experiment: ExperimentResult
@@ -109,6 +128,23 @@ class GovernedChaosRunner:
         )
         state = await self._advance(state, terminal)
         return GovernedChaosRunResult(run_id, decision, state, experiment, recovery)
+
+    async def _recover_resumed(
+        self,
+        *,
+        run_id: str,
+        decision: ChaosEligibilityDecision,
+        state: ChaosRunSnapshot,
+        recovery_plan: RecoveryPlanRecord,
+    ) -> GovernedChaosRunResult:
+        if state.state in {ChaosRunState.INJECTING, ChaosRunState.OBSERVING}:
+            state = await self._advance(state, ChaosRunState.STOP_TRIGGERED)
+        if state.state in {ChaosRunState.VERIFIED, ChaosRunState.STOP_TRIGGERED}:
+            state = await self._advance(state, ChaosRunState.RECOVERING)
+        recovery = await self._execute_recovery(recovery_plan)
+        terminal = ChaosRunState.RECOVERED if recovery.succeeded else ChaosRunState.ESCALATED
+        state = await self._advance(state, terminal)
+        return GovernedChaosRunResult(run_id, decision, state, None, recovery)
 
     async def _execute_recovery(self, plan: RecoveryPlanRecord) -> RecoveryControlResult:
         return await self._recovery.execute(
