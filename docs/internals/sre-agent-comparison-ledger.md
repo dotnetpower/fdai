@@ -121,6 +121,34 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI | 1 | 1 | 3 | 4 | 4 | 1 | 2 | 16/28 |
 
+### RUN-0003: Q002 candidate rerun after read API restart
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q002` |
+| Executed | `2026-08-01` |
+| Locale | English |
+| Question | `Are any databases stopped right now?` |
+| Prior run | `RUN-0002` |
+| Candidate state | Uncommitted catalog-driven resource-type resolver loaded by a restarted local read API. |
+| Azure SRE Agent answer | Reused the matched `RUN-0002` baseline: four stopped MySQL or PostgreSQL servers and one separately identified paused SQL database. |
+| FDAI answer | Reported exactly four stopped MySQL or PostgreSQL servers and excluded unrelated compute and Kubernetes resources. Names were redacted. |
+| FDAI evidence | Compiled a database-category resource-type predicate intersected with stopped status, returned four matches, and exposed source, snapshot time, stale freshness, verification, and zero model calls. |
+| Material difference | The candidate closed the resource-scope defect from `RUN-0002`. FDAI still used a snapshot about 12 minutes old for a `right now` question, while Azure SRE Agent performed a current query. |
+| Winner | Azure SRE Agent because current evidence is material to the explicit `right now` request. |
+| FDAI advantage | Equal stopped-database coverage with stronger typed-query, source, freshness, verification, and process disclosure. |
+| Root gap | Current-state questions can return an honestly labeled but stale server inventory snapshot instead of refreshing or holding the current claim. |
+| General fix | Refresh the server-owned inventory within the current-state freshness budget, or hold the current claim and return the last observation as stale evidence with a refresh action. |
+| Regression cohort | `Q001-Q004`, `Q035`, `Q036`, and current-state paraphrases. |
+| Status | `scope-fixed-freshness-open` |
+
+#### RUN-0003 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI candidate | 3 | 4 | 1 | 4 | 4 | 2 | 4 | 22/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
