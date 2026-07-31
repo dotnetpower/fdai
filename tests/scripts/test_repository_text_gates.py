@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -88,6 +90,37 @@ def test_text_gates_limit_scans_to_supplied_paths(git_repo: Path) -> None:
     assert guid_clean.returncode == 0, guid_clean.stderr
     assert guid_bad.returncode == 1
     assert "bad-guid.txt:1" in guid_bad.stderr
+
+
+def test_text_gates_batch_full_repository_scans(git_repo: Path) -> None:
+    for index in range(5):
+        (git_repo / f"clean-{index}.txt").write_text("clean\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+    env = {**os.environ, "FDAI_TEXT_GATE_BATCH_SIZE": "2"}
+    bash = shutil.which("bash")
+    assert bash is not None
+
+    punctuation = subprocess.run(  # noqa: S603 - fixed repository script
+        [bash, str(_PUNCTUATION)],
+        cwd=git_repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    guids = subprocess.run(  # noqa: S603 - fixed repository script
+        [bash, str(_GUIDS)],
+        cwd=git_repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert punctuation.returncode == 0, punctuation.stderr
+    assert "5 file(s) scanned" in punctuation.stdout
+    assert guids.returncode == 0, guids.stderr
+    assert "5 file(s) scanned" in guids.stdout
 
 
 def test_punctuation_baseline_only_allows_the_exact_blob(git_repo: Path) -> None:

@@ -74,7 +74,27 @@ fi
 errors=0
 grandfathered=0
 hits=""
-if hits="$(LC_ALL=C.UTF-8 LANG=C.UTF-8 grep -PnH "$pattern" "${files[@]}" 2>&1)"; then
+batch_size="${FDAI_TEXT_GATE_BATCH_SIZE:-256}"
+if ! [[ "$batch_size" =~ ^[1-9][0-9]*$ ]]; then
+  echo "check-punctuation: FDAI_TEXT_GATE_BATCH_SIZE must be a positive integer" >&2
+  exit 2
+fi
+for (( start=0; start<${#files[@]}; start+=batch_size )); do
+  chunk=("${files[@]:start:batch_size}")
+  chunk_hits=""
+  if chunk_hits="$(LC_ALL=C.UTF-8 LANG=C.UTF-8 grep -PnH "$pattern" "${chunk[@]}" 2>&1)"; then
+    [[ -n "$hits" ]] && hits+=$'\n'
+    hits+="$chunk_hits"
+  else
+    grep_status=$?
+    if (( grep_status != 1 )); then
+      echo "check-punctuation: scanner failed: $chunk_hits" >&2
+      exit "$grep_status"
+    fi
+  fi
+done
+
+if [[ -n "$hits" ]]; then
   mapfile -t violating_files < <(printf '%s\n' "$hits" | cut -d: -f1 | sort -u)
   for file in "${violating_files[@]}"; do
     current_sha="$(git hash-object "$file")"
@@ -86,12 +106,6 @@ if hits="$(LC_ALL=C.UTF-8 LANG=C.UTF-8 grep -PnH "$pattern" "${files[@]}" 2>&1)"
     printf '%s\n' "$hits" | grep -F "$file:" | head -5 | sed 's/^/    /' >&2 || true
     errors=$((errors + 1))
   done
-else
-  grep_status=$?
-  if (( grep_status != 1 )); then
-    echo "check-punctuation: scanner failed: $hits" >&2
-    exit "$grep_status"
-  fi
 fi
 
 if (( errors > 0 )); then

@@ -85,7 +85,27 @@ allow_re='^00000000-0000-0000-0000-[0-9a-f]{12}$'
 
 errors=0
 hits=""
-if hits="$(grep -nHoE "$guid_re" "${files[@]}" 2>&1)"; then
+batch_size="${FDAI_TEXT_GATE_BATCH_SIZE:-256}"
+if ! [[ "$batch_size" =~ ^[1-9][0-9]*$ ]]; then
+  echo "check-guids: FDAI_TEXT_GATE_BATCH_SIZE must be a positive integer" >&2
+  exit 2
+fi
+for (( start=0; start<${#files[@]}; start+=batch_size )); do
+  chunk=("${files[@]:start:batch_size}")
+  chunk_hits=""
+  if chunk_hits="$(grep -nHoE "$guid_re" "${chunk[@]}" 2>&1)"; then
+    [[ -n "$hits" ]] && hits+=$'\n'
+    hits+="$chunk_hits"
+  else
+    grep_status=$?
+    if (( grep_status != 1 )); then
+      echo "check-guids: scanner failed: $chunk_hits" >&2
+      exit "$grep_status"
+    fi
+  fi
+done
+
+if [[ -n "$hits" ]]; then
   while IFS= read -r hit; do
     guid="${hit##*:}"
     [[ "$guid" =~ $allow_re ]] && continue
@@ -97,12 +117,6 @@ if hits="$(grep -nHoE "$guid_re" "${files[@]}" 2>&1)"; then
     echo "check-guids: $hit" >&2
     errors=$((errors + 1))
   done <<< "$hits"
-else
-  grep_status=$?
-  if (( grep_status != 1 )); then
-    echo "check-guids: scanner failed: $hits" >&2
-    exit "$grep_status"
-  fi
 fi
 
 if (( errors > 0 )); then
