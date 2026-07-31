@@ -253,6 +253,9 @@ when the question also contains diagnosis semantics such as CPU, memory, or thro
 Health omits its display name, the provider derives the bounded resource name, provider type, and
 resource group from the scope-validated target ID. The raw target ID does not enter the answer or
 narrator context.
+Metric windows use RFC 3339 UTC `Z` timestamps. The provider retains successful observations even
+when they remain inside the threshold, so an answer can distinguish measured normal operation from
+an unqueried metric. The deterministic renderer shows the value, comparison, and threshold.
 The terminal answer keeps every partial-coverage limitation. A positive finding whose state belongs
 to a typed requested group can complete one evidence check because that finding is directly grounded;
 empty groups say only that no match was observed in checked evidence. A partial result without a

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 635f6ef748304555950298026f85d45280e8cf4d
+translation_source_sha: 19f6f9d9a856a143c702d06a65d2129eb20e33b6
 translation_revised: 2026-08-01
 ---
 
@@ -249,6 +249,9 @@ state를 request 순서로 렌더링하고, normalized state가 해당 group에 
 경우에만 representative metric을 실행합니다. Resource Health가 display name을 생략하면 provider는
 scope가 검증된 target ID에서 bounded resource name, provider type 및 resource group을 파생합니다.
 Raw target ID는 answer 또는 narrator context에 들어가지 않습니다.
+Metric window는 RFC 3339 UTC `Z` timestamp를 사용합니다. Provider는 threshold 이내인 성공적인
+observation도 유지하므로 answer가 측정된 정상 상태와 query되지 않은 metric을 구분할 수 있습니다.
+Deterministic renderer는 value, comparison 및 threshold를 표시합니다.
 Terminal answer는 모든 partial-coverage 제한을 유지합니다. Typed requested group에 속하는 상태의
 양성 finding은 해당 finding이 직접 grounded되므로 evidence check 1건을 완료할 수 있습니다. Empty
 group은 확인한 evidence에서 match가 관찰되지 않았다는 사실만 표시합니다. 양성 requested-state
