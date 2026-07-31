@@ -203,7 +203,7 @@
     "src/fdai/core/conversation/tools.py": "8d5944f8c4d4f750530d9eb825eb1e015b4f8d3fcdcc72ac64ef59f11190fed3",
     "src/fdai/core/conversation/write_tools.py": "77dae0f125caa27683344b6987dc530c707e16842e5aeaf568f035a9c94b5978",
     "src/fdai/core/conversation_assurance/__init__.py": "33297bb52bb6a35f9789c1d01f5bc99e1617fae814dee5b069dd6ab65c678d5d",
-    "src/fdai/core/conversation_assurance/consensus.py": "e50c1ec437092eb798e4715108805b0f2e4517a0bdae35508634271cfb132c19",
+    "src/fdai/core/conversation_assurance/consensus.py": "628fb12cebd4acf418af18700b41e5a1cf3f770e6587fa36c0852cc1ad0a06c9",
     "src/fdai/core/conversation_assurance/deterministic.py": "0dfc2513c4a5cbe7b928be557a414d8ea3c6b7b6451d1f91eec79fbfe36fe87d",
     "src/fdai/core/conversation_assurance/identity.py": "f1568698320300442c93ae4b05be8686b8b3e41a690968b8d13a2ece4d348d9b",
     "src/fdai/core/conversation_assurance/learning.py": "beaf0eb807a1c3e5e371184e535db1f9effc10bb0831e1330d50984d0f922d4d",
@@ -840,7 +840,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T09:07:46Z",
+  "generated_at": "2026-07-31T09:15:30Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

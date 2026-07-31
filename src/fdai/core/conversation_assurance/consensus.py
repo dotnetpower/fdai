@@ -163,27 +163,28 @@ def _decision_from_outputs(
         )
         for criterion in AssuranceCriterion
     }
-    conservative_scores = tuple(
-        CriterionScore(
-            criterion=criterion,
-            score=min(item.score for item in scores),
-            rationale=scores[-1].rationale,
-            evidence_refs=tuple(
-                dict.fromkeys(ref for item in scores for ref in item.evidence_refs)
-            ),
+    conservative_scores: list[CriterionScore] = []
+    for criterion, scores in by_criterion.items():
+        minimum = min(scores, key=lambda item: item.score)
+        conservative_scores.append(
+            CriterionScore(
+                criterion=criterion,
+                score=minimum.score,
+                rationale=minimum.rationale,
+                evidence_refs=minimum.evidence_refs,
+            )
         )
-        for criterion, scores in by_criterion.items()
-    )
+    conservative = tuple(conservative_scores)
     verdict = (
         AssuranceVerdict.PASS
-        if all(score.score >= _PASS_THRESHOLD for score in conservative_scores)
+        if all(score.score >= _PASS_THRESHOLD for score in conservative)
         else AssuranceVerdict.FAIL
     )
     return AssuranceDecision(
         verdict=verdict,
-        content_score=_content_score(conservative_scores),
+        content_score=_content_score(conservative),
         confidence=1.0 if not disagreement else 2.0 / 3.0,
-        criteria=conservative_scores,
+        criteria=conservative,
         reasons=("mixed_family_consensus",) if not disagreement else ("tie_break_completed",),
         evaluator_identities=tuple(output.model_identity for output in outputs),
         disagreement=disagreement,

@@ -39,12 +39,17 @@ def _turn(**overrides: object) -> TurnAssessmentInput:
     return TurnAssessmentInput(**values)  # type: ignore[arg-type]
 
 
-def _scores(value: int, *, evidence_ref: str = "evidence:1") -> tuple[CriterionScore, ...]:
+def _scores(
+    value: int,
+    *,
+    evidence_ref: str = "evidence:1",
+    rationale: str = "Supported by the supplied evidence.",
+) -> tuple[CriterionScore, ...]:
     return tuple(
         CriterionScore(
             criterion=criterion,
             score=value,
-            rationale="Supported by the supplied evidence.",
+            rationale=rationale,
             evidence_refs=(evidence_ref,),
         )
         for criterion in AssuranceCriterion
@@ -56,6 +61,7 @@ class _Evaluator:
     model_identity: str
     model_family: str
     score: int
+    rationale: str = "Supported by the supplied evidence."
     calls: int = 0
     saw_debate: bool = False
 
@@ -70,7 +76,7 @@ class _Evaluator:
         return EvaluatorOutput(
             model_identity=self.model_identity,
             model_family=self.model_family,
-            scores=_scores(self.score),
+            scores=_scores(self.score, rationale=self.rationale),
             prompt_tokens=10,
             completion_tokens=5,
             cost_microusd=2,
@@ -91,8 +97,8 @@ def test_deterministic_failed_claim_fails() -> None:
 
 
 async def test_mixed_family_consensus_passes_conservatively() -> None:
-    first = _Evaluator("publisher-a:model-a", "family-a", 4)
-    second = _Evaluator("publisher-b:model-b", "family-b", 3)
+    first = _Evaluator("publisher-a:model-a", "family-a", 4, "Fully supported.")
+    second = _Evaluator("publisher-b:model-b", "family-b", 3, "Minor support gap.")
     reviewer = MixedFamilyAssuranceReviewer(first=first, second=second)
 
     decision = await reviewer.review(_turn())
@@ -101,6 +107,7 @@ async def test_mixed_family_consensus_passes_conservatively() -> None:
     assert decision.model_calls == 2
     assert decision.content_score == 75.0
     assert decision.cost_microusd == 4
+    assert {item.rationale for item in decision.criteria} == {"Minor support gap."}
 
 
 async def test_disagreement_uses_one_independent_tie_break() -> None:
