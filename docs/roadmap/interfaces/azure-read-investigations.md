@@ -140,6 +140,9 @@ resource is not repeated across sections.
 AKS questions that name nodes require Kubernetes workload evidence. Cluster inventory can ground a
 stopped or otherwise unhealthy cluster finding, but missing node readiness remains an explicit
 coverage gap and cannot produce a healthy-node conclusion.
+A positive state-filtered cluster finding can complete its evidence check while the answer retains
+the node coverage gap. A workload-only question without a positive state-filtered finding remains
+unverified.
 
 ## Read-tool catalog
 

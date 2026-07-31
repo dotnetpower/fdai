@@ -791,6 +791,23 @@ def inventory_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(refs)
 
 
+def partial_inventory_findings_are_grounded(evidence: Mapping[str, Any]) -> bool:
+    """Return whether partial inventory has positive state-filtered resource findings."""
+
+    result = evidence.get("result")
+    if not isinstance(result, Mapping) or result.get("status") != "partial":
+        return False
+    matched_count = result.get("matched_count")
+    status_filter = result.get("status_filter")
+    return (
+        isinstance(matched_count, int)
+        and not isinstance(matched_count, bool)
+        and matched_count > 0
+        and isinstance(status_filter, list)
+        and bool(status_filter)
+    )
+
+
 def _safe_resource(raw: Mapping[str, Any]) -> dict[str, Any] | None:
     resource_id = raw.get("id")
     resource_type = raw.get("type")
@@ -853,5 +870,6 @@ __all__ = [
     "inventory_evidence_refs",
     "inventory_execution_query",
     "needs_inventory_evidence",
+    "partial_inventory_findings_are_grounded",
     "render_inventory_answer",
 ]

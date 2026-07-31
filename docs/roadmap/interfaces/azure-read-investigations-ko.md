@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: d70e763c3e2597942ee8ddad608007784395d5ea
+translation_source_sha: 8690c2280492b0a2ebbd27ac1d064898129480bd
 translation_revised: 2026-08-01
 ---
 
@@ -139,6 +139,8 @@ context를 지정한 경우에만 public web이 우선합니다.
 Node를 명시한 AKS 질문에는 Kubernetes workload evidence가 필요합니다. Cluster inventory는 stopped
 또는 다른 unhealthy cluster finding을 ground할 수 있지만, node readiness가 없으면 이를 명시적인
 coverage gap으로 유지하며 healthy-node 결론을 생성할 수 없습니다.
+양성 state-filtered cluster finding은 node coverage gap을 answer에 유지하면서 evidence check를 완료할
+수 있습니다. 양성 state-filtered finding이 없는 workload-only 질문은 unverified로 유지됩니다.
 
 ## Read-tool catalog
 

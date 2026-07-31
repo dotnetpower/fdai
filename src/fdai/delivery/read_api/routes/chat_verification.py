@@ -31,6 +31,7 @@ from fdai.delivery.read_api.routes.chat_detection_readiness import (
 )
 from fdai.delivery.read_api.routes.chat_inventory import (
     inventory_evidence_refs,
+    partial_inventory_findings_are_grounded,
     render_inventory_answer,
 )
 from fdai.delivery.read_api.routes.chat_log_query import (
@@ -351,6 +352,16 @@ def verify_answer(
                 ),
             )
         if state == "partial":
+            if inventory_refs and partial_inventory_findings_are_grounded(tool):
+                return AnswerVerification(
+                    status=_changed(provisional, inventory_answer),
+                    answer=inventory_answer,
+                    authority=inventory_authority,
+                    checks_completed=1,
+                    checks_total=1,
+                    evidence_refs=inventory_refs,
+                    reason_code="inventory_findings_grounded_partial",
+                )
             return AnswerVerification(
                 status="unverified",
                 answer=inventory_answer,

@@ -1207,8 +1207,10 @@ async def test_unhealthy_aks_node_question_filters_clusters_and_holds_node_claim
     assert "aks-running" not in answer
     assert "Node readiness" in answer
     verification = verify_answer("", {"_tool_evidence": evidence}, locale="ko")
-    assert verification.status == "unverified"
-    assert verification.reason_code == "inventory_workload_coverage_gap"
+    assert verification.status == "corrected"
+    assert verification.checks_completed == 1
+    assert verification.checks_total == 1
+    assert verification.reason_code == "inventory_findings_grounded_partial"
 
 
 async def test_aks_workload_question_uses_bound_kubernetes_evidence() -> None:
