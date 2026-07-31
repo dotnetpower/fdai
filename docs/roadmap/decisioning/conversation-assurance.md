@@ -155,6 +155,8 @@ any evaluator call if it occupies the primary, secondary, or tie-breaker role.
 Norns groups repeated failures by subscription-safe feature digests, failed criteria, route,
 authority, locale, and evidence state. Raw customer identifiers are not clustering keys. A cluster
 must reach configured support and recurrence floors before it creates one bounded candidate.
+The privacy-preserving `principal_scope` participates in both the cluster key and signature digest;
+samples from different scopes never combine to satisfy a support floor.
 
 Candidates may change narrator prompt packs, glossary entries, read-only routing, evidence selection,
 response rendering, locale phrasing, and narrator model ordering. Candidates cannot change the

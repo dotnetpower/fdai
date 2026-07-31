@@ -43,6 +43,7 @@ class AccuracyPosterior:
 @dataclass(frozen=True, slots=True)
 class FailureCluster:
     cluster_id: str
+    principal_scope: str
     signature_digest: str
     failed_criteria: tuple[AssuranceCriterion, ...]
     reasons: tuple[str, ...]
@@ -63,7 +64,7 @@ def cluster_failures(
     if not 1 <= max_examples <= 32:
         raise ValueError("max_examples MUST be in [1, 32]")
     grouped: dict[
-        tuple[tuple[AssuranceCriterion, ...], tuple[str, ...]],
+        tuple[str, tuple[AssuranceCriterion, ...], tuple[str, ...]],
         list[AssessmentRecord],
     ] = {}
     for record in records:
@@ -75,17 +76,18 @@ def cluster_failures(
                 key=str,
             )
         )
-        key = failed, tuple(sorted(record.decision.reasons))
+        key = record.principal_scope, failed, tuple(sorted(record.decision.reasons))
         grouped.setdefault(key, []).append(record)
     clusters: list[FailureCluster] = []
-    for (failed, reasons), samples in grouped.items():
+    for (principal_scope, failed, reasons), samples in grouped.items():
         if len(samples) < min_samples:
             continue
-        material = "\0".join((*map(str, failed), *reasons))
+        material = "\0".join((principal_scope, *map(str, failed), *reasons))
         signature = hashlib.sha256(material.encode()).hexdigest()
         clusters.append(
             FailureCluster(
                 cluster_id=f"assurance-cluster:{signature[:32]}",
+                principal_scope=principal_scope,
                 signature_digest=signature,
                 failed_criteria=failed,
                 reasons=reasons,

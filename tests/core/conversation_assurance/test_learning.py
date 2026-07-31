@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -91,6 +92,16 @@ def test_repeated_failures_form_one_bounded_cluster() -> None:
 
     assert len(clusters) == 1
     assert clusters[0].sample_count == 4
+
+
+def test_failure_clusters_do_not_combine_principal_scopes() -> None:
+    first = _assessment("assessment-1", AssuranceVerdict.FAIL)
+    second = replace(
+        _assessment("assessment-2", AssuranceVerdict.FAIL),
+        principal_scope="principal-2",
+    )
+
+    assert cluster_failures((first, second), min_samples=2) == ()
 
 
 def _candidate(stage: PolicyStage = PolicyStage.SHADOW) -> ChatPolicyCandidate:

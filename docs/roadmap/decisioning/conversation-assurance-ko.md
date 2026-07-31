@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 7870baf0f524d49f97685884551749c6f06ef980
+translation_source_sha: 2f4b241590633f64447b65a907da0229adfab7cc
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -153,6 +153,8 @@ $$
 Norns는 구독에 안전한 feature digest, 실패 기준, route, authority, locale 및 근거 상태를
 기준으로 반복 실패를 그룹화합니다. 원시 고객 식별자는 군집 키가 아닙니다. 군집이 구성된 지원
 수와 반복 횟수 하한에 도달해야 제한된 후보 하나를 만들 수 있습니다.
+privacy-preserving `principal_scope`는 cluster key와 signature digest에 모두 참여하며, 서로 다른
+scope의 sample은 지원 하한을 충족하기 위해 합산되지 않습니다.
 
 후보는 narrator prompt pack, glossary, 읽기 전용 route, 근거 선택, 응답 렌더링, locale 표현,
 narrator 모델 순서를 변경할 수 있습니다. 루브릭, benchmark label, evaluator prompt, 근거
