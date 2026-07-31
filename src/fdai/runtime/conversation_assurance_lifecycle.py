@@ -26,7 +26,6 @@ from fdai.core.conversation_assurance import (
 )
 from fdai.core.metering import TokenUsage
 from fdai.core.metering.pricing import PricingTable
-from fdai.delivery.read_api.routes.chat_backend_common import ChatBackend
 
 _SCENARIO_VERSION = "conversation-assurance-v1"
 
@@ -95,6 +94,16 @@ class NarratorCostEstimator(Protocol):
     def __call__(self, reply: Mapping[str, Any]) -> int | None: ...
 
 
+class NarratorBackend(Protocol):
+    async def answer(
+        self,
+        *,
+        prompt: str,
+        view_context: dict[str, Any],
+        history: list[dict[str, str]],
+    ) -> dict[str, Any]: ...
+
+
 def pricing_narrator_cost_estimator(pricing: PricingTable) -> NarratorCostEstimator:
     """Build a strict model-and-usage estimator over the shared pricing catalog."""
 
@@ -158,7 +167,7 @@ class BilingualBlindPolicyTrialMeasurer:
     def __init__(
         self,
         *,
-        backend: ChatBackend,
+        backend: NarratorBackend,
         reviewer: MixedFamilyAssuranceReviewer,
         cost_estimator: NarratorCostEstimator,
         scenarios: tuple[BlindConversationScenario, ...] = BLIND_CONVERSATION_SCENARIOS,
@@ -377,5 +386,6 @@ __all__ = [
     "BlindConversationScenario",
     "DeterministicNarratorPolicyProposer",
     "NarratorCostEstimator",
+    "NarratorBackend",
     "pricing_narrator_cost_estimator",
 ]
