@@ -2,8 +2,8 @@
 title: 결정론 우선(Deterministic first)
 description: FDAI가 반복 가능한 다수는 규칙으로 해소하고 애매한 소수만 LLM 추론에 넘기는 이유.
 translation_of: deterministic-first.md
-translation_source_sha: 37fcaf656ad42316b5354d6b03667526d13fb15d
-translation_revised: 2026-07-27
+translation_source_sha: 92589dc322382039f0c4d9e89fa38c20de2aab51
+translation_revised: 2026-07-31
 sidebar:
   order: 2
 ---
@@ -131,6 +131,23 @@ T2는 누락된 규칙을 모델의 자신감으로 대체하는 권한이 아�
 
 같은 고정 시나리오 세트와 배포 기간을 기준으로 값을 비교하세요. T0 비율이 올라간 것은
 오탐지, 롤백 비율, 정책 우회가 함께 나빠지지 않았을 때만 의미가 있습니다.
+
+## 팁: T0 판정에서 OPA와 Rego의 역할
+
+**Open Policy Agent(OPA)**는 FDAI가 policy-as-code 검사에 사용하는 정책 평가
+엔진입니다. **Rego**는 OPA가 평가할 규칙을 작성하는 선언형 정책 언어입니다. 즉,
+Rego가 조건을 기술하고 OPA가 정규화된 리소스 사실을 조건에 대조해 실행합니다.
+
+T0 이벤트가 들어오면 FDAI는 먼저 리소스 유형과 신호 유형으로 후보 카탈로그 규칙을
+선택합니다. 그런 다음 현재 리소스 속성과 규칙 매개 변수를 OPA에 전달합니다. Rego
+정책이 `deny = true`를 반환하면 해당 규칙이 결정론적으로 일치한 것이며 FDAI는 규칙
+ID와 버전이 포함된 점검 결과를 기록합니다. `deny = false`이면 리소스가 해당 검사를
+통과한 것입니다. 결과가 정의되지 않았거나 정책 누락, 시간 초과, 잘못된 출력이 발생하면
+추측하지 않고 해당 규칙의 판단을 보류합니다.
+
+예를 들어 object-storage 규칙은 `enable_https_traffic_only`가 `true`가 아닐 때
+`deny = true`를 반환할 수 있습니다. FDAI는 이 결과를 모델이 생성한 판단이 아니라
+특정 버전의 정책 위반으로 설명할 수 있습니다.
 
 ## 다음 단계
 

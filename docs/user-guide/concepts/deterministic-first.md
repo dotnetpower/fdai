@@ -139,6 +139,24 @@ Compare those values against the same frozen scenario set and deployment window.
 A higher T0 share only means something when false negatives, rollback rate, and
 policy escapes do not get worse.
 
+## Tip: OPA and Rego in T0 decisions
+
+**Open Policy Agent (OPA)** is the policy evaluation engine FDAI uses for
+policy-as-code checks. **Rego** is the declarative policy language used to write
+the rules that OPA evaluates. In other words, Rego describes the condition and
+OPA runs it against the normalized resource facts.
+
+For a T0 event, FDAI first selects candidate catalog rules by resource type and
+signal type. It then supplies the current resource properties and rule parameters
+to OPA. If the Rego policy returns `deny = true`, the rule is a deterministic hit
+and FDAI records a finding with the rule ID and version. `deny = false` means the
+resource passed that check. An undefined result, missing policy, timeout, or
+invalid output holds the rule for review instead of guessing.
+
+Example: an object-storage rule can return `deny = true` when
+`enable_https_traffic_only` is not `true`. FDAI can then explain the result as a
+specific versioned policy violation rather than a model-generated judgment.
+
 ## Next steps
 
 | To learn about | Read |
