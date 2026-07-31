@@ -59,6 +59,20 @@ DEFAULT_METRIC_PROBES: Final[tuple[MetricProbeSpec, ...]] = (
     ),
     MetricProbeSpec("microsoft.storage/storageaccounts", "Availability", "Average", "lt", 99.0),
     MetricProbeSpec(
+        "microsoft.cache/redis",
+        "usedmemorypercentage",
+        "Maximum",
+        "gt",
+        90.0,
+    ),
+    MetricProbeSpec(
+        "microsoft.cache/redisenterprise",
+        "usedmemorypercentage",
+        "Maximum",
+        "gt",
+        90.0,
+    ),
+    MetricProbeSpec(
         "microsoft.dbforpostgresql/flexibleservers",
         "cpu_percent",
         "Maximum",
@@ -293,6 +307,7 @@ class AzureSubscriptionHealthProvider:
         )
         metric_tasks = [asyncio.create_task(inspect(resource)) for resource in metric_targets]
         metric_findings: list[dict[str, Any]] = []
+        metric_observations: list[dict[str, Any]] = []
         metric_unavailable = 0
         metric_completed = 0
         try:
@@ -302,6 +317,7 @@ class AzureSubscriptionHealthProvider:
                 except Exception:  # noqa: BLE001 - one failure produces partial evidence
                     metric_unavailable += 1
                 else:
+                    metric_observations.append(result)
                     if result.get("anomalous") is True:
                         metric_findings.append(result)
                 metric_completed += 1
@@ -361,6 +377,7 @@ class AzureSubscriptionHealthProvider:
             "metric_checked": len(metric_targets) - metric_unavailable,
             "metric_unavailable": metric_unavailable,
             "unsupported_metric_resources": unsupported_metric_resources,
+            "metric_observations": metric_observations[:64],
             "truncated": truncated,
             "findings": findings[:64],
         }
@@ -481,7 +498,7 @@ class AzureSubscriptionHealthProvider:
                 "metricnames": probe.metric_name,
                 "aggregation": probe.aggregation,
                 "interval": "PT5M",
-                "timespan": f"{since.isoformat()}/{until.isoformat()}",
+                "timespan": f"{_utc_z(since)}/{_utc_z(until)}",
             },
             headers=dict(headers),
             timeout=self._config.timeout_seconds,
@@ -695,6 +712,10 @@ def _metric_value(payload: Any, aggregation: str) -> float:
     if not points:
         raise RuntimeError("Azure Monitor metric has no observed points")
     return min(points) if aggregation == "minimum" else max(points)
+
+
+def _utc_z(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _escaped(value: str) -> str:

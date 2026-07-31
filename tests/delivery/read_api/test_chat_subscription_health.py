@@ -312,6 +312,52 @@ async def test_specific_storage_state_query_skips_unrequested_metrics() -> None:
     assert "대표 메트릭: 요청되지 않음" in answer
 
 
+async def test_cache_pressure_query_renders_normal_memory_observation() -> None:
+    async def cache_health(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del progress_observer
+        assert lookback_seconds == 3_600
+        return {
+            "status": "matched",
+            "source": "azure-resource-graph+resource-health+azure-monitor-metrics",
+            "observed_at": "2026-08-01T04:10:00Z",
+            "resource_count": 1,
+            "resource_health_unavailable": 0,
+            "metrics_requested": True,
+            "metric_checked": 1,
+            "metric_unavailable": 0,
+            "unsupported_metric_resources": 0,
+            "metric_observations": [
+                {
+                    "resource_name": "redis-example",
+                    "resource_type": "Microsoft.Cache/redisEnterprise",
+                    "metric": "usedmemorypercentage",
+                    "value": 0.0,
+                    "threshold": 90.0,
+                    "comparison": "gt",
+                    "anomalous": False,
+                }
+            ],
+            "truncated": False,
+            "findings": [],
+        }
+
+    evidence = await SubscriptionHealthChatTools(cache_health).resolve(
+        "Are any cache services unavailable or under memory pressure?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    answer = render_subscription_health_answer(evidence, locale="en")
+    assert answer is not None
+    assert "**Unavailable**" in answer
+    assert "redis-example: usedmemorypercentage=0.0" in answer
+    assert "threshold gt 90.0 (within threshold)" in answer
+
+
 def test_current_subscription_question_uses_server_scope_metadata() -> None:
     backend = _Backend()
     app = Starlette(

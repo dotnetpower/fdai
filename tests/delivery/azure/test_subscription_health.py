@@ -113,6 +113,9 @@ def _handler(*, metric_status: int = 200) -> Callable[[httpx.Request], httpx.Res
             return httpx.Response(200, json={"data": _resource_rows()})
         if metric_status >= 400:
             return httpx.Response(metric_status, json={"error": "throttled"})
+        timespan = request.url.params["timespan"]
+        assert timespan.count("Z") == 2
+        assert "+" not in timespan
         return httpx.Response(
             200,
             json={

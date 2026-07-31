@@ -40,8 +40,13 @@ def is_inventory_question(
     lexical = language or default_inventory_query_language_resolver()
     registry = lexical.registry
     resource_types = _resolver(resolver).resolve(prompt)
+    matched_states = lexical.matched_entries(registry.states, prompt)
+    diagnosis_allowed = bool(resource_types) and any(
+        entry.evidence_authority is QueryEvidenceAuthority.SUBSCRIPTION_HEALTH
+        for entry in matched_states
+    )
     semantic_marker = bool(
-        lexical.matched_value_groups(registry.states, prompt)
+        matched_states
         or lexical.matched_value_groups(registry.operations, prompt)
         or lexical.matched_ids(registry.query_kinds, prompt)
         or lexical.matched_ids(registry.groupings, prompt)
@@ -50,7 +55,7 @@ def is_inventory_question(
     return bool(
         prompt.strip()
         and not lexical.has(registry.signals, "mutation", prompt)
-        and not lexical.has(registry.signals, "diagnosis", prompt)
+        and (not lexical.has(registry.signals, "diagnosis", prompt) or diagnosis_allowed)
         and (lexical.has(registry.signals, "resource_subject", prompt) or resource_types)
         and (lexical.has(registry.signals, "read", prompt) or semantic_marker or "?" in prompt)
     )

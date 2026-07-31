@@ -339,6 +339,9 @@ def render_subscription_health_answer(
     metric_unavailable = _integer(result.get("metric_unavailable"))
     unsupported = _integer(result.get("unsupported_metric_resources"))
     metrics_requested = result.get("metrics_requested") is not False
+    metric_observations = [
+        item for item in result.get("metric_observations", []) if isinstance(item, Mapping)
+    ]
     findings = [item for item in result.get("findings", []) if isinstance(item, Mapping)]
     findings = _filter_findings_by_requested_type(evidence, findings)
     source = str(result.get("source") or "Azure read providers")
@@ -374,6 +377,7 @@ def render_subscription_health_answer(
     if korean:
         lines = [summary]
         lines.extend(grouped_lines)
+        lines.extend(_metric_observation_lines(metric_observations, korean=True))
         metric_summary = (
             f"메트릭 확인: {metric_checked}개, 조회 불가 {metric_unavailable}개, "
             f"미지원 {unsupported}개."
@@ -394,6 +398,7 @@ def render_subscription_health_answer(
         return "\n".join(lines)
     lines = [summary]
     lines.extend(grouped_lines)
+    lines.extend(_metric_observation_lines(metric_observations, korean=False))
     metric_summary = (
         f"Metrics: {metric_checked} checked, {metric_unavailable} unavailable, "
         f"{unsupported} unsupported."
@@ -489,6 +494,27 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
         value = finding.get("value")
         detail = f", {metric}={value}" if isinstance(metric, str) else ""
         lines.append(f"- {name}: {kind}, {status}{detail}")
+    return lines
+
+
+def _metric_observation_lines(
+    observations: list[Mapping[str, Any]],
+    *,
+    korean: bool,
+) -> list[str]:
+    lines: list[str] = []
+    for observation in observations[:20]:
+        name = str(observation.get("resource_name") or "unknown")
+        metric = str(observation.get("metric") or "unknown")
+        value = observation.get("value")
+        threshold = observation.get("threshold")
+        comparison = str(observation.get("comparison") or "unknown")
+        anomalous = observation.get("anomalous") is True
+        if korean:
+            status = "임계값 초과" if anomalous else "임계값 이내"
+        else:
+            status = "over threshold" if anomalous else "within threshold"
+        lines.append(f"- {name}: {metric}={value}, threshold {comparison} {threshold} ({status}).")
     return lines
 
 

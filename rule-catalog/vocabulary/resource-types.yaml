@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.1"
+version: "0.3.2"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 types:
@@ -246,11 +246,13 @@ types:
     category: database
     description: In-memory cache (Redis, Memcached).
     azure_arm_type: Microsoft.Cache/redis
+    query_terms: [cache, caches, redis cache, standard redis]
     typical_parents: [resource-group]
   - id: redis-enterprise
     category: database
     description: Enterprise managed Redis-compatible cache and data service.
     azure_arm_type: Microsoft.Cache/redisEnterprise
+    query_terms: [cache services, redis enterprise, enterprise redis]
     typical_parents: [resource-group]
 
   # ── security / identity ──────────────────────────────────────────────

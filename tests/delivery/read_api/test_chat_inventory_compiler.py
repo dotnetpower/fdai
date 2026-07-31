@@ -350,6 +350,17 @@ def test_storage_health_question_preserves_unavailable_and_degraded_states() -> 
     ]
 
 
+def test_cache_service_health_question_selects_both_cache_provider_types() -> None:
+    query = compile_inventory_query(
+        "Are any cache services unavailable or under memory pressure?",
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == ("cache", "redis-enterprise")
+    assert by_field[InventoryField.STATUS] == "unavailable"
+
+
 def test_observed_type_and_location_are_dynamic_facets() -> None:
     resources = (
         *_RESOURCES,
