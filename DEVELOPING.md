@@ -85,9 +85,11 @@ with the `azure-selfprovision` skill.
 The canonical topology is the console SPA (`5273`), read API (`8010`), and
 ingestion gateway (`8011`).
 
-- VS Code (recommended): run the `console: prepare full stack` task, then the
-  `console: core runtime`, `console: read API (Local Entra)`, and
-  `console: frontend (Browser Entra)` tasks, or start the
+- VS Code (recommended): trust the workspace. Automatic workspace tasks are
+  enabled in `.vscode/settings.json`, so `console: read API (Local Entra)`
+  prepares and starts the read API without prompting whenever the folder opens.
+  Start `console: core runtime` and
+  `console: frontend (Browser Entra)` separately, or use the
   `Console Web: Full Stack` compound from Run and Debug.
 - Optional dev data stack (Postgres + Redpanda) for persistence tests:
 

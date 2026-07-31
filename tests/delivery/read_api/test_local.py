@@ -362,9 +362,10 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     ):
         assert preparation in prepare_task
     assert all(
-        '"dependsOn"' not in standalone_task
-        for standalone_task in (core_task, read_api_task, frontend_task)
+        '"dependsOn"' not in standalone_task for standalone_task in (core_task, frontend_task)
     )
+    assert '"dependsOn": "console: prepare full stack"' in read_api_task
+    assert '"runOn": "folderOpen"' in read_api_task
     assert "preLaunchTask" not in configs["Console Web: Core Runtime"]
     assert "preLaunchTask" not in configs["Console Web: Read API"]
     assert configs["Console Web: Read API"]["envFile"].endswith("/.fdai/local-runtime.env")
@@ -372,6 +373,7 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     assert frontend_env["VITE_LOCAL_AZURE_CLI_AUTH"] == "0"
     assert settings["liveServer.settings.host"] == "127.0.0.1"
     assert settings["liveServer.settings.port"] == 5373
+    assert settings["task.allowAutomaticTasks"] == "on"
     assert configs["Console Web: Frontend"]["command"].endswith("--port 5273 --strictPort")
     read_api_args = configs["Console Web: Read API"]["args"]
     ingestion_args = configs["Console Web: Ingestion Gateway"]["args"]

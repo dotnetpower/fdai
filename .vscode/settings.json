@@ -1,6 +1,7 @@
 {
     "liveServer.settings.host": "127.0.0.1",
     "liveServer.settings.port": 5373,
+    "task.allowAutomaticTasks": "on",
     "makefile.configureOnOpen": false,
     "files.associations": {
         "**/.github/workflows/deploy-dev.yml": "yaml"
