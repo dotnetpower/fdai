@@ -6,6 +6,7 @@ secrets/
 logs/
 tmp/
 resolved-models*.json
+!resolved-models.json
 # Exclude the test tree from the build context EXCEPT tests/scenarios/, which
 # the runtime image ships so the frozen-scenario replay / measurement path can
 # run inside the container (see Dockerfile: COPY tests/scenarios/). Use

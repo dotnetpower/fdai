@@ -109,3 +109,23 @@ def test_shipped_dockerfile_satisfies_the_base_image_contract() -> None:
     module = _load_contract_module()
 
     assert module._validate_base_images() == []
+
+
+def test_resolved_model_manifest_reaches_container_build_context() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    dockerfile = (repo_root / "Dockerfile").read_text(encoding="utf-8")
+    dockerignore = (repo_root / ".dockerignore").read_text(encoding="utf-8").splitlines()
+
+    assert "COPY --chown=65532:65532 resolved-models.json /app/resolved-models.json" in dockerfile
+    assert "resolved-models*.json" in dockerignore
+    assert "!resolved-models.json" in dockerignore
+
+
+def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
+    dockerfile = (Path(__file__).resolve().parents[2] / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "--no-install-workspace" in dockerfile
+    assert "COPY evaluation-sdk/ ./evaluation-sdk/" in dockerfile
+    assert "COPY benchmarks/sregym/pyproject.toml" in dockerfile
+    assert "COPY benchmarks/cybergym/pyproject.toml" in dockerfile
+    assert "uv sync --frozen --package fdai" in dockerfile
