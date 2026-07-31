@@ -52,7 +52,7 @@ def _bound_attributes(attrs: Any) -> dict[str, Any]:
     for key, value in attrs.items():
         if len(out) >= _MAX_ATTR_KEYS:
             break
-        out[str(key)[:_MAX_FIELD_CHARS]] = _bound(value)
+        out[str(key)[:_MAX_FIELD_CHARS]] = _bound_json(value, depth=1)
     return out
 
 
