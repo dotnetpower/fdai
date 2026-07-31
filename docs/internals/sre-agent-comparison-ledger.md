@@ -685,6 +685,29 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 3 | 4 | 4 | 3 | 4 | 3 | 4 | 25/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0027: Resource types without directly observed state
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q019` |
+| Executed | `2026-08-01` |
+| Question | `상태를 확인할 수 없는 리소스 유형도 함께 알려줘.` |
+| Scope alignment | Both products continued from the same selected resource group. Deployment-owned values were redacted. |
+| Azure SRE Agent answer | Separated four provider types with directly observed operational state from 15 types that exposed only provisioning state in its current Resource Graph query. It explicitly stated that virtual machines required another power-state read. |
+| FDAI answer | Checked the same 32 provider-native resources, found five types with directly observed operational or power state, and reported 26 resources across 14 types with provisioning-only or unknown state evidence. |
+| Evidence | Catalog-owned `state_coverage` query, bounded continuation selector, exact group/container/provider predicates, preserved status provenance, fresh snapshot time, no truncation, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | The unavailable-type sets matched except for virtual machines. FDAI consumed the additional Azure CLI VM power evidence already present in its snapshot, so it correctly moved that type from unavailable to directly observed rather than suggesting a future check. |
+| Winner | FDAI for stronger evidence coverage and a narrower, fully grounded unknown-state set. |
+| General fix | Display state and state provenance remain independent. Operational and power evidence satisfy direct-state coverage; provisioning-only and unknown evidence do not. Catalog continuation semantics preserve the selected group without broadening server scope. |
+| Status | `fdai-win` |
+
+#### RUN-0027 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -712,7 +735,7 @@ existing seed.
 | Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | compared |
 | Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | compared |
 | Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | compared |
-| Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | queued |
+| Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | compared |
 | Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | queued |
 | Q021 | ko | Platform health | 현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어? | `HEALTH` | queued |
 | Q022 | en | Platform health | Is any managed resource affected by an active Azure outage? | `HEALTH` | queued |
