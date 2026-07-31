@@ -595,6 +595,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 2 | 1 | 4 | 3 | 4 | 3 | 4 | 21/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0023: Subscription resources by provider type
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q015` |
+| Executed | `2026-08-01` |
+| Question | `이 구독에서 관리 중인 리소스를 유형별로 요약해줘.` |
+| Azure SRE Agent answer | Reported 63 resource types from a current Resource Graph query and summarized selected categories and leading type counts. The final rerun omitted the total resource count and did not enumerate every type. |
+| FDAI answer | Reported 445 provider-native resources across the same 63 provider types, enumerated every type, and separately disclosed 40 resource-group containers and 34 topology-derived child records. Deployment-owned values were redacted. |
+| Evidence | Server-owned subscription inventory, complete provider-type preservation including uncataloged ARM types, a 1,000-resource source bound, explicit container and derived-record accounting, fresh snapshot time, no truncation, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products agreed on the 63 provider types and leading counts. FDAI additionally supplied the complete resource total and type list, kept topology projections out of the provider-native count, and exposed freshness, coverage, truncation, and verification. |
+| Winner | FDAI for stronger completeness, evidence integrity, coverage accounting, and deterministic verification. |
+| General fix | Complete inventory summaries preserve uncataloged provider resources instead of dropping them. Provider-native totals exclude resource-group containers and topology-derived records, provider type casing is normalized, and source capacity matches the bounded subscription-root contract. |
+| Status | `fdai-win` |
+
+#### RUN-0023 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 2 | 3 | 3 | 4 | 3 | 4 | 23/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 3 | 26/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -618,7 +640,7 @@ existing seed.
 | Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | compared |
 | Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | compared |
 | Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | compared |
-| Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | queued |
+| Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | compared |
 | Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | queued |
 | Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | queued |
 | Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | queued |
