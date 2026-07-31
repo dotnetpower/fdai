@@ -169,6 +169,21 @@ def _category_query_term_collisions(
     return sorted(collisions)
 
 
+def _cross_category_query_term_collisions(
+    raw_categories: object,
+) -> dict[str, set[str]]:
+    if not isinstance(raw_categories, Mapping):
+        return {}
+    owners: dict[str, set[str]] = {}
+    for category, terms in raw_categories.items():
+        if not isinstance(terms, list):
+            continue
+        for term in terms:
+            if isinstance(term, str):
+                owners.setdefault(_normalize_term(term), set()).add(str(category))
+    return {term: categories for term, categories in owners.items() if len(categories) > 1}
+
+
 def _shared_arm_types_without_kind(entries: Iterable[Mapping[str, Any]]) -> list[str]:
     candidates: dict[str, list[tuple[str, bool]]] = {}
     for entry in entries:
@@ -319,6 +334,15 @@ def load_resource_type_registry_from_mapping(
                 ResourceTypeIssue(
                     key=f"types[id={entry_id}].query_terms[{term}]",
                     message=f"category query term {term!r} is already owned by {category}",
+                )
+            )
+        for term, categories in sorted(
+            _cross_category_query_term_collisions(raw.get("category_query_terms")).items()
+        ):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"category_query_terms[{term}]",
+                    message=f"query term belongs to multiple categories {sorted(categories)}",
                 )
             )
         for arm_type in _shared_arm_types_without_kind(entries):

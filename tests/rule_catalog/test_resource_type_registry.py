@@ -191,6 +191,32 @@ def test_category_query_term_cannot_shadow_concrete_type_term() -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+def test_category_query_term_cannot_belong_to_multiple_categories() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "category_query_terms": {
+            "compute": ["service"],
+            "database": ["Service"],
+        },
+        "types": [
+            {
+                "id": "compute.vm",
+                "category": "compute",
+                "description": "VM",
+            },
+            {
+                "id": "postgresql-server",
+                "category": "database",
+                "description": "PostgreSQL",
+            },
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="multiple categories"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_typical_parents_reference_only_registered_ids() -> None:
     registry = _shipped()
     ids = registry.ids()

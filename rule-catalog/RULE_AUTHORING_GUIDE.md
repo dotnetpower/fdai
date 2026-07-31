@@ -268,8 +268,9 @@ resulting parent graph must remain acyclic.
 - Choose ids whose dot/dash-separated words remain unique when rendered with spaces; the loader
   rejects canonical ids that generate the same inventory query surface.
 - Put generic terms such as `database` or `db` in top-level `category_query_terms`, not on one
-  concrete type. The loader rejects the same normalized term at both levels. A longer concrete
-  type term still takes precedence over a shorter category term in the same question.
+  concrete type. Each normalized category term belongs to exactly one category, and the loader
+  also rejects the same term at the category and concrete levels. A longer concrete type term
+  still takes precedence over a shorter category term in the same question.
 - When two semantic types share one Azure ARM type, declare `azure_kind_tokens` on every variant.
   For example, Azure Functions and Web Apps both use `Microsoft.Web/sites`; the observed Azure
   `kind` separates them. Tokens use the lowercase ASCII provider-machine form, are unique within
