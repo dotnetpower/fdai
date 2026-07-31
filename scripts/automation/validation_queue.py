@@ -159,6 +159,8 @@ def _validation_environment(paths: QueuePaths) -> dict[str, str]:
     environment.setdefault("MYPY_CACHE_DIR", str(cache_root / "mypy"))
     environment.setdefault("RUFF_CACHE_DIR", str(cache_root / "ruff"))
     environment["UV_PROJECT_ENVIRONMENT"] = str(paths.state_root / "venv")
+    primary_python = paths.repo_root / ".venv" / "bin" / "python"
+    environment["UV_PYTHON"] = str(primary_python) if primary_python.is_file() else "3.13"
     environment["FDAI_VALIDATION_ACTIVE"] = "1"
     return environment
 
@@ -219,6 +221,14 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
         for filename in ("resolved-models.json", "resolved-models-local.json"):
             _link_local_path(paths.repo_root / filename, validation_root / filename)
         environment = _validation_environment(paths)
+        sync_status = _run_command(
+            ["uv", "sync", "--frozen", "--extra", "dev", "--python", environment["UV_PYTHON"]],
+            cwd=validation_root,
+            env=environment,
+        )
+        if sync_status != 0:
+            return sync_status
+        environment["UV_NO_SYNC"] = "1"
         print(
             f"validation-queue: validating {len(selected)} commit(s) at {head[:12]} "
             f"with mode={mode}"

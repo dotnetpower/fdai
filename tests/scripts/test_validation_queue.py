@@ -21,10 +21,12 @@ def _run(
     *arguments: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    bin_dir = cwd / "bin"
+    path = f"{bin_dir}:{os.environ['PATH']}" if bin_dir.is_dir() else os.environ["PATH"]
     return subprocess.run(  # noqa: S603 - test-controlled arguments and repository paths
         list(arguments),
         cwd=cwd,
-        env={**os.environ, **(env or {})},
+        env={**os.environ, "PATH": path, **(env or {})},
         capture_output=True,
         text=True,
         check=False,
@@ -34,12 +36,19 @@ def _run(
 @pytest.fixture
 def git_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
+    (repo / "bin").mkdir(parents=True)
+    (repo / "bin" / "uv").write_text(
+        '#!/usr/bin/env bash\ntest "$1" = sync || exit 11\ntest "$UV_PYTHON" = 3.13 || exit 12\n',
+        encoding="utf-8",
+    )
+    (repo / "bin" / "uv").chmod(0o755)
     (repo / "scripts" / "automation").mkdir(parents=True)
     shutil.copy2(QUEUE_SCRIPT, repo / "scripts" / "automation" / "validation_queue.py")
     (repo / "scripts" / "automation" / "tests-for-diff.sh").write_text(
         "#!/usr/bin/env bash\n"
         "test -f resolved-models.json || exit 9\n"
         'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
+        'test "$UV_NO_SYNC" = 1 || exit 13\n'
         'printf "changed:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
         encoding="utf-8",
     )
@@ -47,6 +56,7 @@ def git_repo(tmp_path: Path) -> Path:
         "#!/usr/bin/env bash\n"
         "test -f resolved-models.json || exit 9\n"
         'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
+        'test "$UV_NO_SYNC" = 1 || exit 13\n'
         'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
         encoding="utf-8",
     )
