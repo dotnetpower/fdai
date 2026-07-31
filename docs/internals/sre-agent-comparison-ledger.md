@@ -93,6 +93,34 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI | 2 | 1 | 1 | 4 | 4 | 2 | 4 | 18/28 |
 
+### RUN-0002: English stopped database discovery
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q002` |
+| Executed | `2026-08-01` |
+| Locale | English |
+| Question | `Are any databases stopped right now?` |
+| Scope alignment | Same signed-in Azure subscription; both products performed a new read after the question. |
+| Azure SRE Agent answer | Reported four stopped servers across MySQL and PostgreSQL, then separately reported one paused SQL database. Names were redacted. |
+| FDAI answer | Reported 14 stopped or deallocated resources, including the four stopped database servers plus virtual machines and Kubernetes clusters. Names were redacted. |
+| Azure SRE Agent evidence | Executed a current Azure Resource Graph query constrained to eight database resource types. |
+| FDAI evidence | Executed a deterministic current inventory query constrained only by stopped or VM-deallocated status. The compiled query omitted a database resource-type predicate. |
+| Material difference | FDAI found the stopped MySQL servers missed in `RUN-0001`, but lost the database scope and returned ten unrelated compute or Kubernetes resources. |
+| Winner | Azure SRE Agent for intent resolution, scope correctness, and concise completeness. |
+| FDAI advantage | Stronger source, snapshot, freshness, verification, and zero-model-call accounting. |
+| Root gap | The English plural `databases` did not preserve the database-family constraint when combined with a stopped-state predicate. |
+| General fix | Resolve singular and plural database terms through the resource-type catalog, intersect them with state predicates, and reject a compiled plan that silently drops an explicit resource class. |
+| Regression cohort | `Q001`, `Q002`, `Q003`, `Q004`, plus singular/plural and word-order paraphrases. |
+| Status | `gap-confirmed` |
+
+#### RUN-0002 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 1 | 1 | 3 | 4 | 4 | 1 | 2 | 16/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -103,7 +131,7 @@ existing seed.
 | ID | Locale | Domain | Question | Contract | Status |
 |----|--------|--------|----------|----------|--------|
 | Q001 | ko | Database state | 중지된 데이터베이스 있어? | `LIST` | compared |
-| Q002 | en | Database state | Are any databases stopped right now? | `LIST` | queued |
+| Q002 | en | Database state | Are any databases stopped right now? | `LIST` | compared |
 | Q003 | ko | Database state | 현재 멈춰 있는 DB를 종류별로 보여줘. | `LIST` | queued |
 | Q004 | en | Database state | List stopped and paused database services separately. | `LIST` | queued |
 | Q005 | ko | Resource state | 실패 상태인 Azure 리소스가 있어? | `LIST` | queued |
