@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 8f52304c3c0d4e6fdfd19cd8bba65a0006b1dfc3
+translation_source_sha: b5745a6cf36a12448b3b9d231f745f0ae10ddd97
 translation_revised: 2026-07-31
 ---
 # FDAI 운영 온톨로지
@@ -242,11 +242,19 @@ authority가 아니라 projection contract입니다. 최소한 다음을 포함�
 - source freshness, provenance, unresolved conflict, catalog version.
 
 Snapshot은 데이터 표면을 넓히지 않으면서 replay lineage를 보존합니다. 도달 가능한 각 context
-object에 대해 object id, type, revision, target resource에서 시작하는 하나의 결정론적 최단 typed
-path를 기록합니다. 각 source의 observation time과 허용된 maximum age도 유지합니다. Snapshot
-identity는 이러한 revision, path, freshness receipt, stale-source 결과, conflict를 포함하므로
-topology, revision 또는 freshness가 바뀌면 이전 identity를 재사용할 수 없습니다. Raw object
-property는 권위 있는 provider에 남으며 snapshot에 복사하지 않습니다.
+object에 대해 object id, type, revision, effective interval, allowlist에 포함된 provenance ref,
+target resource에서 시작하는 하나의 결정론적 최단 typed path를 기록합니다. 각 source의
+observation time과 허용된 maximum age도 유지합니다. Snapshot identity는 이러한 revision, path,
+effective interval, provenance ref, freshness receipt, stale-source 결과, conflict를 포함하므로
+topology, revision, validity, provenance 또는 freshness가 바뀌면 이전 identity를 재사용할 수
+없습니다. Raw object property는 권위 있는 provider에 남으며 snapshot에 복사하지 않습니다.
+
+Materialization은 `effective_from <= cutoff`이고 `effective_to`가 없거나
+`cutoff < effective_to`인 object만 포함합니다. 이 half-open interval 밖의 object는 replay를 위한
+typed temporal exclusion으로 보존하지만 현재 decision fact로 사용하지 않습니다.
+`context_temporal_exclusion`은 autonomy ceiling을 `SHADOW_ONLY`로 낮추므로 만료되거나 미래의
+mapping이 자동 실행 권한을 유지할 수 없습니다. Provenance allowlist는 `source_ref`,
+`measurement_source_ref`, `expression_ref`로 제한합니다.
 
 범위가 제한된 traversal이 node limit에 도달하면 근거가 불완전한 상태입니다. Materialization은
 `context_graph_truncated`를 conflict로 기록하고 autonomy ceiling을 `SHADOW_ONLY`로 낮춥니다. 일부

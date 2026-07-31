@@ -146,6 +146,10 @@ async def test_fresh_context_preserves_autonomy_and_replays() -> None:
     )
     paths = {item.object_id: item for item in first.evidence_paths}
     assert paths["resource-example"].links == ()
+    assert paths["service-example"].effective_from == CUTOFF
+    assert paths["service-example"].effective_to is None
+    assert paths["service-example"].provenance_refs == ("service-catalog:example",)
+    assert paths["slo-example"].provenance_refs == ("metrics:availability",)
     assert [item.link_type for item in paths["service-example"].links] == [
         "workload_runs_on",
         "implemented_by",
@@ -237,6 +241,39 @@ async def test_truncated_graph_lowers_autonomy() -> None:
     assert "context_graph_truncated" in snapshot.conflicts
     assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
     assert snapshot.review_required is True
+
+
+async def test_future_effective_context_is_excluded_and_lowers_autonomy() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="service-example",
+            object_type="BusinessService",
+            properties={
+                "id": "service-example",
+                "name": "Example Service",
+                "criticality": "high",
+                "effective_from": (CUTOFF + timedelta(seconds=1)).isoformat(),
+                "source_ref": "service-catalog:future",
+            },
+        ),
+        expected_revision=1,
+    )
+
+    snapshot = await OperationalContextMaterializer(store=store, clock=lambda: CUTOFF).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+    )
+
+    assert snapshot.service_ids == ()
+    assert snapshot.objective_ids == ()
+    assert snapshot.temporal_exclusions[0].object_id == "service-example"
+    assert snapshot.temporal_exclusions[0].provenance_refs == ("service-catalog:future",)
+    assert "context_temporal_exclusion" in snapshot.conflicts
+    assert "service_mapping_missing" in snapshot.conflicts
+    assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
 
 
 async def test_unmapped_or_stale_context_lowers_autonomy() -> None:

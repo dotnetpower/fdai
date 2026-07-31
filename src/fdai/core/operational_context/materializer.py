@@ -85,6 +85,24 @@ class OperationalContextMaterializer:
             if graph.truncated:
                 conflicts.append("context_graph_truncated")
 
+        all_evidence_links = _evidence_links(links)
+        all_evidence_paths = _evidence_paths(
+            target_resource_id=target_resource_id,
+            objects=objects,
+            links=all_evidence_links,
+        )
+        temporal_exclusions = tuple(
+            item for item in all_evidence_paths if not _is_effective_at(item, cutoff=cutoff)
+        )
+        if temporal_exclusions:
+            conflicts.append("context_temporal_exclusion")
+        excluded_ids = {item.object_id for item in temporal_exclusions}
+        objects = tuple(item for item in objects if item.id not in excluded_ids)
+        links = tuple(
+            item
+            for item in links
+            if item.from_id not in excluded_ids and item.to_id not in excluded_ids
+        )
         evidence_links = _evidence_links(links)
         evidence_paths = _evidence_paths(
             target_resource_id=target_resource_id,
@@ -93,6 +111,13 @@ class OperationalContextMaterializer:
         )
         if len(evidence_paths) != len(objects):
             conflicts.append("context_evidence_path_missing")
+        reachable_ids = {item.object_id for item in evidence_paths}
+        objects = tuple(item for item in objects if item.id in reachable_ids)
+        evidence_links = tuple(
+            item
+            for item in evidence_links
+            if item.from_id in reachable_ids and item.to_id in reachable_ids
+        )
 
         by_type: dict[str, list[str]] = {}
         for item in objects:
@@ -152,6 +177,7 @@ class OperationalContextMaterializer:
             catalog_versions=canonical_versions,
             evidence_links=evidence_links,
             evidence_paths=evidence_paths,
+            temporal_exclusions=temporal_exclusions,
             source_freshness=canonical_freshness,
             stale_sources=normalized_stale,
             conflicts=normalized_conflicts,
@@ -174,6 +200,7 @@ class OperationalContextMaterializer:
             source_freshness=canonical_freshness,
             evidence_links=evidence_links,
             evidence_paths=evidence_paths,
+            temporal_exclusions=temporal_exclusions,
             stale_sources=normalized_stale,
             conflicts=normalized_conflicts,
             autonomy_ceiling=ceiling,
@@ -231,11 +258,44 @@ def _evidence_paths(
             object_id=item.id,
             object_type=item.object_type,
             revision=item.revision,
+            effective_from=_datetime_property(item, "effective_from"),
+            effective_to=_datetime_property(item, "effective_to"),
+            provenance_refs=_provenance_refs(item),
             links=paths[item.id],
         )
         for item in sorted(objects, key=lambda value: value.id)
         if item.id in paths
     )
+
+
+def _datetime_property(record: OntologyObjectRecord, name: str) -> datetime | None:
+    value = record.properties.get(name)
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        raise ValueError(f"{record.object_type}.{name} MUST be a timestamp")
+    if parsed.tzinfo is None:
+        raise ValueError(f"{record.object_type}.{name} MUST be timezone-aware")
+    return parsed.astimezone(UTC)
+
+
+def _provenance_refs(record: OntologyObjectRecord) -> tuple[str, ...]:
+    values = {
+        value
+        for name in ("source_ref", "measurement_source_ref", "expression_ref")
+        if isinstance((value := record.properties.get(name)), str) and value.strip()
+    }
+    return tuple(sorted(values))
+
+
+def _is_effective_at(path: OperationalContextEvidencePath, *, cutoff: datetime) -> bool:
+    if path.effective_from is not None and path.effective_from > cutoff:
+        return False
+    return path.effective_to is None or cutoff < path.effective_to
 
 
 def _snapshot_identity(
@@ -245,6 +305,7 @@ def _snapshot_identity(
     catalog_versions: tuple[tuple[str, str], ...],
     evidence_links: tuple[OperationalContextEvidenceLink, ...],
     evidence_paths: tuple[OperationalContextEvidencePath, ...],
+    temporal_exclusions: tuple[OperationalContextEvidencePath, ...],
     source_freshness: tuple[SourceFreshness, ...],
     stale_sources: tuple[str, ...],
     conflicts: tuple[str, ...],
@@ -256,15 +317,8 @@ def _snapshot_identity(
         "evidence_links": tuple(
             (item.link_type, item.from_id, item.to_id) for item in evidence_links
         ),
-        "evidence_paths": tuple(
-            (
-                item.object_id,
-                item.object_type,
-                item.revision,
-                tuple((link.link_type, link.from_id, link.to_id) for link in item.links),
-            )
-            for item in evidence_paths
-        ),
+        "evidence_paths": _path_identities(evidence_paths),
+        "temporal_exclusions": _path_identities(temporal_exclusions),
         "source_freshness": tuple(
             (
                 item.source,
@@ -278,6 +332,23 @@ def _snapshot_identity(
     }
     encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def _path_identities(
+    paths: Sequence[OperationalContextEvidencePath],
+) -> tuple[tuple[object, ...], ...]:
+    return tuple(
+        (
+            item.object_id,
+            item.object_type,
+            item.revision,
+            item.effective_from.isoformat() if item.effective_from is not None else None,
+            item.effective_to.isoformat() if item.effective_to is not None else None,
+            item.provenance_refs,
+            tuple((link.link_type, link.from_id, link.to_id) for link in item.links),
+        )
+        for item in paths
+    )
 
 
 __all__ = ["OperationalContextMaterializer"]

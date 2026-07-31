@@ -54,6 +54,7 @@ def _context() -> OperationalContextSnapshot:
         source_freshness=(),
         evidence_links=(),
         evidence_paths=(),
+        temporal_exclusions=(),
         stale_sources=(),
         conflicts=(),
         autonomy_ceiling=Autonomy.ENFORCE_AUTO,

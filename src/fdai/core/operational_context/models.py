@@ -45,6 +45,9 @@ class OperationalContextEvidencePath:
     object_id: str
     object_type: str
     revision: int
+    effective_from: datetime | None
+    effective_to: datetime | None
+    provenance_refs: tuple[str, ...]
     links: tuple[OperationalContextEvidenceLink, ...]
 
     def __post_init__(self) -> None:
@@ -52,6 +55,18 @@ class OperationalContextEvidencePath:
             raise ValueError("operational context evidence path identities MUST be non-empty")
         if self.revision < 0:
             raise ValueError("operational context evidence path revision MUST be >= 0")
+        for field_name, value in (
+            ("effective_from", self.effective_from),
+            ("effective_to", self.effective_to),
+        ):
+            if value is not None and value.tzinfo is None:
+                raise ValueError(f"operational context {field_name} MUST be timezone-aware")
+        if (
+            self.effective_from is not None
+            and self.effective_to is not None
+            and self.effective_to <= self.effective_from
+        ):
+            raise ValueError("operational context effective_to MUST be after effective_from")
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +90,7 @@ class OperationalContextSnapshot:
     source_freshness: tuple[SourceFreshness, ...]
     evidence_links: tuple[OperationalContextEvidenceLink, ...]
     evidence_paths: tuple[OperationalContextEvidencePath, ...]
+    temporal_exclusions: tuple[OperationalContextEvidencePath, ...]
     stale_sources: tuple[str, ...]
     conflicts: tuple[str, ...]
     autonomy_ceiling: Autonomy

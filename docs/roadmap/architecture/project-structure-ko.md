@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3fe3d34b00856cc21cba9ccb74dd920c96b4a3f8
+translation_source_sha: b88bd810512750bc9e10c9c91e0c4382956830d7
 translation_revised: 2026-07-31
 ---
 
@@ -42,7 +42,7 @@ fdai/
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gate와 replay-only gated-state recovery
 │   │   ├── working_context/    # 턴당 경계 프롬프트 조립: 불변 selection policy + 필수 validator + shadow evidence/replay + planner/orchestrator fold + summarizer/retriever seam
-│   │   ├── operational_context/ # atomic owned-subgraph replacement와 typed evidence path, object revision, source-freshness receipt, fail-closed truncation을 포함하는 time-consistent snapshot
+│   │   ├── operational_context/ # atomic owned-subgraph replacement와 typed evidence path, effective-time/provenance projection, source-freshness receipt, fail-closed truncation을 포함하는 time-consistent snapshot
 │   │   ├── decision_case/      # protected-objective option, deterministic selection, response closure
 │   │   ├── operational_learning/ # strict outcome classification과 balanced inert pattern cohort
 │   │   ├── quality_gate/       # mixed-model 교차 검사, verifier, grounding; 실패한 fan-out은 sibling을 cancel+drain (T2 방어)
