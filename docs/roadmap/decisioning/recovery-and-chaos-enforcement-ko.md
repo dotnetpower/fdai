@@ -1,7 +1,7 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: d8b2ec7031160f7561f5b8398ecb88d0e2b62075
+translation_source_sha: f2c598c0eb71e84aaf3e0247b3bc8effb63118b8
 translation_revised: 2026-07-31
 ---
 # Recovery 및 chaos enforcement
@@ -18,10 +18,10 @@ experiment execution은 기존 ActionType, workflow, safety check, approval, exe
 > 필요합니다. Thor는 sole privileged executor, Var는 independent approver로 유지되며 Vidar는
 > rollback과 recovery control을 소유합니다.
 >
-> **구현 상태:** 이 문서는 target design입니다. Chaos harness, ActionType safety field, workflow
-> journal, 개별 rollback adapter는 존재합니다. Typed recovery plan, impact envelope, continuous
-> impact guard, pre-authorized recovery sequence는 아직 하나의 end-to-end runtime path로 연결되지
-> 않았습니다.
+> **구현 상태(2026-07-31):** Typed impact analysis, recovery plan, continuous guard, durable run
+> state, pre-authorized recovery, 6개 probe verification, automatic demotion, S1-S14 contract를
+> 구현했습니다. Tool-call enforcement에는 주입된 governed chaos executor가 필요합니다. 기본
+> runtime은 관찰 모드를 유지하며 이 binding 없이 enforcement를 활성화하면 startup을 차단합니다.
 
 ## 설계 개요
 
@@ -212,9 +212,9 @@ Enforcement run은 monotonic state machine을 따릅니다.
 
 ```text
 planned -> impact_checked -> dry_run_verified -> approved -> injecting
-injecting -> observing -> verified -> recovering -> recovered
+injecting -> observing -> verified -> recovering -> verifying -> recovered
 injecting|observing -> stop_triggered -> recovering
-recovering -> recovered|escalated|failed
+verifying -> recovered|escalated|failed
 ```
 
 각 transition은 compare-and-swap, append-only, safe to retry이며 experiment와 target set으로
@@ -286,9 +286,9 @@ out-of-envelope impact, missed stop, rollback failure, stale graph 또는 materi
 - **Drift 및 alert trigger:** Non-fault scenario는 같은 hypothesis와 recovery contract를 사용하지만
   Experiment 또는 injector는 필요하지 않습니다.
 
-## Delivery slice
+## Delivery 상태
 
-구현은 독립적으로 테스트할 수 있는 slice로 진행할 수 있습니다.
+구현은 독립적으로 테스트할 수 있는 slice로 나뉩니다.
 
 1. `ImpactEnvelope`, `RecoveryPlan`, 7개 typed LinkType을 추가합니다.
 2. Bounded affected-set traversal을 구현하고 decision evidence를 저장합니다.
@@ -297,6 +297,10 @@ out-of-envelope impact, missed stop, rollback failure, stale graph 또는 materi
 5. Pre-authorized Vidar recovery control을 Thor의 registered recovery action에 bind합니다.
 6. Independent recovery verification과 promotion/demotion evidence를 추가합니다.
 7. S1-S14 disposable-substrate campaign을 shadow, approved enforce, forced-stop mode로 실행합니다.
+
+Slice 1-6은 core에 구현했고 focused regression test로 검증합니다. Slice 7은 deployment
+evidence입니다. Promoted scenario와 ActionType version, 주입된 Thor, Vidar, Heimdall, telemetry,
+inventory, audit binding이 필요합니다. Environment flag 활성화는 이 binding을 대신하지 않습니다.
 
 ## 관련 문서
 

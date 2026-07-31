@@ -10,9 +10,11 @@ time-consistent graph while keeping execution authority in the existing control 
 > **Authority boundary:** A causal graph is evidence for a decision, not permission to act. The
 > rule verifier, safety check, approval policy, executor, and audit ledger remain authoritative.
 >
-> **Implementation status:** This is the target design. Existing T1 causal-chain reconstruction
-> provides temporal and dependency-aware hypotheses, but the typed hypothesis lifecycle,
-> support/refutation links, and graph-backed closure described here are not implemented yet.
+> **Implementation status (2026-07-31):** The typed hypothesis lifecycle, weakest-link scoring,
+> bounded time-consistent graph materializer, support/refutation and closure links, immutable
+> ontology projector, and regression tests are implemented. Existing T0/T1 RCA audit remains the
+> live control-loop explanation path; deploying graph-backed closure requires the runtime's
+> ontology and independent outcome providers to be bound.
 
 ## Design at a glance
 

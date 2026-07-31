@@ -1,7 +1,7 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: f3777efbb3cac7eb6f3e7fe94576b376ce8828cd
+translation_source_sha: 77517f723848cbffe43c4ef181d020d7ed451cb6
 translation_revised: 2026-07-31
 ---
 # 인과 incident graph
@@ -13,9 +13,11 @@ Event correlation과 root-cause analysis(RCA)를 ontology 기반의 time-consist
 > **권한 경계:** Causal graph는 결정을 위한 evidence이며 실행 허가가 아닙니다. Rule verifier,
 > safety check, approval policy, executor, audit ledger가 계속 authority를 가집니다.
 >
-> **구현 상태:** 이 문서는 target design입니다. 기존 T1 causal-chain reconstruction은 temporal,
-> dependency-aware hypothesis를 제공하지만, typed hypothesis lifecycle, support/refutation link,
-> graph 기반 closure는 아직 구현되지 않았습니다.
+> **구현 상태(2026-07-31):** Typed hypothesis lifecycle, weakest-link scoring, bounded
+> time-consistent graph materializer, support/refutation 및 closure link, immutable ontology
+> projector와 regression test를 구현했습니다. 기존 T0/T1 RCA audit는 현재 control-loop의 live
+> explanation path입니다. Graph-backed closure를 배포하려면 runtime ontology와 independent
+> outcome provider binding이 필요합니다.
 
 ## 설계 개요
 

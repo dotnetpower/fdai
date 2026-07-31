@@ -30,14 +30,7 @@ class ReportSignalWriter(Protocol):
 
 
 class GovernedChaosExecution(Protocol):
-    async def execute(
-        self,
-        *,
-        request: ToolCallRequest,
-        entry: CatalogEntry,
-        scenario: FaultScenario,
-        targets: tuple[str, ...],
-    ) -> ToolCallReceipt: ...
+    async def execute(self, request: ToolCallRequest) -> ToolCallReceipt: ...
 
 
 class ChaosExperimentToolExecutor:
@@ -81,12 +74,7 @@ class ChaosExperimentToolExecutor:
                 raise ToolPreconditionError(
                     "chaos enforce requires a governed impact and recovery executor"
                 )
-            return await self._governed_execution.execute(
-                request=request,
-                entry=entry,
-                scenario=scenario,
-                targets=targets,
-            )
+            return await self._governed_execution.execute(request)
 
         harness = FaultInjectionHarness(
             injectors=injectors,

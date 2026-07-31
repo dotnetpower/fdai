@@ -1067,6 +1067,23 @@ def test_build_tool_executor_jira_enforce_requires_explicit_flag(
     asyncio.run(client.aclose())
 
 
+def test_build_tool_executor_chaos_enforce_requires_governed_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.__main__ import _build_tool_executor
+    from fdai.core.executor.lock import ResourceLockManager
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    monkeypatch.setenv("FDAI_CHAOS_ENFORCE", "1")
+    monkeypatch.setenv("FDAI_CHAOS_CONTEXT_JSON", '{"runtime":"configured"}')
+
+    with pytest.raises(RuntimeError, match="governed chaos execution provider"):
+        _build_tool_executor(
+            audit_store=InMemoryStateStore(),
+            resource_lock=ResourceLockManager(),
+        )
+
+
 def test_build_control_loop_wires_rca_and_correlator(
     monkeypatch: pytest.MonkeyPatch, app_config: AppConfig
 ) -> None:

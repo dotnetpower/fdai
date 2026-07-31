@@ -256,6 +256,7 @@ def _build_tool_executor(
     http_client: httpx.AsyncClient | None = None,
     metric_provider: Any = None,
     chaos_catalog_root: Path | None = None,
+    governed_chaos_execution: Any = None,
 ) -> ToolCallShadowExecutor | None:
     """Select the tool-call executor for this process.
 
@@ -350,12 +351,15 @@ def _build_tool_executor(
         factory=default_chaos_factory(),
         context=chaos_context,
         signal_writer=chaos_signal_writer,
+        governed_execution=governed_chaos_execution,
     )
     routes["tool.run-chaos-experiment"] = chaos_tool
     chaos_enforce = os.environ.get("FDAI_CHAOS_ENFORCE", "").strip() == "1"
     if chaos_enforce:
         if not chaos_context:
             raise RuntimeError("FDAI_CHAOS_ENFORCE=1 requires FDAI_CHAOS_CONTEXT_JSON")
+        if governed_chaos_execution is None:
+            raise RuntimeError("FDAI_CHAOS_ENFORCE=1 requires a governed chaos execution provider")
         enforce_actions.add("tool.run-chaos-experiment")
     _LOGGER.info(
         "tool_call_backend",

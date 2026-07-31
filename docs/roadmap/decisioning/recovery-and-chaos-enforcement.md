@@ -15,10 +15,11 @@ approval, executor, and audit contracts.
 > approval. Thor remains the sole privileged executor, Var remains the independent approver, and
 > Vidar owns rollback and recovery control.
 >
-> **Implementation status:** This is the target design. The chaos harness, ActionType safety
-> fields, workflow journal, and individual rollback adapters exist. The typed recovery plan,
-> impact envelope, continuous impact guard, and pre-authorized recovery sequence are not yet wired
-> as one end-to-end runtime path.
+> **Implementation status (2026-07-31):** Typed impact analysis, recovery plans, continuous
+> guards, durable run state, pre-authorized recovery, six-probe verification, automatic demotion,
+> and S1-S14 contracts are implemented. Tool-call enforcement requires an injected governed chaos
+> executor. The default runtime stays in observation mode and blocks startup when enforcement is
+> enabled without that binding.
 
 ## Design at a glance
 
@@ -205,9 +206,9 @@ An enforcement run follows a monotonic state machine:
 
 ```text
 planned -> impact_checked -> dry_run_verified -> approved -> injecting
-injecting -> observing -> verified -> recovering -> recovered
+injecting -> observing -> verified -> recovering -> verifying -> recovered
 injecting|observing -> stop_triggered -> recovering
-recovering -> recovered|escalated|failed
+verifying -> recovered|escalated|failed
 ```
 
 Each transition is compare-and-swap, append-only, safe to retry, and keyed by the experiment and
@@ -278,9 +279,9 @@ The design supports the S1-S14 pack without hard-coding those identifiers into c
 - **Drift and alert triggers:** Non-fault scenarios use the same hypothesis and recovery contracts
   but do not require an Experiment or injector.
 
-## Delivery slices
+## Delivery status
 
-Implementation can proceed in independently testable slices:
+The implementation is split into independently testable slices:
 
 1. Add `ImpactEnvelope`, `RecoveryPlan`, and the seven typed LinkTypes.
 2. Implement bounded affected-set traversal and persist its decision evidence.
@@ -289,6 +290,11 @@ Implementation can proceed in independently testable slices:
 5. Bind pre-authorized Vidar recovery control to Thor's registered recovery actions.
 6. Add independent recovery verification and promotion/demotion evidence.
 7. Run the S1-S14 disposable-substrate campaign in shadow, approved enforce, and forced-stop modes.
+
+Slices 1-6 are implemented in core and covered by focused regression tests. Slice 7 is deployment
+evidence: it requires promoted scenario and ActionType versions plus injected Thor, Vidar, Heimdall,
+telemetry, inventory, and audit bindings. Enabling an environment flag does not substitute for
+those bindings.
 
 ## Related docs
 
