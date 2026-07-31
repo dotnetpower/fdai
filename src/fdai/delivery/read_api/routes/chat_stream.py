@@ -215,7 +215,11 @@ def make_chat_stream_route(
         evidence_prompt = prepared.evidence_prompt
         resource_context = prepared.resource_context
         resource_followup = prepared.resource_followup
-        deterministic_followup = resource_followup or prepared.inventory_scope_followup
+        deterministic_followup = (
+            resource_followup
+            or prepared.inventory_screen_scope
+            or prepared.inventory_scope_followup
+        )
         view_context = prepared.view_context
         conversation_context = prepared.conversation_context
         target_agent = prepared.target_agent

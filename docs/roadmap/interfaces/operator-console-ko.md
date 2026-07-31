@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 5a82940c933378172ba4bd25a757578baac976ea
+translation_source_sha: cc32f367c2885219ca6df0a391df14a9a0f1cc58
 translation_revised: 2026-08-01
 ---
 
@@ -275,6 +275,10 @@ type을 계속 사용합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와
 동일하게 container, derived-record, truncation, freshness 및 verification disclosure를 유지합니다.
+Architecture는 bounded screen digest에 선택된 resource를 최대 하나만 게시합니다. Current-screen
+service-summary 질문은 선택된 resource-group 이름을 selector hint로만 사용할 수 있고, server
+inventory가 canonical service-type count를 반환하기 전에 해당 group과 member를 다시 resolve합니다.
+Selection이 없거나 malformed 또는 non-group이면 scope authority를 만들지 않습니다.
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
 `EventIngest -> TrustRouter -> T0Engine`을 **메모리 내에서만** 실행: T1

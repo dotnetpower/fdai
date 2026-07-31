@@ -47,6 +47,34 @@ export function architectureSourceLabel(source?: string): string {
   return source.replaceAll(/[._-]+/g, " ").replace(/^./, (character) => character.toUpperCase());
 }
 
+export function architectureContextRecords(
+  graph: Pick<InventoryGraphResponse, "resources" | "links">,
+  selected: InventoryResource | null,
+) {
+  return {
+    resources: graph.resources.map((resource) => ({
+      id: resource.id,
+      type: resource.type,
+      status: resource.status,
+      parent_id: resource.parent_id ?? null,
+    })),
+    links: graph.links.map((link) => ({
+      source: link.source,
+      target: link.target,
+      type: link.type,
+    })),
+    selected_resource: selected
+      ? [{
+          id: selected.id,
+          name: selected.name,
+          type: selected.type,
+          status: selected.status,
+          parent_id: selected.parent_id ?? null,
+        }]
+      : [],
+  };
+}
+
 export async function loadArchitectureGraph(
   client: Pick<ReadApiClient, "panel">,
   requestedView: string | null,
@@ -251,21 +279,9 @@ function ArchitectureBody({
         { key: "realtime_latest_at", value: graph.realtime?.latest_at ?? "none", group: "inventory" },
         { key: "truncated", value: graph.truncated, group: "inventory" },
       ],
-      records: {
-        resources: graph.resources.map((resource) => ({
-          id: resource.id,
-          type: resource.type,
-          status: resource.status,
-          parent_id: resource.parent_id ?? null,
-        })),
-        links: graph.links.map((link) => ({
-          source: link.source,
-          target: link.target,
-          type: link.type,
-        })),
-      },
+      records: architectureContextRecords(graph, selected),
     }),
-    [graph],
+    [graph, selected],
   );
   if (!requestedViewExists && requestedView !== null) {
     return (

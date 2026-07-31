@@ -17,6 +17,7 @@ from fdai.delivery.read_api.routes.chat_document_evidence import (
 )
 from fdai.delivery.read_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
+    contextualize_inventory_screen_scope,
 )
 from fdai.delivery.read_api.routes.chat_resource_context import (
     contextualize_resource_followup,
@@ -47,6 +48,7 @@ class PreparedChatStreamRequest:
     evidence_prompt: str
     resource_context: dict[str, str] | None
     resource_followup: bool
+    inventory_screen_scope: bool
     inventory_scope_followup: bool
     view_context: dict[str, Any]
     conversation_context: dict[str, str] | None
@@ -102,6 +104,7 @@ async def prepare_chat_stream_request(
     view_context.pop("_turn_plan", None)
     view_context.pop("_attachments", None)
     view_context.pop("_model_trace", None)
+    view_context.pop("_inventory_screen_scope", None)
     include_model_trace = body.get("include_model_trace", False)
     if not isinstance(include_model_trace, bool):
         raise HTTPException(status_code=400, detail="include_model_trace MUST be a boolean")
@@ -141,6 +144,12 @@ async def prepare_chat_stream_request(
         evidence_prompt,
         history,
     )
+    evidence_prompt, inventory_screen_scope = contextualize_inventory_screen_scope(
+        evidence_prompt,
+        view_context,
+    )
+    if inventory_screen_scope:
+        view_context["_inventory_screen_scope"] = {"authority": "selector_hint"}
     answer_plan = build_answer_plan(
         evidence_prompt,
         route_id=str(view_context.get("routeId") or "") or None,
@@ -157,6 +166,7 @@ async def prepare_chat_stream_request(
         evidence_prompt=evidence_prompt,
         resource_context=resource_context,
         resource_followup=resource_followup,
+        inventory_screen_scope=inventory_screen_scope,
         inventory_scope_followup=inventory_scope_followup,
         view_context=view_context,
         conversation_context=conversation_context,

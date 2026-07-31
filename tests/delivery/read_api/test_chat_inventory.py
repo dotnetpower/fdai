@@ -22,8 +22,10 @@ from fdai.delivery.read_api.routes.chat_inventory import (
     inventory_execution_query,
     render_inventory_answer,
 )
+from fdai.delivery.read_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.read_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
+    contextualize_inventory_screen_scope,
 )
 from fdai.delivery.read_api.routes.chat_resource_context import resource_followup_answer
 from fdai.delivery.read_api.routes.chat_subscription_health import SubscriptionHealthChatTools
@@ -1053,6 +1055,138 @@ def test_subscription_fragment_does_not_reuse_missing_or_stale_inventory_intent(
         "구독에서 장애가 있어?",
         ({"role": "user", "content": "중지된 AKS 클러스터 목록"},),
     ) == ("구독에서 장애가 있어?", False)
+
+
+def test_architecture_selection_contextualizes_current_screen_inventory() -> None:
+    prompt, contextualized = contextualize_inventory_screen_scope(
+        "현재 화면의 리소스 그룹에 어떤 서비스가 있어?",
+        {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-app",
+                        "name": "rg-app",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert contextualized is True
+    query = compile_inventory_query(
+        prompt,
+        resources=(
+            {"type": "resource-group", "name": "rg-app", "resource_group": "rg-app"},
+            {"type": "compute.vm", "name": "vm-app", "resource_group": "rg-app"},
+        ),
+    )
+    assert query is not None
+    assert query.kind.value == "types"
+    assert query.predicates[0].field.value == "resource_group"
+    assert query.predicates[0].value == "rg-app"
+
+
+def test_selected_architecture_group_routes_to_verified_service_types() -> None:
+    backend = RecordingBackend()
+
+    class RecordingOperationalResolver:
+        calls = 0
+
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: dict[str, str] | None = None,
+        ) -> None:
+            del prompt, conversation_context
+            self.calls += 1
+
+    operational = RecordingOperationalResolver()
+
+    async def projected_provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+        group_ids = {
+            resource["name"]: resource["id"]
+            for resource in graph["resources"]
+            if resource["type"] == "resource-group"
+        }
+        return {
+            **graph,
+            "resources": [
+                {
+                    key: value
+                    for key, value in {
+                        **resource,
+                        "parent_id": (
+                            "sub"
+                            if resource["type"] == "resource-group"
+                            else group_ids.get(resource.get("props", {}).get("resourceGroup"))
+                        ),
+                    }.items()
+                    if key != "props"
+                }
+                for resource in graph["resources"]
+            ],
+        }
+
+    tools = InventoryChatTools(projected_provider)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                evidence_resolver=operational,
+                tool_resolver=tools,
+            ),
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                evidence_resolver=operational,
+                tool_resolver=tools,
+            ),
+        ]
+    )
+    body = {
+        "prompt": "현재 화면의 리소스 그룹에 어떤 서비스가 있어?",
+        "view_context": {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-app",
+                        "name": "rg-app",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/chat", json=body)
+        stream = client.post("/chat/stream", json=body)
+
+    assert response.status_code == 200
+    answer = response.json()["answer"]
+    assert "compute.vm: 2개" in answer
+    assert "object-storage: 1개" in answer
+    assert "postgresql-server" not in answer
+    assert "resource-group" not in answer
+    done = _inventory_done_event(stream.text)
+    assert done is not None
+    assert done["answer"] == answer
+    assert "operational evidence unavailable" not in stream.text
+    assert operational.calls == 0
+    assert backend.calls == 0
 
 
 def test_subscription_scope_followup_stream_uses_subscription_root() -> None:

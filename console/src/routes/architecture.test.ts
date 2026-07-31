@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ReadApiError } from "../api";
 import {
+  architectureContextRecords,
   architectureResourceExists,
   architectureCachePollDelay,
   architectureCacheRefreshPending,
@@ -46,6 +47,30 @@ describe("architecture resource selection", () => {
   it("maps inventory provenance to a readable label", () => {
     expect(architectureSourceLabel("azure-cli-local")).toBe("Azure CLI inventory");
     expect(architectureSourceLabel()).toBe("Source unavailable");
+  });
+
+  it("publishes one selected resource for bounded screen context", () => {
+    const selected = {
+      id: "rg-app",
+      name: "rg-app",
+      type: "resource-group",
+      status: "unknown",
+    } as never;
+
+    const records = architectureContextRecords(
+      { resources: [selected], links: [] } as never,
+      selected,
+    );
+
+    expect(records.selected_resource).toEqual([
+      {
+        id: "rg-app",
+        name: "rg-app",
+        type: "resource-group",
+        status: "unknown",
+        parent_id: null,
+      },
+    ]);
   });
 });
 

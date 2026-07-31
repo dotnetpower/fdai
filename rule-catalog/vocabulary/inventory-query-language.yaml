@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.6"
+version: "1.1.7"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -27,7 +27,7 @@ query_kinds:
   count:
     terms: [how many, count, 몇 개, 개수]
   types:
-    terms: [resource type, resource types, types exist, inventory summary, by type, by types, by resource type, by resource types, 리소스 종류, 리소스 유형, 종류별, 유형별, 형식별, 인벤토리 요약]
+    terms: [resource type, resource types, types exist, inventory summary, which services, what services, by type, by types, by resource type, by resource types, 리소스 종류, 리소스 유형, 어떤 서비스, 종류별, 유형별, 형식별, 인벤토리 요약]
   relationships:
     terms: [depend, dependency, attached, connected, relationship, 의존, 연결, 붙어, 관계]
 groupings:

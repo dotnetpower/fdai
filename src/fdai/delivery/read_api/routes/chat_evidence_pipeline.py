@@ -177,7 +177,11 @@ async def resolve_parallel_chat_evidence(
             )
         )
 
-    if (not has_semantic_plan or selected_incident_turn) and evidence_resolver is not None:
+    if (
+        (not has_semantic_plan or selected_incident_turn)
+        and evidence_resolver is not None
+        and "_inventory_screen_scope" not in base_context
+    ):
 
         async def resolve_operational(observe: BranchProgressObserver) -> dict[str, Any]:
             del observe

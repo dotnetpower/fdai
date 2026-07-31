@@ -299,6 +299,8 @@ Use a dedicated query kind when one reviewed phrase requires a distinct determin
 shape. `scope_counts` selects provider-native resource and resource-group totals from one snapshot;
 it does not compile `resource-group` as a narrowing predicate. Keep reusable phrase variants in the
 catalog and keep result-shape semantics in the typed query executor.
+Use the `types` query kind for reusable service-summary wording such as `which services` or
+`어떤 서비스`; screen selection and provider scope remain separate server-verified selectors.
 
 A state entry can declare `suppresses` with other state ids when a longer semantic phrase contains
 a shorter contradictory term. For example, a reviewed not-running phrase can suppress the embedded

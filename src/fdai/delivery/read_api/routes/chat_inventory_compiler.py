@@ -122,6 +122,14 @@ def compile_inventory_query(
         predicates.append(
             InventoryPredicate(InventoryField.RESOURCE_GROUP, InventoryOperator.EQ, group)
         )
+        if not resource_types:
+            predicates.append(
+                InventoryPredicate(
+                    InventoryField.RESOURCE_TYPE,
+                    InventoryOperator.NE,
+                    "resource-group",
+                )
+            )
     if name:
         predicates.append(InventoryPredicate(InventoryField.NAME, InventoryOperator.CONTAINS, name))
 

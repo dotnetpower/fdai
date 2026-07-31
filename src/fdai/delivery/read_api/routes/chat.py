@@ -114,6 +114,7 @@ from fdai.delivery.read_api.routes.chat_history import (
 )
 from fdai.delivery.read_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
+    contextualize_inventory_screen_scope,
 )
 from fdai.delivery.read_api.routes.chat_prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,
@@ -333,6 +334,7 @@ def make_chat_route(
             raise HTTPException(status_code=400, detail="view_context MUST be an object")
         view_context.pop("_answer_plan", None)
         view_context.pop("_turn_plan", None)
+        view_context.pop("_inventory_screen_scope", None)
         # `_attachments` is a server-owned, validated field: never trust a
         # client-supplied one, then set it from the parsed inline images.
         view_context.pop("_attachments", None)
@@ -378,7 +380,15 @@ def make_chat_route(
             evidence_prompt,
             history,
         )
-        deterministic_followup = resource_followup or inventory_scope_followup
+        evidence_prompt, inventory_screen_scope = contextualize_inventory_screen_scope(
+            evidence_prompt,
+            view_context,
+        )
+        if inventory_screen_scope:
+            view_context["_inventory_screen_scope"] = {"authority": "selector_hint"}
+        deterministic_followup = (
+            resource_followup or inventory_screen_scope or inventory_scope_followup
+        )
         answer_plan = build_answer_plan(
             evidence_prompt,
             route_id=str(view_context.get("routeId") or "") or None,

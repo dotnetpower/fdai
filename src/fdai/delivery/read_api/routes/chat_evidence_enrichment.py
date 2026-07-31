@@ -206,6 +206,7 @@ async def _with_operational_evidence(
     effective_context = conversation_context or screen_context
     if (
         resolver is None
+        or "_inventory_screen_scope" in enriched
         or "_screen_scope" in enriched
         or "_behavior_evidence" in enriched
         or (effective_context is None and not operational_question)

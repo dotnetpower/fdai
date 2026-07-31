@@ -406,11 +406,27 @@ def _safe_inventory_payload(
     raw_links = graph.get("links")
     if not isinstance(raw_resources, (list, tuple)) or not isinstance(raw_links, (list, tuple)):
         return None
-    resources = [
-        resource
-        for raw in raw_resources
-        if isinstance(raw, Mapping) and (resource := _safe_resource(raw)) is not None
-    ]
+    resources: list[dict[str, Any]] = []
+    raw_by_id: dict[str, Mapping[str, Any]] = {}
+    for raw in raw_resources:
+        if not isinstance(raw, Mapping):
+            continue
+        resource = _safe_resource(raw)
+        if resource is None:
+            continue
+        resources.append(resource)
+        raw_by_id[resource["id"]] = raw
+    safe_by_id = {resource["id"]: resource for resource in resources}
+    for resource in resources:
+        if resource["resource_group"] is not None:
+            continue
+        if resource["type"] == "resource-group":
+            resource["resource_group"] = resource["name"]
+            continue
+        parent_id = raw_by_id[resource["id"]].get("parent_id")
+        parent = safe_by_id.get(str(parent_id))
+        if parent is not None and parent["type"] == "resource-group":
+            resource["resource_group"] = parent["name"]
     return resources, raw_links
 
 
@@ -957,7 +973,14 @@ def _safe_link(raw: Mapping[str, Any], id_to_name: Mapping[str, str]) -> dict[st
 
 
 def _predicate_values(query: InventoryQuery, field: InventoryField) -> tuple[str, ...]:
-    predicate = next((item for item in query.predicates if item.field is field), None)
+    predicate = next(
+        (
+            item
+            for item in query.predicates
+            if item.field is field and item.operator in {InventoryOperator.EQ, InventoryOperator.IN}
+        ),
+        None,
+    )
     if predicate is None:
         return ()
     if predicate.operator is InventoryOperator.IN and isinstance(predicate.value, tuple):
