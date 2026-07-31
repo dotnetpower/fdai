@@ -141,6 +141,25 @@ an output cap, and an evidence schema.
 REST or SDK adapters are the production default. Azure CLI is an allowlisted fallback behind the
 existing typed command broker. The model never creates argv, KQL, an ARG query, a subscription id,
 or an ARM URL. It selects a registered tool and bounded enum arguments only.
+
+### Optional Azure MCP provider
+
+Azure MCP can provide an additional read transport for registered tools. It remains optional:
+Resource Graph and typed REST providers stay authoritative and continue serving requests when MCP
+is absent, unreachable, unauthorized, or missing an allowlisted tool.
+
+The read API performs one bounded MCP handshake and `tools/list` probe before accepting traffic.
+The initial deadline is configurable and capped at 10 seconds. Probe failure records the capability
+as unavailable but does not block the read API. While unavailable, a request does not contact the
+MCP server and immediately uses the existing provider. A background health monitor retries the
+non-invoking probe. Successful discovery restores routing without a process restart.
+
+Every MCP call passes through a circuit breaker. Repeated transport or protocol failures open the
+circuit, and later requests skip MCP without waiting for another provider timeout. After the
+cooldown, one half-open probe can restore the circuit. The server exposes only an explicit read-tool
+allowlist. Discovery never grants authority to an unregistered Azure MCP tool, and tool output is
+normalized into the existing `ReadEvidenceEnvelope` before it reaches Bragi.
+
 The broker applies the registered plan's timeout and output cap. Complete JSON is returned only as
 ephemeral output to the typed adapter; the command receipt retains a bounded 4 KB diagnostic tail,
 and the broker does not cache the full output after return. Raw CLI output is not persisted or

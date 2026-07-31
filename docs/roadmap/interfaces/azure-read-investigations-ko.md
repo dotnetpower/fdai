@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 8a386a881d155dbdeabdb2e85b049c063f920507
+translation_source_sha: 13711c43bd085e17d00585b9547b94cda7fc1cf0
 translation_revised: 2026-08-01
 ---
 
@@ -140,6 +140,25 @@ Imperative change는 action draft로 유지되며 이 read path에 들어갈 수
 REST 또는 SDK adapter가 production default입니다. Azure CLI는 기존 typed command broker 뒤의
 allowlisted fallback입니다. Model은 argv, KQL, ARG query, subscription id 또는 ARM URL을 생성하지
 않습니다. Registered tool 및 bounded enum argument만 선택합니다.
+
+### 선택적 Azure MCP provider
+
+Azure MCP는 registered tool을 위한 추가 read transport를 제공할 수 있습니다. 이 provider는 선택
+사항입니다. MCP가 없거나, 연결할 수 없거나, 권한이 없거나, allowlist tool이 누락되어도 Resource
+Graph와 typed REST provider가 authoritative provider로 유지되며 요청을 계속 처리합니다.
+
+Read API는 traffic을 받기 전에 bounded MCP handshake와 `tools/list` probe를 한 번 수행합니다.
+초기 deadline은 구성 가능하며 최대 10초입니다. Probe 실패는 capability를 unavailable로 기록하지만
+read API 시작을 차단하지 않습니다. Unavailable 상태의 요청은 MCP server에 접속하지 않고 기존
+provider를 즉시 사용합니다. Background health monitor는 호출 없는 probe를 다시 시도합니다. Discovery가
+성공하면 process restart 없이 routing이 복구됩니다.
+
+모든 MCP 호출은 circuit breaker를 통과합니다. Transport 또는 protocol 실패가 반복되면 circuit이
+열리고 이후 요청은 다른 provider timeout을 기다리지 않고 MCP를 건너뜁니다. Cooldown 뒤에는 하나의
+half-open probe가 circuit을 복구할 수 있습니다. Server는 명시적인 read-tool allowlist만 노출합니다.
+Discovery는 등록되지 않은 Azure MCP tool에 권한을 부여하지 않으며, tool output은 Bragi에 전달되기
+전에 기존 `ReadEvidenceEnvelope`로 normalize됩니다.
+
 Broker는 registered plan의 timeout 및 output cap을 적용합니다. Complete JSON은 typed adapter에
 ephemeral output으로만 반환되고 command receipt는 bounded 4 KB diagnostic tail만 유지하며 broker는
 반환 후 full output을 cache하지 않습니다. Raw CLI output은 persist되거나 narrator context에 전달되지

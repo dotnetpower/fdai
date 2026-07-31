@@ -27,6 +27,15 @@ from fdai.delivery.mcp.postgres_catalog import (
     PostgresMcpCatalogStore,
     PostgresMcpCatalogStoreConfig,
 )
+from fdai.delivery.mcp.session import (
+    ManagedMcpClient,
+    ManagedMcpClientConfig,
+    ManagedMcpUnavailableError,
+    McpAvailability,
+    McpCallResult,
+    McpSession,
+    PythonSdkMcpSession,
+)
 
 __all__ = [
     "InMemoryMcpCatalogStore",
@@ -48,4 +57,11 @@ __all__ = [
     "McpToolDiscovery",
     "PostgresMcpCatalogStore",
     "PostgresMcpCatalogStoreConfig",
+    "ManagedMcpClient",
+    "ManagedMcpClientConfig",
+    "ManagedMcpUnavailableError",
+    "McpAvailability",
+    "McpCallResult",
+    "McpSession",
+    "PythonSdkMcpSession",
 ]
