@@ -12,6 +12,11 @@ Public exports (P2-C):
   :class:`~fdai.core.tiers.t1_lightweight.tier.PatternLibrary` - DI seams.
 """
 
+from fdai.core.tiers.t1_lightweight.contextual_reuse import (
+    CurrentReuseVerification,
+    CurrentReuseVerifier,
+    OperationalCaseContext,
+)
 from fdai.core.tiers.t1_lightweight.tier import (
     EmbeddingModel,
     LearnedAction,
@@ -26,7 +31,10 @@ from fdai.core.tiers.t1_lightweight.tier import (
 
 __all__ = [
     "EmbeddingModel",
+    "CurrentReuseVerifier",
+    "CurrentReuseVerification",
     "LearnedAction",
+    "OperationalCaseContext",
     "PatternLibrary",
     "SimilarityMatch",
     "T1Config",

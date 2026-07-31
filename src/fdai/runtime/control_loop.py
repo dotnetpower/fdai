@@ -49,7 +49,7 @@ from fdai.core.tiers.t0_deterministic.opa_evaluator import (
     MissingOpaBinaryError,
     OpaRegoEvaluator,
 )
-from fdai.core.tiers.t1_lightweight.tier import T1Tier
+from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Tier
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
@@ -206,6 +206,7 @@ def _build_control_loop(
     symptom_index: SymptomIndex | None = None,
     identity: WorkloadIdentity | None = None,
     response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
+    current_reuse_verifier: CurrentReuseVerifier | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -335,6 +336,7 @@ def _build_control_loop(
     t1 = T1Tier(
         embedding_model=llm_bindings.embedding_model,
         pattern_library=_build_pattern_library(),
+        current_reuse_verifier=current_reuse_verifier,
     )
     rules_by_id = {rule.id: rule for rule in rules}
     quality_gate = QualityGate(

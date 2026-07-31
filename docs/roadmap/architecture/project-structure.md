@@ -19,7 +19,7 @@ fdai/
 │   │   ├── trust_router/       # routes each event to T0 | T1 | T2 by computed confidence
 │   │   ├── tiers/
 │   │   │   ├── t0_deterministic/    # deterministic-engine: policy, checklist, what-if, drift eval
-│   │   │   ├── t1_lightweight/      # embedding similarity, learned-action reuse, small-model classify; non-finite reuse evidence abstains
+│   │   │   ├── t1_lightweight/      # embedding similarity and learned-action reuse; operational cases require persisted immutable context plus fresh graph, owner, policy, dry-run, and safety evidence
 │   │   │   └── t2_reasoning/        # frontier-model reasoning plus budgeted proposer failover, durable route selection, and sanitized attempt receipts
 │   │   ├── prompts/            # catalog-as-code prompt composer (loads `rule-catalog/prompts/`, supplies T2)
 │   │   ├── tools/              # T2 tool-catalog registry + `ToolExecutor` (shadow-mode gated)
@@ -418,6 +418,9 @@ clean (see the fork model in
   patching core. Invalid or missing bindings **fail fast** at startup (Configuration Model).
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
+- **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,
+  graph, owner, policy, dry-run, and safety facts for an immutable operational case. It grants no
+  execution authority. An absent binding makes operational reuse abstain while legacy patterns continue.
 
 ### Capability Bundles
 

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cce45485c24a209916ea0b2335d001a79e0988b8
+translation_source_sha: b7d00a93661af606abeb3c4496c4dcae44ea8b10
 translation_revised: 2026-08-01
 ---
 
@@ -24,7 +24,7 @@ fdai/
 │   │   ├── trust_router/       # 계산된 신뢰도로 각 이벤트를 T0 | T1 | T2 로 라우팅
 │   │   ├── tiers/
 │   │   │   ├── t0_deterministic/    # deterministic-engine: policy, checklist, what-if, drift eval
-│   │   │   ├── t1_lightweight/      # 임베딩 유사도, 학습된 액션 재사용, 소형 모델 분류; non-finite reuse evidence는 abstain
+│   │   │   ├── t1_lightweight/      # 임베딩 유사도 및 learned-action 재사용; operational case는 persisted immutable context와 fresh graph, owner, policy, dry-run, safety evidence를 요구
 │   │   │   └── t2_reasoning/        # 프론티어 모델 추론과 budgeted proposer failover, durable route selection 및 sanitized attempt receipt
 │   │   ├── prompts/            # catalog-as-code 프롬프트 컴포저 (`rule-catalog/prompts/` 로드, T2에 공급)
 │   │   ├── tools/              # T2 툴 카탈로그 레지스트리 + `ToolExecutor` (shadow-mode 게이팅)
@@ -405,6 +405,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   잘못되거나 누락된 바인딩은 시작 시 **fail fast** 합니다(Configuration Model).
 - **상류의 기본 구현**: 메인 저장소는 모든 seam에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 seam만 교체합니다.
+- **현재 T1 reuse evidence**: `CurrentReuseVerifier`는 immutable operational case를 위해 fresh
+  resource, topology, graph, owner, policy, dry-run, safety fact를 수집하며 execution authority는
+  부여하지 않습니다. Binding이 없으면 operational reuse는 abstain하고 legacy pattern은 계속됩니다.
 
 ### Capability Bundle
 

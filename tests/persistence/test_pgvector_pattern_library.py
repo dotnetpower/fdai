@@ -14,17 +14,20 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from fdai.core.tiers.t1_lightweight.tier import LearnedAction
+from fdai.core.tiers.t1_lightweight import LearnedAction, OperationalCaseContext
 from fdai.delivery.persistence import (
     PgVectorPatternLibrary,
     PgVectorPatternLibraryConfig,
 )
 from fdai.delivery.persistence.pgvector_pattern_library import (
+    _coerce_operational_case,
     _coerce_params,
+    _encode_operational_case,
     _encode_vector,
 )
 
@@ -88,6 +91,28 @@ def test_coerce_params_rejects_non_object_json() -> None:
 def test_coerce_params_rejects_unexpected_type() -> None:
     with pytest.raises(RuntimeError, match="unexpected type"):
         _coerce_params(42)
+
+
+def test_operational_case_context_codec_round_trips() -> None:
+    context = OperationalCaseContext(
+        case_ref=f"case-history:case-a:1:{'a' * 64}",
+        failure_fingerprint="f" * 64,
+        resource_type="kubernetes.service",
+        action_type="ops.scale-out",
+        required_topology_role="serves",
+        graph_digest="b" * 64,
+        owner_digest="c" * 64,
+        evidence_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+
+    assert _coerce_operational_case(_encode_operational_case(context)) == context
+    assert _encode_operational_case(None) is None
+    assert _coerce_operational_case(None) is None
+
+
+def test_operational_case_context_codec_rejects_unknown_fields() -> None:
+    with pytest.raises(RuntimeError, match="unexpected fields"):
+        _coerce_operational_case({"case_ref": "unexpected-only"})
 
 
 @pytest.mark.asyncio
@@ -259,6 +284,16 @@ async def test_search_returns_learned_action_fields_intact() -> None:
         incident_id="incident-roundtrip",
         success_rate=0.87,
         reuse_count=3,
+        operational_case=OperationalCaseContext(
+            case_ref=f"case-history:case-roundtrip:1:{'a' * 64}",
+            failure_fingerprint="f" * 64,
+            resource_type="resource-group",
+            action_type="remediate.set-tag",
+            required_topology_role="contains",
+            graph_digest="b" * 64,
+            owner_digest="c" * 64,
+            evidence_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
+        ),
     )
     await library.add(vector=_unit_vector_at(1), action=action)
     matches = await library.search(_unit_vector_at(1), k=5)
@@ -275,3 +310,4 @@ async def test_search_returns_learned_action_fields_intact() -> None:
     assert got.incident_id == "incident-roundtrip"
     assert got.success_rate == pytest.approx(0.87)
     assert got.reuse_count == 3
+    assert got.operational_case == action.operational_case

@@ -29,12 +29,14 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any, Final
 
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.core.tiers.t1_lightweight.contextual_reuse import OperationalCaseContext
 from fdai.core.tiers.t1_lightweight.tier import (
     LearnedAction,
     PatternLibrary,
@@ -128,6 +130,7 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                            source_incident_id,
                            historical_success_rate,
                            reuse_count,
+                           operational_case,
                            1.0 - (embedding <=> %s::vector) AS score
                       FROM t1_pattern_library
                      ORDER BY embedding <=> %s::vector ASC
@@ -147,6 +150,7 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                 incident_id=str(row["source_incident_id"]),
                 success_rate=float(row["historical_success_rate"]),
                 reuse_count=int(row["reuse_count"]),
+                operational_case=_coerce_operational_case(row["operational_case"]),
             )
             matches.append(SimilarityMatch(action=action, score=float(row["score"])))
         # ORDER BY the cosine-distance operator returns ascending distance
@@ -178,9 +182,10 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                     """
                     INSERT INTO t1_pattern_library
                         (signature, rule_id, action_type, params, embedding,
-                         source_incident_id, historical_success_rate, reuse_count)
+                         source_incident_id, historical_success_rate, reuse_count,
+                         operational_case)
                     VALUES
-                        (%s, %s, %s, %s::jsonb, %s::vector, %s, %s, %s)
+                        (%s, %s, %s, %s::jsonb, %s::vector, %s, %s, %s, %s::jsonb)
                     ON CONFLICT (signature) DO UPDATE SET
                         rule_id                 = EXCLUDED.rule_id,
                         action_type             = EXCLUDED.action_type,
@@ -188,7 +193,8 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                         embedding               = EXCLUDED.embedding,
                         source_incident_id      = EXCLUDED.source_incident_id,
                         historical_success_rate = EXCLUDED.historical_success_rate,
-                        reuse_count             = EXCLUDED.reuse_count
+                        reuse_count             = EXCLUDED.reuse_count,
+                        operational_case        = EXCLUDED.operational_case
                     """,
                     (
                         action.signature,
@@ -199,6 +205,7 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                         action.incident_id,
                         float(action.success_rate),
                         int(action.reuse_count),
+                        _encode_operational_case(action.operational_case),
                     ),
                 )
 
@@ -257,6 +264,55 @@ def _coerce_params(value: Any) -> Mapping[str, Any]:
     if isinstance(value, dict):
         return dict(value)
     raise RuntimeError(f"t1_pattern_library.params has unexpected type {type(value).__name__}")
+
+
+def _encode_operational_case(context: OperationalCaseContext | None) -> str | None:
+    if context is None:
+        return None
+    value = asdict(context)
+    value["evidence_cutoff"] = context.evidence_cutoff.isoformat()
+    return json.dumps(value, separators=(",", ":"), sort_keys=True)
+
+
+def _coerce_operational_case(value: Any) -> OperationalCaseContext | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("t1_pattern_library.operational_case is invalid JSON") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError("t1_pattern_library.operational_case MUST be a JSON object")
+    fields = {
+        "case_ref",
+        "failure_fingerprint",
+        "resource_type",
+        "action_type",
+        "required_topology_role",
+        "graph_digest",
+        "owner_digest",
+        "evidence_cutoff",
+    }
+    if set(value) != fields:
+        raise RuntimeError("t1_pattern_library.operational_case has unexpected fields")
+    cutoff = value["evidence_cutoff"]
+    if not isinstance(cutoff, str):
+        raise RuntimeError("t1_pattern_library.operational_case cutoff MUST be a timestamp")
+    try:
+        evidence_cutoff = datetime.fromisoformat(cutoff)
+        return OperationalCaseContext(
+            case_ref=str(value["case_ref"]),
+            failure_fingerprint=str(value["failure_fingerprint"]),
+            resource_type=str(value["resource_type"]),
+            action_type=str(value["action_type"]),
+            required_topology_role=str(value["required_topology_role"]),
+            graph_digest=str(value["graph_digest"]),
+            owner_digest=str(value["owner_digest"]),
+            evidence_cutoff=evidence_cutoff,
+        )
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("t1_pattern_library.operational_case is invalid") from exc
 
 
 __all__ = [

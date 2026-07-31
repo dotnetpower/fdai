@@ -241,6 +241,7 @@ def test_cosine_similarity_handles_empty_and_mismatched_vectors() -> None:
     assert cosine_similarity([1.0, float("inf")], [1.0, 1.0]) == 0.0
     # Identical vectors → cosine 1.0.
     assert cosine_similarity([1.0, 2.0], [1.0, 2.0]) == pytest.approx(1.0)
+    assert cosine_similarity([0.1] * 384, [0.1] * 384) == 1.0
 
 
 def test_deterministic_embedding_is_stable_across_calls() -> None:

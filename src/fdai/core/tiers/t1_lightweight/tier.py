@@ -42,6 +42,12 @@ from typing import Any, Protocol, runtime_checkable
 
 from fdai.shared.contracts.models import Event
 
+from .contextual_reuse import (
+    CurrentReuseVerifier,
+    OperationalCaseContext,
+    contextual_reuse_reasons,
+)
+
 
 class T1Outcome(StrEnum):
     """Terminal outcome for one :meth:`T1Tier.evaluate` call."""
@@ -71,6 +77,7 @@ class LearnedAction:
     incident_id: str
     success_rate: float
     reuse_count: int = 0
+    operational_case: OperationalCaseContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +162,7 @@ class T1Tier:
         *,
         embedding_model: EmbeddingModel,
         pattern_library: PatternLibrary,
+        current_reuse_verifier: CurrentReuseVerifier | None = None,
         config: T1Config | None = None,
     ) -> None:
         cfg = config or T1Config()
@@ -164,6 +172,7 @@ class T1Tier:
             raise ValueError("min_success_rate MUST be in [0.0, 1.0]")
         self._embed = embedding_model
         self._library = pattern_library
+        self._current_reuse_verifier = current_reuse_verifier
         self._config = cfg
 
     async def evaluate(self, *, event: Event) -> T1Decision:
@@ -247,6 +256,38 @@ class T1Tier:
                 reasons=tuple(reasons),
             )
 
+        context = best.action.operational_case
+        if context is not None:
+            verifier = self._current_reuse_verifier
+            contextual_reasons: tuple[str, ...]
+            if verifier is None:
+                contextual_reasons = ("current_reuse_verifier_unavailable",)
+            else:
+                try:
+                    verification = await verifier.verify(
+                        event=event,
+                        action=best.action,
+                        context=context,
+                    )
+                except Exception as exc:  # noqa: BLE001 - provider boundary
+                    contextual_reasons = (f"current_reuse_verification_error:{type(exc).__name__}",)
+                else:
+                    contextual_reasons = contextual_reuse_reasons(
+                        event=event,
+                        action=best.action,
+                        context=context,
+                        verification=verification,
+                    )
+            if contextual_reasons:
+                return T1Decision(
+                    outcome=T1Outcome.ABSTAIN,
+                    event_id=str(event.event_id),
+                    threshold=self._config.similarity_threshold,
+                    best_match=best,
+                    reason=contextual_reasons[0],
+                    reasons=contextual_reasons,
+                )
+
         return T1Decision(
             outcome=T1Outcome.REUSED,
             event_id=str(event.event_id),
@@ -313,12 +354,14 @@ def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
     nb = sqrt(sum(y * y for y in b))
     if not all(isfinite(value) for value in (dot, na, nb)) or na == 0.0 or nb == 0.0:
         return 0.0
-    return dot / (na * nb)
+    return max(-1.0, min(1.0, dot / (na * nb)))
 
 
 __all__ = [
     "EmbeddingModel",
     "LearnedAction",
+    "CurrentReuseVerifier",
+    "OperationalCaseContext",
     "PatternLibrary",
     "SimilarityMatch",
     "T1Config",
