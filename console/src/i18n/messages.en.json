@@ -2077,6 +2077,7 @@
     },
     "rich": {
       "code": "Code",
+      "copyJson": "Copy JSON",
       "streaming": "streaming",
       "preparingChart": "Preparing chart",
       "preparingChartProgress": "Preparing chart...",

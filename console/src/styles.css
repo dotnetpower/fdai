@@ -6469,6 +6469,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-model-trace-index,
 .deck-model-trace-messages li > span,
 .deck-model-trace-meta li { font-size: var(--deck-font-label); }
+.deck-trajectory .deck-code { margin-top: 7px; }
+.deck-trajectory .deck-code-pre code.hljs {
+  font-size: var(--deck-font-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.deck-trajectory .deck-code-copy { min-height: 28px; }
 .deck-trajectory summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

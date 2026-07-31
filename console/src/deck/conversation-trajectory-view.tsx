@@ -16,6 +16,7 @@ import {
   type TrajectoryPhase,
   type TrajectoryPhaseState,
 } from "./conversation-trajectory-presentation";
+import { JsonCodeBlock } from "./json-code-block";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
 
 export function ConversationTrajectoryView({
@@ -201,7 +202,7 @@ function AnswerPhase({ trajectory, index }: {
       {answer.actionDraft ? (
         <details class="deck-trajectory-nested">
           <summary>{t("deck.actionDraft.title")}: {answer.actionDraft.actionType}</summary>
-          <pre><code>{JSON.stringify(answer.actionDraft.arguments, null, 2)}</code></pre>
+          <JsonCodeBlock value={answer.actionDraft.arguments} />
         </details>
       ) : null}
     </TrajectoryPhase>
@@ -273,11 +274,11 @@ function ExecutionDetail({ activity }: { readonly activity: InvestigationActivit
   const execution = activity.execution;
   if (!execution) return null;
   return (
-    <><pre><code>{execution.command}</code></pre>
+    <><JsonCodeBlock value={execution.command} />
       {execution.output !== undefined ? (
         <details class="deck-trajectory-nested"><summary>{execution.inputKind === "query"
           ? t("deck.investigation.queryResult") : t("deck.investigation.outputLogs")}</summary>
-          <pre><code>{execution.output}</code></pre></details>
+          <JsonCodeBlock value={execution.output} /></details>
       ) : null}</>
   );
 }

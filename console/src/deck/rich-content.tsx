@@ -214,14 +214,16 @@ function highlightCode(code: string, lang: string): string {
   }
 }
 
-function CodeBlock({
+export function CodeBlock({
   lang,
   code,
   pending,
+  copyLabel,
 }: {
   readonly lang: string;
   readonly code: string;
   readonly pending: boolean;
+  readonly copyLabel?: string;
 }) {
   const [copied, showCopied] = useTransientFlag(1200);
   const html = pending ? null : highlightCode(code, lang);
@@ -243,7 +245,7 @@ function CodeBlock({
           <span class="deck-code-streaming">{t("deck.rich.streaming")}</span>
         ) : (
           <button type="button" class="deck-code-copy" onClick={copy}>
-            {copied ? t("deck.tooltip.copied") : t("deck.tooltip.copyReply")}
+            {copied ? t("deck.tooltip.copied") : (copyLabel ?? t("deck.tooltip.copyReply"))}
           </button>
         )}
       </figcaption>

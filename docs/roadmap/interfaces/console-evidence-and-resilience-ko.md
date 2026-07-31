@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 313bfb8152e1de34f41e7621730681a1b28d60fe
+translation_source_sha: 435172ce54112c40131764ec3c74e1a16fc8bb48
 translation_revised: 2026-07-31
 ---
 
@@ -212,7 +212,9 @@ provider payload 및 validation result는 변경하지 않습니다.
 및 tool, model call, verification 및 delivery만 timeline에 표시합니다. Primary text는 14 px 이상이고,
 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
 
-상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Unavailable 또는
+상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
+action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
+copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Unavailable 또는
 timed-out evidence는 시도이지 완료된 evidence가 아니며 unverified 작업에는 완료 styling을 적용하지
 않습니다. 누락된 activity는 observation coverage disclosure에 두며 작업 부재를 증명하지 않습니다.
 Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다.

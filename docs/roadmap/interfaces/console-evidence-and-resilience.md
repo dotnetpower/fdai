@@ -211,7 +211,7 @@ Each completed Command Deck question exposes one collapsed observed trajectory. 
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
 Primary text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
 
-Detail includes bounded recorded metadata but doesn't repeat the answer body. Unavailable or timed-out
+Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
 durable replay uses the same bounded browser parsers.
 

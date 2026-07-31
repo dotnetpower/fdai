@@ -1,5 +1,6 @@
 import { t } from "../i18n";
 import type { ModelTrace, ModelTraceCall } from "./backend";
+import { JsonCodeBlock } from "./json-code-block";
 
 const MIN_BAR_PCT = 2.5;
 const SINGLETON_SPAN_MS = 1000;
@@ -83,7 +84,7 @@ export function ModelTraceWaterfall({ trace }: { readonly trace?: ModelTrace }) 
                   {call.request.messages.map((message, messageIndex) => (
                     <li key={`${call.call_id}-request-${messageIndex}`}>
                       <span>{message.role}</span>
-                      <pre><code>{message.content}</code></pre>
+                      <JsonCodeBlock value={message.content} />
                     </li>
                   ))}
                 </ol>
@@ -91,7 +92,7 @@ export function ModelTraceWaterfall({ trace }: { readonly trace?: ModelTrace }) 
                   <section class="deck-model-trace-response">
                     <h5>{t("deck.modelTrace.response")}</h5>
                     <TraceHash label={t("deck.modelTrace.responseHash")} value={call.response.sha256} />
-                    <pre><code>{call.response.content}</code></pre>
+                    <JsonCodeBlock value={call.response.content} />
                   </section>
                 ) : (
                   <p class="deck-model-trace-missing">{t("deck.modelTrace.responseMissing")}</p>

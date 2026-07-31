@@ -2077,6 +2077,7 @@
     },
     "rich": {
       "code": "코드",
+      "copyJson": "JSON 복사",
       "streaming": "스트리밍 중",
       "preparingChart": "차트 준비 중",
       "preparingChartProgress": "차트 준비 중...",
