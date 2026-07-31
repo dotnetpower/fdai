@@ -37,19 +37,25 @@ def git_repo(tmp_path: Path) -> Path:
     (repo / "scripts" / "automation").mkdir(parents=True)
     shutil.copy2(QUEUE_SCRIPT, repo / "scripts" / "automation" / "validation_queue.py")
     (repo / "scripts" / "automation" / "tests-for-diff.sh").write_text(
-        '#!/usr/bin/env bash\nprintf "changed:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
+        "#!/usr/bin/env bash\n"
+        "test -f resolved-models.json || exit 9\n"
+        'printf "changed:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
         encoding="utf-8",
     )
     (repo / "scripts" / "verify.sh").write_text(
-        '#!/usr/bin/env bash\nprintf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
+        "#!/usr/bin/env bash\n"
+        "test -f resolved-models.json || exit 9\n"
+        'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
         encoding="utf-8",
     )
+    (repo / ".gitignore").write_text("resolved-models*.json\n", encoding="utf-8")
     (repo / "source.txt").write_text("initial\n", encoding="utf-8")
     assert _run(repo, "git", "init", "--quiet", "--initial-branch=main").returncode == 0
     assert _run(repo, "git", "config", "user.email", "user@example.com").returncode == 0
     assert _run(repo, "git", "config", "user.name", "Example User").returncode == 0
     assert _run(repo, "git", "add", ".").returncode == 0
     assert _run(repo, "git", "commit", "--quiet", "-m", "initial").returncode == 0
+    (repo / "resolved-models.json").write_text('{"capabilities": {}}\n', encoding="utf-8")
     return repo
 
 

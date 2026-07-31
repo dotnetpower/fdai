@@ -140,10 +140,10 @@ def _validation_base(paths: QueuePaths, first_commit: str) -> str:
     ).stdout.strip()
 
 
-def _link_cache(source: Path, destination: Path) -> None:
+def _link_local_path(source: Path, destination: Path) -> None:
     if source.exists() and not destination.exists():
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.symlink_to(source, target_is_directory=True)
+        destination.symlink_to(source, target_is_directory=source.is_dir())
 
 
 def _run_command(arguments: list[str], *, cwd: Path, env: dict[str, str]) -> int:
@@ -211,11 +211,13 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             cwd=paths.repo_root,
         )
         added = True
-        _link_cache(paths.repo_root / ".venv", validation_root / ".venv")
-        _link_cache(
+        _link_local_path(paths.repo_root / ".venv", validation_root / ".venv")
+        _link_local_path(
             paths.repo_root / "console" / "node_modules",
             validation_root / "console" / "node_modules",
         )
+        for filename in ("resolved-models.json", "resolved-models-local.json"):
+            _link_local_path(paths.repo_root / filename, validation_root / filename)
         environment = _validation_environment(paths)
         print(
             f"validation-queue: validating {len(selected)} commit(s) at {head[:12]} "
