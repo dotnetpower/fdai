@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 8bc3a85523789629e4796dd40c0be3ae6b37793e
+translation_source_sha: 2a1ace3822531c5aeb97e97ea0d23cccb188a91a
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -167,8 +167,9 @@ lifecycle coordinator는 scoped cluster, target 및 policy digest에서 stable c
 계산합니다. injected proposer는 이 제한된 identity만 반환할 수 있고, injected blind trial
 measurer는 모든 promotion metric을 제공합니다. stage 변경 시 publisher가 candidate를 먼저 적용하고
 ledger가 transition을 두 번째로 commit합니다. persistence가 실패하면 error를 전달하기 전에
-publisher가 incumbent를 복원합니다. proposal, measurement 또는 publisher 근거가 없으면 candidate는
-shadow에 남습니다.
+publisher가 incumbent를 복원합니다. persistence와 restore가 모두 실패하면 terminal error는
+원래 store 실패를 숨기지 않고 복구에 필요한 두 원인을 모두 보존합니다. proposal, measurement
+또는 publisher 근거가 없으면 candidate는 shadow에 남습니다.
 
 ### 블라인드 승격과 롤백
 

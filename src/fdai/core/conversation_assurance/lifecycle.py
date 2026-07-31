@@ -123,8 +123,14 @@ class ConversationAssuranceLifecycleCoordinator:
                     principal_scope=cluster.principal_scope,
                     transition=transition,
                 )
-            except Exception:
-                await self._publisher.restore(stored, transition)
+            except Exception as store_error:
+                try:
+                    await self._publisher.restore(stored, transition)
+                except Exception as restore_error:
+                    raise ExceptionGroup(
+                        "policy transition persistence and restore failed",
+                        (store_error, restore_error),
+                    ) from None
                 raise
             results.append(updated)
         return tuple(results)

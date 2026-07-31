@@ -151,3 +151,32 @@ async def test_lifecycle_restores_incumbent_when_transition_write_fails() -> Non
 
     assert publisher.published == 1
     assert publisher.restored == 1
+
+
+class _FailingRestorePublisher(_Publisher):
+    async def restore(
+        self,
+        candidate: ChatPolicyCandidate,
+        transition: PolicyTransition,
+    ) -> None:
+        await super().restore(candidate, transition)
+        raise RuntimeError("restore unavailable")
+
+
+async def test_lifecycle_preserves_store_and_restore_failures() -> None:
+    publisher = _FailingRestorePublisher()
+    coordinator = ConversationAssuranceLifecycleCoordinator(
+        store=_FailingStore(),
+        proposer=_Proposer(),
+        measurer=_Measurer(),
+        publisher=publisher,
+        min_cluster_samples=2,
+    )
+
+    with pytest.raises(ExceptionGroup) as caught:
+        await coordinator.run((_fail("a"), _fail("b")))
+
+    messages = {str(item) for item in caught.value.exceptions}
+    assert messages == {"database unavailable", "restore unavailable"}
+    assert publisher.published == 1
+    assert publisher.restored == 1

@@ -170,8 +170,9 @@ The lifecycle coordinator derives a stable candidate identity from the scoped cl
 policy digests. An injected proposer can return only that bounded identity, and an injected blind
 trial measurer supplies every promotion metric. For a stage change, the publisher applies the
 candidate first and the ledger commits the transition second. If persistence fails, the publisher
-restores the incumbent before the error propagates. Missing proposal, measurement, or publisher
-evidence leaves the candidate in shadow.
+restores the incumbent before the error propagates. If both persistence and restore fail, the
+terminal error preserves both causes for recovery instead of hiding the original store failure.
+Missing proposal, measurement, or publisher evidence leaves the candidate in shadow.
 
 ### Blind promotion and rollback
 
