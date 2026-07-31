@@ -332,6 +332,29 @@ def test_canonical_ids_must_have_distinct_query_surfaces() -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+def test_query_term_cannot_shadow_another_canonical_surface() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.vm",
+                "category": "compute",
+                "description": "VM",
+            },
+            {
+                "id": "custom.widget",
+                "category": "compute",
+                "description": "Widget",
+                "query_terms": ["compute vm"],
+            },
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="canonical query surface"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_missing_required_field_is_rejected() -> None:
     payload = {
         "schema_version": "1.0.0",

@@ -122,6 +122,31 @@ def _canonical_surface_collisions(
     return {surface: ids for surface, ids in owners.items() if len(ids) > 1}
 
 
+def _query_term_canonical_collisions(
+    entries: Iterable[Mapping[str, Any]],
+) -> list[tuple[str, str, str]]:
+    entry_list = tuple(entries)
+    canonical_owners = {
+        _normalize_term(str(entry["id"]).replace("-", " ").replace(".", " ")): str(entry["id"])
+        for entry in entry_list
+        if isinstance(entry.get("id"), str)
+    }
+    collisions: list[tuple[str, str, str]] = []
+    for entry in entry_list:
+        entry_id = entry.get("id")
+        terms = entry.get("query_terms", ())
+        if not isinstance(entry_id, str) or not isinstance(terms, list):
+            continue
+        for term in terms:
+            if not isinstance(term, str):
+                continue
+            normalized = _normalize_term(term)
+            canonical_owner = canonical_owners.get(normalized)
+            if canonical_owner is not None and canonical_owner != entry_id:
+                collisions.append((entry_id, normalized, canonical_owner))
+    return sorted(collisions)
+
+
 def _normalize_term(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
@@ -318,6 +343,15 @@ def load_resource_type_registry_from_mapping(
                 ResourceTypeIssue(
                     key=f"types[canonical_surface={surface}]",
                     message=f"canonical query surface is shared by {sorted(owners)}",
+                )
+            )
+        for entry_id, term, canonical_owner in _query_term_canonical_collisions(entries):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"types[id={entry_id}].query_terms[{term}]",
+                    message=(
+                        f"query term collides with canonical query surface of {canonical_owner!r}"
+                    ),
                 )
             )
         for term, owners in sorted(_query_term_collisions(entries).items()):

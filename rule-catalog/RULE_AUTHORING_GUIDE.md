@@ -263,8 +263,9 @@ Every `typical_parents` value must resolve to another entry in the same combined
 resulting parent graph must remain acyclic.
 
 - Add bounded English and Korean `query_terms` when operators need to select the type in an
-  inventory question. The catalog loader rejects a normalized term owned by two types, so adding
-  the entry never requires a Python alias change and never creates an implicit ambiguity.
+  inventory question. The catalog loader rejects a normalized term owned by two types or matching
+  another type's canonical surface, so adding the entry never requires a Python alias change and
+  never creates an implicit ambiguity.
 - Choose ids whose dot/dash-separated words remain unique when rendered with spaces; the loader
   rejects canonical ids that generate the same inventory query surface.
 - Put generic terms such as `database` or `db` in top-level `category_query_terms`, not on one
