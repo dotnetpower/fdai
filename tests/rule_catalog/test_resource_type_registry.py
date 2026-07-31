@@ -121,6 +121,32 @@ def test_azure_kind_tokens_reject_non_machine_tokens(token: str) -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+def test_shared_arm_type_rejects_duplicate_kind_token() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.one",
+                "category": "compute",
+                "description": "one",
+                "azure_arm_type": "Microsoft.Example/widgets",
+                "azure_kind_tokens": ["app"],
+            },
+            {
+                "id": "compute.two",
+                "category": "compute",
+                "description": "two",
+                "azure_arm_type": "Microsoft.Example/widgets",
+                "azure_kind_tokens": ["app"],
+            },
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="kind token"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_duplicate_query_term_is_rejected() -> None:
     payload = {
         "schema_version": "1.0.0",

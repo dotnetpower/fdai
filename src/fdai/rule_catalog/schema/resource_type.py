@@ -166,6 +166,30 @@ def _shared_arm_types_without_kind(entries: Iterable[Mapping[str, Any]]) -> list
     )
 
 
+def _shared_arm_kind_collisions(
+    entries: Iterable[Mapping[str, Any]],
+) -> list[tuple[str, str, tuple[str, ...]]]:
+    owners: dict[tuple[str, str], set[str]] = {}
+    for entry in entries:
+        entry_id = entry.get("id")
+        arm_type = entry.get("azure_arm_type")
+        kind_tokens = entry.get("azure_kind_tokens", ())
+        if (
+            not isinstance(entry_id, str)
+            or not isinstance(arm_type, str)
+            or not isinstance(kind_tokens, list)
+        ):
+            continue
+        for token in kind_tokens:
+            if isinstance(token, str):
+                owners.setdefault((arm_type.casefold(), token.casefold()), set()).add(entry_id)
+    return sorted(
+        (arm_type, token, tuple(sorted(entry_ids)))
+        for (arm_type, token), entry_ids in owners.items()
+        if len(entry_ids) > 1
+    )
+
+
 def load_resource_type_registry_from_mapping(
     raw: Mapping[str, Any],
 ) -> ResourceTypeRegistry:
@@ -209,6 +233,13 @@ def load_resource_type_registry_from_mapping(
                 ResourceTypeIssue(
                     key=f"azure_arm_type[{arm_type}]",
                     message="every semantic type sharing an ARM type requires azure_kind_tokens",
+                )
+            )
+        for arm_type, token, owners in _shared_arm_kind_collisions(entries):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"azure_arm_type[{arm_type}].azure_kind_tokens[{token}]",
+                    message=f"kind token is shared by resource types {list(owners)}",
                 )
             )
 
