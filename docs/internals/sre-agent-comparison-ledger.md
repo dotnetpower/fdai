@@ -617,6 +617,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 2 | 3 | 3 | 4 | 3 | 4 | 23/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 3 | 26/28 |
 
+### RUN-0024: Managed resource and resource-group counts
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q016` |
+| Executed | `2026-08-01` |
+| Question | `How many resources and resource groups are in the managed scope?` |
+| Azure SRE Agent answer | Reported 445 resources and 40 resource groups from separate current Resource Graph and ResourceContainers queries. |
+| FDAI answer | Reported the same 445 provider-native resources and 40 resource groups from one fresh server-owned inventory snapshot. It separately disclosed 34 topology-derived child records. |
+| Evidence | Catalog-owned `scope_counts` typed query, server-owned subscription inventory, no predicates, provider-native resource accounting, separate group and derived-record totals, fresh snapshot time, no truncation, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products returned the same requested counts. FDAI additionally proved that both counts came from one coherent snapshot and disclosed source, observation time, freshness, derived-record treatment, truncation, and one-of-one verification. |
+| Winner | FDAI for equal factual completeness with stronger evidence integrity, count semantics, and deterministic verification. |
+| General fix | Compound collection counts use a dedicated catalog query kind instead of narrowing to the concrete resource-group phrase. The typed executor returns provider-native resources and resource-group containers from one snapshot while keeping derived topology records separate. |
+| Status | `fdai-win` |
+
+#### RUN-0024 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -641,7 +663,7 @@ existing seed.
 | Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | compared |
 | Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | compared |
 | Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | compared |
-| Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | queued |
+| Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | compared |
 | Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | queued |
 | Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | queued |
 | Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | queued |
