@@ -12,6 +12,7 @@ from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.delivery.read_api.routes.chat_answer_quality import AnswerQualityResult
 from fdai.delivery.read_api.routes.chat_evidence_enrichment import _web_search_summary
+from fdai.delivery.read_api.routes.chat_route_common import assurance_policy_summary
 from fdai.delivery.read_api.routes.chat_verification import AnswerVerification
 
 TurnTimingPhase = Literal[
@@ -194,4 +195,7 @@ def build_done_payload(
         payload["turn_timing"] = dict(turn_timing)
     if trajectory_detail is not None:
         payload["trajectory_detail"] = dict(trajectory_detail)
+    policy_summary = assurance_policy_summary(enriched_context)
+    if policy_summary is not None:
+        payload["conversation_policy"] = policy_summary
     return payload

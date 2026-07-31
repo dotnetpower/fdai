@@ -78,6 +78,7 @@ def append_auxiliary_routes(
         agent_delegate=config.chat_agent_delegate,
         web_search_resolver=config.chat_web_search,
         conversation_policy_store=config.conversation_policy_store,
+        conversation_assurance_runtime=config.conversation_assurance_runtime,
         conversation_history_store=config.conversation_history_store,
         conversation_search=config.conversation_search,
         inventory_graph_provider=config.inventory_graph_provider,

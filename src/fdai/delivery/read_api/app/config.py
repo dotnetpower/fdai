@@ -405,6 +405,10 @@ class ReadApiConfig:
     Raw user prose is never read from this seam; the chat route compiles only
     confirmed allowlisted policy fields into a bounded system layer."""
 
+    conversation_assurance_runtime: Any = None
+    """Optional server-owned chat-policy runtime registry. It resolves stable
+    canary assignments and never receives an executor identity."""
+
     conversation_history_store: Any = None
     """Optional principal-scoped durable Conversation and Turn store. When
     configured, both chat routes append authenticated inbound turns and final

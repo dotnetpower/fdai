@@ -83,6 +83,10 @@ from fdai.delivery.persistence import (
     PostgresReadInvestigationRunStore,
     PostgresReadInvestigationRunStoreConfig,
 )
+from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (
+    PostgresConversationPolicyRuntime,
+    PostgresConversationPolicyRuntimeConfig,
+)
 from fdai.delivery.persistence.postgres_conversation_delivery import (
     PostgresConversationDeliveryStore,
     PostgresConversationDeliveryStoreConfig,
@@ -322,6 +326,13 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     scope_source = build_production_scope_source(env)
     assurance_ledger = PostgresConversationAssuranceLedger(
         config=PostgresConversationAssuranceLedgerConfig(
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+    )
+    assurance_policy_runtime = PostgresConversationPolicyRuntime(
+        config=PostgresConversationPolicyRuntimeConfig(
             dsn=read_model._config.dsn,
             statement_timeout_ms=read_model._config.statement_timeout_ms,
             connect_timeout_s=read_model._config.connect_timeout_s,
@@ -763,6 +774,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         ),
         conversation_history_store=conversation_history_store,
         conversation_assurance_ledger=assurance_ledger,
+        conversation_assurance_runtime=assurance_policy_runtime,
         conversation_search=user_context.conversation_search,
         conversation_policy_store=conversation_policy_store,
         user_context_ontology_projector=user_context_ontology_projector,

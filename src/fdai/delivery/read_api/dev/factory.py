@@ -70,6 +70,10 @@ from fdai.delivery.persistence import (  # noqa: E402
     PostgresMeteringStore,
     PostgresMeteringStoreConfig,
 )
+from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (  # noqa: E402
+    PostgresConversationPolicyRuntime,
+    PostgresConversationPolicyRuntimeConfig,
+)
 from fdai.delivery.persistence.postgres_conversation_delivery import (  # noqa: E402
     PostgresConversationDeliveryStore,
     PostgresConversationDeliveryStoreConfig,
@@ -436,6 +440,21 @@ def build_local_app(
         if local_database_configured and not test_fixtures
         else InMemoryConversationAssuranceLedger()
     )
+    assurance_policy_runtime = (
+        PostgresConversationPolicyRuntime(
+            config=PostgresConversationPolicyRuntimeConfig(
+                dsn=cast(PostgresConsoleReadModel, read_model)._config.dsn,
+                statement_timeout_ms=cast(
+                    PostgresConsoleReadModel, read_model
+                )._config.statement_timeout_ms,
+                connect_timeout_s=cast(
+                    PostgresConsoleReadModel, read_model
+                )._config.connect_timeout_s,
+            )
+        )
+        if local_database_configured and not test_fixtures
+        else None
+    )
 
     local_read_investigation = (
         build_local_read_investigation(
@@ -707,6 +726,7 @@ def build_local_app(
             ontology_action_types=tuple(action_types),
             conversation_history_store=conversation_history_store,
             conversation_assurance_ledger=assurance_ledger,
+            conversation_assurance_runtime=assurance_policy_runtime,
             conversation_search=user_context.conversation_search,
             conversation_policy_store=conversation_policy_store,
             user_context_ontology_projector=user_context_ontology_projector,

@@ -14,6 +14,7 @@ from starlette.routing import BaseRoute
 
 from fdai.core.conversation.answer_plan import AnswerFormat, AnswerIntent, DetailLevel
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.read_api.read_model import ConsoleReadModel
@@ -103,6 +104,7 @@ def append_chat_routes(
     agent_delegate: AgentChatDelegate | None,
     web_search_resolver: ChatWebSearchEvidenceResolver | None = None,
     conversation_policy_store: ConversationPolicyStore | None = None,
+    conversation_assurance_runtime: ConversationPolicyRuntime | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
     conversation_search: ConversationSearch | None = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
@@ -218,6 +220,7 @@ def append_chat_routes(
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),
                 conversation_policy_store=conversation_policy_store,
+                conversation_assurance_runtime=conversation_assurance_runtime,
                 conversation_history_store=conversation_history_store,
                 user_context_ontology_projector=user_context_ontology_projector,
                 model_preference_resolver=(
@@ -245,6 +248,7 @@ def append_chat_routes(
                 agent_delegate=agent_delegate,
                 answer_planning_delegate=compatible_planning_delegate(agent_delegate),
                 conversation_policy_store=conversation_policy_store,
+                conversation_assurance_runtime=conversation_assurance_runtime,
                 conversation_history_store=conversation_history_store,
                 user_context_ontology_projector=user_context_ontology_projector,
                 model_preference_resolver=(

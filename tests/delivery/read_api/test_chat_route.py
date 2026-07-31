@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -28,6 +29,11 @@ from fdai.core.conversation.answer_planning import (
     PlanningCandidate,
 )
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.core.conversation_assurance import (
+    AppliedChatPolicy,
+    ChatPolicyTarget,
+    PolicyStage,
+)
 from fdai.core.metering import (
     InMemoryMeteringSink,
     InvocationScope,
@@ -105,6 +111,24 @@ class _FixedAnswerBackend(ChatBackend):
         return {"answer": self._answer, "model": "fixed"}
 
 
+class _ActiveAssurancePolicyRuntime:
+    def __init__(self) -> None:
+        self.text = "Prefer a direct answer and state uncertainty explicitly."
+
+    async def current_digest(self, **_kwargs: object) -> str:
+        return hashlib.sha256(self.text.encode()).hexdigest()
+
+    async def resolve(self, **_kwargs: object) -> AppliedChatPolicy:
+        return AppliedChatPolicy(
+            candidate_id="candidate-active",
+            principal_scope="principal-scope",
+            target=ChatPolicyTarget.NARRATOR_PROMPT,
+            policy_digest=hashlib.sha256(self.text.encode()).hexdigest(),
+            policy_text=self.text,
+            stage=PolicyStage.ACTIVE,
+        )
+
+
 def test_available_backend_registration_logs_info_without_endpoint(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
@@ -177,6 +201,33 @@ def test_azure_chat_fallback_identity_pins_runtime_account(
 
 def _app(backend: ChatBackend) -> Starlette:
     return Starlette(routes=[make_chat_route(backend=backend, authorize=_allow)])
+
+
+def test_direct_chat_applies_assurance_policy_without_exposing_text() -> None:
+    backend = _RecordingBackend(model="narrator-mini", delay_ms=0)
+    runtime = _ActiveAssurancePolicyRuntime()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                conversation_assurance_runtime=runtime,
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={"request_id": "policy-direct", "prompt": "Summarize the current view."},
+    )
+
+    assert response.status_code == 200
+    assert backend.view_context is not None
+    assert backend.view_context["_conversation_assurance_policy"]["text"] == runtime.text
+    policy = response.json()["conversation_policy"]
+    assert policy["candidate_id"] == "candidate-active"
+    assert policy["stage"] == "active"
+    assert "text" not in policy
 
 
 async def _deep_comparison_preferences(_principal_id: str) -> ResponsePreferenceProfile:
@@ -2165,6 +2216,31 @@ class TestChatStreamEvidence:
         assert backend.view_context is not None
         assert backend.view_context["_agent_evidence"]["primary_agent"] == "Njord"
         assert events[-1][1]["delegation"]["primary_agent"] == "Njord"
+
+    def test_stream_chat_applies_assurance_policy_without_exposing_text(self) -> None:
+        backend = _RecordingBackend(model="gpt-stream", delay_ms=0)
+        runtime = _ActiveAssurancePolicyRuntime()
+        app = Starlette(
+            routes=[
+                make_chat_stream_route(
+                    backend=backend,
+                    authorize=_allow,
+                    conversation_assurance_runtime=runtime,
+                )
+            ]
+        )
+
+        response = TestClient(app).post(
+            "/chat/stream",
+            json={"request_id": "policy-stream", "prompt": "Summarize the current view."},
+        )
+
+        done = next(payload for name, payload in _parse_sse(response.text) if name == "done")
+        assert backend.view_context is not None
+        assert backend.view_context["_conversation_assurance_policy"]["text"] == runtime.text
+        assert done["conversation_policy"]["candidate_id"] == "candidate-active"
+        assert done["conversation_policy"]["stage"] == "active"
+        assert "text" not in done["conversation_policy"]
 
 
 def _parse_sse(raw: str) -> list[tuple[str, dict[str, Any]]]:

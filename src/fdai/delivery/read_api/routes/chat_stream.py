@@ -17,6 +17,7 @@ from starlette.routing import Route
 
 from fdai.core.conversation.answer_planning import AnswerPlanningResult
 from fdai.core.conversation.busy_input_coordinator import BusyInputCoordinator
+from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.read_api.routes.chat_answer_planning import (
@@ -92,6 +93,7 @@ from fdai.delivery.read_api.routes.chat_route_common import (
     _metering_correlation_id,
     _turn_metadata,
     _uses_evidence_fast_path,
+    _with_assurance_policy,
     _with_compiled_user_policy,
 )
 from fdai.delivery.read_api.routes.chat_screen_data import render_screen_data_answer
@@ -172,6 +174,7 @@ def make_chat_stream_route(
     agent_delegate: AgentChatDelegate | None = None,
     answer_planning_delegate: AnswerPlanningDelegate | None = None,
     conversation_policy_store: ConversationPolicyStore | None = None,
+    conversation_assurance_runtime: ConversationPolicyRuntime | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_preference_resolver: ModelPreferenceResolver | None = None,
@@ -393,6 +396,12 @@ def make_chat_stream_route(
                     view_context,
                     user_id=user_id,
                     store=conversation_policy_store,
+                )
+                enriched_context = await _with_assurance_policy(
+                    enriched_context,
+                    user_id=user_id,
+                    request_id=request_id,
+                    runtime=conversation_assurance_runtime,
                 )
                 enriched_context = with_document_evidence(
                     enriched_context,

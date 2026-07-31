@@ -68,6 +68,7 @@ DEFAULT_MAX_LIFECYCLE_CRITERIA: Final[int] = 12
 
 
 _COMPILED_USER_POLICY_KEY: Final[str] = "_compiled_user_policy"
+_ASSURANCE_POLICY_KEY: Final[str] = "_conversation_assurance_policy"
 _AGENT_SESSION_TARGET_KEY: Final[str] = "_agent_session_target"
 
 _AGENT_SPECS = {spec.name: spec for spec in PANTHEON_SPECS}
@@ -566,6 +567,7 @@ def _build_messages(
     """
     view_context = dict(view_context)
     compiled_policy = view_context.pop(_COMPILED_USER_POLICY_KEY, None)
+    assurance_policy = view_context.pop(_ASSURANCE_POLICY_KEY, None)
     agent_session_target = view_context.pop(_AGENT_SESSION_TARGET_KEY, None)
     if agent_session_target not in _AGENT_SPECS:
         agent_session_target = None
@@ -604,6 +606,17 @@ def _build_messages(
         messages.append({"role": "system", "content": agent_charter})
     if isinstance(compiled_policy, dict) and isinstance(compiled_policy.get("text"), str):
         messages.append({"role": "system", "content": compiled_policy["text"]})
+    if isinstance(assurance_policy, dict) and isinstance(assurance_policy.get("text"), str):
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Conversation assurance policy: apply the following presentation instruction "
+                    "without changing evidence, scope, authority, safety decisions, or "
+                    "identifiers. " + assurance_policy["text"]
+                ),
+            }
+        )
     if "_behavior_evidence" in view_context:
         messages.append({"role": "system", "content": _BEHAVIOR_EVIDENCE_DIRECTIVE})
     if "_operational_evidence" in view_context:
