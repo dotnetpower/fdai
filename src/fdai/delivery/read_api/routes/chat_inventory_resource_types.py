@@ -91,7 +91,7 @@ def _contains_phrase(normalized_prompt: str, normalized_term: str) -> bool:
     return bool(
         re.search(
             rf"(?<![a-z0-9_.-]){re.escape(normalized_term)}"
-            r"(?=(?:은|는|이|가|의|에|에서)?(?:\s|[?!,.;:]|$))",
+            r"(?=(?:은|는|이|가|의|에|에서|을|를)?(?:\s|[?!,.;:]|$))",
             normalized_prompt,
             re.IGNORECASE,
         )

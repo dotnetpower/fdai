@@ -60,8 +60,8 @@ _ACTIVITY_OPERATION: Final = re.compile(
 )
 _COUNT: Final = re.compile(r"\b(?:how many|count)\b|몇\s*개|개수", re.IGNORECASE)
 _TYPES: Final = re.compile(
-    r"\b(?:resource types?|types? exist|inventory summary)\b|"
-    r"리소스\s*(?:종류|유형)|인벤토리\s*요약",
+    r"\b(?:resource types?|types? exist|inventory summary|by\s+(?:resource\s+)?types?)\b|"
+    r"리소스\s*(?:종류|유형)|(?:종류|유형)별|인벤토리\s*요약",
     re.IGNORECASE,
 )
 _RELATIONSHIPS: Final = re.compile(
@@ -102,9 +102,14 @@ _GENERIC_PREFIXES: Final = frozenset(
 
 _STATUS_ALIASES: Final[tuple[tuple[re.Pattern[str], frozenset[str]], ...]] = (
     (
-        re.compile(r"\b(?:stopped|deallocated)\b|중지|정지|멈춘|멈춰\s*있는", re.IGNORECASE),
+        re.compile(r"\b(?:stopped|deallocated)\b|중지|정지", re.IGNORECASE),
         frozenset({"stopped", "deallocated"}),
     ),
+    (
+        re.compile(r"멈춘|멈춰\s*있는", re.IGNORECASE),
+        frozenset({"stopped", "deallocated", "paused"}),
+    ),
+    (re.compile(r"\bpaused\b|일시\s*정지", re.IGNORECASE), frozenset({"paused"})),
     (
         re.compile(r"\brunning\b|실행\s*중(?!지)|가동\s*중(?!지)", re.IGNORECASE),
         frozenset({"running"}),
@@ -341,7 +346,7 @@ def _contains_phrase(normalized_prompt: str, normalized_value: str) -> bool:
     return bool(
         re.search(
             rf"(?<![a-z0-9_.-]){re.escape(normalized_value)}"
-            r"(?=(?:은|는|이|가|의|에|에서)?(?:\s|[?!,.;:]|$))",
+            r"(?=(?:은|는|이|가|의|에|에서|을|를)?(?:\s|[?!,.;:]|$))",
             normalized_prompt,
             re.IGNORECASE,
         )

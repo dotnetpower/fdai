@@ -208,6 +208,45 @@ async def test_inventory_chart_format_emits_valid_chart_json() -> None:
     }
 
 
+async def test_korean_database_grouping_uses_only_matched_stopped_or_paused_types() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+    ) -> dict[str, Any]:
+        assert scope is None
+        assert depth == 4
+        assert link_types == ("contains", "attached_to", "depends_on")
+        return {
+            "snapshot_at": "2026-07-20T10:00:00Z",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "resources": [
+                _resource("mysql", "mysql-server", "mysql-data", status="Stopped"),
+                _resource("postgres", "postgresql-server", "postgres-data", status="Stopped"),
+                _resource("sql", "sql-database", "sql-data", status="Paused"),
+                _resource("vm", "compute.vm", "vm-data", status="Stopped"),
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "현재 멈춰 있는 DB를 종류별로 보여줘.",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "mysql-server: 1개" in answer
+    assert "postgresql-server: 1개" in answer
+    assert "sql-database: 1개" in answer
+    assert "compute.vm" not in answer
+    assert evidence["result"]["matched_count"] == 3
+
+
 @pytest.mark.parametrize(
     "prompt",
     (

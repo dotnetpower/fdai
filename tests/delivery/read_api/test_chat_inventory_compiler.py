@@ -114,6 +114,55 @@ def test_catalog_entry_addition_needs_no_compiler_alias_change() -> None:
     assert query.predicates[0].value == "custom.widget"
 
 
+def test_database_category_with_korean_object_particle_preserves_status_scope() -> None:
+    resources = (
+        {
+            "type": "mysql-server",
+            "name": "mysql-data",
+            "status": "Stopped",
+            "resource_group": "rg-data",
+            "location": "westus",
+        },
+        {
+            "type": "postgresql-server",
+            "name": "postgres-data",
+            "status": "Stopped",
+            "resource_group": "rg-data",
+            "location": "westus",
+        },
+        {
+            "type": "sql-database",
+            "name": "sql-data",
+            "status": "Paused",
+            "resource_group": "rg-data",
+            "location": "westus",
+        },
+        {
+            "type": "compute.vm",
+            "name": "vm-stopped",
+            "status": "Stopped",
+            "resource_group": "rg-app",
+            "location": "koreacentral",
+        },
+    )
+
+    query = compile_inventory_query(
+        "현재 멈춰 있는 DB를 종류별로 보여줘.",
+        resources=resources,
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate for predicate in query.predicates}
+    resource_types = by_field[InventoryField.RESOURCE_TYPE].value
+    assert isinstance(resource_types, tuple)
+    assert "mysql-server" in resource_types
+    assert "postgresql-server" in resource_types
+    assert "compute.vm" not in resource_types
+    assert query.kind.value == "types"
+    assert by_field[InventoryField.STATUS].operator is InventoryOperator.IN
+    assert by_field[InventoryField.STATUS].value == ("paused", "stopped")
+
+
 @pytest.mark.parametrize(
     "prompt,source,field,expected",
     [

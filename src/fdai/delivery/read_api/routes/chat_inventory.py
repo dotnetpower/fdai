@@ -606,7 +606,7 @@ def _answer_detail_lines(
     if query_kind == "list" and result.get("display_projection") == "names":
         return [f"- {item.get('name')}" for item in resources]
     if query_kind == "types":
-        counts = result.get("type_counts", {})
+        counts = result.get("matched_type_counts", {})
         return (
             [f"- {kind}: {value}{'개' if korean else ''}" for kind, value in counts.items()]
             if isinstance(counts, Mapping)
