@@ -59,10 +59,6 @@ class InventoryResourceTypeResolver:
             for surface, type_id in self._type_forms
             if _contains_phrase(normalized, surface)
         ]
-        for observed_type in observed_types:
-            surface = normalize_inventory_value(observed_type)
-            if _contains_phrase(normalized, surface):
-                type_matches.append((surface, observed_type))
         if type_matches:
             return tuple(sorted({type_id for _surface, type_id in type_matches}))
 
@@ -71,15 +67,24 @@ class InventoryResourceTypeResolver:
             for surface, category in self._category_forms
             if _contains_phrase(normalized, surface)
         ]
-        if not category_matches:
-            return ()
-        longest = max(len(surface) for surface, _category in category_matches)
-        categories = {category for surface, category in category_matches if len(surface) == longest}
-        if len(categories) != 1:
-            return ()
-        category = next(iter(categories))
+        if category_matches:
+            longest = max(len(surface) for surface, _category in category_matches)
+            categories = {
+                category for surface, category in category_matches if len(surface) == longest
+            }
+            if len(categories) != 1:
+                return ()
+            category = next(iter(categories))
+            return tuple(
+                sorted(entry.id for entry in self._registry if entry.category.value == category)
+            )
+
         return tuple(
-            sorted(entry.id for entry in self._registry if entry.category.value == category)
+            sorted(
+                observed_type
+                for observed_type in observed_types
+                if _contains_phrase(normalized, normalize_inventory_value(observed_type))
+            )
         )
 
 
