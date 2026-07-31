@@ -44,10 +44,12 @@ def _fail(identifier: str) -> AssessmentRecord:
 
 class _Proposer:
     async def propose(self, _cluster: FailureCluster) -> ChatPolicyProposal:
+        policy_text = "Improve answer calibration without changing evidence or authority."
         return ChatPolicyProposal(
             target=ChatPolicyTarget.NARRATOR_PROMPT,
-            policy_digest="p" * 64,
+            policy_digest=hashlib.sha256(policy_text.encode()).hexdigest(),
             incumbent_policy_digest="i" * 64,
+            policy_text=policy_text,
         )
 
 

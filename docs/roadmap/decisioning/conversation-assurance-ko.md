@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 2a1ace3822531c5aeb97e97ea0d23cccb188a91a
+translation_source_sha: 52381c9f079aafae4653f1abf77cfad1f8efb2eb
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -163,6 +163,9 @@ verifier, RBAC, 위험 정책, agent 역할, 승인 규칙 또는 executor 동�
 candidate content를 멱등하게 추가하고, `from_stage`가 저장된 stage와 일치할 때만 transition을
 적용하며 append-only transition history를 기록합니다. 이미 적용된 transition 재생은 no-op이고,
 stale 또는 cross-scope transition은 거부됩니다.
+실행 가능한 candidate는 SHA-256 digest가 `policy_digest`와 정확히 일치하는 제한된 typed
+artifact도 포함합니다. legacy digest-only candidate는 audit을 위해 읽을 수 있지만 shadow를
+벗어나거나 runtime registry에 들어갈 수 없습니다.
 lifecycle coordinator는 scoped cluster, target 및 policy digest에서 stable candidate identity를
 계산합니다. injected proposer는 이 제한된 identity만 반환할 수 있고, injected blind trial
 measurer는 모든 promotion metric을 제공합니다. stage 변경 시 publisher가 candidate를 먼저 적용하고

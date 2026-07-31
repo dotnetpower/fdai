@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 from enum import StrEnum
@@ -41,6 +42,7 @@ class ChatPolicyCandidate:
     target: ChatPolicyTarget
     policy_digest: str
     incumbent_policy_digest: str
+    policy_text: str | None = None
     stage: PolicyStage = PolicyStage.SHADOW
 
     def __post_init__(self) -> None:
@@ -50,6 +52,12 @@ class ChatPolicyCandidate:
             raise ValueError("policy candidate cluster_id MUST be non-empty")
         if len(self.policy_digest) != 64 or len(self.incumbent_policy_digest) != 64:
             raise ValueError("policy candidate digests MUST be 64 characters")
+        if self.policy_text is not None:
+            if not self.policy_text.strip() or len(self.policy_text) > 2_000:
+                raise ValueError("policy artifact text MUST contain 1..2000 characters")
+            digest = hashlib.sha256(self.policy_text.encode()).hexdigest()
+            if digest != self.policy_digest:
+                raise ValueError("policy artifact text MUST match policy_digest")
 
 
 @dataclass(frozen=True, slots=True)

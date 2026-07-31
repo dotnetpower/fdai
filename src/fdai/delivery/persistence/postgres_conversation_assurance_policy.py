@@ -19,7 +19,7 @@ from fdai.core.conversation_assurance.policy_store import same_candidate_content
 
 _CANDIDATE_COLUMNS: Final = (
     "candidate_id, principal_scope, cluster_id, target, policy_digest, "
-    "incumbent_policy_digest, stage"
+    "incumbent_policy_digest, policy_text, stage"
 )
 _TRANSITION_COLUMNS: Final = "candidate_id, from_stage, to_stage, reasons, evidence_digest"
 
@@ -51,7 +51,7 @@ class PostgresConversationPolicyCandidateStore:
             cursor = await connection.execute(
                 f"""
                 INSERT INTO conversation_assurance_policy_candidate ({_CANDIDATE_COLUMNS})
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (candidate_id) DO NOTHING
                 RETURNING candidate_id
                 """,  # noqa: S608 - columns are module constants
@@ -160,6 +160,7 @@ class PostgresConversationPolicyCandidateStore:
                 target=candidate.target,
                 policy_digest=candidate.policy_digest,
                 incumbent_policy_digest=candidate.incumbent_policy_digest,
+                policy_text=candidate.policy_text,
                 stage=transition.to_stage,
             )
 
@@ -213,7 +214,7 @@ class PostgresConversationPolicyCandidateStore:
         )
 
 
-def _candidate_values(candidate: ChatPolicyCandidate) -> tuple[str, ...]:
+def _candidate_values(candidate: ChatPolicyCandidate) -> tuple[str | None, ...]:
     return (
         candidate.candidate_id,
         candidate.principal_scope,
@@ -221,6 +222,7 @@ def _candidate_values(candidate: ChatPolicyCandidate) -> tuple[str, ...]:
         candidate.target.value,
         candidate.policy_digest,
         candidate.incumbent_policy_digest,
+        candidate.policy_text,
         candidate.stage.value,
     )
 
@@ -233,6 +235,7 @@ def _candidate(row: dict[str, Any]) -> ChatPolicyCandidate:
         target=ChatPolicyTarget(str(row["target"])),
         policy_digest=str(row["policy_digest"]),
         incumbent_policy_digest=str(row["incumbent_policy_digest"]),
+        policy_text=(str(row["policy_text"]) if row["policy_text"] is not None else None),
         stage=PolicyStage(str(row["stage"])),
     )
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -136,13 +137,15 @@ async def test_policy_candidate_transition_survives_restart() -> None:
     store = PostgresConversationPolicyCandidateStore(
         config=PostgresConversationPolicyCandidateStoreConfig(dsn=dsn)
     )
+    policy_text = "Improve answer calibration without changing evidence or authority."
     candidate = ChatPolicyCandidate(
         candidate_id=f"candidate-{suffix}",
         principal_scope=f"principal-{suffix}",
         cluster_id=f"cluster-{suffix}",
         target=ChatPolicyTarget.NARRATOR_PROMPT,
-        policy_digest="p" * 64,
+        policy_digest=hashlib.sha256(policy_text.encode()).hexdigest(),
         incumbent_policy_digest="i" * 64,
+        policy_text=policy_text,
     )
     transition = PolicyTransition(
         candidate_id=candidate.candidate_id,

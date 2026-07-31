@@ -125,6 +125,7 @@ def same_candidate_content(
         and first.target is second.target
         and first.policy_digest == second.policy_digest
         and first.incumbent_policy_digest == second.incumbent_policy_digest
+        and first.policy_text == second.policy_text
     )
 
 

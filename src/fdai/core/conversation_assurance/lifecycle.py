@@ -24,10 +24,15 @@ class ChatPolicyProposal:
     target: ChatPolicyTarget
     policy_digest: str
     incumbent_policy_digest: str
+    policy_text: str
 
     def __post_init__(self) -> None:
         if len(self.policy_digest) != 64 or len(self.incumbent_policy_digest) != 64:
             raise ValueError("policy proposal digests MUST be 64 characters")
+        if not self.policy_text.strip() or len(self.policy_text) > 2_000:
+            raise ValueError("policy proposal text MUST contain 1..2000 characters")
+        if hashlib.sha256(self.policy_text.encode()).hexdigest() != self.policy_digest:
+            raise ValueError("policy proposal text MUST match policy_digest")
 
 
 class ChatPolicyProposer(Protocol):
@@ -157,6 +162,7 @@ def _candidate(
         target=proposal.target,
         policy_digest=proposal.policy_digest,
         incumbent_policy_digest=proposal.incumbent_policy_digest,
+        policy_text=proposal.policy_text,
     )
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -107,15 +108,44 @@ def test_failure_clusters_do_not_combine_principal_scopes() -> None:
 
 
 def _candidate(stage: PolicyStage = PolicyStage.SHADOW) -> ChatPolicyCandidate:
+    policy_text = "Improve answer calibration without changing evidence or authority."
     return ChatPolicyCandidate(
         candidate_id="candidate-1",
         principal_scope="principal-1",
         cluster_id="cluster-1",
         target=ChatPolicyTarget.NARRATOR_PROMPT,
-        policy_digest="p" * 64,
+        policy_digest=hashlib.sha256(policy_text.encode()).hexdigest(),
         incumbent_policy_digest="i" * 64,
+        policy_text=policy_text,
         stage=stage,
     )
+
+
+def test_policy_candidate_rejects_artifact_digest_mismatch() -> None:
+    with pytest.raises(ValueError, match="match policy_digest"):
+        ChatPolicyCandidate(
+            candidate_id="candidate-mismatch",
+            principal_scope="principal-1",
+            cluster_id="cluster-1",
+            target=ChatPolicyTarget.NARRATOR_PROMPT,
+            policy_digest="a" * 64,
+            incumbent_policy_digest="i" * 64,
+            policy_text="A different policy artifact.",
+        )
+
+
+def test_legacy_digest_only_candidate_remains_readable_in_shadow() -> None:
+    candidate = ChatPolicyCandidate(
+        candidate_id="candidate-legacy",
+        principal_scope="principal-1",
+        cluster_id="cluster-1",
+        target=ChatPolicyTarget.NARRATOR_PROMPT,
+        policy_digest="a" * 64,
+        incumbent_policy_digest="i" * 64,
+    )
+
+    assert candidate.policy_text is None
+    assert candidate.stage is PolicyStage.SHADOW
 
 
 def _metrics(**overrides: object) -> PolicyTrialMetrics:
