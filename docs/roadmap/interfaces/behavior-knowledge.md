@@ -66,6 +66,10 @@ the path and blob are otherwise current. A change that edits a cited file withou
 turns the whole suite red, and the failure surfaces under behavior knowledge rather than under the
 change that caused it - so the update belongs in the commit that moves the lines.
 
+Range-only maintenance changes citation metadata, not answer content or implementation status. Run
+the whole-seed precision test so one repaired citation does not hide another stale source later in
+the set.
+
 ## Retrieval and authority
 
 The reference index and PostgreSQL adapter use the same ordering contract:

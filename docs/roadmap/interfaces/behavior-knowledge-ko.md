@@ -1,8 +1,8 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 7e8d539e38fd91a7bd917e95e29134ff87dec160
-translation_revised: 2026-07-26
+translation_source_sha: 60f8db61f48c91484b63b3574be4d1140074f368
+translation_revised: 2026-07-31
 ---
 
 # Command Deck 행동 지식
@@ -68,6 +68,10 @@ Line만 이동해도 이 갱신이 필요합니다. Freshness test는 path와 bl
 reject합니다. 인용된 파일을 고치면서 seed를 갱신하지 않은 변경은 전체 suite를 red로 만들고,
 그 실패는 원인이 된 변경이 아니라 behavior knowledge 아래에서 드러납니다. 그래서 이 갱신은
 line을 옮긴 커밋에 속합니다.
+
+Range만 유지보수하는 변경은 citation metadata만 바꾸며 answer content나 implementation status는
+바꾸지 않습니다. 한 citation을 고친 뒤 set의 뒤쪽에 있는 다른 stale source를 놓치지 않도록 전체
+seed precision test를 실행합니다.
 
 ## 검색 및 권위
 

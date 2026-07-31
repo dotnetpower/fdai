@@ -11,6 +11,7 @@ def test_scripts_root_contains_only_stable_entrypoints() -> None:
 
     assert root_files == {
         ".check-file-loc.allowlist",
+        ".check-file-loc.baseline",
         "README.md",
         "__init__.py",
         "verify.sh",
