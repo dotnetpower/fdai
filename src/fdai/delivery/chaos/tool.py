@@ -10,7 +10,7 @@ from fdai.core.chaos import (
     FaultInjectionHarness,
     FaultScenario,
 )
-from fdai.core.chaos.factory import ScenarioFactory, UnavailableInjectorError, UnavailableProbeError
+from fdai.core.chaos.factory import ScenarioFactory
 from fdai.core.chaos.injector import FaultInjector, SignalProbe
 from fdai.core.chaos.scenario_catalog import CatalogEntry
 from fdai.core.report_feed import signal_from_experiment
@@ -29,6 +29,17 @@ class ReportSignalWriter(Protocol):
     async def record(self, signal: ReportSignal) -> None: ...
 
 
+class GovernedChaosExecution(Protocol):
+    async def execute(
+        self,
+        *,
+        request: ToolCallRequest,
+        entry: CatalogEntry,
+        scenario: FaultScenario,
+        targets: tuple[str, ...],
+    ) -> ToolCallReceipt: ...
+
+
 class ChaosExperimentToolExecutor:
     """Resolve a catalog scenario and run it through FaultInjectionHarness."""
 
@@ -40,6 +51,7 @@ class ChaosExperimentToolExecutor:
         factory: ScenarioFactory,
         context: Mapping[str, Any] | None = None,
         signal_writer: ReportSignalWriter | None = None,
+        governed_execution: GovernedChaosExecution | None = None,
         sleeper: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
         self._entries = {entry.id: entry for entry in entries}
@@ -47,6 +59,7 @@ class ChaosExperimentToolExecutor:
         self._factory = factory
         self._context = dict(context or {})
         self._signal_writer = signal_writer
+        self._governed_execution = governed_execution
         self._sleeper = sleeper
 
     async def execute(self, request: ToolCallRequest) -> ToolCallReceipt:
@@ -64,13 +77,16 @@ class ChaosExperimentToolExecutor:
                 raise ToolPromotionError("chaos enforce requires the enforce label")
             if scenario_id not in self._promoted_ids:
                 raise ToolPromotionError(f"chaos scenario {scenario_id!r} is not promoted")
-            try:
-                injector, probe = self._factory.build(entry, self._context)
-            except (UnavailableInjectorError, UnavailableProbeError, KeyError) as exc:
+            if self._governed_execution is None:
                 raise ToolPreconditionError(
-                    f"chaos scenario {scenario_id!r} is not executable in this runtime"
-                ) from exc
-            injectors = (injector,)
+                    "chaos enforce requires a governed impact and recovery executor"
+                )
+            return await self._governed_execution.execute(
+                request=request,
+                entry=entry,
+                scenario=scenario,
+                targets=targets,
+            )
 
         harness = FaultInjectionHarness(
             injectors=injectors,
@@ -140,4 +156,8 @@ def _tool_outcome(
     return ToolCallOutcome.STOPPED, reverted
 
 
-__all__ = ["ChaosExperimentToolExecutor", "ReportSignalWriter"]
+__all__ = [
+    "ChaosExperimentToolExecutor",
+    "GovernedChaosExecution",
+    "ReportSignalWriter",
+]
