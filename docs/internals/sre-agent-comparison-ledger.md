@@ -573,6 +573,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0022: Function and container applications not ready
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q014` |
+| Executed | `2026-08-01` |
+| Question | `Which function or container applications are not ready?` |
+| Azure SRE Agent answer | Reported that no Function Apps or Container Apps were present and therefore none were not ready. |
+| FDAI answer | Checked nine Function Apps or Container Apps and found zero resources in the requested not-ready states. Deployment-owned values were redacted. |
+| Evidence | Server-owned subscription health, catalog-driven multi-type expansion, ARM-type-scoped Function App kind filtering, exact Resource Health intersection, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products reached the same empty not-ready conclusion, but Azure SRE Agent incorrectly reported that the scoped resources did not exist. FDAI established the conclusion across nine matching resources without truncation and exposed source composition, observation time, and one-of-one verification. |
+| Winner | FDAI for materially stronger scope correctness, completeness, evidence integrity, and deterministic verification. |
+| General fix | Reviewed multi-type phrases expand through catalog query groups. Kind predicates remain scoped to their owning ARM type so shared provider types do not contaminate other selected resource families, and health findings intersect the exact selected resource set. |
+| Status | `fdai-win` |
+
+#### RUN-0022 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 2 | 1 | 4 | 3 | 4 | 3 | 4 | 21/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -595,7 +617,7 @@ existing seed.
 | Q011 | ko | Storage state | 사용 불가능하거나 성능이 저하된 스토리지 계정이 있어? | `HEALTH` | compared |
 | Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | compared |
 | Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | compared |
-| Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | queued |
+| Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | compared |
 | Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | queued |
 | Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | queued |
 | Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | queued |
