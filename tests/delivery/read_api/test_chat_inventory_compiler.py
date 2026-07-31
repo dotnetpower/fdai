@@ -254,6 +254,18 @@ def test_compiler_combines_type_status_group_location_and_name() -> None:
     assert by_field[InventoryField.NAME].value == "vm-job"
 
 
+def test_korean_deallocated_vm_question_preserves_type_and_state() -> None:
+    query = compile_inventory_query(
+        "할당 해제된 가상 머신을 모두 찾아줘.",
+        resources=_RESOURCES,
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == "compute.vm"
+    assert by_field[InventoryField.STATUS] == "vm deallocated"
+
+
 def test_observed_type_and_location_are_dynamic_facets() -> None:
     resources = (
         *_RESOURCES,

@@ -131,6 +131,9 @@ which joins `Resources` with `HealthResources` under the same server-owned scope
 catalog-compiled state groups travel with the typed evidence envelope so the deterministic renderer
 can preserve zero-result groups without reinterpreting prompt text. A concrete resource-family
 filter remains on the inventory path rather than widening to a subscription health sweep.
+When the catalog can compile a complete inventory query, a generic search verb such as `find` or
+`찾아줘` does not select public web evidence. Public web takes precedence only when the operator
+names that medium or another explicit web context.
 
 ## Read-tool catalog
 

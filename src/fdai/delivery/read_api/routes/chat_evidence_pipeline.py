@@ -31,6 +31,7 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
     merge_evidence_branch_results,
 )
 from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
+from fdai.delivery.read_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.read_api.routes.chat_web_search_intent import classify_search_intent
 
 
@@ -91,11 +92,11 @@ async def resolve_parallel_chat_evidence(
         classify_read_investigation_intent(prompt) is not None
         and resource_name_from_question(prompt) is not None
     )
+    complete_inventory_query = compile_inventory_query(prompt) is not None
     explicit_web_search = search_intent.reason in {
         "explicit_web_search",
         "explicit_web_context",
-        "explicit_search_request",
-    }
+    } or (search_intent.reason == "explicit_search_request" and not complete_inventory_query)
     deterministic_inventory_turn = (
         needs_inventory_evidence(prompt) and not explicit_web_search and not read_investigation
     )

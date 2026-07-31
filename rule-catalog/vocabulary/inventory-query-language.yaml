@@ -45,8 +45,11 @@ scopes:
     terms: [this view, current view, this screen, current screen, 현재 보기, 현재 화면, 이 화면]
 states:
   stopped:
-    terms: [stopped, deallocated, powered off, 중지, 중지된, 정지, 정지된]
+    terms: [stopped, powered off, 중지, 중지된, 정지, 정지된]
     values: [stopped, deallocated]
+  deallocated:
+    terms: [deallocated, allocation released, 할당 해제, 할당 해제된]
+    values: [deallocated]
   inactive:
     terms: [not running, inactive, 멈춘, 멈춰 있는, 비활성]
     values: [stopped, deallocated]

@@ -213,6 +213,141 @@ async def test_inventory_chart_format_emits_valid_chart_json() -> None:
     }
 
 
+async def test_korean_deallocated_vm_question_uses_verified_inventory_without_model() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+        resources = [
+            {
+                **resource,
+                "status": "VM deallocated" if resource["name"] == "vm-job" else resource["status"],
+            }
+            for resource in graph["resources"]
+        ]
+        return {**graph, "resources": resources}
+
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(provider),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={"prompt": "할당 해제된 가상 머신을 모두 찾아줘.", "view_context": {}},
+        )
+
+    payload = response.json()
+    assert payload["verification"]["status"] == "verified"
+    assert payload["verification"]["reason_code"] == "inventory_snapshot_grounded"
+    assert "vm-job" in payload["answer"]
+    assert "vm-app" not in payload["answer"]
+    assert backend.calls == 0
+
+
+def test_korean_deallocated_vm_ignores_invalid_semantic_plan_and_web() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "status",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [],
+                        "lookback_seconds": 3_600,
+                    },
+                    "clarification": None,
+                    "confidence": 0.9,
+                }
+            )
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("deterministic inventory must not search public web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("deterministic inventory must not use a web plan")
+
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+        return {
+            **graph,
+            "resources": [
+                {
+                    **resource,
+                    "status": (
+                        "VM deallocated" if resource["name"] == "vm-job" else resource["status"]
+                    ),
+                }
+                for resource in graph["resources"]
+            ]
+            + [_resource("vm-stopped", "compute.vm", "vm-stopped", status="VM stopped")],
+        }
+
+    async def health_provider(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del lookback_seconds, progress_observer
+        raise AssertionError("specific VM inventory must not use subscription health")
+
+    backend = RecordingBackend()
+    inventory = InventoryChatTools(provider)
+    tools = SubscriptionHealthChatTools(health_provider, fallback=inventory)
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=inventory,
+                web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=inventory.turn_tools(),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={"prompt": "할당 해제된 가상 머신을 모두 찾아줘.", "view_context": {}},
+    )
+
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert done["verification"]["status"] == "verified"
+    assert done["verification"]["reason_code"] == "inventory_snapshot_grounded"
+    assert "vm-job" in done["answer"]
+    assert "vm-app" not in done["answer"]
+    assert "vm-stopped" not in done["answer"]
+    assert "public_web" not in response.text
+    assert backend.calls == 0
+
+
 async def test_korean_database_grouping_uses_only_matched_stopped_types() -> None:
     async def provider(
         scope: str | None,
@@ -1661,13 +1796,35 @@ def test_twenty_inventory_weaknesses_pass_twenty_answer_rubrics() -> None:
 
 
 def test_generalized_resource_conditions_stay_deterministic_and_local() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+        return {
+            **graph,
+            "resources": [
+                {
+                    **resource,
+                    "status": (
+                        "VM deallocated" if resource["name"] == "vm-job" else resource["status"]
+                    ),
+                }
+                for resource in graph["resources"]
+            ],
+        }
+
     backend = RecordingBackend()
     app = Starlette(
         routes=[
             make_chat_route(
                 backend=backend,
                 authorize=_allow,
-                tool_resolver=InventoryChatTools(_provider),
+                tool_resolver=InventoryChatTools(provider),
             )
         ]
     )

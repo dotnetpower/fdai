@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: d1a610a35aec6a862b2cd4f642089490b2036423
+translation_source_sha: 50058c78971b3272e35c52d0d1d80953ff8a5d16
 translation_revised: 2026-08-01
 ---
 
@@ -130,6 +130,9 @@ operational state는 promoted inventory를 사용합니다. Degraded 또는 unav
 state group은 typed evidence envelope과 함께 전달되므로 deterministic renderer가 prompt text를 다시
 해석하지 않고 zero-result group을 보존할 수 있습니다. 구체적인 resource-family filter는 subscription
 health sweep으로 확장하지 않고 inventory path에 유지됩니다.
+Catalog가 complete inventory query를 compile할 수 있으면 `find` 또는 `찾아줘` 같은 일반적인 search
+verb는 public web evidence를 선택하지 않습니다. Operator가 해당 medium이나 다른 명시적인 web
+context를 지정한 경우에만 public web이 우선합니다.
 
 ## Read-tool catalog
 
