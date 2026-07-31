@@ -49,11 +49,19 @@ from fdai.core.conversation_assurance.promotion import (
     PromotionConfig,
     evaluate_policy_transition,
 )
+from fdai.core.conversation_assurance.runtime_policy import (
+    BASE_POLICY_DIGEST,
+    AppliedChatPolicy,
+    ConversationPolicyRuntime,
+    policy_is_assigned,
+)
 from fdai.core.conversation_assurance.service import ConversationAssuranceCoordinator
 
 __all__ = [
     "CRITERION_WEIGHTS",
     "AccuracyPosterior",
+    "AppliedChatPolicy",
+    "BASE_POLICY_DIGEST",
     "AssessmentRecord",
     "AssessmentState",
     "BlindPolicyTrialMeasurer",
@@ -68,6 +76,7 @@ __all__ = [
     "ConversationAssuranceLedger",
     "ConversationAssuranceLifecycleCoordinator",
     "ConversationAssuranceLifecycleRunner",
+    "ConversationPolicyRuntime",
     "ConversationPolicyCandidateStore",
     "CriterionScore",
     "DebateContext",
@@ -90,4 +99,5 @@ __all__ = [
     "assurance_principal_scope",
     "cluster_failures",
     "evaluate_policy_transition",
+    "policy_is_assigned",
 ]

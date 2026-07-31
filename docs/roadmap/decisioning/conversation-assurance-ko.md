@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 52381c9f079aafae4653f1abf77cfad1f8efb2eb
+translation_source_sha: bb3ee79d8dacd949825a5c179094de5c93ad781a
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -192,6 +192,13 @@ $$
 stage 불일치, 이미 소비된 digest 또는 누락된 측정 identity는 진행을 차단합니다. 반복 intake는
 기록된 transition을 재생할 수 있지만 하나의 shadow 또는 canary 결과를 재사용해 이후 트래픽
 단계를 진행할 수 없습니다.
+
+별도의 durable runtime registry가 각 `(principal_scope, target)`에 현재 적용된 artifact를
+소유합니다. canary assignment는 server-owned principal, turn identity 및 candidate identity를
+hash하므로 retry도 고객 식별자를 artifact에 저장하지 않고 동일한 variant를 선택합니다. 각
+publish는 immutable before 및 after snapshot을 기록합니다. restore는 restart 후 before snapshot을
+재생하고, rollback은 candidate에 기록된 incumbent digest를 선택하거나 incumbent가 built-in base
+policy이면 overlay를 제거합니다.
 
 자동 승격에는 다음 조건이 필요합니다.
 

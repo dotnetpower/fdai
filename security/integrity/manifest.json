@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 861,
+  "file_count": 862,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "fbfc2f59b5ddb7da81dfb516fa0d6338a303dc4a11fe1ffcf71d00f1402c68cb",
     ".github/instructions/agent-stewardship.instructions.md": "a1d3657f05323259023fbb1abf304495ec923f6bb917be739ed49647171195ba",
@@ -209,7 +209,7 @@
     "src/fdai/core/conversation/tool_discovery.py": "305d4a7e971a800f5068d0b7c57fbcdf038fc59f8f7dd67591657bc0f5376b60",
     "src/fdai/core/conversation/tools.py": "8d5944f8c4d4f750530d9eb825eb1e015b4f8d3fcdcc72ac64ef59f11190fed3",
     "src/fdai/core/conversation/write_tools.py": "77dae0f125caa27683344b6987dc530c707e16842e5aeaf568f035a9c94b5978",
-    "src/fdai/core/conversation_assurance/__init__.py": "747ee617e3713890c538be7e1a724620b1f1b1f7217e56e50cbd74f501e25639",
+    "src/fdai/core/conversation_assurance/__init__.py": "553e2243d9879a3744cbd6b1637f5d83feb2676302e87399bce597207c5bf19d",
     "src/fdai/core/conversation_assurance/consensus.py": "d8080e88490f1dc81c2afc89bc5b9abd3d7450fe1444c49ada7048b01e9ce7e1",
     "src/fdai/core/conversation_assurance/deterministic.py": "0dfc2513c4a5cbe7b928be557a414d8ea3c6b7b6451d1f91eec79fbfe36fe87d",
     "src/fdai/core/conversation_assurance/identity.py": "f1568698320300442c93ae4b05be8686b8b3e41a690968b8d13a2ece4d348d9b",
@@ -219,6 +219,7 @@
     "src/fdai/core/conversation_assurance/models.py": "a7794e3706abb3f1cd99cef806d9e494953f8ba5c0b77a23651c2dc9c4ffab71",
     "src/fdai/core/conversation_assurance/policy_store.py": "0c50f37a29f7efc21101460b0fd1769d41e92d356a0e120c6a7f3830d8399ca7",
     "src/fdai/core/conversation_assurance/promotion.py": "6d40ea3e5b6ebdf666efcff8945c3fe863206c348b49992fe557ff60e810e0fa",
+    "src/fdai/core/conversation_assurance/runtime_policy.py": "618fc4d87d50eb3ec510a4c021aee1ecd97ae2b28cc10e7bbf07745d03f198b7",
     "src/fdai/core/conversation_assurance/service.py": "0d9d16c317749528255765db2608fbba659a9f0f8855f4dd14a5c367d2881ac6",
     "src/fdai/core/decision_case/__init__.py": "17008ff22b5de212f6bba6df94726dbfb7a5a2a2f40cedcd8b31f61c1f0def4f",
     "src/fdai/core/decision_case/domain.py": "5788a7662f3ac0776c8d334380e978f4597974fcf6172e90acce800d059a358e",
@@ -864,7 +865,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T14:35:39Z",
+  "generated_at": "2026-07-31T14:40:44Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

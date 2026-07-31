@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from fdai.core.conversation_assurance import (
+    BASE_POLICY_DIGEST,
     AssessmentRecord,
     AssuranceDecision,
     AssuranceVerdict,
@@ -28,6 +29,10 @@ from fdai.delivery.persistence import (
     PostgresConversationAssuranceLedgerConfig,
     PostgresConversationPolicyCandidateStore,
     PostgresConversationPolicyCandidateStoreConfig,
+)
+from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (
+    PostgresConversationPolicyRuntime,
+    PostgresConversationPolicyRuntimeConfig,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -188,3 +193,78 @@ async def test_policy_candidate_transition_survives_restart() -> None:
             principal_scope=candidate.principal_scope,
             transition=reused,
         )
+
+
+@pytest.mark.integration
+async def test_policy_runtime_publish_resolve_restart_and_restore() -> None:
+    dsn = _requires_live_db()
+    _upgrade_head()
+    suffix = uuid.uuid4().hex
+    policy_text = "Improve answer calibration without changing evidence or authority."
+    candidate = ChatPolicyCandidate(
+        candidate_id=f"runtime-candidate-{suffix}",
+        principal_scope=f"runtime-principal-{suffix}",
+        cluster_id=f"runtime-cluster-{suffix}",
+        target=ChatPolicyTarget.NARRATOR_PROMPT,
+        policy_digest=hashlib.sha256(policy_text.encode()).hexdigest(),
+        incumbent_policy_digest=BASE_POLICY_DIGEST,
+        policy_text=policy_text,
+    )
+    transition = PolicyTransition(
+        candidate_id=candidate.candidate_id,
+        from_stage=PolicyStage.SHADOW,
+        to_stage=PolicyStage.CANARY_25,
+        reasons=("promotion_guards_passed",),
+        evidence_digest="b" * 64,
+    )
+    config = PostgresConversationPolicyRuntimeConfig(dsn=dsn)
+    runtime = PostgresConversationPolicyRuntime(config=config)
+
+    await runtime.publish(candidate, transition)
+    assert (
+        await runtime.current_digest(
+            principal_scope=candidate.principal_scope,
+            target=candidate.target,
+        )
+        == candidate.policy_digest
+    )
+    assigned_key = ""
+    for index in range(1_000):
+        candidate_key = f"turn-{index}"
+        if (
+            await runtime.resolve(
+                principal_scope=candidate.principal_scope,
+                target=candidate.target,
+                assignment_key=candidate_key,
+            )
+            is not None
+        ):
+            assigned_key = candidate_key
+            break
+    assert assigned_key
+    restarted = PostgresConversationPolicyRuntime(config=config)
+    resolved = await restarted.resolve(
+        principal_scope=candidate.principal_scope,
+        target=candidate.target,
+        assignment_key=assigned_key,
+    )
+    assert resolved is not None
+    assert resolved.policy_text == policy_text
+    assert resolved.stage is PolicyStage.CANARY_25
+
+    await restarted.restore(candidate, transition)
+    assert (
+        await restarted.current_digest(
+            principal_scope=candidate.principal_scope,
+            target=candidate.target,
+        )
+        == BASE_POLICY_DIGEST
+    )
+    assert (
+        await restarted.resolve(
+            principal_scope=candidate.principal_scope,
+            target=candidate.target,
+            assignment_key=assigned_key,
+        )
+        is None
+    )

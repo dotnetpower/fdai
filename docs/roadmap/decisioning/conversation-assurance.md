@@ -196,6 +196,13 @@ A stage mismatch, an already consumed digest, or missing measurement identity bl
 Repeated intake can replay the recorded transition, but it cannot reuse one shadow or canary result
 to advance through later traffic stages.
 
+A separate durable runtime registry owns the currently applied artifact for each
+`(principal_scope, target)`. Canary assignment hashes the server-owned principal, turn identity,
+and candidate identity, so retries select the same variant without storing customer identifiers in
+the artifact. Every publish records immutable before and after snapshots. Restore replays the before
+snapshot after a restart; a rollback selects the candidate's recorded incumbent digest or removes
+the overlay when the incumbent is the built-in base policy.
+
 Automatic promotion requires:
 
 $$
