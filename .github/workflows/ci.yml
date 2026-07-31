@@ -339,11 +339,11 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install runtime deps for the loader
-        run: python3 -m pip install --quiet pyyaml jsonschema
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.3.2
 
-      - name: Install the package (editable) for module imports
-        run: python3 -m pip install --quiet -e .
+      - name: Install frozen runtime workspace
+        run: uv sync --frozen --package fdai --no-dev
 
       - name: check-chaos-scenarios.sh
         run: bash scripts/catalog/check-chaos-scenarios.sh
@@ -517,14 +517,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
-      - name: pip-audit against pyproject.toml
-        # The action's `inputs` must be a project directory (which contains
-        # pyproject.toml), not the file itself - passing `pyproject.toml`
-        # sends pip-audit into requirements-file mode and it chokes on the
-        # first `[project]` table. Repo root has our only pyproject.toml.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.3.2
+
+      - name: Export frozen runtime dependencies
+        run: >-
+          uv export --format requirements.txt --frozen --no-dev
+          --no-emit-workspace --output-file audit-requirements.txt
+
+      - name: pip-audit against frozen runtime dependencies
         uses: pypa/gh-action-pip-audit@v1.1.0
         with:
-          inputs: .
+          inputs: audit-requirements.txt
 
   exemption-check:
     name: Exemption artifact validation

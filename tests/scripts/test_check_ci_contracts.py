@@ -129,3 +129,17 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     assert "COPY benchmarks/sregym/pyproject.toml" in dockerfile
     assert "COPY benchmarks/cybergym/pyproject.toml" in dockerfile
     assert "uv sync --frozen --package fdai" in dockerfile
+
+
+def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
+    workflow = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+    chaos_job = workflow.split("  chaos-scenarios:", 1)[1].split("\n  core-imports:", 1)[0]
+    audit_job = workflow.split("  deps-audit:", 1)[1].split("\n  exemption-check:", 1)[0]
+
+    assert "uv sync --frozen --package fdai --no-dev" in chaos_job
+    assert "python3 -m pip install --quiet -e ." not in chaos_job
+    assert "uv export --format requirements.txt --frozen --no-dev" in audit_job
+    assert "--no-emit-workspace --output-file audit-requirements.txt" in audit_job
+    assert "inputs: audit-requirements.txt" in audit_job
