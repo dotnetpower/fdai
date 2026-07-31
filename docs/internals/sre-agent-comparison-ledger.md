@@ -262,6 +262,119 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI candidate | 3 | 2 | 1 | 4 | 4 | 2 | 4 | 20/28 |
 
+### RUN-0008: Explicit stopped and paused separation
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q004` |
+| Executed | `2026-08-01` |
+| Locale | English |
+| Question | `List stopped and paused database services separately.` |
+| Scope alignment | Azure SRE Agent used the subscription; FDAI used the `fdai-control-plane` active view. |
+| Azure SRE Agent answer | Separated four stopped MySQL or PostgreSQL servers from one paused SQL database. Names were redacted. |
+| FDAI answer | Returned a flat list of four stopped MySQL or PostgreSQL servers and omitted a paused section. |
+| Azure SRE Agent evidence | Reused current subscription database-state evidence from the adjacent matched query. |
+| FDAI evidence | Compiled the database category but silently reduced the explicit stopped-and-paused request to a stopped-only predicate because no paused record existed in the active view. |
+| Material difference | FDAI dropped an explicit requested state and did not honor the requested separated presentation. |
+| Winner | Azure SRE Agent for condition preservation, subscription coverage, and requested answer shape. |
+| FDAI advantage | Typed local query, explicit active view and stale snapshot, consumed evidence reference, deterministic verification, and zero model calls. |
+| Root gap | Known status aliases are derived only from values observed in the selected view, so one explicit condition can disappear when another condition matches. |
+| General fix | Preserve every explicit canonical state predicate and render requested state groups separately, including a grounded zero-result group. |
+| Regression cohort | `Q003`, `Q004`, stopped-only, paused-only, mixed-state, and no-match variants. |
+| Status | `gap-confirmed` |
+
+#### RUN-0008 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 2 | 1 | 1 | 4 | 4 | 1 | 2 | 15/28 |
+
+### RUN-0009: Q001 catalog-driven final rerun
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q001` |
+| Executed | `2026-08-01` |
+| Question | `중지된 데이터베이스 있어?` |
+| FDAI answer | Reported four stopped MySQL or PostgreSQL servers from the complete subscription scope. Names were redacted. |
+| Evidence | Fresh Azure CLI inventory snapshot, typed database-family and stopped-state predicates, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | FDAI matched the SRE Agent's four stopped servers without the earlier MySQL omission and disclosed exact scope, freshness, and verification. |
+| Winner | FDAI for equal factual coverage with stronger evidence integrity and explicit freshness. |
+| General fix | Resource families and state semantics now come from schema-validated catalogs rather than prompt-specific code. |
+| Status | `fdai-win` |
+
+#### RUN-0009 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
+### RUN-0010: Q002 catalog-driven final rerun
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q002` |
+| Executed | `2026-08-01` |
+| Question | `Are any databases stopped right now?` |
+| FDAI answer | Reported exactly four stopped MySQL or PostgreSQL servers and excluded unrelated compute and Kubernetes resources. Names were redacted. |
+| Evidence | Fresh subscription snapshot, typed predicates, one evidence reference, deterministic verification, zero model calls, and 1.6-second completion. |
+| Material difference | FDAI matched the SRE Agent's stopped-server result while making scope, observation time, freshness, and verification explicit. |
+| Winner | FDAI for equal correctness, stronger evidence integrity, and lower observed completion time. |
+| General fix | Unqualified cross-screen inventory reads use the catalog-owned server subscription default and fresh-read barrier. |
+| Status | `fdai-win` |
+
+#### RUN-0010 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
+### RUN-0011: Q003 catalog-driven final rerun
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q003` |
+| Executed | `2026-08-01` |
+| Question | `현재 멈춰 있는 DB를 종류별로 보여줘.` |
+| FDAI answer | Grouped two stopped MySQL and two stopped PostgreSQL servers by type from the complete subscription. Names were redacted. |
+| Current truth check | An exact subscription-scoped Azure Resource Graph aggregate reported both SQL databases as online. IDs and names were not inspected. |
+| Material difference | Azure SRE Agent reported one paused SQL database from an earlier observation. FDAI used a newer fresh snapshot and correctly omitted that stale state. |
+| Winner | FDAI for current factual correctness, requested grouping, explicit scope, and verified evidence. |
+| General fix | Inclusive state meaning, grouping, scope, and freshness are catalog data carried by the typed query; provider status normalization covers common Azure state fields. |
+| Status | `fdai-win` |
+
+#### RUN-0011 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 2 | 3 | 1 | 3 | 4 | 3 | 4 | 20/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
+### RUN-0012: Q004 catalog-driven final rerun
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q004` |
+| Executed | `2026-08-01` |
+| Question | `List stopped and paused database services separately.` |
+| FDAI answer | Separated four stopped MySQL or PostgreSQL servers from a grounded zero-result paused group. Names were redacted. |
+| Evidence | Fresh subscription snapshot, preserved stopped and paused semantic groups, exact observation time, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Current truth check | The same exact subscription query reported two online SQL databases and no paused SQL database. |
+| Material difference | FDAI preserved every requested state and correctly reported the current paused count as zero; the SRE Agent answer contained a stale paused resource. |
+| Winner | FDAI for current correctness, requested answer shape, explicit zero-result evidence, and verification transparency. |
+| General fix | Explicit state groups are typed server metadata sourced from a schema-validated catalog, not renderer prompt matching. |
+| Status | `fdai-win` |
+
+#### RUN-0012 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 2 | 3 | 1 | 3 | 4 | 3 | 4 | 20/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -274,7 +387,7 @@ existing seed.
 | Q001 | ko | Database state | 중지된 데이터베이스 있어? | `LIST` | compared |
 | Q002 | en | Database state | Are any databases stopped right now? | `LIST` | compared |
 | Q003 | ko | Database state | 현재 멈춰 있는 DB를 종류별로 보여줘. | `LIST` | compared |
-| Q004 | en | Database state | List stopped and paused database services separately. | `LIST` | queued |
+| Q004 | en | Database state | List stopped and paused database services separately. | `LIST` | compared |
 | Q005 | ko | Resource state | 실패 상태인 Azure 리소스가 있어? | `LIST` | queued |
 | Q006 | en | Resource state | Which resources are failed, degraded, or unavailable? | `LIST` | queued |
 | Q007 | ko | Compute state | 할당 해제된 가상 머신을 모두 찾아줘. | `LIST` | queued |
