@@ -352,18 +352,20 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         chat_identity = (
             ManagedIdentityWorkloadIdentity(http_client=chat_http) if resolved_models_path else None
         )
+        pricing_table = load_pricing_table(_REPO_ROOT / "rule-catalog" / "llm-pricing.yaml")
+        metering_sink = PostgresMeteringStore(
+            config=PostgresMeteringStoreConfig(
+                dsn=read_model._config.dsn,
+                statement_timeout_ms=read_model._config.statement_timeout_ms,
+                connect_timeout_s=read_model._config.connect_timeout_s,
+            )
+        )
         chat = backend_from_env(
             dict(env),
             identity=chat_identity,
             http_client=chat_http,
-            metering_sink=PostgresMeteringStore(
-                config=PostgresMeteringStoreConfig(
-                    dsn=read_model._config.dsn,
-                    statement_timeout_ms=read_model._config.statement_timeout_ms,
-                    connect_timeout_s=read_model._config.connect_timeout_s,
-                )
-            ),
-            pricing=load_pricing_table(_REPO_ROOT / "rule-catalog" / "llm-pricing.yaml"),
+            metering_sink=metering_sink,
+            pricing=pricing_table,
         )
         chat_web_search = chat_web_search_from_env(
             env,
@@ -376,6 +378,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 resolved_models_path=resolved_models_path,
                 identity=chat_identity,
                 http_client=chat_http,
+                pricing=pricing_table,
+                metering_sink=metering_sink,
             )
 
         async def _close_chat_http() -> None:

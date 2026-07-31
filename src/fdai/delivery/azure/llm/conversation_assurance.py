@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import ROUND_CEILING, Decimal
 from typing import Any
 
 import httpx
@@ -17,6 +18,7 @@ from fdai.core.conversation_assurance import (
     TurnAssessmentInput,
 )
 from fdai.core.metering import MeteringEmitter, TokenUsage
+from fdai.core.metering.pricing import PricingTable
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -64,11 +66,13 @@ class AzureConversationAssuranceEvaluator:
         http_client: httpx.AsyncClient,
         config: AzureConversationAssuranceEvaluatorConfig,
         metering: MeteringEmitter | None = None,
+        pricing: PricingTable | None = None,
     ) -> None:
         self._identity = identity
         self._http = http_client
         self._config = config
         self._metering = metering
+        self._pricing = pricing
         self._target = ModelRequestTarget(
             endpoint=config.endpoint,
             deployment=config.deployment,
@@ -86,6 +90,19 @@ class AzureConversationAssuranceEvaluator:
     @property
     def model_family(self) -> str:
         return self._config.model_family
+
+    @property
+    def prospective_cost_microusd(self) -> int:
+        if self._pricing is None:
+            return 50_000
+        price = self._pricing.pricing_for(self.model_family)
+        if price is None:
+            return 50_000
+        usage = TokenUsage(
+            prompt_tokens=_MAX_FORWARD_CHARS // 4,
+            completion_tokens=self._config.max_tokens,
+        )
+        return _cost_microusd(price.cost_of(usage))
 
     async def evaluate(
         self,
@@ -106,7 +123,7 @@ class AzureConversationAssuranceEvaluator:
         }
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
-        usage = TokenUsage.zero()
+        usage: TokenUsage | None = None
         try:
             response = await self._http.post(
                 request.url,
@@ -124,20 +141,28 @@ class AzureConversationAssuranceEvaluator:
             if extracted is not None:
                 usage = extracted
             scores = _parse_scores(_message_content(envelope))
+            measured_usage = usage or TokenUsage.zero()
             return EvaluatorOutput(
                 model_identity=self.model_identity,
                 model_family=self.model_family,
                 scores=scores,
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
+                prompt_tokens=measured_usage.prompt_tokens,
+                completion_tokens=measured_usage.completion_tokens,
+                cost_microusd=self._actual_cost_microusd(measured_usage),
             )
         except httpx.HTTPError as exc:
             raise RuntimeError(
                 f"conversation assurance request failed: {type(exc).__name__}"
             ) from exc
         finally:
-            if self._metering is not None:
+            if self._metering is not None and usage is not None:
                 await self._metering.emit_safe(usage)
+
+    def _actual_cost_microusd(self, usage: TokenUsage) -> int:
+        if self._pricing is None:
+            return 0
+        cost = self._pricing.cost_of(model_key=self.model_family, usage=usage)
+        return _cost_microusd(cost) if cost is not None else 0
 
 
 def _evaluation_prompt(
@@ -218,6 +243,8 @@ def _parse_scores(content: str) -> tuple[CriterionScore, ...]:
         score = raw.get("score")
         if isinstance(score, bool) or not isinstance(score, int):
             raise RuntimeError("conversation assurance score MUST be an integer")
+        if not 0 <= score <= 4:
+            raise RuntimeError("conversation assurance score MUST be in [0, 4]")
         rationale = raw.get("rationale")
         if not isinstance(rationale, str):
             raise RuntimeError("conversation assurance rationale MUST be a string")
@@ -235,6 +262,10 @@ def _parse_scores(content: str) -> tuple[CriterionScore, ...]:
             )
         )
     return tuple(scores)
+
+
+def _cost_microusd(cost: Decimal) -> int:
+    return int((cost * Decimal(1_000_000)).to_integral_value(rounding=ROUND_CEILING))
 
 
 __all__ = [

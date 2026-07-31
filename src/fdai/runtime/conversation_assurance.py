@@ -13,7 +13,9 @@ from fdai.core.conversation_assurance import (
     ConversationAssuranceLedger,
     MixedFamilyAssuranceReviewer,
 )
+from fdai.core.metering import MeteringEmitter, MeteringSink
 from fdai.core.metering.budget import BudgetLedger
+from fdai.core.metering.pricing import PricingTable
 from fdai.core.prompts import FileSystemPromptRegistry, PromptLayer
 from fdai.delivery.azure.llm.conversation_assurance import (
     AzureConversationAssuranceEvaluator,
@@ -40,6 +42,9 @@ def build_conversation_assurance_coordinator(
             second=evaluators[1],
             tie_breaker=evaluators[2] if len(evaluators) >= 3 else None,
             budget=budget,
+            prospective_cost_microusd_per_call=max(
+                item.prospective_cost_microusd for item in evaluators
+            ),
         )
     return ConversationAssuranceCoordinator(
         ledger=ledger,
@@ -54,6 +59,8 @@ def build_azure_conversation_assurance_evaluators(
     resolved_models_path: str,
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
+    pricing: PricingTable,
+    metering_sink: MeteringSink,
 ) -> tuple[ConversationAssuranceEvaluator, ...]:
     try:
         resolved = _load_resolved_models(resolved_models_path)
@@ -98,6 +105,14 @@ def build_azure_conversation_assurance_evaluators(
                 model_family=item.family or "",
                 system_prompt=prompt.body,
             ),
+            metering=MeteringEmitter(
+                sink=metering_sink,
+                capability_id="conversation.assurance",
+                model_key=item.family or "",
+                tier="T2",
+                pricing=pricing,
+            ),
+            pricing=pricing,
         )
         for item in concrete
     )

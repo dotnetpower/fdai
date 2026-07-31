@@ -144,6 +144,11 @@ $$
 
 Constraints include zero hard-safety escapes, a daily micro-USD ceiling, at most three model calls
 per turn, and configured latency limits. Exhausted budgets defer assessment and never weaken a guard.
+Before each call, the reviewer reserves the highest configured per-call ceiling across the selected
+evaluators. After a provider returns measured token usage, the adapter derives `cost_microusd` from
+the shared pricing catalog and emits the same invocation to the durable metering stream. An evaluator
+without catalog pricing uses the full conservative ceiling, and the answer model is rejected before
+any evaluator call if it occupies the primary, secondary, or tie-breaker role.
 
 ## Autonomous improvement lifecycle
 

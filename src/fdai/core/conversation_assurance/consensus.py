@@ -61,10 +61,13 @@ class MixedFamilyAssuranceReviewer:
         return hashlib.sha256("\0".join(identities).encode()).hexdigest()
 
     async def review(self, turn: TurnAssessmentInput) -> AssuranceDecision:
-        if turn.answer_model_identity in {
+        evaluator_identities = {
             self._first.model_identity,
             self._second.model_identity,
-        }:
+        }
+        if self._tie_breaker is not None:
+            evaluator_identities.add(self._tie_breaker.model_identity)
+        if turn.answer_model_identity in evaluator_identities:
             return _inconclusive("answer_model_cannot_self_evaluate")
         if not await self._reserve(turn.turn_id, calls=2):
             return _inconclusive("model_budget_deferred")
@@ -84,9 +87,12 @@ class MixedFamilyAssuranceReviewer:
         if first_verdict is second_verdict and not disputed:
             return _decision_from_outputs((first, second), disagreement=False)
         if self._tie_breaker is None:
-            return _inconclusive("model_disagreement", outputs=(first, second))
-        if turn.answer_model_identity == self._tie_breaker.model_identity:
-            return _inconclusive("answer_model_cannot_self_evaluate", outputs=(first, second))
+            reason = (
+                "model_verdict_disagreement"
+                if first_verdict is not second_verdict
+                else "model_criterion_disagreement"
+            )
+            return _inconclusive(reason, outputs=(first, second))
         if not await self._reserve(turn.turn_id, calls=1):
             return _inconclusive("model_budget_deferred", outputs=(first, second))
         try:

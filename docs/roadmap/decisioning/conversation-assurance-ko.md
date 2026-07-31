@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 47ba631cfd5069f1806be587b720da8148eea91d
+translation_source_sha: 304617ec9328f2dfb1fe597a707c97103e3a7d1b
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -143,6 +143,10 @@ $$
 
 하드 안전성 이탈 0건, 일별 micro-USD 상한, turn당 최대 세 번의 모델 호출 및 구성된 지연
 제한을 제약으로 둡니다. 예산 소진은 평가를 연기하며 보호 지표를 약화하지 않습니다.
+각 호출 전에 reviewer는 선택된 평가자 중 가장 높은 구성된 호출별 상한을 예약합니다. provider가
+측정된 token 사용량을 반환하면 adapter는 공유 pricing catalog에서 `cost_microusd`를 계산하고 같은
+호출을 durable metering stream에 기록합니다. catalog 가격이 없는 평가자는 보수적으로 전체 상한을
+사용하며, 답변 모델이 primary, secondary 또는 tie-breaker 역할에 있으면 평가 호출 전에 거부합니다.
 
 ## 자율 개선 생명주기
 

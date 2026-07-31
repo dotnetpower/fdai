@@ -186,6 +186,9 @@ class ConversationAssuranceEvaluator(Protocol):
     @property
     def model_family(self) -> str: ...
 
+    @property
+    def prospective_cost_microusd(self) -> int: ...
+
     async def evaluate(
         self,
         turn: TurnAssessmentInput,

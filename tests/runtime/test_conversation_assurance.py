@@ -4,6 +4,8 @@ from pathlib import Path
 
 import httpx
 
+from fdai.core.metering import InMemoryMeteringSink
+from fdai.core.metering.pricing import PricingTable
 from fdai.delivery.azure.llm.request_target import COGNITIVE_SERVICES_SCOPE
 from fdai.runtime.conversation_assurance import (
     build_azure_conversation_assurance_evaluators,
@@ -17,6 +19,8 @@ def test_hil_only_secondary_disables_semantic_review() -> None:
         resolved_models_path=str(Path(__file__).resolve().parents[2] / "resolved-models.json"),
         identity=StaticWorkloadIdentity(audience=COGNITIVE_SERVICES_SCOPE),
         http_client=httpx.AsyncClient(),
+        pricing=PricingTable.from_mapping({}),
+        metering_sink=InMemoryMeteringSink(),
     )
 
     assert evaluators == ()

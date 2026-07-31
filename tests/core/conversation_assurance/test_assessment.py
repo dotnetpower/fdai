@@ -62,6 +62,7 @@ class _Evaluator:
     model_family: str
     score: int
     rationale: str = "Supported by the supplied evidence."
+    prospective_cost_microusd: int = 2
     calls: int = 0
     saw_debate: bool = False
 
@@ -172,6 +173,18 @@ async def test_answer_model_cannot_grade_itself() -> None:
     assert decision.verdict is AssuranceVerdict.INCONCLUSIVE
     assert first.calls == 0
     assert second.calls == 0
+
+
+async def test_answer_model_cannot_be_configured_as_tie_breaker() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    tie = _Evaluator("publisher-c:model-c", "family-c", 4)
+    reviewer = MixedFamilyAssuranceReviewer(first=first, second=second, tie_breaker=tie)
+
+    decision = await reviewer.review(_turn(answer_model_identity="publisher-c:model-c"))
+
+    assert decision.verdict is AssuranceVerdict.INCONCLUSIVE
+    assert first.calls == second.calls == tie.calls == 0
 
 
 async def test_budget_is_reserved_before_evaluators_run() -> None:
