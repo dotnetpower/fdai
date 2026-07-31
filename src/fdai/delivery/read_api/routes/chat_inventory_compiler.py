@@ -26,6 +26,7 @@ from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
     InventoryResourceTypeResolver,
     default_inventory_resource_type_resolver,
 )
+from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 
 
 def is_inventory_question(
@@ -160,8 +161,7 @@ def compile_inventory_query(
         require_fresh=registry.current_requires_fresh,
         include_workloads=lexical.has(registry.signals, "workload", prompt),
         status_groups=tuple(
-            InventoryQueryValueGroup(id=entry_id, values=values)
-            for entry_id, values, _preserve in _state_groups(
+            inventory_query_status_groups(
                 prompt,
                 resource_types=resource_types,
                 language=lexical,
@@ -180,6 +180,52 @@ def inventory_query_scope(
 
     lexical = language or default_inventory_query_language_resolver()
     return _scope(prompt, language=lexical)
+
+
+def inventory_query_evidence_authorities(
+    prompt: str,
+    *,
+    resolver: InventoryResourceTypeResolver | None = None,
+    language: InventoryQueryLanguageResolver | None = None,
+) -> tuple[QueryEvidenceAuthority, ...]:
+    """Return catalog-owned authorities required by matched state semantics."""
+
+    lexical = language or default_inventory_query_language_resolver()
+    if not is_inventory_question(prompt, resolver=resolver, language=lexical):
+        return ()
+    return tuple(
+        dict.fromkeys(
+            entry.evidence_authority
+            for entry in lexical.registry.states.values()
+            if lexical.contains_any(prompt, entry.terms)
+        )
+    )
+
+
+def inventory_query_status_groups(
+    prompt: str,
+    *,
+    resource_types: Sequence[str] = (),
+    resolver: InventoryResourceTypeResolver | None = None,
+    language: InventoryQueryLanguageResolver | None = None,
+) -> tuple[InventoryQueryValueGroup, ...]:
+    """Compile matched catalog state semantics for evidence and rendering."""
+
+    lexical = language or default_inventory_query_language_resolver()
+    resource_type_resolver = _resolver(resolver)
+    return tuple(
+        InventoryQueryValueGroup(
+            id=entry_id,
+            values=values,
+            labels=lexical.registry.states[entry_id].labels,
+        )
+        for entry_id, values, _preserve in _state_groups(
+            prompt,
+            resource_types=resource_types,
+            language=lexical,
+            resolver=resource_type_resolver,
+        )
+    )
 
 
 def _source(
@@ -345,4 +391,10 @@ def _in_or_eq(field: InventoryField, values: Sequence[str]) -> InventoryPredicat
     )
 
 
-__all__ = ["compile_inventory_query", "inventory_query_scope", "is_inventory_question"]
+__all__ = [
+    "compile_inventory_query",
+    "inventory_query_evidence_authorities",
+    "inventory_query_status_groups",
+    "inventory_query_scope",
+    "is_inventory_question",
+]

@@ -9,6 +9,7 @@ from fdai.delivery.azure.read_investigation import (
     AzureRow,
     build_azure_mcp_read_wiring,
 )
+from fdai.delivery.azure.read_investigation import mcp_wiring as mcp_wiring_module
 from fdai.shared.providers.read_investigation import ReadToolLimits, ResourceSelector
 
 
@@ -82,6 +83,44 @@ def test_disabled_wiring_preserves_existing_transport() -> None:
 
     assert wiring.transport is fallback
     assert wiring.client is None
+
+
+def test_missing_optional_sdk_preserves_default_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fallback = _Fallback()
+
+    def missing_sdk(**_kwargs: object) -> None:
+        raise ModuleNotFoundError("No module named 'mcp'", name="mcp")
+
+    monkeypatch.setattr(mcp_wiring_module.PythonSdkMcpSession, "stdio", missing_sdk)
+
+    wiring = build_azure_mcp_read_wiring(
+        fallback=fallback,
+        environment={},
+        reader_client_id="reader",
+        subscription_id="subscription",
+    )
+
+    assert wiring.transport is fallback
+    assert wiring.client is None
+
+
+def test_missing_optional_sdk_rejects_explicit_enable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_sdk(**_kwargs: object) -> None:
+        raise ModuleNotFoundError("No module named 'mcp'", name="mcp")
+
+    monkeypatch.setattr(mcp_wiring_module.PythonSdkMcpSession, "stdio", missing_sdk)
+
+    with pytest.raises(RuntimeError, match="azure-mcp"):
+        build_azure_mcp_read_wiring(
+            fallback=_Fallback(),
+            environment={"FDAI_AZURE_MCP_ENABLED": "true"},
+            reader_client_id="reader",
+            subscription_id="subscription",
+        )
 
 
 def test_enabled_wiring_uses_mcp_transport_without_secrets_in_child_env() -> None:

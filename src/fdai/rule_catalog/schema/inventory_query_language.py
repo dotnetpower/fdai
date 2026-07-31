@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from enum import StrEnum
 from importlib import resources
 from types import MappingProxyType
 from typing import Annotated, Any, cast
@@ -20,13 +21,23 @@ class QueryTerms(BaseModel):
     terms: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...]
 
 
+class QueryEvidenceAuthority(StrEnum):
+    CURRENT_INVENTORY = "current_inventory"
+    SUBSCRIPTION_HEALTH = "subscription_health"
+
+
 class QueryValues(QueryTerms):
     values: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...]
+    evidence_authority: QueryEvidenceAuthority = QueryEvidenceAuthority.CURRENT_INVENTORY
+    labels: Mapping[str, Annotated[str, Field(min_length=1, max_length=128)]] = Field(
+        default_factory=dict
+    )
     preserve_values: bool = False
     category_values: Mapping[str, tuple[str, ...]] = Field(default_factory=dict)
     preserve_categories: tuple[str, ...] = ()
 
     def model_post_init(self, __context: Any) -> None:
+        object.__setattr__(self, "labels", MappingProxyType(dict(self.labels)))
         object.__setattr__(self, "category_values", MappingProxyType(dict(self.category_values)))
 
 
@@ -103,6 +114,7 @@ def load_inventory_query_language_from_mapping(
 __all__ = [
     "InventoryQueryLanguageRegistry",
     "InventoryQueryLanguageRegistryError",
+    "QueryEvidenceAuthority",
     "QueryTerms",
     "QueryValues",
     "TimeUnit",

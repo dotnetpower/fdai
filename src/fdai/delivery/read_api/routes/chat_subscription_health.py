@@ -7,8 +7,14 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final, Protocol, runtime_checkable
 
-from fdai.delivery.read_api.routes.chat_inventory_compiler import is_specific_inventory_question
+from fdai.delivery.read_api.routes.chat_inventory_compiler import (
+    inventory_query_evidence_authorities,
+    inventory_query_status_groups,
+    is_specific_inventory_question,
+)
+from fdai.delivery.read_api.routes.chat_inventory_query import normalize_inventory_value
 from fdai.delivery.read_api.routes.chat_system_health import ChatToolResolver
+from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 
 _SCOPE: Final = re.compile(r"\b(?:azure\s+)?subscriptions?\b|구독", re.IGNORECASE)
 _HEALTH: Final = re.compile(
@@ -83,6 +89,7 @@ class SubscriptionHealthChatTools:
         return {
             "tool": "query_subscription_health",
             "authority": "server_subscription_health",
+            "query": _status_query(prompt),
             "result": result,
         }
 
@@ -171,6 +178,7 @@ class SubscriptionHealthChatTools:
         return {
             "tool": "query_subscription_health",
             "authority": "server_subscription_health",
+            "query": _status_query(prompt),
             "result": result,
         }
 
@@ -178,6 +186,8 @@ class SubscriptionHealthChatTools:
 def needs_subscription_health(prompt: str) -> bool:
     if is_specific_inventory_question(prompt):
         return False
+    if QueryEvidenceAuthority.SUBSCRIPTION_HEALTH in inventory_query_evidence_authorities(prompt):
+        return not _MUTATION.search(prompt)
     asks_for_health = bool(
         (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
     )
@@ -284,12 +294,36 @@ def render_subscription_health_answer(
     source = str(result.get("source") or "Azure read providers")
     observed_at = str(result.get("observed_at") or "unknown")
     truncated = bool(result.get("truncated"))
-    if korean:
-        lines = [
+    requested_groups = _requested_status_groups(evidence, korean=korean)
+    if requested_groups:
+        grouped_lines, grouped_count = _grouped_finding_lines(
+            findings,
+            requested_groups,
+            korean=korean,
+        )
+        summary = (
+            f"허용된 Azure 범위에서 리소스 {resource_count}개를 확인했고 요청한 상태의 "
+            f"리소스 {grouped_count}개를 찾았습니다."
+            if korean
+            else (
+                f"Checked {resource_count} resources in the allowed Azure scope and found "
+                f"{grouped_count} resource(s) in the requested states."
+            )
+        )
+    else:
+        grouped_lines = _finding_lines(findings, korean=korean)
+        summary = (
             f"허용된 Azure 범위에서 리소스 {resource_count}개를 확인했고 "
             f"상태 이상 후보 {len(findings)}개를 찾았습니다."
-        ]
-        lines.extend(_finding_lines(findings, korean=True))
+            if korean
+            else (
+                f"Checked {resource_count} resources in the allowed Azure scope and found "
+                f"{len(findings)} health candidate(s)."
+            )
+        )
+    if korean:
+        lines = [summary]
+        lines.extend(grouped_lines)
         lines.append(
             f"Resource Health 조회 불가 범위 {resource_health_unavailable}개. "
             f"메트릭 확인: {metric_checked}개, 조회 불가 {metric_unavailable}개, "
@@ -304,11 +338,8 @@ def render_subscription_health_answer(
                 "전체 정상 상태를 확정하지 않았습니다."
             )
         return "\n".join(lines)
-    lines = [
-        f"Checked {resource_count} resources in the allowed Azure scope and found "
-        f"{len(findings)} health candidate(s)."
-    ]
-    lines.extend(_finding_lines(findings, korean=False))
+    lines = [summary]
+    lines.extend(grouped_lines)
     lines.append(
         f"Resource Health: {resource_health_unavailable} scope(s) unavailable. "
         f"Metrics: {metric_checked} checked, {metric_unavailable} unavailable, "
@@ -336,6 +367,26 @@ def subscription_health_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str,
     return (f"subscription-health:{source}@{observed_at}",)
 
 
+def requested_subscription_health_findings_are_grounded(
+    evidence: Mapping[str, Any],
+) -> bool:
+    """Return whether partial evidence contains a positive requested-state finding."""
+
+    result = evidence.get("result")
+    if not isinstance(result, Mapping) or result.get("status") != "partial":
+        return False
+    groups = _requested_status_groups(evidence, korean=False)
+    if not groups:
+        return False
+    requested_values = {value for _label, values in groups for value in values}
+    findings = result.get("findings")
+    return isinstance(findings, list) and any(
+        isinstance(finding, Mapping)
+        and normalize_inventory_value(finding.get("status")) in requested_values
+        for finding in findings
+    )
+
+
 def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[str]:
     if not findings:
         return [
@@ -351,6 +402,8 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
         if kind == "resource_health":
             title = str(finding.get("title") or "unknown")
             reason = str(finding.get("reason") or "unknown")
+            resource_type = str(finding.get("resource_type") or "unknown")
+            resource_group = str(finding.get("resource_group") or "unknown")
             if korean:
                 explanation = (
                     "Azure 플랫폼 장애가 아니라 사용자 또는 자동화 작업으로 시작된 "
@@ -358,7 +411,10 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
                     if reason.casefold() == "customer initiated"
                     else f"Resource Health 원인 분류는 {reason}입니다."
                 )
-                lines.append(f"- {name}: Resource Health {status} ({title}). {explanation}")
+                lines.append(
+                    f"- {name}: Resource Health {status} ({title}), type {resource_type}, "
+                    f"resource group {resource_group}. {explanation}"
+                )
             else:
                 explanation = (
                     "This indicates a user- or automation-initiated state rather than an "
@@ -366,13 +422,78 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
                     if reason.casefold() == "customer initiated"
                     else f"Resource Health classified the cause as {reason}."
                 )
-                lines.append(f"- {name}: Resource Health {status} ({title}). {explanation}")
+                lines.append(
+                    f"- {name}: Resource Health {status} ({title}), type {resource_type}, "
+                    f"resource group {resource_group}. {explanation}"
+                )
             continue
         metric = finding.get("metric")
         value = finding.get("value")
         detail = f", {metric}={value}" if isinstance(metric, str) else ""
         lines.append(f"- {name}: {kind}, {status}{detail}")
     return lines
+
+
+def _status_query(prompt: str) -> dict[str, object]:
+    groups = inventory_query_status_groups(prompt)
+    return {
+        "requested_status_groups": [
+            {"id": group.id, "values": list(group.values), "labels": dict(group.labels)}
+            for group in groups
+        ]
+    }
+
+
+def _requested_status_groups(
+    evidence: Mapping[str, Any],
+    *,
+    korean: bool,
+) -> list[tuple[str, tuple[str, ...]]]:
+    query = evidence.get("query")
+    raw_groups = query.get("requested_status_groups") if isinstance(query, Mapping) else None
+    if not isinstance(raw_groups, list):
+        return []
+    groups: list[tuple[str, tuple[str, ...]]] = []
+    for item in raw_groups:
+        if not isinstance(item, Mapping):
+            continue
+        values = item.get("values")
+        labels = item.get("labels")
+        if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
+            continue
+        locale = "ko" if korean else "en"
+        label = labels.get(locale) if isinstance(labels, Mapping) else None
+        if not isinstance(label, str):
+            label = str(item.get("id") or "Status")
+        groups.append((label, tuple(normalize_inventory_value(value) for value in values)))
+    return groups
+
+
+def _grouped_finding_lines(
+    findings: list[Mapping[str, Any]],
+    groups: list[tuple[str, tuple[str, ...]]],
+    *,
+    korean: bool,
+) -> tuple[list[str], int]:
+    lines: list[str] = []
+    matched_count = 0
+    for label, values in groups:
+        matched = [
+            finding
+            for finding in findings
+            if normalize_inventory_value(finding.get("status")) in values
+        ]
+        matched_count += len(matched)
+        lines.append(f"**{label}**")
+        if matched:
+            lines.extend(_finding_lines(matched, korean=korean))
+        else:
+            lines.append(
+                "- 확인한 근거에서는 관찰되지 않았습니다."
+                if korean
+                else "- Not observed in the checked evidence."
+            )
+    return lines, matched_count
 
 
 def _integer(value: object) -> int:
@@ -406,6 +527,7 @@ __all__ = [
     "SubscriptionScopeProvider",
     "needs_subscription_context",
     "needs_subscription_health",
+    "requested_subscription_health_findings_are_grounded",
     "render_subscription_scope_answer",
     "render_subscription_health_answer",
     "subscription_scope_evidence_refs",

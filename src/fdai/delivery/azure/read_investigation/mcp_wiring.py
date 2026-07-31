@@ -52,8 +52,10 @@ def build_azure_mcp_read_wiring(
     reader_client_id: str,
     subscription_id: str,
 ) -> AzureMcpReadWiring:
-    if not _enabled(environment.get("FDAI_AZURE_MCP_ENABLED"), default=True):
+    raw_enabled = environment.get("FDAI_AZURE_MCP_ENABLED")
+    if not _enabled(raw_enabled, default=True):
         return AzureMcpReadWiring(transport=fallback)
+    explicitly_enabled = bool(raw_enabled and raw_enabled.strip())
     command = environment.get("FDAI_AZURE_MCP_COMMAND", "azmcp").strip()
     if not command or "/" in command or "\\" in command:
         raise ValueError("FDAI_AZURE_MCP_COMMAND MUST be one executable name")
@@ -70,14 +72,24 @@ def build_azure_mcp_read_wiring(
         child_environment["AZURE_CLIENT_ID"] = reader_client_id
     startup_timeout = _float(environment, "FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS", 2.0)
     call_timeout = _float(environment, "FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS", 10.0)
-    client = ManagedMcpClient(
-        session=PythonSdkMcpSession.stdio(
+    try:
+        session = PythonSdkMcpSession.stdio(
             command=command,
             args=("server", "start"),
             environment=child_environment,
             read_timeout_seconds=call_timeout,
             close_timeout_seconds=min(startup_timeout, 2.0),
-        ),
+        )
+    except ModuleNotFoundError as exc:
+        if exc.name != "mcp" and not str(exc.name).startswith("mcp."):
+            raise
+        if explicitly_enabled:
+            raise RuntimeError(
+                "FDAI_AZURE_MCP_ENABLED=true requires the 'azure-mcp' optional dependency"
+            ) from exc
+        return AzureMcpReadWiring(transport=fallback)
+    client = ManagedMcpClient(
+        session=session,
         config=ManagedMcpClientConfig(
             allowed_tools=AZURE_MCP_READ_TOOLS,
             startup_timeout_seconds=startup_timeout,

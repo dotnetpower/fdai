@@ -102,6 +102,91 @@ def test_generic_service_outage_question_uses_subscription_health() -> None:
     assert needs_subscription_health("서비스 장애 나고 있는게 있어?")
 
 
+def test_generic_resource_health_states_use_subscription_health() -> None:
+    prompts = (
+        "Which resources are failed, degraded, or unavailable?",
+        "List any unavailable, failed, or degraded Azure resources.",
+        "Are resources degraded or unavailable, including failures?",
+        "Show failed resources plus anything unavailable or degraded.",
+        "실패, 성능 저하 또는 사용 불가 상태인 Azure 리소스를 보여줘.",
+    )
+
+    assert all(needs_subscription_health(prompt) for prompt in prompts)
+
+
+def test_resource_health_state_cohort_renders_requested_zero_groups() -> None:
+    calls = 0
+
+    async def health_states(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        nonlocal calls
+        del progress_observer
+        assert lookback_seconds == 3_600
+        calls += 1
+        return {
+            "status": "matched",
+            "source": "azure-resource-graph+resource-health",
+            "observed_at": "2026-08-01T04:10:00Z",
+            "resource_count": 12,
+            "resource_health_unavailable": 0,
+            "metric_checked": 0,
+            "metric_unavailable": 0,
+            "unsupported_metric_resources": 12,
+            "truncated": False,
+            "findings": [
+                {
+                    "kind": "resource_health",
+                    "resource_name": "vm-batch",
+                    "resource_type": "Microsoft.Compute/virtualMachines",
+                    "resource_group": "rg-batch",
+                    "status": "Unavailable",
+                    "title": "Unavailable",
+                    "reason": "Platform Initiated",
+                    "observed_at": "2026-08-01T04:01:00Z",
+                }
+            ],
+        }
+
+    prompts = (
+        "Which resources are failed, degraded, or unavailable?",
+        "List any unavailable, failed, or degraded Azure resources.",
+        "Are resources degraded or unavailable, including failures?",
+        "Show failed resources plus anything unavailable or degraded.",
+    )
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(health_states),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        responses = [
+            client.post("/chat", json={"prompt": prompt, "view_context": {}}) for prompt in prompts
+        ]
+
+    for response in responses:
+        payload = response.json()
+        assert payload["verification"]["authority"] == "server_subscription_health"
+        assert payload["verification"]["status"] == "verified"
+        assert "**Failed**\n- Not observed in the checked evidence." in payload["answer"]
+        assert "**Degraded**\n- Not observed in the checked evidence." in payload["answer"]
+        assert "**Unavailable**" in payload["answer"]
+        assert "vm-batch: Resource Health Unavailable" in payload["answer"]
+        assert (
+            "type Microsoft.Compute/virtualMachines, resource group rg-batch" in payload["answer"]
+        )
+    assert calls == len(prompts)
+    assert backend.calls == 0
+
+
 def test_specific_subscription_inventory_question_skips_health_sweep() -> None:
     prompt = "지금 구독에서 중지된 디비가 있는지 확인해봐"
 
@@ -202,6 +287,68 @@ def test_partial_subscription_health_answer_fails_closed() -> None:
     assert "vm-app" in payload["answer"]
     assert "미지원 7개" in payload["answer"]
     assert "전체 정상 상태를 확정하지 않았습니다" in payload["answer"]
+    assert backend.calls == 0
+
+
+def test_partial_requested_state_finding_completes_evidence_check() -> None:
+    async def partial_requested_state(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del progress_observer
+        assert lookback_seconds == 3_600
+        return {
+            "status": "partial",
+            "source": "azure-resource-graph+resource-health",
+            "observed_at": "2026-07-22T05:00:00Z",
+            "resource_count": 2,
+            "resource_health_unavailable": 0,
+            "metric_checked": 0,
+            "metric_unavailable": 1,
+            "unsupported_metric_resources": 1,
+            "truncated": True,
+            "findings": [
+                {
+                    "kind": "resource_health",
+                    "resource_name": "vm-example",
+                    "resource_type": "Microsoft.Compute/virtualMachines",
+                    "resource_group": "rg-example",
+                    "status": "Unavailable",
+                    "title": "Unavailable",
+                    "reason": "unknown",
+                }
+            ],
+        }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(partial_requested_state),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={
+                "prompt": "Which resources are failed, degraded, or unavailable?",
+                "view_context": {},
+            },
+        )
+
+    payload = response.json()
+    assert payload["verification"]["status"] == "verified"
+    assert payload["verification"]["checks_completed"] == 1
+    assert payload["verification"]["checks_total"] == 1
+    assert payload["verification"]["reason_code"] == "subscription_health_findings_grounded_partial"
+    assert "vm-example" in payload["answer"]
+    assert "Not observed in the checked evidence." in payload["answer"]
+    assert "additional resources may exist" in payload["answer"]
     assert backend.calls == 0
 
 

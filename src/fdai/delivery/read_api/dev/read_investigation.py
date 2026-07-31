@@ -27,6 +27,7 @@ from fdai.delivery.azure.read_investigation.transport import AzureReadTransport
 from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthConfig,
     AzureSubscriptionHealthProvider,
+    AzureSubscriptionHealthScope,
 )
 from fdai.delivery.mcp import ManagedMcpClient
 from fdai.delivery.persistence import StateStoreReadLatencyProfileStore
@@ -162,6 +163,8 @@ def build_local_read_investigation(
             config=AzureSubscriptionHealthConfig(
                 subscription_id=subscription_id,
                 resource_groups=resource_groups,
+                scope=AzureSubscriptionHealthScope.SUBSCRIPTION,
+                max_resources=1_000,
             ),
             identity=identity,
             http_client=http_client,

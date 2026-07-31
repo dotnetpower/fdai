@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fdai.core.read_investigation import InMemoryReadInvestigationRunStore
 from fdai.delivery.azure.read_investigation import AzureOperationsGatewayReadTransport
+from fdai.delivery.azure.subscription_health import AzureSubscriptionHealthScope
 from fdai.delivery.read_api.dev.read_investigation import build_local_read_investigation
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -30,6 +31,9 @@ async def test_local_read_investigation_builds_network_delegate() -> None:
     try:
         assert wiring.chat_delegate is not None
         assert wiring.subscription_health_provider is not None
+        assert (
+            wiring.subscription_health_provider.scope is AzureSubscriptionHealthScope.SUBSCRIPTION
+        )
         assert wiring.inventory_activity_provider is not None
     finally:
         await wiring.close()

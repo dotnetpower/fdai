@@ -65,7 +65,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
 | Conversational resource continuity | Implemented | Command Deck retains one server-selected inventory resource across terminal turns. Elliptical history follow-ups bypass semantic and public-web planning, then Heimdall re-resolves the resource and returns its matching read evidence directly. |
 | Subscription scope identity | Implemented | Current-subscription identity questions read the server-configured subscription name and state from Azure Resource Manager, render only a masked subscription ID, and never call the narrator model. |
-| Subscription health sweep | Implemented | Explicit subscription checks and general service-outage questions use the configured reader scope. The provider queries Resource Graph inventory and Resource Health, falls back to current Resource Health status by allowed resource group when ARG is empty, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
+| Subscription health sweep | Implemented | Explicit subscription checks, general service-outage questions, and generic degraded or unavailable resource-state questions use the configured reader scope. The inventory language catalog selects Resource Health authority for availability semantics. The provider defaults to the configured resource-group allowlist. An explicit server-owned subscription mode aligns interactive local health with its subscription inventory. The provider queries Resource Graph inventory and Resource Health, falls back to the corresponding current Resource Health scope when ARG is empty, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Optional Azure MCP reads | Implemented | The official MCP Python SDK starts the pinned Azure MCP Server over stdio, probes its namespace allowlist before traffic, uses it for VM state, Activity Log, and Resource Health, and immediately falls back to typed REST when unavailable or rejected by its circuit breaker. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
@@ -123,6 +123,14 @@ does not require another routing expression. Unmatched modifiers abstain instead
 resources. A semantic planner can propose the same strict shape only after deterministic
 abstention, and the verifier rechecks the complete query before I/O. Imperative changes remain
 action drafts and cannot enter this read path.
+
+State entries in the inventory language catalog also declare their required evidence authority.
+Ordinary current operational states use promoted inventory. Generic cross-resource questions that
+include degraded or unavailable availability semantics use the existing subscription health sweep,
+which joins `Resources` with `HealthResources` under the same server-owned scope. The request's
+catalog-compiled state groups travel with the typed evidence envelope so the deterministic renderer
+can preserve zero-result groups without reinterpreting prompt text. A concrete resource-family
+filter remains on the inventory path rather than widening to a subscription health sweep.
 
 ## Read-tool catalog
 
@@ -197,15 +205,23 @@ failure produces an unavailable answer and does not fall back to generated subsc
 
 ### Subscription health sweep
 
-The Command Deck tool `query_subscription_health` handles an explicit subscription check or a
-general service-outage question. Deterministic routing selects this read before narrator-model
+The Command Deck tool `query_subscription_health` handles an explicit subscription check, a
+general service-outage question, or a generic resource collection question whose catalog semantics
+require Resource Health. Deterministic routing selects this read before narrator-model
 classification. Scope comes only from the server's subscription and resource-group allowlist.
 Browser input cannot widen it. The provider performs these bounded steps:
 
+The provider has two immutable composition modes. `resource_groups` is the default and applies the
+configured allowlist to both `Resources` and `HealthResources`. `subscription` removes that query
+filter but remains fixed to the server-configured subscription. Interactive local selects
+`subscription` because its authoritative inventory is already subscription-wide. Deployment keeps
+`resource_groups` unless its composition root explicitly selects subscription mode and binds an
+appropriately scoped reader identity. Neither the browser nor the narrator can select the mode.
+
 1. Query Resource Graph inventory and `HealthResources` in parallel.
-2. If ARG returns no health rows, list current Resource Health availability statuses for each
-  allowed resource group through the official ARM endpoint. A failed group remains an explicit
-  unavailable scope.
+2. If ARG returns no health rows, list current Resource Health availability statuses for the
+  configured subscription or each allowed resource group through the official ARM endpoint. A
+  failed scope remains explicitly unavailable.
 3. Select up to 16 supported resources for representative Azure Monitor metrics.
 4. Query at most four metrics concurrently and compare them with server-owned thresholds.
 5. Return Resource Health, failed provisioning, and metric candidates with unsupported,
@@ -216,9 +232,17 @@ and Application Gateway healthy-host count. Unsupported resource types remain co
 A Resource Health or metric failure produces `partial`, never a healthy conclusion. A
 customer-initiated Resource Health state is explained as user- or automation-initiated rather than
 an Azure platform incident, but the actor remains unknown until Activity Log evidence is collected.
-The terminal answer keeps the bounded evidence but reports verification as `unverified` with zero
-completed checks. The response is deterministic and does not call the narrator model. A complete
-`matched` result reports one of one checks completed and retains the grounded terminal status.
+For an explicit status collection, the terminal answer renders every requested catalog state in
+request order, including a grounded empty group, and lists only findings whose normalized state
+belongs to that group. If Resource Health omits its display name, the provider derives the bounded
+resource name, provider type, and resource group from the scope-validated target ID. The raw target
+ID does not enter the answer or narrator context.
+The terminal answer keeps every partial-coverage limitation. A positive finding whose state belongs
+to a typed requested group can complete one evidence check because that finding is directly grounded;
+empty groups say only that no match was observed in checked evidence. A partial result without a
+positive requested-state finding remains `unverified`. The response is deterministic and does not
+call the narrator model. A complete `matched` result reports one of one checks completed and retains
+the grounded terminal status.
 
 ## Evidence contract
 
@@ -386,7 +410,9 @@ fails immediately if the required migration is missing.
 The deployed read API supplies those three reader settings from its dedicated read API managed
 identity and the resource group on which that identity has Reader. Azure MCP is enabled by default
 when this reader binding exists. `FDAI_AZURE_MCP_ENABLED=false` disables it without disabling the
-REST path. The stdio child receives only the Azure identity endpoint fields, Azure client and
+REST path. When the setting is unset and the optional Azure MCP SDK isn't installed, composition
+keeps the REST path instead of blocking startup. An explicit `true` requires the optional dependency
+and fails fast when it is missing. The stdio child receives only the Azure identity endpoint fields, Azure client and
 subscription selection, TLS and process-path fields, and telemetry preference. Database URLs,
 webhooks, and other application secrets are not copied into the child environment.
 

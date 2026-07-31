@@ -10,6 +10,7 @@ import httpx
 from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthConfig,
     AzureSubscriptionHealthProvider,
+    AzureSubscriptionHealthScope,
 )
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
@@ -259,12 +260,72 @@ async def test_subscription_health_uses_current_resource_health_when_arg_is_empt
         {
             "kind": "resource_health",
             "resource_name": "vm-app",
+            "resource_type": "Microsoft.Compute/virtualMachines",
+            "resource_group": "rg-example",
             "status": "Degraded",
             "reason": "Customer Initiated",
             "title": "Stopped",
             "observed_at": "2026-07-22T04:55:00Z",
         }
     ]
+
+
+async def test_subscription_scope_includes_health_outside_configured_groups() -> None:
+    outside_resource = {
+        **_resource_rows()[0],
+        "id": (
+            "/subscriptions/subscription-example/resourceGroups/rg-other/providers/"
+            "Microsoft.Compute/virtualMachines/vm-other"
+        ),
+        "name": "vm-other",
+        "resourceGroup": "rg-other",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            query = json.loads(request.content)["query"]
+            assert "rg-example" not in query
+            if query.startswith("HealthResources"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "data": [
+                            {
+                                "targetResourceId": outside_resource["id"],
+                                "availabilityState": "Unavailable",
+                                "reasonType": "PlatformInitiated",
+                                "occurredTime": "2026-08-01T04:01:00Z",
+                            }
+                        ]
+                    },
+                )
+            return httpx.Response(200, json={"data": [outside_resource]})
+        return httpx.Response(
+            200,
+            json={"value": [{"timeseries": [{"data": [{"maximum": 10.0}]}]}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+                scope=AzureSubscriptionHealthScope.SUBSCRIPTION,
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider(3_600)
+
+    findings = result["findings"]
+    assert isinstance(findings, list)
+    assert any(
+        finding["resource_name"] == "vm-other"
+        and finding["resource_type"] == "Microsoft.Compute/virtualMachines"
+        and finding["resource_group"] == "rg-other"
+        and finding["status"] == "Unavailable"
+        for finding in findings
+    )
 
 
 async def test_subscription_health_bounds_parallel_metric_queries() -> None:

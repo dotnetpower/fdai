@@ -5,8 +5,9 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
+from types import MappingProxyType
 from typing import Any, Final
 
 
@@ -153,14 +154,19 @@ class InventoryQueryValueGroup:
 
     id: str
     values: tuple[str, ...]
+    labels: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         normalized_id = _bounded_value(self.id)
         normalized_values = tuple(_bounded_value(value) for value in self.values)
         if not normalized_values or len(set(normalized_values)) != len(normalized_values):
             raise ValueError("inventory query value group requires unique values")
+        normalized_labels = {
+            _bounded_value(locale): _bounded_label(label) for locale, label in self.labels.items()
+        }
         object.__setattr__(self, "id", normalized_id)
         object.__setattr__(self, "values", normalized_values)
+        object.__setattr__(self, "labels", MappingProxyType(normalized_labels))
 
 
 @dataclass(frozen=True, slots=True)
@@ -326,6 +332,13 @@ def _bounded_value(value: str) -> str:
     normalized = normalize_inventory_value(value)
     if not normalized or len(normalized) > _MAX_VALUE_CHARS or _CONTROL.search(normalized):
         raise ValueError("inventory predicate value is invalid")
+    return normalized
+
+
+def _bounded_label(value: str) -> str:
+    normalized = unicodedata.normalize("NFC", value).strip()
+    if not normalized or len(normalized) > _MAX_VALUE_CHARS or _CONTROL.search(normalized):
+        raise ValueError("inventory query label is invalid")
     return normalized
 
 

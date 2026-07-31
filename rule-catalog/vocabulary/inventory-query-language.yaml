@@ -1,5 +1,5 @@
-schema_version: "1.0.0"
-version: "1.0.0"
+schema_version: "1.1.0"
+version: "1.1.0"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -60,14 +60,19 @@ states:
     terms: [running, active, 실행 중, 가동 중]
     values: [running]
   failed:
-    terms: [failed, failure, 실패, 실패한]
+    terms: [failed, failure, failures, 실패, 실패한]
     values: [failed]
+    labels: {en: Failed, ko: 실패}
   degraded:
     terms: [degraded, 성능 저하, 저하된]
     values: [degraded]
+    evidence_authority: subscription_health
+    labels: {en: Degraded, ko: 성능 저하}
   unavailable:
     terms: [unavailable, 사용할 수 없는, 사용 불가]
     values: [unavailable]
+    evidence_authority: subscription_health
+    labels: {en: Unavailable, ko: 사용 불가}
 operations:
   start:
     terms: [started, 시작된]

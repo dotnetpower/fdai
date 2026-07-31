@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from math import isfinite
 from typing import Any, Final
 from urllib.parse import quote
@@ -20,6 +21,11 @@ _METRICS_API_VERSION: Final = "2024-02-01"
 _RESOURCE_HEALTH_API_VERSION: Final = "2025-05-01"
 _SUBSCRIPTIONS_API_VERSION: Final = "2022-12-01"
 _RESOURCE_HEALTH_ID_MARKER: Final = "/providers/microsoft.resourcehealth/availabilitystatuses/"
+
+
+class AzureSubscriptionHealthScope(StrEnum):
+    RESOURCE_GROUPS = "resource_groups"
+    SUBSCRIPTION = "subscription"
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +84,7 @@ DEFAULT_METRIC_PROBES: Final[tuple[MetricProbeSpec, ...]] = (
 class AzureSubscriptionHealthConfig:
     subscription_id: str
     resource_groups: tuple[str, ...]
+    scope: AzureSubscriptionHealthScope = AzureSubscriptionHealthScope.RESOURCE_GROUPS
     endpoint: str = "https://management.azure.com"
     max_resources: int = 256
     max_metric_resources: int = 16
@@ -87,8 +94,10 @@ class AzureSubscriptionHealthConfig:
     metric_probes: tuple[MetricProbeSpec, ...] = DEFAULT_METRIC_PROBES
 
     def __post_init__(self) -> None:
-        if not self.subscription_id.strip() or not self.resource_groups:
-            raise ValueError("subscription health requires subscription and resource groups")
+        if not self.subscription_id.strip():
+            raise ValueError("subscription health requires a subscription")
+        if self.scope is AzureSubscriptionHealthScope.RESOURCE_GROUPS and not self.resource_groups:
+            raise ValueError("resource-group health scope requires resource groups")
         if len(self.resource_groups) > 64:
             raise ValueError("subscription health supports at most 64 resource groups")
         if not self.endpoint.startswith("https://"):
@@ -104,7 +113,7 @@ class AzureSubscriptionHealthConfig:
 
 
 class AzureSubscriptionHealthProvider:
-    """Inspect configured Azure resource groups without widening reader scope."""
+    """Inspect the configured Azure reader scope without accepting caller scope."""
 
     def __init__(
         self,
@@ -117,6 +126,12 @@ class AzureSubscriptionHealthProvider:
         self._identity = identity
         self._http = http_client
         self._probe_by_type = {probe.resource_type: probe for probe in config.metric_probes}
+
+    @property
+    def scope(self) -> AzureSubscriptionHealthScope:
+        """Return the immutable server-owned scope mode."""
+
+        return self._config.scope
 
     async def describe_scope(self) -> dict[str, Any]:
         """Return normalized metadata for the configured subscription scope."""
@@ -306,21 +321,29 @@ class AzureSubscriptionHealthProvider:
     ) -> tuple[list[Mapping[str, Any]], int, bool]:
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
 
-        async def inspect(group: str) -> tuple[list[Mapping[str, Any]], bool]:
+        async def inspect(group: str | None) -> tuple[list[Mapping[str, Any]], bool]:
             async with semaphore:
+                scope_path = "" if group is None else f"/resourceGroups/{quote(group, safe='')}"
                 response = await self._http.get(
                     f"{self._config.endpoint.rstrip('/')}/subscriptions/"
-                    f"{quote(self._config.subscription_id, safe='')}/resourceGroups/"
-                    f"{quote(group, safe='')}/providers/"
+                    f"{quote(self._config.subscription_id, safe='')}{scope_path}/providers/"
                     "Microsoft.ResourceHealth/availabilityStatuses",
                     params={"api-version": _RESOURCE_HEALTH_API_VERSION},
                     headers=dict(headers),
                     timeout=self._config.timeout_seconds,
                 )
-                return self._resource_health_rows(response, group)
+                scope_prefix = f"/subscriptions/{self._config.subscription_id.casefold()}/"
+                if group is not None:
+                    scope_prefix += f"resourcegroups/{group.casefold()}/"
+                return self._resource_health_rows(response, scope_prefix)
 
+        targets: tuple[str | None, ...] = (
+            (None,)
+            if self._config.scope is AzureSubscriptionHealthScope.SUBSCRIPTION
+            else self._config.resource_groups
+        )
         results = await asyncio.gather(
-            *(inspect(group) for group in self._config.resource_groups),
+            *(inspect(group) for group in targets),
             return_exceptions=True,
         )
         rows: list[Mapping[str, Any]] = []
@@ -340,7 +363,7 @@ class AzureSubscriptionHealthProvider:
     def _resource_health_rows(
         self,
         response: httpx.Response,
-        resource_group: str,
+        scope_prefix: str,
     ) -> tuple[list[Mapping[str, Any]], bool]:
         if response.status_code >= 400 or len(response.content) > self._config.max_response_bytes:
             raise RuntimeError("Resource Health query unavailable")
@@ -349,10 +372,6 @@ class AzureSubscriptionHealthProvider:
         if not isinstance(values, list):
             raise RuntimeError("Resource Health response is invalid")
         rows: list[Mapping[str, Any]] = []
-        scope_prefix = (
-            f"/subscriptions/{self._config.subscription_id.casefold()}/"
-            f"resourcegroups/{resource_group.casefold()}/"
-        )
         for value in values:
             if not isinstance(value, Mapping):
                 continue
@@ -436,25 +455,33 @@ class AzureSubscriptionHealthProvider:
             raise RuntimeError(f"{source} response is invalid")
         return [row for row in rows if isinstance(row, Mapping)]
 
-    def _scope_filter(self, field: str) -> str:
+    def _scope_filter(self, field: str) -> str | None:
+        if self._config.scope is AzureSubscriptionHealthScope.SUBSCRIPTION:
+            return None
         values = ", ".join(f"'{_escaped(group)}'" for group in self._config.resource_groups)
         return f"{field} in~ ({values})"
 
     def _resource_query(self) -> str:
+        scope_filter = self._scope_filter("resourceGroup")
+        where = f"| where {scope_filter} " if scope_filter is not None else ""
         return (
-            f"Resources | where {self._scope_filter('resourceGroup')} "
+            f"Resources {where}"
             "| project id, name, type, resourceGroup, location, "
             "provisioningState=tostring(properties.provisioningState) "
             f"| take {self._config.max_resources + 1}"
         )
 
     def _health_query(self) -> str:
-        filters = " or ".join(
-            f"tostring(properties.targetResourceId) has '/resourceGroups/{_escaped(group)}/'"
-            for group in self._config.resource_groups
-        )
+        if self._config.scope is AzureSubscriptionHealthScope.SUBSCRIPTION:
+            where = ""
+        else:
+            filters = " or ".join(
+                f"tostring(properties.targetResourceId) has '/resourceGroups/{_escaped(group)}/'"
+                for group in self._config.resource_groups
+            )
+            where = f"| where {filters} "
         return (
-            f"HealthResources | where {filters} "
+            f"HealthResources {where}"
             "| project targetResourceId=tostring(properties.targetResourceId), "
             "resourceName=tostring(properties.targetResourceName), "
             "availabilityState=tostring(properties.availabilityState), "
@@ -498,10 +525,15 @@ def _health_findings(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         state = str(row.get("availabilityState") or "Unknown")
         if state.casefold() == "available":
             continue
+        resource_id = row.get("targetResourceId")
+        identity = _resource_identity(resource_id if isinstance(resource_id, str) else "")
+        resource_name = row.get("resourceName")
         findings.append(
             {
                 "kind": "resource_health",
-                "resource_name": str(row.get("resourceName") or "unknown"),
+                "resource_name": str(resource_name or identity["name"] or "unknown"),
+                "resource_type": identity["type"],
+                "resource_group": identity["resource_group"],
                 "status": state,
                 "reason": str(row.get("reasonType") or "unknown"),
                 "title": _bounded_text(row.get("title")),
@@ -509,6 +541,30 @@ def _health_findings(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return findings
+
+
+def _resource_identity(resource_id: str) -> dict[str, str]:
+    parts = [part for part in resource_id.strip("/").split("/") if part]
+    folded = [part.casefold() for part in parts]
+    group = ""
+    if "resourcegroups" in folded:
+        group_at = folded.index("resourcegroups")
+        if group_at + 1 < len(parts):
+            group = parts[group_at + 1]
+    if "providers" not in folded:
+        return {"name": "", "type": "", "resource_group": group}
+    provider_at = folded.index("providers")
+    provider_parts = parts[provider_at + 1 :]
+    if len(provider_parts) < 3:
+        return {"name": "", "type": "", "resource_group": group}
+    namespace = provider_parts[0]
+    type_parts = provider_parts[1::2]
+    name_parts = provider_parts[2::2]
+    return {
+        "name": name_parts[-1] if name_parts else "",
+        "type": "/".join((namespace, *type_parts)),
+        "resource_group": group,
+    }
 
 
 def _provisioning_findings(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -555,6 +611,7 @@ def _bounded_text(value: object) -> str:
 __all__ = [
     "AzureSubscriptionHealthConfig",
     "AzureSubscriptionHealthProvider",
+    "AzureSubscriptionHealthScope",
     "DEFAULT_METRIC_PROBES",
     "MetricProbeSpec",
 ]

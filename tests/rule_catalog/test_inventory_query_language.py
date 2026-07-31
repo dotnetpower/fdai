@@ -18,10 +18,12 @@ def test_shipped_inventory_query_language_loads() -> None:
     registry = load_inventory_query_language_from_mapping(
         yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
     )
-    assert registry.schema_version == "1.0.0"
+    assert registry.schema_version == "1.1.0"
     assert registry.default_scope == "subscription"
     assert registry.current_requires_fresh is True
     assert {"stopped", "paused", "failed", "degraded", "unavailable"} <= set(registry.states)
+    assert registry.states["degraded"].evidence_authority == "subscription_health"
+    assert registry.states["unavailable"].evidence_authority == "subscription_health"
 
 
 def test_inventory_query_language_rejects_unknown_fields() -> None:

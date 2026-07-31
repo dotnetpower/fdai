@@ -43,6 +43,7 @@ from fdai.delivery.read_api.routes.chat_prompt_ontology import (
 from fdai.delivery.read_api.routes.chat_subscription_health import (
     render_subscription_health_answer,
     render_subscription_scope_answer,
+    requested_subscription_health_findings_are_grounded,
     subscription_health_evidence_refs,
     subscription_scope_evidence_refs,
 )
@@ -428,6 +429,16 @@ def verify_answer(
                 reason_code="subscription_health_grounded",
             )
         if state == "partial":
+            if health_refs and requested_subscription_health_findings_are_grounded(tool):
+                return AnswerVerification(
+                    status=_changed(provisional, health_answer),
+                    answer=health_answer,
+                    authority="server_subscription_health",
+                    checks_completed=1,
+                    checks_total=1,
+                    evidence_refs=health_refs,
+                    reason_code="subscription_health_findings_grounded_partial",
+                )
             return AnswerVerification(
                 status="unverified",
                 answer=health_answer,

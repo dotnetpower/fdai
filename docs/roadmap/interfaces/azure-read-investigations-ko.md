@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 8a2df674d74491f8c8244ceafe9672c60c4631be
+translation_source_sha: d1a610a35aec6a862b2cd4f642089490b2036423
 translation_revised: 2026-08-01
 ---
 
@@ -66,7 +66,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
 | 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. 생략된 history 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 resource를 다시 resolve한 뒤 일치하는 read evidence를 직접 반환합니다. |
 | Subscription scope identity | 구현됨 | 현재 subscription identity 질문은 server에 configured된 subscription name과 state를 Azure Resource Manager에서 읽고, masked subscription ID만 렌더링하며, narrator model을 호출하지 않습니다. |
-| Subscription health sweep | 구현됨 | 명시적인 subscription 점검과 일반적인 service-outage 질문이 configured reader scope를 사용합니다. Provider는 Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 허용된 resource group별 current Resource Health status로 fallback한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
+| Subscription health sweep | 구현됨 | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 unavailable resource-state 질문이 configured reader scope를 사용합니다. Inventory language catalog가 availability 의미에 대해 Resource Health authority를 선택합니다. Provider는 configured resource-group allowlist를 기본으로 사용합니다. 명시적인 server-owned subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Provider는 Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 해당 current Resource Health scope로 fallback한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | 선택적 Azure MCP read | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP Server를 stdio로 시작하고 traffic 전에 namespace allowlist를 probe합니다. VM state, Activity Log, Resource Health에 사용하며 unavailable 상태이거나 circuit breaker에서 차단되면 typed REST로 즉시 fallback합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
@@ -122,6 +122,14 @@ bounded lookback을 가진 immutable `InventoryQuery` 하나로 compile됩니다
 않은 modifier는 전체 resource로 확장하지 않고 abstain합니다. Semantic planner는 deterministic abstain
 후에만 동일한 strict shape를 제안할 수 있고 verifier가 I/O 전에 query 전체를 다시 확인합니다.
 Imperative change는 action draft로 유지되며 이 read path에 들어갈 수 없습니다.
+
+Inventory language catalog의 state entry는 필요한 evidence authority도 선언합니다. 일반적인 current
+operational state는 promoted inventory를 사용합니다. Degraded 또는 unavailable availability 의미를
+포함한 일반적인 cross-resource 질문은 동일한 server-owned scope 아래에서 `Resources`와
+`HealthResources`를 결합하는 기존 subscription health sweep을 사용합니다. Request의 catalog-compiled
+state group은 typed evidence envelope과 함께 전달되므로 deterministic renderer가 prompt text를 다시
+해석하지 않고 zero-result group을 보존할 수 있습니다. 구체적인 resource-family filter는 subscription
+health sweep으로 확장하지 않고 inventory path에 유지됩니다.
 
 ## Read-tool catalog
 
@@ -196,14 +204,23 @@ subscription detail로 fallback하지 않습니다.
 
 ### Subscription health sweep
 
-Command Deck tool `query_subscription_health`는 명시적인 subscription 점검 또는 일반적인
-service-outage 질문을 처리합니다. Deterministic routing이 narrator-model classification 전에 이 read를
-선택합니다. Scope는 server의 subscription과 resource-group allowlist에서만 가져오며 browser input은
+Command Deck tool `query_subscription_health`는 명시적인 subscription 점검, 일반적인
+service-outage 질문 또는 catalog 의미가 Resource Health를 요구하는 일반적인 resource collection
+질문을 처리합니다. Deterministic routing이 narrator-model classification 전에 이 read를 선택합니다.
+Scope는 server의 subscription과 resource-group allowlist에서만 가져오며 browser input은
 이를 넓힐 수 없습니다. Provider는 다음 bounded step을 수행합니다.
 
+Provider에는 composition에서 고정되는 두 가지 mode가 있습니다. `resource_groups`가 기본값이며
+configured allowlist를 `Resources`와 `HealthResources` 모두에 적용합니다. `subscription`은 query
+filter를 제거하지만 server-configured subscription에 계속 고정됩니다. Interactive local의
+authoritative inventory가 이미 subscription-wide이므로 local은 `subscription`을 선택합니다.
+Deployment는 composition root가 subscription mode와 적절한 scope의 reader identity를 명시적으로
+binding하지 않으면 `resource_groups`를 유지합니다. Browser와 narrator는 mode를 선택할 수 없습니다.
+
 1. Resource Graph inventory와 `HealthResources`를 병렬 query합니다.
-2. ARG가 health row를 반환하지 않으면 공식 ARM endpoint를 통해 허용된 각 resource group의 current
-   Resource Health availability status를 나열합니다. 실패한 group은 unavailable scope로 명시합니다.
+2. ARG가 health row를 반환하지 않으면 공식 ARM endpoint를 통해 configured subscription 또는 허용된
+  각 resource group의 current Resource Health availability status를 나열합니다. 실패한 scope는
+  unavailable로 명시합니다.
 3. 대표 Azure Monitor metric을 확인할 supported resource를 최대 16개 선택합니다.
 4. 최대 4개 metric을 동시에 query하고 server-owned threshold와 비교합니다.
 5. Resource Health, 실패한 provisioning, metric 후보와 unsupported, unavailable, truncated count를
@@ -214,9 +231,17 @@ Application Gateway healthy-host count를 다룹니다. Unsupported resource typ
 표시됩니다. Resource Health 또는 metric failure는 healthy 결론이 아니라 `partial`을 생성합니다.
 Customer-initiated Resource Health state는 Azure platform incident가 아니라 user 또는 automation이
 시작한 상태로 설명하지만, Activity Log evidence를 수집하기 전에는 actor를 알 수 없다고 표시합니다.
-Terminal answer는 bounded evidence를 유지하지만 verification을 completed check 0건의
-`unverified`로 보고합니다. 응답은 결정적이며 narrator model을 호출하지 않습니다. Complete
-`matched` result는 check 1건 중 1건을 완료했다고 보고하고 grounded terminal status를 유지합니다.
+명시적인 status collection의 terminal answer는 근거 있는 empty group을 포함하여 요청된 모든 catalog
+state를 request 순서로 렌더링하고, normalized state가 해당 group에 속하는 finding만 나열합니다.
+Resource Health가 display name을 생략하면 provider는 scope가 검증된 target ID에서 bounded resource
+name, provider type 및 resource group을 파생합니다. Raw target ID는 answer 또는 narrator context에
+들어가지 않습니다.
+Terminal answer는 모든 partial-coverage 제한을 유지합니다. Typed requested group에 속하는 상태의
+양성 finding은 해당 finding이 직접 grounded되므로 evidence check 1건을 완료할 수 있습니다. Empty
+group은 확인한 evidence에서 match가 관찰되지 않았다는 사실만 표시합니다. 양성 requested-state
+finding이 없는 partial result는 `unverified`로 유지됩니다. 응답은 결정적이며 narrator model을 호출하지
+않습니다. Complete `matched` result는 check 1건 중 1건을 완료했다고 보고하고 grounded terminal
+status를 유지합니다.
 
 ## Evidence 계약
 
@@ -381,7 +406,9 @@ run-ledger table을 probe하고 필요한 migration이 없으면 즉시 실패�
 배포된 read API는 dedicated read API managed identity와 해당 identity가 Reader를 가진 resource
 group에서 세 reader setting을 제공합니다. 이 reader binding이 있으면 Azure MCP는 기본적으로
 enabled입니다. `FDAI_AZURE_MCP_ENABLED=false`는 REST path를 비활성화하지 않고 MCP만
-비활성화합니다. Stdio child는 Azure identity endpoint field, Azure client 및 subscription 선택,
+비활성화합니다. 설정이 없고 optional Azure MCP SDK가 설치되지 않은 경우 composition은 startup을
+차단하지 않고 REST path를 유지합니다. 명시적인 `true`는 optional dependency를 요구하며 누락 시
+빠르게 실패합니다. Stdio child는 Azure identity endpoint field, Azure client 및 subscription 선택,
 TLS와 process path field, telemetry preference만 받습니다. Database URL, webhook 및 다른 application
 secret은 child environment에 복사되지 않습니다.
 

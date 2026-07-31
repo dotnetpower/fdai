@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/rule-catalog/inventory-query-language/1.0.0",
+  "$id": "https://fdai.dev/schemas/rule-catalog/inventory-query-language/1.1.0",
   "title": "InventoryQueryLanguageRegistry",
   "type": "object",
   "additionalProperties": false,
@@ -10,7 +10,7 @@
     "projections", "scopes", "states", "operations", "time_units"
   ],
   "properties": {
-    "schema_version": {"type": "string", "const": "1.0.0"},
+    "schema_version": {"type": "string", "const": "1.1.0"},
     "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
     "default_scope": {"type": "string", "enum": ["active_view", "subscription"]},
     "default_activity_lookback_seconds": {"type": "integer", "minimum": 3600, "maximum": 2592000},
@@ -39,6 +39,20 @@
       "properties": {
         "terms": {"$ref": "#/$defs/terms"},
         "values": {"$ref": "#/$defs/terms"},
+        "evidence_authority": {
+          "type": "string",
+          "enum": ["current_inventory", "subscription_health"],
+          "default": "current_inventory"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "en": {"type": "string", "minLength": 1, "maxLength": 128},
+            "ko": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          "default": {}
+        },
         "preserve_values": {"type": "boolean", "default": false},
         "category_values": {
           "type": "object",
