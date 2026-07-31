@@ -395,6 +395,13 @@ The bounded controls are `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
 `FDAI_AZURE_MCP_RESET_TIMEOUT_SECONDS`. `FDAI_AZURE_MCP_COMMAND` accepts one executable name, not
 a path or arguments. The command arguments remain server-owned as `server start`.
 
+The pinned Azure MCP package contains a glibc-linked .NET executable and does not publish a musl
+wheel or source distribution. The runtime image therefore uses digest-pinned Python Debian slim,
+installs ICU, and supplies writable nonroot locations for .NET bundle extraction and user cache.
+Container verification builds the image and runs `azmcp tools list` as UID 65532. A base-image
+change is incomplete until that smoke test passes without extraction, globalization, or cache
+warnings.
+
 Interactive local uses the same server-owned scope with the current Azure CLI token. The local
 runtime environment generator supplies the applied subscription and resource group after checking
 that the active CLI subscription matches Terraform. It never gives that credential to Thor.

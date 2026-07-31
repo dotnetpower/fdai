@@ -49,6 +49,7 @@ class _Fallback:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.health_lookbacks: list[int] = []
 
     async def resolve_resources(
         self, selector: ResourceSelector, *, limits: ReadToolLimits
@@ -82,8 +83,9 @@ class _Fallback:
         lookback_seconds: int,
         limits: ReadToolLimits,
     ) -> Sequence[AzureRow]:
-        del provider_ref, lookback_seconds, limits
+        del provider_ref, limits
         self.calls.append("health")
+        self.health_lookbacks.append(lookback_seconds)
         return []
 
     async def query_guest_shutdown_events(
@@ -207,6 +209,30 @@ async def test_malformed_mcp_result_falls_back_and_opens_circuit() -> None:
     assert first[0]["state"] == second[0]["state"] == "fallback"
     assert len(session.calls) == 1
     assert fallback.calls == ["state", "state"]
+
+
+async def test_health_fallback_preserves_original_lookback() -> None:
+    transport, client, session, fallback = _transport()
+    session.results["resourcehealth"] = McpCallResult(structured_content={"results": {}})
+    assert await client.probe() is True
+
+    await transport.query_resource_health(RESOURCE_ID, lookback_seconds=7_200, limits=LIMITS)
+
+    assert fallback.health_lookbacks == [7_200]
+
+
+async def test_output_cap_counts_content_when_structured_result_exists() -> None:
+    transport, client, session, fallback = _transport()
+    session.results["compute"] = McpCallResult(
+        structured_content={"results": {"powerState": "running"}},
+        content=(TextContent(type="text", text="x" * 70_000),),
+    )
+    assert await client.probe() is True
+
+    rows = await transport.get_resource_state(RESOURCE_ID, limits=LIMITS)
+
+    assert rows[0]["state"] == "fallback"
+    assert fallback.calls == ["state"]
 
 
 async def test_unmapped_sources_always_use_existing_transport() -> None:

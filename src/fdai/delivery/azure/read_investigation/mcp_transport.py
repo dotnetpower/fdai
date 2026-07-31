@@ -94,7 +94,6 @@ class AzureMcpReadTransport:
         lookback_seconds: int,
         limits: ReadToolLimits,
     ) -> Sequence[AzureRow]:
-        del lookback_seconds
         return await self._call_or_fallback(
             tool_name=_HEALTH_TOOL,
             arguments={
@@ -106,7 +105,7 @@ class AzureMcpReadTransport:
             decode=lambda result: _health_rows(result, observed_at=self._clock()),
             fallback=lambda: self._fallback.query_resource_health(
                 provider_ref,
-                lookback_seconds=0,
+                lookback_seconds=lookback_seconds,
                 limits=limits,
             ),
         )
@@ -185,9 +184,10 @@ def _vm_parts(provider_ref: str) -> tuple[str, str]:
 
 
 def _enforce_result_cap(result: McpCallResult, maximum: int) -> None:
-    material = result.structured_content
-    if material is None:
-        material = [getattr(item, "text", "") for item in result.content]
+    material = {
+        "structured_content": result.structured_content,
+        "content": [getattr(item, "text", "") for item in result.content],
+    }
     try:
         size = len(json.dumps(material, default=str).encode("utf-8"))
     except (TypeError, ValueError) as exc:

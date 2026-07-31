@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: aebfe24ffb16e59c6d7f31f35d9fe8ebbe5a7d7c
+translation_source_sha: 8a2df674d74491f8c8244ceafe9672c60c4631be
 translation_revised: 2026-08-01
 ---
 
@@ -390,6 +390,13 @@ Bounded control은 `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
 `FDAI_AZURE_MCP_RESET_TIMEOUT_SECONDS`입니다. `FDAI_AZURE_MCP_COMMAND`는 path 또는 argument가 아닌
 하나의 executable name만 받습니다. Command argument는 `server start`로 server-owned 상태를
 유지합니다.
+
+고정된 Azure MCP package에는 glibc-linked .NET executable이 포함되며 musl wheel 또는 source
+distribution은 제공되지 않습니다. 따라서 runtime image는 digest-pinned Python Debian slim을
+사용하고 ICU를 설치하며, .NET bundle extraction과 user cache를 위한 writable nonroot location을
+제공합니다. Container verification은 image를 build하고 UID 65532로 `azmcp tools list`를 실행합니다.
+Base-image 변경은 extraction, globalization 또는 cache warning 없이 해당 smoke test가 통과해야
+완료됩니다.
 
 Interactive local은 현재 Azure CLI token과 같은 server-owned scope를 사용합니다. Local runtime
 environment generator는 active CLI subscription이 Terraform과 일치하는지 확인한 후 applied
