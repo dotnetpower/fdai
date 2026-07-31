@@ -321,6 +321,14 @@ def _project_verified_inventory_result(
         "query": query.to_dict(),
         "requested_types": list(requested_types),
         "status_filter": list(status_filter),
+        "status_coverage": (
+            {
+                "included": ["normalized_current_operational_status"],
+                "excluded": ["deployment_failures", "activity_failures"],
+            }
+            if status_filter
+            else None
+        ),
         "status_groups": [
             {"id": group.id, "values": list(group.values)} for group in query.status_groups
         ],
@@ -428,6 +436,11 @@ def render_inventory_answer(
             f"질문과 일치하는 리소스는 {count}개입니다."
         ]
         lines.extend(_answer_detail_lines(result, resources, korean=True))
+        if result.get("status_coverage"):
+            lines.append(
+                "이 결과는 정규화된 현재 operational status만 확인합니다. "
+                "실패한 deployment 또는 Activity Log 작업이 없다는 뜻은 아닙니다."
+            )
         if result.get("status") == "partial":
             workload = result.get("workload")
             if isinstance(workload, Mapping):
@@ -447,6 +460,11 @@ def render_inventory_answer(
         f"{count} of {total} resources in Azure inventory view '{active_view}' match the question."
     ]
     lines.extend(_answer_detail_lines(result, resources, korean=False))
+    if result.get("status_coverage"):
+        lines.append(
+            "This result checks normalized current operational status only. It does not prove "
+            "that no deployment or Activity Log operation failed."
+        )
     if result.get("status") == "partial":
         workload = result.get("workload")
         if isinstance(workload, Mapping):

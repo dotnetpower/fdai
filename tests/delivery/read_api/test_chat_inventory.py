@@ -400,6 +400,21 @@ async def test_current_state_query_without_refresh_barrier_fails_closed() -> Non
     }
 
 
+async def test_failed_state_answer_discloses_status_coverage_boundary() -> None:
+    evidence = await _inventory_evidence("실패 상태인 Azure 리소스가 있어?")
+
+    answer = render_inventory_answer(evidence, locale="ko")
+
+    assert answer is not None
+    assert "질문과 일치하는 리소스는 0개" in answer
+    assert "현재 operational status만 확인" in answer
+    assert "Activity Log 작업이 없다는 뜻은 아닙니다" in answer
+    assert evidence["result"]["status_coverage"] == {
+        "included": ["normalized_current_operational_status"],
+        "excluded": ["deployment_failures", "activity_failures"],
+    }
+
+
 @pytest.mark.parametrize(
     "prompt",
     (
