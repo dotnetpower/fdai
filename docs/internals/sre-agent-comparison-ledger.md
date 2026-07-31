@@ -485,6 +485,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0018: Unhealthy Kubernetes workloads and state time
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q010` |
+| Executed | `2026-08-01` |
+| Question | `Show unhealthy Kubernetes workloads and when they became unhealthy.` |
+| Azure SRE Agent answer | Reported that all five clusters were stopped, so no live workloads could be evaluated. It did not claim an unhealthy transition time from current state. Deployment-owned values were redacted. |
+| FDAI answer | Reported the same five stopped clusters, explicitly held in-cluster workload health, and did not claim a state-transition time without Kubernetes event or history evidence. Deployment-owned values were redacted. |
+| Evidence | Fresh subscription inventory, typed Kubernetes-cluster and unhealthy-state predicates, independent workload and state-history coverage gaps, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products reached the same requested conclusion. FDAI exposed exact server-owned scope, typed predicates, snapshot freshness, claim-level coverage, and one-of-one verification without executing a model. |
+| Winner | FDAI for equal factual completeness with stronger evidence integrity, explicit authority boundaries, and deterministic verification. |
+| General fix | Kubernetes workload phrases and temporal expressions are catalog semantics. Dynamic name and location facets are constrained to the selected resource family, and current snapshots never authorize state-transition timestamps. |
+| Status | `fdai-win` |
+
+#### RUN-0018 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -503,7 +525,7 @@ existing seed.
 | Q007 | ko | Compute state | 할당 해제된 가상 머신을 모두 찾아줘. | `LIST` | compared |
 | Q008 | en | Compute state | Which virtual machines are running, stopped, or deallocated? | `LIST` | compared |
 | Q009 | ko | Kubernetes state | 비정상 상태인 AKS 클러스터나 노드가 있어? | `HEALTH` | compared |
-| Q010 | en | Kubernetes state | Show unhealthy Kubernetes workloads and when they became unhealthy. | `HEALTH` | queued |
+| Q010 | en | Kubernetes state | Show unhealthy Kubernetes workloads and when they became unhealthy. | `HEALTH` | compared |
 | Q011 | ko | Storage state | 사용 불가능하거나 성능이 저하된 스토리지 계정이 있어? | `HEALTH` | queued |
 | Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | queued |
 | Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | queued |
