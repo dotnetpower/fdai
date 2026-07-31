@@ -414,6 +414,48 @@ class TestFullSnapshot:
         }
         assert "azure_cli_inventory_arg_fallback" in caplog.text
 
+    def test_discover_all_rejects_ambiguous_rows_from_arg_fallback(self) -> None:
+        registry = _resource_types()
+        inventory = AzureCliInventory(
+            resource_types=("compute.function", "compute.web-app"),
+            azure_arm_types={
+                "compute.function": "Microsoft.Web/sites",
+                "compute.web-app": "Microsoft.Web/sites",
+            },
+            resource_type_registry=registry,
+            discover_all=True,
+        )
+        fallback_rows = [
+            {
+                "id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Web/sites/app-example"
+                ),
+                "type": "Microsoft.Web/sites",
+                "name": "app-example",
+                "resourceGroup": "rg-example",
+            }
+        ]
+
+        def _response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            command = tuple(argv[1:3])
+            if command == ("group", "list") or command == ("vm", "list"):
+                return _completed("[]")
+            if command == ("graph", "query"):
+                return _completed("", returncode=1, stderr="extension unavailable")
+            if command == ("resource", "list"):
+                return _completed(json.dumps(fallback_rows))
+            raise AssertionError(f"unexpected Azure CLI command: {argv}")
+
+        with (
+            patch(
+                "fdai.delivery.azure.dev_inventory.subprocess.run",
+                side_effect=_response,
+            ),
+            pytest.raises(AzureCliInventoryError, match="ambiguous"),
+        ):
+            asyncio.run(_drain(inventory))
+
     def test_discover_all_classifies_common_azure_resource_types(self) -> None:
         registry = _resource_types()
         expected_types = {

@@ -232,7 +232,13 @@ class AzureCliInventory:
         rows_by_type: dict[str, list[dict[str, Any]]] = {"resource-group": list(groups)}
         for row in resource_rows:
             resource_type = self._resolve_registered_type(row)
-            if resource_type is None or resource_type == "resource-group":
+            if resource_type is None:
+                if self._registered_arm_candidates(row):
+                    raise AzureCliInventoryError(
+                        "registered ARM type is ambiguous without matching kind"
+                    )
+                continue
+            if resource_type == "resource-group":
                 continue
             if resource_type == "compute.vm":
                 row = {**row, **vm_by_id.get(str(row.get("id") or "").casefold(), {})}
@@ -388,6 +394,19 @@ class AzureCliInventory:
                 and registered_arm_type.casefold() == arm_type.casefold()
             ),
             None,
+        )
+
+    def _registered_arm_candidates(self, row: Mapping[str, Any]) -> tuple[str, ...]:
+        arm_type = row.get("type")
+        if not isinstance(arm_type, str) or not arm_type:
+            return ()
+        return tuple(
+            sorted(
+                resource_type
+                for resource_type, registered_arm_type in self.azure_arm_types.items()
+                if resource_type in self.resource_types
+                and registered_arm_type.casefold() == arm_type.casefold()
+            )
         )
 
     def _row_matches_type(self, row: Mapping[str, Any], resource_type: str) -> bool:
