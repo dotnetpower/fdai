@@ -361,6 +361,24 @@ async def test_ledger_record_failure_still_reports_success() -> None:
     assert "ledger" in (receipt.detail or "").lower()
 
 
+@pytest.mark.asyncio
+async def test_response_id_requires_exact_integer_type() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"jsonrpc": "2.0", "id": 1.0, "result": {"content": []}},
+        )
+
+    ex, client = _executor(handler)
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
+    finally:
+        await client.aclose()
+
+    assert exc.value.kind == "protocol"
+
+
 # ---------------------------------------------------------------------------
 # Protocol conformance + end-to-end through the core tool-call executor
 # ---------------------------------------------------------------------------

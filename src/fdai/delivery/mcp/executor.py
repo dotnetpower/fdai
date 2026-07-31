@@ -284,7 +284,7 @@ class McpToolExecutor:
         # mismatch means we correlated the wrong response - fail closed
         # rather than bank an unrelated result.
         response_id = payload.get("id")
-        if response_id != rpc_id:
+        if type(response_id) is not int or response_id != rpc_id:
             raise ToolError(
                 kind="protocol",
                 message=(
