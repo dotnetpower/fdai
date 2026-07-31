@@ -12,8 +12,9 @@ import {
   type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
+  type ModelTrace,
   type RouterSnapshot,
-    type ResourceContext,
+  type ResourceContext,
   type VerificationProgress,
 } from "./backend";
 import { replyAgentLabel, type DeckLayoutMode } from "./command-deck-session";
@@ -55,7 +56,8 @@ export interface Turn {
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly actionDraft?: ActionDraft;
-    readonly resourceContext?: ResourceContext;
+  readonly modelTrace?: ModelTrace;
+  readonly resourceContext?: ResourceContext;
   readonly agent?: string;
   readonly at: string;
 }
@@ -265,6 +267,7 @@ function ConversationGroup({
 export function TurnBubble({
   turn,
   trajectory,
+  showModelTrace,
   onPickFollowUp,
   onRegenerate,
   searchMatch,
@@ -272,6 +275,7 @@ export function TurnBubble({
 }: {
   readonly turn: Turn;
   readonly trajectory?: ConversationTrajectory;
+  readonly showModelTrace: boolean;
   readonly onPickFollowUp: (text: string) => void;
   readonly onRegenerate?: () => void;
   readonly searchMatch: boolean;
@@ -356,7 +360,10 @@ export function TurnBubble({
         </ul>
       ) : null}
       {trajectory && !turn.streaming ? (
-        <ConversationTrajectoryView trajectory={trajectory} />
+        <ConversationTrajectoryView
+          trajectory={trajectory}
+          showModelTrace={showModelTrace}
+        />
       ) : null}
       <div class="deck-turn-foot">
         <span class="deck-turn-time muted">{turn.at}</span>

@@ -4,11 +4,18 @@ import { useState } from "preact/hooks";
 import { t } from "../i18n";
 import type { EvidenceBranch, InvestigationActivity } from "./backend";
 import type { ConversationTrajectory } from "./conversation-trajectory";
+import { ModelTraceWaterfall } from "./model-trace-waterfall";
 
 const PHASES = ["input", "plan", "collaboration", "evidence", "verification", "answer"] as const;
 type Phase = typeof PHASES[number];
 
-export function ConversationTrajectoryView({ trajectory }: { readonly trajectory: ConversationTrajectory }) {
+export function ConversationTrajectoryView({
+  trajectory,
+  showModelTrace,
+}: {
+  readonly trajectory: ConversationTrajectory;
+  readonly showModelTrace: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { answer, activities, branches } = trajectory;
   const milestones = trajectory.observedTurns.filter(
@@ -19,7 +26,8 @@ export function ConversationTrajectoryView({ trajectory }: { readonly trajectory
     ...(answer.verification?.evidence_refs ?? []),
   ]);
   const recorded = recordedPhases(trajectory, milestones.length, evidenceRefs.length);
-  const observedSteps = recorded.size + activities.length + branches.length + milestones.length;
+  const observedSteps = recorded.size + activities.length + branches.length + milestones.length +
+    (showModelTrace ? (answer.modelTrace?.calls.length ?? 0) : 0);
 
   return (
     <details class="deck-trajectory" onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -45,6 +53,9 @@ export function ConversationTrajectoryView({ trajectory }: { readonly trajectory
             <span aria-hidden="true" />
             <span>{formatTimestamp(trajectory.completedAt, trajectory.answer.at)}</span>
           </div>
+          {showModelTrace ? (
+            <ModelTraceWaterfall {...(answer.modelTrace ? { trace: answer.modelTrace } : {})} />
+          ) : null}
           <ol class="deck-trajectory-events">
             <TrajectoryPhase index="01" phase="input" title={t("deck.trajectory.phase.input")}
               summary={trajectory.question.text} time={formatTimestamp(trajectory.startedAt, trajectory.question.at)}>

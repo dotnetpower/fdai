@@ -23,6 +23,7 @@ import {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseModelTrace,
 } from "./backend-parsers";
 import type {
   AnswerVerificationStatus,
@@ -397,7 +398,8 @@ export async function askBackendStream(
   const answerPlanning = parseAnswerPlanning(done.answer_planning);
   const actionDraft = parseActionDraft(done.action_draft);
   const codeArtifacts = parseGroundedCodeArtifacts(done.code_artifacts);
-    const resourceContext = parseResourceContext(done.resource_context);
+  const resourceContext = parseResourceContext(done.resource_context);
+  const modelTrace = parseModelTrace(done.model_trace);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const source = explicitSource ?? (
@@ -421,6 +423,7 @@ export async function askBackendStream(
     ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),
+    ...(modelTrace ? { modelTrace } : {}),
   };
 }
 

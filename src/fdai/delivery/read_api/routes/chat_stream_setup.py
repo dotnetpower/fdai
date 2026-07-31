@@ -55,6 +55,7 @@ class PreparedChatStreamRequest:
     answer_plan: AnswerPlan
     session_id: str
     request_id: str
+    include_model_trace: bool
 
 
 async def prepare_chat_stream_request(
@@ -100,6 +101,10 @@ async def prepare_chat_stream_request(
     view_context.pop("_answer_plan", None)
     view_context.pop("_turn_plan", None)
     view_context.pop("_attachments", None)
+    view_context.pop("_model_trace", None)
+    include_model_trace = body.get("include_model_trace", False)
+    if not isinstance(include_model_trace, bool):
+        raise HTTPException(status_code=400, detail="include_model_trace MUST be a boolean")
     try:
         vision_attachments = parse_vision_attachments(body)
     except ValueError as exc:
@@ -160,4 +165,5 @@ async def prepare_chat_stream_request(
         answer_plan=answer_plan,
         session_id=_session_id(body),
         request_id=_request_id(body),
+        include_model_trace=include_model_trace,
     )

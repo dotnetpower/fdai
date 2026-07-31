@@ -63,6 +63,22 @@ export function SettingsDisplaySections({
               </strong>
             </label>
           </SettingRow>
+          <SettingRow
+            label={t("settings.showModelTrace")}
+            hint={t("settings.showModelTraceHint")}
+          >
+            <label class="settings-toggle-control">
+              <input
+                type="checkbox"
+                checked={preferences.showModelTrace}
+                onChange={(event) => update("showModelTrace", event.currentTarget.checked)}
+              />
+              <span aria-hidden="true" />
+              <strong>
+                {preferences.showModelTrace ? t("settings.enabled") : t("settings.disabled")}
+              </strong>
+            </label>
+          </SettingRow>
         </div>
       </section>
 

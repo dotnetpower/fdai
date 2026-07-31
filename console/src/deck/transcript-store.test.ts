@@ -37,6 +37,31 @@ describe("serializeTurns", () => {
         at: "10:00:01",
         recordedAt: "2026-07-31T01:00:01Z",
         source: "llm:x",
+        modelTrace: {
+          schema_version: 1 as const,
+          redacted: true as const,
+          omitted_calls: 0,
+          calls: [{
+            call_id: "model-call-1",
+            kind: "answer-stream",
+            model: "test-model",
+            status: "completed" as const,
+            started_at: "2026-07-31T01:00:00Z",
+            completed_at: "2026-07-31T01:00:01Z",
+            duration_ms: 1000,
+            request: {
+              messages: [{ role: "user" as const, content: "question" }],
+              sha256: "a".repeat(64),
+            },
+            response: {
+              role: "assistant" as const,
+              content: "answer",
+              sha256: "b".repeat(64),
+            },
+            usage: { total_tokens: 12 },
+            redactions: [],
+          }],
+        },
         citations: [{ label: "tier", value: "T0" }],
         followUps: ["Show T1"],
         terminal: true,
@@ -135,6 +160,7 @@ describe("serializeTurns", () => {
     expect(parsed).toHaveLength(3);
     expect(parsed[0]!.text).toBe("what is the tier mix?");
     expect(parsed[1]!.source).toBe("llm:x");
+    expect(parsed[1]!.modelTrace?.calls[0]?.response?.content).toBe("answer");
     expect(parsed[1]!.citations).toEqual([{ label: "tier", value: "T0" }]);
     expect(parsed[1]!.followUps).toEqual(["Show T1"]);
     expect(parsed[1]!.terminal).toBe(true);

@@ -8,6 +8,8 @@ export interface ConsolePreferences {
   readonly motion: MotionPreference;
   /** Show per-reply token usage on the chat reply badge. */
   readonly showTokenUsage: boolean;
+  /** Capture and show redacted provider request/response traces for new chat turns. */
+  readonly showModelTrace: boolean;
 }
 
 type StorageReader = Pick<Storage, "getItem">;
@@ -19,6 +21,7 @@ const STORAGE_KEYS = {
   locale: "fdai:console:locale",
   motion: "fdai:console:motion",
   showTokenUsage: "fdai:console:show-token-usage",
+  showModelTrace: "fdai:console:show-model-trace",
 } as const;
 
 const DEFAULT_PREFERENCES: ConsolePreferences = {
@@ -26,6 +29,7 @@ const DEFAULT_PREFERENCES: ConsolePreferences = {
   locale: "en",
   motion: "system",
   showTokenUsage: true,
+  showModelTrace: false,
 };
 
 let sessionPreferences: Partial<ConsolePreferences> = {};
@@ -39,6 +43,7 @@ export function readConsolePreferences(
   const storedLocale = safeGet(storage, STORAGE_KEYS.locale);
   const storedMotion = safeGet(storage, STORAGE_KEYS.motion);
   const storedShowTokenUsage = safeGet(storage, STORAGE_KEYS.showTokenUsage);
+  const storedShowModelTrace = safeGet(storage, STORAGE_KEYS.showModelTrace);
 
   return {
     theme: sessionPreferences.theme
@@ -63,6 +68,12 @@ export function readConsolePreferences(
         : storedShowTokenUsage === "true"
           ? true
           : DEFAULT_PREFERENCES.showTokenUsage),
+    showModelTrace: sessionPreferences.showModelTrace
+      ?? (storedShowModelTrace === "true"
+        ? true
+        : storedShowModelTrace === "false"
+          ? false
+          : DEFAULT_PREFERENCES.showModelTrace),
   };
 }
 

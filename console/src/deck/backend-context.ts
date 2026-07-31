@@ -1,4 +1,5 @@
 import { getLocale } from "../i18n";
+import { readConsolePreferences } from "../preferences";
 import { ROUTE_ACTION_HINTS } from "./answerer";
 import type { AnswerVerification, BackendTurn } from "./backend-types";
 import type { ChatAttachment } from "./composer-attachment-store";
@@ -44,10 +45,12 @@ export function createBackendRequestPayload(
   attachments?: readonly ChatAttachment[],
   targetAgent?: string,
 ): Record<string, unknown> {
+  const includeModelTrace = readConsolePreferences().showModelTrace;
   const normalizedBinding = normalizeIncidentBinding(binding);
   const resourceContext = latestResourceContext(history);
   return {
     ...(requestId === undefined ? {} : { request_id: requestId }),
+    ...(includeModelTrace ? { include_model_trace: true } : {}),
     prompt,
     session_id: sessionId,
     ...(targetAgent ? { target_agent: targetAgent } : {}),

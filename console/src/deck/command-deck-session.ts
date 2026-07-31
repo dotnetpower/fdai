@@ -5,6 +5,7 @@ import type {
   AnswerVerification,
   DelegationMetadata,
   GroundedCodeArtifact,
+  ModelTrace,
   ProgressiveAnswer,
   ResourceContext,
   RouterSnapshot,
@@ -13,6 +14,7 @@ import {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseModelTrace,
 } from "./backend-parsers";
 import {
   parseAnswerVerification,
@@ -39,6 +41,7 @@ export interface RestoredTurn {
   readonly answerPlan?: AnswerPlanMetadata;
   readonly answerPlanning?: AnswerPlanningMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
+  readonly modelTrace?: ModelTrace;
   readonly resourceContext?: ResourceContext;
 }
 
@@ -67,6 +70,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   const answerPlan = parseAnswerPlan(replay?.answer_plan);
   const answerPlanning = parseAnswerPlanning(replay?.answer_planning);
   const codeArtifacts = parseGroundedCodeArtifacts(replay?.code_artifacts);
+  const modelTrace = parseModelTrace(replay?.model_trace);
   const resourceContext = parseResourceContext(replay?.resource_context);
   const source = turn.metadata.source ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
@@ -86,6 +90,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     ...(answerPlan ? { answerPlan } : {}),
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+    ...(modelTrace ? { modelTrace } : {}),
     ...(resourceContext ? { resourceContext } : {}),
   };
 }

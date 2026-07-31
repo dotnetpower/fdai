@@ -240,6 +240,42 @@ export interface GroundedCodeArtifact {
   readonly validation_detail: string | null;
 }
 
+export interface ModelTraceMessage {
+  readonly role: "system" | "user" | "assistant" | "tool";
+  readonly content: string;
+}
+
+export interface ModelTraceCall {
+  readonly call_id: string;
+  readonly kind: string;
+  readonly model: string;
+  readonly status: "completed" | "incomplete";
+  readonly started_at: string;
+  readonly completed_at: string | null;
+  readonly duration_ms: number | null;
+  readonly request: {
+    readonly messages: readonly ModelTraceMessage[];
+    readonly sha256: string;
+  };
+  readonly response: {
+    readonly role: "assistant";
+    readonly content: string;
+    readonly sha256: string;
+  } | null;
+  readonly usage: Readonly<Record<string, number>> | null;
+  readonly redactions: readonly {
+    readonly rule: string;
+    readonly replacements: number;
+  }[];
+}
+
+export interface ModelTrace {
+  readonly schema_version: 1;
+  readonly redacted: true;
+  readonly calls: readonly ModelTraceCall[];
+  readonly omitted_calls: number;
+}
+
 export type ProgressiveAnswer = Answer & {
   readonly source: string;
   readonly router?: RouterSnapshot;
@@ -251,6 +287,7 @@ export type ProgressiveAnswer = Answer & {
   readonly confirmed?: ConfirmedAnswerSegment;
   readonly actionDraft?: ActionDraft;
   readonly resourceContext?: ResourceContext;
+  readonly modelTrace?: ModelTrace;
 };
 
 export interface BackendHealth {

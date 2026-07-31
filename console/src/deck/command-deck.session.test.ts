@@ -213,6 +213,31 @@ describe("durable transcript restoration", () => {
             resource_type: "compute.service",
             evidence_ref: "inventory:snapshot",
           },
+          model_trace: {
+            schema_version: 1,
+            redacted: true,
+            omitted_calls: 0,
+            calls: [{
+              call_id: "model-call-1",
+              kind: "answer-stream",
+              model: "test-model",
+              status: "completed",
+              started_at: "2026-07-16T07:00:00Z",
+              completed_at: "2026-07-16T07:00:03Z",
+              duration_ms: 3000,
+              request: {
+                messages: [{ role: "user", content: "question" }],
+                sha256: "a".repeat(64),
+              },
+              response: {
+                role: "assistant",
+                content: "One service is unavailable.",
+                sha256: "b".repeat(64),
+              },
+              usage: { total_tokens: 12 },
+              redactions: [],
+            }],
+          },
         }),
       },
     });
@@ -225,6 +250,7 @@ describe("durable transcript restoration", () => {
       delegation: { primary_agent: "Bragi", contributors: ["Heimdall"] },
       verification: { status: "consistent", evidence_refs: ["inventory:snapshot"] },
       resourceContext: { name: "example-service" },
+      modelTrace: { calls: [{ kind: "answer-stream", duration_ms: 3000 }] },
     });
   });
 

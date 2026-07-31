@@ -218,9 +218,18 @@ the evidence manifest, code artifacts, and the terminal answer when those record
 activity is an explicit coverage gap and does not prove that no work occurred. Durable history
 restores only an exact-answer terminal `replay_payload` through the same bounded browser parsers.
 
+Model provider tracing is a browser-local Settings opt-in that defaults off. When enabled, the
+request-local collector records up to eight actual model calls for that question, including turn
+planning, reruns, answer generation, and quality review. The Waterfall uses provider-call timing;
+each disclosure shows the role-ordered redacted message copy, assistant content, token usage,
+exact-content SHA-256, and redaction counts. Credentials, tenant or resource identifiers, URLs,
+email, IP addresses, inline images, hidden reasoning, headers, and provider internals aren't
+retained. Turning the setting off stops capture, hides stored traces, and removes the trace from an
+idempotent replay response without repeating the provider call.
+
 This principal-scoped view is distinct from [governed trajectory datasets](governed-trajectory-datasets.md),
 which remain authorization-first offline review artifacts. The view excludes hidden reasoning, raw
-prompts, credentials, unrestricted payloads, and any data that wasn't recorded for the turn.
+unredacted prompts, credentials, unrestricted payloads, and data that wasn't recorded for the turn.
 
 ## Durable request replay
 

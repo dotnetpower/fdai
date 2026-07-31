@@ -1677,6 +1677,86 @@ class TestChatRouteInputCaps:
 
 
 class TestChatStreamEvidence:
+    def test_stream_opt_in_returns_redacted_actual_model_trace(self) -> None:
+        identity = _RecordingIdentity()
+        store = InMemoryConversationHistoryStore()
+        provider_calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal provider_calls
+            provider_calls += 1
+            body = json.loads(request.content)
+            assert [message["role"] for message in body["messages"]][-1] == "user"
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text=(
+                    'data: {"choices":[{"delta":{"content":"Observed answer"}}]}\n\n'
+                    'data: {"choices":[],"usage":{"prompt_tokens":20,'
+                    '"completion_tokens":4,"total_tokens":24}}\n\n'
+                    "data: [DONE]\n\n"
+                ),
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        app = Starlette(
+            routes=[
+                make_chat_stream_route(
+                    backend=backend,
+                    authorize=_allow,
+                    conversation_history_store=store,
+                )
+            ]
+        )
+        base_request = {
+            "prompt": "Show current status",
+            "view_context": {},
+            "session_id": "trace-session",
+            "request_id": "trace-request",
+        }
+
+        traced = TestClient(app).post(
+            "/chat/stream",
+            json={**base_request, "include_model_trace": True},
+        )
+        untraced = TestClient(app).post(
+            "/chat/stream",
+            json=base_request,
+        )
+
+        traced_done = next(payload for name, payload in _parse_sse(traced.text) if name == "done")
+        untraced_done = next(
+            payload for name, payload in _parse_sse(untraced.text) if name == "done"
+        )
+        trace = traced_done["model_trace"]
+        assert trace["redacted"] is True
+        assert len(trace["calls"]) == 1
+        assert trace["calls"][0]["kind"] == "answer-stream"
+        assert trace["calls"][0]["response"]["content"] == "Observed answer"
+        assert trace["calls"][0]["usage"]["total_tokens"] == 24
+        assert [message["role"] for message in trace["calls"][0]["request"]["messages"]][
+            -1
+        ] == "user"
+        assert "model_trace" not in untraced_done
+        assert provider_calls == 1
+
+    def test_stream_rejects_non_boolean_model_trace_toggle(self) -> None:
+        backend = _RecordingBackend(model="must-not-run", delay_ms=0)
+        app = Starlette(routes=[make_chat_stream_route(backend=backend, authorize=_allow)])
+
+        response = TestClient(app).post(
+            "/chat/stream",
+            json={"prompt": "status", "include_model_trace": "yes"},
+        )
+
+        assert response.status_code == 400
+        assert backend.calls == 0
+
     def test_stream_source_preview_excludes_client_forged_evidence(self) -> None:
         app = Starlette(
             routes=[

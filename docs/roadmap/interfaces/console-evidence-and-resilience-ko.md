@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c550da75eebe6a5a15962ca9325c0ec7fa6afa56
+translation_source_sha: bd452d8edc8f3d67d5e240ea0eee60210aa148d1
 translation_revised: 2026-07-31
 ---
 
@@ -217,9 +217,17 @@ evidence manifest, code artifact 및 terminal answer를 표시합니다. Activit
 gap이며 작업이 없었다는 의미가 아닙니다. Durable history는 exact-answer terminal `replay_payload`만
 동일한 bounded browser parser로 복원합니다.
 
+Model provider tracing은 기본값이 꺼진 browser-local Settings opt-in입니다. 활성화하면 request-local
+collector가 turn planning, rerun, answer generation 및 quality review를 포함하여 해당 질문의 실제 model
+call을 최대 8개 기록합니다. Waterfall은 provider-call timing을 사용하며, 각 disclosure는 role 순서의
+redacted message copy, assistant content, token usage, exact-content SHA-256 및 redaction count를
+표시합니다. Credential, tenant 또는 resource identifier, URL, email, IP address, inline image,
+hidden reasoning, header 및 provider 내부 정보는 저장하지 않습니다. 설정을 끄면 캡처를 중지하고
+저장된 trace를 숨기며 provider call을 반복하지 않고 idempotent replay response에서 trace를 제거합니다.
+
 이 principal-scoped view는 authorization-first offline review artifact인
 [관리형 trajectory dataset](governed-trajectory-datasets-ko.md)과 구분됩니다. Hidden reasoning, raw
-prompt, credential, unrestricted payload 및 해당 turn에 기록되지 않은 data는 표시하지 않습니다.
+unredacted prompt, credential, unrestricted payload 및 해당 turn에 기록되지 않은 data는 표시하지 않습니다.
 
 ## Durable request replay
 

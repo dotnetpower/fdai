@@ -178,16 +178,7 @@ def _structured_completion_body(
 def _structured_result(envelope: object) -> Mapping[str, object]:
     """Parse one untrusted chat-completion envelope as a JSON object."""
 
-    if not isinstance(envelope, Mapping):
-        raise HTTPException(status_code=502, detail="chat upstream returned invalid JSON")
-    choices = envelope.get("choices")
-    if not isinstance(choices, list) or not choices:
-        raise HTTPException(status_code=502, detail="chat upstream returned no choices")
-    first = choices[0]
-    message = first.get("message") if isinstance(first, Mapping) else None
-    content = message.get("content") if isinstance(message, Mapping) else None
-    if not isinstance(content, str) or not content.strip():
-        raise HTTPException(status_code=502, detail="chat upstream returned no structured content")
+    content = _structured_content(envelope)
     try:
         parsed = json.loads(content)
     except json.JSONDecodeError as exc:
@@ -201,6 +192,22 @@ def _structured_result(envelope: object) -> Mapping[str, object]:
             detail="chat upstream structured content is not an object",
         )
     return {str(key): value for key, value in parsed.items()}
+
+
+def _structured_content(envelope: object) -> str:
+    """Return the exact assistant content from one structured completion envelope."""
+
+    if not isinstance(envelope, Mapping):
+        raise HTTPException(status_code=502, detail="chat upstream returned invalid JSON")
+    choices = envelope.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise HTTPException(status_code=502, detail="chat upstream returned no choices")
+    first = choices[0]
+    message = first.get("message") if isinstance(first, Mapping) else None
+    content = message.get("content") if isinstance(message, Mapping) else None
+    if not isinstance(content, str) or not content.strip():
+        raise HTTPException(status_code=502, detail="chat upstream returned no structured content")
+    return content
 
 
 _COGNITIVE_SCOPE: Final[str] = COGNITIVE_SERVICES_SCOPE

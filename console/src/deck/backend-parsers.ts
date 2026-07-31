@@ -3,6 +3,8 @@ import type {
   AnswerPlanningContributionMetadata,
   AnswerPlanningMetadata,
   GroundedCodeArtifact,
+  ModelTrace,
+  ModelTraceCall,
 } from "./backend-types";
 
 const CODE_SHA256 = /^[0-9a-f]{64}$/;
@@ -12,6 +14,137 @@ const MAX_CODE_CHARS = 64 * 1024;
 const MAX_CODE_VALIDATION_DETAIL_CHARS = 4 * 1024;
 const MAX_ANSWER_PLAN_SECTION_CHARS = 64;
 const MAX_ANSWER_PLAN_OVERRIDE_CHARS = 128;
+const SHA256 = /^[0-9a-f]{64}$/;
+const MAX_MODEL_TRACE_CALLS = 8;
+const MAX_MODEL_TRACE_MESSAGES = 24;
+const MAX_MODEL_TRACE_REQUEST_CHARS = 12_000;
+const MAX_MODEL_TRACE_RESPONSE_CHARS = 6_000;
+const MAX_MODEL_TRACE_REDACTIONS = 16;
+
+export function parseModelTrace(raw: unknown): ModelTrace | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (record.schema_version !== 1 || record.redacted !== true) return undefined;
+  if (!Array.isArray(record.calls) || record.calls.length > MAX_MODEL_TRACE_CALLS) return undefined;
+  if (!boundedInteger(record.omitted_calls, 0, 10_000)) return undefined;
+  const calls: ModelTraceCall[] = [];
+  for (const rawCall of record.calls) {
+    const call = parseModelTraceCall(rawCall);
+    if (!call) return undefined;
+    calls.push(call);
+  }
+  if (new Set(calls.map((call) => call.call_id)).size !== calls.length) return undefined;
+  return {
+    schema_version: 1,
+    redacted: true,
+    calls,
+    omitted_calls: record.omitted_calls,
+  };
+}
+
+function parseModelTraceCall(raw: unknown): ModelTraceCall | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const call = raw as Record<string, unknown>;
+  if (!boundedString(call.call_id, 128) || !boundedString(call.kind, 128) ||
+      !boundedString(call.model, 128) || (call.status !== "completed" && call.status !== "incomplete") ||
+      !validTimestamp(call.started_at)) return undefined;
+  const completedAt = call.completed_at === null ? null
+    : validTimestamp(call.completed_at) ? call.completed_at : undefined;
+  const durationMs = call.duration_ms === null ? null
+    : boundedInteger(call.duration_ms, 0, 7_200_000) ? call.duration_ms : undefined;
+  if (completedAt === undefined || durationMs === undefined) return undefined;
+  if (completedAt !== null && Date.parse(completedAt) < Date.parse(call.started_at)) return undefined;
+  const request = parseModelTraceRequest(call.request);
+  const response = call.response === null ? null : parseModelTraceResponse(call.response);
+  const usage = call.usage === null ? null : parseModelTraceUsage(call.usage);
+  const redactions = parseModelTraceRedactions(call.redactions);
+  if (!request || response === undefined || usage === undefined || !redactions) return undefined;
+  if (call.status === "completed" && (completedAt === null || durationMs === null || response === null)) {
+    return undefined;
+  }
+  if (call.status === "incomplete" && (completedAt !== null || durationMs !== null || response !== null)) {
+    return undefined;
+  }
+  return {
+    call_id: call.call_id,
+    kind: call.kind,
+    model: call.model,
+    status: call.status,
+    started_at: call.started_at,
+    completed_at: completedAt,
+    duration_ms: durationMs,
+    request,
+    response,
+    usage,
+    redactions,
+  };
+}
+
+function parseModelTraceRequest(raw: unknown): ModelTraceCall["request"] | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const request = raw as Record<string, unknown>;
+  if (!Array.isArray(request.messages) || request.messages.length > MAX_MODEL_TRACE_MESSAGES ||
+      typeof request.sha256 !== "string" || !SHA256.test(request.sha256)) return undefined;
+  let totalChars = 0;
+  const messages: ModelTraceCall["request"]["messages"][number][] = [];
+  for (const rawMessage of request.messages) {
+    if (typeof rawMessage !== "object" || rawMessage === null || Array.isArray(rawMessage)) {
+      return undefined;
+    }
+    const message = rawMessage as Record<string, unknown>;
+    if (!(["system", "user", "assistant", "tool"] as const).includes(
+      message.role as "system" | "user" | "assistant" | "tool",
+    ) || typeof message.content !== "string") return undefined;
+    totalChars += message.content.length;
+    if (totalChars > MAX_MODEL_TRACE_REQUEST_CHARS) return undefined;
+    messages.push({
+      role: message.role as "system" | "user" | "assistant" | "tool",
+      content: message.content,
+    });
+  }
+  return { messages, sha256: request.sha256 };
+}
+
+function parseModelTraceResponse(raw: unknown): NonNullable<ModelTraceCall["response"]> | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const response = raw as Record<string, unknown>;
+  if (response.role !== "assistant" || typeof response.content !== "string" ||
+      response.content.length > MAX_MODEL_TRACE_RESPONSE_CHARS ||
+      typeof response.sha256 !== "string" || !SHA256.test(response.sha256)) return undefined;
+  return { role: "assistant", content: response.content, sha256: response.sha256 };
+}
+
+function parseModelTraceUsage(raw: unknown): Readonly<Record<string, number>> | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const usage = raw as Record<string, unknown>;
+  const output: Record<string, number> = {};
+  for (const key of ["prompt_tokens", "completion_tokens", "total_tokens"] as const) {
+    const value = usage[key];
+    if (value !== undefined) {
+      if (!boundedInteger(value, 0, Number.MAX_SAFE_INTEGER)) return undefined;
+      output[key] = value;
+    }
+  }
+  return Object.keys(output).length > 0 ? output : undefined;
+}
+
+function parseModelTraceRedactions(raw: unknown): ModelTraceCall["redactions"] | undefined {
+  if (!Array.isArray(raw) || raw.length > MAX_MODEL_TRACE_REDACTIONS) return undefined;
+  const redactions: Array<{ readonly rule: string; readonly replacements: number }> = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return undefined;
+    const redaction = item as Record<string, unknown>;
+    if (!boundedString(redaction.rule, 64) || !boundedInteger(redaction.replacements, 1, 100_000)) {
+      return undefined;
+    }
+    redactions.push({ rule: redaction.rule, replacements: redaction.replacements });
+  }
+  return redactions;
+}
+
+function validTimestamp(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 64 && Number.isFinite(Date.parse(value));
+}
 
 export function parseGroundedCodeArtifacts(raw: unknown): GroundedCodeArtifact[] {
   if (!Array.isArray(raw)) return [];

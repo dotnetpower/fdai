@@ -1239,6 +1239,8 @@
     "motionHint": "Reduce decorative animation while preserving live state updates.",
     "showTokenUsage": "Show token usage",
     "showTokenUsageHint": "Show the tokens spent per reply on the chat answer badge, next to model and latency.",
+    "showModelTrace": "Capture model request and response trace",
+    "showModelTraceHint": "Default off. New chat turns retain and display a bounded redacted copy of actual provider messages and assistant content. Credentials, identifiers, URLs, images, and hidden reasoning are not retained.",
     "reduced": "Reduced",
     "system": "System preference",
     "runtime": "Runtime",
@@ -2026,6 +2028,19 @@
       "resource": "Resource context",
       "milestone": "Milestone",
       "references": "Evidence references"
+    },
+    "modelTrace": {
+      "title": "Model provider waterfall",
+      "redactionNotice": "Actual provider messages and assistant content after deterministic redaction. Hidden reasoning and provider internals are not captured.",
+      "callCount": "{count} model calls",
+      "notCaptured": "No model trace was captured for this turn. Enable capture in Settings before asking a new question.",
+      "omitted": "{count} additional calls omitted by the trace bound.",
+      "incomplete": "incomplete",
+      "requestHash": "Request SHA-256",
+      "response": "Assistant response",
+      "responseHash": "Response SHA-256",
+      "responseMissing": "No terminal assistant response was recorded for this call.",
+      "redactions": "Applied redactions"
     },
     "rich": {
       "code": "Code",

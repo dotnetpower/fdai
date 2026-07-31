@@ -34,6 +34,7 @@ import {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseModelTrace,
 } from "./backend-parsers";
 import type { ViewSnapshot } from "./context";
 import type {
@@ -48,6 +49,7 @@ export {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseModelTrace,
 } from "./backend-parsers";
 export {
   askBackendStream,
@@ -172,6 +174,11 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).resource_context
       : undefined,
   );
+  const modelTrace = parseModelTrace(
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).model_trace
+      : undefined,
+  );
   if (answerText === null) {
     const local = deterministicAnswer(prompt, snapshot);
     return { ...local, source: "deterministic (no answer field)" };
@@ -207,6 +214,7 @@ export async function askBackend(
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(resourceContext ? { resourceContext } : {}),
+    ...(modelTrace ? { modelTrace } : {}),
   };
 }
 

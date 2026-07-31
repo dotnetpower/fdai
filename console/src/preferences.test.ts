@@ -17,6 +17,7 @@ describe("console preferences", () => {
       locale: "en",
       motion: "system",
       showTokenUsage: true,
+      showModelTrace: false,
     });
   });
 
@@ -26,11 +27,13 @@ describe("console preferences", () => {
       "fdai:console:locale": "ko",
       "fdai:console:motion": "reduced",
       "fdai:console:show-token-usage": "false",
+      "fdai:console:show-model-trace": "true",
     }))).toEqual({
       theme: "dark",
       locale: "ko",
       motion: "reduced",
       showTokenUsage: false,
+      showModelTrace: true,
     });
   });
 
@@ -46,11 +49,13 @@ describe("console preferences", () => {
       "fdai:console:locale": "fr",
       "fdai:console:motion": "full",
       "fdai:console:show-token-usage": "maybe",
+      "fdai:console:show-model-trace": "maybe",
     }))).toEqual({
       theme: "light",
       locale: "en",
       motion: "system",
       showTokenUsage: true,
+      showModelTrace: false,
     });
   });
 

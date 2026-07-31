@@ -117,6 +117,10 @@ unconsumed steer disposition to `queued`.
 The terminal quality review runs after the final steered draft. It does not consume another steer or
 start another operator turn; input that arrives during review remains governed by the existing
 queue, interrupt, or steer race outcome.
+When redacted model tracing is explicitly enabled for the active request, the request-local trace
+keeps each semantic-plan, steered narrator rerun, terminal answer, and quality-review model call in
+observed start order. An interrupt emits no terminal trace and persists no partial prompt or response
+copy. The trace preference never changes queue, interrupt, steer, or model authority.
 A semantic-plan rerun projects the same bounded capability manifest into a strict structured-output
 schema and removes nullable optional-argument placeholders before selection validation or dispatch.
 A deterministic evidence fast path skips the shadow answer-planning round during a rerun, so an

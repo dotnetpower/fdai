@@ -1,5 +1,10 @@
 import type { RefObject } from "preact";
+import { useEffect, useState } from "preact/hooks";
 import { t } from "../i18n";
+import {
+  PREFERENCES_CHANGED_EVENT,
+  readConsolePreferences,
+} from "../preferences";
 import type { BackendHealth, VerificationProgress } from "./backend";
 import {
   ConversationSidebar,
@@ -126,6 +131,14 @@ export function CommandDeckView({
   onStopStream,
 }: CommandDeckViewProps) {
   const trajectories = conversationTrajectoriesByAnswer(turns);
+  const [showModelTrace, setShowModelTrace] = useState(
+    () => readConsolePreferences().showModelTrace,
+  );
+  useEffect(() => {
+    const sync = () => setShowModelTrace(readConsolePreferences().showModelTrace);
+    window.addEventListener(PREFERENCES_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(PREFERENCES_CHANGED_EVENT, sync);
+  }, []);
   return (
     <>
       <CommandDeckLauncher
@@ -211,6 +224,7 @@ export function CommandDeckView({
                     key={turn.id}
                     turn={turn}
                     {...(trajectory ? { trajectory } : {})}
+                    showModelTrace={showModelTrace}
                     searchMatch={searchMatches.includes(index)}
                     activeSearchMatch={searchMatches[activeSearchMatch] === index}
                     onPickFollowUp={onSubmit}

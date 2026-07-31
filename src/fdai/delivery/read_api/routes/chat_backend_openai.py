@@ -17,9 +17,14 @@ from fdai.delivery.read_api.routes.chat_backend_common import (
     _metering_scope,
     _raise_upstream_error,
     _structured_completion_body,
+    _structured_content,
     _structured_result,
     _token_usage,
     _usage_summary,
+)
+from fdai.delivery.read_api.routes.chat_model_trace import (
+    begin_model_call,
+    complete_model_call,
 )
 from fdai.delivery.read_api.routes.chat_prompt import _build_messages
 
@@ -98,6 +103,11 @@ class OpenAiCompatibleChatBackend:
         history: list[dict[str, str]],
     ) -> dict[str, Any]:
         messages = _build_messages(prompt, view_context, history)
+        trace_call = begin_model_call(
+            kind="answer",
+            model=self._config.model,
+            messages=messages,
+        )
 
         body: dict[str, Any] = {
             "messages": messages,
@@ -140,6 +150,7 @@ class OpenAiCompatibleChatBackend:
         usage = _usage_summary(envelope.get("usage"))
         if usage is not None:
             reply["usage"] = usage
+        complete_model_call(trace_call, response_content=content, usage=usage)
         measured_usage = _token_usage(usage)
         if measured_usage is not None and self._metering is not None:
             await self._metering.emit_safe(measured_usage, usage_scope=_metering_scope())
@@ -164,6 +175,11 @@ class OpenAiCompatibleChatBackend:
             schema=schema,
             max_tokens=max_tokens,
         )
+        trace_call = begin_model_call(
+            kind=f"structured:{schema_name}",
+            model=self._config.model,
+            messages=body["messages"],
+        )
         if self._config.provider == "openai":
             body["model"] = self._config.model
         try:
@@ -183,4 +199,10 @@ class OpenAiCompatibleChatBackend:
             envelope = response.json()
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
-        return _structured_result(envelope)
+        result = _structured_result(envelope)
+        complete_model_call(
+            trace_call,
+            response_content=_structured_content(envelope),
+            usage=_usage_summary(envelope.get("usage")),
+        )
+        return result

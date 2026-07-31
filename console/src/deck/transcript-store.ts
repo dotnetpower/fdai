@@ -16,6 +16,7 @@ import {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseModelTrace,
   type AnswerPlanMetadata,
   type AnswerPlanningMetadata,
   type AnswerVerification,
@@ -23,6 +24,7 @@ import {
   type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
+  type ModelTrace,
   type ResourceContext,
 } from "./backend";
 import {
@@ -88,6 +90,7 @@ export interface PersistedTurn {
   readonly answerPlanning?: AnswerPlanningMetadata;
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
+  readonly modelTrace?: ModelTrace;
   readonly resourceContext?: ResourceContext;
 }
 
@@ -125,6 +128,7 @@ export function serializeTurns(
       const answerPlanning = parseAnswerPlanning(t.answerPlanning);
       const delegation = parseDelegation(t.delegation);
       const codeArtifacts = parseGroundedCodeArtifacts(t.codeArtifacts);
+      const modelTrace = parseModelTrace(t.modelTrace);
       const resourceContext = parseResourceContext(t.resourceContext);
       return {
         ...base,
@@ -146,6 +150,7 @@ export function serializeTurns(
         ...(answerPlanning ? { answerPlanning } : {}),
         ...(delegation ? { delegation } : {}),
         ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+        ...(modelTrace ? { modelTrace } : {}),
         ...(resourceContext ? { resourceContext } : {}),
       };
     });
@@ -179,6 +184,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const answerPlanning = parseAnswerPlanning(rec.answerPlanning);
     const delegation = parseDelegation(rec.delegation);
     const codeArtifacts = parseGroundedCodeArtifacts(rec.codeArtifacts);
+    const modelTrace = parseModelTrace(rec.modelTrace);
     const verification = parseAnswerVerification(rec.verification);
     const resourceContext = parseResourceContext(rec.resourceContext);
     const turn: PersistedTurn = {
@@ -206,6 +212,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(answerPlanning ? { answerPlanning } : {}),
       ...(delegation ? { delegation } : {}),
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+      ...(modelTrace ? { modelTrace } : {}),
       ...(resourceContext ? { resourceContext } : {}),
     };
     out.push(turn);

@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: a19d82dc71453dd6aed590a90d6f03a23edf12c9
+translation_source_sha: eeffec318b99e120f0e81005b62726d88a089682
 translation_revised: 2026-07-31
 ---
 
@@ -120,6 +120,10 @@ disposition을 `queued`로 원자적으로 변경합니다.
 Terminal quality review는 최종 steered draft 뒤에 실행됩니다. 추가 steer를 consume하거나 다른 operator
 turn을 시작하지 않으며, review 중 도착한 input은 기존 queue, interrupt 또는 steer race outcome의
 governance를 그대로 따릅니다.
+Active request에서 redacted model tracing을 명시적으로 활성화하면 request-local trace가 semantic-plan,
+steered narrator rerun, terminal answer 및 quality-review model call을 관찰된 시작 순서로 유지합니다.
+Interrupt는 terminal trace를 emit하지 않고 partial prompt 또는 response copy를 저장하지 않습니다.
+Trace preference는 queue, interrupt, steer 또는 model authority를 변경하지 않습니다.
 Semantic-plan rerun은 동일한 bounded capability manifest를 strict structured-output schema로
 projection하고 selection validation 또는 dispatch 전에 nullable optional-argument placeholder를 제거합니다.
 Deterministic evidence fast path는 rerun 중 shadow answer-planning round를 생략하므로 사용하지 않는

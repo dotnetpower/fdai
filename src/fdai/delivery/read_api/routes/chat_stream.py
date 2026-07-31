@@ -68,6 +68,11 @@ from fdai.delivery.read_api.routes.chat_history import (
     completed_replay_payload,
     replay_metadata,
 )
+from fdai.delivery.read_api.routes.chat_model_trace import (
+    activate_model_trace,
+    deactivate_model_trace,
+    snapshot_model_trace,
+)
 from fdai.delivery.read_api.routes.chat_prompt import (
     _concept_answer,
     _ontology_browse_answer,
@@ -188,6 +193,7 @@ def make_chat_stream_route(
         answer_plan = prepared.answer_plan
         session_id = prepared.session_id
         request_id = prepared.request_id
+        include_model_trace = prepared.include_model_trace
         active_turn = None
         if busy_input_coordinator is not None:
             try:
@@ -238,6 +244,7 @@ def make_chat_stream_route(
 
         async def event_source() -> AsyncIterator[bytes]:
             nonlocal answer_plan
+            model_trace_scope = activate_model_trace(include_model_trace)
             started = time.monotonic()
             sequence = 0
             revision = 0
@@ -282,6 +289,8 @@ def make_chat_stream_route(
 
             try:
                 if completed_payload is not None:
+                    if not include_model_trace:
+                        completed_payload.pop("model_trace", None)
                     if progress_metrics is not None:
                         progress_metrics.increment("replays")
                         progress_metrics.observe_latency(
@@ -773,6 +782,7 @@ def make_chat_stream_route(
                         enriched_context,
                         resource_context,
                     ),
+                    model_trace=snapshot_model_trace(model_trace_scope.collector),
                 )
                 if conversation_history_store is not None:
                     assistant_turn = await append_assistant_turn(
@@ -831,6 +841,7 @@ def make_chat_stream_route(
                 yield frame("error", {"detail": "chat stream failed"})
             finally:
                 await cleanup()
+                deactivate_model_trace(model_trace_scope)
 
         return StreamingResponse(
             event_source(),

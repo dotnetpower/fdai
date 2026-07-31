@@ -21,6 +21,11 @@ from fdai.delivery.read_api.routes.chat_backend_openai import (
 )
 from fdai.delivery.read_api.routes.chat_backend_router import LatencyRoutedChatBackend
 from fdai.delivery.read_api.routes.chat_evidence_pipeline import resolve_parallel_chat_evidence
+from fdai.delivery.read_api.routes.chat_model_trace import (
+    activate_model_trace,
+    deactivate_model_trace,
+    snapshot_model_trace,
+)
 from fdai.delivery.read_api.routes.chat_stream import make_chat_stream_route
 from fdai.delivery.read_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.read_api.routes.chat_turn_plan import (
@@ -273,11 +278,16 @@ async def test_real_backends_send_strict_turn_plan_schema(provider: str) -> None
             http_client=client,
         )
 
-    plan = await BackendTurnPlanner(backend).plan_turn(
-        prompt="show active incidents",
-        tools=_read_tools(),
-        history=(),
-    )
+    trace_scope = activate_model_trace(True)
+    try:
+        plan = await BackendTurnPlanner(backend).plan_turn(
+            prompt="show active incidents",
+            tools=_read_tools(),
+            history=(),
+        )
+        trace = snapshot_model_trace(trace_scope.collector)
+    finally:
+        deactivate_model_trace(trace_scope)
 
     response_format = captured["response_format"]
     assert isinstance(response_format, dict)
@@ -299,6 +309,9 @@ async def test_real_backends_send_strict_turn_plan_schema(provider: str) -> None
         "all",
         None,
     ]
+    assert trace is not None
+    assert trace["calls"][0]["kind"] == "structured:fdai_turn_plan"
+    assert "query_incidents" in trace["calls"][0]["response"]["content"]
     assert plan.tool_name == "query_incidents"
     await client.aclose()
 

@@ -477,6 +477,7 @@ export function useCommandDeckSubmit({
                   ...(reply.delegation ? { delegation: reply.delegation } : {}),
                   ...(reply.codeArtifacts ? { codeArtifacts: reply.codeArtifacts } : {}),
                   ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
+                  ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
                   ...(reply.resourceContext ? { resourceContext: reply.resourceContext } : {}),
                 }
               : turn;

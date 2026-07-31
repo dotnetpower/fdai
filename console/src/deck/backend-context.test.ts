@@ -13,6 +13,7 @@ import { createBackendHealthProbe } from "./backend-health";
 import { createBackendRequestPayload } from "./backend-context";
 import { parseRouter } from "./backend-normalizers";
 import { setChatAuth } from "./auth";
+import { resetConsolePreferences, setConsolePreference } from "../preferences";
 
 async function callAskAndCaptureBody(
   snap: ViewSnapshot | null,
@@ -52,6 +53,7 @@ describe("viewContextWithUser wiring", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     setChatAuth(null);
+    resetConsolePreferences();
   });
 
   test("attaches _route_actions for a known route", async () => {
@@ -99,6 +101,15 @@ describe("viewContextWithUser wiring", () => {
   test("sends the stable backend session id", async () => {
     const parsed = await callAskAndCaptureBody(liveSnap(), "session-42");
     expect((parsed as Record<string, unknown>).session_id).toBe("session-42");
+  });
+
+  test("requests model traces only after the default-off preference is enabled", () => {
+    const disabled = createBackendRequestPayload("status", liveSnap(), [], "session-42");
+    setConsolePreference("showModelTrace", true);
+    const enabled = createBackendRequestPayload("status", liveSnap(), [], "session-42");
+
+    expect(disabled.include_model_trace).toBeUndefined();
+    expect(enabled.include_model_trace).toBe(true);
   });
 
   test("sends the incident binding as structured conversation context", async () => {
