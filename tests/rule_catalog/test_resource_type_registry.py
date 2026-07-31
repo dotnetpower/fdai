@@ -196,6 +196,40 @@ def test_query_term_collision_uses_runtime_separator_normalization() -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "schema_version": "1.0.0",
+            "version": "0.0.1",
+            "types": [
+                {
+                    "id": "compute.vm",
+                    "category": "compute",
+                    "description": "VM",
+                    "query_terms": ["   "],
+                }
+            ],
+        },
+        {
+            "schema_version": "1.0.0",
+            "version": "0.0.1",
+            "category_query_terms": {"compute": ["   "]},
+            "types": [
+                {
+                    "id": "compute.vm",
+                    "category": "compute",
+                    "description": "VM",
+                }
+            ],
+        },
+    ],
+)
+def test_query_terms_reject_whitespace_only_values(payload: dict[str, object]) -> None:
+    with pytest.raises(ResourceTypeRegistryError):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_category_query_term_cannot_shadow_concrete_type_term() -> None:
     payload = {
         "schema_version": "1.0.0",
