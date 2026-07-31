@@ -397,6 +397,28 @@ def test_chaos_proposal_flows_through_heimdall_and_forseti_as_hil() -> None:
     assert verdict["reason"] == "human_approval_required"
 
 
+def test_incomplete_chaos_proposal_is_denied_before_approval() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    heimdall = Heimdall(bus=bus)
+    forseti = Forseti(bus=bus)
+    proposal = {
+        "producer_principal": "Loki",
+        "experiment_id": "experiment-1",
+        "action_type": "ops.restart-service",
+        "targets": ["resource-1"],
+        "human_approval_required": True,
+    }
+
+    asyncio.run(heimdall.on_typed_message("object.chaos-experiment", proposal))
+    anomaly = bus.messages_on("object.anomaly")[-1].payload
+    assert anomaly["evidence_complete"] is False
+
+    asyncio.run(forseti.on_typed_message("object.anomaly", anomaly))
+    verdict = bus.messages_on("object.verdict")[-1].payload
+    assert verdict["risk_verdict"] == "deny"
+    assert verdict["reason"] == "chaos_evidence_incomplete"
+
+
 def test_sensing_and_judgment_defer_specialist_source_events() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     heimdall = Heimdall(bus=bus, rate_threshold=1)

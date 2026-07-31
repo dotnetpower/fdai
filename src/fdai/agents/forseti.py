@@ -589,6 +589,12 @@ class Forseti(Agent):
         explicit_hil = event.get("human_approval_required") is True
         if explicit_hil:
             risk_verdict = "hil"
+        chaos_evidence_incomplete = (
+            event.get("event_type") == "chaos_experiment_request"
+            and event.get("evidence_complete") is not True
+        )
+        if chaos_evidence_incomplete:
+            risk_verdict = "deny"
 
         # RBAC check: if initiator is set (e.g. operator-requested action),
         # verify permission. Rule-fired actions have no operator initiator;
@@ -637,7 +643,13 @@ class Forseti(Agent):
             risk_verdict = "hil"
 
         if risk_verdict == "deny":
-            reason = "rbac_insufficient" if rbac_denied else "risk_deny"
+            reason = (
+                "rbac_insufficient"
+                if rbac_denied
+                else "chaos_evidence_incomplete"
+                if chaos_evidence_incomplete
+                else "risk_deny"
+            )
         elif readiness_limited:
             reason = "detection_readiness_ceiling"
         elif arbitration_limited:
