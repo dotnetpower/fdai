@@ -148,6 +148,34 @@ The adapter maps these fields to ordinary case source records. Hidden oracle tex
 answers, benchmark implementation details, and raw credentials are rejected. A benchmark score is
 stored as external validation, never as the root-cause label or promotion decision.
 
+## Operational target absorption
+
+A benchmark pass and an FDAI capability are separate states. FDAI records these states explicitly:
+
+- **`benchmark_passed`** means the external diagnosis and mitigation checks accepted one attempt.
+- **`operationalized`** means normal FDAI agents can collect the evidence and propose or execute the
+  governed action without importing the benchmark package or starting an evaluation session.
+- **`azure_validated`** means the same operational path passed a non-production drill against the
+  applicable Azure resource, including its provider identity, postcondition, rollback, and audit
+  receipts.
+
+A passed treatment may enter case history as evidence, but it cannot count as a reusable treatment,
+candidate success, or FDAI capability until it is operationalized. Because Azure is the implemented
+provider, completion also requires `azure_validated`. Each operational case records the target
+profile, canonical resource types, evidence capability ids, action type ids, owning agents,
+operational provider references, proof references, and any unsupported surface.
+
+| Target profile | Required operational proof |
+|----------------|----------------------------|
+| Kubernetes | The normal Heimdall and ControlLoop path uses the same bounded Kubernetes API evidence and governed action adapters. A non-production AKS drill proves the complete diagnosis, approval, dry-run, mutation, postcondition, rollback, audit, and restart-replay path. |
+| AKS-integrated Kubernetes | The Kubernetes proof above is combined with relevant Azure management-plane evidence for node pools, scale sets, networking, identity, load balancing, storage, or control-plane health. Azure Resource Graph supplies topology, Activity Log supplies change evidence, and Azure Monitor or managed Prometheus supplies telemetry as applicable. |
+| Azure resource | The failure fingerprint uses a canonical `ResourceType`; the injected `Inventory` provider supplies topology; Azure Monitor, Activity Log, policy, cost, or service-health adapters supply current evidence; and a governed Azure action provider supplies dry-run, execution, postcondition, and rollback receipts. |
+
+An unavailable Azure adapter is recorded as an unsupported surface. It never becomes an implicit
+success, a synthetic fixture presented as live evidence, or a reason to add benchmark-only logic.
+Portable Kubernetes behavior remains cloud-provider-neutral in the core, while AKS and other Azure
+bindings stay in delivery and composition.
+
 ## Runtime reuse
 
 T1 retrieves prior cases by deterministic filters before similarity ranking:
@@ -172,8 +200,9 @@ human approval, dry-run, resource lock, idempotency, postcondition, rollback, or
 | O2 - Cohort compiler | Let Norns group reviewed cases and emit existing `RuleCandidate` records with balanced success, failure, rollback, and control evidence. | A single success and a success-only cohort are rejected; every candidate cites immutable case revisions. |
 | O3 - Catalog compilation | Let Mimir compile an accepted candidate into a draft Rule plus an existing or draft `ActionType`, then run schema, policy, replay, and shadow checks. | Candidate output is inert; catalog changes require a reviewed PR; zero direct runtime promotion paths exist. |
 | O4 - T1 reuse | Add filtered case retrieval and learned-action proposal to T1, with current evidence and precondition revalidation. | Stale graph, changed owner, missing evidence, idempotency conflict, or failed dry-run always holds for review without mutation. |
-| O5 - AKS delivery | Bind an AKS evidence and execution adapter through deployment configuration, workload identity or approved kubeconfig, Kubernetes RBAC, and private API connectivity. | A non-production AKS drill proves diagnosis, HIL, server dry-run, mutation, postcondition, rollback, audit, and restart replay. Production remains unavailable. |
-| O6 - Promotion measurement | Run the frozen benchmark suite and live shadow cohorts against one immutable FDAI revision. | Per-action sample, accuracy, observation-day, rollback, recurrence, and zero-policy-escape gates pass before a separate promotion review. |
+| O5 - AKS delivery | Bind AKS Kubernetes API and Azure management-plane evidence through deployment configuration, workload identity or approved kubeconfig, Kubernetes RBAC, and private API connectivity. | Every Kubernetes treatment has a non-production AKS drill. AKS-integrated faults also correlate relevant Resource Graph, Activity Log, and Azure Monitor or managed Prometheus evidence. Production remains unavailable. |
+| O6 - Azure resource absorption | Map non-Kubernetes treatments to canonical resource types, injected Azure evidence providers, ordinary agent ownership, and governed action providers. | A non-production Azure drill proves diagnosis, approval, dry-run or no-mutation, postcondition, rollback when applicable, audit, and restart replay without benchmark imports. |
+| O7 - Promotion measurement | Run the frozen benchmark suite and live shadow cohorts against one immutable FDAI revision. | Per-action sample, accuracy, observation-day, rollback, recurrence, and zero-policy-escape gates pass before a separate promotion review. |
 
 O0 through O4 are cloud-provider-neutral. O5 supplies the Azure Kubernetes Service delivery binding
 without changing the learned pattern or control-loop authority model.
@@ -206,6 +235,9 @@ This slice proves that FDAI can remember the remedy correctly before it attempts
 | Safety | Historical reuse cannot bypass current verifier, policy, risk, approval, lock, idempotency, or rollback checks. |
 | Benchmark parity | Evaluation adapters emit standard case inputs and contain no candidate compiler or learned executor. |
 | Deployment parity | Local drills and AKS use the same projection, fingerprint, candidate, and action contracts. |
+| AKS parity | Every Kubernetes treatment passes the same end-to-end path on non-production AKS; integrated faults include both Kubernetes API and Azure management-plane evidence. |
+| Azure absorption | Every non-Kubernetes treatment names a canonical resource type, Azure evidence provider, agent owner, governed action provider or explicit no-mutation outcome, and non-production proof. |
+| Coverage honesty | Missing provider coverage remains an explicit unsupported surface and cannot satisfy `operationalized` or `azure_validated`. |
 
 ## Related docs
 

@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: b2ee144a805bafc698988de8e4ef21ddea0dfed5
-translation_revised: 2026-07-31
+translation_source_sha: eee794c3e2c6ccd9add9f4a63a1355e4207aa093
+translation_revised: 2026-08-01
 ---
 # 운영 학습 온톨로지
 
@@ -153,6 +153,33 @@ Adapter는 이 필드를 일반 case source record로 매핑합니다. Hidden or
 answer, benchmark implementation detail, raw credential은 거부됩니다. Benchmark score는 external
 validation으로 저장되며 root-cause label이나 promotion decision이 되지 않습니다.
 
+## 운영 대상 흡수
+
+Benchmark pass와 FDAI capability는 별도 상태입니다. FDAI는 다음 상태를 명시적으로 기록합니다.
+
+- **`benchmark_passed`:** External diagnosis 및 mitigation check가 하나의 attempt를 수락했습니다.
+- **`operationalized`:** 일반 FDAI agent가 benchmark package import나 evaluation session 없이
+   evidence를 수집하고 통제된 action을 제안하거나 실행할 수 있습니다.
+- **`azure_validated`:** 동일한 운영 경로가 적용 Azure resource를 대상으로 non-production
+   drill을 통과했으며 provider identity, postcondition, rollback, audit receipt를 포함합니다.
+
+통과한 treatment는 evidence로 case history에 들어갈 수 있지만 operationalize되기 전에는
+재사용 treatment, candidate success, FDAI capability로 계산되지 않습니다. Azure가 구현
+provider이므로 완료에는 `azure_validated`도 필요합니다. 각 operational case는 target profile,
+canonical resource type, evidence capability id, action type id, 담당 agent, operational provider
+reference, proof reference, 지원되지 않는 surface를 기록합니다.
+
+| 대상 profile | 필요한 운영 증명 |
+|--------------|------------------|
+| Kubernetes | 일반 Heimdall 및 ControlLoop 경로가 동일한 범위 제한 Kubernetes API evidence와 통제된 action adapter를 사용합니다. Non-production AKS drill에서 전체 diagnosis, approval, dry-run, mutation, postcondition, rollback, audit, restart-replay 경로를 증명합니다. |
+| AKS-integrated Kubernetes | 위 Kubernetes 증명에 node pool, scale set, networking, identity, load balancing, storage, control-plane health와 관련된 Azure management-plane evidence를 결합합니다. 적용 가능한 경우 Azure Resource Graph는 topology, Activity Log는 change evidence, Azure Monitor 또는 managed Prometheus는 telemetry를 제공합니다. |
+| Azure resource | Failure fingerprint가 canonical `ResourceType`을 사용하고, 주입된 `Inventory` provider가 topology를 제공하며, Azure Monitor, Activity Log, policy, cost 또는 service-health adapter가 현재 evidence를 제공합니다. 통제된 Azure action provider가 dry-run, execution, postcondition, rollback receipt를 제공합니다. |
+
+사용할 수 없는 Azure adapter는 지원되지 않는 surface로 기록합니다. 암묵적인 성공이나 live
+evidence로 표시되는 synthetic fixture가 될 수 없고 benchmark-only logic을 추가할 이유도 될 수
+없습니다. Portable Kubernetes behavior는 core에서 cloud-provider-neutral로 유지하고 AKS 및
+기타 Azure binding은 delivery와 composition에 둡니다.
+
 ## Runtime 재사용
 
 T1은 similarity ranking 전에 deterministic filter로 이전 case를 검색합니다.
@@ -177,8 +204,9 @@ idempotency, postcondition, rollback, audit를 우회하지 않습니다.
 | O2 - Cohort compiler | Norns가 검토된 case를 묶고 성공, 실패, rollback, control evidence가 균형 잡힌 기존 `RuleCandidate` record를 방출합니다. | 단일 성공과 success-only cohort는 거부되고 모든 candidate가 immutable case revision을 인용합니다. |
 | O3 - Catalog compilation | Mimir가 승인된 candidate를 draft Rule 및 기존 또는 draft `ActionType`으로 컴파일한 후 schema, policy, replay, shadow check를 실행합니다. | Candidate output은 inert하며 catalog 변경은 검토된 PR을 요구하고 direct runtime promotion path는 0개입니다. |
 | O4 - T1 reuse | Filtered case retrieval과 learned-action proposal을 T1에 추가하고 현재 evidence/precondition을 재검증합니다. | Stale graph, 변경된 owner, 누락 evidence, idempotency conflict, dry-run 실패는 mutation 없이 항상 검토 보류됩니다. |
-| O5 - AKS delivery | Deployment configuration, workload identity 또는 approved kubeconfig, Kubernetes RBAC, private API connectivity를 통해 AKS evidence/execution adapter를 bind합니다. | Non-production AKS drill에서 diagnosis, HIL, server dry-run, mutation, postcondition, rollback, audit, restart replay를 증명합니다. Production은 unavailable로 유지합니다. |
-| O6 - Promotion measurement | 하나의 immutable FDAI revision으로 frozen benchmark suite와 live shadow cohort를 실행합니다. | 별도 promotion review 전에 action별 sample, accuracy, observation day, rollback, recurrence, zero-policy-escape gate를 통과합니다. |
+| O5 - AKS delivery | Deployment configuration, workload identity 또는 approved kubeconfig, Kubernetes RBAC, private API connectivity를 통해 AKS Kubernetes API 및 Azure management-plane evidence를 bind합니다. | 모든 Kubernetes treatment가 non-production AKS drill을 가집니다. AKS-integrated fault는 관련 Resource Graph, Activity Log, Azure Monitor 또는 managed Prometheus evidence도 연결합니다. Production은 unavailable로 유지합니다. |
+| O6 - Azure resource absorption | Non-Kubernetes treatment를 canonical resource type, 주입된 Azure evidence provider, 일반 agent ownership, 통제된 action provider에 매핑합니다. | Non-production Azure drill에서 benchmark import 없이 diagnosis, approval, dry-run 또는 no-mutation, postcondition, 적용 가능한 rollback, audit, restart replay를 증명합니다. |
+| O7 - Promotion measurement | 하나의 immutable FDAI revision으로 frozen benchmark suite와 live shadow cohort를 실행합니다. | 별도 promotion review 전에 action별 sample, accuracy, observation day, rollback, recurrence, zero-policy-escape gate를 통과합니다. |
 
 O0부터 O4까지는 cloud-provider-neutral입니다. O5는 learned pattern이나 control-loop authority
 model을 바꾸지 않고 Azure Kubernetes Service delivery binding을 제공합니다.
@@ -211,6 +239,9 @@ model을 바꾸지 않고 Azure Kubernetes Service delivery binding을 제공합
 | 안전성 | Historical reuse는 현재 verifier, policy, risk, approval, lock, idempotency, rollback check를 우회할 수 없습니다. |
 | Benchmark parity | Evaluation adapter는 standard case input을 방출하며 candidate compiler나 learned executor를 포함하지 않습니다. |
 | Deployment parity | Local drill과 AKS가 동일한 projection, fingerprint, candidate, action contract를 사용합니다. |
+| AKS parity | 모든 Kubernetes treatment가 non-production AKS에서 같은 end-to-end 경로를 통과하며 integrated fault는 Kubernetes API와 Azure management-plane evidence를 모두 포함합니다. |
+| Azure absorption | 모든 non-Kubernetes treatment가 canonical resource type, Azure evidence provider, 담당 agent, 통제된 action provider 또는 명시적인 no-mutation outcome, non-production proof를 지정합니다. |
+| Coverage honesty | 누락 provider coverage는 명시적인 unsupported surface로 남고 `operationalized` 또는 `azure_validated`를 충족할 수 없습니다. |
 
 ## 관련 문서
 
