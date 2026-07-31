@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,8 +27,22 @@ class ImpactObservation:
     objective_values: Mapping[str, float]
     source_observed_at: Mapping[str, datetime]
     elapsed_seconds: float
-    injector_reachable: bool = True
-    recovery_reachable: bool = True
+    injector_reachable: bool
+    recovery_reachable: bool
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.elapsed_seconds) or self.elapsed_seconds < 0:
+            raise ValueError("elapsed_seconds MUST be finite and non-negative")
+        if not isinstance(self.injector_reachable, bool) or not isinstance(
+            self.recovery_reachable, bool
+        ):
+            raise TypeError("backend reachability MUST be explicitly observed booleans")
+        if any(not resource.strip() for resource in self.observed_resources):
+            raise ValueError("observed resource ids MUST be non-empty")
+        if any(not signal.strip() for signal in self.signals):
+            raise ValueError("observed signals MUST be non-empty")
+        if any(not math.isfinite(value) for value in self.objective_values.values()):
+            raise ValueError("objective values MUST be finite")
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +116,7 @@ def _stop_reason(
         if (
             observed_at is None
             or observed_at.tzinfo is None
+            or observed_at > now
             or (now - observed_at).total_seconds() > requirements.freshness_seconds
         ):
             return ChaosStopReason.TELEMETRY_INCOMPLETE, f"telemetry unavailable: {source}"

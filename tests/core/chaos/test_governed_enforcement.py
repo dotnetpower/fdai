@@ -161,6 +161,8 @@ def _observation(**overrides: object) -> ImpactObservation:
         "objective_values": {"availability": 99.9},
         "source_observed_at": {"metrics": _NOW},
         "elapsed_seconds": 10.0,
+        "injector_reachable": True,
+        "recovery_reachable": True,
     }
     values.update(overrides)
     return ImpactObservation(**values)  # type: ignore[arg-type]
@@ -176,6 +178,22 @@ def test_guard_allows_only_observations_inside_envelope() -> None:
         )
         is None
     )
+
+
+def test_guard_observation_requires_explicit_finite_evidence() -> None:
+    with pytest.raises(TypeError, match="reachability"):
+        _observation(injector_reachable=None)
+    with pytest.raises(ValueError, match="objective values"):
+        _observation(objective_values={"availability": float("nan")})
+
+    event = evaluate_impact_guard(
+        run_id="run-1",
+        envelope=_envelope(),
+        observation=_observation(source_observed_at={"metrics": _NOW + timedelta(seconds=1)}),
+        now=_NOW,
+    )
+    assert event is not None
+    assert event.reason is ChaosStopReason.TELEMETRY_INCOMPLETE
 
 
 @pytest.mark.parametrize(

@@ -136,7 +136,7 @@
     "src/fdai/core/chaos/coverage.py": "efcefa8adbca28fd544809e3591e0edf47067629301b425bd25fa24e42364f4b",
     "src/fdai/core/chaos/factory.py": "545cffd32f81da05793b7fb1a35c950f280fd1f0c9d682a76e1b41c93c3823fb",
     "src/fdai/core/chaos/governance.py": "47f8b7cabeb06ae154e81128a6f6ba5dc16a6a302e928319c13920261c73d513",
-    "src/fdai/core/chaos/guard.py": "fbd5834c297976cb0956b7dff4d48fffd73922298ff40dfccb053b57f04498cc",
+    "src/fdai/core/chaos/guard.py": "ebb3796e347e79092fe1d00395a421e7d04d8893a0b25b0c4fd351bb6d431f5d",
     "src/fdai/core/chaos/harness.py": "3e4137e48423a10886ca7461ccba982001ba108d68a1d4e37de059b71795048b",
     "src/fdai/core/chaos/injector.py": "7c91f3a11917aeba472d24d6789e41406adec5a0dc19bbd917dafd9d9c8e3497",
     "src/fdai/core/chaos/promotion_evidence.py": "116b87874a13d9e74d3422fa79a287ed347d6101f6fab49e4f90226af94137f4",
@@ -862,7 +862,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T09:26:43Z",
+  "generated_at": "2026-07-31T09:30:12Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
