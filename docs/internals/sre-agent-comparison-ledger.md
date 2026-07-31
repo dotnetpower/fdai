@@ -639,6 +639,29 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0025: Services in the current-screen resource group
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q017` |
+| Executed | `2026-08-01` |
+| Question | `현재 화면의 리소스 그룹에 어떤 서비스가 있어?` |
+| Screen context | Each product used its own visible screen context. FDAI had one resource-group node explicitly selected in Architecture; deployment-owned group names were redacted. |
+| Azure SRE Agent answer | Did not resolve a resource group from the current screen. It abstained and asked the operator to select or enter one of several candidate groups. |
+| FDAI answer | Re-resolved the selected Architecture resource group against server inventory and summarized 93 member resources across 26 service types. The resource-group container itself was excluded. |
+| Evidence | Bounded selected-resource screen digest, catalog-owned service-summary semantics, exact resource-group and container-exclusion predicates, graph-containment recovery, fresh current-view snapshot, no truncation, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Azure SRE Agent clarified safely but did not complete the request. FDAI used the visible selection only as a selector hint, revalidated membership with server-owned evidence, and returned the complete type summary without an unrelated evidence branch. |
+| Winner | FDAI for completing the contextual request with stronger scope fidelity, completeness, and evidence integrity. |
+| General fix | Architecture publishes at most one selected resource. Current-screen inventory context becomes a bounded selector only; parent containment restores projected group ownership, provider evidence revalidates membership, and service-summary language compiles to grouped types. |
+| Status | `fdai-win` |
+
+#### RUN-0025 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 1 | 2 | 1 | 4 | 3 | 4 | 19/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -664,7 +687,7 @@ existing seed.
 | Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | compared |
 | Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | compared |
 | Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | compared |
-| Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | queued |
+| Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | compared |
 | Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | queued |
 | Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | queued |
 | Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | queued |
