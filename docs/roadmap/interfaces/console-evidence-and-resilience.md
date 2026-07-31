@@ -77,7 +77,8 @@ Waterfall view remains the durable audit master-detail surface for lifecycle, in
 recorded conversations, and hashes.
 Periodic idle and watching health snapshots update current agent state and observation time without
 reloading the unchanged durable audit page. Active work, completed handler transitions, Incidents,
-and handoffs continue to refresh audit evidence.
+and handoffs continue to refresh audit evidence. The Activity header shows the latest observed
+heartbeat time without adding repeated passive snapshots as work rows.
 Principal-scoped Command Deck turns and shadow answer-planning contributions stay in conversation
 history and never enter the shared Agent Activity stream. Agent Activity shows operational
 object-topic handoffs and other runtime activity that is safe for every authorized Reader. Synthetic

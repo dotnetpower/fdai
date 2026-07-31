@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 12cf3489451b058fd73116b0724bd8b06b10a16f
+translation_source_sha: 70c9434205bdcda599e8b7401ccf4bf55b703151
 translation_revised: 2026-07-31
 ---
 
@@ -78,7 +78,8 @@ Waterfall view는 lifecycle, input, output, 기록된 conversation 및 hash를 �
 master-detail surface로 유지합니다.
 주기적인 idle 및 watching health snapshot은 변경되지 않은 durable audit page를 다시 로드하지 않고
 현재 agent state와 observation time만 갱신합니다. Active work, 완료된 handler transition, Incident 및
-handoff는 계속 audit evidence를 새로 고칩니다.
+handoff는 계속 audit evidence를 새로 고칩니다. Activity header는 반복되는 passive snapshot을 work
+row로 추가하지 않고 마지막으로 관찰된 heartbeat 시각을 표시합니다.
 Principal-scoped Command Deck turn과 shadow answer-planning contribution은 conversation history에
 유지하며 shared Agent Activity stream에 게시하지 않습니다. Agent Activity는 권한 있는 모든 Reader에게
 안전한 operational object-topic handoff와 기타 runtime activity만 표시합니다. Synthetic
