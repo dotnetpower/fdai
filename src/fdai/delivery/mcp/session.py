@@ -86,6 +86,7 @@ class ManagedMcpClient:
         self._reason = "not_probed"
         self._discovered_tools: frozenset[str] = frozenset()
         self._probe_lock = asyncio.Lock()
+        self._lifecycle_lock = asyncio.Lock()
         self._stop = asyncio.Event()
         self._monitor_task: asyncio.Task[None] | None = None
         self._breaker = CircuitBreaker(
@@ -133,9 +134,11 @@ class ManagedMcpClient:
                     timeout=self._config.startup_timeout_seconds,
                 )
             except TimeoutError:
+                await self._reset_session()
                 self._mark_unavailable("probe_timed_out")
                 return False
             except Exception:  # noqa: BLE001 - provider details stay behind the boundary
+                await self._reset_session()
                 self._mark_unavailable("probe_failed")
                 return False
             missing = self._config.allowed_tools - tools
@@ -182,18 +185,23 @@ class ManagedMcpClient:
             self._mark_unavailable("invalid_result")
 
     async def start(self) -> None:
-        if self._monitor_task is not None:
-            return
-        await self.probe()
-        self._stop = asyncio.Event()
-        self._monitor_task = asyncio.create_task(self._monitor(), name="mcp-health-monitor")
+        async with self._lifecycle_lock:
+            if self._monitor_task is not None:
+                return
+            self._stop.clear()
+            await self.probe()
+            self._monitor_task = asyncio.create_task(self._monitor(), name="mcp-health-monitor")
 
     async def close(self) -> None:
-        self._stop.set()
-        if self._monitor_task is not None:
-            await self._monitor_task
+        async with self._lifecycle_lock:
+            self._stop.set()
+            monitor_task = self._monitor_task
             self._monitor_task = None
-        await self._session.close()
+            try:
+                if monitor_task is not None:
+                    await monitor_task
+            finally:
+                await self._session.close()
 
     async def _monitor(self) -> None:
         while not self._stop.is_set():
@@ -208,6 +216,12 @@ class ManagedMcpClient:
         self._availability = McpAvailability.UNAVAILABLE
         self._reason = reason
 
+    async def _reset_session(self) -> None:
+        try:
+            await self._session.close()
+        except Exception:  # noqa: BLE001 - failed optional cleanup must not block fallback
+            return
+
 
 class PythonSdkMcpSession:
     """Official MCP Python SDK session for stdio or Streamable HTTP."""
@@ -217,12 +231,17 @@ class PythonSdkMcpSession:
         server_parameters: ServerParameters,
         *,
         read_timeout_seconds: float,
+        close_timeout_seconds: float = 1.0,
     ) -> None:
         if read_timeout_seconds <= 0:
             raise ValueError("MCP SDK read timeout MUST be positive")
+        if not 0.1 <= close_timeout_seconds <= 10:
+            raise ValueError("MCP SDK close timeout MUST be in [0.1, 10]")
         self._server_parameters = server_parameters
         self._read_timeout_seconds = read_timeout_seconds
         self._group: Any = None
+        self._init_lock = asyncio.Lock()
+        self._close_timeout_seconds = close_timeout_seconds
 
     @classmethod
     def stdio(
@@ -232,6 +251,7 @@ class PythonSdkMcpSession:
         args: Sequence[str],
         environment: Mapping[str, str] | None = None,
         read_timeout_seconds: float = 15.0,
+        close_timeout_seconds: float = 1.0,
     ) -> PythonSdkMcpSession:
         from mcp.client.stdio import StdioServerParameters
 
@@ -242,6 +262,7 @@ class PythonSdkMcpSession:
                 env=None if environment is None else dict(environment),
             ),
             read_timeout_seconds=read_timeout_seconds,
+            close_timeout_seconds=close_timeout_seconds,
         )
 
     @classmethod
@@ -251,6 +272,7 @@ class PythonSdkMcpSession:
         url: str,
         headers: Mapping[str, str] | None = None,
         read_timeout_seconds: float = 15.0,
+        close_timeout_seconds: float = 1.0,
     ) -> PythonSdkMcpSession:
         from mcp.client.session_group import StreamableHttpParameters
 
@@ -262,6 +284,7 @@ class PythonSdkMcpSession:
                 sse_read_timeout=read_timeout_seconds,
             ),
             read_timeout_seconds=read_timeout_seconds,
+            close_timeout_seconds=close_timeout_seconds,
         )
 
     async def list_tools(self) -> frozenset[str]:
@@ -288,27 +311,38 @@ class PythonSdkMcpSession:
         )
 
     async def close(self) -> None:
-        if self._group is not None:
-            await self._group.__aexit__(None, None, None)
+        async with self._init_lock:
+            group = self._group
             self._group = None
+            if group is not None:
+                await self._close_group(group)
 
     async def _ensure_group(self) -> Any:
         if self._group is not None:
             return self._group
-        from mcp.client.session_group import ClientSessionGroup, ClientSessionParameters
+        async with self._init_lock:
+            if self._group is not None:
+                return self._group
+            from mcp.client.session_group import ClientSessionGroup, ClientSessionParameters
 
-        group = ClientSessionGroup()
-        await group.__aenter__()
-        try:
-            await group.connect_to_server(
-                self._server_parameters,
-                ClientSessionParameters(read_timeout_seconds=self._read_timeout_seconds),
-            )
-        except BaseException:
-            await group.__aexit__(None, None, None)
-            raise
-        self._group = group
-        return group
+            group = ClientSessionGroup()
+            await group.__aenter__()
+            try:
+                await group.connect_to_server(
+                    self._server_parameters,
+                    ClientSessionParameters(read_timeout_seconds=self._read_timeout_seconds),
+                )
+            except BaseException:
+                await self._close_group(group)
+                raise
+            self._group = group
+            return group
+
+    async def _close_group(self, group: Any) -> None:
+        await asyncio.wait_for(
+            group.__aexit__(None, None, None),
+            timeout=self._close_timeout_seconds,
+        )
 
 
 __all__ = [

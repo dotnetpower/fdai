@@ -101,6 +101,22 @@ def test_enabled_wiring_uses_mcp_transport_without_secrets_in_child_env() -> Non
     assert wiring.client is not None
 
 
+def test_local_cli_wiring_does_not_set_fake_managed_identity_client_id() -> None:
+    wiring = build_azure_mcp_read_wiring(
+        fallback=_Fallback(),
+        environment={"PATH": "/bin", "AZURE_CONFIG_DIR": "/profiles/azure"},
+        reader_client_id="azure-cli",
+        subscription_id="subscription",
+    )
+
+    assert wiring.client is not None
+    session = wiring.client._session  # noqa: SLF001 - verify child trust boundary
+    parameters = session._server_parameters  # noqa: SLF001 - immutable SDK configuration
+    assert parameters.env is not None
+    assert "AZURE_CLIENT_ID" not in parameters.env
+    assert parameters.env["AZURE_CONFIG_DIR"] == "/profiles/azure"
+
+
 async def test_missing_mcp_executable_degrades_without_blocking_startup() -> None:
     wiring = build_azure_mcp_read_wiring(
         fallback=_Fallback(),

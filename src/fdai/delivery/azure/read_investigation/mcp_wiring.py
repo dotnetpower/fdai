@@ -60,11 +60,12 @@ def build_azure_mcp_read_wiring(
     }
     child_environment.update(
         {
-            "AZURE_CLIENT_ID": reader_client_id,
             "AZURE_SUBSCRIPTION_ID": subscription_id,
             "AZURE_MCP_COLLECT_TELEMETRY": environment.get("AZURE_MCP_COLLECT_TELEMETRY", "false"),
         }
     )
+    if reader_client_id != "azure-cli":
+        child_environment["AZURE_CLIENT_ID"] = reader_client_id
     startup_timeout = _float(environment, "FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS", 2.0)
     call_timeout = _float(environment, "FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS", 10.0)
     client = ManagedMcpClient(
@@ -73,6 +74,7 @@ def build_azure_mcp_read_wiring(
             args=("server", "start"),
             environment=child_environment,
             read_timeout_seconds=call_timeout,
+            close_timeout_seconds=min(startup_timeout, 2.0),
         ),
         config=ManagedMcpClientConfig(
             allowed_tools=AZURE_MCP_READ_TOOLS,

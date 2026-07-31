@@ -22,9 +22,12 @@ class _Session:
         self.fail_calls = False
         self.block_probe = False
         self.closed = False
+        self.fail_lists = False
 
     async def list_tools(self) -> frozenset[str]:
         self.list_calls += 1
+        if self.fail_lists:
+            raise RuntimeError("synthetic discovery failure")
         if self.block_probe:
             await asyncio.Event().wait()
         return self.tools
@@ -124,6 +127,18 @@ async def test_probe_recovers_provider_after_failure() -> None:
     assert (await client.call_tool("read", {})).structured_content == {"ok": True}
 
 
+async def test_failed_probe_resets_session_before_recovery() -> None:
+    session = _Session()
+    session.fail_lists = True
+    client = _client(session)
+
+    assert await client.probe() is False
+    assert session.closed is True
+    session.fail_lists = False
+
+    assert await client.probe() is True
+
+
 async def test_rejected_result_opens_circuit() -> None:
     session = _Session()
     client = _client(session)
@@ -140,5 +155,29 @@ async def test_close_stops_monitor_and_closes_session() -> None:
     client = _client(session)
     await client.start()
     await client.close()
+
+    assert session.closed is True
+
+
+async def test_concurrent_start_creates_one_monitor() -> None:
+    session = _Session()
+    client = _client(session)
+
+    await asyncio.gather(client.start(), client.start())
+    try:
+        assert session.list_calls == 1
+    finally:
+        await client.close()
+
+
+async def test_cancelled_monitor_still_closes_session() -> None:
+    session = _Session()
+    client = _client(session)
+    await client.start()
+    assert client._monitor_task is not None  # noqa: SLF001 - lifecycle invariant
+    client._monitor_task.cancel()  # noqa: SLF001 - simulate supervisor cancellation
+
+    with pytest.raises(asyncio.CancelledError):
+        await client.close()
 
     assert session.closed is True
