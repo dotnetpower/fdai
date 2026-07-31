@@ -551,6 +551,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0021: App Services not running or not ready
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q013` |
+| Executed | `2026-08-01` |
+| Question | `실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘.` |
+| Azure SRE Agent answer | Reported that no App Service resources were present, so the not-running, not-ready, and abnormal Resource Health lists were empty. |
+| FDAI answer | Reported the same zero App Service resources and preserved separate empty groups for not running and not ready. |
+| Evidence | Server-owned subscription health, typed Web App provider and kind filters, disjoint resource-state and readiness groups, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products reached the same requested conclusion. FDAI exposed exact kind isolation, state groups, source composition, observation time, and one-of-one verification. |
+| Winner | FDAI for equal factual and scope completeness with stronger evidence integrity and deterministic verification. |
+| General fix | Korean negation and app-service terms are catalog semantics. A state can suppress an embedded contradictory state, Resource Health combines with requested resource-state fields, and Azure kind tokens separate Web Apps from Function Apps that share one ARM type. |
+| Status | `fdai-win` |
+
+#### RUN-0021 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -572,7 +594,7 @@ existing seed.
 | Q010 | en | Kubernetes state | Show unhealthy Kubernetes workloads and when they became unhealthy. | `HEALTH` | compared |
 | Q011 | ko | Storage state | 사용 불가능하거나 성능이 저하된 스토리지 계정이 있어? | `HEALTH` | compared |
 | Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | compared |
-| Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | queued |
+| Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | compared |
 | Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | queued |
 | Q015 | ko | Scope inventory | 이 구독에서 관리 중인 리소스를 유형별로 요약해줘. | `LIST` | queued |
 | Q016 | en | Scope inventory | How many resources and resource groups are in the managed scope? | `LIST` | queued |
