@@ -143,7 +143,7 @@
     "src/fdai/core/chaos/promotion_guard.py": "daff6954418fa5905283202cb0f2e1336786712584a409473132c9a107e084e2",
     "src/fdai/core/chaos/run_state.py": "fc1d1884d47814a5c2b1f53b8e62f038f080ba884e0480205540f26d6d6b9189",
     "src/fdai/core/chaos/run_store.py": "c1a4c55dfd3c39d179f943ee73988d8d49029ccef15af86f66875ef10a5bc2fb",
-    "src/fdai/core/chaos/runner.py": "c637f927056fecc7e7f481e6267971ecb5736510c86b6555b5c5fd6f9b326188",
+    "src/fdai/core/chaos/runner.py": "15978d74be5c6eac9b83f6bd36149a2d1bedcfb48074aa1bdf8c3f6780a9137c",
     "src/fdai/core/chaos/scenario_catalog.py": "48f4d5ebf7570a488d6a5b9f4171ad95a6cdd8757bf7de2caa4ad8e709627c42",
     "src/fdai/core/chaos/scenarios.py": "8cf4542fc980a163c9146ba4408abacc0799014e2240370361f79d169edcb9fb",
     "src/fdai/core/chaos/sre_contracts.py": "db4c559ceea13545d36d0ad79742b0af07722b31b84011c0192f77dd52808e65",
@@ -469,7 +469,7 @@
     "src/fdai/core/readiness/signal.py": "0102d6208e4dfabb63edb2c6fccd7cbb2e000b4cee30256381b1ba08b17a8369",
     "src/fdai/core/recovery/__init__.py": "9db3cbb13649374a4e7eca3a23316c06a2dd77f5139a83845b1748b9384704f2",
     "src/fdai/core/recovery/compiler.py": "4a21ae104292cf058109c67de6550a441754dfb25a95c955ade54375731ef12f",
-    "src/fdai/core/recovery/control.py": "cdb0c4eb8d793a1794aeba323a83320be956bc6d650bb4398a4a2a8af3870a37",
+    "src/fdai/core/recovery/control.py": "09053aae6663a148d078fa06194ea896040dc1ff4e9ac283270cd43569b95c9a",
     "src/fdai/core/recovery/models.py": "f5dcb7a309e61ce65e090f01747cbbe2ea35da6ec3f8758fcd773b8a2c8476b8",
     "src/fdai/core/recovery/projection.py": "1e2cda0c454c5a4a59e362e4ad577db301c6f7c8a5bcd5a89029a08f2c8b6dca",
     "src/fdai/core/recovery/readiness.py": "dd78ead64f8047fa1158b3dae7f485746ecae0e2fcdc3abddbc36374d773d11e",
@@ -862,7 +862,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T09:50:56Z",
+  "generated_at": "2026-07-31T10:04:17Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

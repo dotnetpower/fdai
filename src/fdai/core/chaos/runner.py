@@ -162,7 +162,10 @@ class GovernedChaosRunner:
         recovery = await self._execute_recovery(plan)
         if state.state is ChaosRunState.RECOVERING:
             state = await self._advance(state, ChaosRunState.VERIFYING)
-        probe_results, telemetry_complete = await self._evidence_collector.collect(plan)
+        try:
+            probe_results, telemetry_complete = await self._evidence_collector.collect(plan)
+        except Exception:  # noqa: BLE001 - unavailable evidence is unscorable
+            probe_results, telemetry_complete = (), False
         verification = verify_recovery_postconditions(
             probe_results,
             telemetry_complete=telemetry_complete,

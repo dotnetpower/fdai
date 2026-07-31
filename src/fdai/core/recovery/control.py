@@ -59,10 +59,19 @@ class PreauthorizedRecoveryController:
         receipts: list[str] = []
         for action_id in plan.compensation_order:
             action = by_id[action_id]
-            receipt = await self._dispatcher.dispatch(
-                action,
-                idempotency_key=f"{plan.plan_id}:compensate:{action_id}",
-            )
+            try:
+                receipt = await self._dispatcher.dispatch(
+                    action,
+                    idempotency_key=f"{plan.plan_id}:compensate:{action_id}",
+                )
+            except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
+                return RecoveryControlResult(
+                    plan_id=plan.plan_id,
+                    succeeded=False,
+                    receipts=tuple(receipts),
+                    failed_action_id=action_id,
+                    reason=f"recovery dispatcher failed: {type(exc).__name__}",
+                )
             if not receipt:
                 return RecoveryControlResult(
                     plan_id=plan.plan_id,

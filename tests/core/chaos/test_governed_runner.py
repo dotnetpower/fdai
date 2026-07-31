@@ -33,23 +33,34 @@ class _Probe:
 
 
 class _Dispatcher:
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(self, *, fail: bool = False, raises: bool = False) -> None:
         self.fail = fail
+        self.raises = raises
         self.calls: list[str] = []
 
     async def dispatch(self, action: RecoveryAction, *, idempotency_key: str) -> str | None:
         self.calls.append(action.action_id)
+        if self.raises:
+            raise RuntimeError("provider unavailable")
         return None if self.fail else f"receipt:{idempotency_key}"
 
 
 class _EvidenceCollector:
-    def __init__(self, *, omit: RecoveryProbeKind | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        omit: RecoveryProbeKind | None = None,
+        raises: bool = False,
+    ) -> None:
         self.omit = omit
+        self.raises = raises
 
     async def collect(
         self,
         _plan: RecoveryPlanRecord,
     ) -> tuple[tuple[RecoveryProbeResult, ...], bool]:
+        if self.raises:
+            raise RuntimeError("telemetry unavailable")
         return (
             tuple(
                 RecoveryProbeResult(
@@ -307,3 +318,34 @@ async def test_governed_runner_escalates_when_recovery_evidence_is_incomplete() 
     assert result.recovery is not None and result.recovery.succeeded
     assert result.verification is not None
     assert result.verification.outcome is RecoveryVerificationOutcome.UNSCORABLE
+
+
+async def test_governed_runner_escalates_provider_failures() -> None:
+    dispatcher_result = await _runner(
+        ShadowFaultInjector(fault_type="pod_kill"),
+        _Dispatcher(raises=True),
+    ).run_enforce(
+        run_id="dispatcher-failure",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert dispatcher_result.state.state is ChaosRunState.ESCALATED
+    assert dispatcher_result.recovery is not None
+    assert dispatcher_result.recovery.reason == "recovery dispatcher failed: RuntimeError"
+
+    evidence_result = await _runner(
+        ShadowFaultInjector(fault_type="pod_kill"),
+        _Dispatcher(),
+        evidence_collector=_EvidenceCollector(raises=True),
+    ).run_enforce(
+        run_id="evidence-failure",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert evidence_result.state.state is ChaosRunState.ESCALATED
+    assert evidence_result.verification is not None
+    assert evidence_result.verification.outcome is RecoveryVerificationOutcome.UNSCORABLE
