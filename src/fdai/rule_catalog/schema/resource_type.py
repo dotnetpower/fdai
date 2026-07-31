@@ -110,6 +110,18 @@ def _duplicate_ids(entries: Iterable[Mapping[str, Any]]) -> list[str]:
     return dupes
 
 
+def _canonical_surface_collisions(
+    entries: Iterable[Mapping[str, Any]],
+) -> dict[str, set[str]]:
+    owners: dict[str, set[str]] = {}
+    for entry in entries:
+        entry_id = entry.get("id")
+        if isinstance(entry_id, str):
+            surface = _normalize_term(entry_id.replace("-", " ").replace(".", " "))
+            owners.setdefault(surface, set()).add(entry_id)
+    return {surface: ids for surface, ids in owners.items() if len(ids) > 1}
+
+
 def _normalize_term(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
@@ -284,6 +296,13 @@ def load_resource_type_registry_from_mapping(
                 ResourceTypeIssue(
                     key=f"types[id={dup}]",
                     message="duplicate resource_type id",
+                )
+            )
+        for surface, owners in sorted(_canonical_surface_collisions(entries).items()):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"types[canonical_surface={surface}]",
+                    message=f"canonical query surface is shared by {sorted(owners)}",
                 )
             )
         for term, owners in sorted(_query_term_collisions(entries).items()):

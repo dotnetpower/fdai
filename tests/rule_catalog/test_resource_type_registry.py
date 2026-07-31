@@ -284,6 +284,28 @@ def test_duplicate_id_is_rejected() -> None:
     assert any("duplicate" in issue.message for issue in info.value.issues)
 
 
+def test_canonical_ids_must_have_distinct_query_surfaces() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.vm",
+                "category": "compute",
+                "description": "one",
+            },
+            {
+                "id": "compute-vm",
+                "category": "compute",
+                "description": "two",
+            },
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="canonical query surface"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_missing_required_field_is_rejected() -> None:
     payload = {
         "schema_version": "1.0.0",
