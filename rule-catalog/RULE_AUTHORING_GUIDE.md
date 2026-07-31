@@ -261,7 +261,8 @@ under the appropriate category, including `azure_arm_type` and
   inventory question. The catalog loader rejects a normalized term owned by two types, so adding
   the entry never requires a Python alias change and never creates an implicit ambiguity.
 - Put generic terms such as `database` or `db` in top-level `category_query_terms`, not on one
-  concrete type. A concrete type term takes precedence over a category term in the same question.
+  concrete type. The loader rejects the same normalized term at both levels. A longer concrete
+  type term still takes precedence over a shorter category term in the same question.
 - When two semantic types share one Azure ARM type, declare `azure_kind_tokens` on every variant.
   For example, Azure Functions and Web Apps both use `Microsoft.Web/sites`; the observed Azure
   `kind` separates them. Missing or unmatched kind evidence remains unmapped instead of selecting a

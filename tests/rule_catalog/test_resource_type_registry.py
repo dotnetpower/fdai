@@ -125,6 +125,25 @@ def test_duplicate_query_term_is_rejected() -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+def test_category_query_term_cannot_shadow_concrete_type_term() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "category_query_terms": {"database": ["db"]},
+        "types": [
+            {
+                "id": "postgresql-server",
+                "category": "database",
+                "description": "PostgreSQL",
+                "query_terms": ["DB"],
+            }
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="category query term"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_typical_parents_reference_only_registered_ids() -> None:
     registry = _shipped()
     ids = registry.ids()

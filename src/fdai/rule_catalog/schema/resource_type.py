@@ -117,6 +117,36 @@ def _query_term_collisions(entries: Iterable[Mapping[str, Any]]) -> dict[str, se
     return {term: ids for term, ids in owners.items() if len(ids) > 1}
 
 
+def _category_query_term_collisions(
+    raw_categories: object,
+    entries: Iterable[Mapping[str, Any]],
+) -> list[tuple[str, str, str]]:
+    if not isinstance(raw_categories, Mapping):
+        return []
+    category_terms = {
+        str(category): {_normalize_term(term) for term in terms if isinstance(term, str)}
+        for category, terms in raw_categories.items()
+        if isinstance(terms, list)
+    }
+    collisions: list[tuple[str, str, str]] = []
+    for entry in entries:
+        entry_id = entry.get("id")
+        category = entry.get("category")
+        terms = entry.get("query_terms", ())
+        if (
+            not isinstance(entry_id, str)
+            or not isinstance(category, str)
+            or not isinstance(terms, list)
+        ):
+            continue
+        for term in terms:
+            if isinstance(term, str) and _normalize_term(term) in category_terms.get(
+                category, set()
+            ):
+                collisions.append((category, entry_id, _normalize_term(term)))
+    return sorted(collisions)
+
+
 def _shared_arm_types_without_kind(entries: Iterable[Mapping[str, Any]]) -> list[str]:
     candidates: dict[str, list[tuple[str, bool]]] = {}
     for entry in entries:
@@ -163,6 +193,15 @@ def load_resource_type_registry_from_mapping(
                 ResourceTypeIssue(
                     key=f"query_terms[{term}]",
                     message=f"query term is shared by resource types {sorted(owners)}",
+                )
+            )
+        for category, entry_id, term in _category_query_term_collisions(
+            raw.get("category_query_terms"), entries
+        ):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"types[id={entry_id}].query_terms[{term}]",
+                    message=f"category query term {term!r} is already owned by {category}",
                 )
             )
         for arm_type in _shared_arm_types_without_kind(entries):
