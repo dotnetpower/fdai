@@ -18,6 +18,7 @@ _MANAGEMENT_AUDIENCE: Final = "https://management.azure.com/.default"
 _ARG_API_VERSION: Final = "2022-10-01"
 _METRICS_API_VERSION: Final = "2024-02-01"
 _RESOURCE_HEALTH_API_VERSION: Final = "2025-05-01"
+_SUBSCRIPTIONS_API_VERSION: Final = "2022-12-01"
 _RESOURCE_HEALTH_ID_MARKER: Final = "/providers/microsoft.resourcehealth/availabilitystatuses/"
 
 
@@ -116,6 +117,43 @@ class AzureSubscriptionHealthProvider:
         self._identity = identity
         self._http = http_client
         self._probe_by_type = {probe.resource_type: probe for probe in config.metric_probes}
+
+    async def describe_scope(self) -> dict[str, Any]:
+        """Return normalized metadata for the configured subscription scope."""
+
+        token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
+        response = await self._http.get(
+            f"{self._config.endpoint.rstrip('/')}/subscriptions/"
+            f"{quote(self._config.subscription_id, safe='')}",
+            params={"api-version": _SUBSCRIPTIONS_API_VERSION},
+            headers={"Authorization": f"Bearer {token.token}"},
+            timeout=self._config.timeout_seconds,
+        )
+        if response.status_code >= 400 or len(response.content) > self._config.max_response_bytes:
+            raise RuntimeError("Azure subscription metadata query unavailable")
+        payload = response.json()
+        if not isinstance(payload, Mapping):
+            raise RuntimeError("Azure subscription metadata response is invalid")
+        subscription_id = payload.get("subscriptionId")
+        display_name = payload.get("displayName")
+        state = payload.get("state")
+        if (
+            not isinstance(subscription_id, str)
+            or subscription_id.casefold() != self._config.subscription_id.casefold()
+            or not isinstance(display_name, str)
+            or not display_name.strip()
+            or not isinstance(state, str)
+            or not state.strip()
+        ):
+            raise RuntimeError("Azure subscription metadata response is incomplete")
+        return {
+            "status": "matched",
+            "source": "azure-resource-manager",
+            "observed_at": datetime.now(tz=UTC).isoformat(),
+            "display_name": display_name.strip(),
+            "subscription_id": subscription_id,
+            "state": state.strip(),
+        }
 
     async def __call__(
         self,

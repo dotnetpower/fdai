@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Final, Protocol
+from typing import Any, Final, Protocol, runtime_checkable
 
 from fdai.delivery.read_api.routes.chat_inventory_compiler import is_specific_inventory_question
 from fdai.delivery.read_api.routes.chat_system_health import ChatToolResolver
@@ -27,6 +27,13 @@ _MUTATION: Final = re.compile(
     r"|생성|삭제|재시작|스케일|변경|수정|복구",
     re.IGNORECASE,
 )
+_SUBSCRIPTION_CONTEXT: Final = re.compile(
+    r"\b(?:(?:current|active|which|what)\s+(?:azure\s+)?subscription|"
+    r"(?:azure\s+)?subscription\s+(?:name|id|details|information))\b"
+    r"|(?:현재|지금|어느|어떤)\s*(?:Azure\s*)?구독"
+    r"|(?:Azure\s*)?구독\s*(?:이름|정보|아이디|ID)",
+    re.IGNORECASE,
+)
 
 
 class SubscriptionHealthProvider(Protocol):
@@ -38,12 +45,33 @@ class SubscriptionHealthProvider(Protocol):
     ) -> Mapping[str, Any]: ...
 
 
+@runtime_checkable
+class SubscriptionScopeProvider(Protocol):
+    async def describe_scope(self) -> Mapping[str, Any]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class SubscriptionHealthChatTools:
     provider: SubscriptionHealthProvider
     fallback: ChatToolResolver | None = None
 
     async def resolve(self, prompt: str, *, principal_id: str) -> dict[str, Any] | None:
+        if needs_subscription_context(prompt):
+            if not isinstance(self.provider, SubscriptionScopeProvider):
+                result: dict[str, Any] = {
+                    "status": "unavailable",
+                    "reason": "subscription scope provider is unavailable",
+                }
+            else:
+                try:
+                    result = dict(await self.provider.describe_scope())
+                except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
+                    result = {"status": "unavailable", "reason": type(exc).__name__}
+            return {
+                "tool": "query_subscription_scope",
+                "authority": "server_subscription_scope",
+                "result": result,
+            }
         if not needs_subscription_health(prompt):
             if self.fallback is None:
                 return None
@@ -65,6 +93,8 @@ class SubscriptionHealthChatTools:
         principal_id: str,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]],
     ) -> dict[str, Any] | None:
+        if needs_subscription_context(prompt):
+            return await self.resolve(prompt, principal_id=principal_id)
         if not needs_subscription_health(prompt):
             return await self.resolve(prompt, principal_id=principal_id)
         korean = bool(re.search(r"[\uac00-\ud7a3]", prompt))
@@ -152,6 +182,72 @@ def needs_subscription_health(prompt: str) -> bool:
         (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
     )
     return asks_for_health and not _MUTATION.search(prompt)
+
+
+def needs_subscription_context(prompt: str) -> bool:
+    return bool(_SUBSCRIPTION_CONTEXT.search(prompt)) and not needs_subscription_health(prompt)
+
+
+def render_subscription_scope_answer(
+    evidence: Mapping[str, Any],
+    *,
+    locale: str | None,
+) -> str | None:
+    if evidence.get("tool") != "query_subscription_scope":
+        return None
+    result = evidence.get("result")
+    if not isinstance(result, Mapping):
+        return None
+    korean = bool(locale and locale.casefold().startswith("ko"))
+    if result.get("status") != "matched":
+        return (
+            "서버에 구성된 Azure 구독 정보를 조회할 수 없습니다."
+            if korean
+            else "The server-configured Azure subscription information is unavailable."
+        )
+    display_name = result.get("display_name")
+    subscription_id = result.get("subscription_id")
+    state = result.get("state")
+    source = result.get("source")
+    observed_at = result.get("observed_at")
+    if (
+        not isinstance(display_name, str)
+        or not display_name.strip()
+        or not isinstance(subscription_id, str)
+        or not subscription_id.strip()
+        or not isinstance(state, str)
+        or not state.strip()
+        or not isinstance(source, str)
+        or not source.strip()
+        or not isinstance(observed_at, str)
+        or not observed_at.strip()
+    ):
+        return None
+    masked_id = _mask_subscription_id(subscription_id)
+    if korean:
+        return (
+            f"현재 서버가 조회하는 Azure 구독은 {display_name}입니다.\n"
+            f"- 상태: {state}\n"
+            f"- 구독 ID: {masked_id}\n"
+            f"근거: Azure Resource Manager, 관찰 시각 {observed_at}."
+        )
+    return (
+        f"The server is currently reading Azure subscription {display_name}.\n"
+        f"- State: {state}\n"
+        f"- Subscription ID: {masked_id}\n"
+        f"Evidence: Azure Resource Manager, observed {observed_at}."
+    )
+
+
+def subscription_scope_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
+    result = evidence.get("result")
+    if not isinstance(result, Mapping):
+        return ()
+    source = result.get("source")
+    observed_at = result.get("observed_at")
+    if not isinstance(source, str) or not isinstance(observed_at, str):
+        return ()
+    return (f"subscription-scope:{source}@{observed_at}",)
 
 
 def render_subscription_health_answer(
@@ -279,6 +375,13 @@ def _integer(value: object) -> int:
     return int(value) if isinstance(value, int | float) else 0
 
 
+def _mask_subscription_id(value: str) -> str:
+    stripped = value.strip()
+    if len(stripped) <= 8:
+        return "****"
+    return f"{stripped[:4]}...{stripped[-4:]}"
+
+
 def _progress_label(kind: str, *, korean: bool, fallback: str) -> str:
     if not korean:
         return fallback
@@ -296,7 +399,11 @@ def _progress_label(kind: str, *, korean: bool, fallback: str) -> str:
 __all__ = [
     "SubscriptionHealthChatTools",
     "SubscriptionHealthProvider",
+    "SubscriptionScopeProvider",
+    "needs_subscription_context",
     "needs_subscription_health",
+    "render_subscription_scope_answer",
     "render_subscription_health_answer",
+    "subscription_scope_evidence_refs",
     "subscription_health_evidence_refs",
 ]

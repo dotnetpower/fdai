@@ -42,7 +42,9 @@ from fdai.delivery.read_api.routes.chat_prompt_ontology import (
 )
 from fdai.delivery.read_api.routes.chat_subscription_health import (
     render_subscription_health_answer,
+    render_subscription_scope_answer,
     subscription_health_evidence_refs,
+    subscription_scope_evidence_refs,
 )
 from fdai.delivery.read_api.routes.chat_t2_recovery import (
     render_t2_recovery_answer,
@@ -365,6 +367,40 @@ def verify_answer(
             checks_total=1,
             evidence_refs=inventory_refs,
             reason_code="inventory_evidence_unavailable",
+        )
+
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_subscription_scope":
+        scope_answer = render_subscription_scope_answer(tool, locale=locale)
+        if scope_answer is None:
+            return AnswerVerification(
+                status="unverified",
+                answer="Azure subscription scope evidence could not be rendered.",
+                authority="server_subscription_scope",
+                checks_completed=0,
+                checks_total=1,
+                reason_code="subscription_scope_evidence_invalid",
+            )
+        result = tool.get("result")
+        state = result.get("status") if isinstance(result, Mapping) else None
+        scope_refs = subscription_scope_evidence_refs(tool)
+        if state == "matched":
+            return AnswerVerification(
+                status=_changed(provisional, scope_answer),
+                answer=scope_answer,
+                authority="server_subscription_scope",
+                checks_completed=1,
+                checks_total=1,
+                evidence_refs=scope_refs,
+                reason_code="subscription_scope_grounded",
+            )
+        return AnswerVerification(
+            status="unverified",
+            answer=scope_answer,
+            authority="server_subscription_scope",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=scope_refs,
+            reason_code="subscription_scope_unavailable",
         )
 
     if isinstance(tool, Mapping) and tool.get("tool") == "query_subscription_health":

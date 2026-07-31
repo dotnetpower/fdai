@@ -60,6 +60,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Investigation evidence signal | Implemented | A bound read-investigation hook counts as owned evidence for Heimdall's conversational port, so an investigable turn is not composed with the evidence-gap prompt layer even before the local signal window fills. |
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
 | Conversational resource continuity | Implemented | Command Deck retains one server-selected inventory resource across terminal turns. Elliptical history follow-ups bypass semantic and public-web planning, then Heimdall re-resolves the resource and returns its matching read evidence directly. |
+| Subscription scope identity | Implemented | Current-subscription identity questions read the server-configured subscription name and state from Azure Resource Manager, render only a masked subscription ID, and never call the narrator model. |
 | Subscription health sweep | Implemented | Explicit subscription checks and general service-outage questions use the configured reader scope. The provider queries Resource Graph inventory and Resource Health, falls back to current Resource Health status by allowed resource group when ARG is empty, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
@@ -151,6 +152,17 @@ subscription and resource-group-bound reference. Only `azure.network.nsg.read` a
 `azure.network.peering.read` are exposed by this wrapper. It rejects widened resource references
 before HTTP, streams responses under a fixed byte cap, and reports gateway failure as unavailable
 instead of silently falling back to direct ARM.
+
+### Subscription scope identity
+
+The Command Deck tool `query_subscription_scope` handles questions such as "What is the current
+Azure subscription?" before narrator-model classification. It reads the configured subscription's
+display name and state from Azure Resource Manager with the same Reader identity used by the health
+sweep. Browser input cannot select another subscription or widen the configured scope.
+
+The deterministic terminal answer includes the display name, state, observation time, and a
+masked subscription ID that retains only four leading and four trailing characters. Provider
+failure produces an unavailable answer and does not fall back to generated subscription details.
 
 ### Subscription health sweep
 

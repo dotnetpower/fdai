@@ -171,6 +171,39 @@ async def test_subscription_health_metric_failure_is_partial_not_healthy() -> No
     assert result["findings"]
 
 
+async def test_subscription_scope_metadata_uses_configured_subscription() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/subscriptions/subscription-example"
+        assert request.url.params["api-version"] == "2022-12-01"
+        assert request.headers["Authorization"] == "Bearer fake"
+        return httpx.Response(
+            200,
+            json={
+                "subscriptionId": "subscription-example",
+                "displayName": "Example Development",
+                "state": "Enabled",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.describe_scope()
+
+    assert result["status"] == "matched"
+    assert result["source"] == "azure-resource-manager"
+    assert result["display_name"] == "Example Development"
+    assert result["subscription_id"] == "subscription-example"
+    assert result["state"] == "Enabled"
+
+
 async def test_subscription_health_uses_current_resource_health_when_arg_is_empty() -> None:
     resource = _resource_rows()[0]
 

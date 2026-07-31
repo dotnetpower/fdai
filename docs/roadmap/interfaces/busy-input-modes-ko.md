@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 4400bfaa308f91dd1698e4546faf628af8aed8b8
+translation_source_sha: b6f21e5e9f9e8b3f0a07db1244486291ffdd060e
 translation_revised: 2026-07-31
 ---
 
@@ -144,6 +144,8 @@ route를 유지하고, queued next turn은 자신의 content를 분류합니다.
 일반적인 service-outage 질문은 initial 또는 queued turn에서 server-scoped subscription-health read를
 결정론적으로 선택합니다. Steer rerun은 해당 read authority를 유지하며 configured subscription 또는
 resource-group allowlist를 operator text로 바꿀 수 없습니다.
+Current-subscription identity 질문도 queued 및 steer rerun에서 server-configured scope를 유지하고
+narrator generation을 생략하며 deterministic verification이 반환한 masked subscription ID만 렌더링합니다.
 Deterministic local inventory intent는 semantic plan이 public web을 선택했더라도 rerun에서 local로
 유지합니다. 여기에는 `중지된 db` 같은 구어체 database state filter도 포함되며 server-owned
 inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 않습니다. 명시적인 web-search

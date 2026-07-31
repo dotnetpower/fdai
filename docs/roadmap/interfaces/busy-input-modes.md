@@ -142,6 +142,9 @@ ambiguous-selection behavior.
 A general service-outage question deterministically selects the server-scoped subscription-health
 read on its initial or queued turn. A steer rerun retains that read authority and cannot replace its
 configured subscription or resource-group allowlist with operator text.
+A current-subscription identity question likewise keeps the server-configured scope across queued
+and steer reruns, skips narrator generation, and renders only the masked subscription ID returned
+by deterministic verification.
 A deterministic local inventory intent remains local during a rerun even when a semantic plan
 selected public web. This includes colloquial database state filters such as `stopped db`; they
 retain the server-owned inventory branch and don't start agent or public-web branches. Explicit

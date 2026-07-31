@@ -74,12 +74,99 @@ async def _provider(
     }
 
 
+class _SubscriptionProvider:
+    async def __call__(
+        self,
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        return await _provider(
+            lookback_seconds,
+            progress_observer=progress_observer,
+        )
+
+    async def describe_scope(self) -> dict[str, Any]:
+        return {
+            "status": "matched",
+            "source": "azure-resource-manager",
+            "observed_at": "2026-07-31T02:00:00Z",
+            "display_name": "Example Development",
+            "subscription_id": "subscription-example",
+            "state": "Enabled",
+        }
+
+
 def test_generic_service_outage_question_uses_subscription_health() -> None:
     assert needs_subscription_health("서비스 장애 나고 있는게 있어?")
 
 
 def test_specific_subscription_inventory_question_skips_health_sweep() -> None:
     assert not needs_subscription_health("지금 구독에서 중지된 디비가 있는지 확인해봐")
+
+
+def test_current_subscription_question_uses_server_scope_metadata() -> None:
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(_SubscriptionProvider()),
+            )
+        ]
+    )
+
+    prompts = (
+        "현재 구독은?",
+        "어느 Azure 구독을 보고 있어?",
+        "구독 이름 알려줘",
+        "What is the current Azure subscription?",
+    )
+    with TestClient(app) as client:
+        responses = [
+            client.post(
+                "/chat",
+                json={"prompt": prompt, "view_context": {}},
+            )
+            for prompt in prompts
+        ]
+
+    for response in responses:
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["verification"]["authority"] == "server_subscription_scope"
+        assert payload["verification"]["status"] == "verified"
+        assert "Example Development" in payload["answer"]
+        assert "Enabled" in payload["answer"]
+        assert "subs...mple" in payload["answer"]
+    assert backend.calls == 0
+
+
+def test_current_subscription_question_fails_closed_without_scope_provider() -> None:
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(_provider),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={"prompt": "현재 구독은?", "view_context": {}},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["verification"]["authority"] == "server_subscription_scope"
+    assert payload["verification"]["status"] == "unverified"
+    assert "조회할 수 없습니다" in payload["answer"]
+    assert backend.calls == 0
 
 
 def test_partial_subscription_health_answer_fails_closed() -> None:
