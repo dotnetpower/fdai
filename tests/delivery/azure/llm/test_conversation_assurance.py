@@ -41,6 +41,7 @@ def _turn() -> TurnAssessmentInput:
         verification_authority="server_inventory_graph",
         checks_completed=1,
         checks_total=1,
+        reference_facts=("Exactly one verified resource changed.",),
     )
 
 

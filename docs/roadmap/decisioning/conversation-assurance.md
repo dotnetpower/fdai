@@ -112,6 +112,10 @@ $$
 The reducer stores `pass`, `fail`, or `inconclusive` separately from `Q`. A high average cannot
 hide a hard failure.
 
+Frozen blind scenarios supply bounded trusted reference facts to the evaluators. Those facts are
+transient trial input and are not copied into the assessment ledger. Ordinary operator turns carry
+no benchmark reference facts.
+
 ## Independent model review
 
 Evaluator A and evaluator B run independently and cannot read each other's result. Model identities
@@ -176,6 +180,11 @@ candidate first and the ledger commits the transition second. If persistence fai
 restores the incumbent before the error propagates. If both persistence and restore fail, the
 terminal error preserves both causes for recovery instead of hiding the original store failure.
 Missing proposal, measurement, or publisher evidence leaves the candidate in shadow.
+The deployed lifecycle activates only when a narrator backend, catalog pricing, PostgreSQL stores,
+and at least two distinct evaluator families are all available. A partial deployment remains
+assessment-only and reports inconclusive semantic review; it never substitutes one model or zero
+cost. The currently resolved local profile follows this hold behavior when its secondary reasoner
+is `hil-only`.
 
 ### Blind promotion and rollback
 

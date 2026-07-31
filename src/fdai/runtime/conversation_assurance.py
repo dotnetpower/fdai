@@ -35,21 +35,32 @@ def build_conversation_assurance_coordinator(
     budget: BudgetLedger | None,
     evaluators: tuple[ConversationAssuranceEvaluator, ...],
 ) -> ConversationAssuranceCoordinator:
-    reviewer = None
-    if len(evaluators) >= 2:
-        reviewer = MixedFamilyAssuranceReviewer(
-            first=evaluators[0],
-            second=evaluators[1],
-            tie_breaker=evaluators[2] if len(evaluators) >= 3 else None,
-            budget=budget,
-            prospective_cost_microusd_per_call=max(
-                item.prospective_cost_microusd for item in evaluators
-            ),
-        )
+    reviewer = build_conversation_assurance_reviewer(
+        budget=budget,
+        evaluators=evaluators,
+    )
     return ConversationAssuranceCoordinator(
         ledger=ledger,
         reviewer=reviewer,
         rubric_version="1.0.0",
+    )
+
+
+def build_conversation_assurance_reviewer(
+    *,
+    budget: BudgetLedger | None,
+    evaluators: tuple[ConversationAssuranceEvaluator, ...],
+) -> MixedFamilyAssuranceReviewer | None:
+    if len(evaluators) < 2:
+        return None
+    return MixedFamilyAssuranceReviewer(
+        first=evaluators[0],
+        second=evaluators[1],
+        tie_breaker=evaluators[2] if len(evaluators) >= 3 else None,
+        budget=budget,
+        prospective_cost_microusd_per_call=max(
+            item.prospective_cost_microusd for item in evaluators
+        ),
     )
 
 
@@ -127,4 +138,5 @@ def _load_resolved_models(path_or_json: str) -> ResolvedModels:
 __all__ = [
     "build_azure_conversation_assurance_evaluators",
     "build_conversation_assurance_coordinator",
+    "build_conversation_assurance_reviewer",
 ]

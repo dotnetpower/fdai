@@ -73,6 +73,7 @@ class TurnAssessmentInput:
     locale: str = "en"
     answer_model_identity: str | None = None
     deterministic_answer: bool = False
+    reference_facts: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -98,6 +99,10 @@ class TurnAssessmentInput:
             raise ValueError("verification check counts are inconsistent")
         if len(self.evidence_refs) > _MAX_EVIDENCE_REFS:
             raise ValueError("TurnAssessmentInput.evidence_refs exceeds the bounded cap")
+        if len(self.reference_facts) > 32 or any(
+            not fact.strip() or len(fact) > 1_000 for fact in self.reference_facts
+        ):
+            raise ValueError("TurnAssessmentInput.reference_facts exceeds bounded facts")
 
 
 @dataclass(frozen=True, slots=True)

@@ -68,7 +68,11 @@ from fdai.core.conversation.outbound_delivery import (
     DurableOutboundDeliveryConfig,
     DurableOutboundDeliveryCoordinator,
 )
-from fdai.core.conversation_assurance import ConversationAssuranceEvaluator
+from fdai.core.conversation_assurance import (
+    ConversationAssuranceEvaluator,
+    ConversationAssuranceLifecycleCoordinator,
+    PromotionConfig,
+)
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
@@ -78,6 +82,8 @@ from fdai.delivery.ingestion_gateway.chat_evidence import UploaderDocumentEviden
 from fdai.delivery.persistence import (
     PostgresConversationAssuranceLedger,
     PostgresConversationAssuranceLedgerConfig,
+    PostgresConversationPolicyCandidateStore,
+    PostgresConversationPolicyCandidateStoreConfig,
     PostgresModelHealthTransitionSink,
     PostgresModelHealthTransitionSinkConfig,
     PostgresReadInvestigationRunStore,
@@ -149,6 +155,13 @@ from fdai.delivery.stewardship import (
 from fdai.runtime.conversation_assurance import (
     build_azure_conversation_assurance_evaluators,
     build_conversation_assurance_coordinator,
+    build_conversation_assurance_reviewer,
+)
+from fdai.runtime.conversation_assurance_lifecycle import (
+    BLIND_CONVERSATION_SCENARIOS,
+    BilingualBlindPolicyTrialMeasurer,
+    DeterministicNarratorPolicyProposer,
+    pricing_narrator_cost_estimator,
 )
 from fdai.shared.providers.local import EnvSecretProvider
 
@@ -397,19 +410,52 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             await chat_http.aclose()
 
         shutdown_callbacks = (*shutdown_callbacks, _close_chat_http)
+    assurance_budget = InMemoryBudgetLedger(
+        ModelBudget(
+            max_calls_per_correlation=3,
+            max_cost_microusd_per_correlation=50_000,
+        )
+    )
     assurance_coordinator = build_conversation_assurance_coordinator(
         ledger=assurance_ledger,
-        budget=InMemoryBudgetLedger(
-            ModelBudget(
-                max_calls_per_correlation=3,
-                max_cost_microusd_per_correlation=50_000,
-            )
-        ),
+        budget=assurance_budget,
         evaluators=assurance_evaluators,
+    )
+    assurance_reviewer = build_conversation_assurance_reviewer(
+        budget=assurance_budget,
+        evaluators=assurance_evaluators,
+    )
+    assurance_lifecycle = (
+        ConversationAssuranceLifecycleCoordinator(
+            store=PostgresConversationPolicyCandidateStore(
+                config=PostgresConversationPolicyCandidateStoreConfig(
+                    dsn=read_model._config.dsn,
+                    statement_timeout_ms=read_model._config.statement_timeout_ms,
+                    connect_timeout_s=read_model._config.connect_timeout_s,
+                )
+            ),
+            proposer=DeterministicNarratorPolicyProposer(
+                runtime=assurance_policy_runtime,
+            ),
+            measurer=BilingualBlindPolicyTrialMeasurer(
+                backend=chat,
+                reviewer=assurance_reviewer,
+                cost_estimator=pricing_narrator_cost_estimator(pricing_table),
+            ),
+            publisher=assurance_policy_runtime,
+            promotion_config=PromotionConfig(
+                min_samples=len(BLIND_CONVERSATION_SCENARIOS),
+                min_score_delta_lcb95=0.01,
+            ),
+        )
+        if chat is not None and assurance_reviewer is not None
+        else None
     )
     assurance_submitter = ConversationAssurancePostTurnSubmitter(
         coordinator=assurance_coordinator,
         delegate=post_turn_review_queue,
+        ledger=assurance_ledger if assurance_lifecycle is not None else None,
+        lifecycle=assurance_lifecycle,
     )
     shutdown_callbacks = (*shutdown_callbacks, assurance_submitter.close)
     model_settings = None

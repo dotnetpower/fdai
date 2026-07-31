@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: bb3ee79d8dacd949825a5c179094de5c93ad781a
+translation_source_sha: a78c9333eca9a459c8842c5f1350b385b53236c2
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -113,6 +113,10 @@ $$
 reducer는 `pass`, `fail`, `inconclusive`를 `Q`와 별도로 저장합니다. 높은 평균이 하드 실패를
 숨길 수 없습니다.
 
+고정된 blind scenario는 평가자에게 제한된 trusted reference fact를 제공합니다. 이 fact는
+transient trial input이며 assessment ledger에 복사되지 않습니다. 일반 운영자 turn에는 benchmark
+reference fact가 없습니다.
+
 ## 독립 모델 평가
 
 평가자 A와 평가자 B는 독립적으로 실행되며 서로의 결과를 읽을 수 없습니다. 모델 식별자와
@@ -173,6 +177,10 @@ ledger가 transition을 두 번째로 commit합니다. persistence가 실패하�
 publisher가 incumbent를 복원합니다. persistence와 restore가 모두 실패하면 terminal error는
 원래 store 실패를 숨기지 않고 복구에 필요한 두 원인을 모두 보존합니다. proposal, measurement
 또는 publisher 근거가 없으면 candidate는 shadow에 남습니다.
+배포된 lifecycle은 narrator backend, catalog pricing, PostgreSQL store 및 서로 다른 evaluator
+family 두 개 이상을 모두 사용할 수 있을 때만 활성화됩니다. 부분 배포는 assessment-only로 남아
+semantic review를 `inconclusive`로 보고하며 단일 모델이나 비용 0으로 대체하지 않습니다. 현재
+resolved local profile도 secondary reasoner가 `hil-only`이면 이 hold 동작을 따릅니다.
 
 ### 블라인드 승격과 롤백
 

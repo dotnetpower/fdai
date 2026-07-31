@@ -183,6 +183,8 @@ def _evaluation_prompt(
             "failed_claim_ids": list(turn.failed_claim_ids),
         },
         "allowed_evidence_refs": list(turn.evidence_refs),
+        "reference_facts_trusted": True,
+        "reference_facts": list(turn.reference_facts),
     }
     if debate is not None:
         payload["tie_break"] = {
