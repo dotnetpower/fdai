@@ -1020,6 +1020,18 @@ def test_extract_attached_to_from_subnet_reference() -> None:
     assert edge.to_type == "network.subnet"
 
 
+def test_reverse_map_reports_shared_arm_type_gap(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from fdai.delivery.azure.arg_query import _build_arm_to_neutral_map
+
+    with caplog.at_level("WARNING"):
+        reverse = _build_arm_to_neutral_map(_vocab())
+
+    assert "microsoft.web/sites" not in reverse
+    assert "azure_arm_reverse_map_ambiguous_types" in caplog.text
+
+
 def test_extract_attached_to_from_nsg_reference() -> None:
     from fdai.delivery.azure.arg_query import (
         _build_arm_to_neutral_map,
