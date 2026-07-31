@@ -419,6 +419,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0015: Deallocated virtual machines
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q007` |
+| Executed | `2026-08-01` |
+| Question | `할당 해제된 가상 머신을 모두 찾아줘.` |
+| Azure SRE Agent answer | Reported ten deallocated virtual machines with resource group and location. Deployment-owned values were redacted. |
+| FDAI answer | Reported the same ten deallocated virtual machines with resource group and location. Deployment-owned values were redacted. |
+| Evidence | Fresh subscription inventory, typed `compute.vm` and exact deallocated-state predicates, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | FDAI initially treated the generic search verb as public web and then conflated stopped with deallocated. Catalog-first routing and an independent deallocated state removed both defects. |
+| Winner | FDAI for equal factual coverage with explicit scope, freshness, typed predicates, coverage limits, and one-of-one verification. |
+| General fix | A complete catalog-compiled inventory query outranks media-unspecified search verbs; deallocated is a distinct catalog state while explicit web context still selects web evidence. |
+| Status | `fdai-win` |
+
+#### RUN-0015 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -434,7 +456,7 @@ existing seed.
 | Q004 | en | Database state | List stopped and paused database services separately. | `LIST` | compared |
 | Q005 | ko | Resource state | 실패 상태인 Azure 리소스가 있어? | `LIST` | compared |
 | Q006 | en | Resource state | Which resources are failed, degraded, or unavailable? | `LIST` | compared |
-| Q007 | ko | Compute state | 할당 해제된 가상 머신을 모두 찾아줘. | `LIST` | queued |
+| Q007 | ko | Compute state | 할당 해제된 가상 머신을 모두 찾아줘. | `LIST` | compared |
 | Q008 | en | Compute state | Which virtual machines are running, stopped, or deallocated? | `LIST` | queued |
 | Q009 | ko | Kubernetes state | 비정상 상태인 AKS 클러스터나 노드가 있어? | `HEALTH` | queued |
 | Q010 | en | Kubernetes state | Show unhealthy Kubernetes workloads and when they became unhealthy. | `HEALTH` | queued |
