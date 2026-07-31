@@ -13,10 +13,11 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
+UTC = timezone.utc  # noqa: UP017 - tracked Git hooks run with the system Python 3.10.
 
 
 @dataclass(frozen=True)

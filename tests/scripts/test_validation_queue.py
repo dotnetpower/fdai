@@ -177,3 +177,14 @@ def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     assert "validation-status:" in makefile
     assert "validation-run:" in makefile
     assert "validation-all:" in makefile
+
+
+def test_queue_cli_runs_with_system_python() -> None:
+    system_python = Path("/usr/bin/python3")
+    if not system_python.is_file():
+        pytest.skip("system Python is unavailable")
+
+    result = _run(REPO_ROOT, str(system_python), str(QUEUE_SCRIPT), "status")
+
+    assert result.returncode == 0, result.stderr
+    assert "validation-queue:" in result.stdout
