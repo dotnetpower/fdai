@@ -396,6 +396,29 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0014: Failed, degraded, or unavailable resources
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q006` |
+| Executed | `2026-08-01` |
+| Question | `Which resources are failed, degraded, or unavailable?` |
+| Azure SRE Agent answer | Reported one unavailable virtual machine from subscription Resource Health evidence. The deployment-owned name was redacted. |
+| FDAI answer | Reported the same unavailable virtual machine with normalized provider type and resource group, while stating that failed and degraded states were not observed in checked evidence. Deployment-owned values were redacted. |
+| Evidence | Subscription-wide Resource Graph and Resource Health, exact observation time, requested catalog state groups, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Coverage behavior | FDAI retained metric and truncation limitations, avoided absence claims outside checked evidence, and did not expose the raw Resource Health target ID. |
+| Material difference | Both products found the same unavailable resource. FDAI added typed state-group provenance, normalized identity, partial-coverage calibration, and one-of-one verification. |
+| Winner | FDAI for equal finding accuracy with stronger evidence integrity, calibration, identity redaction, and deterministic verification. |
+| General fix | Evidence authority and state groups come from the schema-validated inventory language catalog; partial positive findings are verified independently from unsupported absence or healthy claims. |
+| Status | `fdai-win` |
+
+#### RUN-0014 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -410,7 +433,7 @@ existing seed.
 | Q003 | ko | Database state | 현재 멈춰 있는 DB를 종류별로 보여줘. | `LIST` | compared |
 | Q004 | en | Database state | List stopped and paused database services separately. | `LIST` | compared |
 | Q005 | ko | Resource state | 실패 상태인 Azure 리소스가 있어? | `LIST` | compared |
-| Q006 | en | Resource state | Which resources are failed, degraded, or unavailable? | `LIST` | queued |
+| Q006 | en | Resource state | Which resources are failed, degraded, or unavailable? | `LIST` | compared |
 | Q007 | ko | Compute state | 할당 해제된 가상 머신을 모두 찾아줘. | `LIST` | queued |
 | Q008 | en | Compute state | Which virtual machines are running, stopped, or deallocated? | `LIST` | queued |
 | Q009 | ko | Kubernetes state | 비정상 상태인 AKS 클러스터나 노드가 있어? | `HEALTH` | queued |
