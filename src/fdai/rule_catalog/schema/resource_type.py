@@ -444,7 +444,9 @@ def resolve_azure_resource_type(
         return candidates[0].id
     if not candidates:
         return None
-    kind_tokens = {token for token in re.split(r"[,;/\s]+", str(kind).casefold()) if token}
+    if not isinstance(kind, str) or not kind.strip():
+        return None
+    kind_tokens = {token for token in re.split(r"[,;/\s]+", kind.casefold()) if token}
     matches = tuple(
         entry
         for entry in candidates

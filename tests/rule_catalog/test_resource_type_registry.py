@@ -102,6 +102,40 @@ def test_shared_web_arm_type_resolves_by_kind() -> None:
     )
 
 
+def test_missing_azure_kind_never_matches_literal_none_token() -> None:
+    registry = load_resource_type_registry_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "version": "0.0.1",
+            "types": [
+                {
+                    "id": "compute.one",
+                    "category": "compute",
+                    "description": "one",
+                    "azure_arm_type": "Microsoft.Example/widgets",
+                    "azure_kind_tokens": ["none"],
+                },
+                {
+                    "id": "compute.two",
+                    "category": "compute",
+                    "description": "two",
+                    "azure_arm_type": "Microsoft.Example/widgets",
+                    "azure_kind_tokens": ["app"],
+                },
+            ],
+        }
+    )
+
+    assert (
+        resolve_azure_resource_type(
+            registry,
+            arm_type="Microsoft.Example/widgets",
+            kind=None,
+        )
+        is None
+    )
+
+
 @pytest.mark.parametrize("token", ["function app", "function/app", "함수앱"])
 def test_azure_kind_tokens_reject_non_machine_tokens(token: str) -> None:
     payload = {
