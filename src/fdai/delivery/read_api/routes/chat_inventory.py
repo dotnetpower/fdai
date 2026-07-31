@@ -448,8 +448,9 @@ def render_inventory_answer(
             else:
                 lines.append(
                     "이 Azure inventory 근거는 AKS 클러스터 리소스 상태까지만 포함하며, "
-                    "클러스터 내부 Deployment와 Pod는 포함하지 않습니다. 따라서 앱 배포 여부는 "
-                    "Kubernetes workload 근거가 연결되기 전에는 확정할 수 없습니다."
+                    "클러스터 내부 Node readiness, Deployment와 Pod는 포함하지 않습니다. 따라서 "
+                    "노드 및 앱 상태는 Kubernetes workload 근거가 연결되기 전에는 "
+                    "확정할 수 없습니다."
                 )
         lines.append(f"근거: {source}, snapshot {snapshot}, freshness {freshness}.")
         if truncated:
@@ -472,8 +473,8 @@ def render_inventory_answer(
         else:
             lines.append(
                 "This Azure inventory evidence covers AKS cluster resources only; it does not "
-                "include in-cluster Deployments or Pods. Application deployment cannot be "
-                "confirmed until Kubernetes workload evidence is connected."
+                "include in-cluster node readiness, Deployments, or Pods. Node and application "
+                "health cannot be confirmed until Kubernetes workload evidence is connected."
             )
     lines.append(f"Evidence: {source}, snapshot {snapshot}, freshness {freshness}.")
     if truncated:

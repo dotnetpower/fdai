@@ -137,6 +137,9 @@ names that medium or another explicit web context.
 Two or more requested state groups automatically produce a status-grouped answer. When a broad
 group overlaps a more specific requested group, the specific group owns that provider value so one
 resource is not repeated across sections.
+AKS questions that name nodes require Kubernetes workload evidence. Cluster inventory can ground a
+stopped or otherwise unhealthy cluster finding, but missing node readiness remains an explicit
+coverage gap and cannot produce a healthy-node conclusion.
 
 ## Read-tool catalog
 

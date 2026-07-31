@@ -1170,11 +1170,45 @@ async def test_aks_workload_question_reports_cluster_only_coverage() -> None:
     answer = render_inventory_answer(evidence, locale="ko")
     assert answer is not None
     assert "aks-app" in answer
-    assert "Deployment와 Pod는 포함하지 않습니다" in answer
+    assert "Node readiness, Deployment와 Pod는 포함하지 않습니다" in answer
     verification = verify_answer("", {"_tool_evidence": evidence}, locale="ko")
     assert verification.status == "unverified"
     assert verification.reason_code == "inventory_workload_coverage_gap"
     assert verification.answer == answer
+
+
+async def test_unhealthy_aks_node_question_filters_clusters_and_holds_node_claim() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+        resources = [
+            _resource("aks-stopped", "kubernetes-cluster", "aks-stopped", status="Stopped"),
+            _resource("aks-running", "kubernetes-cluster", "aks-running", status="Running"),
+        ]
+        return {**graph, "resources": resources}
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "비정상 상태인 AKS 클러스터나 노드가 있어?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "partial"
+    assert evidence["result"]["matched_count"] == 1
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "aks-stopped" in answer
+    assert "aks-running" not in answer
+    assert "Node readiness" in answer
+    verification = verify_answer("", {"_tool_evidence": evidence}, locale="ko")
+    assert verification.status == "unverified"
+    assert verification.reason_code == "inventory_workload_coverage_gap"
 
 
 async def test_aks_workload_question_uses_bound_kubernetes_evidence() -> None:

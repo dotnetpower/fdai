@@ -282,6 +282,32 @@ def test_multiple_vm_states_group_without_overlapping_deallocated_values() -> No
     ]
 
 
+def test_unhealthy_aks_node_question_requires_workload_evidence() -> None:
+    resources = (
+        {
+            "type": "kubernetes-cluster",
+            "name": "aks-stopped",
+            "status": "Stopped",
+        },
+        {
+            "type": "kubernetes-cluster",
+            "name": "aks-running",
+            "status": "Running",
+        },
+    )
+
+    query = compile_inventory_query(
+        "비정상 상태인 AKS 클러스터나 노드가 있어?",
+        resources=resources,
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == "kubernetes-cluster"
+    assert by_field[InventoryField.STATUS] == "stopped"
+    assert query.include_workloads is True
+
+
 def test_observed_type_and_location_are_dynamic_facets() -> None:
     resources = (
         *_RESOURCES,
