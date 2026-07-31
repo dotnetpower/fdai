@@ -163,7 +163,12 @@ class ManagedMcpClient:
             raise ValueError(f"MCP tool {name!r} is not allowlisted")
         if self._availability is not McpAvailability.AVAILABLE:
             raise ManagedMcpUnavailableError(f"MCP provider is unavailable: {self._reason}")
-        timeout = min(timeout_seconds or self._config.call_timeout_seconds, 120.0)
+        if timeout_seconds is not None and timeout_seconds <= 0:
+            raise ValueError("MCP call timeout_seconds MUST be positive")
+        timeout = min(
+            self._config.call_timeout_seconds if timeout_seconds is None else timeout_seconds,
+            120.0,
+        )
         try:
             return await self._breaker.call(
                 self._session.call_tool,

@@ -17,6 +17,7 @@ _CHILD_ENV_ALLOWLIST = frozenset(
         "AZURE_CONFIG_DIR",
         "AZURE_CLOUD",
         "AZURE_TENANT_ID",
+        "DOTNET_BUNDLE_EXTRACT_BASE_DIR",
         "HOME",
         "IDENTITY_ENDPOINT",
         "IDENTITY_HEADER",
@@ -25,6 +26,7 @@ _CHILD_ENV_ALLOWLIST = frozenset(
         "PATH",
         "SSL_CERT_DIR",
         "SSL_CERT_FILE",
+        "XDG_CACHE_HOME",
     }
 )
 

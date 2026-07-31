@@ -1,7 +1,7 @@
 # Minimal runtime image for the core control plane.
 #
 # Multi-stage:
-#   1. digest-pinned Python 3.13 Alpine builder + uv resolves the frozen lockfile.
+#   1. digest-pinned Python 3.13 Debian slim builder + uv resolves the frozen lockfile.
 #   2. the same digest starts a clean runtime that receives only the venv and data.
 #
 # Notes:
@@ -34,14 +34,16 @@ RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VE
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/text" {print $3}')" = "${OPA_X_TEXT_VERSION}" \
     && /go/bin/opa version
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64 AS builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apk add --no-cache build-base zlib-dev
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends build-essential zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv==0.4.30
 COPY --from=opa-builder /go/bin/opa /usr/local/bin/opa
 
@@ -58,14 +60,21 @@ COPY policies/ ./policies/
 RUN uv sync --frozen --package fdai --no-dev --extra serve --extra pdf-report --extra azure-mcp --no-editable
 
 # ----------------------------------------------------------------------------
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS runtime
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    AZURE_MCP_COLLECT_TELEMETRY=false \
+    DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
+    HOME=/tmp/fdai \
     PATH="/app/.venv/bin:${PATH}" \
-    PYTHONPATH="/app/src"
+    PYTHONPATH="/app/src" \
+    XDG_CACHE_HOME=/tmp/fdai/.cache
 
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends libicu72 \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
 COPY --from=builder /usr/local/bin/opa /usr/local/bin/opa
 COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/

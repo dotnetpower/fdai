@@ -209,13 +209,9 @@ class McpToolExecutor:
             ) from exc
 
         if not response.is_success:
-            snippet = response.text[:200].replace("\n", " ")
             raise ToolError(
                 kind="http",
-                message=(
-                    f"MCP server returned HTTP {response.status_code} for "
-                    f"tool {mcp_tool!r}: {snippet!r}"
-                ),
+                message=(f"MCP server returned HTTP {response.status_code} for tool {mcp_tool!r}"),
             )
 
         # Cap the body BEFORE parsing so a hostile/misbehaving server
@@ -254,12 +250,11 @@ class McpToolExecutor:
         # A JSON-RPC top-level error means the invocation itself failed.
         rpc_error = payload.get("error")
         if isinstance(rpc_error, Mapping):
-            message = str(rpc_error.get("message", "unknown MCP error"))[:200]
             return ToolCallReceipt(
                 outcome=ToolCallOutcome.FAILED,
                 receipt_ref=f"mcp-error:{mcp_tool}",
                 rollback_succeeded=None,
-                detail=f"MCP JSON-RPC error: {message}",
+                detail="MCP server reported a JSON-RPC error",
             )
 
         result = payload.get("result")
@@ -310,10 +305,8 @@ class McpToolExecutor:
             await self._ledger.record(request.idempotency_key, receipt_ref)
         except Exception as exc:  # noqa: BLE001 - ledger boundary, tool already ran
             _LOGGER.warning(
-                "mcp ledger record failed for key %s (tool %r): %r",
-                request.idempotency_key,
-                mcp_tool,
-                exc,
+                "mcp_ledger_record_failed",
+                extra={"tool": mcp_tool, "error_type": type(exc).__name__},
             )
             return ToolCallReceipt(
                 outcome=ToolCallOutcome.SUCCEEDED,

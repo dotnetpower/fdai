@@ -152,7 +152,8 @@ async def test_jsonrpc_error_maps_to_failed() -> None:
         await client.aclose()
 
     assert receipt.outcome is ToolCallOutcome.FAILED
-    assert "boom" in (receipt.detail or "")
+    assert "boom" not in (receipt.detail or "")
+    assert receipt.detail == "MCP server reported a JSON-RPC error"
 
 
 @pytest.mark.asyncio
@@ -172,13 +173,14 @@ async def test_tool_is_error_maps_to_failed() -> None:
 @pytest.mark.asyncio
 async def test_http_error_fails_closed() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, text="server error")
+        return httpx.Response(500, text="sensitive-resource-reference")
 
     ex, client = _executor(handler)
     try:
         with pytest.raises(ToolError) as exc:
             await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
         assert exc.value.kind == "http"
+        assert "sensitive-resource-reference" not in str(exc.value)
     finally:
         await client.aclose()
 

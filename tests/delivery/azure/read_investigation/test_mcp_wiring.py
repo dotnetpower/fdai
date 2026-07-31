@@ -91,6 +91,7 @@ def test_enabled_wiring_uses_mcp_transport_without_secrets_in_child_env() -> Non
             "PATH": "/bin",
             "IDENTITY_ENDPOINT": "http://identity",
             "IDENTITY_HEADER": "header",
+            "DOTNET_BUNDLE_EXTRACT_BASE_DIR": "/writable/dotnet",
             "FDAI_DATABASE_URL": "must-not-propagate",
         },
         reader_client_id="reader",
@@ -99,6 +100,10 @@ def test_enabled_wiring_uses_mcp_transport_without_secrets_in_child_env() -> Non
 
     assert isinstance(wiring.transport, AzureMcpReadTransport)
     assert wiring.client is not None
+    session = wiring.client._session  # noqa: SLF001 - verify child trust boundary
+    parameters = session._server_parameters  # noqa: SLF001 - immutable SDK configuration
+    assert parameters.env is not None
+    assert parameters.env["DOTNET_BUNDLE_EXTRACT_BASE_DIR"] == "/writable/dotnet"
 
 
 def test_local_cli_wiring_does_not_set_fake_managed_identity_client_id() -> None:

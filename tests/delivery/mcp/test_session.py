@@ -105,6 +105,18 @@ async def test_failure_opens_circuit_and_later_calls_fail_fast() -> None:
     assert client.reason == "circuit_open"
 
 
+@pytest.mark.parametrize("timeout", (0.0, -1.0))
+async def test_call_rejects_nonpositive_timeout(timeout: float) -> None:
+    session = _Session()
+    client = _client(session)
+    assert await client.probe() is True
+
+    with pytest.raises(ValueError, match="MUST be positive"):
+        await client.call_tool("read", {}, timeout_seconds=timeout)
+
+    assert session.call_calls == 0
+
+
 async def test_routability_check_does_not_dispatch_or_change_availability() -> None:
     session = _Session()
     client = _client(session)
