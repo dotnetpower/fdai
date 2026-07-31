@@ -507,6 +507,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0019: Unavailable or degraded storage accounts
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q011` |
+| Executed | `2026-08-01` |
+| Question | `사용 불가능하거나 성능이 저하된 스토리지 계정이 있어?` |
+| Azure SRE Agent answer | Reported no storage accounts in unavailable or degraded state after checking resource state fields and Resource Health. Deployment-owned values were redacted. |
+| FDAI answer | Reported the same zero unavailable and zero degraded storage accounts after checking thirteen storage accounts with exact provider-type and availability-state filters. Deployment-owned values were redacted. |
+| Evidence | Server-owned subscription health, typed storage and two-state predicates, exact `Resources` and `HealthResources` prefiltering, zero-result groups, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products reached the same requested conclusion. FDAI exposed exact state groups, scoped resource count, observation time, source composition, metric non-use, and one-of-one verification. |
+| Winner | FDAI for equal factual and scope completeness with stronger evidence integrity and deterministic verification. |
+| General fix | Korean connective suffixes and availability states are catalog semantics. Resource Health authority takes precedence for concrete availability questions, while provider type and requested state filters remain attached through Azure evidence collection. Metrics run only for explicit diagnosis semantics. |
+| Status | `fdai-win` |
+
+#### RUN-0019 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -526,7 +548,7 @@ existing seed.
 | Q008 | en | Compute state | Which virtual machines are running, stopped, or deallocated? | `LIST` | compared |
 | Q009 | ko | Kubernetes state | 비정상 상태인 AKS 클러스터나 노드가 있어? | `HEALTH` | compared |
 | Q010 | en | Kubernetes state | Show unhealthy Kubernetes workloads and when they became unhealthy. | `HEALTH` | compared |
-| Q011 | ko | Storage state | 사용 불가능하거나 성능이 저하된 스토리지 계정이 있어? | `HEALTH` | queued |
+| Q011 | ko | Storage state | 사용 불가능하거나 성능이 저하된 스토리지 계정이 있어? | `HEALTH` | compared |
 | Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | queued |
 | Q013 | ko | App state | 실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘. | `LIST` | queued |
 | Q014 | en | Serverless state | Which function or container applications are not ready? | `LIST` | queued |
