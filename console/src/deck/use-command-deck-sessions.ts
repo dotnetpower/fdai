@@ -1,19 +1,21 @@
-import { useCallback, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
-import { fetchConversationTurns } from "../user-context-client";
-import { restoredTurn } from "./command-deck-session";
+import { fetchConversationTurns, fetchUserContext } from "../user-context-client";
+import { restoredTurn, sessionIdFor } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
 import { resetComposerAttachments } from "./composer-attachment-store";
 import {
   conversationIndexKeyFor,
   conversationFallbackForRoute,
   conversationPath,
+  conversationTitle,
   manualConversationSummary,
   newConversationKey,
   parseConversationIndex,
   screenConversationKey,
   screenConversationSummary,
   serializeConversationIndex,
+  serverConversationSummary,
   upsertConversation,
   userConversationKey,
   type ConversationSummary,
@@ -23,10 +25,15 @@ import { parseTurns, serializeTurns, transcriptKeyFor } from "./transcript-store
 import type { IncidentConversationBinding } from "./open-deck";
 
 export function sessionStore(): Storage | null {
+  if (typeof window === "undefined") return null;
   try {
-    return typeof window !== "undefined" ? window.sessionStorage : null;
+    return window.localStorage;
   } catch {
-    return null;
+    try {
+      return window.sessionStorage;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -67,6 +74,38 @@ export function useCommandDeckSessionState(
   const sessionMetadataRef = useRef(new Map<string, ConversationSummary>());
   const openingBriefingLoadedRef = useRef(new Set<string>());
   const historyRef = useRef(EMPTY_HISTORY);
+
+  useEffect(() => {
+    let active = true;
+    const pathname = currentPathname();
+    void fetchUserContext()
+      .then((context) => {
+        if (!active) return;
+        const serverConversations = context.conversations.map((record) =>
+          serverConversationSummary(record, pathname, initialRouteLabel)
+        );
+        setConversations((current) => {
+          let next = [...current];
+          for (const summary of serverConversations) {
+            if (!next.some((item) => item.key === summary.key)) {
+              next = upsertConversation(next, summary);
+            }
+          }
+          try {
+            sessionStore()?.setItem(indexKey, serializeConversationIndex(next));
+          } catch {
+            /* browser cache is best-effort; durable history remains authoritative */
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        /* The deck remains usable when durable history is unavailable. */
+      });
+    return () => {
+      active = false;
+    };
+  }, [indexKey, initialRouteLabel]);
 
   const updateConversationIndex = useCallback(
     (summary: ConversationSummary) => {
@@ -161,13 +200,24 @@ export function useCommandDeckSessionController({
   const hydrateDurableTurns = useCallback(async (key: string): Promise<void> => {
     if (sessionKeyRef.current !== key || turnsRef.current.length > 0) return;
     try {
-      const durable = await fetchConversationTurns(key);
+      const durable = await fetchConversationTurns(sessionIdFor(sessionIdsRef.current, key));
       if (sessionKeyRef.current !== key || turnsRef.current.length > 0 || durable.length === 0) {
         return;
       }
       const restored = durable.map(restoredTurn);
       turnsRef.current = restored;
       setTurns(restored);
+      const summary = conversations.find((item) => item.key === key);
+      const firstOperator = durable.find((turn) => turn.role === "operator");
+      if (summary?.restoredFromServer && firstOperator) {
+        const titled = {
+          ...summary,
+          label: conversationTitle(firstOperator.content),
+          restoredFromServer: false,
+        };
+        sessionMetadataRef.current.set(key, titled);
+        updateConversationIndex(titled);
+      }
       try {
         sessionStore()?.setItem(transcriptKeyFor(key), serializeTurns(restored));
       } catch {
@@ -176,7 +226,15 @@ export function useCommandDeckSessionController({
     } catch {
       /* A missing server conversation is a normal first-open cache miss. */
     }
-  }, [sessionKeyRef, setTurns, turnsRef]);
+  }, [
+    conversations,
+    sessionIdsRef,
+    sessionKeyRef,
+    sessionMetadataRef,
+    setTurns,
+    turnsRef,
+    updateConversationIndex,
+  ]);
 
   const switchSession = useCallback((
     key: string,

@@ -2,10 +2,10 @@
  * Transcript persistence for the command deck.
  *
  * The deck keeps a short conversation in memory. To survive an accidental
- * reload (but nothing more), completed turns are mirrored into
- * ``sessionStorage`` - tab-scoped and cleared when the tab closes. This module
- * is the pure serialise/parse core so it is unit-tested without a DOM; the
- * component supplies the storage object.
+ * reload or browser restart, completed turns are mirrored into browser-local
+ * storage under a principal-scoped conversation key. PostgreSQL remains the
+ * memory of record. This module is the pure serialise/parse core so it is
+ * unit-tested without a DOM; the component supplies the storage object.
  *
  * Only completed turns are persisted (a mid-stream turn is skipped), the buffer
  * is capped, and parsing is defensive: any malformed payload yields an empty

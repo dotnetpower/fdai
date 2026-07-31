@@ -1,13 +1,14 @@
 import type { IncidentConversationBinding } from "./open-deck";
 import { PANTHEON } from "../routes/agents.model";
+import type { ConversationSummaryPayload } from "../user-context-client";
 
 /**
  * Browser-side conversation index for the command deck.
  *
  * The audit log remains the conversation source of truth. This small index is
- * only a tab-scoped navigation aid: it remembers which cached transcripts are
- * available so the deck can render the same history + new-conversation shell
- * as the design mock.
+ * only a principal-scoped navigation aid: it remembers which cached transcripts
+ * are available across browser restarts so the deck can render the same history
+ * + new-conversation shell as the design mock.
  */
 
 export const CONVERSATION_INDEX_KEY = "fdai.deck.conversations.v1";
@@ -85,6 +86,7 @@ export interface ConversationSummary {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly binding?: IncidentConversationBinding;
+  readonly restoredFromServer?: boolean;
 }
 
 export interface ConversationGroups {
@@ -129,7 +131,32 @@ export function manualConversationSummary(
   };
 }
 
-/** Parse the tab-scoped index defensively. */
+/** Rebuild minimal navigation metadata for a durable server conversation. */
+export function serverConversationSummary(
+  record: ConversationSummaryPayload,
+  pathname: string,
+  routeLabel: string,
+): ConversationSummary {
+  const screenPath = /^screen:[0-9a-f]{8}:(\/.*)$/.exec(record.conversation_id)?.[1];
+  const agentName = normalizeAgentTarget(
+    /:agent:([^:]+):conversation:/.exec(record.conversation_id)?.[1],
+  );
+  return {
+    key: record.conversation_id,
+    label: agentName ?? routeLabel,
+    kind: agentName ? "agent" : isScreenConversationKey(record.conversation_id)
+      ? "screen-default"
+      : "screen-thread",
+    ...(agentName ? { agent: agentName } : {}),
+    originPath: conversationPath(screenPath ?? pathname),
+    originLabel: routeLabel,
+    createdAt: record.started_at,
+    updatedAt: record.last_active,
+    restoredFromServer: true,
+  };
+}
+
+/** Parse the principal-scoped browser index defensively. */
 export function parseConversationIndex(raw: string | null): ConversationSummary[] {
   if (!raw) return [];
   let parsed: unknown;
@@ -178,6 +205,7 @@ export function parseConversationIndex(raw: string | null): ConversationSummary[
         ? { agent: record.agent }
         : {}),
       ...(parseIncidentBinding(record.binding) ?? {}),
+      ...(record.restoredFromServer === true ? { restoredFromServer: true } : {}),
     });
   }
   return out;
@@ -251,7 +279,7 @@ export function conversationFallbackForRoute(
     conversations.find((item) => item.kind !== "agent" && item.originPath === currentPath);
 }
 
-/** Deduplicate, sort newest-first, and cap the tab-scoped index. */
+/** Deduplicate, sort newest-first, and cap the browser index. */
 export function upsertConversation(
   conversations: readonly ConversationSummary[],
   summary: ConversationSummary,

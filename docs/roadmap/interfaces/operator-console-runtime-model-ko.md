@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: fa2e2a722b96404387e28bef2563b04c787813fa
+translation_source_sha: 645dca54f9e04eb873c27a0329d1cd42573640d8
 translation_revised: 2026-07-31
 ---
 
@@ -338,9 +338,10 @@ class ConversationSession:
   `BriefingSpec`을 공유하며, durable subscription은 IANA timezone을 사용하고
   grounded `BriefingRun`을 소유 principal별로 저장한다.
 - **Web 대화 탐색**: Console SPA는 대화 목록과 **새 대화** control을
-  표시. 목록은 분리된 transcript cache를 가리키는 tab-scoped
-  `sessionStorage` index이므로 thread 전환 또는 tab reload 시 완료된
-  turn을 복원하면서 agent-scoped 대화와 일반 대화를 섞지 않음.
+  표시. 목록은 분리된 transcript cache를 가리키는 principal-scoped
+  `localStorage` index이므로 thread 전환, tab reload 또는 browser 재실행 시 완료된
+  turn을 복원하면서 agent-scoped 대화와 일반 대화를 섞지 않음. Persistent browser
+  storage가 차단된 환경에서는 `sessionStorage`로 fallback합니다.
   Operator는 로드된 transcript를 검색하고 일치하는 turn 사이를 이동할
   수 있음. 기본 대화는 비식별 user hash와 정규화된 URL pathname별로
   분리. query-only filter 변경은 같은 pathname 세션을 재사용하고, 다른
@@ -352,8 +353,11 @@ class ConversationSession:
   conversation을 만들고 첫 turn 전에 해당 agent를 target으로 저장합니다. 이전 agent transcript를
   복원하거나 이어 쓰지 않으며, 이전 conversation은 history에서 계속 선택할 수 있습니다.
   Incident-bound conversation은 명시적으로 재개할 수 있도록 stable incident identity를 유지합니다.
-  이 browser index는 탐색 상태일 뿐이다. Cache miss 시 Command Deck은
-  principal 범위 turn을 server에서 다시 로드하고 `sessionStorage`에 mirror한다.
+  이 browser index는 탐색 상태일 뿐이다. 각 user-scoped conversation key는 stable server
+  conversation id로도 사용됩니다. Cache miss 시 Command Deck은 principal 범위 turn을 server에서
+  다시 로드하고 browser-local storage에 mirror한다. 인증된 startup에서는 server의 principal 범위
+  conversation 목록도 browser index에 병합합니다. 이전 random id를 사용하는 legacy conversation도
+  계속 선택할 수 있고, 열 때 첫 operator turn에서 제목을 복원합니다.
   Floating Deck은 route 탐색과 live 화면 re-render 중에도 유지된다.
   Full-workspace에서 Activity Bar group을 선택하면 Deck을 닫고 해당 group의 첫 visible
   하위 page를 열며, 그 외에는 명시적인 닫기 action 또는 `Escape`로 닫는다. L3 응답 언어는 현재 turn을 따름: console display

@@ -4,6 +4,7 @@ import type { Turn } from "./command-deck-presenters";
 import type { ConversationSummary } from "./conversation-sessions";
 import { isNearBottom } from "./scroll-stick";
 import { serializeTurns, transcriptKeyFor } from "./transcript-store";
+import { sessionStore } from "./use-command-deck-sessions";
 
 interface MutableValueRef<T> {
   current: T;
@@ -15,14 +16,6 @@ interface UseCommandDeckTranscriptOptions {
   readonly sessionKey: string;
   readonly turnsRef: MutableValueRef<readonly Turn[]>;
   readonly sessionMetadataRef: MutableValueRef<Map<string, ConversationSummary>>;
-}
-
-function sessionStore(): Storage | null {
-  try {
-    return typeof window !== "undefined" ? window.sessionStorage : null;
-  } catch {
-    return null;
-  }
 }
 
 export function useCommandDeckTranscript({

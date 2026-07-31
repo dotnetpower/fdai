@@ -12,6 +12,7 @@ import {
   isScreenConversationKey,
   parseConversationIndex,
   screenConversationKey,
+  serverConversationSummary,
   serializeConversationIndex,
   upsertConversation,
   userConversationKey,
@@ -208,5 +209,37 @@ describe("durable conversation hydration", () => {
     expect(shouldHydrateServerTurns(false, 0)).toBe(false);
     expect(shouldHydrateServerTurns(true, 0)).toBe(true);
     expect(shouldHydrateServerTurns(true, 1)).toBe(false);
+  });
+
+  it("rebuilds navigation for legacy and stable server conversations", () => {
+    const legacy = serverConversationSummary({
+      conversation_id: "legacy-random-id",
+      channel_id: "web",
+      started_at: "2026-07-14T09:00:00Z",
+      last_active: "2026-07-14T10:00:00Z",
+      status: "active",
+      latest_operator_turn_id: "turn-1",
+    }, "/agent-activity", "Agent activity");
+    const stable = serverConversationSummary({
+      conversation_id: "screen:abc12345:/overview",
+      channel_id: "web",
+      started_at: "2026-07-14T09:00:00Z",
+      last_active: "2026-07-14T10:00:00Z",
+      status: "active",
+      latest_operator_turn_id: "turn-2",
+    }, "/agent-activity", "Agent activity");
+
+    expect(legacy).toMatchObject({
+      key: "legacy-random-id",
+      kind: "screen-thread",
+      originPath: "/agent-activity",
+      restoredFromServer: true,
+    });
+    expect(stable).toMatchObject({
+      key: "screen:abc12345:/overview",
+      kind: "screen-default",
+      originPath: "/overview",
+      restoredFromServer: true,
+    });
   });
 });

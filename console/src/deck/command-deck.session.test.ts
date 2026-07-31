@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   clearScheduledTimeouts,
   matchingTurnIndexes,
@@ -10,6 +10,11 @@ import {
   restoredTurn,
   sessionIdFor,
 } from "./command-deck";
+import { sessionStore } from "./use-command-deck-sessions";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("Deck scheduled work", () => {
   test("cancels every tracked context timeout", () => {
@@ -52,6 +57,35 @@ describe("Deck backend session IDs", () => {
     expect(general).not.toBe(forseti);
     expect(sessionIdFor(sessions, "screen", create)).toBe(general);
     expect(next).toBe(2);
+  });
+
+  test("reconstructs the same server ID after browser state is recreated", () => {
+    const sessionKey = "screen:abc12345:/overview";
+
+    expect(sessionIdFor(new Map(), sessionKey)).toBe(sessionKey);
+    expect(sessionIdFor(new Map(), sessionKey)).toBe(sessionKey);
+  });
+
+  test("bounds long route keys without losing deterministic identity", () => {
+    const firstKey = `screen:abc12345:/${"a".repeat(240)}`;
+    const secondKey = `screen:abc12345:/${"a".repeat(239)}b`;
+
+    const first = sessionIdFor(new Map(), firstKey);
+    expect(first).toHaveLength(200);
+    expect(sessionIdFor(new Map(), firstKey)).toBe(first);
+    expect(sessionIdFor(new Map(), secondKey)).not.toBe(first);
+  });
+});
+
+describe("Deck browser persistence", () => {
+  test("uses persistent local storage for the conversation cache", () => {
+    const localStorage = {} as Storage;
+    vi.stubGlobal("window", {
+      localStorage,
+      sessionStorage: {} as Storage,
+    });
+
+    expect(sessionStore()).toBe(localStorage);
   });
 });
 

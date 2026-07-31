@@ -352,10 +352,11 @@ class ConversationSession:
   deterministic `BriefingSpec`; durable subscriptions use IANA timezones and
   store each grounded `BriefingRun` for the owning principal.
 - **Web conversation navigation**: the Console SPA renders a conversation
-  list and a **New conversation** control. The list is a tab-scoped
-  `sessionStorage` index over isolated transcript caches, so switching threads
-  or reloading the tab restores completed turns without mixing agent-scoped
-  and general conversations. Operators can search the loaded transcript and
+  list and a **New conversation** control. The list is a principal-scoped
+  `localStorage` index over isolated transcript caches, so switching threads,
+  reloading the tab, or reopening the browser restores completed turns without
+  mixing agent-scoped and general conversations. Environments that block persistent
+  browser storage fall back to `sessionStorage`. Operators can search the loaded transcript and
   move between matching turns. Default conversations are isolated by a
   non-identifying user hash and normalized URL pathname; query-only filter
   changes reuse the pathname session, while a different menu or analytical
@@ -367,9 +368,12 @@ class ConversationSession:
   conversation on every click and stores that agent as the target before the first turn. It never
   restores or appends to an earlier agent transcript. Earlier conversations remain selectable from
   history. An incident-bound conversation keeps its stable incident identity for explicit resume.
-  This browser index is navigation state only. On a cache miss, the
-  Command Deck reloads principal-scoped turns from the server and mirrors them
-  back into `sessionStorage`. A floating Deck remains open across route navigation and
+  This browser index is navigation state only. Each user-scoped conversation key is also its stable
+  server conversation id. On a cache miss, the Command Deck reloads principal-scoped turns from the
+  server and mirrors them back into browser-local storage. At authenticated startup, it also merges
+  the server's principal-scoped conversation list into the browser index. A legacy conversation with
+  an earlier random id remains selectable and restores its title from the first operator turn when
+  opened. A floating Deck remains open across route navigation and
   live screen re-renders. In full-workspace mode, an Activity Bar group closes it and
   opens that group's first visible child page; otherwise explicit close or `Escape` dismisses it.
   L3 response language follows the current turn: a Korean prompt renders a

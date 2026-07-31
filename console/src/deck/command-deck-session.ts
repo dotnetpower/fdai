@@ -1,6 +1,8 @@
 import type { ProgressiveAnswer } from "./backend";
 import type { ConversationTurnPayload } from "../user-context-client";
 
+const MAX_SESSION_ID_CHARS = 200;
+
 export interface RestoredTurn {
   readonly id: string;
   readonly role: "operator" | "deck";
@@ -41,20 +43,27 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   };
 }
 
-function newId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export function sessionIdFor(
   sessions: Map<string, string>,
   sessionKey: string,
-  create: () => string = newId,
+  create: () => string = () => boundedSessionId(sessionKey),
 ): string {
   const existing = sessions.get(sessionKey);
   if (existing) return existing;
   const created = create();
   sessions.set(sessionKey, created);
   return created;
+}
+
+function boundedSessionId(sessionKey: string): string {
+  if (sessionKey.length <= MAX_SESSION_ID_CHARS) return sessionKey;
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < sessionKey.length; index += 1) {
+    hash ^= sessionKey.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  const suffix = (hash >>> 0).toString(16).padStart(8, "0");
+  return `${sessionKey.slice(0, MAX_SESSION_ID_CHARS - suffix.length - 1)}:${suffix}`;
 }
 
 export function clearScheduledTimeouts(
