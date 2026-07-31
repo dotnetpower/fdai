@@ -308,6 +308,32 @@ def test_unhealthy_aks_node_question_requires_workload_evidence() -> None:
     assert query.include_workloads is True
 
 
+def test_unhealthy_kubernetes_workload_question_requires_history() -> None:
+    query = compile_inventory_query(
+        "Show unhealthy Kubernetes workloads and when they became unhealthy.",
+        resources=(
+            {
+                "type": "kubernetes-cluster",
+                "name": "aks-stopped",
+                "status": "Stopped",
+            },
+            {
+                "type": "log-analytics-solution",
+                "name": "kubernetes",
+                "status": "unknown",
+            },
+        ),
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == "kubernetes-cluster"
+    assert by_field[InventoryField.STATUS] == "stopped"
+    assert InventoryField.NAME not in by_field
+    assert query.include_workloads is True
+    assert query.require_state_history is True
+
+
 def test_observed_type_and_location_are_dynamic_facets() -> None:
     resources = (
         *_RESOURCES,

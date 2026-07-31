@@ -1213,6 +1213,39 @@ async def test_unhealthy_aks_node_question_filters_clusters_and_holds_node_claim
     assert verification.reason_code == "inventory_findings_grounded_partial"
 
 
+async def test_unhealthy_kubernetes_workload_question_holds_transition_time() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+        graph["resources"] = [
+            _resource("aks-stopped", "kubernetes-cluster", "aks-stopped", status="Stopped"),
+            _resource("solution", "log-analytics-solution", "kubernetes"),
+        ]
+        return graph
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "Show unhealthy Kubernetes workloads and when they became unhealthy.",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["matched_count"] == 1
+    assert evidence["result"]["state_history_requested"] is True
+    answer = render_inventory_answer(evidence, locale="en")
+    assert answer is not None
+    assert "aks-stopped" in answer
+    assert "State-transition time remains unconfirmed" in answer
+    verification = verify_answer("", {"_tool_evidence": evidence}, locale="en")
+    assert verification.status == "corrected"
+    assert verification.reason_code == "inventory_findings_grounded_partial"
+
+
 async def test_aks_workload_question_uses_bound_kubernetes_evidence() -> None:
     async def workloads() -> dict[str, Any]:
         return {

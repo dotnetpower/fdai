@@ -182,6 +182,7 @@ class InventoryQuery:
     projection: InventoryQueryProjection = InventoryQueryProjection.DETAILS
     require_fresh: bool = False
     include_workloads: bool = False
+    require_state_history: bool = False
     status_groups: tuple[InventoryQueryValueGroup, ...] = ()
 
     def __post_init__(self) -> None:

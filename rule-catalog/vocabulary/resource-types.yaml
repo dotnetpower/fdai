@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.0"
+version: "0.3.1"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 types:
@@ -86,7 +86,7 @@ types:
     category: compute
     description: Managed Kubernetes control plane.
     azure_arm_type: Microsoft.ContainerService/managedClusters
-    query_terms: [aks, kubernetes cluster, kubernetes clusters, 쿠버네티스, 클러스터]
+    query_terms: [aks, kubernetes cluster, kubernetes clusters, kubernetes workload, kubernetes workloads, k8s workload, k8s workloads, 쿠버네티스, 클러스터]
     typical_parents: [resource-group]
   - id: kubernetes-node-pool
     category: compute

@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.1"
+version: "1.1.2"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -14,7 +14,7 @@ signals:
   diagnosis:
     terms: [why, cause, latency, slow, cpu, memory, throughput, usage, utilization, affected, impact, blast radius, 왜, 원인, 지연, 느려, 메트릭, 사용률, 이용률, 처리량, 영향, 영향 범위]
   temporal:
-    terms: [recent, recently, last, past, history, 최근, 지난, 이력, 언제, 누가]
+    terms: [recent, recently, last, past, history, when, since when, became, 최근, 지난, 이력, 언제, 누가]
   activity:
     terms: [changed resources, created resources, deleted resources, updated resources, resource changes, 변경된 리소스, 생성된 리소스, 삭제된 리소스, 수정된 리소스]
   workload:

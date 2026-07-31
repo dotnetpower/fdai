@@ -96,7 +96,10 @@ def compile_inventory_query(
     group = _facet_value(prompt, resources, "resource_group", language=lexical)
     if group:
         resource_types = tuple(item for item in resource_types if item != "resource-group")
-    name = _facet_value(prompt, resources, "name", language=lexical)
+    typed_resources = tuple(
+        item for item in resources if not resource_types or item.get("type") in resource_types
+    )
+    name = _facet_value(prompt, typed_resources, "name", language=lexical)
     if name == group:
         name = None
     operations = lexical.matched_values(registry.operations, prompt)
@@ -139,7 +142,7 @@ def compile_inventory_query(
     )
     if statuses:
         predicates.append(_in_or_eq(InventoryField.STATUS, statuses))
-    location = _facet_value(prompt, resources, "location", language=lexical)
+    location = _facet_value(prompt, typed_resources, "location", language=lexical)
     if location:
         predicates.append(
             InventoryPredicate(InventoryField.LOCATION, InventoryOperator.EQ, location)
@@ -169,6 +172,7 @@ def compile_inventory_query(
         projection=_projection(prompt, language=lexical),
         require_fresh=registry.current_requires_fresh,
         include_workloads=lexical.has(registry.signals, "workload", prompt),
+        require_state_history=lexical.has(registry.signals, "temporal", prompt),
         status_groups=status_groups,
     )
 

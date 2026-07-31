@@ -355,6 +355,7 @@ def _project_verified_inventory_result(
         ],
         "links": links[:_MAX_LINKS] if query.kind is InventoryQueryKind.RELATIONSHIPS else [],
         "coverage_gap": "kubernetes_workloads" if workload_query else None,
+        "state_history_requested": query.require_state_history,
     }
 
 
@@ -452,6 +453,11 @@ def render_inventory_answer(
                     "노드 및 앱 상태는 Kubernetes workload 근거가 연결되기 전에는 "
                     "확정할 수 없습니다."
                 )
+        if result.get("state_history_requested"):
+            lines.append(
+                "현재 snapshot은 상태가 시작된 시각을 증명하지 않습니다. 상태 전이 시각은 "
+                "Kubernetes event 또는 다른 이력 근거가 연결되기 전에는 확정할 수 없습니다."
+            )
         lines.append(f"근거: {source}, snapshot {snapshot}, freshness {freshness}.")
         if truncated:
             lines.append("인벤토리 snapshot이 잘렸으므로 실제 리소스 수가 더 많을 수 있습니다.")
@@ -476,6 +482,12 @@ def render_inventory_answer(
                 "include in-cluster node readiness, Deployments, or Pods. Node and application "
                 "health cannot be confirmed until Kubernetes workload evidence is connected."
             )
+    if result.get("state_history_requested"):
+        lines.append(
+            "The current snapshot does not establish when the state began. State-transition "
+            "time remains unconfirmed until Kubernetes events or other history evidence is "
+            "connected."
+        )
     lines.append(f"Evidence: {source}, snapshot {snapshot}, freshness {freshness}.")
     if truncated:
         lines.append("The inventory snapshot is truncated, so additional resources may exist.")
