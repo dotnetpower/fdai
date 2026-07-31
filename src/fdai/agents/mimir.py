@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.candidate_guard import CandidateGuard
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -21,6 +22,13 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _MIMIR
+from fdai.core.operational_learning import (
+    CatalogCandidateCompiler,
+    CatalogCompilationError,
+    CatalogReviewPackage,
+    CatalogReviewPublicationReceipt,
+    CatalogReviewPublisher,
+)
 
 #: Cap on retained rejected-candidate records. Quarantine holds candidates the
 #: CandidateGuard REJECTED - i.e. attacker-controlled volume under a
@@ -28,6 +36,9 @@ from fdai.agents._framework.pantheon import _MIMIR
 #: DoS vector: a poisoning flood grows it without limit. The durable audit
 #: trail is Saga's chain; this in-memory list is a bounded diagnostic ring.
 _MAX_QUARANTINE = 5_000
+_MAX_PENDING_CANDIDATES = 5_000
+_MAX_CATALOG_REVIEW_PACKAGES = 5_000
+_OPERATIONAL_RULE_PREFIX = "learned.operational."
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,18 +52,31 @@ class RulePromotion:
 class Mimir(Agent):
     """Wave-2 Mimir: promotion state + candidate intake."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        catalog_candidate_compiler: CatalogCandidateCompiler | None = None,
+        catalog_review_publisher: CatalogReviewPublisher | None = None,
+    ) -> None:
         super().__init__(spec=_MIMIR)
         self._promotions: dict[str, RulePromotion] = {}
-        self._pending_candidates: list[dict[str, Any]] = []
+        self._pending_candidates: deque[dict[str, Any]] = deque(maxlen=_MAX_PENDING_CANDIDATES)
         self._quarantined_candidates: deque[dict[str, Any]] = deque(maxlen=_MAX_QUARANTINE)
         self._guard = CandidateGuard()
+        self._catalog_candidate_compiler = catalog_candidate_compiler
+        self._catalog_review_publisher = catalog_review_publisher
+        self._catalog_review_packages: BoundedLruDict[str, CatalogReviewPackage] = BoundedLruDict(
+            _MAX_CATALOG_REVIEW_PACKAGES
+        )
+        self._catalog_review_receipts: BoundedLruDict[str, CatalogReviewPublicationReceipt] = (
+            BoundedLruDict(_MAX_CATALOG_REVIEW_PACKAGES)
+        )
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.rule-candidate":
             verdict = self._guard.inspect(payload)
             if verdict.accepted:
-                self._pending_candidates.append(dict(payload))
+                await self._accept_candidate(payload)
             else:
                 # Quarantine (not drop): the rejected candidate is kept with
                 # its reason so the audit trail shows why the discovery loop
@@ -61,11 +85,50 @@ class Mimir(Agent):
                     {**dict(payload), "quarantine_reason": verdict.reason}
                 )
 
+    async def _accept_candidate(self, payload: dict[str, Any]) -> None:
+        candidate = dict(payload)
+        if candidate.get("source_signal") != "operational_case_fingerprint_cohort":
+            self._pending_candidates.append(candidate)
+            return
+        compiler = self._catalog_candidate_compiler
+        if compiler is None:
+            self._pending_candidates.append(candidate)
+            self.record_behavior("operational_catalog_compiler_unavailable")
+            return
+        try:
+            package = compiler.compile(candidate)
+        except CatalogCompilationError as exc:
+            self._quarantined_candidates.append(
+                {**candidate, "quarantine_reason": f"catalog_compile:{exc.code}"}
+            )
+            self.record_behavior("operational_catalog_compile_failed")
+            return
+        self._pending_candidates.append(candidate)
+        self._catalog_review_packages.set(package.content_digest, package)
+        publisher = self._catalog_review_publisher
+        if publisher is not None:
+            receipt = await publisher.publish(package)
+            if (
+                not isinstance(receipt, CatalogReviewPublicationReceipt)
+                or receipt.package_digest != package.content_digest
+            ):
+                raise ValueError("catalog review publication receipt digest conflict")
+            self._catalog_review_receipts.set(package.content_digest, receipt)
+        self.record_behavior("operational_catalog_review_ready")
+
     def pending_candidates(self) -> tuple[dict[str, Any], ...]:
         return tuple(self._pending_candidates)
 
     def quarantined_candidates(self) -> tuple[dict[str, Any], ...]:
         return tuple(self._quarantined_candidates)
+
+    def catalog_review_packages(self) -> tuple[CatalogReviewPackage, ...]:
+        return tuple(package for _, package in self._catalog_review_packages.items())
+
+    def catalog_review_publication_receipts(
+        self,
+    ) -> tuple[CatalogReviewPublicationReceipt, ...]:
+        return tuple(receipt for _, receipt in self._catalog_review_receipts.items())
 
     def promote(
         self,
@@ -74,13 +137,36 @@ class Mimir(Agent):
         source: str,
         updated_at: str | None = None,
     ) -> RulePromotion:
+        operational_targets = {
+            str(candidate.get("target_rule_id"))
+            for candidate in self._pending_candidates
+            if candidate.get("source_signal") == "operational_case_fingerprint_cohort"
+        }
+        draft_rule_ids = {
+            str(package.draft_rule.mapping["id"])
+            for _, package in self._catalog_review_packages.items()
+        }
+        if (
+            rule_id.startswith(_OPERATIONAL_RULE_PREFIX)
+            or rule_id in operational_targets
+            or rule_id in draft_rule_ids
+        ):
+            raise ValueError(
+                "operational candidates require a reviewed catalog PR; "
+                "direct runtime promotion is not supported"
+            )
         promo = RulePromotion(
             rule_id=rule_id, state="enforce", source=source, updated_at=updated_at
         )
         self._promotions[rule_id] = promo
-        self._pending_candidates = [
-            c for c in self._pending_candidates if c.get("target_rule_id") != rule_id
-        ]
+        self._pending_candidates = deque(
+            (
+                candidate
+                for candidate in self._pending_candidates
+                if candidate.get("target_rule_id") != rule_id
+            ),
+            maxlen=_MAX_PENDING_CANDIDATES,
+        )
         return promo
 
     def revoke(self, rule_id: str, *, updated_at: str | None = None) -> RulePromotion:
@@ -104,6 +190,8 @@ class Mimir(Agent):
             "tracked_rules_count": len(self._promotions),
             "pending_candidates": len(self._pending_candidates),
             "quarantined_candidates": len(self._quarantined_candidates),
+            "catalog_review_packages": len(self._catalog_review_packages),
+            "catalog_review_publication_receipts": len(self._catalog_review_receipts),
             "policy_history_available": False,
         }
         if "policy history" in question.casefold():

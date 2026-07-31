@@ -7,9 +7,7 @@ is the seam that lets the headless control plane
 :class:`~fdai.shared.providers.event_bus.EventBus` provider:
 
 - instantiate the 15 agents (:func:`fdai.agents._framework.factory.instantiate_pantheon`),
-- bind every publishing agent to a single
-  :class:`~fdai.agents._framework.bus_bridge.EventBusBridge` over the injected
-  provider,
+- bind every publishing agent to one injected ``EventBusBridge``,
 - register each agent's declared typed subscriptions
   (``AgentSpec.subscribes``) so a published ``object.<type>`` record
   fans out to every subscriber immediately (distinct Kafka consumer
@@ -40,6 +38,7 @@ from fdai.agents._framework import runtime_health
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
+from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, bind_catalog_review
 from fdai.agents._framework.conversation_tools import (
     AgentConversationToolRegistry,
     AgentToolResult,
@@ -151,6 +150,7 @@ class PantheonRuntime:
         case_history_materializer: CaseHistoryMaterializer | None = None,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
+        catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
         forecast_closer: ForecastClosureCoordinator | None = None,
@@ -231,6 +231,7 @@ class PantheonRuntime:
             handler_observer=handler_observer,
         )
         instantiated = instantiate_pantheon()
+        bind_catalog_review(instantiated, catalog_review)
         if conversation_embedding_model is not None or conversation_t2_synthesizer is not None:
             instantiated["Bragi"] = Bragi(
                 semantic_router=(

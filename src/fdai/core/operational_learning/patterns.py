@@ -192,9 +192,11 @@ class OperatingPatternCompiler:
         outcome_counts = tuple(sorted(Counter(case.outcome_class.value for case in cases).items()))
         material = {
             "action_type": cases[0].action_type,
+            "digest_evidence": digest_evidence,
             "failure_fingerprint": cases[0].failure_fingerprint,
             "immutable_case_refs": immutable_case_refs,
             "outcome_counts": outcome_counts,
+            "resource_type": cases[0].resource_type,
         }
         pattern_id = hashlib.sha256(
             json.dumps(material, separators=(",", ":"), sort_keys=True).encode()

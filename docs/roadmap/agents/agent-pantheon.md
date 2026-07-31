@@ -217,10 +217,10 @@ sources cover repeated fingerprints (`new`), high rollback rates (`threshold_adj
 overrides or approval rejections (`revision` / `retirement`), and optional scenario gaps
 (`new-scenario`). Every source passes the same consensus boundary.
 
-Every proposal records numeric evidence. Trajectory intake accepts only reviewed aggregates and
-creates no candidate by itself. Huginn carries strict operational-case events; Muninn seals them
-and publishes bounded failure-fingerprint cohorts. Norns requires one fingerprint and ActionType,
-balanced evidence, and immutable revisions before consensus emits an inert candidate; incomplete evidence stays held.
+Every proposal records numeric evidence. Trajectory intake accepts only reviewed aggregates and creates no candidate by itself.
+Huginn carries strict operational-case events; Muninn seals them and publishes bounded failure-fingerprint cohorts.
+Norns requires one fingerprint and ActionType, balanced evidence, and immutable revisions before consensus emits an inert candidate.
+Incomplete evidence stays held. Mimir optionally compiles a candidate into an immutable catalog review package and quarantines failed receipts. Mimir never promotes an operational candidate in process; a reviewed catalog PR and ordinary catalog reload remain the only activation path.
 
 ## 4. Agent catalog
 
