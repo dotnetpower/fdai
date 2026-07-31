@@ -134,7 +134,7 @@ function AssessmentDetail({ auth, client, assessment, onRefresh }: { readonly au
     return () => { cancelled = true; };
   }, [assessment?.assessment_id, client]);
   if (assessment === null || detail === null) return <p>{t("assurance.selectAssessment")}</p>;
-  return <section class="stack"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></section>;
+  return <section class="stack"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></section>;
 }
 
 function DetailBody({ auth, client, detail, onRefresh }: { readonly auth: AuthContext; readonly client: ReadApiClient; readonly detail: AssuranceDetailPayload; readonly onRefresh: () => Promise<void> }) {
