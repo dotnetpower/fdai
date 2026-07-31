@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 3cead739b642c7671b0ed4cc74fdc679f7783aa5
+translation_source_sha: 7870baf0f524d49f97685884551749c6f06ef980
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -192,6 +192,8 @@ append-only 이의 제기 이벤트이며 승인이나 직접 정책 편집이 �
 - 근거 참조는 최종 turn의 evidence manifest에 속해야 합니다.
 - 모델 독립성 부족, 잘못된 점수, 알 수 없는 기준 또는 지원되지 않는 근거는 `inconclusive`입니다.
 - 큐 또는 예산 소진은 `deferred`를 기록하고 제한된 정책에서 재시도합니다.
+- intake capacity 거부, delegate 거부 및 최종 평가 실패는 이미 저장된 답변을 변경하지 않고
+    structured warning을 기록합니다.
 - 저장소 실패 시 활성 정책을 변경하지 않습니다.
 - 다음 버전이 완전히 승격될 때까지 이전 immutable 정책을 유지합니다.
 

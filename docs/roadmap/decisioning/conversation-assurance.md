@@ -197,6 +197,8 @@ remains visible as unresolved without changing the quality label.
 - Missing model independence, malformed scores, unknown criteria, or unsupported evidence produce
   `inconclusive`.
 - Queue or budget exhaustion records `deferred` and retries within bounded policy.
+- Intake capacity rejection, delegate rejection, and terminal assessment failure emit structured
+   warnings without changing the already persisted answer.
 - Store failure leaves the active policy unchanged.
 - The previous immutable policy remains available until the next version is fully promoted.
 

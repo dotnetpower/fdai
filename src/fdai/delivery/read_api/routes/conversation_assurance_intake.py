@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,6 +20,8 @@ from fdai.delivery.read_api.routes.post_turn_review import (
     PostTurnReviewSubmitter,
 )
 from fdai.shared.providers.user_context import ConversationTurnRecord
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +69,14 @@ class ConversationAssurancePostTurnSubmitter:
             else True
         )
         if len(self._tasks) >= self._config.max_pending:
+            _LOG.warning(
+                "conversation_assurance_queue_full",
+                extra={
+                    "turn_id": assistant_turn.turn_id,
+                    "pending": len(self._tasks),
+                    "max_pending": self._config.max_pending,
+                },
+            )
             return False
         turn = _assessment_input(operator_turn, assistant_turn)
         task = asyncio.create_task(
@@ -74,6 +85,11 @@ class ConversationAssurancePostTurnSubmitter:
         )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
+        if not delegated:
+            _LOG.warning(
+                "post_turn_review_delegate_rejected",
+                extra={"turn_id": assistant_turn.turn_id},
+            )
         return delegated
 
     async def close(self) -> None:
@@ -84,7 +100,10 @@ class ConversationAssurancePostTurnSubmitter:
         try:
             await self._coordinator.assess(turn)
         except Exception:  # noqa: BLE001 - original answer is already durable
-            return
+            _LOG.exception(
+                "conversation_assurance_assessment_failed",
+                extra={"turn_id": turn.turn_id},
+            )
 
 
 def _assessment_input(

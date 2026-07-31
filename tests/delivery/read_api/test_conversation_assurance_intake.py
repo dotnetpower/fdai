@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
+from typing import cast
+
+import pytest
 
 from fdai.core.conversation_assurance import (
     ConversationAssuranceCoordinator,
@@ -11,6 +15,7 @@ from fdai.core.conversation_assurance import (
 from fdai.delivery.read_api.routes.chat_history import replay_metadata
 from fdai.delivery.read_api.routes.conversation_assurance_intake import (
     ConversationAssurancePostTurnSubmitter,
+    ConversationAssuranceQueueConfig,
 )
 from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewSubmission
 from fdai.shared.providers.user_context import ConversationTurnRecord, ConversationTurnRole
@@ -79,3 +84,50 @@ async def test_intake_assesses_completed_turn_off_path() -> None:
     assert len(records) == 1
     assert records[0].decision.verdict.value == "pass"
     assert json.loads(assistant.metadata["replay_payload"])["answer"] == assistant.content
+
+
+class _FailingCoordinator:
+    async def assess(self, _turn: object) -> None:
+        raise RuntimeError("ledger unavailable")
+
+
+async def test_intake_logs_assessment_failure_without_raising(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    submitter = ConversationAssurancePostTurnSubmitter(
+        coordinator=cast(ConversationAssuranceCoordinator, _FailingCoordinator())
+    )
+
+    with caplog.at_level(logging.WARNING):
+        assert submitter.submit_nowait(
+            operator_turn=_turn(ConversationTurnRole.OPERATOR, "What changed?"),
+            assistant_turn=_turn(ConversationTurnRole.ASSISTANT, "Unavailable."),
+            submission=PostTurnReviewSubmission((), ()),
+        )
+        await submitter.close()
+
+    assert "conversation_assurance_assessment_failed" in caplog.text
+
+
+async def test_intake_logs_capacity_rejection(caplog: pytest.LogCaptureFixture) -> None:
+    submitter = ConversationAssurancePostTurnSubmitter(
+        coordinator=cast(ConversationAssuranceCoordinator, _FailingCoordinator()),
+        config=ConversationAssuranceQueueConfig(max_pending=1),
+    )
+    operator = _turn(ConversationTurnRole.OPERATOR, "What changed?")
+    assistant = _turn(ConversationTurnRole.ASSISTANT, "Unavailable.")
+
+    with caplog.at_level(logging.WARNING):
+        assert submitter.submit_nowait(
+            operator_turn=operator,
+            assistant_turn=assistant,
+            submission=PostTurnReviewSubmission((), ()),
+        )
+        assert not submitter.submit_nowait(
+            operator_turn=operator,
+            assistant_turn=assistant,
+            submission=PostTurnReviewSubmission((), ()),
+        )
+        await submitter.close()
+
+    assert "conversation_assurance_queue_full" in caplog.text
