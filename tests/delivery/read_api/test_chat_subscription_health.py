@@ -359,8 +359,9 @@ def test_subscription_health_stream_emits_activity_and_milestones() -> None:
     assert body.count("event: milestone") == 2
     assert body.index("event: activity") < body.index("event: done")
     assert '"activity_id": "inventory"' in body
-    assert '"tool": "query_subscription_health"' in body
-    assert '"command": "query_subscription_health --scope <server-owned>"' in body
+    assert '"tool": "FDAI server read"' in body
+    assert '"input_kind": "query"' in body
+    assert '\\"operation\\": \\"query_subscription_health\\"' in body
     assert '"redacted": true' in body
     assert '"message_id": "subscription-inventory-completed"' in body
     assert backend.calls == 0

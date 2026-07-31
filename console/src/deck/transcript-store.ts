@@ -273,12 +273,14 @@ function validExecution(value: unknown): boolean {
     typeof record.command === "string" &&
     record.command.length > 0 &&
     record.command.length <= 16 * 1024 &&
+    (record.inputKind === undefined || ["command", "query"].includes(String(record.inputKind))) &&
     record.redacted === true &&
     (record.output === undefined ||
       (typeof record.output === "string" && record.output.length <= 64 * 1024)) &&
     (record.outputTruncated === undefined || typeof record.outputTruncated === "boolean") &&
     (record.exitCode === undefined ||
       (typeof record.exitCode === "number" && Number.isSafeInteger(record.exitCode))) &&
+    !(record.inputKind === "query" && record.exitCode !== undefined) &&
     (record.startedAt === undefined || boundedString(record.startedAt, 64)) &&
     (record.completedAt === undefined || boundedString(record.completedAt, 64)) &&
     (record.durationMs === undefined ||

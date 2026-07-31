@@ -114,6 +114,8 @@ function parseInvestigationExecution(raw: unknown): InvestigationActivity["execu
     record.command.length > MAX_EXECUTION_COMMAND_CHARS ||
     record.redacted !== true
   ) return undefined;
+  const inputKind = record.input_kind === undefined ? "command" : record.input_kind;
+  if (inputKind !== "command" && inputKind !== "query") return undefined;
   const output = typeof record.output === "string" &&
       record.output.length <= MAX_EXECUTION_OUTPUT_CHARS
     ? record.output
@@ -122,6 +124,7 @@ function parseInvestigationExecution(raw: unknown): InvestigationActivity["execu
       Number.isSafeInteger(record.exit_code)
     ? record.exit_code
     : undefined;
+  if (inputKind === "query" && exitCode !== undefined) return undefined;
   const durationMs = typeof record.duration_ms === "number" &&
       Number.isSafeInteger(record.duration_ms) &&
       record.duration_ms >= 0
@@ -130,6 +133,7 @@ function parseInvestigationExecution(raw: unknown): InvestigationActivity["execu
   return {
     tool: record.tool,
     command: record.command,
+    inputKind,
     redacted: true,
     ...(output !== undefined ? { output } : {}),
     ...(record.output_truncated === true ? { outputTruncated: true } : {}),

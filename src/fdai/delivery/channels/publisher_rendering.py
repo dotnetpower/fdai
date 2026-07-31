@@ -125,7 +125,7 @@ def activity_fallback(response: OutboundResponse) -> str:
         lines.extend(
             (
                 f"{activity.agent} - {activity.label} [{status}]",
-                f"Command: {activity.command}",
+                f"{'Query' if activity.input_kind == 'query' else 'Command'}: {activity.command}",
             )
         )
         if activity.output:
@@ -160,7 +160,8 @@ def slack_activity_blocks(response: OutboundResponse, answer: str) -> list[dict[
                 f"*{slack_escape(activity.tool)}*"
             )
         )
-        blocks.append(slack_plain_section("Command", activity.command, 2_800))
+        input_label = "Query" if activity.input_kind == "query" else "Command"
+        blocks.append(slack_plain_section(input_label, activity.command, 2_800))
         if activity.output:
             blocks.append(
                 slack_plain_section("Output", activity_output_text(activity, 2_800), 2_800)
@@ -306,6 +307,7 @@ def teams_activity_blocks(activity: ConversationActivity) -> list[dict[str, obje
     facts: list[dict[str, str]] = [
         {"title": "Status", "value": activity.status.value.capitalize()},
         {"title": "Tool", "value": activity.tool},
+        {"title": "Input", "value": activity.input_kind.capitalize()},
     ]
     if activity.authority:
         facts.append({"title": "Authority", "value": activity.authority})

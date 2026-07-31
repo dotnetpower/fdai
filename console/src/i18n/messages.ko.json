@@ -1979,6 +1979,8 @@
       "executionEvidence": "관찰된 실행 근거",
       "redacted": "민감한 값 정제됨",
       "copyCommand": "명령 복사",
+      "copyQuery": "쿼리 복사",
+      "queryResult": "쿼리 결과",
       "exitCode": "종료 코드 {code}",
       "outputLogs": "출력 로그",
       "truncated": "잘린 미리보기",

@@ -408,13 +408,16 @@ new App Role can take effect without a page reload.
 
 Command Deck investigation activity can include optional observed execution evidence. The server
 removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
-drops command evidence without that attestation. An accepted activity can show a bounded command,
-tool label, exit code, authority, and completion state. Output logs and timestamps stay collapsed by
-default. Intermediate progress detail and milestones use an opaque resource placeholder rather
-than the parsed resource name. The command is limited to 16 KiB and the output preview to 64 KiB;
+drops input evidence without that attestation. `input_kind=command` requires a recorded process
+invocation and may carry an exit code. `input_kind=query` carries the canonical typed server query,
+never a reconstructed provider command, and cannot carry an exit code. An accepted activity shows
+the matching `TOOL` or `QUERY` badge, tool label, authority, and completion state. Command output or
+query results and timestamps stay collapsed by default. Intermediate progress detail and milestones
+use an opaque resource placeholder rather than the parsed resource name. Input is limited to 16 KiB
+and the result preview to 64 KiB;
 truncation is explicit. Activity and retrieval labels are limited to 512 characters, detail and
 milestone text to 16 KiB, and contradictory completed/total progress is rejected.
-The browser can copy the displayed command but can't run or retry it. This evidence remains a
+The browser can copy the displayed command or query but can't run or retry it. This evidence remains a
 read-only observation of work performed by an authorized runtime, not proof that the console owns
 an executor identity or temporary permission.
 

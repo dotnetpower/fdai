@@ -425,53 +425,44 @@ def render_inventory_answer(
     return "\n".join(lines)
 
 
-def inventory_execution_command(evidence: Mapping[str, Any]) -> str:
-    """Return one safe, copyable Azure CLI equivalent for inventory evidence."""
+def inventory_execution_query(evidence: Mapping[str, Any]) -> str:
+    """Return the lossless typed query that actually selected inventory evidence."""
 
     result = evidence.get("result")
-    requested_types = result.get("requested_types") if isinstance(result, Mapping) else None
-    requested_type_set = (
-        {item for item in requested_types if isinstance(item, str)}
-        if isinstance(requested_types, list)
-        else set()
-    )
-    matched_type_counts = result.get("matched_type_counts") if isinstance(result, Mapping) else None
-    matched_type_set = (
-        {
-            item
-            for item, count in matched_type_counts.items()
-            if isinstance(item, str)
-            and isinstance(count, int)
-            and not isinstance(count, bool)
-            and count > 0
-        }
-        if isinstance(matched_type_counts, Mapping)
-        else set()
-    )
-    command_type_set = matched_type_set or requested_type_set
-    if isinstance(requested_types, list) and requested_types == ["resource-group"]:
-        return (
-            'az group list --query "[].{Name:name, Location:location, '
-            'ProvisioningState:properties.provisioningState, ManagedBy:managedBy}" '
-            "--output table"
-        )
-    if {"postgresql-server", "sql-database"}.issubset(command_type_set):
-        return (
-            "az graph query -q 'Resources | where type =~ "
-            '"microsoft.dbforpostgresql/flexibleservers" or type =~ '
-            '"microsoft.sql/servers/databases" | project name, type, '
-            "Status = coalesce(properties.state, properties.status, "
-            "properties.provisioningState), location, resourceGroup' --output table"
-        )
-    if command_type_set == {"postgresql-server"}:
-        return (
-            'az postgres flexible-server list --query "[].{Name:name, State:serverState, '
-            'Location:location, ResourceGroup:resourceGroup}" --output table'
-        )
-    return (
-        'az resource list --query "[].{Name:name, Type:type, Location:location, '
-        'ResourceGroup:resourceGroup}" --output table'
-    )
+    safe_result = result if isinstance(result, Mapping) else {}
+    raw_query = safe_result.get("query")
+    query: dict[str, object] | None = None
+    if isinstance(raw_query, Mapping):
+        try:
+            query = InventoryQuery.from_mapping(raw_query).to_dict()
+        except ValueError:
+            query = None
+    snapshot = {
+        key: value
+        for key, value in {
+            "source": _optional_text(safe_result.get("source")),
+            "at": _optional_text(safe_result.get("snapshot_at")),
+            "freshness": _optional_text(safe_result.get("freshness")),
+            "active_view": _optional_text(safe_result.get("active_view")),
+        }.items()
+        if value is not None
+    }
+    projection: dict[str, object] = {
+        "operation": "query_inventory",
+        "authority": str(evidence.get("authority") or "server_inventory_graph"),
+        "query": query,
+        "result": {
+            "status": str(safe_result.get("status") or "unavailable"),
+            "matched_count": _safe_nonnegative_int(safe_result.get("matched_count")),
+            "truncated": bool(safe_result.get("truncated")),
+        },
+        "snapshot": snapshot,
+    }
+    return json.dumps(projection, ensure_ascii=False, indent=2, sort_keys=True)
+
+
+def _safe_nonnegative_int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
 
 def _render_inventory_table_answer(
@@ -767,7 +758,7 @@ __all__ = [
     "InventoryActivityProvider",
     "KubernetesWorkloadProvider",
     "inventory_evidence_refs",
-    "inventory_execution_command",
+    "inventory_execution_query",
     "needs_inventory_evidence",
     "render_inventory_answer",
 ]

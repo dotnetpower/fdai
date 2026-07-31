@@ -107,12 +107,12 @@ flowchart TD
   remains the response owner.
   An agent-card Ask opens with a compact projected-state line list; its longer fixed context stays non-rendered for backend history, and the visible report streams in bounded two-word bursts.
   Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation keeps its session header and observed steps visible beside the final answer; only redacted command output and timestamps remain in disclosures. A source branch linked to an observed execution step is represented once on that step rather than repeated as a separate row. Full workspace reserves at least 760 px for the desktop transcript and uses the full mobile viewport without horizontal overflow. Phase markers, a 15 px conversation scale, and one dark command/code surface keep the production hierarchy aligned with the execution mock. The browser never replays work or invents progress.
-  Inventory execution rows label the public surface as an Azure CLI equivalent, not as the
-  provider command that was literally executed. The copyable read-only command uses the operator's
-  current authenticated scope and is derived from the resource types in matched evidence. A
-  PostgreSQL-only result uses `az postgres flexible-server list`; a broad database result uses an
-  Azure Resource Graph query that preserves both PostgreSQL and Azure SQL types. The internal
-  `query_inventory` verb remains server-owned and isn't presented as a shell command.
+  Observed activity distinguishes actual process commands from canonical server queries with a
+  required `input_kind` contract. Inventory, subscription-health, and read-investigation activity
+  uses `query`: it renders the verifier-accepted typed query, authority, snapshot provenance, and
+  bounded result summary without inventing Azure CLI argv or an exit code. Only a provider receipt
+  that records a process invocation uses `command`. Web labels these rows `QUERY`; Slack and Teams
+  use the same Query label, and durable replay preserves the distinction.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows
   the milestone as a compact progress note, opens only the current group, and restores completed
   groups in causal order. Slack and Teams edit the same cumulative redacted activity projection.
@@ -120,7 +120,7 @@ flowchart TD
   agent values must match; conflict is rejected before evidence retrieval. For model-backed answers, global read-only safety stays first and the selected immutable charter follows only on an exact `conversation_policy` match. A dedicated target session assigns that verified agent's voice across follow-up turns and renders self-role questions deterministically from content-addressed capability facts; ordinary screen delegation keeps Bragi as narrator.
   A policy mismatch or explicit handoff returns narration to Bragi, and the charter never becomes evidence, authority, or tool permission. The injected charter is composed for the turn: the immutable baseline plus the operator-locale layer when the answer locale is not English. Agent evidence also carries the layer manifest and digest of the prompt that governed the agent's own turn, so a spent escalation budget or evidence gap is stated as a constraint rather than left invisible.
   Bragi becomes the response owner only after that agent abstains and hands the turn back. Vendor adapters change presentation only. Slack uses plain-text activity
-  blocks for command and output bodies so markup characters cannot change the observed command,
+  blocks for query, command, and output bodies so markup characters cannot change the observed input,
   and preserves those blocks across posts, stream updates, and edits.
   Teams keeps the Adaptive Card under 24,000 bytes, counts omitted activities, and always retains
   the final accountable-agent answer. Renderers distinguish producer-side partial evidence with

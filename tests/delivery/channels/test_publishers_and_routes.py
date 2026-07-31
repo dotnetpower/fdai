@@ -87,8 +87,8 @@ def _activities() -> tuple[AgentHandoffActivity, ObservedExecutionActivity]:
             command="query_metric --metric <redacted> --window <redacted>",
             status=ConversationExecutionStatus.COMPLETED,
             redacted=True,
+            input_kind="query",
             output='{"point_count":2,"status":"completed"}',
-            exit_code=0,
             authority="server_read_model",
         ),
     )
@@ -245,13 +245,13 @@ async def test_slack_publisher_renders_agent_activity_blocks() -> None:
     text = str(captured["text"])
     blocks = captured["blocks"]
     assert "Bragi -> @Heimdall" in text
-    assert "Command: query_metric" in text
+    assert "Query: query_metric" in text
     assert isinstance(blocks, list)
     assert "*Bragi* -> *@Heimdall*" in str(blocks[0])
     assert "query_metric" in str(blocks[1])
     assert blocks[2]["text"] == {
         "type": "plain_text",
-        "text": "Command\nquery_metric --metric <redacted> --window <redacted>",
+        "text": "Query\nquery_metric --metric <redacted> --window <redacted>",
     }
     assert "point_count" in str(blocks[3])
 

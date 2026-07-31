@@ -120,7 +120,9 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('class="deck-investigation-elapsed muted"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('class="deck-investigation-phase"');
-    expect(component).toContain('class="deck-investigation-kind-badge is-tool"');
+    expect(component).toContain('"is-query" : "is-tool"');
+    expect(component).toContain('activity.execution.inputKind === "query" ? "QUERY" : "TOOL"');
+    expect(component).toContain('t("deck.investigation.copyQuery")');
     expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');

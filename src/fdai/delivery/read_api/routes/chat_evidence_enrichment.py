@@ -25,7 +25,7 @@ from fdai.delivery.read_api.routes.chat_evidence_branches import (
     EvidenceBranchStatus,
 )
 from fdai.delivery.read_api.routes.chat_inventory import (
-    inventory_execution_command,
+    inventory_execution_query,
     needs_inventory_evidence,
 )
 from fdai.delivery.read_api.routes.chat_prompt import (
@@ -487,11 +487,17 @@ def _tool_execution_progress_event(
     duration_ms: int,
 ) -> dict[str, object] | None:
     tool = evidence.get("tool")
-    commands = {
-        "query_subscription_health": "query_subscription_health --scope <server-owned>",
-        "query_t2_recovery": "query_t2_recovery --scope <server-owned>",
+    queries = {
+        "query_subscription_health": {
+            "operation": "query_subscription_health",
+            "scope": "server-owned",
+        },
+        "query_t2_recovery": {
+            "operation": "query_t2_recovery",
+            "scope": "server-owned",
+        },
     }
-    if not isinstance(tool, str) or (tool not in commands and tool != "query_inventory"):
+    if not isinstance(tool, str) or (tool not in queries and tool != "query_inventory"):
         return None
     result = evidence.get("result")
     if not isinstance(result, Mapping):
@@ -521,15 +527,16 @@ def _tool_execution_progress_event(
         "authority": str(evidence.get("authority") or "server_read_model"),
         "observed_at": completed_at.isoformat(),
         "execution": {
-            "tool": "Azure CLI equivalent" if tool == "query_inventory" else tool,
+            "tool": "FDAI inventory" if tool == "query_inventory" else "FDAI server read",
             "command": (
-                inventory_execution_command(evidence)
+                inventory_execution_query(evidence)
                 if tool == "query_inventory"
-                else commands[tool]
+                else json.dumps(queries[tool], indent=2, sort_keys=True)
             ),
+            "input_kind": "query",
             "redacted": True,
             "output": json.dumps(summary, sort_keys=True, separators=(",", ":")),
-            "exit_code": 0 if completed else None,
+            "exit_code": None,
             "started_at": started_at.isoformat(),
             "completed_at": completed_at.isoformat(),
             "duration_ms": duration_ms,

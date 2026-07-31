@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9b3432adf731d3edbfd08fe1f17c53989a8af37f
+translation_source_sha: 51d813f1f57e05c4e28032d563bb2f6a8d56fb35
 translation_revised: 2026-07-31
 ---
 # 코드 맵
@@ -130,7 +130,8 @@ Presentation intent는
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py)에서 typed contract로
 관리합니다. 명시적인 table 및 chart format은 `chat_verification.py`를 거쳐 deterministic
 inventory rendering에 전달됩니다. `chat_evidence_enrichment.py`는 내부 inventory read를
-operator activity row에서 복사 가능한 read-only Azure CLI equivalent로 매핑합니다.
+provider command를 만들지 않고 verifier가 승인한 typed query 및 snapshot provenance를
+channel-neutral query activity row로 projection합니다.
 
 ## 룰 카탈로그, 배포, 플랫폼
 

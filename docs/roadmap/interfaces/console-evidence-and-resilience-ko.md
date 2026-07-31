@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 70c9434205bdcda599e8b7401ccf4bf55b703151
+translation_source_sha: b74a76de46a9c81a67fe9cc8a63148bf632015be
 translation_revised: 2026-07-31
 ---
 
@@ -401,13 +401,15 @@ Agent stream의 `401`은 전체 화면 login recovery를 기다리고, `403`은 
 
 Command Deck 조사 activity에는 선택적인 observed execution evidence가 포함될 수 있습니다. Server는
 emit 전에 credential과 민감한 identifier를 제거하고 `redacted=true`를 설정하며, browser는 이 확인이
-없는 command evidence를 폐기합니다. 허용된 activity는 bounded command, tool label, exit code,
-authority 및 완료 상태를 표시할 수 있습니다. 출력 로그와 timestamp는 기본적으로 접힌 상태를
-유지합니다. Intermediate progress detail과 milestone은 parsed resource name 대신 opaque resource
-placeholder를 사용합니다. Command는 16 KiB, output preview는 64 KiB로 제한되며 잘림 여부를
+없는 input evidence를 폐기합니다. `input_kind=command`는 기록된 process invocation이 필요하며 exit
+code를 포함할 수 있습니다. `input_kind=query`는 canonical typed server query를 전달하고 reconstructed
+provider command를 만들지 않으며 exit code를 포함할 수 없습니다. 허용된 activity는 일치하는 `TOOL`
+또는 `QUERY` badge, tool label, authority 및 완료 상태를 표시합니다. Command output 또는 query result와
+timestamp는 기본적으로 접힌 상태를 유지합니다. Intermediate progress detail과 milestone은 parsed
+resource name 대신 opaque resource placeholder를 사용합니다. Input은 16 KiB, result preview는 64 KiB로 제한되며 잘림 여부를
 명시합니다. Activity 및 retrieval label은 512자, detail 및 milestone text는 16 KiB로 제한되며
 completed/total progress가 모순되면 거부합니다. Browser는
-표시된 command를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 evidence는 권한 있는
+표시된 command 또는 query를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 evidence는 권한 있는
 runtime이 수행한 work를 read-only로 관찰한 것이며, console이 executor identity 또는 임시 권한을
 보유한다는 증거가 아닙니다.
 

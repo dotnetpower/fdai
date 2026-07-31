@@ -6742,6 +6742,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-weight: 800;
   letter-spacing: 0.02em;
 }
+.deck-investigation-kind-badge.is-query {
+  background: color-mix(in oklab, var(--info, #2563a9) 16%, transparent);
+  color: var(--info, #2563a9);
+}
 .deck-investigation-state {
   position: relative;
   z-index: 1;

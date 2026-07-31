@@ -41,10 +41,36 @@ describe("parseResourceContext", () => {
 });
 
 describe("parseInvestigationActivity execution evidence", () => {
+  it("accepts server query evidence without presenting it as a shell command", () => {
+    const parsed = parseInvestigationActivity(activity({
+      tool: "FDAI inventory",
+      command: '{"query":{"source":"current"}}',
+      input_kind: "query",
+      redacted: true,
+    }));
+
+    expect(parsed?.execution).toMatchObject({
+      tool: "FDAI inventory",
+      inputKind: "query",
+    });
+  });
+
+  it("rejects unknown execution input kinds", () => {
+    const parsed = parseInvestigationActivity(activity({
+      tool: "FDAI inventory",
+      command: "query",
+      input_kind: "script",
+      redacted: true,
+    }));
+
+    expect(parsed?.execution).toBeUndefined();
+  });
+
   it("accepts bounded evidence attested as redacted", () => {
     const parsed = parseInvestigationActivity(activity({
       tool: "Azure CLI",
       command: "az monitor metrics list --resource <resource-id>",
+      input_kind: "command",
       redacted: true,
       output: "{\"value\": []}",
       output_truncated: true,
@@ -57,6 +83,7 @@ describe("parseInvestigationActivity execution evidence", () => {
     expect(parsed?.execution).toEqual({
       tool: "Azure CLI",
       command: "az monitor metrics list --resource <resource-id>",
+      inputKind: "command",
       redacted: true,
       output: "{\"value\": []}",
       outputTruncated: true,

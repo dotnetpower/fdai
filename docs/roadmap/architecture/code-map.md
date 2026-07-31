@@ -126,8 +126,8 @@ the same deterministic planning bypass and subscription-root provider scope.
 Presentation intent is typed in
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py). Explicit table and chart
 formats flow through `chat_verification.py` into deterministic inventory rendering, while
-`chat_evidence_enrichment.py` maps the internal inventory read to a copyable read-only Azure CLI
-equivalent for the operator activity row.
+`chat_evidence_enrichment.py` projects the verifier-accepted typed query and snapshot provenance
+into a channel-neutral query activity row without fabricating provider commands.
 
 ## Rule catalog, deploy, and platform
 

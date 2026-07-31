@@ -19,6 +19,7 @@ from fdai.delivery.read_api.routes.chat_behavior_evidence import (
 from fdai.delivery.read_api.routes.chat_inventory import (
     InventoryChatTools,
     inventory_evidence_refs,
+    inventory_execution_query,
     render_inventory_answer,
 )
 from fdai.delivery.read_api.routes.chat_inventory_followup import (
@@ -207,6 +208,41 @@ async def test_inventory_chart_format_emits_valid_chart_json() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "중지된 VM은?",
+        "resource group rg-data resources?",
+        "이름이 vm-job인 Azure 리소스를 찾아줘",
+        "resources in koreacentral?",
+    ),
+)
+async def test_inventory_execution_evidence_preserves_the_verified_query(prompt: str) -> None:
+    evidence = await _inventory_evidence(prompt)
+
+    projected = json.loads(inventory_execution_query(evidence))
+
+    assert projected["authority"] == "server_inventory_graph"
+    assert projected["query"] == evidence["result"]["query"]
+    assert projected["snapshot"]["source"] == "azure-resource-graph"
+    assert not inventory_execution_query(evidence).lstrip().startswith("az ")
+
+
+async def test_activity_execution_evidence_preserves_lookback_and_predicates() -> None:
+    evidence = await InventoryChatTools(
+        _provider,
+        activity_provider=_activity_provider,
+    ).resolve("최근 7일 변경된 Azure 리소스는?", principal_id="reader")
+    assert evidence is not None
+
+    projected = json.loads(inventory_execution_query(evidence))
+
+    assert projected["authority"] == "server_inventory_activity"
+    assert projected["query"]["source"] == "activity"
+    assert projected["query"]["lookback_seconds"] == 7 * 24 * 3_600
+    assert projected["query"]["predicates"] == evidence["result"]["query"]["predicates"]
+
+
 @dataclass(frozen=True, slots=True)
 class AzureQuestion:
     prompt: str
@@ -347,6 +383,29 @@ def test_twenty_azure_resource_questions_are_grounded_and_deterministic() -> Non
             assert "근거: azure-resource-graph" in answer
 
     assert backend.calls == 0
+
+
+async def test_twenty_inventory_questions_emit_lossless_typed_queries() -> None:
+    tools = InventoryChatTools(_provider)
+
+    for case in CASES:
+        evidence = await tools.resolve(case.prompt, principal_id="reader")
+        assert evidence is not None, case.prompt
+        result = evidence["result"]
+        projected = json.loads(inventory_execution_query(evidence))
+
+        assert projected["operation"] == "query_inventory", case.prompt
+        assert projected["authority"] == "server_inventory_graph", case.prompt
+        assert projected["query"] == result["query"], case.prompt
+        assert projected["result"]["status"] == result["status"], case.prompt
+        assert projected["result"]["matched_count"] == result["matched_count"], case.prompt
+        assert projected["snapshot"] == {
+            "active_view": "all-test-resources",
+            "at": "2026-07-20T10:00:00Z",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+        }, case.prompt
+        assert "az " not in inventory_execution_query(evidence), case.prompt
 
 
 @pytest.mark.parametrize(
@@ -843,15 +902,14 @@ def test_aks_workload_stream_overrides_semantic_web_plan() -> None:
 
 
 @pytest.mark.parametrize(
-    ("prompt", "command_prefix", "includes_sql"),
+    ("prompt", "includes_sql"),
     [
-        ("중지된 db 도 있어?", "az postgres flexible-server list --query", False),
-        ("DB 는 정상인가? 상태확인해봐", "az graph query -q", True),
+        ("중지된 db 도 있어?", False),
+        ("DB 는 정상인가? 상태확인해봐", True),
     ],
 )
 def test_stopped_db_stream_overrides_semantic_web_plan(
     prompt: str,
-    command_prefix: str,
     includes_sql: bool,
 ) -> None:
     class Planner:
@@ -907,14 +965,14 @@ def test_stopped_db_stream_overrides_semantic_web_plan(
     assert ("sql-app" in done["answer"]) is includes_sql
     assert "public_web" not in response.text
     assert '"branch_kind": "agent"' not in response.text
-    assert '"tool": "Azure CLI equivalent"' in response.text
-    assert f'"command": "{command_prefix}' in response.text
-    assert "az resource list --query" not in response.text
-    if includes_sql:
-        assert "microsoft.dbforpostgresql/flexibleservers" in response.text
-        assert "microsoft.sql/servers/databases" in response.text
-    else:
-        assert "State:serverState" in response.text
+    activity = _stream_event(response.text, "activity")
+    assert activity is not None
+    execution = activity["execution"]
+    assert execution["tool"] == "FDAI inventory"
+    assert execution["input_kind"] == "query"
+    projected = json.loads(execution["command"])
+    assert projected["query"]["source"] == "current"
+    assert not execution["command"].lstrip().startswith("az ")
     if includes_sql:
         assert "resource_context" not in done
     else:
@@ -1007,9 +1065,12 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     assert '"branch_kind": "agent"' not in response.text
     assert '"branch_kind": "public_web"' not in response.text
     assert "event: activity" in response.text
-    assert '"tool": "Azure CLI equivalent"' in response.text
-    assert '"command": "az postgres flexible-server list --query' in response.text
-    assert "State:serverState" in response.text
+    activity = _stream_event(response.text, "activity")
+    assert activity is not None
+    execution = activity["execution"]
+    assert execution["tool"] == "FDAI inventory"
+    assert execution["input_kind"] == "query"
+    assert json.loads(execution["command"])["query"]["source"] == "current"
     assert "query_inventory --scope" not in response.text
     assert '"redacted": true' in response.text
     activity = _stream_event(response.text, "activity")

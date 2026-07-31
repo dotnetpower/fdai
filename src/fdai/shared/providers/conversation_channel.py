@@ -108,6 +108,7 @@ class ObservedExecutionActivity:
     command: str
     status: ConversationExecutionStatus
     redacted: Literal[True]
+    input_kind: Literal["command", "query"] = "command"
     output: str = ""
     output_truncated: bool = False
     exit_code: int | None = None
@@ -121,6 +122,10 @@ class ObservedExecutionActivity:
         _safe_bounded("activity.label", self.label, MAX_ACTIVITY_LABEL_CHARS)
         _safe_bounded("activity.tool", self.tool, MAX_ACTIVITY_TOOL_CHARS)
         _safe_bounded("activity.command", self.command, MAX_ACTIVITY_COMMAND_CHARS)
+        if self.input_kind not in {"command", "query"}:
+            raise ValueError("activity.input_kind MUST be command or query")
+        if self.input_kind == "query" and self.exit_code is not None:
+            raise ValueError("query activity MUST NOT carry an exit_code")
         if self.redacted is not True:
             raise ValueError("ObservedExecutionActivity.redacted MUST be true")
         if self.output:
@@ -562,6 +567,7 @@ def _activity_to_json(activity: ConversationActivity) -> dict[str, Any]:
         "command": activity.command,
         "status": activity.status.value,
         "redacted": activity.redacted,
+        "input_kind": activity.input_kind,
         "output": activity.output,
         "output_truncated": activity.output_truncated,
         "exit_code": activity.exit_code,
@@ -591,6 +597,7 @@ def _activity_from_json(value: object) -> ConversationActivity:
         command=_required_json_text(value, "command"),
         status=ConversationExecutionStatus(_required_json_text(value, "status")),
         redacted=_required_json_true(value, "redacted"),
+        input_kind=_optional_json_input_kind(value),
         output=_optional_json_text(value, "output") or "",
         output_truncated=_optional_json_bool(value, "output_truncated"),
         exit_code=_optional_json_int(value, "exit_code"),
@@ -615,6 +622,15 @@ def _optional_json_text(value: Mapping[object, object], field_name: str) -> str 
     if not isinstance(raw, str):
         raise ValueError(f"stored conversation activity {field_name} MUST be a string")
     return raw
+
+
+def _optional_json_input_kind(
+    value: Mapping[object, object],
+) -> Literal["command", "query"]:
+    raw = value.get("input_kind", "command")
+    if raw not in {"command", "query"}:
+        raise ValueError("stored conversation activity input_kind is invalid")
+    return cast(Literal["command", "query"], raw)
 
 
 def _optional_json_bool(value: Mapping[object, object], field_name: str) -> bool:

@@ -186,11 +186,11 @@ describe("serializeTurns", () => {
           completed: 1,
           total: 1,
           execution: {
-            tool: "Azure CLI",
-            command: "az resource show --ids <resource-id>",
+            tool: "FDAI inventory",
+            command: '{"query":{"source":"current"}}',
+            inputKind: "query" as const,
             redacted: true as const,
             output: "{\"status\": \"available\"}",
-            exitCode: 0,
             durationMs: 250,
           },
         },
@@ -202,7 +202,8 @@ describe("serializeTurns", () => {
     expect(parsed[0]?.kind).toBe("activity");
     expect(parsed[0]?.branches?.[0]?.status).toBe("completed");
     expect(parsed[0]?.activities?.[0]?.activityId).toBe("scope");
-    expect(parsed[0]?.activities?.[0]?.execution?.command).toContain("az resource show");
+    expect(parsed[0]?.activities?.[0]?.execution?.command).toContain('"source":"current"');
+    expect(parsed[0]?.activities?.[0]?.execution?.inputKind).toBe("query");
     expect(parsed[0]?.activities?.[0]?.execution?.output).toContain("available");
   });
 

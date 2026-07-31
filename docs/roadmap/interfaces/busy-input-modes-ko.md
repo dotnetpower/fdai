@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: e1798d6c89f240122d0b0c0206275d9ec1ae3681
+translation_source_sha: a19d82dc71453dd6aed590a90d6f03a23edf12c9
 translation_revised: 2026-07-31
 ---
 
@@ -149,9 +149,9 @@ narrator generation을 생략하며 deterministic verification이 반환한 mask
 Deterministic local inventory intent는 semantic plan이 public web을 선택했더라도 rerun에서 local로
 유지합니다. 여기에는 `중지된 db` 같은 구어체 database state filter도 포함되며 server-owned
 inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 않습니다. 명시적인 web-search
-표현만 예외입니다. 복사 가능한 Azure CLI equivalent는 matched inventory evidence에 실제로 포함된
-resource type에서 생성되므로 PostgreSQL-only answer에 broad resource-list command를 표시하거나 broad
-database answer에서 Azure SQL을 누락하지 않습니다. 명시적인 subscription-scoped inventory 질문은 새로운 server-owned cross-screen
+표현만 예외입니다. Observed activity는 verifier가 승인한 전체 inventory query를 rerun과 durable
+replay에서 유지합니다. Query로 표시하며 provider-specific command text로 재구성하지 않습니다.
+명시적인 subscription-scoped inventory 질문은 새로운 server-owned cross-screen
 read이므로 관련 없는 current-screen fact가 이를 대체하거나 차단할 수 없습니다. Status facet은 선택된
 resource type 범위에 유지되므로 AKS 질문이 VM status를
 가져오거나 요청한 state가 관측되지 않았을 때 조용히 넓어지지 않습니다. 명시적인 name-list 표현은

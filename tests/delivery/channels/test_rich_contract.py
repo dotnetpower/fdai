@@ -79,8 +79,8 @@ def test_agent_activity_round_trips_through_durable_response() -> None:
                 command="query_metric --metric Requests --window PT5M",
                 status=ConversationExecutionStatus.COMPLETED,
                 redacted=True,
+                input_kind="query",
                 output='{"point_count": 2, "status": "completed"}',
-                exit_code=0,
                 duration_ms=42,
                 authority="server_read_model",
             ),
@@ -90,6 +90,8 @@ def test_agent_activity_round_trips_through_durable_response() -> None:
     restored = outbound_response_from_json(outbound_response_to_json(response))
 
     assert restored.activities == response.activities
+    assert isinstance(restored.activities[1], ObservedExecutionActivity)
+    assert restored.activities[1].input_kind == "query"
     assert restored.progress_presentation is ConversationProgressPresentation.TIMELINE
 
 

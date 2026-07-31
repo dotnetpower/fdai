@@ -153,6 +153,12 @@ function ExecutionEvidence({
   const copyCommand = () => {
     void navigator.clipboard?.writeText(evidence.command).then(showCopied, () => undefined);
   };
+  const copyLabel = evidence.inputKind === "query"
+    ? t("deck.investigation.copyQuery")
+    : t("deck.investigation.copyCommand");
+  const outputLabel = evidence.inputKind === "query"
+    ? t("deck.investigation.queryResult")
+    : t("deck.investigation.outputLogs");
   const hasTimestamps = evidence.startedAt || evidence.completedAt || evidence.durationMs !== undefined;
   return (
     <section class="deck-investigation-execution" aria-label={t("deck.investigation.executionEvidence")}>
@@ -160,12 +166,12 @@ function ExecutionEvidence({
         {agent ? <><strong>{agent}</strong><span aria-hidden="true">-</span></> : null}
         <span>{evidence.tool}</span>
         <span class="deck-investigation-redacted">{t("deck.investigation.redacted")}</span>
-        <Tooltip content={copied ? t("deck.tooltip.copied") : t("deck.investigation.copyCommand")}>
+        <Tooltip content={copied ? t("deck.tooltip.copied") : copyLabel}>
           <button
             type="button"
             class="deck-investigation-copy-command"
             onClick={copyCommand}
-            aria-label={t("deck.investigation.copyCommand")}
+            aria-label={copyLabel}
           >
             <CopyIcon copied={copied} />
           </button>
@@ -184,7 +190,7 @@ function ExecutionEvidence({
       {evidence.output !== undefined ? (
         <details class="deck-investigation-disclosure">
           <summary>
-            <span>{t("deck.investigation.outputLogs")}</span>
+            <span>{outputLabel}</span>
             {evidence.outputTruncated ? (
               <span class="muted">{t("deck.investigation.truncated")}</span>
             ) : null}
@@ -279,8 +285,11 @@ export function InvestigationTimeline({
                       {statusMark(activity.status)}
                     </span>
                     {activity.execution ? (
-                      <span class="deck-investigation-kind-badge is-tool" aria-hidden="true">
-                        TOOL
+                      <span
+                        class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
+                        aria-hidden="true"
+                      >
+                        {activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
                       </span>
                     ) : null}
                     <span class="deck-investigation-copy">

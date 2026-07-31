@@ -1979,6 +1979,8 @@
       "executionEvidence": "Observed execution evidence",
       "redacted": "Sensitive values redacted",
       "copyCommand": "Copy command",
+      "copyQuery": "Copy query",
+      "queryResult": "Query result",
       "exitCode": "Exit code {code}",
       "outputLogs": "Output logs",
       "truncated": "Truncated preview",

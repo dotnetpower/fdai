@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: ebf5d29947225b052024c1f13dbe4877d413faab
+translation_source_sha: a146070ac02fe34207961d449297bfaceb420acf
 translation_revised: 2026-07-31
 ---
 
@@ -106,18 +106,18 @@ flowchart TD
   됩니다.
   Agent card의 Ask는 compact projected-state line list로 시작합니다. 더 긴 고정 context는 backend history용으로 화면에 표시하지 않으며 visible report는 bounded 2단어 burst로 stream합니다.
   Web Investigation은 수신한 branch frame만 elapsed time, typed badge 및 staggered status row로 animate합니다. Terminal investigation은 final answer 옆에 session header와 observed step을 계속 표시하며 redacted command output과 timestamp만 disclosure에 접어 둡니다. Observed execution step과 연결된 source branch는 별도 row로 반복하지 않고 해당 step에 한 번만 표시합니다. Full workspace는 desktop transcript에 최소 760 px을 확보하고 mobile viewport에서는 horizontal overflow 없이 전체 폭을 사용합니다. Phase marker, 15 px conversation scale, 하나의 dark command/code surface로 production hierarchy를 execution mock과 맞춥니다. Browser는 작업을 replay하거나 progress를 invent하지 않습니다.
-  Inventory execution row는 공개 실행 표면을 provider가 실제 실행한 command가 아니라 Azure CLI
-  equivalent로 표시합니다. 복사 가능한 read-only command는 operator의 현재 인증 scope를 사용하고
-  matched evidence의 resource type에서 결정론적으로 생성됩니다. PostgreSQL-only 결과는
-  `az postgres flexible-server list`를 사용하고 broad database 결과는 PostgreSQL 및 Azure SQL type을
-  모두 유지하는 Azure Resource Graph query를 사용합니다. 내부 `query_inventory` verb는 server-owned
-  상태로 유지하며 shell command로 표시하지 않습니다.
+  Observed activity는 required `input_kind` contract로 실제 process command와 canonical server query를
+  구분합니다. Inventory, subscription-health 및 read-investigation activity는 `query`를 사용합니다.
+  Verifier가 승인한 typed query, authority, snapshot provenance 및 bounded result summary를 렌더링하며
+  Azure CLI argv 또는 exit code를 만들지 않습니다. Process invocation을 기록한 provider receipt만
+  `command`를 사용합니다. Web은 해당 row를 `QUERY`로 표시하고 Slack 및 Teams도 같은 Query label을
+  사용하며 durable replay가 이 구분을 보존합니다.
   Narrator milestone은 다음 group이 시작되기 전에 앞선 activity group을 settled 상태로 바꿉니다.
   Web은 milestone을 compact progress note로 표시하고 현재 group만 펼치며 completed group을 causal
   order로 복원합니다. Slack과 Teams는 같은 cumulative redacted activity projection을 수정합니다.
   일반 agent target과 incident binding의 agent 값은 일치해야 하며 conflict는 evidence retrieval 전에 차단됩니다. Model-backed answer는 global read-only safety를 먼저 유지하고 exact `conversation_policy` match에서만 selected immutable charter를 추가합니다. Dedicated target session은 follow-up turn 전반에서 검증된 agent voice를 사용하고 self-role 질문은 content-addressed capability fact에서 결정론적으로 렌더링하며, 일반 screen delegation은 Bragi narrator를 유지합니다.
   Policy mismatch 또는 명시적 handoff는 narration을 Bragi로 돌려보내며 charter는 evidence, authority 또는 tool permission이 되지 않습니다. 주입되는 charter는 해당 turn용 immutable baseline과 operator-locale layer로 조립됩니다. Agent evidence는 해당 agent turn의 prompt layer manifest와 digest도 제공하므로 소진된 escalation 예산이나 evidence gap이 constraint로 명시됩니다.
-  Vendor adapter는 presentation만 변경합니다. Slack은 command 및 output body에 plain-text activity block을 사용하여 markup character가 observed command를 바꾸지 못하게 하며,
+  Vendor adapter는 presentation만 변경합니다. Slack은 query, command 및 output body에 plain-text activity block을 사용하여 markup character가 observed input을 바꾸지 못하게 하며,
   post, stream update 및 edit에서 해당 block을 보존합니다.
   Teams는 Adaptive Card를 24,000 byte 이하로 유지하고 생략된 activity 수를 표시하며 최종 책임 agent
   answer를 항상 보존합니다. Renderer는 producer-side partial evidence를

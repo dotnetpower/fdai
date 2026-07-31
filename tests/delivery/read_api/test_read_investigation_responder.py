@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
@@ -236,15 +237,19 @@ async def test_chat_delegate_streams_activities_and_milestones() -> None:
     assert events[2]["activity_id"] == "resource"
     assert events[4]["activity_id"] == "state"
     assert events[-1]["activity_id"] == "read-execution"
+    assert events[-1]["execution"]["input_kind"] == "query"
+    assert events[-1]["execution"]["tool"] == "FDAI read investigation"
+    assert not events[-1]["execution"]["command"].startswith("read_investigation ")
     assert events[-1]["agent"] == "Heimdall"
     execution = events[-1]["execution"]
-    assert execution["tool"] == "read_investigation"
-    assert execution["command"] == (
-        "read_investigation --intent resource_state --resource <redacted>"
-    )
+    assert json.loads(execution["command"]) == {
+        "intent": "resource_state",
+        "operation": "read_investigation",
+        "resource": "<redacted>",
+    }
     assert execution["redacted"] is True
     assert execution["output"] == '{"evidence_ref_count":1,"status":"matched"}'
-    assert execution["exit_code"] == 0
+    assert execution["exit_code"] is None
 
 
 async def test_chat_delegate_hands_multi_source_work_off_before_cloud_io() -> None:

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 3829f5d56067af44133976bf4e61e0d38ee51a26
+translation_source_sha: a748c720112d2f94ea693de38fbd7e64a9269ed9
 translation_revised: 2026-07-31
 ---
 
@@ -308,7 +308,8 @@ investigation.completed
 
 첫 provider read 전에 Bragi는 Heimdall로의 visible handoff를 보냅니다. Terminal evidence가 normalize된
 후 optional observed-execution activity는 resource 및 query value를 정제한 canonical FDAI read
-operation과 안전한 status/count summary를 표시합니다. Raw CLI argv, raw Azure payload, credential,
+operation을 `input_kind=query`로 표시하고 안전한 status/count summary를 제공합니다. Shell exit
+code는 포함하지 않습니다. Raw CLI argv, raw Azure payload, credential,
 subscription id, resource id 또는 provider error는 노출하지 않습니다. Web, Slack 및 Teams는 같은
 ordered handoff와 execution evidence를 렌더링하고 Bragi가 최종 답변을 렌더링합니다. Progress
 detail과 milestone text는 opaque resource placeholder를 사용하며, authorized terminal answer만

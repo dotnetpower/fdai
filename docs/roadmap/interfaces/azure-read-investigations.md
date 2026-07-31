@@ -312,7 +312,8 @@ investigation.completed
 
 Before the first provider read, Bragi emits a visible handoff to Heimdall. After terminal evidence
 is normalized, an optional observed-execution activity shows the canonical FDAI read operation,
-with resource and query values redacted, plus a safe status/count summary. It never exposes raw
+with `input_kind=query`, redacted resource and query values, and a safe status/count summary. It
+does not carry a shell exit code. It never exposes raw
 CLI argv, raw Azure payloads, credentials, subscription ids, resource ids, or provider errors.
 Web, Slack, and Teams render the same ordered handoff and execution evidence; Bragi renders the
 final answer. Progress detail and milestone text use an opaque resource placeholder; only the

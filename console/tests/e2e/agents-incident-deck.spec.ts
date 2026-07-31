@@ -128,12 +128,17 @@ async function installReadApiFixture(
           total: 1,
           authority: "server_inventory_graph",
           execution: {
-            tool: "query_inventory",
-            command: "query_inventory --scope <server-owned> --query <redacted>",
+            tool: "FDAI inventory",
+            command: JSON.stringify({
+              operation: "query_inventory",
+              authority: "server_inventory_graph",
+              query: { source: "current", kind: "list", predicates: [] },
+            }, null, 2),
+            input_kind: "query",
             redacted: true,
             output: "7 resource groups",
             output_truncated: false,
-            exit_code: 0,
+            exit_code: null,
             started_at: "2026-07-22T00:01:00Z",
             completed_at: "2026-07-22T00:01:00.008Z",
             duration_ms: 8,
@@ -227,7 +232,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-phase")).toHaveText("01");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
-  await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("TOOL");
+  await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");
 
   const metrics = await workspace.evaluate((root) => {
     const transcript = root.querySelector<HTMLElement>(".deck-transcript");
@@ -288,7 +293,7 @@ test("pins a Var incident through the deck and renders a grounded Bragi answer",
   await expect(deck.getByText(/no grounded root cause with citations is recorded/i)).toBeVisible();
   await expect(deck.getByText(/Var: hil\.requested/)).toBeVisible();
   await expect(deck.getByText(/Forseti: risk_gate\.decided/)).toBeVisible();
-  await expect(deck.getByText("Corrected", { exact: true })).toBeVisible();
+  await expect(deck.getByRole("status").filter({ hasText: /^Corrected$/ })).toBeVisible();
   await expect(deck.getByText(/Choose one to verify/i)).toHaveCount(0);
 
   await expect.poll(() => fixture.chatBody()).not.toBeNull();

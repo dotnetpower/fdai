@@ -165,6 +165,7 @@ export type InvestigationActivityStatus =
 export interface InvestigationExecutionEvidence {
   readonly tool: string;
   readonly command: string;
+  readonly inputKind?: "command" | "query";
   readonly redacted: true;
   readonly output?: string;
   readonly outputTruncated?: boolean;
