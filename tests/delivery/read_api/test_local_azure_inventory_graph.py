@@ -663,7 +663,37 @@ def test_service_state_projection_version_forces_new_snapshot(tmp_path: Path) ->
     assert len(graph["resources"]) == 3
 
 
-def test_v8_cache_migrates_nested_aks_power_state_without_blocking_refresh(
+def test_resource_type_projection_version_forces_new_snapshot(tmp_path: Path) -> None:
+    cache_path, identity = inventory_cache_path(
+        repo_root=tmp_path,
+        subscription_id="subscription-example",
+        azure_config_dir=None,
+    )
+    asyncio.run(
+        AzureCliInventoryGraphProvider(
+            inventory=_Inventory(),
+            cache_path=cache_path,
+            cache_identity=identity,
+        )(None, 4, ("contains",))
+    )
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    payload["version"] = 9
+    cache_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    inventory = _Inventory()
+    provider = AzureCliInventoryGraphProvider(
+        inventory=inventory,
+        cache_path=cache_path,
+        cache_identity=identity,
+    )
+
+    graph = asyncio.run(provider(None, 4, ("contains",)))
+
+    assert inventory.calls == 1
+    assert len(graph["resources"]) == 3
+
+
+def test_v8_cache_forces_refresh_after_projection_changes(
     tmp_path: Path,
 ) -> None:
     cache_path, identity = inventory_cache_path(
@@ -697,7 +727,7 @@ def test_v8_cache_migrates_nested_aks_power_state_without_blocking_refresh(
 
     migrated = next(item for item in graph["resources"] if item["type"] == "kubernetes-cluster")
     assert migrated["status"] == "Stopped"
-    assert inventory.calls == 0
+    assert inventory.calls == 1
 
 
 def test_cache_limit_change_forces_new_snapshot(tmp_path: Path) -> None:

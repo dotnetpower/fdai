@@ -18,7 +18,6 @@ from time import monotonic
 from typing import Any, Final, TypeGuard
 
 from fdai.core.views.architecture_graph import project_architecture_graph
-from fdai.delivery.azure.arg_projection import resource_operational_status
 from fdai.delivery.inventory_cache_invalidation import (
     inventory_cache_path,
     inventory_invalidation_path,
@@ -30,7 +29,7 @@ from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecor
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 9
+_CACHE_VERSION: Final[int] = 10
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 _ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
@@ -297,15 +296,13 @@ def _read_cache_file(
         payload = json.loads(encoded)
         if (
             not isinstance(payload, dict)
-            or payload.get("version") not in {_CACHE_VERSION, 8}
+            or payload.get("version") != _CACHE_VERSION
             or payload.get("identity") != identity
             or payload.get("max_resources") != max_resources
             or not isinstance(payload.get("graph"), dict)
         ):
             return None
         graph = payload["graph"]
-        if payload.get("version") == 8:
-            graph = _migrate_v8_graph(graph)
         if not _valid_cached_graph(graph, max_resources):
             return None
         cached_at = datetime.fromisoformat(str(payload.get("cached_at")))
@@ -320,27 +317,6 @@ def _read_cache_file(
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-
-
-def _migrate_v8_graph(graph: dict[str, Any]) -> dict[str, Any]:
-    resources = graph.get("resources")
-    if not isinstance(resources, list):
-        return graph
-    migrated: list[object] = []
-    for item in resources:
-        if not isinstance(item, dict):
-            migrated.append(item)
-            continue
-        resource = dict(item)
-        if (
-            resource.get("type") == "kubernetes-cluster"
-            and str(resource.get("status") or "").casefold() == "unknown"
-        ):
-            props = resource.get("props")
-            if isinstance(props, Mapping) and (status := resource_operational_status(props)):
-                resource["status"] = status
-        migrated.append(resource)
-    return {**graph, "resources": migrated}
 
 
 def _write_cache_file(
