@@ -123,6 +123,40 @@
       ]
     },
     {
+      "id": "causal-recovery-and-chaos",
+      "paths": [
+        "docs/roadmap/rules-and-detection/causal-incident-graph*.md",
+        "docs/roadmap/decisioning/recovery-and-chaos-enforcement*.md",
+        "src/fdai/core/rca/**",
+        "src/fdai/core/chaos/**",
+        "src/fdai/core/recovery/**",
+        "src/fdai/core/impact/**",
+        "rule-catalog/vocabulary/object-types/CausalHypothesis.yaml",
+        "rule-catalog/vocabulary/object-types/ImpactEnvelope.yaml",
+        "rule-catalog/vocabulary/object-types/RecoveryPlan.yaml"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/rules-and-detection/observability-and-detection.md",
+        "docs/roadmap/rules-and-detection/causal-incident-graph.md",
+        "docs/roadmap/decisioning/action-ontology.md",
+        "docs/roadmap/decisioning/process-automation.md",
+        "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/causal-incident-graph.md",
+        "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/rca tests/core/chaos tests/core/workflow",
+        "python3 scripts/quality/architecture/check-document-size.py"
+      ]
+    },
+    {
       "id": "outcome-assurance",
       "paths": [
         "docs/roadmap/architecture/outcome-assurance*.md",

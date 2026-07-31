@@ -69,6 +69,7 @@ Read the reference docs first, then the phases in order.
 | 10 | [observability-and-detection.md](rules-and-detection/observability-and-detection.md) | event correlation, anomaly detection, forecasting, root-cause analysis |
 | 10a | [manual-distillation.md](rules-and-detection/manual-distillation.md) | compiling an adopting company's operational / deployment manuals into deterministic rules / workflows / policies (vs runtime RAG), and verifying the distillation |
 | 10b | [operational-learning-ontology.md](rules-and-detection/operational-learning-ontology.md) | converting benchmark and live incident outcomes into immutable cases, deterministic failure fingerprints, governed rule candidates, and reusable promoted operating patterns |
+| 10c | [causal-incident-graph.md](rules-and-detection/causal-incident-graph.md) | ontology-grounded causal hypotheses, support and refutation evidence, evidence grades, and outcome closure |
 | 11 | [deploy-and-onboard.md](deployment/deploy-and-onboard.md) | concrete Azure resource inventory, bootstrap sequence, fork vs core split |
 | 11a | [deployment-resource-conventions.md](deployment/deployment-resource-conventions.md) | deterministic CAF resource names, ownership tags, and deployment-supplied tag rules |
 | 11b | [hyperscale-cell-architecture.md](architecture/hyperscale-cell-architecture.md) | scale-out blueprint for 300 subscriptions: cell-based streaming, policy-driven fan-in, two-plane logging, CQRS audit indexing over ADX, cost envelope, standard/sovereign profiles, Container Apps default (AKS deferred) |
@@ -107,6 +108,7 @@ Read the reference docs first, then the phases in order.
 | 19i | [benchmark-adapters.md](interfaces/benchmark-adapters.md) | brand-neutral external harness contracts, installed-plugin injection, provider binding, bounded lifecycle, and benchmark authority boundaries |
 | 20 | [action-ontology.md](decisioning/action-ontology.md) | ActionType schema (remediation + ops + governance), trigger axis, tier / role / prod / live-probe ceilings, fork override seams |
 | 21 | [execution-model.md](decisioning/execution-model.md) | Unified RiskGate, six-axis authority matrix, three executor paths (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit block |
+| 21a | [recovery-and-chaos-enforcement.md](decisioning/recovery-and-chaos-enforcement.md) | ontology-driven recovery plans, impact envelopes, pre-authorized rollback, and impact-gated chaos enforcement |
 
 ### Agent organization
 

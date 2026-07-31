@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 058f311e1a20f1f4926e1b62294b79a50a6f71b5
+translation_source_sha: 4a36e3b2fb24442f102be8c153388db6cb17ff35
 translation_revised: 2026-07-31
 ---
 
@@ -67,6 +67,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 10 | [observability-and-detection-ko.md](rules-and-detection/observability-and-detection-ko.md) | 이벤트 상관, 이상 탐지, 예측, 근본 원인 분석 |
 | 10a | [manual-distillation-ko.md](rules-and-detection/manual-distillation-ko.md) | 도입 회사의 운영 / 배포 매뉴얼을 결정론적 규칙 / 워크플로우 / 정책으로 컴파일(런타임 RAG 대비)하고 증류를 검증 |
 | 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | Benchmark 및 live incident 결과를 immutable case, deterministic failure fingerprint, governed rule candidate, 재사용 가능한 promoted operating pattern으로 전환 |
+| 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | Ontology 기반 causal hypothesis, support/refutation evidence, evidence grade, outcome closure |
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, fork vs core 분리 |
 | 11a | [deployment-resource-conventions-ko.md](deployment/deployment-resource-conventions-ko.md) | 결정론적 CAF 리소스 이름, 소유권 태그, 배포 공급 태그 규칙 |
 | 11b | [hyperscale-cell-architecture-ko.md](architecture/hyperscale-cell-architecture-ko.md) | 구독 300개용 scale-out 청사진: 셀 기반 스트리밍, 정책-기반 fan-in, 2-평면 로깅, ADX 위의 CQRS 감사 인덱싱, 비용 엔벨로프, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
@@ -105,6 +106,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 19i | [benchmark-adapters-ko.md](interfaces/benchmark-adapters-ko.md) | 브랜드 중립 external harness contract, installed-plugin injection, provider binding, bounded lifecycle 및 benchmark authority 경계 |
 | 20 | [action-ontology-ko.md](decisioning/action-ontology-ko.md) | ActionType 스키마 (remediation + ops + governance), trigger 축, tier / role / prod / live-probe 상한, fork override seam |
 | 21 | [execution-model-ko.md](decisioning/execution-model-ko.md) | 통합 RiskGate, 6-axis authority 매트릭스, 3개 executor 경로 (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit 블록 |
+| 21a | [recovery-and-chaos-enforcement-ko.md](decisioning/recovery-and-chaos-enforcement-ko.md) | Ontology 기반 recovery plan, impact envelope, pre-authorized rollback, impact-gated chaos enforcement |
 
 ### 에이전트 조직
 

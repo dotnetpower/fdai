@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d85664debe838123f04a2b21122a33b5e9c604d2
+translation_source_sha: 1d585ee8a0f22ce5137f9206adb02811c18a2206
 translation_revised: 2026-07-31
 ---
 # 코드 맵
@@ -56,14 +56,14 @@ shared 패키지를 커버한다.
 |-----------|------|------|--------|
 | detection | Anomaly와 operational-insight producer, 변경 불가능한 positive/negative/abstained forecast episode, event-time closure 및 publication outbox | [src/fdai/core/detection/](../../../src/fdai/core/detection/), [src/fdai/runtime/forecast_learning.py](../../../src/fdai/runtime/forecast_learning.py), [src/fdai/delivery/persistence/postgres_forecast_episode.py](../../../src/fdai/delivery/persistence/postgres_forecast_episode.py) | [tests/core/detection/](../../../tests/core/detection/), [tests/runtime/test_forecast_learning.py](../../../tests/runtime/test_forecast_learning.py), [tests/persistence/test_postgres_forecast_episode.py](../../../tests/persistence/test_postgres_forecast_episode.py) |
 | case_history | Canonical case revision, StateStore-to-PostgreSQL shadow migration, 전체 chain backfill, retention, governed Norns 분석, 계획된 operational-case learning projection ([case-history 설계](../rules-and-detection/prediction-learning-and-case-history-ko.md), [operational-learning 설계](../rules-and-detection/operational-learning-ontology-ko.md)) | [src/fdai/core/case_history/](../../../src/fdai/core/case_history/), [src/fdai/shared/providers/case_history.py](../../../src/fdai/shared/providers/case_history.py), [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) | [tests/core/case_history/](../../../tests/core/case_history/), [tests/persistence/test_case_history_backfill.py](../../../tests/persistence/test_case_history_backfill.py), [tests/persistence/test_postgres_case_history.py](../../../tests/persistence/test_postgres_case_history.py), [tests/agents/test_forecast_learning_chain.py](../../../tests/agents/test_forecast_learning_chain.py) |
-| rca | 근본원인 분석과 predictive precedence까지만 허용하는 leakage-safe lag correlation evidence | [src/fdai/core/rca/](../../../src/fdai/core/rca/) | [tests/core/rca/](../../../tests/core/rca/) |
+| rca | 근본원인 분석과 predictive precedence까지만 허용하는 leakage-safe lag correlation evidence입니다. Typed hypothesis support/refutation과 interventional closure의 target contract는 [causal-incident-graph-ko.md](../rules-and-detection/causal-incident-graph-ko.md)에 있습니다. | [src/fdai/core/rca/](../../../src/fdai/core/rca/) | [tests/core/rca/](../../../tests/core/rca/) |
 | incident | 인시던트 라이프사이클 레지스트리 + 상태 머신 | [src/fdai/core/incident/](../../../src/fdai/core/incident/) | [tests/core/incident/](../../../tests/core/incident/) |
 | slo | 워크로드 SLO / burn-rate 평가자 | [src/fdai/core/slo/](../../../src/fdai/core/slo/) | [tests/core/slo/](../../../tests/core/slo/) |
 | irp | 인시던트 대응 계획 오케스트레이터 | [src/fdai/core/irp/](../../../src/fdai/core/irp/) | [tests/core/irp/](../../../tests/core/irp/) |
 | investigation | 예산 제한 증거 수집 러너 | [src/fdai/core/investigation/](../../../src/fdai/core/investigation/) | [tests/core/investigation/](../../../tests/core/investigation/) |
 | runbook | 선형 runbook + 실패 분기 | [src/fdai/core/runbook/](../../../src/fdai/core/runbook/) | [tests/core/](../../../tests/core/) |
 | postmortem | LLM-옵션 PIR 초안 | [src/fdai/core/postmortem/](../../../src/fdai/core/postmortem/) | [tests/core/postmortem/](../../../tests/core/postmortem/) |
-| chaos | 회복성 / 카오스 프로브 | [src/fdai/core/chaos/](../../../src/fdai/core/chaos/) | [tests/core/chaos/](../../../tests/core/chaos/) |
+| chaos | Resilience 및 chaos probe입니다. Impact envelope, continuous guard, pre-authorized recovery의 target contract는 [recovery-and-chaos-enforcement-ko.md](../decisioning/recovery-and-chaos-enforcement-ko.md)에 있습니다. | [src/fdai/core/chaos/](../../../src/fdai/core/chaos/) | [tests/core/chaos/](../../../tests/core/chaos/) |
 | capacity | 용량 + 예측 findings | [src/fdai/core/capacity/](../../../src/fdai/core/capacity/) | [tests/core/capacity/](../../../tests/core/capacity/) |
 | oncall | 온콜 로테이션 리더 (read-only) | [src/fdai/core/oncall/](../../../src/fdai/core/oncall/) | [tests/core/](../../../tests/core/) |
 
