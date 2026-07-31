@@ -111,7 +111,9 @@ class ManagedMcpClient:
 
     @property
     def is_routable(self) -> bool:
-        return self._availability is McpAvailability.AVAILABLE and self._breaker.allow()
+        return (
+            self._availability is McpAvailability.AVAILABLE and self._breaker.state.value != "open"
+        )
 
     def snapshot(self) -> Mapping[str, object]:
         return MappingProxyType(
@@ -172,6 +174,12 @@ class ManagedMcpClient:
             if self._breaker.snapshot()["state"] == "open":
                 self._mark_unavailable("circuit_open")
             raise
+
+    def reject_result(self) -> None:
+        """Score a transport-successful but invalid tool result as a failure."""
+        self._breaker.on_failure()
+        if self._breaker.snapshot()["state"] == "open":
+            self._mark_unavailable("invalid_result")
 
     async def start(self) -> None:
         if self._monitor_task is not None:

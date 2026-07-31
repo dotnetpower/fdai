@@ -532,6 +532,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     read_investigation_run_store = None
     read_investigation_ledger_config = None
     inventory_activity_provider = None
+    reader_startup_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
     reader_scope_ref = None
     reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
     reader_client_id = env.get("FDAI_AZURE_READER_CLIENT_ID", "").strip()
@@ -545,10 +546,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     if reader_subscription and reader_client_id and reader_resource_groups:
         from fdai.core.read_investigation import ReadInvestigationService
         from fdai.delivery.azure.read_investigation import (
+            AzureReadInvestigationProvider,
             AzureReadRestConfig,
             AzureReadScopeBinding,
-            AzureRestReadInvestigationAdapter,
             AzureRestReadTransport,
+            build_azure_mcp_read_wiring,
         )
         from fdai.delivery.azure.subscription_health import (
             AzureSubscriptionHealthConfig,
@@ -636,9 +638,16 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             )
 
         inventory_activity_provider = _inventory_activity_provider
+        mcp_wiring = build_azure_mcp_read_wiring(
+            fallback=reader_transport,
+            environment=env,
+            reader_client_id=reader_client_id,
+            subscription_id=reader_subscription,
+        )
+        reader_startup_callbacks = (mcp_wiring.start,)
         read_latency_store = StateStoreReadLatencyProfileStore(store=state_store)
         read_investigation_service = ReadInvestigationService(
-            AzureRestReadInvestigationAdapter(reader_transport),
+            AzureReadInvestigationProvider(mcp_wiring.transport),
             latency_store=read_latency_store,
         )
         subscription_health_provider = AzureSubscriptionHealthProvider(
@@ -655,6 +664,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         )
 
         async def _close_reader_http() -> None:
+            await mcp_wiring.close()
             await reader_http.aclose()
 
         shutdown_callbacks = (*shutdown_callbacks, _close_reader_http)
@@ -882,6 +892,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 if read_investigation_run_store is not None
                 else ()
             ),
+            *reader_startup_callbacks,
             *runtime.startup_callbacks,
             *((remote_agent_delegate.start,) if remote_agent_delegate is not None else ()),
             *stewardship_startup_callbacks,

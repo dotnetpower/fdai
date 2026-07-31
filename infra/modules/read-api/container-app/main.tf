@@ -190,6 +190,18 @@ resource "azurerm_container_app" "read_api" {
         name  = "FDAI_MI_CLIENT_ID"
         value = var.read_api_identity_client_id
       }
+      env {
+        name  = "FDAI_AZURE_READER_CLIENT_ID"
+        value = var.read_api_identity_client_id
+      }
+      env {
+        name  = "FDAI_AZURE_READER_SUBSCRIPTION_ID"
+        value = var.azure_subscription_id
+      }
+      env {
+        name  = "FDAI_AZURE_READER_RESOURCE_GROUPS"
+        value = var.azure_resource_group
+      }
       dynamic "env" {
         for_each = var.monitor_workspace_customer_id == "" ? [] : [var.monitor_workspace_customer_id]
         content {

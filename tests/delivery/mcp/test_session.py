@@ -102,6 +102,17 @@ async def test_failure_opens_circuit_and_later_calls_fail_fast() -> None:
     assert client.reason == "circuit_open"
 
 
+async def test_routability_check_does_not_dispatch_or_change_availability() -> None:
+    session = _Session()
+    client = _client(session)
+    assert await client.probe() is True
+
+    assert client.is_routable is True
+    assert client.is_routable is True
+    assert client.availability is McpAvailability.AVAILABLE
+    assert session.call_calls == 0
+
+
 async def test_probe_recovers_provider_after_failure() -> None:
     session = _Session(tools=frozenset())
     client = _client(session)
@@ -111,6 +122,17 @@ async def test_probe_recovers_provider_after_failure() -> None:
     assert await client.probe() is True
     assert client.availability is McpAvailability.AVAILABLE
     assert (await client.call_tool("read", {})).structured_content == {"ok": True}
+
+
+async def test_rejected_result_opens_circuit() -> None:
+    session = _Session()
+    client = _client(session)
+    assert await client.probe() is True
+
+    client.reject_result()
+
+    assert client.is_routable is False
+    assert client.reason == "invalid_result"
 
 
 async def test_close_stops_monitor_and_closes_session() -> None:

@@ -822,6 +822,7 @@ def build_local_app(
             )
             + user_context_startup_callbacks
             + (open_narrator_endpoint,)
+            + ((local_read_investigation.start,) if local_read_investigation is not None else ())
             + ((remote_agent_delegate.start,) if remote_agent_delegate is not None else ())
             + ((runtime.start_pantheon_runtime,) if runtime is not None else ())
             + (

@@ -67,6 +67,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Subscription scope identity | Implemented | Current-subscription identity questions read the server-configured subscription name and state from Azure Resource Manager, render only a masked subscription ID, and never call the narrator model. |
 | Subscription health sweep | Implemented | Explicit subscription checks and general service-outage questions use the configured reader scope. The provider queries Resource Graph inventory and Resource Health, falls back to current Resource Health status by allowed resource group when ARG is empty, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
+| Optional Azure MCP reads | Implemented | The official MCP Python SDK starts the pinned Azure MCP Server over stdio, probes its namespace allowlist before traffic, uses it for VM state, Activity Log, and Resource Health, and immediately falls back to typed REST when unavailable or rejected by its circuit breaker. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
 | Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, streamed mode emits bounded progress and SSE comment heartbeats, stream close cancels provider work, and the terminal event occurs once. |
 | Direct and streamed replay | Implemented | An owner-scoped PostgreSQL run ledger claims each canonical request, renews its lease, bounds reclaim attempts, retains terminal usage, and replays completed results without another provider call. Command Deck direct reads use the same executor. The interactive local PostgreSQL profile supplies the same run store and does not substitute an in-memory replay path. |
@@ -159,6 +160,13 @@ circuit, and later requests skip MCP without waiting for another provider timeou
 cooldown, one half-open probe can restore the circuit. The server exposes only an explicit read-tool
 allowlist. Discovery never grants authority to an unregistered Azure MCP tool, and tool output is
 normalized into the existing `ReadEvidenceEnvelope` before it reaches Bragi.
+
+An MCP read is not an ontology `Action`. It remains a `ReadToolId` attempt with a
+`ToolCallReceipt` and normalized evidence. Azure mutations continue to use their existing
+`ops.*` or `remediate.*` ActionType, RiskGate, human approval, Thor execution, rollback, and Saga
+audit path. The pinned Azure MCP Server `2.0.5` does not expose VM start or deallocate commands,
+so `ops.start-vm` and `ops.deallocate-vm` remain on the registered `direct_api` operations gateway.
+FDAI does not infer a mutation command from a read or update tool.
 
 The broker applies the registered plan's timeout and output cap. Complete JSON is returned only as
 ephemeral output to the typed adapter; the command receipt retains a bounded 4 KB diagnostic tail,
@@ -374,6 +382,18 @@ Production registers the routes only when `FDAI_AZURE_READER_SUBSCRIPTION_ID`,
 without it, guest shutdown evidence reports `unavailable` while other sources remain usable. When
 the reader binding is enabled, startup probes the run-ledger table before accepting traffic and
 fails immediately if the required migration is missing.
+
+The deployed read API supplies those three reader settings from its dedicated read API managed
+identity and the resource group on which that identity has Reader. Azure MCP is enabled by default
+when this reader binding exists. `FDAI_AZURE_MCP_ENABLED=false` disables it without disabling the
+REST path. The stdio child receives only the Azure identity endpoint fields, Azure client and
+subscription selection, TLS and process-path fields, and telemetry preference. Database URLs,
+webhooks, and other application secrets are not copied into the child environment.
+
+The bounded controls are `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
+`FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS`, `FDAI_AZURE_MCP_HEALTH_INTERVAL_SECONDS`, and
+`FDAI_AZURE_MCP_RESET_TIMEOUT_SECONDS`. `FDAI_AZURE_MCP_COMMAND` accepts one executable name, not
+a path or arguments. The command arguments remain server-owned as `server start`.
 
 Interactive local uses the same server-owned scope with the current Azure CLI token. The local
 runtime environment generator supplies the applied subscription and resource group after checking

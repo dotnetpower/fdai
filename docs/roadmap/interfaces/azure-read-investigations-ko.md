@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 13711c43bd085e17d00585b9547b94cda7fc1cf0
+translation_source_sha: aebfe24ffb16e59c6d7f31f35d9fe8ebbe5a7d7c
 translation_revised: 2026-08-01
 ---
 
@@ -68,6 +68,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Subscription scope identity | 구현됨 | 현재 subscription identity 질문은 server에 configured된 subscription name과 state를 Azure Resource Manager에서 읽고, masked subscription ID만 렌더링하며, narrator model을 호출하지 않습니다. |
 | Subscription health sweep | 구현됨 | 명시적인 subscription 점검과 일반적인 service-outage 질문이 configured reader scope를 사용합니다. Provider는 Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 허용된 resource group별 current Resource Health status로 fallback한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
+| 선택적 Azure MCP read | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP Server를 stdio로 시작하고 traffic 전에 namespace allowlist를 probe합니다. VM state, Activity Log, Resource Health에 사용하며 unavailable 상태이거나 circuit breaker에서 차단되면 typed REST로 즉시 fallback합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
 | Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Exact resolution은 barrier이며 독립 evidence tool은 bounded parallel limit 안에서 실행됩니다. Streamed mode는 bounded progress와 SSE comment heartbeat를 전송하고, stream close는 provider work를 cancel하며, terminal event는 한 번만 발생합니다. |
 | Direct 및 streamed replay | 구현됨 | Owner-scoped PostgreSQL run ledger가 canonical request를 claim하고 lease를 renew하며 reclaim attempt를 제한합니다. Terminal usage를 보존하고 provider를 다시 호출하지 않고 completed result를 replay합니다. Command Deck direct read도 같은 executor를 사용합니다. Interactive local PostgreSQL profile도 같은 run store를 제공하며 in-memory replay path로 대체하지 않습니다. |
@@ -158,6 +159,13 @@ provider를 즉시 사용합니다. Background health monitor는 호출 없는 p
 half-open probe가 circuit을 복구할 수 있습니다. Server는 명시적인 read-tool allowlist만 노출합니다.
 Discovery는 등록되지 않은 Azure MCP tool에 권한을 부여하지 않으며, tool output은 Bragi에 전달되기
 전에 기존 `ReadEvidenceEnvelope`로 normalize됩니다.
+
+MCP read는 ontology `Action`이 아닙니다. `ToolCallReceipt`와 normalized evidence를 포함하는
+`ReadToolId` attempt로 유지됩니다. Azure mutation은 기존 `ops.*` 또는 `remediate.*` ActionType,
+RiskGate, 사람 승인, Thor execution, rollback, Saga audit 경로를 계속 사용합니다. 고정된 Azure MCP
+Server `2.0.5`는 VM start 또는 deallocate command를 노출하지 않으므로 `ops.start-vm`과
+`ops.deallocate-vm`은 registered `direct_api` operations gateway에 유지됩니다. FDAI는 read 또는
+update tool에서 mutation command를 추론하지 않습니다.
 
 Broker는 registered plan의 timeout 및 output cap을 적용합니다. Complete JSON은 typed adapter에
 ephemeral output으로만 반환되고 command receipt는 bounded 4 KB diagnostic tail만 유지하며 broker는
@@ -369,6 +377,19 @@ comma-separated `FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist가 모두 있을 �
 `FDAI_MONITOR_WORKSPACE_ID`는 optional이며, 없으면 다른 source는 계속 사용할 수 있지만 guest shutdown
 evidence는 `unavailable`을 반환합니다. Reader binding이 활성화되면 startup은 traffic을 받기 전에
 run-ledger table을 probe하고 필요한 migration이 없으면 즉시 실패합니다.
+
+배포된 read API는 dedicated read API managed identity와 해당 identity가 Reader를 가진 resource
+group에서 세 reader setting을 제공합니다. 이 reader binding이 있으면 Azure MCP는 기본적으로
+enabled입니다. `FDAI_AZURE_MCP_ENABLED=false`는 REST path를 비활성화하지 않고 MCP만
+비활성화합니다. Stdio child는 Azure identity endpoint field, Azure client 및 subscription 선택,
+TLS와 process path field, telemetry preference만 받습니다. Database URL, webhook 및 다른 application
+secret은 child environment에 복사되지 않습니다.
+
+Bounded control은 `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
+`FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS`, `FDAI_AZURE_MCP_HEALTH_INTERVAL_SECONDS`,
+`FDAI_AZURE_MCP_RESET_TIMEOUT_SECONDS`입니다. `FDAI_AZURE_MCP_COMMAND`는 path 또는 argument가 아닌
+하나의 executable name만 받습니다. Command argument는 `server start`로 server-owned 상태를
+유지합니다.
 
 Interactive local은 현재 Azure CLI token과 같은 server-owned scope를 사용합니다. Local runtime
 environment generator는 active CLI subscription이 Terraform과 일치하는지 확인한 후 applied

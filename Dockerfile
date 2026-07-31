@@ -47,7 +47,7 @@ COPY --from=opa-builder /go/bin/opa /usr/local/bin/opa
 
 WORKDIR /app
 COPY pyproject.toml uv.lock LICENSE README.md ./
-RUN uv sync --frozen --no-dev --extra serve --extra pdf-report --no-install-workspace --no-editable
+RUN uv sync --frozen --no-dev --extra serve --extra pdf-report --extra azure-mcp --no-install-workspace --no-editable
 
 COPY src/ ./src/
 COPY evaluation-sdk/ ./evaluation-sdk/
@@ -55,7 +55,7 @@ COPY benchmarks/sregym/pyproject.toml ./benchmarks/sregym/pyproject.toml
 COPY benchmarks/cybergym/pyproject.toml ./benchmarks/cybergym/pyproject.toml
 COPY rule-catalog/ ./rule-catalog/
 COPY policies/ ./policies/
-RUN uv sync --frozen --package fdai --no-dev --extra serve --extra pdf-report --no-editable
+RUN uv sync --frozen --package fdai --no-dev --extra serve --extra pdf-report --extra azure-mcp --no-editable
 
 # ----------------------------------------------------------------------------
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS runtime

@@ -17,16 +17,18 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.read_investigation import (
     AzureOperationsGatewayReadConfig,
     AzureOperationsGatewayReadTransport,
+    AzureReadInvestigationProvider,
     AzureReadRestConfig,
     AzureReadScopeBinding,
-    AzureRestReadInvestigationAdapter,
     AzureRestReadTransport,
+    build_azure_mcp_read_wiring,
 )
 from fdai.delivery.azure.read_investigation.transport import AzureReadTransport
 from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthConfig,
     AzureSubscriptionHealthProvider,
 )
+from fdai.delivery.mcp import ManagedMcpClient
 from fdai.delivery.persistence import StateStoreReadLatencyProfileStore
 from fdai.delivery.read_api.routes.chat_inventory import InventoryActivityProvider
 from fdai.delivery.read_api.routes.read_investigation_responder import (
@@ -46,8 +48,15 @@ class LocalReadInvestigationWiring:
     inventory_activity_provider: InventoryActivityProvider
     read_transport: AzureReadTransport
     http_client: httpx.AsyncClient
+    mcp_client: ManagedMcpClient | None = None
+
+    async def start(self) -> None:
+        if self.mcp_client is not None:
+            await self.mcp_client.start()
 
     async def close(self) -> None:
+        if self.mcp_client is not None:
+            await self.mcp_client.close()
         await self.http_client.aclose()
 
 
@@ -110,8 +119,14 @@ def build_local_read_investigation(
             http_client=http_client,
         )
     latency_store = StateStoreReadLatencyProfileStore(store=state_store)
+    mcp_wiring = build_azure_mcp_read_wiring(
+        fallback=transport,
+        environment=environ,
+        reader_client_id="azure-cli",
+        subscription_id=subscription_id,
+    )
     service = ReadInvestigationService(
-        AzureRestReadInvestigationAdapter(transport),
+        AzureReadInvestigationProvider(mcp_wiring.transport),
         latency_store=latency_store,
     )
 
@@ -154,6 +169,7 @@ def build_local_read_investigation(
         inventory_activity_provider=inventory_activity_provider,
         read_transport=transport,
         http_client=http_client,
+        mcp_client=mcp_wiring.client,
     )
 
 

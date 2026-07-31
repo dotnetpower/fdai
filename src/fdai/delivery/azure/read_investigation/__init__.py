@@ -14,6 +14,14 @@ from fdai.delivery.azure.read_investigation.gateway_transport import (
     AzureOperationsGatewayReadError,
     AzureOperationsGatewayReadTransport,
 )
+from fdai.delivery.azure.read_investigation.mcp_transport import (
+    AZURE_MCP_READ_TOOLS,
+    AzureMcpReadTransport,
+)
+from fdai.delivery.azure.read_investigation.mcp_wiring import (
+    AzureMcpReadWiring,
+    build_azure_mcp_read_wiring,
+)
 from fdai.delivery.azure.read_investigation.provider import AzureReadInvestigationProvider
 from fdai.delivery.azure.read_investigation.rest_transport import (
     AzureReadRestConfig,
@@ -25,6 +33,10 @@ from fdai.delivery.azure.read_investigation.transport import AzureReadTransport,
 
 __all__ = [
     "AzureCliReadInvestigationAdapter",
+    "AZURE_MCP_READ_TOOLS",
+    "AzureMcpReadTransport",
+    "AzureMcpReadWiring",
+    "build_azure_mcp_read_wiring",
     "AzureCliReadTransport",
     "AzureReadCliConfig",
     "AzureReadCliError",
