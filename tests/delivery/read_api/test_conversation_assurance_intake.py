@@ -8,6 +8,8 @@ from typing import cast
 import pytest
 
 from fdai.core.conversation_assurance import (
+    AssessmentRecord,
+    ChatPolicyCandidate,
     ConversationAssuranceCoordinator,
     InMemoryConversationAssuranceLedger,
     assurance_principal_scope,
@@ -131,3 +133,41 @@ async def test_intake_logs_capacity_rejection(caplog: pytest.LogCaptureFixture) 
         await submitter.close()
 
     assert "conversation_assurance_queue_full" in caplog.text
+
+
+class _Lifecycle:
+    def __init__(self) -> None:
+        self.records: tuple[AssessmentRecord, ...] = ()
+
+    async def run(
+        self,
+        records: tuple[AssessmentRecord, ...],
+    ) -> tuple[ChatPolicyCandidate, ...]:
+        self.records = records
+        return ()
+
+
+async def test_intake_runs_lifecycle_with_scoped_assessment_window() -> None:
+    ledger = InMemoryConversationAssuranceLedger()
+    lifecycle = _Lifecycle()
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=ledger,
+        reviewer=None,
+        rubric_version="1.0.0",
+        now=lambda: _NOW,
+    )
+    submitter = ConversationAssurancePostTurnSubmitter(
+        coordinator=coordinator,
+        ledger=ledger,
+        lifecycle=lifecycle,
+    )
+
+    assert submitter.submit_nowait(
+        operator_turn=_turn(ConversationTurnRole.OPERATOR, "What changed?"),
+        assistant_turn=_turn(ConversationTurnRole.ASSISTANT, "Unavailable."),
+        submission=PostTurnReviewSubmission((), ()),
+    )
+    await submitter.close()
+
+    assert len(lifecycle.records) == 1
+    assert lifecycle.records[0].principal_scope == assurance_principal_scope("operator-1")

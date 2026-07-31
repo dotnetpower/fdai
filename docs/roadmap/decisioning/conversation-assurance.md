@@ -166,6 +166,12 @@ Each candidate is immutable within its `principal_scope` except for its stage. T
 appends candidate content idempotently, applies a transition only when its `from_stage` matches the
 stored stage, and records an append-only transition history. Replaying an already applied transition
 is a no-op; a stale or cross-scope transition is rejected.
+The lifecycle coordinator derives a stable candidate identity from the scoped cluster, target, and
+policy digests. An injected proposer can return only that bounded identity, and an injected blind
+trial measurer supplies every promotion metric. For a stage change, the publisher applies the
+candidate first and the ledger commits the transition second. If persistence fails, the publisher
+restores the incumbent before the error propagates. Missing proposal, measurement, or publisher
+evidence leaves the candidate in shadow.
 
 ### Blind promotion and rollback
 

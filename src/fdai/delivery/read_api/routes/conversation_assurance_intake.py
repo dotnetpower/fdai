@@ -11,6 +11,8 @@ from typing import Any
 
 from fdai.core.conversation_assurance import (
     ConversationAssuranceCoordinator,
+    ConversationAssuranceLedger,
+    ConversationAssuranceLifecycleRunner,
     TurnAssessmentInput,
     assurance_principal_scope,
 )
@@ -41,10 +43,16 @@ class ConversationAssurancePostTurnSubmitter:
         *,
         coordinator: ConversationAssuranceCoordinator,
         delegate: PostTurnReviewSubmitter | None = None,
+        ledger: ConversationAssuranceLedger | None = None,
+        lifecycle: ConversationAssuranceLifecycleRunner | None = None,
         config: ConversationAssuranceQueueConfig | None = None,
     ) -> None:
+        if (ledger is None) is not (lifecycle is None):
+            raise ValueError("assurance ledger and lifecycle MUST be configured together")
         self._coordinator = coordinator
         self._delegate = delegate
+        self._ledger = ledger
+        self._lifecycle = lifecycle
         self._config = config or ConversationAssuranceQueueConfig()
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -99,6 +107,12 @@ class ConversationAssurancePostTurnSubmitter:
     async def _assess(self, turn: TurnAssessmentInput) -> None:
         try:
             await self._coordinator.assess(turn)
+            if self._ledger is not None and self._lifecycle is not None:
+                records = await self._ledger.list_assessments(
+                    principal_scope=turn.principal_scope,
+                    limit=1_000,
+                )
+                await self._lifecycle.run(records)
         except Exception:  # noqa: BLE001 - original answer is already durable
             _LOG.exception(
                 "conversation_assurance_assessment_failed",

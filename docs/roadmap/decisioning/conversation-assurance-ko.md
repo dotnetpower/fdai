@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: d8cf40a2156d84392b2d82c6a2987e16c9806c28
+translation_source_sha: 7230632a2d961eccef4cd8c5a0b30da9b114f6f6
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -163,6 +163,12 @@ verifier, RBAC, 위험 정책, agent 역할, 승인 규칙 또는 executor 동�
 candidate content를 멱등하게 추가하고, `from_stage`가 저장된 stage와 일치할 때만 transition을
 적용하며 append-only transition history를 기록합니다. 이미 적용된 transition 재생은 no-op이고,
 stale 또는 cross-scope transition은 거부됩니다.
+lifecycle coordinator는 scoped cluster, target 및 policy digest에서 stable candidate identity를
+계산합니다. injected proposer는 이 제한된 identity만 반환할 수 있고, injected blind trial
+measurer는 모든 promotion metric을 제공합니다. stage 변경 시 publisher가 candidate를 먼저 적용하고
+ledger가 transition을 두 번째로 commit합니다. persistence가 실패하면 error를 전달하기 전에
+publisher가 incumbent를 복원합니다. proposal, measurement 또는 publisher 근거가 없으면 candidate는
+shadow에 남습니다.
 
 ### 블라인드 승격과 롤백
 

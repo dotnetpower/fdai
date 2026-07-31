@@ -12,6 +12,14 @@ from fdai.core.conversation_assurance.ledger import (
     ConversationAssuranceLedger,
     InMemoryConversationAssuranceLedger,
 )
+from fdai.core.conversation_assurance.lifecycle import (
+    BlindPolicyTrialMeasurer,
+    ChatPolicyProposal,
+    ChatPolicyProposer,
+    ChatPolicyPublisher,
+    ConversationAssuranceLifecycleCoordinator,
+    ConversationAssuranceLifecycleRunner,
+)
 from fdai.core.conversation_assurance.models import (
     CRITERION_WEIGHTS,
     AssessmentRecord,
@@ -48,12 +56,18 @@ __all__ = [
     "AccuracyPosterior",
     "AssessmentRecord",
     "AssessmentState",
+    "BlindPolicyTrialMeasurer",
     "AssuranceCriterion",
     "AssuranceDecision",
     "AssuranceVerdict",
+    "ChatPolicyProposal",
+    "ChatPolicyProposer",
+    "ChatPolicyPublisher",
     "ConversationAssuranceEvaluator",
     "ConversationAssuranceCoordinator",
     "ConversationAssuranceLedger",
+    "ConversationAssuranceLifecycleCoordinator",
+    "ConversationAssuranceLifecycleRunner",
     "ConversationPolicyCandidateStore",
     "CriterionScore",
     "DebateContext",
