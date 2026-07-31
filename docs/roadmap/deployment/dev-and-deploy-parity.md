@@ -409,9 +409,10 @@ atomically replaces it. When a provisioned `aw.inventory.raw` topic is configure
 projection. A stack without that auxiliary-topic binding converges through TTL refresh.
 Inventory projection changes that add resource types or relationships increment the cache envelope
 schema revision so an older complete snapshot is refreshed instead of being presented with stale
-semantics. Schema revision 8 also invalidates snapshots that predate normalized Azure service
-state, so the first database-status query doesn't replay an `unknown` state. A missing explicit
-subscription disables persistent cache reuse rather than risking a
+semantics. Schema revision 10 invalidates every earlier snapshot, including revisions that predate
+normalized Azure service state and catalog-driven resource-type and Azure `kind` disambiguation.
+The first database-status or shared-ARM-type query therefore cannot replay an older `unknown` or
+misclassified state. A missing explicit subscription disables persistent cache reuse rather than risking a
 snapshot from another active Azure CLI subscription. The cache envelope also binds the resource
 limit, rejects malformed
 or materially future-dated snapshots, and bounds each local refresh to 240 seconds. Cache-file or

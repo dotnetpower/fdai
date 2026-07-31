@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 446431d94ff3dd3947eb21d04a5512caeda345cf
-translation_revised: 2026-07-31
+translation_source_sha: 11e57d9f73779831fdb131f573ce5584e8497ac3
+translation_revised: 2026-08-01
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -413,8 +413,10 @@ Fresh cache는 read API restart 이후에도 즉시 반환됩니다. 만료되�
 write/delete event가 durable projection 이후 local cache를 invalidate합니다. 해당 auxiliary-topic
 binding이 없는 stack은 TTL refresh로 수렴합니다. Resource type 또는 relationship을 추가하는 inventory
 projection change는 cache envelope schema revision을 올리므로, 이전 complete snapshot을 stale semantic과
-함께 표시하지 않고 refresh합니다. Schema revision 8은 normalized Azure service state 이전의 snapshot도
-invalidate하므로 첫 database-status 질문이 `unknown` state를 replay하지 않습니다. 명시적 subscription이 없으면 다른 active Azure CLI
+함께 표시하지 않고 refresh합니다. Schema revision 10은 normalized Azure service state와 catalog-driven
+resource-type 및 Azure `kind` disambiguation 이전 revision을 포함한 모든 이전 snapshot을 invalidate합니다.
+따라서 첫 database-status 또는 shared-ARM-type 질문은 이전 `unknown` 또는 잘못 분류된 state를
+replay하지 않습니다. 명시적 subscription이 없으면 다른 active Azure CLI
 subscription의 snapshot을 사용할 위험을 피하기 위해 persistent cache 재사용을 비활성화합니다.
 Cache envelope은 resource limit도 bind하고 malformed 또는 과도하게 미래 시각인 snapshot을 거부하며
 각 local refresh를 240초로 제한합니다. Cache file 또는 marker I/O failure가 발생해도 마지막 complete
