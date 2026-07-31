@@ -521,7 +521,7 @@ def _tool_execution_progress_event(
         "authority": str(evidence.get("authority") or "server_read_model"),
         "observed_at": completed_at.isoformat(),
         "execution": {
-            "tool": "Azure CLI" if tool == "query_inventory" else tool,
+            "tool": "Azure CLI equivalent" if tool == "query_inventory" else tool,
             "command": (
                 inventory_execution_command(evidence)
                 if tool == "query_inventory"

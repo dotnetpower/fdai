@@ -842,7 +842,18 @@ def test_aks_workload_stream_overrides_semantic_web_plan() -> None:
     assert planning.calls == 0
 
 
-def test_stopped_db_stream_overrides_semantic_web_plan() -> None:
+@pytest.mark.parametrize(
+    ("prompt", "command_prefix", "includes_sql"),
+    [
+        ("중지된 db 도 있어?", "az postgres flexible-server list --query", False),
+        ("DB 는 정상인가? 상태확인해봐", "az graph query -q", True),
+    ],
+)
+def test_stopped_db_stream_overrides_semantic_web_plan(
+    prompt: str,
+    command_prefix: str,
+    includes_sql: bool,
+) -> None:
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:
             return parse_turn_plan(
@@ -879,7 +890,7 @@ def test_stopped_db_stream_overrides_semantic_web_plan() -> None:
     response = TestClient(app).post(
         "/chat/stream",
         json={
-            "prompt": "중지된 db 도 있어?",
+            "prompt": prompt,
             "view_context": {
                 "routeId": "agents",
                 "facts": [{"key": "status", "value": "in-progress"}],
@@ -893,14 +904,25 @@ def test_stopped_db_stream_overrides_semantic_web_plan() -> None:
     assert done["verification"]["reason_code"] == "inventory_snapshot_grounded"
     assert "postgres-data" in done["answer"]
     assert "stopped" in done["answer"]
-    assert "sql-app" not in done["answer"]
+    assert ("sql-app" in done["answer"]) is includes_sql
     assert "public_web" not in response.text
     assert '"branch_kind": "agent"' not in response.text
-    assert done["resource_context"] == {
-        "name": "postgres-data",
-        "resource_type": "postgresql-server",
-        "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
-    }
+    assert '"tool": "Azure CLI equivalent"' in response.text
+    assert f'"command": "{command_prefix}' in response.text
+    assert "az resource list --query" not in response.text
+    if includes_sql:
+        assert "microsoft.dbforpostgresql/flexibleservers" in response.text
+        assert "microsoft.sql/servers/databases" in response.text
+    else:
+        assert "State:serverState" in response.text
+    if includes_sql:
+        assert "resource_context" not in done
+    else:
+        assert done["resource_context"] == {
+            "name": "postgres-data",
+            "resource_type": "postgresql-server",
+            "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+        }
 
 
 def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> None:
@@ -985,8 +1007,9 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     assert '"branch_kind": "agent"' not in response.text
     assert '"branch_kind": "public_web"' not in response.text
     assert "event: activity" in response.text
-    assert '"tool": "Azure CLI"' in response.text
-    assert '"command": "az resource list --query' in response.text
+    assert '"tool": "Azure CLI equivalent"' in response.text
+    assert '"command": "az postgres flexible-server list --query' in response.text
+    assert "State:serverState" in response.text
     assert "query_inventory --scope" not in response.text
     assert '"redacted": true' in response.text
     activity = _stream_event(response.text, "activity")

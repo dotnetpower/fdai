@@ -107,10 +107,12 @@ flowchart TD
   remains the response owner.
   An agent-card Ask opens with a compact projected-state line list; its longer fixed context stays non-rendered for backend history, and the visible report streams in bounded two-word bursts.
   Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation keeps its session header and observed steps visible beside the final answer; only redacted command output and timestamps remain in disclosures. A source branch linked to an observed execution step is represented once on that step rather than repeated as a separate row. Full workspace reserves at least 760 px for the desktop transcript and uses the full mobile viewport without horizontal overflow. Phase markers, a 15 px conversation scale, and one dark command/code surface keep the production hierarchy aligned with the execution mock. The browser never replays work or invents progress.
-  Inventory execution rows label the public surface as Azure CLI and show a copyable read-only
-  `az group list` or `az resource list` equivalent that uses the operator's current authenticated
-  scope. The internal `query_inventory` verb remains server-owned and isn't presented as a shell
-  command.
+  Inventory execution rows label the public surface as an Azure CLI equivalent, not as the
+  provider command that was literally executed. The copyable read-only command uses the operator's
+  current authenticated scope and is derived from the resource types in matched evidence. A
+  PostgreSQL-only result uses `az postgres flexible-server list`; a broad database result uses an
+  Azure Resource Graph query that preserves both PostgreSQL and Azure SQL types. The internal
+  `query_inventory` verb remains server-owned and isn't presented as a shell command.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows
   the milestone as a compact progress note, opens only the current group, and restores completed
   groups in causal order. Slack and Teams edit the same cumulative redacted activity projection.

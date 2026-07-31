@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 6f737647f9d683ef159acfe4d7dcaa84de69bdbf
+translation_source_sha: ebf5d29947225b052024c1f13dbe4877d413faab
 translation_revised: 2026-07-31
 ---
 
@@ -106,9 +106,12 @@ flowchart TD
   됩니다.
   Agent card의 Ask는 compact projected-state line list로 시작합니다. 더 긴 고정 context는 backend history용으로 화면에 표시하지 않으며 visible report는 bounded 2단어 burst로 stream합니다.
   Web Investigation은 수신한 branch frame만 elapsed time, typed badge 및 staggered status row로 animate합니다. Terminal investigation은 final answer 옆에 session header와 observed step을 계속 표시하며 redacted command output과 timestamp만 disclosure에 접어 둡니다. Observed execution step과 연결된 source branch는 별도 row로 반복하지 않고 해당 step에 한 번만 표시합니다. Full workspace는 desktop transcript에 최소 760 px을 확보하고 mobile viewport에서는 horizontal overflow 없이 전체 폭을 사용합니다. Phase marker, 15 px conversation scale, 하나의 dark command/code surface로 production hierarchy를 execution mock과 맞춥니다. Browser는 작업을 replay하거나 progress를 invent하지 않습니다.
-  Inventory execution row는 공개 실행 표면을 Azure CLI로 표시하고 operator의 현재 인증 scope를
-  사용하는 복사 가능한 read-only `az group list` 또는 `az resource list` 명령을 제공합니다. 내부
-  `query_inventory` verb는 server-owned 상태로 유지하며 shell command로 표시하지 않습니다.
+  Inventory execution row는 공개 실행 표면을 provider가 실제 실행한 command가 아니라 Azure CLI
+  equivalent로 표시합니다. 복사 가능한 read-only command는 operator의 현재 인증 scope를 사용하고
+  matched evidence의 resource type에서 결정론적으로 생성됩니다. PostgreSQL-only 결과는
+  `az postgres flexible-server list`를 사용하고 broad database 결과는 PostgreSQL 및 Azure SQL type을
+  모두 유지하는 Azure Resource Graph query를 사용합니다. 내부 `query_inventory` verb는 server-owned
+  상태로 유지하며 shell command로 표시하지 않습니다.
   Narrator milestone은 다음 group이 시작되기 전에 앞선 activity group을 settled 상태로 바꿉니다.
   Web은 milestone을 compact progress note로 표시하고 현재 group만 펼치며 completed group을 causal
   order로 복원합니다. Slack과 Teams는 같은 cumulative redacted activity projection을 수정합니다.

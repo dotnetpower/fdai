@@ -148,7 +148,10 @@ by deterministic verification.
 A deterministic local inventory intent remains local during a rerun even when a semantic plan
 selected public web. This includes colloquial database state filters such as `stopped db`; they
 retain the server-owned inventory branch and don't start agent or public-web branches. Explicit
-web-search wording is the only exception. An explicit subscription-scoped inventory question is a
+web-search wording is the only exception. A copyable Azure CLI equivalent is derived from the
+resource types actually present in matched inventory evidence, so a PostgreSQL-only answer cannot
+show a broad resource-list command and a broad database answer cannot omit Azure SQL. An explicit
+subscription-scoped inventory question is a
 new server-owned cross-screen read, so unrelated current-screen facts cannot replace or block it.
 Status facets remain scoped to the selected resource
 type, so an AKS question cannot borrow a VM status or silently widen when the requested state is
