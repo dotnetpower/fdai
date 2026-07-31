@@ -165,6 +165,19 @@ def test_exists_missing_contains_and_normalization_are_deterministic() -> None:
     assert normalize_inventory_value(" PowerState/DEALLOCATED ") == "powerstate deallocated"
 
 
+def test_name_contains_does_not_match_inside_larger_token() -> None:
+    query = InventoryQuery(
+        InventoryQuerySource.CURRENT,
+        InventoryQueryKind.LIST,
+        (InventoryPredicate(InventoryField.NAME, InventoryOperator.CONTAINS, "sql"),),
+    )
+
+    assert inventory_query_matches(query, {"name": "sql-db"})
+    assert inventory_query_matches(query, {"name": "my-sql-server"})
+    assert not inventory_query_matches(query, {"name": "nosql-cache"})
+    assert not inventory_query_matches(query, {"name": "postgresql-server"})
+
+
 def test_semantic_schema_is_closed_and_bounded() -> None:
     schema = inventory_query_argument_schema()
     assert schema["additionalProperties"] is False

@@ -301,7 +301,21 @@ def _predicate_matches(record: Mapping[str, Any], predicate: InventoryPredicate)
     if predicate.operator is InventoryOperator.IN:
         return isinstance(predicate.value, tuple) and actual in predicate.value
     if predicate.operator is InventoryOperator.CONTAINS:
-        return isinstance(predicate.value, str) and predicate.value in actual
+        return isinstance(predicate.value, str) and _contains_token_sequence(
+            actual, predicate.value
+        )
+    return False
+
+
+def _contains_token_sequence(actual: str, expected: str) -> bool:
+    offset = 0
+    while (index := actual.find(expected, offset)) >= 0:
+        end = index + len(expected)
+        left_boundary = index == 0 or not actual[index - 1].isalnum()
+        right_boundary = end == len(actual) or not actual[end].isalnum()
+        if left_boundary and right_boundary:
+            return True
+        offset = index + 1
     return False
 
 
