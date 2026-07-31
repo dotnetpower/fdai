@@ -14,6 +14,7 @@ from fdai.delivery.read_api.routes.chat_inventory_query import (
     InventoryField,
     InventoryOperator,
     InventoryQueryGrouping,
+    InventoryQueryKind,
     InventoryQuerySource,
 )
 from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
@@ -113,6 +114,17 @@ def test_catalog_entry_addition_needs_no_compiler_alias_change() -> None:
 
     assert query is not None
     assert query.predicates[0].value == "custom.widget"
+
+
+def test_scope_counts_compile_without_resource_group_narrowing() -> None:
+    query = compile_inventory_query(
+        "How many resources and resource groups are in the managed scope?",
+        resources=_RESOURCES,
+    )
+
+    assert query is not None
+    assert query.kind is InventoryQueryKind.SCOPE_COUNTS
+    assert query.predicates == ()
 
 
 def test_observed_type_does_not_widen_exact_catalog_match() -> None:

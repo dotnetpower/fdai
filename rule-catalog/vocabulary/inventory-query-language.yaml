@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.5"
+version: "1.1.6"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -22,6 +22,8 @@ signals:
   unfiltered:
     terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, Azure 리소스 뭐 있어, Azure 인벤토리 목록]
 query_kinds:
+  scope_counts:
+    terms: [resources and resource groups, resource and resource group counts, resource count and resource group count, 리소스와 리소스 그룹 수, 리소스와 리소스 그룹 개수]
   count:
     terms: [how many, count, 몇 개, 개수]
   types:

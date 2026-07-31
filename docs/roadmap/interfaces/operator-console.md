@@ -277,6 +277,9 @@ by provider-native type, reports the complete resource and type totals, and repo
 containers and topology-derived child records separately from the provider-native resource total.
 Catalog-mapped queries continue to use canonical resource types for filtering and CSP-neutral
 reasoning.
+The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
+totals from one fresh snapshot without narrowing the query to resource groups. It retains the same
+container, derived-record, truncation, freshness, and verification disclosures as type summaries.
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does

@@ -294,18 +294,20 @@ def _project_verified_inventory_result(
         }
     matched = [item for item in managed if inventory_query_matches(query, item)]
     provider_type_summary = query.kind is InventoryQueryKind.TYPES and not query.predicates
+    scope_counts = query.kind is InventoryQueryKind.SCOPE_COUNTS and not query.predicates
+    provider_native_summary = provider_type_summary or scope_counts
     reported_resources = (
         [
             item
             for item in matched
             if item["type"] != "resource-group" and item.get("provider_type") is not None
         ]
-        if provider_type_summary
+        if provider_native_summary
         else matched
     )
     counted_resources = (
         [item for item in managed if item["type"] != "resource-group"]
-        if provider_type_summary
+        if provider_native_summary
         else managed
     )
     matched_type_counts = Counter(
@@ -353,6 +355,7 @@ def _project_verified_inventory_result(
         "resource_group": group_filter,
         "name_filter": name_filter,
         "provider_type_summary": provider_type_summary,
+        "scope_counts": scope_counts,
         "resource_group_count": sum(item["type"] == "resource-group" for item in managed),
         "derived_resource_count": sum(
             item["type"] != "resource-group" and item.get("provider_type") is None
@@ -443,10 +446,39 @@ def render_inventory_answer(
     active_view = str(result.get("active_view") or "provider-default")
     truncated = bool(result.get("truncated"))
     provider_type_summary = bool(result.get("provider_type_summary"))
+    scope_counts = bool(result.get("scope_counts"))
     type_counts = result.get("matched_type_counts")
     type_count = len(type_counts) if isinstance(type_counts, Mapping) else 0
     resource_group_count = int(result.get("resource_group_count") or 0)
     derived_resource_count = int(result.get("derived_resource_count") or 0)
+
+    if scope_counts:
+        if korean:
+            lines = [
+                f"관리 범위에서 Azure 리소스 {count}개와 resource group "
+                f"{resource_group_count}개를 확인했습니다."
+            ]
+            lines.append(
+                f"Topology에서 파생된 하위 리소스 {derived_resource_count}개는 "
+                "provider-native 합계와 분리했습니다."
+            )
+        else:
+            lines = [
+                f"The managed scope contains {count} Azure resources and "
+                f"{resource_group_count} resource groups."
+            ]
+            lines.append(
+                f"{derived_resource_count} topology-derived child resources were kept "
+                "outside the provider-native total."
+            )
+        lines.append(_inventory_evidence_line(source, snapshot, freshness, korean=korean))
+        if truncated:
+            lines.append(
+                "인벤토리 snapshot이 잘렸으므로 실제 리소스 수가 더 많을 수 있습니다."
+                if korean
+                else "The inventory snapshot is truncated, so additional resources may exist."
+            )
+        return "\n".join(lines)
 
     if answer_format == "table":
         return _render_inventory_table_answer(
@@ -763,6 +795,8 @@ def _answer_detail_lines(
             f"- {item.get('source')} --{item.get('type')}--> {item.get('target')}" for item in links
         ]
     if query_kind == "count":
+        return []
+    if query_kind == "scope_counts":
         return []
     return [_resource_line(item, korean=korean) for item in resources]
 

@@ -109,6 +109,11 @@ def compile_inventory_query(
         name = None
     operations = lexical.matched_values(registry.operations, prompt)
     source = _source(prompt, operations=operations, language=lexical)
+    kind = _kind(prompt, source, language=lexical)
+    if kind is InventoryQueryKind.SCOPE_COUNTS:
+        resource_types = ()
+        group = None
+        name = None
 
     predicates: list[InventoryPredicate] = []
     if resource_types:
@@ -128,7 +133,7 @@ def compile_inventory_query(
         )
         return InventoryQuery(
             source=source,
-            kind=_kind(prompt, source, language=lexical),
+            kind=kind,
             predicates=tuple(predicates),
             lookback_seconds=(
                 lexical.parse_window_seconds(prompt) or registry.default_activity_lookback_seconds
@@ -170,7 +175,7 @@ def compile_inventory_query(
         grouping = InventoryQueryGrouping.STATUS
     return InventoryQuery(
         source=source,
-        kind=_kind(prompt, source, language=lexical),
+        kind=kind,
         predicates=tuple(predicates),
         scope=_scope(prompt, language=lexical),
         group_by=grouping,

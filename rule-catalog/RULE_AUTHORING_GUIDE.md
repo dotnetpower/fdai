@@ -295,6 +295,11 @@ runtime freezes the loaded registry before it compiles any prompt. Catalog terms
 a typed read query only. They never become runtime evidence, widen provider scope beyond the
 server-owned scope policy, grant an action, or bypass verification.
 
+Use a dedicated query kind when one reviewed phrase requires a distinct deterministic result
+shape. `scope_counts` selects provider-native resource and resource-group totals from one snapshot;
+it does not compile `resource-group` as a narrowing predicate. Keep reusable phrase variants in the
+catalog and keep result-shape semantics in the typed query executor.
+
 A state entry can declare `suppresses` with other state ids when a longer semantic phrase contains
 a shorter contradictory term. For example, a reviewed not-running phrase can suppress the embedded
 running state. Suppression targets must exist, cannot reference the declaring state, and affect only

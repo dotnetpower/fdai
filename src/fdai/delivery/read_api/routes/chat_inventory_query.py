@@ -22,6 +22,7 @@ class InventoryQueryKind(StrEnum):
     """Bounded result shapes supported by the inventory renderer."""
 
     LIST = "list"
+    SCOPE_COUNTS = "scope_counts"
     COUNT = "count"
     TYPES = "types"
     RELATIONSHIPS = "relationships"

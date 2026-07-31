@@ -603,6 +603,21 @@ async def test_subscription_type_summary_uses_provider_types_and_separates_group
     assert evidence["result"]["derived_resource_count"] == 0
 
 
+async def test_scope_counts_report_resources_and_groups_from_one_snapshot() -> None:
+    evidence = await _inventory_evidence(
+        "How many resources and resource groups are in the managed scope?"
+    )
+
+    answer = render_inventory_answer(evidence, locale="en")
+
+    assert answer is not None
+    assert "contains 11 Azure resources and 2 resource groups" in answer
+    assert "0 topology-derived child resources" in answer
+    assert evidence["result"]["matched_count"] == 11
+    assert evidence["result"]["resource_group_count"] == 2
+    assert evidence["result"]["query_kind"] == "scope_counts"
+
+
 @pytest.mark.parametrize(
     "prompt",
     (

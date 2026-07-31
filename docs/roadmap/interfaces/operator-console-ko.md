@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 7845a53404254ac55196d52d16b5f35b29a12cec
+translation_source_sha: 5a82940c933378172ba4bd25a757578baac976ea
 translation_revised: 2026-08-01
 ---
 
@@ -272,6 +272,9 @@ provider-native type별로 grouping하고 완전한 resource 및 type 합계를 
 container와 topology에서 파생된 하위 record는 provider-native resource 합계와 분리해
 보고합니다. Catalog-mapped query는 filtering과 CSP-neutral reasoning에 canonical resource
 type을 계속 사용합니다.
+Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
+fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와
+동일하게 container, derived-record, truncation, freshness 및 verification disclosure를 유지합니다.
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
 `EventIngest -> TrustRouter -> T0Engine`을 **메모리 내에서만** 실행: T1
