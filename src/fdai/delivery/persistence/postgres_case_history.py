@@ -8,13 +8,15 @@ from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 from fdai.shared.providers.case_history import CaseHistoryRevisionRecord
 
 _SELECT_LATEST = """
 SELECT c.*, r.manifest_digest, r.parent_manifest_digest, r.source_set_digest,
        r.storage_ref AS revision_storage_ref, r.artifact_size AS revision_artifact_size,
-       r.event_time_cutoff, r.created_by_agent, r.sealed_at
+    r.event_time_cutoff, r.created_by_agent, r.sealed_at,
+    r.metadata AS revision_metadata
   FROM case_history c
   JOIN case_history_revision r
     ON r.case_id = c.case_id AND r.revision = c.latest_revision
@@ -98,7 +100,7 @@ class PostgresCaseHistoryMetadataStore:
             cursor = await connection.execute(
                 "UPDATE case_history SET latest_revision = %s, latest_manifest_digest = %s, "
                 "state_revision = %s, detector_id = %s, detector_version = %s, metric = %s, "
-                "outcome_label = %s, retention_until = %s, deletion_due_at = %s, "
+                "outcome_label = %s, metadata = %s, retention_until = %s, deletion_due_at = %s, "
                 "legal_hold = %s, legal_hold_ref = %s, updated_at = %s "
                 "WHERE case_id = %s AND state_revision = %s",
                 (
@@ -109,6 +111,7 @@ class PostgresCaseHistoryMetadataStore:
                     record.detector_version,
                     record.metric,
                     record.outcome_label,
+                    Jsonb(dict(record.metadata)),
                     record.retention_until,
                     record.deletion_due_at,
                     record.legal_hold,
@@ -287,11 +290,11 @@ class PostgresCaseHistoryMetadataStore:
         await connection.execute(
             "INSERT INTO case_history (case_id, kind, correlation_id, purpose, "
             "access_scope_digest, latest_revision, latest_manifest_digest, state_revision, "
-            "detector_id, detector_version, metric, outcome_label, retention_until, "
+            "detector_id, detector_version, metric, outcome_label, metadata, retention_until, "
             "deletion_due_at, legal_hold, legal_hold_ref, deletion_started_at, "
             "deletion_storage_refs, deleted_at, created_at, updated_at) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
-            "%s, %s, %s, %s, %s)",
+            "%s, %s, %s, %s, %s, %s)",
             (
                 record.case_id,
                 record.kind,
@@ -305,6 +308,7 @@ class PostgresCaseHistoryMetadataStore:
                 record.detector_version,
                 record.metric,
                 record.outcome_label,
+                Jsonb(dict(record.metadata)),
                 record.retention_until,
                 record.deletion_due_at,
                 record.legal_hold,
@@ -325,9 +329,9 @@ class PostgresCaseHistoryMetadataStore:
         await connection.execute(
             "INSERT INTO case_history_revision (case_id, revision, manifest_digest, "
             "parent_manifest_digest, source_set_digest, storage_ref, artifact_size, "
-            "outcome_label, detector_id, detector_version, metric, event_time_cutoff, "
+            "outcome_label, detector_id, detector_version, metric, metadata, event_time_cutoff, "
             "created_by_agent, sealed_at) VALUES "
-            "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 record.case_id,
                 record.revision,
@@ -341,6 +345,7 @@ class PostgresCaseHistoryMetadataStore:
                 record.detector_id,
                 record.detector_version,
                 record.metric,
+                Jsonb(dict(record.metadata)),
                 record.event_time_cutoff,
                 record.created_by_agent,
                 record.sealed_at,
@@ -403,9 +408,12 @@ def _record(row: dict[str, Any]) -> CaseHistoryRevisionRecord:
         storage_ref=(None if deleted_at else str(row["revision_storage_ref"])),
         artifact_size=(0 if deleted_at else int(row["revision_artifact_size"])),
         outcome_label=str(row["outcome_label"]),
-        detector_id=str(row["detector_id"]),
-        detector_version=str(row["detector_version"]),
-        metric=str(row["metric"]),
+        detector_id=(str(row["detector_id"]) if row["detector_id"] is not None else None),
+        detector_version=(
+            str(row["detector_version"]) if row["detector_version"] is not None else None
+        ),
+        metric=(str(row["metric"]) if row["metric"] is not None else None),
+        metadata=_metadata(row["revision_metadata"]),
         event_time_cutoff=row["event_time_cutoff"],
         created_by_agent=str(row["created_by_agent"]),
         sealed_at=row["sealed_at"],
@@ -422,6 +430,14 @@ def _record(row: dict[str, Any]) -> CaseHistoryRevisionRecord:
 
 def _psycopg_dsn(value: str) -> str:
     return value.replace("postgresql+psycopg://", "postgresql://", 1)
+
+
+def _metadata(value: object) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, dict) or any(
+        not isinstance(key, str) or not isinstance(item, str) for key, item in value.items()
+    ):
+        raise ValueError("case history relational metadata MUST be a string mapping")
+    return tuple(sorted(value.items()))
 
 
 __all__ = ["PostgresCaseHistoryMetadataStore", "PostgresCaseHistoryMetadataStoreConfig"]

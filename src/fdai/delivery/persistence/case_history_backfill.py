@@ -151,11 +151,14 @@ class CaseHistoryBackfillService:
             ):
                 raise ValueError("case history backfill artifact identity is invalid")
             source_set_digest = _source_set_digest(document.get("sources"))
+            metadata = _metadata(document.get("metadata", {}))
+            kind = str(document["kind"])
+            operational_outcome = dict(metadata).get("operational_outcome")
             records.append(
                 CaseHistoryRevisionRecord(
                     case_id=latest.case_id,
                     revision=revision,
-                    kind=str(document["kind"]),
+                    kind=kind,
                     correlation_id=str(document["correlation_id"]),
                     purpose=str(document["purpose"]),
                     access_scope_digest=latest.access_scope_digest,
@@ -168,15 +171,20 @@ class CaseHistoryBackfillService:
                     source_set_digest=source_set_digest,
                     storage_ref=storage_ref,
                     artifact_size=len(content),
-                    outcome_label=latest.outcome_label,
-                    detector_id=latest.detector_id,
-                    detector_version=latest.detector_version,
-                    metric=latest.metric,
+                    outcome_label=(
+                        latest.outcome_label
+                        if kind == "prediction"
+                        else operational_outcome or latest.outcome_label
+                    ),
+                    detector_id=latest.detector_id if kind == "prediction" else None,
+                    detector_version=latest.detector_version if kind == "prediction" else None,
+                    metric=latest.metric if kind == "prediction" else None,
                     event_time_cutoff=_timestamp(document["event_time_cutoff"]),
                     created_by_agent=str(document["created_by_agent"]),
                     sealed_at=_timestamp(document["sealed_at"]),
                     retention_until=latest.retention_until,
                     deletion_due_at=latest.deletion_due_at,
+                    metadata=metadata,
                     legal_hold=latest.legal_hold,
                     legal_hold_ref=latest.legal_hold_ref,
                     state_revision=revision,
@@ -233,6 +241,14 @@ def _timestamp(value: object) -> datetime:
     if result.tzinfo is None:
         raise ValueError("case history backfill timestamp MUST be timezone-aware")
     return result
+
+
+def _metadata(value: object) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, dict) or any(
+        not isinstance(key, str) or not isinstance(item, str) for key, item in value.items()
+    ):
+        raise ValueError("case history backfill metadata MUST be a string mapping")
+    return tuple(sorted(value.items()))
 
 
 __all__ = [

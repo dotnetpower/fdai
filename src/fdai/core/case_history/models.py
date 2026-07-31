@@ -14,6 +14,9 @@ from urllib.parse import unquote
 
 _MAX_SOURCE_BYTES = 16 * 1024
 _MAX_ARTIFACT_BYTES = 1024 * 1024
+_OPERATIONAL_METADATA_KEYS = frozenset(
+    {"action_type", "failure_fingerprint", "operational_outcome", "resource_type"}
+)
 _FORBIDDEN_KEYS = frozenset(
     re.sub(r"[^a-z0-9]", "", value)
     for value in {
@@ -103,6 +106,7 @@ class CaseHistoryRevision:
     manifest_digest: str
     artifact_bytes: bytes
     sources: tuple[CaseSourceRecord, ...]
+    metadata: Mapping[str, str]
 
 
 def build_case_history_revision(
@@ -119,6 +123,7 @@ def build_case_history_revision(
     sealed_at: datetime,
     parent_manifest_digest: str | None,
     sources: Sequence[CaseSourceRecord],
+    metadata: Mapping[str, str] | None = None,
 ) -> CaseHistoryRevision:
     if not all((case_id, correlation_id, purpose, redaction_policy_version, created_by_agent)):
         raise ValueError("case revision identity fields MUST be non-empty")
@@ -142,6 +147,14 @@ def build_case_history_revision(
     identities = {(item.record_type, item.record_id) for item in ordered}
     if len(identities) != len(ordered):
         raise ValueError("case revision source identities MUST be unique")
+    normalized_metadata = {
+        str(key): str(value) for key, value in (metadata.items() if metadata is not None else ())
+    }
+    if not normalized_metadata.keys() <= _OPERATIONAL_METADATA_KEYS:
+        raise ValueError("case revision metadata contains unsupported fields")
+    forbidden_metadata = _payload_keys(normalized_metadata).intersection(_FORBIDDEN_KEYS)
+    if forbidden_metadata or _contains_forbidden_value(normalized_metadata):
+        raise ValueError("case revision metadata contains forbidden content")
     document = {
         "schema_version": "1.0.0",
         "case_id": case_id,
@@ -155,6 +168,7 @@ def build_case_history_revision(
         "created_by_agent": created_by_agent,
         "sealed_at": sealed_at.isoformat(),
         "parent_manifest_digest": parent_manifest_digest,
+        "metadata": normalized_metadata,
         "sources": [
             {
                 "record_type": item.record_type,
@@ -185,6 +199,7 @@ def build_case_history_revision(
         manifest_digest=manifest_digest,
         artifact_bytes=artifact_bytes,
         sources=ordered,
+        metadata=MappingProxyType(normalized_metadata),
     )
 
 

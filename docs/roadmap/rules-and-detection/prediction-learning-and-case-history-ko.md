@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 90f103babfa8f21762ef1eccc5e03f32ec36fc92
-translation_revised: 2026-07-23
+translation_source_sha: 62cfcbd95779e6e10e11d5f0f022bd0761895186
+translation_revised: 2026-08-01
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -102,8 +102,8 @@ Revision은 이전 source identity와 digest를 모두 보존해야 합니다. �
 PostgreSQL은 제한 없는 evidence body가 아니라 조회 가능한 metadata를 저장합니다.
 
 - `case_history`: identity, kind, correlation 및 incident reference, lifecycle state, latest
-  revision, label, detector version, resource type, metric, retention, legal hold 및 latest
-  manifest reference
+  revision, label, bounded generic metadata, optional forecast detector 및 metric field,
+  retention, legal hold 및 latest manifest reference
 - `case_history_revision`: revision number, parent digest, manifest digest, storage reference,
   audit sequence 범위, event-time cutoff, schema 및 redaction version, label, censoring reason,
   owning agent 및 seal time
@@ -114,6 +114,9 @@ Append-only audit log가 evidence 권위를 유지합니다. Migration 중에는
 projection이 read authority를 유지하고 PostgreSQL은 shadow write를 받습니다. Keyset backfill은
 전체 artifact chain을 재구성하고 삭제된 identity를 zero-size tombstone으로 보존합니다.
 Persisted zero-mismatch marker를 runtime에서 확인한 뒤에만 relational read를 시작할 수 있습니다.
+Operational action 및 incident revision은 forecast 값을 만들지 않고 detector와 metric field를
+null로 유지합니다. Allowlist metadata는 StateStore와 PostgreSQL 양쪽에 저장되며 backfill 때 각
+immutable artifact에서 복원됩니다. 기존 forecast metadata는 계속 유효합니다.
 
 ### Immutable artifact
 
@@ -186,6 +189,7 @@ publisher가 deletion을 앞당길 수 없습니다. Retention publisher task가
 | Positive, negative 및 판단 보류 episode ledger | 구현됨 |
 | StateStore authority와 PostgreSQL shadow dual-write | 구현됨 |
 | PostgreSQL episode, revision, chunk, migration-marker 및 tombstone table | 구현됨 |
+| Operational receipt compiler 및 action/incident case intake | 구현됨 |
 | 전체 chain keyset backfill 및 zero-mismatch cutover gate | 구현됨 |
 | Azure private artifact adapter | 구현됨, deployment는 opt-in |
 | Muninn case materialization, scheduled retention 및 Norns candidate choreography | 구현됨 |
@@ -198,6 +202,7 @@ publisher가 deletion을 앞당길 수 없습니다. Retention publisher task가
 - 모든 forecast 또는 actual breach가 하나의 terminal outcome 또는 명시적 `unscorable` 상태에 도달
 - 입력 reorder에도 canonical digest가 안정적이며 evidence mutation에는 digest가 변경
 - Append-only revision conflict 탐지 및 idempotent replay
+- Synthetic detector 또는 metric 값 없는 action/incident persistence와 legacy forecast row 호환성
 - Cross-scope retrieval 차단 및 secret/hidden-reasoning 거부
 - Subscriber concurrency, failure isolation, ownership 및 duplicate delivery safety
 - Model output이 active rule, detector, promotion 또는 action을 직접 기록할 수 없음

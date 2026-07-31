@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 
 from fdai.shared.contracts.models import ForecastOutcome
@@ -15,6 +16,39 @@ from fdai.shared.providers.case_history import (
 )
 
 from .models import CaseKind, CaseSourceRecord, build_case_history_revision
+from .operational_case import (
+    OperationalCaseInput,
+    OperationalCaseProjection,
+    compile_operational_case,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SealedOperationalCase:
+    record: CaseHistoryRevisionRecord
+    projection: OperationalCaseProjection
+
+
+@dataclass(frozen=True, slots=True)
+class _SealRequest:
+    case_id: str
+    kind: CaseKind
+    correlation_id: str
+    purpose: str
+    access_scope_digest: str
+    redaction_policy_version: str
+    event_time_cutoff: datetime
+    sealed_at: datetime
+    sources: tuple[CaseSourceRecord, ...]
+    outcome_label: str
+    detector_id: str | None
+    detector_version: str | None
+    metric: str | None
+    metadata: tuple[tuple[str, str], ...]
+    retention_until: datetime
+    deletion_due_at: datetime
+    legal_hold: bool
+    legal_hold_ref: str | None
 
 
 class CaseHistoryMaterializer:
@@ -42,10 +76,84 @@ class CaseHistoryMaterializer:
         case_id = _case_id(outcome, purpose=purpose)
         outcome_source = _outcome_source(outcome)
         sources = (outcome_source, *additional_sources)
-        source_set_digest = _source_set_digest(sources)
+        sealed_at = max((outcome.closed_at, *(source.occurred_at for source in sources)))
+        return await self._seal_revision(
+            _SealRequest(
+                case_id=case_id,
+                kind=CaseKind.PREDICTION,
+                correlation_id=outcome.correlation_id,
+                purpose=purpose,
+                access_scope_digest=outcome.access_scope_digest,
+                redaction_policy_version=redaction_policy_version,
+                event_time_cutoff=outcome.horizon_ended_at,
+                sealed_at=sealed_at,
+                sources=sources,
+                outcome_label=outcome.label.value,
+                detector_id=outcome.detector_id,
+                detector_version=outcome.detector_version,
+                metric=outcome.metric,
+                metadata=(),
+                retention_until=retention_until,
+                deletion_due_at=deletion_due_at,
+                legal_hold=legal_hold,
+                legal_hold_ref=legal_hold_ref,
+            )
+        )
+
+    async def seal_operational_case(
+        self,
+        case_input: OperationalCaseInput,
+        *,
+        retention_until: datetime,
+        deletion_due_at: datetime,
+        legal_hold: bool = False,
+        legal_hold_ref: str | None = None,
+    ) -> SealedOperationalCase:
+        compiled = compile_operational_case(case_input)
+        record = await self._seal_revision(
+            _SealRequest(
+                case_id=_operational_case_id(case_input),
+                kind=case_input.kind,
+                correlation_id=case_input.correlation_digest,
+                purpose=case_input.purpose,
+                access_scope_digest=case_input.access_scope_digest,
+                redaction_policy_version=case_input.redaction_policy_version,
+                event_time_cutoff=case_input.event_time_cutoff,
+                sealed_at=max(
+                    case_input.event_time_cutoff,
+                    *(receipt.occurred_at for receipt in case_input.receipts),
+                ),
+                sources=compiled.sources,
+                outcome_label=case_input.outcome_class.value,
+                detector_id=None,
+                detector_version=None,
+                metric=None,
+                metadata=(
+                    ("action_type", case_input.action_type),
+                    ("failure_fingerprint", case_input.failure_fingerprint.digest),
+                    ("operational_outcome", case_input.outcome_class.value),
+                    ("resource_type", case_input.failure_fingerprint.resource_type),
+                ),
+                retention_until=retention_until,
+                deletion_due_at=deletion_due_at,
+                legal_hold=legal_hold,
+                legal_hold_ref=legal_hold_ref,
+            )
+        )
+        return SealedOperationalCase(
+            record=record,
+            projection=compiled.projection(
+                case_id=record.case_id,
+                case_revision=record.revision,
+                manifest_digest=record.manifest_digest,
+            ),
+        )
+
+    async def _seal_revision(self, request: _SealRequest) -> CaseHistoryRevisionRecord:
+        source_set_digest = _source_set_digest(request.sources)
         latest = await self._metadata.latest(
-            case_id,
-            access_scope_digest=outcome.access_scope_digest,
+            request.case_id,
+            access_scope_digest=request.access_scope_digest,
         )
         if latest is not None and latest.deleted_at is not None:
             raise PermissionError("deleted case history cannot be reopened")
@@ -53,69 +161,81 @@ class CaseHistoryMaterializer:
             raise PermissionError("case history pending deletion cannot be reopened")
         if latest is not None and latest.source_set_digest == source_set_digest:
             if (
-                latest.retention_until != retention_until
-                or latest.deletion_due_at != deletion_due_at
-                or latest.legal_hold != legal_hold
-                or latest.legal_hold_ref != legal_hold_ref
+                latest.kind != request.kind.value
+                or latest.correlation_id != request.correlation_id
+                or latest.purpose != request.purpose
+                or latest.outcome_label != request.outcome_label
+                or latest.detector_id != request.detector_id
+                or latest.detector_version != request.detector_version
+                or latest.metric != request.metric
+                or latest.event_time_cutoff != request.event_time_cutoff
+                or latest.metadata != request.metadata
+                or latest.retention_until != request.retention_until
+                or latest.deletion_due_at != request.deletion_due_at
+                or latest.legal_hold != request.legal_hold
+                or latest.legal_hold_ref != request.legal_hold_ref
             ):
-                raise ValueError("case history governance cannot change on duplicate evidence")
+                raise ValueError(
+                    "case history governance cannot change on duplicate evidence or metadata"
+                )
             return latest
         if latest is not None:
-            await self._validate_source_continuity(latest, sources)
+            await self._validate_source_continuity(latest, request.sources)
         revision_number = 1 if latest is None else latest.revision + 1
         parent_digest = None if latest is None else latest.manifest_digest
-        sealed_at = max((outcome.closed_at, *(source.occurred_at for source in sources)))
         revision = build_case_history_revision(
-            case_id=case_id,
+            case_id=request.case_id,
             revision=revision_number,
-            kind=CaseKind.PREDICTION,
-            correlation_id=outcome.correlation_id,
-            purpose=purpose,
-            access_scope_digest=outcome.access_scope_digest,
-            redaction_policy_version=redaction_policy_version,
-            event_time_cutoff=outcome.horizon_ended_at,
+            kind=request.kind,
+            correlation_id=request.correlation_id,
+            purpose=request.purpose,
+            access_scope_digest=request.access_scope_digest,
+            redaction_policy_version=request.redaction_policy_version,
+            event_time_cutoff=request.event_time_cutoff,
             created_by_agent="Muninn",
-            sealed_at=sealed_at,
+            sealed_at=request.sealed_at,
             parent_manifest_digest=parent_digest,
-            sources=sources,
+            sources=request.sources,
+            metadata=dict(request.metadata),
         )
-        storage_ref = f"case-history/{case_id}/{revision.revision}/{revision.manifest_digest}.json"
+        storage_ref = _storage_ref(request.case_id, revision.revision, revision.manifest_digest)
         artifact_created = await self._artifacts.put(
             storage_ref,
             revision.artifact_bytes,
             digest=revision.manifest_digest,
         )
         record = CaseHistoryRevisionRecord(
-            case_id=case_id,
+            case_id=request.case_id,
             revision=revision.revision,
             kind=revision.kind.value,
-            correlation_id=outcome.correlation_id,
-            purpose=purpose,
-            access_scope_digest=outcome.access_scope_digest,
+            correlation_id=request.correlation_id,
+            purpose=request.purpose,
+            access_scope_digest=request.access_scope_digest,
             manifest_digest=revision.manifest_digest,
             parent_manifest_digest=parent_digest,
             source_set_digest=source_set_digest,
             storage_ref=storage_ref,
             artifact_size=len(revision.artifact_bytes),
-            outcome_label=outcome.label.value,
-            detector_id=outcome.detector_id,
-            detector_version=outcome.detector_version,
-            metric=outcome.metric,
-            event_time_cutoff=outcome.horizon_ended_at,
+            outcome_label=request.outcome_label,
+            detector_id=request.detector_id,
+            detector_version=request.detector_version,
+            metric=request.metric,
+            event_time_cutoff=request.event_time_cutoff,
             created_by_agent="Muninn",
-            sealed_at=sealed_at,
-            retention_until=retention_until,
-            deletion_due_at=deletion_due_at,
-            legal_hold=legal_hold,
-            legal_hold_ref=legal_hold_ref,
+            sealed_at=request.sealed_at,
+            retention_until=request.retention_until,
+            deletion_due_at=request.deletion_due_at,
+            metadata=request.metadata,
+            legal_hold=request.legal_hold,
+            legal_hold_ref=request.legal_hold_ref,
         )
         try:
             created = await self._metadata.append_revision(record)
         except Exception as metadata_error:
             try:
                 committed = await self._metadata.latest(
-                    case_id,
-                    access_scope_digest=outcome.access_scope_digest,
+                    request.case_id,
+                    access_scope_digest=request.access_scope_digest,
                 )
             except Exception as verification_error:
                 raise ExceptionGroup(
@@ -135,8 +255,8 @@ class CaseHistoryMaterializer:
             raise
         if not created:
             existing = await self._metadata.latest(
-                case_id,
-                access_scope_digest=outcome.access_scope_digest,
+                request.case_id,
+                access_scope_digest=request.access_scope_digest,
             )
             if existing is None or existing != record:
                 raise RuntimeError("case history idempotent append lost its stored revision")
@@ -279,6 +399,14 @@ def _storage_ref(case_id: str, revision: int, manifest_digest: str) -> str:
     return f"case-history/{case_id}/{revision}/{manifest_digest}.json"
 
 
+def _operational_case_id(case_input: OperationalCaseInput) -> str:
+    purpose_digest = hashlib.sha256(case_input.purpose.encode()).hexdigest()[:16]
+    return (
+        f"{case_input.kind.value}-{case_input.access_scope_digest}-"
+        f"{case_input.case_identity_digest}-{purpose_digest}"
+    )
+
+
 def _outcome_source(outcome: ForecastOutcome) -> CaseSourceRecord:
     payload = outcome.model_dump(mode="json")
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
@@ -298,4 +426,4 @@ def _source_set_digest(sources: Sequence[CaseSourceRecord]) -> str:
     return hashlib.sha256("\n".join(values).encode()).hexdigest()
 
 
-__all__ = ["CaseHistoryMaterializer", "CaseHistoryRetentionService"]
+__all__ = ["CaseHistoryMaterializer", "CaseHistoryRetentionService", "SealedOperationalCase"]

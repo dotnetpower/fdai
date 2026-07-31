@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from tests.core.case_history.test_operational_case import _case_input, _receipt
 
 from fdai.core.case_history import (
     CaseHistoryMaterializer,
     CaseHistoryRetentionService,
+    CaseKind,
     CaseSourceRecord,
+    OperationalOutcomeClass,
+    OperationalReceiptType,
 )
 from fdai.core.case_history.testing import (
     InMemoryCaseHistoryArtifactStore,
@@ -78,6 +84,91 @@ async def test_duplicate_delivery_reuses_one_revision() -> None:
     assert second.revision == 1
     assert first.storage_ref is not None
     assert await artifacts.get(first.storage_ref) is not None
+
+
+@pytest.mark.parametrize("kind", [CaseKind.ACTION, CaseKind.INCIDENT])
+async def test_operational_case_duplicate_and_late_receipt_preserve_governance(
+    kind: CaseKind,
+) -> None:
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    service = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    case_input = replace(
+        _case_input(outcome_class=OperationalOutcomeClass.ROLLBACK),
+        kind=kind,
+    )
+    retention_until = case_input.event_time_cutoff + timedelta(days=30)
+    deletion_due_at = case_input.event_time_cutoff + timedelta(days=60)
+    first = await service.seal_operational_case(
+        case_input,
+        retention_until=retention_until,
+        deletion_due_at=deletion_due_at,
+        legal_hold=True,
+        legal_hold_ref="legal-review",
+    )
+    duplicate = await service.seal_operational_case(
+        case_input,
+        retention_until=retention_until,
+        deletion_due_at=deletion_due_at,
+        legal_hold=True,
+        legal_hold_ref="legal-review",
+    )
+
+    assert duplicate == first
+    assert first.record.kind == kind.value
+    assert first.record.outcome_label == "rollback"
+    assert first.record.detector_id is first.record.detector_version is first.record.metric is None
+    assert first.record.legal_hold_ref == "legal-review"
+    assert first.projection.outcome_class is OperationalOutcomeClass.ROLLBACK
+    artifact = await artifacts.get(first.record.storage_ref or "")
+    assert artifact is not None
+    document = json.loads(artifact)
+    assert document["metadata"] == {
+        "action_type": "ops.restart-service",
+        "failure_fingerprint": case_input.failure_fingerprint.digest,
+        "operational_outcome": "rollback",
+        "resource_type": "kubernetes.service",
+    }
+
+    late_evaluation = _receipt(
+        OperationalReceiptType.EVALUATION,
+        "5",
+        (("validation_status", "rejected"), ("evidence_digest", "7" * 64)),
+    )
+    revised = await service.seal_operational_case(
+        replace(case_input, receipts=(*case_input.receipts, late_evaluation)),
+        retention_until=retention_until,
+        deletion_due_at=deletion_due_at,
+        legal_hold=True,
+        legal_hold_ref="legal-review",
+    )
+    assert revised.record.revision == 2
+    assert revised.record.parent_manifest_digest == first.record.manifest_digest
+    assert revised.projection.case_revision == 2
+
+
+async def test_operational_case_projection_change_is_rejected() -> None:
+    metadata = InMemoryCaseHistoryMetadataStore()
+    service = CaseHistoryMaterializer(
+        metadata=metadata,
+        artifacts=InMemoryCaseHistoryArtifactStore(),
+    )
+    case_input = _case_input()
+    retention_until = case_input.event_time_cutoff + timedelta(days=30)
+    deletion_due_at = case_input.event_time_cutoff + timedelta(days=60)
+    await service.seal_operational_case(
+        case_input,
+        retention_until=retention_until,
+        deletion_due_at=deletion_due_at,
+    )
+
+    changed = replace(case_input, evidence_refs=("7" * 64,))
+    with pytest.raises(ValueError, match="preserve prior source evidence"):
+        await service.seal_operational_case(
+            changed,
+            retention_until=retention_until,
+            deletion_due_at=deletion_due_at,
+        )
 
 
 async def test_same_prediction_isolated_by_purpose() -> None:

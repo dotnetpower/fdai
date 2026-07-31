@@ -29,7 +29,7 @@ fdai/
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
 │   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, mixed-family review, scoped disputes, subscription learning, and chat-policy promotion/rollback
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation
-│   │   ├── case_history/       # canonical revisions, shadow dual-write, scoped retrieval, off-path analysis, and retention
+│   │   ├── case_history/       # canonical revisions, strict operational receipts, artifact-first intake, scoped retrieval, backfill, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
 │   │   ├── background_task/    # durable detached reads: lease/CAS, atomic completion outbox, bounded retry, process-loss, and retention purge
 │   │   ├── read_investigation/ # exact-resource VM/network planning, evidence, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeats, and stream-close cancellation; no cloud SDK or execution authority

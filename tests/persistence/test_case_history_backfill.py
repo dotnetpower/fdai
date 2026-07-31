@@ -9,6 +9,7 @@ from fdai.core.case_history.testing import (
     InMemoryCaseHistoryMetadataStore,
 )
 from fdai.delivery.persistence.case_history_backfill import CaseHistoryBackfillService
+from tests.core.case_history.test_operational_case import _case_input
 from tests.core.case_history.test_service import _outcome
 
 NOW = datetime(2026, 7, 23, tzinfo=UTC)
@@ -106,6 +107,37 @@ async def test_deleted_case_tombstone_is_preserved_for_cutover() -> None:
         await destination.latest(deleted.case_id, access_scope_digest=deleted.access_scope_digest)
         == deleted
     )
+
+
+async def test_backfill_preserves_operational_metadata_without_forecast_placeholders() -> None:
+    source_metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=source_metadata, artifacts=artifacts)
+    case_input = _case_input()
+    latest = (
+        await materializer.seal_operational_case(
+            case_input,
+            retention_until=case_input.event_time_cutoff + timedelta(days=30),
+            deletion_due_at=case_input.event_time_cutoff + timedelta(days=60),
+        )
+    ).record
+    destination = _Destination()
+
+    report = await CaseHistoryBackfillService(
+        source=_Source((latest,)),  # type: ignore[arg-type]
+        destination=destination,  # type: ignore[arg-type]
+        artifacts=artifacts,
+    ).run(now=NOW)
+
+    assert report.mismatches == 0
+    mirrored = await destination.latest(
+        latest.case_id,
+        access_scope_digest=latest.access_scope_digest,
+    )
+    assert mirrored == latest
+    assert mirrored is not None
+    assert mirrored.detector_id is mirrored.detector_version is mirrored.metric is None
+    assert dict(mirrored.metadata)["action_type"] == "ops.restart-service"
 
 
 async def _seed_latest(artifacts: InMemoryCaseHistoryArtifactStore):  # type: ignore[no-untyped-def]

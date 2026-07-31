@@ -315,7 +315,7 @@ def _audit_entry(record: CaseHistoryRevisionRecord) -> dict[str, object]:
 
 def _to_mapping(record: CaseHistoryRevisionRecord) -> dict[str, object]:
     return {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "case_id": record.case_id,
         "revision": record.state_revision,
         "case_revision": record.revision,
@@ -332,6 +332,7 @@ def _to_mapping(record: CaseHistoryRevisionRecord) -> dict[str, object]:
         "detector_id": record.detector_id,
         "detector_version": record.detector_version,
         "metric": record.metric,
+        "metadata": dict(record.metadata),
         "event_time_cutoff": record.event_time_cutoff.isoformat(),
         "created_by_agent": record.created_by_agent,
         "sealed_at": record.sealed_at.isoformat(),
@@ -349,7 +350,7 @@ def _to_mapping(record: CaseHistoryRevisionRecord) -> dict[str, object]:
 
 def _from_mapping(raw: Mapping[str, object]) -> CaseHistoryRevisionRecord:
     schema_version = raw.get("schema_version")
-    if schema_version not in {"1.0.0", "1.1.0"}:
+    if schema_version not in {"1.0.0", "1.1.0", "1.2.0"}:
         raise ValueError("unsupported case history metadata schema")
     legacy = schema_version == "1.0.0"
     return CaseHistoryRevisionRecord(
@@ -369,14 +370,15 @@ def _from_mapping(raw: Mapping[str, object]) -> CaseHistoryRevisionRecord:
         storage_ref=(str(raw["storage_ref"]) if raw.get("storage_ref") is not None else None),
         artifact_size=int(str(raw["artifact_size"])),
         outcome_label=str(raw["outcome_label"]),
-        detector_id=str(raw["detector_id"]),
-        detector_version=str(raw["detector_version"]),
-        metric=str(raw["metric"]),
+        detector_id=_optional_string(raw.get("detector_id")),
+        detector_version=_optional_string(raw.get("detector_version")),
+        metric=_optional_string(raw.get("metric")),
         event_time_cutoff=_timestamp(raw["event_time_cutoff"]),
         created_by_agent=str(raw["created_by_agent"]),
         sealed_at=_timestamp(raw["sealed_at"]),
         retention_until=_timestamp(raw["retention_until"]),
         deletion_due_at=_timestamp(raw["deletion_due_at"]),
+        metadata=_metadata(raw.get("metadata", {})) if schema_version == "1.2.0" else (),
         legal_hold=bool(raw.get("legal_hold", False)),
         legal_hold_ref=(str(raw["legal_hold_ref"]) if raw.get("legal_hold_ref") else None),
         deleted_at=(_timestamp(raw["deleted_at"]) if raw.get("deleted_at") is not None else None),
@@ -407,6 +409,18 @@ def _string_tuple(value: object) -> tuple[str, ...]:
     ):
         raise ValueError("case history deletion refs MUST be non-empty strings")
     return tuple(value)
+
+
+def _optional_string(value: object) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _metadata(value: object) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, Mapping) or any(
+        not isinstance(key, str) or not isinstance(item, str) for key, item in value.items()
+    ):
+        raise ValueError("case history metadata MUST be a string mapping")
+    return tuple(sorted(value.items()))
 
 
 __all__ = ["StateStoreCaseHistoryMetadataStore", "deserialize_case_history_record"]

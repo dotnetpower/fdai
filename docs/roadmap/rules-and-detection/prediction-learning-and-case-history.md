@@ -100,8 +100,8 @@ evidence already sealed.
 PostgreSQL stores queryable metadata, not unrestricted evidence bodies:
 
 - `case_history`: identity, kind, correlation and incident references, lifecycle state, latest
-  revision, label, detector version, resource type, metric, retention, legal hold, and latest
-  manifest reference;
+  revision, label, generic bounded metadata, optional forecast detector and metric fields,
+  retention, legal hold, and latest manifest reference;
 - `case_history_revision`: revision number, parent digest, manifest digest, storage reference,
   audit sequence bounds, event-time cutoff, schema and redaction versions, label, censoring reason,
   owning agent, and seal time;
@@ -112,6 +112,9 @@ The append-only audit log remains the evidence authority. During migration, the 
 projection remains the read authority while PostgreSQL receives shadow writes. A keyset backfill
 reconstructs complete artifact chains and preserves deleted identities as zero-size tombstones.
 Relational reads can start only after a persisted zero-mismatch marker is verified at runtime.
+Operational action and incident revisions keep detector and metric fields null instead of inventing
+forecast values. Their allowlisted metadata is stored in both StateStore and PostgreSQL and is
+reconstructed from each immutable artifact during backfill. Legacy forecast metadata remains valid.
 
 ### Immutable artifact
 
@@ -183,6 +186,7 @@ with an unsuccessful exit instead of silently disabling future ticks.
 | Positive, negative, and held-for-review episode ledger | Implemented |
 | StateStore authority plus PostgreSQL shadow dual-write | Implemented |
 | PostgreSQL episode, revision, chunk, migration-marker, and tombstone tables | Implemented |
+| Operational receipt compiler and action/incident case intake | Implemented |
 | Full-chain keyset backfill and zero-mismatch cutover gate | Implemented |
 | Azure private artifact adapter | Implemented; deployment remains opt-in |
 | Muninn case materialization, scheduled retention, and Norns candidate choreography | Implemented |
@@ -195,6 +199,8 @@ The implementation must prove:
 - every forecast or actual breach reaches one terminal outcome or explicit `unscorable` state;
 - canonical digest stability under input reorder and digest change under evidence mutation;
 - append-only revision conflict detection and idempotent replay;
+- action and incident persistence without synthetic detector or metric values, while legacy
+  forecast rows remain readable;
 - cross-scope retrieval denial and secret/hidden-reasoning rejection;
 - subscriber concurrency, failure isolation, ownership, and duplicate delivery safety;
 - no model output can write an active rule, detector, promotion, or action directly.

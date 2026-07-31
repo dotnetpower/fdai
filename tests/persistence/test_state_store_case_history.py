@@ -59,6 +59,44 @@ async def test_state_store_appends_parent_linked_revision() -> None:
     assert await store.latest("case-1", access_scope_digest="a" * 64) == second
 
 
+async def test_state_store_round_trips_generic_operational_metadata() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreCaseHistoryMetadataStore(store=state)
+    record = replace(
+        _record(),
+        kind="action",
+        outcome_label="rollback",
+        detector_id=None,
+        detector_version=None,
+        metric=None,
+        metadata=(
+            ("resource_type", "kubernetes.service"),
+            ("failure_fingerprint", "f" * 64),
+            ("action_type", "ops.restart-service"),
+        ),
+    )
+
+    assert await store.append_revision(record) is True
+    assert (
+        await store.latest(record.case_id, access_scope_digest=record.access_scope_digest) == record
+    )
+    raw = await state.read_state(f"case-history:latest:{record.case_id}")
+    assert raw is not None
+    assert raw["schema_version"] == "1.2.0"
+    assert raw["detector_id"] is None
+    assert raw["metadata"] == {
+        "action_type": "ops.restart-service",
+        "failure_fingerprint": "f" * 64,
+        "resource_type": "kubernetes.service",
+    }
+
+
+def test_legacy_forecast_record_remains_strict_and_compatible() -> None:
+    assert _record().detector_id == "capacity-linear"
+    with pytest.raises(ValueError, match="requires detector and metric"):
+        replace(_record(), detector_id=None)
+
+
 async def test_state_store_rejects_revision_gap() -> None:
     store = StateStoreCaseHistoryMetadataStore(store=InMemoryStateStore())
     with pytest.raises((RuntimeError, ValueError), match="CAS failed|revision or parent"):

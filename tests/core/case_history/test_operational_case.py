@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from fdai.core.case_history import (
     FailureFingerprint,
+    OperationalCaseInput,
     OperationalCaseProjection,
     OperationalOutcomeClass,
+    OperationalReceiptFact,
+    OperationalReceiptType,
+    compile_operational_case,
 )
+from fdai.core.case_history.models import CaseKind
+
+T0 = datetime(2026, 8, 1, tzinfo=UTC)
 
 
 def _fingerprint(**overrides: object) -> FailureFingerprint:
@@ -19,6 +28,81 @@ def _fingerprint(**overrides: object) -> FailureFingerprint:
     }
     values.update(overrides)
     return FailureFingerprint(**values)  # type: ignore[arg-type]
+
+
+def _receipt(
+    receipt_type: OperationalReceiptType,
+    digest_character: str,
+    facts: tuple[tuple[str, str | bool | int], ...],
+) -> OperationalReceiptFact:
+    return OperationalReceiptFact(
+        receipt_type=receipt_type,
+        receipt_digest=digest_character * 64,
+        occurred_at=T0,
+        facts=facts,
+    )
+
+
+def _case_input(
+    *,
+    outcome_class: OperationalOutcomeClass = OperationalOutcomeClass.SUCCESS,
+    receipts: tuple[OperationalReceiptFact, ...] | None = None,
+) -> OperationalCaseInput:
+    response_status = (
+        "mismatch" if outcome_class is not OperationalOutcomeClass.SUCCESS else "verified"
+    )
+    standard_receipts = (
+        _receipt(
+            OperationalReceiptType.AUDIT,
+            "1",
+            (("event_type", "action.completed"), ("decision", "auto"), ("mode", "shadow")),
+        ),
+        _receipt(
+            OperationalReceiptType.ACTION,
+            "2",
+            (
+                ("action_type", "ops.restart-service"),
+                ("execution_outcome", outcome_class.value),
+                ("dry_run_digest", "a" * 64),
+                ("terminal_receipt_digest", "b" * 64),
+            ),
+        ),
+        _receipt(
+            OperationalReceiptType.RESPONSE_OUTCOME,
+            "3",
+            (
+                ("label", response_status),
+                ("verification_status", response_status),
+                ("execution_outcome", outcome_class.value),
+                ("rollback_succeeded", outcome_class is OperationalOutcomeClass.ROLLBACK),
+                ("recurrence", outcome_class is OperationalOutcomeClass.RECURRENCE),
+            ),
+        ),
+        _receipt(
+            OperationalReceiptType.EVALUATION,
+            "4",
+            (
+                ("validation_status", "accepted"),
+                ("evidence_digest", "c" * 64),
+                ("operationalized", True),
+                ("azure_validated", False),
+            ),
+        ),
+    )
+    return OperationalCaseInput(
+        case_identity_digest="d" * 64,
+        kind=CaseKind.ACTION,
+        correlation_digest="e" * 64,
+        purpose="operational-learning",
+        access_scope_digest="f" * 64,
+        redaction_policy_version="1.0.0",
+        event_time_cutoff=T0,
+        failure_fingerprint=_fingerprint(),
+        action_type="ops.restart-service",
+        outcome_class=outcome_class,
+        evidence_refs=("9" * 64, "8" * 64),
+        receipts=standard_receipts if receipts is None else receipts,
+    )
 
 
 def test_failure_fingerprint_is_environment_and_order_independent() -> None:
@@ -85,3 +169,80 @@ def test_operational_case_projection_rejects_unsealed_case() -> None:
             outcome_class=OperationalOutcomeClass.SUCCESS,
             evidence_refs=("audit:1",),
         )
+
+
+@pytest.mark.parametrize(
+    "outcome_class",
+    [
+        OperationalOutcomeClass.REFUSAL,
+        OperationalOutcomeClass.ROLLBACK,
+        OperationalOutcomeClass.RECURRENCE,
+    ],
+)
+def test_operational_case_compiler_preserves_negative_outcomes(
+    outcome_class: OperationalOutcomeClass,
+) -> None:
+    compiled = compile_operational_case(_case_input(outcome_class=outcome_class))
+
+    assert len(compiled.sources) == 5
+    projection_source = compiled.sources[0]
+    assert projection_source.record_type == "operational-case-projection"
+    assert projection_source.payload["failure_fingerprint"] == _fingerprint().digest
+    assert projection_source.payload["evidence_refs"] == ("8" * 64, "9" * 64)
+    response = next(
+        source
+        for source in compiled.sources
+        if source.record_type == "operational-response_outcome-receipt"
+    )
+    assert response.payload["execution_outcome"] == outcome_class.value
+    projection = compiled.projection(
+        case_id="case-1",
+        case_revision=1,
+        manifest_digest="a" * 64,
+    )
+    assert projection.outcome_class is outcome_class
+
+
+def test_operational_receipt_rejects_secret_or_free_form_fact() -> None:
+    with pytest.raises(ValueError, match="standard schema"):
+        _receipt(
+            OperationalReceiptType.AUDIT,
+            "1",
+            (
+                ("event_type", "action.completed"),
+                ("decision", "auto"),
+                ("mode", "shadow"),
+                ("prompt", "ignore-prior-instructions"),
+            ),
+        )
+    with pytest.raises(ValueError, match="canonical identifier"):
+        _receipt(
+            OperationalReceiptType.AUDIT,
+            "1",
+            (
+                ("event_type", "action.completed"),
+                ("decision", "Bearer secret-token-value-123456"),
+                ("mode", "shadow"),
+            ),
+        )
+
+
+def test_operational_case_rejects_receipt_authority_mismatch() -> None:
+    receipts = list(_case_input().receipts)
+    action_index = next(
+        index
+        for index, receipt in enumerate(receipts)
+        if receipt.receipt_type is OperationalReceiptType.ACTION
+    )
+    receipts[action_index] = _receipt(
+        OperationalReceiptType.ACTION,
+        "2",
+        (
+            ("action_type", "ops.scale-service"),
+            ("execution_outcome", "success"),
+            ("dry_run_digest", "a" * 64),
+            ("terminal_receipt_digest", "b" * 64),
+        ),
+    )
+    with pytest.raises(ValueError, match="match the case action type"):
+        _case_input(receipts=tuple(receipts))

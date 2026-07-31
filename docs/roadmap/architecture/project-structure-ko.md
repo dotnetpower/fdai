@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6853aa322faa9c9da3e7bbcb5f45255257d732ef
+translation_source_sha: 71572573f6435668b976a022d0abae33698c246a
 translation_revised: 2026-08-01
 ---
 
@@ -34,7 +34,7 @@ fdai/
 │   │   ├── learning/           # 동의 기반 off-path turn eligibility, consensus, dedup ledger, 비활성 proposal routing
 │   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation
-│   │   ├── case_history/       # canonical revision, shadow dual-write, scoped retrieval, off-path analysis 및 retention
+│   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
 │   │   ├── background_task/    # 영구 detached read: lease/CAS, atomic completion outbox, bounded retry, process-loss, retention purge
 │   │   ├── read_investigation/ # Exact-resource VM/network planning, evidence, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음

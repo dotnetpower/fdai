@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from fdai.shared.contracts.models import ForecastOutcomeLabel
+
+_OPERATIONAL_METADATA_KEYS = frozenset(
+    {"action_type", "failure_fingerprint", "operational_outcome", "resource_type"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,14 +28,15 @@ class CaseHistoryRevisionRecord:
     storage_ref: str | None
     artifact_size: int
     outcome_label: str
-    detector_id: str
-    detector_version: str
-    metric: str
+    detector_id: str | None
+    detector_version: str | None
+    metric: str | None
     event_time_cutoff: datetime
     created_by_agent: str
     sealed_at: datetime
     retention_until: datetime
     deletion_due_at: datetime
+    metadata: tuple[tuple[str, str], ...] = ()
     legal_hold: bool = False
     legal_hold_ref: str | None = None
     deleted_at: datetime | None = None
@@ -46,9 +52,6 @@ class CaseHistoryRevisionRecord:
                 self.correlation_id,
                 self.purpose,
                 self.outcome_label,
-                self.detector_id,
-                self.detector_version,
-                self.metric,
                 self.created_by_agent,
             )
         ):
@@ -59,10 +62,35 @@ class CaseHistoryRevisionRecord:
             object.__setattr__(self, "state_revision", self.revision)
         if self.state_revision < self.revision:
             raise ValueError("case history state revision MUST cover the case revision")
-        try:
-            ForecastOutcomeLabel(self.outcome_label)
-        except ValueError as exc:
-            raise ValueError("case history outcome_label is unsupported") from exc
+        if self.kind == "prediction":
+            try:
+                ForecastOutcomeLabel(self.outcome_label)
+            except ValueError as exc:
+                raise ValueError("case history forecast outcome_label is unsupported") from exc
+            if not all((self.detector_id, self.detector_version, self.metric)):
+                raise ValueError("prediction case history requires detector and metric metadata")
+        elif self.kind in {"action", "incident"}:
+            if any(
+                value is not None
+                for value in (self.detector_id, self.detector_version, self.metric)
+            ):
+                raise ValueError("non-prediction case history MUST NOT carry forecast metadata")
+            if not _canonical_identifier(self.outcome_label):
+                raise ValueError("case history outcome_label MUST be a canonical identifier")
+        else:
+            raise ValueError("case history kind is unsupported")
+        metadata = tuple(sorted(self.metadata))
+        if len(metadata) > 32 or len({key for key, _ in metadata}) != len(metadata):
+            raise ValueError("case history metadata is invalid")
+        if any(
+            key not in _OPERATIONAL_METADATA_KEYS
+            or not value
+            or len(value) > 512
+            or not (_canonical_identifier(value) or _is_digest(value))
+            for key, value in metadata
+        ):
+            raise ValueError("case history metadata MUST contain bounded canonical facts")
+        object.__setattr__(self, "metadata", metadata)
         for name, value in (
             ("access_scope_digest", self.access_scope_digest),
             ("manifest_digest", self.manifest_digest),
@@ -170,8 +198,16 @@ class CaseHistoryArtifactStore(Protocol):
 
 
 def _digest(name: str, value: str) -> None:
-    if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+    if not _is_digest(value):
         raise ValueError(f"case history {name} MUST be lowercase SHA-256")
+
+
+def _is_digest(value: str) -> bool:
+    return len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
+
+
+def _canonical_identifier(value: str) -> bool:
+    return re.fullmatch(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", value) is not None
 
 
 __all__ = [

@@ -129,3 +129,47 @@ async def test_relational_store_backfills_deleted_tombstone() -> None:
             await connection.execute(
                 "DELETE FROM case_history WHERE case_id = %s", (tombstone.case_id,)
             )
+
+
+@pytest.mark.skipif(not os.environ.get("FDAI_DATABASE_URL"), reason="FDAI_DATABASE_URL is unset")
+async def test_relational_store_round_trips_operational_metadata() -> None:
+    dsn = os.environ["FDAI_DATABASE_URL"].replace("postgresql+psycopg://", "postgresql://", 1)
+    store = PostgresCaseHistoryMetadataStore(config=PostgresCaseHistoryMetadataStoreConfig(dsn=dsn))
+    suffix = uuid4().hex
+    operational = replace(
+        _record(),
+        case_id=f"case-operational-{suffix}",
+        kind="incident",
+        manifest_digest=hashlib.sha256(f"operational:{suffix}".encode()).hexdigest(),
+        source_set_digest=hashlib.sha256(f"operational-source:{suffix}".encode()).hexdigest(),
+        outcome_label="recurrence",
+        detector_id=None,
+        detector_version=None,
+        metric=None,
+        metadata=(
+            ("action_type", "ops.restart-service"),
+            ("failure_fingerprint", "f" * 64),
+            ("operational_outcome", "recurrence"),
+            ("resource_type", "kubernetes.service"),
+        ),
+    )
+    try:
+        assert await store.append_revision(operational) is True
+        assert await store.append_revision(operational) is False
+        assert (
+            await store.latest(
+                operational.case_id,
+                access_scope_digest=operational.access_scope_digest,
+            )
+            == operational
+        )
+    finally:
+        import psycopg
+
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            await connection.execute(
+                "DELETE FROM case_history_revision WHERE case_id = %s", (operational.case_id,)
+            )
+            await connection.execute(
+                "DELETE FROM case_history WHERE case_id = %s", (operational.case_id,)
+            )

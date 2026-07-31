@@ -17,9 +17,9 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > reusable identifiers. The reusable unit is a generic failure mechanism supported by redacted,
 > content-addressed evidence.
 >
-> **Implementation status (2026-08-01):** O0 is implemented. The O1 immutable
-> `OperationalCaseProjection` and canonical `FailureFingerprint` models are implemented under
-> `core/case_history`; standard receipt compilation and writer intake remain in O1.
+> **Implementation status (2026-08-01):** O0 and O1 are implemented. Immutable operational-case
+> inputs compile allowlisted audit, action, response-outcome, and evaluation receipt facts into
+> canonical sources, then the existing case-history writer seals `ACTION` and `INCIDENT` revisions.
 
 ## Design at a glance
 
@@ -46,6 +46,10 @@ The evaluation adapter is only an evidence source. It emits the same canonical c
 production incident, then leaves the normal agent-owned learning path to decide whether the case
 contributes to a candidate.
 
+The O1 compiler accepts only canonical identifiers, SHA-256 digests, booleans, and bounded counts
+declared by each receipt schema. It rejects unknown fields, inconsistent action or outcome facts,
+raw resource identities, benchmark names, prompts, secrets, and free-form payload authority.
+
 ## Knowledge units
 
 ### Operational case
@@ -60,7 +64,7 @@ bounded structured facts:
   ambiguity or abstention reason.
 - **Decision**: selected `ActionType`, rejected alternatives, verifier result, risk decision, and
   approval reference.
-- **Execution**: exact target identity, preconditions, dry-run receipt, idempotency key, affected
+- **Execution**: target digest, preconditions, dry-run receipt, idempotency key, affected
   resources, and terminal receipt.
 - **Effect**: expected and observed postconditions, SLO recovery, recurrence window, rollback
   result, and external validation when available.
@@ -140,7 +144,7 @@ path: a delayed learner cannot block detection, mitigation, rollback, or unrelat
 
 An evaluation result is eligible for case-history intake only when it carries:
 
-1. a stable scenario and attempt identity;
+1. stable scenario and attempt identity digests;
 2. bounded agent-visible evidence captured before the decision;
 3. grounded diagnosis and cited rule or evidence references;
 4. the proposed action and verifier/risk/approval decisions;
@@ -200,7 +204,7 @@ human approval, dry-run, resource lock, idempotency, postcondition, rollback, or
 | Wave | Change | Exit criteria |
 |------|--------|---------------|
 | O0 - Contract fixtures | Implemented: canonical operational-case and failure-fingerprint models plus fixtures. | Two differently named environments produce the same fingerprint; mechanism or topology changes produce a different fingerprint. |
-| O1 - Case projection | Partial: pure immutable projection and fingerprint modules are implemented; standard receipt compilation and case-history writer intake remain. | Canonical digest, redaction, byte ceiling, duplicate delivery, and negative-outcome tests pass. No adapter writes a rule or action catalog. |
+| O1 - Case projection | Implemented: immutable input, allowlisted receipt compilation, projection, artifact-first writer intake, generic metadata persistence, and revision backfill. | Canonical digest, redaction, byte ceiling, duplicate delivery, negative-outcome, StateStore, PostgreSQL, and legacy forecast compatibility tests pass. No adapter writes a rule or action catalog. |
 | O2 - Cohort compiler | Let Norns group reviewed cases and emit existing `RuleCandidate` records with balanced success, failure, rollback, and control evidence. | A single success and a success-only cohort are rejected; every candidate cites immutable case revisions. |
 | O3 - Catalog compilation | Let Mimir compile an accepted candidate into a draft Rule plus an existing or draft `ActionType`, then run schema, policy, replay, and shadow checks. | Candidate output is inert; catalog changes require a reviewed PR; zero direct runtime promotion paths exist. |
 | O4 - T1 reuse | Add filtered case retrieval and learned-action proposal to T1, with current evidence and precondition revalidation. | Stale graph, changed owner, missing evidence, idempotency conflict, or failed dry-run always holds for review without mutation. |
@@ -213,7 +217,7 @@ without changing the learned pattern or control-loop authority model.
 
 ## Initial implementation slice
 
-The first code batch implemented these foundations:
+The O0 and O1 code batches implemented these foundations:
 
 1. `OperationalCaseProjection` and `FailureFingerprint` are pure immutable models under
    `src/fdai/core/case_history/`;
@@ -221,10 +225,10 @@ The first code batch implemented these foundations:
   only fingerprint input;
 3. sealed case revision identity and evidence references form the immutable learning projection;
 4. tests prove environment-name and input-order independence plus mechanism and topology
-  sensitivity.
-
-The remaining O1 work compiles standard receipts into the projection and writes them through the
-existing case-history provider before candidate generation begins.
+   sensitivity;
+5. strict receipt schemas compile bounded standard facts into immutable `CaseSourceRecord` values;
+6. `CaseHistoryMaterializer` seals action and incident cases with duplicate-delivery idempotency,
+   append-only source continuity, retention, legal hold, and negative outcomes preserved.
 
 ## Verification matrix
 
