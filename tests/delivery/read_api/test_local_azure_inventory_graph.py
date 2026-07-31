@@ -290,6 +290,7 @@ def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
     )
     vm = next(resource for resource in resources if resource["type"] == "compute.vm")
     assert vm["status"] == "VM running"
+    assert vm["status_source"] == "power"
     assert vm["location"] == "koreacentral"
     assert vm["resource_group"] == "rg-example"
     assert vm["provider_type"] == "Microsoft.Compute/virtualMachines"

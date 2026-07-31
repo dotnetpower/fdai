@@ -24,6 +24,7 @@ class InventoryQueryKind(StrEnum):
     LIST = "list"
     SCOPE_COUNTS = "scope_counts"
     COUNT = "count"
+    STATE_COVERAGE = "state_coverage"
     TYPES = "types"
     RELATIONSHIPS = "relationships"
 

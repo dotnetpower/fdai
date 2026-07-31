@@ -57,6 +57,7 @@ def _resource(
     location: str | None = None,
     status: str = "unknown",
     provider_type: str | None = None,
+    status_source: str | None = None,
 ) -> dict[str, Any]:
     props = {
         "resourceGroup": group,
@@ -69,6 +70,7 @@ def _resource(
         "type": resource_type,
         "name": name,
         "status": status,
+        "status_source": status_source or ("operational" if status != "unknown" else "unknown"),
         "props": props,
     }
 
@@ -1167,6 +1169,36 @@ def test_this_group_contextualizes_selected_resource_details() -> None:
     ]
 
 
+def test_continuation_contextualizes_selected_state_coverage() -> None:
+    prompt, contextualized = contextualize_inventory_screen_scope(
+        "상태를 확인할 수 없는 리소스 유형도 함께 알려줘.",
+        {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-data",
+                        "name": "rg-data",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert contextualized is True
+    query = compile_inventory_query(
+        prompt,
+        resources=(
+            {"type": "resource-group", "name": "rg-data", "resource_group": "rg-data"},
+            {"type": "sql-database", "name": "db", "resource_group": "rg-data"},
+        ),
+    )
+    assert query is not None
+    assert query.kind.value == "state_coverage"
+    assert query.predicates[0].value == "rg-data"
+
+
 def test_selected_architecture_group_routes_to_verified_service_types() -> None:
     backend = RecordingBackend()
 
@@ -1272,6 +1304,46 @@ def test_selected_group_details_include_type_region_and_state() -> None:
     assert "Resource sql-app: sql-database, unknown, koreacentral" in answer
     assert "derived-subnet" not in answer
     assert "resource-group" not in answer
+    assert backend.calls == 0
+
+
+def test_selected_group_state_coverage_separates_status_provenance() -> None:
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_projected_provider),
+            )
+        ]
+    )
+    body = {
+        "prompt": "상태를 확인할 수 없는 리소스 유형도 함께 알려줘.",
+        "view_context": {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-data",
+                        "name": "rg-data",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    }
+
+    with TestClient(app) as client:
+        stream = client.post("/chat/stream", json=body)
+
+    done = _inventory_done_event(stream.text)
+    assert done is not None
+    answer = done["answer"]
+    assert "운영 상태 직접 확인 가능 유형" in answer
+    assert "postgresql-server: 1개" in answer
+    assert "운영 상태 직접 확인 불가 유형" in answer
+    assert "sql-database: 1개" in answer
     assert backend.calls == 0
 
 

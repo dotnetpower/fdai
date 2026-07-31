@@ -313,6 +313,14 @@ def _project_verified_inventory_result(
     matched_type_counts = Counter(
         str(item.get("provider_type") or item["type"]).casefold() for item in reported_resources
     )
+    state_coverage = query.kind is InventoryQueryKind.STATE_COVERAGE
+    direct_state_sources = {"operational", "power"}
+    unavailable_state_resources = [
+        item for item in reported_resources if item.get("status_source") not in direct_state_sources
+    ]
+    available_state_resources = [
+        item for item in reported_resources if item.get("status_source") in direct_state_sources
+    ]
     links = [
         safe_link
         for item in raw_links
@@ -356,6 +364,24 @@ def _project_verified_inventory_result(
         "name_filter": name_filter,
         "provider_type_summary": provider_type_summary,
         "scope_counts": scope_counts,
+        "state_coverage": state_coverage,
+        "state_unavailable_resource_count": len(unavailable_state_resources),
+        "state_unavailable_type_counts": dict(
+            sorted(
+                Counter(
+                    str(item.get("provider_type") or item["type"]).casefold()
+                    for item in unavailable_state_resources
+                ).items()
+            )
+        ),
+        "state_available_type_counts": dict(
+            sorted(
+                Counter(
+                    str(item.get("provider_type") or item["type"]).casefold()
+                    for item in available_state_resources
+                ).items()
+            )
+        ),
         "resource_group_count": sum(item["type"] == "resource-group" for item in managed),
         "derived_resource_count": sum(
             item["type"] != "resource-group" and item.get("provider_type") is None
@@ -463,6 +489,7 @@ def render_inventory_answer(
     truncated = bool(result.get("truncated"))
     provider_type_summary = bool(result.get("provider_type_summary"))
     scope_counts = bool(result.get("scope_counts"))
+    state_coverage = bool(result.get("state_coverage"))
     type_counts = result.get("matched_type_counts")
     type_count = len(type_counts) if isinstance(type_counts, Mapping) else 0
     resource_group_count = int(result.get("resource_group_count") or 0)
@@ -493,6 +520,39 @@ def render_inventory_answer(
                 "인벤토리 snapshot이 잘렸으므로 실제 리소스 수가 더 많을 수 있습니다."
                 if korean
                 else "The inventory snapshot is truncated, so additional resources may exist."
+            )
+        return "\n".join(lines)
+
+    if state_coverage:
+        unavailable_counts = _safe_count_mapping(result.get("state_unavailable_type_counts"))
+        available_counts = _safe_count_mapping(result.get("state_available_type_counts"))
+        unavailable_resources = int(result.get("state_unavailable_resource_count") or 0)
+        if korean:
+            lines = [
+                f"선택 범위의 provider-native 리소스 {count}개를 확인했습니다. "
+                f"운영 상태를 직접 확인할 수 없는 리소스는 {unavailable_resources}개이며, "
+                f"{len(unavailable_counts)}개 유형입니다.",
+                "**운영 상태 직접 확인 가능 유형**",
+            ]
+            lines.extend(f"- {kind}: {value}개" for kind, value in available_counts.items())
+            lines.append("**운영 상태 직접 확인 불가 유형**")
+            lines.extend(f"- {kind}: {value}개" for kind, value in unavailable_counts.items())
+        else:
+            lines = [
+                f"Checked {count} provider-native resources. {unavailable_resources} resources "
+                f"across {len(unavailable_counts)} types lack a directly observed "
+                "operational state.",
+                "**Types with directly observed operational state**",
+            ]
+            lines.extend(f"- {kind}: {value}" for kind, value in available_counts.items())
+            lines.append("**Types without directly observed operational state**")
+            lines.extend(f"- {kind}: {value}" for kind, value in unavailable_counts.items())
+        lines.append(_inventory_evidence_line(source, snapshot, freshness, korean=korean))
+        if truncated:
+            lines.append(
+                "인벤토리 snapshot이 잘렸으므로 coverage가 부분적입니다."
+                if korean
+                else "The inventory snapshot is truncated, so coverage is partial."
             )
         return "\n".join(lines)
 
@@ -958,6 +1018,7 @@ def _safe_resource(raw: Mapping[str, Any]) -> dict[str, Any] | None:
         "provider_type": _optional_text(props.get("providerType") or raw.get("provider_type")),
         "name": name,
         "status": str(raw.get("status") or "unknown"),
+        "status_source": str(raw.get("status_source") or "unknown"),
         "location": _optional_text(props.get("location") or raw.get("location")),
         "resource_group": _optional_text(props.get("resourceGroup") or raw.get("resource_group")),
     }
@@ -995,6 +1056,16 @@ def _single_predicate_value(query: InventoryQuery, field: InventoryField) -> str
 
 def _optional_text(value: Any) -> str | None:
     return str(value) if value not in (None, "") else None
+
+
+def _safe_count_mapping(value: object) -> dict[str, int]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {
+        str(key): count
+        for key, count in value.items()
+        if isinstance(count, int) and not isinstance(count, bool) and count >= 0
+    }
 
 
 def _resource_line(resource: Mapping[str, Any], *, korean: bool) -> str:

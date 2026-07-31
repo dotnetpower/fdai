@@ -289,6 +289,10 @@ allowlisted location, resource-group, and provider-type fields after dropping ra
 Observed operational or power state takes precedence; provisioning state is the final displayed
 state fallback. The deterministic list excludes the resource-group container itself and
 topology-derived records that lack a provider type.
+Inventory records preserve the displayed state's provenance independently. The catalog-owned
+`state_coverage` result treats operational and power evidence as directly observed, while
+provisioning-only and unknown evidence remain operationally unavailable. A selected-screen
+continuation reuses only the bounded group selector and rechecks all records in server inventory.
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does

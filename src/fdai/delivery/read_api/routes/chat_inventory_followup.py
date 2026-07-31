@@ -50,9 +50,14 @@ def contextualize_inventory_screen_scope(
     """Bind a current-screen inventory question to one selected resource group hint."""
 
     resolver = default_inventory_query_language_resolver()
+    selected_scope = resolver.has(resolver.registry.scopes, "active_view", prompt) or resolver.has(
+        resolver.registry.signals,
+        "continuation",
+        prompt,
+    )
     if (
         str(view_context.get("routeId") or "").casefold() != "architecture"
-        or not resolver.has(resolver.registry.scopes, "active_view", prompt)
+        or not selected_scope
         or not is_inventory_question(prompt)
     ):
         return prompt, False
