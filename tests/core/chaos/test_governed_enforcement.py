@@ -103,6 +103,7 @@ def test_chaos_state_machine_is_monotonic_and_idempotent() -> None:
         ChaosRunState.OBSERVING,
         ChaosRunState.VERIFIED,
         ChaosRunState.RECOVERING,
+        ChaosRunState.VERIFYING,
         ChaosRunState.RECOVERED,
     )
     for index, state in enumerate(states, start=1):

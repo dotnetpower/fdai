@@ -71,12 +71,15 @@ def test_full_promotion_and_regression_are_append_only() -> None:
         approval_ref="approval:scenario",
         approval_principal="Var",
     )
-    regressed = _evidence(
-        "regressed",
-        ScenarioPromotionState.ENFORCE_ELIGIBLE,
-        ScenarioPromotionState.REGRESSED,
-        actor="Mimir",
-        key=key,
+    regressed = replace(
+        _evidence(
+            "regressed",
+            ScenarioPromotionState.ENFORCE_ELIGIBLE,
+            ScenarioPromotionState.REGRESSED,
+            actor="Mimir",
+            key=key,
+        ),
+        regression_reasons=("rollback_failed",),
     )
 
     for record in (shadow, pending, approved):
