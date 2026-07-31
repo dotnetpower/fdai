@@ -52,6 +52,7 @@ Read the reference docs first, then the phases in order.
 | 4 | [csp-neutrality.md](architecture/csp-neutrality.md) | wire-level contracts that keep the core CSP-neutral |
 | 5 | [llm-strategy.md](architecture/llm-strategy.md) | per-tier model choices, mixed-model gate, abstraction |
 | 5a | [operating-ontology.md](architecture/operating-ontology.md) | shared cloud-operations meaning for services, workloads, objectives, decisions, effects, agent ownership, and controlled extension |
+| 5b | [outcome-assurance.md](architecture/outcome-assurance.md) | scoped operational-readiness, objective-alignment, and control-assurance projection over the three FDAI verticals |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
 | 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB packet: decision boundary, evidence contract, owners, dependencies, production exit gate |

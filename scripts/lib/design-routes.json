@@ -123,6 +123,34 @@
       ]
     },
     {
+      "id": "outcome-assurance",
+      "paths": [
+        "docs/roadmap/architecture/outcome-assurance*.md",
+        "src/fdai/core/measurement/**",
+        "src/fdai/delivery/read_api/routes/measurement_summary.py",
+        "console/src/routes/operating-outcomes*",
+        "console/src/routes/control-assurance*"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/goals-and-metrics.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/outcome-assurance.md",
+        "docs/roadmap/decisioning/action-ontology.md",
+        "docs/roadmap/operations/operational-readiness.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/outcome-assurance.md",
+        "docs/roadmap/architecture/goals-and-metrics.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/measurement tests/delivery/read_api/test_measurement_summary.py",
+        "npm --prefix console test -- --run src/routes/analytics-hubs.test.ts"
+      ]
+    },
+    {
       "id": "mscp-operational-profile",
       "paths": [
         "src/fdai/core/mscp_profile/**",
