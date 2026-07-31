@@ -42,6 +42,16 @@
       "uniqueItems": true,
       "default": []
     },
+    "azureKindTokens": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9.-]*$",
+        "maxLength": 128
+      },
+      "uniqueItems": true,
+      "default": []
+    },
     "entry": {
       "type": "object",
       "additionalProperties": false,
@@ -74,7 +84,7 @@
           "description": "The Azure Resource Manager type path the provider adapter renders this resource to. `null` when Azure has no direct counterpart at this abstraction level."
         },
         "azure_kind_tokens": {
-          "$ref": "#/$defs/queryTerms",
+          "$ref": "#/$defs/azureKindTokens",
           "description": "Case-insensitive Azure `kind` tokens used only to disambiguate entries that share one ARM type."
         },
         "query_terms": {

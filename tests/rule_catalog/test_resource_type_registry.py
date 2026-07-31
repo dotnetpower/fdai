@@ -101,6 +101,26 @@ def test_shared_web_arm_type_resolves_by_kind() -> None:
     )
 
 
+@pytest.mark.parametrize("token", ["function app", "function/app", "함수앱"])
+def test_azure_kind_tokens_reject_non_machine_tokens(token: str) -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.function",
+                "category": "compute",
+                "description": "Function",
+                "azure_arm_type": "Microsoft.Web/sites",
+                "azure_kind_tokens": [token],
+            }
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_duplicate_query_term_is_rejected() -> None:
     payload = {
         "schema_version": "1.0.0",

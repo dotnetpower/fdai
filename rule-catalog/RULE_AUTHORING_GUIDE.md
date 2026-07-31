@@ -265,9 +265,10 @@ under the appropriate category, including `azure_arm_type` and
   type term still takes precedence over a shorter category term in the same question.
 - When two semantic types share one Azure ARM type, declare `azure_kind_tokens` on every variant.
   For example, Azure Functions and Web Apps both use `Microsoft.Web/sites`; the observed Azure
-  `kind` separates them. Missing or unmatched kind evidence remains unmapped instead of selecting a
-  default. This compatibility mapping remains read-only provider metadata and is expected to move
-  to the versioned Azure discovery-profile catalog described in the discovery design.
+  `kind` separates them. Tokens use the lowercase ASCII provider-machine form, not a display label.
+  Missing or unmatched kind evidence remains unmapped instead of selecting a default. This
+  compatibility mapping remains read-only provider metadata and is expected to move to the
+  versioned Azure discovery-profile catalog described in the discovery design.
 
 ## Ontology & LLM handoff
 
