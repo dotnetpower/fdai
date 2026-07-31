@@ -172,5 +172,77 @@ describe("durable transcript restoration", () => {
       agent: "Bragi",
       terminal: true,
     });
+    expect(operator.recordedAt).toBe("2026-07-16T07:00:00Z");
+  });
+
+  test("restores bounded terminal replay metadata for historical trajectories", () => {
+    const assistant = restoredTurn({
+      turn_id: "turn-2",
+      conversation_id: "conversation-1",
+      turn_index: 1,
+      role: "assistant",
+      content: "One service is unavailable.",
+      recorded_at: "2026-07-16T07:00:03Z",
+      metadata: {
+        replay_payload: JSON.stringify({
+          answer: "One service is unavailable.",
+          model: "test-model",
+          latency_ms: 3000,
+          answer_plan: {
+            intent: "status",
+            detail_level: "standard",
+            format: "prose",
+            sections: ["Summary"],
+            evidence_requirement: "server_read_model",
+            max_words: 300,
+            discuss: "skip",
+            explicit_overrides: [],
+            preference_applied: false,
+          },
+          delegation: { primary_agent: "Bragi", contributors: ["Heimdall"] },
+          verification: {
+            status: "consistent",
+            authority: "server_evidence",
+            checks_completed: 1,
+            checks_total: 1,
+            evidence_refs: ["inventory:snapshot"],
+            reason_code: null,
+          },
+          resource_context: {
+            name: "example-service",
+            resource_type: "compute.service",
+            evidence_ref: "inventory:snapshot",
+          },
+        }),
+      },
+    });
+
+    expect(assistant).toMatchObject({
+      recordedAt: "2026-07-16T07:00:03Z",
+      source: "llm:test-model / 3000ms",
+      agent: "Bragi",
+      answerPlan: { intent: "status", format: "prose" },
+      delegation: { primary_agent: "Bragi", contributors: ["Heimdall"] },
+      verification: { status: "consistent", evidence_refs: ["inventory:snapshot"] },
+      resourceContext: { name: "example-service" },
+    });
+  });
+
+  test("ignores malformed or mismatched durable replay metadata", () => {
+    const base = {
+      turn_id: "turn-2",
+      conversation_id: "conversation-1",
+      turn_index: 1,
+      role: "assistant" as const,
+      content: "Canonical answer",
+      recorded_at: "2026-07-16T07:00:03Z",
+    };
+
+    expect(restoredTurn({ ...base, metadata: { replay_payload: "not-json" } }).answerPlan)
+      .toBeUndefined();
+    expect(restoredTurn({
+      ...base,
+      metadata: { replay_payload: JSON.stringify({ answer: "Different answer", answer_plan: {} }) },
+    }).answerPlan).toBeUndefined();
   });
 });

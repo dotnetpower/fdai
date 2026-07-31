@@ -14,6 +14,7 @@ import { ComposerAttachments } from "./composer-attachments.view";
 import { clampDockWidth, type DeckLayoutMode } from "./command-deck-session";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
+import { conversationTrajectoriesByAnswer } from "./conversation-trajectory";
 import type { useViewContext } from "./context";
 import { RetrievalTrace } from "./retrieval-trace";
 
@@ -124,6 +125,7 @@ export function CommandDeckView({
   onInputKeyDown,
   onStopStream,
 }: CommandDeckViewProps) {
+  const trajectories = conversationTrajectoriesByAnswer(turns);
   return (
     <>
       <CommandDeckLauncher
@@ -202,21 +204,25 @@ export function CommandDeckView({
               {turns.length === 0 ? (
                 <IntroPanel snapshot={snapshot} onPick={onSubmit} />
               ) : null}
-              {turns.map((turn, index) => (
-                <TurnBubble
-                  key={turn.id}
-                  turn={turn}
-                  searchMatch={searchMatches.includes(index)}
-                  activeSearchMatch={searchMatches[activeSearchMatch] === index}
-                  onPickFollowUp={onSubmit}
-                  {...(turn.role === "deck" &&
-                    !turn.streaming &&
-                    !inFlight &&
-                    turns.slice(0, index).some((previous) => previous.role === "operator")
-                    ? { onRegenerate: () => onRegenerate(index) }
-                    : {})}
-                />
-              ))}
+              {turns.map((turn, index) => {
+                const trajectory = trajectories.get(turn.id);
+                return (
+                  <TurnBubble
+                    key={turn.id}
+                    turn={turn}
+                    {...(trajectory ? { trajectory } : {})}
+                    searchMatch={searchMatches.includes(index)}
+                    activeSearchMatch={searchMatches[activeSearchMatch] === index}
+                    onPickFollowUp={onSubmit}
+                    {...(turn.role === "deck" &&
+                      !turn.streaming &&
+                      !inFlight &&
+                      turns.slice(0, index).some((previous) => previous.role === "operator")
+                      ? { onRegenerate: () => onRegenerate(index) }
+                      : {})}
+                  />
+                );
+              })}
               {pending ? (
                 <RetrievalTrace
                   snapshot={snapshot}

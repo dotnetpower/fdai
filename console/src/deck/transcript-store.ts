@@ -39,6 +39,7 @@ const MAX_TURN_TEXT_CHARS = 256 * 1024;
 const MAX_TURN_ID_CHARS = 256;
 const MAX_TURN_SOURCE_CHARS = 1024;
 const MAX_TURN_TIME_CHARS = 64;
+const MAX_TURN_RECORDED_AT_CHARS = 64;
 const MAX_AGENT_NAME_CHARS = 64;
 const MAX_CITATIONS = 512;
 const MAX_CITATION_LABEL_CHARS = 1024;
@@ -69,6 +70,7 @@ export interface PersistedTurn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  readonly recordedAt?: string;
   readonly groundingText?: string;
   readonly kind?: "message" | "activity";
   readonly activities?: readonly InvestigationActivity[];
@@ -129,6 +131,7 @@ export function serializeTurns(
         ...(boundedString(t.groundingText, MAX_TURN_TEXT_CHARS)
           ? { groundingText: t.groundingText }
           : {}),
+        ...(boundedTimestamp(t.recordedAt) ? { recordedAt: t.recordedAt } : {}),
         ...(boundedString(t.source, MAX_TURN_SOURCE_CHARS) ? { source: t.source } : {}),
         ...(t.kind ? { kind: t.kind } : {}),
         ...(validActivities(t.activities) ? { activities: t.activities } : {}),
@@ -183,6 +186,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       role: rec.role,
       text: rec.text,
       at: rec.at,
+      ...(boundedTimestamp(rec.recordedAt) ? { recordedAt: rec.recordedAt } : {}),
       ...(boundedString(rec.groundingText, MAX_TURN_TEXT_CHARS)
         ? { groundingText: rec.groundingText }
         : {}),
@@ -232,7 +236,7 @@ function validBranches(value: unknown): value is readonly EvidenceBranch[] {
 }
 
 function boundedTimestamp(value: unknown): value is string {
-  return boundedString(value, MAX_ACTIVITY_TIMESTAMP_CHARS) && Number.isFinite(Date.parse(value));
+  return boundedString(value, MAX_TURN_RECORDED_AT_CHARS) && Number.isFinite(Date.parse(value));
 }
 
 function validActivities(value: unknown): value is readonly InvestigationActivity[] {

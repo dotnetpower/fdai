@@ -23,12 +23,19 @@ describe("transcriptKeyFor", () => {
 describe("serializeTurns", () => {
   it("round-trips completed turns", () => {
     const turns = [
-      { id: "1", role: "operator" as const, text: "what is the tier mix?", at: "10:00:00" },
+      {
+        id: "1",
+        role: "operator" as const,
+        text: "what is the tier mix?",
+        at: "10:00:00",
+        recordedAt: "2026-07-31T01:00:00Z",
+      },
       {
         id: "2",
         role: "deck" as const,
         text: "T0 78%",
         at: "10:00:01",
+        recordedAt: "2026-07-31T01:00:01Z",
         source: "llm:x",
         citations: [{ label: "tier", value: "T0" }],
         followUps: ["Show T1"],
@@ -132,6 +139,8 @@ describe("serializeTurns", () => {
     expect(parsed[1]!.followUps).toEqual(["Show T1"]);
     expect(parsed[1]!.terminal).toBe(true);
     expect(parsed[1]!.revision).toBe(1);
+    expect(parsed[0]!.recordedAt).toBe("2026-07-31T01:00:00Z");
+    expect(parsed[1]!.recordedAt).toBe("2026-07-31T01:00:01Z");
     expect(parsed[1]!.resourceContext?.name).toBe("db-current");
     expect(parsed[1]!.answerPlanning?.consulted_agents).toEqual(["Freyr", "Njord"]);
     expect(parsed[1]!.delegation).toEqual({
@@ -344,6 +353,19 @@ describe("parseTurns", () => {
     expect(parseTurns("not json")).toEqual([]);
     expect(parseTurns("{}")).toEqual([]);
     expect(parseTurns(" ".repeat(MAX_TRANSCRIPT_JSON_CHARS + 1))).toEqual([]);
+  });
+
+  it("drops a malformed full timestamp without dropping the turn", () => {
+    const parsed = parseTurns(JSON.stringify([{
+      id: "1",
+      role: "operator",
+      text: "ok",
+      at: "10:00:00",
+      recordedAt: "not-a-timestamp",
+    }]));
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]?.recordedAt).toBeUndefined();
   });
 
   it("skips entries missing required fields or with a bad role", () => {

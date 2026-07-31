@@ -205,6 +205,23 @@ details use the same catalog rather than embedding English in reconstructed evid
 Localization changes presentation labels only. Machine values, workflow ids, serialized records,
 provider payloads, and validation results remain unchanged.
 
+## Observed conversation trajectory
+
+Each completed Command Deck question exposes one collapsed observed trajectory under its terminal
+answer. The detail groups Input, Plan, Collaboration, Evidence and tools, Verification, and Answer
+in causal order. Recorded branch and execution timestamps produce a bounded time window and
+duration bars; a phase without timing stays sequence-only and is never assigned an invented time.
+
+The detail can show the operator question, answer plan, shadow planning contributions, delegation,
+redacted command or query input, bounded output, milestones, evidence references, atomic claims,
+the evidence manifest, code artifacts, and the terminal answer when those records exist. Missing
+activity is an explicit coverage gap and does not prove that no work occurred. Durable history
+restores only an exact-answer terminal `replay_payload` through the same bounded browser parsers.
+
+This principal-scoped view is distinct from [governed trajectory datasets](governed-trajectory-datasets.md),
+which remain authorization-first offline review artifacts. The view excludes hidden reasoning, raw
+prompts, credentials, unrestricted payloads, and any data that wasn't recorded for the turn.
+
 ## Durable request replay
 
 A completed request is replayed only when principal, conversation, idempotency key, and request

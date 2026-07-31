@@ -24,6 +24,8 @@ import {
   type ConversationSummary,
 } from "./conversation-sessions";
 import { useViewContext } from "./context";
+import type { ConversationTrajectory } from "./conversation-trajectory";
+import { ConversationTrajectoryView } from "./conversation-trajectory-view";
 import { GroundedReply } from "./grounded-reply";
 import { InvestigationTimeline } from "./investigation-timeline";
 import { introSuggestions } from "./intro-suggestions";
@@ -32,6 +34,7 @@ export interface Turn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  readonly recordedAt?: string;
   /** Bounded non-rendered context sent in place of `text` for backend history. */
   readonly groundingText?: string;
   readonly kind?: "message" | "activity";
@@ -261,12 +264,14 @@ function ConversationGroup({
 
 export function TurnBubble({
   turn,
+  trajectory,
   onPickFollowUp,
   onRegenerate,
   searchMatch,
   activeSearchMatch,
 }: {
   readonly turn: Turn;
+  readonly trajectory?: ConversationTrajectory;
   readonly onPickFollowUp: (text: string) => void;
   readonly onRegenerate?: () => void;
   readonly searchMatch: boolean;
@@ -349,6 +354,9 @@ export function TurnBubble({
             </li>
           ))}
         </ul>
+      ) : null}
+      {trajectory && !turn.streaming ? (
+        <ConversationTrajectoryView trajectory={trajectory} />
       ) : null}
       <div class="deck-turn-foot">
         <span class="deck-turn-time muted">{turn.at}</span>

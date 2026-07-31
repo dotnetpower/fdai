@@ -123,11 +123,17 @@ export function useCommandDeckSubmit({
     const isCurrent = () =>
       activeRequestRef.current?.id === request.id &&
       sessionKeyRef.current === originSessionKey;
-    const operatorTurn: Turn = { id: newId(), role: "operator", text, at: shortTime() };
+    const activityAt = new Date().toISOString();
+    const operatorTurn: Turn = {
+      id: newId(),
+      role: "operator",
+      text,
+      at: shortTime(),
+      recordedAt: activityAt,
+    };
     const activeSummary = conversations.find((item) => item.key === originSessionKey);
     const sessionSummary = activeSummary ?? sessionMetadataRef.current.get(originSessionKey);
     const hasOperatorTurn = turnsRef.current.some((turn) => turn.role === "operator");
-    const activityAt = new Date().toISOString();
     updateConversationIndex({
       key: originSessionKey,
       label:
@@ -209,6 +215,7 @@ export function useCommandDeckSubmit({
               revision: pendingRevision,
               agent: provisionalReplyAgent(sessionSummary?.agent),
               at: shortTime(),
+              recordedAt: new Date().toISOString(),
             },
           ];
           turnsRef.current = next;
@@ -294,6 +301,8 @@ export function useCommandDeckSubmit({
                       streaming: true,
                       terminal: false,
                       at: shortTime(),
+                      recordedAt: activity.execution?.startedAt ??
+                        activity.observedAt ?? new Date().toISOString(),
                     },
                   ];
               turnsRef.current = next;
@@ -332,6 +341,7 @@ export function useCommandDeckSubmit({
                       streaming: true,
                       terminal: false,
                       at: shortTime(),
+                      recordedAt: branch.startedAt,
                     },
                   ];
               turnsRef.current = next;
@@ -359,6 +369,7 @@ export function useCommandDeckSubmit({
                   streaming: false,
                   terminal: true,
                   at: shortTime(),
+                  recordedAt: new Date().toISOString(),
                 },
               ];
               turnsRef.current = next;
@@ -451,6 +462,7 @@ export function useCommandDeckSubmit({
               ? {
                   ...turn,
                   text: reply.text,
+                  recordedAt: new Date().toISOString(),
                   streaming: false,
                   terminal: reply.source !== "stopped" && !reply.source.startsWith("partial"),
                   citations: reply.citations,

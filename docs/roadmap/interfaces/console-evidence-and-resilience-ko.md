@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2f9a108fb135f2e5dd85ab64450581a998eeba78
+translation_source_sha: c550da75eebe6a5a15962ca9325c0ec7fa6afa56
 translation_revised: 2026-07-31
 ---
 
@@ -203,6 +203,23 @@ metadata에 영어를 직접 넣지 않고 같은 catalog를 사용합니다.
 
 Localization은 presentation label만 바꿉니다. Machine value, workflow id, serialized record,
 provider payload 및 validation result는 변경하지 않습니다.
+
+## 관찰된 대화 트래젝터리
+
+완료된 각 Command Deck 질문은 terminal answer 아래에 접힌 observed trajectory 하나를 표시합니다.
+상세 화면은 입력, 계획, 협업, 근거 및 도구, 검증, 답변을 인과 순서로 묶습니다. 기록된 branch와
+execution timestamp로 제한된 time window와 duration bar를 만들며, timing이 없는 단계는 sequence
+전용으로 유지하고 시각을 추정하지 않습니다.
+
+해당 record가 존재하면 operator question, answer plan, shadow planning contribution, delegation,
+redacted command 또는 query input, bounded output, milestone, evidence reference, atomic claim,
+evidence manifest, code artifact 및 terminal answer를 표시합니다. Activity 누락은 명시적 coverage
+gap이며 작업이 없었다는 의미가 아닙니다. Durable history는 exact-answer terminal `replay_payload`만
+동일한 bounded browser parser로 복원합니다.
+
+이 principal-scoped view는 authorization-first offline review artifact인
+[관리형 trajectory dataset](governed-trajectory-datasets-ko.md)과 구분됩니다. Hidden reasoning, raw
+prompt, credential, unrestricted payload 및 해당 turn에 기록되지 않은 data는 표시하지 않습니다.
 
 ## Durable request replay
 
