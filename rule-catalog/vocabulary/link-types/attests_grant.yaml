@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: attests_grant
+version: "1.0.0"
+from_type: AuthorizationObservation
+to_type: AccessGrant
+cardinality: many_to_one
+description: Effective-access evidence attesting an applied grant.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:attests_grant@1.0.0
+  content_hash: sha256:bcb9da308e8e7d71428789d1f7aecf51e2a1a245bb80d07f8afc6d27edc1620f
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

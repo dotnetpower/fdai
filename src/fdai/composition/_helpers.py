@@ -40,6 +40,10 @@ from ..shared.contracts.registry import SchemaRegistry
 from ..shared.contracts.validation import ContractValidator, EventValidator
 from ..shared.providers.change_feed import ChangeFeed, EmptyChangeFeed
 from ..shared.providers.distiller import AbstainingDistiller, Distiller
+from ..shared.providers.execution_authorization import (
+    ExecutionAccessGrantSink,
+    ExecutionAuthorizationEvaluator,
+)
 from ..shared.providers.exemption import ExemptionRegistry
 from ..shared.providers.feasibility_probe import FeasibilityProbe
 from ..shared.providers.inventory import EmptyInventory, Inventory
@@ -203,8 +207,15 @@ class Container:
     browser_evidence_capture_service: BrowserEvidenceCaptureService | None = None
     browser_evidence_console_tool: BrowserEvidenceConsoleTool | None = None
     browser_evidence_workflow_dispatcher: BrowserEvidenceWorkflowStepDispatcher | None = None
+    execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None
+    execution_access_grant_sink: ExecutionAccessGrantSink | None = None
+    execution_authorization_required: bool = False
 
     def __post_init__(self) -> None:
+        if self.execution_authorization_required and self.execution_authorization_evaluator is None:
+            raise ValueError(
+                "Container execution authorization is required but no evaluator is bound"
+            )
         if (self.mscp_expected_effect_provider is None) != (self.mscp_effect_observer is None):
             raise ValueError(
                 "Container MSCP expected-effect provider and observer MUST be bound together"

@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: satisfies_requirement
+version: "1.0.0"
+from_type: AccessGrant
+to_type: AuthorizationRequirement
+cardinality: many_to_one
+description: Requirement intended to be satisfied by an applied grant.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:satisfies_requirement@1.0.0
+  content_hash: sha256:4b01d763201e095943c85cbe4505cc65cfc840f0212a1348034e804324c7dca2
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

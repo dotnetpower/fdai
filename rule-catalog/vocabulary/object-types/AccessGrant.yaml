@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+name: AccessGrant
+version: "1.0.0"
+key: id
+description: Applied and expiring permission grant with approval and apply evidence.
+properties:
+  id: {type: string, required: true}
+  status: {type: string, required: true}
+  apply_receipt_ref: {type: string, required: true, access_scope: approver}
+  expires_at: {type: datetime, required: true}
+  revoked_at: {type: datetime, required: false}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AccessGrant@1.0.0
+  content_hash: sha256:f6200a22b5ddfa9691b427df51d2bde852bf31eb1ed8ea4729d70e952fbcc719
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

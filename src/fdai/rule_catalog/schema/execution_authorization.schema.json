@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/execution-authorization/assignment/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "id", "version", "capabilities", "execution_profiles", "scope", "posture", "constraints", "provenance"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "kind": {"const": "authorization-assignment"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "capabilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{1,127}$"}},
+    "execution_profiles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{1,127}$"}},
+    "scope": {"$ref": "#/$defs/scope"},
+    "posture": {"enum": ["prohibit", "delegate_manual", "preprovisioned_only", "request_jit", "standing"]},
+    "constraints": {"$ref": "#/$defs/constraints"},
+    "enforcement": {"enum": ["enforce", "do-not-enforce"], "default": "do-not-enforce"},
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "scopeUri": {"type": "string", "pattern": "^scope://[^/\\s]+(/[^/\\s]+){0,3}$"},
+    "selector": {"type": "object", "additionalProperties": false, "properties": {
+      "resource_types": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+      "tags": {"type": "object", "additionalProperties": {"type": "string"}},
+      "resource_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+    }},
+    "scope": {"oneOf": [
+      {"type": "object", "additionalProperties": false, "required": ["level", "id"], "properties": {
+        "level": {"enum": ["organization", "account", "resource-group", "resource"]},
+        "id": {"type": "string", "minLength": 1},
+        "selector": {"$ref": "#/$defs/selector"},
+        "excludes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }},
+      {"type": "object", "additionalProperties": false, "required": ["include"], "properties": {
+        "include": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/scopeUri"}},
+        "exclude": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/scopeUri"}},
+        "selector": {"$ref": "#/$defs/selector"}
+      }}
+    ]},
+    "constraints": {"type": "object", "additionalProperties": false, "required": ["allowed_grant_modes", "max_scope", "max_duration_seconds"], "properties": {
+      "allowed_grant_modes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["action_bound", "time_bound", "standing"]}},
+      "max_scope": {"enum": ["organization", "account", "resource-group", "resource"]},
+      "max_duration_seconds": {"type": "integer", "minimum": 1, "maximum": 86400},
+      "quorum": {"type": "integer", "minimum": 1, "maximum": 10},
+      "approver_roles": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+      "required_evidence": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+      "require_effective_probe": {"type": "boolean"},
+      "exemptible": {"type": "boolean"}
+    }},
+    "provenance": {"type": "object", "additionalProperties": false, "required": ["created_at", "created_by"], "properties": {
+      "created_at": {}, "created_by": {"type": "string", "minLength": 1}, "source": {"type": "string", "minLength": 1}
+    }}
+  }
+}

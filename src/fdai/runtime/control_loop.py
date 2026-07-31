@@ -493,6 +493,9 @@ def _build_control_loop(
         mscp_effect_observer=container.mscp_effect_observer,
         response_outcome_sink=response_outcome_sink,
         ontology_instance_store=ontology_instance_store,
+        execution_authorization_evaluator=container.execution_authorization_evaluator,
+        execution_access_grant_sink=container.execution_access_grant_sink,
+        execution_authorization_required=container.execution_authorization_required,
     )
 
 

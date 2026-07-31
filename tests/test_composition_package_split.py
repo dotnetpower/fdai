@@ -29,6 +29,8 @@ _EXPECTED_FILES = frozenset(
         "wire_change_feed.py",
         # Durable execution profile and ledger binding.
         "wire_execution_backends.py",
+        # Ontology-driven execution capability and grant-policy binding.
+        "wire_execution_authorization.py",
         # Azure observation adapters extracted from the main Azure wire.
         "wire_observation_providers.py",
         # Governed trajectory source, export, store, and administration wiring.
@@ -69,6 +71,7 @@ _PUBLIC_NAMES = (
     "install_capability_bundle",
     "OperationalReadinessService",
     "bind_browser_evidence",
+    "bind_execution_authorization",
 )
 
 # Names that MUST also appear in __all__ (subset of _PUBLIC_NAMES). The
@@ -87,6 +90,7 @@ _ALL_MEMBERS = (
     "install_capability_bundle",
     "OperationalReadinessService",
     "bind_browser_evidence",
+    "bind_execution_authorization",
 )
 
 

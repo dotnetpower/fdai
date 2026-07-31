@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+name: AuthorizationCapability
+version: "1.0.0"
+key: id
+description: Stable provider-neutral capability required by an action.
+properties:
+  id: {type: string, required: true}
+  description: {type: string, required: true}
+  version: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AuthorizationCapability@1.0.0
+  content_hash: sha256:73d5eb20dd96bd6d5e442a83a517f3dda3ce0acda3aeccb0300402c86f94260a
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

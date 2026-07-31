@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: implements_capability
+version: "1.0.0"
+from_type: ProviderPermissionSet
+to_type: AuthorizationCapability
+cardinality: many_to_one
+description: Provider operation set implementing one capability.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:implements_capability@1.0.0
+  content_hash: sha256:40413c09281ab7b310f51c2209a5babba0ca3fcfc546ca16b90753ff63662c15
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

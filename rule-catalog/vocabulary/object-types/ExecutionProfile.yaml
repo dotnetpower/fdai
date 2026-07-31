@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: ExecutionProfile
+version: "1.0.0"
+key: id
+description: Logical execution identity profile resolved by deployment configuration.
+properties:
+  id: {type: string, required: true}
+  description: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ExecutionProfile@1.0.0
+  content_hash: sha256:5775a23d64048b3dac1be9ab75f498131b006d340110a851d9b35401f4709e4b
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

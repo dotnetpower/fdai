@@ -115,6 +115,26 @@ class DirectApiPreconditionError(DirectApiError):
         super().__init__(kind="precondition", message=message)
 
 
+class DirectApiAuthenticationError(DirectApiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(kind="authentication_failed", message=message)
+
+
+class DirectApiPermissionDeniedError(DirectApiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(kind="permission_denied", message=message)
+
+
+class DirectApiPolicyDeniedError(DirectApiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(kind="policy_denied", message=message)
+
+
+class DirectApiNetworkDeniedError(DirectApiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(kind="network_denied", message=message)
+
+
 @dataclass(frozen=True, slots=True)
 class DirectApiRequest:
     """One direct-API dispatch intent handed to the executor.
@@ -216,7 +236,11 @@ class DirectApiExecutor(Protocol):
 
 
 __all__ = [
+    "DirectApiAuthenticationError",
     "DirectApiError",
+    "DirectApiNetworkDeniedError",
+    "DirectApiPermissionDeniedError",
+    "DirectApiPolicyDeniedError",
     "DirectApiExecutor",
     "DirectApiOutcome",
     "DirectApiPreconditionError",

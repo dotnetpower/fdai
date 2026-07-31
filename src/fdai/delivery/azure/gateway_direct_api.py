@@ -12,8 +12,10 @@ import httpx
 
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.direct_api import (
+    DirectApiAuthenticationError,
     DirectApiError,
     DirectApiOutcome,
+    DirectApiPermissionDeniedError,
     DirectApiPreconditionError,
     DirectApiPromotionError,
     DirectApiReceipt,
@@ -154,7 +156,12 @@ class AzureGatewayDirectApiExecutor:
         operation_id: str,
         payload: Mapping[str, object],
     ) -> Mapping[str, object]:
-        token = await self._identity.get_token(self._config.audience)
+        try:
+            token = await self._identity.get_token(self._config.audience)
+        except Exception as exc:  # noqa: BLE001 - identity boundary is provider-owned
+            raise DirectApiAuthenticationError(
+                "operations gateway identity token acquisition failed"
+            ) from exc
         try:
             async with self._http.stream(
                 "POST",
@@ -174,6 +181,10 @@ class AzureGatewayDirectApiExecutor:
                         )
         except httpx.HTTPError as exc:
             raise DirectApiError("transport", "operations gateway request failed") from exc
+        if status_code == 401:
+            raise DirectApiAuthenticationError("operations gateway rejected authentication")
+        if status_code == 403:
+            raise DirectApiPermissionDeniedError("operations gateway denied the executor")
         try:
             body = json.loads(content)
         except (ValueError, json.JSONDecodeError) as exc:
@@ -185,9 +196,7 @@ class AzureGatewayDirectApiExecutor:
                 "invalid_response", "operations gateway response was not an object"
             )
         if status_code == 409:
-            raise DirectApiPreconditionError(_error_detail(body, "gateway precondition failed"))
-        if status_code == 403:
-            raise DirectApiError("authorization", "operations gateway denied the executor")
+            raise DirectApiPreconditionError("operations gateway precondition failed")
         if status_code >= 400:
             raise DirectApiError(
                 "gateway",
@@ -258,11 +267,6 @@ def _success_receipt(request: DirectApiRequest) -> DirectApiReceipt:
         receipt_ref=f"gateway:{request.idempotency_key}",
         detail="gateway mutation completed",
     )
-
-
-def _error_detail(body: Mapping[str, object], fallback: str) -> str:
-    detail = body.get("detail")
-    return detail[:256] if isinstance(detail, str) and detail else fallback
 
 
 __all__ = ["AzureGatewayDirectApiConfig", "AzureGatewayDirectApiExecutor"]

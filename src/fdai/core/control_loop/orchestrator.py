@@ -42,6 +42,10 @@ from fdai.core.workflow.coordinator import WorkflowTriggerCoordinator
 from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.shared.contracts.models import Event, OntologyActionType, ResponseOutcome, Rule
 from fdai.shared.providers.cost_estimator import CostEstimator
+from fdai.shared.providers.execution_authorization import (
+    ExecutionAccessGrantSink,
+    ExecutionAuthorizationEvaluator,
+)
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.stage_publisher import NullStagePublisher, StagePublisher
 from fdai.shared.providers.state_store import StateStore
@@ -100,11 +104,16 @@ class ControlLoop(
         mscp_effect_observer: IndependentEffectObserver | None = None,
         response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
         ontology_instance_store: OntologyInstanceStore | None = None,
+        execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None,
+        execution_access_grant_sink: ExecutionAccessGrantSink | None = None,
+        execution_authorization_required: bool = False,
     ) -> None:
         if (mscp_expected_effect_provider is None) != (mscp_effect_observer is None):
             raise ValueError(
                 "mscp_expected_effect_provider and mscp_effect_observer MUST be bound together"
             )
+        if execution_authorization_required and execution_authorization_evaluator is None:
+            raise ValueError("execution authorization is required but no evaluator is bound")
         self._event_ingest = event_ingest
         self._trust_router = trust_router
         self._t0_engine = t0_engine
@@ -130,6 +139,8 @@ class ControlLoop(
         self._mscp_effect_observer = mscp_effect_observer
         self._response_outcome_sink = response_outcome_sink
         self._ontology_instance_store = ontology_instance_store
+        self._execution_authorization_evaluator = execution_authorization_evaluator
+        self._execution_access_grant_sink = execution_access_grant_sink
         self._cost_estimator = cost_estimator
         self._direct_api_executor = direct_api_executor
         self._tool_executor = tool_executor

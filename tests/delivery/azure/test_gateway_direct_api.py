@@ -11,7 +11,13 @@ from fdai.delivery.azure.gateway_direct_api import (
     AzureGatewayDirectApiExecutor,
 )
 from fdai.shared.contracts.models import Mode
-from fdai.shared.providers.direct_api import DirectApiOutcome, DirectApiRequest
+from fdai.shared.providers.direct_api import (
+    DirectApiAuthenticationError,
+    DirectApiOutcome,
+    DirectApiPermissionDeniedError,
+    DirectApiPreconditionError,
+    DirectApiRequest,
+)
 from fdai.shared.providers.workload_identity import IdentityToken
 
 
@@ -167,3 +173,44 @@ async def test_adapter_rejects_oversized_gateway_response() -> None:
         )
         with pytest.raises(RuntimeError, match="too large"):
             await executor.execute(_request(mode=Mode.SHADOW))
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_type"),
+    (
+        (401, DirectApiAuthenticationError),
+        (403, DirectApiPermissionDeniedError),
+    ),
+)
+async def test_authorization_status_is_classified_before_body_parsing(
+    status_code: int,
+    error_type: type[Exception],
+) -> None:
+    transport = httpx.MockTransport(
+        lambda _request: httpx.Response(status_code, content=b"not-json-sensitive-body")
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        executor = AzureGatewayDirectApiExecutor(
+            config=_config(), identity=_Identity(), http_client=client
+        )
+        with pytest.raises(error_type):
+            await executor.execute(_request(mode=Mode.SHADOW))
+
+
+async def test_precondition_response_does_not_surface_untrusted_detail() -> None:
+    transport = httpx.MockTransport(
+        lambda _request: httpx.Response(
+            409,
+            json={"detail": "resource/customer-sensitive-detail"},
+        )
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        executor = AzureGatewayDirectApiExecutor(
+            config=_config(), identity=_Identity(), http_client=client
+        )
+        with pytest.raises(
+            DirectApiPreconditionError,
+            match="operations gateway precondition failed",
+        ) as caught:
+            await executor.execute(_request(mode=Mode.SHADOW))
+    assert "customer-sensitive" not in str(caught.value)

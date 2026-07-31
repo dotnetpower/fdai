@@ -47,9 +47,13 @@ from fdai.core.executor.executor import (
 )
 from fdai.shared.contracts.models import Action, Mode
 from fdai.shared.providers.direct_api import (
+    DirectApiAuthenticationError,
     DirectApiError,
     DirectApiExecutor,
+    DirectApiNetworkDeniedError,
     DirectApiOutcome,
+    DirectApiPermissionDeniedError,
+    DirectApiPolicyDeniedError,
     DirectApiPreconditionError,
     DirectApiPromotionError,
     DirectApiReceipt,
@@ -99,6 +103,11 @@ class DirectApiExecutionOutcome(StrEnum):
     """The substrate call raised or the adapter returned
     :attr:`DirectApiOutcome.FAILED`. Rollback (if any) is recorded on
     :attr:`DirectApiExecutionResult.rollback_succeeded`."""
+
+    AUTHENTICATION_FAILED = "authentication_failed"
+    PERMISSION_DENIED = "permission_denied"
+    POLICY_DENIED = "policy_denied"
+    NETWORK_DENIED = "network_denied"
 
     REJECTED_MODE = "rejected_mode"
     """Action carried :attr:`Mode.ENFORCE` but the P1 executor is
@@ -284,6 +293,30 @@ class DirectApiShadowExecutor:
                 return await self._finish(
                     action=action,
                     outcome=DirectApiExecutionOutcome.ABSTAINED_PRECONDITION,
+                    reason=str(exc),
+                )
+            except DirectApiAuthenticationError as exc:
+                return await self._finish(
+                    action=action,
+                    outcome=DirectApiExecutionOutcome.AUTHENTICATION_FAILED,
+                    reason=str(exc),
+                )
+            except DirectApiPermissionDeniedError as exc:
+                return await self._finish(
+                    action=action,
+                    outcome=DirectApiExecutionOutcome.PERMISSION_DENIED,
+                    reason=str(exc),
+                )
+            except DirectApiPolicyDeniedError as exc:
+                return await self._finish(
+                    action=action,
+                    outcome=DirectApiExecutionOutcome.POLICY_DENIED,
+                    reason=str(exc),
+                )
+            except DirectApiNetworkDeniedError as exc:
+                return await self._finish(
+                    action=action,
+                    outcome=DirectApiExecutionOutcome.NETWORK_DENIED,
                     reason=str(exc),
                 )
             except DirectApiError as exc:

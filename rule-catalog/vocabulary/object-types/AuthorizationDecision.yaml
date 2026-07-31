@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+name: AuthorizationDecision
+version: "1.0.0"
+key: id
+description: Replayable pre-dispatch execution-authorization result.
+properties:
+  id: {type: string, required: true}
+  status: {type: string, required: true}
+  decision_digest: {type: string, required: true}
+  algorithm_version: {type: string, required: true}
+  policy_bundle_digest: {type: string, required: true}
+  inventory_generation: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AuthorizationDecision@1.0.0
+  content_hash: sha256:b54e161009286aa0e7df0e6f71d662340c551398e90020f6cfdb7994257584a9
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

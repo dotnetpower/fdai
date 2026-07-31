@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+name: AccessGrantRequest
+version: "1.0.0"
+key: id
+description: Immutable request for one bounded execution-identity permission change.
+properties:
+  id: {type: string, required: true}
+  status: {type: string, required: true}
+  decision_digest: {type: string, required: true}
+  plan_digest: {type: string, required: true}
+  scope_ref: {type: string, required: true, access_scope: approver}
+  expires_at: {type: datetime, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AccessGrantRequest@1.0.0
+  content_hash: sha256:6ed9a87aad96d0f0ebfa5a55a186c52a40b0b4cb46cfe47cfc7e34954833e5b2
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

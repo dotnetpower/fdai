@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+name: ProviderPermissionSet
+version: "1.0.0"
+key: id
+description: Versioned provider mapping for one authorization capability.
+properties:
+  id: {type: string, required: true}
+  provider: {type: string, required: true}
+  operations: {type: array, required: true, access_scope: approver}
+  audience_ref: {type: string, required: true, access_scope: approver}
+  mapping_digest: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ProviderPermissionSet@1.0.0
+  content_hash: sha256:319ba90a6c934d205c12d80917f22a1a476c8ffcdd05b029c3faba1b1935fc0f
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

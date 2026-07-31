@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 41c1436bc3e6069135e1e1ada812383b982e1aec
-translation_revised: 2026-07-22
+translation_source_sha: 41850f39aa39ada441cb2acac6679e894048c14e
+translation_revised: 2026-07-31
 ---
 
 # 보안과 아이덴티티
@@ -84,6 +84,13 @@ fork deployment policy입니다.
 Delivery layer는 action domain에서 vertical MI를 선택하며 core code 변경은 필요 없습니다.
 
 ## 인가 모델(Authorization Model)
+
+Execution authorization은
+[실행 권한 부여 온톨로지](../decisioning/execution-authorization-ontology-ko.md)에 정의된
+provider-neutral capability ontology와 scoped policy assignment로 확인합니다. Action 승인은 executor
+접근 권한을 부여하지 않습니다. 권한이 없으면 원래 action을 hold하고 별도의 exact-plan
+`AccessGrantRequest`를 생성할 수 있습니다. 독립된 protected deployer가 승인된 grant를 적용하며,
+fresh effective-access evidence가 있어야 action을 처음부터 다시 평가합니다.
 
 - 모든 액션을 필요한 최소 롤/권한에 매핑; **기본 거부**.
 - 최소권한을 관례가 아니라 기계적으로 강제: 액션 화이트리스트는 리스크 게이트에서 평가되는

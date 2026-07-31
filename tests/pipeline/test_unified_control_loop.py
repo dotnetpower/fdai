@@ -9,14 +9,14 @@ the assertion is scoped to what P1 actually delivers:
 - **Same loop instance handles all three verticals.** One
   :class:`ControlLoop` with the shipped catalog processes events from
   every domain; each domain reaches ``EXECUTED`` on a matching rule.
-- **Shadow-mode invariant** holds cross-vertical — every published PR
+- **Shadow-mode invariant** holds cross-vertical - every published PR
   carries the ``shadow`` label, every executed action reports
   :class:`Mode.SHADOW`.
-- **Vertical isolation** — an event routed by resource_type never fires
+- **Vertical isolation** - an event routed by resource_type never fires
   a rule from a different vertical (Change rule never fires on FinOps
   event, etc.). This proves resource_type routing is the right isolation
   boundary; verticals do not need per-loop instances.
-- **Idempotency across verticals** — replaying a burst of mixed-domain
+- **Idempotency across verticals** - replaying a burst of mixed-domain
   events under the same idempotency keys deduplicates deterministically.
 
 The full P3 unified loop (risk-gate precedence, cross-vertical lock,
@@ -27,6 +27,7 @@ gets tested in P3 once the risk-gate is wired.
 from __future__ import annotations
 
 import shutil
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,12 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
     JsonSchemaContractValidator,
     JsonSchemaEventValidator,
+)
+from fdai.shared.providers.execution_authorization import (
+    ExecutionAccessGrantProposal,
+    ExecutionAuthorizationRequest,
+    ExecutionAuthorizationResult,
+    ExecutionAuthorizationStatus,
 )
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
@@ -100,6 +107,8 @@ def shipped_catalog() -> tuple[Any, Any]:
 
 def _make_loop(
     shipped_catalog: tuple[Any, Any],
+    *,
+    execution_authorization_evaluator: Any = None,
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
     index = RuleIndex.build(rules)
@@ -124,8 +133,88 @@ def _make_loop(
         executor=executor,
         audit_store=audit,
         rules_by_id={r.id: r for r in rules},
+        execution_authorization_evaluator=execution_authorization_evaluator,
     )
     return loop, publisher, audit
+
+
+class _AuthorizationEvaluator:
+    def __init__(self, status: ExecutionAuthorizationStatus) -> None:
+        self.status = status
+        self.requests: list[ExecutionAuthorizationRequest] = []
+
+    async def evaluate(
+        self,
+        request: ExecutionAuthorizationRequest,
+    ) -> ExecutionAuthorizationResult:
+        self.requests.append(request)
+        proposal = None
+        if self.status is ExecutionAuthorizationStatus.GRANT_REQUIRED:
+            now = datetime(2026, 7, 31, tzinfo=UTC)
+            proposal = ExecutionAccessGrantProposal(
+                idempotency_key=request.idempotency_key,
+                original_action_id=request.action_id,
+                authorization_decision_digest="decision-grant_required",
+                requirement_id="requirement.object-write",
+                capability_id="object.write",
+                execution_profile="change-executor",
+                executor_identity_ref="identity/change",
+                scope_ref="scope://example/account/prod/store-1",
+                grant_mode="time_bound",
+                mapping_digest="mapping-v1",
+                plan_digest="plan-v1",
+                requester_ref="requester-1",
+                requested_at=now,
+                expires_at=now + timedelta(minutes=30),
+                quorum=1,
+                approver_roles=frozenset({"owner"}),
+            )
+        return ExecutionAuthorizationResult(
+            status=self.status,
+            decision_digest=f"decision-{self.status.value}",
+            evaluator_ref="test.authorization-evaluator",
+            reason_codes=(f"test_{self.status.value}",),
+            grant_proposals=(proposal,) if proposal is not None else (),
+        )
+
+
+class _RaisingAuthorizationEvaluator:
+    async def evaluate(
+        self,
+        request: ExecutionAuthorizationRequest,
+    ) -> ExecutionAuthorizationResult:
+        del request
+        raise RuntimeError("authorization source unavailable")
+
+
+def test_authorization_result_rejects_sensitive_or_mutable_audit_context() -> None:
+    with pytest.raises(ValueError, match="sensitive key"):
+        ExecutionAuthorizationResult(
+            status=ExecutionAuthorizationStatus.PROHIBITED,
+            decision_digest="decision-1",
+            evaluator_ref="test-evaluator",
+            reason_codes=("denied",),
+            audit_context={"access_token": "secret"},
+        )
+    context: dict[str, object] = {"policy_version": "1"}
+    result = ExecutionAuthorizationResult(
+        status=ExecutionAuthorizationStatus.PROHIBITED,
+        decision_digest="decision-1",
+        evaluator_ref="test-evaluator",
+        reason_codes=("denied",),
+        audit_context=context,
+    )
+    context["policy_version"] = "2"
+    assert result.audit_context["policy_version"] == "1"
+
+
+class _GrantSink:
+    def __init__(self) -> None:
+        self.proposals: list[ExecutionAccessGrantProposal] = []
+
+    async def submit_grant(self, proposal: ExecutionAccessGrantProposal) -> str:
+        self.proposals.append(proposal)
+        return "grant-request-1"
 
 
 def _event(
@@ -156,7 +245,7 @@ def _event(
 
 
 # ---------------------------------------------------------------------------
-# Per-vertical trigger events — each fires a shipped rule of its family
+# Per-vertical trigger events - each fires a shipped rule of its family
 # ---------------------------------------------------------------------------
 
 _VERTICAL_TRIGGERS: dict[str, dict[str, Any]] = {
@@ -187,6 +276,89 @@ _VERTICAL_TRIGGERS: dict[str, dict[str, Any]] = {
         "expected_rule_family": "network.public-ip.orphan",
     },
 }
+
+
+@requires_opa
+async def test_prohibited_authorization_never_reaches_executor(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    evaluator = _AuthorizationEvaluator(ExecutionAuthorizationStatus.PROHIBITED)
+    loop, publisher, audit = _make_loop(
+        shipped_catalog,
+        execution_authorization_evaluator=evaluator,
+    )
+    spec = dict(_VERTICAL_TRIGGERS["change"])
+    spec.pop("expected_rule_family")
+
+    result = await loop.process(_event(**spec))
+
+    assert result.outcome is ControlLoopOutcome.DENIED
+    assert not publisher.records
+    assert evaluator.requests
+    assert any(
+        record["entry"].get("action_kind") == "execution_authorization.decided"
+        and record["entry"].get("decision") == "prohibited"
+        for record in audit.audit_entries
+    )
+
+
+@requires_opa
+async def test_authorization_evaluator_failure_holds_without_execution(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    loop, publisher, audit = _make_loop(
+        shipped_catalog,
+        execution_authorization_evaluator=_RaisingAuthorizationEvaluator(),
+    )
+    spec = dict(_VERTICAL_TRIGGERS["change"])
+    spec.pop("expected_rule_family")
+
+    result = await loop.process(_event(**spec))
+
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert not publisher.records
+    assert any(
+        record["entry"].get("action_kind") == "execution_authorization.decided"
+        and record["entry"].get("decision") == "unknown"
+        and record["entry"].get("reason_codes") == ["evaluator_unavailable"]
+        for record in audit.audit_entries
+    )
+
+
+@requires_opa
+async def test_grant_required_submits_separate_request_without_execution(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    evaluator = _AuthorizationEvaluator(ExecutionAuthorizationStatus.GRANT_REQUIRED)
+    sink = _GrantSink()
+    rules, action_types = shipped_catalog
+    loop, publisher, audit = _make_loop(
+        (rules, action_types),
+        execution_authorization_evaluator=evaluator,
+    )
+    loop._execution_access_grant_sink = sink
+    spec = dict(_VERTICAL_TRIGGERS["change"])
+    spec.pop("expected_rule_family")
+
+    result = await loop.process(_event(**spec))
+
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert not publisher.records
+    assert sink.proposals
+    assert any(
+        record["entry"].get("grant_requests")
+        == [
+            {
+                "requirement_id": "requirement.object-write",
+                "scope_ref": "scope://example/account/prod/store-1",
+                "request_id": "grant-request-1",
+                "state": "submitted",
+            }
+        ]
+        and record["entry"].get("actor") == "test.authorization-evaluator"
+        and record["entry"].get("grant_execution_profiles") == ["change-executor"]
+        for record in audit.audit_entries
+    )
 
 
 @requires_opa
@@ -224,7 +396,7 @@ async def test_single_loop_handles_all_three_verticals(
         for execution in result.execution_results:
             assert execution.mode is Mode.SHADOW
 
-    # Shadow-mode invariant on the publisher — every PR carries the
+    # Shadow-mode invariant on the publisher - every PR carries the
     # shadow label, no vertical is bypassing it.
     assert publisher.records, "no PRs published for any vertical"
     for pr in publisher.records:
@@ -265,7 +437,7 @@ async def test_vertical_isolation_no_cross_family_matches(
             assert cited_rule.resource_type == expected_type, (
                 f"{domain} vertical fired {cited_id!r} whose resource_type "
                 f"{cited_rule.resource_type!r} != event resource_type "
-                f"{expected_type!r} — cross-vertical leak"
+                f"{expected_type!r} - cross-vertical leak"
             )
 
 
@@ -289,17 +461,17 @@ async def test_idempotent_replay_across_verticals(
             out.append(_event(**payload))
         return out
 
-    # First delivery — every event executes.
+    # First delivery - every event executes.
     first_results = [await loop.process(event) for event in _events()]
     for result in first_results:
         assert result.outcome is ControlLoopOutcome.EXECUTED
     pr_count_first = len(publisher.records)
     assert pr_count_first >= len(_VERTICAL_TRIGGERS)
 
-    # Second delivery — every event dedupes; PR count MUST NOT grow.
+    # Second delivery - every event dedupes; PR count MUST NOT grow.
     second_results = [await loop.process(event) for event in _events()]
     for result in second_results:
         assert result.outcome is ControlLoopOutcome.DEDUPED
     assert len(publisher.records) == pr_count_first, (
-        "re-delivered events opened new PRs — dedupe regressed"
+        "re-delivered events opened new PRs - dedupe regressed"
     )

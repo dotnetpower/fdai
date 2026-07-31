@@ -1,0 +1,19 @@
+schema_version: "1.0.0"
+name: AuthorizationRequirement
+version: "1.0.0"
+key: id
+description: Conditional capability and bounded scope required by one or more actions.
+properties:
+  id: {type: string, required: true}
+  version: {type: string, required: true}
+  capability_id: {type: string, required: true}
+  action_type_ids: {type: array, required: true}
+  resource_types: {type: array, required: true}
+  scope_expressions: {type: array, required: true}
+  execution_profile: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AuthorizationRequirement@1.0.0
+  content_hash: sha256:4a587919229f8caddb5ab5fbaa4151f2216360f7228262b6c5d3aeed43850978
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

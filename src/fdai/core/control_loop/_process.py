@@ -22,6 +22,7 @@ from fdai.core.trust_router import RoutingTier
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDecision
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
 from fdai.shared.contracts.models import Event
+from fdai.shared.providers.execution_authorization import ExecutionAuthorizationStatus
 from fdai.shared.providers.stage_publisher import StageName, StagePhase
 
 
@@ -291,6 +292,32 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             )
             exec_results.append(
                 _synthetic_action_build_failure(event=event, finding=finding, reason=str(exc))
+            )
+            continue
+
+        authorization = await host._evaluate_execution_authorization(
+            event=event,
+            action=action,
+        )
+        if authorization is not None and not authorization.can_enter_risk_gate:
+            denied = authorization.status in {
+                ExecutionAuthorizationStatus.PROHIBITED,
+                ExecutionAuthorizationStatus.POLICY_CONFLICT,
+                ExecutionAuthorizationStatus.UNCONFIGURED,
+            }
+            routed.append("deny" if denied else "hil")
+            await host._emit_stage(
+                event_id=event_id,
+                correlation_id=correlation_id,
+                stage=StageName.GATE,
+                phase=StagePhase.DONE,
+                detail={
+                    "rule_id": finding.rule_id,
+                    "action_type": action.action_type,
+                    "gate_decision": "deny" if denied else "hil",
+                    "authorization_status": authorization.status.value,
+                    "mode": action.mode.value,
+                },
             )
             continue
 

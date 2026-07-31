@@ -123,6 +123,48 @@
       ]
     },
     {
+      "id": "execution-authorization",
+      "paths": [
+        "docs/roadmap/decisioning/execution-authorization-ontology*.md",
+        "src/fdai/core/execution_authorization/**",
+        "src/fdai/shared/providers/execution_authorization.py",
+        "src/fdai/rule_catalog/schema/execution_authorization*",
+        "tests/core/execution_authorization/**",
+        "tests/rule_catalog/schema/test_execution_authorization.py"
+      ],
+      "optional_paths": [
+        "src/fdai/core/control_loop/_execution.py",
+        "src/fdai/core/control_loop/_process.py",
+        "src/fdai/core/control_loop/operator_request.py",
+        "src/fdai/core/control_loop/orchestrator.py",
+        "src/fdai/composition/_helpers.py",
+        "src/fdai/runtime/control_loop.py",
+        "src/fdai/shared/providers/direct_api.py",
+        "src/fdai/core/executor/direct_api.py",
+        "src/fdai/delivery/azure/gateway_direct_api.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/decisioning/execution-authorization-ontology.md",
+        "docs/roadmap/decisioning/action-ontology.md",
+        "docs/roadmap/decisioning/execution-model.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/execution-authorization-ontology.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/execution_authorization tests/rule_catalog/schema/test_execution_authorization.py tests/core/executor/test_direct_api_executor.py tests/pipeline/test_unified_control_loop.py",
+        "uv run ruff check src/fdai/core/execution_authorization src/fdai/shared/providers/execution_authorization.py src/fdai/rule_catalog/schema/execution_authorization.py tests/core/execution_authorization tests/rule_catalog/schema/test_execution_authorization.py",
+        "uv run mypy --strict src/fdai/core/execution_authorization src/fdai/shared/providers/execution_authorization.py src/fdai/rule_catalog/schema/execution_authorization.py"
+      ]
+    },
+    {
       "id": "causal-recovery-and-chaos",
       "paths": [
         "docs/roadmap/rules-and-detection/causal-incident-graph*.md",
@@ -130,7 +172,6 @@
         "src/fdai/core/rca/**",
         "src/fdai/core/chaos/**",
         "src/fdai/core/recovery/**",
-        "src/fdai/core/impact/**",
         "rule-catalog/vocabulary/object-types/CausalHypothesis.yaml",
         "rule-catalog/vocabulary/object-types/ImpactEnvelope.yaml",
         "rule-catalog/vocabulary/object-types/RecoveryPlan.yaml"
@@ -732,6 +773,38 @@
       "validate": [
         "bash scripts/governance/check-stewardship.sh",
         "uv run pytest tests/core/stewardship tests/delivery/stewardship tests/delivery/ingestion_gateway/test_handover.py -q --no-cov"
+      ]
+    },
+    {
+      "id": "conversation-assurance",
+      "paths": [
+        "src/fdai/core/conversation_assurance/**",
+        "src/fdai/runtime/conversation_assurance.py",
+        "src/fdai/delivery/azure/llm/conversation_assurance.py",
+        "src/fdai/delivery/persistence/postgres_conversation_assurance.py",
+        "src/fdai/delivery/read_api/routes/conversation_assurance*.py",
+        "console/src/routes/conversation-assurance*",
+        "console/src/routes/i18n/conversation-assurance*",
+        "alembic/versions/*conversation_assurance*.py",
+        "tests/**/*conversation_assurance*.py",
+        "docs/roadmap/decisioning/conversation-assurance*.md"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/decisioning/conversation-assurance.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/conversation-assurance.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/conversation_assurance tests/delivery/read_api/test_conversation_assurance.py tests/delivery/read_api/test_conversation_assurance_intake.py tests/delivery/azure/llm/test_conversation_assurance.py tests/runtime/test_conversation_assurance.py",
+        "npm --prefix console test -- --run src/routes/conversation-assurance.test.ts"
       ]
     },
     {

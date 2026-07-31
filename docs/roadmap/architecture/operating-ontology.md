@@ -182,6 +182,12 @@ queries use the latest valid revisions that pass freshness checks.
 
 The ontology does not collapse independent authorities into one mutable graph.
 
+Execution authorization adds capability, requirement, policy-assignment, execution-profile,
+provider-mapping, observation, grant, and decision objects to the semantic graph. These objects
+make the decision explainable and replayable, but the graph never grants access. Scoped policy,
+deployment identity bindings, provider evidence, and the risk gate remain independent authorities.
+See [Execution Authorization Ontology](../decisioning/execution-authorization-ontology.md).
+
 | Fact | Authority | Ontology role |
 |------|-----------|---------------|
 | Type, link, action, and rule definitions | Git catalog-as-code | Versioned schema and meaning. |

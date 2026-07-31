@@ -1,0 +1,20 @@
+schema_version: "1.0.0"
+name: AuthorizationObservation
+version: "1.0.0"
+key: id
+description: Time-bounded effective-access evidence for one identity and scope.
+properties:
+  id: {type: string, required: true}
+  identity_ref: {type: string, required: true, access_scope: approver}
+  status: {type: string, required: true}
+  scope_ref: {type: string, required: true, access_scope: approver}
+  mapping_digest: {type: string, required: true}
+  evidence_digest: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  expires_at: {type: datetime, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AuthorizationObservation@1.0.0
+  content_hash: sha256:c8941b22ccd89718e6e6654f24cf15ba8d3702013c5aafa465a5e829a9cb806d
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

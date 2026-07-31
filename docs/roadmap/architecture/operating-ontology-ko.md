@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 69b8328fdd1b9d0c066d168d60fac2e58f6af1c7
+translation_source_sha: 680ba0d6f90c41d5f7645a517f975bf68e402f88
 translation_revised: 2026-07-31
 ---
 # FDAI 운영 온톨로지
@@ -183,6 +183,12 @@ query는 freshness check를 통과한 최신 valid revision을 사용합니다.
 ## 사실의 권위 원천
 
 Ontology는 독립적인 authority를 하나의 mutable graph로 합치지 않습니다.
+
+실행 권한 부여는 capability, requirement, policy assignment, execution profile, provider
+mapping, observation, grant 및 decision object를 semantic graph에 추가합니다. 이러한 object는
+decision을 설명하고 replay할 수 있게 하지만 graph 자체는 접근 권한을 부여하지 않습니다. Scoped
+policy, deployment identity binding, provider evidence 및 risk gate는 독립 authority로 유지됩니다.
+[실행 권한 부여 온톨로지](../decisioning/execution-authorization-ontology-ko.md)를 참조하세요.
 
 | 사실 | Authority | Ontology 역할 |
 |------|-----------|---------------|

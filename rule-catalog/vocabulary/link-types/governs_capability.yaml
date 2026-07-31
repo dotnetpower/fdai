@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: governs_capability
+version: "1.0.0"
+from_type: AuthorizationPolicyAssignment
+to_type: AuthorizationCapability
+cardinality: many_to_many
+description: Capability constrained by a scoped authorization assignment.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:governs_capability@1.0.0
+  content_hash: sha256:e30e8bf23b19b4715d8ba2022a672f51ee2c120c4a10ed06a7714d4ff32e1683
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

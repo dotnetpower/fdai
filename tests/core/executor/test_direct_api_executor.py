@@ -421,6 +421,31 @@ class TestAdapterOutcomes:
         result = await exec_.execute(action=_action())
         assert result.outcome is DirectApiExecutionOutcome.FAILED
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("error_type", "expected"),
+        (
+            ("DirectApiAuthenticationError", DirectApiExecutionOutcome.AUTHENTICATION_FAILED),
+            ("DirectApiPermissionDeniedError", DirectApiExecutionOutcome.PERMISSION_DENIED),
+            ("DirectApiPolicyDeniedError", DirectApiExecutionOutcome.POLICY_DENIED),
+            ("DirectApiNetworkDeniedError", DirectApiExecutionOutcome.NETWORK_DENIED),
+        ),
+    )
+    async def test_authorization_errors_keep_distinct_outcomes(
+        self,
+        error_type: str,
+        expected: DirectApiExecutionOutcome,
+    ) -> None:
+        from fdai.shared import providers
+
+        exec_, adapter, audit = _executor()
+        error_class = getattr(providers, error_type)
+        adapter.next_error(error_class("bounded authorization failure"))
+        result = await exec_.execute(action=_action())
+        assert result.outcome is expected
+        entry = _unwrap(list(audit.audit_entries)[0])
+        assert entry["outcome"] == expected.value
+
 
 # ---------------------------------------------------------------------------
 # Ordering: per-resource serialisation, cross-resource parallelism

@@ -58,6 +58,13 @@ from fdai.shared.providers.cost_estimator import (
     CostEstimator,
     resolve_cost_impact_monthly,
 )
+from fdai.shared.providers.execution_authorization import (
+    ExecutionAccessGrantSink,
+    ExecutionAuthorizationEvaluator,
+    ExecutionAuthorizationRequest,
+    ExecutionAuthorizationResult,
+    ExecutionAuthorizationStatus,
+)
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.resilience import DegradationController, KillSwitch
 
@@ -73,6 +80,8 @@ class ControlLoopExecutionMixin:
     _degradation: DegradationController | None
     _direct_api_executor: DirectApiShadowExecutor | None
     _executor: ShadowExecutor
+    _execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None
+    _execution_access_grant_sink: ExecutionAccessGrantSink | None
     _governance_assignments: Sequence[Assignment]
     _inventory_age_provider: Callable[[str], Awaitable[int | None]] | None
     _kill_switch: KillSwitch | None
@@ -85,6 +94,109 @@ class ControlLoopExecutionMixin:
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
     _tool_executor: ToolCallShadowExecutor | None
+
+    async def _evaluate_execution_authorization(
+        self,
+        *,
+        event: Event,
+        action: Action,
+    ) -> ExecutionAuthorizationResult | None:
+        evaluator = self._execution_authorization_evaluator
+        if evaluator is None:
+            return None
+        try:
+            result = await evaluator.evaluate(
+                ExecutionAuthorizationRequest(
+                    action_id=str(action.action_id),
+                    action_type_id=action.action_type,
+                    target_resource_ref=action.target_resource_ref,
+                    correlation_id=event.correlation_id or str(event.event_id),
+                    idempotency_key=action.idempotency_key,
+                )
+            )
+        except Exception:  # noqa: BLE001 - authorization lookup fails closed
+            _LOGGER.warning(
+                "execution_authorization_evaluation_failed",
+                extra={"action_type": action.action_type},
+                exc_info=True,
+            )
+            result = ExecutionAuthorizationResult(
+                status=ExecutionAuthorizationStatus.UNKNOWN,
+                decision_digest="evaluator-unavailable",
+                evaluator_ref="unavailable",
+                reason_codes=("evaluator_unavailable",),
+            )
+        grant_requests: list[dict[str, str | None]] = []
+        if result.status is ExecutionAuthorizationStatus.GRANT_REQUIRED:
+            sink = self._execution_access_grant_sink
+            if sink is None:
+                grant_requests = [
+                    {
+                        "requirement_id": proposal.requirement_id,
+                        "scope_ref": proposal.scope_ref,
+                        "request_id": None,
+                        "state": "sink_unavailable",
+                    }
+                    for proposal in result.grant_proposals
+                ]
+            else:
+                for proposal in result.grant_proposals:
+                    if proposal.idempotency_key != action.idempotency_key:
+                        raise ValueError("grant proposal idempotency key does not match action")
+                    if proposal.original_action_id != str(action.action_id):
+                        raise ValueError("grant proposal action id does not match action")
+                    if proposal.authorization_decision_digest != result.decision_digest:
+                        raise ValueError("grant proposal decision digest does not match result")
+                for proposal in result.grant_proposals:
+                    request_id: str | None = None
+                    state = "submitted"
+                    try:
+                        request_id = await sink.submit_grant(proposal)
+                    except Exception:  # noqa: BLE001 - original action remains held
+                        state = "submission_failed"
+                        _LOGGER.warning(
+                            "execution_access_grant_submission_failed",
+                            extra={
+                                "action_type": action.action_type,
+                                "requirement_id": proposal.requirement_id,
+                            },
+                            exc_info=True,
+                        )
+                    grant_requests.append(
+                        {
+                            "requirement_id": proposal.requirement_id,
+                            "scope_ref": proposal.scope_ref,
+                            "request_id": request_id,
+                            "state": state,
+                        }
+                    )
+        await self._audit_store.append_audit_entry(
+            {
+                "event_id": str(event.event_id),
+                "correlation_id": event.correlation_id or str(event.event_id),
+                "idempotency_key": event.idempotency_key,
+                "actor": result.evaluator_ref,
+                "producer_principal": "Forseti",
+                "action_kind": "execution_authorization.decided",
+                "mode": action.mode.value,
+                "action_id": str(action.action_id),
+                "action_type_id": action.action_type,
+                "decision": result.status.value,
+                "decision_digest": result.decision_digest,
+                "reason_codes": list(result.reason_codes),
+                "authorization": dict(result.audit_context),
+                "grant_requests": grant_requests,
+                "grant_execution_profiles": sorted(
+                    {proposal.execution_profile for proposal in result.grant_proposals}
+                ),
+                "grant_executor_identity_refs": sorted(
+                    {proposal.executor_identity_ref for proposal in result.grant_proposals}
+                ),
+                "grant_modes": sorted({proposal.grant_mode for proposal in result.grant_proposals}),
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            }
+        )
+        return result
 
     def _resolve_governance_assignment(
         self,

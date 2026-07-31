@@ -27,6 +27,7 @@ fdai/
 │   │   ├── browser_evidence/   # read-only origin/DNS policy, redaction, immutable artifacts, custody, and shadow comparison
 │   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
+│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, mixed-family review, scoped disputes, subscription learning, and chat-policy promotion/rollback
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation
 │   │   ├── case_history/       # canonical revisions, shadow dual-write, scoped retrieval, off-path analysis, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
@@ -42,6 +43,7 @@ fdai/
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding; failed fan-out cancels and drains siblings (guards T2)
 │   │   ├── rca/                # root-cause analysis (T0 deterministic + T2 reasoner behind seam; grounding-gated)
 │   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics and enforces the four safety invariants
+│   │   ├── execution_authorization/ # ontology-driven pre-dispatch capability policy, grant lifecycle, and replay-stable decisions
 │   │   ├── rbac/               # human RBAC for the read API (5-role matrix, resolver, enforcer)
 │   │   ├── hil_resume/         # HIL park/resume plus no-drop grouping, quiet-hour plans, fatigue metrics, bounded reminders
 │   │   ├── executor/           # per-resource lock, idempotent apply via delivery adapters

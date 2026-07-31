@@ -59,6 +59,35 @@ def test_shipped_ontology_catalog_contains_operating_semantic_spine() -> None:
     }
 
 
+def test_shipped_ontology_catalog_contains_execution_authorization_kernel() -> None:
+    catalog = load_ontology_catalog(
+        REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=REPO_ROOT / "rule-catalog" / "probes",
+    )
+    assert {item.name for item in catalog.object_types} >= {
+        "AuthorizationCapability",
+        "AuthorizationRequirement",
+        "ExecutionProfile",
+        "AuthorizationPolicyAssignment",
+        "ProviderPermissionSet",
+        "AuthorizationObservation",
+        "AccessGrantRequest",
+        "AccessGrant",
+        "AuthorizationDecision",
+    }
+    assert {item.name for item in catalog.link_types} >= {
+        "requires_authorization",
+        "demands_capability",
+        "authorization_targets",
+        "governs_capability",
+        "permits_profile",
+        "implements_capability",
+        "satisfies_requirement",
+        "attests_grant",
+    }
+
+
 def test_integrated_catalog_rejects_dangling_precondition_link(tmp_path: Path) -> None:
     catalog_root = tmp_path / "rule-catalog"
     vocabulary_root = catalog_root / "vocabulary"

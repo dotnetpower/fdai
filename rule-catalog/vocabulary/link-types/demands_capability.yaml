@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: demands_capability
+version: "1.0.0"
+from_type: AuthorizationRequirement
+to_type: AuthorizationCapability
+cardinality: many_to_one
+description: Provider-neutral capability demanded by a requirement.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:demands_capability@1.0.0
+  content_hash: sha256:e6fa48870d62d84f664c7545e940a2bfaebe542352e53289252da4eb407a661c
+  license: MIT
+  retrieved_at: "2026-07-31T00:00:00Z"

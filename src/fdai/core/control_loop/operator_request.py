@@ -16,6 +16,10 @@ from fdai.core.executor.tool_call import ToolCallExecutionResult
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.shared.contracts.models import Action, Event, Mode, Rule
+from fdai.shared.providers.execution_authorization import (
+    ExecutionAuthorizationResult,
+    ExecutionAuthorizationStatus,
+)
 from fdai.shared.providers.stage_publisher import StageName, StagePhase
 from fdai.shared.providers.state_store import StateStore
 
@@ -45,6 +49,13 @@ class OperatorRequestHost(Protocol):
     async def _evaluate_and_audit(
         self, *, event: Event, action: Action, rule: Rule
     ) -> UnifiedRiskDecision | None: ...
+
+    async def _evaluate_execution_authorization(
+        self,
+        *,
+        event: Event,
+        action: Action,
+    ) -> ExecutionAuthorizationResult | None: ...
 
     async def _dispatch_action(self, *, action: Action, rule: Rule) -> ExecutionResultType: ...
 
@@ -104,6 +115,23 @@ async def process_operator_request(
             decision="abstain",
             resource_type=resource_type,
             reason="operator_request_action_build_failed",
+        )
+
+    authorization = await host._evaluate_execution_authorization(event=event, action=action)
+    if authorization is not None and not authorization.can_enter_risk_gate:
+        denied = authorization.status in {
+            ExecutionAuthorizationStatus.PROHIBITED,
+            ExecutionAuthorizationStatus.POLICY_CONFLICT,
+            ExecutionAuthorizationStatus.UNCONFIGURED,
+        }
+        return await _finish_terminal(
+            host,
+            event,
+            correlation_id,
+            resource_type,
+            rule,
+            ControlLoopOutcome.DENIED if denied else ControlLoopOutcome.HIL,
+            "deny" if denied else "hil",
         )
 
     unified = await host._evaluate_and_audit(event=event, action=action, rule=rule)

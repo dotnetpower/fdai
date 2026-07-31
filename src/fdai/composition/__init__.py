@@ -87,14 +87,11 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 from . import wire_capabilities as _wire_capabilities  # noqa: E402
-from ._helpers import (  # noqa: E402 - after TYPE_CHECKING block
-    Container,
-    LlmBindings,
-    LlmBindingsUnavailableError,
-)
+from ._helpers import Container, LlmBindings, LlmBindingsUnavailableError  # noqa: E402
 
 install_capability_bundle = _wire_capabilities.install_capability_bundle
 
+from .wire_execution_authorization import bind_execution_authorization  # noqa: E402
 from .wire_execution_backends import (  # noqa: E402 - public composition facade
     bind_execution_backends,
     load_execution_backend_registry_file,
@@ -385,6 +382,7 @@ __all__ = [
     "TrajectoryRuntime",
     "attach_metric_provider",
     "bind_browser_evidence",
+    "bind_execution_authorization",
     "bind_execution_backends",
     "bind_azure_llm_bindings",
     "bind_azure_devops_change_feed",
