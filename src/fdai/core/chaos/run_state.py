@@ -17,6 +17,7 @@ class ChaosRunState(StrEnum):
     VERIFIED = "verified"
     STOP_TRIGGERED = "stop_triggered"
     RECOVERING = "recovering"
+    VERIFYING = "verifying"
     RECOVERED = "recovered"
     ESCALATED = "escalated"
     FAILED = "failed"
@@ -40,7 +41,8 @@ _ALLOWED: dict[ChaosRunState, frozenset[ChaosRunState]] = {
     ),
     ChaosRunState.VERIFIED: frozenset({ChaosRunState.RECOVERING}),
     ChaosRunState.STOP_TRIGGERED: frozenset({ChaosRunState.RECOVERING}),
-    ChaosRunState.RECOVERING: frozenset(
+    ChaosRunState.RECOVERING: frozenset({ChaosRunState.VERIFYING, ChaosRunState.FAILED}),
+    ChaosRunState.VERIFYING: frozenset(
         {ChaosRunState.RECOVERED, ChaosRunState.ESCALATED, ChaosRunState.FAILED}
     ),
 }

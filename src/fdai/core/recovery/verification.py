@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from fdai.core.recovery.models import (
     ProbeVerdict,
+    RecoveryPlanRecord,
     RecoveryProbeKind,
     RecoveryProbeResult,
     RecoveryVerification,
     RecoveryVerificationOutcome,
 )
+
+
+class RecoveryEvidenceCollector(Protocol):
+    async def collect(
+        self,
+        plan: RecoveryPlanRecord,
+    ) -> tuple[tuple[RecoveryProbeResult, ...], bool]: ...
 
 
 def verify_recovery_postconditions(
@@ -49,4 +59,4 @@ def verify_recovery_postconditions(
     )
 
 
-__all__ = ["verify_recovery_postconditions"]
+__all__ = ["RecoveryEvidenceCollector", "verify_recovery_postconditions"]

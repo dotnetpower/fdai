@@ -13,8 +13,13 @@ from fdai.core.chaos import (
 from fdai.core.chaos.run_store import ChaosRunStore
 from fdai.core.recovery import (
     PreauthorizedRecoveryController,
+    ProbeVerdict,
     RecoveryAction,
+    RecoveryPlanRecord,
+    RecoveryProbeKind,
+    RecoveryProbeResult,
     RecoveryStrategy,
+    RecoveryVerificationOutcome,
     compile_recovery_plan,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -37,7 +42,30 @@ class _Dispatcher:
         return None if self.fail else f"receipt:{idempotency_key}"
 
 
-def _plan():  # type: ignore[no-untyped-def]
+class _EvidenceCollector:
+    def __init__(self, *, omit: RecoveryProbeKind | None = None) -> None:
+        self.omit = omit
+
+    async def collect(
+        self,
+        _plan: RecoveryPlanRecord,
+    ) -> tuple[tuple[RecoveryProbeResult, ...], bool]:
+        return (
+            tuple(
+                RecoveryProbeResult(
+                    kind=kind,
+                    verdict=ProbeVerdict.PASSED,
+                    observed_at=_NOW,
+                    evidence_ref=f"evidence:{kind.value}",
+                )
+                for kind in RecoveryProbeKind
+                if kind is not self.omit
+            ),
+            True,
+        )
+
+
+def _plan() -> RecoveryPlanRecord:
     action = RecoveryAction(
         action_id="restore",
         action_type_ref="ops.restore-service",
@@ -114,7 +142,12 @@ async def _sleeper(_seconds: float) -> None:
     return None
 
 
-def _runner(injector: ShadowFaultInjector, dispatcher: _Dispatcher) -> GovernedChaosRunner:
+def _runner(
+    injector: ShadowFaultInjector,
+    dispatcher: _Dispatcher,
+    *,
+    evidence_collector: _EvidenceCollector | None = None,
+) -> GovernedChaosRunner:
     return GovernedChaosRunner(
         harness=FaultInjectionHarness(
             injectors=(injector,),
@@ -123,6 +156,7 @@ def _runner(injector: ShadowFaultInjector, dispatcher: _Dispatcher) -> GovernedC
         ),
         run_store=ChaosRunStore(state_store=InMemoryStateStore()),
         recovery=PreauthorizedRecoveryController(dispatcher=dispatcher),
+        evidence_collector=evidence_collector or _EvidenceCollector(),
         clock=lambda: _NOW,
     )
 
@@ -140,6 +174,8 @@ async def test_governed_runner_reaches_recovered_after_guarded_enforce() -> None
     assert result.state.state is ChaosRunState.RECOVERED
     assert result.experiment is not None and result.experiment.reverted
     assert result.recovery is not None and result.recovery.succeeded
+    assert result.verification is not None
+    assert result.verification.outcome is RecoveryVerificationOutcome.RECOVERED
     assert dispatcher.calls == ["restore"]
 
 
@@ -199,6 +235,7 @@ async def test_governed_runner_resumes_observing_with_recovery_not_reinjection()
         ),
         run_store=run_store,
         recovery=PreauthorizedRecoveryController(dispatcher=dispatcher),
+        evidence_collector=_EvidenceCollector(),
         clock=lambda: _NOW,
     )
 
@@ -232,6 +269,7 @@ async def test_governed_runner_denies_stale_pre_injection_resume() -> None:
         harness=FaultInjectionHarness(injectors=(injector,), probe=_Probe(), sleeper=_sleeper),
         run_store=run_store,
         recovery=PreauthorizedRecoveryController(dispatcher=dispatcher),
+        evidence_collector=_EvidenceCollector(),
         clock=lambda: _NOW,
     )
 
@@ -246,3 +284,26 @@ async def test_governed_runner_denies_stale_pre_injection_resume() -> None:
     assert result.state.state is ChaosRunState.DENIED
     assert injector.injected == []
     assert dispatcher.calls == []
+
+
+async def test_governed_runner_escalates_when_recovery_evidence_is_incomplete() -> None:
+    injector = ShadowFaultInjector(fault_type="pod_kill")
+    dispatcher = _Dispatcher()
+    runner = _runner(
+        injector,
+        dispatcher,
+        evidence_collector=_EvidenceCollector(omit=RecoveryProbeKind.RECURRENCE_CLEAR),
+    )
+
+    result = await runner.run_enforce(
+        run_id="run-1",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+
+    assert result.state.state is ChaosRunState.ESCALATED
+    assert result.recovery is not None and result.recovery.succeeded
+    assert result.verification is not None
+    assert result.verification.outcome is RecoveryVerificationOutcome.UNSCORABLE

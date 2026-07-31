@@ -23,7 +23,10 @@ from fdai.core.recovery.models import (
 )
 from fdai.core.recovery.projection import RecoveryPlanProjector
 from fdai.core.recovery.readiness import evaluate_recovery_readiness, preauthorization_covers
-from fdai.core.recovery.verification import verify_recovery_postconditions
+from fdai.core.recovery.verification import (
+    RecoveryEvidenceCollector,
+    verify_recovery_postconditions,
+)
 
 __all__ = [
     "compile_recovery_plan",
@@ -34,6 +37,7 @@ __all__ = [
     "RecoveryAction",
     "RecoveryActionDispatcher",
     "RecoveryControlResult",
+    "RecoveryEvidenceCollector",
     "RecoveryPlanRecord",
     "RecoveryPlanProjector",
     "RecoveryPlanStatus",

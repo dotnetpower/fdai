@@ -20,7 +20,11 @@ from fdai.core.chaos.run_store import ChaosRunStore
 from fdai.core.recovery import (
     PreauthorizedRecoveryController,
     RecoveryControlResult,
+    RecoveryEvidenceCollector,
     RecoveryPlanRecord,
+    RecoveryVerification,
+    RecoveryVerificationOutcome,
+    verify_recovery_postconditions,
 )
 from fdai.shared.contracts.models import Mode
 
@@ -32,6 +36,7 @@ class GovernedChaosRunResult:
     state: ChaosRunSnapshot
     experiment: ExperimentResult | None
     recovery: RecoveryControlResult | None
+    verification: RecoveryVerification | None
 
 
 class GovernedChaosRunner:
@@ -41,11 +46,13 @@ class GovernedChaosRunner:
         harness: FaultInjectionHarness,
         run_store: ChaosRunStore,
         recovery: PreauthorizedRecoveryController,
+        evidence_collector: RecoveryEvidenceCollector,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._harness = harness
         self._run_store = run_store
         self._recovery = recovery
+        self._evidence_collector = evidence_collector
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def run_enforce(
@@ -61,13 +68,14 @@ class GovernedChaosRunner:
         state = await self._run_store.create(run_id=run_id, at=self._now())
         decision = evaluate_chaos_eligibility(eligibility_context)
         if state.state.terminal:
-            return GovernedChaosRunResult(run_id, decision, state, None, None)
+            return GovernedChaosRunResult(run_id, decision, state, None, None, None)
         if state.state in {
             ChaosRunState.INJECTING,
             ChaosRunState.OBSERVING,
             ChaosRunState.VERIFIED,
             ChaosRunState.STOP_TRIGGERED,
             ChaosRunState.RECOVERING,
+            ChaosRunState.VERIFYING,
         }:
             return await self._recover_resumed(
                 run_id=run_id,
@@ -77,7 +85,7 @@ class GovernedChaosRunner:
             )
         if not decision.eligible:
             state = await self._advance(state, ChaosRunState.DENIED)
-            return GovernedChaosRunResult(run_id, decision, state, None, None)
+            return GovernedChaosRunResult(run_id, decision, state, None, None, None)
 
         pre_injection_states = (
             ChaosRunState.IMPACT_CHECKED,
@@ -104,30 +112,26 @@ class GovernedChaosRunner:
         except asyncio.CancelledError:
             state = await self._advance(state, ChaosRunState.STOP_TRIGGERED)
             state = await self._advance(state, ChaosRunState.RECOVERING)
-            recovery = await self._execute_recovery(recovery_plan)
-            terminal = ChaosRunState.RECOVERED if recovery.succeeded else ChaosRunState.ESCALATED
-            await self._advance(state, terminal)
+            await self._recover_and_verify(state=state, plan=recovery_plan, fault_reverted=True)
             raise
 
         if not experiment.injected and experiment.outcome is ExperimentOutcome.ABORTED:
             state = await self._advance(state, ChaosRunState.FAILED)
-            return GovernedChaosRunResult(run_id, decision, state, experiment, None)
+            return GovernedChaosRunResult(run_id, decision, state, experiment, None, None)
         if experiment.stop_reason or experiment.outcome is ExperimentOutcome.ABORTED:
             state = await self._advance(state, ChaosRunState.STOP_TRIGGERED)
         elif experiment.outcome is ExperimentOutcome.ROLLBACK_FAILED:
             state = await self._advance(state, ChaosRunState.FAILED)
-            return GovernedChaosRunResult(run_id, decision, state, experiment, None)
+            return GovernedChaosRunResult(run_id, decision, state, experiment, None, None)
         else:
             state = await self._advance(state, ChaosRunState.VERIFIED)
         state = await self._advance(state, ChaosRunState.RECOVERING)
-        recovery = await self._execute_recovery(recovery_plan)
-        terminal = (
-            ChaosRunState.RECOVERED
-            if recovery.succeeded and experiment.reverted
-            else ChaosRunState.ESCALATED
+        state, recovery, verification = await self._recover_and_verify(
+            state=state,
+            plan=recovery_plan,
+            fault_reverted=experiment.reverted,
         )
-        state = await self._advance(state, terminal)
-        return GovernedChaosRunResult(run_id, decision, state, experiment, recovery)
+        return GovernedChaosRunResult(run_id, decision, state, experiment, recovery, verification)
 
     async def _recover_resumed(
         self,
@@ -141,10 +145,38 @@ class GovernedChaosRunner:
             state = await self._advance(state, ChaosRunState.STOP_TRIGGERED)
         if state.state in {ChaosRunState.VERIFIED, ChaosRunState.STOP_TRIGGERED}:
             state = await self._advance(state, ChaosRunState.RECOVERING)
-        recovery = await self._execute_recovery(recovery_plan)
-        terminal = ChaosRunState.RECOVERED if recovery.succeeded else ChaosRunState.ESCALATED
-        state = await self._advance(state, terminal)
-        return GovernedChaosRunResult(run_id, decision, state, None, recovery)
+        state, recovery, verification = await self._recover_and_verify(
+            state=state,
+            plan=recovery_plan,
+            fault_reverted=True,
+        )
+        return GovernedChaosRunResult(run_id, decision, state, None, recovery, verification)
+
+    async def _recover_and_verify(
+        self,
+        *,
+        state: ChaosRunSnapshot,
+        plan: RecoveryPlanRecord,
+        fault_reverted: bool,
+    ) -> tuple[ChaosRunSnapshot, RecoveryControlResult, RecoveryVerification]:
+        recovery = await self._execute_recovery(plan)
+        if state.state is ChaosRunState.RECOVERING:
+            state = await self._advance(state, ChaosRunState.VERIFYING)
+        probe_results, telemetry_complete = await self._evidence_collector.collect(plan)
+        verification = verify_recovery_postconditions(
+            probe_results,
+            telemetry_complete=telemetry_complete,
+        )
+        recovered = (
+            recovery.succeeded
+            and fault_reverted
+            and verification.outcome is RecoveryVerificationOutcome.RECOVERED
+        )
+        state = await self._advance(
+            state,
+            ChaosRunState.RECOVERED if recovered else ChaosRunState.ESCALATED,
+        )
+        return state, recovery, verification
 
     async def _execute_recovery(self, plan: RecoveryPlanRecord) -> RecoveryControlResult:
         return await self._recovery.execute(
