@@ -12,6 +12,9 @@ from fdai.delivery.read_api.routes.chat_inventory_compiler import (
     inventory_query_status_groups,
     is_specific_inventory_question,
 )
+from fdai.delivery.read_api.routes.chat_inventory_language import (
+    default_inventory_query_language_resolver,
+)
 from fdai.delivery.read_api.routes.chat_inventory_query import normalize_inventory_value
 from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
     default_inventory_resource_type_resolver,
@@ -55,6 +58,19 @@ class SubscriptionHealthProvider(Protocol):
 
 
 @runtime_checkable
+class ResourceTypeFilteredSubscriptionHealthProvider(Protocol):
+    async def query_resource_types(
+        self,
+        lookback_seconds: int,
+        *,
+        resource_types: tuple[str, ...],
+        availability_states: tuple[str, ...],
+        include_metrics: bool,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> Mapping[str, Any]: ...
+
+
+@runtime_checkable
 class SubscriptionScopeProvider(Protocol):
     async def describe_scope(self) -> Mapping[str, Any]: ...
 
@@ -86,7 +102,7 @@ class SubscriptionHealthChatTools:
                 return None
             return await self.fallback.resolve(prompt, principal_id=principal_id)
         try:
-            result = dict(await self.provider(3_600))
+            result = await self._query_health(prompt)
         except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
             result = {"status": "unavailable", "reason": type(exc).__name__}
         return {
@@ -164,7 +180,7 @@ class SubscriptionHealthChatTools:
                 )
 
         try:
-            result = dict(await self.provider(3_600, progress_observer=observe))
+            result = await self._query_health(prompt, progress_observer=observe)
         except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
             result = {"status": "unavailable", "reason": type(exc).__name__}
         await progress_observer(
@@ -184,6 +200,35 @@ class SubscriptionHealthChatTools:
             "query": _status_query(prompt),
             "result": result,
         }
+
+    async def _query_health(
+        self,
+        prompt: str,
+        *,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> dict[str, Any]:
+        resolver = default_inventory_resource_type_resolver()
+        provider_types = resolver.provider_types_for(resolver.resolve(prompt))
+        language = default_inventory_query_language_resolver()
+        include_metrics = language.has(language.registry.signals, "diagnosis", prompt)
+        availability_states = tuple(
+            dict.fromkeys(
+                value for group in inventory_query_status_groups(prompt) for value in group.values
+            )
+        )
+        if provider_types and isinstance(
+            self.provider, ResourceTypeFilteredSubscriptionHealthProvider
+        ):
+            return dict(
+                await self.provider.query_resource_types(
+                    3_600,
+                    resource_types=provider_types,
+                    availability_states=availability_states,
+                    include_metrics=include_metrics,
+                    progress_observer=progress_observer,
+                )
+            )
+        return dict(await self.provider(3_600, progress_observer=progress_observer))
 
 
 def needs_subscription_health(prompt: str) -> bool:
@@ -293,6 +338,7 @@ def render_subscription_health_answer(
     metric_checked = _integer(result.get("metric_checked"))
     metric_unavailable = _integer(result.get("metric_unavailable"))
     unsupported = _integer(result.get("unsupported_metric_resources"))
+    metrics_requested = result.get("metrics_requested") is not False
     findings = [item for item in result.get("findings", []) if isinstance(item, Mapping)]
     findings = _filter_findings_by_requested_type(evidence, findings)
     source = str(result.get("source") or "Azure read providers")
@@ -328,10 +374,14 @@ def render_subscription_health_answer(
     if korean:
         lines = [summary]
         lines.extend(grouped_lines)
-        lines.append(
-            f"Resource Health 조회 불가 범위 {resource_health_unavailable}개. "
+        metric_summary = (
             f"메트릭 확인: {metric_checked}개, 조회 불가 {metric_unavailable}개, "
             f"미지원 {unsupported}개."
+            if metrics_requested
+            else "대표 메트릭: 요청되지 않음."
+        )
+        lines.append(
+            f"Resource Health 조회 불가 범위 {resource_health_unavailable}개. {metric_summary}"
         )
         lines.append(f"근거: {source}, 관찰 시각 {observed_at}.")
         if truncated:
@@ -344,10 +394,14 @@ def render_subscription_health_answer(
         return "\n".join(lines)
     lines = [summary]
     lines.extend(grouped_lines)
-    lines.append(
-        f"Resource Health: {resource_health_unavailable} scope(s) unavailable. "
+    metric_summary = (
         f"Metrics: {metric_checked} checked, {metric_unavailable} unavailable, "
         f"{unsupported} unsupported."
+        if metrics_requested
+        else "Representative metrics were not requested."
+    )
+    lines.append(
+        f"Resource Health: {resource_health_unavailable} scope(s) unavailable. {metric_summary}"
     )
     lines.append(f"Evidence: {source}, observed {observed_at}.")
     if truncated:

@@ -11,6 +11,7 @@ from fdai.delivery.read_api.routes.chat_subscription_health import (
     SubscriptionHealthChatTools,
     needs_subscription_context,
     needs_subscription_health,
+    render_subscription_health_answer,
 )
 
 
@@ -259,6 +260,56 @@ def test_specific_storage_health_question_uses_filtered_subscription_health() ->
     assert "storage-example" in payload["answer"]
     assert "vm-example" not in payload["answer"]
     assert backend.calls == 0
+
+
+async def test_specific_storage_state_query_skips_unrequested_metrics() -> None:
+    class FilteredProvider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("typed health query must use the filtered provider path")
+
+        async def query_resource_types(
+            self,
+            lookback_seconds: int,
+            *,
+            resource_types: tuple[str, ...],
+            availability_states: tuple[str, ...],
+            include_metrics: bool,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            assert lookback_seconds == 3_600
+            assert resource_types == ("Microsoft.Storage/storageAccounts",)
+            assert availability_states == ("degraded", "unavailable")
+            assert include_metrics is False
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health",
+                "observed_at": "2026-08-01T04:10:00Z",
+                "resource_count": 2,
+                "resource_health_unavailable": 0,
+                "metrics_requested": False,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [],
+            }
+
+    evidence = await SubscriptionHealthChatTools(FilteredProvider()).resolve(
+        "사용 불가능하거나 성능이 저하된 스토리지 계정이 있어?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    answer = render_subscription_health_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "리소스 2개" in answer
+    assert "대표 메트릭: 요청되지 않음" in answer
 
 
 def test_current_subscription_question_uses_server_scope_metadata() -> None:

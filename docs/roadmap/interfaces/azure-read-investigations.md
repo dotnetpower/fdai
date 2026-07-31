@@ -247,9 +247,12 @@ customer-initiated Resource Health state is explained as user- or automation-ini
 an Azure platform incident, but the actor remains unknown until Activity Log evidence is collected.
 For an explicit status collection, the terminal answer renders every requested catalog state in
 request order, including a grounded empty group, and lists only findings whose normalized state
-belongs to that group. If Resource Health omits its display name, the provider derives the bounded
-resource name, provider type, and resource group from the scope-validated target ID. The raw target
-ID does not enter the answer or narrator context.
+belongs to that group. A concrete family query prefilters `Resources` and `HealthResources` by the
+catalog's provider type and requested availability states. It runs representative metrics only
+when the question also contains diagnosis semantics such as CPU, memory, or throughput. If Resource
+Health omits its display name, the provider derives the bounded resource name, provider type, and
+resource group from the scope-validated target ID. The raw target ID does not enter the answer or
+narrator context.
 The terminal answer keeps every partial-coverage limitation. A positive finding whose state belongs
 to a typed requested group can complete one evidence check because that finding is directly grounded;
 empty groups say only that no match was observed in checked evidence. A partial result without a

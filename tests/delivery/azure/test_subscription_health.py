@@ -344,3 +344,59 @@ async def test_subscription_health_bounds_parallel_metric_queries() -> None:
 
     assert result["metric_checked"] == 5
     assert transport.max_active == 2
+
+
+async def test_subscription_health_prefilters_one_provider_resource_type() -> None:
+    storage = {
+        "id": (
+            "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
+            "Microsoft.Storage/storageAccounts/storage-example"
+        ),
+        "name": "storage-example",
+        "type": "microsoft.storage/storageaccounts",
+        "resourceGroup": "rg-example",
+        "location": "example-region",
+        "provisioningState": "Succeeded",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            query = json.loads(request.content)["query"]
+            if query.startswith("HealthResources"):
+                assert "type =~ 'microsoft.resourcehealth/availabilitystatuses'" in query
+                assert (
+                    "tostring(properties.targetResourceType) in~ "
+                    "('Microsoft.Storage/storageAccounts')" in query
+                )
+                assert (
+                    "tostring(properties.availabilityState) in~ "
+                    "('degraded', 'unavailable')" in query
+                )
+                return httpx.Response(200, json={"data": []})
+            assert "type in~ ('Microsoft.Storage/storageAccounts')" in query
+            return httpx.Response(200, json={"data": [storage]})
+        raise AssertionError("typed state query must not widen to REST or metrics")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_resource_types(
+            3_600,
+            resource_types=("Microsoft.Storage/storageAccounts",),
+            availability_states=("degraded", "unavailable"),
+            include_metrics=False,
+        )
+
+    assert result["status"] == "matched"
+    assert result["resource_count"] == 1
+    assert result["metrics_requested"] is False
+    assert result["metric_checked"] == 0
+    assert result["unsupported_metric_resources"] == 0
+    assert result["source"] == "azure-resource-graph+resource-health"
+    assert result["truncated"] is False

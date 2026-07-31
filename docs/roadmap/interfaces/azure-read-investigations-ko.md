@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 0d8c584aaa2cebf86fb9fcd8b2b97c5edee65a2a
+translation_source_sha: 635f6ef748304555950298026f85d45280e8cf4d
 translation_revised: 2026-08-01
 ---
 
@@ -244,9 +244,11 @@ Customer-initiated Resource Health state는 Azure platform incident가 아니라
 시작한 상태로 설명하지만, Activity Log evidence를 수집하기 전에는 actor를 알 수 없다고 표시합니다.
 명시적인 status collection의 terminal answer는 근거 있는 empty group을 포함하여 요청된 모든 catalog
 state를 request 순서로 렌더링하고, normalized state가 해당 group에 속하는 finding만 나열합니다.
-Resource Health가 display name을 생략하면 provider는 scope가 검증된 target ID에서 bounded resource
-name, provider type 및 resource group을 파생합니다. Raw target ID는 answer 또는 narrator context에
-들어가지 않습니다.
+구체적인 family query는 catalog의 provider type과 requested availability state로 `Resources`와
+`HealthResources`를 prefilter합니다. 질문에 CPU, memory 또는 throughput 같은 diagnosis 의미도 있는
+경우에만 representative metric을 실행합니다. Resource Health가 display name을 생략하면 provider는
+scope가 검증된 target ID에서 bounded resource name, provider type 및 resource group을 파생합니다.
+Raw target ID는 answer 또는 narrator context에 들어가지 않습니다.
 Terminal answer는 모든 partial-coverage 제한을 유지합니다. Typed requested group에 속하는 상태의
 양성 finding은 해당 finding이 직접 grounded되므로 evidence check 1건을 완료할 수 있습니다. Empty
 group은 확인한 evidence에서 match가 관찰되지 않았다는 사실만 표시합니다. 양성 requested-state

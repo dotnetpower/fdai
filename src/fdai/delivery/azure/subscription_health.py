@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -21,6 +22,8 @@ _METRICS_API_VERSION: Final = "2024-02-01"
 _RESOURCE_HEALTH_API_VERSION: Final = "2025-05-01"
 _SUBSCRIPTIONS_API_VERSION: Final = "2022-12-01"
 _RESOURCE_HEALTH_ID_MARKER: Final = "/providers/microsoft.resourcehealth/availabilitystatuses/"
+_PROVIDER_RESOURCE_TYPE: Final = re.compile(r"[A-Za-z0-9.-]+(?:/[A-Za-z0-9.-]+)+")
+_AVAILABILITY_STATE: Final = re.compile(r"[A-Za-z][A-Za-z0-9 -]{0,63}")
 
 
 class AzureSubscriptionHealthScope(StrEnum):
@@ -176,6 +179,42 @@ class AzureSubscriptionHealthProvider:
         *,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
     ) -> dict[str, Any]:
+        return await self._query(
+            lookback_seconds,
+            resource_types=(),
+            availability_states=(),
+            include_metrics=True,
+            progress_observer=progress_observer,
+        )
+
+    async def query_resource_types(
+        self,
+        lookback_seconds: int,
+        *,
+        resource_types: tuple[str, ...],
+        availability_states: tuple[str, ...] = (),
+        include_metrics: bool = True,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> dict[str, Any]:
+        """Inspect only server-selected Azure provider resource types."""
+
+        return await self._query(
+            lookback_seconds,
+            resource_types=_validated_resource_types(resource_types),
+            availability_states=_validated_availability_states(availability_states),
+            include_metrics=include_metrics,
+            progress_observer=progress_observer,
+        )
+
+    async def _query(
+        self,
+        lookback_seconds: int,
+        *,
+        resource_types: tuple[str, ...],
+        availability_states: tuple[str, ...],
+        include_metrics: bool,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None,
+    ) -> dict[str, Any]:
         if not 60 <= lookback_seconds <= 86_400:
             raise ValueError("subscription health lookback MUST be in [60, 86400]")
         token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
@@ -193,20 +232,20 @@ class AzureSubscriptionHealthProvider:
             label="Checking Resource Health",
         )
         resources, health = await asyncio.gather(
-            self._arg(headers, self._resource_query()),
-            self._arg(headers, self._health_query()),
+            self._arg(headers, self._resource_query(resource_types)),
+            self._arg(headers, self._health_query(resource_types, availability_states)),
         )
         safe_resources = [item for item in resources if _valid_resource(item)]
         resource_truncated = len(safe_resources) > self._config.max_resources
         safe_resources = safe_resources[: self._config.max_resources]
         resource_health_unavailable = 0
         direct_health_truncated = False
-        if not health:
+        if not health and not availability_states:
             (
                 health,
                 resource_health_unavailable,
                 direct_health_truncated,
-            ) = await self._current_resource_health(headers)
+            ) = await self._current_resource_health(headers, resource_types)
         health_findings = _health_findings(health)
         provisioning_findings = _provisioning_findings(safe_resources)
         health_truncated = len(health) > 64 or direct_health_truncated
@@ -226,11 +265,15 @@ class AzureSubscriptionHealthProvider:
             completed=min(len(health), 64),
             total=min(len(health), 64),
         )
-        supported = [
-            item
-            for item in safe_resources
-            if str(item.get("type", "")).casefold() in self._probe_by_type
-        ]
+        supported = (
+            [
+                item
+                for item in safe_resources
+                if str(item.get("type", "")).casefold() in self._probe_by_type
+            ]
+            if include_metrics
+            else []
+        )
         metric_truncated = len(supported) > self._config.max_metric_resources
         metric_targets = supported[: self._config.max_metric_resources]
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
@@ -284,7 +327,9 @@ class AzureSubscriptionHealthProvider:
             total=len(metric_targets),
         )
         findings = [*health_findings, *provisioning_findings, *metric_findings]
-        unsupported_metric_resources = len(safe_resources) - len(supported)
+        unsupported_metric_resources = (
+            len(safe_resources) - len(supported) if include_metrics else 0
+        )
         truncated = resource_truncated or health_truncated or metric_truncated
         await _emit(
             progress_observer,
@@ -303,10 +348,15 @@ class AzureSubscriptionHealthProvider:
                 )
                 else "matched"
             ),
-            "source": "azure-resource-graph+resource-health+azure-monitor-metrics",
+            "source": (
+                "azure-resource-graph+resource-health+azure-monitor-metrics"
+                if include_metrics
+                else "azure-resource-graph+resource-health"
+            ),
             "observed_at": datetime.now(tz=UTC).isoformat(),
             "resource_count": len(safe_resources),
             "resource_health_unavailable": resource_health_unavailable,
+            "metrics_requested": include_metrics,
             "supported_metric_resources": len(supported),
             "metric_checked": len(metric_targets) - metric_unavailable,
             "metric_unavailable": metric_unavailable,
@@ -318,6 +368,7 @@ class AzureSubscriptionHealthProvider:
     async def _current_resource_health(
         self,
         headers: Mapping[str, str],
+        resource_types: tuple[str, ...],
     ) -> tuple[list[Mapping[str, Any]], int, bool]:
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
 
@@ -335,7 +386,7 @@ class AzureSubscriptionHealthProvider:
                 scope_prefix = f"/subscriptions/{self._config.subscription_id.casefold()}/"
                 if group is not None:
                     scope_prefix += f"resourcegroups/{group.casefold()}/"
-                return self._resource_health_rows(response, scope_prefix)
+                return self._resource_health_rows(response, scope_prefix, resource_types)
 
         targets: tuple[str | None, ...] = (
             (None,)
@@ -364,6 +415,7 @@ class AzureSubscriptionHealthProvider:
         self,
         response: httpx.Response,
         scope_prefix: str,
+        resource_types: tuple[str, ...],
     ) -> tuple[list[Mapping[str, Any]], bool]:
         if response.status_code >= 400 or len(response.content) > self._config.max_response_bytes:
             raise RuntimeError("Resource Health query unavailable")
@@ -382,6 +434,11 @@ class AzureSubscriptionHealthProvider:
             marker_at = status_id.casefold().find(_RESOURCE_HEALTH_ID_MARKER)
             target_resource_id = status_id[:marker_at] if marker_at >= 0 else ""
             if not target_resource_id.casefold().startswith(scope_prefix):
+                continue
+            if resource_types and not _resource_id_matches_types(
+                target_resource_id,
+                resource_types,
+            ):
                 continue
             rows.append(
                 {
@@ -461,9 +518,13 @@ class AzureSubscriptionHealthProvider:
         values = ", ".join(f"'{_escaped(group)}'" for group in self._config.resource_groups)
         return f"{field} in~ ({values})"
 
-    def _resource_query(self) -> str:
+    def _resource_query(self, resource_types: tuple[str, ...]) -> str:
         scope_filter = self._scope_filter("resourceGroup")
-        where = f"| where {scope_filter} " if scope_filter is not None else ""
+        filters = [scope_filter] if scope_filter is not None else []
+        if resource_types:
+            values = ", ".join(f"'{_escaped(item)}'" for item in resource_types)
+            filters.append(f"type in~ ({values})")
+        where = "".join(f"| where {item} " for item in filters)
         return (
             f"Resources {where}"
             "| project id, name, type, resourceGroup, location, "
@@ -471,23 +532,61 @@ class AzureSubscriptionHealthProvider:
             f"| take {self._config.max_resources + 1}"
         )
 
-    def _health_query(self) -> str:
+    def _health_query(
+        self,
+        resource_types: tuple[str, ...],
+        availability_states: tuple[str, ...],
+    ) -> str:
+        filters = ["type =~ 'microsoft.resourcehealth/availabilitystatuses'"]
         if self._config.scope is AzureSubscriptionHealthScope.SUBSCRIPTION:
-            where = ""
+            pass
         else:
-            filters = " or ".join(
+            group_filters = " or ".join(
                 f"tostring(properties.targetResourceId) has '/resourceGroups/{_escaped(group)}/'"
                 for group in self._config.resource_groups
             )
-            where = f"| where {filters} "
+            filters.append(f"({group_filters})")
+        if resource_types:
+            values = ", ".join(f"'{_escaped(item)}'" for item in resource_types)
+            filters.append(f"tostring(properties.targetResourceType) in~ ({values})")
+        if availability_states:
+            values = ", ".join(f"'{_escaped(item)}'" for item in availability_states)
+            filters.append(f"tostring(properties.availabilityState) in~ ({values})")
+        where = "".join(f"| where {item} " for item in filters)
         return (
             f"HealthResources {where}"
             "| project targetResourceId=tostring(properties.targetResourceId), "
+            "targetResourceType=tostring(properties.targetResourceType), "
             "resourceName=tostring(properties.targetResourceName), "
             "availabilityState=tostring(properties.availabilityState), "
             "reasonType=tostring(properties.reasonType), "
             "occurredTime=tostring(properties.occurredTime) | take 65"
         )
+
+
+def _validated_resource_types(values: Sequence[str]) -> tuple[str, ...]:
+    normalized = tuple(dict.fromkeys(item.strip() for item in values))
+    if not normalized or len(normalized) > 64:
+        raise ValueError("resource type filter requires between 1 and 64 values")
+    if any(
+        len(item) > 256 or _PROVIDER_RESOURCE_TYPE.fullmatch(item) is None for item in normalized
+    ):
+        raise ValueError("resource type filter contains an invalid provider type")
+    return normalized
+
+
+def _validated_availability_states(values: Sequence[str]) -> tuple[str, ...]:
+    normalized = tuple(dict.fromkeys(item.strip() for item in values))
+    if len(normalized) > 16 or any(
+        _AVAILABILITY_STATE.fullmatch(item) is None for item in normalized
+    ):
+        raise ValueError("availability state filter contains an invalid value")
+    return normalized
+
+
+def _resource_id_matches_types(resource_id: str, resource_types: Sequence[str]) -> bool:
+    observed_type = _resource_identity(resource_id)["type"].casefold()
+    return observed_type in {item.casefold() for item in resource_types}
 
 
 async def _emit(
