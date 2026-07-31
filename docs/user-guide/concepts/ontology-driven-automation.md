@@ -1,204 +1,240 @@
 ---
 title: Ontology-driven automation
-description: How FDAI turns a typed action ontology into running automation. Covers instantiation, the business pipeline, and the safety contract every action inherits.
+description: How FDAI connects typed operational meaning to governed automation through ObjectType, LinkType, and ActionType declarations.
 sidebar:
   order: 4
 ---
 
 # Ontology-driven automation
 
-FDAI does not hard-code what it is allowed to do. Every change it can make is
-described once as a typed **`ActionType`** in an **ontology** that lives in the
-catalog as code. When a rule fires or an operator asks for something, FDAI turns
-that type into a concrete action. The action inherits the type's safety contract,
-runs through one shared pipeline, and ends as an audited outcome. If an execution
-path and a provider already exist for the operation, adding a capability can be a
-data change instead of a new branch in the core engine. A declaration with no
-live dispatcher stays inactive and cannot execute.
+FDAI uses an **ontology**, a typed model of operational concepts and their relationships, to give
+its agents one shared meaning for services, resources, objectives, evidence, decisions, and
+actions. The ontology connects that meaning to governed automation without turning the graph
+itself into an execution surface.
 
-This page explains the ontology, how an entry becomes a running action, and the
-pipeline that carries it from signal to audit.
+This page explains the three declaration types, how deployment instances form an operating model,
+and how an `ActionType` becomes an audited action.
 
-## What the ontology is
+> **Authority boundary:** The ontology is a semantic read model. Events, approved configuration,
+> telemetry providers, catalog-as-code, and the append-only audit ledger remain authoritative for
+> their own facts.
+>
+> **Safety boundary:** Ontology context can preserve or lower autonomy. Missing, stale,
+> conflicting, or unproven context holds a decision for review and never grants execution
+> permission.
 
-The ontology is a versioned catalog of `ActionType` entries. Each entry is the
-authoritative definition of one thing FDAI can do, such as
-`remediate.disable-public-access`, `ops.restart-service`,
-`remediate.right-size`, or `governance.promote-action-type`. Entries fall into
-four categories:
+## What the ontology contains
 
-- **`remediation`**: rule-fired changes, typically config drift.
-- **`ops`**: runtime actions an operator requests, such as restart, scale, or
-  flush.
-- **`governance`**: catalog, exemption, and promotion changes.
-- **`tool`**: calls a registered function through `tool_call`, for example to
-  generate a document, send a notification, or open a ticket. Tool actions never
-  change cloud resources.
+The ontology is broader than an action catalog. It combines three versioned declaration types:
 
-Because the ontology is data rather than code, a fork adds or overrides entries
-through configuration without touching the core engine. The entry still has to
-pick a supported execution path and a registered provider before it can go live.
+| Declaration | Defines | Example |
+|-------------|---------|---------|
+| **`ObjectType`** | A kind of thing, its typed properties, key, lifecycle, owning agent, and evidence provenance | `BusinessService`, `Workload`, `ServiceObjective`, `Finding`, `Decision` |
+| **`LinkType`** | An allowed relationship, endpoint types, cardinality, causal or temporal meaning, and evidence provenance | `implemented_by`, `workload_runs_on`, `service_owned_by` |
+| **`ActionType`** | A governed operation with triggers, preconditions, stop conditions, rollback, impact scope, execution path, and autonomy ceilings | `ops.restart-service`, `remediate.right-size` |
 
-## Anatomy of an ActionType
+Declarations live in Git and are validated when the catalog loads. Runtime instances, such as a
+particular workload, detected issue (a `Finding`), or relationship, are projected from approved
+deployment sources and stored through the shared ontology provider. A declaration describes valid
+meaning; an instance records what exists or happened in one deployment.
 
-An `ActionType` is more than a name. It declares its own guardrails. The safety
-controls FDAI requires, meaning the stop condition, the rollback path, the impact
-scope limit, and the audit entry, live on the type, so every instance is born
-safe. Here is a trimmed example:
+Every shipped declaration carries provenance. Catalog loaders recompute its content hash and block
+stale or unknown references, so a relation or action cannot silently change meaning.
 
-```yaml
-name: remediate.disable-public-access
-category: remediation
-trigger_kind:
-  kind: rule_violation
-execution_path: pr_native
-rollback_contract: state_forward_only
-default_mode: shadow          # judge and log only until promoted
-promotion_gate:
-  min_shadow_days: 14
-  min_accuracy: 0.98
-  max_policy_escapes: 0
-preconditions:
-  - kind: resource_property_equals
-    property: public_access
-    value: enabled
-stop_conditions:
-  - kind: dependent_resource_degraded
-  - kind: time_box_exceeded_seconds
-    seconds: 300
-blast_radius:
-  max_affected_resources: 5
-  traversal_depth: 2
-ceiling_by_tier:
-  t0: { max_autonomy: enforce_hil, min_role: approver }
-```
+## How the operating model fits together
 
-- **`preconditions`** have to hold before the action is eligible.
-- **`stop_conditions`** abort a running action when the world turns hostile.
-- **`blast_radius`** caps how far one action may reach.
-- **`rollback_contract`** names how the change is undone.
-- **`ceiling_by_tier`** caps autonomy per trust tier. No code path can raise a
-  type above its declared ceiling.
-
-## From type to instance
-
-Instantiation is the moment a static ontology entry becomes a live action.
+The operating ontology connects what the organization operates, what good means, what is happening,
+what FDAI considered, and what effect an action produced.
 
 ```mermaid
 flowchart LR
-  T[ActionType<br/>in ontology] --> M{Triggered}
-  M -->|rule fires| I[Action instance<br/>built from the type]
-  M -->|operator asks| I
-  I --> C[inherits<br/>preconditions,<br/>stop-conditions,<br/>blast-radius,<br/>rollback]
-  C --> G[risk gate<br/>reads the ceiling]
-  G --> X[executor<br/>or HIL]
+  BC[BusinessCapability] -->|delivered_by| BS[BusinessService]
+  BS -->|implemented_by| W[Workload]
+  W -->|workload_runs_on| R[Resource]
+  BS -->|service_has_service_objective| O[ServiceObjective]
+  BS -->|service_owned_by| OW[Ownership]
+  RL[Rule] -->|remediates| AT[ActionType]
 ```
 
-- A **rule violation** at T0, T1, or T2 builds the instance from the matched rule
-  and the detected issue. The resources, parameters, and scope all come from the
-  event.
-- An **operator request** can build the instance from the typed intent, the
-  principal, and the arguments, but only when the write coordinator for that
-  action is enabled. A conversation alone never creates execution authority.
+This model adds stable service and workload identity above replaceable cloud resources. It also
+keeps objectives and ownership explicit instead of hiding them in untyped context bags. Immutable
+operational-context, decision-case, and response-outcome contracts carry that meaning through
+decision and effect closure. FDAI can therefore ask deterministic questions such as:
 
-Either way, the instance carries the type's contract. The engine does not need to
-know whether it is fixing drift or restarting a pod. It runs the same pipeline
-with the same guarantees.
+- **Impact:** Which business service and objectives depend on this resource?
+- **Authority:** Who owns the affected workload, and which reviewed constraints apply?
+- **Decision:** Which bounded options were considered, including hold and no-op?
+- **Effect:** Did the action restore the objective, require rollback, or recur later?
 
-## Two triggers, one ontology
+Each `ObjectType` can declare lifecycle criteria and one owning agent. Each `LinkType` permits one
+source type and one target type with an explicit cardinality. This keeps writes accountable and
+endpoint validation deterministic.
 
-The ontology covers both directions of automation with a single `trigger_kind`
-field:
+## Anatomy of an ActionType
 
-- **`rule_violation`**: the control loop proposes the action.
-- **`operator_request`**: a person asks for it through the console.
-- **`both`**: some actions belong to either surface. A health-probe rule or an
-  operator can both trigger `ops.restart-service`.
+An `ActionType` defines one operation and the safety contract every instance inherits. Here is a
+trimmed version of the shipped service-restart action:
 
-Nothing else in the schema depends on the trigger. The safety check and the audit
-contract are identical, so an operator-driven action gets the same safety
-contract as a rule-driven one. If the trigger coordinator or the execution
-provider is not registered, the declaration is still available for validation and
-observation, but it cannot change anything.
+```yaml
+schema_version: 1.0.0
+name: ops.restart-service
+version: 1.0.0
+category: ops
+operation: restart
+interfaces: [ControlPlane]
+trigger_kind:
+  kind: both
+execution_path: direct_api
+rollback_contract: state_forward_only
+irreversible: true
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+preconditions:
+  - kind: graph_fresh_within_seconds
+    value: 300
+stop_conditions:
+  - kind: provider_api_error_streak
+    count: 3
+  - kind: time_box_exceeded_seconds
+    seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+ceiling_by_tier:
+  t0: {max_autonomy: enforce_hil, min_role: contributor}
+  t1: {max_autonomy: shadow_only, min_role: contributor}
+  t2: {max_autonomy: shadow_only, min_role: approver}
+```
+
+- **Eligibility:** `preconditions` must hold before an action can proceed.
+- **Runtime stop:** `stop_conditions` halt an action when measured conditions become unsafe.
+- **Impact scope:** `blast_radius` caps the declared reach, while a live probe can lower it further.
+- **Recovery:** `rollback_contract` describes how FDAI recovers or moves state forward safely.
+- **Authority:** `ceiling_by_tier`, environment downgrade, caller role, and promotion state limit
+  autonomy. No path can raise authority above the strictest applicable ceiling.
+
+The four action categories are `remediation`, `ops`, `governance`, and `tool`. Tool actions call a
+registered function through `tool_call`; they don't mutate cloud resources directly, but they still
+use typed arguments, safety checks, and audit records.
+
+## From declaration to running action
+
+Instantiation turns a static `ActionType` declaration into one bounded action for a specific target
+and event.
+
+```mermaid
+flowchart LR
+  T[ActionType declaration] --> I[Bounded action instance]
+  C[Operational context snapshot] --> I
+  I --> G[Safety check]
+  G -->|allowed| X[Executor]
+  G -->|approval required| H[Human approval]
+  G -->|insufficient evidence| R[Held for review]
+  X --> A[Audit and outcome]
+  H --> X
+```
+
+- **Rule violation:** The control loop builds the instance from a matched rule, detected issue,
+  resource, and the type's contract.
+- **Operator request:** The console can build it from typed intent, principal, and validated
+  arguments when the action's write coordinator is enabled.
+- **Either trigger:** `trigger_kind: both` allows both paths without changing the execution or
+  audit contract.
+
+A conversation, graph edge, or declaration alone never creates execution authority. The instance
+must still pass the same policy, risk, role, evidence, promotion, locking, and audit checks.
 
 ## Declared does not mean executable
 
-The catalog describes what an action means. The runtime wiring decides whether
-your deployment can actually carry it out.
+The catalog defines meaning. Runtime wiring determines whether a deployment can carry it out.
 
-| Layer | Responsibility | Missing-layer behavior |
-|-------|----------------|------------------------|
-| `ActionType` declaration | Schema, safety contract, trigger, execution path, role bindings | Invalid or unknown declarations fail catalog loading |
-| Coordinator or dispatcher | Converts a valid trigger into a bounded action instance | Trigger is rejected or remains judge-and-log only |
-| Execution provider | Implements `pr_native`, `direct_api`, `pr_manual`, or `tool_call` | No mutation; the action is held with an auditable reason |
-| Delivery and audit | Delivers the effect and records every terminal path | Missing audit or rollback support makes the action incomplete |
+| Layer | Responsibility | When missing or invalid |
+|-------|----------------|-------------------------|
+| Declaration catalog | Validates object, link, and action schemas, references, lifecycle, and provenance | Startup or catalog loading is blocked |
+| Instance projection | Supplies fresh service, workload, objective, resource, and relationship instances | Context is marked unknown or stale, and autonomy is lowered |
+| Coordinator or dispatcher | Converts an allowed trigger into a bounded action instance | The trigger is rejected or remains observation-only |
+| Execution provider | Implements `pr_native`, `direct_api`, `pr_manual`, or `tool_call` | No mutation occurs; the reason is audited |
+| Delivery and audit | Delivers the effect and records every terminal path | The action is incomplete and cannot be treated as successful |
 
-This split lets the catalog lead the implementation without pretending that a
-YAML file creates a privileged integration. A fork can reuse an existing path by
-registering its provider at the composition root. New behavior against the cloud
-still needs an implementation behind the approved provider interface.
+This separation lets a downstream distribution add declarations and provider implementations
+through supported composition seams without changing the core engine. A YAML file never creates a
+privileged cloud integration by itself.
 
-## How actions choose the safer default
+## The governed action pipeline
 
-FDAI validates the ontology before an action becomes eligible to run. Common
-safe outcomes include these:
-
-- An unknown category, execution path, role, or `ActionType` reference makes the
-  catalog fail to load.
-- Invalid arguments or failed preconditions reject the action instance.
-- A missing dispatcher or provider leaves the declaration inactive.
-- A stale inventory graph makes the safety check deny the action.
-- A missing safety control makes the action incomplete, so it cannot ship.
-- An unsupported or ambiguous outcome waits for human approval and changes
-  nothing.
-
-These are typed outcomes, not silent drops. Each one carries the event and
-correlation references you need to explain what did not run and why.
-
-## The business pipeline
-
-An action instance flows through one pipeline. The ontology supplies the safety
-contract at each stage, and the agents own the stages (see
-[agents-and-self-healing.md](agents-and-self-healing.md)).
+Every action instance follows the same pipeline:
 
 ```text
-event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
-      -> risk-gate    -> auto | HIL | abstain
-      -> executor     -> delivery -> audit
+event -> ingest -> trust route -> T0 | T1 | (T2 -> quality checks)
+      -> operational context -> safety check -> auto | human approval | hold | deny
+      -> executor -> delivery -> audit -> observed outcome
 ```
 
-1. **Ingest** normalizes the signal and correlates it into an incident.
-2. **Route** scores confidence and picks the cheapest tier that can decide.
-3. **Gate** reads the type's tier ceiling and answers auto, human approval, or
-   deny.
-4. **Execute** applies the change only after the preconditions pass and the
-   per-resource lock is held, respecting stop conditions and impact scope.
-5. **Deliver** ships the change as a fix pull request or a direct API call.
-6. **Audit** appends an immutable entry, including no-ops, rejections, and
-   timeouts.
+1. **Ingest:** FDAI normalizes and correlates the signal.
+2. **Route:** The trust router picks T0 (deterministic rules), T1 (verified reuse), or T2 (grounded
+   model reasoning).
+3. **Materialize context:** FDAI creates an immutable snapshot of relevant services, objectives,
+   ownership, changes, evidence freshness, and dependency scope.
+4. **Check safety:** The safety check combines policy risk with the type's tier ceiling, impact
+   scope, caller role, environment, promotion state, and control-plane health.
+5. **Execute and deliver:** The executor acquires a per-resource lock and applies the selected
+   execution path while honoring stop and recovery contracts.
+6. **Audit and observe:** FDAI records no-ops, approvals, rejections, timeouts, attempts, terminal
+   receipts, and independently observed effects.
 
-Because the contract lives on the type, moving a capability from observation to
-enforcement is a measured, separately reviewed change against the type's
-`promotion_gate`. It is never a surprise (see
-[shadow-then-enforce.md](shadow-then-enforce.md)).
+The audit record includes the resolved ceiling and evidence references. This proves why an action
+was allowed, held, or denied and supports time-consistent replay.
 
-## Why an action was allowed
+## Inspect the ontology
 
-FDAI combines the risk table with every applicable ceiling by choosing the most
-restrictive result. The audit record shows this as `resolved_ceiling`, which
-includes the matched risk rule, the trust tier, the `ActionType` ceiling, the
-declared and live impact scope, the caller's role, the environment,
-control-plane health, the required quorum, and the final execution path.
+The Reader-gated `GET /ontology/graph` endpoint exposes a deterministic read-only projection. It
+returns ObjectType and LinkType nodes and edges, ActionType safety contracts, a Mermaid rendering,
+catalog counts, and operating-model status with its source revision and aggregate instance counts.
 
-That evidence is part of the ontology contract. It proves that an action did not
-gain authority just because a trigger existed or an operator asked for it.
+The endpoint doesn't expose deployment instance properties. The graph is for inspection and
+explanation, not mutation. The console's ontology views use the same projection.
+
+## Tip: From Aristotle to modern ontology
+
+Aristotle did not design a software ontology, but his questions are a useful starting point: what
+kinds of things exist, what properties can be said of them, and how should they be classified? In
+philosophy, ontology became the study of being and the categories of existence. In knowledge
+engineering, the term became practical: an ontology is an explicit, shared specification of the
+concepts, relationships, constraints, and allowed interpretations in a domain.
+
+You can read FDAI's three declarations through that progression:
+
+- **`ObjectType`:** What kinds of operational things exist?
+- **`LinkType`:** How may those things relate, and with what constraints?
+- **`ActionType`:** What governed changes may be applied to them?
+
+An ontology and a Graph DB solve different problems:
+
+| Question | Ontology | Graph database |
+|----------|----------|----------------|
+| Primary purpose | Defines shared meaning and valid interpretations | Stores connected data and optimizes graph queries or traversal |
+| Core content | Types, relationships, constraints, lifecycle, provenance, and sometimes inference rules | Nodes, edges, properties, indexes, query language, and persistence behavior |
+| Correctness claim | Says which concepts and relations are valid in the domain | Ensures stored graph data follows the database's schema and transaction rules |
+| Storage dependency | Can use relational tables, documents, RDF stores, memory, or a Graph DB | Can store data with little or no domain ontology |
+| FDAI choice | Catalog declarations in Git and runtime instances in PostgreSQL | No dedicated Graph DB is currently required |
+
+The short version is: **an ontology is the meaning contract; a Graph DB is one possible storage and
+query engine**. RDF and OWL are representation and logic standards often used for ontologies, but
+they are also not synonyms for a Graph DB. FDAI currently uses relational indexes because its
+measured dispatch paths are bounded intersections and short traversals. A dedicated graph engine
+would be an implementation choice if future multi-hop workloads justified it, not a change to the
+ontology itself.
 
 ## Next steps
 
 | To learn about | Read |
 |----------------|------|
-| Which agents own each pipeline stage | [agents-and-self-healing.md](agents-and-self-healing.md) |
-| How the safety check reads the tier ceiling | [risk-tiers.md](risk-tiers.md) |
-| How a new action earns the right to run on its own | [shadow-then-enforce.md](shadow-then-enforce.md) |
-| The full ontology schema and fork seams | [../../roadmap/decisioning/action-ontology.md](../../roadmap/decisioning/action-ontology.md) |
-| Runtime ceilings and provider paths | [../../roadmap/decisioning/execution-model.md](../../roadmap/decisioning/execution-model.md) |
+| Shared service, objective, decision, and outcome meaning | [../../roadmap/architecture/operating-ontology.md](../../roadmap/architecture/operating-ontology.md) |
+| The complete ActionType schema and extension seams | [../../roadmap/decisioning/action-ontology.md](../../roadmap/decisioning/action-ontology.md) |
+| Runtime ceilings and execution paths | [../../roadmap/decisioning/execution-model.md](../../roadmap/decisioning/execution-model.md) |
+| Ontology storage and the Graph DB decision | [../../roadmap/architecture/rule-lookup-ontology-storage.md](../../roadmap/architecture/rule-lookup-ontology-storage.md) |
+| How actions earn enforcement authority | [shadow-then-enforce.md](shadow-then-enforce.md) |
