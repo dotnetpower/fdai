@@ -22,13 +22,10 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > adapters follow the layout in
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md).
 
-> **Implementation status (2026-07-31):** W0-W8 are implemented. The sections
-> below preserve the rollout order and acceptance intent. Current shared agent
-> machinery lives under `src/fdai/agents/_framework/`; current wave coverage
-> lives in `tests/agents/test_wave2_governance.py` through
-> `test_wave8_kpi_degradation.py`. The workflow inventory carries executable
-> trace refs, KPI reports distinguish measured values from unavailable evidence,
-> and every agent has an injected degradation drill.
+> **Implementation status (2026-07-31):** W0-W8 are implemented. The sections preserve rollout
+> order and acceptance intent. Shared machinery lives under `src/fdai/agents/_framework/`, with
+> coverage from `tests/agents/test_wave2_governance.py` through `test_wave8_kpi_degradation.py`.
+> Workflows carry executable trace refs, KPI reports distinguish measured values from unavailable evidence, and every agent has an injected degradation drill.
 ## 1. Why this doc exists
 
 The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
@@ -39,10 +36,8 @@ The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
 - **Ontology**: a new `Agent` object type plus 5 supporting object types
   (`Conversation`, `Turn`, `UserPreference`, `SecurityEvent`, `Issue`)
   join the existing catalog under `rule-catalog/vocabulary/object-types/`.
-- **Typed capabilities**: arbitration, handoff, notification, and rule-candidate
-  publication use their owner agent's schema-checked object topics. They are not
-  catalog ActionTypes; `governance.*` remains reserved for `pr_native`
-  catalog-as-code changes.
+- **Typed capabilities**: arbitration, handoff, notification, and rule-candidate publication use
+  their owner agent's schema-checked object topics, not catalog ActionTypes; `governance.*` remains reserved for `pr_native` catalog-as-code changes.
 - **Python core**: `src/fdai/agents/` with 15 flat specialist modules and
   shared base, registry, topic, bus, runtime, and two-port machinery under
   `_framework/`.
@@ -105,11 +100,9 @@ measurable; a wave does not close on prose.
   - `conversation.yaml`, `turn.yaml`, `user-preference.yaml`
   - `security-event.yaml`, `issue.yaml`
   - `rule-candidate.yaml`, `handoff-escalation.yaml`
-- **Typed capability alignment** - `HandoffEscalation`, `Issue`,
-  `SecurityEvent`, `ArbitrationRequest`, `ArbitrationDecision`, and
-  `RuleCandidate` retain single-writer topic ownership. Registry tests reject
-  an `AgentSpec.executes` or `AgentSpec.initiates` value that does not resolve
-  to a shipped ActionType.
+- **Typed capability alignment** - `HandoffEscalation`, `Issue`, `SecurityEvent`,
+  `ArbitrationRequest`, `ArbitrationDecision`, and `RuleCandidate` retain single-writer topic ownership.
+  Registry tests reject `AgentSpec.executes` or `AgentSpec.initiates` values that do not resolve to a shipped ActionType.
 
 **Exit gate**
 

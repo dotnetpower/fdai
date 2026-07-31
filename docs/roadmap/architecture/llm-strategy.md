@@ -673,11 +673,9 @@ canonical, hashable signature.
 
 ### Ontology Foundation
 
-The low-level rule-dispatch foundation starts with four **ObjectTypes**; service, objective,
-decision, and effect semantics are owned by [FDAI Operating Ontology](operating-ontology.md). The
-registry is extensible: product objects such as Process, Conversation, and ReviewCase, plus meta
-objects such as ResourceType, SignalType, Property, and ActionType, stay first-class. Declarations live in `rule-catalog/vocabulary/` and
-runtime instances use the shared ontology store.
+The low-level rule-dispatch foundation starts with four **ObjectTypes**; [FDAI Operating Ontology](operating-ontology.md)
+owns service, objective, decision, and effect semantics. The extensible registry keeps product objects such as Process,
+Conversation, and ReviewCase plus meta objects such as ResourceType, SignalType, Property, and ActionType first-class. Declarations live in `rule-catalog/vocabulary/`; runtime instances use the shared ontology store.
 
 | ObjectType | Meaning | Backing |
 |------------|---------|---------|
@@ -1010,13 +1008,9 @@ The complete storage, schema, and boot/reload design now lives in
   shadow-mode result to satisfy an enforce-mode decision.
 - **Budget guards**: per-tier token budgets and rate limits; overflow degrades to HIL, never to
   an ungated auto-action.
-- **Provider failure handling**: on timeout, rate-limit, or outage, fail **closed** - retry
-  with bounded backoff, fall back to the secondary provider, then a circuit breaker degrades
-  to HIL. Each actual proposer candidate reserves one call from the shared budget. Sanitized
-  attempt receipts retain only route role, failure class, status, and trace identity. Terminal
-  exhaustion enters Huginn, Heimdall, and Forseti so a real HIL ActionRun is created; recovery
-  success remains an observation and does not open another approval. Never retry indefinitely
-  and never auto-execute an unverified candidate.
+- **Provider failure handling**: on timeout, rate-limit, or outage, fail **closed** - retry with bounded backoff,
+  fall back to the secondary provider, then degrade to HIL through a circuit breaker. Each actual proposer candidate reserves one shared-budget call; sanitized attempt receipts retain only route role, failure class, status, and trace identity.
+  Terminal exhaustion enters Huginn, Heimdall, and Forseti to create a real HIL ActionRun; recovery success remains an observation and opens no other approval. Never retry indefinitely or auto-execute an unverified candidate.
 - **Event-driven**: models are invoked only on the residual events that reach T1/T2.
 
 ## Improving T1 (Distillation)

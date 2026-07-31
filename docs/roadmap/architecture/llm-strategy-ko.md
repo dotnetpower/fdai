@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 73f3244fbe7fcf99afe6ddda4b8c62124d471eaa
+translation_source_sha: bcdffffca85c928ccaed0bb90a2412972a89ffdb
 translation_revised: 2026-07-31
 ---
 
@@ -634,10 +634,9 @@ interfaces` 와 `submission_criteria` 통해 액션에 통합된 함수) 로부�
 
 ### 온톨로지 기반
 
-저수준 rule-dispatch foundation은 네 **ObjectType**으로 시작함. Service, objective, decision,
-effect 의미는 [FDAI 운영 온톨로지](operating-ontology-ko.md)가 소유함. Registry는 확장 가능하며
-Process, Conversation, ReviewCase 같은 product object와 ResourceType, SignalType, Property,
-ActionType 같은 meta object를 first-class로 둠. 선언은 `rule-catalog/vocabulary/`에 있고 runtime instance는 shared ontology store를 사용함.
+저수준 rule-dispatch foundation은 네 **ObjectType**으로 시작하며 [FDAI 운영 온톨로지](operating-ontology-ko.md)가 service, objective, decision, effect 의미를 소유함.
+확장 가능한 registry는 Process, Conversation, ReviewCase 같은 product object와 ResourceType, SignalType, Property, ActionType 같은 meta object를 first-class로 둠.
+선언은 `rule-catalog/vocabulary/`에 있고 runtime instance는 shared ontology store를 사용함.
 
 | ObjectType | 의미 | 백업 |
 |------------|------|------|
@@ -954,12 +953,9 @@ provider를 bind합니다. `core/`나 upstream contract package는 편집하지 
   않음.
 - **예산 가드**: 티어별 토큰 예산과 rate limit; overflow는 HIL로 강등, 게이트 없는 auto-action
   이 되지 않음.
-- **Provider 실패 처리**: timeout, rate-limit, outage 시 **fail closed** - bounded 백오프 재시도,
-  secondary provider로 fallback, 그다음 circuit breaker가 HIL로 강등. 실제 proposer 후보마다
-  shared budget에서 call 하나를 reserve합니다. Sanitized attempt receipt에는 route 역할, failure
-  class, status, trace identity만 유지합니다. Terminal exhaustion은 Huginn, Heimdall, Forseti로
-  전달되어 실제 HIL ActionRun을 만들고, recovery success는 observation으로만 남아 새 approval을
-  열지 않습니다. 절대 무한 재시도 안 함, 검증되지 않은 후보를 auto-execute 안 함.
+- **Provider 실패 처리**: timeout, rate-limit, outage 시 **fail closed** - bounded 백오프로 재시도하고 secondary provider로 fallback한 뒤 circuit breaker로 HIL 강등.
+  실제 proposer 후보마다 shared budget에서 call 하나를 reserve하며 sanitized attempt receipt에는 route 역할, failure class, status, trace identity만 유지합니다.
+  Terminal exhaustion은 Huginn, Heimdall, Forseti로 전달되어 실제 HIL ActionRun을 만들고 recovery success는 observation으로만 남아 새 approval을 열지 않습니다. 절대 무한 재시도하거나 검증되지 않은 후보를 auto-execute하지 않음.
 - **이벤트-기반**: 모델은 T1/T2에 도달하는 잔여 이벤트에만 호출됨.
 
 ## T1 개선(Distillation)

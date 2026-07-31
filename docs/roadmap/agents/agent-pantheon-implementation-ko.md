@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 338562a90e04a051313e6c87006402ebdc3b02ca
+translation_source_sha: 4ab91e86a308da5f62e878d82ed478420cffaa67
 translation_revised: 2026-07-31
 ---
 
@@ -24,13 +24,10 @@ translation_revised: 2026-07-31
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 > 의 배치를 따른다.
 
-> **구현 상태 (2026-07-31):** W0-W8은 구현되었습니다. 아래 섹션은 rollout
-> 순서와 acceptance 의도를 보존합니다. 현재 공유 에이전트 구성 요소는
-> `src/fdai/agents/_framework/`에 있고, 현재 wave coverage는
-> `tests/agents/test_wave2_governance.py`부터
-> `test_wave8_kpi_degradation.py`까지에 있습니다. Workflow inventory는 executable
-> trace ref를 포함하며 KPI report는 measured value와 unavailable evidence를 구분하고,
-> 모든 agent는 injected degradation drill을 가집니다.
+> **구현 상태 (2026-07-31):** W0-W8은 구현되었습니다. 아래 섹션은 rollout 순서와 acceptance 의도를 보존합니다.
+> 공유 구성 요소는 `src/fdai/agents/_framework/`에 있고, wave coverage는
+> `tests/agents/test_wave2_governance.py`부터 `test_wave8_kpi_degradation.py`까지입니다.
+> Workflow inventory는 executable trace ref를 포함하고 KPI report는 measured value와 unavailable evidence를 구분하며, 모든 agent는 injected degradation drill을 가집니다.
 ## 1. 이 문서가 존재하는 이유
 
 판테온 문서 ([agent-pantheon.md](agent-pantheon-ko.md)) 는 15개 에이전트 계약을
@@ -41,10 +38,8 @@ translation_revised: 2026-07-31
 - **온톨로지**: 새 `Agent` object type + 5개 지원 object type
   (`Conversation`, `Turn`, `UserPreference`, `SecurityEvent`, `Issue`) 이
   `rule-catalog/vocabulary/object-types/` 아래 기존 카탈로그에 합류.
-- **Typed capability**: arbitration, handoff, notification, rule-candidate
-  publication은 owner agent의 schema-checked object topic을 사용합니다. 이 동작은
-  catalog ActionType이 아니며 `governance.*`는 `pr_native` catalog-as-code 변경에만
-  사용합니다.
+- **Typed capability**: arbitration, handoff, notification, rule-candidate publication은 owner agent의 schema-checked object topic을 사용합니다.
+  이 동작은 catalog ActionType이 아니며 `governance.*`는 `pr_native` catalog-as-code 변경에만 사용합니다.
 - **Python core**: `src/fdai/agents/` 아래 15개 flat specialist module과
   `_framework/` 아래 공유 base, registry, topic, bus, runtime, two-port 구성 요소.
 - **테스트**: registry 무결성, single-writer topic 강제, ActionType 역할
@@ -106,11 +101,9 @@ translation_revised: 2026-07-31
   - `conversation.yaml`, `turn.yaml`, `user-preference.yaml`
   - `security-event.yaml`, `issue.yaml`
   - `rule-candidate.yaml`, `handoff-escalation.yaml`
-- **Typed capability 정합성** - `HandoffEscalation`, `Issue`,
-  `SecurityEvent`, `ArbitrationRequest`, `ArbitrationDecision`,
-  `RuleCandidate`는 single-writer topic ownership을 유지합니다. Registry test는
-  shipped ActionType으로 resolve되지 않는 `AgentSpec.executes` 또는
-  `AgentSpec.initiates` 값을 거부합니다.
+- **Typed capability 정합성** - `HandoffEscalation`, `Issue`, `SecurityEvent`, `ArbitrationRequest`,
+  `ArbitrationDecision`, `RuleCandidate`는 single-writer topic ownership을 유지합니다.
+  Registry test는 shipped ActionType으로 resolve되지 않는 `AgentSpec.executes` 또는 `AgentSpec.initiates` 값을 거부합니다.
 
 **Exit gate**
 

@@ -187,40 +187,32 @@ provenance:
   retrieved_at: RFC3339
 ```
 
-Every shipped ObjectType, LinkType, and ActionType carries this provenance block. `content_hash`
-is `sha256:<hex>` over the Pydantic-normalized declaration encoded as canonical JSON with the
-`provenance` field excluded. Catalog loaders recompute it and block startup on mismatch, so a
-declaration edit cannot retain stale evidence. `resolved_ref` identifies the authored declaration
-version; `source_url` identifies its reviewable source.
+Every shipped ObjectType, LinkType, and ActionType carries this provenance block. `content_hash` is
+`sha256:<hex>` over the Pydantic-normalized declaration encoded as canonical JSON without `provenance`.
+Catalog loaders recompute it and block startup on mismatch, so edits cannot retain stale evidence.
+`resolved_ref` identifies the authored declaration version; `source_url` identifies its reviewable source.
 
-Precondition parameters are typed references, not free-form labels. At catalog load,
-`link_exists` and `link_absent` resolve `link_type` against the combined upstream and fork
-LinkType registry. Unknown names block startup. A precondition kind also carries only the
-parameters defined for that kind; missing required parameters and unrelated parameters are
-rejected before an action can reach the risk gate.
+Precondition parameters are typed references, not free-form labels. At catalog load, `link_exists` and
+`link_absent` resolve `link_type` against the combined upstream and fork LinkType registry; unknown names block startup.
+Each kind carries only its defined parameters; missing required or unrelated parameters are rejected before the risk gate.
 
-Runtime `Action` records preserve the complete ordered `stop_conditions` list, including
-`threshold`, `window_seconds`, `seconds`, and `count`. The singular `stop_condition` field remains
-only as a compatibility shorthand and must equal the first structured condition's `kind`. The
-Action JSON Schema requires a non-empty structured list, and direct-API and tool-call requests plus
-audit entries carry the same list without flattening it.
+Runtime `Action` records preserve the complete ordered `stop_conditions` list, including `threshold`, `window_seconds`, `seconds`, and `count`.
+The compatibility shorthand `stop_condition` must equal the first structured condition's `kind`. The Action JSON Schema requires a non-empty structured list;
+direct-API and tool-call requests plus audit entries carry that list without flattening it.
 
 The catalog backfill has completed with:
 
 - `trigger_kind.kind = rule_violation`
 - `category = remediation`
-- `ceiling_by_tier` filled from the current implicit defaults (T0 →
-  `enforce_hil` for medium/high severity, `enforce_auto` for low; T1/T2
-  → `shadow_only`)
+- `ceiling_by_tier` filled from the current implicit defaults (T0 → `enforce_hil` for
+  medium/high severity, `enforce_auto` for low; T1/T2 → `shadow_only`)
 - No schema-breaking rename; the loader treats missing new fields as
   the safest value.
 
 ## 3. Category catalog
 
-Four top-level categories. New categories require a doc PR + a
-short-form entry in
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
-so the domain vocabulary stays flat.
+Four top-level categories. New categories require a doc PR plus a short-form entry in
+[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) so the domain vocabulary stays flat.
 
 ### 3.1 `remediation.*`
 
@@ -246,28 +238,24 @@ Rule-fired, config-drift-style. Currently shipped:
 - `remediate.azure-policy-managed`
 - `remediate.right-size-role`
 
-Default `execution_path: pr_native` (GitOps). A fork MAY override to
-`direct_api` per action where the API mutation is a single idempotent
-call.
+Default `execution_path: pr_native` (GitOps). A fork MAY override to `direct_api` per action
+where the API mutation is a single idempotent call.
 
 ### 3.2 `ops.*`
 
 Operator-requested runtime actions. Shipped Day 1:
 
 - `ops.restart-service` - AKS pod restart, App Service restart, Container App revision restart.
-- `ops.scale-out` - increase replica count / instance count. MUST declare
-  `cost_impact_monthly` (spend-increasing) so the risk-classification cost
-  gate applies ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
+- `ops.scale-out` - increase replica count / instance count. MUST declare `cost_impact_monthly`
+  (spend-increasing) so the risk-classification cost gate applies ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
 - `ops.scale-in` - decrease replica count (Approver + live probe).
 - `ops.flush-cache` - Redis / CDN cache flush.
 - `ops.drain-connection` - drain connections on a load balancer backend.
 - `ops.rotate-cert` - rotate a TLS cert (App Gateway / Front Door).
 - `ops.failover-primary` - trigger a failover on a replicated resource.
   MUST declare `cost_impact_monthly` when failover targets a larger tier.
-- `ops.switch-t2-proposer-route` - switch one T2 proposer role to a verified
-  secondary route after Heimdall confirms that every in-request candidate failed.
-  It stays shadow-first, requires human approval, and restores the prior route when
-  post-switch verification fails.
+- `ops.switch-t2-proposer-route` - switch one T2 proposer role to a verified secondary route after Heimdall confirms every in-request candidate failed.
+  It stays shadow-first, requires human approval, and restores the prior route when post-switch verification fails.
 - `ops.publish-change-summary` - render a rendered Markdown change
   summary for a resource-group over a bounded time window and hand it
   to the delivery adapter. Reference example of a non-Resource

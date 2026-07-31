@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: dac9ed28b7df607ab238b6c5c4d1466bb739dbc5
+translation_source_sha: ab347bb6a39fc86d9b7140f6e7fd71b66fbd79a6
 translation_revised: 2026-07-31
 ---
 
@@ -185,39 +185,32 @@ provenance:
   retrieved_at: RFC3339
 ```
 
-shipped ObjectType, LinkType, ActionType은 모두 이 provenance block을 운반합니다.
-`content_hash`는 Pydantic-normalized declaration에서 `provenance` 필드를 제외하고 canonical
-JSON으로 인코딩한 값의 `sha256:<hex>`입니다. catalog loader가 이를 다시 계산하고 mismatch 시
-시작을 차단하므로 declaration 변경이 stale evidence를 유지할 수 없습니다. `resolved_ref`는
-authored declaration version을, `source_url`은 review 가능한 source를 식별합니다.
+shipped ObjectType, LinkType, ActionType은 모두 이 provenance block을 운반합니다. `content_hash`는
+Pydantic-normalized declaration에서 `provenance`를 제외하고 canonical JSON으로 인코딩한 값의 `sha256:<hex>`입니다.
+Catalog loader가 이를 다시 계산하고 mismatch 시 시작을 차단하므로 변경이 stale evidence를 유지할 수 없습니다.
+`resolved_ref`는 authored declaration version을, `source_url`은 review 가능한 source를 식별합니다.
 
-Precondition 매개 변수는 자유 형식 레이블이 아니라 타입이 지정된 참조입니다. 카탈로그를
-로드할 때 `link_exists`와 `link_absent`의 `link_type`은 upstream 및 fork LinkType을 합친
-registry에서 확인합니다. 알 수 없는 이름이 있으면 시작을 차단합니다. 각 precondition kind는
-해당 kind에 정의된 매개 변수만 사용할 수 있으며, 필수 매개 변수가 없거나 관련 없는 매개
-변수가 있으면 액션이 risk gate에 도달하기 전에 차단됩니다.
+Precondition 매개 변수는 자유 형식 레이블이 아니라 타입이 지정된 참조입니다. Catalog load 시 `link_exists`와
+`link_absent`의 `link_type`은 upstream 및 fork LinkType을 합친 registry에서 확인하며 알 수 없는 이름은 시작을 차단합니다.
+각 kind는 정의된 매개 변수만 사용하며, 필수 매개 변수가 없거나 관련 없는 매개 변수가 있으면 risk gate 전에 차단됩니다.
 
-Runtime `Action` record는 `threshold`, `window_seconds`, `seconds`, `count`를 포함한 전체 ordered
-`stop_conditions` list를 보존합니다. Singular `stop_condition` field는 compatibility shorthand로만
-유지되며 첫 structured condition의 `kind`와 같아야 합니다. Action JSON Schema는 비어 있지 않은
-structured list를 요구하고 direct-API 및 tool-call request와 audit entry는 같은 list를 flatten하지
-않고 전달합니다.
+Runtime `Action` record는 `threshold`, `window_seconds`, `seconds`, `count`를 포함한 전체 ordered `stop_conditions` list를 보존합니다.
+Compatibility shorthand인 `stop_condition`은 첫 structured condition의 `kind`와 같아야 합니다. Action JSON Schema는 비어 있지 않은 structured list를 요구하며
+direct-API 및 tool-call request와 audit entry는 같은 list를 flatten하지 않고 전달합니다.
 
 Catalog backfill은 다음 상태로 완료되었습니다:
 
 - `trigger_kind.kind = rule_violation`
 - `category = remediation`
-- `ceiling_by_tier` 는 현 implicit default 로 채워짐 (T0 → medium/high
-  severity 는 `enforce_hil`, low 는 `enforce_auto`; T1/T2 → `shadow_only`)
+- `ceiling_by_tier` 는 현 implicit default 로 채워짐 (T0 → medium/high severity 는
+  `enforce_hil`, low 는 `enforce_auto`; T1/T2 → `shadow_only`)
 - 스키마-깨는 rename 없음; 로더는 누락된 신규 field 를 가장 safe 한 값으로
   취급.
 
 ## 3. Category 카탈로그
 
-네 최상위 category. 신규 category 는 doc PR + 도메인 어휘를 flat 하게
-유지하기 위해
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
-에 short-form entry 필요.
+네 최상위 category. 신규 category 는 doc PR과
+[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 short-form entry가 필요.
 
 ### 3.1 `remediation.*`
 
@@ -243,26 +236,23 @@ Catalog backfill은 다음 상태로 완료되었습니다:
 - `remediate.azure-policy-managed`
 - `remediate.right-size-role`
 
-기본 `execution_path: pr_native` (GitOps). Fork 는 API 변경이 하나의
-idempotent call 인 액션 별로 `direct_api` 로 override MAY.
+기본 `execution_path: pr_native` (GitOps). Fork 는 API 변경이 하나의 idempotent call 인 액션 별로 `direct_api` 로 override MAY.
 
 ### 3.2 `ops.*`
 
 오퍼레이터 요청 runtime 액션. Day 1 shipping:
 
 - `ops.restart-service` - AKS pod 재시작, App Service 재시작, Container App revision 재시작.
-- `ops.scale-out` - replica / instance count 증가. 지출-증가이므로
-  `cost_impact_monthly` 를 선언 MUST -> risk-classification cost gate 적용
-  ([execution-model.md § 2.8](execution-model-ko.md#28-비용-증가-ops-액션)).
+- `ops.scale-out` - replica / instance count 증가. 지출-증가이므로 `cost_impact_monthly` 를 선언 MUST ->
+  risk-classification cost gate 적용 ([execution-model.md § 2.8](execution-model-ko.md#28-비용-증가-ops-액션)).
 - `ops.scale-in` - replica count 감소 (Approver + live probe).
 - `ops.flush-cache` - Redis / CDN cache flush.
 - `ops.drain-connection` - load balancer backend 의 connection drain.
 - `ops.rotate-cert` - TLS cert 회전 (App Gateway / Front Door).
 - `ops.failover-primary` - 복제 리소스에서 failover 트리거. 더 큰 tier 로
   failover 시 `cost_impact_monthly` 선언 MUST.
-- `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤
-  T2 proposer 역할 하나를 검증된 secondary route로 전환합니다. Shadow-first를 유지하고
-  사람 승인을 요구하며 전환 후 검증이 실패하면 이전 route를 복원합니다.
+- `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤 T2 proposer 역할 하나를 검증된 secondary route로 전환합니다.
+  Shadow-first를 유지하고 사람 승인을 요구하며 전환 후 검증이 실패하면 이전 route를 복원합니다.
 - `ops.publish-change-summary` - resource-group 에 대해 정해진 시간
   범위의 변경 이력을 rendered Markdown 요약으로 만들어 delivery adapter 에
   전달. Non-Resource 비즈니스-오브젝트 flow 의 reference 예제; 짝을 이루는
