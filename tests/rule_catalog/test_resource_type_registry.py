@@ -172,6 +172,30 @@ def test_duplicate_query_term_is_rejected() -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+def test_query_term_collision_uses_runtime_separator_normalization() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.one",
+                "category": "compute",
+                "description": "one",
+                "query_terms": ["widget/service"],
+            },
+            {
+                "id": "compute.two",
+                "category": "compute",
+                "description": "two",
+                "query_terms": ["widget_service"],
+            },
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="query term is shared"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_category_query_term_cannot_shadow_concrete_type_term() -> None:
     payload = {
         "schema_version": "1.0.0",

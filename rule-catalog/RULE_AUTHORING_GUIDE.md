@@ -265,7 +265,8 @@ resulting parent graph must remain acyclic.
 - Add bounded English and Korean `query_terms` when operators need to select the type in an
   inventory question. The catalog loader rejects a normalized term owned by two types or matching
   another type's canonical surface, so adding the entry never requires a Python alias change and
-  never creates an implicit ambiguity.
+  never creates an implicit ambiguity. Collision checks use the runtime's Unicode, slash,
+  backslash, underscore, case, and whitespace normalization.
 - Choose ids whose dot/dash-separated words remain unique when rendered with spaces; the loader
   rejects canonical ids that generate the same inventory query surface.
 - Put generic terms such as `database` or `db` in top-level `category_query_terms`, not on one

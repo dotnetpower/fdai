@@ -148,7 +148,9 @@ def _query_term_canonical_collisions(
 
 
 def _normalize_term(value: str) -> str:
-    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    normalized = re.sub(r"[\\/_]+", " ", normalized)
+    return " ".join(normalized.split())
 
 
 def _query_term_collisions(entries: Iterable[Mapping[str, Any]]) -> dict[str, set[str]]:
