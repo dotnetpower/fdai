@@ -85,6 +85,7 @@ export interface ConversationSummary {
   readonly originLabel: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly lastReadAt?: string;
   readonly binding?: IncidentConversationBinding;
   readonly restoredFromServer?: boolean;
 }
@@ -110,6 +111,7 @@ export function screenConversationSummary(
     originLabel: routeLabel,
     createdAt: previous?.createdAt ?? now,
     updatedAt: previous?.updatedAt ?? now,
+    lastReadAt: previous?.lastReadAt ?? previous?.updatedAt ?? now,
   };
 }
 
@@ -128,6 +130,7 @@ export function manualConversationSummary(
     originLabel: routeLabel,
     createdAt: now,
     updatedAt: now,
+    lastReadAt: now,
   };
 }
 
@@ -152,6 +155,7 @@ export function serverConversationSummary(
     originLabel: routeLabel,
     createdAt: record.started_at,
     updatedAt: record.last_active,
+    lastReadAt: record.last_active,
     restoredFromServer: true,
   };
 }
@@ -201,6 +205,9 @@ export function parseConversationIndex(raw: string | null): ConversationSummary[
       originLabel,
       createdAt,
       updatedAt: record.updatedAt,
+      ...(typeof record.lastReadAt === "string" && !Number.isNaN(Date.parse(record.lastReadAt))
+        ? { lastReadAt: record.lastReadAt }
+        : {}),
       ...(typeof record.agent === "string" && record.agent.length > 0
         ? { agent: record.agent }
         : {}),
@@ -209,6 +216,35 @@ export function parseConversationIndex(raw: string | null): ConversationSummary[
     });
   }
   return out;
+}
+
+export function conversationHasUnreadActivity(summary: ConversationSummary): boolean {
+  return summary.lastReadAt !== undefined &&
+    Date.parse(summary.updatedAt) > Date.parse(summary.lastReadAt);
+}
+
+export function markConversationRead(
+  summary: ConversationSummary,
+  readAt: string,
+): ConversationSummary {
+  return {
+    ...summary,
+    lastReadAt: Date.parse(readAt) >= Date.parse(summary.updatedAt)
+      ? readAt
+      : summary.updatedAt,
+  };
+}
+
+export function mergeConversationActivity(
+  existing: ConversationSummary,
+  observed: ConversationSummary,
+): ConversationSummary {
+  if (Date.parse(observed.updatedAt) <= Date.parse(existing.updatedAt)) return existing;
+  return {
+    ...existing,
+    updatedAt: observed.updatedAt,
+    lastReadAt: existing.lastReadAt ?? existing.updatedAt,
+  };
 }
 
 export function normalizeIncidentBinding(value: unknown): IncidentConversationBinding | null {

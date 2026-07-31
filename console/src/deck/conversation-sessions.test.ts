@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  conversationHasUnreadActivity,
   conversationLabelForPrompt,
   conversationGroups,
   conversationIndexKeyFor,
@@ -10,6 +11,8 @@ import {
   conversationUserScope,
   conversationTitle,
   isScreenConversationKey,
+  markConversationRead,
+  mergeConversationActivity,
   parseConversationIndex,
   screenConversationKey,
   serverConversationSummary,
@@ -101,6 +104,34 @@ describe("conversationGroups", () => {
         other: [other],
         agents: [agent],
       });
+  });
+
+  it("does not reorder a conversation when it is marked read", () => {
+    const newer = { ...GENERAL, key: "newer", updatedAt: "2026-07-14T11:00:00Z" };
+    const older = {
+      ...GENERAL,
+      key: "older",
+      updatedAt: "2026-07-14T10:00:00Z",
+      lastReadAt: "2026-07-14T09:00:00Z",
+    };
+
+    const selected = markConversationRead(older, "2026-07-14T12:00:00Z");
+
+    expect(selected.updatedAt).toBe(older.updatedAt);
+    expect(conversationGroups([selected, newer], "/overview").current.map((item) => item.key))
+      .toEqual(["newer", "older"]);
+  });
+
+  it("reports unread only after observed activity advances past the read time", () => {
+    const observed = mergeConversationActivity(
+      { ...GENERAL, lastReadAt: GENERAL.updatedAt },
+      { ...GENERAL, updatedAt: "2026-07-14T10:00:00Z" },
+    );
+
+    expect(conversationHasUnreadActivity(GENERAL)).toBe(false);
+    expect(conversationHasUnreadActivity(observed)).toBe(true);
+    expect(conversationHasUnreadActivity(markConversationRead(observed, observed.updatedAt)))
+      .toBe(false);
   });
 });
 

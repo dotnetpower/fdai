@@ -17,6 +17,7 @@ import {
 } from "./backend";
 import { replyAgentLabel, type DeckLayoutMode } from "./command-deck-session";
 import {
+  conversationHasUnreadActivity,
   conversationGroups,
   isScreenConversationKey,
   type ConversationSummary,
@@ -181,7 +182,11 @@ function ConversationGroup({
       {conversations.map((conversation) => (
         <div
           key={conversation.key}
-          class={`deck-conversation ${conversation.key === activeKey ? "is-active" : ""}`}
+          class={`deck-conversation ${conversation.key === activeKey ? "is-active" : ""} ${
+            conversation.key !== activeKey && conversationHasUnreadActivity(conversation)
+              ? "is-unread"
+              : ""
+          }`}
         >
           <button
             type="button"
@@ -198,7 +203,7 @@ function ConversationGroup({
               }}
             />
             <span class="deck-conversation-copy">
-              <strong>{conversation.label}</strong>
+              <span class="deck-conversation-title">{conversation.label}</span>
               <small>
                 {showOrigin && conversation.originLabel !== conversation.label
                   ? `${conversation.originLabel} · `

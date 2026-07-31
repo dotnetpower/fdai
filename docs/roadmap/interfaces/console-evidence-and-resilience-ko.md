@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b74a76de46a9c81a67fe9cc8a63148bf632015be
+translation_source_sha: 14595296594e6b6ec2d6c0362426c0d3028d2e6e
 translation_revised: 2026-07-31
 ---
 
@@ -22,6 +22,10 @@ Transient default-session switch 또는 close/reopen focus cycle 없이 Deck을 
 Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에
 sessionStorage transcript를 다시 로드하지 않습니다.
+비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지
+않으므로 history 순서가 유지됩니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
+최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 server
+activity만 ordering timestamp를 갱신합니다.
 Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있는 새 agent conversation을
 엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 read API에
 전달합니다. 기존 agent conversation은 별도 history entry로 보존하며 operator가 명시적으로 선택할

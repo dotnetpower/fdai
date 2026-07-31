@@ -9,7 +9,9 @@ import {
   conversationFallbackForRoute,
   conversationPath,
   conversationTitle,
+  markConversationRead,
   manualConversationSummary,
+  mergeConversationActivity,
   newConversationKey,
   parseConversationIndex,
   screenConversationKey,
@@ -87,9 +89,16 @@ export function useCommandDeckSessionState(
         setConversations((current) => {
           let next = [...current];
           for (const summary of serverConversations) {
-            if (!next.some((item) => item.key === summary.key)) {
+            const existing = next.find((item) => item.key === summary.key);
+            if (!existing) {
               next = upsertConversation(next, summary);
+              continue;
             }
+            const merged = mergeConversationActivity(existing, summary);
+            const reconciled = merged.key === sessionKeyRef.current
+              ? markConversationRead(merged, merged.updatedAt)
+              : merged;
+            if (reconciled !== existing) next = upsertConversation(next, reconciled);
           }
           try {
             sessionStore()?.setItem(indexKey, serializeConversationIndex(next));
@@ -293,7 +302,7 @@ export function useCommandDeckSessionController({
       : baseSummary;
     const summary = binding ? { ...labeledSummary, binding } : labeledSummary;
     sessionMetadataRef.current.set(key, summary);
-    if (register) updateConversationIndex({ ...summary, updatedAt: now });
+    if (register) updateConversationIndex(markConversationRead(summary, now));
     const note = contextNote?.trim();
     const briefing = openingBriefing?.trim();
     if (next.length === 0 && (briefing || note)) {

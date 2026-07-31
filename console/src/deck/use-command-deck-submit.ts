@@ -127,6 +127,7 @@ export function useCommandDeckSubmit({
     const activeSummary = conversations.find((item) => item.key === originSessionKey);
     const sessionSummary = activeSummary ?? sessionMetadataRef.current.get(originSessionKey);
     const hasOperatorTurn = turnsRef.current.some((turn) => turn.role === "operator");
+    const activityAt = new Date().toISOString();
     updateConversationIndex({
       key: originSessionKey,
       label:
@@ -137,8 +138,9 @@ export function useCommandDeckSubmit({
       ...(sessionSummary?.agent ? { agent: sessionSummary.agent } : {}),
       originPath: sessionSummary?.originPath ?? conversationPath(currentPathname()),
       originLabel: sessionSummary?.originLabel ?? snapshot?.routeLabel ?? currentPathname(),
-      createdAt: sessionSummary?.createdAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: sessionSummary?.createdAt ?? activityAt,
+      updatedAt: activityAt,
+      lastReadAt: activityAt,
     });
     setTurns((current) => [...current, operatorTurn]);
     turnsRef.current = [...turnsRef.current, operatorTurn];

@@ -19,6 +19,10 @@ event, then activates its transcript. The Deck remains open without a transient 
 switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the
 sessionStorage transcript over newer in-memory turns.
+Selecting an inactive conversation records only a browser-local read acknowledgement and does not
+change its activity timestamp, so the history order remains stable. A conversation title is bold
+only while its observed activity is newer than its persisted read timestamp; selecting it clears
+that cue without moving the row. Only newer server activity advances the ordering timestamp.
 An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key.
 The new summary carries the selected agent immediately, so the first submit sends the same agent
 target to the read API. Existing agent conversations are preserved as separate history entries and
