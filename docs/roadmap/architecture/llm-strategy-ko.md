@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: bcdffffca85c928ccaed0bb90a2412972a89ffdb
-translation_revised: 2026-07-31
+translation_source_sha: 88de2c7a36160bffdba8f3add0adbf88a416df0e
+translation_revised: 2026-08-01
 ---
 
 # LLM 전략(LLM Strategy)
@@ -956,7 +956,7 @@ provider를 bind합니다. `core/`나 upstream contract package는 편집하지 
 - **Provider 실패 처리**: timeout, rate-limit, outage 시 **fail closed** - bounded 백오프로 재시도하고 secondary provider로 fallback한 뒤 circuit breaker로 HIL 강등.
   실제 proposer 후보마다 shared budget에서 call 하나를 reserve하며 sanitized attempt receipt에는 route 역할, failure class, status, trace identity만 유지합니다.
   Terminal exhaustion은 Huginn, Heimdall, Forseti로 전달되어 실제 HIL ActionRun을 만들고 recovery success는 observation으로만 남아 새 approval을 열지 않습니다. 절대 무한 재시도하거나 검증되지 않은 후보를 auto-execute하지 않음.
-- **이벤트-기반**: 모델은 T1/T2에 도달하는 잔여 이벤트에만 호출됨.
+- **Outcome-Driven Token Economics**: 모델 호출, token, latency, 비용을 최소화하면서 검증된 운영 가치를 최대화합니다. 원문 문서를 모든 판단에서 RAG로 직접 검색하기 전에 출처가 연결된 ontology fact와 T0/T1 reuse를 사용합니다. 남은 case에는 최소 grounded context와 충분함이 입증된 가장 작은 모델을 제공하고, 모호성이나 위험에는 원문 검색, 더 강한 모델, cross-check, 사람 승인을 사용합니다. 정확도, evidence 품질, safety는 비용보다 우선하는 제약입니다.
 
 ## T1 개선(Distillation)
 

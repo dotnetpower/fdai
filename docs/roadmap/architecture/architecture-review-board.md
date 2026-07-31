@@ -22,6 +22,12 @@ It resolves repeatable events with T0 deterministic rules and T1 similarity reus
 ambiguous cases to T2 grounded reasoning. Every proposed mutation passes the risk gate, carries a
 stop condition, rollback contract, blast-radius limit, and audit record, and starts in shadow mode.
 
+FDAI calls this **[Outcome-Driven Token Economics](llm-strategy.md#cost-controls)**:
+maximize verified operational value while minimizing model calls, tokens, latency, and cost by using
+ontology-grounded T0/T1 paths by default and reserving direct source retrieval, stronger models,
+verification, and human approval for residual ambiguity or risk. Accuracy and safety remain hard
+constraints.
+
 ## Decision boundary
 
 | Decision | Current request | Approval effect |

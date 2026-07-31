@@ -1011,7 +1011,7 @@ The complete storage, schema, and boot/reload design now lives in
 - **Provider failure handling**: on timeout, rate-limit, or outage, fail **closed** - retry with bounded backoff,
   fall back to the secondary provider, then degrade to HIL through a circuit breaker. Each actual proposer candidate reserves one shared-budget call; sanitized attempt receipts retain only route role, failure class, status, and trace identity.
   Terminal exhaustion enters Huginn, Heimdall, and Forseti to create a real HIL ActionRun; recovery success remains an observation and opens no other approval. Never retry indefinitely or auto-execute an unverified candidate.
-- **Event-driven**: models are invoked only on the residual events that reach T1/T2.
+- **Outcome-Driven Token Economics**: maximize verified operational value while minimizing model calls, tokens, latency, and cost. Use provenance-linked ontology facts and T0/T1 reuse before direct source-document RAG. Give residual cases minimum grounded context and the smallest model proven sufficient; reserve direct retrieval, stronger models, cross-checks, and human approval for ambiguity or risk. Accuracy, evidence quality, and safety remain hard constraints.
 
 ## Improving T1 (Distillation)
 

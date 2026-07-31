@@ -1,8 +1,8 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: de145ab14c4295e09c0d2c6ee1335165a6bef288
-translation_revised: 2026-07-29
+translation_source_sha: 8c0f8758ffca932d88d270b95f63dd03965cfbda
+translation_revised: 2026-08-01
 ---
 # Architecture Review Board 패킷
 
@@ -24,6 +24,11 @@ plane입니다. 반복 가능한 event는 T0 deterministic rule과 T1 similarity
 모호한 case만 T2 grounded reasoning으로 보냅니다. 모든 변경 proposal은 risk gate를 통과하고
 stop condition, rollback contract, blast-radius limit, audit record를 가지며 shadow mode에서
 시작합니다.
+
+FDAI는 이를 **[Outcome-Driven Token Economics](llm-strategy-ko.md#비용-컨트롤cost-controls)**라고
+부릅니다. Ontology-grounded T0/T1 경로를 기본으로 사용하고, 남은 모호성이나 위험에만 원문
+검색, 더 강한 모델, verification, 사람 승인을 사용하여 모델 호출, token, latency, 비용은
+최소화하고 검증된 운영 가치는 최대화합니다. 정확도와 safety는 비용보다 우선하는 제약입니다.
 
 ## 결정 경계
 
