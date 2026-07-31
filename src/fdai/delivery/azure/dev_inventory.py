@@ -46,6 +46,7 @@ from datetime import UTC, datetime
 from typing import Any, Final
 
 from fdai.delivery.azure.arg_projection import (
+    build_arm_to_neutral_map,
     extract_attached_to_links_from_row,
     extract_depends_on_links_from_row,
     extract_rg_contains_links,
@@ -53,6 +54,10 @@ from fdai.delivery.azure.arg_projection import (
     resource_operational_status,
     to_neutral_id,
     truncate_props,
+)
+from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
+    resolve_azure_resource_type,
 )
 from fdai.shared.providers.inventory import (
     InventoryBatch,
@@ -136,6 +141,7 @@ class AzureCliInventory:
 
     resource_types: Sequence[str] = field(default_factory=lambda: tuple(_NEUTRAL_TYPE_TO_AZ_ARGS))
     azure_arm_types: Mapping[str, str] = field(default_factory=lambda: dict(_DEFAULT_ARM_TYPES))
+    resource_type_registry: ResourceTypeRegistry | None = None
     discover_all: bool = False
     subscription_id: str | None = None
     executable: str = "az"
@@ -223,15 +229,9 @@ class AzureCliInventory:
             for row in vm_rows
             if isinstance(row.get("id"), str)
         }
-        by_arm_type = {
-            arm_type.casefold(): resource_type
-            for resource_type, arm_type in self.azure_arm_types.items()
-            if resource_type in self.resource_types and resource_type != "subscription"
-        }
         rows_by_type: dict[str, list[dict[str, Any]]] = {"resource-group": list(groups)}
         for row in resource_rows:
-            arm_type = str(row.get("type") or "").casefold()
-            resource_type = by_arm_type.get(arm_type)
+            resource_type = self._resolve_registered_type(row)
             if resource_type is None or resource_type == "resource-group":
                 continue
             if resource_type == "compute.vm":
@@ -337,14 +337,19 @@ class AzureCliInventory:
                 subnet_records.extend(nested_records)
                 subnet_links.extend(nested_links)
             return tuple(subnet_records), _dedupe_links(subnet_links)
+        rows = tuple(row for row in rows if self._row_matches_type(row, resource_type))
         records = tuple(
             _record_from_az_row(row=row, resource_type=resource_type, now_iso=now_iso)
             for row in rows
         )
-        arm_to_neutral = {
-            arm_type.casefold(): neutral_type
-            for neutral_type, arm_type in self.azure_arm_types.items()
-        }
+        arm_to_neutral = (
+            build_arm_to_neutral_map(self.resource_type_registry)
+            if self.resource_type_registry is not None
+            else {
+                arm_type.casefold(): neutral_type
+                for neutral_type, arm_type in self.azure_arm_types.items()
+            }
+        )
         links = list(extract_rg_contains_links(records))
         for row, record in zip(rows, records, strict=True):
             links.extend(
@@ -363,6 +368,32 @@ class AzureCliInventory:
                 )
             )
         return records, _dedupe_links(links)
+
+    def _resolve_registered_type(self, row: Mapping[str, Any]) -> str | None:
+        arm_type = row.get("type")
+        if not isinstance(arm_type, str) or not arm_type:
+            return None
+        if self.resource_type_registry is not None:
+            resolved = resolve_azure_resource_type(
+                self.resource_type_registry,
+                arm_type=arm_type,
+                kind=row.get("kind"),
+            )
+            return resolved if resolved in self.resource_types else None
+        return next(
+            (
+                resource_type
+                for resource_type, registered_arm_type in self.azure_arm_types.items()
+                if resource_type in self.resource_types
+                and registered_arm_type.casefold() == arm_type.casefold()
+            ),
+            None,
+        )
+
+    def _row_matches_type(self, row: Mapping[str, Any], resource_type: str) -> bool:
+        if self.resource_type_registry is None or not isinstance(row.get("type"), str):
+            return True
+        return self._resolve_registered_type(row) == resource_type
 
 
 def _run_az(

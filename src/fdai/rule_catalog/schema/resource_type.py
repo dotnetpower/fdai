@@ -10,6 +10,8 @@ problem in one shot.
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -40,6 +42,8 @@ class ResourceTypeEntry(BaseModel):
     category: ResourceTypeCategory
     description: Annotated[str, Field(min_length=1, max_length=512)]
     azure_arm_type: str | None = None
+    azure_kind_tokens: tuple[str, ...] = ()
+    query_terms: tuple[str, ...] = ()
     typical_parents: list[str] = Field(default_factory=list)
 
 
@@ -48,6 +52,7 @@ class ResourceTypeRegistry(BaseModel):
 
     schema_version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
     version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
+    category_query_terms: dict[ResourceTypeCategory, tuple[str, ...]] = Field(default_factory=dict)
     types: tuple[ResourceTypeEntry, ...]
 
     def ids(self) -> set[str]:
@@ -95,6 +100,42 @@ def _duplicate_ids(entries: Iterable[Mapping[str, Any]]) -> list[str]:
     return dupes
 
 
+def _normalize_term(value: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def _query_term_collisions(entries: Iterable[Mapping[str, Any]]) -> dict[str, set[str]]:
+    owners: dict[str, set[str]] = {}
+    for entry in entries:
+        entry_id = entry.get("id")
+        terms = entry.get("query_terms", ())
+        if not isinstance(entry_id, str) or not isinstance(terms, list):
+            continue
+        for term in terms:
+            if isinstance(term, str):
+                owners.setdefault(_normalize_term(term), set()).add(entry_id)
+    return {term: ids for term, ids in owners.items() if len(ids) > 1}
+
+
+def _shared_arm_types_without_kind(entries: Iterable[Mapping[str, Any]]) -> list[str]:
+    candidates: dict[str, list[tuple[str, bool]]] = {}
+    for entry in entries:
+        entry_id = entry.get("id")
+        arm_type = entry.get("azure_arm_type")
+        kind_tokens = entry.get("azure_kind_tokens", ())
+        if (
+            isinstance(entry_id, str)
+            and isinstance(arm_type, str)
+            and isinstance(kind_tokens, list)
+        ):
+            candidates.setdefault(arm_type.casefold(), []).append((entry_id, bool(kind_tokens)))
+    return sorted(
+        arm_type
+        for arm_type, variants in candidates.items()
+        if len(variants) > 1 and any(not has_kind for _entry_id, has_kind in variants)
+    )
+
+
 def load_resource_type_registry_from_mapping(
     raw: Mapping[str, Any],
 ) -> ResourceTypeRegistry:
@@ -109,11 +150,26 @@ def load_resource_type_registry_from_mapping(
 
     types_field = raw.get("types") if isinstance(raw, Mapping) else None
     if isinstance(types_field, list):
-        for dup in _duplicate_ids(t for t in types_field if isinstance(t, Mapping)):
+        entries = [t for t in types_field if isinstance(t, Mapping)]
+        for dup in _duplicate_ids(entries):
             issues.append(
                 ResourceTypeIssue(
                     key=f"types[id={dup}]",
                     message="duplicate resource_type id",
+                )
+            )
+        for term, owners in sorted(_query_term_collisions(entries).items()):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"query_terms[{term}]",
+                    message=f"query term is shared by resource types {sorted(owners)}",
+                )
+            )
+        for arm_type in _shared_arm_types_without_kind(entries):
+            issues.append(
+                ResourceTypeIssue(
+                    key=f"azure_arm_type[{arm_type}]",
+                    message="every semantic type sharing an ARM type requires azure_kind_tokens",
                 )
             )
 
@@ -133,6 +189,34 @@ def load_resource_type_registry_from_mapping(
         raise ResourceTypeRegistryError(issues) from exc
 
 
+def resolve_azure_resource_type(
+    registry: ResourceTypeRegistry,
+    *,
+    arm_type: str,
+    kind: object = None,
+) -> str | None:
+    """Resolve one Azure row without conflating entries that share an ARM type."""
+
+    candidates = tuple(
+        entry
+        for entry in registry
+        if entry.azure_arm_type is not None
+        and entry.azure_arm_type.casefold() == arm_type.casefold()
+    )
+    if len(candidates) == 1:
+        return candidates[0].id
+    if not candidates:
+        return None
+    kind_tokens = {token for token in re.split(r"[,;/\s]+", str(kind).casefold()) if token}
+    matches = tuple(
+        entry
+        for entry in candidates
+        if entry.azure_kind_tokens
+        and any(token.casefold() in kind_tokens for token in entry.azure_kind_tokens)
+    )
+    return matches[0].id if len(matches) == 1 else None
+
+
 __all__ = [
     "ResourceTypeCategory",
     "ResourceTypeEntry",
@@ -140,4 +224,5 @@ __all__ = [
     "ResourceTypeRegistry",
     "ResourceTypeRegistryError",
     "load_resource_type_registry_from_mapping",
+    "resolve_azure_resource_type",
 ]

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import itertools
+from pathlib import Path
 
 import pytest
+import yaml
 
 from fdai.delivery.read_api.routes.chat_inventory_compiler import (
     compile_inventory_query,
@@ -13,6 +15,13 @@ from fdai.delivery.read_api.routes.chat_inventory_query import (
     InventoryOperator,
     InventoryQuerySource,
 )
+from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
+    InventoryResourceTypeResolver,
+)
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+VOCAB_YAML = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
 
 _RESOURCES = (
     {
@@ -44,6 +53,65 @@ _RESOURCES = (
         "location": "westus",
     },
 )
+
+
+def _resource_type_resolver() -> InventoryResourceTypeResolver:
+    registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load(VOCAB_YAML.read_text(encoding="utf-8"))
+    )
+    return InventoryResourceTypeResolver(registry)
+
+
+@pytest.mark.parametrize(
+    "prompt,expected",
+    [
+        ("Web App 목록을 보여줘", "compute.web-app"),
+        ("함수 앱 목록을 보여줘", "compute.function"),
+        ("Logic App 목록을 보여줘", "workflow.logic-app"),
+        ("NSG 목록을 보여줘", "network.nsg"),
+        ("Azure Firewall 목록을 보여줘", "network.firewall"),
+        ("DCR 목록을 보여줘", "data-collection-rule"),
+        ("PostgreSQL DB 목록을 보여줘", "postgresql-server"),
+    ],
+)
+def test_catalog_terms_resolve_diverse_azure_resource_types(
+    prompt: str,
+    expected: str,
+) -> None:
+    resolver = _resource_type_resolver()
+
+    query = compile_inventory_query(prompt, resources=_RESOURCES, resolver=resolver)
+
+    assert query is not None
+    predicate = next(
+        item for item in query.predicates if item.field is InventoryField.RESOURCE_TYPE
+    )
+    assert predicate.operator is InventoryOperator.EQ
+    assert predicate.value == expected
+
+
+def test_catalog_entry_addition_needs_no_compiler_alias_change() -> None:
+    registry = load_resource_type_registry_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "version": "0.0.1",
+            "category_query_terms": {},
+            "types": [
+                {
+                    "id": "custom.widget",
+                    "category": "compute",
+                    "description": "Synthetic extensibility fixture.",
+                    "query_terms": ["widget service", "위젯 서비스"],
+                }
+            ],
+        }
+    )
+    resolver = InventoryResourceTypeResolver(registry)
+
+    query = compile_inventory_query("위젯 서비스 목록은?", resolver=resolver)
+
+    assert query is not None
+    assert query.predicates[0].value == "custom.widget"
 
 
 @pytest.mark.parametrize(

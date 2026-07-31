@@ -15,6 +15,11 @@
 #                  maps to. `null` when the type has no direct Azure
 #                  counterpart at this level of abstraction (a fork adapter
 #                  will render the mapping - the vocabulary stays neutral).
+#   azure_kind_tokens optional Azure `kind` tokens that disambiguate semantic
+#                  types sharing one ARM type. Provider-profile migration will
+#                  move this compatibility field out of the neutral vocabulary.
+#   query_terms    reviewed English and Korean forms for deterministic inventory
+#                  intent resolution. Generic terms belong in category_query_terms.
 #   typical_parents typical `contains` parents in the resource graph
 #                   ([llm-strategy.md § Ontology Foundation]). Informational
 #                   for authors; the runtime graph is populated by the
@@ -22,13 +27,16 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.2.0"
+version: "0.3.0"
+category_query_terms:
+  database: [database, databases, db, dbs, 데이터베이스, 디비]
 types:
   # ── compute ───────────────────────────────────────────────────────────
   - id: compute.vm
     category: compute
     description: Long-running virtual machine.
     azure_arm_type: Microsoft.Compute/virtualMachines
+    query_terms: [virtual machine, virtual machines, vm, vms, 가상 머신]
     typical_parents: [resource-group]
   - id: compute.vm-scale-set
     category: compute
@@ -54,6 +62,15 @@ types:
     category: compute
     description: Function-as-a-service unit; single event trigger.
     azure_arm_type: Microsoft.Web/sites
+    azure_kind_tokens: [functionapp]
+    query_terms: [function app, function apps, azure function, azure functions, 함수 앱, 함수앱]
+    typical_parents: [resource-group]
+  - id: compute.web-app
+    category: compute
+    description: Managed web application hosted by an application service plan.
+    azure_arm_type: Microsoft.Web/sites
+    azure_kind_tokens: [app]
+    query_terms: [web app, web apps, app service, app services, 웹 앱, 웹앱]
     typical_parents: [resource-group]
   - id: app-service-plan
     category: compute
@@ -69,18 +86,26 @@ types:
     category: compute
     description: Managed Kubernetes control plane.
     azure_arm_type: Microsoft.ContainerService/managedClusters
+    query_terms: [aks, kubernetes cluster, kubernetes clusters, 쿠버네티스, 클러스터]
     typical_parents: [resource-group]
   - id: kubernetes-node-pool
     category: compute
     description: A pool of worker nodes attached to a kubernetes-cluster.
     azure_arm_type: Microsoft.ContainerService/managedClusters/agentPools
     typical_parents: [kubernetes-cluster]
+  - id: workflow.logic-app
+    category: compute
+    description: Managed workflow application executed by the Azure Logic Apps service.
+    azure_arm_type: Microsoft.Logic/workflows
+    query_terms: [logic app, logic apps, 로직 앱, 로직앱]
+    typical_parents: [resource-group]
 
   # ── networking ────────────────────────────────────────────────────────
   - id: network.vnet
     category: network
     description: Virtual network address space.
     azure_arm_type: Microsoft.Network/virtualNetworks
+    query_terms: [vnet, vnets, virtual network, virtual networks, 가상 네트워크]
     typical_parents: [resource-group]
   - id: network.subnet
     category: network
@@ -91,6 +116,13 @@ types:
     category: network
     description: Network security group (stateful L4 firewall rules).
     azure_arm_type: Microsoft.Network/networkSecurityGroups
+    query_terms: [nsg, nsgs, network security group, network security groups, 네트워크 보안 그룹]
+    typical_parents: [resource-group]
+  - id: network.firewall
+    category: network
+    description: Managed network firewall that applies centralized traffic policy.
+    azure_arm_type: Microsoft.Network/azureFirewalls
+    query_terms: [azure firewall, azure firewalls, firewall, firewalls, 애저 방화벽, 방화벽]
     typical_parents: [resource-group]
   - id: network.interface
     category: network
@@ -126,6 +158,7 @@ types:
     category: network
     description: Public IP address; typically attached to a load-balancer, NIC, or NAT gateway.
     azure_arm_type: Microsoft.Network/publicIPAddresses
+    query_terms: [public ip, public ips, 공인 ip]
     typical_parents: [resource-group]
   - id: network.nat-gateway
     category: network
@@ -168,6 +201,7 @@ types:
     category: storage
     description: Object / blob storage account.
     azure_arm_type: Microsoft.Storage/storageAccounts
+    query_terms: [storage account, storage accounts, 스토리지 계정]
     typical_parents: [resource-group]
   - id: container-registry
     category: storage
@@ -190,11 +224,13 @@ types:
     category: database
     description: SQL-family database engine (T-SQL family). Azure=Azure SQL / MI.
     azure_arm_type: Microsoft.Sql/servers/databases
+    query_terms: [sql database, sql databases, sql db, sql 데이터베이스]
     typical_parents: [resource-group]
   - id: postgresql-server
     category: database
     description: PostgreSQL engine (Flexible / Single).
     azure_arm_type: Microsoft.DBforPostgreSQL/flexibleServers
+    query_terms: [postgres, postgresql, postgres server, postgresql server, 포스트그레스]
     typical_parents: [resource-group]
   - id: mysql-server
     category: database
@@ -222,11 +258,13 @@ types:
     category: security
     description: Managed secret / key store (Key Vault, Secrets Manager, Secret Manager).
     azure_arm_type: Microsoft.KeyVault/vaults
+    query_terms: [key vault, key vaults, 키 볼트, 키볼트]
     typical_parents: [resource-group]
   - id: managed-identity
     category: security
     description: User-assigned or system-assigned workload identity.
     azure_arm_type: Microsoft.ManagedIdentity/userAssignedIdentities
+    query_terms: [managed identity, managed identities, 관리형 id, 관리 id]
     typical_parents: [resource-group]
   - id: certificate
     category: security
@@ -249,6 +287,12 @@ types:
     category: observability
     description: Application performance and distributed telemetry resource.
     azure_arm_type: Microsoft.Insights/components
+    typical_parents: [resource-group]
+  - id: data-collection-rule
+    category: observability
+    description: Azure Monitor rule that routes and transforms collected telemetry.
+    azure_arm_type: Microsoft.Insights/dataCollectionRules
+    query_terms: [data collection rule, data collection rules, dcr, dcrs, 데이터 수집 규칙]
     typical_parents: [resource-group]
   - id: llm-endpoint
     category: compute
@@ -286,6 +330,7 @@ types:
     category: governance
     description: Logical grouping of resources under one lifecycle. Root of the `contains` chain from `subscription`.
     azure_arm_type: Microsoft.Resources/resourceGroups
+    query_terms: [resource group, resource groups, 리소스 그룹]
     typical_parents: [subscription]
   - id: subscription
     category: governance

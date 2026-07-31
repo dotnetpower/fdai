@@ -106,7 +106,10 @@ from fdai.delivery.azure.arg_projection import (
 )
 from fdai.delivery.azure.arg_transport import fetch_arg_pages
 from fdai.delivery.azure.inventory import ResourceQueryFn
-from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
+from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
+    resolve_azure_resource_type,
+)
 from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -282,7 +285,8 @@ class AzureArgQueryFactory:
         )
         return (
             f"{table} | where type =~ '{arm_type}' "
-            "| project id, type, name, location, tags, properties, resourceGroup, subscriptionId"
+            "| project id, type, name, location, kind, sku, tags, properties, "
+            "resourceGroup, subscriptionId"
         )
 
     async def _fetch_all_pages(
@@ -321,6 +325,17 @@ class AzureArgQueryFactory:
     def _map_row(self, row: Mapping[str, Any], *, resource_type: str) -> ResourceRecord | None:
         arm_id = row.get("id")
         if not isinstance(arm_id, str) or not arm_id:
+            return None
+        arm_type = self._resource_types.get(resource_type).azure_arm_type
+        if (
+            arm_type is None
+            or resolve_azure_resource_type(
+                self._resource_types,
+                arm_type=arm_type,
+                kind=row.get("kind"),
+            )
+            != resource_type
+        ):
             return None
 
         neutral_id = _to_neutral_id(arm_id)

@@ -7,7 +7,9 @@ import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, Final
 
-from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
+from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
+)
 from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
 
 _RESOURCE_GROUP_TYPE: Final[str] = "resource-group"
@@ -181,11 +183,13 @@ _ATTACHED_TO_COLLECTION_KEYS: Final[tuple[str, ...]] = (
 
 
 def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
-    """Build a case-insensitive ARM type to neutral type reverse map."""
+    """Build an unambiguous case-insensitive ARM type reverse map."""
+    by_arm_type: dict[str, list[str]] = {}
+    for entry in registry:
+        if entry.azure_arm_type is not None:
+            by_arm_type.setdefault(entry.azure_arm_type.lower(), []).append(entry.id)
     return {
-        entry.azure_arm_type.lower(): entry.id
-        for entry in registry
-        if entry.azure_arm_type is not None
+        arm_type: type_ids[0] for arm_type, type_ids in by_arm_type.items() if len(type_ids) == 1
     }
 
 

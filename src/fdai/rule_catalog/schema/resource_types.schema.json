@@ -15,6 +15,20 @@
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
+    "category_query_terms": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compute": {"$ref": "#/$defs/queryTerms"},
+        "network": {"$ref": "#/$defs/queryTerms"},
+        "storage": {"$ref": "#/$defs/queryTerms"},
+        "database": {"$ref": "#/$defs/queryTerms"},
+        "security": {"$ref": "#/$defs/queryTerms"},
+        "observability": {"$ref": "#/$defs/queryTerms"},
+        "governance": {"$ref": "#/$defs/queryTerms"}
+      },
+      "default": {}
+    },
     "types": {
       "type": "array",
       "minItems": 1,
@@ -22,6 +36,12 @@
     }
   },
   "$defs": {
+    "queryTerms": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 128},
+      "uniqueItems": true,
+      "default": []
+    },
     "entry": {
       "type": "object",
       "additionalProperties": false,
@@ -52,6 +72,14 @@
         "azure_arm_type": {
           "type": ["string", "null"],
           "description": "The Azure Resource Manager type path the provider adapter renders this resource to. `null` when Azure has no direct counterpart at this abstraction level."
+        },
+        "azure_kind_tokens": {
+          "$ref": "#/$defs/queryTerms",
+          "description": "Case-insensitive Azure `kind` tokens used only to disambiguate entries that share one ARM type."
+        },
+        "query_terms": {
+          "$ref": "#/$defs/queryTerms",
+          "description": "Reviewed natural-language forms that resolve to this semantic resource type."
         },
         "typical_parents": {
           "type": "array",

@@ -5,15 +5,27 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from fdai.delivery.azure.dev_inventory import (
     AzureCliInventory,
     AzureCliInventoryError,
 )
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.providers.inventory import InventoryBatch
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+
+
+def _resource_types():  # type: ignore[no-untyped-def]
+    return load_resource_type_registry_from_mapping(
+        yaml.safe_load(VOCABULARY_FILE.read_text(encoding="utf-8"))
+    )
 
 
 def _completed(
@@ -401,6 +413,107 @@ class TestFullSnapshot:
             "network.public-ip",
         }
         assert "azure_cli_inventory_arg_fallback" in caplog.text
+
+    def test_discover_all_classifies_common_azure_resource_types(self) -> None:
+        registry = _resource_types()
+        expected_types = {
+            "compute.web-app",
+            "compute.function",
+            "workflow.logic-app",
+            "network.nsg",
+            "network.firewall",
+            "data-collection-rule",
+        }
+        arm_types = {
+            entry.id: entry.azure_arm_type
+            for entry in registry
+            if entry.id in expected_types and entry.azure_arm_type is not None
+        }
+        rows = [
+            {
+                "id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Web/sites/web-example"
+                ),
+                "type": "Microsoft.Web/sites",
+                "kind": "app,linux",
+                "name": "web-example",
+                "resourceGroup": "rg-example",
+            },
+            {
+                "id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Web/sites/function-example"
+                ),
+                "type": "Microsoft.Web/sites",
+                "kind": "functionapp,linux",
+                "name": "function-example",
+                "resourceGroup": "rg-example",
+            },
+            {
+                "id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Logic/"
+                    "workflows/logic-example"
+                ),
+                "type": "Microsoft.Logic/workflows",
+                "name": "logic-example",
+                "resourceGroup": "rg-example",
+            },
+            {
+                "id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Network/"
+                    "networkSecurityGroups/nsg-example"
+                ),
+                "type": "Microsoft.Network/networkSecurityGroups",
+                "name": "nsg-example",
+                "resourceGroup": "rg-example",
+            },
+            {
+                "id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Network/"
+                    "azureFirewalls/firewall-example"
+                ),
+                "type": "Microsoft.Network/azureFirewalls",
+                "name": "firewall-example",
+                "resourceGroup": "rg-example",
+            },
+            {
+                "id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Insights/"
+                    "dataCollectionRules/dcr-example"
+                ),
+                "type": "Microsoft.Insights/dataCollectionRules",
+                "name": "dcr-example",
+                "resourceGroup": "rg-example",
+            },
+        ]
+        inventory = AzureCliInventory(
+            resource_types=tuple(sorted(expected_types)),
+            azure_arm_types=arm_types,
+            resource_type_registry=registry,
+            discover_all=True,
+        )
+
+        def _response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            command = tuple(argv[1:3])
+            if command == ("group", "list") or command == ("vm", "list"):
+                return _completed("[]")
+            if command == ("graph", "query"):
+                return _completed(json.dumps({"data": rows, "skip_token": None}))
+            raise AssertionError(f"unexpected Azure CLI command: {argv}")
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=_response,
+        ):
+            batches = asyncio.run(_drain(inventory))
+
+        assert {record.type for record in batches[0].resources} == expected_types
+        assert len(batches[0].resources) == len(expected_types)
 
     def test_subscription_id_forwarded_as_arg(self) -> None:
         captured: dict[str, list[str]] = {}

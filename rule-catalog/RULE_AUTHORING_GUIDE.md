@@ -257,6 +257,17 @@ Add a new entry to
 under the appropriate category, including `azure_arm_type` and
 `typical_parents`.
 
+- Add bounded English and Korean `query_terms` when operators need to select the type in an
+  inventory question. The catalog loader rejects a normalized term owned by two types, so adding
+  the entry never requires a Python alias change and never creates an implicit ambiguity.
+- Put generic terms such as `database` or `db` in top-level `category_query_terms`, not on one
+  concrete type. A concrete type term takes precedence over a category term in the same question.
+- When two semantic types share one Azure ARM type, declare `azure_kind_tokens` on every variant.
+  For example, Azure Functions and Web Apps both use `Microsoft.Web/sites`; the observed Azure
+  `kind` separates them. Missing or unmatched kind evidence remains unmapped instead of selecting a
+  default. This compatibility mapping remains read-only provider metadata and is expected to move
+  to the versioned Azure discovery-profile catalog described in the discovery design.
+
 ## Ontology & LLM handoff
 
 The rule catalog is **the ontology surface an LLM can consult** when

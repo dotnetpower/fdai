@@ -347,6 +347,52 @@ INVENTORY_RUBRIC_NAMES = (
 )
 
 
+@pytest.mark.parametrize(
+    "prompt,expected_name",
+    [
+        ("Web App 목록을 보여줘", "web-example"),
+        ("함수 앱 목록을 보여줘", "function-example"),
+        ("Logic App 목록을 보여줘", "logic-example"),
+        ("NSG 목록을 보여줘", "nsg-example"),
+        ("Azure Firewall 목록을 보여줘", "firewall-example"),
+        ("DCR 목록을 보여줘", "dcr-example"),
+    ],
+)
+async def test_common_azure_resource_queries_filter_inventory_graph(
+    prompt: str,
+    expected_name: str,
+) -> None:
+    resources = [
+        _resource("web", "compute.web-app", "web-example"),
+        _resource("function", "compute.function", "function-example"),
+        _resource("logic", "workflow.logic-app", "logic-example"),
+        _resource("nsg", "network.nsg", "nsg-example"),
+        _resource("firewall", "network.firewall", "firewall-example"),
+        _resource("dcr", "data-collection-rule", "dcr-example"),
+    ]
+
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+    ) -> dict[str, Any]:
+        assert scope is None
+        assert depth == 4
+        assert link_types == ("contains", "attached_to", "depends_on")
+        return {
+            "resources": resources,
+            "links": [],
+            "freshness": "fresh",
+            "source": "test-inventory",
+            "snapshot": {"id": "snapshot"},
+        }
+
+    evidence = await InventoryChatTools(provider).resolve(prompt, principal_id="reader")
+
+    assert evidence is not None
+    assert [item["name"] for item in evidence["result"]["resources"]] == [expected_name]
+
+
 def test_twenty_azure_resource_questions_are_grounded_and_deterministic() -> None:
     backend = RecordingBackend()
     tools = InventoryChatTools(_provider)

@@ -156,6 +156,7 @@ def build_inventory_graph_provider() -> Any:
         inventory=AzureCliInventory(
             resource_types=tuple(azure_arm_types),
             azure_arm_types=azure_arm_types,
+            resource_type_registry=resource_types,
             discover_all=True,
             subscription_id=subscription_id or None,
             azure_config_dir=config_dir,

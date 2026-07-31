@@ -15,19 +15,13 @@ from fdai.delivery.read_api.routes.chat_inventory_query import (
     InventoryQuerySource,
     normalize_inventory_value,
 )
+from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
+    InventoryResourceTypeResolver,
+    default_inventory_resource_type_resolver,
+)
 
 _RESOURCE_SUBJECT: Final = re.compile(
-    r"\b(?:azure\s+)?(?:resources?|assets?|inventory|virtual machines?|vms?|"
-    r"storage accounts?|databases?|dbs?|postgres(?:ql)?|sql databases?|"
-    r"kubernetes clusters?|vnets?|"
-    r"virtual networks?|managed identit(?:y|ies)|key vaults?|resource groups?|public ips?|"
-    r"nsgs?)\b|Azure\s*리소스|인벤토리|가상\s*머신|스토리지\s*계정|데이터베이스|디비|"
-    r"쿠버네티스|클러스터|가상\s*네트워크|관리형\s*ID|키\s*볼트|리소스\s*그룹|"
-    r"공인\s*IP|네트워크\s*보안\s*그룹|리소스",
-    re.IGNORECASE,
-)
-_RESOURCE_TOKEN: Final = re.compile(
-    r"(?<![A-Za-z0-9_])(?:aks|vms?)(?![A-Za-z0-9_])",
+    r"\b(?:azure\s+)?(?:resources?|assets?|inventory)\b|Azure\s*리소스|인벤토리|리소스",
     re.IGNORECASE,
 )
 _READ_MARKER: Final = re.compile(
@@ -106,19 +100,6 @@ _GENERIC_PREFIXES: Final = frozenset(
     {"all", "any", "azure", "current", "list", "show", "what", "which", "어떤", "전체"}
 )
 
-_TYPE_ALIASES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("compute.vm", ("virtual machine", "virtual machines", " vm ", " vms ", "가상 머신")),
-    ("object-storage", ("storage account", "storage accounts", "스토리지 계정")),
-    ("postgresql-server", ("postgres", "postgresql", "postgres server", " db ", "디비")),
-    ("sql-database", ("sql database", "sql databases", "데이터베이스", " db ", "디비")),
-    ("kubernetes-cluster", ("aks", "kubernetes cluster", "쿠버네티스", "클러스터")),
-    ("network.vnet", ("vnet", "virtual network", "virtual networks", "가상 네트워크")),
-    ("managed-identity", ("managed identity", "managed identities", "관리형 id")),
-    ("secret-store", ("key vault", "key vaults", "키 볼트")),
-    ("resource-group", ("resource group", "resource groups", "리소스 그룹")),
-    ("network.public-ip", ("public ip", "public ips", "공인 ip")),
-    ("network.nsg", ("nsg", "nsgs", "network security group", "네트워크 보안 그룹")),
-)
 _STATUS_ALIASES: Final[tuple[tuple[re.Pattern[str], frozenset[str]], ...]] = (
     (
         re.compile(r"\b(?:stopped|deallocated)\b|중지|정지|멈춘|멈춰\s*있는", re.IGNORECASE),
@@ -144,37 +125,51 @@ _OPERATION_ALIASES: Final[tuple[tuple[re.Pattern[str], tuple[str, ...]], ...]] =
 _DEFAULT_ACTIVITY_LOOKBACK_SECONDS = 7 * 24 * 3_600
 
 
-def is_inventory_question(prompt: str) -> bool:
+def is_inventory_question(
+    prompt: str,
+    *,
+    resolver: InventoryResourceTypeResolver | None = None,
+) -> bool:
     """Return whether text is an observed resource read rather than a mutation or diagnosis."""
 
     return bool(
         prompt.strip()
         and not _MUTATION_REQUEST.search(prompt)
         and not _DIAGNOSIS_OR_METRIC.search(prompt)
-        and (_RESOURCE_SUBJECT.search(prompt) or _RESOURCE_TOKEN.search(prompt))
+        and (_RESOURCE_SUBJECT.search(prompt) or _resolver(resolver).resolve(prompt))
         and _READ_MARKER.search(prompt)
     )
 
 
-def is_specific_inventory_question(prompt: str) -> bool:
+def is_specific_inventory_question(
+    prompt: str,
+    *,
+    resolver: InventoryResourceTypeResolver | None = None,
+) -> bool:
     """Return whether an inventory read names at least one concrete resource type."""
 
-    return is_inventory_question(prompt) and bool(_resource_types(prompt, ()))
+    resource_type_resolver = _resolver(resolver)
+    resource_types = _resource_types(prompt, (), resolver=resource_type_resolver)
+    return is_inventory_question(prompt, resolver=resource_type_resolver) and bool(
+        set(resource_types) - {"subscription"}
+    )
 
 
 def compile_inventory_query(
     prompt: str,
     *,
     resources: Sequence[Mapping[str, Any]] = (),
+    resolver: InventoryResourceTypeResolver | None = None,
 ) -> InventoryQuery | None:
     """Compile one high-confidence resource read into a verified typed query."""
 
-    if not is_inventory_question(prompt):
+    resource_type_resolver = _resolver(resolver)
+    if not is_inventory_question(prompt, resolver=resource_type_resolver):
         return None
     source = _source(prompt)
     predicates: list[InventoryPredicate] = []
     group = _capture(_GROUP_FILTER, prompt)
-    resource_types = _resource_types(prompt, resources)
+    resource_types = _resource_types(prompt, resources, resolver=resource_type_resolver)
     if group:
         resource_types = tuple(item for item in resource_types if item != "resource-group")
     if resource_types:
@@ -246,24 +241,25 @@ def _kind(prompt: str, source: InventoryQuerySource) -> InventoryQueryKind:
 def _resource_types(
     prompt: str,
     resources: Sequence[Mapping[str, Any]],
+    *,
+    resolver: InventoryResourceTypeResolver,
 ) -> tuple[str, ...]:
-    normalized = f" {normalize_inventory_value(prompt)} "
-    observed = {
-        str(item.get("type"))
-        for item in resources
-        if isinstance(item.get("type"), str) and item.get("type")
-    }
-    matched = {
-        resource_type
-        for resource_type, aliases in _TYPE_ALIASES
-        if any(normalize_inventory_value(alias) in normalized for alias in aliases)
-    }
-    matched.update(
-        resource_type
-        for resource_type in observed
-        if _contains_phrase(normalized, normalize_inventory_value(resource_type))
+    observed = tuple(
+        sorted(
+            {
+                str(item.get("type"))
+                for item in resources
+                if isinstance(item.get("type"), str) and item.get("type")
+            }
+        )
     )
-    return tuple(sorted(matched))
+    return resolver.resolve(prompt, observed_types=observed)
+
+
+def _resolver(
+    resolver: InventoryResourceTypeResolver | None,
+) -> InventoryResourceTypeResolver:
+    return resolver or default_inventory_resource_type_resolver()
 
 
 def _status_values(

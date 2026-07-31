@@ -1254,6 +1254,48 @@ async def test_full_row_emits_contains_and_attached_to_links_together() -> None:
     assert contained.from_type == "resource-group"
 
 
+@pytest.mark.asyncio
+async def test_web_and_function_shards_are_disambiguated_by_kind() -> None:
+    rows = [
+        _arm_row(
+            arm_id=(
+                "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                "resourceGroups/rg-example/providers/Microsoft.Web/sites/web-example"
+            ),
+            arm_type="Microsoft.Web/sites",
+            extra={"kind": "app,linux"},
+        ),
+        _arm_row(
+            arm_id=(
+                "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                "resourceGroups/rg-example/providers/Microsoft.Web/sites/function-example"
+            ),
+            arm_type="Microsoft.Web/sites",
+            extra={"kind": "functionapp,linux"},
+        ),
+    ]
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": rows})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        query = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_query_fn()
+        web_resources, _web_links = await query("compute.web-app")
+        function_resources, _function_links = await query("compute.function")
+
+    assert [(item.type, item.props["kind"]) for item in web_resources] == [
+        ("compute.web-app", "app,linux")
+    ]
+    assert [(item.type, item.props["kind"]) for item in function_resources] == [
+        ("compute.function", "functionapp,linux")
+    ]
+
+
 # ---------------------------------------------------------------------------
 # _extract_depends_on_links_from_row - soft-dependency whitelist
 # ---------------------------------------------------------------------------
@@ -1549,6 +1591,7 @@ async def test_full_row_emits_contains_attached_to_and_depends_on_together() -> 
                         ),
                         arm_type="Microsoft.Web/sites",
                         extra={
+                            "kind": "functionapp,linux",
                             "properties": {
                                 # attached_to path
                                 "subnet": {
@@ -1569,7 +1612,7 @@ async def test_full_row_emits_contains_attached_to_and_depends_on_together() -> 
                                         "Microsoft.Storage/storageAccounts/stg1"
                                     )
                                 },
-                            }
+                            },
                         },
                     )
                 ]

@@ -11,6 +11,7 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     ResourceTypeRegistryError,
     load_resource_type_registry_from_mapping,
+    resolve_azure_resource_type,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +49,80 @@ def test_shipped_vocabulary_covers_three_verticals() -> None:
     assert "postgresql-server" in ids
     assert "sql-database" in ids
     assert "nosql-database" in ids
+
+
+def test_shipped_vocabulary_covers_common_azure_inventory_types() -> None:
+    registry = _shipped()
+
+    assert {
+        "compute.web-app",
+        "compute.function",
+        "workflow.logic-app",
+        "network.nsg",
+        "network.firewall",
+        "data-collection-rule",
+    } <= registry.ids()
+    for type_id in (
+        "compute.web-app",
+        "compute.function",
+        "workflow.logic-app",
+        "network.nsg",
+        "network.firewall",
+        "data-collection-rule",
+    ):
+        assert registry.get(type_id).query_terms
+
+
+def test_shared_web_arm_type_resolves_by_kind() -> None:
+    registry = _shipped()
+
+    assert (
+        resolve_azure_resource_type(
+            registry,
+            arm_type="Microsoft.Web/sites",
+            kind="functionapp,linux",
+        )
+        == "compute.function"
+    )
+    assert (
+        resolve_azure_resource_type(
+            registry,
+            arm_type="Microsoft.Web/sites",
+            kind="app,linux",
+        )
+        == "compute.web-app"
+    )
+    assert (
+        resolve_azure_resource_type(
+            registry,
+            arm_type="Microsoft.Web/sites",
+        )
+        is None
+    )
+
+
+def test_duplicate_query_term_is_rejected() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.one",
+                "category": "compute",
+                "description": "one",
+                "query_terms": ["shared term"],
+            },
+            {
+                "id": "compute.two",
+                "category": "compute",
+                "description": "two",
+                "query_terms": ["Shared  Term"],
+            },
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="query term is shared"):
+        load_resource_type_registry_from_mapping(payload)
 
 
 def test_typical_parents_reference_only_registered_ids() -> None:

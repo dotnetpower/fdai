@@ -17,9 +17,11 @@ bounded read-investigation design without allowing the narrator to invent comman
 > data-plane-only, and unmapped objects as coverage gaps instead of claiming tenant-wide
 > completeness.
 >
-> **Implementation status:** This is a target design. `DiscoveryIntent`, `DiscoveryQueryPlan`, provider
-> profiles, centralized fallback, and `CommandExplanation` are not implemented. The shipped path remains
-> selective `InventoryQuery` and registered resource, VM, Activity Log, NSG, and peering reads.
+> **Implementation status:** Catalog-owned resource `query_terms`, category terms, and deterministic
+> `InventoryQuery` compilation are implemented for the selective inventory path. Azure Resource Graph
+> and local CLI projection also separate shared ARM types with reviewed Azure `kind` tokens. The broader
+> `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profiles, unmapped-resource preservation,
+> centralized fallback, and `CommandExplanation` remain target design.
 
 ## Design at a glance
 
@@ -50,6 +52,10 @@ flowchart LR
 The current path compiles common English and Korean inventory questions into an immutable
 `InventoryQuery`. Production shards Azure Resource Graph (ARG) by each vocabulary entry's
 `azure_arm_type`; interactive local uses ARG and falls back to `az resource list`.
+Natural-language resource forms come from `resource-types.yaml`, so adding a reviewed type or term
+does not require a Python alias edit. Concrete terms take precedence over generic category terms.
+For shared ARM types, such as Web Apps and Function Apps under `Microsoft.Web/sites`, a full ARG row
+must carry a matching `kind`; a source without that discriminator does not guess the semantic type.
 
 The baseline does not satisfy comprehensive discovery:
 

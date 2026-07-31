@@ -1,6 +1,6 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 9832025bef5c32e54f1c76c05595dd8c554a29cc
+translation_source_sha: 4de87ba730e5bfcbbeba7c3cad955c2eb08fd614
 translation_revised: 2026-08-01
 ---
 
@@ -18,9 +18,11 @@ translation_revised: 2026-08-01
 > 모든 개체를 뜻합니다. FDAI는 접근 불가, 미지원, data-plane 전용, 미매핑 개체를 커버리지 공백으로
 > 보고하며 tenant 전체를 완전히 검색했다고 주장하지 않습니다.
 >
-> **구현 상태:** 이 문서는 목표 설계입니다. `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profile,
-> centralized fallback 및 `CommandExplanation`은 구현되지 않았습니다. 현재 제공 경로는 선택적
-> `InventoryQuery` 및 등록된 resource, VM, Activity Log, NSG, peering read입니다.
+> **구현 상태:** 선택적 inventory 경로를 위한 catalog 소유 resource `query_terms`, category term 및
+> deterministic `InventoryQuery` compilation은 구현되었습니다. Azure Resource Graph와 local CLI
+> projection도 검토된 Azure `kind` token으로 공유 ARM type을 구분합니다. 더 넓은
+> `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profile, unmapped resource 보존, centralized
+> fallback 및 `CommandExplanation`은 목표 설계로 남아 있습니다.
 
 ## 설계 요약
 
@@ -51,6 +53,11 @@ flowchart LR
 현재 경로는 일반적인 영어와 한국어 인벤토리 질문을 불변 `InventoryQuery`로 컴파일합니다.
 Production은 각 vocabulary 항목의 `azure_arm_type`을 기준으로 Azure Resource Graph(ARG)를
 분할 조회하고, interactive local은 ARG를 사용한 뒤 `az resource list`로 대체합니다.
+Natural-language resource form은 `resource-types.yaml`에서 가져오므로, 검토된 type이나 term을
+추가할 때 Python alias를 수정할 필요가 없습니다. 구체적인 term은 generic category term보다
+우선합니다. Web App과 Function App의 `Microsoft.Web/sites`처럼 ARM type을 공유하는 경우 전체
+ARG row에 일치하는 `kind`가 있어야 하며, discriminator가 없는 source는 semantic type을 추측하지
+않습니다.
 
 현재 기준선은 포괄적인 검색을 충족하지 못합니다.
 
