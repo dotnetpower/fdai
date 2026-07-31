@@ -375,6 +375,27 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 2 | 3 | 1 | 3 | 4 | 3 | 4 | 20/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0013: Failed Azure resource state
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q005` |
+| Executed | `2026-08-01` |
+| Question | `실패 상태인 Azure 리소스가 있어?` |
+| Azure SRE Agent answer | Reported zero resources with `Failed` in representative provisioning, state, status, or resource-state fields and disclosed that other failure evidence may still exist. |
+| FDAI answer | Reported zero resources with normalized failed operational status from 445 subscription resources, with exact snapshot time, fresh state, verification, and the same deployment and Activity Log limitation. |
+| Material difference | Both products reached the same current result. FDAI exposed a consumed evidence reference, typed predicate, exact server scope, freshness, verification, and zero model calls. |
+| Winner | FDAI for equal outcome coverage with stronger evidence integrity and explicit deterministic verification. |
+| General fix | Every typed status query now carries a coverage boundary that distinguishes current operational state from deployment and activity failures. |
+| Status | `fdai-win` |
+
+#### RUN-0013 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -388,7 +409,7 @@ existing seed.
 | Q002 | en | Database state | Are any databases stopped right now? | `LIST` | compared |
 | Q003 | ko | Database state | 현재 멈춰 있는 DB를 종류별로 보여줘. | `LIST` | compared |
 | Q004 | en | Database state | List stopped and paused database services separately. | `LIST` | compared |
-| Q005 | ko | Resource state | 실패 상태인 Azure 리소스가 있어? | `LIST` | queued |
+| Q005 | ko | Resource state | 실패 상태인 Azure 리소스가 있어? | `LIST` | compared |
 | Q006 | en | Resource state | Which resources are failed, degraded, or unavailable? | `LIST` | queued |
 | Q007 | ko | Compute state | 할당 해제된 가상 머신을 모두 찾아줘. | `LIST` | queued |
 | Q008 | en | Compute state | Which virtual machines are running, stopped, or deallocated? | `LIST` | queued |
