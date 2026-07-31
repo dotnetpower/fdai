@@ -503,6 +503,7 @@ function ActivityBody({
           query={filters.query}
           streamStatus={streamStatus}
           streamSource={streamSource}
+          lastEventAt={lastEventAt}
           onSelectedAgentChange={(agent) => openActivity(agent, "activity")}
           onQueryChange={(query) => openFilters({ ...filters, query })}
         />

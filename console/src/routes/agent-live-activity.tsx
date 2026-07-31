@@ -47,6 +47,7 @@ interface Props {
   readonly query: string;
   readonly streamStatus: AgentStreamStatus;
   readonly streamSource: ObservationSource;
+  readonly lastEventAt: string | null;
   readonly onSelectedAgentChange: (agent: string | null) => void;
   readonly onQueryChange: (query: string) => void;
 }
@@ -58,6 +59,7 @@ export function LiveActivityJournal({
   query,
   streamStatus,
   streamSource,
+  lastEventAt,
   onSelectedAgentChange,
   onQueryChange,
 }: Props) {
@@ -191,6 +193,9 @@ export function LiveActivityJournal({
         <div>
           <span>
             {t("agentActivity.live.session")} - {t(`agents.connection.${streamStatus}`)} - {observationSourceLabel(streamSource)}
+            {lastEventAt ? (
+              <> - {t("agentActivity.log.lastObserved")} <time dateTime={lastEventAt}>{formatConsoleTime(lastEventAt)}</time></>
+            ) : null}
           </span>
           <h3 id="aa-live-journal-title">{t("agentActivity.log.title")}</h3>
         </div>

@@ -324,6 +324,7 @@
     },
     "log": {
       "title": "에이전트 활동 로그",
+      "lastObserved": "마지막 관찰",
       "rows": "행 {count}개",
       "tailOn": "라이브 테일 켜짐",
       "disableTail": "라이브 테일 끄기",

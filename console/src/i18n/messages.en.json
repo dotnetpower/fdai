@@ -324,6 +324,7 @@
     },
     "log": {
       "title": "Agent activity log",
+      "lastObserved": "Last observed",
       "rows": "{count} row(s)",
       "tailOn": "Live tail on",
       "disableTail": "Disable live tail",

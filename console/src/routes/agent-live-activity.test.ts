@@ -241,6 +241,21 @@ describe("agent live log controls", () => {
     expect(source).toContain('t("agentActivity.log.columns")');
   });
 
+  it("shows the latest runtime observation without adding a work row", () => {
+    const journalSource = readFileSync(
+      fileURLToPath(new URL("./agent-live-activity.tsx", import.meta.url)),
+      "utf8",
+    );
+    const routeSource = readFileSync(
+      fileURLToPath(new URL("./agent-activity.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(routeSource).toContain("lastEventAt={lastEventAt}");
+    expect(journalSource).toContain('t("agentActivity.log.lastObserved")');
+    expect(journalSource).toContain("formatConsoleTime(lastEventAt)");
+  });
+
   it("allows vertical wheel input to chain to the page at log boundaries", () => {
     const styles = readFileSync(
       fileURLToPath(new URL("../styles.css", import.meta.url)),
