@@ -26,6 +26,35 @@ class SourceFreshness:
 
 
 @dataclass(frozen=True, slots=True)
+class OperationalContextEvidenceLink:
+    """One typed graph edge retained without raw link properties."""
+
+    link_type: str
+    from_id: str
+    to_id: str
+
+    def __post_init__(self) -> None:
+        if not self.link_type or not self.from_id or not self.to_id:
+            raise ValueError("operational context evidence link fields MUST be non-empty")
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalContextEvidencePath:
+    """One deterministic shortest path from the target to a context object."""
+
+    object_id: str
+    object_type: str
+    revision: int
+    links: tuple[OperationalContextEvidenceLink, ...]
+
+    def __post_init__(self) -> None:
+        if not self.object_id or not self.object_type:
+            raise ValueError("operational context evidence path identities MUST be non-empty")
+        if self.revision < 0:
+            raise ValueError("operational context evidence path revision MUST be >= 0")
+
+
+@dataclass(frozen=True, slots=True)
 class OperationalContextSnapshot:
     """Replay-stable semantic context at one decision cutoff."""
 
@@ -43,6 +72,9 @@ class OperationalContextSnapshot:
     constraint_ids: tuple[str, ...]
     ownership_ids: tuple[str, ...]
     dependency_ids: tuple[str, ...]
+    source_freshness: tuple[SourceFreshness, ...]
+    evidence_links: tuple[OperationalContextEvidenceLink, ...]
+    evidence_paths: tuple[OperationalContextEvidencePath, ...]
     stale_sources: tuple[str, ...]
     conflicts: tuple[str, ...]
     autonomy_ceiling: Autonomy

@@ -382,9 +382,9 @@
     "src/fdai/core/oncall/__init__.py": "ca8daa982aa60a0f11ae813039f799802ae55e45bfb9b5ca9396cc1909fd4dfa",
     "src/fdai/core/oncall/resolver.py": "35fa432f02b240fd04b03995ade748032093c702272a473004a42ff08a80b178",
     "src/fdai/core/ontology_explorer.py": "013a0fb74b5f42ce905408eba84710d33ed4c45fb1a0cdcb02a059fcd353f950",
-    "src/fdai/core/operational_context/__init__.py": "b59a28603bf43e86d180ea500f2251bfb1822e491735d51ef1a37271377e6b16",
-    "src/fdai/core/operational_context/materializer.py": "ef4896cf55b4748974fd1fde30bb33dfceb4a6e5a9f0229f329c5eb8993cacfa",
-    "src/fdai/core/operational_context/models.py": "32779758c30c609710842b83fe23082c0b8c2db8f3483838efb45e91b5868dc8",
+    "src/fdai/core/operational_context/__init__.py": "3e1986b8cd94ee1c31c06a2aecb94144ce22357db1e5e8cd88c312fdf5e7c49e",
+    "src/fdai/core/operational_context/materializer.py": "ecbbe1bb318422cc422f4aadd1a58e5d6b4aba57654114d67fed63d4cf79b651",
+    "src/fdai/core/operational_context/models.py": "2cc15fad356115696374ea53806dce7e8389bbdb76eb500659720a78645dbbc4",
     "src/fdai/core/operational_context/projector.py": "5efb88358a46952ce75c2aa4a0c69a1f01f305ee30e75006b35a7522c0ce0b70",
     "src/fdai/core/operational_learning/__init__.py": "e145cb852510b3a0218582d2df97cce445601b1d08425ce89867900a5a60b1ae",
     "src/fdai/core/operational_learning/patterns.py": "2b3b56e1a18a306a44944919a3c8c8ee76413f01fa307b09afdd3bb2b93531b4",
@@ -877,7 +877,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T14:58:43Z",
+  "generated_at": "2026-07-31T15:26:03Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

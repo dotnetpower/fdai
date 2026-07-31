@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 680ba0d6f90c41d5f7645a517f975bf68e402f88
+translation_source_sha: 8f52304c3c0d4e6fdfd19cd8bba65a0006b1dfc3
 translation_revised: 2026-07-31
 ---
 # FDAI 운영 온톨로지
@@ -240,6 +240,17 @@ authority가 아니라 projection contract입니다. 최소한 다음을 포함�
 - active change, experiment, incident, maintenance window;
 - current observation과 bounded forecast;
 - source freshness, provenance, unresolved conflict, catalog version.
+
+Snapshot은 데이터 표면을 넓히지 않으면서 replay lineage를 보존합니다. 도달 가능한 각 context
+object에 대해 object id, type, revision, target resource에서 시작하는 하나의 결정론적 최단 typed
+path를 기록합니다. 각 source의 observation time과 허용된 maximum age도 유지합니다. Snapshot
+identity는 이러한 revision, path, freshness receipt, stale-source 결과, conflict를 포함하므로
+topology, revision 또는 freshness가 바뀌면 이전 identity를 재사용할 수 없습니다. Raw object
+property는 권위 있는 provider에 남으며 snapshot에 복사하지 않습니다.
+
+범위가 제한된 traversal이 node limit에 도달하면 근거가 불완전한 상태입니다. Materialization은
+`context_graph_truncated`를 conflict로 기록하고 autonomy ceiling을 `SHADOW_ONLY`로 낮춥니다. 일부
+graph만으로 자동 실행 권한을 유지하지 않습니다.
 
 Forseti는 snapshot에서 `DecisionCase`를 만듭니다. 각 case는 no-action baseline, bounded option,
 expected effect, protected objective, violated constraint, uncertainty, evidence reference를 포함합니다.

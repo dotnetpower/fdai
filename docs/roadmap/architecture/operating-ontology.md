@@ -21,6 +21,8 @@ budgets, evidence, and resource instances.
 > selection and response closure, and O5 balanced cohort intake through Norns and Mimir are
 > implemented. A bounded JSON `OperatingModelProvider` can project deployment instances at startup;
 > its revision and aggregate counts are available through the Reader-gated ontology projection.
+> Context snapshots preserve deterministic typed evidence paths, object revisions, and complete
+> source-freshness receipts without copying raw object properties.
 
 ## Design at a glance
 
@@ -238,6 +240,17 @@ projection contract, not a new authority. At minimum it includes:
 - active changes, experiments, incidents, and maintenance windows;
 - current observations and bounded forecasts;
 - source freshness, provenance, unresolved conflicts, and catalog versions.
+
+The snapshot keeps replay lineage without widening the data surface. For every reachable context
+object, it records the object id, type, revision, and one deterministic shortest typed path from the
+target resource. It also retains each source's observation time and accepted maximum age. The
+snapshot identity covers those revisions, paths, freshness receipts, stale-source results, and
+conflicts, so a topology, revision, or freshness change cannot reuse the prior identity. Raw object
+properties remain in their authoritative provider and are not copied into the snapshot.
+
+A bounded traversal that reaches its node limit is incomplete evidence. Materialization records
+`context_graph_truncated` as a conflict and lowers the autonomy ceiling to `SHADOW_ONLY`; a partial
+graph never preserves automatic execution authority.
 
 Forseti creates a `DecisionCase` from that snapshot. Each case contains the no-action baseline,
 bounded options, expected effects, protected objectives, violated constraints, uncertainty, and
