@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9e2d8bce42d47ebd927e5d037ba294165b58e9f6
-translation_revised: 2026-07-31
+translation_source_sha: f15eabff4642b1b808c8e983ac40c329417559e7
+translation_revised: 2026-08-01
 ---
 
 # 콘솔 근거 및 복원력
@@ -35,6 +35,11 @@ Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있�
 Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는
 current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
 않고 새 current-route default를 만듭니다.
+
+Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는
+transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
+durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
+Digest가 닫혀 있어도 composer는 compact route, 근거 record 수 및 snapshot-age line을 유지합니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께
 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
@@ -211,6 +216,11 @@ provider payload 및 validation result는 변경하지 않습니다.
 않습니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
 및 tool, model call, verification 및 delivery만 timeline에 표시합니다. Primary text는 14 px 이상이고,
 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
+Transcript text는 15 px, trajectory heading과 primary detail은 14 px, control은 13 px을 사용하며 읽기
+metadata는 12 px 아래로 내려가지 않습니다. 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
+명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown
+table은 처음에 body row를 최대 20개 생성하고 sticky heading을 420 px scrolling region에 유지하며,
+명시적으로 펼친 후에만 나머지 row를 렌더링합니다.
 
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
 action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및

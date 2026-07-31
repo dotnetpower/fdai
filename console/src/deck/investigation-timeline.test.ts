@@ -130,7 +130,10 @@ describe("upsertEvidenceBranch", () => {
     expect(presenter).toContain('class="deck-progress-note" role="status"');
     expect(styles).toContain(".deck-progress-note {");
     expect(styles).toMatch(
-      /\.deck-body\s*\{[^}]*grid-template-columns:\s*210px minmax\(760px, 1fr\) 280px/,
+      /\.deck-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
+    expect(styles).toMatch(
+      /\.deck-body\.has-conversations\.has-digest\s*\{[^}]*grid-template-columns:\s*210px minmax\(0, 1fr\) 280px/,
     );
     expect(styles).toMatch(
       /\.deck-investigation-command,[\s\S]*?\.deck-investigation-output\s*\{[^}]*background:\s*#1f2428/,

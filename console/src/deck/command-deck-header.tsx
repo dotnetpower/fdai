@@ -9,7 +9,6 @@ export function CommandDeckHeader({
   routeLabel,
   sessionLabel,
   health,
-  headline,
   searchRef,
   searchQuery,
   searchMatches,
@@ -26,7 +25,6 @@ export function CommandDeckHeader({
   readonly routeLabel: string;
   readonly sessionLabel: string | null;
   readonly health: BackendHealth | null;
-  readonly headline: string;
   readonly searchRef: RefObject<HTMLInputElement>;
   readonly searchQuery: string;
   readonly searchMatches: readonly number[];
@@ -73,7 +71,6 @@ export function CommandDeckHeader({
         <BackendBadge health={health} placement="header" />
       </div>
       <div class="deck-header-center">
-        <div class="deck-header-headline muted">{headline}</div>
         <div class="deck-search" role="search">
           <span class="deck-search-icon" aria-hidden="true">⌕</span>
           <input

@@ -1795,6 +1795,12 @@
     "agentConversations": "에이전트",
     "general": "일반",
     "noConversations": "대화를 시작하면 이 탭의 이력에 표시됩니다.",
+    "filterConversations": "대화 검색",
+    "noConversationMatches": "검색 조건과 일치하는 대화가 없습니다.",
+    "yesterdayAt": "어제 {time}",
+    "workspaceTools": "대화 작업공간 도구",
+    "resumedConversation": "{time}의 대화를 이어서 표시 중",
+    "groundedRecords": "근거 레코드 {count}건",
     "searchConversation": "현재 대화 검색",
     "searchPlaceholder": "대화 내용 검색...",
     "previousMatch": "이전 검색 결과",
@@ -1808,8 +1814,14 @@
     "jumpLatest": "최신 메시지로 이동",
     "slashCommands": "슬래시 명령",
     "inputPlaceholder": "무엇이든 질문하거나 /를 입력해 명령을 사용하세요",
+    "inputPlaceholderContext": "{route}에 대해 무엇이든 질문하거나 /를 입력해 명령을 사용하세요",
     "stop": "중지",
     "send": "보내기",
+    "table": {
+      "rowsShown": "전체 {total}행 중 {shown}행 표시",
+      "showRemaining": "나머지 {count}행 보기",
+      "showPreview": "처음 {count}행만 보기"
+    },
     "attach": {
       "button": "파일 첨부",
       "tray": "첨부한 파일",
@@ -1827,6 +1839,7 @@
     "intro": "현재 표시된 타일, KPI, 승인, 감사 행, 프로모션 상태, 영향 범위 또는 온톨로지에 관해 질문하세요. 모든 답변은 오른쪽 스냅샷을 근거로 합니다.",
     "backend": {
       "probing": "확인 중",
+      "connected": "연결됨",
       "ready": "LLM 준비됨",
       "deterministic": "결정론적"
     },
@@ -1835,6 +1848,53 @@
       "title": "현재 화면 정보",
       "empty": "게시된 화면 스냅샷이 없습니다. Live, 대시보드, 감사, 승인, 추적, 영향 범위, 프로모션 게이트 또는 온톨로지를 여세요.",
       "records": "+ 응답기가 검색할 수 있는 레코드 {count}건{breakdown}.",
+      "freshness": {
+        "justNow": "방금 전",
+        "minutesAgo": "{count}분 전",
+        "hoursAgo": "{count}시간 전",
+        "unknown": "시각 정보 없음",
+        "stale": "오래됨",
+        "refresh": "새로고침"
+      },
+      "group": {
+        "overview": "개요",
+        "page": "화면",
+        "autonomy": "자율 운영",
+        "cost": "비용",
+        "guards": "안전 조건",
+        "facts": "화면 정보"
+      },
+      "factLabel": {
+        "health": "상태",
+        "eventCount": "이벤트",
+        "shadowShare": "Shadow 비율",
+        "t0Share": "T0 비율",
+        "approvalsPending": "승인 대기",
+        "sectionCount": "화면 영역",
+        "measurementState": "측정 상태",
+        "measurementSource": "측정 출처",
+        "measurementSynthetic": "합성 측정",
+        "autoResolutionRate": "자율 해결률",
+        "autoResolutionBaseline": "자율 해결 기준선",
+        "humanTouchpoints": "100건당 사람 개입",
+        "mttr": "평균 복구 시간",
+        "changeLeadTime": "변경 리드타임",
+        "monthlySavings": "월간 절감액",
+        "costActions": "비용 작업",
+        "policyEscapes": "정책 이탈",
+        "promotionReady": "승격 준비"
+      },
+      "value": {
+        "attention": "확인 필요",
+        "healthy": "정상",
+        "measured": "측정됨",
+        "simulated": "시뮬레이션",
+        "unavailable": "사용 불가",
+        "notConnected": "연결 안 됨",
+        "notAvailable": "정보 없음",
+        "yes": "예",
+        "no": "아니요"
+      },
       "fact": {
         "eps": "제어 루프가 처리 중인 초당 이벤트 수입니다(60초 이동값).",
         "sessionTotal": "현재 Live 세션이 시작된 후 확인한 전체 이벤트 수입니다.",
@@ -1994,7 +2054,7 @@
       "duration": "소요 시간"
     },
     "trajectory": {
-      "title": "관찰된 트래젝터리",
+      "title": "관찰된 처리 과정",
       "summary": "모델 호출 {models}건 / 근거 {successful}/{attempted}건 / 검증 {verification}",
       "sequenceOnly": "인과 순서",
       "phaseLabel": "질문부터 답변까지의 트래젝터리 단계",

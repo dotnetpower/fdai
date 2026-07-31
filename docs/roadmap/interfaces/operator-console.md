@@ -130,6 +130,12 @@ flowchart TD
   Teams keeps the Adaptive Card under 24,000 bytes, counts omitted activities, and always retains
   the final accountable-agent answer. Renderers distinguish producer-side partial evidence with
   `[UPSTREAM OUTPUT TRUNCATED]` from vendor-limit clipping with `[CHANNEL OUTPUT TRUNCATED]`.
+  Full-workspace web chat opens transcript-first. Conversation history and the current-screen
+  digest are explicit toolbar panels rather than permanent columns, while the composer always
+  shows the active route, grounded-record count, and snapshot age. A restored transcript is marked
+  with its last recorded time and a visible new-conversation action. Markdown tables render a
+  20-row preview in a bounded scrolling region and create the remaining rows only after the
+  operator expands them.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol. A narrator that also implements `GroundedAnswerNarrator` receives a completed

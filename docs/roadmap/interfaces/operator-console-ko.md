@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 33ea5d5fbb3a86c6d930e2f5caa927d2f25d53dd
-translation_revised: 2026-07-31
+translation_source_sha: eb49df014cf2b4f46a938c960f763ee44014f3e1
+translation_revised: 2026-08-01
 ---
 
 # 오퍼레이터 콘솔 (Conversational)
@@ -128,6 +128,11 @@ flowchart TD
   answer를 항상 보존합니다. Renderer는 producer-side partial evidence를
   `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
   구분합니다.
+  Full-workspace 웹 채팅은 transcript 중심으로 열립니다. 대화 이력과 현재 화면 digest는 항상
+  표시되는 열이 아니라 명시적인 toolbar panel이며, composer는 활성 route, 근거 record 수 및
+  snapshot age를 항상 표시합니다. 복원된 transcript에는 마지막 기록 시각과 새 대화 작업을
+  표시합니다. Markdown table은 bounded scrolling 영역에 20행 preview를 렌더링하고 operator가
+  펼친 후에만 나머지 행을 생성합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
   Protocol을 사용합니다. `GroundedAnswerNarrator`도 구현하는 narrator는 완료된 성공

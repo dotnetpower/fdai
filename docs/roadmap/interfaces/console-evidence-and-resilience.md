@@ -33,6 +33,12 @@ Removing the active cached conversation selects only a current-route default (in
 `screen` key) or current-route thread. If neither exists, the console creates a new current-route
 default instead of activating an unrelated-route or agent transcript.
 
+Full-workspace Command Deck sessions start with the transcript as the only open content column.
+The operator can open filtered conversation history or the current-screen digest from the transcript
+toolbar. A transcript restored from browser or durable history shows a resumed-session marker until
+the operator starts a new conversation. The composer retains a compact route, grounded-record count,
+and snapshot-age line even while the digest is closed.
+
 The shared page title renders the domain and panel labels when they differ, including
 `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
@@ -210,6 +216,11 @@ provider payloads, and validation results remain unchanged.
 Each completed Command Deck question exposes one collapsed observed trajectory. Its status overview distinguishes completed, corrected, degraded, failed, unverified, running, and unobserved phases; record presence isn't success.
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
 Primary text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
+The transcript uses 15 px text, trajectory headings and primary detail use 14 px, controls use 13 px,
+and readable metadata never drops below 12 px. A published screen snapshot becomes visibly stale
+after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.
+Markdown tables initially create at most 20 body rows, retain sticky headings in a 420 px scrolling
+region, and render the remaining rows only after an explicit expansion.
 
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer

@@ -5933,14 +5933,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.deck-header-headline {
-  font-size: 12.5px;
-  text-align: center;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .deck-header-center {
   grid-area: center;
   min-width: 0;
@@ -5949,7 +5941,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   justify-content: center;
   gap: 12px;
 }
-.deck-header-center .deck-header-headline { flex: 1 1 auto; }
 .deck-search {
   flex: 0 1 320px;
   min-width: 180px;
@@ -6023,13 +6014,22 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 /* Body: conversation history + transcript + digest ------------------- */
 .deck-body {
   display: grid;
-  grid-template-columns: 210px minmax(760px, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
 }
+.deck-body.has-conversations { grid-template-columns: 210px minmax(0, 1fr); }
+.deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }
+.deck-body.has-conversations.has-digest { grid-template-columns: 210px minmax(0, 1fr) 280px; }
+.deck-transcript-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.deck-transcript-tools { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 6px 20px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
+.deck-transcript-tools button { min-height: 36px; padding: 7px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--fg-muted); font: inherit; font-size: 13px; cursor: pointer; }
+.deck-transcript-tools button:hover, .deck-transcript-tools button[aria-pressed="true"] { border-color: var(--border); background: var(--bg); color: var(--fg); }
+.deck-transcript-tools button span { margin-left: 4px; color: var(--fg-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 @media (max-width: 1399px) {
-  .deck-body { grid-template-columns: 200px minmax(760px, 1fr); }
-  .deck-digest { display: none; }
+  .deck-body.has-conversations { grid-template-columns: 200px minmax(0, 1fr); }
+  .deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 250px; }
+  .deck-body.has-conversations.has-digest { grid-template-columns: 200px minmax(0, 1fr) 250px; }
 }
 .deck-conversations {
   min-width: 0;
@@ -6079,6 +6079,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
   background: color-mix(in oklab, var(--accent) 8%, transparent);
 }
+.deck-conversation-filter { width: 100%; min-height: 36px; margin-bottom: 10px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; }
+.deck-conversation-filter:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .deck-conversation-list { display: flex; flex-direction: column; gap: 4px; }
 .deck-conversation-group {
   display: flex;
@@ -6197,10 +6199,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   line-height: 1.5;
 }
 .deck-trajectory {
-  --deck-font-heading: 1.0625rem;
-  --deck-font-body: 1rem;
-  --deck-font-small: .9375rem;
-  --deck-font-label: .875rem;
+  --deck-font-heading: 14px;
+  --deck-font-body: 14px;
+  --deck-font-small: 12px;
+  --deck-font-label: 12px;
   margin-top: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -6508,6 +6510,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 16px;
   font-size: 15px;
 }
+.deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
+.deck-resume-banner button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .deck-jump {
   position: sticky;
   bottom: 8px;
@@ -6554,7 +6558,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--accent);
   font-weight: 700;
 }
-.deck-digest-meta { font-size: 11px; }
+.deck-context-freshness { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.deck-context-freshness time { color: var(--fg-muted); white-space: nowrap; }
+.deck-context-freshness[data-state="stale"] time { color: var(--warning); }
+.deck-context-stale { padding: 2px 5px; border-radius: 4px; background: color-mix(in oklab, var(--warning) 12%, transparent); color: var(--warning); font-size: 11px; font-weight: 700; }
+.deck-context-freshness button { min-height: 28px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--fg); font: inherit; font-size: 11px; cursor: pointer; }
+.deck-context-freshness button:hover { border-color: var(--warning); }
 .deck-digest-body { display: flex; flex-direction: column; gap: 12px; }
 .deck-digest-group-title {
   margin: 0 0 4px;
@@ -7875,7 +7884,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border: 1px solid color-mix(in oklab, var(--accent) 20%, transparent);
 }
 
-.deck-table-wrap { overflow-x: auto; }
+.deck-table-block { display: grid; gap: 6px; }
+.deck-table-wrap { max-height: 420px; overflow: auto; }
 .deck-table {
   border-collapse: collapse;
   width: 100%;
@@ -7892,12 +7902,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   white-space: nowrap;
 }
 .deck-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: color-mix(in oklab, var(--accent) 10%, var(--bg-elevated));
   color: var(--fg);
   font-weight: 600;
 }
 .deck-table tbody tr:last-child td { border-bottom: 0; }
 .deck-table tbody tr:hover td { background: color-mix(in oklab, var(--accent) 6%, transparent); }
+.deck-table-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--fg-muted); font-size: 12px; }
+.deck-table-meta button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; }
+.deck-table-meta button:hover { border-color: var(--accent); color: var(--accent-strong); }
 
 .deck-chart {
   margin: 0;
@@ -8231,6 +8247,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: var(--bg-elevated);
   position: relative;
 }
+.deck-composer-scope { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--fg-muted); font-size: 12px; }
+.deck-composer-scope strong { overflow: hidden; color: var(--fg); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.deck-composer-scope > span::before { content: "\00b7"; margin-right: 8px; }
+.deck-composer-scope .deck-context-freshness { margin-left: auto; }
+.deck-overlay-mode-floating .deck-transcript-tools,
+.deck-overlay-mode-dock .deck-transcript-tools { display: none; }
 /* Slash-command hint palette - floats just above the composer, never inside
  * the input grid so it cannot disturb the textarea / actions layout. */
 .deck-slash-palette {
@@ -8280,7 +8302,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 10px 14px;
   font: inherit;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.5;
   background: var(--bg);
   color: var(--fg);
   min-height: 40px;
@@ -8311,6 +8333,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-btn:hover:not(:disabled) {
   border-color: var(--fg-muted);
 }
+.deck-btn:focus-visible,
+.deck-transcript-tools button:focus-visible,
+.deck-resume-banner button:focus-visible,
+.deck-table-meta button:focus-visible,
+.deck-context-freshness button:focus-visible,
+.deck-conversation-filter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.deck-slash-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .deck-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .deck-btn-primary {
   background: var(--accent);
@@ -8473,13 +8505,78 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-color: color-mix(in oklab, var(--danger, #b3261e) 40%, transparent);
 }
 
+/* Readable Command Deck text uses a four-step scale: 15px transcript,
+ * 14px primary detail, 13px controls, and 12px metadata. Decorative avatar
+ * initials and check marks are excluded because they don't carry prose. */
+.deck-invoke-kbd,
+.deck-backend,
+.deck-backend-invoke,
+.deck-session-exit,
+.deck-search-count,
+.deck-search kbd,
+.deck-conversations-head,
+.deck-conversation-group h3,
+.deck-conversation-copy small,
+.deck-conversation-empty,
+.deck-digest-title,
+.deck-context-stale,
+.deck-context-freshness button,
+.deck-digest-group-title,
+.deck-digest-tip,
+.deck-digest-row dt,
+.deck-digest-records,
+.deck-answer-state,
+.deck-turn-role,
+.deck-turn-source,
+.deck-investigation-head > span,
+.deck-investigation-badge,
+.deck-investigation-activity-disclosure > summary,
+.deck-investigation-state,
+.deck-investigation-copy small,
+.deck-investigation-meta,
+.deck-investigation-command-head,
+.deck-investigation-result,
+.deck-investigation-disclosure > summary,
+.deck-investigation-timestamps,
+.deck-rt-sub,
+.deck-rt-elapsed,
+.deck-rt-detail,
+.deck-rt-side,
+.deck-rt-sources-label,
+.deck-rt-badge,
+.deck-llm-escalation-label,
+.deck-llm-escalation-timing,
+.deck-gr-tool,
+.deck-verification,
+.deck-gr-pill,
+.deck-gr-src,
+.deck-gr-stat.is-model,
+.deck-gr-trace-side,
+.deck-src-num,
+.deck-src-path,
+.deck-cite-chip,
+.deck-turn-time,
+.deck-code-lang,
+.deck-code-copy,
+.deck-code-streaming,
+.deck-code-validation,
+.deck-code-evidence-foot,
+.deck-citation,
+.deck-attach-meta,
+.deck-attach-status {
+  font-size: 12px;
+}
+
 @media (max-width: 1100px) {
+  .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }
+  .deck-body.has-conversations.has-digest { grid-template-columns: 200px minmax(0, 1fr); }
   .deck-digest { display: none; }
+  .deck-panel-toggle-context { display: none; }
 }
 
 @media (max-width: 900px) {
-  .deck-body { min-width: 0; grid-template-columns: 200px minmax(0, 1fr); }
-  .deck-digest { display: none; }
+  .deck-body { min-width: 0; }
+  .deck-body.has-conversations { grid-template-columns: 200px minmax(0, 1fr); }
   .deck-transcript,
   .deck-turn,
   .deck-gr,
@@ -8489,8 +8586,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 @media (max-width: 780px) {
   .deck-body {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
+  .deck-body.has-conversations { grid-template-rows: auto minmax(0, 1fr); }
   .deck-conversations {
     overflow: visible;
     padding: 8px 12px;
@@ -8540,10 +8638,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     flex-wrap: wrap;
     gap: 5px;
   }
-  .deck-header-headline {
-    grid-area: headline;
-    text-align: left;
-  }
   .deck-header-center {
     grid-area: headline;
     display: grid;
@@ -8565,6 +8659,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     white-space: nowrap;
   }
   .deck-transcript { padding: 16px 12px 8px; }
+  .deck-transcript-tools { overflow-x: auto; padding-inline: 12px; }
+  .deck-transcript-tools button { flex: 0 0 auto; min-height: 40px; }
   .deck-turn { padding: 10px 12px; }
   .deck-turn-head { flex-wrap: wrap; gap: 5px 8px; }
   .deck-gr-pill {
@@ -8576,8 +8672,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     gap: 8px;
     padding: 10px 12px 12px;
   }
+  .deck-composer-scope { flex-wrap: wrap; }
+  .deck-composer-scope .deck-context-freshness { width: 100%; margin-left: 0; }
   .deck-input-actions { justify-content: flex-end; }
   .deck-btn { min-height: 40px; }
+}
+
+@media (max-width: 360px) {
+  .deck-resume-banner { align-items: stretch; flex-direction: column; }
+  .deck-resume-banner button { width: 100%; min-height: 40px; }
+  .deck-table th,
+  .deck-table td { padding: 5px 7px; }
 }
 
 /* Motion-sensitivity: collapse every command-deck animation to a jump-cut so

@@ -1,5 +1,5 @@
 import type { RefObject } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
 import {
   PREFERENCES_CHANGED_EVENT,
@@ -16,6 +16,8 @@ import { DigestList } from "./command-deck-digest";
 import { CommandDeckLauncher } from "./command-deck-launcher";
 import { CommandDeckHeader } from "./command-deck-header";
 import { ComposerAttachments } from "./composer-attachments.view";
+import { ContextFreshnessIndicator } from "./context-freshness";
+import { resumedConversationAt } from "./conversation-resume";
 import { clampDockWidth, type DeckLayoutMode } from "./command-deck-session";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
@@ -28,7 +30,6 @@ interface CommandDeckViewProps {
   readonly layoutMode: DeckLayoutMode;
   readonly dragging: boolean;
   readonly routeLabel: string;
-  readonly headline: string;
   readonly health: BackendHealth | null;
   readonly sessionLabel: string | null;
   readonly deckStyle: Record<string, string> | undefined;
@@ -82,7 +83,6 @@ export function CommandDeckView({
   layoutMode,
   dragging,
   routeLabel,
-  headline,
   health,
   sessionLabel,
   deckStyle,
@@ -139,6 +139,23 @@ export function CommandDeckView({
     window.addEventListener(PREFERENCES_CHANGED_EVENT, sync);
     return () => window.removeEventListener(PREFERENCES_CHANGED_EVENT, sync);
   }, []);
+  const [showConversations, setShowConversations] = useState(false);
+  const [showDigest, setShowDigest] = useState(false);
+  const openedAtRef = useRef(Date.now());
+  const processedResumeKeysRef = useRef(new Set<string>());
+  const [resumedAtBySession, setResumedAtBySession] = useState<Readonly<Record<string, string>>>({});
+  useEffect(() => {
+    if (turns.length === 0 || processedResumeKeysRef.current.has(sessionKey)) return;
+    const resumedAt = resumedConversationAt(turns, openedAtRef.current);
+    processedResumeKeysRef.current.add(sessionKey);
+    if (resumedAt) {
+      setResumedAtBySession((current) => ({ ...current, [sessionKey]: resumedAt }));
+    }
+  }, [sessionKey, turns]);
+  const resumedAt = resumedAtBySession[sessionKey];
+  const recordCount = snapshot?.records
+    ? Object.values(snapshot.records).reduce((count, records) => count + records.length, 0)
+    : 0;
   return (
     <>
       <CommandDeckLauncher
@@ -176,7 +193,6 @@ export function CommandDeckView({
             routeLabel={routeLabel}
             sessionLabel={sessionLabel}
             health={health}
-            headline={headline}
             searchRef={searchRef}
             searchQuery={searchQuery}
             searchMatches={searchMatches}
@@ -195,25 +211,54 @@ export function CommandDeckView({
             {srStatus}
           </div>
 
-          <div class="deck-body">
-            <ConversationSidebar
-              conversations={conversations}
-              activeKey={sessionKey}
-              currentPath={currentPath}
-              onNew={onNewConversation}
-              onRemove={onRemoveConversation}
-              onSelect={onSelectConversation}
-            />
-            <section
-              class="deck-transcript"
-              ref={scrollerRef}
-              aria-label={t("deck.conversation")}
-              role="log"
-              aria-live="polite"
-              aria-relevant="additions"
-              aria-busy={pending}
-              onScroll={onTranscriptScroll}
-            >
+          <div class={`deck-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}>
+            {showConversations ? (
+              <ConversationSidebar
+                conversations={conversations}
+                activeKey={sessionKey}
+                currentPath={currentPath}
+                onNew={onNewConversation}
+                onRemove={onRemoveConversation}
+                onSelect={onSelectConversation}
+              />
+            ) : null}
+            <div class="deck-transcript-column">
+              <div class="deck-transcript-tools" role="toolbar" aria-label={t("deck.workspaceTools")}>
+                <button type="button" onClick={onNewConversation}>+ {t("deck.newConversation")}</button>
+                <button
+                  type="button"
+                  aria-pressed={showConversations}
+                  onClick={() => setShowConversations((visible) => !visible)}
+                >
+                  {t("deck.conversations")} <span>{conversations.length}</span>
+                </button>
+                <button
+                  type="button"
+                  class="deck-panel-toggle-context"
+                  aria-pressed={showDigest}
+                  onClick={() => setShowDigest((visible) => !visible)}
+                >
+                  {t("deck.digest.title")} <span>{recordCount}</span>
+                </button>
+              </div>
+              <section
+                class="deck-transcript"
+                ref={scrollerRef}
+                aria-label={t("deck.conversation")}
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions"
+                aria-busy={pending}
+                onScroll={onTranscriptScroll}
+              >
+              {resumedAt ? (
+                <div class="deck-resume-banner" role="status">
+                  <span>{t("deck.resumedConversation", {
+                    time: new Date(resumedAt).toLocaleString(),
+                  })}</span>
+                  <button type="button" onClick={onNewConversation}>{t("deck.newConversation")}</button>
+                </div>
+              ) : null}
               {turns.length === 0 ? (
                 <IntroPanel snapshot={snapshot} onPick={onSubmit} />
               ) : null}
@@ -254,17 +299,16 @@ export function CommandDeckView({
                   {t("deck.jumpLatest")} ↓
                 </button>
               ) : null}
-            </section>
+              </section>
+            </div>
 
-            <aside class="deck-digest" aria-label={t("deck.digest.label")}>
+            {showDigest ? <aside class="deck-digest" aria-label={t("deck.digest.label")}>
               <div class="deck-digest-header">
                 <span class="deck-digest-title">{t("deck.digest.title")}</span>
-                <span class="deck-digest-meta muted">
-                  {snapshot ? new Date(snapshot.capturedAt).toLocaleTimeString() : "-"}
-                </span>
+                {snapshot ? <ContextFreshnessIndicator capturedAt={snapshot.capturedAt} /> : null}
               </div>
               <DigestList snapshot={snapshot} />
-            </aside>
+            </aside> : null}
           </div>
 
           <form
@@ -295,11 +339,16 @@ export function CommandDeckView({
                 ))}
               </ul>
             ) : null}
+            <div class="deck-composer-scope">
+              <strong>{routeLabel}</strong>
+              <span>{t("deck.groundedRecords", { count: recordCount })}</span>
+              {snapshot ? <ContextFreshnessIndicator capturedAt={snapshot.capturedAt} /> : null}
+            </div>
             <ComposerAttachments />
             <textarea
               ref={inputRef}
               class="deck-input"
-              placeholder={t("deck.inputPlaceholder")}
+              placeholder={t("deck.inputPlaceholderContext", { route: routeLabel })}
               value={draft}
               rows={1}
               onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}

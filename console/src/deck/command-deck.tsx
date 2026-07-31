@@ -278,7 +278,6 @@ export function CommandDeck() {
     cancelActiveRequest,
   });
 
-  const headline = snapshot?.headline ?? "Idle. Open any route to publish a view snapshot.";
   const routeLabel = snapshot?.routeLabel ?? t("deck.label");
 
   return (
@@ -287,7 +286,6 @@ export function CommandDeck() {
       layoutMode={layoutMode}
       dragging={dragging}
       routeLabel={routeLabel}
-      headline={headline}
       health={health}
       sessionLabel={sessionLabel}
       deckStyle={deckStyle}

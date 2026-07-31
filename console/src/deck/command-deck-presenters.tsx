@@ -151,7 +151,13 @@ export function ConversationSidebar({
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
 }) {
-  const groups = conversationGroups(conversations, currentPath);
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleConversations = normalizedQuery
+    ? conversations.filter((conversation) =>
+        `${conversation.label} ${conversation.originLabel}`.toLocaleLowerCase().includes(normalizedQuery))
+    : conversations;
+  const groups = conversationGroups(visibleConversations, currentPath);
   return (
     <aside class="deck-conversations" aria-label={t("deck.conversations")}>
       <div class="deck-conversations-head">
@@ -162,9 +168,19 @@ export function ConversationSidebar({
         <span aria-hidden="true">+</span>
         {t("deck.newConversation")}
       </button>
+      <input
+        class="deck-conversation-filter"
+        type="search"
+        value={query}
+        aria-label={t("deck.filterConversations")}
+        placeholder={t("deck.filterConversations")}
+        onInput={(event) => setQuery(event.currentTarget.value)}
+      />
       <div class="deck-conversation-list">
-        {conversations.length === 0 ? (
-          <p class="deck-conversation-empty">{t("deck.noConversations")}</p>
+        {visibleConversations.length === 0 ? (
+          <p class="deck-conversation-empty">
+            {conversations.length === 0 ? t("deck.noConversations") : t("deck.noConversationMatches")}
+          </p>
         ) : (
           <>
             <ConversationGroup
@@ -246,7 +262,7 @@ function ConversationGroup({
                 {showOrigin && conversation.originLabel !== conversation.label
                   ? `${conversation.originLabel} · `
                   : ""}
-                {new Date(conversation.updatedAt).toLocaleString()}
+                {conversationTimeLabel(conversation.updatedAt)}
               </small>
             </span>
           </button>
@@ -266,6 +282,20 @@ function ConversationGroup({
       ))}
     </section>
   );
+}
+
+export function conversationTimeLabel(value: string, nowMs: number = Date.now()): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const now = new Date(nowMs);
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (date.toDateString() === now.toDateString()) return time;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return t("deck.yesterdayAt", { time });
+  }
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 export function TurnBubble({
@@ -395,11 +425,7 @@ export function BackendBadge({
   }
   if (health.available) {
     const routed = health.router;
-    const label = routed
-      ? `LLM · auto(${routed.candidates.length}) · ${routed.chose}`
-      : health.model
-        ? `LLM · ${health.model}`
-        : t("deck.backend.ready");
+    const label = t("deck.backend.connected");
       const base = `${t("deck.tooltip.chatMode", { mode: health.mode })}${
       health.endpoint ? ` · ${health.endpoint}` : ""
     }`;

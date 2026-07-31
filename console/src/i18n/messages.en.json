@@ -1795,6 +1795,12 @@
     "agentConversations": "Agents",
     "general": "General",
     "noConversations": "Start a conversation to keep it in this tab's history.",
+    "filterConversations": "Filter conversations",
+    "noConversationMatches": "No conversations match this filter.",
+    "yesterdayAt": "Yesterday {time}",
+    "workspaceTools": "Conversation workspace tools",
+    "resumedConversation": "Resumed conversation from {time}",
+    "groundedRecords": "{count} grounded records",
     "searchConversation": "Search this conversation",
     "searchPlaceholder": "Search turns...",
     "previousMatch": "Previous match",
@@ -1808,8 +1814,14 @@
     "jumpLatest": "Jump to latest",
     "slashCommands": "Slash commands",
     "inputPlaceholder": "Ask anything, or type / for commands",
+    "inputPlaceholderContext": "Ask anything about {route}, or type / for commands",
     "stop": "Stop",
     "send": "Send",
+    "table": {
+      "rowsShown": "Showing {shown} of {total} rows",
+      "showRemaining": "Show {count} more rows",
+      "showPreview": "Show first {count} rows"
+    },
     "attach": {
       "button": "Attach a file",
       "tray": "Attached files",
@@ -1827,6 +1839,7 @@
     "intro": "Ask about anything currently visible - tiles, KPIs, approvals, audit rows, promotion status, impact scope, or ontology. I ground every answer in the snapshot on the right.",
     "backend": {
       "probing": "probing",
+      "connected": "Connected",
       "ready": "LLM ready",
       "deterministic": "deterministic"
     },
@@ -1835,6 +1848,53 @@
       "title": "What I see",
       "empty": "No route has published a view snapshot. Open Live, Dashboard, Audit, Approvals, Trace, Impact scope, Promotion gates, or Ontology.",
       "records": "+ {count} record(s) available for the answerer to search{breakdown}.",
+      "freshness": {
+        "justNow": "just now",
+        "minutesAgo": "{count} min ago",
+        "hoursAgo": "{count} hr ago",
+        "unknown": "time unavailable",
+        "stale": "stale",
+        "refresh": "Refresh"
+      },
+      "group": {
+        "overview": "Overview",
+        "page": "Page",
+        "autonomy": "Autonomy",
+        "cost": "Cost",
+        "guards": "Guards",
+        "facts": "Facts"
+      },
+      "factLabel": {
+        "health": "Health",
+        "eventCount": "Events",
+        "shadowShare": "Shadow share",
+        "t0Share": "T0 share",
+        "approvalsPending": "Approvals pending",
+        "sectionCount": "Sections",
+        "measurementState": "Measurement state",
+        "measurementSource": "Measurement source",
+        "measurementSynthetic": "Synthetic measurement",
+        "autoResolutionRate": "Auto-resolution rate",
+        "autoResolutionBaseline": "Auto-resolution baseline",
+        "humanTouchpoints": "Human touchpoints per 100",
+        "mttr": "Mean time to recovery",
+        "changeLeadTime": "Change lead time",
+        "monthlySavings": "Monthly savings",
+        "costActions": "Cost actions",
+        "policyEscapes": "Policy escapes",
+        "promotionReady": "Promotion ready"
+      },
+      "value": {
+        "attention": "Needs attention",
+        "healthy": "Healthy",
+        "measured": "Measured",
+        "simulated": "Simulated",
+        "unavailable": "Unavailable",
+        "notConnected": "Not connected",
+        "notAvailable": "Not available",
+        "yes": "Yes",
+        "no": "No"
+      },
       "fact": {
         "eps": "Events per second the control loop is processing (60s rolling).",
         "sessionTotal": "Total events seen since this live session started.",
@@ -1994,7 +2054,7 @@
       "duration": "Duration"
     },
     "trajectory": {
-      "title": "Observed trajectory",
+      "title": "Observed process",
       "summary": "{models} model calls / evidence {successful}/{attempted} / verification {verification}",
       "sequenceOnly": "causal sequence",
       "phaseLabel": "Question-to-answer trajectory phases",
