@@ -275,6 +275,23 @@ def test_invalid_id_pattern_is_rejected() -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+def test_schema_version_must_match_bundled_schema() -> None:
+    payload = {
+        "schema_version": "2.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.vm",
+                "category": "compute",
+                "description": "Virtual machine",
+            }
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="schema_version"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_get_and_iter_agree_with_ids() -> None:
     registry = _shipped()
     seen_ids: list[str] = []

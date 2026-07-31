@@ -257,6 +257,9 @@ Add a new entry to
 under the appropriate category, including `azure_arm_type` and
 `typical_parents`.
 
+Keep top-level `schema_version` equal to the version suffix in the bundled JSON Schema `$id`.
+Change `version` for compatible vocabulary-content revisions.
+
 - Add bounded English and Korean `query_terms` when operators need to select the type in an
   inventory question. The catalog loader rejects a normalized term owned by two types, so adding
   the entry never requires a Python alias change and never creates an implicit ambiguity.

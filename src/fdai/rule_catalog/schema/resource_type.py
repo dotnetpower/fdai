@@ -197,6 +197,15 @@ def load_resource_type_registry_from_mapping(
     issues: list[ResourceTypeIssue] = []
 
     schema = _load_json_schema()
+    schema_id = schema.get("$id")
+    bundled_schema_version = schema_id.rsplit("/", 1)[-1] if isinstance(schema_id, str) else ""
+    if raw.get("schema_version") != bundled_schema_version:
+        issues.append(
+            ResourceTypeIssue(
+                key="schema_version",
+                message=f"must match bundled schema version {bundled_schema_version!r}",
+            )
+        )
     validator = Draft202012Validator(schema)
     for err in sorted(validator.iter_errors(dict(raw)), key=lambda e: list(e.path)):
         path = ".".join(str(p) for p in err.absolute_path) or "<root>"
