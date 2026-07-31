@@ -259,7 +259,8 @@ under the appropriate category, including `azure_arm_type` and
 
 Keep top-level `schema_version` equal to the version suffix in the bundled JSON Schema `$id`.
 Change `version` for compatible vocabulary-content revisions.
-Every `typical_parents` value must resolve to another entry in the same combined registry.
+Every `typical_parents` value must resolve to another entry in the same combined registry, and the
+resulting parent graph must remain acyclic.
 
 - Add bounded English and Korean `query_terms` when operators need to select the type in an
   inventory question. The catalog loader rejects a normalized term owned by two types, so adding

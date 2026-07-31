@@ -209,6 +209,42 @@ def _unknown_typical_parents(
     return sorted(unknown)
 
 
+def _typical_parent_cycle(entries: Iterable[Mapping[str, Any]]) -> tuple[str, ...]:
+    graph = {
+        str(entry["id"]): tuple(
+            parent for parent in entry.get("typical_parents", ()) if isinstance(parent, str)
+        )
+        for entry in entries
+        if isinstance(entry.get("id"), str) and isinstance(entry.get("typical_parents", ()), list)
+    }
+    visited: set[str] = set()
+    active: list[str] = []
+    active_set: set[str] = set()
+
+    def visit(node: str) -> tuple[str, ...]:
+        if node in active_set:
+            start = active.index(node)
+            return (*active[start:], node)
+        if node in visited:
+            return ()
+        active.append(node)
+        active_set.add(node)
+        for parent in sorted(graph.get(node, ())):
+            cycle = visit(parent)
+            if cycle:
+                return cycle
+        active.pop()
+        active_set.remove(node)
+        visited.add(node)
+        return ()
+
+    for node in sorted(graph):
+        cycle = visit(node)
+        if cycle:
+            return cycle
+    return ()
+
+
 def load_resource_type_registry_from_mapping(
     raw: Mapping[str, Any],
 ) -> ResourceTypeRegistry:
@@ -275,6 +311,13 @@ def load_resource_type_registry_from_mapping(
                 ResourceTypeIssue(
                     key=f"types[id={entry_id}].typical_parents",
                     message=f"unknown typical_parent {parent!r}",
+                )
+            )
+        if cycle := _typical_parent_cycle(entries):
+            issues.append(
+                ResourceTypeIssue(
+                    key="typical_parents",
+                    message=f"typical_parent cycle detected: {' -> '.join(cycle)}",
                 )
             )
 

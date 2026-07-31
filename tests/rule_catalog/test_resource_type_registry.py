@@ -218,6 +218,30 @@ def test_loader_rejects_unknown_typical_parent() -> None:
         load_resource_type_registry_from_mapping(payload)
 
 
+def test_loader_rejects_typical_parent_cycle() -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "version": "0.0.1",
+        "types": [
+            {
+                "id": "compute.one",
+                "category": "compute",
+                "description": "one",
+                "typical_parents": ["compute.two"],
+            },
+            {
+                "id": "compute.two",
+                "category": "compute",
+                "description": "two",
+                "typical_parents": ["compute.one"],
+            },
+        ],
+    }
+
+    with pytest.raises(ResourceTypeRegistryError, match="typical_parent cycle"):
+        load_resource_type_registry_from_mapping(payload)
+
+
 def test_only_subscription_has_no_parents() -> None:
     """`subscription` is the graph root; everyone else `contains`-descends from it."""
     registry = _shipped()
