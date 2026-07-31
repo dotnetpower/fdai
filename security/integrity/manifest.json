@@ -172,7 +172,7 @@
     "src/fdai/core/conversation/_write_runbook_tool.py": "95354a15932f4a0cdeafa8451766629936eab9cbafff23abba2a509a95209b23",
     "src/fdai/core/conversation/_write_simulation_tool.py": "8ab311b9f2afbfc0464a6031b7da2b89c7687cb2ba7e94924a9cfd7b3ae7b4ed",
     "src/fdai/core/conversation/adapter_health.py": "cde8871557416e5757b4138a2f7272c1eb74c5f04d46f71e18980e4eb7565fe3",
-    "src/fdai/core/conversation/answer_plan.py": "dfb3c1f1ce4b5e22b0c11222321f6e7e972ef5374e8d53307650e62344a94e9e",
+    "src/fdai/core/conversation/answer_plan.py": "77546cf5d4dc6404acd1471480943e870ff9380e740b7d6a7074cab47eef29d1",
     "src/fdai/core/conversation/answer_planning.py": "a80ac28b96baea5701be63955653daa53d584e9c0be54f964fce056f8cfb1ef4",
     "src/fdai/core/conversation/answer_preferences.py": "9f398dc1f438fde5ec51d97c14cddd815849c34a3a6d7252368ee861d177e041",
     "src/fdai/core/conversation/attachment_directive.py": "7349c3fd7d4aa72b877457ad47ba5ddbbe5490ba3e7d44cd1e86b87399b81c6c",
@@ -826,12 +826,12 @@
     "src/fdai/shared/providers/tool.py": "6d95b4476742c2a4d852541be874f2108a519ac01b70bf7396276c4094c342e8",
     "src/fdai/shared/providers/trace_query.py": "97688d3bfb542c94db6bdaf46364b55b5137fa55172fd4fe0b49f1670feee53c",
     "src/fdai/shared/providers/trajectory.py": "a3e25731c1023d2e2de1a493abe7e23af4d8eb2d39f549e602db1939a450b3e4",
-    "src/fdai/shared/providers/user_context.py": "6856c9adfdb9b39a192889328fee765aeadfc2381d810f85a5afac068a085932",
+    "src/fdai/shared/providers/user_context.py": "205f944d436f70138ee02d97e97ecaec9227a76c44ae6d567ac9b8a0d10b5aff",
     "src/fdai/shared/providers/vm_task.py": "1c1042d8452f05e81b8010797cc5afff00db8b99653999d1c8db574e3057d9ff",
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T00:57:31Z",
+  "generated_at": "2026-07-31T01:53:04Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

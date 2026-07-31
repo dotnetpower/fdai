@@ -1279,6 +1279,7 @@
     "formatBullets": "글머리표",
     "formatSteps": "단계",
     "formatTable": "표",
+    "formatChart": "차트",
     "answerPreferences": "저장된 답변 선호 적용",
     "answerPreferencesHint": "언어를 바꾸거나 프로필을 삭제하지 않고 저장된 기본값 적용을 끕니다.",
     "concise": "간결하게",
@@ -1762,7 +1763,7 @@
     "answerPlan": {
       "intent": {"definition": "정의", "why": "이유", "procedure": "절차", "comparison": "비교", "diagnosis": "진단", "status": "상태", "list": "목록", "summary": "요약", "proposal": "제안", "open_question": "열린 질문", "greeting": "인사"},
       "detail": {"brief": "간단히", "standard": "표준", "deep": "상세"},
-      "format": {"prose": "문장", "bullets": "항목", "numbered_steps": "번호 단계", "table": "표", "checklist": "체크리스트", "mixed": "혼합"},
+      "format": {"prose": "문장", "bullets": "항목", "numbered_steps": "번호 단계", "table": "표", "chart": "차트", "checklist": "체크리스트", "mixed": "혼합"},
       "preferenceApplied": "저장된 선호"
     },
     "answerPlanning": {

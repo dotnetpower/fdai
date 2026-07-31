@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: df07d26fe540fab3a0abf8b74250393237c985ad
-translation_revised: 2026-08-13
+translation_source_sha: 9b3432adf731d3edbfd08fe1f17c53989a8af37f
+translation_revised: 2026-07-31
 ---
 # 코드 맵
 
@@ -125,6 +125,12 @@ Inventory scope-only follow-up은
 분리되어 있습니다. 이 helper는 최신 user inventory intent만 재사용하며 `chat.py`와
 `chat_stream.py`는 동일한 deterministic planning bypass와 subscription-root provider scope를
 적용합니다.
+
+Presentation intent는
+[`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py)에서 typed contract로
+관리합니다. 명시적인 table 및 chart format은 `chat_verification.py`를 거쳐 deterministic
+inventory rendering에 전달됩니다. `chat_evidence_enrichment.py`는 내부 inventory read를
+operator activity row에서 복사 가능한 read-only Azure CLI equivalent로 매핑합니다.
 
 ## 룰 카탈로그, 배포, 플랫폼
 

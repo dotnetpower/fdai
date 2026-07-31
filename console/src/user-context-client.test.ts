@@ -30,6 +30,14 @@ describe("user-context decoder", () => {
     expect(decoded.memories).toEqual([]);
   });
 
+  it("decodes chart as a saved answer format", () => {
+    const decoded = decodeUserContext({
+      ...payload,
+      preference: { ...payload.preference, answer_format: "chart" },
+    });
+    expect(decoded.preference?.answer_format).toBe("chart");
+  });
+
   it.each([
     { ...payload, memories: null },
     { ...payload, preference: { ...payload.preference, share_with_learner: "false" } },

@@ -107,6 +107,10 @@ flowchart TD
   remains the response owner.
   An agent-card Ask opens with a compact projected-state line list; its longer fixed context stays non-rendered for backend history, and the visible report streams in bounded two-word bursts.
   Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation keeps its session header and observed steps visible beside the final answer; only redacted command output and timestamps remain in disclosures. A source branch linked to an observed execution step is represented once on that step rather than repeated as a separate row. Full workspace reserves at least 760 px for the desktop transcript and uses the full mobile viewport without horizontal overflow. Phase markers, a 15 px conversation scale, and one dark command/code surface keep the production hierarchy aligned with the execution mock. The browser never replays work or invents progress.
+  Inventory execution rows label the public surface as Azure CLI and show a copyable read-only
+  `az group list` or `az resource list` equivalent that uses the operator's current authenticated
+  scope. The internal `query_inventory` verb remains server-owned and isn't presented as a shell
+  command.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows
   the milestone as a compact progress note, opens only the current group, and restores completed
   groups in causal order. Slack and Teams edit the same cumulative redacted activity projection.
@@ -129,6 +133,10 @@ flowchart TD
   and the presence of prior conversation context. The current inbound/tool/result transaction is
   excluded from that prior context. Web generation uses the read API backend seam, so deployments
   can bind providers.
+  `AnswerPlan.format` treats `table` and `chart` as first-class presentation contracts. The
+  deterministic inventory verifier renders Markdown tables for explicit table requests and fenced
+  `chart` JSON for explicit chart or graph requests, so verification doesn't erase the requested
+  format when it replaces provisional narration.
   The semantic turn planner projects only the bounded capabilities for that request into a strict
   structured-output schema. Every object rejects additional properties and marks its declared
   fields required. A tool's optional arguments are represented as nullable fields, and the

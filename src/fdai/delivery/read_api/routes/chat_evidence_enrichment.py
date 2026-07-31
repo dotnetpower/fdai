@@ -24,7 +24,10 @@ from fdai.delivery.read_api.routes.chat_evidence_branches import (
     EvidenceBranchResult,
     EvidenceBranchStatus,
 )
-from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
+from fdai.delivery.read_api.routes.chat_inventory import (
+    inventory_execution_command,
+    needs_inventory_evidence,
+)
 from fdai.delivery.read_api.routes.chat_prompt import (
     _AGENT_NAME_TOKEN,
     _CONCEPT_DOMAIN,
@@ -485,11 +488,10 @@ def _tool_execution_progress_event(
 ) -> dict[str, object] | None:
     tool = evidence.get("tool")
     commands = {
-        "query_inventory": "query_inventory --scope <server-owned> --query <redacted>",
         "query_subscription_health": "query_subscription_health --scope <server-owned>",
         "query_t2_recovery": "query_t2_recovery --scope <server-owned>",
     }
-    if not isinstance(tool, str) or tool not in commands:
+    if not isinstance(tool, str) or (tool not in commands and tool != "query_inventory"):
         return None
     result = evidence.get("result")
     if not isinstance(result, Mapping):
@@ -519,8 +521,12 @@ def _tool_execution_progress_event(
         "authority": str(evidence.get("authority") or "server_read_model"),
         "observed_at": completed_at.isoformat(),
         "execution": {
-            "tool": tool,
-            "command": commands[tool],
+            "tool": "Azure CLI" if tool == "query_inventory" else tool,
+            "command": (
+                inventory_execution_command(evidence)
+                if tool == "query_inventory"
+                else commands[tool]
+            ),
             "redacted": True,
             "output": json.dumps(summary, sort_keys=True, separators=(",", ":")),
             "exit_code": 0 if completed else None,

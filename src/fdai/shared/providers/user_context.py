@@ -98,6 +98,7 @@ class UserPreferenceRecord:
             "bullets",
             "numbered_steps",
             "table",
+            "chart",
             "checklist",
             "mixed",
         }:
@@ -109,7 +110,7 @@ class UserPreferenceRecord:
         )
         _validate_answer_intent_preferences(
             self.answer_intent_format,
-            values={"prose", "bullets", "numbered_steps", "table", "checklist", "mixed"},
+            values={"prose", "bullets", "numbered_steps", "table", "chart", "checklist", "mixed"},
             field_name="answer_intent_format",
         )
         if self.timezone is not None:

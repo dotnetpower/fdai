@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -295,6 +296,13 @@ def _project_verified_inventory_result(
         "total_resources": len(managed),
         "matched_count": len(matched),
         "type_counts": dict(sorted(Counter(str(item["type"]) for item in managed).items())),
+        "matched_type_counts": dict(sorted(Counter(str(item["type"]) for item in matched).items())),
+        "matched_location_counts": dict(
+            sorted(Counter(str(item.get("location") or "unknown") for item in matched).items())
+        ),
+        "matched_status_counts": dict(
+            sorted(Counter(str(item.get("status") or "unknown") for item in matched).items())
+        ),
         "resources": [
             {key: value for key, value in item.items() if key != "id"}
             for item in matched[:_MAX_RESOURCES]
@@ -319,7 +327,12 @@ def _safe_inventory_payload(
     return resources, raw_links
 
 
-def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) -> str | None:
+def render_inventory_answer(
+    evidence: Mapping[str, Any],
+    *,
+    locale: str | None,
+    answer_format: str | None = None,
+) -> str | None:
     """Render one inventory tool result without model inference."""
 
     if evidence.get("tool") != "query_inventory":
@@ -345,6 +358,31 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
     freshness = str(result.get("freshness") or "unknown")
     active_view = str(result.get("active_view") or "provider-default")
     truncated = bool(result.get("truncated"))
+
+    if answer_format == "table":
+        return _render_inventory_table_answer(
+            resources,
+            korean=korean,
+            count=count,
+            total=total,
+            active_view=active_view,
+            source=source,
+            snapshot=snapshot,
+            freshness=freshness,
+            truncated=truncated,
+        )
+    if answer_format == "chart":
+        return _render_inventory_chart_answer(
+            result,
+            korean=korean,
+            count=count,
+            total=total,
+            active_view=active_view,
+            source=source,
+            snapshot=snapshot,
+            freshness=freshness,
+            truncated=truncated,
+        )
 
     if korean:
         lines = [
@@ -385,6 +423,151 @@ def render_inventory_answer(evidence: Mapping[str, Any], *, locale: str | None) 
     if truncated:
         lines.append("The inventory snapshot is truncated, so additional resources may exist.")
     return "\n".join(lines)
+
+
+def inventory_execution_command(evidence: Mapping[str, Any]) -> str:
+    """Return one safe, copyable Azure CLI equivalent for inventory evidence."""
+
+    result = evidence.get("result")
+    requested_types = result.get("requested_types") if isinstance(result, Mapping) else None
+    if isinstance(requested_types, list) and requested_types == ["resource-group"]:
+        return (
+            'az group list --query "[].{Name:name, Location:location, '
+            'ProvisioningState:properties.provisioningState, ManagedBy:managedBy}" '
+            "--output table"
+        )
+    return (
+        'az resource list --query "[].{Name:name, Type:type, Location:location, '
+        'ResourceGroup:resourceGroup}" --output table'
+    )
+
+
+def _render_inventory_table_answer(
+    resources: list[Mapping[str, Any]],
+    *,
+    korean: bool,
+    count: int,
+    total: int,
+    active_view: str,
+    source: str,
+    snapshot: str,
+    freshness: str,
+    truncated: bool,
+) -> str:
+    lead = (
+        f"현재 Azure inventory view '{active_view}'의 {total}개 중 {count}개가 일치합니다."
+        if korean
+        else f"{count} of {total} resources in Azure inventory view '{active_view}' match."
+    )
+    headers = (
+        ("이름", "형식", "상태", "위치", "리소스 그룹")
+        if korean
+        else ("Name", "Type", "Status", "Location", "Resource group")
+    )
+    lines = [lead, "", "| " + " | ".join(headers) + " |", "| --- | --- | --- | --- | --- |"]
+    lines.extend(
+        "| "
+        + " | ".join(
+            _markdown_cell(item.get(field) or "-")
+            for field in ("name", "type", "status", "location", "resource_group")
+        )
+        + " |"
+        for item in resources
+    )
+    if count > len(resources):
+        lines.extend(
+            (
+                "",
+                f"표에는 최대 {len(resources)}개를 표시했습니다."
+                if korean
+                else f"The table shows the first {len(resources)} matched resources.",
+            )
+        )
+    lines.extend(("", _inventory_evidence_line(source, snapshot, freshness, korean=korean)))
+    if truncated:
+        lines.append(
+            "인벤토리 snapshot이 잘렸으므로 실제 리소스 수가 더 많을 수 있습니다."
+            if korean
+            else "The inventory snapshot is truncated, so additional resources may exist."
+        )
+    return "\n".join(lines)
+
+
+def _render_inventory_chart_answer(
+    result: Mapping[str, Any],
+    *,
+    korean: bool,
+    count: int,
+    total: int,
+    active_view: str,
+    source: str,
+    snapshot: str,
+    freshness: str,
+    truncated: bool,
+) -> str:
+    query_kind = str(result.get("query_kind") or "list")
+    requested_types = result.get("requested_types")
+    if query_kind == "types":
+        counts = result.get("matched_type_counts")
+        title = "리소스 형식별 수" if korean else "Resources by type"
+    elif isinstance(requested_types, list) and requested_types == ["resource-group"]:
+        counts = result.get("matched_location_counts")
+        title = "위치별 리소스 그룹" if korean else "Resource groups by location"
+    else:
+        counts = result.get("matched_type_counts")
+        title = "일치 리소스 형식별 수" if korean else "Matched resources by type"
+    safe_counts = counts if isinstance(counts, Mapping) else {}
+    sorted_counts = sorted(
+        (
+            (str(label), value)
+            for label, value in safe_counts.items()
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        ),
+        key=lambda item: (-item[1], item[0]),
+    )
+    data = [{"label": label, "value": value} for label, value in sorted_counts[:_MAX_RESOURCES]]
+    spec = {
+        "type": "bar",
+        "title": title,
+        "unit": "개" if korean else "resources",
+        "data": data,
+    }
+    lead = (
+        f"현재 Azure inventory view '{active_view}'의 {total}개 중 {count}개가 일치합니다."
+        if korean
+        else f"{count} of {total} resources in Azure inventory view '{active_view}' match."
+    )
+    lines = [
+        lead,
+        "",
+        "```chart",
+        json.dumps(spec, ensure_ascii=False, separators=(",", ":")),
+        "```",
+        "",
+        _inventory_evidence_line(source, snapshot, freshness, korean=korean),
+    ]
+    if truncated:
+        lines.append(
+            "인벤토리 snapshot이 잘렸으므로 그래프도 부분 근거입니다."
+            if korean
+            else "The inventory snapshot is truncated, so the chart is partial evidence."
+        )
+    return "\n".join(lines)
+
+
+def _markdown_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+
+
+def _inventory_evidence_line(
+    source: str,
+    snapshot: str,
+    freshness: str,
+    *,
+    korean: bool,
+) -> str:
+    prefix = "근거" if korean else "Evidence"
+    return f"{prefix}: {source}, snapshot {snapshot}, freshness {freshness}."
 
 
 def _answer_detail_lines(
@@ -552,6 +735,7 @@ __all__ = [
     "InventoryActivityProvider",
     "KubernetesWorkloadProvider",
     "inventory_evidence_refs",
+    "inventory_execution_command",
     "needs_inventory_evidence",
     "render_inventory_answer",
 ]

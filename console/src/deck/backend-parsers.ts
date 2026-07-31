@@ -51,7 +51,7 @@ export function parseAnswerPlan(raw: unknown): AnswerPlanMetadata | undefined {
   const record = raw as Record<string, unknown>;
   const intents = ["definition", "why", "procedure", "comparison", "diagnosis", "status", "list", "summary", "proposal", "open_question", "greeting"] as const;
   const details = ["brief", "standard", "deep"] as const;
-  const formats = ["prose", "bullets", "numbered_steps", "table", "checklist", "mixed"] as const;
+  const formats = ["prose", "bullets", "numbered_steps", "table", "chart", "checklist", "mixed"] as const;
   const evidence = ["none", "screen", "catalog", "server_read_model", "agent_owned"] as const;
   const discuss = ["skip", "shadow", "selective"] as const;
   if (!intents.includes(record.intent as typeof intents[number])) return undefined;

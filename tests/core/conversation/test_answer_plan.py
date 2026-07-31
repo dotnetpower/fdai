@@ -81,6 +81,14 @@ def test_korean_deep_table_and_technical_modifiers() -> None:
     assert plan.max_words == 650
 
 
+@pytest.mark.parametrize("prompt", ["리소스를 그래프로 보여줘", "Show resources as a chart"])
+def test_explicit_chart_modifier_selects_chart_format(prompt: str) -> None:
+    plan = build_answer_plan(prompt)
+
+    assert plan.format is AnswerFormat.CHART
+    assert plan.explicit_overrides == ("chart",)
+
+
 def test_definition_standard_shape_is_not_one_line() -> None:
     plan = build_answer_plan("What is ActionType?")
 

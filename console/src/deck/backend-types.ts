@@ -101,7 +101,7 @@ export interface DelegationMetadata {
 export interface AnswerPlanMetadata {
   readonly intent: "definition" | "why" | "procedure" | "comparison" | "diagnosis" | "status" | "list" | "summary" | "proposal" | "open_question" | "greeting";
   readonly detail_level: "brief" | "standard" | "deep";
-  readonly format: "prose" | "bullets" | "numbered_steps" | "table" | "checklist" | "mixed";
+  readonly format: "prose" | "bullets" | "numbered_steps" | "table" | "chart" | "checklist" | "mixed";
   readonly sections: readonly string[];
   readonly evidence_requirement: "none" | "screen" | "catalog" | "server_read_model" | "agent_owned";
   readonly max_words: number;

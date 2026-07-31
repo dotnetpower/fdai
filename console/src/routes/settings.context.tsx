@@ -68,6 +68,7 @@ export function SettingsContextSections({
                 { value: "bullets", label: t("settings.formatBullets") },
                 { value: "numbered_steps", label: t("settings.formatSteps") },
                 { value: "table", label: t("settings.formatTable") },
+                { value: "chart", label: t("settings.formatChart") },
               ]}
               onChange={(value) => setAnswerFormat(value as UserPreferencePayload["answer_format"])}
             />

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 840bdc76d50b5096357746447657031ce2489894
+translation_source_sha: 9c19dc783fffc8019fbbb6d1f6e29af9381bb711
 translation_revised: 2026-07-31
 ---
 
@@ -106,6 +106,9 @@ flowchart TD
   됩니다.
   Agent card의 Ask는 compact projected-state line list로 시작합니다. 더 긴 고정 context는 backend history용으로 화면에 표시하지 않으며 visible report는 bounded 2단어 burst로 stream합니다.
   Web Investigation은 수신한 branch frame만 elapsed time, typed badge 및 staggered status row로 animate합니다. Terminal investigation은 final answer 옆에 session header와 observed step을 계속 표시하며 redacted command output과 timestamp만 disclosure에 접어 둡니다. Observed execution step과 연결된 source branch는 별도 row로 반복하지 않고 해당 step에 한 번만 표시합니다. Full workspace는 desktop transcript에 최소 760 px을 확보하고 mobile viewport에서는 horizontal overflow 없이 전체 폭을 사용합니다. Phase marker, 15 px conversation scale, 하나의 dark command/code surface로 production hierarchy를 execution mock과 맞춥니다. Browser는 작업을 replay하거나 progress를 invent하지 않습니다.
+  Inventory execution row는 공개 실행 표면을 Azure CLI로 표시하고 operator의 현재 인증 scope를
+  사용하는 복사 가능한 read-only `az group list` 또는 `az resource list` 명령을 제공합니다. 내부
+  `query_inventory` verb는 server-owned 상태로 유지하며 shell command로 표시하지 않습니다.
   Narrator milestone은 다음 group이 시작되기 전에 앞선 activity group을 settled 상태로 바꿉니다.
   Web은 milestone을 compact progress note로 표시하고 현재 group만 펼치며 completed group을 causal
   order로 복원합니다. Slack과 Teams는 같은 cumulative redacted activity projection을 수정합니다.
@@ -126,6 +129,10 @@ flowchart TD
   class, evidence-reference count 및 prior conversation context 유무에서 결정론적으로 조립합니다.
   현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 read API
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
+  `AnswerPlan.format`은 `table`과 `chart`를 first-class presentation contract로 취급합니다. 명시적인
+  표 요청에는 deterministic inventory verifier가 Markdown table을 렌더링하고, 명시적인 차트 또는
+  그래프 요청에는 fenced `chart` JSON을 렌더링합니다. 따라서 provisional narration을 교체해도
+  verification이 요청된 형식을 지우지 않습니다.
   Semantic turn planner는 해당 request의 bounded capability만 strict structured-output schema로
   projection합니다. 모든 object는 additional property를 거부하고 declared field를 required로
   표시합니다. Tool의 optional argument는 nullable field로 표현하며 coordinator는 deterministic

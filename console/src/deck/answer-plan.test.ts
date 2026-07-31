@@ -28,6 +28,10 @@ describe("AnswerPlan boundary parser", () => {
     });
   });
 
+  test("accepts chart as a first-class presentation format", () => {
+    expect(parseAnswerPlan({ ...validPlan, format: "chart" })?.format).toBe("chart");
+  });
+
   test.each([
     { ...validPlan, intent: "execute" },
     { ...validPlan, max_words: 100_000 },

@@ -168,6 +168,45 @@ async def _activity_provider(
     }
 
 
+async def _inventory_evidence(prompt: str) -> dict[str, Any]:
+    evidence = await InventoryChatTools(_provider).resolve(prompt, principal_id="reader")
+    assert evidence is not None
+    return evidence
+
+
+async def test_inventory_table_format_is_rendered_deterministically() -> None:
+    evidence = await _inventory_evidence("리소스 그룹 목록을 표로 보여줘")
+
+    verification = verify_answer(
+        "unsupported draft",
+        {"_tool_evidence": evidence, "_answer_plan": {"format": "table"}},
+        locale="ko",
+    )
+
+    assert "| 이름 | 형식 | 상태 | 위치 | 리소스 그룹 |" in verification.answer
+    assert "| rg-app | resource-group | unknown | - | rg-app |" in verification.answer
+    assert "- 리소스 rg-app" not in verification.answer
+
+
+async def test_inventory_chart_format_emits_valid_chart_json() -> None:
+    evidence = await _inventory_evidence("리소스 그룹 목록을 그래프로 보여줘")
+
+    verification = verify_answer(
+        "unsupported draft",
+        {"_tool_evidence": evidence, "_answer_plan": {"format": "chart"}},
+        locale="ko",
+    )
+
+    chart_body = verification.answer.split("```chart\n", 1)[1].split("\n```", 1)[0]
+    chart = json.loads(chart_body)
+    assert chart == {
+        "type": "bar",
+        "title": "위치별 리소스 그룹",
+        "unit": "개",
+        "data": [{"label": "unknown", "value": 2}],
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class AzureQuestion:
     prompt: str
@@ -946,8 +985,9 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     assert '"branch_kind": "agent"' not in response.text
     assert '"branch_kind": "public_web"' not in response.text
     assert "event: activity" in response.text
-    assert '"tool": "query_inventory"' in response.text
-    assert '"command": "query_inventory --scope <server-owned> --query <redacted>"' in response.text
+    assert '"tool": "Azure CLI"' in response.text
+    assert '"command": "az resource list --query' in response.text
+    assert "query_inventory --scope" not in response.text
     assert '"redacted": true' in response.text
     activity = _stream_event(response.text, "activity")
     assert activity is not None

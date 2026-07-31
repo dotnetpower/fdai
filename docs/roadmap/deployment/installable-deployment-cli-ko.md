@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 37b10a33166067b4de3c820c6d1552d13fcf4ba1
-translation_revised: 2026-07-25
+translation_source_sha: 4c919501c5254055cdb01dee7f6421cb5e7fa2d1
+translation_revised: 2026-07-31
 ---
 # 설치형 배포 CLI
 
@@ -165,9 +165,9 @@ Workstation 또는 installation을 변경한 뒤 필요한 operator-owned deploy
   않습니다.
 - **Audit metadata:** Source schema, record count, last sequence, audit hash-chain head를
   포함합니다. Audit entry body는 export하지 않습니다.
-- **User context:** Locale, verbosity, timezone, learner-sharing preference, explicit consent를
-  받은 memory record를 포함합니다. Conversation transcript와 생성된 briefing body는 이 archive
-  format에 포함하지 않습니다.
+- **User context:** Locale, verbosity, `chart`를 포함한 answer detail 및 format preference,
+  timezone, learner-sharing preference, explicit consent를 받은 memory record를 포함합니다.
+  Conversation transcript와 생성된 briefing body는 이 archive format에 포함하지 않습니다.
 
 예시:
 

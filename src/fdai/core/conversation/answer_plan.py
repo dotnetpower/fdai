@@ -36,6 +36,7 @@ class AnswerFormat(StrEnum):
     BULLETS = "bullets"
     NUMBERED_STEPS = "numbered_steps"
     TABLE = "table"
+    CHART = "chart"
     CHECKLIST = "checklist"
     MIXED = "mixed"
 
@@ -258,6 +259,13 @@ _MODIFIERS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ("brief", re.compile(r"\b(briefly|short answer|concise)\b|결론만|짧게", re.I)),
     ("deep", re.compile(r"\b(in detail|deep dive|thoroughly)\b|자세히|심층적으로", re.I)),
     ("table", re.compile(r"\b(as a table|table format)\b|표로|비교표", re.I)),
+    (
+        "chart",
+        re.compile(
+            r"\b(as a (?:chart|graph)|chart format|graph format)\b|차트로|그래프로",
+            re.I,
+        ),
+    ),
     ("steps", re.compile(r"\b(step by step|as steps)\b|단계별로|절차로", re.I)),
     (
         "evidence",
@@ -314,6 +322,8 @@ def build_answer_plan(
             detail = DetailLevel.DEEP
         elif name == "table":
             format_ = AnswerFormat.TABLE
+        elif name == "chart":
+            format_ = AnswerFormat.CHART
         elif name == "steps":
             format_ = AnswerFormat.NUMBERED_STEPS
         elif name == "evidence":

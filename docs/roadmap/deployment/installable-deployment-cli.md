@@ -162,9 +162,9 @@ deterministic mode-`0600` archive:
   secret reference names a provider entry; it never contains the secret value.
 - **Audit metadata:** The source schema, record count, last sequence, and audit hash-chain head.
   Audit entry bodies are not exported.
-- **User context:** Locale, verbosity, timezone, learner-sharing preference, and explicitly
-  consented memory records. Conversation transcripts and generated briefing bodies are not part of
-  this archive format.
+- **User context:** Locale, verbosity, answer detail and format preferences including `chart`,
+  timezone, learner-sharing preference, and explicitly consented memory records. Conversation
+  transcripts and generated briefing bodies are not part of this archive format.
 
 Example:
 

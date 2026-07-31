@@ -123,6 +123,12 @@ Inventory scope-only follow-ups are isolated in
 The helper reuses only the latest user inventory intent, while `chat.py` and `chat_stream.py` apply
 the same deterministic planning bypass and subscription-root provider scope.
 
+Presentation intent is typed in
+[`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py). Explicit table and chart
+formats flow through `chat_verification.py` into deterministic inventory rendering, while
+`chat_evidence_enrichment.py` maps the internal inventory read to a copyable read-only Azure CLI
+equivalent for the operator activity row.
+
 ## Rule catalog, deploy, and platform
 
 | Subsystem | Responsibility | Source | Tests |

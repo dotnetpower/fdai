@@ -1279,6 +1279,7 @@
     "formatBullets": "Bullets",
     "formatSteps": "Steps",
     "formatTable": "Table",
+    "formatChart": "Chart",
     "answerPreferences": "Apply saved answer preferences",
     "answerPreferencesHint": "Disable stored defaults without changing the language or deleting the profile.",
     "concise": "Concise",
@@ -1762,7 +1763,7 @@
     "answerPlan": {
       "intent": {"definition": "Definition", "why": "Why", "procedure": "Procedure", "comparison": "Comparison", "diagnosis": "Diagnosis", "status": "Status", "list": "List", "summary": "Summary", "proposal": "Proposal", "open_question": "Open question", "greeting": "Greeting"},
       "detail": {"brief": "Brief", "standard": "Standard", "deep": "Deep"},
-      "format": {"prose": "Prose", "bullets": "Bullets", "numbered_steps": "Numbered steps", "table": "Table", "checklist": "Checklist", "mixed": "Mixed"},
+      "format": {"prose": "Prose", "bullets": "Bullets", "numbered_steps": "Numbered steps", "table": "Table", "chart": "Chart", "checklist": "Checklist", "mixed": "Mixed"},
       "preferenceApplied": "Saved preference"
     },
     "answerPlanning": {

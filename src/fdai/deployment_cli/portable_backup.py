@@ -105,16 +105,22 @@ class PortableUserPreference(_PortableModel):
     locale: Literal["en", "ko"] = "en"
     verbosity: Literal["concise", "detailed"] = "concise"
     answer_detail: Literal["brief", "standard", "deep"] = "standard"
-    answer_format: Literal["prose", "bullets", "numbered_steps", "table", "checklist", "mixed"] = (
-        "prose"
-    )
+    answer_format: Literal[
+        "prose",
+        "bullets",
+        "numbered_steps",
+        "table",
+        "chart",
+        "checklist",
+        "mixed",
+    ] = "prose"
     answer_preferences_enabled: bool = True
     answer_intent_detail: dict[str, Literal["brief", "standard", "deep"]] = Field(
         default_factory=dict
     )
     answer_intent_format: dict[
         str,
-        Literal["prose", "bullets", "numbered_steps", "table", "checklist", "mixed"],
+        Literal["prose", "bullets", "numbered_steps", "table", "chart", "checklist", "mixed"],
     ] = Field(default_factory=dict)
     timezone: Annotated[str, Field(min_length=1, max_length=128)] | None = None
     share_with_learner: bool = False

@@ -308,7 +308,13 @@ def verify_answer(
         )
 
     if isinstance(tool, Mapping) and tool.get("tool") == "query_inventory":
-        inventory_answer = render_inventory_answer(tool, locale=locale)
+        plan = view_context.get("_answer_plan")
+        answer_format = str(plan.get("format")) if isinstance(plan, Mapping) else None
+        inventory_answer = render_inventory_answer(
+            tool,
+            locale=locale,
+            answer_format=answer_format,
+        )
         if inventory_answer is None:
             return AnswerVerification(
                 status="unverified",

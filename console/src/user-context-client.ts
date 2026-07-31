@@ -6,10 +6,10 @@ export interface UserPreferencePayload {
   readonly locale: "en" | "ko";
   readonly verbosity: "concise" | "detailed";
   readonly answer_detail: "brief" | "standard" | "deep";
-  readonly answer_format: "prose" | "bullets" | "numbered_steps" | "table" | "checklist" | "mixed";
+  readonly answer_format: "prose" | "bullets" | "numbered_steps" | "table" | "chart" | "checklist" | "mixed";
   readonly answer_preferences_enabled: boolean;
   readonly answer_intent_detail: Readonly<Record<string, "brief" | "standard" | "deep">>;
-  readonly answer_intent_format: Readonly<Record<string, "prose" | "bullets" | "numbered_steps" | "table" | "checklist" | "mixed">>;
+  readonly answer_intent_format: Readonly<Record<string, "prose" | "bullets" | "numbered_steps" | "table" | "chart" | "checklist" | "mixed">>;
   readonly timezone: string | null;
   readonly share_with_learner: boolean;
   readonly revision: number;
@@ -414,7 +414,7 @@ function decodeUserPreference(value: unknown): UserPreferencePayload {
   if (!["brief", "standard", "deep"].includes(answerDetail)) {
     throw new Error("preference.answer_detail is invalid");
   }
-  if (!["prose", "bullets", "numbered_steps", "table", "checklist", "mixed"].includes(answerFormat)) {
+  if (!["prose", "bullets", "numbered_steps", "table", "chart", "checklist", "mixed"].includes(answerFormat)) {
     throw new Error("preference.answer_format is invalid");
   }
   return {
