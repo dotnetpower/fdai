@@ -6,7 +6,9 @@ from dataclasses import dataclass
 
 from fdai.core.chaos.scenarios import default_scenarios
 from fdai.core.detection.signals import (
+    SIGNAL_ALERT_TRIGGER,
     SIGNAL_BACKEND_HEALTH,
+    SIGNAL_CONFIG_DRIFT,
     SIGNAL_DB_CPU,
     SIGNAL_GATEWAY_LATENCY,
     SIGNAL_HOST_CPU,
@@ -137,7 +139,7 @@ def sre_scenario_contracts() -> tuple[SreScenarioContract, ...]:
             scenario_id="S13",
             title="Knowledge and configuration drift",
             fault=False,
-            signals=("config_drift",),
+            signals=(SIGNAL_CONFIG_DRIFT,),
             causal_mechanism="out_of_band_change",
             chaos_scenario_id=None,
             recovery_probes=(),
@@ -147,7 +149,7 @@ def sre_scenario_contracts() -> tuple[SreScenarioContract, ...]:
             scenario_id="S14",
             title="Alert-triggered investigation",
             fault=False,
-            signals=("alert_trigger",),
+            signals=(SIGNAL_ALERT_TRIGGER,),
             causal_mechanism="alert_to_investigation",
             chaos_scenario_id=None,
             recovery_probes=(),
@@ -184,6 +186,8 @@ def validate_sre_scenario_contracts() -> None:
     chaos_ids = {item.scenario_id for item in default_scenarios()}
     registered_signals = set(known_signals())
     for contract in contracts:
+        if not set(contract.signals) <= registered_signals:
+            raise ValueError(f"{contract.scenario_id} references an unknown signal")
         if contract.fault:
             if contract.chaos_scenario_id not in chaos_ids:
                 raise ValueError(f"{contract.scenario_id} references an unknown chaos scenario")
@@ -191,8 +195,6 @@ def validate_sre_scenario_contracts() -> None:
                 raise ValueError(f"{contract.scenario_id} lacks complete recovery verification")
             if not contract.recovery_action_types:
                 raise ValueError(f"{contract.scenario_id} lacks a recovery action")
-            if not set(contract.signals) <= registered_signals:
-                raise ValueError(f"{contract.scenario_id} references an unknown signal")
         elif contract.chaos_scenario_id is not None:
             raise ValueError(f"{contract.scenario_id} is non-fault but references chaos")
 

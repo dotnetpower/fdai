@@ -21,6 +21,7 @@ from fdai.core.chaos.sre_contracts import (
     sre_scenario_contracts,
     validate_sre_scenario_contracts,
 )
+from fdai.core.detection.signals import known_signals
 from fdai.core.recovery import RecoveryProbeKind
 from fdai.core.risk_gate import ActionPromotionRegistry, PromotionMetrics
 from fdai.shared.contracts.models import Mode, OntologyActionType
@@ -35,6 +36,7 @@ def test_sre_contracts_cover_exactly_s1_s14() -> None:
     contracts = sre_scenario_contracts()
     assert [item.scenario_id for item in contracts] == [f"S{i}" for i in range(1, 15)]
     assert sum(item.fault for item in contracts) == 12
+    assert all(set(item.signals) <= set(known_signals()) for item in contracts)
     for contract in contracts[:12]:
         assert set(contract.recovery_probes) == set(RecoveryProbeKind)
         assert contract.chaos_scenario_id is not None

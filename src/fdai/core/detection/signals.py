@@ -92,6 +92,12 @@ SIGNAL_DB_CPU = "db_cpu"
 forecast band via ``detection/forecast``). Scenario S8; emitted by
 ``mysql_analyzer``."""
 
+SIGNAL_CONFIG_DRIFT = "config_drift"
+"""A governed configuration differs from its approved desired state. Scenario S13."""
+
+SIGNAL_ALERT_TRIGGER = "alert_trigger"
+"""An external alert entered the bounded investigation path. Scenario S14."""
+
 # GPU / AI-serving (see docs/internals/sre-scenario-library-scaling.md
 # "GPU / AI-serving domain"). None of these carry a shipped `FaultScenario`
 # in the upstream `default_scenarios()` today - they are scenario-tied
@@ -293,6 +299,18 @@ _KNOWN_SIGNALS: Mapping[str, SignalSpec] = MappingProxyType(
                 tier_hint="T0+forecast",
                 rca_hint="slow_query",
             ),
+            SignalSpec(
+                signal=SIGNAL_CONFIG_DRIFT,
+                description="Governed configuration differs from approved desired state.",
+                tier_hint="T0",
+                rca_hint="change_evidence",
+            ),
+            SignalSpec(
+                signal=SIGNAL_ALERT_TRIGGER,
+                description="External alert entered the bounded investigation path.",
+                tier_hint="T0",
+                rca_hint="causal_chain",
+            ),
             # --- GPU / AI-serving --------------------------------------
             SignalSpec(
                 signal=SIGNAL_GPU_XID_EVENT,
@@ -433,8 +451,10 @@ def signals_with_role(role: SignalRole) -> frozenset[str]:
 
 
 __all__ = [
+    "SIGNAL_ALERT_TRIGGER",
     "SIGNAL_BACKEND_HEALTH",
     "SIGNAL_COLD_START_LATENCY_SPIKE",
+    "SIGNAL_CONFIG_DRIFT",
     "SIGNAL_DB_CPU",
     "SIGNAL_DISTRIBUTED_STRAGGLER",
     "SIGNAL_GATEWAY_LATENCY",

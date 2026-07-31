@@ -146,7 +146,7 @@
     "src/fdai/core/chaos/runner.py": "c637f927056fecc7e7f481e6267971ecb5736510c86b6555b5c5fd6f9b326188",
     "src/fdai/core/chaos/scenario_catalog.py": "48f4d5ebf7570a488d6a5b9f4171ad95a6cdd8757bf7de2caa4ad8e709627c42",
     "src/fdai/core/chaos/scenarios.py": "8cf4542fc980a163c9146ba4408abacc0799014e2240370361f79d169edcb9fb",
-    "src/fdai/core/chaos/sre_contracts.py": "34fdec2955abaabfc84d57de9f57d12f63ca1bd312a75f9fb90ff03677b5cdde",
+    "src/fdai/core/chaos/sre_contracts.py": "db4c559ceea13545d36d0ad79742b0af07722b31b84011c0192f77dd52808e65",
     "src/fdai/core/chaos/symptom_index.py": "72b397ed33888203f492880f03ff46d13fce38606fe8533ab7e599ea611f6837",
     "src/fdai/core/console_request/__init__.py": "267ff9f2b4e7eda4d53560e699418e16df8537295dc1faec1f25b9d7510577b9",
     "src/fdai/core/console_request/rerequest.py": "db143e7021eab56de1a12a0fb11c09a341728847189620ccfed800d8fdd8ae17",
@@ -245,7 +245,7 @@
     "src/fdai/core/detection/metric_source.py": "966573d37b292d655bd8faafa2394c0a28fbf61c002737386167be7230edc0b0",
     "src/fdai/core/detection/seasonal.py": "040bd8e3ce796824e3820a36da40c2601b1e8682f013490c307c9bf54c778eec",
     "src/fdai/core/detection/series.py": "68863a9ecb67e693e545655373846eff93a5168660f19f886307031b60d8c784",
-    "src/fdai/core/detection/signals.py": "1b239eaa425b0d6d90837a2a3501f3cb4a7a32df1b89931031a6126cf796a4bb",
+    "src/fdai/core/detection/signals.py": "26f8fc03cd7d4a240ac285bd0c8a092205bc4abb9b039ceee66e924994b5675e",
     "src/fdai/core/document_ingestion/README.md": "12e8719d236ea336344432ced27cb290fa56325d951af2f8cf201d4c4e4c7434",
     "src/fdai/core/document_ingestion/__init__.py": "002f2be0e5a1a0f4e61b641f4ea5203c4232c250df3098c1f149ae11e139ac97",
     "src/fdai/core/document_ingestion/service.py": "337dd8ba5a991429b38154f3b002238fa210e552ffc4612ce67637c9230d1d2f",
@@ -862,7 +862,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-07-31T09:49:23Z",
+  "generated_at": "2026-07-31T09:50:56Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
