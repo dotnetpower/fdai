@@ -77,6 +77,41 @@ async def test_materializer_excludes_objects_and_links_after_cutoff() -> None:
     assert graph.complete
 
 
+async def test_materializer_requires_every_object_timestamp_before_cutoff() -> None:
+    snapshot = OntologyGraphSnapshot(
+        objects=(
+            OntologyObjectRecord(
+                id="resource-1",
+                object_type="Resource",
+                properties={"id": "resource-1"},
+            ),
+            OntologyObjectRecord(
+                id="mixed-time",
+                object_type="Observation",
+                properties={
+                    "id": "mixed-time",
+                    "observed_at": _CUTOFF - timedelta(seconds=1),
+                    "created_at": _CUTOFF + timedelta(seconds=1),
+                },
+            ),
+            OntologyObjectRecord(
+                id="malformed-time",
+                object_type="Observation",
+                properties={"id": "malformed-time", "observed_at": "not-a-timestamp"},
+            ),
+        ),
+        links=(),
+    )
+
+    graph = await CausalIncidentGraphMaterializer(store=_Store(snapshot)).materialize(
+        incident_id="incident-1",
+        root_ids=("resource-1",),
+        evidence_cutoff=_CUTOFF,
+    )
+
+    assert {item.id for item in graph.snapshot.objects} == {"resource-1"}
+
+
 async def test_materializer_marks_byte_truncation_incomplete() -> None:
     graph = await CausalIncidentGraphMaterializer(store=_Store(_snapshot())).materialize(
         incident_id="incident-1",

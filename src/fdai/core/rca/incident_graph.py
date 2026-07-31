@@ -143,7 +143,8 @@ def _at_or_before(record: OntologyObjectRecord, cutoff: datetime) -> bool:
                 return False
         else:
             return False
-        return value.tzinfo is not None and value <= cutoff
+        if value.tzinfo is None or value > cutoff:
+            return False
     return True
 
 
