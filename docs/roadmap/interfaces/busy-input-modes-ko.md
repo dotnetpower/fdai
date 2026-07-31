@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: eeffec318b99e120f0e81005b62726d88a089682
+translation_source_sha: 48d6eae41bc0f11829fa79b20f55aa0cb86a7f46
 translation_revised: 2026-07-31
 ---
 
@@ -99,6 +99,8 @@ model call은 conversation-local cancellation event와 경쟁합니다. Interrup
     대체하거나 interrupted turn outcome을 변경하지 않습니다.
 - Interrupted turn은 `confirmed` 또는 `done` frame을 emit하지 않습니다. Draft text는 partial로
     유지되며 verified conversation history로 복원되지 않습니다.
+- Interrupted turn은 terminal turn-timing envelope를 emit하지 않습니다. Partial phase timing은
+    완료된 작업으로 저장하거나 복원하지 않습니다.
 - Active-turn marker를 `finally`에서 finish합니다.
 
 정상 terminal answer에서는 stream이 남아 있는 planning을 cancel하고 active-turn marker를 finish한

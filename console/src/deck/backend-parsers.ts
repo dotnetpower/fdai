@@ -5,6 +5,8 @@ import type {
   GroundedCodeArtifact,
   ModelTrace,
   ModelTraceCall,
+  TurnTiming,
+  TurnTimingPhase,
 } from "./backend-types";
 
 const CODE_SHA256 = /^[0-9a-f]{64}$/;
@@ -20,6 +22,82 @@ const MAX_MODEL_TRACE_MESSAGES = 24;
 const MAX_MODEL_TRACE_REQUEST_CHARS = 12_000;
 const MAX_MODEL_TRACE_RESPONSE_CHARS = 6_000;
 const MAX_MODEL_TRACE_REDACTIONS = 16;
+const MAX_TURN_TIMING_PHASES = 8;
+const MAX_TURN_DURATION_MS = 7_200_000;
+const TURN_TIMING_PHASES = [
+  "semantic_plan",
+  "evidence",
+  "generation",
+  "quality_review",
+  "verification",
+] as const;
+const TURN_TIMING_STATUSES = [
+  "completed",
+  "corrected",
+  "degraded",
+  "failed",
+  "unverified",
+] as const;
+
+export function parseTurnTiming(raw: unknown): TurnTiming | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (record.schema_version !== 1 || !validTimestamp(record.started_at) ||
+      !validTimestamp(record.completed_at) ||
+      !boundedInteger(record.duration_ms, 0, MAX_TURN_DURATION_MS) ||
+      !durationMatches(record.started_at, record.completed_at, record.duration_ms) ||
+      !Array.isArray(record.phases) || record.phases.length > MAX_TURN_TIMING_PHASES) {
+    return undefined;
+  }
+  const phases: TurnTimingPhase[] = [];
+  for (const rawPhase of record.phases) {
+    const phase = parseTurnTimingPhase(rawPhase, record.started_at, record.completed_at);
+    if (!phase) return undefined;
+    phases.push(phase);
+  }
+  if (new Set(phases.map((phase) => phase.phase)).size !== phases.length) return undefined;
+  if (phases.some((phase, index) => index > 0 &&
+    Date.parse(phase.started_at) < Date.parse(phases[index - 1]!.started_at))) return undefined;
+  return {
+    schema_version: 1,
+    started_at: record.started_at,
+    completed_at: record.completed_at,
+    duration_ms: record.duration_ms,
+    phases,
+  };
+}
+
+function parseTurnTimingPhase(
+  raw: unknown,
+  envelopeStart: string,
+  envelopeEnd: string,
+): TurnTimingPhase | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (!TURN_TIMING_PHASES.includes(record.phase as TurnTimingPhase["phase"]) ||
+      !TURN_TIMING_STATUSES.includes(record.status as TurnTimingPhase["status"]) ||
+      !validTimestamp(record.started_at) || !validTimestamp(record.completed_at) ||
+      !boundedInteger(record.duration_ms, 0, MAX_TURN_DURATION_MS) ||
+      !durationMatches(record.started_at, record.completed_at, record.duration_ms)) {
+    return undefined;
+  }
+  if (Date.parse(record.started_at) < Date.parse(envelopeStart) ||
+      Date.parse(record.completed_at) > Date.parse(envelopeEnd)) return undefined;
+  if ((record.status === "corrected" || record.status === "unverified") &&
+      record.phase !== "verification") return undefined;
+  return {
+    phase: record.phase as TurnTimingPhase["phase"],
+    status: record.status as TurnTimingPhase["status"],
+    started_at: record.started_at,
+    completed_at: record.completed_at,
+    duration_ms: record.duration_ms,
+  };
+}
+
+function durationMatches(startedAt: string, completedAt: string, durationMs: number): boolean {
+  const observed = Date.parse(completedAt) - Date.parse(startedAt);
+  return observed >= 0 && Math.abs(observed - durationMs) <= 1;
+}
 
 export function parseModelTrace(raw: unknown): ModelTrace | undefined {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;

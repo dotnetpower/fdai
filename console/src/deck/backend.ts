@@ -27,7 +27,7 @@ import {
   parseAnswerVerification,
   parseDelegation,
   parseRouter,
-    parseResourceContext,
+  parseResourceContext,
   tokenSuffix,
 } from "./backend-normalizers";
 import {
@@ -35,6 +35,7 @@ import {
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
   parseModelTrace,
+  parseTurnTiming,
 } from "./backend-parsers";
 import type { ViewSnapshot } from "./context";
 import type {
@@ -50,6 +51,7 @@ export {
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
   parseModelTrace,
+  parseTurnTiming,
 } from "./backend-parsers";
 export {
   askBackendStream,
@@ -179,6 +181,11 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).model_trace
       : undefined,
   );
+  const turnTiming = parseTurnTiming(
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).turn_timing
+      : undefined,
+  );
   if (answerText === null) {
     const local = deterministicAnswer(prompt, snapshot);
     return { ...local, source: "deterministic (no answer field)" };
@@ -215,6 +222,7 @@ export async function askBackend(
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
+    ...(turnTiming ? { turnTiming } : {}),
   };
 }
 

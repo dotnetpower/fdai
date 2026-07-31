@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f7bf0efc96a661f1f3d6d0904045f8d2cbdfe519
-translation_revised: 2026-08-13
+translation_source_sha: 94700b00c030e2ead0b5569bf2c5e61d084a39a1
+translation_revised: 2026-07-31
 ---
 
 # 프로젝트 구조
@@ -110,7 +110,7 @@ fdai/
 │   │   ├── trajectory/         # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
-│   │   ├── read_api/           # 얇은 ASGI - `main.py`가 focused chat request/setup, deterministic history-scoped inventory follow-up, vision prompt, text verification, principal-timezone server-clock, hybrid T0/semantic search, bounded narrator review, SSE fan-out 및 분리된 dev/production wiring을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor를 직접 호출하지 않음
+│   │   ├── read_api/           # 얇은 ASGI - `main.py`가 focused chat request/setup, bounded terminal turn timing, deterministic history-scoped inventory follow-up, vision prompt, text verification, principal-timezone server-clock, hybrid T0/semantic search, bounded narrator review, SSE fan-out 및 분리된 dev/production wiring을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor를 직접 호출하지 않음
 │   │   ├── ingestion_gateway/  # 전용 content-write ASGI: scoped upload, uploader-scoped web chat ref, governed deletion, optional handover governance
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트

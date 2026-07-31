@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b2dd1c9c7bbeadcf788f0bb4bb488a953b1f70c8
-translation_revised: 2026-08-13
+translation_source_sha: f2d05adbf120bd746c8455a6672795e17dfefb47
+translation_revised: 2026-07-31
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -52,8 +52,8 @@ profile에서 활성화되지 않습니다.
 Operator browser E2E test는 명시적인 dev-test profile에서 실제 Vite SPA를 Playwright로
 실행합니다. Route interception은 선언된 synthetic read-source manifest, incident, agent frame 및
 chat SSE response를 제공합니다. 이 fixture는 test runner 안에서만 존재하며 `Console Web: Full
-Stack`에서는 활성화되지 않습니다. Backend integration test는 같은 request contract를 실제
-Starlette route와 server-owned evidence resolver로 별도 검증합니다.
+Stack`에서는 활성화되지 않습니다. Backend integration test는 같은 request와 bounded terminal
+turn-timing contract를 실제 Starlette route와 evidence resolver로 별도 검증합니다.
 
 이를 보완하는 `npm --prefix console run test:e2e:live` suite는 route interception 없이 신뢰할
 수 있는 local PostgreSQL 및 Azure CLI profile을 시작합니다. 등록된 모든 Console panel을 방문하고,

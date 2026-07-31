@@ -62,6 +62,19 @@ describe("serializeTurns", () => {
             redactions: [],
           }],
         },
+        turnTiming: {
+          schema_version: 1 as const,
+          started_at: "2026-07-31T01:00:00Z",
+          completed_at: "2026-07-31T01:00:01Z",
+          duration_ms: 1000,
+          phases: [{
+            phase: "generation" as const,
+            status: "completed" as const,
+            started_at: "2026-07-31T01:00:00Z",
+            completed_at: "2026-07-31T01:00:01Z",
+            duration_ms: 1000,
+          }],
+        },
         citations: [{ label: "tier", value: "T0" }],
         followUps: ["Show T1"],
         terminal: true,
@@ -161,6 +174,7 @@ describe("serializeTurns", () => {
     expect(parsed[0]!.text).toBe("what is the tier mix?");
     expect(parsed[1]!.source).toBe("llm:x");
     expect(parsed[1]!.modelTrace?.calls[0]?.response?.content).toBe("answer");
+    expect(parsed[1]!.turnTiming?.phases[0]?.phase).toBe("generation");
     expect(parsed[1]!.citations).toEqual([{ label: "tier", value: "T0" }]);
     expect(parsed[1]!.followUps).toEqual(["Show T1"]);
     expect(parsed[1]!.terminal).toBe(true);

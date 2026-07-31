@@ -95,6 +95,8 @@ interrupt:
     replaces the original cancellation signal or changes the interrupted turn outcome.
 - An interrupted turn emits no `confirmed` or `done` frame. Draft text remains partial and is not
     restored as verified conversation history.
+- An interrupted turn emits no terminal turn-timing envelope. Partial phase timing is not persisted
+    or restored as completed work.
 - The active-turn marker is finished in `finally`.
 
 For a normal terminal answer, the stream cancels outstanding planning and finishes the active-turn

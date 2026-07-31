@@ -238,6 +238,19 @@ describe("durable transcript restoration", () => {
               redactions: [],
             }],
           },
+          turn_timing: {
+            schema_version: 1,
+            started_at: "2026-07-16T07:00:00Z",
+            completed_at: "2026-07-16T07:00:03Z",
+            duration_ms: 3000,
+            phases: [{
+              phase: "generation",
+              status: "completed",
+              started_at: "2026-07-16T07:00:00Z",
+              completed_at: "2026-07-16T07:00:03Z",
+              duration_ms: 3000,
+            }],
+          },
         }),
       },
     });
@@ -251,6 +264,7 @@ describe("durable transcript restoration", () => {
       verification: { status: "consistent", evidence_refs: ["inventory:snapshot"] },
       resourceContext: { name: "example-service" },
       modelTrace: { calls: [{ kind: "answer-stream", duration_ms: 3000 }] },
+      turnTiming: { phases: [{ phase: "generation", duration_ms: 3000 }] },
     });
   });
 

@@ -1885,6 +1885,13 @@ class TestChatStreamEvidence:
         assert done["revision"] == 1
         assert done["answer"] == revision["answer"]
         assert done["verification"]["status"] == "corrected"
+        assert done["turn_timing"]["schema_version"] == 1
+        timing_by_phase = {item["phase"]: item for item in done["turn_timing"]["phases"]}
+        assert timing_by_phase["evidence"]["status"] == "degraded"
+        assert timing_by_phase["generation"]["status"] == "completed"
+        assert timing_by_phase["quality_review"]["status"] == "completed"
+        assert timing_by_phase["verification"]["status"] == "corrected"
+        assert all(item["duration_ms"] >= 0 for item in timing_by_phase.values())
 
     def test_screen_stream_finishes_consistent_without_revision(self) -> None:
         backend = _RecordingBackend(model="gpt-stream", delay_ms=0)
@@ -1904,6 +1911,12 @@ class TestChatStreamEvidence:
         assert done["revision"] == 0
         assert done["answer_plan"]["intent"] == "definition"
         assert done["answer_plan"]["detail_level"] == "standard"
+        assert (
+            next(item for item in done["turn_timing"]["phases"] if item["phase"] == "verification")[
+                "status"
+            ]
+            == "completed"
+        )
 
     def test_stream_applies_authenticated_preferences(self) -> None:
         backend = _RecordingBackend(model="gpt-stream", delay_ms=0)

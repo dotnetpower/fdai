@@ -276,6 +276,36 @@ export interface ModelTrace {
   readonly omitted_calls: number;
 }
 
+export type TurnTimingPhaseName =
+  | "semantic_plan"
+  | "evidence"
+  | "generation"
+  | "quality_review"
+  | "verification";
+
+export type TurnTimingPhaseStatus =
+  | "completed"
+  | "corrected"
+  | "degraded"
+  | "failed"
+  | "unverified";
+
+export interface TurnTimingPhase {
+  readonly phase: TurnTimingPhaseName;
+  readonly status: TurnTimingPhaseStatus;
+  readonly started_at: string;
+  readonly completed_at: string;
+  readonly duration_ms: number;
+}
+
+export interface TurnTiming {
+  readonly schema_version: 1;
+  readonly started_at: string;
+  readonly completed_at: string;
+  readonly duration_ms: number;
+  readonly phases: readonly TurnTimingPhase[];
+}
+
 export type ProgressiveAnswer = Answer & {
   readonly source: string;
   readonly router?: RouterSnapshot;
@@ -288,6 +318,7 @@ export type ProgressiveAnswer = Answer & {
   readonly actionDraft?: ActionDraft;
   readonly resourceContext?: ResourceContext;
   readonly modelTrace?: ModelTrace;
+  readonly turnTiming?: TurnTiming;
 };
 
 export interface BackendHealth {

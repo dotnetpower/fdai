@@ -13,6 +13,7 @@ import {
   type GroundedCodeArtifact,
   type InvestigationActivity,
   type ModelTrace,
+  type TurnTiming,
   type RouterSnapshot,
   type ResourceContext,
   type VerificationProgress,
@@ -57,6 +58,7 @@ export interface Turn {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly actionDraft?: ActionDraft;
   readonly modelTrace?: ModelTrace;
+  readonly turnTiming?: TurnTiming;
   readonly resourceContext?: ResourceContext;
   readonly agent?: string;
   readonly at: string;

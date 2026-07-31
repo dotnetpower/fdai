@@ -49,8 +49,8 @@ enabled by that launch profile.
 Operator browser E2E tests use Playwright against the real Vite SPA with an explicit dev-test
 profile. Route interception supplies a declared synthetic read-source manifest, incidents, agent
 frames, and chat SSE response. These fixtures exist only inside the test runner and never activate
-for `Console Web: Full Stack`. Backend integration tests separately exercise the same request
-contract through the real Starlette route and server-owned evidence resolver.
+for `Console Web: Full Stack`. Backend integration tests separately exercise the same request and
+bounded terminal turn-timing contract through the real Starlette route and evidence resolver.
 
 The complementary `npm --prefix console run test:e2e:live` suite starts the authoritative local
 PostgreSQL and Azure CLI profile without route interception. It visits every registered Console

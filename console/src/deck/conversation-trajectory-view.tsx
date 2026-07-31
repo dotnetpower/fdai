@@ -4,10 +4,19 @@ import { useState } from "preact/hooks";
 import { t } from "../i18n";
 import type { EvidenceBranch, InvestigationActivity } from "./backend";
 import type { ConversationTrajectory } from "./conversation-trajectory";
+import { ConversationExecutionTimelineView } from "./conversation-execution-timeline-view";
+import {
+  phaseStateLabel,
+  TrajectoryCoverage,
+  TrajectoryDecisionContext,
+} from "./conversation-trajectory-decision-context";
+import {
+  buildTrajectoryPresentation,
+  TRAJECTORY_PHASES,
+  type TrajectoryPhase,
+  type TrajectoryPhaseState,
+} from "./conversation-trajectory-presentation";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
-
-const PHASES = ["input", "plan", "collaboration", "evidence", "verification", "answer"] as const;
-type Phase = typeof PHASES[number];
 
 export function ConversationTrajectoryView({
   trajectory,
@@ -25,9 +34,13 @@ export function ConversationTrajectoryView({
     ...branches.flatMap((branch) => branch.evidenceRefs),
     ...(answer.verification?.evidence_refs ?? []),
   ]);
-  const recorded = recordedPhases(trajectory, milestones.length, evidenceRefs.length);
-  const observedSteps = recorded.size + activities.length + branches.length + milestones.length +
-    (showModelTrace ? (answer.modelTrace?.calls.length ?? 0) : 0);
+  const presentation = buildTrajectoryPresentation(trajectory);
+  const timelinePhases: TrajectoryPhase[] = [
+    "input",
+    ...(presentation.evidenceAttemptCount > 0 || milestones.length > 0 ? ["evidence" as const] : []),
+    ...(answer.verification ? ["verification" as const] : []),
+    "answer",
+  ];
 
   return (
     <details class="deck-trajectory" onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -37,7 +50,12 @@ export function ConversationTrajectoryView({
           {t("deck.trajectory.title")}
         </span>
         <span class="deck-trajectory-stats">
-          {t("deck.trajectory.summary", { steps: observedSteps, evidence: evidenceRefs.length })}
+          {t("deck.trajectory.summary", {
+            models: showModelTrace ? presentation.modelCallCount : 0,
+            successful: presentation.evidenceCompletedCount,
+            attempted: presentation.evidenceAttemptCount,
+            verification: phaseStateLabel(presentation.phaseStates.verification),
+          })}
         </span>
         <span class="deck-trajectory-duration">
           {trajectory.durationMs === undefined
@@ -47,132 +65,92 @@ export function ConversationTrajectoryView({
       </summary>
       {open ? (
         <div class="deck-trajectory-body">
-          <PhaseStrip recorded={recorded} />
+          <PhaseStrip phaseStates={presentation.phaseStates} />
           <div class="deck-trajectory-window">
             <span>{formatTimestamp(trajectory.startedAt, trajectory.question.at)}</span>
             <span aria-hidden="true" />
             <span>{formatTimestamp(trajectory.completedAt, trajectory.answer.at)}</span>
           </div>
+          <TrajectoryDecisionContext trajectory={trajectory}
+            collaborationState={presentation.phaseStates.collaboration} />
+          <ConversationExecutionTimelineView trajectory={trajectory}
+            includeModelCalls={showModelTrace} />
           {showModelTrace ? (
             <ModelTraceWaterfall {...(answer.modelTrace ? { trace: answer.modelTrace } : {})} />
           ) : null}
+          <h4 class="deck-trajectory-execution-title">{t("deck.trajectory.executionDetails")}</h4>
           <ol class="deck-trajectory-events">
-            <TrajectoryPhase index="01" phase="input" title={t("deck.trajectory.phase.input")}
+            <TrajectoryPhase index={phaseIndex(timelinePhases, "input")} phase="input"
+              state={presentation.phaseStates.input} title={t("deck.trajectory.phase.input")}
               summary={trajectory.question.text} time={formatTimestamp(trajectory.startedAt, trajectory.question.at)}>
               <p class="deck-trajectory-prose">{trajectory.question.text}</p>
             </TrajectoryPhase>
-            <PlanPhase trajectory={trajectory} />
-            <CollaborationPhase trajectory={trajectory} />
-            <TrajectoryPhase index="04" phase="evidence" title={t("deck.trajectory.phase.evidence")}
-              summary={t("deck.trajectory.evidenceSummary", {
-                branches: branches.length,
-                activities: activities.length,
-                references: evidenceRefs.length,
-              })}
-              recorded={recorded.has("evidence")}>
-              {recorded.has("evidence") ? (
+            {timelinePhases.includes("evidence") ? (
+              <TrajectoryPhase index={phaseIndex(timelinePhases, "evidence")} phase="evidence"
+                state={presentation.phaseStates.evidence} title={t("deck.trajectory.phase.evidence")}
+                summary={t("deck.trajectory.evidenceSummary", {
+                  successful: presentation.evidenceCompletedCount,
+                  attempted: presentation.evidenceAttemptCount,
+                  references: evidenceRefs.length,
+                })}>
                 <EvidenceTimeline trajectory={trajectory} activities={activities} branches={branches}
                   milestones={milestones} evidenceRefs={evidenceRefs} />
-              ) : <CoverageGap />}
-            </TrajectoryPhase>
-            <VerificationPhase trajectory={trajectory} />
-            <AnswerPhase trajectory={trajectory} />
+              </TrajectoryPhase>
+            ) : null}
+            {answer.verification ? (
+              <VerificationPhase trajectory={trajectory}
+                index={phaseIndex(timelinePhases, "verification")}
+                state={presentation.phaseStates.verification} />
+            ) : null}
+            <AnswerPhase trajectory={trajectory} index={phaseIndex(timelinePhases, "answer")} />
           </ol>
+          <TrajectoryCoverage phaseStates={presentation.phaseStates} />
         </div>
       ) : null}
     </details>
   );
 }
 
-function PhaseStrip({ recorded }: { readonly recorded: ReadonlySet<Phase> }) {
+function PhaseStrip({
+  phaseStates,
+}: {
+  readonly phaseStates: Readonly<Record<TrajectoryPhase, TrajectoryPhaseState>>;
+}) {
   return (
     <ol class="deck-trajectory-phase-strip" aria-label={t("deck.trajectory.phaseLabel")}>
-      {PHASES.map((phase, index) => (
-        <li key={phase} data-recorded={recorded.has(phase) ? "true" : "false"}>
+      {TRAJECTORY_PHASES.map((phase, index) => (
+        <li key={phase} data-state={phaseStates[phase]}>
           <span>{String(index + 1).padStart(2, "0")}</span>
           <strong>{t(`deck.trajectory.phase.${phase}`)}</strong>
+          <small>{phaseStateLabel(phaseStates[phase])}</small>
         </li>
       ))}
     </ol>
   );
 }
 
-function PlanPhase({ trajectory }: { readonly trajectory: ConversationTrajectory }) {
-  const plan = trajectory.answer.answerPlan;
-  return (
-    <TrajectoryPhase index="02" phase="plan" title={t("deck.trajectory.phase.plan")}
-      summary={plan
-        ? `${t(`deck.answerPlan.intent.${plan.intent}`)} / ${t(`deck.answerPlan.format.${plan.format}`)}`
-        : t("deck.trajectory.notRecorded")}
-      recorded={plan !== undefined}>
-      {plan ? (
-        <dl class="deck-trajectory-facts">
-          <dt>{t("deck.trajectory.intent")}</dt><dd>{t(`deck.answerPlan.intent.${plan.intent}`)}</dd>
-          <dt>{t("deck.trajectory.format")}</dt><dd>{t(`deck.answerPlan.format.${plan.format}`)}</dd>
-          <dt>{t("deck.trajectory.detailLevel")}</dt><dd>{t(`deck.answerPlan.detail.${plan.detail_level}`)}</dd>
-          <dt>{t("deck.trajectory.evidenceRequirement")}</dt><dd>{plan.evidence_requirement}</dd>
-          <dt>{t("deck.trajectory.sections")}</dt><dd>{plan.sections.join(", ") || t("deck.trajectory.none")}</dd>
-        </dl>
-      ) : <CoverageGap />}
-    </TrajectoryPhase>
-  );
-}
-
-function CollaborationPhase({ trajectory }: { readonly trajectory: ConversationTrajectory }) {
-  const { answer } = trajectory;
-  const recorded = answer.answerPlanning !== undefined || answer.delegation !== undefined;
-  const contributors = uniqueStrings([
-    ...(answer.delegation?.contributors ?? []),
-    ...(answer.answerPlanning?.consulted_agents ?? []),
-  ]);
-  return (
-    <TrajectoryPhase index="03" phase="collaboration" title={t("deck.trajectory.phase.collaboration")}
-      summary={collaborationSummary(trajectory)} recorded={recorded}
-      {...(answer.answerPlanning ? { time: formatDuration(answer.answerPlanning.elapsed_ms) } : {})}>
-      {recorded ? (
-        <>
-          <dl class="deck-trajectory-facts">
-            <dt>{t("deck.trajectory.primaryAgent")}</dt>
-            <dd>{answer.delegation?.primary_agent ?? answer.answerPlanning?.primary_agent ?? t("deck.trajectory.none")}</dd>
-            <dt>{t("deck.trajectory.contributors")}</dt><dd>{contributors.join(", ") || t("deck.trajectory.none")}</dd>
-            {answer.answerPlanning ? (
-              <><dt>{t("deck.trajectory.planningStatus")}</dt><dd>{answer.answerPlanning.status}</dd></>
-            ) : null}
-          </dl>
-          {answer.answerPlanning?.contributions.length ? (
-            <ul class="deck-trajectory-detail-list">
-              {answer.answerPlanning.contributions.map((contribution) => (
-                <li key={contribution.agent}>
-                  <strong>{contribution.agent}</strong>
-                  <span>{t("deck.trajectory.confidence", { value: Math.round(contribution.confidence * 100) })}</span>
-                  <small>{contribution.suggested_sections.join(", ")}</small>
-                  <ReferenceList refs={contribution.evidence_refs} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </>
-      ) : <CoverageGap />}
-    </TrajectoryPhase>
-  );
-}
-
-function VerificationPhase({ trajectory }: { readonly trajectory: ConversationTrajectory }) {
+function VerificationPhase({ trajectory, index, state }: {
+  readonly trajectory: ConversationTrajectory;
+  readonly index: string;
+  readonly state: TrajectoryPhaseState;
+}) {
   const verification = trajectory.answer.verification;
+  if (!verification) return null;
   return (
-    <TrajectoryPhase index="05" phase="verification" title={t("deck.trajectory.phase.verification")}
-      summary={verification
-        ? `${t(`deck.grounded.verificationStatus.${verification.status}`)} / ${verification.checks_completed}/${verification.checks_total}`
-        : t("deck.trajectory.notRecorded")}
-      recorded={verification !== undefined}>
-      {verification ? (
-        <>
-          <dl class="deck-trajectory-facts">
-            <dt>{t("deck.trajectory.status")}</dt><dd>{t(`deck.grounded.verificationStatus.${verification.status}`)}</dd>
-            <dt>{t("deck.trajectory.authority")}</dt><dd>{verification.authority}</dd>
-            <dt>{t("deck.trajectory.checks")}</dt><dd>{verification.checks_completed}/{verification.checks_total}</dd>
-            <dt>{t("deck.trajectory.reason")}</dt><dd>{verification.reason_code ?? t("deck.trajectory.none")}</dd>
-          </dl>
+    <TrajectoryPhase index={index} phase="verification" state={state}
+      title={t("deck.trajectory.phase.verification")}
+      summary={`${t(`deck.grounded.verificationStatus.${verification.status}`)} / ${verification.checks_completed}/${verification.checks_total}`}>
+      <dl class="deck-trajectory-facts">
+        <dt>{t("deck.trajectory.status")}</dt><dd>{t(`deck.grounded.verificationStatus.${verification.status}`)}</dd>
+        <dt>{t("deck.trajectory.checks")}</dt><dd>{verification.checks_completed}/{verification.checks_total}</dd>
+      </dl>
+      <details class="deck-trajectory-nested">
+        <summary>{t("deck.trajectory.technicalDetails")}</summary>
+        <dl class="deck-trajectory-facts">
+          <dt>{t("deck.trajectory.authority")}</dt><dd><code>{verification.authority}</code></dd>
+          <dt>{t("deck.trajectory.reason")}</dt><dd><code>{verification.reason_code ?? t("deck.trajectory.none")}</code></dd>
+        </dl>
+      </details>
           <ReferenceList refs={verification.evidence_refs} />
           {verification.claims?.length ? (
             <ol class="deck-trajectory-claims">
@@ -193,16 +171,18 @@ function VerificationPhase({ trajectory }: { readonly trajectory: ConversationTr
               </ul>
             </details>
           ) : null}
-        </>
-      ) : <CoverageGap />}
     </TrajectoryPhase>
   );
 }
 
-function AnswerPhase({ trajectory }: { readonly trajectory: ConversationTrajectory }) {
+function AnswerPhase({ trajectory, index }: {
+  readonly trajectory: ConversationTrajectory;
+  readonly index: string;
+}) {
   const { answer } = trajectory;
   return (
-    <TrajectoryPhase index="06" phase="answer" title={t("deck.trajectory.phase.answer")}
+    <TrajectoryPhase index={index} phase="answer" state="completed"
+      title={t("deck.trajectory.phase.answer")}
       summary={answer.source ?? answer.agent ?? t("deck.trajectory.recorded")}
       time={formatTimestamp(trajectory.completedAt, answer.at)}>
       <dl class="deck-trajectory-facts">
@@ -212,7 +192,6 @@ function AnswerPhase({ trajectory }: { readonly trajectory: ConversationTrajecto
           <><dt>{t("deck.trajectory.resource")}</dt><dd>{answer.resourceContext.name} ({answer.resourceContext.resource_type})</dd></>
         ) : null}
       </dl>
-      <p class="deck-trajectory-prose">{answer.text}</p>
       {answer.codeArtifacts?.map((artifact) => (
         <details key={artifact.artifact_ref} class="deck-trajectory-nested">
           <summary>{artifact.language} / {t(`deck.codeEvidence.status.${artifact.validation_status}`)}</summary>
@@ -229,16 +208,21 @@ function AnswerPhase({ trajectory }: { readonly trajectory: ConversationTrajecto
   );
 }
 
-function TrajectoryPhase({ index, phase, title, summary, time, recorded = true, children }: {
-  readonly index: string; readonly phase: Phase; readonly title: string; readonly summary: string;
-  readonly time?: string; readonly recorded?: boolean; readonly children: ComponentChildren;
+function TrajectoryPhase({ index, phase, state, title, summary, time, children }: {
+  readonly index: string; readonly phase: TrajectoryPhase; readonly state: TrajectoryPhaseState;
+  readonly title: string; readonly summary: string; readonly time?: string;
+  readonly children: ComponentChildren;
 }) {
   return (
-    <li class="deck-trajectory-event" data-phase={phase} data-recorded={recorded ? "true" : "false"}>
+    <li class="deck-trajectory-event" data-phase={phase} data-state={state}>
       <span class="deck-trajectory-event-index" aria-hidden="true">{index}</span>
       <details>
         <summary><span><strong>{title}</strong><small>{summary}</small></span>
-          <time>{time ?? (recorded ? t("deck.trajectory.recorded") : t("deck.trajectory.notRecorded"))}</time></summary>
+          <span class="deck-trajectory-event-meta">
+            {time ? <time>{time}</time> : null}
+            <span class="deck-trajectory-state">{phaseStateLabel(state)}</span>
+          </span>
+        </summary>
         <div class="deck-trajectory-event-detail">{children}</div>
       </details>
     </li>
@@ -256,24 +240,13 @@ function EvidenceTimeline({ trajectory, activities, branches, milestones, eviden
       <ol class="deck-trajectory-evidence">
         {branches.map((branch) => (
         <li key={branch.branchId} data-status={branch.status}>
-          <TimedBar trajectory={trajectory} start={branch.startedAt}
-            {...(branch.completedAt ? { end: branch.completedAt } : {})}
-            {...(branch.durationMs !== undefined ? { durationMs: branch.durationMs } : {})} />
-          <details><summary><span class={`deck-trajectory-kind is-${branch.kind}`}>{branch.kind}</span>
-            <strong>{branch.summary}</strong><time>{formatTimestamp(branch.startedAt)}{branch.durationMs !== undefined ? ` / ${formatDuration(branch.durationMs)}` : ""}</time></summary>
-            <ReferenceList refs={branch.evidenceRefs} /></details>
+          <details><summary><span class={`deck-trajectory-kind is-${branch.kind}`}>{t(`deck.investigation.kind.${branch.kind}`)}</span>
+            <strong>{t(`deck.investigation.${branch.status}`)}</strong><time>{formatTimestamp(branch.startedAt)}{branch.durationMs !== undefined ? ` / ${formatDuration(branch.durationMs)}` : ""}</time></summary>
+            <p>{branch.summary}</p><ReferenceList refs={branch.evidenceRefs} /></details>
         </li>
         ))}
         {activities.map((activity) => (
         <li key={activity.activityId} data-status={activity.status}>
-          <TimedBar trajectory={trajectory}
-            {...(activity.execution?.startedAt || activity.observedAt
-              ? { start: activity.execution?.startedAt ?? activity.observedAt }
-              : {})}
-            {...(activity.execution?.completedAt ? { end: activity.execution.completedAt } : {})}
-            {...(activity.execution?.durationMs !== undefined
-              ? { durationMs: activity.execution.durationMs }
-              : {})} />
           <details><summary><span class="deck-trajectory-kind is-activity">{activity.execution?.inputKind ?? activity.kind}</span>
             <strong>{activity.label}</strong><time>{formatTimestamp(activity.execution?.startedAt ?? activity.observedAt)}</time></summary>
             {activity.detail ? <p>{activity.detail}</p> : null}
@@ -309,15 +282,6 @@ function ExecutionDetail({ activity }: { readonly activity: InvestigationActivit
   );
 }
 
-function TimedBar({ trajectory, start, end, durationMs }: {
-  readonly trajectory: ConversationTrajectory; readonly start?: string; readonly end?: string; readonly durationMs?: number;
-}) {
-  const style = barStyle(trajectory, start, end, durationMs);
-  return style ? <span class="deck-trajectory-timebar"><span style={style} /></span> : null;
-}
-
-function CoverageGap() { return <p class="deck-trajectory-gap">{t("deck.trajectory.coverageGap")}</p>; }
-
 function ReferenceList({ refs }: { readonly refs: readonly string[] }) {
   return refs.length === 0 ? null : (
     <ul class="deck-trajectory-refs" aria-label={t("deck.trajectory.references")}>
@@ -326,37 +290,8 @@ function ReferenceList({ refs }: { readonly refs: readonly string[] }) {
   );
 }
 
-function recordedPhases(
-  trajectory: ConversationTrajectory,
-  milestoneCount: number,
-  evidenceRefCount: number,
-): Set<Phase> {
-  const recorded = new Set<Phase>(["input", "answer"]);
-  if (trajectory.answer.answerPlan) recorded.add("plan");
-  if (trajectory.answer.answerPlanning || trajectory.answer.delegation) recorded.add("collaboration");
-  if (trajectory.activities.length || trajectory.branches.length || milestoneCount || evidenceRefCount) {
-    recorded.add("evidence");
-  }
-  if (trajectory.answer.verification) recorded.add("verification");
-  return recorded;
-}
-
-function collaborationSummary({ answer }: ConversationTrajectory): string {
-  return uniqueStrings([answer.delegation?.primary_agent ?? "", ...(answer.delegation?.contributors ?? []),
-    ...(answer.answerPlanning?.consulted_agents ?? [])]).filter(Boolean).join(" -> ") || t("deck.trajectory.notRecorded");
-}
-
-function barStyle(trajectory: ConversationTrajectory, start: string | undefined, end: string | undefined,
-  durationMs: number | undefined): Record<string, string> | undefined {
-  if (!trajectory.startedAt || !trajectory.completedAt || !validTimestamp(start)) return undefined;
-  const windowStart = Date.parse(trajectory.startedAt);
-  const total = Date.parse(trajectory.completedAt) - windowStart;
-  if (total <= 0) return undefined;
-  const eventStart = Date.parse(start);
-  const eventEnd = validTimestamp(end) ? Date.parse(end) : eventStart + (durationMs ?? 0);
-  const left = clamp(((eventStart - windowStart) / total) * 100, 0, 100);
-  const width = clamp(((Math.max(eventStart, eventEnd) - eventStart) / total) * 100, 1.5, 100 - left);
-  return { left: `${left}%`, width: `${width}%` };
+function phaseIndex(phases: readonly TrajectoryPhase[], phase: TrajectoryPhase): string {
+  return String(phases.indexOf(phase) + 1).padStart(2, "0");
 }
 
 function formatDuration(durationMs: number): string {
@@ -374,4 +309,3 @@ function formatTimestamp(value: string | undefined, fallback: string = t("deck.t
 
 function uniqueStrings(values: readonly string[]): string[] { return [...new Set(values.filter(Boolean))]; }
 function validTimestamp(value: string | undefined): value is string { return value !== undefined && Number.isFinite(Date.parse(value)); }
-function clamp(value: number, minimum: number, maximum: number): number { return Math.max(minimum, Math.min(maximum, value)); }

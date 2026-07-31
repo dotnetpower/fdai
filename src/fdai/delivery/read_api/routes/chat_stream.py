@@ -105,6 +105,8 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
 )
 from fdai.delivery.read_api.routes.chat_stream_setup import prepare_chat_stream_request
 from fdai.delivery.read_api.routes.chat_stream_terminal import (
+    TurnTimingRecorder,
+    TurnTimingStatus,
     build_done_payload,
     verification_events,
 )
@@ -131,6 +133,27 @@ _LOG = logging.getLogger(__name__)
 
 
 DEFAULT_STREAM_PATH: Final[str] = "/chat/stream"
+
+
+def _evidence_timing_status(outcomes: list[str]) -> TurnTimingStatus:
+    terminal = [
+        status
+        for status in outcomes
+        if status in {"completed", "unavailable", "failed", "timed_out", "cancelled"}
+    ]
+    if not terminal or all(status == "completed" for status in terminal):
+        return "completed"
+    if all(status == "failed" for status in terminal):
+        return "failed"
+    return "degraded"
+
+
+def _verification_timing_status(status: str) -> TurnTimingStatus:
+    if status == "corrected":
+        return "corrected"
+    if status == "unverified":
+        return "unverified"
+    return "completed"
 
 
 def make_chat_stream_route(
@@ -245,7 +268,8 @@ def make_chat_stream_route(
         async def event_source() -> AsyncIterator[bytes]:
             nonlocal answer_plan
             model_trace_scope = activate_model_trace(include_model_trace)
-            started = time.monotonic()
+            turn_timing = TurnTimingRecorder()
+            started = turn_timing.started_monotonic
             sequence = 0
             revision = 0
             planning_task: asyncio.Task[AnswerPlanningResult] | None = None
@@ -301,6 +325,7 @@ def make_chat_stream_route(
                     yield frame("done", completed_payload)
                     return
                 if turn_planner is not None and not deterministic_followup:
+                    semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:
                         semantic_plan = await turn_planner.plan_turn(
                             prompt=clean_prompt,
@@ -308,12 +333,14 @@ def make_chat_stream_route(
                             history=history,
                         )
                     except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
+                        turn_timing.complete(semantic_plan_timing, status="degraded")
                         _LOG.warning(
                             "chat stream turn planning unavailable: %s",
                             type(exc).__name__,
                             extra={"request_id": request_id},
                         )
                     else:
+                        turn_timing.complete(semantic_plan_timing, status="completed")
                         answer_plan = apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
                         view_context["_answer_plan"] = answer_plan.to_dict()
                         view_context["_turn_plan"] = semantic_plan.to_dict()
@@ -329,6 +356,7 @@ def make_chat_stream_route(
                                         request_id=request_id,
                                         session_id=session_id,
                                     ),
+                                    "turn_timing": turn_timing.snapshot(),
                                 },
                             )
                             return
@@ -378,9 +406,12 @@ def make_chat_stream_route(
                     behavior_resolver,
                 )
                 progress_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=128)
+                evidence_outcomes: list[str] = []
 
                 async def observe_evidence_progress(event: Mapping[str, Any]) -> None:
                     nonlocal first_progress_recorded
+                    if event.get("event") == "branch" and isinstance(event.get("status"), str):
+                        evidence_outcomes.append(str(event["status"]))
                     if progress_metrics is not None and progress_queue.full():
                         progress_metrics.increment("queue_saturation")
                     await progress_queue.put(dict(event))
@@ -392,6 +423,7 @@ def make_chat_stream_route(
                             first_progress_recorded=first_progress_recorded,
                         )
 
+                evidence_timing = turn_timing.begin("evidence")
                 evidence_task = asyncio.create_task(
                     resolve_parallel_chat_evidence(
                         request_id=request_id,
@@ -422,6 +454,10 @@ def make_chat_stream_route(
                         if event_name in {"activity", "milestone", "status", "branch"}:
                             yield frame(event_name, progress_event)
                     enriched_context = await evidence_task
+                    turn_timing.complete(
+                        evidence_timing,
+                        status=_evidence_timing_status(evidence_outcomes),
+                    )
                 finally:
                     if not evidence_task.done():
                         evidence_task.cancel()
@@ -510,6 +546,7 @@ def make_chat_stream_route(
                     },
                 )
 
+                generation_timing = turn_timing.begin("generation")
                 stream = getattr(backend, "answer_stream", None)
                 provisional_answer = ""
                 model_generated = False
@@ -656,6 +693,7 @@ def make_chat_stream_route(
                     terminal_usage = reply.get("usage")
 
                 generation_ms = int((time.monotonic() - started) * 1000)
+                turn_timing.complete(generation_timing, status="completed")
                 yield frame(
                     "provisional",
                     {
@@ -666,6 +704,7 @@ def make_chat_stream_route(
                 )
                 quality: AnswerQualityResult | None = None
                 if model_generated:
+                    quality_timing = turn_timing.begin("quality_review")
 
                     async def invoke_quality(
                         quality_prompt: str,
@@ -711,7 +750,12 @@ def make_chat_stream_route(
                         candidate = quality_event.get("result")
                         if isinstance(candidate, AnswerQualityResult):
                             quality = candidate
+                    turn_timing.complete(
+                        quality_timing,
+                        status="completed" if quality is not None else "degraded",
+                    )
 
+                verification_timing = turn_timing.begin("verification")
                 verification = (
                     contextual_verification
                     if contextual_verification is not None
@@ -740,6 +784,10 @@ def make_chat_stream_route(
                 )
                 for event_name, payload in terminal_events:
                     yield frame(event_name, payload)
+                turn_timing.complete(
+                    verification_timing,
+                    status=_verification_timing_status(verification.status),
+                )
                 if verification.status != "unverified":
                     if progress_metrics is not None:
                         progress_metrics.observe_latency(
@@ -783,6 +831,7 @@ def make_chat_stream_route(
                         resource_context,
                     ),
                     model_trace=snapshot_model_trace(model_trace_scope.collector),
+                    turn_timing=turn_timing.snapshot(),
                 )
                 if conversation_history_store is not None:
                     assistant_turn = await append_assistant_turn(

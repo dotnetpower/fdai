@@ -207,16 +207,16 @@ provider payloads, and validation results remain unchanged.
 
 ## Observed conversation trajectory
 
-Each completed Command Deck question exposes one collapsed observed trajectory under its terminal
-answer. The detail groups Input, Plan, Collaboration, Evidence and tools, Verification, and Answer
-in causal order. Recorded branch and execution timestamps produce a bounded time window and
-duration bars; a phase without timing stays sequence-only and is never assigned an invented time.
+Each completed Command Deck question exposes one collapsed observed trajectory. Its status overview distinguishes completed, corrected, degraded, failed, unverified, running, and unobserved phases; record presence isn't success.
+Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
+Primary text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
 
-The detail can show the operator question, answer plan, shadow planning contributions, delegation,
-redacted command or query input, bounded output, milestones, evidence references, atomic claims,
-the evidence manifest, code artifacts, and the terminal answer when those records exist. Missing
-activity is an explicit coverage gap and does not prove that no work occurred. Durable history
-restores only an exact-answer terminal `replay_payload` through the same bounded browser parsers.
+Detail includes bounded recorded metadata but doesn't repeat the answer body. Unavailable or timed-out
+evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
+durable replay uses the same bounded browser parsers.
+
+Terminal timing covers at most eight allowlisted semantic-plan, evidence, generation, quality-review,
+and verification phases. One UTC anchor plus monotonic elapsed time produces observed status, start, completion, and duration. Interrupts persist none; strict parsing rejects inconsistent timing.
 
 Model provider tracing is a browser-local Settings opt-in that defaults off. When enabled, the
 request-local collector records up to eight actual model calls for that question, including turn

@@ -14,7 +14,7 @@ import {
   parseInvestigationActivity,
   parseInvestigationMilestone,
   parseRetrievalSourcePreviews,
-    parseResourceContext,
+  parseResourceContext,
   parseRouter,
   parseVerificationStatus,
   tokenSuffix,
@@ -24,6 +24,7 @@ import {
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
   parseModelTrace,
+  parseTurnTiming,
 } from "./backend-parsers";
 import type {
   AnswerVerificationStatus,
@@ -400,6 +401,7 @@ export async function askBackendStream(
   const codeArtifacts = parseGroundedCodeArtifacts(done.code_artifacts);
   const resourceContext = parseResourceContext(done.resource_context);
   const modelTrace = parseModelTrace(done.model_trace);
+  const turnTiming = parseTurnTiming(done.turn_timing);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const source = explicitSource ?? (
@@ -424,6 +426,7 @@ export async function askBackendStream(
     ...(actionDraft ? { actionDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
+    ...(turnTiming ? { turnTiming } : {}),
   };
 }
 

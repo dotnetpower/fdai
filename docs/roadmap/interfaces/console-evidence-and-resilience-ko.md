@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: bd452d8edc8f3d67d5e240ea0eee60210aa148d1
+translation_source_sha: 313bfb8152e1de34f41e7621730681a1b28d60fe
 translation_revised: 2026-07-31
 ---
 
@@ -206,16 +206,20 @@ provider payload 및 validation result는 변경하지 않습니다.
 
 ## 관찰된 대화 트래젝터리
 
-완료된 각 Command Deck 질문은 terminal answer 아래에 접힌 observed trajectory 하나를 표시합니다.
-상세 화면은 입력, 계획, 협업, 근거 및 도구, 검증, 답변을 인과 순서로 묶습니다. 기록된 branch와
-execution timestamp로 제한된 time window와 duration bar를 만들며, timing이 없는 단계는 sequence
-전용으로 유지하고 시각을 추정하지 않습니다.
+완료된 각 Command Deck 질문은 접힌 observed trajectory를 표시합니다. 상태 개요는 완료, 수정 후 완료,
+일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며 record 존재를 성공으로 표시하지
+않습니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
+및 tool, model call, verification 및 delivery만 timeline에 표시합니다. Primary text는 14 px 이상이고,
+main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
 
-해당 record가 존재하면 operator question, answer plan, shadow planning contribution, delegation,
-redacted command 또는 query input, bounded output, milestone, evidence reference, atomic claim,
-evidence manifest, code artifact 및 terminal answer를 표시합니다. Activity 누락은 명시적 coverage
-gap이며 작업이 없었다는 의미가 아닙니다. Durable history는 exact-answer terminal `replay_payload`만
-동일한 bounded browser parser로 복원합니다.
+상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Unavailable 또는
+timed-out evidence는 시도이지 완료된 evidence가 아니며 unverified 작업에는 완료 styling을 적용하지
+않습니다. 누락된 activity는 observation coverage disclosure에 두며 작업 부재를 증명하지 않습니다.
+Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다.
+
+Terminal timing은 최대 8개의 allowlisted semantic-plan, evidence, generation, quality-review 및
+verification phase를 포함합니다. 하나의 UTC anchor와 monotonic elapsed time으로 관측된 status, start,
+completion 및 duration을 만듭니다. Interrupt는 timing을 저장하지 않고 strict parser는 불일치를 거부합니다.
 
 Model provider tracing은 기본값이 꺼진 browser-local Settings opt-in입니다. 활성화하면 request-local
 collector가 turn planning, rerun, answer generation 및 quality review를 포함하여 해당 질문의 실제 model

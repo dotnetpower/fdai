@@ -4,13 +4,86 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from typing import Any, Final, Literal
 
 from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.delivery.read_api.routes.chat_answer_quality import AnswerQualityResult
 from fdai.delivery.read_api.routes.chat_evidence_enrichment import _web_search_summary
 from fdai.delivery.read_api.routes.chat_verification import AnswerVerification
+
+TurnTimingPhase = Literal[
+    "semantic_plan",
+    "evidence",
+    "generation",
+    "quality_review",
+    "verification",
+]
+TurnTimingStatus = Literal["completed", "corrected", "degraded", "failed", "unverified"]
+
+_MAX_TURN_TIMING_PHASES: Final[int] = 8
+_TURN_TIMING_PHASES: Final[frozenset[str]] = frozenset(
+    {"semantic_plan", "evidence", "generation", "quality_review", "verification"}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class TurnTimingToken:
+    phase: TurnTimingPhase
+    started_monotonic: float
+
+
+@dataclass(slots=True)
+class TurnTimingRecorder:
+    started_monotonic: float = field(default_factory=time.monotonic)
+    started_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
+    _phases: list[dict[str, Any]] = field(default_factory=list, init=False)
+    _active: set[str] = field(default_factory=set, init=False)
+
+    def begin(self, phase: TurnTimingPhase) -> TurnTimingToken:
+        if phase not in _TURN_TIMING_PHASES:
+            raise ValueError("turn timing phase is not allowlisted")
+        if phase in self._active or any(item["phase"] == phase for item in self._phases):
+            raise ValueError("turn timing phase is duplicated")
+        if len(self._phases) + len(self._active) >= _MAX_TURN_TIMING_PHASES:
+            raise ValueError("turn timing phase cap exceeded")
+        self._active.add(phase)
+        return TurnTimingToken(phase=phase, started_monotonic=time.monotonic())
+
+    def complete(self, token: TurnTimingToken, *, status: TurnTimingStatus) -> None:
+        if token.phase not in self._active:
+            raise ValueError("turn timing phase is not active")
+        completed_monotonic = time.monotonic()
+        if completed_monotonic < token.started_monotonic:
+            raise ValueError("turn timing monotonic clock moved backward")
+        self._active.remove(token.phase)
+        self._phases.append(
+            {
+                "phase": token.phase,
+                "status": status,
+                "started_at": self._timestamp(token.started_monotonic),
+                "completed_at": self._timestamp(completed_monotonic),
+                "duration_ms": int((completed_monotonic - token.started_monotonic) * 1000),
+            }
+        )
+
+    def snapshot(self) -> dict[str, Any]:
+        if self._active:
+            raise ValueError("turn timing has active phases")
+        completed_monotonic = time.monotonic()
+        return {
+            "schema_version": 1,
+            "started_at": self.started_at.isoformat(),
+            "completed_at": self._timestamp(completed_monotonic),
+            "duration_ms": max(0, int((completed_monotonic - self.started_monotonic) * 1000)),
+            "phases": sorted(self._phases, key=lambda item: str(item["started_at"])),
+        }
+
+    def _timestamp(self, monotonic_value: float) -> str:
+        offset = max(0.0, monotonic_value - self.started_monotonic)
+        return (self.started_at + timedelta(seconds=offset)).isoformat()
 
 
 def verification_events(
@@ -78,6 +151,7 @@ def build_done_payload(
     quality: AnswerQualityResult | None,
     resource_context: Mapping[str, str] | None,
     model_trace: Mapping[str, Any] | None,
+    turn_timing: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     source = None
     if resource_answer is not None:
@@ -115,4 +189,6 @@ def build_done_payload(
         payload["resource_context"] = dict(resource_context)
     if model_trace is not None:
         payload["model_trace"] = dict(model_trace)
+    if turn_timing is not None:
+        payload["turn_timing"] = dict(turn_timing)
     return payload
