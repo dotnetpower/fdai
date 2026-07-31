@@ -39,12 +39,14 @@ def git_repo(tmp_path: Path) -> Path:
     (repo / "scripts" / "automation" / "tests-for-diff.sh").write_text(
         "#!/usr/bin/env bash\n"
         "test -f resolved-models.json || exit 9\n"
+        'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
         'printf "changed:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
         encoding="utf-8",
     )
     (repo / "scripts" / "verify.sh").write_text(
         "#!/usr/bin/env bash\n"
         "test -f resolved-models.json || exit 9\n"
+        'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
         'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
         encoding="utf-8",
     )

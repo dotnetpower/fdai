@@ -158,6 +158,7 @@ def _validation_environment(paths: QueuePaths) -> dict[str, str]:
     environment.setdefault("FDAI_PYTEST_MAX_WORKERS", "2")
     environment.setdefault("MYPY_CACHE_DIR", str(cache_root / "mypy"))
     environment.setdefault("RUFF_CACHE_DIR", str(cache_root / "ruff"))
+    environment["UV_PROJECT_ENVIRONMENT"] = str(paths.state_root / "venv")
     environment["FDAI_VALIDATION_ACTIVE"] = "1"
     return environment
 
@@ -211,7 +212,6 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             cwd=paths.repo_root,
         )
         added = True
-        _link_local_path(paths.repo_root / ".venv", validation_root / ".venv")
         _link_local_path(
             paths.repo_root / "console" / "node_modules",
             validation_root / "console" / "node_modules",
