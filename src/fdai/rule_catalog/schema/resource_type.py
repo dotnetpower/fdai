@@ -16,6 +16,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import resources
+from types import MappingProxyType
 from typing import Annotated, Any
 
 from jsonschema import Draft202012Validator
@@ -44,7 +45,7 @@ class ResourceTypeEntry(BaseModel):
     azure_arm_type: str | None = None
     azure_kind_tokens: tuple[str, ...] = ()
     query_terms: tuple[str, ...] = ()
-    typical_parents: list[str] = Field(default_factory=list)
+    typical_parents: tuple[str, ...] = ()
 
 
 class ResourceTypeRegistry(BaseModel):
@@ -52,8 +53,17 @@ class ResourceTypeRegistry(BaseModel):
 
     schema_version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
     version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
-    category_query_terms: dict[ResourceTypeCategory, tuple[str, ...]] = Field(default_factory=dict)
+    category_query_terms: Mapping[ResourceTypeCategory, tuple[str, ...]] = Field(
+        default_factory=dict
+    )
     types: tuple[ResourceTypeEntry, ...]
+
+    def model_post_init(self, __context: Any) -> None:
+        object.__setattr__(
+            self,
+            "category_query_terms",
+            MappingProxyType(dict(self.category_query_terms)),
+        )
 
     def ids(self) -> set[str]:
         return {t.id for t in self.types}
@@ -299,11 +309,11 @@ def load_resource_type_registry_from_mapping(
                     message="every semantic type sharing an ARM type requires azure_kind_tokens",
                 )
             )
-        for arm_type, token, owners in _shared_arm_kind_collisions(entries):
+        for arm_type, token, kind_owners in _shared_arm_kind_collisions(entries):
             issues.append(
                 ResourceTypeIssue(
                     key=f"azure_arm_type[{arm_type}].azure_kind_tokens[{token}]",
-                    message=f"kind token is shared by resource types {list(owners)}",
+                    message=f"kind token is shared by resource types {list(kind_owners)}",
                 )
             )
         for entry_id, parent in _unknown_typical_parents(entries):

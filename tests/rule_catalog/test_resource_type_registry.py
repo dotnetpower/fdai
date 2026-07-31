@@ -8,6 +8,7 @@ import pytest
 import yaml
 
 from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeCategory,
     ResourceTypeRegistry,
     ResourceTypeRegistryError,
     load_resource_type_registry_from_mapping,
@@ -347,3 +348,12 @@ def test_get_missing_raises_key_error() -> None:
     registry = _shipped()
     with pytest.raises(KeyError):
         registry.get("does-not-exist")
+
+
+def test_loaded_registry_nested_collections_are_immutable() -> None:
+    registry = _shipped()
+
+    with pytest.raises(TypeError):
+        registry.category_query_terms[ResourceTypeCategory.DATABASE] = ("mutated",)
+    with pytest.raises(AttributeError):
+        registry.get("compute.vm").typical_parents.append("subscription")
