@@ -189,7 +189,7 @@ with an unsuccessful exit instead of silently disabling future ticks.
 | Operational receipt compiler and action/incident case intake | Implemented |
 | Full-chain keyset backfill and zero-mismatch cutover gate | Implemented |
 | Azure private artifact adapter | Implemented; deployment remains opt-in |
-| Muninn case materialization, scheduled retention, and Norns candidate choreography | Implemented |
+| Muninn case materialization, scheduled retention, fingerprint-keyed operational cohorts, and inert Norns candidate choreography | Implemented through O2; raw response outcomes remain insufficient mechanism evidence |
 | Mechanical forecast tick Job and read-only console health view | Implemented; deployment is opt-in |
 
 ## Verification

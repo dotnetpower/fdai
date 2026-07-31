@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 62cfcbd95779e6e10e11d5f0f022bd0761895186
+translation_source_sha: a3a5d6d5928aeafe20ffa15ce62996f4108e2912
 translation_revised: 2026-08-01
 ---
 # 예측 학습 및 케이스 히스토리
@@ -192,7 +192,7 @@ publisher가 deletion을 앞당길 수 없습니다. Retention publisher task가
 | Operational receipt compiler 및 action/incident case intake | 구현됨 |
 | 전체 chain keyset backfill 및 zero-mismatch cutover gate | 구현됨 |
 | Azure private artifact adapter | 구현됨, deployment는 opt-in |
-| Muninn case materialization, scheduled retention 및 Norns candidate choreography | 구현됨 |
+| Muninn case materialization, scheduled retention, fingerprint-keyed operational cohort 및 inert Norns candidate choreography | O2까지 구현됨, raw response outcome은 mechanism evidence 부족으로 유지 |
 | 기계적 forecast tick Job 및 read-only console health view | 구현됨, deployment는 opt-in |
 
 ## Verification

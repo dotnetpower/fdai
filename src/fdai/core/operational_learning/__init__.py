@@ -4,12 +4,12 @@ from .patterns import (
     OperatingPatternCandidate,
     OperatingPatternCompiler,
     PatternCase,
-    pattern_case_from_response_outcome,
+    pattern_case_from_operational_case,
 )
 
 __all__ = [
     "OperatingPatternCandidate",
     "OperatingPatternCompiler",
     "PatternCase",
-    "pattern_case_from_response_outcome",
+    "pattern_case_from_operational_case",
 ]

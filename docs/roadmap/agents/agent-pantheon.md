@@ -218,9 +218,9 @@ overrides or approval rejections (`revision` / `retirement`), and optional scena
 (`new-scenario`). Every source passes the same consensus boundary.
 
 Every proposal records numeric evidence. Trajectory intake accepts only reviewed aggregates and
-creates no candidate by itself. Strict outcomes return through Huginn raw ingress; Muninn publishes
-bounded `operating_pattern_cohort` context for Norns and Mimir without direct agent calls. A cohort
-requires reusable verified-enforce and negative/control cases for one ActionType; shadow success, malformed, unscorable, and success-only evidence stays held, and every candidate remains inert.
+creates no candidate by itself. Huginn carries strict operational-case events; Muninn seals them
+and publishes bounded failure-fingerprint cohorts. Norns requires one fingerprint and ActionType,
+balanced evidence, and immutable revisions before consensus emits an inert candidate; incomplete evidence stays held.
 
 ## 4. Agent catalog
 

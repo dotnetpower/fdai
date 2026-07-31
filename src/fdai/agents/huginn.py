@@ -16,6 +16,7 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _HUGINN
+from fdai.core.case_history import OperationalCaseInput
 
 # Bound the dedup memory so a long-lived process cannot leak: the most
 # recent N idempotency keys are retained; older keys age out (a re-arrival
@@ -130,9 +131,21 @@ class Huginn(Agent):
         )
         resource: Mapping[str, Any] = resource_value if isinstance(resource_value, Mapping) else {}
 
+        event_type = str(raw.get("event_type", "generic"))[:_MAX_FIELD_CHARS]
+        attributes = _bound_attributes(raw.get("attributes", {}))
+        correlation_id = str(raw.get("correlation_id", key))[:_MAX_FIELD_CHARS]
+        if event_type == "case_history.operational_case.v1":
+            raw_attributes = raw.get("attributes")
+            if isinstance(raw_attributes, Mapping):
+                try:
+                    operational_case = OperationalCaseInput.from_mapping(raw_attributes)
+                    attributes = operational_case.to_mapping()
+                    correlation_id = operational_case.failure_fingerprint.digest
+                except (TypeError, ValueError):
+                    pass
         payload: dict[str, Any] = {
             "producer_principal": "Huginn",
-            "correlation_id": str(raw.get("correlation_id", key))[:_MAX_FIELD_CHARS],
+            "correlation_id": correlation_id,
             "incident_correlation": (
                 "none"
                 if str(raw.get("event_type", "")).startswith("inventory.")
@@ -145,8 +158,8 @@ class Huginn(Agent):
                 raw.get("resource_id") or raw.get("resource_ref") or resource.get("resource_id")
             ),
             "resource_type": _bound(raw.get("resource_type") or resource.get("type")),
-            "event_type": str(raw.get("event_type", "generic"))[:_MAX_FIELD_CHARS],
-            "attributes": _bound_attributes(raw.get("attributes", {})),
+            "event_type": event_type,
+            "attributes": attributes,
         }
         severity = raw.get("severity") or canonical_payload.get("severity")
         if isinstance(severity, str) and severity.strip():

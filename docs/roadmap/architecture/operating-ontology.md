@@ -16,10 +16,11 @@ budgets, evidence, and resource instances.
 > conflicting, or unproven context holds a decision for review. It never supplies permission to
 > execute.
 >
-> **Implementation status (2026-07-31):** O1 semantic-spine declarations and competency queries,
+> **Implementation status (2026-08-01):** O1 semantic-spine declarations and competency queries,
 > O2 immutable context materialization and Forseti ceiling wiring, O3/O4 shared decision-case
-> selection and response closure, and O5 balanced cohort intake through Norns and Mimir are
-> implemented. A bounded JSON `OperatingModelProvider` can project deployment instances at startup;
+> selection and response closure, and operational-learning O2 fingerprint cohort intake through
+> Muninn and Norns are implemented. Mimir behavior and catalog compilation remain unchanged. A
+> bounded JSON `OperatingModelProvider` can project deployment instances at startup;
 > its revision and aggregate counts are available through the Reader-gated ontology projection.
 > Context snapshots preserve deterministic typed evidence paths, object revisions, effective-time
 > intervals, allowlisted provenance refs, and complete source-freshness receipts without copying
@@ -312,14 +313,15 @@ window.
 
 ### Outcome learning loop
 
-The optional effect observer writes a strict `ResponseOutcome`. After both effect and outcome audit
-records persist, composition republishes that contract through ordinary ingress. Audit failure
-suppresses the relay, so unaudited outcomes cannot become learning evidence. Huginn owns
-normalization; Muninn durably groups at most 100
-cases per ActionType and publishes a `ContextIndex` cohort; Norns requires balanced positive and
-negative evidence before emitting an inert candidate; Mimir applies the ordinary guard. Only a
-verified enforce outcome is reusable positive evidence. Mismatch is negative evidence, while
-unscorable and shadow-success outcomes are held outside the cohort.
+Huginn normalizes the bounded `case_history.operational_case.v1` event. Muninn requires the O1
+case-history materializer, seals the strict input, and durably retains at most 100 immutable cases
+per failure fingerprint before publishing `operational_case_fingerprint_cohort` context. Norns
+requires one failure fingerprint and ActionType, at least one verified reusable success, and at
+least one failure, refusal, no-op, rollback, or recurrence control before it emits an inert
+candidate through its existing consensus and rate limits. Every candidate cites case id, revision,
+manifest digest, resource type, fingerprint, per-outcome counts, and digest evidence. A raw
+`measurement.action_outcome.v1` remains telemetry with insufficient mechanism evidence and cannot
+enter a promotable cohort.
 
 ## Extension model
 
@@ -363,7 +365,7 @@ unknown cases. A new type or link is justified by a failing fixture, then retain
 | O2 - Context projection | Implemented: immutable `OperationalContextSnapshot`, materializer, runtime store sharing, and Forseti ceiling. | Fresh context preserves authority; stale, conflicting, and unmapped context lowers auto to human approval. |
 | O3 - Reliability loop | Implemented core: objective-aware decision case, option selection, and `ResponseOutcome` closure. | Frozen tests traverse service -> objective -> option -> action -> effect with one correlation. |
 | O4 - ARB and cost loops | Implemented core: architecture-constraint exclusion and protected-objective cost tradeoff. | Cost options cannot trade away protected reliability objectives. |
-| O5 - Governed learning | Implemented: balanced pattern compiler and Muninn -> Norns -> Mimir intake. | Success-only cohorts are held and no outcome edits a live catalog declaration directly. |
+| O5 - Governed learning | Implemented through operational-learning O2: strict Huginn case events, Muninn fingerprint cohorts, and balanced inert Norns candidates. Mimir catalog behavior is unchanged. | Success-only and raw-response cohorts are held; candidates cite immutable revisions; no outcome edits a live catalog declaration directly. |
 
 The first code slice after O0 should add only the semantic-spine declarations, link constraints,
 and query fixtures. Runtime writers, decision changes, and execution behavior belong to later,

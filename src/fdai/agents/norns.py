@@ -204,8 +204,8 @@ class Norns(Agent):
         elif topic == "object.post-turn-review":
             await self._observe_post_turn_review(payload)
         elif topic == "object.context-index":
-            if payload.get("kind") == "operating_pattern_cohort":
-                self._observe_operating_pattern_cohort(payload)
+            if payload.get("kind") == "operational_case_fingerprint_cohort":
+                self._observe_operational_case_cohort(payload)
             else:
                 await self._observe_forecast_case(payload)
         # object.override is deliberately NOT handled here: it is not a pantheon
@@ -215,27 +215,39 @@ class Norns(Agent):
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
         await self.flush_candidates()
 
-    def _observe_operating_pattern_cohort(self, payload: dict[str, Any]) -> None:
+    def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":
-            raise ValueError("operating pattern cohort MUST be published by Muninn")
+            self.record_behavior("operational_case_cohort_invalid_producer")
+            return
         raw_cases = payload.get("cases")
         if not isinstance(raw_cases, list):
-            raise ValueError("operating pattern cohort cases MUST be an array")
-        cases = tuple(
-            PatternCase.from_mapping(item) for item in raw_cases if isinstance(item, dict)
-        )
-        if len(cases) != len(raw_cases):
-            raise ValueError("operating pattern cohort cases MUST be objects")
+            self.record_behavior("operational_case_cohort_invalid_payload")
+            return
+        try:
+            cases = tuple(
+                PatternCase.from_mapping(item) for item in raw_cases if isinstance(item, dict)
+            )
+        except ValueError:
+            self.record_behavior("operational_case_cohort_invalid_payload")
+            return
+        fingerprint = str(payload.get("failure_fingerprint") or "")
+        if (
+            len(cases) != len(raw_cases)
+            or not fingerprint
+            or any(case.failure_fingerprint != fingerprint for case in cases)
+        ):
+            self.record_behavior("operational_case_cohort_invalid_payload")
+            return
         candidate = self._operating_pattern_compiler.compile(cases)
         if candidate is None:
-            self.record_behavior("operating_pattern_cohort_held")
+            self.record_behavior("operational_case_cohort_held")
             return
         if candidate.pattern_id in self._operating_pattern_ids:
-            self.record_behavior("operating_pattern_cohort_duplicate")
+            self.record_behavior("operational_case_cohort_duplicate")
             return
         self._operating_pattern_ids.add(candidate.pattern_id)
         self.pending_candidates.append(candidate.to_rule_candidate_mapping())
-        self.record_behavior("operating_pattern_candidate_created")
+        self.record_behavior("operational_case_candidate_created")
 
     async def _observe_forecast_case(self, payload: dict[str, Any]) -> None:
         if payload.get("kind") != "forecast_case_history":

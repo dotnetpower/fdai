@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -246,3 +247,68 @@ def test_operational_case_rejects_receipt_authority_mismatch() -> None:
     )
     with pytest.raises(ValueError, match="match the case action type"):
         _case_input(receipts=tuple(receipts))
+
+
+def test_operational_case_rejects_duplicate_authoritative_receipt() -> None:
+    case_input = _case_input()
+    audit = next(
+        receipt
+        for receipt in case_input.receipts
+        if receipt.receipt_type is OperationalReceiptType.AUDIT
+    )
+    duplicate = replace(audit, receipt_digest="6" * 64)
+
+    with pytest.raises(ValueError, match="authoritative receipt types MUST be unique"):
+        replace(case_input, receipts=(*case_input.receipts, duplicate))
+
+
+def test_operational_case_rejects_oversized_wire_payload() -> None:
+    case_input = _case_input()
+    mapping = case_input.to_mapping()
+    mapping["unexpected_padding"] = "x" * (64 * 1024)
+
+    with pytest.raises(ValueError, match="byte limit"):
+        OperationalCaseInput.from_mapping(mapping)
+
+
+@pytest.mark.parametrize("flag", ["rollback_succeeded", "recurrence"])
+def test_operational_case_rejects_control_flag_outcome_mismatch(flag: str) -> None:
+    receipts = list(_case_input().receipts)
+    response_index = next(
+        index
+        for index, receipt in enumerate(receipts)
+        if receipt.receipt_type is OperationalReceiptType.RESPONSE_OUTCOME
+    )
+    response = receipts[response_index]
+    facts = dict(response.facts)
+    facts[flag] = True
+    receipts[response_index] = _receipt(
+        OperationalReceiptType.RESPONSE_OUTCOME,
+        "3",
+        tuple(facts.items()),
+    )
+
+    with pytest.raises(ValueError, match=rf"{flag} MUST match"):
+        _case_input(receipts=tuple(receipts))
+
+
+def test_operational_case_input_strict_wire_round_trip() -> None:
+    case_input = _case_input()
+
+    assert OperationalCaseInput.from_mapping(case_input.to_mapping()) == case_input
+
+
+def test_operational_case_input_rejects_unknown_wire_fields() -> None:
+    payload = _case_input().to_mapping()
+    payload["benchmark_name"] = "must-not-cross-boundary"
+
+    with pytest.raises(ValueError, match="standard schema"):
+        OperationalCaseInput.from_mapping(payload)
+
+    fingerprint = payload["failure_fingerprint"]
+    assert isinstance(fingerprint, dict)
+    fingerprint["environment"] = "must-not-enter-fingerprint"
+    payload.pop("benchmark_name")
+
+    with pytest.raises(ValueError, match="standard schema"):
+        OperationalCaseInput.from_mapping(payload)

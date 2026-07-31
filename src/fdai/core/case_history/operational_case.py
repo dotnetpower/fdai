@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -13,8 +14,10 @@ from .models import CaseKind, CaseSourceRecord
 
 _SCHEMA_VERSION = "1.0.0"
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
+_MAX_IDENTIFIER_CHARS = 128
 _MAX_ITEMS = 32
 _MAX_RECEIPTS = 16
+_MAX_WIRE_BYTES = 64 * 1024
 
 
 class OperationalReceiptType(StrEnum):
@@ -132,6 +135,39 @@ class FailureFingerprint:
             sort_keys=True,
         ).encode()
 
+    def to_mapping(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "resource_type": self.resource_type,
+            "failure_mechanism": self.failure_mechanism,
+            "symptom_codes": list(self.symptom_codes),
+            "topology_roles": list(self.topology_roles),
+            "ownership_shape": list(self.ownership_shape),
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, object]) -> FailureFingerprint:
+        _require_standard_schema(
+            value,
+            {
+                "schema_version",
+                "resource_type",
+                "failure_mechanism",
+                "symptom_codes",
+                "topology_roles",
+                "ownership_shape",
+            },
+            "failure fingerprint",
+        )
+        return cls(
+            schema_version=_required_string(value, "schema_version"),
+            resource_type=_required_string(value, "resource_type"),
+            failure_mechanism=_required_string(value, "failure_mechanism"),
+            symptom_codes=_string_array(value, "symptom_codes"),
+            topology_roles=_string_array(value, "topology_roles"),
+            ownership_shape=_string_array(value, "ownership_shape"),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class OperationalCaseProjection:
@@ -183,6 +219,35 @@ class OperationalReceiptFact:
         if len(keys) != len(facts) or not required.issubset(keys) or not keys.issubset(allowed):
             raise ValueError("operational receipt facts do not match their standard schema")
         object.__setattr__(self, "facts", facts)
+
+    def to_mapping(self) -> dict[str, object]:
+        return {
+            "receipt_type": self.receipt_type.value,
+            "receipt_digest": self.receipt_digest,
+            "occurred_at": self.occurred_at.isoformat(),
+            "facts": dict(self.facts),
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, object]) -> OperationalReceiptFact:
+        _require_standard_schema(
+            value,
+            {"receipt_type", "receipt_digest", "occurred_at", "facts"},
+            "operational receipt",
+        )
+        facts = value.get("facts")
+        if not isinstance(facts, Mapping):
+            raise ValueError("operational receipt facts MUST be an object")
+        try:
+            receipt_type = OperationalReceiptType(_required_string(value, "receipt_type"))
+        except ValueError as exc:
+            raise ValueError("operational receipt type is unsupported") from exc
+        return cls(
+            receipt_type=receipt_type,
+            receipt_digest=_required_string(value, "receipt_digest"),
+            occurred_at=_required_datetime(value, "occurred_at"),
+            facts=tuple((str(key), item) for key, item in facts.items()),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +307,16 @@ class OperationalCaseInput:
             raise ValueError("operational case receipt count is invalid")
         if len({receipt.receipt_digest for receipt in receipts}) != len(receipts):
             raise ValueError("operational case receipt identities MUST be unique")
+        authoritative = (
+            OperationalReceiptType.AUDIT,
+            OperationalReceiptType.ACTION,
+            OperationalReceiptType.RESPONSE_OUTCOME,
+        )
+        if any(
+            sum(receipt.receipt_type is receipt_type for receipt in receipts) != 1
+            for receipt_type in authoritative
+        ):
+            raise ValueError("operational case authoritative receipt types MUST be unique")
         for receipt in receipts:
             facts = dict(receipt.facts)
             if (
@@ -258,7 +333,85 @@ class OperationalCaseInput:
                 and facts["execution_outcome"] != self.outcome_class.value
             ):
                 raise ValueError("operational receipt outcome MUST match the case outcome")
+            if receipt.receipt_type is OperationalReceiptType.RESPONSE_OUTCOME:
+                for flag, expected_outcome in (
+                    ("rollback_succeeded", OperationalOutcomeClass.ROLLBACK),
+                    ("recurrence", OperationalOutcomeClass.RECURRENCE),
+                ):
+                    declared = facts.get(flag) is True
+                    expected = self.outcome_class is expected_outcome
+                    if declared != expected:
+                        raise ValueError(
+                            f"operational response receipt {flag} MUST match the case outcome"
+                        )
         object.__setattr__(self, "receipts", receipts)
+
+    def to_mapping(self) -> dict[str, object]:
+        mapping: dict[str, object] = {
+            "case_identity_digest": self.case_identity_digest,
+            "kind": self.kind.value,
+            "correlation_digest": self.correlation_digest,
+            "purpose": self.purpose,
+            "access_scope_digest": self.access_scope_digest,
+            "redaction_policy_version": self.redaction_policy_version,
+            "event_time_cutoff": self.event_time_cutoff.isoformat(),
+            "failure_fingerprint": self.failure_fingerprint.to_mapping(),
+            "action_type": self.action_type,
+            "outcome_class": self.outcome_class.value,
+            "evidence_refs": list(self.evidence_refs),
+            "receipts": [receipt.to_mapping() for receipt in self.receipts],
+        }
+        _validate_wire_size(mapping)
+        return mapping
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, object]) -> OperationalCaseInput:
+        _validate_wire_size(value)
+        _require_standard_schema(
+            value,
+            {
+                "case_identity_digest",
+                "kind",
+                "correlation_digest",
+                "purpose",
+                "access_scope_digest",
+                "redaction_policy_version",
+                "event_time_cutoff",
+                "failure_fingerprint",
+                "action_type",
+                "outcome_class",
+                "evidence_refs",
+                "receipts",
+            },
+            "operational case",
+        )
+        fingerprint = value.get("failure_fingerprint")
+        if not isinstance(fingerprint, Mapping):
+            raise ValueError("operational case failure_fingerprint MUST be an object")
+        receipts = value.get("receipts")
+        if not isinstance(receipts, Sequence) or isinstance(receipts, str | bytes):
+            raise ValueError("operational case receipts MUST be an array")
+        if any(not isinstance(receipt, Mapping) for receipt in receipts):
+            raise ValueError("operational case receipts MUST contain objects")
+        try:
+            kind = CaseKind(_required_string(value, "kind"))
+            outcome_class = OperationalOutcomeClass(_required_string(value, "outcome_class"))
+        except ValueError as exc:
+            raise ValueError("operational case enum value is unsupported") from exc
+        return cls(
+            case_identity_digest=_required_string(value, "case_identity_digest"),
+            kind=kind,
+            correlation_digest=_required_string(value, "correlation_digest"),
+            purpose=_required_string(value, "purpose"),
+            access_scope_digest=_required_string(value, "access_scope_digest"),
+            redaction_policy_version=_required_string(value, "redaction_policy_version"),
+            event_time_cutoff=_required_datetime(value, "event_time_cutoff"),
+            failure_fingerprint=FailureFingerprint.from_mapping(fingerprint),
+            action_type=_required_string(value, "action_type"),
+            outcome_class=outcome_class,
+            evidence_refs=_string_array(value, "evidence_refs"),
+            receipts=tuple(OperationalReceiptFact.from_mapping(receipt) for receipt in receipts),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,7 +476,7 @@ def compile_operational_case(case_input: OperationalCaseInput) -> CompiledOperat
 
 def _identifier(name: str, value: str) -> str:
     normalized = value.strip().lower()
-    if not _IDENTIFIER.fullmatch(normalized):
+    if len(normalized) > _MAX_IDENTIFIER_CHARS or not _IDENTIFIER.fullmatch(normalized):
         raise ValueError(f"failure fingerprint {name} MUST be a canonical identifier")
     return normalized
 
@@ -361,6 +514,51 @@ def _normalize_receipt_fact(key: str, value: OperationalFactValue) -> Operationa
     if allowed is not None and normalized not in allowed:
         raise ValueError(f"operational receipt {key} is unsupported")
     return normalized
+
+
+def _require_standard_schema(
+    value: Mapping[str, object],
+    expected: set[str],
+    name: str,
+) -> None:
+    if set(value) != expected:
+        raise ValueError(f"{name} mapping does not match its standard schema")
+
+
+def _validate_wire_size(value: Mapping[str, object]) -> None:
+    try:
+        encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    except (TypeError, ValueError) as exc:
+        raise ValueError("operational case wire payload MUST be canonical JSON") from exc
+    if len(encoded) > _MAX_WIRE_BYTES:
+        raise ValueError("operational case wire payload exceeds its byte limit")
+
+
+def _required_string(value: Mapping[str, object], key: str) -> str:
+    item = value.get(key)
+    if not isinstance(item, str) or not item:
+        raise ValueError(f"operational case field {key!r} MUST be a non-empty string")
+    return item
+
+
+def _required_datetime(value: Mapping[str, object], key: str) -> datetime:
+    raw = _required_string(value, key)
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"operational case field {key!r} MUST be RFC 3339") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"operational case field {key!r} MUST be timezone-aware")
+    return parsed
+
+
+def _string_array(value: Mapping[str, object], key: str) -> tuple[str, ...]:
+    raw = value.get(key)
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        raise ValueError(f"operational case field {key!r} MUST be an array")
+    if any(not isinstance(item, str) for item in raw):
+        raise ValueError(f"operational case field {key!r} MUST contain strings")
+    return tuple(raw)
 
 
 __all__ = [

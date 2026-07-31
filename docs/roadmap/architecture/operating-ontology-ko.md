@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: b5745a6cf36a12448b3b9d231f745f0ae10ddd97
-translation_revised: 2026-07-31
+translation_source_sha: 11d3d7a150f45c8ae5d521cccc12a07cc6cbc8eb
+translation_revised: 2026-08-01
 ---
 # FDAI 운영 온톨로지
 
@@ -19,9 +19,10 @@ resource instance를 제공합니다.
 > 오래되거나 충돌하거나 입증되지 않은 context는 결정을 검토 대기로 보냅니다. 실행 권한을
 > 제공하지 않습니다.
 >
-> **구현 상태(2026-07-31):** O1 semantic-spine declaration과 competency query, O2 immutable
+> **구현 상태(2026-08-01):** O1 semantic-spine declaration과 competency query, O2 immutable
 > context materialization 및 Forseti ceiling wiring, O3/O4 공유 decision-case selection과 response
-> closure, O5 Norns/Mimir balanced cohort intake를 구현했습니다. Bounded JSON
+> closure, operational-learning O2의 Muninn/Norns fingerprint cohort intake를 구현했습니다.
+> Mimir behavior와 catalog compilation은 변경하지 않았습니다. Bounded JSON
 > `OperatingModelProvider`가 startup에서 deployment instance를 project할 수 있으며, Reader-gated
 > ontology projection에서 revision과 aggregate count를 확인할 수 있습니다.
 
@@ -308,14 +309,15 @@ savings는 observed outcome이 settlement window를 닫기 전까지 prediction�
 
 ### Outcome learning 루프
 
-선택적 effect observer는 strict `ResponseOutcome`을 기록합니다. Effect 및 outcome audit record가
-모두 persist된 뒤에만 composition이 ordinary ingress를 통해 그 contract를 다시 publish합니다. Audit
-failure는 relay를 중단하므로 unaudited outcome은 learning evidence가 될 수 없습니다. Huginn이
-normalization을 소유하고, Muninn은 ActionType별 최대
-100개 case를 durable하게 group하여 `ContextIndex` cohort를 publish합니다. Norns는 balanced positive
-및 negative evidence가 있어야 inert candidate를 emit하며, Mimir가 기존 guard를 적용합니다. Verified
-enforce outcome만 reusable positive evidence이고 mismatch는 negative evidence입니다. Unscorable 및
-shadow-success outcome은 cohort 밖에서 hold합니다.
+Huginn은 bounded `case_history.operational_case.v1` event를 정규화합니다. Muninn은 O1
+case-history materializer를 요구하고 strict input을 seal한 뒤 failure fingerprint별 immutable case를
+최대 100개 durable하게 보존하여 `operational_case_fingerprint_cohort` context를 publish합니다.
+Norns는 하나의 failure fingerprint와 ActionType, 최소 하나의 verified reusable success, 최소 하나의
+failure, refusal, no-op, rollback 또는 recurrence control을 요구한 뒤 기존 consensus 및 rate limit
+경로로 inert candidate를 emit합니다. 모든 candidate는 case id, revision, manifest digest, resource
+type, fingerprint, outcome별 count, digest evidence를 인용합니다. Raw
+`measurement.action_outcome.v1`은 mechanism evidence가 부족한 telemetry로 유지되며 promotable
+cohort에 들어갈 수 없습니다.
 
 ## 확장 모델
 
@@ -359,7 +361,7 @@ Ontology 품질은 object 수가 아니라 deterministic question으로 측정�
 | O2 - Context projection | 구현됨: immutable `OperationalContextSnapshot`, materializer, runtime store 공유, Forseti ceiling입니다. | Fresh context는 authority를 유지하고 stale, conflicting, unmapped context는 auto를 사람 승인으로 낮춥니다. |
 | O3 - Reliability loop | Core 구현됨: objective-aware decision case, option selection, `ResponseOutcome` closure입니다. | Frozen test가 service -> objective -> option -> action -> effect를 하나의 correlation으로 통과합니다. |
 | O4 - ARB 및 cost loop | Core 구현됨: architecture-constraint exclusion과 protected-objective cost tradeoff입니다. | Cost option이 protected reliability objective를 희생할 수 없습니다. |
-| O5 - Governed learning | 구현됨: balanced pattern compiler와 Muninn -> Norns -> Mimir intake입니다. | Success-only cohort를 보류하고 outcome이 live catalog declaration을 직접 수정하지 않습니다. |
+| O5 - Governed learning | Operational-learning O2까지 구현됨: strict Huginn case event, Muninn fingerprint cohort, balanced inert Norns candidate입니다. Mimir catalog behavior는 변경하지 않았습니다. | Success-only 및 raw-response cohort를 보류하고 candidate가 immutable revision을 인용하며 outcome은 live catalog declaration을 직접 수정하지 않습니다. |
 
 O0 이후 첫 code slice는 semantic-spine declaration, link constraint, query fixture만 추가하는 것이
 좋습니다. Runtime writer, decision 변경, execution behavior는 이후 별도로 검증하는 slice에 둡니다.

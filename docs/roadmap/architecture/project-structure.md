@@ -39,7 +39,7 @@ fdai/
 │   │   ├── working_context/    # bounded per-turn prompt assembly: immutable selection policy + mandatory validator + shadow evidence/replay + planner/orchestrator folds + summarizer/retriever seams
 │   │   ├── operational_context/ # atomic owned-subgraph replacement and time-consistent snapshots with typed evidence paths, effective-time/provenance projection, source-freshness receipts, and fail-closed truncation
 │   │   ├── decision_case/      # protected-objective options, deterministic selection, and response closure
-│   │   ├── operational_learning/ # strict outcome classification and balanced inert pattern cohorts
+│   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gates, immutable citations, and inert candidate mappings
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding; failed fan-out cancels and drains siblings (guards T2)
 │   │   ├── rca/                # root-cause analysis (T0 deterministic + T2 reasoner behind seam; grounding-gated)
 │   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics and enforces the four safety invariants

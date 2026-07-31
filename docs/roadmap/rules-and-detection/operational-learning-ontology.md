@@ -17,9 +17,12 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > reusable identifiers. The reusable unit is a generic failure mechanism supported by redacted,
 > content-addressed evidence.
 >
-> **Implementation status (2026-08-01):** O0 and O1 are implemented. Immutable operational-case
+> **Implementation status (2026-08-01):** O0, O1, and O2 are implemented. Immutable operational-case
 > inputs compile allowlisted audit, action, response-outcome, and evaluation receipt facts into
 > canonical sources, then the existing case-history writer seals `ACTION` and `INCIDENT` revisions.
+> Muninn groups the sealed projections by failure fingerprint, and Norns emits balanced inert
+> candidates through its existing consensus and rate limits. O3 catalog compilation and O4 T1 reuse
+> are not implemented.
 
 ## Design at a glance
 
@@ -205,7 +208,7 @@ human approval, dry-run, resource lock, idempotency, postcondition, rollback, or
 |------|--------|---------------|
 | O0 - Contract fixtures | Implemented: canonical operational-case and failure-fingerprint models plus fixtures. | Two differently named environments produce the same fingerprint; mechanism or topology changes produce a different fingerprint. |
 | O1 - Case projection | Implemented: immutable input, allowlisted receipt compilation, projection, artifact-first writer intake, generic metadata persistence, and revision backfill. | Canonical digest, redaction, byte ceiling, duplicate delivery, negative-outcome, StateStore, PostgreSQL, and legacy forecast compatibility tests pass. No adapter writes a rule or action catalog. |
-| O2 - Cohort compiler | Let Norns group reviewed cases and emit existing `RuleCandidate` records with balanced success, failure, rollback, and control evidence. | A single success and a success-only cohort are rejected; every candidate cites immutable case revisions. |
+| O2 - Cohort compiler | Implemented: Huginn carries strict operational-case events; Muninn seals and stores bounded fingerprint cohorts; Norns emits existing inert `RuleCandidate` mappings through consensus and rate limits. | Differently named cases with one fingerprint join; another mechanism does not; success-only and raw `ResponseOutcome` evidence are held; balanced evidence emits once with immutable revision citations. |
 | O3 - Catalog compilation | Let Mimir compile an accepted candidate into a draft Rule plus an existing or draft `ActionType`, then run schema, policy, replay, and shadow checks. | Candidate output is inert; catalog changes require a reviewed PR; zero direct runtime promotion paths exist. |
 | O4 - T1 reuse | Add filtered case retrieval and learned-action proposal to T1, with current evidence and precondition revalidation. | Stale graph, changed owner, missing evidence, idempotency conflict, or failed dry-run always holds for review without mutation. |
 | O5 - AKS delivery | Bind AKS Kubernetes API and Azure management-plane evidence through deployment configuration, workload identity or approved kubeconfig, Kubernetes RBAC, and private API connectivity. | Every Kubernetes treatment has a non-production AKS drill. AKS-integrated faults also correlate relevant Resource Graph, Activity Log, and Azure Monitor or managed Prometheus evidence. Production remains unavailable. |
@@ -217,7 +220,7 @@ without changing the learned pattern or control-loop authority model.
 
 ## Initial implementation slice
 
-The O0 and O1 code batches implemented these foundations:
+The O0 through O2 code batches implemented these foundations:
 
 1. `OperationalCaseProjection` and `FailureFingerprint` are pure immutable models under
    `src/fdai/core/case_history/`;
@@ -229,6 +232,14 @@ The O0 and O1 code batches implemented these foundations:
 5. strict receipt schemas compile bounded standard facts into immutable `CaseSourceRecord` values;
 6. `CaseHistoryMaterializer` seals action and incident cases with duplicate-delivery idempotency,
    append-only source continuity, retention, legal hold, and negative outcomes preserved.
+7. Huginn can carry the bounded strict input as `case_history.operational_case.v1`; unknown fields
+  or invalid producers are held closed by Muninn.
+8. Huginn and Muninn use the failure fingerprint as the event and context correlation partition;
+  Muninn stores at most 100 immutable cases per fingerprint and publishes case identity, revision,
+  manifest digest, classification, and digest evidence on `object.context-index`.
+9. Norns requires one fingerprint and ActionType plus verified success and negative/control
+  evidence, deduplicates by pattern digest, and emits only an inert mapping through consensus and
+  proposal rate limits. Raw `ResponseOutcome` telemetry cannot create a candidate.
 
 ## Verification matrix
 

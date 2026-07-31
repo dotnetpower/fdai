@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d9478b69f9192b855778b5b7903bfef99199611e
-translation_revised: 2026-08-13
+translation_source_sha: 78c33bee18eb81c137abf01e4e9cc0c3a1456ce6
+translation_revised: 2026-08-01
 ---
 
 # 에이전트 판테온
@@ -202,7 +202,7 @@ bounded `norns_consensus` 하나를 내보내고, 불일치는 자유 형식 추
 승인 거절 (`revision` / `retirement`), 선택적 scenario gap (`new-scenario`)이며 모두 같은 합의 경계를 거칩니다.
 
 모든 제안은 수치 근거를 기록합니다. Trajectory intake는 reviewed aggregate만 받고 자체 candidate를 만들지 않습니다.
-Strict outcome은 Huginn raw ingress로 돌아오며, Muninn은 agent 직접 호출 없이 bounded `operating_pattern_cohort` context를 Norns와 Mimir에 제공합니다. Cohort는 동일 ActionType의 reusable verified-enforce 및 negative/control case를 요구합니다. Shadow success, malformed, unscorable, success-only evidence는 hold되고 모든 candidate는 inert 상태를 유지합니다.
+Huginn은 strict operational-case event를 전달하고 Muninn은 이를 seal해 bounded failure-fingerprint cohort를 publish합니다. Norns는 하나의 fingerprint와 ActionType, balanced evidence, immutable revision을 요구한 뒤 consensus를 거쳐 inert candidate를 냅니다. Incomplete evidence는 hold됩니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).

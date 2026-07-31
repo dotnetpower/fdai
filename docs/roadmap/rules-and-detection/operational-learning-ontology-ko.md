@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: c1f4a73e5fedc23da4bb074fcafaf0f9baaa36b2
+translation_source_sha: 2ca00422b7b22378f310df9bc441b77d02d410fe
 translation_revised: 2026-08-01
 ---
 # 운영 학습 온톨로지
@@ -20,9 +20,11 @@ translation_revised: 2026-08-01
 > 되지 않습니다. 재사용 단위는 redaction되고 content-addressed된 증거가 뒷받침하는
 > generic failure mechanism입니다.
 >
-> **구현 상태(2026-08-01):** O0와 O1은 구현되었습니다. 변경 불가능한 operational-case
+> **구현 상태(2026-08-01):** O0, O1, O2는 구현되었습니다. 변경 불가능한 operational-case
 > input은 allowlist된 audit, action, response-outcome, evaluation receipt fact를 canonical source로
-> compile하고, 기존 case-history writer가 `ACTION` 및 `INCIDENT` revision을 seal합니다.
+> compile하고, 기존 case-history writer가 `ACTION` 및 `INCIDENT` revision을 seal합니다. Muninn은
+> sealed projection을 failure fingerprint별로 묶고, Norns는 기존 consensus 및 rate limit 경로로
+> balanced inert candidate를 emit합니다. O3 catalog compilation과 O4 T1 reuse는 구현되지 않았습니다.
 
 ## 한눈에 보는 설계
 
@@ -209,7 +211,7 @@ idempotency, postcondition, rollback, audit를 우회하지 않습니다.
 |------|------|-----------|
 | O0 - Contract fixture | 구현됨: canonical operational-case 및 failure-fingerprint model과 fixture입니다. | 이름이 다른 두 환경이 같은 fingerprint를 만들고 mechanism 또는 topology 변경은 다른 fingerprint를 만듭니다. |
 | O1 - Case projection | 구현됨: immutable input, allowlist receipt compilation, projection, artifact-first writer intake, generic metadata persistence, revision backfill입니다. | Canonical digest, redaction, byte ceiling, duplicate delivery, negative-outcome, StateStore, PostgreSQL, legacy forecast compatibility test가 통과합니다. Adapter는 rule/action catalog를 쓰지 않습니다. |
-| O2 - Cohort compiler | Norns가 검토된 case를 묶고 성공, 실패, rollback, control evidence가 균형 잡힌 기존 `RuleCandidate` record를 방출합니다. | 단일 성공과 success-only cohort는 거부되고 모든 candidate가 immutable case revision을 인용합니다. |
+| O2 - Cohort compiler | 구현됨: Huginn이 strict operational-case event를 전달하고 Muninn이 bounded fingerprint cohort를 seal 및 저장하며 Norns가 consensus와 rate limit을 거쳐 기존 inert `RuleCandidate` mapping을 emit합니다. | 이름이 다른 같은 fingerprint case는 합류하고 다른 mechanism은 합류하지 않습니다. Success-only 및 raw `ResponseOutcome` evidence는 보류되며 balanced evidence는 immutable revision 인용과 함께 한 번만 emit됩니다. |
 | O3 - Catalog compilation | Mimir가 승인된 candidate를 draft Rule 및 기존 또는 draft `ActionType`으로 컴파일한 후 schema, policy, replay, shadow check를 실행합니다. | Candidate output은 inert하며 catalog 변경은 검토된 PR을 요구하고 direct runtime promotion path는 0개입니다. |
 | O4 - T1 reuse | Filtered case retrieval과 learned-action proposal을 T1에 추가하고 현재 evidence/precondition을 재검증합니다. | Stale graph, 변경된 owner, 누락 evidence, idempotency conflict, dry-run 실패는 mutation 없이 항상 검토 보류됩니다. |
 | O5 - AKS delivery | Deployment configuration, workload identity 또는 approved kubeconfig, Kubernetes RBAC, private API connectivity를 통해 AKS Kubernetes API 및 Azure management-plane evidence를 bind합니다. | 모든 Kubernetes treatment가 non-production AKS drill을 가집니다. AKS-integrated fault는 관련 Resource Graph, Activity Log, Azure Monitor 또는 managed Prometheus evidence도 연결합니다. Production은 unavailable로 유지합니다. |
@@ -221,7 +223,7 @@ model을 바꾸지 않고 Azure Kubernetes Service delivery binding을 제공합
 
 ## 초기 구현 범위
 
-O0 및 O1 code batch는 다음 foundation을 구현했습니다.
+O0부터 O2 code batch는 다음 foundation을 구현했습니다.
 
 1. `OperationalCaseProjection`과 `FailureFingerprint`는
    `src/fdai/core/case_history/` 아래의 pure immutable model입니다.
@@ -234,6 +236,14 @@ O0 및 O1 code batch는 다음 foundation을 구현했습니다.
 5. Strict receipt schema는 bounded standard fact를 immutable `CaseSourceRecord`로 compile합니다.
 6. `CaseHistoryMaterializer`는 duplicate-delivery idempotency, append-only source continuity,
    retention, legal hold, negative outcome 보존과 함께 action 및 incident case를 seal합니다.
+7. Huginn은 bounded strict input을 `case_history.operational_case.v1`으로 전달할 수 있고 Muninn은
+   unknown field 또는 invalid producer를 fail-closed로 보류합니다.
+8. Huginn과 Muninn은 failure fingerprint를 event 및 context correlation partition으로 사용합니다.
+   Muninn은 fingerprint별 immutable case를 최대 100개 저장하고 case identity, revision, manifest
+   digest, classification, digest evidence를 `object.context-index`로 publish합니다.
+9. Norns는 하나의 fingerprint와 ActionType, verified success, negative/control evidence를 요구하고
+   pattern digest로 deduplicate하며 consensus와 proposal rate limit을 거친 inert mapping만 emit합니다.
+   Raw `ResponseOutcome` telemetry는 candidate를 만들 수 없습니다.
 
 ## 검증 매트릭스
 

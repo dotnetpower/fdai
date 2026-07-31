@@ -1,61 +1,84 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from dataclasses import replace
 
-from fdai.core.operational_learning import pattern_case_from_response_outcome
-from fdai.shared.contracts.models import ResponseOutcome
+from tests.core.case_history.test_operational_case import _case_input, _receipt
 
-_NOW = datetime(2026, 7, 31, tzinfo=UTC)
+from fdai.core.case_history import (
+    OperationalOutcomeClass,
+    OperationalReceiptType,
+    compile_operational_case,
+)
+from fdai.core.operational_learning import (
+    OperatingPatternCompiler,
+    pattern_case_from_operational_case,
+)
 
 
-def _outcome(*, label: str, mode: str) -> ResponseOutcome:
-    observed = label != "unscorable"
-    return ResponseOutcome.model_validate(
-        {
-            "schema_version": "1.0.0",
-            "outcome_id": UUID("00000000-0000-0000-0000-000000000101"),
-            "idempotency_key": "response-outcome:test-101",
-            "action_id": UUID("00000000-0000-0000-0000-000000000102"),
-            "event_id": UUID("00000000-0000-0000-0000-000000000103"),
-            "action_type_id": "ops.scale-out",
-            "target_digest": "a" * 64,
-            "prediction_id": "prediction-1",
-            "metric": "availability",
-            "expected_min": 0.99,
-            "expected_max": 1.0,
-            "observed_value": 0.995 if observed else None,
-            "predicted_at": _NOW,
-            "observation_deadline": _NOW + timedelta(minutes=5),
-            "observed_at": _NOW + timedelta(minutes=1) if observed else None,
-            "label": label,
-            "verification_status": (
-                "verified" if label == "verified" else "mismatch" if observed else "hold"
-            ),
-            "verification_reason": "test-evidence",
-            "execution_mode": mode,
-            "execution_outcome": "succeeded",
-            "decision": "auto",
-            "evidence_refs": ["effect:prediction-1"],
-            "recorded_at": _NOW + timedelta(minutes=2),
-        }
+def _pattern_case(
+    identifier: str,
+    outcome_class: OperationalOutcomeClass,
+):  # type: ignore[no-untyped-def]
+    case_input = _case_input(outcome_class=outcome_class)
+    if outcome_class is OperationalOutcomeClass.SUCCESS:
+        receipts = tuple(
+            _receipt(
+                OperationalReceiptType.AUDIT,
+                "1",
+                (("event_type", "action.completed"), ("decision", "auto"), ("mode", "enforce")),
+            )
+            if receipt.receipt_type is OperationalReceiptType.AUDIT
+            else receipt
+            for receipt in case_input.receipts
+        )
+        case_input = replace(case_input, receipts=receipts)
+    projection = compile_operational_case(case_input).projection(
+        case_id=f"case-{identifier}",
+        case_revision=1,
+        manifest_digest=identifier * 64,
     )
+    return pattern_case_from_operational_case(case_input, projection)
 
 
 def test_only_verified_enforce_outcome_is_reusable() -> None:
-    case = pattern_case_from_response_outcome(_outcome(label="verified", mode="enforce"))
+    case = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
 
     assert case is not None
     assert case.reusable is True
+    assert case.negative is False
 
 
 def test_mismatch_is_negative_evidence() -> None:
-    case = pattern_case_from_response_outcome(_outcome(label="mismatch", mode="shadow"))
+    case = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
 
     assert case is not None
     assert case.reusable is False
+    assert case.negative is True
 
 
-def test_shadow_success_and_unscorable_outcome_are_held() -> None:
-    assert pattern_case_from_response_outcome(_outcome(label="verified", mode="shadow")) is None
-    assert pattern_case_from_response_outcome(_outcome(label="unscorable", mode="shadow")) is None
+def test_compiler_requires_one_fingerprint_and_action_with_balanced_evidence() -> None:
+    success = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    rollback = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
+    assert success is not None and rollback is not None
+
+    candidate = OperatingPatternCompiler().compile((success, rollback))
+
+    assert candidate is not None
+    assert candidate.failure_fingerprint == success.failure_fingerprint
+    assert dict(candidate.outcome_counts) == {"rollback": 1, "success": 1}
+    assert candidate.immutable_case_refs == (
+        success.immutable_case_ref,
+        rollback.immutable_case_ref,
+    )
+    assert (
+        OperatingPatternCompiler().compile(
+            (success, replace(rollback, action_type="ops.scale-out"))
+        )
+        is None
+    )
+    assert (
+        OperatingPatternCompiler().compile(
+            (success, replace(rollback, failure_fingerprint="f" * 64))
+        )
+        is None
+    )
