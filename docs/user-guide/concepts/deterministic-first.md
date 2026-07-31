@@ -149,7 +149,7 @@ OPA runs it against the normalized resource facts.
 For a T0 event, FDAI first selects candidate catalog rules by resource type and
 signal type. It then supplies the current resource properties and rule parameters
 to OPA. If the Rego policy returns `deny = true`, the rule is a deterministic hit
-and FDAI records a finding with the rule ID and version. `deny = false` means the
+and FDAI records a detected issue with the rule ID and version. `deny = false` means the
 resource passed that check. An undefined result, missing policy, timeout, or
 invalid output holds the rule for review instead of guessing.
 
