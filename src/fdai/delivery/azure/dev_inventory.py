@@ -43,6 +43,7 @@ import subprocess
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import Any, Final
 
 from fdai.delivery.azure.arg_projection import (
@@ -146,12 +147,24 @@ class AzureCliInventory:
     subscription_id: str | None = None
     executable: str = "az"
     azure_config_dir: str | None = None
+    _arm_to_neutral: Mapping[str, str] = field(init=False, repr=False)
     """Optional isolated Azure CLI profile directory.
 
     ``None`` removes an inherited ``AZURE_CONFIG_DIR`` so local discovery uses
     the operator's default profile. A non-empty value selects that profile
     explicitly. The subscription id still scopes every list command.
     """
+
+    def __post_init__(self) -> None:
+        arm_to_neutral = (
+            build_arm_to_neutral_map(self.resource_type_registry)
+            if self.resource_type_registry is not None
+            else {
+                arm_type.casefold(): neutral_type
+                for neutral_type, arm_type in self.azure_arm_types.items()
+            }
+        )
+        self._arm_to_neutral = MappingProxyType(dict(arm_to_neutral))
 
     def full_snapshot(self, since: str | None = None) -> AsyncIterator[InventoryBatch]:
         del since  # az CLI does not honour a since filter here.
@@ -348,28 +361,20 @@ class AzureCliInventory:
             _record_from_az_row(row=row, resource_type=resource_type, now_iso=now_iso)
             for row in rows
         )
-        arm_to_neutral = (
-            build_arm_to_neutral_map(self.resource_type_registry)
-            if self.resource_type_registry is not None
-            else {
-                arm_type.casefold(): neutral_type
-                for neutral_type, arm_type in self.azure_arm_types.items()
-            }
-        )
         links = list(extract_rg_contains_links(records))
         for row, record in zip(rows, records, strict=True):
             links.extend(
                 extract_attached_to_links_from_row(
                     row,
                     child=record,
-                    arm_to_neutral=arm_to_neutral,
+                    arm_to_neutral=self._arm_to_neutral,
                 )
             )
             links.extend(
                 extract_depends_on_links_from_row(
                     row,
                     child=record,
-                    arm_to_neutral=arm_to_neutral,
+                    arm_to_neutral=self._arm_to_neutral,
                     acr_resolver=lambda _login_server: None,
                 )
             )

@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
+from fdai.delivery.azure.arg_projection import build_arm_to_neutral_map
 from fdai.delivery.azure.dev_inventory import (
     AzureCliInventory,
     AzureCliInventoryError,
@@ -556,6 +557,23 @@ class TestFullSnapshot:
 
         assert {record.type for record in batches[0].resources} == expected_types
         assert len(batches[0].resources) == len(expected_types)
+
+    def test_arm_reverse_map_is_built_once_per_inventory(self) -> None:
+        registry = _resource_types()
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.build_arm_to_neutral_map",
+            wraps=build_arm_to_neutral_map,
+        ) as build:
+            inventory = AzureCliInventory(
+                resource_types=("network.nsg",),
+                azure_arm_types={"network.nsg": "Microsoft.Network/networkSecurityGroups"},
+                resource_type_registry=registry,
+            )
+            inventory._project_rows([], "network.nsg")
+            inventory._project_rows([], "network.nsg")
+
+        build.assert_called_once_with(registry)
 
     def test_subscription_id_forwarded_as_arg(self) -> None:
         captured: dict[str, list[str]] = {}
