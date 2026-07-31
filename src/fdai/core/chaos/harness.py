@@ -293,15 +293,32 @@ class FaultInjectionHarness:
         if guard is None:
             await self._sleeper(hold)
             return None
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + hold
+
+        async def observe(elapsed_seconds: float) -> ChaosStopEvent | None:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise TimeoutError("impact guard exhausted the fault-hold deadline")
+            return await asyncio.wait_for(
+                guard(elapsed_seconds),
+                timeout=min(self._op_timeout, remaining),
+            )
+
         elapsed = 0.0
-        initial = await asyncio.wait_for(guard(elapsed), timeout=self._op_timeout)
+        initial = await observe(elapsed)
         if initial is not None:
             return initial
         while elapsed < hold:
-            step = min(interval, hold - elapsed)
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return None
+            step = min(interval, hold - elapsed, remaining)
             await self._sleeper(step)
             elapsed += step
-            stop = await asyncio.wait_for(guard(elapsed), timeout=self._op_timeout)
+            if loop.time() >= deadline:
+                return None
+            stop = await observe(elapsed)
             if stop is not None:
                 return stop
         return None

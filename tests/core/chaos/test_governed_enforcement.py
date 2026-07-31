@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from fdai.core.chaos.contract import FaultScenario
+from fdai.core.chaos.contract import ExperimentOutcome, FaultScenario
 from fdai.core.chaos.governance import ChaosEligibilityContext, evaluate_chaos_eligibility
 from fdai.core.chaos.guard import (
     ChaosStopReason,
@@ -275,4 +276,37 @@ async def test_harness_guard_stop_short_circuits_hold_and_rolls_back() -> None:
     assert sleeps == [5]
     assert result.stop_reason == ChaosStopReason.FORBIDDEN_SIGNAL.value
     assert result.stopped
+    assert injector.stopped == ["resource-a"]
+
+
+async def test_harness_guard_cannot_extend_fault_hold_deadline() -> None:
+    injector = ShadowFaultInjector(fault_type="pod_kill")
+    never_returns = asyncio.Event()
+
+    async def guard(_elapsed: float):  # type: ignore[no-untyped-def]
+        await never_returns.wait()
+        return None
+
+    result = await FaultInjectionHarness(
+        injectors=(injector,),
+        max_hold_seconds=0.01,
+        operation_timeout_seconds=1,
+    ).run(
+        FaultScenario(
+            scenario_id="guard-deadline",
+            fault_type="pod_kill",
+            description="guard deadline",
+            target_selector="demo",
+            expected_signal="pod_restart",
+            blast_radius_cap=1,
+            duration_seconds=1,
+        ),
+        approved_targets=("resource-a",),
+        mode=Mode.ENFORCE,
+        impact_guard=guard,
+        guard_interval_seconds=1,
+    )
+
+    assert result.outcome is ExperimentOutcome.ABORTED
+    assert result.error is not None and "TimeoutError" in result.error
     assert injector.stopped == ["resource-a"]
