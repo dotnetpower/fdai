@@ -181,6 +181,46 @@ class TestCheckFileLoc:
         assert result.returncode == 2
         assert "justification comment" in result.stderr
 
+    def test_debt_baseline_allows_existing_size_without_growth(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(repo, "src/fdai/huge.py", 900)
+        (repo / "scripts" / ".check-file-loc.baseline").write_text(
+            "# Existing debt must not grow.\n900 src/fdai/huge.py\n"
+        )
+
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
+
+        assert result.returncode == 0, result.stderr
+        assert "baselined=1" in result.stdout
+        assert "cap 900" in result.stdout
+
+    def test_debt_baseline_rejects_growth(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(repo, "src/fdai/huge.py", 901)
+        (repo / "scripts" / ".check-file-loc.baseline").write_text(
+            "# Existing debt must not grow.\n900 src/fdai/huge.py\n"
+        )
+
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
+
+        assert result.returncode == 1
+        assert "> baseline 900" in result.stdout
+
+    def test_debt_baseline_is_stale_after_refactor(self, tmp_path: Path) -> None:
+        repo = _make_repo(tmp_path)
+        _copy_scripts(repo)
+        _seed_python_file(repo, "src/fdai/refactored.py", 800)
+        (repo / "scripts" / ".check-file-loc.baseline").write_text(
+            "# Remove this cap after the split.\n900 src/fdai/refactored.py\n"
+        )
+
+        result = _run(repo, repo / "scripts" / "check-file-loc.sh", FILE_LOC_MODE="enforce")
+
+        assert result.returncode == 1
+        assert "stale baseline entry" in result.stdout
+
     def test_allowlist_glob_pattern_matches(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path)
         _copy_scripts(repo)

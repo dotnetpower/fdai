@@ -1,0 +1,18 @@
+# Existing decomposition debt tracked by issue #14; growth above each exact cap is blocked.
+885 src/fdai/agents/forseti.py
+# Azure read-investigation transport remains bounded by its current pre-split size.
+849 src/fdai/delivery/azure/read_investigation/rest_transport.py
+# Local read API composition factory awaits the app-shape decomposition tracked by issue #14.
+819 src/fdai/delivery/read_api/dev/factory.py
+# Production read API composition factory awaits the app-shape decomposition tracked by issue #14.
+807 src/fdai/delivery/read_api/production/factory.py
+# Evidence enrichment route awaits the route-family decomposition tracked by issue #14.
+874 src/fdai/delivery/read_api/routes/chat_evidence_enrichment.py
+# Streaming route awaits the route-family decomposition tracked by issue #14.
+841 src/fdai/delivery/read_api/routes/chat_stream.py
+# Verification route awaits the route-family decomposition tracked by issue #14.
+952 src/fdai/delivery/read_api/routes/chat_verification.py
+# Deployment CLI command dispatch awaits the command-family decomposition tracked by issue #14.
+860 src/fdai/deployment_cli/cli.py
+# Runtime bootstrap wiring awaits the composition-family decomposition tracked by issue #14.
+900 src/fdai/runtime/bootstrap.py

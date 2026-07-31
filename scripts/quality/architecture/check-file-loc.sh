@@ -24,6 +24,11 @@
 # exempt in a comment on the preceding line. An allowlisted file is
 # skipped entirely.
 #
+# Debt baseline: scripts/.check-file-loc.baseline ("<max-loc> <path>").
+# Existing files above the fail threshold MAY be capped at their current
+# size. Growth above the cap fails; shrinking to the fail threshold makes
+# the entry stale so it must be removed.
+#
 # Rationale: tracker issue #14 (issue #22). The refactor items G-2, G-3,
 # G-4, G-5 all exist because a handful of files crossed the 600-800 LOC
 # threshold and became god-objects; this script prevents drift after
@@ -109,6 +114,40 @@ _allowlisted() {
 declare -A used_exact=()
 declare -A used_globs=()
 
+baseline_file="scripts/.check-file-loc.baseline"
+declare -A baseline_max=()
+if [[ -f "$baseline_file" ]]; then
+  prev_was_comment=0
+  lineno=0
+  while IFS= read -r raw || [[ -n "$raw" ]]; do
+    lineno=$((lineno + 1))
+    stripped="${raw#"${raw%%[![:space:]]*}"}"
+    stripped="${stripped%"${stripped##*[![:space:]]}"}"
+    if [[ -z "$stripped" ]]; then
+      continue
+    fi
+    if [[ "$stripped" == \#* ]]; then
+      prev_was_comment=1
+      continue
+    fi
+    if (( ! prev_was_comment )); then
+      echo "check-file-loc: baseline entry '$stripped' at $baseline_file:$lineno lacks a preceding '#' justification comment" >&2
+      exit 2
+    fi
+    read -r max_loc path extra <<< "$stripped"
+    if ! [[ "$max_loc" =~ ^[0-9]+$ ]] || [[ -z "$path" || -n "${extra:-}" ]]; then
+      echo "check-file-loc: invalid baseline entry '$stripped' at $baseline_file:$lineno; expected '<max-loc> <path>'" >&2
+      exit 2
+    fi
+    if (( max_loc <= fail_thresh )); then
+      echo "check-file-loc: baseline cap $max_loc for '$path' must exceed fail threshold $fail_thresh" >&2
+      exit 2
+    fi
+    baseline_max["$path"]="$max_loc"
+    prev_was_comment=0
+  done < "$baseline_file"
+fi
+
 # Deterministic ordering; excludes __pycache__ and the common Python
 # tool-cache / virtualenv dot-dirs. The generic exclusion keeps the
 # gate honest when a developer runs it inside a repo that also carries
@@ -135,21 +174,40 @@ warned=0
 failed=0
 scanned=0
 allowlisted=0
+baselined=0
+declare -A observed_loc=()
 
 for path in "${files[@]}"; do
+  loc=$(wc -l < "$path")
+  observed_loc["$path"]="$loc"
   if _allowlisted "$path"; then
     allowlisted=$((allowlisted + 1))
     continue
   fi
   scanned=$((scanned + 1))
-  loc=$(wc -l < "$path")
   if (( loc > fail_thresh )); then
+    baseline="${baseline_max[$path]:-}"
+    if [[ -n "$baseline" ]] && (( loc <= baseline )); then
+      printf '::notice file=%s,line=1::check-file-loc: %d LOC remains within debt baseline %d\n' \
+        "$path" "$loc" "$baseline"
+      if [[ "$quiet" != "1" ]]; then
+        printf 'check-file-loc: debt  %5d LOC  %s (cap %d)\n' \
+          "$loc" "$path" "$baseline"
+      fi
+      baselined=$((baselined + 1))
+      continue
+    fi
     # GitHub Actions annotation so PR Files tab highlights the file.
     printf '::warning file=%s,line=1::check-file-loc: %d LOC exceeds fail threshold %d\n' \
       "$path" "$loc" "$fail_thresh"
     if [[ "$quiet" != "1" ]]; then
-      printf 'check-file-loc: FAIL  %5d LOC  %s (> %d)\n' \
-        "$loc" "$path" "$fail_thresh"
+      if [[ -n "$baseline" ]]; then
+        printf 'check-file-loc: FAIL  %5d LOC  %s (> baseline %d)\n' \
+          "$loc" "$path" "$baseline"
+      else
+        printf 'check-file-loc: FAIL  %5d LOC  %s (> %d)\n' \
+          "$loc" "$path" "$fail_thresh"
+      fi
     fi
     failed=$((failed + 1))
   elif (( loc > warn_thresh )); then
@@ -163,8 +221,8 @@ for path in "${files[@]}"; do
   fi
 done
 
-printf 'check-file-loc: scanned=%d warned=%d failed=%d allowlisted=%d mode=%s\n' \
-  "$scanned" "$warned" "$failed" "$allowlisted" "$mode"
+printf 'check-file-loc: scanned=%d warned=%d failed=%d allowlisted=%d baselined=%d mode=%s\n' \
+  "$scanned" "$warned" "$failed" "$allowlisted" "$baselined" "$mode"
 
 # Stale-allowlist audit: an entry that matched nothing this run is
 # dead weight. Fail loudly in enforce mode so a refactored file that
@@ -179,6 +237,17 @@ done
 for pat in "${allow_globs[@]}"; do
   if [[ -z "${used_globs[$pat]:-}" ]]; then
     printf 'check-file-loc: stale allowlist pattern (matched nothing): %s\n' "$pat"
+    stale=$((stale + 1))
+  fi
+done
+for path in "${!baseline_max[@]}"; do
+  loc="${observed_loc[$path]:-}"
+  if [[ -z "$loc" ]]; then
+    printf 'check-file-loc: stale baseline entry (file missing): %s\n' "$path"
+    stale=$((stale + 1))
+  elif (( loc <= fail_thresh )); then
+    printf 'check-file-loc: stale baseline entry (now %d LOC <= %d): %s\n' \
+      "$loc" "$fail_thresh" "$path"
     stale=$((stale + 1))
   fi
 done

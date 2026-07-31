@@ -421,8 +421,8 @@ jobs:
 
   file-loc:
     name: file LOC guard (warn > 400, fail > 800 in enforce mode)
-    # Existing >400 LOC files remain visible warnings; any file above 800
-    # blocks the change. Current tree has no >800 LOC Python file.
+    # Existing >800 LOC debt is capped at its recorded size; any growth or
+    # new file above 800 blocks the change, and completed splits remove caps.
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
