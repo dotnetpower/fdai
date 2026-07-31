@@ -463,6 +463,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0017: Unhealthy AKS clusters or nodes
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q009` |
+| Executed | `2026-08-01` |
+| Question | `비정상 상태인 AKS 클러스터나 노드가 있어?` |
+| Azure SRE Agent answer | Reported four stopped clusters, one running cluster, no degraded or unavailable cluster Resource Health state, and a running node pool. Node Ready state remained unconfirmed because credential access was denied. Deployment-owned values were redacted. |
+| FDAI answer | Reported the same four stopped clusters as unhealthy, excluded the running cluster, and explicitly held node readiness because Kubernetes workload evidence was unavailable. Deployment-owned values were redacted. |
+| Evidence | Fresh subscription inventory, typed AKS and unhealthy-state predicates, explicit node coverage gap, one consumed evidence reference, positive-finding verification, and zero model calls. |
+| Material difference | Both products reached the same requested conclusion: four unhealthy clusters and unconfirmed node readiness. SRE Agent collected extra node-pool and Resource Health context; FDAI exposed stronger typed scope, freshness, coverage, and verification provenance. |
+| Winner | FDAI for equal requested-outcome correctness with stronger evidence integrity and calibrated node abstention. |
+| General fix | Unhealthy and node semantics are catalog data. Positive state-filtered cluster findings can be verified independently while missing node readiness remains an explicit coverage gap. |
+| Status | `fdai-win` |
+
+#### RUN-0017 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -480,7 +502,7 @@ existing seed.
 | Q006 | en | Resource state | Which resources are failed, degraded, or unavailable? | `LIST` | compared |
 | Q007 | ko | Compute state | 할당 해제된 가상 머신을 모두 찾아줘. | `LIST` | compared |
 | Q008 | en | Compute state | Which virtual machines are running, stopped, or deallocated? | `LIST` | compared |
-| Q009 | ko | Kubernetes state | 비정상 상태인 AKS 클러스터나 노드가 있어? | `HEALTH` | queued |
+| Q009 | ko | Kubernetes state | 비정상 상태인 AKS 클러스터나 노드가 있어? | `HEALTH` | compared |
 | Q010 | en | Kubernetes state | Show unhealthy Kubernetes workloads and when they became unhealthy. | `HEALTH` | queued |
 | Q011 | ko | Storage state | 사용 불가능하거나 성능이 저하된 스토리지 계정이 있어? | `HEALTH` | queued |
 | Q012 | en | Cache state | Are any cache services unavailable or under memory pressure? | `HEALTH` | queued |
