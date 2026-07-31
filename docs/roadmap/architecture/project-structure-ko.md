@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 13ab68d6d47825c71056c3fb4e84888b995d5430
+translation_source_sha: 1da9ed6a384a03b2b7d160003c4cfe41a9eaabbc
 translation_revised: 2026-08-01
 ---
 
@@ -64,7 +64,7 @@ fdai/
 │   │   ├── programmatic_pipeline/ # capability-scoped read-only tool loop: immutable contract, broker, receipt, compact result, deterministic benchmark
 │   │   ├── postmortem/         # LLM 옵션 postmortem / PIR 드래프트 생성기
 │   │   ├── rule_catalog_profiles/  # 프로파일 / 팩 레이어 - 이름 붙은 룰 번들 (`extends` 체인 + overrides)
-│   │   ├── measurement/        # Phase-4 지속 측정 (regression, pattern growth, Dynamic challenger learning, model tracking, latency budget, runners)
+│   │   ├── measurement/        # 지속 측정 및 confidence/guard gate를 포함한 immutable revision/scenario operational-promotion receipt
 │   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard 및 runtime-integrity policy
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling

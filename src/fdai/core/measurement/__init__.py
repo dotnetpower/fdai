@@ -27,10 +27,39 @@ The six modules here are:
   canary echoes, citation F1) scoring how well a T2 response satisfies
   the composer's contract (Wave 3 step D-1). Step D-2 wires them into
   the KPI dashboard.
+- :mod:`.operational_promotion` - immutable revision/scenario/cohort evidence,
+  Wilson confidence, rollback, recurrence, causal, Dynamic, and zero-escape gates.
+- :mod:`.operational_promotion_runner` - audited measurement runner that never promotes.
 """
 
 from __future__ import annotations
 
 from fdai.core.measurement.dora import DeploymentObservation, DoraSummary, compute_dora
+from fdai.core.measurement.operational_promotion import (
+    OperationalPromotionBatch,
+    OperationalPromotionEvaluator,
+    OperationalPromotionPolicy,
+    OperationalPromotionReceipt,
+    OperationalPromotionRecord,
+    PromotionEvidenceCohort,
+)
+from fdai.core.measurement.operational_promotion_runner import (
+    OperationalPromotionEvidenceSource,
+    OperationalPromotionMeasurementRunner,
+    OperationalPromotionRunResult,
+)
 
-__all__ = ["DeploymentObservation", "DoraSummary", "compute_dora"]
+__all__ = [
+    "DeploymentObservation",
+    "DoraSummary",
+    "OperationalPromotionBatch",
+    "OperationalPromotionEvaluator",
+    "OperationalPromotionEvidenceSource",
+    "OperationalPromotionMeasurementRunner",
+    "OperationalPromotionPolicy",
+    "OperationalPromotionReceipt",
+    "OperationalPromotionRecord",
+    "OperationalPromotionRunResult",
+    "PromotionEvidenceCohort",
+    "compute_dora",
+]

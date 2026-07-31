@@ -102,6 +102,10 @@ Leading indicators trigger investigation before a lagging guard metric regresses
 - **Statistical validity**: report each factor with a sample size (event count), a confidence
   interval, and the scenario-set version. Differences within the confidence interval are
   reported as "no measured change", not as an improvement.
+- **Operational promotion evidence**: bind frozen benchmark and live-shadow samples to one full
+  FDAI revision and scenario-set version. The Wilson 95% accuracy lower bound, live-only observed
+  days, zero policy escapes, rollback, recurrence, causal grade, and Dynamic review gates must all
+  pass. A ready receipt permits a separate review; it never promotes by itself.
 - **Fairness**: baseline and treatment run the same scenarios, the same input distribution, and
   the same measurement window; the reference agent is not deliberately handicapped.
 

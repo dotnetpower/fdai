@@ -59,7 +59,7 @@ fdai/
 │   │   ├── programmatic_pipeline/ # capability-scoped read-only tool loops: immutable contracts, broker, receipts, compact result, and deterministic benchmark
 │   │   ├── postmortem/         # LLM-optional postmortem / PIR draft generator
 │   │   ├── rule_catalog_profiles/  # profile / pack layer - named rule bundles with `extends` chains + overrides
-│   │   ├── measurement/        # Phase-4 continuous measurement (regression, pattern growth, Dynamic challenger learning, model tracking, latency budget, runners)
+│   │   ├── measurement/        # Continuous measurement plus immutable revision/scenario operational-promotion receipts with confidence and guard gates
 │   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, and runtime-integrity policies; no execution authority
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + startup and monitored-target readiness contracts, fail-closed reducers, evidence expiry, and authority ceilings

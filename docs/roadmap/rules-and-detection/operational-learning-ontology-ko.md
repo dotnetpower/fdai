@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: cba3414dc30d5a2e85c529740d23d869e11bce84
+translation_source_sha: c22e3b00bdd1baed6209cd913e94f6fcf6ea543f
 translation_revised: 2026-08-01
 ---
 # 운영 학습 온톨로지
@@ -216,7 +216,7 @@ idempotency, postcondition, rollback, audit를 우회하지 않습니다.
 | O4 - T1 reuse | Core 및 persistence 구현됨: T1은 immutable operational-case context를 저장하고 injected current-evidence verifier를 받아 failure fingerprint, resource type, topology role, graph, owner, precondition, identity, blast radius, policy, dry-run, idempotency, rollback state를 다시 확인합니다. Concrete Kubernetes 및 Azure collector는 O5/O6 binding입니다. | Verifier 또는 evidence 누락, stale 또는 변경된 context, safety check 실패는 mutation 없이 항상 검토 보류됩니다. Legacy incident pattern은 기존 동작을 유지합니다. |
 | O5 - AKS delivery | 구현 및 non-production live 검증 완료: 기존 Kubernetes 및 Azure read seam이 current reuse, temporal causality, Dynamic request에 evidence를 제공합니다. One-pod invalid-image fault는 server dry-run, isolated namespace, 45초 observation window를 사용했습니다. | Kubernetes는 `ErrImagePull` 및 `ImagePullBackOff`를 보고했고 Azure Monitor는 pod `Pending`, Log Analytics는 pull failure와 terminating evidence, Activity Log는 cluster lifecycle을 보존했습니다. Namespace 삭제로 rollback을 완료하고 one-node cluster는 `Stopped` / `Succeeded`로 돌아갔습니다. Production은 unavailable로 유지했습니다. |
 | O6 - Azure resource absorption | 구현됨: strict promoted-inventory snapshot과 configured Azure metric이 Kubernetes 및 non-Kubernetes resource type에 generic current-reuse, causal, Dynamic evidence binding을 제공합니다. | Read-only non-production Container App drill에서 healthy active revision 1개, replica 1개, restart 0회, administrative write 없이 동일한 pre/post state를 관측했습니다. Unit evidence는 benchmark import 없이 policy/precondition/dry-run fail-closed, ontology projection, bounded query, deterministic restart replay를 증명합니다. |
-| O7 - Promotion measurement | 하나의 immutable FDAI revision으로 frozen benchmark suite와 live shadow cohort를 실행합니다. | 별도 promotion review 전에 action별 sample, accuracy, observation day, rollback, recurrence, zero-policy-escape gate를 통과합니다. |
+| O7 - Promotion measurement | 구현됨: immutable FDAI revision 및 scenario-set batch가 frozen benchmark와 live-shadow cohort를 결합합니다. Audited runner는 promotion state를 변경하지 않고 Wilson 95% accuracy bound, live-only observation day, rollback, recurrence, policy escape, causal grade, Dynamic review rate를 측정합니다. | 모든 action별 gate가 통과해야 별도 promotion review가 가능합니다. 현재 live drill은 binding을 증명하지만 필요한 action-specific observation day와 confidence sample size를 제공하지 않으므로 promotion은 hold 상태입니다. |
 
 O0부터 O4까지는 cloud-provider-neutral입니다. O5와 O6는 learned pattern이나 control-loop
 authority model을 바꾸지 않고 Azure evidence binding을 제공합니다.

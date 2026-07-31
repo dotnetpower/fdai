@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1049dd201c5b544b432b1e952c68715e9d1ef2fb
+translation_source_sha: 5f5b5bdd155b4a0926a112c72b1428a67987748a
 translation_revised: 2026-08-01
 ---
 # 코드 맵
@@ -154,7 +154,7 @@ channel-neutral query activity row로 projection합니다.
 | workflow | Version-pinned WorkflowDefinition을 컴파일 및 실행합니다. 승인 quorum은 정규화된 principal을 세므로 한 운영자가 두 표기로 quorum을 채우거나 자신이 요청한 step을 승인할 수 없습니다. Principal binding과 Process journal과 projection retry 관리 | [src/fdai/core/workflow/](../../../src/fdai/core/workflow/) | [tests/core/workflow/](../../../tests/core/workflow/) |
 | scheduler | Create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, idempotent lifecycle audit 및 CAS winner만 expiry audit을 기록하는 범위 제한 continuation ([설계](../interfaces/scheduled-result-continuations-ko.md)) | [src/fdai/core/scheduler/](../../../src/fdai/core/scheduler/) | [tests/core/scheduler/](../../../tests/core/scheduler/) |
 | metering | 사용량 미터링 카운터와 모든 LLM 경로가 측정되는 공유 model budget. 호출이 기록되는 단일 지점에서 차감하며, 총량은 ledger 축출을 견디지만 correlation별 한도는 그렇지 않으며, metering 기록이 실패해도 차감은 수행. 관문은 읽고 쓰기가 아니라 exact prospective call 및 microUSD increment를 검증하는 원자적 예약. Ledger는 microUSD로 계산하며 다른 통화 가격은 차감하지 않음 | [src/fdai/core/metering/](../../../src/fdai/core/metering/) | [tests/core/metering/](../../../tests/core/metering/) |
-| measurement | MTTR, DORA, pattern growth 및 audit-driven Dynamic challenger learning을 포함한 Phase-4 연속 측정. Promotion gate의 shadow 일수는 wall-clock age가 아니라 관측된 window를 사용합니다 | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |
+| measurement | MTTR, DORA, pattern growth, Dynamic challenger learning 및 audited immutable operational-promotion receipt. Live-only observation window와 Wilson confidence가 clock 또는 small-sample promotion을 차단합니다 | [src/fdai/core/measurement/](../../../src/fdai/core/measurement/) | [tests/core/measurement/](../../../tests/core/measurement/) |
 | mscp_profile | 레벨 비종속 `mscp-operational-v1` provenance, 순수 effect/cycle/integrity 검사 및 optional ControlLoop shadow observation ([설계](mscp-operational-profile-ko.md)) | [src/fdai/core/mscp_profile/](../../../src/fdai/core/mscp_profile/) | [tests/core/mscp_profile/](../../../tests/core/mscp_profile/) |
 | security | 보안 시그널 생산자 | [src/fdai/core/security/](../../../src/fdai/core/security/) | [tests/core/security/](../../../tests/core/security/) |
 | platform | 플랫폼 프리미티브 파사드 | [src/fdai/core/platform/](../../../src/fdai/core/platform/) | [tests/core/](../../../tests/core/) |
