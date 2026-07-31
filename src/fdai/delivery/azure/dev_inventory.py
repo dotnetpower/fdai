@@ -480,6 +480,11 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
     for key in ("kind", "sku", "properties"):
         if row.get(key) is not None:
             props[key] = row[key]
+    nested_properties = row.get("properties")
+    nested = nested_properties if isinstance(nested_properties, Mapping) else {}
+    provisioning_state = row.get("provisioningState") or nested.get("provisioningState")
+    if isinstance(provisioning_state, str) and provisioning_state:
+        props["provisioningState"] = provisioning_state
     if status := resource_operational_status(row):
         props["status"] = status
         if resource_type == "postgresql-server":
@@ -501,8 +506,6 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
     if resource_type == "compute.vm":
         if power_state := row.get("powerState"):
             props["powerState"] = power_state
-        if provisioning_state := row.get("provisioningState"):
-            props["provisioningState"] = provisioning_state
     return ResourceRecord(
         resource_id=resource_id,
         type=resource_type,

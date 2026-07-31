@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: cc32f367c2885219ca6df0a391df14a9a0f1cc58
+translation_source_sha: 71a8780ab9229f4be258d2793770eff5a5409684
 translation_revised: 2026-08-01
 ---
 
@@ -279,6 +279,11 @@ Architecture는 bounded screen digest에 선택된 resource를 최대 하나만 
 service-summary 질문은 선택된 resource-group 이름을 selector hint로만 사용할 수 있고, server
 inventory가 canonical service-type count를 반환하기 전에 해당 group과 member를 다시 resolve합니다.
 Selection이 없거나 malformed 또는 non-group이면 scope authority를 만들지 않습니다.
+Selected-group detail request도 같은 boundary를 사용합니다. Named Architecture projection은 raw
+property를 제거한 뒤 allowlisted location, resource-group 및 provider-type field만 유지합니다.
+Observed operational 또는 power state가 우선하며 provisioning state는 마지막 display fallback입니다.
+Deterministic list는 resource-group container 자체와 provider type이 없는 topology-derived
+record를 제외합니다.
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
 `EventIngest -> TrustRouter -> T0Engine`을 **메모리 내에서만** 실행: T1

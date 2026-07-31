@@ -644,6 +644,14 @@ def _resource_payload(
         "x": x,
         "y": y,
     }
+    for output_field, prop in (
+        ("location", "location"),
+        ("resource_group", "resourceGroup"),
+        ("provider_type", "providerType"),
+    ):
+        value = record.props.get(prop)
+        if isinstance(value, str) and value:
+            payload[output_field] = value
     if width is not None:
         payload["w"] = width
     if height is not None:

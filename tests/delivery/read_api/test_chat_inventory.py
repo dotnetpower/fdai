@@ -146,6 +146,51 @@ async def _provider(
     }
 
 
+async def _projected_provider(
+    scope: str | None,
+    depth: int,
+    link_types: tuple[str, ...],
+    *,
+    root: str | None = None,
+    limit: int = 500,
+) -> dict[str, Any]:
+    graph = await _provider(scope, depth, link_types, root=root, limit=limit)
+    group_ids = {
+        resource["name"]: resource["id"]
+        for resource in graph["resources"]
+        if resource["type"] == "resource-group"
+    }
+    resources = []
+    for resource in graph["resources"]:
+        props = resource.get("props", {})
+        resources.append(
+            {
+                **{key: value for key, value in resource.items() if key != "props"},
+                "parent_id": (
+                    "sub"
+                    if resource["type"] == "resource-group"
+                    else group_ids.get(props.get("resourceGroup"))
+                ),
+                "location": props.get("location"),
+                "resource_group": props.get("resourceGroup"),
+                "provider_type": props.get("providerType"),
+            }
+        )
+    resources.append(
+        {
+            "id": "derived-subnet",
+            "type": "network.subnet",
+            "name": "derived-subnet",
+            "status": "unknown",
+            "parent_id": group_ids["rg-data"],
+            "location": None,
+            "resource_group": "rg-data",
+            "provider_type": None,
+        }
+    )
+    return {**graph, "resources": resources}
+
+
 async def _activity_provider(
     lookback_seconds: int,
     max_events: int,
@@ -1088,6 +1133,40 @@ def test_architecture_selection_contextualizes_current_screen_inventory() -> Non
     assert query.predicates[0].value == "rg-app"
 
 
+def test_this_group_contextualizes_selected_resource_details() -> None:
+    prompt, contextualized = contextualize_inventory_screen_scope(
+        "List resources in this group with type, region, and state.",
+        {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-data",
+                        "name": "rg-data",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert contextualized is True
+    query = compile_inventory_query(
+        prompt,
+        resources=(
+            {"type": "resource-group", "name": "rg-data", "resource_group": "rg-data"},
+            {"type": "postgresql-server", "name": "db", "resource_group": "rg-data"},
+        ),
+    )
+    assert query is not None
+    assert query.kind.value == "list"
+    assert [predicate.to_dict() for predicate in query.predicates] == [
+        {"field": "resource_group", "operator": "eq", "value": "rg-data"},
+        {"field": "resource_type", "operator": "ne", "value": "resource-group"},
+        {"field": "provider_type", "operator": "exists", "value": None},
+    ]
+
+
 def test_selected_architecture_group_routes_to_verified_service_types() -> None:
     backend = RecordingBackend()
 
@@ -1105,40 +1184,7 @@ def test_selected_architecture_group_routes_to_verified_service_types() -> None:
 
     operational = RecordingOperationalResolver()
 
-    async def projected_provider(
-        scope: str | None,
-        depth: int,
-        link_types: tuple[str, ...],
-        *,
-        root: str | None = None,
-        limit: int = 500,
-    ) -> dict[str, Any]:
-        graph = await _provider(scope, depth, link_types, root=root, limit=limit)
-        group_ids = {
-            resource["name"]: resource["id"]
-            for resource in graph["resources"]
-            if resource["type"] == "resource-group"
-        }
-        return {
-            **graph,
-            "resources": [
-                {
-                    key: value
-                    for key, value in {
-                        **resource,
-                        "parent_id": (
-                            "sub"
-                            if resource["type"] == "resource-group"
-                            else group_ids.get(resource.get("props", {}).get("resourceGroup"))
-                        ),
-                    }.items()
-                    if key != "props"
-                }
-                for resource in graph["resources"]
-            ],
-        }
-
-    tools = InventoryChatTools(projected_provider)
+    tools = InventoryChatTools(_projected_provider)
     app = Starlette(
         routes=[
             make_chat_route(
@@ -1186,6 +1232,46 @@ def test_selected_architecture_group_routes_to_verified_service_types() -> None:
     assert done["answer"] == answer
     assert "operational evidence unavailable" not in stream.text
     assert operational.calls == 0
+    assert backend.calls == 0
+
+
+def test_selected_group_details_include_type_region_and_state() -> None:
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_projected_provider),
+            )
+        ]
+    )
+    body = {
+        "prompt": "List resources in this group with type, region, and state.",
+        "view_context": {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-data",
+                        "name": "rg-data",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    }
+
+    with TestClient(app) as client:
+        stream = client.post("/chat/stream", json=body)
+
+    done = _inventory_done_event(stream.text)
+    assert done is not None
+    answer = done["answer"]
+    assert "Resource postgres-data: postgresql-server, stopped, koreacentral" in answer
+    assert "Resource sql-app: sql-database, unknown, koreacentral" in answer
+    assert "derived-subnet" not in answer
+    assert "resource-group" not in answer
     assert backend.calls == 0
 
 

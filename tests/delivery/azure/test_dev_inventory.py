@@ -153,6 +153,29 @@ class TestFullSnapshot:
         assert record.props["powerState"] == "VM running"
         assert record.props["provisioningState"] == "Succeeded"
 
+    def test_generic_resource_preserves_nested_provisioning_state(self) -> None:
+        payload = json.dumps(
+            [
+                {
+                    "id": (
+                        "/subscriptions/x/resourceGroups/rg-app/providers/"
+                        "Microsoft.Storage/storageAccounts/storage-app"
+                    ),
+                    "name": "storage-app",
+                    "resourceGroup": "rg-app",
+                    "properties": {"provisioningState": "Succeeded"},
+                }
+            ]
+        )
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            return_value=_completed(payload),
+        ):
+            batches = asyncio.run(_drain(AzureCliInventory(resource_types=("object-storage",))))
+
+        assert batches[0].resources[0].props["provisioningState"] == "Succeeded"
+
     def test_postgresql_uses_service_list_and_maps_state(self) -> None:
         payload = json.dumps(
             [

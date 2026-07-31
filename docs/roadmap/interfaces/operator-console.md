@@ -284,6 +284,11 @@ Architecture publishes at most one selected resource in its bounded screen diges
 service-summary question may use a selected resource-group name only as a selector hint; the server
 inventory re-resolves that group and its members before returning canonical service-type counts.
 Missing, malformed, or non-group selection does not create scope authority.
+Selected-group detail requests use the same boundary. Named Architecture projections retain only
+allowlisted location, resource-group, and provider-type fields after dropping raw properties.
+Observed operational or power state takes precedence; provisioning state is the final displayed
+state fallback. The deterministic list excludes the resource-group container itself and
+topology-derived records that lack a provider type.
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does

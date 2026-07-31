@@ -955,7 +955,7 @@ def _safe_resource(raw: Mapping[str, Any]) -> dict[str, Any] | None:
     return {
         "id": resource_id,
         "type": resource_type,
-        "provider_type": _optional_text(props.get("providerType")),
+        "provider_type": _optional_text(props.get("providerType") or raw.get("provider_type")),
         "name": name,
         "status": str(raw.get("status") or "unknown"),
         "location": _optional_text(props.get("location") or raw.get("location")),

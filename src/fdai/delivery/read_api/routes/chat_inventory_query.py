@@ -55,6 +55,7 @@ class InventoryField(StrEnum):
     """Allowlisted fields a query predicate may inspect."""
 
     RESOURCE_TYPE = "resource_type"
+    PROVIDER_TYPE = "provider_type"
     STATUS = "status"
     NAME = "name"
     RESOURCE_GROUP = "resource_group"
@@ -77,6 +78,7 @@ class InventoryOperator(StrEnum):
 _CURRENT_FIELDS: Final = frozenset(
     {
         InventoryField.RESOURCE_TYPE,
+        InventoryField.PROVIDER_TYPE,
         InventoryField.STATUS,
         InventoryField.NAME,
         InventoryField.RESOURCE_GROUP,
@@ -107,6 +109,7 @@ _MIN_ACTIVITY_LOOKBACK_SECONDS: Final = 3_600
 MAX_ACTIVITY_LOOKBACK_SECONDS: Final = 30 * 24 * 3_600
 _FIELD_KEYS: Final[dict[InventoryField, str]] = {
     InventoryField.RESOURCE_TYPE: "type",
+    InventoryField.PROVIDER_TYPE: "provider_type",
     InventoryField.STATUS: "status",
     InventoryField.NAME: "name",
     InventoryField.RESOURCE_GROUP: "resource_group",

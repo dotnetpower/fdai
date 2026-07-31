@@ -301,6 +301,8 @@ it does not compile `resource-group` as a narrowing predicate. Keep reusable phr
 catalog and keep result-shape semantics in the typed query executor.
 Use the `types` query kind for reusable service-summary wording such as `which services` or
 `어떤 서비스`; screen selection and provider scope remain separate server-verified selectors.
+Put follow-up wording such as `this group` in the `active_view` scope entry so one selected
+Architecture group can constrain a typed list without embedding conversational phrases in Python.
 
 A state entry can declare `suppresses` with other state ids when a longer semantic phrase contains
 a shorter contradictory term. For example, a reviewed not-running phrase can suppress the embedded
