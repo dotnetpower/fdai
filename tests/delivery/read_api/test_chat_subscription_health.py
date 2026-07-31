@@ -194,6 +194,73 @@ def test_specific_subscription_inventory_question_skips_health_sweep() -> None:
     assert not needs_subscription_context(prompt)
 
 
+def test_specific_storage_health_question_uses_filtered_subscription_health() -> None:
+    prompt = "사용 불가능하거나 성능이 저하된 스토리지 계정이 있어?"
+
+    assert needs_subscription_health(prompt)
+
+    async def storage_health(
+        lookback_seconds: int,
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, Any]:
+        del progress_observer
+        assert lookback_seconds == 3_600
+        return {
+            "status": "matched",
+            "source": "azure-resource-graph+resource-health",
+            "observed_at": "2026-08-01T04:10:00Z",
+            "resource_count": 12,
+            "resource_health_unavailable": 0,
+            "metric_checked": 1,
+            "metric_unavailable": 0,
+            "unsupported_metric_resources": 11,
+            "truncated": False,
+            "findings": [
+                {
+                    "kind": "resource_health",
+                    "resource_name": "storage-example",
+                    "resource_type": "Microsoft.Storage/storageAccounts",
+                    "resource_group": "rg-example",
+                    "status": "Unavailable",
+                    "title": "Unavailable",
+                    "reason": "Platform Initiated",
+                },
+                {
+                    "kind": "resource_health",
+                    "resource_name": "vm-example",
+                    "resource_type": "Microsoft.Compute/virtualMachines",
+                    "resource_group": "rg-example",
+                    "status": "Degraded",
+                    "title": "Degraded",
+                    "reason": "Platform Initiated",
+                },
+            ],
+        }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(storage_health),
+            )
+        ]
+    )
+
+    response = TestClient(app).post("/chat", json={"prompt": prompt, "view_context": {}})
+
+    payload = response.json()
+    assert payload["verification"]["authority"] == "server_subscription_health"
+    assert payload["verification"]["status"] == "verified"
+    assert "**성능 저하**\n- 확인한 근거에서는 관찰되지 않았습니다." in payload["answer"]
+    assert "**사용 불가**" in payload["answer"]
+    assert "storage-example" in payload["answer"]
+    assert "vm-example" not in payload["answer"]
+    assert backend.calls == 0
+
+
 def test_current_subscription_question_uses_server_scope_metadata() -> None:
     backend = _Backend()
     app = Starlette(

@@ -13,6 +13,9 @@ from fdai.delivery.read_api.routes.chat_inventory_compiler import (
     is_specific_inventory_question,
 )
 from fdai.delivery.read_api.routes.chat_inventory_query import normalize_inventory_value
+from fdai.delivery.read_api.routes.chat_inventory_resource_types import (
+    default_inventory_resource_type_resolver,
+)
 from fdai.delivery.read_api.routes.chat_system_health import ChatToolResolver
 from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 
@@ -184,10 +187,10 @@ class SubscriptionHealthChatTools:
 
 
 def needs_subscription_health(prompt: str) -> bool:
-    if is_specific_inventory_question(prompt):
-        return False
     if QueryEvidenceAuthority.SUBSCRIPTION_HEALTH in inventory_query_evidence_authorities(prompt):
         return not _MUTATION.search(prompt)
+    if is_specific_inventory_question(prompt):
+        return False
     asks_for_health = bool(
         (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
     )
@@ -291,6 +294,7 @@ def render_subscription_health_answer(
     metric_unavailable = _integer(result.get("metric_unavailable"))
     unsupported = _integer(result.get("unsupported_metric_resources"))
     findings = [item for item in result.get("findings", []) if isinstance(item, Mapping)]
+    findings = _filter_findings_by_requested_type(evidence, findings)
     source = str(result.get("source") or "Azure read providers")
     observed_at = str(result.get("observed_at") or "unknown")
     truncated = bool(result.get("truncated"))
@@ -436,12 +440,38 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
 
 def _status_query(prompt: str) -> dict[str, object]:
     groups = inventory_query_status_groups(prompt)
+    requested_types = default_inventory_resource_type_resolver().resolve(prompt)
     return {
+        "requested_resource_types": list(requested_types),
         "requested_status_groups": [
             {"id": group.id, "values": list(group.values), "labels": dict(group.labels)}
             for group in groups
-        ]
+        ],
     }
+
+
+def _filter_findings_by_requested_type(
+    evidence: Mapping[str, Any],
+    findings: list[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    query = evidence.get("query")
+    raw_types = query.get("requested_resource_types") if isinstance(query, Mapping) else None
+    if (
+        not isinstance(raw_types, list)
+        or not raw_types
+        or not all(isinstance(item, str) for item in raw_types)
+    ):
+        return findings
+    resolver = default_inventory_resource_type_resolver()
+    accepted = {
+        normalize_inventory_value(item)
+        for item in (*raw_types, *resolver.provider_types_for(raw_types))
+    }
+    return [
+        finding
+        for finding in findings
+        if normalize_inventory_value(finding.get("resource_type")) in accepted
+    ]
 
 
 def _requested_status_groups(

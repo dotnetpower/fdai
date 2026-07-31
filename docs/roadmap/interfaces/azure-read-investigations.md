@@ -125,12 +125,13 @@ abstention, and the verifier rechecks the complete query before I/O. Imperative 
 action drafts and cannot enter this read path.
 
 State entries in the inventory language catalog also declare their required evidence authority.
-Ordinary current operational states use promoted inventory. Generic cross-resource questions that
-include degraded or unavailable availability semantics use the existing subscription health sweep,
-which joins `Resources` with `HealthResources` under the same server-owned scope. The request's
-catalog-compiled state groups travel with the typed evidence envelope so the deterministic renderer
-can preserve zero-result groups without reinterpreting prompt text. A concrete resource-family
-filter remains on the inventory path rather than widening to a subscription health sweep.
+Ordinary current operational states use promoted inventory. Questions that include degraded or
+unavailable availability semantics use the existing subscription health sweep, which joins
+`Resources` with `HealthResources` under the same server-owned scope. A concrete resource-family
+filter remains attached to that health query, and the renderer accepts only findings whose
+canonical or provider type matches the requested family. The request's catalog-compiled state
+groups travel with the typed evidence envelope so the deterministic renderer can preserve
+zero-result groups without reinterpreting prompt text.
 When the catalog can compile a complete inventory query, a generic search verb such as `find` or
 `찾아줘` does not select public web evidence. Public web takes precedence only when the operator
 names that medium or another explicit web context.

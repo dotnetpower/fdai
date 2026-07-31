@@ -334,6 +334,22 @@ def test_unhealthy_kubernetes_workload_question_requires_history() -> None:
     assert query.require_state_history is True
 
 
+def test_storage_health_question_preserves_unavailable_and_degraded_states() -> None:
+    query = compile_inventory_query(
+        "사용 불가능하거나 성능이 저하된 스토리지 계정이 있어?",
+    )
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == "object-storage"
+    assert by_field[InventoryField.STATUS] == ("degraded", "unavailable")
+    assert query.group_by is InventoryQueryGrouping.STATUS
+    assert [(group.id, group.values) for group in query.status_groups] == [
+        ("degraded", ("degraded",)),
+        ("unavailable", ("unavailable",)),
+    ]
+
+
 def test_observed_type_and_location_are_dynamic_facets() -> None:
     resources = (
         *_RESOURCES,

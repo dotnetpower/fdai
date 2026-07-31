@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 8690c2280492b0a2ebbd27ac1d064898129480bd
+translation_source_sha: 0d8c584aaa2cebf86fb9fcd8b2b97c5edee65a2a
 translation_revised: 2026-08-01
 ---
 
@@ -125,11 +125,11 @@ Imperative change는 action draft로 유지되며 이 read path에 들어갈 수
 
 Inventory language catalog의 state entry는 필요한 evidence authority도 선언합니다. 일반적인 current
 operational state는 promoted inventory를 사용합니다. Degraded 또는 unavailable availability 의미를
-포함한 일반적인 cross-resource 질문은 동일한 server-owned scope 아래에서 `Resources`와
-`HealthResources`를 결합하는 기존 subscription health sweep을 사용합니다. Request의 catalog-compiled
-state group은 typed evidence envelope과 함께 전달되므로 deterministic renderer가 prompt text를 다시
-해석하지 않고 zero-result group을 보존할 수 있습니다. 구체적인 resource-family filter는 subscription
-health sweep으로 확장하지 않고 inventory path에 유지됩니다.
+포함한 질문은 동일한 server-owned scope 아래에서 `Resources`와 `HealthResources`를 결합하는 기존
+subscription health sweep을 사용합니다. 구체적인 resource-family filter는 해당 health query에
+유지되며 renderer는 canonical 또는 provider type이 요청한 family와 일치하는 finding만 사용합니다.
+Request의 catalog-compiled state group은 typed evidence envelope과 함께 전달되므로 deterministic
+renderer가 prompt text를 다시 해석하지 않고 zero-result group을 보존할 수 있습니다.
 Catalog가 complete inventory query를 compile할 수 있으면 `find` 또는 `찾아줘` 같은 일반적인 search
 verb는 public web evidence를 선택하지 않습니다. Operator가 해당 medium이나 다른 명시적인 web
 context를 지정한 경우에만 public web이 우선합니다.

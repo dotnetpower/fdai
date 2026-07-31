@@ -1,9 +1,9 @@
 schema_version: "1.1.0"
-version: "1.1.2"
+version: "1.1.3"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
-suffixes: [은, 는, 이, 가, 의, 에, 에서, 을, 를, 도, 만, 인, 로, 으로, 야, 된, 되고]
+suffixes: [은, 는, 이, 가, 의, 에, 에서, 을, 를, 도, 만, 인, 로, 으로, 야, 된, 되고, 하거나]
 signals:
   resource_subject:
     terms: [resource, resources, asset, assets, inventory, azure resource, azure resources, 리소스, 인벤토리, Azure 리소스]
@@ -72,7 +72,7 @@ states:
     evidence_authority: subscription_health
     labels: {en: Degraded, ko: 성능 저하}
   unavailable:
-    terms: [unavailable, 사용할 수 없는, 사용 불가]
+    terms: [unavailable, 사용할 수 없는, 사용 불가, 사용 불가능]
     values: [unavailable]
     evidence_authority: subscription_health
     labels: {en: Unavailable, ko: 사용 불가}

@@ -103,6 +103,18 @@ class InventoryResourceTypeResolver:
             sorted({entry.category.value for entry in self._registry if entry.id in selected})
         )
 
+    def provider_types_for(self, type_ids: Sequence[str]) -> tuple[str, ...]:
+        """Return provider type identifiers for selected canonical resource types."""
+
+        selected = set(type_ids)
+        return tuple(
+            sorted(
+                entry.azure_arm_type
+                for entry in self._registry
+                if entry.id in selected and entry.azure_arm_type is not None
+            )
+        )
+
 
 @lru_cache(maxsize=1)
 def default_inventory_resource_type_resolver() -> InventoryResourceTypeResolver:
