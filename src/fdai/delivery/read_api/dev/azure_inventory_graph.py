@@ -29,7 +29,7 @@ from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecor
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 10
+_CACHE_VERSION: Final[int] = 11
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 _ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
@@ -42,7 +42,7 @@ class AzureCliInventoryGraphProvider:
     inventory: Inventory
     cache_ttl_seconds: float = 60.0
     refresh_timeout_seconds: float = 240.0
-    max_resources: int = 500
+    max_resources: int = 1_000
     cache_path: Path | None = None
     cache_identity: str | None = None
     invalidation_path: Path | None = None

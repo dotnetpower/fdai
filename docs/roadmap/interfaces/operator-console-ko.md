@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: c1f70eb7ae371ed0eee97c3b6827b42cda068f4b
+translation_source_sha: 7845a53404254ac55196d52d16b5f35b29a12cec
 translation_revised: 2026-08-01
 ---
 
@@ -265,6 +265,13 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `query_detection_readiness()` | Muninn StateSnapshot에서 Heimdall의 최신 AKS readiness 판정을 읽고 6축 coverage gap과 authority ceiling을 반환합니다. Azure를 probe하거나 readiness를 다시 계산하지 않습니다. | Reader | `DetectionReadinessReader` |
 | `query_t2_recovery()` | Server StateStore에서 sanitized proposer attempt receipt를 읽습니다. Provider error text를 노출하지 않고 retained attempt count, recovery state, route role, failure class, observation time 및 명시적인 legacy-detail gap을 반환합니다. | Reader | `T2RecoveryStateReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
+
+필터가 없는 resource-type summary에서 `query_inventory`는 ARM type에 canonical catalog
+mapping이 없더라도 provider가 관찰한 모든 resource를 보존합니다. Deterministic answer는
+provider-native type별로 grouping하고 완전한 resource 및 type 합계를 보고하며 resource-group
+container와 topology에서 파생된 하위 record는 provider-native resource 합계와 분리해
+보고합니다. Catalog-mapped query는 filtering과 CSP-neutral reasoning에 canonical resource
+type을 계속 사용합니다.
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
 `EventIngest -> TrustRouter -> T0Engine`을 **메모리 내에서만** 실행: T1

@@ -271,6 +271,13 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_t2_recovery()` | Read sanitized proposer attempt receipts from the server StateStore. Return the retained attempt count, recovery state, route roles, failure class, observation time, and explicit legacy-detail gaps without exposing provider error text. | Reader | `T2RecoveryStateReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
 
+For an unfiltered resource-type summary, `query_inventory` preserves every provider-observed
+resource even when its ARM type has no canonical catalog mapping. The deterministic answer groups
+by provider-native type, reports the complete resource and type totals, and reports resource-group
+containers and topology-derived child records separately from the provider-native resource total.
+Catalog-mapped queries continue to use canonical resource types for filtering and CSP-neutral
+reasoning.
+
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does
 not invoke T1 embedding lookups, T2 models, external adapters, or any

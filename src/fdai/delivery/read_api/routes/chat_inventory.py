@@ -293,6 +293,24 @@ def _project_verified_inventory_result(
             "freshness": _optional_text(graph.get("freshness")),
         }
     matched = [item for item in managed if inventory_query_matches(query, item)]
+    provider_type_summary = query.kind is InventoryQueryKind.TYPES and not query.predicates
+    reported_resources = (
+        [
+            item
+            for item in matched
+            if item["type"] != "resource-group" and item.get("provider_type") is not None
+        ]
+        if provider_type_summary
+        else matched
+    )
+    counted_resources = (
+        [item for item in managed if item["type"] != "resource-group"]
+        if provider_type_summary
+        else managed
+    )
+    matched_type_counts = Counter(
+        str(item.get("provider_type") or item["type"]).casefold() for item in reported_resources
+    )
     links = [
         safe_link
         for item in raw_links
@@ -334,24 +352,43 @@ def _project_verified_inventory_result(
         ],
         "resource_group": group_filter,
         "name_filter": name_filter,
+        "provider_type_summary": provider_type_summary,
+        "resource_group_count": sum(item["type"] == "resource-group" for item in managed),
+        "derived_resource_count": sum(
+            item["type"] != "resource-group" and item.get("provider_type") is None
+            for item in managed
+        ),
         "snapshot_at": _optional_text(graph.get("snapshot_at")),
         "freshness": _optional_text(graph.get("freshness")),
         "source": _optional_text(graph.get("source")),
         "active_view": _optional_text(graph.get("active_view")) or "provider-default",
         "truncated": bool(graph.get("truncated")),
         "total_resources": len(managed),
-        "matched_count": len(matched),
-        "type_counts": dict(sorted(Counter(str(item["type"]) for item in managed).items())),
-        "matched_type_counts": dict(sorted(Counter(str(item["type"]) for item in matched).items())),
+        "matched_count": len(reported_resources),
+        "type_counts": dict(
+            sorted(
+                Counter(
+                    str(item.get("provider_type") or item["type"]).casefold()
+                    for item in counted_resources
+                ).items()
+            )
+        ),
+        "matched_type_counts": dict(sorted(matched_type_counts.items())),
         "matched_location_counts": dict(
-            sorted(Counter(str(item.get("location") or "unknown") for item in matched).items())
+            sorted(
+                Counter(
+                    str(item.get("location") or "unknown") for item in reported_resources
+                ).items()
+            )
         ),
         "matched_status_counts": dict(
-            sorted(Counter(str(item.get("status") or "unknown") for item in matched).items())
+            sorted(
+                Counter(str(item.get("status") or "unknown") for item in reported_resources).items()
+            )
         ),
         "resources": [
             {key: value for key, value in item.items() if key != "id"}
-            for item in matched[:_MAX_RESOURCES]
+            for item in reported_resources[:_MAX_RESOURCES]
         ],
         "links": links[:_MAX_LINKS] if query.kind is InventoryQueryKind.RELATIONSHIPS else [],
         "coverage_gap": "kubernetes_workloads" if workload_query else None,
@@ -405,6 +442,11 @@ def render_inventory_answer(
     freshness = str(result.get("freshness") or "unknown")
     active_view = str(result.get("active_view") or "provider-default")
     truncated = bool(result.get("truncated"))
+    provider_type_summary = bool(result.get("provider_type_summary"))
+    type_counts = result.get("matched_type_counts")
+    type_count = len(type_counts) if isinstance(type_counts, Mapping) else 0
+    resource_group_count = int(result.get("resource_group_count") or 0)
+    derived_resource_count = int(result.get("derived_resource_count") or 0)
 
     if answer_format == "table":
         return _render_inventory_table_answer(
@@ -432,11 +474,26 @@ def render_inventory_answer(
         )
 
     if korean:
-        lines = [
-            f"현재 Azure inventory view '{active_view}'의 {total}개 중 "
-            f"질문과 일치하는 리소스는 {count}개입니다."
-        ]
+        lines = (
+            [
+                f"현재 Azure inventory view '{active_view}'의 inventory record {total}개 중 "
+                f"Azure 리소스 {count}개를 {type_count}개 provider type으로 확인했습니다."
+            ]
+            if provider_type_summary
+            else [
+                f"현재 Azure inventory view '{active_view}'의 {total}개 중 "
+                f"질문과 일치하는 리소스는 {count}개입니다."
+            ]
+        )
         lines.extend(_answer_detail_lines(result, resources, korean=True))
+        if provider_type_summary:
+            lines.append(
+                f"Resource group {resource_group_count}개는 리소스 합계와 분리해 확인했습니다."
+            )
+            lines.append(
+                f"Topology에서 파생된 하위 리소스 {derived_resource_count}개도 "
+                "provider-native 합계와 분리했습니다."
+            )
         if result.get("status_coverage"):
             lines.append(
                 "이 결과는 정규화된 현재 operational status만 확인합니다. "
@@ -463,10 +520,27 @@ def render_inventory_answer(
             lines.append("인벤토리 snapshot이 잘렸으므로 실제 리소스 수가 더 많을 수 있습니다.")
         return "\n".join(lines)
 
-    lines = [
-        f"{count} of {total} resources in Azure inventory view '{active_view}' match the question."
-    ]
+    lines = (
+        [
+            f"{count} of {total} inventory records in Azure inventory view '{active_view}' are "
+            f"Azure resources across {type_count} provider types."
+        ]
+        if provider_type_summary
+        else [
+            f"{count} of {total} resources in Azure inventory view "
+            f"'{active_view}' match the question."
+        ]
+    )
     lines.extend(_answer_detail_lines(result, resources, korean=False))
+    if provider_type_summary:
+        lines.append(
+            f"{resource_group_count} resource groups were checked separately "
+            "from the resource total."
+        )
+        lines.append(
+            f"{derived_resource_count} topology-derived child resources were also kept "
+            "outside the provider-native total."
+        )
     if result.get("status_coverage"):
         lines.append(
             "This result checks normalized current operational status only. It does not prove "
@@ -831,6 +905,7 @@ def _safe_resource(raw: Mapping[str, Any]) -> dict[str, Any] | None:
     return {
         "id": resource_id,
         "type": resource_type,
+        "provider_type": _optional_text(props.get("providerType")),
         "name": name,
         "status": str(raw.get("status") or "unknown"),
         "location": _optional_text(props.get("location") or raw.get("location")),

@@ -70,6 +70,7 @@ _AZ_TIMEOUT_SECONDS: Final[float] = 30.0
 _MAX_PROPS_BYTES: Final[int] = 64 * 1024
 _ARG_PAGE_SIZE: Final[int] = 1000
 _ARG_MAX_PAGES: Final[int] = 32
+_UNCLASSIFIED_RESOURCE_TYPE: Final[str] = "unclassified-resource"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -250,6 +251,7 @@ class AzureCliInventory:
                     raise AzureCliInventoryError(
                         "registered ARM type is ambiguous without matching kind"
                     )
+                rows_by_type.setdefault(_UNCLASSIFIED_RESOURCE_TYPE, []).append(row)
                 continue
             if resource_type == "resource-group":
                 continue
@@ -259,7 +261,7 @@ class AzureCliInventory:
 
         records: list[ResourceRecord] = []
         links: list[LinkRecord] = []
-        for resource_type in self.resource_types:
+        for resource_type in (*self.resource_types, _UNCLASSIFIED_RESOURCE_TYPE):
             source_type = "network.vnet" if resource_type == "network.subnet" else resource_type
             projected_records, projected_links = self._project_rows(
                 rows_by_type.get(source_type, ()), resource_type
@@ -417,6 +419,8 @@ class AzureCliInventory:
     def _row_matches_type(self, row: Mapping[str, Any], resource_type: str) -> bool:
         if self.resource_type_registry is None or not isinstance(row.get("type"), str):
             return True
+        if resource_type == _UNCLASSIFIED_RESOURCE_TYPE:
+            return self._resolve_registered_type(row) is None
         return self._resolve_registered_type(row) == resource_type
 
 
@@ -471,6 +475,8 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
         "location": row.get("location"),
         "tags": row.get("tags") or {},
     }
+    if isinstance(row.get("type"), str) and row["type"]:
+        props["providerType"] = row["type"]
     for key in ("kind", "sku", "properties"):
         if row.get(key) is not None:
             props[key] = row[key]

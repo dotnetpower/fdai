@@ -349,7 +349,12 @@ class TestFullSnapshot:
             "resource-group",
             "network.load-balancer",
             "network.public-ip",
+            "unclassified-resource",
         }
+        unclassified = next(
+            record for record in resource_batch.resources if record.type == "unclassified-resource"
+        )
+        assert unclassified.props["providerType"] == "Other/type"
         assert {
             (link.link_type, link.from_type, link.to_type) for link in resource_batch.links
         } >= {

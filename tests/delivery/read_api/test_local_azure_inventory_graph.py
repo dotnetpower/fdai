@@ -375,7 +375,7 @@ def test_filters_links_and_marks_truncation() -> None:
 def test_default_graph_capacity_covers_large_control_plane_inventory() -> None:
     provider = AzureCliInventoryGraphProvider(inventory=_Inventory())
 
-    assert provider.max_resources == 500
+    assert provider.max_resources == 1_000
 
 
 def test_dense_resource_group_stays_inside_graph_bounds() -> None:

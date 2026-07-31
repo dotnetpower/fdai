@@ -54,11 +54,13 @@ def _resource(
     group: str | None = None,
     location: str | None = None,
     status: str = "unknown",
+    provider_type: str | None = None,
 ) -> dict[str, Any]:
     props = {
         "resourceGroup": group,
         "location": location,
         "sensitive": "must-not-enter-chat-evidence",
+        "providerType": provider_type or resource_type,
     }
     return {
         "id": resource_id,
@@ -586,6 +588,21 @@ async def test_failed_state_answer_discloses_status_coverage_boundary() -> None:
     }
 
 
+async def test_subscription_type_summary_uses_provider_types_and_separates_groups() -> None:
+    evidence = await _inventory_evidence("이 구독에서 관리 중인 리소스를 유형별로 요약해줘.")
+
+    answer = render_inventory_answer(evidence, locale="ko")
+
+    assert answer is not None
+    assert "Azure 리소스 11개를 10개 provider type으로 확인" in answer
+    assert "compute.vm: 2개" in answer
+    assert "Resource group 2개는 리소스 합계와 분리" in answer
+    assert "파생된 하위 리소스 0개" in answer
+    assert evidence["result"]["matched_count"] == 11
+    assert evidence["result"]["resource_group_count"] == 2
+    assert evidence["result"]["derived_resource_count"] == 0
+
+
 @pytest.mark.parametrize(
     "prompt",
     (
@@ -657,7 +674,10 @@ CASES = (
     AzureQuestion(
         "resource group rg-data Azure 리소스 목록", ("postgres-data", "sql-app"), ("vm-app",)
     ),
-    AzureQuestion("Azure 리소스 종류를 보여줘", ("compute.vm: 2개", "resource-group: 2개")),
+    AzureQuestion(
+        "Azure 리소스 종류를 보여줘",
+        ("compute.vm: 2개", "Resource group 2개는 리소스 합계와 분리"),
+    ),
     AzureQuestion("공인 IP 목록을 보여줘", ("pip-app",)),
     AzureQuestion("네트워크 보안 그룹 목록은?", ("nsg-app",)),
     AzureQuestion(
