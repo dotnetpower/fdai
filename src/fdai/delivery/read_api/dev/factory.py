@@ -42,6 +42,9 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s: %(messa
 
 from fdai.agents import OWNED_OBJECT_TOPICS  # noqa: E402
 from fdai.core.audit.what_if_replay import WhatIfEvaluator  # noqa: E402
+from fdai.core.conversation_assurance import (  # noqa: E402
+    InMemoryConversationAssuranceLedger,
+)
 from fdai.core.measurement.promotion_gate import (  # noqa: E402
     InMemoryShadowVerdictSource,
 )
@@ -62,6 +65,8 @@ from fdai.core.scheduler import (  # noqa: E402
 )
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus  # noqa: E402
 from fdai.delivery.persistence import (  # noqa: E402
+    PostgresConversationAssuranceLedger,
+    PostgresConversationAssuranceLedgerConfig,
     PostgresMeteringStore,
     PostgresMeteringStoreConfig,
 )
@@ -170,6 +175,9 @@ from fdai.delivery.read_api.routes.arb_status import (  # noqa: E402
 from fdai.delivery.read_api.routes.chat_agent_delegate import (  # noqa: E402
     PantheonChatDelegate,
 )
+from fdai.delivery.read_api.routes.conversation_assurance_intake import (  # noqa: E402
+    ConversationAssurancePostTurnSubmitter,
+)
 from fdai.delivery.read_api.routes.llm_cost import LlmCostPanel  # noqa: E402
 from fdai.delivery.read_api.routes.measurement_summary import (  # noqa: E402
     AutonomyMeasurementPanel,
@@ -201,6 +209,9 @@ from fdai.delivery.read_api.streaming.pantheon_activity_observer import (  # noq
     PantheonActivityObserver,
 )
 from fdai.delivery.read_api.streaming.provision_stream import ProvisionStreamConfig  # noqa: E402
+from fdai.runtime.conversation_assurance import (  # noqa: E402
+    build_conversation_assurance_coordinator,
+)
 from fdai.shared.config.runtime_flags import pantheon_start_enabled  # noqa: E402
 from fdai.shared.providers.testing.state_store import InMemoryStateStore  # noqa: E402
 
@@ -410,6 +421,22 @@ def build_local_app(
         workflow_definitions = user_context_group.workflow_definitions
         user_context_startup_callbacks = (user_context_group.seed_callback,)
 
+    assurance_ledger = (
+        PostgresConversationAssuranceLedger(
+            config=PostgresConversationAssuranceLedgerConfig(
+                dsn=cast(PostgresConsoleReadModel, read_model)._config.dsn,
+                statement_timeout_ms=cast(
+                    PostgresConsoleReadModel, read_model
+                )._config.statement_timeout_ms,
+                connect_timeout_s=cast(
+                    PostgresConsoleReadModel, read_model
+                )._config.connect_timeout_s,
+            )
+        )
+        if local_database_configured and not test_fixtures
+        else InMemoryConversationAssuranceLedger()
+    )
+
     local_read_investigation = (
         build_local_read_investigation(
             state_store=persistence.state_store,
@@ -560,6 +587,14 @@ def build_local_app(
         test_fixtures=test_fixtures,
     )
     models = build_local_model_wiring(_REPO_ROOT, metering_sink=metering)
+    assurance_submitter = ConversationAssurancePostTurnSubmitter(
+        coordinator=build_conversation_assurance_coordinator(
+            ledger=assurance_ledger,
+            budget=None,
+            evaluators=(),
+        ),
+        delegate=post_turn_review_queue,
+    )
     log_query_provider = None
     log_query_shutdown_callbacks: tuple[Callable[[], Any], ...] = ()
     monitor_workspace_id = os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip()
@@ -671,10 +706,11 @@ def build_local_app(
             ontology_link_types=tuple(ontology_link_types),
             ontology_action_types=tuple(action_types),
             conversation_history_store=conversation_history_store,
+            conversation_assurance_ledger=assurance_ledger,
             conversation_search=user_context.conversation_search,
             conversation_policy_store=conversation_policy_store,
             user_context_ontology_projector=user_context_ontology_projector,
-            post_turn_review_submitter=post_turn_review_queue,
+            post_turn_review_submitter=assurance_submitter,
             user_context=user_context,
             model_settings=models.settings,
             runtime_settings=runtime_settings,
@@ -776,6 +812,7 @@ def build_local_app(
             shutdown_callbacks=((runtime.stop_pantheon_runtime,) if runtime is not None else ())
             + ((remote_agent_delegate.stop,) if remote_agent_delegate is not None else ())
             + ((post_turn_review_queue.close,) if post_turn_review_queue is not None else ())
+            + (assurance_submitter.close,)
             + (
                 (runtime.operator_runtime.stop,)
                 if runtime is not None and runtime.operator_runtime is not None

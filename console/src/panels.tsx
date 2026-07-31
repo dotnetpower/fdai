@@ -64,6 +64,7 @@ const SchedulerRunsRoute = lazy(async () => ({ default: (await import("./routes/
 const AutomationBlueprintsRoute = lazy(async () => ({ default: (await import("./routes/automation-blueprints")).AutomationBlueprintsRoute }));
 const ScheduledContinuationsRoute = lazy(async () => ({ default: (await import("./routes/scheduled-continuations")).ScheduledContinuationsRoute }));
 const ConversationDeliveryRoute = lazy(async () => ({ default: (await import("./routes/conversation-delivery")).ConversationDeliveryRoute }));
+const ConversationAssuranceRoute = lazy(async () => ({ default: (await import("./routes/conversation-assurance")).ConversationAssuranceRoute }));
 const OperatingOutcomesRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).OperatingOutcomesRoute }));
 const ControlAssuranceRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).ControlAssuranceRoute }));
 const VerticalOutcomesRoute = lazy(async () => ({ default: (await import("./routes/analytics-hubs")).VerticalOutcomesRoute }));
@@ -274,6 +275,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.conversationSearch"),
     group: "evidence",
     component: ConversationSearchRoute,
+  },
+  {
+    id: "conversation-assurance",
+    label: t("nav.panel.conversationAssurance"),
+    subtitle: t("nav.panelSub.conversationAssurance"),
+    group: "evidence",
+    component: ConversationAssuranceRoute,
   },
   {
     id: "reports",

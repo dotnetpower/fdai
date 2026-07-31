@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f41c3bca3d132660bcd69aa4b0a89ed26f7246f0
+translation_source_sha: 9e2d8bce42d47ebd927e5d037ba294165b58e9f6
 translation_revised: 2026-07-31
 ---
 
@@ -86,11 +86,11 @@ master-detail surface로 유지합니다.
 현재 agent state와 observation time만 갱신합니다. Active work, 완료된 handler transition, Incident 및
 handoff는 계속 audit evidence를 새로 고칩니다. Activity header는 반복되는 passive snapshot을 work
 row로 추가하지 않고 마지막으로 관찰된 heartbeat 시각을 표시합니다.
-Principal-scoped Command Deck turn과 shadow answer-planning contribution은 conversation history에
-유지하며 shared Agent Activity stream에 게시하지 않습니다. Agent Activity는 권한 있는 모든 Reader에게
-안전한 operational object-topic handoff와 기타 runtime activity만 표시합니다. Synthetic
-`startup_readiness.audit_probe` proof history는 Audit과 Waterfall에 유지하지만 readiness evidence가
-operational work를 밀어내지 않도록 Activity에서 제외합니다.
+Principal 범위 Command Deck turn과 answer planning은 conversation history에 남고 shared Agent
+Activity에 게시되지 않습니다. Conversation Assurance는 답변 본문 대신 제한된 metadata와 digest를
+표시하는 별도 Evidence route입니다. 세부 정보는 권한이 확인된 conversation store에서만 원문을
+읽고 유일한 write는 idempotent append-only 이의 제기이며, 브라우저는 policy mutation 권한을
+광고하는 payload를 거부합니다. Synthetic readiness proof는 Audit에 유지합니다.
 
 콘솔의 모든 data-bearing card는 drill-down을 제공합니다. 전체 card surface는 해당 datum을 소유하는
 가장 좁은 analytical 또는 filtered-evidence 목적지로 이동하는 keyboard-accessible native link를

@@ -16,6 +16,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   "scheduler-runs": "/scheduler-runs",
   "scheduled-continuations": "/scheduled-continuations",
   "conversation-delivery": "/conversation-delivery",
+  "conversation-assurance": "/conversation-assurance",
   reports: "/reports",
   "agent-activity": "/agent-activity",
   audit: "/audit",

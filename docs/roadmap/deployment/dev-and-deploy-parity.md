@@ -240,15 +240,13 @@ account's restricted firewall when the active Azure CLI principal has permission
 set `FDAI_NARRATOR_AUTO_OPEN_AOAI=0` so they never call Azure CLI or change a firewall. A genuinely
 unconfigured, unauthorized, or unreachable model endpoint still fails safely to the deterministic
 answerer for that turn.
-When repository-local `resolved-models.json` exists, full-stack preparation emits
-`LLM_MODE=azure` and `LLM_RESOLVED_MODELS_PATH` for that artifact. It also binds
-`FDAI_METERING_DSN` to the same local PostgreSQL instance as the read model, so only measured FDAI
-provider calls appear in LLM Cost. Without the artifact, the model path and its usage remain
-unavailable; preparation never substitutes fixture or benchmark-judge usage.
-Cost attribution uses only the resolver's explicit deployment-to-family binding and the shipped
-pricing catalog. A missing or conflicting family remains unpriced instead of parsing a deployment
-name or guessing a rate. Pricing remains internal: the LLM Cost operator projection shows measured
-calls and tokens but does not expose cost amounts, price coverage, or invoice values.
+With repository-local `resolved-models.json`, full-stack preparation emits `LLM_MODE=azure` and
+`LLM_RESOLVED_MODELS_PATH`, and binds metering to the read-model PostgreSQL instance. Cost uses only
+explicit deployment-to-family bindings; missing families stay unpriced. Conversation Assurance uses
+the same local PostgreSQL conversation and assessment stores as deployment and always runs
+deterministic terminal checks. Semantic review activates only with two distinct resolved model
+families; a narrator-only or `hil-only` secondary stays inconclusive instead of using one model.
+Without the artifact, model and assurance inference remain unavailable and no fixture replaces them.
 
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data

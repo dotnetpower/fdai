@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from fdai.core.conversation_assurance import ConversationAssuranceLedger
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.rbac.resolver import Principal
 from fdai.core.skills import RuntimeSkillDisclosure
@@ -82,6 +83,13 @@ class ReadApiConfig:
 
     conversation_progress_metrics: ConversationProgressMetrics | None = None
     """Optional bounded Web/channel progress metrics shared with the delivery panel."""
+
+    conversation_assurance_ledger: ConversationAssuranceLedger | None = None
+    """Optional principal-scoped assessment and dispute ledger.
+
+    When configured, the read API exposes a GET projection and an append-only
+    dispute POST. The surface has no executor, approval, or policy mutation authority.
+    """
 
     trajectory_datasets: Any = None
     """Optional Owner-only GET projection for governed trajectory metadata.

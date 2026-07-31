@@ -68,12 +68,16 @@ from fdai.core.conversation.outbound_delivery import (
     DurableOutboundDeliveryConfig,
     DurableOutboundDeliveryCoordinator,
 )
+from fdai.core.conversation_assurance import ConversationAssuranceEvaluator
+from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.core.stewardship import load_stewardship_from_yaml
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.ingestion_gateway.chat_evidence import UploaderDocumentEvidenceResolver
 from fdai.delivery.persistence import (
+    PostgresConversationAssuranceLedger,
+    PostgresConversationAssuranceLedgerConfig,
     PostgresModelHealthTransitionSink,
     PostgresModelHealthTransitionSinkConfig,
     PostgresReadInvestigationRunStore,
@@ -129,11 +133,18 @@ from fdai.delivery.read_api.routes.background_runtime import build_background_ta
 from fdai.delivery.read_api.routes.busy_input_runtime import build_postgres_busy_input_runtime
 from fdai.delivery.read_api.routes.chat import backend_from_env
 from fdai.delivery.read_api.routes.chat_web_search import chat_web_search_from_env
+from fdai.delivery.read_api.routes.conversation_assurance_intake import (
+    ConversationAssurancePostTurnSubmitter,
+)
 from fdai.delivery.read_api.routes.post_turn_event_bus import EventBusPostTurnReviewIntake
 from fdai.delivery.read_api.routes.post_turn_review import PostTurnReviewQueue
 from fdai.delivery.stewardship import (
     HumanIdentityLivenessDirectory,
     StewardshipHealthMonitor,
+)
+from fdai.runtime.conversation_assurance import (
+    build_azure_conversation_assurance_evaluators,
+    build_conversation_assurance_coordinator,
 )
 from fdai.shared.providers.local import EnvSecretProvider
 
@@ -309,6 +320,14 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     )
     shutdown_callbacks = onboarding.shutdown_callbacks
     scope_source = build_production_scope_source(env)
+    assurance_ledger = PostgresConversationAssuranceLedger(
+        config=PostgresConversationAssuranceLedgerConfig(
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+    )
+    assurance_evaluators: tuple[ConversationAssuranceEvaluator, ...] = ()
     chat = None
     chat_web_search = None
     resolved_models_path = env.get(_env.RESOLVED_MODELS_ENV, "").strip()
@@ -351,11 +370,33 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             identity=chat_identity,
             http_client=chat_http,
         )
+        if resolved_models_path and chat_identity is not None:
+            assurance_evaluators = build_azure_conversation_assurance_evaluators(
+                repo_root=_REPO_ROOT,
+                resolved_models_path=resolved_models_path,
+                identity=chat_identity,
+                http_client=chat_http,
+            )
 
         async def _close_chat_http() -> None:
             await chat_http.aclose()
 
         shutdown_callbacks = (*shutdown_callbacks, _close_chat_http)
+    assurance_coordinator = build_conversation_assurance_coordinator(
+        ledger=assurance_ledger,
+        budget=InMemoryBudgetLedger(
+            ModelBudget(
+                max_calls_per_correlation=3,
+                max_cost_microusd_per_correlation=50_000,
+            )
+        ),
+        evaluators=assurance_evaluators,
+    )
+    assurance_submitter = ConversationAssurancePostTurnSubmitter(
+        coordinator=assurance_coordinator,
+        delegate=post_turn_review_queue,
+    )
+    shutdown_callbacks = (*shutdown_callbacks, assurance_submitter.close)
     model_settings = None
     if resolved_models_path:
         from fdai.delivery.read_api.routes.model_settings import ModelSettingsService
@@ -717,10 +758,11 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             300,
         ),
         conversation_history_store=conversation_history_store,
+        conversation_assurance_ledger=assurance_ledger,
         conversation_search=user_context.conversation_search,
         conversation_policy_store=conversation_policy_store,
         user_context_ontology_projector=user_context_ontology_projector,
-        post_turn_review_submitter=post_turn_review_queue,
+        post_turn_review_submitter=assurance_submitter,
         task_worker_store=PostgresTaskWorkerStore(
             config=PostgresTaskWorkerStoreConfig(
                 dsn=read_model._config.dsn,

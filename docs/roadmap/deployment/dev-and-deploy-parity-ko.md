@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f2d05adbf120bd746c8455a6672795e17dfefb47
+translation_source_sha: 446431d94ff3dd3947eb21d04a5512caeda345cf
 translation_revised: 2026-07-31
 ---
 
@@ -244,15 +244,13 @@ IP를 account의 restricted firewall에 추가할 수 있습니다. Automated te
 `FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하므로 Azure CLI를 호출하거나 firewall을 변경하지 않습니다.
 Model endpoint가 실제로 미구성, 권한 없음 또는 unreachable 상태이면 해당 turn만 deterministic
 answerer로 안전하게 fallback합니다.
-Repository-local `resolved-models.json`이 있으면 full-stack 준비가 해당 artifact를 가리키는
-`LLM_MODE=azure`와 `LLM_RESOLVED_MODELS_PATH`를 생성합니다. 또한 `FDAI_METERING_DSN`을 read model과
-같은 local PostgreSQL instance에 bind하므로 실제로 측정된 FDAI provider call만 LLM Cost에 표시됩니다.
-Artifact가 없으면 model path와 usage는 unavailable 상태를 유지하며 fixture 또는 benchmark judge
-usage로 대체하지 않습니다.
-비용 귀속에는 resolver의 명시적 deployment-to-family binding과 shipped pricing catalog만 사용합니다.
-Family가 없거나 충돌하면 deployment name을 parsing하거나 rate를 추측하지 않고 unpriced 상태를
-유지합니다. 가격 정보는 내부에 유지합니다. LLM Cost operator projection은 측정된 호출과 token을
-표시하지만 비용 금액, 가격 연결 범위 또는 invoice value는 노출하지 않습니다.
+Repository-local `resolved-models.json`이 있으면 full-stack 준비는 `LLM_MODE=azure`와
+`LLM_RESOLVED_MODELS_PATH`를 만들고 metering을 read-model PostgreSQL에 bind합니다. 비용은 명시적
+deployment-to-family binding만 사용하며 누락된 family는 unpriced 상태로 둡니다. Conversation
+Assurance는 배포와 같은 local conversation 및 assessment store를 사용하고 deterministic terminal
+검사를 항상 실행합니다. Semantic review는 서로 다른 resolved model family가 둘 이상일 때만
+활성화되며 narrator-only 또는 `hil-only` secondary는 단일 모델 대신 inconclusive를 유지합니다.
+Artifact가 없으면 model 및 assurance inference는 unavailable이며 fixture로 대체하지 않습니다.
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 profile에서
 같은 bounded Azure Monitor Logs provider를 사용합니다. Interactive local은 현재 Azure CLI

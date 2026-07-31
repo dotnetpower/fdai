@@ -92,6 +92,7 @@ _CORE_ROUTE_PATHS: frozenset[str] = frozenset(
         "/me/policies",
         "/me/briefing-subscriptions",
         "/me/opening-briefing",
+        "/conversation-assurance",
         "/notification-templates/incident-opened",
         "/workflows/definitions",
         "/workflows/bindings",
@@ -274,6 +275,19 @@ def build_app(
     )
 
     routes.append(make_notification_template_route(authorize=_authorize))
+
+    if resolved_config.conversation_assurance_ledger is not None:
+        from fdai.delivery.read_api.routes.conversation_assurance import (
+            make_conversation_assurance_routes,
+        )
+
+        routes.extend(
+            make_conversation_assurance_routes(
+                ledger=resolved_config.conversation_assurance_ledger,
+                authorize=_authorize,
+                conversation_store=resolved_config.conversation_history_store,
+            )
+        )
 
     if resolved_config.kill_switch_command is not None:
         from fdai.delivery.read_api.routes.kill_switch import make_kill_switch_route

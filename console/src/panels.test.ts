@@ -39,7 +39,7 @@ describe("panel navigation placement", () => {
       "architecture", "ontology", "rules", "workflow-builder", "capabilities", "skills", "blast-radius", "promotion-gates", "context-selection-comparisons", "scope",
     ]);
     expect(panelsInGroup("evidence").map((panel) => panel.id)).toEqual([
-      "audit", "browser-evidence", "forecast-learning", "conversation-search", "reports", "trace", "rca", "documents",
+      "audit", "browser-evidence", "forecast-learning", "conversation-search", "conversation-assurance", "reports", "trace", "rca", "documents",
     ]);
     expect(panelsInGroup("labs").map((panel) => panel.id)).toEqual(["labs"]);
     expect(panelsInGroup("settings").map((panel) => panel.id)).toEqual([

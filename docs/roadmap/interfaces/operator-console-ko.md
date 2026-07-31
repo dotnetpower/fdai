@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 1a31a03970e3f79fde28f668e1f464c75fcb98c1
+translation_source_sha: 33ea5d5fbb3a86c6d930e2f5caa927d2f25d53dd
 translation_revised: 2026-07-31
 ---
 
@@ -48,6 +48,11 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
   ([architecture.instructions.md § Rule Catalog](../../../.github/instructions/architecture.instructions.md#rule-catalog)) -
   불투명한 LLM 세션 memory가 아님. 대화 간에 persist 되는 모든 상태는
   `audit_log` + `operator_memory`에 살며, 감사가능 / export 가능 / CSP-중립.
+
+완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md)
+루프에도 들어갑니다. Evidence panel은 principal 범위 점수, 모델 불일치, 비용, immutable 이의
+제기를 보여줍니다. 잘못된 답변 보고는 자율 재평가 근거를 추가하며 승인, 정책 편집 또는 실행
+명령이 아닙니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
 다음 토큰들이

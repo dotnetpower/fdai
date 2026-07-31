@@ -85,11 +85,11 @@ Periodic idle and watching health snapshots update current agent state and obser
 reloading the unchanged durable audit page. Active work, completed handler transitions, Incidents,
 and handoffs continue to refresh audit evidence. The Activity header shows the latest observed
 heartbeat time without adding repeated passive snapshots as work rows.
-Principal-scoped Command Deck turns and shadow answer-planning contributions stay in conversation
-history and never enter the shared Agent Activity stream. Agent Activity shows operational
-object-topic handoffs and other runtime activity that is safe for every authorized Reader. Synthetic
-`startup_readiness.audit_probe` proof history remains available in Audit and Waterfall but is
-excluded from Activity so readiness evidence cannot displace operational work.
+Principal-scoped Command Deck turns and answer planning stay in conversation history, never shared
+Agent Activity. Conversation Assurance is a separate principal-scoped Evidence route whose list
+contains bounded metadata and digests, not answer bodies. Detail reads the original answer only
+through the authorized conversation store; its sole write is an idempotent append-only dispute, and
+the browser rejects advertised policy mutation authority. Synthetic readiness proof stays in Audit.
 
 Every data-bearing card across the console drills down. The complete card surface uses a native
 keyboard-accessible link to the narrowest analytical or filtered-evidence destination that owns the

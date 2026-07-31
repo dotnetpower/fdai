@@ -50,6 +50,11 @@ Three properties follow directly:
   not opaque LLM session memory. Every state that persists across
   conversations lives in `audit_log` + `operator_memory` where it is
   auditable, exportable, and CSP-neutral.
+
+Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md)
+loop. The Evidence panel shows principal-scoped scores, model disagreement, cost, and immutable
+disputes. Reporting an incorrect answer adds evidence for autonomous re-evaluation; it is not an
+approval, policy edit, or execution command.
 ### 1.1 Vocabulary added to the shared glossary
 
 The following tokens are added to the shared vocabulary in

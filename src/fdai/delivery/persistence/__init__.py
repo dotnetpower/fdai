@@ -45,6 +45,10 @@ from fdai.delivery.persistence.postgres_channel_pairing import (
     PostgresChannelPairingStore,
     PostgresChannelPairingStoreConfig,
 )
+from fdai.delivery.persistence.postgres_conversation_assurance import (
+    PostgresConversationAssuranceLedger,
+    PostgresConversationAssuranceLedgerConfig,
+)
 from fdai.delivery.persistence.postgres_conversation_search import (
     PostgresConversationSearch,
 )
@@ -207,6 +211,8 @@ __all__ = [
     "PostgresChannelIdentityLinkStore",
     "PostgresChannelIdentityLinkStoreConfig",
     "PostgresConversationHistoryStore",
+    "PostgresConversationAssuranceLedger",
+    "PostgresConversationAssuranceLedgerConfig",
     "PostgresConversationSearch",
     "PostgresConversationPolicyStore",
     "PostgresExecutionSubmissionLedger",
