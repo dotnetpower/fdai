@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 4a76db5bd1fe8e31f8d33d9ffb624f69574a70af
-translation_revised: 2026-07-30
+translation_source_sha: 9c0c9b9d590c455425e837598d837623a1c08646
+translation_revised: 2026-07-31
 ---
 
 # Operator Console - Data and Wire Contracts
@@ -216,13 +216,10 @@ entry 를 제거합니다.
 
 ### 13.9 온톨로지 레지스트리 projection
 
-`GET /ontology/graph` 는 웹 콘솔의 세 가지 온톨로지 뷰를 위한 read-only
-레지스트리 projection 입니다.
-
-온톨로지 화면에는 `GET /inventory/graph`를 독립적으로 사용하는 네 번째 **온톨로지 맵**
-뷰도 있습니다. 이 뷰는 런타임 리소스 projection이며 선언 카탈로그 또는 범용 온톨로지
-인스턴스 테이블의 별도 복사본이 아닙니다. 이 분리를 통해 런타임 인벤토리를 사용할 수
-없어도 레지스트리 뷰는 계속 사용할 수 있습니다.
+`GET /ontology/graph`는 웹 콘솔의 Objects, Links 및 Actions 보기를 위한 읽기 전용
+레지스트리 projection입니다. 네 번째 **온톨로지 맵** 보기는 `rule-catalog`와
+`PANTHEON_SPECS`에서 생성된 버전형 카탈로그 artifact를 로드합니다. 이 맵은 런타임 근거가
+아닌 참조 projection이며 `/inventory/graph`를 호출하거나 Architecture에 연결하지 않습니다.
 
 저장 위치 질문은 요청한 경로를 누락된 화면 필드로 취급하지 않고 결정적 catalog contract를
 사용합니다. 기본 ObjectType과 LinkType 정의는 `rule-catalog/vocabulary/object-types/` 및
@@ -245,19 +242,16 @@ truth가 아닙니다. SPA는 별도 복사본을 저장하지 않습니다. JSO
   포함합니다. Catalog 뷰는 category, trigger, execution path, rollback contract,
   default mode, precondition, stop condition, blast-radius declaration, tier ceiling,
   promotion gate 를 표시합니다.
-- **온톨로지 맵**: operator가 루트 리소스 id를 입력하기 전에는 콘솔이 인벤토리 요청을
-  보내지 않습니다. Idle state는 리소스 선택을 위해 Architecture로 연결되고, Architecture
-  inspector는 선택한 리소스를 map root로 엽니다. 이후 맵은 `depth=2`, `limit=200`,
-  `contains,attached_to,depends_on`으로 제한된 인접 관계만 요청합니다. 인접 리소스를
-  선택해 쿼리 루트를 변경할 수 있으며, 현재 루트를 다시 제출하면 중복 history entry를
-  추가하지 않고 제자리에서 재시도합니다. 이 뷰는 provider의 원본, 최신 상태, 스냅샷
-  시각, 안정적인 잘림 사유를 유지하고, 인벤토리 라우트를 사용할 수 없어도 세 가지
-  레지스트리 뷰를 비활성화하지 않습니다. Read API는 browser serialization 전에 누락되거나
-  잘못된 snapshot time, freshness, resource name 및 resource status field를 거부합니다. Shared
-  canvas, resource selector 및 layer label은 accessible name을 포함해 operator locale을 따릅니다.
+- **온톨로지 맵**: 생성된 그래프는 ObjectType, ResourceType, 활성 Rule, ActionType,
+  Workflow, Pantheon Agent, SignalType 및 Property를 하나의 결정론적 토폴로지로 결합합니다.
+  노드 크기는 연결 수, 노드 색상은 온톨로지 종류를 나타내고 가중 링크는 안정적인
+  토폴로지 커뮤니티를 형성합니다. 오퍼레이터는 검색, 선택, 드래그, 이동, 확대 및 축소,
+  맞춤, 관계 종류 필터링 및 전체 화면을 사용할 수 있습니다. 노드를 선택하면 1단계 관계가
+  강조되고 읽기 전용 검사기에 세부 정보가 표시됩니다. 생성기는 같은 그래프에서 목업과
+  콘솔 payload를 출력하므로 카탈로그가 바뀔 때 두 화면이 함께 변경됩니다.
 
 ActionType projection 은 additive 입니다. 이전 deployment 에서는
-`action_type_count` 와 `action_types` 가 없거나 0일 수 있지만 ObjectType 과
-LinkType 탐색은 계속 동작합니다. 큰 action catalog 가 resource relationship 을
-가리지 않도록 ActionType 은 ObjectType graph 에 넣지 않습니다. 네 뷰는 모두
-GET-only 이며 action 또는 approval 호출을 실행하지 않습니다.
+`action_type_count`와 `action_types`가 없거나 0일 수 있지만 ObjectType과 LinkType 탐색은
+계속 동작합니다. ActionType은 선택된 ObjectType의 1단계 그래프에는 넣지 않지만, 생성된
+온톨로지 맵에는 Rule, Workflow 및 Agent 링크가 있는 카탈로그 노드로 포함됩니다. 네 보기는
+모두 읽기 전용이며 action 또는 approval 호출을 실행하지 않습니다.

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: e32ddc438edefa0d0fe7b72ac69774938f25bd98
+translation_source_sha: d37877e861b540b2dd340db5e47055cd11b88cd6
 translation_revised: 2026-07-31
 ---
 
@@ -13,7 +13,7 @@ tier 모델, 세션 지속성, tool 별 RBAC, 안전 invariant, 현재 rollout s
 
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
 읽기 전용 콘솔 SPA는
-[project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. 온톨로지 맵은 루트 id 입력을 기다린 후 제한된 `/inventory/graph` 인접 관계만 읽으며, 카탈로그 탭은 계속 `/ontology/graph`를 사용합니다.
+[project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 Architecture 또는 런타임 인벤토리를 읽지 않습니다.
 Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수
 있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
 

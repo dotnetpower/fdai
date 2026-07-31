@@ -48,7 +48,7 @@ Knowledge surfaces (ontology + trace):
 |------|---------|
 | [ontology.html](ontology.html) | ObjectType + LinkType registry - sidebar list, one-hop neighborhood SVG, per-type detail card |
 | [ontology-map.html](ontology-map.html) | Actual 33 ObjectType / 46 LinkType / 44 ActionType declaration graph with searchable registry modes and inspectors |
-| [ontology-knowledge-graph.html](ontology-knowledge-graph.html) | Complete 216-node catalog graph with type colors, 12 weighted topology communities, fullscreen canvas, and 510 generated relationships |
+| [ontology-knowledge-graph.html](ontology-knowledge-graph.html) | Complete generated catalog graph with type colors, weighted topology communities, fullscreen canvas, and current catalog relationships |
 | [rule-trace.html](rule-trace.html) | Per-correlation timeline - the full pipeline path (ingest &rarr; router &rarr; quality gate &rarr; safety check &rarr; dispatch &rarr; audit) for one event id |
 | [workflow-builder.html](workflow-builder.html) | Read-only visual view of a `when &rarr; do` workflow - ActionType palette, node/edge canvas, per-step inspector with safety facts |
 

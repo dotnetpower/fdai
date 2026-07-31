@@ -102,7 +102,7 @@
       <div class="kg-head-copy">
         <div class="cs-eyebrow">Knowledge &middot; topology communities</div>
         <h1>Full ontology knowledge graph</h1>
-        <p class="cs-lead" style="margin:0;">All 216 catalog-backed nodes share one continuous
+        <p class="cs-lead" style="margin:0;">All catalog-backed nodes share one continuous
           graph. Node size follows degree centrality, color identifies ontology kind, and weighted
           relationships pull densely connected concepts into topology communities.</p>
       </div>
@@ -110,11 +110,11 @@
     </header>
 
     <div class="kg-summary" aria-label="Knowledge graph summary">
-      <div class="kg-stat"><strong id="kg-node-count">216</strong><span>Catalog nodes</span></div>
-      <div class="kg-stat"><strong id="kg-edge-count">510</strong><span>Relationships</span></div>
+      <div class="kg-stat"><strong id="kg-node-count">-</strong><span>Catalog nodes</span></div>
+      <div class="kg-stat"><strong id="kg-edge-count">-</strong><span>Relationships</span></div>
       <div class="kg-stat"><strong id="kg-community-count">12</strong><span>Topology communities</span></div>
-      <div class="kg-stat"><strong>44</strong><span>Actions</span></div>
-      <div class="kg-stat"><strong>15</strong><span>Agents</span></div>
+      <div class="kg-stat"><strong id="kg-action-count">-</strong><span>Actions</span></div>
+      <div class="kg-stat"><strong id="kg-agent-count">-</strong><span>Agents</span></div>
     </div>
 
     <section class="kg-shell" id="kg-shell" aria-label="Ontology graph explorer">
@@ -139,7 +139,7 @@
 
       <div class="kg-workbench">
         <div class="kg-viewport" id="kg-viewport">
-          <canvas class="kg-canvas" id="kg-canvas" aria-label="Interactive 216-node ontology knowledge graph"></canvas>
+          <canvas class="kg-canvas" id="kg-canvas" aria-label="Interactive ontology knowledge graph"></canvas>
           <div class="kg-type-legend" id="kg-type-legend" aria-label="Node type colors"></div>
           <div class="kg-overlay"><span class="kg-size-key"><i class="kg-dot is-small"></i>low degree</span><span class="kg-size-key"><i class="kg-dot is-large"></i>high degree</span><span id="kg-community-note"></span></div>
         </div>
@@ -309,7 +309,8 @@
         requestDraw();
       }
       function clearSelection() {
-        selectedId=null;inspector.innerHTML='<span class="cs-tag">Community graph</span><h2>216 catalog nodes</h2><p>Weighted relationships form '+communityCount+' topology communities while high-degree hubs remain central.</p><dl class="kg-facts"><div><dt>Top hub</dt><dd><code>Rule</code> - degree 68</dd></div><div><dt>Layout</dt><dd>Weighted modularity + deterministic force</dd></div><div><dt>Relationships</dt><dd>510 edges</dd></div><div><dt>Interaction</dt><dd>drag, zoom, fullscreen</dd></div></dl>';requestDraw();
+        var topHub=graph.nodes.reduce(function(top,node){return !top||node.degree>top.degree?node:top;},null);
+        selectedId=null;inspector.innerHTML='<span class="cs-tag">Community graph</span><h2>'+graph.nodes.length+' catalog nodes</h2><p>Weighted relationships form '+communityCount+' topology communities while high-degree hubs remain central.</p><dl class="kg-facts"><div><dt>Top hub</dt><dd><code>'+topHub.label+'</code> - degree '+topHub.degree+'</dd></div><div><dt>Layout</dt><dd>Weighted modularity + deterministic force</dd></div><div><dt>Relationships</dt><dd>'+graph.edges.length+' edges</dd></div><div><dt>Interaction</dt><dd>drag, zoom, fullscreen</dd></div></dl>';requestDraw();
       }
       function zoomAt(factor,screenX,screenY) {
         var world=screenToWorld(screenX,screenY),next=Math.max(.18,Math.min(4,camera.scale*factor));camera.x=screenX-world.x*next;camera.y=screenY-world.y*next;camera.scale=next;requestDraw();
@@ -338,7 +339,7 @@
       function enterFallback() {shell.classList.add("is-fullscreen-fallback");document.body.classList.add("kg-fullscreen-fallback");syncFullscreen();}
       function exitFallback() {shell.classList.remove("is-fullscreen-fallback");document.body.classList.remove("kg-fullscreen-fallback");syncFullscreen();}
 
-      document.getElementById("kg-node-count").textContent=graph.nodes.length;document.getElementById("kg-edge-count").textContent=graph.edges.length;document.getElementById("kg-community-count").textContent=communityCount;document.getElementById("kg-community-note").innerHTML=communityCount+' link communities &middot; drag nodes or canvas &middot; wheel to zoom';
+      document.getElementById("kg-node-count").textContent=graph.nodes.length;document.getElementById("kg-edge-count").textContent=graph.edges.length;document.getElementById("kg-community-count").textContent=communityCount;document.getElementById("kg-action-count").textContent=graph.nodes.filter(function(node){return node.kind==="action_type";}).length;document.getElementById("kg-agent-count").textContent=graph.nodes.filter(function(node){return node.kind==="agent";}).length;canvas.setAttribute("aria-label","Interactive "+graph.nodes.length+"-node ontology knowledge graph");document.getElementById("kg-community-note").innerHTML=communityCount+' link communities &middot; drag nodes or canvas &middot; wheel to zoom';
       document.getElementById("kg-type-legend").innerHTML=Object.keys(nodeStyles).map(function(kind){var style=nodeStyles[kind];return '<span class="kg-legend-item"><i class="kg-swatch" style="background:'+style.fill+'"></i>'+style.label+'</span>';}).join("");
       document.getElementById("kg-node-list").innerHTML=graph.nodes.map(function(node){return '<option value="'+node.label.replaceAll('"','&quot;')+'"></option>';}).join("");
       document.getElementById("kg-find").onclick=findNode;search.addEventListener("keydown",function(event){if(event.key==="Enter")findNode();});

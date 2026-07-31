@@ -220,12 +220,9 @@ This display contract does not grant execution authority:
 ### 13.9 Ontology registry projection
 
 `GET /ontology/graph` is the read-only registry projection for the web
-console's three ontology views:
-
-The Ontology screen also exposes a fourth **Ontology map** view backed independently by
-`GET /inventory/graph`. It is a runtime resource projection, not another copy of the declaration
-catalog or the generic ontology-instance tables. This separation lets the registry views remain
-available when runtime inventory is unavailable.
+console's Objects, Links, and Actions views. A fourth **Ontology map** view loads a versioned
+catalog artifact generated from `rule-catalog` and `PANTHEON_SPECS`. The map is a reference
+projection, not runtime evidence, and it doesn't call `/inventory/graph` or link to Architecture.
 
 Storage questions use a deterministic catalog contract rather than treating the requested path as
 a missing screen field. Built-in ObjectType and LinkType definitions come from
@@ -248,18 +245,16 @@ no separate copy. JSON and SSE chat return the same contract answer without call
   safety-contract records. The catalog view exposes category, trigger,
   execution path, rollback contract, default mode, preconditions, stop
   conditions, blast-radius declaration, tier ceilings, and promotion gate.
-- **Ontology map**: the console sends no inventory request until the operator provides a root
-  resource id. The idle state links to Architecture for resource selection, and the Architecture
-  inspector opens its selected resource as the map root. The map then requests only that bounded
-  neighborhood with `depth=2`, `limit=200`, and `contains,attached_to,depends_on`. Selecting a neighbor can re-root the query; submitting the
-  current root retries in place without adding a duplicate history entry. The view preserves source,
-  freshness, snapshot time, and stable truncation reasons from the provider, and handles an unavailable
-  inventory route without disabling the three registry views. Before browser serialization, the Read API
-  rejects missing or invalid snapshot time, freshness, resource name, and resource status fields. Shared
-  canvas, resource-selector, and layer labels follow the operator locale, including accessible names.
+- **Ontology map**: the generated graph combines ObjectTypes, ResourceTypes, active Rules,
+  ActionTypes, Workflows, Pantheon Agents, SignalTypes, and Properties in one deterministic
+  topology. Node size represents degree, node color represents ontology kind, and weighted links
+  form stable topology communities. Operators can search, select, drag, pan, zoom, fit, filter
+  relationship kinds, and open the canvas full screen. Selecting a node highlights its one-hop
+  relationships and fills a read-only inspector. The generator emits the mock and console payload
+  from the same graph so both surfaces change together when the catalog changes.
 
 The ActionType projection is additive: `action_type_count` and `action_types`
 may be zero or absent on an older deployment, while ObjectType and LinkType
-exploration continues to work. ActionTypes stay out of the ObjectType graph so
-a large action catalog doesn't obscure resource relationships. All four views
-are GET-only and issue no action or approval call.
+exploration continues to work. ActionTypes stay out of the selected ObjectType one-hop graph, but
+the generated Ontology map includes them as catalog nodes with Rule, Workflow, and Agent links.
+All four views are read-only and issue no action or approval call.
