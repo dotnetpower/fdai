@@ -120,6 +120,8 @@ def _candidate(stage: PolicyStage = PolicyStage.SHADOW) -> ChatPolicyCandidate:
 
 def _metrics(**overrides: object) -> PolicyTrialMetrics:
     values: dict[str, object] = {
+        "observed_stage": PolicyStage.SHADOW,
+        "evidence_digest": "e" * 64,
         "sample_count": 100,
         "score_delta_lcb95": 1.0,
         "hard_failure_escapes": 0,
@@ -188,8 +190,41 @@ async def test_candidate_store_rejects_stale_transition() -> None:
                 from_stage=PolicyStage.SHADOW,
                 to_stage=PolicyStage.ROLLED_BACK,
                 reasons=("late_guard",),
+                evidence_digest="f" * 64,
             ),
         )
+
+
+async def test_candidate_store_rejects_reused_trial_evidence() -> None:
+    store = InMemoryConversationPolicyCandidateStore()
+    candidate = _candidate()
+    await store.append_candidate(candidate)
+    first = evaluate_policy_transition(candidate, _metrics())
+    advanced = await store.apply_transition(
+        principal_scope=candidate.principal_scope,
+        transition=first,
+    )
+    reused = evaluate_policy_transition(
+        advanced,
+        _metrics(observed_stage=PolicyStage.CANARY_1),
+    )
+
+    with pytest.raises(ValueError, match="evidence was already consumed"):
+        await store.apply_transition(
+            principal_scope=candidate.principal_scope,
+            transition=reused,
+        )
+
+
+def test_measurement_stage_mismatch_cannot_advance() -> None:
+    transition = evaluate_policy_transition(
+        _candidate(PolicyStage.CANARY_5),
+        _metrics(),
+    )
+
+    assert transition.from_stage is PolicyStage.CANARY_5
+    assert transition.to_stage is PolicyStage.CANARY_5
+    assert transition.reasons == ("measurement_stage_mismatch",)
 
 
 @pytest.mark.parametrize(
@@ -206,7 +241,7 @@ async def test_candidate_store_rejects_stale_transition() -> None:
 def test_any_guard_breach_rolls_back(overrides: dict[str, object]) -> None:
     transition = evaluate_policy_transition(
         _candidate(PolicyStage.CANARY_5),
-        _metrics(**overrides),
+        _metrics(observed_stage=PolicyStage.CANARY_5, **overrides),
     )
 
     assert transition.to_stage is PolicyStage.ROLLED_BACK

@@ -7,6 +7,7 @@ from typing import Any, Final
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 from fdai.core.conversation_assurance import (
     AssessmentRecord,
@@ -71,7 +72,7 @@ class PostgresConversationAssuranceLedger:
                     record.rubric_version,
                     record.model_set_digest,
                     record.state.value,
-                    _decision_mapping(record.decision),
+                    Jsonb(_decision_mapping(record.decision)),
                     record.assessed_at,
                 ),
             )

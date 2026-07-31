@@ -84,6 +84,8 @@ class InMemoryConversationPolicyCandidateStore:
             history = self._transitions.setdefault(candidate.candidate_id, [])
             if transition in history:
                 return candidate
+            if any(item.evidence_digest == transition.evidence_digest for item in history):
+                raise ValueError("policy trial evidence was already consumed")
             if candidate.stage is not transition.from_stage:
                 raise ValueError("policy transition from_stage is stale")
             updated = replace(candidate, stage=transition.to_stage)

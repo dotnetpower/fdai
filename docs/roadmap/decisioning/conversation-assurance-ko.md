@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 7230632a2d961eccef4cd8c5a0b30da9b114f6f6
+translation_source_sha: 8bc3a85523789629e4796dd40c0be3ae6b37793e
 translation_revised: 2026-07-31
 ---
 # 대화 품질 보증
@@ -175,6 +175,19 @@ shadow에 남습니다.
 각 후보는 원래 실패 질문, 실패당 최소 세 개의 paraphrase, 고정된 영어 및 한국어 benchmark,
 숨겨진 holdout에서 실행됩니다. 이후 shadow, 트래픽 1 percent, 5 percent, 25 percent, 100
 percent 단계를 진행합니다.
+
+각 단계에는 관측 중인 단계에 결속된 새로운 측정 기간이 필요합니다. stage `r`의 candidate
+`c`에 대해 trial은 `observed_stage = r`과 시나리오 세트 버전, holdout 버전, 입력 cohort, 정책
+버전 및 관측 기간에 대한 stable evidence digest `d(M_r)`을 보고합니다. transition ledger는
+candidate lifecycle 전체에서 각 `(c, d(M_r))`을 최대 한 번만 소비합니다.
+
+$$
+r_{next}>r \Longrightarrow d(M_{r_{next}}) \ne d(M_r)
+$$
+
+stage 불일치, 이미 소비된 digest 또는 누락된 측정 identity는 진행을 차단합니다. 반복 intake는
+기록된 transition을 재생할 수 있지만 하나의 shadow 또는 canary 결과를 재사용해 이후 트래픽
+단계를 진행할 수 없습니다.
 
 자동 승격에는 다음 조건이 필요합니다.
 

@@ -179,6 +179,19 @@ Each candidate runs against original failures, at least three paraphrases per fa
 English and Korean benchmark, and a hidden holdout. It then advances through shadow, 1 percent,
 5 percent, 25 percent, and 100 percent traffic stages.
 
+Each stage requires a fresh measurement window bound to the stage being observed. For candidate
+`c` at stage `r`, the trial reports `observed_stage = r` and a stable evidence digest `d(M_r)` over
+the scenario-set version, holdout version, input cohort, policy versions, and observation window.
+The transition ledger consumes each `(c, d(M_r))` at most once across the candidate lifecycle:
+
+$$
+r_{next}>r \Longrightarrow d(M_{r_{next}}) \ne d(M_r)
+$$
+
+A stage mismatch, an already consumed digest, or missing measurement identity blocks advancement.
+Repeated intake can replay the recorded transition, but it cannot reuse one shadow or canary result
+to advance through later traffic stages.
+
 Automatic promotion requires:
 
 $$

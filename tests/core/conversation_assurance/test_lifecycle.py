@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 
 import pytest
@@ -53,10 +54,12 @@ class _Proposer:
 class _Measurer:
     async def measure(
         self,
-        _candidate: ChatPolicyCandidate,
+        candidate: ChatPolicyCandidate,
         _cluster: FailureCluster,
     ) -> PolicyTrialMetrics:
         return PolicyTrialMetrics(
+            observed_stage=candidate.stage,
+            evidence_digest=hashlib.sha256(candidate.stage.value.encode()).hexdigest(),
             sample_count=100,
             score_delta_lcb95=1.0,
             hard_failure_escapes=0,

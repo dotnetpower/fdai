@@ -21,7 +21,7 @@ _CANDIDATE_COLUMNS: Final = (
     "candidate_id, principal_scope, cluster_id, target, policy_digest, "
     "incumbent_policy_digest, stage"
 )
-_TRANSITION_COLUMNS: Final = "candidate_id, from_stage, to_stage, reasons"
+_TRANSITION_COLUMNS: Final = "candidate_id, from_stage, to_stage, reasons, evidence_digest"
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,14 +111,21 @@ class PostgresConversationPolicyCandidateStore:
                 if _transition(replay_row) != transition:
                     raise ValueError("policy transition key belongs to different content")
                 return candidate
+            evidence_cursor = await connection.execute(
+                "SELECT transition_key FROM conversation_assurance_policy_transition "
+                "WHERE principal_scope = %s AND candidate_id = %s AND evidence_digest = %s",
+                (principal_scope, transition.candidate_id, transition.evidence_digest),
+            )
+            if await evidence_cursor.fetchone() is not None:
+                raise ValueError("policy trial evidence was already consumed")
             if candidate.stage is not transition.from_stage:
                 raise ValueError("policy transition from_stage is stale")
             await connection.execute(
                 """
                 INSERT INTO conversation_assurance_policy_transition (
                     transition_key, candidate_id, principal_scope,
-                    from_stage, to_stage, reasons
-                ) VALUES (%s, %s, %s, %s, %s, %s)
+                    from_stage, to_stage, reasons, evidence_digest
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     key,
@@ -127,6 +134,7 @@ class PostgresConversationPolicyCandidateStore:
                     transition.from_stage.value,
                     transition.to_stage.value,
                     list(transition.reasons),
+                    transition.evidence_digest,
                 ),
             )
             update_cursor = await connection.execute(
@@ -235,6 +243,7 @@ def _transition(row: dict[str, Any]) -> PolicyTransition:
         from_stage=PolicyStage(str(row["from_stage"])),
         to_stage=PolicyStage(str(row["to_stage"])),
         reasons=tuple(str(item) for item in row["reasons"]),
+        evidence_digest=str(row["evidence_digest"]),
     )
 
 
@@ -245,6 +254,7 @@ def _transition_key(transition: PolicyTransition) -> str:
             transition.from_stage.value,
             transition.to_stage.value,
             *transition.reasons,
+            transition.evidence_digest,
         )
     )
     return hashlib.sha256(material.encode()).hexdigest()

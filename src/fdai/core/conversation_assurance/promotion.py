@@ -54,6 +54,8 @@ class ChatPolicyCandidate:
 
 @dataclass(frozen=True, slots=True)
 class PolicyTrialMetrics:
+    observed_stage: PolicyStage
+    evidence_digest: str
     sample_count: int
     score_delta_lcb95: float
     hard_failure_escapes: int
@@ -64,6 +66,7 @@ class PolicyTrialMetrics:
     disagreement_rate_delta: float
 
     def __post_init__(self) -> None:
+        _require_digest("policy trial evidence_digest", self.evidence_digest)
         numeric = (
             self.score_delta_lcb95,
             self.candidate_cost_per_verified_microusd,
@@ -93,6 +96,10 @@ class PolicyTransition:
     from_stage: PolicyStage
     to_stage: PolicyStage
     reasons: tuple[str, ...]
+    evidence_digest: str
+
+    def __post_init__(self) -> None:
+        _require_digest("policy transition evidence_digest", self.evidence_digest)
 
 
 def evaluate_policy_transition(
@@ -104,12 +111,21 @@ def evaluate_policy_transition(
     """Advance one stage or automatically roll back on a guard breach."""
 
     cfg = config or PromotionConfig()
+    if metrics.observed_stage is not candidate.stage:
+        return PolicyTransition(
+            candidate.candidate_id,
+            candidate.stage,
+            candidate.stage,
+            ("measurement_stage_mismatch",),
+            metrics.evidence_digest,
+        )
     if candidate.stage in {PolicyStage.ACTIVE, PolicyStage.ROLLED_BACK}:
         return PolicyTransition(
             candidate.candidate_id,
             candidate.stage,
             candidate.stage,
             ("terminal_stage",),
+            metrics.evidence_digest,
         )
     guard_reasons: list[str] = []
     if metrics.hard_failure_escapes:
@@ -130,6 +146,7 @@ def evaluate_policy_transition(
             candidate.stage,
             PolicyStage.ROLLED_BACK,
             tuple(guard_reasons),
+            metrics.evidence_digest,
         )
     if metrics.sample_count < cfg.min_samples:
         return PolicyTransition(
@@ -137,13 +154,20 @@ def evaluate_policy_transition(
             candidate.stage,
             candidate.stage,
             ("insufficient_samples",),
+            metrics.evidence_digest,
         )
     return PolicyTransition(
         candidate.candidate_id,
         candidate.stage,
         _NEXT_STAGE[candidate.stage],
         ("promotion_guards_passed",),
+        metrics.evidence_digest,
     )
+
+
+def _require_digest(name: str, value: str) -> None:
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+        raise ValueError(f"{name} MUST be a lowercase SHA-256 digest")
 
 
 __all__ = [

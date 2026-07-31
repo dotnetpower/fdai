@@ -149,6 +149,7 @@ async def test_policy_candidate_transition_survives_restart() -> None:
         from_stage=PolicyStage.SHADOW,
         to_stage=PolicyStage.CANARY_1,
         reasons=("promotion_guards_passed",),
+        evidence_digest="e" * 64,
     )
 
     assert await store.append_candidate(candidate)
@@ -172,3 +173,15 @@ async def test_policy_candidate_transition_survives_restart() -> None:
         principal_scope=candidate.principal_scope,
         candidate_id=candidate.candidate_id,
     ) == (transition,)
+    reused = PolicyTransition(
+        candidate_id=candidate.candidate_id,
+        from_stage=PolicyStage.CANARY_1,
+        to_stage=PolicyStage.CANARY_5,
+        reasons=("promotion_guards_passed",),
+        evidence_digest=transition.evidence_digest,
+    )
+    with pytest.raises(ValueError, match="evidence was already consumed"):
+        await restarted.apply_transition(
+            principal_scope=candidate.principal_scope,
+            transition=reused,
+        )
