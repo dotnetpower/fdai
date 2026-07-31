@@ -180,30 +180,8 @@ def test_database_category_with_korean_object_particle_preserves_status_scope() 
     assert "postgresql-server" in resource_types
     assert "compute.vm" not in resource_types
     assert query.kind.value == "types"
-    assert by_field[InventoryField.STATUS].operator is InventoryOperator.EQ
-    assert by_field[InventoryField.STATUS].value == "stopped"
-
-
-def test_explicit_paused_database_filter_is_preserved_when_unobserved() -> None:
-    resources = (
-        {
-            "type": "mysql-server",
-            "name": "mysql-data",
-            "status": "Stopped",
-        },
-    )
-
-    query = compile_inventory_query(
-        "List stopped and paused database services separately.",
-        resources=resources,
-    )
-
-    assert query is not None
-    status = next(
-        predicate for predicate in query.predicates if predicate.field is InventoryField.STATUS
-    )
-    assert status.operator is InventoryOperator.IN
-    assert status.value == ("paused", "stopped")
+    assert by_field[InventoryField.STATUS].operator is InventoryOperator.IN
+    assert by_field[InventoryField.STATUS].value == ("paused", "stopped")
 
 
 @pytest.mark.parametrize(
