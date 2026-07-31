@@ -75,6 +75,32 @@ describe("serializeTurns", () => {
             duration_ms: 1000,
           }],
         },
+        trajectoryDetail: {
+          schema_version: 1 as const,
+          activities: [{
+            activityId: "query-1",
+            kind: "query",
+            status: "completed" as const,
+            label: "Query inventory",
+            completed: 1,
+            total: 1,
+            execution: {
+              tool: "inventory",
+              command: '{"query":"status"}',
+              inputKind: "query" as const,
+              redacted: true as const,
+              output: '{"count":2}',
+            },
+          }],
+          branches: [],
+          milestones: [{
+            messageId: "milestone-1",
+            text: "Inventory complete",
+            recordedAt: "2026-07-31T01:00:00Z",
+          }],
+          omitted: { activities: 0, branches: 0, milestones: 0 },
+          truncated_outputs: 0,
+        },
         citations: [{ label: "tier", value: "T0" }],
         followUps: ["Show T1"],
         terminal: true,
@@ -175,6 +201,7 @@ describe("serializeTurns", () => {
     expect(parsed[1]!.source).toBe("llm:x");
     expect(parsed[1]!.modelTrace?.calls[0]?.response?.content).toBe("answer");
     expect(parsed[1]!.turnTiming?.phases[0]?.phase).toBe("generation");
+    expect(parsed[1]!.trajectoryDetail?.activities[0]?.execution?.output).toBe('{"count":2}');
     expect(parsed[1]!.citations).toEqual([{ label: "tier", value: "T0" }]);
     expect(parsed[1]!.followUps).toEqual(["Show T1"]);
     expect(parsed[1]!.terminal).toBe(true);

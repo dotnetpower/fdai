@@ -111,6 +111,10 @@ from fdai.delivery.read_api.routes.chat_stream_terminal import (
     verification_events,
 )
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
+from fdai.delivery.read_api.routes.chat_trajectory_detail import (
+    TrajectoryDetailCollector,
+    trajectory_detail_budget,
+)
 from fdai.delivery.read_api.routes.chat_turn_plan import (
     TurnPlanner,
     TurnTool,
@@ -269,6 +273,7 @@ def make_chat_stream_route(
             nonlocal answer_plan
             model_trace_scope = activate_model_trace(include_model_trace)
             turn_timing = TurnTimingRecorder()
+            trajectory_detail = TrajectoryDetailCollector()
             started = turn_timing.started_monotonic
             sequence = 0
             revision = 0
@@ -410,15 +415,21 @@ def make_chat_stream_route(
 
                 async def observe_evidence_progress(event: Mapping[str, Any]) -> None:
                     nonlocal first_progress_recorded
-                    if event.get("event") == "branch" and isinstance(event.get("status"), str):
-                        evidence_outcomes.append(str(event["status"]))
+                    progress_event = dict(event)
+                    if progress_event.get("event") == "milestone":
+                        progress_event.setdefault("recorded_at", datetime.now(tz=UTC).isoformat())
+                    trajectory_detail.observe(progress_event)
+                    if progress_event.get("event") == "branch" and isinstance(
+                        progress_event.get("status"), str
+                    ):
+                        evidence_outcomes.append(str(progress_event["status"]))
                     if progress_metrics is not None and progress_queue.full():
                         progress_metrics.increment("queue_saturation")
-                    await progress_queue.put(dict(event))
+                    await progress_queue.put(progress_event)
                     if progress_metrics is not None:
                         first_progress_recorded = record_enqueued_progress_metrics(
                             progress_metrics,
-                            event,
+                            progress_event,
                             elapsed_ms=max(0, int((time.monotonic() - started) * 1000)),
                             first_progress_recorded=first_progress_recorded,
                         )
@@ -832,7 +843,13 @@ def make_chat_stream_route(
                     ),
                     model_trace=snapshot_model_trace(model_trace_scope.collector),
                     turn_timing=turn_timing.snapshot(),
+                    trajectory_detail=None,
                 )
+                trajectory_detail_snapshot = trajectory_detail.snapshot(
+                    max_bytes=trajectory_detail_budget(done_payload)
+                )
+                if trajectory_detail_snapshot is not None:
+                    done_payload["trajectory_detail"] = trajectory_detail_snapshot
                 if conversation_history_store is not None:
                     assistant_turn = await append_assistant_turn(
                         store=conversation_history_store,

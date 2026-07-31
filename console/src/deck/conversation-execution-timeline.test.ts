@@ -44,6 +44,7 @@ function trajectory(
     completedAt: "2026-07-31T07:00:05Z",
     durationMs: 5000,
     ...overrides,
+    milestones: overrides.milestones ?? [],
   };
 }
 

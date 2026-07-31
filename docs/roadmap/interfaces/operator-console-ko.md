@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: a146070ac02fe34207961d449297bfaceb420acf
+translation_source_sha: 1a31a03970e3f79fde28f668e1f464c75fcb98c1
 translation_revised: 2026-07-31
 ---
 
@@ -207,7 +207,8 @@ flowchart TD
     verification은 exact timestamp와 명시적 UTC fallback을 emit합니다.
 - [`src/fdai/delivery/read_api/routes/`](../../../src/fdai/delivery/read_api/routes)
   - `chat_stream_setup.py`는 authenticated request, evidence, history, answer-plan validation을,
-    `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유합니다.
+    `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유하고,
+    `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
   - `chat_vision_prompt.py`는 검증된 inline image를 narrator content로 projection하고,
     `chat_verification_text.py`는 Unicode normalization과 answer-text integrity 검사를,
     `chat_verification_rendering.py`는 bounded incident 및 agent-activity prose rendering을 소유합니다.

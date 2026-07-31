@@ -1,4 +1,4 @@
-import type { EvidenceBranch, InvestigationActivity } from "./backend";
+import type { EvidenceBranch, InvestigationActivity, InvestigationMilestone } from "./backend";
 import type { Turn } from "./command-deck-presenters";
 
 export interface ConversationTrajectory {
@@ -7,6 +7,7 @@ export interface ConversationTrajectory {
   readonly observedTurns: readonly Turn[];
   readonly activities: readonly InvestigationActivity[];
   readonly branches: readonly EvidenceBranch[];
+  readonly milestones: readonly InvestigationMilestone[];
   readonly startedAt?: string;
   readonly completedAt?: string;
   readonly durationMs?: number;
@@ -53,12 +54,34 @@ function buildTrajectory(
   observedTurns: readonly Turn[],
 ): ConversationTrajectory {
   const activities = mergeById(
-    observedTurns.flatMap((turn) => turn.activities ?? []),
+    [
+      ...(answer.trajectoryDetail?.activities ?? []),
+      ...observedTurns.flatMap((turn) => turn.activities ?? []),
+    ],
     (activity) => activity.activityId,
   );
   const branches = mergeById(
-    observedTurns.flatMap((turn) => turn.branches ?? []),
+    [
+      ...(answer.trajectoryDetail?.branches ?? []),
+      ...observedTurns.flatMap((turn) => turn.branches ?? []),
+    ],
     (branch) => branch.branchId,
+  );
+  const milestones = mergeById(
+    [
+      ...(answer.trajectoryDetail?.milestones ?? []),
+      ...observedTurns
+        .filter((turn) => turn.kind === "message" && turn.source === "investigation")
+        .map((turn) => ({
+          messageId: turn.id.startsWith("milestone-")
+            ? turn.id.slice("milestone-".length)
+            : turn.id,
+          text: turn.text,
+          ...(turn.agent ? { agent: turn.agent } : {}),
+          ...(turn.recordedAt ? { recordedAt: turn.recordedAt } : {}),
+        })),
+    ],
+    (milestone) => milestone.messageId,
   );
   const startedAt = validTimestamp(question.recordedAt) ? question.recordedAt : undefined;
   const completedAt = validTimestamp(answer.recordedAt) ? answer.recordedAt : undefined;
@@ -72,6 +95,7 @@ function buildTrajectory(
     observedTurns,
     activities,
     branches,
+    milestones,
     ...(startedAt ? { startedAt } : {}),
     ...(completedAt ? { completedAt } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),

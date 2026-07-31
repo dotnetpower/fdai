@@ -15,6 +15,7 @@ function trajectory(
     activities: [],
     branches: [],
     ...overrides,
+    milestones: overrides.milestones ?? [],
   };
 }
 

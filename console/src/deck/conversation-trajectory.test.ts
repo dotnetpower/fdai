@@ -164,4 +164,155 @@ describe("conversationTrajectoriesByAnswer", () => {
     expect(conversationTrajectoriesByAnswer([question, answer]).get(answer.id)?.durationMs)
       .toBeUndefined();
   });
+
+  it("reconstructs durable detail without intermediate live turns", () => {
+    const question = turn({
+      id: "question-1",
+      role: "operator",
+      text: "Check inventory",
+      recordedAt: "2026-07-31T01:00:00Z",
+    });
+    const answer = turn({
+      id: "answer-1",
+      role: "deck",
+      text: "Two resources found.",
+      terminal: true,
+      recordedAt: "2026-07-31T01:00:02Z",
+      trajectoryDetail: {
+        schema_version: 1,
+        activities: [{
+          activityId: "query-1",
+          kind: "query",
+          status: "completed",
+          label: "Query inventory",
+          completed: 1,
+          total: 1,
+          execution: {
+            tool: "inventory",
+            command: '{"query":"status"}',
+            inputKind: "query",
+            redacted: true,
+            output: '{"count":2}',
+          },
+        }],
+        branches: [{
+          branchId: "branch-1",
+          kind: "operational",
+          parentBranchId: null,
+          status: "completed",
+          summary: "Evidence ready",
+          startedAt: "2026-07-31T01:00:00Z",
+          completedAt: "2026-07-31T01:00:01Z",
+          durationMs: 1000,
+          evidenceRefs: ["evidence:1"],
+        }],
+        milestones: [{
+          messageId: "milestone-1",
+          text: "Inventory complete",
+          recordedAt: "2026-07-31T01:00:01Z",
+        }],
+        omitted: { activities: 0, branches: 0, milestones: 0 },
+        truncated_outputs: 0,
+      },
+    });
+
+    const trajectory = conversationTrajectoriesByAnswer([question, answer]).get(answer.id);
+
+    expect(trajectory?.activities[0]?.execution?.output).toBe('{"count":2}');
+    expect(trajectory?.branches[0]?.evidenceRefs).toEqual(["evidence:1"]);
+    expect(trajectory?.milestones[0]?.text).toBe("Inventory complete");
+  });
+
+  it("deduplicates live and terminal milestone detail by message id", () => {
+    const question = turn({ id: "question-1", role: "operator", text: "Check it" });
+    const liveMilestone = turn({
+      id: "milestone-milestone-1",
+      role: "deck",
+      kind: "message",
+      source: "investigation",
+      text: "Inventory complete",
+      recordedAt: "2026-07-31T01:00:01Z",
+    });
+    const answer = turn({
+      id: "answer-1",
+      role: "deck",
+      text: "Done",
+      terminal: true,
+      trajectoryDetail: {
+        schema_version: 1,
+        activities: [],
+        branches: [],
+        milestones: [{
+          messageId: "milestone-1",
+          text: "Inventory complete",
+          recordedAt: "2026-07-31T01:00:01Z",
+        }],
+        omitted: { activities: 0, branches: 0, milestones: 0 },
+        truncated_outputs: 0,
+      },
+    });
+
+    const trajectory = conversationTrajectoriesByAnswer([
+      question,
+      liveMilestone,
+      answer,
+    ]).get(answer.id);
+
+    expect(trajectory?.milestones).toHaveLength(1);
+  });
+
+  it("prefers richer live execution output over the bounded replay copy", () => {
+    const question = turn({ id: "question-1", role: "operator", text: "Check it" });
+    const liveActivity = turn({
+      id: "activity-1",
+      role: "deck",
+      kind: "activity",
+      source: "investigation",
+      text: "Query inventory",
+      activities: [{
+        activityId: "query-1",
+        kind: "query",
+        status: "completed",
+        label: "Query inventory",
+        completed: 1,
+        total: 1,
+        execution: {
+          tool: "inventory",
+          command: '{"query":"status"}',
+          inputKind: "query",
+          redacted: true,
+          output: "complete live output",
+        },
+      }],
+    });
+    const answer = turn({
+      id: "answer-1",
+      role: "deck",
+      text: "Done",
+      terminal: true,
+      trajectoryDetail: {
+        schema_version: 1,
+        activities: [{
+          ...liveActivity.activities![0]!,
+          execution: {
+            ...liveActivity.activities![0]!.execution!,
+            output: "truncated durable output",
+            outputTruncated: true,
+          },
+        }],
+        branches: [],
+        milestones: [],
+        omitted: { activities: 0, branches: 0, milestones: 0 },
+        truncated_outputs: 1,
+      },
+    });
+
+    const trajectory = conversationTrajectoriesByAnswer([
+      question,
+      liveActivity,
+      answer,
+    ]).get(answer.id);
+
+    expect(trajectory?.activities[0]?.execution?.output).toBe("complete live output");
+  });
 });

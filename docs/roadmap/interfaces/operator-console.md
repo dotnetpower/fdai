@@ -212,7 +212,8 @@ flowchart TD
     deterministic verification emits the exact timestamp and an explicit UTC fallback.
 - [`src/fdai/delivery/read_api/routes/`](../../../src/fdai/delivery/read_api/routes)
   - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation;
-    `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly.
+    `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly;
+    `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
   - `chat_vision_prompt.py` projects validated inline images into narrator content, and
     `chat_verification_text.py` owns Unicode normalization and answer-text integrity checks;
     `chat_verification_rendering.py` owns bounded incident and agent-activity prose rendering.

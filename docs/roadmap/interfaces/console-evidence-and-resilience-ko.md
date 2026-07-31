@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 435172ce54112c40131764ec3c74e1a16fc8bb48
+translation_source_sha: f41c3bca3d132660bcd69aa4b0a89ed26f7246f0
 translation_revised: 2026-07-31
 ---
 
@@ -214,7 +214,10 @@ main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 c
 
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
 action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
-copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Unavailable 또는
+copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Terminal replay payload는 ID별 최종
+branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하로 보존하고 history output을
+항목당 32 KiB에서 truncate하며 truncation 및 omission count를 표시합니다. 따라서 durable history와
+live turn이 같은 strict parser 및 trajectory view를 사용합니다. Unavailable 또는
 timed-out evidence는 시도이지 완료된 evidence가 아니며 unverified 작업에는 완료 styling을 적용하지
 않습니다. 누락된 activity는 observation coverage disclosure에 두며 작업 부재를 증명하지 않습니다.
 Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다.

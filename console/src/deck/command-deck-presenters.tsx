@@ -14,6 +14,7 @@ import {
   type InvestigationActivity,
   type ModelTrace,
   type TurnTiming,
+  type TrajectoryDetail,
   type RouterSnapshot,
   type ResourceContext,
   type VerificationProgress,
@@ -59,6 +60,7 @@ export interface Turn {
   readonly actionDraft?: ActionDraft;
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
+  readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
   readonly agent?: string;
   readonly at: string;

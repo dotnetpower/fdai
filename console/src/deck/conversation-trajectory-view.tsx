@@ -28,14 +28,15 @@ export function ConversationTrajectoryView({
 }) {
   const [open, setOpen] = useState(false);
   const { answer, activities, branches } = trajectory;
-  const milestones = trajectory.observedTurns.filter(
-    (turn) => turn.kind === "message" && turn.source === "investigation",
-  );
+  const milestones = trajectory.milestones;
   const evidenceRefs = uniqueStrings([
     ...branches.flatMap((branch) => branch.evidenceRefs),
     ...(answer.verification?.evidence_refs ?? []),
   ]);
   const presentation = buildTrajectoryPresentation(trajectory);
+  const omittedDetailCount = answer.trajectoryDetail
+    ? Object.values(answer.trajectoryDetail.omitted).reduce((total, count) => total + count, 0)
+    : 0;
   const timelinePhases: TrajectoryPhase[] = [
     "input",
     ...(presentation.evidenceAttemptCount > 0 || milestones.length > 0 ? ["evidence" as const] : []),
@@ -106,6 +107,15 @@ export function ConversationTrajectoryView({
             <AnswerPhase trajectory={trajectory} index={phaseIndex(timelinePhases, "answer")} />
           </ol>
           <TrajectoryCoverage phaseStates={presentation.phaseStates} />
+          {answer.trajectoryDetail &&
+              (omittedDetailCount > 0 || answer.trajectoryDetail.truncated_outputs > 0) ? (
+            <p class="deck-trajectory-gap">
+              {t("deck.trajectory.historyDetailBound", {
+                omitted: omittedDetailCount,
+                truncated: answer.trajectoryDetail.truncated_outputs,
+              })}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </details>
@@ -232,7 +242,7 @@ function TrajectoryPhase({ index, phase, state, title, summary, time, children }
 
 function EvidenceTimeline({ trajectory, activities, branches, milestones, evidenceRefs }: {
   readonly trajectory: ConversationTrajectory; readonly activities: readonly InvestigationActivity[];
-  readonly branches: readonly EvidenceBranch[]; readonly milestones: ConversationTrajectory["observedTurns"];
+  readonly branches: readonly EvidenceBranch[]; readonly milestones: ConversationTrajectory["milestones"];
   readonly evidenceRefs: readonly string[];
 }) {
   return (
@@ -261,9 +271,9 @@ function EvidenceTimeline({ trajectory, activities, branches, milestones, eviden
         </li>
         ))}
         {milestones.map((milestone) => (
-        <li key={milestone.id} data-status="completed"><span class="deck-trajectory-milestone" aria-hidden="true" />
+        <li key={milestone.messageId} data-status="completed"><span class="deck-trajectory-milestone" aria-hidden="true" />
           <div class="deck-trajectory-milestone-copy"><span class="deck-trajectory-kind is-milestone">{t("deck.trajectory.milestone")}</span>
-            <strong>{milestone.text}</strong><time>{formatTimestamp(milestone.recordedAt, milestone.at)}</time></div></li>
+            <strong>{milestone.text}</strong><time>{formatTimestamp(milestone.recordedAt)}</time></div></li>
         ))}
       </ol>
     </>

@@ -152,6 +152,7 @@ def build_done_payload(
     resource_context: Mapping[str, str] | None,
     model_trace: Mapping[str, Any] | None,
     turn_timing: Mapping[str, Any] | None,
+    trajectory_detail: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     source = None
     if resource_answer is not None:
@@ -191,4 +192,6 @@ def build_done_payload(
         payload["model_trace"] = dict(model_trace)
     if turn_timing is not None:
         payload["turn_timing"] = dict(turn_timing)
+    if trajectory_detail is not None:
+        payload["trajectory_detail"] = dict(trajectory_detail)
     return payload

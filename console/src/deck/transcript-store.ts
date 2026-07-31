@@ -27,6 +27,7 @@ import {
   type InvestigationActivity,
   type ModelTrace,
   type TurnTiming,
+  type TrajectoryDetail,
   type ResourceContext,
 } from "./backend";
 import {
@@ -34,6 +35,7 @@ import {
   parseDelegation,
   parseResourceContext,
 } from "./backend-normalizers";
+import { parseTrajectoryDetail } from "./trajectory-detail";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 export const MAX_TRANSCRIPT_JSON_CHARS = 4 * 1024 * 1024;
@@ -94,6 +96,7 @@ export interface PersistedTurn {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
+  readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
 }
 
@@ -133,6 +136,7 @@ export function serializeTurns(
       const codeArtifacts = parseGroundedCodeArtifacts(t.codeArtifacts);
       const modelTrace = parseModelTrace(t.modelTrace);
       const turnTiming = parseTurnTiming(t.turnTiming);
+      const trajectoryDetail = parseTrajectoryDetail(t.trajectoryDetail);
       const resourceContext = parseResourceContext(t.resourceContext);
       return {
         ...base,
@@ -156,6 +160,7 @@ export function serializeTurns(
         ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
         ...(modelTrace ? { modelTrace } : {}),
         ...(turnTiming ? { turnTiming } : {}),
+        ...(trajectoryDetail ? { trajectoryDetail } : {}),
         ...(resourceContext ? { resourceContext } : {}),
       };
     });
@@ -191,6 +196,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const codeArtifacts = parseGroundedCodeArtifacts(rec.codeArtifacts);
     const modelTrace = parseModelTrace(rec.modelTrace);
     const turnTiming = parseTurnTiming(rec.turnTiming);
+    const trajectoryDetail = parseTrajectoryDetail(rec.trajectoryDetail);
     const verification = parseAnswerVerification(rec.verification);
     const resourceContext = parseResourceContext(rec.resourceContext);
     const turn: PersistedTurn = {
@@ -220,6 +226,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
       ...(modelTrace ? { modelTrace } : {}),
       ...(turnTiming ? { turnTiming } : {}),
+      ...(trajectoryDetail ? { trajectoryDetail } : {}),
       ...(resourceContext ? { resourceContext } : {}),
     };
     out.push(turn);

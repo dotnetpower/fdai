@@ -369,7 +369,7 @@ export function useCommandDeckSubmit({
                   streaming: false,
                   terminal: true,
                   at: shortTime(),
-                  recordedAt: new Date().toISOString(),
+                  recordedAt: milestone.recordedAt ?? new Date().toISOString(),
                 },
               ];
               turnsRef.current = next;
@@ -479,6 +479,7 @@ export function useCommandDeckSubmit({
                   ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
                   ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
                   ...(reply.turnTiming ? { turnTiming: reply.turnTiming } : {}),
+                  ...(reply.trajectoryDetail ? { trajectoryDetail: reply.trajectoryDetail } : {}),
                   ...(reply.resourceContext ? { resourceContext: reply.resourceContext } : {}),
                 }
               : turn;

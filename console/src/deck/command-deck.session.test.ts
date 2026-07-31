@@ -251,6 +251,32 @@ describe("durable transcript restoration", () => {
               duration_ms: 3000,
             }],
           },
+          trajectory_detail: {
+            schema_version: 1,
+            activities: [{
+              activity_id: "query-1",
+              kind: "query",
+              status: "completed",
+              label: "Query inventory",
+              completed: 1,
+              total: 1,
+              execution: {
+                tool: "inventory",
+                command: '{"query":"status"}',
+                input_kind: "query",
+                redacted: true,
+                output: '{"count":2}',
+              },
+            }],
+            branches: [],
+            milestones: [{
+              message_id: "milestone-1",
+              text: "Inventory complete",
+              recorded_at: "2026-07-16T07:00:02Z",
+            }],
+            omitted: { activities: 0, branches: 0, milestones: 0 },
+            truncated_outputs: 0,
+          },
         }),
       },
     });
@@ -265,6 +291,10 @@ describe("durable transcript restoration", () => {
       resourceContext: { name: "example-service" },
       modelTrace: { calls: [{ kind: "answer-stream", duration_ms: 3000 }] },
       turnTiming: { phases: [{ phase: "generation", duration_ms: 3000 }] },
+      trajectoryDetail: {
+        activities: [{ execution: { output: '{"count":2}' } }],
+        milestones: [{ text: "Inventory complete" }],
+      },
     });
   });
 

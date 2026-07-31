@@ -35,6 +35,7 @@ import type {
   StreamCallbacks,
 } from "./backend-types";
 import type { ViewSnapshot } from "./context";
+import { parseTrajectoryDetail } from "./trajectory-detail";
 
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
@@ -402,6 +403,7 @@ export async function askBackendStream(
   const resourceContext = parseResourceContext(done.resource_context);
   const modelTrace = parseModelTrace(done.model_trace);
   const turnTiming = parseTurnTiming(done.turn_timing);
+  const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const source = explicitSource ?? (
@@ -427,6 +429,7 @@ export async function askBackendStream(
     ...(resourceContext ? { resourceContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
     ...(turnTiming ? { turnTiming } : {}),
+    ...(trajectoryDetail ? { trajectoryDetail } : {}),
   };
 }
 

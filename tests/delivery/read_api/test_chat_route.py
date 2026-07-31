@@ -1836,12 +1836,14 @@ class TestChatStreamEvidence:
 
     def test_operational_stream_progresses_then_revises_same_answer(self) -> None:
         backend = _RecordingBackend(model="gpt-stream", delay_ms=0)
+        store = InMemoryConversationHistoryStore()
         app = Starlette(
             routes=[
                 make_chat_stream_route(
                     backend=backend,
                     authorize=_allow,
                     evidence_resolver=_EvidenceResolver(),
+                    conversation_history_store=store,
                 )
             ]
         )
@@ -1849,6 +1851,7 @@ class TestChatStreamEvidence:
             "/chat/stream",
             json={
                 "request_id": "req-1",
+                "session_id": "conversation-1",
                 "prompt": "recent memory issue cause",
                 "view_context": {},
             },
@@ -1892,6 +1895,25 @@ class TestChatStreamEvidence:
         assert timing_by_phase["quality_review"]["status"] == "completed"
         assert timing_by_phase["verification"]["status"] == "corrected"
         assert all(item["duration_ms"] >= 0 for item in timing_by_phase.values())
+        assert done["trajectory_detail"]["schema_version"] == 1
+        assert done["trajectory_detail"]["branches"]
+        assert all(
+            branch["status"] in {"completed", "unavailable", "failed", "timed_out"}
+            for branch in done["trajectory_detail"]["branches"]
+        )
+        calls_before_replay = backend.calls
+        replay = TestClient(app).post(
+            "/chat/stream",
+            json={
+                "request_id": "req-1",
+                "session_id": "conversation-1",
+                "prompt": "recent memory issue cause",
+                "view_context": {},
+            },
+        )
+        replay_done = next(payload for name, payload in _parse_sse(replay.text) if name == "done")
+        assert replay_done["trajectory_detail"] == done["trajectory_detail"]
+        assert backend.calls == calls_before_replay
 
     def test_screen_stream_finishes_consistent_without_revision(self) -> None:
         backend = _RecordingBackend(model="gpt-stream", delay_ms=0)

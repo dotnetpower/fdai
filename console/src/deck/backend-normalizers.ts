@@ -203,6 +203,7 @@ export function parseInvestigationMilestone(raw: unknown): InvestigationMileston
     ...(nonemptyBoundedString(record.agent, MAX_AGENT_NAME_CHARS)
       ? { agent: record.agent }
       : {}),
+    ...(validTimestamp(record.recorded_at) ? { recordedAt: record.recorded_at } : {}),
   };
 }
 

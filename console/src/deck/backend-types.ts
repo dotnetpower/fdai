@@ -194,6 +194,7 @@ export interface InvestigationMilestone {
   readonly messageId: string;
   readonly text: string;
   readonly agent?: string;
+  readonly recordedAt?: string;
 }
 
 export type EvidenceBranchKind = "tool" | "operational" | "agent" | "public_web";
@@ -306,6 +307,19 @@ export interface TurnTiming {
   readonly phases: readonly TurnTimingPhase[];
 }
 
+export interface TrajectoryDetail {
+  readonly schema_version: 1;
+  readonly activities: readonly InvestigationActivity[];
+  readonly branches: readonly EvidenceBranch[];
+  readonly milestones: readonly InvestigationMilestone[];
+  readonly omitted: {
+    readonly activities: number;
+    readonly branches: number;
+    readonly milestones: number;
+  };
+  readonly truncated_outputs: number;
+}
+
 export type ProgressiveAnswer = Answer & {
   readonly source: string;
   readonly router?: RouterSnapshot;
@@ -319,6 +333,7 @@ export type ProgressiveAnswer = Answer & {
   readonly resourceContext?: ResourceContext;
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
+  readonly trajectoryDetail?: TrajectoryDetail;
 };
 
 export interface BackendHealth {

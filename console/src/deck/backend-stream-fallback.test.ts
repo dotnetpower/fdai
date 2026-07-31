@@ -373,6 +373,47 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.resourceContext).toEqual(resourceContext);
   });
 
+  test("returns bounded trajectory detail from the terminal event", async () => {
+    const body = `event: done\ndata: ${JSON.stringify({
+      answer: "Inventory complete.",
+      model: "evidence-verifier",
+      trajectory_detail: {
+        schema_version: 1,
+        activities: [{
+          activity_id: "query-1",
+          kind: "query",
+          status: "completed",
+          label: "Query inventory",
+          completed: 1,
+          total: 1,
+          execution: {
+            tool: "inventory",
+            command: '{"query":"status"}',
+            input_kind: "query",
+            redacted: true,
+            output: '{"count":2}',
+          },
+        }],
+        branches: [],
+        milestones: [{
+          message_id: "milestone-1",
+          text: "Inventory complete",
+          recorded_at: "2026-07-31T01:00:01Z",
+        }],
+        omitted: { activities: 0, branches: 0, milestones: 0 },
+        truncated_outputs: 0,
+      },
+    })}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+
+    expect(reply.trajectoryDetail?.activities[0]?.execution?.output).toBe('{"count":2}');
+    expect(reply.trajectoryDetail?.milestones[0]?.text).toBe("Inventory complete");
+  });
+
   test("treats an explicit interrupted event as a stopped turn", async () => {
     const body =
       'event: interrupted\ndata: {"seq":1,"detail":"chat turn interrupted"}\n\n';

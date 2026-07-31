@@ -7,6 +7,7 @@ import type {
   GroundedCodeArtifact,
   ModelTrace,
   TurnTiming,
+  TrajectoryDetail,
   ProgressiveAnswer,
   ResourceContext,
   RouterSnapshot,
@@ -24,6 +25,7 @@ import {
   parseResourceContext,
   parseRouter,
 } from "./backend-normalizers";
+import { parseTrajectoryDetail } from "./trajectory-detail";
 
 const MAX_SESSION_ID_CHARS = 200;
 const MAX_REPLAY_PAYLOAD_CHARS = 512 * 1024;
@@ -45,6 +47,7 @@ export interface RestoredTurn {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
+  readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
 }
 
@@ -75,6 +78,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   const codeArtifacts = parseGroundedCodeArtifacts(replay?.code_artifacts);
   const modelTrace = parseModelTrace(replay?.model_trace);
   const turnTiming = parseTurnTiming(replay?.turn_timing);
+  const trajectoryDetail = parseTrajectoryDetail(replay?.trajectory_detail);
   const resourceContext = parseResourceContext(replay?.resource_context);
   const source = turn.metadata.source ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
@@ -96,6 +100,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(modelTrace ? { modelTrace } : {}),
     ...(turnTiming ? { turnTiming } : {}),
+    ...(trajectoryDetail ? { trajectoryDetail } : {}),
     ...(resourceContext ? { resourceContext } : {}),
   };
 }
