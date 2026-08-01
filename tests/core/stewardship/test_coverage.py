@@ -17,6 +17,20 @@ def test_distinct_stewards_no_over_assigned(valid_raw: dict) -> None:
     assert "over_assigned" not in codes
     # Each mapped agent has exactly one accountable steward -> bus-factor 1.
     assert "bus_factor_one" in codes
+    assert "duty_derived" in codes
+    assert "backup_missing" in codes
+
+
+def test_second_accountable_steward_satisfies_v1_backup(valid_raw: dict, oid) -> None:
+    valid_raw["stewardship"]["agents"]["Thor"]["stewards"].append(
+        {"kind": "user", "id": oid(700), "responsibility": "accountable"}
+    )
+
+    report = build_coverage_report(load_stewardship_from_mapping(valid_raw))
+
+    thor_codes = {finding.code for finding in report.findings if finding.agent == "Thor"}
+    assert "duty_derived" in thor_codes
+    assert "backup_missing" not in thor_codes
 
 
 def test_maintainer_single_warns(valid_raw: dict, oid) -> None:

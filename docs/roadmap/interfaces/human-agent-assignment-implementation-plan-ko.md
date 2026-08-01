@@ -1,17 +1,18 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 787065e795fb3b4ffdfb2ded3e32bf3586de7c5f
+translation_source_sha: 2f9663575086fe92bdf081cd8a580dfd078358b5
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
 
-이 계획은 사용자-에이전트 할당 및 지식 인수인계 설계를 종속성 순서가 있는 풀 리퀘스트로
-구체화합니다. IAM 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
+이 계획은 사용자-에이전트 할당 및 지식 인수인계 설계를 `main`에서 진행하는 종속성 순서의 작업
+묶음으로 구체화합니다. 기능 브랜치 없이 각 묶음을 하나 이상의 집중 커밋으로 완료합니다. IAM
+쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 계획 기준선입니다. ID 검색, 역할 목록 읽기, 통제된 접근 요청, 담당 체계 초안
-> PR, 일정 인식 기본 승인자 선택, 승인 다시 알림, 문서 승인, 청킹, 벡터 인덱싱은 이미 있습니다.
-> 통합 할당 케이스, 명시적인 기본 및 백업 임무, 공급자 측 IAM 쓰기, 시간 기반 무응답
+> **현재 상태:** 묶음 1은 `main`에 구현되었습니다. Stewardship v2 duty, strict primary 및
+> backup/escalation 검증, v1 compatibility finding, duty-aware routing, 안전한 migration renderer가
+> 제공됩니다. 다음은 통합 할당 케이스인 묶음 2입니다. 공급자 측 IAM 쓰기, 시간 기반 무응답
 > 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
 >
 > **권한 경계:** 운영자 작업 공간은 형식화된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
@@ -20,21 +21,22 @@ translation_revised: 2026-08-01
 
 ## 제공 형태
 
-구현을 집중된 PR 9개로 나눕니다. PR 1부터 PR 4까지는 완전한 관찰 전용 워크플로를 만듭니다.
-PR 5는 첫 번째 공급자 변경이며 별도 승격 전까지 관찰 모드로 유지합니다. PR 6부터 PR 8까지는
-IAM 권한을 높이지 않고 승인 연속성과 지식 수집을 추가합니다.
+구현을 `main`의 집중된 작업 묶음 9개로 나눕니다. 묶음 1부터 묶음 4까지는 완전한 관찰 전용
+워크플로를 만듭니다. 묶음 5는 첫 번째 공급자 변경이며 별도 승격 전까지 관찰 모드로 유지합니다.
+묶음 6부터 묶음 8까지는 IAM 권한을 높이지 않고 승인 연속성과 지식 수집을 추가합니다. 각 묶음은
+집중 커밋 전에 완료하고 검증하며, 관련 없는 작업 트리 변경을 해당 커밋에 섞지 않습니다.
 
 ```mermaid
 flowchart LR
-  P1[PR 1 임무 스키마] --> P2[PR 2 할당 코어]
-  P2 --> P3[PR 3 API 및 콘솔]
-  P2 --> P4[PR 4 담당 체계 조정]
-  P3 --> P5[PR 5 IAM 프로비저너]
+   P1[묶음 1 임무 스키마] --> P2[묶음 2 할당 코어]
+   P2 --> P3[묶음 3 API 및 콘솔]
+   P2 --> P4[묶음 4 담당 체계 조정]
+   P3 --> P5[묶음 5 IAM 프로비저너]
   P4 --> P5
-  P2 --> P6[PR 6 승인 감독자]
-  P3 --> P7[PR 7 인수인계 목표]
-  P7 --> P8[PR 8 지식 수명주기]
-  P5 --> P9[PR 9 프로덕션 롤아웃]
+   P2 --> P6[묶음 6 승인 감독자]
+   P3 --> P7[묶음 7 인수인계 목표]
+   P7 --> P8[묶음 8 지식 수명주기]
+   P5 --> P9[묶음 9 프로덕션 롤아웃]
   P6 --> P9
   P8 --> P9
 ```
@@ -107,9 +109,9 @@ read API는 케이스를 만들 수 있지만 결과를 적용할 수 없습니�
 ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인, Thor 실행, Vidar 복구, Saga
 감사를 유지합니다. 어떤 역할 바인딩도 구성으로 변경할 수 없습니다.
 
-## 풀 리퀘스트 순서
+## main 브랜치 작업 묶음 순서
 
-### PR 1 - Stewardship v2 및 커버리지
+### 묶음 1 - Stewardship v2 및 커버리지
 
 **변경:** `core/stewardship/model.py`, `resolver.py`, `coverage.py`, `escalation.py`, 구성 검사기,
 담당 체계 설계 문서 쌍을 확장합니다. 마이그레이션 렌더러와 fixture를 추가합니다. v1 읽기 호환성과
@@ -122,7 +124,7 @@ ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인
 **종료:** 기존 v1 구성이 점검 결과와 함께 로드되고, 생성된 v2 후보가 결정적이며, v2가 primary
 누락, backup 또는 escalation 누락, 순환, 중복 임무, 오래된 주체만 있는 커버리지를 차단합니다.
 
-### PR 2 - 할당 케이스 코어
+### 묶음 2 - 할당 케이스 코어
 
 **변경:** `core/human_assignment/model.py`, `transitions.py`, `coverage.py`, `service.py`,
 `__init__.py`를 추가합니다. `StateStore.write_state_with_audit_if_absent` 및 리비전 쓰기를
@@ -136,7 +138,7 @@ ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인
 **종료:** `StateStore` 외부 I/O 없이 케이스를 생성, 검토, 재생, 프로젝션할 수 있고, 담당 체계 및
 IAM 영수증 모두 없이 어떤 전환도 케이스를 active로 만들 수 없습니다.
 
-### PR 3 - 관찰 전용 API 및 Assignments 탭
+### 묶음 3 - 관찰 전용 API 및 Assignments 탭
 
 **변경:** `delivery/read_api/routes/human_assignments.py`를 추가하고 `iam.py` 옆에 등록합니다. 앱
 구성에는 케이스 서비스와 담당 체계 프로젝션만 추가하고 프로비저너는 넣지 않습니다.
@@ -150,7 +152,7 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 active로 만들 수 �
 **종료:** Owner가 활성 주체 한 명을 검색하고 역할, 임무, 목표를 작성하여 관찰 전용 케이스를
 만들 수 있습니다. UI는 Entra 멤버십이 변경되지 않았음을 명확히 표시합니다.
 
-### PR 4 - 담당 체계 PR 조정
+### 묶음 4 - 담당 체계 PR 조정
 
 **변경:** `StewardshipGovernanceService`가 승인된 케이스를 받아 v2 overlay 하나를 렌더링하도록
 확장합니다. PR 영수증을 케이스에 저장합니다. 예상 경로, 커밋, 케이스 ID, 렌더링된 콘텐츠
@@ -163,7 +165,7 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 active로 만들 수 �
 **종료:** 승인된 케이스 하나가 최대 하나의 초안 PR을 만들고, 일치하는 검토 후 병합만 케이스를
 진행시킵니다. IAM은 변경되지 않습니다.
 
-### PR 5 - 통제된 Entra 멤버십 적용
+### 묶음 5 - 통제된 Entra 멤버십 적용
 
 **변경:** plan, apply, verify, rollback 영수증을 제공하는 CSP 중립
 `shared/providers/human_access.py`를 추가합니다. `delivery/identity/entra_access.py`, 런타임
@@ -174,7 +176,7 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 active로 만들 수 �
 애플리케이션 권한으로 `GroupMember.ReadWrite.All`을 명시합니다. 전용 관리 ID를 사용하고,
 role-assignable 그룹을 제외하고, 구성된 FDAI 역할 그룹 개체 ID만 변경 불가능한 허용 목록에
 넣습니다. 애플리케이션 권한은 테넌트 범위이므로 코드 허용 목록은 보완 통제이며 디렉터리 권한
-경계가 아닙니다. PR 5에는 administrative-unit 범위의 Groups Administrator 또는 custom role과
+경계가 아닙니다. 묶음 5에는 administrative-unit 범위의 Groups Administrator 또는 custom role과
 필요한 읽기 권한이 대상 테넌트에서 광범위한 애플리케이션 권한을 대체할 수 있는지 확인하는 보안
 스파이크가 포함됩니다. 두 방식을 함께 사용하면서 administrative unit이 이미 테넌트 범위인
 애플리케이션 권한을 좁힌다고 주장하지 않습니다.
@@ -184,9 +186,10 @@ role-assignable 그룹을 제외하고, 구성된 FDAI 역할 그룹 개체 ID�
 관찰 모드 no-op, 어댑터 계약을 테스트합니다.
 
 **종료:** 관찰 모드가 요청할 정확한 변경을 기록합니다. 비프로덕션 테넌트에서 대상 불일치 0건과
-add, verify, remove, restore 훈련 성공을 확인한 후 별도 PR로 적용 모드를 승격합니다.
+add, verify, remove, restore 훈련 성공을 확인한 후 `main`의 별도 집중 커밋으로 적용 모드를
+승격합니다.
 
-### PR 6 - 사람 무응답 감독자
+### 묶음 6 - 사람 무응답 감독자
 
 **변경:** `core/hil_resume/escalation_supervisor.py`를 추가합니다. 승인 대기 시 역할 적격성, 전달
 마감, 작업 해시, 전체 마감과 함께 primary, backup, escalation, maintainer 단계 스냅샷을
@@ -200,7 +203,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 **종료:** 단계 전달을 활성화하기 전에 관찰 지표가 과거 승인 시간과 일치합니다. 적용 모드는 작업
 해시를 변경하거나 두 결정을 수락하거나 모든 단계 소진을 실행으로 바꾸지 않습니다.
 
-### PR 7 - 선제적 인수인계 목표
+### 묶음 7 - 선제적 인수인계 목표
 
 **변경:** `core/human_assignment/goals.py` 및 `fatigue.py`를 추가합니다. 채팅 세션 등록이 콘텐츠
 없는 가용성 이벤트를 냅니다. 매핑된 에이전트가 이벤트 버스로 목표 공백을 게시하고, Odin이 중복
@@ -214,7 +217,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 **종료:** 매핑된 사용자가 제한된 세션을 완료, 연기, 거절할 수 있고 피로도 제한이 재시작 후에도
 유지됩니다. 어떤 대화 경로도 IAM, 승인, 자율성을 변경하지 않습니다.
 
-### PR 8 - 근거, 청킹, 온톨로지 후보
+### 묶음 8 - 근거, 청킹, 온톨로지 후보
 
 **변경:** 인수인계 근거 목적과 형식화된 이벤트를 문서 수집 경로에 추가합니다. 청크 메타데이터를
 목표, 소스 범위, ACL, 청크 정책 버전, 콘텐츠 다이제스트로 확장합니다. Muninn이 승인된 근거를
@@ -227,7 +230,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 **종료:** 수락된 모든 목표가 승인된 근거를 인용하고, 검색이 소스 ACL을 넘지 않으며, 어떤 문서나
 대화도 온톨로지 또는 규칙 카탈로그를 직접 변경할 수 없습니다.
 
-### PR 9 - 프로덕션 롤아웃 및 운영
+### 묶음 9 - 프로덕션 롤아웃 및 운영
 
 **변경:** Settings에 분리된 `available`, `enabled`, `mode` 상태를 표시합니다. 준비도 검사,
 대시보드, 경고, 복구 런북, 배포 입력, 관리 ID 권한 검증, 결과 사이에서 보류된 케이스의 조정 작업을
@@ -252,7 +255,8 @@ restart, 재해 복구 훈련을 완료합니다. 모든 활성 할당은 검증
 | 승인 감독자 | `uv run pytest -q --no-cov tests/core/hil_resume` |
 | 지식 수명주기 | `uv run pytest -q --no-cov tests/core/document_ingestion tests/delivery/document_index tests/delivery/ingestion_gateway` |
 
-각 PR은 변경한 Python 경로에 대해서만 Ruff와 strict mypy도 실행합니다. 중앙 Integration
+각 묶음은 집중 커밋 전에 변경한 Python 경로에 대해서만 Ruff와 strict mypy도 실행합니다. 중앙
+Integration
 Validator가 diff 범위 통합과 저장소 전체 검증 영수증을 소유합니다.
 
 ## 롤아웃 근거 및 중지 조건

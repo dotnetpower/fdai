@@ -43,9 +43,15 @@ strong default; **MAY** is optional.
   `accept_autonomous` block with a non-empty `reason`. An agent with neither is
   rejected.
 - A steward subject is `kind: user | group` + a UUID-shaped Entra objectId +
-  `responsibility: accountable | informed`. Both `user` and `group` subjects are
-  allowed; a `group` is expanded best-effort through the injected
+  `responsibility: accountable | informed`. Schema v2 also requires accountable
+  subjects to declare `duty: primary | backup | escalation`; informed subjects
+  never declare a duty. Both `user` and `group` subjects are allowed; a `group`
+  is expanded best-effort through the injected
   `GroupMembershipProvider` and never blocks the control loop.
+- Schema v1 remains readable during migration: the first accountable subject is
+  derived as primary and later accountable subjects as backups. It emits
+  `duty_derived` and, when needed, `backup_missing` findings. New maps use v2;
+  v2 requires a primary plus a distinct backup or escalation subject.
 - There MUST be at least **1** maintainer (fail-fast). Exactly 1 is a warning;
   **2** are recommended. The maintainer set is the final escalation for any agent
   with no live steward.

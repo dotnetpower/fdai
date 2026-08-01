@@ -4,14 +4,15 @@ title: Human-Agent Assignment Implementation Plan
 # Human-Agent Assignment Implementation Plan
 
 This plan turns the human-agent assignment and knowledge-handover design into dependency-ordered
-pull requests. It names the owning modules, compatibility path, API and event contracts, focused
+work packages on `main`. Each package lands as one or more focused commits without a feature
+branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Planning baseline. Identity search, role-roster reads, governed access
-> requests, ownership draft PRs, schedule-aware primary assignee selection, approval reminders,
-> document admission, chunking, and vector indexing already exist. Composite assignment cases,
-> explicit primary and backup duties, provider-side IAM writes, timed non-response escalation,
-> proactive handover goals, and ontology candidates don't exist yet.
+> **Current status:** Package 1 is implemented on `main`: stewardship v2 duties, strict primary
+> plus backup/escalation validation, v1 compatibility findings, duty-aware routing, and the safe
+> migration renderer are shipped. Package 2, composite assignment cases, is next. Provider-side
+> IAM writes, timed non-response escalation, proactive handover goals, and ontology candidates
+> don't exist yet.
 >
 > **Authority boundary:** The operator workbench submits a typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
@@ -19,22 +20,23 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 
 ## Delivery shape
 
-Implementation is split into nine focused PRs. PRs 1 through 4 produce a complete observation-only
-workflow. PR 5 is the first provider mutation and stays in observation mode until separately
-promoted. PRs 6 through 8 add approval continuity and knowledge capture without raising IAM
-authority.
+Implementation is split into nine focused work packages on `main`. Packages 1 through 4 produce a
+complete observation-only workflow. Package 5 is the first provider mutation and stays in
+observation mode until separately promoted. Packages 6 through 8 add approval continuity and
+knowledge capture without raising IAM authority. Complete and validate each package before its
+focused commit; don't mix unrelated worktree changes into that commit.
 
 ```mermaid
 flowchart LR
-  P1[PR 1 duty schema] --> P2[PR 2 assignment core]
-  P2 --> P3[PR 3 API and console]
-  P2 --> P4[PR 4 ownership coordination]
-  P3 --> P5[PR 5 IAM provisioner]
+   P1[Package 1 duty schema] --> P2[Package 2 assignment core]
+   P2 --> P3[Package 3 API and console]
+   P2 --> P4[Package 4 ownership coordination]
+   P3 --> P5[Package 5 IAM provisioner]
   P4 --> P5
-  P2 --> P6[PR 6 approval supervisor]
-  P3 --> P7[PR 7 handover goals]
-  P7 --> P8[PR 8 knowledge lifecycle]
-  P5 --> P9[PR 9 production rollout]
+   P2 --> P6[Package 6 approval supervisor]
+   P3 --> P7[Package 7 handover goals]
+   P7 --> P8[Package 8 knowledge lifecycle]
+   P5 --> P9[Package 9 production rollout]
   P6 --> P9
   P8 --> P9
 ```
@@ -107,9 +109,9 @@ Add shadow-default `governance.apply-human-access` and `governance.revoke-human-
 ActionTypes. Their pantheon bindings remain Forseti judge, Var approver, Thor executor, Vidar
 recovery, and Saga auditor. No role binding is configurable.
 
-## Pull request sequence
+## Main-branch work package sequence
 
-### PR 1 - Stewardship v2 and coverage
+### Package 1 - Stewardship v2 and coverage
 
 **Changes:** Extend `core/stewardship/model.py`, `resolver.py`, `coverage.py`, `escalation.py`, the
 config checker, and both ownership design docs. Add the migration renderer and fixtures. Keep v1
@@ -123,7 +125,7 @@ two-person coverage; migration output round-trips through the v2 loader.
 v2 rejects missing primary, missing backup or escalation, cycles, duplicate duties, and stale-only
 coverage.
 
-### PR 2 - Assignment case core
+### Package 2 - Assignment case core
 
 **Changes:** Add `core/human_assignment/model.py`, `transitions.py`, `coverage.py`, `service.py`, and
 `__init__.py`. Reuse `StateStore.write_state_with_audit_if_absent` and revisioned writes. Add
@@ -137,7 +139,7 @@ skips review or ownership merge.
 **Exit:** A case can be created, reviewed, replayed, and projected without I/O outside `StateStore`;
 no transition can mark it active without both ownership and IAM receipts.
 
-### PR 3 - Observation-only API and Assignments tab
+### Package 3 - Observation-only API and Assignments tab
 
 **Changes:** Add `delivery/read_api/routes/human_assignments.py` and register it beside `iam.py`.
 Extend app config with the case service and ownership projection, not a provisioner. Add
@@ -151,7 +153,7 @@ localization parity, accessibility, and production build.
 **Exit:** An Owner can search one active subject, compose role plus duties plus goals, and create an
 observation-only case. The UI clearly states that no Entra membership changed.
 
-### PR 4 - Ownership PR coordination
+### Package 4 - Ownership PR coordination
 
 **Changes:** Extend `StewardshipGovernanceService` to accept an approved case and render one v2
 overlay. Persist the PR receipt on the case. Extend the signed GitHub webhook to publish
@@ -165,7 +167,7 @@ atomic audit receipt.
 **Exit:** One approved case opens at most one draft PR; only the matching reviewed merge advances
 the case; IAM remains untouched.
 
-### PR 5 - Governed Entra membership apply
+### Package 5 - Governed Entra membership apply
 
 **Changes:** Add CSP-neutral `shared/providers/human_access.py` with plan, apply, verify, and
 rollback receipts. Add `delivery/identity/entra_access.py`, a runtime binder, ActionTypes, and an
@@ -175,7 +177,7 @@ For user membership, Microsoft Graph documents `GroupMember.ReadWrite.All` as th
 application permission for `POST /groups/{group-id}/members/$ref`. Use a dedicated managed identity,
 exclude role-assignable groups, and hard-allowlist only configured FDAI role group object ids. An
 application permission is tenant-wide, so the code allowlist is a compensating control, not a
-directory permission boundary. PR 5 includes a security spike to determine whether an
+directory permission boundary. Package 5 includes a security spike to determine whether an
 administrative-unit-scoped Groups Administrator or custom role, plus required read permission, can
 replace the broad application permission for the target tenant. Don't combine both and claim that
 the administrative unit narrows an already tenant-wide application permission.
@@ -185,10 +187,10 @@ the administrative unit narrows an already tenant-wide application permission.
 postcondition, rollback, shadow no-op, and adapter contract tests.
 
 **Exit:** Observation mode records the exact mutation it would request. Enforce promotion is a
-separate PR after zero target mismatches and successful add, verify, remove, and restore drills in
-a non-production tenant.
+separate focused commit on `main` after zero target mismatches and successful add, verify, remove,
+and restore drills in a non-production tenant.
 
-### PR 6 - Human non-response supervisor
+### Package 6 - Human non-response supervisor
 
 **Changes:** Add `core/hil_resume/escalation_supervisor.py`. On parking, snapshot the ordered
 primary, backup, escalation, and maintainer rungs with role eligibility, delivery deadline, action
@@ -202,7 +204,7 @@ overall expiry, restart replay, and no-op without standing authority.
 **Exit:** Shadow metrics match historical approval timing before rung dispatch is enabled. Enforce
 mode never changes the action hash, accepts two decisions, or turns exhaustion into execution.
 
-### PR 7 - Proactive handover goals
+### Package 7 - Proactive handover goals
 
 **Changes:** Add `core/human_assignment/goals.py` and `fatigue.py`. Chat session registration emits a
 content-free availability event. Mapped agents publish goal gaps through the event bus; Odin
@@ -216,7 +218,7 @@ and no completion without cited evidence or reasoned `not_applicable`.
 **Exit:** A mapped user can complete, defer, or decline a bounded session; fatigue limits survive
 restart; no conversational path changes IAM, approval, or autonomy.
 
-### PR 8 - Evidence, chunking, and ontology candidates
+### Package 8 - Evidence, chunking, and ontology candidates
 
 **Changes:** Add a handover evidence purpose and typed events to the document-ingestion path.
 Extend chunk metadata with goal, source-span, ACL, chunk-policy version, and content digest.
@@ -230,7 +232,7 @@ content-free events, source-span citation, and candidate non-promotion.
 **Exit:** Every accepted goal cites admitted evidence, retrieval can't cross the source ACL, and no
 document or conversation can directly mutate the ontology or rule catalog.
 
-### PR 9 - Production rollout and operations
+### Package 9 - Production rollout and operations
 
 **Changes:** Expose separate `available`, `enabled`, and `mode` states in Settings. Add readiness
 checks, dashboards, alerts, recovery runbooks, deployment inputs, managed-identity permission
@@ -256,7 +258,8 @@ coverage and a current handover review date.
 | HIL supervisor | `uv run pytest -q --no-cov tests/core/hil_resume` |
 | Knowledge lifecycle | `uv run pytest -q --no-cov tests/core/document_ingestion tests/delivery/document_index tests/delivery/ingestion_gateway` |
 
-Each PR also runs Ruff and strict mypy only for touched Python paths. The centralized Integration
+Each package also runs Ruff and strict mypy only for touched Python paths before its focused
+commit. The centralized Integration
 Validator owns diff-scoped integration and repository-wide validation receipts.
 
 ## Rollout evidence and stop conditions

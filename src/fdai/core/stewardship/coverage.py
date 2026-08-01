@@ -87,6 +87,27 @@ def build_coverage_report(mp: StewardshipMap) -> CoverageReport:
             )
             continue
 
+        if mp.version == 1:
+            findings.append(
+                Finding(
+                    code="duty_derived",
+                    severity=Severity.INFO,
+                    message=(
+                        f"Agent {name} uses version 1 ordering to derive primary and backup duties."
+                    ),
+                    agent=name,
+                )
+            )
+            if not agent.backup and not agent.escalation:
+                findings.append(
+                    Finding(
+                        code="backup_missing",
+                        severity=Severity.WARN,
+                        message=f"Agent {name} has no distinct backup or escalation steward.",
+                        agent=name,
+                    )
+                )
+
         accountable_units = {(subject.kind, subject.id) for subject in agent.accountable}
         bus_factor = len(accountable_units)
         if bus_factor == 1:

@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 83651cb3a37deabd29b0623ff51bea74569b43aa
-translation_revised: 2026-07-23
+translation_source_sha: 24ae130c988bfabdd9a2c91db2ad90023050369b
+translation_revised: 2026-08-01
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -75,10 +75,12 @@ environment mapping을 resolver에 전달하므로 deployment override와
 - scheduled liveness check를 위한 `FDAI_IAM_DIRECTORY_PROVIDER=entra`
 - 60초 이상의 liveness interval
 
-Terraform은 apply 전에 completeness를 확인합니다. Resolver는 startup에서 schema version 1,
-distinct real maintainer 및 steward subject, UUID-shaped personal-channel key, exact environment
-token shape, forbidden-role absence, placeholder policy, agent parity, responsibility 값,
-autonomous reason을 다시 확인합니다.
+Terraform은 apply 전에 completeness를 확인합니다. Resolver는 migration 중 schema v1과 새 map용
+v2를 허용합니다. Startup에서 distinct real maintainer 및 steward subject, UUID-shaped
+personal-channel key, exact environment token shape, forbidden-role absence, placeholder policy,
+agent parity, responsibility 및 duty 값, autonomous reason, v2 primary와 서로 다른
+backup/escalation coverage를 확인합니다. Version 1은 계속 동작하지만 derived-duty 및
+missing-backup finding을 표시합니다.
 
 ### Scheduled identity health
 

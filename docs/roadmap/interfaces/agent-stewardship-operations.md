@@ -72,10 +72,12 @@ A deployment with `enable_read_api=true` supplies:
 - `FDAI_IAM_DIRECTORY_PROVIDER=entra` for scheduled liveness checks;
 - a liveness interval of at least 60 seconds.
 
-Terraform checks completeness before apply. The resolver then enforces schema version 1, distinct
-real maintainers and steward subjects, UUID-shaped personal-channel keys, exact environment-token
-shape, forbidden-role absence, placeholder policy, agent parity, responsibility values, and
-autonomous reasons again at startup.
+Terraform checks completeness before apply. The resolver accepts schema v1 during migration and
+v2 for new maps. It enforces distinct real maintainers and steward subjects, UUID-shaped
+personal-channel keys, exact environment-token shape, forbidden-role absence, placeholder policy,
+agent parity, responsibility and duty values, autonomous reasons, and v2 primary plus distinct
+backup/escalation coverage at startup. Version 1 stays operational but surfaces derived-duty and
+missing-backup findings.
 
 ### Scheduled identity health
 

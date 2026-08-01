@@ -25,6 +25,8 @@ the two are resolved and validated independently.
 > registration form that submits draft-PR proposals through ingestion. See
 > [Agent operational ownership lifecycle](agent-stewardship-operations.md) for runtime,
 > deployment, recovery, and verification details.
+> Schema v2 duty parsing, v1 compatibility findings, and the non-in-place migration renderer are
+> implemented. The tracked upstream map stays on v1 until real deployments appoint backups.
 
 ## 1. Design principles
 
@@ -61,6 +63,7 @@ Reuse these terms verbatim in code, config, and docs.
 | **handover-map** | The full mapping of all 15 pantheon agents to their stewards. The artifact produced by an onboarding handover. |
 | **maintainer** | A human accountable for the FDAI platform itself. Min 1 (hard), rec 2 (warn). Final escalation for unmapped agents. |
 | **responsibility (RACI-lite)** | Each steward entry is tagged `accountable` or `informed`. Every agent MUST have at least one `accountable` steward unless it is explicitly `accept_autonomous`. |
+| **duty** | Schema v2 ordering within accountable owners: `primary`, `backup`, or `escalation`. Informed subjects have no duty. |
 | **accept_autonomous** | An explicit acknowledgement that an agent runs fully autonomously with no domain steward. Escalation falls back to the maintainer. Requires a `reason`. |
 | **escalation-chain** | The ordered notification path for an agent: `accountable` stewards -> `informed` stewards -> maintainer, with a per-hop timeout. |
 | **bus-factor** | The number of distinct `accountable` humans who know an agent's domain. A bus-factor of 1 is a tracked risk (warn). |
@@ -102,12 +105,13 @@ collapses into `informed`.
 
 ### 4.1 Config artifact
 
-`config/agent-stewardship.yaml` (fork supplies real values; upstream ships
-placeholders):
+`config/agent-stewardship.yaml` (fork supplies real values; upstream ships placeholders). New
+deployment maps use version 2. The tracked upstream compatibility map remains version 1 until a
+deployment supplies real, distinct backups:
 
 ```yaml
 stewardship:
-  version: 1
+  version: 2
 
   # FDAI platform owners. Min 1 (fail-fast), rec 2 (warn on 1).
   maintainers:
@@ -125,17 +129,18 @@ stewardship:
     hop_timeout_seconds: 900        # accountable -> informed -> maintainer
 
   # All 15 pantheon agents MUST appear. A subject is a personal OID or an
-  # Entra group objectId; `kind` disambiguates. `responsibility` is
-  # accountable|informed. An agent with no accountable steward MUST set
-  # accept_autonomous with a reason.
+  # Accountable entries declare duty: primary|backup|escalation.
+  # Informed entries have no duty.
   agents:
     Odin:
       stewards:
-        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable, duty: primary }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000001", responsibility: accountable, duty: backup }
         - { kind: group, id: "00000000-0000-0000-0000-000000000000", responsibility: informed }
     Thor:
       stewards:
-        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable, duty: primary }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000001", responsibility: accountable, duty: escalation }
     Loki:
       accept_autonomous:
         reason: "Chaos proposals are always HIL; no standing domain owner."
@@ -152,9 +157,21 @@ pattern):
 | Env var | Effect |
 |---------|--------|
 | `FDAI_MAINTAINERS` | Comma-separated OIDs; replaces the `maintainers` list. |
-| `FDAI_STEWARD_<AGENT>` | Comma-separated `user:<oid>` / `group:<oid>` tokens; replaces that agent's `stewards`. `<AGENT>` is upper-case (`FDAI_STEWARD_THOR`). |
+| `FDAI_STEWARD_<AGENT>` | Comma-separated `kind:<oid>:responsibility:duty` tokens in v2; replaces that agent's `stewards`. In v1, responsibility remains optional and duty is omitted. |
 
-### 4.3 Agent-name integrity
+### 4.3 Compatibility and migration
+
+The loader accepts versions 1 and 2. For v1 it derives the first accountable subject as primary
+and later accountable subjects as backups. This preserves runtime behavior but produces
+`duty_derived` and, when no second subject exists, `backup_missing` findings. Version 2 requires
+explicit duty values and rejects a non-autonomous agent without a primary plus a distinct backup
+or escalation subject.
+
+Run `uv run python scripts/governance/migrate-stewardship-v2.py` to render a candidate on stdout,
+or pass `--output <new-path>`. The command never edits its input. If any agent has only one
+accountable subject, it lists those agents and stops instead of selecting a person.
+
+### 4.4 Agent-name integrity
 
 The 15 keys under `agents:` MUST be exactly the pantheon names. `core/stewardship`
 carries its own canonical `AGENT_NAMES` tuple and a parity test
@@ -186,9 +203,11 @@ so an agent's domain steward is notified first for that agent's events.
 For an agent event that needs a human (HIL request, degraded state, workflow-change
 request), `core/stewardship` builds an ordered recipient list:
 
-1. the agent's `accountable` stewards,
-2. then its `informed` stewards,
-3. then the maintainer set.
+1. the agent's primary accountable stewards,
+2. then backup accountable stewards,
+3. then domain escalation stewards,
+4. then informed stewards,
+5. then the maintainer set.
 
 The plan carries a `hop_timeout_seconds` hint for each person tier. Stewardship owns recipient
 ordering, not a human non-response timer. Channel delivery failure uses the notifications matrix
@@ -226,7 +245,7 @@ Handover correctness is safety-relevant, so validation is layered.
 
 Hard errors (raise `StewardshipValidationError`, block a clean boot of the layer):
 
-- a schema `version` other than `1`,
+- a schema `version` other than `1` or `2`,
 - fewer than 1 maintainer,
 - duplicate real maintainer OIDs or duplicate steward subjects,
 - an `agents:` block missing any of the 15 pantheon names, or naming an unknown
@@ -234,6 +253,8 @@ Hard errors (raise `StewardshipValidationError`, block a clean boot of the layer
 - an agent with neither an `accountable` steward nor `accept_autonomous`,
 - an `accept_autonomous` without a `reason`,
 - a malformed subject (`kind` not in {user, group}, id not a UUID shape),
+- in v2, an accountable subject without a valid duty, an informed subject with a duty, or a
+  non-autonomous agent without primary plus distinct backup/escalation coverage,
 - a non-UUID personal-channel key, malformed environment token, or any forbidden
   pantheon role field,
 - when `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, any steward or maintainer id left at the
@@ -244,6 +265,8 @@ Hard errors (raise `StewardshipValidationError`, block a clean boot of the layer
 
 - exactly 1 maintainer (`maintainer_single`),
 - an agent whose bus-factor (distinct accountable humans) is 1 (`bus_factor_one`),
+- a v1 agent whose duties are inferred (`duty_derived`, informational),
+- a v1 agent with no inferred backup (`backup_missing`),
 - a person who is `accountable` for more than `N` agents (`over_assigned`,
   default N=5, configurable),
 - an agent relying on `accept_autonomous` (`autonomous_no_steward`, informational).

@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 3def671ee54178a3e6a4fc20975a69b67356f544
-translation_revised: 2026-07-23
+translation_source_sha: 0fa3b707257b1afe5fbb06a419cc0ad992dbdff0
+translation_revised: 2026-08-01
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -26,6 +26,8 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(Reader / Contributor / Approver / 
 > append-only audit, read-only console projection, ingestion을 통해 draft-PR proposal을 제출하는
 > guided registration form을 포함합니다. Runtime, deployment, recovery, verification 상세 내용은
 > [에이전트 운영 책임 수명 주기](agent-stewardship-operations-ko.md)를 참조하세요.
+> Schema v2 duty parsing, v1 compatibility finding, 비인플레이스 migration renderer도 구현되었습니다.
+> Tracked upstream map은 실제 deployment가 backup을 지정할 때까지 v1을 유지합니다.
 
 ## 1. 설계 원칙
 
@@ -58,6 +60,7 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(Reader / Contributor / Approver / 
 | **handover-map** | 15개 판테온 에이전트 전부를 steward에 매핑한 전체. 온보딩 인수인계의 산출물이다. |
 | **maintainer** | FDAI 플랫폼 자체를 책임지는 사람. 최소 1명(hard), 권장 2명(warn). 미매핑 에이전트의 최종 에스컬레이션. |
 | **responsibility (RACI-lite)** | 각 steward 항목은 `accountable` 또는 `informed`로 태깅된다. 모든 에이전트는 `accept_autonomous`가 아닌 한 최소 하나의 `accountable` steward를 가져야 한다. |
+| **duty** | Accountable owner 내부의 schema v2 순서입니다. `primary`, `backup`, `escalation`을 사용하며 informed subject에는 duty가 없습니다. |
 | **accept_autonomous** | 도메인 steward 없이 완전 자율로 도는 에이전트임을 명시적으로 인정하는 것. 에스컬레이션은 maintainer로 폴백한다. `reason`이 필요하다. |
 | **escalation-chain** | 에이전트의 순서 있는 통보 경로: `accountable` steward -> `informed` steward -> maintainer, 홉별 timeout 적용. |
 | **bus-factor** | 어떤 에이전트의 도메인을 아는 서로 다른 `accountable` 사람의 수. bus-factor 1은 추적되는 리스크(warn)다. |
@@ -96,11 +99,12 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(Reader / Contributor / Approver / 
 
 ### 4.1 Config 아티팩트
 
-`config/agent-stewardship.yaml` (fork가 실제 값 공급; upstream은 placeholder 배포):
+`config/agent-stewardship.yaml`에서 새 deployment map은 version 2를 사용합니다. Tracked upstream
+compatibility map은 deployment가 실제로 서로 다른 backup을 공급할 때까지 version 1을 유지합니다.
 
 ```yaml
 stewardship:
-  version: 1
+  version: 2
 
   # FDAI platform owners. Min 1 (fail-fast), rec 2 (warn on 1).
   maintainers:
@@ -118,17 +122,18 @@ stewardship:
     hop_timeout_seconds: 900        # accountable -> informed -> maintainer
 
   # All 15 pantheon agents MUST appear. A subject is a personal OID or an
-  # Entra group objectId; `kind` disambiguates. `responsibility` is
-  # accountable|informed. An agent with no accountable steward MUST set
-  # accept_autonomous with a reason.
+  # Accountable entries declare duty: primary|backup|escalation.
+  # Informed entries have no duty.
   agents:
     Odin:
       stewards:
-        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable, duty: primary }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000001", responsibility: accountable, duty: backup }
         - { kind: group, id: "00000000-0000-0000-0000-000000000000", responsibility: informed }
     Thor:
       stewards:
-        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000000", responsibility: accountable, duty: primary }
+        - { kind: user,  id: "00000000-0000-0000-0000-000000000001", responsibility: accountable, duty: escalation }
     Loki:
       accept_autonomous:
         reason: "Chaos proposals are always HIL; no standing domain owner."
@@ -144,9 +149,21 @@ fork는 YAML을 편집하지 않고 단일 슬롯만 오버라이드할 수 있�
 | Env var | 효과 |
 |---------|------|
 | `FDAI_MAINTAINERS` | 콤마로 구분된 OID들. `maintainers` 리스트를 대체한다. |
-| `FDAI_STEWARD_<AGENT>` | 콤마로 구분된 `user:<oid>` / `group:<oid>` 토큰. 해당 에이전트의 `stewards`를 대체한다. `<AGENT>`는 대문자(`FDAI_STEWARD_THOR`). |
+| `FDAI_STEWARD_<AGENT>` | v2에서는 콤마로 구분된 `kind:<oid>:responsibility:duty` 토큰입니다. v1에서는 responsibility를 생략할 수 있고 duty는 사용하지 않습니다. |
 
-### 4.3 에이전트 이름 정합성
+### 4.3 호환성과 마이그레이션
+
+Loader는 version 1과 2를 허용합니다. v1에서는 첫 accountable subject를 primary, 이후 subject를
+backup으로 유도합니다. Runtime 동작은 유지하지만 `duty_derived`와 두 번째 subject가 없을 때
+`backup_missing` finding을 냅니다. Version 2는 duty를 명시해야 하며, non-autonomous agent에
+primary와 서로 다른 backup 또는 escalation subject가 없으면 거부합니다.
+
+`uv run python scripts/governance/migrate-stewardship-v2.py`를 실행하면 candidate를 stdout으로
+렌더링하며 `--output <new-path>`도 사용할 수 있습니다. 입력 파일은 직접 편집하지 않습니다. 한
+accountable subject만 있는 agent가 있으면 사람을 임의로 선택하지 않고 해당 agent를 나열한 뒤
+중지합니다.
+
+### 4.4 에이전트 이름 정합성
 
 `agents:` 아래 15개 키는 정확히 판테온 이름이어야 한다. `core/stewardship`은 자체 canonical
 `AGENT_NAMES` 튜플을 두고, parity 테스트
@@ -177,9 +194,11 @@ drift할 수 없다. `core/`는 `agents/`를 import하지 않으며(module-bound
 사람이 필요한 에이전트 이벤트(HIL 요청, degraded 상태, 워크플로우 변경 요청)에 대해
 `core/stewardship`은 순서 있는 수신자 리스트를 만든다:
 
-1. 에이전트의 `accountable` steward,
-2. 그다음 `informed` steward,
-3. 그다음 maintainer 집합.
+1. 에이전트의 primary accountable steward,
+2. 그다음 backup accountable steward,
+3. 그다음 domain escalation steward,
+4. 그다음 informed steward,
+5. 그다음 maintainer 집합.
 
 Plan은 각 person tier의 `hop_timeout_seconds` hint를 포함합니다. Stewardship은 recipient ordering을
 소유하지만 human non-response timer를 소유하지 않습니다. Channel delivery failure는 notifications
@@ -213,13 +232,15 @@ notifications matrix는 **channel-id**로 라우팅하지만 steward는 **사람
 
 Hard 에러(`StewardshipValidationError` 발생, 레이어의 clean 부팅 차단):
 
-- `1`이 아닌 schema `version`,
+- `1` 또는 `2`가 아닌 schema `version`,
 - maintainer 1명 미만,
 - duplicate real maintainer OID 또는 duplicate steward subject,
 - `agents:` 블록이 15개 판테온 이름 중 하나라도 누락하거나 알 수 없는 에이전트를 지정,
 - `accountable` steward도 없고 `accept_autonomous`도 없는 에이전트,
 - `reason` 없는 `accept_autonomous`,
 - 잘못된 subject(`kind`가 {user, group}에 없거나 id가 UUID 형태가 아님),
+- v2에서 valid duty가 없는 accountable subject, duty가 있는 informed subject, 또는 primary와
+  서로 다른 backup/escalation coverage가 없는 non-autonomous agent,
 - UUID가 아닌 personal-channel key, malformed environment token, forbidden pantheon role field,
 - `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`일 때 steward나 maintainer id가 all-zero placeholder로
   남아 있습니다. Stewardship map을 binding하는 모든 deployed environment는 이 flag를 명시적으로
@@ -229,6 +250,8 @@ Hard 에러(`StewardshipValidationError` 발생, 레이어의 clean 부팅 차�
 
 - maintainer가 정확히 1명(`maintainer_single`),
 - bus-factor(서로 다른 accountable 사람)가 1인 에이전트(`bus_factor_one`),
+- duty가 유도되는 v1 agent(`duty_derived`, 정보성),
+- 유도된 backup이 없는 v1 agent(`backup_missing`),
 - `N`개 초과 에이전트에 `accountable`인 사람(`over_assigned`, 기본 N=5, 설정 가능),
 - `accept_autonomous`에 의존하는 에이전트(`autonomous_no_steward`, 정보성).
 

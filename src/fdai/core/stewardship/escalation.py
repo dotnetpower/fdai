@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from fdai.core.stewardship.directory import GroupMembershipProvider
-from fdai.core.stewardship.model import StewardKind, StewardshipMap
+from fdai.core.stewardship.model import Duty, StewardKind, StewardshipMap
 from fdai.core.stewardship.names import AGENT_NAME_SET
 
 
@@ -37,6 +37,7 @@ class EscalationRecipient:
     kind: StewardKind
     id: str
     tier: EscalationTier
+    duty: Duty | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,8 +64,8 @@ def build_escalation_plan(mp: StewardshipMap, agent_name: str) -> EscalationPlan
     recipients: list[EscalationRecipient] = []
 
     if not agent.is_autonomous:
-        for s in agent.accountable:
-            recipients.append(EscalationRecipient(s.kind, s.id, EscalationTier.ACCOUNTABLE))
+        for s in (*agent.primary, *agent.backup, *agent.escalation):
+            recipients.append(EscalationRecipient(s.kind, s.id, EscalationTier.ACCOUNTABLE, s.duty))
     for s in agent.informed:
         recipients.append(EscalationRecipient(s.kind, s.id, EscalationTier.INFORMED))
     for oid in mp.maintainer_oids:
@@ -172,13 +173,13 @@ def stakeholders_for_change(
             continue
         agent = mp.agents[name]
         for s in agent.accountable:
-            _add(EscalationRecipient(s.kind, s.id, EscalationTier.ACCOUNTABLE))
+            _add(EscalationRecipient(s.kind, s.id, EscalationTier.ACCOUNTABLE, s.duty))
         for s in agent.informed:
             _add(EscalationRecipient(s.kind, s.id, EscalationTier.INFORMED))
     for oid in mp.maintainer_oids:
         _add(EscalationRecipient(StewardKind.USER, oid, EscalationTier.MAINTAINER))
 
-    return tuple(sorted(seen.values(), key=lambda r: _tier_rank(r.tier)))
+    return tuple(sorted(seen.values(), key=lambda r: (_tier_rank(r.tier), _duty_rank(r.duty))))
 
 
 def _tier_rank(tier: EscalationTier) -> int:
@@ -187,6 +188,15 @@ def _tier_rank(tier: EscalationTier) -> int:
         EscalationTier.INFORMED: 1,
         EscalationTier.MAINTAINER: 2,
     }[tier]
+
+
+def _duty_rank(duty: Duty | None) -> int:
+    return {
+        Duty.PRIMARY: 0,
+        Duty.BACKUP: 1,
+        Duty.ESCALATION: 2,
+        None: 3,
+    }[duty]
 
 
 __all__ = [

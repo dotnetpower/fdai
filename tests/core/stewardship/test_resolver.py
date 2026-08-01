@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from fdai.core.stewardship import (
+    Duty,
     Responsibility,
     StewardKind,
     StewardshipValidationError,
@@ -18,6 +19,7 @@ def test_valid_config_loads(valid_raw: dict) -> None:
     assert len(mp.maintainers) == 2
     assert mp.agents["Loki"].is_autonomous
     assert mp.agents["Thor"].accountable[0].responsibility is Responsibility.ACCOUNTABLE
+    assert mp.agents["Thor"].primary[0].duty is Duty.PRIMARY
 
 
 def test_zero_maintainers_fails(valid_raw: dict) -> None:
@@ -27,8 +29,59 @@ def test_zero_maintainers_fails(valid_raw: dict) -> None:
 
 
 def test_unsupported_version_fails(valid_raw: dict) -> None:
+    valid_raw["stewardship"]["version"] = 3
+    with pytest.raises(StewardshipValidationError, match="'version' MUST be 1 or 2"):
+        load_stewardship_from_mapping(valid_raw)
+
+
+def test_version_two_requires_explicit_duty(valid_raw: dict) -> None:
     valid_raw["stewardship"]["version"] = 2
-    with pytest.raises(StewardshipValidationError, match="'version' MUST be 1"):
+    with pytest.raises(StewardshipValidationError, match="MUST declare 'duty'"):
+        load_stewardship_from_mapping(valid_raw)
+
+
+def test_version_two_requires_backup_or_escalation(valid_raw: dict) -> None:
+    valid_raw["stewardship"]["version"] = 2
+    for agent in valid_raw["stewardship"]["agents"].values():
+        for steward in agent.get("stewards", []):
+            steward["duty"] = "primary"
+    with pytest.raises(StewardshipValidationError, match="requires a distinct backup"):
+        load_stewardship_from_mapping(valid_raw)
+
+
+def test_version_two_loads_primary_and_backup(valid_raw: dict, oid) -> None:
+    valid_raw["stewardship"]["version"] = 2
+    for index, agent in enumerate(valid_raw["stewardship"]["agents"].values()):
+        stewards = agent.get("stewards", [])
+        if not stewards:
+            continue
+        stewards[0]["duty"] = "primary"
+        stewards.append(
+            {
+                "kind": "user",
+                "id": oid(800 + index),
+                "responsibility": "accountable",
+                "duty": "backup",
+            }
+        )
+
+    mp = load_stewardship_from_mapping(valid_raw)
+
+    assert mp.version == 2
+    assert mp.agents["Thor"].primary[0].duty is Duty.PRIMARY
+    assert mp.agents["Thor"].backup[0].duty is Duty.BACKUP
+
+
+def test_informed_subject_rejects_duty(valid_raw: dict, oid) -> None:
+    valid_raw["stewardship"]["agents"]["Thor"]["stewards"].append(
+        {
+            "kind": "user",
+            "id": oid(999),
+            "responsibility": "informed",
+            "duty": "backup",
+        }
+    )
+    with pytest.raises(StewardshipValidationError, match="MUST NOT declare 'duty'"):
         load_stewardship_from_mapping(valid_raw)
 
 
@@ -138,7 +191,7 @@ def test_env_steward_rejects_extra_token_parts(valid_raw: dict, oid) -> None:
     with pytest.raises(StewardshipValidationError, match="MUST be 'user:<oid>'"):
         load_stewardship_from_mapping(
             valid_raw,
-            environ={"FDAI_STEWARD_THOR": f"user:{oid(60)}:accountable:extra"},
+            environ={"FDAI_STEWARD_THOR": f"user:{oid(60)}:accountable:primary:extra"},
         )
 
 

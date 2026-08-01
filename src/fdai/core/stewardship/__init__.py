@@ -45,8 +45,13 @@ from fdai.core.stewardship.escalation import (
     resolve_person_channel,
     stakeholders_for_change,
 )
+from fdai.core.stewardship.migration import (
+    StewardshipMigrationError,
+    migrate_stewardship_mapping_to_v2,
+)
 from fdai.core.stewardship.model import (
     AgentStewardship,
+    Duty,
     Maintainer,
     Responsibility,
     StewardKind,
@@ -73,6 +78,7 @@ __all__ = [
     "AgentStewardship",
     "CHANGE_CATEGORY",
     "CoverageReport",
+    "Duty",
     "EscalationPlan",
     "EscalationRecipient",
     "EscalationTier",
@@ -87,6 +93,7 @@ __all__ = [
     "StewardKind",
     "StewardSubject",
     "StewardshipMap",
+    "StewardshipMigrationError",
     "StewardshipValidationError",
     "StewardshipChangeEvent",
     "StewardshipChangePhase",
@@ -100,6 +107,7 @@ __all__ = [
     "expand_group_recipients",
     "load_stewardship_from_mapping",
     "load_stewardship_from_yaml",
+    "migrate_stewardship_mapping_to_v2",
     "resolve_person_channel",
     "stakeholders_for_change",
 ]

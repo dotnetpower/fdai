@@ -68,7 +68,9 @@ bus-factor 1).
    to a `notifications-matrix.yaml` channel-id.
 3. **Fill the config.** Edit `config/agent-stewardship.yaml`:
    - `maintainers:` 1+ (2 recommended),
-   - each agent's `stewards:` with `kind` / `id` / `responsibility`,
+   - schema v2 and each agent's `stewards:` with `kind` / `id` /
+     `responsibility` / `duty`,
+   - one `primary` plus a distinct `backup` or `escalation` accountable subject,
    - `accept_autonomous: { reason: ... }` for any agent with no accountable human.
 4. **Validate (the verification step).** Work the checklist below until clean.
 5. **Land it as a governance PR.** The console never writes this file directly.
@@ -93,6 +95,9 @@ bus-factor 1).
       raises otherwise; `check-guids.sh` also blocks it).
 - [ ] Every agent is either mapped to an `accountable` steward or explicitly
       `accept_autonomous` with a reason - never silently unowned.
+- [ ] Every non-autonomous v2 agent has a primary plus a distinct backup or
+   escalation subject. Run `uv run python scripts/governance/migrate-stewardship-v2.py`
+   to render a candidate; it stops rather than inventing a missing person.
 - [ ] Two maintainers configured (1 is allowed but flagged).
 - [ ] In a deployment, `GET /stewardship` returns all 15 agents and the latest
    `stewardship_health:current` snapshot is recent.

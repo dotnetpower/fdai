@@ -39,6 +39,14 @@ class Responsibility(StrEnum):
     INFORMED = "informed"
 
 
+class Duty(StrEnum):
+    """Ordered operational duty for an accountable steward."""
+
+    PRIMARY = "primary"
+    BACKUP = "backup"
+    ESCALATION = "escalation"
+
+
 class StewardKind(StrEnum):
     """Whether a steward subject is a single person or an Entra group.
 
@@ -59,6 +67,7 @@ class StewardSubject:
     kind: StewardKind
     id: str
     responsibility: Responsibility
+    duty: Duty | None = None
 
     @property
     def is_accountable(self) -> bool:
@@ -94,6 +103,21 @@ class AgentStewardship:
     def informed(self) -> tuple[StewardSubject, ...]:
         """Informed-tier stewards, in declared order."""
         return tuple(s for s in self.stewards if not s.is_accountable)
+
+    @property
+    def primary(self) -> tuple[StewardSubject, ...]:
+        """Primary accountable owners, in declared order."""
+        return tuple(s for s in self.accountable if s.duty is Duty.PRIMARY)
+
+    @property
+    def backup(self) -> tuple[StewardSubject, ...]:
+        """Backup accountable owners, in declared order."""
+        return tuple(s for s in self.accountable if s.duty is Duty.BACKUP)
+
+    @property
+    def escalation(self) -> tuple[StewardSubject, ...]:
+        """Final domain escalation owners, in declared order."""
+        return tuple(s for s in self.accountable if s.duty is Duty.ESCALATION)
 
     @property
     def accountable_user_ids(self) -> frozenset[str]:
@@ -147,6 +171,7 @@ class StewardshipMap:
 
 __all__ = [
     "AgentStewardship",
+    "Duty",
     "Maintainer",
     "Responsibility",
     "StewardKind",

@@ -32,6 +32,7 @@ import yaml
 
 from fdai.core.stewardship.model import (
     AgentStewardship,
+    Duty,
     Maintainer,
     Responsibility,
     StewardKind,
@@ -47,7 +48,7 @@ _UUID_RE = re.compile(
 _PLACEHOLDER_PREFIX = "00000000-0000-0000-0000-"
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _FORBIDDEN_ROLE_FIELDS = frozenset({"initiators", "judge", "executor", "approver", "auditor"})
-_SUPPORTED_VERSION = 1
+_SUPPORTED_VERSIONS = frozenset({1, 2})
 
 
 def _requires_real_bindings(env: Mapping[str, str]) -> bool:
@@ -99,11 +100,9 @@ def load_stewardship_from_mapping(
             "stewardship config: role fields are forbidden: " + ", ".join(sorted(forbidden))
         )
 
-    version = root.get("version", _SUPPORTED_VERSION)
-    if isinstance(version, bool) or version != _SUPPORTED_VERSION:
-        raise StewardshipValidationError(
-            f"stewardship config: 'version' MUST be {_SUPPORTED_VERSION}"
-        )
+    version = root.get("version", 1)
+    if isinstance(version, bool) or version not in _SUPPORTED_VERSIONS:
+        raise StewardshipValidationError("stewardship config: 'version' MUST be 1 or 2")
 
     maintainers = _parse_maintainers(
         root.get("maintainers"),
@@ -118,6 +117,7 @@ def load_stewardship_from_mapping(
     over_assigned_max = _parse_over_assigned_max(root.get("thresholds"))
     agents = _parse_agents(
         root.get("agents"),
+        version=version,
         env=env,
         require_real_bindings=require_real_bindings,
     )
@@ -217,7 +217,7 @@ def _parse_over_assigned_max(raw: Any) -> int:
 
 
 def _parse_agents(
-    raw: Any, *, env: Mapping[str, str], require_real_bindings: bool
+    raw: Any, *, version: int, env: Mapping[str, str], require_real_bindings: bool
 ) -> dict[str, AgentStewardship]:
     if not isinstance(raw, Mapping):
         raise StewardshipValidationError("stewardship config: 'agents' MUST be a mapping")
@@ -241,6 +241,7 @@ def _parse_agents(
         agents[name] = _parse_one_agent(
             name,
             raw[name],
+            version=version,
             env=env,
             require_real_bindings=require_real_bindings,
         )
@@ -248,7 +249,12 @@ def _parse_agents(
 
 
 def _parse_one_agent(
-    name: str, raw: Any, *, env: Mapping[str, str], require_real_bindings: bool
+    name: str,
+    raw: Any,
+    *,
+    version: int,
+    env: Mapping[str, str],
+    require_real_bindings: bool,
 ) -> AgentStewardship:
     if not isinstance(raw, Mapping):
         raise StewardshipValidationError(f"stewardship config: agent {name!r} MUST be a mapping")
@@ -256,6 +262,7 @@ def _parse_one_agent(
     stewards = _parse_stewards(
         name,
         raw.get("stewards"),
+        version=version,
         env=env,
         require_real_bindings=require_real_bindings,
     )
@@ -282,17 +289,34 @@ def _parse_one_agent(
             "'accept_autonomous'; assign a steward or declare accept_autonomous with a reason"
         )
 
+    if version == 2 and has_accountable:
+        if not any(subject.duty is Duty.PRIMARY for subject in stewards):
+            raise StewardshipValidationError(
+                f"stewardship config: agent {name!r} version 2 requires a primary steward"
+            )
+        if not any(subject.duty in {Duty.BACKUP, Duty.ESCALATION} for subject in stewards):
+            raise StewardshipValidationError(
+                f"stewardship config: agent {name!r} version 2 requires a distinct backup "
+                "or escalation steward"
+            )
+
     return AgentStewardship(agent_name=name, stewards=stewards, accept_autonomous_reason=reason)
 
 
 def _parse_stewards(
-    agent: str, raw: Any, *, env: Mapping[str, str], require_real_bindings: bool
+    agent: str,
+    raw: Any,
+    *,
+    version: int,
+    env: Mapping[str, str],
+    require_real_bindings: bool,
 ) -> tuple[StewardSubject, ...]:
     override = env.get(f"FDAI_STEWARD_{agent.upper()}")
     if override is not None:
         return _parse_steward_env_tokens(
             agent,
             override,
+            version=version,
             require_real_bindings=require_real_bindings,
         )
 
@@ -304,6 +328,7 @@ def _parse_stewards(
         )
     subjects: list[StewardSubject] = []
     seen_subjects: set[tuple[StewardKind, str]] = set()
+    accountable_count = 0
     for i, entry in enumerate(raw):
         if not isinstance(entry, Mapping):
             raise StewardshipValidationError(
@@ -316,29 +341,40 @@ def _parse_stewards(
             require_real_bindings=require_real_bindings,
         )
         resp = _parse_responsibility(agent, i, entry.get("responsibility"))
+        duty = _parse_subject_duty(
+            agent,
+            i,
+            entry.get("duty"),
+            responsibility=resp,
+            version=version,
+            accountable_index=accountable_count,
+        )
+        if resp is Responsibility.ACCOUNTABLE:
+            accountable_count += 1
         subject_key = (kind, oid)
         if subject_key in seen_subjects:
             raise StewardshipValidationError(
                 f"stewardship config: agent {agent!r} has duplicate steward {kind.value}:{oid}"
             )
         seen_subjects.add(subject_key)
-        subjects.append(StewardSubject(kind=kind, id=oid, responsibility=resp))
+        subjects.append(StewardSubject(kind=kind, id=oid, responsibility=resp, duty=duty))
     return tuple(subjects)
 
 
 def _parse_steward_env_tokens(
-    agent: str, override: str, *, require_real_bindings: bool
+    agent: str, override: str, *, version: int, require_real_bindings: bool
 ) -> tuple[StewardSubject, ...]:
     subjects: list[StewardSubject] = []
+    accountable_count = 0
     for raw_tok in override.split(","):
         tok = raw_tok.strip()
         if not tok:
             continue
         parts = tok.split(":")
-        if len(parts) not in (2, 3):
+        if len(parts) not in (2, 3, 4):
             raise StewardshipValidationError(
                 f"FDAI_STEWARD_{agent.upper()}: token {tok!r} MUST be 'user:<oid>' or "
-                "'group:<oid>' (optionally ':accountable'/':informed')"
+                "'group:<oid>' (optionally ':accountable|informed[:primary|backup|escalation]')"
             )
         kind = _parse_kind(agent, -1, parts[0])
         oid = _validate_oid(
@@ -351,8 +387,54 @@ def _parse_steward_env_tokens(
             if len(parts) >= 3
             else Responsibility.ACCOUNTABLE
         )
-        subjects.append(StewardSubject(kind=kind, id=oid, responsibility=resp))
+        duty = _parse_subject_duty(
+            agent,
+            -1,
+            parts[3] if len(parts) == 4 else None,
+            responsibility=resp,
+            version=version,
+            accountable_index=accountable_count,
+        )
+        if resp is Responsibility.ACCOUNTABLE:
+            accountable_count += 1
+        subjects.append(StewardSubject(kind=kind, id=oid, responsibility=resp, duty=duty))
     return tuple(subjects)
+
+
+def _parse_subject_duty(
+    agent: str,
+    idx: int,
+    value: Any,
+    *,
+    responsibility: Responsibility,
+    version: int,
+    accountable_index: int,
+) -> Duty | None:
+    if responsibility is Responsibility.INFORMED:
+        if value is not None:
+            raise StewardshipValidationError(
+                f"stewardship config: agent {agent!r} steward[{idx}] informed subjects "
+                "MUST NOT declare 'duty'"
+            )
+        return None
+    if version == 1:
+        if value is not None:
+            raise StewardshipValidationError(
+                f"stewardship config: agent {agent!r} steward[{idx}] 'duty' requires version 2"
+            )
+        return Duty.PRIMARY if accountable_index == 0 else Duty.BACKUP
+    if value is None:
+        raise StewardshipValidationError(
+            f"stewardship config: agent {agent!r} steward[{idx}] accountable subjects "
+            "MUST declare 'duty' in version 2"
+        )
+    try:
+        return Duty(value)
+    except ValueError as exc:
+        raise StewardshipValidationError(
+            f"stewardship config: agent {agent!r} steward[{idx}] 'duty' MUST be "
+            f"'primary', 'backup', or 'escalation', got {value!r}"
+        ) from exc
 
 
 def _parse_kind(agent: str, idx: int, value: Any) -> StewardKind:

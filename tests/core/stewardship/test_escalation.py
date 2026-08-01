@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fdai.core.stewardship import (
+    Duty,
     EscalationTier,
     StaticGroupMembershipProvider,
     affected_agents_from_stewardship_change,
@@ -21,6 +22,17 @@ def test_mapped_agent_chain_is_accountable_then_maintainer(valid_raw: dict) -> N
     assert tiers[0] is EscalationTier.ACCOUNTABLE
     assert EscalationTier.MAINTAINER in tiers
     assert plan.hop_timeout_seconds == 900
+
+
+def test_accountable_chain_orders_primary_before_backup(valid_raw: dict, oid) -> None:
+    valid_raw["stewardship"]["agents"]["Thor"]["stewards"].append(
+        {"kind": "user", "id": oid(700), "responsibility": "accountable"}
+    )
+
+    plan = build_escalation_plan(load_stewardship_from_mapping(valid_raw), "Thor")
+    accountable = plan.tier(EscalationTier.ACCOUNTABLE)
+
+    assert [recipient.duty for recipient in accountable] == [Duty.PRIMARY, Duty.BACKUP]
 
 
 def test_autonomous_agent_chain_is_maintainer_only(valid_raw: dict) -> None:
