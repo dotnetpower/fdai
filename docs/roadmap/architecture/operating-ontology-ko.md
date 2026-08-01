@@ -1,30 +1,32 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 11d3d7a150f45c8ae5d521cccc12a07cc6cbc8eb
+translation_source_sha: 52a8fc2d47574485ea2c3559e020084f4d390f4a
 translation_revised: 2026-08-01
 ---
 # FDAI 운영 온톨로지
 
-이 문서는 FDAI의 15개 에이전트가 공유하는 운영 의미를 정의합니다. FDAI는 클라우드 운영
-도메인에 특화되지만 cloud-provider-neutral하고 customer-agnostic하게 유지됩니다. Upstream은
-안정적인 운영 개념을 소유하고, 각 deployment는 service map, objective, budget, evidence,
-resource instance를 제공합니다.
+이 문서는 FDAI의 15개 에이전트가 사용하는 typed operational truth infrastructure를 정의합니다.
+Active control plane은 에이전트이며, 온톨로지는 target identity, dependency, objective, evidence,
+허용 action, expected effect의 해석이 서로 달라지지 않도록 제한합니다. Upstream은 안정적인
+cloud-operations 개념을 소유하고 deployment는 observed instance와 intent를 제공합니다.
+
+> **Positioning:** FDAI는 agent-driven이며 ontology-driven이 아닙니다. Graph는 해석을 제한하고
+> agent work를 replay 가능하게 하지만 sensing, judgment, approval, execution, recovery, learning을
+> 수행하지 않습니다.
 
 > **권한 경계:** 온톨로지 graph는 공유 semantic read model이며 mutable system of record 또는
 > execution surface가 아닙니다. Event, 승인된 configuration, telemetry source, append-only audit
 > ledger, catalog-as-code는 각자 소유한 사실의 authority로 유지됩니다.
 >
 > **안전 경계:** Ontology context는 autonomy를 유지하거나 낮출 수만 있습니다. 누락되거나
-> 오래되거나 충돌하거나 입증되지 않은 context는 결정을 검토 대기로 보냅니다. 실행 권한을
-> 제공하지 않습니다.
+> 오래되거나 충돌하거나 입증되지 않은 context는 unknown으로 남고 bounded evidence recovery,
+> 더 작은 safe plan, no-op 또는 review를 유발합니다. 실행 권한을 제공하지 않습니다.
 >
-> **구현 상태(2026-08-01):** O1 semantic-spine declaration과 competency query, O2 immutable
-> context materialization 및 Forseti ceiling wiring, O3/O4 공유 decision-case selection과 response
-> closure, operational-learning O2의 Muninn/Norns fingerprint cohort intake를 구현했습니다.
-> Mimir behavior와 catalog compilation은 변경하지 않았습니다. Bounded JSON
-> `OperatingModelProvider`가 startup에서 deployment instance를 project할 수 있으며, Reader-gated
-> ontology projection에서 revision과 aggregate count를 확인할 수 있습니다.
+> **구현 상태(2026-08-01):** O1-O4는 semantic declaration, immutable context, Forseti ceiling
+> wiring, decision-case selection, response closure, Muninn/Norns learning intake를 구현합니다.
+> `OperatingModelProvider`는 bounded deployment instance를 project하고 context snapshot은 typed
+> evidence path, revision, effective time, provenance, complete freshness receipt를 보존합니다.
 
 ## 한눈에 보는 설계
 

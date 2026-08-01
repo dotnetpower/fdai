@@ -1,15 +1,15 @@
 ---
-title: FDAI 운영 온톨로지 플랫폼
+title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: e0ba023b09d36982d201ca99c69365dcacd23954
+translation_source_sha: a13d28d9a8714c0de61a45ba87ecd5a39b44e827
 translation_revised: 2026-08-01
 ---
-# FDAI 운영 온톨로지 플랫폼
+# FDAI 온톨로지 안전 인프라
 
-이 문서는 운영 온톨로지를 공유 semantic graph에서 typed developer 및 execution platform으로
-확장합니다. FDAI의 governed action pipeline을 유지하면서 object polymorphism, bounded object set,
-semantic action effect, typed function, authority-aware writeback, exact schema pinning, generated
-SDK surface를 추가합니다.
+이 문서는 운영 온톨로지를 FDAI 에이전트를 위한 typed infrastructure layer로 확장합니다. Object
+polymorphism, bounded object set, semantic action effect, typed function, authority-aware writeback,
+exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime transition은 여전히
+에이전트가 소유하며 이 primitive는 input, plan, effect verification을 제한합니다.
 
 > **권한 경계:** 관측된 provider state는 projection으로 유지됩니다. Action은 provider, Git,
 > ledger 또는 FDAI-owned state change를 요청할 수 있지만 ontology graph를 편집하여 외부 사실을
@@ -40,8 +40,10 @@ SDK surface를 추가합니다.
 
 ## 한눈에 보는 설계
 
-Platform은 semantic declaration, authority-specific state, kinetic execution을 분리합니다. Graph
-write가 execution authority가 되지 않으면서 application이 ontology를 사용할 수 있습니다.
+Infrastructure는 semantic declaration, authority-specific state, agent-owned kinetic execution을
+분리합니다. Graph write, function result, generated SDK call 또는 `MutationPlan`은 accountable agent가
+judgment, authorization, execution, independent effect verification을 완료할 때까지 proposal 또는
+context로 유지됩니다.
 
 ```mermaid
 flowchart LR

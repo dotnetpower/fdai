@@ -3,28 +3,26 @@ title: FDAI Operating Ontology
 ---
 # FDAI Operating Ontology
 
-This document defines the shared operating meaning used by FDAI's 15 agents. FDAI is specialized
-for cloud operations while remaining cloud-provider-neutral and customer-agnostic: the upstream
-owns stable operational concepts, and each deployment supplies its service map, objectives,
-budgets, evidence, and resource instances.
+This document defines the typed operational truth infrastructure used by FDAI's 15 agents. Agents
+remain the active control plane; the ontology prevents them from disagreeing about target identity,
+dependencies, objectives, evidence, allowed actions, and expected effects. Upstream owns stable
+cloud-operations concepts, while each deployment supplies its observed instances and intent.
+
+> **Positioning:** FDAI is agent-driven, not ontology-driven. The graph constrains interpretation
+> and makes agent work replayable; it never senses, judges, approves, executes, recovers, or learns.
 
 > **Authority boundary:** The ontology graph is a shared semantic read model, not a mutable system
 > of record and not an execution surface. Events, approved configuration, telemetry sources, the
 > append-only audit ledger, and catalog-as-code remain authoritative for their own facts.
 >
 > **Safety boundary:** Ontology context can only preserve or lower autonomy. Missing, stale,
-> conflicting, or unproven context holds a decision for review. It never supplies permission to
-> execute.
+> conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
+> recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.
 >
-> **Implementation status (2026-08-01):** O1 semantic-spine declarations and competency queries,
-> O2 immutable context materialization and Forseti ceiling wiring, O3/O4 shared decision-case
-> selection and response closure, and operational-learning O2 fingerprint cohort intake through
-> Muninn and Norns are implemented. Mimir behavior and catalog compilation remain unchanged. A
-> bounded JSON `OperatingModelProvider` can project deployment instances at startup;
-> its revision and aggregate counts are available through the Reader-gated ontology projection.
-> Context snapshots preserve deterministic typed evidence paths, object revisions, effective-time
-> intervals, allowlisted provenance refs, and complete source-freshness receipts without copying
-> raw object properties.
+> **Implementation status (2026-08-01):** O1-O4 implement semantic declarations, immutable context,
+> Forseti ceiling wiring, decision-case selection, response closure, and Muninn/Norns learning
+> intake. `OperatingModelProvider` projects bounded deployment instances; context snapshots retain
+> typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
 
 ## Design at a glance
 

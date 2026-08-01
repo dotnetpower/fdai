@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 267cde27a50a012c2c6687796ba086c5599c1ca7
-translation_revised: 2026-07-29
+translation_source_sha: a0cf2892ba5373cd2a37d9b38b81676df04b704f
+translation_revised: 2026-08-01
 ---
 
 # FDAI 아키텍처
@@ -398,7 +398,7 @@ flowchart TB
 |-------------|------|
 | 수준별로 판단 방식을 고르는 기준 | [결정론 우선](concepts/deterministic-first-ko.md) |
 | 작업이 자동 실행, 승인 필요, 거부로 나뉘는 기준 | [신뢰 수준](concepts/risk-tiers-ko.md) |
-| 타입이 정의된 작업과 워크플로의 위치 | [온톨로지 기반 자동화](concepts/ontology-driven-automation-ko.md) |
+| 타입이 정의된 작업과 워크플로의 위치 | [에이전트 기반 자동화](concepts/ontology-driven-automation-ko.md) |
 | 각 에이전트가 책임을 나누는 방식 | [에이전트와 자가 복구](concepts/agents-and-self-healing-ko.md) |
 | Azure 리소스를 안전하게 준비하는 방법 | [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md) |
 | 운영자가 인시던트에 대응하는 방법 | [SRE 런북](../runbooks/README-ko.md) |

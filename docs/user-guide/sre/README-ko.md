@@ -2,8 +2,8 @@
 title: 사이트 신뢰성 엔지니어링
 description: 신호와 인시던트부터 대응, 복구, 학습까지 이어지는 FDAI의 SRE 운영 모델입니다.
 translation_of: README.md
-translation_source_sha: 7d4e26e1b6248898a07570ee26a4cbd25a95f20c
-translation_revised: 2026-07-27
+translation_source_sha: 982a74ca85f5a3c24245eac3035278022b16355c
+translation_revised: 2026-08-01
 ---
 
 # 사이트 신뢰성 엔지니어링
@@ -137,7 +137,7 @@ FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. provider
 | 학습 대상 | 문서 |
 |-----------|------|
 | FDAI가 T0, T1, T2를 선택하는 방법 | [신뢰 티어](../concepts/risk-tiers-ko.md) |
-| 액션이 안전 계약을 상속하는 방법 | [온톨로지 기반 자동화](../concepts/ontology-driven-automation-ko.md) |
+| 에이전트가 action safety contract를 적용하는 방법 | [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) |
 | 복구가 제품 기능이 되는 방법 | [회복탄력성](../capabilities/resilience-ko.md) |
 | 증거 추적을 검사하는 방법 | [감사 로그 읽기](../guides/read-audit-log-ko.md) |
 | 승인 요청에 응답이 없을 때의 동작 | [에스컬레이션과 상시 권한](../../roadmap/decisioning/escalation-and-standing-authority-ko.md) |

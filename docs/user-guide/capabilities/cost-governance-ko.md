@@ -2,7 +2,7 @@
 title: 비용 거버넌스
 description: FDAI가 지출 이상을 감지하고, 라이트사이징을 권장하고, 저위험 정리를 스스로 실행하는 방법입니다. 위험한 비용 변경은 승인을 기다립니다.
 translation_of: cost-governance.md
-translation_source_sha: 3c9fbbc6bbf68d0c1007dfcf6e68b507eebaf7b2
+translation_source_sha: 0ce29ffbf362b4ebb7d424a861e78a02f14972ca
 translation_revised: 2026-08-01
 ---
 
@@ -23,6 +23,14 @@ FDAI는 다른 운영 신호를 관찰할 때와 같은 방식으로 클라우�
   같은 저위험 작업은 롤백 경로와 함께 스스로 실행됩니다.
 - **위험한 비용 변경은 여러분을 기다립니다.** 안전 임계값을 넘는 작업은 모두 사람
   승인으로 가며 자동 적용되지 않습니다.
+
+## 에이전트가 비용을 통제하는 방법
+
+Njord는 cost anomaly와 recommendation을 소유하지만 advisory로 유지됩니다. Forseti가 proposed
+response를 판단하고 Odin은 cost를 reliability 및 capacity objective와 중재합니다. Var는 필수 사람
+승인을 소유하고 Thor만 실행하며 Heimdall은 realized utilization과 cost effect를 독립 검증하고 Vidar는
+recovery를 통제하며 Saga는 outcome을 기록합니다. Cost evidence는 스스로 execution authority를 만들지
+못합니다.
 
 ## 비용 작업이 적용 모드에 도달하는 방법
 

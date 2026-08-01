@@ -85,5 +85,5 @@ stale inventory, wider impact scope, or envelope mismatch ends as a no-op.
 |----------------|------|
 | How evidence is gathered | [Triage and investigation](triage-and-investigation.md) |
 | How approval routes are selected | [On-call and escalation](on-call-and-escalation.md) |
-| How typed actions remain safe | [Ontology-driven automation](../concepts/ontology-driven-automation.md) |
+| How typed actions remain safe | [Agent-driven automation](../concepts/ontology-driven-automation.md) |
 | Operator procedures | [SRE runbooks](../../runbooks/README.md) |

@@ -17,10 +17,14 @@ links every claim to a repository artifact or a fork-supplied evidence binding.
 
 ## Design at a glance
 
-FDAI is a headless, event-driven control plane with a read-only console and GitOps/ChatOps delivery.
-It resolves repeatable events with T0 deterministic rules and T1 similarity reuse, and sends only
-ambiguous cases to T2 grounded reasoning. Every proposed mutation passes the risk gate, carries a
-stop condition, rollback contract, blast-radius limit, and audit record, and starts in shadow mode.
+FDAI is an agent-driven, headless control plane with a non-privileged console and GitOps/ChatOps
+delivery. Fifteen fixed agents own sensing, judgment, arbitration, approval, execution, verification,
+recovery, audit, and learning through typed pub/sub. The operating ontology is supporting truth and
+safety infrastructure; it constrains agent interpretation but never grants authority or acts.
+
+Repeatable events use T0 deterministic rules and T1 verified reuse; only residual ambiguity reaches
+T2 grounded reasoning. Every mutation passes the risk gate, carries stop, rollback, impact, audit,
+and independent effect-verification contracts, and starts in shadow mode.
 
 FDAI calls this **[Outcome-Driven Token Economics](llm-strategy.md#cost-controls)**:
 maximize verified operational value while minimizing model calls, tokens, latency, and cost by using
@@ -94,7 +98,10 @@ python3 scripts/governance/check-arb-readiness.py --require-production-ready
 
 | Requirement | Design response | Verification source |
 |-------------|-----------------|---------------------|
+| Agent-owned closed loop | one accountable agent owns each observe, decide, plan, execute, verify, recover, and learn transition | pantheon parity, topic ownership, and lifecycle tests |
 | Deterministic-first decisions | T0 exact rules, then T1 reuse, then quality-gated T2 | tier tests and frozen scenario set |
+| Contract-conformant accuracy | wrong-target, unauthorized, policy-escape, and unverified-success outcomes remain zero | guard metrics and outcome receipts |
+| Minimum human intervention | evidence recovery, reevaluation, smaller safe plan, no-op, and rollback precede human review | touchpoint metrics and escalation traces |
 | No ungated autonomous mutation | unified risk gate and role-bound executor | risk-gate property tests and audit evidence |
 | Separation of duties | requester, approver, judge, and executor are distinct principals | RBAC configuration and HIL tests |
 | Retry safety | stable idempotency key and per-resource serialization | idempotency and replay tests |

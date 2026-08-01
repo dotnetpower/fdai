@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 85e18e80632c84dd8160a1ddbc4384e853c652b1
+translation_source_sha: 9771e867712464ed0694e873075b65a8ef2ee8db
 translation_revised: 2026-08-01
 ---
 
@@ -13,6 +13,9 @@ translation_revised: 2026-08-01
 모듈 이름과 컨트롤 루프는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 를
 따릅니다.
+Control plane은 agent-driven입니다. 고정된 15개 에이전트가 typed event를 통해 sensing, judgment,
+arbitration, approval, execution, verification, recovery, audit, learning을 소유합니다. Core module은
+해당 capability를 구현하며 두 번째 central orchestrator를 만들지 않습니다.
 
 ## 모노레포 레이아웃
 

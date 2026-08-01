@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 32bce00b96fdba72ad13425adbe6f1117f50c210
+translation_source_sha: e7c642c7b528cacb429480e063dcbc5ec66a9cf6
 translation_revised: 2026-08-01
 ---
 # FDAI 로드맵
@@ -49,7 +49,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | tier별 모델 선택, mixed-model 게이트, 추상화 |
 | 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | Service, workload, objective, decision, effect, agent ownership, 통제된 확장을 위한 공유 cloud-operations 의미 |
 | 5b | [outcome-assurance-ko.md](architecture/outcome-assurance-ko.md) | FDAI의 세 vertical을 대상으로 하는 운영 준비도, 목표 정렬, 통제 보증 projection |
-| 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | Exact ontology release, semantic interface, bounded object set, mutation plan, typed function, reconciliation, generated SDK |
+| 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | Agent-supporting ontology safety infrastructure: exact release, bounded object set, mutation plan, typed function, reconciliation, SDK |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 identity, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | Canonical ARB 패킷: 결정 경계, evidence contract, owner, dependency, production 종료 gate |
@@ -109,13 +109,13 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 19i | [benchmark-adapters-ko.md](interfaces/benchmark-adapters-ko.md) | 브랜드 중립 external harness contract, installed-plugin injection, provider binding, bounded lifecycle 및 benchmark authority 경계 |
 | 20 | [action-ontology-ko.md](decisioning/action-ontology-ko.md) | ActionType 스키마 (remediation + ops + governance), trigger 축, tier / role / prod / live-probe 상한, fork override seam |
 | 21 | [execution-model-ko.md](decisioning/execution-model-ko.md) | 통합 RiskGate, 6-axis authority 매트릭스, 3개 executor 경로 (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit 블록 |
-| 21a | [recovery-and-chaos-enforcement-ko.md](decisioning/recovery-and-chaos-enforcement-ko.md) | Ontology 기반 recovery plan, impact envelope, pre-authorized rollback, impact-gated chaos enforcement |
+| 21a | [recovery-and-chaos-enforcement-ko.md](decisioning/recovery-and-chaos-enforcement-ko.md) | typed plan, impact envelope, pre-authorized rollback, continuous chaos guard로 제한되는 agent-executed recovery |
 
 ### 에이전트 조직
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
-| 22 | [agent-pantheon-ko.md](agents/agent-pantheon-ko.md) | 온톨로지 first-class citizen 으로 고정된 15개 판테온 (Odin / Thor / Forseti / ...): 조직도, single-writer topic, two-port 모델 (typed pub/sub + conversational NL), fingerprint dedup 이 붙은 NL query 오케스트레이션, 사용자별 컨텍스트, 확장된 ActionType 역할 (initiator / judge / approver / executor / auditor), lifecycle 상태 머신, Heimdall 기반 권한 초과 감시 |
+| 22 | [agent-pantheon-ko.md](agents/agent-pantheon-ko.md) | 고정된 15-agent control-plane 조직: closed-loop ownership, ontology-constrained accuracy, single-writer topic, typed pub/sub, conversational port, ActionType role, bounded human escalation |
 | 22a | [bounded-task-workers-ko.md](agents/bounded-task-workers-ko.md) | 고정 Pantheon 밖의 격리된 depth-one 읽기 전용 조사: capability 축소, 제한된 lifecycle, 영구 branch record, 신뢰되지 않은 parent synthesis, GET-only projection |
 | 22b | [background-task-sessions-ko.md](interfaces/background-task-sessions-ko.md) | 영구 detached operator 조사: 즉시 생성, lease/CAS ownership, 제한된 progress, process-loss reconciliation, conversation handoff, delivery 경계 |
 | 22c | [busy-input-modes-ko.md](interfaces/busy-input-modes-ko.md) | active web, Slack, Teams conversation을 위한 channel-neutral 영구 queue, interrupt, safe-boundary steer mode |

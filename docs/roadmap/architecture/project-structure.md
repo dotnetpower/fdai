@@ -8,6 +8,9 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 The repository layout mirrors that shape and keeps the core engine UI-agnostic and portable.
 Module names and the control loop follow
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
+The control plane is agent-driven: 15 fixed agents own sensing, judgment, arbitration, approval,
+execution, verification, recovery, audit, and learning through typed events. Core modules implement
+those owned capabilities; they do not form a second central orchestrator.
 
 ## Monorepo Layout
 

@@ -1,27 +1,27 @@
 ---
-title: Ontology-driven automation
-description: How FDAI connects typed operational meaning to governed automation through ObjectType, LinkType, and ActionType declarations.
+title: Agent-driven automation
+description: How FDAI agents use typed operational truth and ActionType safety contracts to automate cloud operations.
 sidebar:
   order: 4
 ---
 
-# Ontology-driven automation
+# Agent-driven automation
 
-FDAI uses an **ontology**, a typed model of operational concepts and their relationships, to give
-its agents one shared meaning for services, resources, objectives, evidence, decisions, and
-actions. The ontology connects that meaning to governed automation without turning the graph
-itself into an execution surface.
+FDAI's agents run cloud operations. They observe, judge, plan, approve, execute, verify, recover,
+audit, and learn through typed events. The **ontology** is their shared correctness infrastructure:
+it defines the services, resources, objectives, evidence, relationships, and allowed actions that
+agents may use without turning the graph itself into an actor or execution surface.
 
-This page explains the three declaration types, how deployment instances form an operating model,
-and how an `ActionType` becomes an audited action.
+This page explains how agents use three declaration types, how deployment observations become
+bounded context, and how an `ActionType` proposal travels through the governed control loop.
 
 > **Authority boundary:** The ontology is a semantic read model. Events, approved configuration,
 > telemetry providers, catalog-as-code, and the append-only audit ledger remain authoritative for
 > their own facts.
 >
 > **Safety boundary:** Ontology context can preserve or lower autonomy. Missing, stale,
-> conflicting, or unproven context holds a decision for review and never grants execution
-> permission.
+> conflicting, or unproven context triggers bounded evidence recovery, a smaller safe plan, no-op,
+> or review and never grants execution permission.
 
 ## What the ontology contains
 

@@ -1,30 +1,31 @@
 ---
-title: 온톨로지 기반 자동화(Ontology-driven automation)
-description: FDAI가 ObjectType, LinkType, ActionType 선언으로 형식화된 운영 의미와 통제된 자동화를 연결하는 방식을 설명합니다.
+title: 에이전트 기반 자동화(Agent-driven automation)
+description: FDAI 에이전트가 typed operational truth와 ActionType 안전 계약으로 cloud operations를 자동화하는 방식을 설명합니다.
 translation_of: ontology-driven-automation.md
-translation_source_sha: 62be9d280b43b791e8c43669b3a92dab866d2a66
-translation_revised: 2026-07-31
+translation_source_sha: 7a0133f9e151156157fcda358717f795b451675b
+translation_revised: 2026-08-01
 sidebar:
   order: 4
 ---
 
-# 온톨로지 기반 자동화(Ontology-driven automation)
+# 에이전트 기반 자동화(Agent-driven automation)
 
-FDAI는 운영 개념과 관계를 타입으로 표현한 모델인 **온톨로지**를 사용하여 서비스,
-리소스, 목표, 근거, 결정, 작업에 대해 모든 에이전트가 같은 의미를 공유하게 합니다.
-온톨로지는 이 의미를 통제된 자동화와 연결하지만, 그래프 자체를 실행 표면으로 만들지는
-않습니다.
+FDAI의 에이전트가 cloud operations를 수행합니다. 에이전트는 typed event로 관측, 판단, 계획,
+승인, 실행, 검증, 복구, 감사, 학습을 수행합니다. **온톨로지**는 에이전트의 공유 정확성
+인프라입니다. 에이전트가 사용할 service, resource, objective, evidence, relationship, 허용
+action을 정의하지만 graph 자체를 actor 또는 execution surface로 만들지 않습니다.
 
-이 페이지에서는 세 가지 선언 타입, 배포 인스턴스가 운영 모델을 구성하는 방식,
-`ActionType`이 감사 가능한 작업이 되는 과정을 설명합니다.
+이 페이지에서는 에이전트가 세 가지 declaration type을 사용하는 방식, deployment observation이
+bounded context가 되는 방식, `ActionType` proposal이 governed control loop를 통과하는 과정을
+설명합니다.
 
 > **권한 경계:** 온톨로지는 의미를 제공하는 읽기 모델입니다. 이벤트, 승인된 구성,
 > 텔레메트리 provider, catalog-as-code, 추가 전용 감사 원장은 각자 담당하는 사실의
 > 권위 있는 원본으로 유지됩니다.
 >
 > **안전 경계:** 온톨로지 컨텍스트는 자율성을 유지하거나 낮출 수만 있습니다. 컨텍스트가
-> 누락되거나 오래됐거나 충돌하거나 근거가 부족하면 결정을 검토 대기로 전환하며, 실행
-> 권한을 부여하지 않습니다.
+> 누락되거나 오래됐거나 충돌하거나 근거가 부족하면 bounded evidence recovery, 더 작은 safe
+> plan, no-op 또는 review를 유발하며 실행 권한을 부여하지 않습니다.
 
 ## 온톨로지의 구성
 

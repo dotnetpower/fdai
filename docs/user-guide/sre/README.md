@@ -144,7 +144,7 @@ already valid.
 | To learn about | Read |
 |----------------|------|
 | How FDAI chooses T0, T1, or T2 | [Trust tiers](../concepts/risk-tiers.md) |
-| How actions inherit safety contracts | [Ontology-driven automation](../concepts/ontology-driven-automation.md) |
+| How agents apply action safety contracts | [Agent-driven automation](../concepts/ontology-driven-automation.md) |
 | How recovery becomes a product capability | [Resilience](../capabilities/resilience.md) |
 | How to inspect the evidence trail | [Read the audit log](../guides/read-audit-log.md) |
 | What happens when approval receives no answer | [Escalation and standing authority](../../roadmap/decisioning/escalation-and-standing-authority.md) |

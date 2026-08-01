@@ -2,7 +2,7 @@
 title: 변경 안전성
 description: FDAI가 제안된 모든 변경을 안전하게 유지하는 방법 - 정책 게이트, 리스크 분류, 감사 가능한 pull request 전달.
 translation_of: change-safety.md
-translation_source_sha: 414c892a2d534041c6f986bf1a8d21fb72f880b6
+translation_source_sha: be993ba0f2ee83841139d5c439406e6b865adfbe
 translation_revised: 2026-08-01
 ---
 
@@ -23,6 +23,13 @@ IaC(코드형 인프라) pull request, 드리프트된 구성, 정책 위반 등
   고위험 변경을 사람 승인으로 라우팅합니다.
 - **감사와 롤백은 기본 제공됩니다.** 액션은 수정 pull request로 전달되므로,
   변경 기록과 롤백 경로가 이미 Git 안에 있습니다.
+
+## 에이전트가 변경을 안전하게 유지하는 방법
+
+Huginn은 change signal을 normalize하고 Heimdall은 drift를 감지합니다. Forseti가 decision을 소유하고
+Odin은 reliability, capacity, cost objective conflict를 중재합니다. Var는 필수 사람 승인을 소유하고
+Thor만 실행하며 Heimdall은 observed effect를 검증하고 Vidar는 recovery를 통제하며 Saga는 모든 terminal
+path를 기록합니다. Ontology declaration이나 conversation은 이 owner를 우회할 수 없습니다.
 
 ## FDAI가 변경을 안전하게 유지하는 방법
 
@@ -63,6 +70,6 @@ IaC(코드형 인프라) pull request, 드리프트된 구성, 정책 위반 등
 
 - [결정론 우선](../concepts/deterministic-first-ko.md) - 반복 가능한 대다수가 규칙 기반으로 남는 이유.
 - [리스크 티어](../concepts/risk-tiers-ko.md) - 변경이 자동 실행, 사람 승인, 거부로 갈리는 방식.
-- [온톨로지 기반 자동화](../concepts/ontology-driven-automation-ko.md) - 변경이 만들어 내는 타입 지정 작업.
+- [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) - 에이전트가 변경에 typed safety contract를 사용하는 방식.
 - [변경 승인](../guides/approve-change-ko.md) - 사람 승인의 운영자 측면.
 - [배포와 온보딩](../../roadmap/deployment/deploy-and-onboard-ko.md) - FDAI를 환경에 도입하는 방법.

@@ -21,6 +21,29 @@ deterministically (T0/T1) and reserving LLM inference (T2) for the residual ambi
 minority, **without regressing the guard metrics**. Autonomy that improves a success metric
 while degrading a guard metric is a failure, not a win.
 
+### Accuracy contract
+
+FDAI does not claim that every novel diagnosis is correct. It targets **100% contract-conformant
+behavior**: an agent either produces a schema-valid, evidence-supported, authorized result or
+records an explicit unknown, no-op, denial, rollback, or human-review outcome. The platform target
+is zero unsafe guesses, not forced answers.
+
+The following violations have a release threshold of exactly zero:
+
+- action against the wrong object identity or stale target revision;
+- execution outside the registered ActionType, standing authority, or impact scope;
+- success claimed from a broker/API receipt without independent effect verification;
+- external state asserted from an ontology write rather than an authoritative observation;
+- learning output that raises authority without review and promotion evidence.
+
+### Autonomy before human review
+
+An unresolved event does not immediately become a human task. Within its bounded deadline, FDAI
+tries fresh evidence acquisition, an alternate authoritative source, deterministic reevaluation,
+verified pattern reuse, a smaller safe plan, no-op, or pre-authorized recovery. Human review begins
+only when ambiguity remains, policy mandates approval, or risk exceeds standing authority. Every
+attempt shares the event correlation and contributes no additional human touchpoint.
+
 ## Definitions
 
 Terms used across all metrics, fixed here to avoid ambiguity:
@@ -42,6 +65,9 @@ Terms used across all metrics, fixed here to avoid ambiguity:
   observation with enforce mode, passed verification, an auto decision, and no rollback.
 - **Measurement window**: the fixed observation period per run (default: 30 days rolling, or
   one full scenario-set replay), stated with every reported figure.
+- **Contract-conformant outcome**: one terminal result whose target, evidence, authority, action,
+  effect verification, and audit records satisfy their exact versioned contracts. An explicit
+  unknown or safe no-op is conformant; an unsupported success is not.
 
 ## Success Metrics
 
@@ -76,6 +102,9 @@ has an explicit threshold, not just a direction.
 | False-negative rate | missed true events ÷ true events | ≤ baseline; alert if > baseline + 1pp |
 | Rollback rate | actions rolled back ÷ actions executed | ≤ baseline rollback rate |
 | Policy-violation escapes | autonomous actions that violate policy and reach enforce | **exactly 0** (any escape blocks release) |
+| Wrong-target or stale-revision execution | actions applied to a different object or revision than the approved plan | **exactly 0** |
+| Unauthorized execution | actions outside registered type, identity, standing authority, or impact scope | **exactly 0** |
+| Unverified success claims | actions reported successful without independent expected-effect closure | **exactly 0** |
 
 Thresholds are evaluated on the same measurement window and scenario-set version as the success
 metrics, so a gain and a guard breach are never compared across different data.

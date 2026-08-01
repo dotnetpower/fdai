@@ -2,8 +2,8 @@
 title: 대응 계획과 완화
 description: FDAI가 action pipeline을 우회하지 않고 incident response plan을 작성, 사전 테스트, 승인, 라우팅하는 방법입니다.
 translation_of: response-plans-and-mitigation.md
-translation_source_sha: dc86ae0d110cae21426fc19cb48d83fa559bf244
-translation_revised: 2026-07-22
+translation_source_sha: ef4294e37c447489a7f6298e940eb98e1391468a
+translation_revised: 2026-08-01
 ---
 
 # 대응 계획과 완화
@@ -83,5 +83,5 @@ Expired authorization, stale inventory, 넓어진 영향 범위, envelope mismat
 |-----------|------|
 | 증거를 수집하는 방법 | [분류와 조사](triage-and-investigation-ko.md) |
 | 승인 경로를 선택하는 방법 | [온콜과 에스컬레이션](on-call-and-escalation-ko.md) |
-| Typed action이 안전을 유지하는 방법 | [온톨로지 기반 자동화](../concepts/ontology-driven-automation-ko.md) |
+| Typed action이 안전을 유지하는 방법 | [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) |
 | 운영자 절차 | [SRE runbook](../../runbooks/README-ko.md) |

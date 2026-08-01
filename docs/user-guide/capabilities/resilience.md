@@ -5,7 +5,7 @@ description: >-
   bounded chaos experiments, and self-healing for known failure patterns.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: a32ac6f7cd9e9ba86d3c289b6490abcb54917f1b
+    sha: 9a9cd0f8e9bccbd1db24405d193e7599959836fb
 ---
 
 # Resilience
@@ -27,6 +27,13 @@ never the real incident.
   limit, so an experiment can never go beyond its declared scope.
 - **Self-healing for known patterns.** A failure that matches a resolved incident
   is fixed automatically. The novel minority comes to you.
+
+## How agents deliver resilience
+
+Huginn normalizes signals; Heimdall detects gaps and independently verifies outcomes; Loki proposes
+bounded experiments; Forseti judges; Odin arbitrates cross-objective conflicts; Var owns required
+human approval; Thor executes; Vidar controls rollback and recovery; Saga records the immutable
+trace. Norns may propose an inert learning candidate after closure, but cannot change policy.
 
 ## How FDAI proves recovery
 

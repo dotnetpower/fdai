@@ -4,13 +4,11 @@ title: Agent Pantheon
 
 # Agent Pantheon
 
-FDAI's organization-level agents. A fixed pantheon of 15 named agents that
-own the runtime pipeline as ontology first-class citizens: each agent has a
-mandate, owns a set of object types and action types, publishes and
-subscribes on a schema-checked event bus, and can answer natural-language
-questions on a separate conversational port. The pantheon is the org chart
-of the control plane, and it is defined once upstream - forks configure it
-but never add or rename agents.
+FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. Agents observe,
+judge, plan, approve, execute, verify, recover, audit, and learn through schema-checked events. The
+operating ontology supports them with typed meaning and bounded context; it is not the runtime actor,
+decision authority, or executor. The pantheon is defined once upstream - forks configure it but
+never add or rename agents.
 
 > **Scope:** the pantheon is customer-agnostic. Every agent name, object
 > type, and action referenced below is generic. Per-customer bindings live
@@ -44,6 +42,16 @@ it makes the roles legible and auditable.
   its own bindings, but the runtime hot-path routes almost everything at T0
   (rule / table lookup) or T1 (similarity). LLM calls are reserved for
   narrow, declared uses (§8). LLM use is a capability, not a default.
+- **Agent-driven, ontology-constrained.** Agents own every state transition. The ontology validates
+  target identity, relationships, evidence freshness, allowed actions, and expected effects, but a
+  graph result never judges, approves, executes, or raises authority.
+- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe,
+  understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an
+  API success is not an operational outcome; independent observation closes the loop.
+- **Autonomy before escalation.** Missing evidence triggers bounded reacquisition, alternate-source
+  checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
+  Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside
+  standing authority.
 - **Two-port model.** Every agent exposes a typed pub/sub port for machine
   traffic and a conversational port for humans and other agents (§6).
 - **Single-writer, multi-reader topics.** Each object type has exactly one
@@ -54,17 +62,9 @@ it makes the roles legible and auditable.
 - **Pantheon fixed upstream.** The 15-agent set, the org chart, and the
   role assignments are locked. Forks customize behaviour through configured
   seams (§10) - not by adding, removing, or renaming agents.
-- **Repository layout mirrors the two tiers.** The 15 named agents live
-  flat at the top level of [`src/fdai/agents/`](../../../src/fdai/agents);
-  the supporting framework (bus, runtime, registry, base, pantheon spec,
-  arbitration, introspection, kpi, adapters, provider adapters, factory,
-  workflows, topics, candidate guard, divergence, bus bridge) lives under
-  [`src/fdai/agents/_framework/`](../../../src/fdai/agents/_framework). The
-  leading underscore signals "not for external consumption" - callers
-  outside `agents/` MUST import from `fdai.agents`, never from a
-  `_framework` submodule. The layout is enforced by
-  [`tests/agents/test_framework_layout.py`](../../../tests/agents/test_framework_layout.py)
-  (tracker #14, issue #21).
+- **Repository layout preserves the boundary.** Named agents live in
+  [`src/fdai/agents/`](../../../src/fdai/agents), while shared runtime machinery stays in its private
+  `_framework`. External callers import only `fdai.agents`; the layout test enforces the boundary.
 ## 2. Organization chart
 
 Two lines report to Odin: Thor (operations) and Forseti (judgment). Four

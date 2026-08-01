@@ -53,7 +53,7 @@ Read the reference docs first, then the phases in order.
 | 5 | [llm-strategy.md](architecture/llm-strategy.md) | per-tier model choices, mixed-model gate, abstraction |
 | 5a | [operating-ontology.md](architecture/operating-ontology.md) | shared cloud-operations meaning for services, workloads, objectives, decisions, effects, agent ownership, and controlled extension |
 | 5b | [outcome-assurance.md](architecture/outcome-assurance.md) | scoped operational-readiness, objective-alignment, and control-assurance projection over the three FDAI verticals |
-| 5c | [operating-ontology-platform.md](architecture/operating-ontology-platform.md) | exact ontology releases, semantic interfaces, bounded object sets, mutation plans, typed functions, reconciliation, and generated SDKs |
+| 5c | [operating-ontology-platform.md](architecture/operating-ontology-platform.md) | agent-supporting ontology safety infrastructure: exact releases, bounded object sets, mutation plans, typed functions, reconciliation, and SDKs |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
 | 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB packet: decision boundary, evidence contract, owners, dependencies, production exit gate |
@@ -113,13 +113,13 @@ Read the reference docs first, then the phases in order.
 | 19i | [benchmark-adapters.md](interfaces/benchmark-adapters.md) | brand-neutral external harness contracts, installed-plugin injection, provider binding, bounded lifecycle, and benchmark authority boundaries |
 | 20 | [action-ontology.md](decisioning/action-ontology.md) | ActionType schema (remediation + ops + governance), trigger axis, tier / role / prod / live-probe ceilings, fork override seams |
 | 21 | [execution-model.md](decisioning/execution-model.md) | Unified RiskGate, six-axis authority matrix, three executor paths (PR-native / direct API / PR-manual), live-blast probe combinator, resolved_ceiling audit block |
-| 21a | [recovery-and-chaos-enforcement.md](decisioning/recovery-and-chaos-enforcement.md) | ontology-driven recovery plans, impact envelopes, pre-authorized rollback, and impact-gated chaos enforcement |
+| 21a | [recovery-and-chaos-enforcement.md](decisioning/recovery-and-chaos-enforcement.md) | agent-executed recovery constrained by typed plans, impact envelopes, pre-authorized rollback, and continuous chaos guards |
 
 ### Agent organization
 
 | # | Document | What it covers |
 |---|----------|----------------|
-| 22 | [agent-pantheon.md](agents/agent-pantheon.md) | fixed 15-agent pantheon (Odin / Thor / Forseti / ...) as ontology first-class citizens: org chart, single-writer topics, two-port model (typed pub/sub + conversational NL), NL query orchestration with fingerprint dedup, per-user context, extended ActionType roles (initiator / judge / approver / executor / auditor), lifecycle state machine, Heimdall-driven privilege-escalation monitoring |
+| 22 | [agent-pantheon.md](agents/agent-pantheon.md) | fixed 15-agent control-plane organization: closed-loop ownership, ontology-constrained accuracy, single-writer topics, typed pub/sub, conversational ports, ActionType roles, and bounded human escalation |
 | 22a | [bounded-task-workers.md](agents/bounded-task-workers.md) | isolated depth-one read-only investigations outside the fixed Pantheon: capability attenuation, bounded lifecycle, durable branch records, untrusted parent synthesis, and GET-only projections |
 | 22b | [background-task-sessions.md](interfaces/background-task-sessions.md) | durable detached operator investigations: immediate creation, lease/CAS ownership, bounded progress, process-loss reconciliation, conversation handoff, and delivery boundary |
 | 22c | [busy-input-modes.md](interfaces/busy-input-modes.md) | channel-neutral durable queue, interrupt, and safe-boundary steer modes for active web, Slack, and Teams conversations |

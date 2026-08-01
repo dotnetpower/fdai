@@ -1,7 +1,7 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: 8c0f8758ffca932d88d270b95f63dd03965cfbda
+translation_source_sha: e8da866548d3889654209ec9edffff8f8d4e3b64
 translation_revised: 2026-08-01
 ---
 # Architecture Review Board 패킷
@@ -19,11 +19,15 @@ translation_revised: 2026-08-01
 
 ## 한눈에 보는 설계
 
-FDAI는 read-only console과 GitOps/ChatOps delivery를 사용하는 headless event-driven control
-plane입니다. 반복 가능한 event는 T0 deterministic rule과 T1 similarity reuse로 해결하고,
-모호한 case만 T2 grounded reasoning으로 보냅니다. 모든 변경 proposal은 risk gate를 통과하고
-stop condition, rollback contract, blast-radius limit, audit record를 가지며 shadow mode에서
-시작합니다.
+FDAI는 non-privileged console과 GitOps/ChatOps delivery를 사용하는 agent-driven headless control
+plane입니다. 고정된 15개 에이전트가 typed pub/sub를 통해 sensing, judgment, arbitration,
+approval, execution, verification, recovery, audit, learning을 소유합니다. 운영 온톨로지는
+supporting truth 및 safety infrastructure이며 agent interpretation을 제한하지만 authority를
+부여하거나 직접 행동하지 않습니다.
+
+반복 가능한 event는 T0 deterministic rule과 T1 verified reuse로 해결하고 residual ambiguity만
+T2 grounded reasoning으로 보냅니다. 모든 mutation은 risk gate를 통과하고 stop, rollback,
+impact, audit, independent effect-verification contract를 가지며 shadow mode에서 시작합니다.
 
 FDAI는 이를 **[Outcome-Driven Token Economics](llm-strategy-ko.md#비용-컨트롤cost-controls)**라고
 부릅니다. Ontology-grounded T0/T1 경로를 기본으로 사용하고, 남은 모호성이나 위험에만 원문
@@ -96,7 +100,10 @@ python3 scripts/governance/check-arb-readiness.py --require-production-ready
 
 | 요구 사항 | 설계 대응 | 검증 source |
 |-----------|-----------|-------------|
+| Agent-owned closed loop | observe, decide, plan, execute, verify, recover, learn transition별 accountable agent 하나 | Pantheon parity, topic ownership, lifecycle test |
 | Deterministic-first 결정 | T0 exact rule, T1 reuse, quality-gated T2 순서 | Tier test와 frozen scenario set |
+| Contract-conformant accuracy | wrong-target, unauthorized, policy escape, unverified success outcome을 0으로 유지 | Guard metric과 outcome receipt |
+| 최소 사람 개입 | evidence recovery, reevaluation, 더 작은 safe plan, no-op, rollback을 사람 검토보다 먼저 수행 | Touchpoint metric과 escalation trace |
 | Ungated autonomous mutation 방지 | Unified risk gate와 role-bound executor | Risk-gate property test와 audit evidence |
 | 직무 분리 | Requester, approver, judge, executor를 별도 principal로 유지 | RBAC config와 HIL test |
 | Retry 안전성 | Stable idempotency key와 resource별 serialization | Idempotency와 replay test |

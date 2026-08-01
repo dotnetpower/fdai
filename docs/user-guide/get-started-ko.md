@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: c62f21cde97ee84a82b9ad4e4f9d5ce1ff13a380
+translation_source_sha: badacd1cbdc963bdc9b97e856ac27bd6d6877a4a
 translation_revised: 2026-08-01
 ---
 
@@ -222,7 +222,7 @@ flowchart TB
 - [근본 원인 분석](sre/root-cause-analysis-ko.md) - 티어별 근거 기반 원인 가설 이해하기.
 - [결정론 우선](concepts/deterministic-first-ko.md) - 왜 알려진 결정은 결정론적으로 남는가.
 - [리스크 티어](concepts/risk-tiers-ko.md) - 세 신뢰 티어의 상세.
-- [온톨로지 기반 자동화](concepts/ontology-driven-automation-ko.md) - 액션 온톨로지가 자동화를 이끄는 방식.
+- [에이전트 기반 자동화](concepts/ontology-driven-automation-ko.md) - 에이전트가 typed truth와 safety contract를 사용하는 방식.
 - [에이전트와 자가 치유](concepts/agents-and-self-healing-ko.md) - 에이전트들이 협력하고 자가 치유하는 방식.
 - [관찰 후 적용](concepts/shadow-then-enforce-ko.md) - 관찰 모드 롤아웃과 승격.
 - [변경 승인](guides/approve-change-ko.md) - 운영자 관점의 변경 승인.

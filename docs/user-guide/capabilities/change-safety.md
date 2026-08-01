@@ -3,7 +3,7 @@ title: Change Safety
 description: How FDAI keeps every proposed change safe. Each one is policy-gated, risk-classified, and delivered as an auditable pull request.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: a32ac6f7cd9e9ba86d3c289b6490abcb54917f1b
+    sha: 9a9cd0f8e9bccbd1db24405d193e7599959836fb
 ---
 
 # Change Safety
@@ -24,6 +24,13 @@ repeatable majority of changes resolve without a person and without a model.
   auto-merge and high-risk changes to human approval.
 - **Audit and rollback for free.** Actions ship as fix pull requests, so the
   change record and the rollback path already live in Git.
+
+## How agents keep changes safe
+
+Huginn normalizes change signals and Heimdall detects drift. Forseti owns the decision; Odin
+arbitrates conflicts with reliability, capacity, or cost objectives. Var owns required human
+approval, Thor alone executes, Heimdall verifies the observed effect, Vidar controls recovery, and
+Saga records every terminal path. No ontology declaration or conversation can bypass these owners.
 
 ## How FDAI keeps a change safe
 
@@ -65,6 +72,6 @@ gate.
 
 - [Deterministic first](../concepts/deterministic-first.md) - Why the repeatable majority stays rule-driven.
 - [Risk tiers](../concepts/risk-tiers.md) - How a change becomes auto, human approval, or deny.
-- [Ontology-driven automation](../concepts/ontology-driven-automation.md) - The typed actions a change instantiates.
+- [Agent-driven automation](../concepts/ontology-driven-automation.md) - How agents use typed safety contracts for changes.
 - [Approve a change](../guides/approve-change.md) - The operator view of an approval request.
 - [Deploy and onboard](../../roadmap/deployment/deploy-and-onboard.md) - Bring FDAI into your environment.

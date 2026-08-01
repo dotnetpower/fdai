@@ -424,7 +424,7 @@ step differs.
 |----------------|------|
 | How tiers choose a decision method | [Deterministic first](concepts/deterministic-first.md) |
 | How actions become auto, approval required, or deny | [Trust tiers](concepts/risk-tiers.md) |
-| How typed actions and workflows fit the loop | [Ontology-driven automation](concepts/ontology-driven-automation.md) |
+| How typed actions and workflows fit the loop | [Agent-driven automation](concepts/ontology-driven-automation.md) |
 | How the named agents divide responsibility | [Agents and self-healing](concepts/agents-and-self-healing.md) |
 | How Azure resources are prepared safely | [Deployment preflight](../roadmap/deployment/deployment-preflight.md) |
 | How operators respond to incidents | [SRE runbooks](../runbooks/README.md) |

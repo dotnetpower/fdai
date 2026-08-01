@@ -1,18 +1,16 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 303c295e2399d18f4ef4cda57c2f337bf65ae08b
+translation_source_sha: 79c7f48589f0f773245fc964f996f3240fc18eb1
 translation_revised: 2026-08-01
 ---
 
 # 에이전트 판테온
 
-FDAI 의 조직 수준 에이전트. 15개 명명된 에이전트가 온톨로지의 first-class
-citizen 으로 런타임 파이프라인을 소유한다: 각 에이전트는 mandate 를 가지고,
-object types 와 action types 를 소유하며, schema-checked event bus 로
-publish/subscribe 하고, 별도의 conversational port 로 자연어 질문에도 답한다.
-판테온은 컨트롤 플레인의 조직도이며 upstream 에서 한 번 정의된다 - 포크는
-설정만 하고 에이전트를 추가하거나 이름을 바꾸지 않는다.
+FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations runtime을 소유합니다.
+에이전트는 schema-checked event로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다.
+운영 온톨로지는 typed meaning과 bounded context를 제공하며 actor, authority 또는 executor가 아닙니다.
+판테온은 upstream에서 정의되고 fork는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
 
 > **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, object
 > type, action 은 generic 이다. 고객별 바인딩은 fork 에서 관리
@@ -44,6 +42,16 @@ publish/subscribe 하고, 별도의 conversational port 로 자연어 질문에�
   LLM 을 호출할 수 있지만, 런타임 hot-path 는 거의 모두 T0 (룰 / 테이블
   lookup) 또는 T1 (similarity) 로 라우팅된다. LLM 호출은 좁고 선언된
   용도로만 예약된다 (§8). LLM 사용은 capability 이지 default 가 아니다.
+- **Agent-driven, ontology-constrained.** 모든 상태 전이는 에이전트가 소유합니다. 온톨로지는
+  target identity, 관계, evidence freshness, 허용 action, expected effect를 검증하지만 graph
+  result는 판단, 승인, 실행 또는 authority 상승을 수행하지 않습니다.
+- **Closed-loop operation.** 수락된 signal은 observe, understand, decide, plan, authorize,
+  execute, verify, recover, learn 전 과정에서 accountable owner를 가집니다. Broker acceptance나
+  API success는 운영 outcome이 아니며 independent observation이 loop를 종료합니다.
+- **Autonomy before escalation.** Evidence가 부족하면 사람에게 넘기기 전에 bounded reacquisition,
+  alternate-source check, deterministic reevaluation, 더 작은 safe plan, no-op 또는 rollback을
+  수행합니다. Var는 residual ambiguity, policy-mandated approval 또는 standing authority 밖의
+  risk에만 사람 검토를 요청합니다.
 - **Two-port 모델.** 모든 에이전트는 machine 트래픽용 typed pub/sub port 와
   사람 / 다른 에이전트용 conversational port 를 노출한다 (§6).
 - **Single-writer, multi-reader topics.** 각 object type 은 정확히 하나의
@@ -54,17 +62,9 @@ publish/subscribe 하고, 별도의 conversational port 로 자연어 질문에�
 - **판테온은 upstream 에서 고정.** 15개 에이전트 세트, 조직도, 역할 배정은
   잠겨 있다. 포크는 config seam (§10) 을 통해 동작을 커스터마이즈한다 -
   에이전트를 추가 / 제거 / rename 하지 않는다.
-- **저장소 구조가 두 계층을 반영.** 15개 명명 에이전트는
-  [`src/fdai/agents/`](../../../src/fdai/agents) 최상위에 flat 하게 위치하고,
-  지원 프레임워크 (bus, runtime, registry, base, pantheon spec,
-  arbitration, introspection, kpi, adapters, provider adapters, factory,
-  workflows, topics, candidate guard, divergence, bus bridge) 는
-  [`src/fdai/agents/_framework/`](../../../src/fdai/agents/_framework)
-  하위에 있다. 앞의 언더스코어는 "외부 소비용 아님" 을 뜻하며 -
-  `agents/` 밖의 호출자는 `fdai.agents` (파사드) 에서 import 해야 하며
-  `_framework` 서브모듈에서 직접 import 하지 **않는다**. 레이아웃은
-  [`tests/agents/test_framework_layout.py`](../../../tests/agents/test_framework_layout.py)
-  로 강제된다 (트래커 #14, 이슈 #21).
+- **저장소 구조가 경계를 보존.** 명명 에이전트는
+  [`src/fdai/agents/`](../../../src/fdai/agents)에 있고 공통 runtime machinery는 private
+  `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 import하며 layout test가 이를 강제합니다.
 ## 2. 조직도
 
 Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4개의

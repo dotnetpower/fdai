@@ -1,12 +1,12 @@
 ---
-title: FDAI Operational Ontology Platform
+title: FDAI Ontology Safety Infrastructure
 ---
-# FDAI Operational Ontology Platform
+# FDAI Ontology Safety Infrastructure
 
-This document extends the operating ontology from a shared semantic graph into a typed developer
-and execution platform. It adds object polymorphism, bounded object sets, semantic action effects,
-typed functions, authority-aware writeback, exact schema pinning, and generated SDK surfaces while
-preserving FDAI's governed action pipeline.
+This document extends the operating ontology into a typed infrastructure layer for FDAI's agents.
+It adds object polymorphism, bounded object sets, semantic action effects, typed functions,
+authority-aware writeback, exact schema pinning, and generated SDK surfaces. Agents still own every
+runtime transition; these primitives constrain their inputs, plans, and effect verification.
 
 > **Authority boundary:** Observed provider state remains a projection. An action can request a
 > provider, Git, ledger, or FDAI-owned state change, but it cannot make an external fact true by
@@ -36,9 +36,10 @@ preserving FDAI's governed action pipeline.
 
 ## Design at a glance
 
-The platform separates semantic declarations, authority-specific state, and kinetic execution.
-This keeps the ontology useful for applications without turning a graph write into execution
-authority.
+The infrastructure separates semantic declarations, authority-specific state, and agent-owned
+kinetic execution. A graph write, function result, generated SDK call, or `MutationPlan` remains
+proposal or context until the accountable agents complete judgment, authorization, execution, and
+independent effect verification.
 
 ```mermaid
 flowchart LR

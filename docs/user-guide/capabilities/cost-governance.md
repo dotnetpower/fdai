@@ -3,7 +3,7 @@ title: Cost Governance
 description: How FDAI detects spend anomalies, recommends right-sizing, and runs the low-risk cleanup on its own, while risky cost changes wait for approval.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: a32ac6f7cd9e9ba86d3c289b6490abcb54917f1b
+    sha: 9a9cd0f8e9bccbd1db24405d193e7599959836fb
   - source: docs/roadmap/interfaces/cost-model.md
     sha: 6c77bb278a9517139d7be7c17b6c779fa5773645
 ---
@@ -28,6 +28,14 @@ scope wait for you.
   rollback path.
 - **Risky cost changes wait for you.** Anything above the safe threshold goes to
   human approval and is never applied automatically.
+
+## How agents govern cost
+
+Njord owns cost anomalies and recommendations but remains advisory. Forseti judges the proposed
+response, while Odin arbitrates cost against reliability and capacity objectives. Var owns required
+human approval, Thor alone executes, Heimdall independently verifies realized utilization and cost
+effects, Vidar controls recovery, and Saga records the outcome. Cost evidence never grants itself
+execution authority.
 
 ## How a cost action reaches enforcement
 

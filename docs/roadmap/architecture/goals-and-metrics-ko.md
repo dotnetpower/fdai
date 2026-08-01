@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: a32ac6f7cd9e9ba86d3c289b6490abcb54917f1b
+translation_source_sha: 9a9cd0f8e9bccbd1db24405d193e7599959836fb
 translation_revised: 2026-08-01
 ---
 
@@ -26,6 +26,29 @@ translation_revised: 2026-08-01
 잔여 모호한 소수에 한정하며, **가드 메트릭을 회귀시키지 않은 채로** 달성합니다. 성공 메트릭을
 개선하면서 가드 메트릭을 악화시키는 자율성은 실패이지 승리가 아닙니다.
 
+### 정확성 계약
+
+FDAI는 모든 새로운 진단이 맞는다고 주장하지 않습니다. 목표는 **100% contract-conformant
+behavior**입니다. 에이전트는 schema-valid, evidence-supported, authorized result를 만들거나
+명시적인 unknown, no-op, denial, rollback 또는 사람 검토 outcome을 기록합니다. 강제 답변이
+아니라 unsafe guess 0건이 플랫폼 목표입니다.
+
+다음 위반의 release threshold는 정확히 0입니다.
+
+- 잘못된 object identity 또는 stale target revision을 대상으로 한 action
+- 등록된 ActionType, standing authority 또는 impact scope 밖의 실행
+- independent effect verification 없이 broker/API receipt로 성공을 주장하는 경우
+- authoritative observation이 아닌 ontology write로 external state를 주장하는 경우
+- review와 promotion evidence 없이 authority를 높이는 learning output
+
+### 사람 검토 전 자율 처리
+
+해결되지 않은 event를 즉시 사람 task로 만들지 않습니다. Bounded deadline 안에서 fresh evidence
+acquisition, alternate authoritative source, deterministic reevaluation, verified pattern reuse,
+더 작은 safe plan, no-op 또는 pre-authorized recovery를 시도합니다. Ambiguity가 남거나 policy가
+승인을 요구하거나 risk가 standing authority를 넘을 때만 사람 검토를 시작합니다. 모든 시도는
+event correlation을 공유하고 추가 human touchpoint를 만들지 않습니다.
+
 ## 정의(Definitions)
 
 메트릭 전반에서 사용되는 용어를 여기서 고정해 모호성을 없앱니다:
@@ -46,6 +69,9 @@ translation_revised: 2026-08-01
   때까지 resolved가 아니라 pending입니다.
 - **Measurement window**: 실행당 고정된 관측 기간(기본값: 30일 롤링, 또는 전체 시나리오 세트
   1회 리플레이). 보고되는 모든 수치와 함께 명시됩니다.
+- **Contract-conformant outcome**: target, evidence, authority, action, effect verification, audit
+  record가 exact versioned contract를 충족하는 terminal result입니다. 명시적 unknown 또는 safe
+  no-op은 conformant하지만 unsupported success는 아닙니다.
 
 ## 성공 메트릭(Success Metrics)
 
@@ -80,6 +106,9 @@ translation_revised: 2026-08-01
 | False-negative rate | 놓친 진짜 이벤트 ÷ 진짜 이벤트 | ≤ 베이스라인. > 베이스라인 + 1pp면 알림 |
 | Rollback rate | 롤백된 액션 ÷ 실행된 액션 | ≤ 베이스라인 롤백률 |
 | Policy-violation escapes | 정책을 위반하고 enforce에 도달한 자율 액션 | **정확히 0**(모든 escape은 release-blocking) |
+| Wrong-target 또는 stale-revision execution | 승인 plan과 다른 object 또는 revision에 적용된 action | **정확히 0** |
+| Unauthorized execution | 등록 type, identity, standing authority 또는 impact scope 밖의 action | **정확히 0** |
+| Unverified success claim | independent expected-effect closure 없이 성공으로 보고된 action | **정확히 0** |
 
 임계값은 성공 메트릭과 동일한 측정 윈도우와 시나리오 세트 버전에서 평가되어, 이득과 가드 위반이
 다른 데이터에서 비교되지 않습니다.

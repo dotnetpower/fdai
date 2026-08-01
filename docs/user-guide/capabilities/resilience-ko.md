@@ -2,7 +2,7 @@
 title: 회복탄력성
 description: FDAI가 필요해지기 전에 복구를 증명하는 방법입니다. 예약된 DR 훈련, 범위가 제한된 카오스 실험, 알려진 실패 패턴에 대한 자가 치유를 다룹니다.
 translation_of: resilience.md
-translation_source_sha: 036b9c82be1faa17c3f529008a5eda3d547474f0
+translation_source_sha: 082c0842821c6220aea3884876e7038ccbeb5346
 translation_revised: 2026-08-01
 ---
 
@@ -24,6 +24,13 @@ FDAI는 워크로드를 복구 가능한 상태로 유지하고, 실제 장애�
   실험이 선언된 범위를 결코 초과할 수 없습니다.
 - **알려진 패턴에 대한 자가 치유.** 해결된 인시던트 패턴과 일치하는 실패는 자동으로
   고쳐지고, 새로운 소수의 실패는 사람에게 올라옵니다.
+
+## 에이전트가 회복탄력성을 제공하는 방법
+
+Huginn은 signal을 normalize하고 Heimdall은 gap을 감지하고 outcome을 독립 검증합니다. Loki는
+bounded experiment를 제안하고 Forseti는 판단하며 Odin은 objective conflict를 중재합니다. Var는
+필수 사람 승인을 소유하고 Thor는 실행하며 Vidar는 rollback과 recovery를 통제하고 Saga는 immutable
+trace를 기록합니다. Norns는 closure 뒤 inert learning candidate만 제안하며 policy를 변경하지 못합니다.
 
 ## FDAI가 복구를 증명하는 방법
 

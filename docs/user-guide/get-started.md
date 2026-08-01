@@ -3,7 +3,7 @@ title: Get Started with FDAI
 description: A five-minute orientation to FDAI - what it is, when it fits, and where to look next.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: a32ac6f7cd9e9ba86d3c289b6490abcb54917f1b
+    sha: 9a9cd0f8e9bccbd1db24405d193e7599959836fb
 ---
 
 # Get Started with FDAI
@@ -247,7 +247,7 @@ is not enough on its own.
 - [Root-cause analysis](sre/root-cause-analysis.md) - Understand tiered, grounded cause hypotheses.
 - [Deterministic-first](concepts/deterministic-first.md) - Why known decisions stay deterministic.
 - [Risk tiers](concepts/risk-tiers.md) - The three trust tiers in depth.
-- [Ontology-driven automation](concepts/ontology-driven-automation.md) - How the action ontology drives automation.
+- [Agent-driven automation](concepts/ontology-driven-automation.md) - How agents use typed truth and safety contracts.
 - [Agents and self-healing](concepts/agents-and-self-healing.md) - How agents collaborate and self-heal.
 - [Shadow then enforce](concepts/shadow-then-enforce.md) - Observation mode rollout and promotion.
 - [Approve a change](guides/approve-change.md) - Approving a change on the operator side.
