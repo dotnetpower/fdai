@@ -60,6 +60,10 @@ async def test_human_access_enabled_is_validated_and_durably_overridable() -> No
     )
     assert human_access["enabled"] is False
     assert _setting(projection, "human_access.enabled")["restart_required"] is True
+    assert (
+        _setting(projection, "human_access.reconciliation_interval_seconds")["effective_value"]
+        == 300
+    )
 
 
 async def test_null_change_restores_environment_value() -> None:

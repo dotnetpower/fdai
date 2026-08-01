@@ -76,6 +76,16 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         True,
         restart_required=True,
     ),
+    RuntimeSettingSpec(
+        "human_access.reconciliation_interval_seconds",
+        "FDAI_HUMAN_ACCESS_RECONCILIATION_INTERVAL_SECONDS",
+        "identity",
+        "integer",
+        300,
+        30,
+        3_600,
+        restart_required=True,
+    ),
     RuntimeSettingSpec("irp.enabled", "FDAI_IRP_ENABLED", "investigation", "boolean", False),
     RuntimeSettingSpec(
         "irp.budget_seconds",

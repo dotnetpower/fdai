@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 22403d4eea64c237343b2f21d3e741b594b42e6c
+translation_source_sha: ea76a8b5f2f8deb9c756ff44b0db704ed80f3420
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -275,6 +275,10 @@ enabled preference, authority mode를 분리하며 kill switch 상태는 mutatio
 않고 privileged adapter를 억제할 수 있습니다. Held case는 provider 호출 없이 audit와 함께
 recovery step을 projection합니다. Azure
 permission probe, automatic repair, dashboard, alert, deployment recovery drill은 rollout 작업입니다.
+
+Durable state가 구성되면 readiness-gated runtime worker가 제한된
+`human_access.reconciliation_interval_seconds` 주기로 held case의 shadow recovery plan을
+반복해서 관찰합니다.
 
 **변경:** Settings에 분리된 `available`, `enabled`, `mode` 상태를 표시합니다. 준비도 검사,
 대시보드, 경고, 복구 런북, 배포 입력, 관리 ID 권한 검증, 결과 사이에서 보류된 케이스의 조정 작업을

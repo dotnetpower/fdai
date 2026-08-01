@@ -297,6 +297,8 @@ Production controls expose independent availability, enabled, and authority-mode
 switch only lowers mutation eligibility. The audited enabled preference takes effect at restart
 and can suppress privileged adapter composition without changing promotion state. Reconciliation
 currently emits audited shadow recovery plans for held cases and never invokes the IAM provider.
+With durable state configured, a readiness-gated runtime worker repeats that observation at the
+bounded `human_access.reconciliation_interval_seconds` cadence.
 
 1. **Assignment projection:** Add the composite read model, coverage validator, and Assignments tab.
    Submission remains observation-only and creates no provider mutation.

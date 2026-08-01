@@ -278,7 +278,8 @@ document or conversation can directly mutate the ontology or rule catalog.
 availability, enabled preference, and authority mode; kill switch state can only lower mutation
 eligibility. The audited `human_access.enabled` setting is applied at restart and can suppress the
 privileged adapter without changing promotion state. Held cases project recovery steps with audit
-and no provider call. Azure permission
+and no provider call. A durable, readiness-gated runtime worker repeats the observation at the
+bounded `human_access.reconciliation_interval_seconds` cadence. Azure permission
 probes, automatic repair, dashboards, alerts, and deployment recovery drills remain rollout work.
 
 **Changes:** Expose separate `available`, `enabled`, and `mode` states in Settings. Add readiness

@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 189c8d84f28e3f8059e051662ecd3ac95fa9338d
+translation_source_sha: 59281d752db6c164ed82f5ba7131952e3d2bfceb
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -299,7 +299,8 @@ Production control은 독립적인 availability, enabled, authority-mode axis를
 mutation eligibility를 낮출 수만 있습니다. 감사되는 enabled preference는 restart 시 적용되며
 promotion state를 바꾸지 않고 privileged adapter composition을 억제할 수 있습니다.
 Reconciliation은 현재 held case의 audited shadow recovery plan만 만들며 IAM provider를 호출하지
-않습니다.
+않습니다. Durable state가 구성되면 readiness-gated runtime worker가 제한된
+`human_access.reconciliation_interval_seconds` 주기로 이 관찰을 반복합니다.
 
 1. **할당 프로젝션:** 통합 읽기 모델, 커버리지 검증기, Assignments 탭을 추가합니다. 제출은 관찰
    전용이며 공급자 변경을 만들지 않습니다.

@@ -151,6 +151,7 @@ async def _run() -> int:
     forecast_learning_runtime: ForecastLearningRuntime | None = None
     startup_readiness_runtime: StartupReadinessRuntime | None = None
     t2_recovery_maintenance: Any = None
+    assignment_reconciliation_worker: Any = None
 
     try:
         telemetry_requested = bool(
@@ -277,6 +278,19 @@ async def _run() -> int:
                 durable=bool(os.environ.get("FDAI_STATE_STORE_DSN", "").strip()),
             )
             runtime_values = await runtime_settings.effective_values()
+            if runtime_settings.durable:
+                from fdai.core.human_assignment import AssignmentReconciler
+                from fdai.runtime.human_assignment_reconciliation import (
+                    AssignmentReconciliationWorker,
+                )
+
+                assignment_reconciliation_worker = AssignmentReconciliationWorker(
+                    reconciler=AssignmentReconciler(store=incident_audit_store),
+                    interval_seconds=_runtime_positive_integer(
+                        runtime_values,
+                        "human_access.reconciliation_interval_seconds",
+                    ),
+                )
             logging.getLogger().setLevel(str(runtime_values["logging.level"]))
             incident_auto_open_policy = IncidentAutoOpenPolicy(
                 enabled=runtime_values["incident.auto_open.enabled"] is True,
@@ -807,6 +821,7 @@ async def _run() -> int:
             agent_introspection_task: asyncio.Task[None] | None = None
             runtime_state_task: asyncio.Task[None] | None = None
             t2_recovery_task: asyncio.Task[None] | None = None
+            assignment_reconciliation_task: asyncio.Task[None] | None = None
             case_history_retention_task: asyncio.Task[None] | None = None
             if pantheon_runtime is not None:
                 pantheon_task = asyncio.create_task(
@@ -841,6 +856,14 @@ async def _run() -> int:
                     ),
                     name="t2-recovery-maintenance",
                 )
+            if assignment_reconciliation_worker is not None:
+                assignment_reconciliation_task = asyncio.create_task(
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: assignment_reconciliation_worker.run(stop),
+                    ),
+                    name="human-assignment-reconciliation",
+                )
             if case_history_retention_publisher is not None:
                 case_history_retention_task = asyncio.create_task(
                     startup_readiness_runtime.run_when_ready(
@@ -867,6 +890,7 @@ async def _run() -> int:
                     agent_introspection_task,
                     runtime_state_task,
                     t2_recovery_task,
+                    assignment_reconciliation_task,
                 ),
             )
         else:
