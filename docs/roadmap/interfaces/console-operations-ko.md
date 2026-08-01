@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: ef7607c7de9e1f985f5811e62386d5ee047cc103
+translation_source_sha: 4e9a55a5ef44c44d00dbda0191328fbb50e9ff64
 translation_revised: 2026-08-01
 ---
 
@@ -149,6 +149,11 @@ Target path는 acceptance를 알리기 전에 idempotency key를 atomically clai
 receipt를 저장하며 outbox record를 기록합니다. Retry는 저장된 receipt를 재사용합니다. Relay는 commit된
 미완료 outbox row를 at-least-once publish하고 broker acknowledgment 뒤에만 완료로 표시하며, restart
 reconciliation은 모든 미완료 row를 재개합니다.
+
+Request acceptance는 durable claim과 outbox commit 뒤에만 HTTP `202 Accepted`를 사용합니다. Receipt는
+`request_id`, `correlation_id`, `idempotency_key`, `intent_digest`, `accepted_at`, status URL을 포함합니다.
+이 응답은 "durably queued"를 뜻하며 "approved"나 "executed"를 뜻하지 않습니다. 같은 intent의 replay는
+원래 receipt를 반환하고 terminal outcome은 owning domain projection과 audit trail에서만 확인합니다.
 
 ## 에이전트와 실행 authority
 

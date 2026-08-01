@@ -148,6 +148,12 @@ and writes an outbox record before acknowledging acceptance. A retry reuses the 
 relay publishes uncommitted outbox rows at least once and marks completion only after broker
 acknowledgment; restart reconciliation resumes every uncompleted row.
 
+Request acceptance uses HTTP `202 Accepted` only after the durable claim and outbox commit. Its
+receipt contains `request_id`, `correlation_id`, `idempotency_key`, `intent_digest`, `accepted_at`,
+and a status URL. It means "durably queued", never "approved" or "executed". A replay of the same
+intent returns the original receipt; terminal outcome is available only from the owning domain
+projection and audit trail.
+
 ## Agent and execution authority
 
 The console has no judgment or managed-resource execution authority. The pantheon retains its
