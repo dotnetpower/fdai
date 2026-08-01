@@ -40,11 +40,11 @@ class PostgresT2RecoveryLegacyReader(T2RecoveryLegacyReader):
                            COALESCE(entry->>'recorded_at', created_at::text) AS recorded_at
                       FROM audit_log
                      WHERE action_kind = 'control_loop.t2_evaluate'
-                       AND entry->>'t2_reason' LIKE 't2_proposer_error:%'
+                                             AND entry->>'t2_reason' LIKE %s
                      ORDER BY seq DESC
                      LIMIT %s
                     """,
-                    (limit,),
+                    ("t2_proposer_error:%", limit),
                 )
                 rows = await cursor.fetchall()
         return tuple(

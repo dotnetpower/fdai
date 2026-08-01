@@ -97,9 +97,9 @@ async def test_reads_only_sanitized_legacy_projection(monkeypatch: pytest.Monkey
     )
     query, params = connection.queries[1]
     assert "action_kind = 'control_loop.t2_evaluate'" in query
-    assert "t2_proposer_error:%" in query
+    assert "entry->>'t2_reason' LIKE %s" in query
     assert "provider_error" not in query
-    assert params == (25,)
+    assert params == ("t2_proposer_error:%", 25)
 
 
 @pytest.mark.parametrize("limit", [0, 1_001])
