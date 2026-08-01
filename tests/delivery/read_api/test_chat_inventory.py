@@ -2206,6 +2206,68 @@ def test_resource_followup_stream_returns_matching_heimdall_evidence_directly() 
     assert backend.calls == 0
 
 
+def test_resource_followup_stream_returns_missing_anchor_without_narrator() -> None:
+    delegated: list[str] = []
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del user_id, session_id
+            delegated.append(prompt)
+            return {
+                "primary_agent": "Heimdall",
+                "answer": (
+                    "Azure Activity Log 근거를 사용할 수 없어 장애 직전 변경을 확정하지 않았습니다."
+                ),
+                "facts": {
+                    "status": "unavailable",
+                    "intent": "pre_incident_changes",
+                    "resource_name": "postgres-data",
+                    "reason": "incident_anchor_unavailable",
+                    "evidence_refs": [],
+                },
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": "read-investigation",
+            }
+
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                agent_delegate=AgentDelegate(),  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "prompt": "장애 직전에 발생한 배포와 설정 변경을 찾아줘.",
+            "session_id": "session-db",
+            "resource_context": {
+                "name": "postgres-data",
+                "resource_type": "postgresql-server",
+                "evidence_ref": "subscription-health:resource-health@2026-08-01T02:05:00Z",
+            },
+            "view_context": {},
+        },
+    )
+
+    assert response.status_code == 200
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert delegated == [
+        "postgres-data change history: pre-incident activity anchor=unavailable locale=ko"
+    ]
+    assert done["model"] == "heimdall-read-investigation"
+    assert done["source"] == "evidence:read-investigation"
+    assert done["verification"]["status"] == "unverified"
+    assert done["verification"]["reason_code"] == "incident_anchor_unavailable"
+    assert backend.calls == 0
+
+
 def test_resource_followup_does_not_trust_mismatched_agent_evidence() -> None:
     answer = resource_followup_answer(
         {

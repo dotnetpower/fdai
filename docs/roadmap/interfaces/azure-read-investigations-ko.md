@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: da696981fc1506772f5b0cd1ba0cdf4823e1ef25
+translation_source_sha: da86f6ed5f8f2aa47c4634b6c2227f55b37244f5
 translation_revised: 2026-08-01
 ---
 
@@ -113,7 +113,9 @@ Resource Health history가 degraded, unavailable 또는 unknown availability eve
 resource group에서 성공한 deployment, write, update 및 configuration operation만 유지합니다. 바로 앞
 1시간의 건수를 보고하며, 건수가 0이면 인과관계를 주장하지 않고 가장 가까운 이전 matching change를
 표시할 수 있습니다. Provenance 누락, provider failure 또는 malformed context는 `unavailable`을
-반환합니다. Truncation은 명시하며 답변에는 최대 20개 matching event만 포함합니다.
+반환합니다. 완전한 anomalous-event anchor가 없는 후속 질문은 Activity Log나 narrator를 호출하지 않고
+terminal unverified evidence gap을 반환합니다. Truncation은 명시하며 답변에는 최대 20개 matching
+event만 포함합니다.
 
 Collection 질문은 별도의 typed activity query를 사용합니다. Server는 Azure subscription 및
 resource-group allowlist를 고정하고 lookback을 최대 30일, 반환 event를 최대 200개로 제한하며 event

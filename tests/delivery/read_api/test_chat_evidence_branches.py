@@ -665,6 +665,64 @@ async def test_chat_pipeline_uses_only_subscription_health_for_platform_outage()
     assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {"tool"}
 
 
+async def test_chat_pipeline_routes_preincident_canonical_only_to_heimdall() -> None:
+    events: list[dict[str, Any]] = []
+
+    class RejectResolver:
+        async def resolve(self, *args: object, **kwargs: object):
+            del args, kwargs
+            raise AssertionError("pre-incident canonical must not use unrelated evidence branches")
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            assert prompt == (
+                "vm-primary change history: pre-incident activity anchor=unavailable locale=ko"
+            )
+            assert user_id == "reader"
+            assert session_id == "session-1"
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "incident anchor unavailable",
+                "facts": {
+                    "status": "unavailable",
+                    "intent": "pre_incident_changes",
+                    "resource_name": "vm-primary",
+                    "reason": "incident_anchor_unavailable",
+                    "evidence_refs": (),
+                },
+            }
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        events.append(dict(event))
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-preincident",
+        prompt=("vm-primary change history: pre-incident activity anchor=unavailable locale=ko"),
+        view_context={
+            "routeId": "incidents",
+            "_behavior_evidence": {"status": "matched", "evidence_refs": ("behavior:one",)},
+            "_screen_scope": {
+                "routeId": "incidents",
+                "records": ({"id": "incident-1"},),
+            },
+        },
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=RejectResolver(),  # type: ignore[arg-type]
+        evidence_resolver=RejectResolver(),  # type: ignore[arg-type]
+        agent_delegate=AgentDelegate(),
+        web_search_resolver=RejectResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert merged["_agent_evidence"]["facts"]["reason"] == "incident_anchor_unavailable"
+    assert "_behavior_evidence" not in merged
+    assert "_screen_scope" not in merged
+    assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {"agent"}
+
+
 async def test_chat_pipeline_overlaps_explicit_web_and_tool_resolvers() -> None:
     started: set[str] = set()
     both_started = asyncio.Event()

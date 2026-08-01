@@ -438,6 +438,24 @@ async def test_chat_delegate_renders_preincident_scope_activity() -> None:
     assert executor.calls == 0
 
 
+async def test_chat_delegate_fails_closed_when_incident_anchor_is_unavailable() -> None:
+    executor = _Executor()
+
+    result = await _delegate(executor).delegate(
+        prompt=(
+            "vm-fdai-example-01 change history: pre-incident activity anchor=unavailable locale=ko"
+        ),
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert "근거를 사용할 수 없어" in _answer(result)
+    assert _facts(result)["status"] == "unavailable"
+    assert _facts(result)["reason"] == "incident_anchor_unavailable"
+    assert executor.calls == 0
+
+
 async def test_chat_delegate_renders_opaque_attribution_caller() -> None:
     envelope = ReadEvidenceEnvelope(
         status=EvidenceStatus.MATCHED,

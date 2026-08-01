@@ -41,6 +41,16 @@ def test_parse_preincident_activity_accepts_only_canonical_aware_request() -> No
     )
 
 
+def test_parse_preincident_activity_accepts_missing_anchor_canonical() -> None:
+    parsed = parse_preincident_activity(
+        "vm-primary change history: pre-incident activity anchor=unavailable locale=ko"
+    )
+
+    assert parsed is not None
+    assert parsed.resource_name == "vm-primary"
+    assert parsed.locale == "ko"
+
+
 def test_contextualize_preincident_followup_uses_complete_server_anchor() -> None:
     contextualized, used_context = contextualize_resource_followup(
         "What changed immediately before the incident?",
@@ -204,4 +214,19 @@ async def test_resolve_preincident_activity_fails_closed_on_provider_error() -> 
     assert isinstance(facts, dict)
     assert facts["status"] == "unavailable"
     assert facts["reason"] == "RuntimeError"
+    assert facts["evidence_refs"] == ()
+
+
+async def test_resolve_preincident_activity_fails_closed_without_anchor() -> None:
+    request = parse_preincident_activity(
+        "vm-primary change history: pre-incident activity anchor=unavailable locale=en"
+    )
+    assert request is not None
+
+    result = await resolve_preincident_activity(request, None)
+
+    facts = result["facts"]
+    assert isinstance(facts, dict)
+    assert facts["status"] == "unavailable"
+    assert facts["reason"] == "incident_anchor_unavailable"
     assert facts["evidence_refs"] == ()

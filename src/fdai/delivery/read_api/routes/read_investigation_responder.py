@@ -91,25 +91,6 @@ class HeimdallReadInvestigationResponder:
     ) -> dict[str, object] | None:
         preincident = parse_preincident_activity(question)
         if preincident is not None:
-            if self._scope_activity_provider is None:
-                return {
-                    "answer": (
-                        "Azure Activity Log 근거를 사용할 수 없어 장애 직전 변경을 "
-                        "확정하지 않았습니다."
-                        if preincident.locale == "ko"
-                        else (
-                            "Azure Activity Log evidence is unavailable, so pre-incident "
-                            "changes were not confirmed."
-                        )
-                    ),
-                    "facts": {
-                        "status": "unavailable",
-                        "intent": "pre_incident_changes",
-                        "resource_name": preincident.resource_name,
-                        "reason": "activity_provider_unavailable",
-                        "evidence_refs": (),
-                    },
-                }
             return await resolve_preincident_activity(preincident, self._scope_activity_provider)
         intent = classify_read_investigation_intent(question)
         resource_name = resource_name_from_question(question)
@@ -409,6 +390,26 @@ class HeimdallReadInvestigationChatDelegate:
         user_id: str,
         session_id: str,
     ) -> dict[str, object] | None:
+        preincident = parse_preincident_activity(prompt)
+        if preincident is not None:
+            result = await self._responder(
+                prompt,
+                {"user_id": user_id, "session_id": session_id},
+            )
+            if result is None:
+                return None
+            answer = result.get("answer")
+            facts = result.get("facts")
+            if not isinstance(answer, str) or not isinstance(facts, dict):
+                return None
+            return {
+                "primary_agent": "Heimdall",
+                "answer": answer,
+                "facts": facts,
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": "read-investigation",
+            }
         if classify_read_investigation_intent(prompt) is None:
             return None
         scoped_session = hashlib.sha256(f"{user_id}:{session_id}".encode()).hexdigest()
@@ -441,6 +442,8 @@ class HeimdallReadInvestigationChatDelegate:
         session_id: str,
         progress_observer: Callable[[Mapping[str, object]], Awaitable[None]],
     ) -> dict[str, object] | None:
+        if parse_preincident_activity(prompt) is not None:
+            return await self.delegate(prompt=prompt, user_id=user_id, session_id=session_id)
         intent = classify_read_investigation_intent(prompt)
         resource_name = resource_name_from_question(prompt)
         if intent is None or resource_name is None:

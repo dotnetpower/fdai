@@ -16,6 +16,10 @@ _CANONICAL: Final = re.compile(
     r"group=(?P<group>[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}) "
     r"before=(?P<before>\S{1,64}) locale=(?P<locale>en|ko)$"
 )
+_MISSING_ANCHOR_CANONICAL: Final = re.compile(
+    r"^(?P<name>[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}) change history: "
+    r"pre-incident activity anchor=unavailable locale=(?P<locale>en|ko)$"
+)
 _RELEVANT_OPERATION: Final = re.compile(r"deployment|write|update|configuration", re.IGNORECASE)
 _LOOKBACK_SECONDS: Final = 24 * 3_600
 _IMMEDIATE_WINDOW: Final = timedelta(hours=1)
@@ -32,10 +36,25 @@ class PreIncidentActivityRequest:
     locale: str
 
 
-def parse_preincident_activity(question: str) -> PreIncidentActivityRequest | None:
+@dataclass(frozen=True, slots=True)
+class MissingPreIncidentAnchorRequest:
+    resource_name: str
+    locale: str
+
+
+def parse_preincident_activity(
+    question: str,
+) -> PreIncidentActivityRequest | MissingPreIncidentAnchorRequest | None:
     """Parse only the server-generated canonical pre-incident request."""
 
-    match = _CANONICAL.fullmatch(" ".join(question.split()))
+    normalized = " ".join(question.split())
+    missing = _MISSING_ANCHOR_CANONICAL.fullmatch(normalized)
+    if missing is not None:
+        return MissingPreIncidentAnchorRequest(
+            resource_name=missing.group("name"),
+            locale=missing.group("locale"),
+        )
+    match = _CANONICAL.fullmatch(normalized)
     if match is None:
         return None
     try:
@@ -53,11 +72,15 @@ def parse_preincident_activity(question: str) -> PreIncidentActivityRequest | No
 
 
 async def resolve_preincident_activity(
-    request: PreIncidentActivityRequest,
-    provider: ScopeActivityProvider,
+    request: PreIncidentActivityRequest | MissingPreIncidentAnchorRequest,
+    provider: ScopeActivityProvider | None,
 ) -> dict[str, object]:
     """Read bounded scope activity and render changes before the verified incident anchor."""
 
+    if isinstance(request, MissingPreIncidentAnchorRequest):
+        return _unavailable(request, "incident_anchor_unavailable")
+    if provider is None:
+        return _unavailable(request, "activity_provider_unavailable")
     try:
         payload = dict(await provider(_LOOKBACK_SECONDS, _MAX_EVENTS))
     except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
@@ -212,7 +235,10 @@ def _bounded_display(value: object, *, fallback: str, max_chars: int) -> str:
     return (printable or fallback)[:max_chars]
 
 
-def _unavailable(request: PreIncidentActivityRequest, reason: str) -> dict[str, object]:
+def _unavailable(
+    request: PreIncidentActivityRequest | MissingPreIncidentAnchorRequest,
+    reason: str,
+) -> dict[str, object]:
     answer = (
         "Azure Activity Log 근거를 사용할 수 없어 장애 직전 변경을 확정하지 않았습니다."
         if request.locale == "ko"
@@ -235,6 +261,7 @@ def _unavailable(request: PreIncidentActivityRequest, reason: str) -> dict[str, 
 
 
 __all__ = [
+    "MissingPreIncidentAnchorRequest",
     "PreIncidentActivityRequest",
     "ScopeActivityProvider",
     "parse_preincident_activity",

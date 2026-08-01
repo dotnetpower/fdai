@@ -114,7 +114,9 @@ server-configured scope, keeps successful deployment, write, update, and configu
 from the same resource group before the anchor, and reports the count in the immediate preceding
 hour. If that count is zero, Heimdall may show the nearest earlier matching changes without
 claiming causation. Missing provenance, provider failure, or malformed context returns
-`unavailable`; truncation is explicit, and at most 20 matching events enter the answer.
+`unavailable`; a follow-up with no complete anomalous-event anchor returns a terminal unverified
+evidence gap without calling Activity Log or the narrator. Truncation is explicit, and at most 20
+matching events enter the answer.
 
 Collection questions use a separate typed activity query. The server fixes the Azure subscription
 and resource-group allowlist, caps the lookback at 30 days and the returned events at 200, and

@@ -28,6 +28,7 @@ from fdai.delivery.read_api.routes.chat_inventory import (
     inventory_execution_query,
     needs_inventory_evidence,
 )
+from fdai.delivery.read_api.routes.chat_preincident_activity import parse_preincident_activity
 from fdai.delivery.read_api.routes.chat_prompt import (
     _AGENT_NAME_TOKEN,
     _CONCEPT_DOMAIN,
@@ -302,18 +303,21 @@ async def _with_agent_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_agent_evidence", None)
-    if "_screen_scope" in enriched:
+    preincident_read = parse_preincident_activity(prompt) is not None
+    if "_screen_scope" in enriched and not preincident_read:
         return enriched
+    if preincident_read:
+        enriched.pop("_screen_scope", None)
     current_screen_tool = enriched.pop("_current_screen_tool", None)
     selected_agent = _selected_agent(prompt, conversation_context, target_agent)
     agent_owned = selected_agent is not None
     explicit_agent = _explicit_agent_requested(prompt)
-    read_investigation = (
+    read_investigation = preincident_read or (
         classify_read_investigation_intent(prompt) is not None
         and resource_name_from_question(prompt) is not None
     )
     if (
-        ("_behavior_evidence" in enriched and not agent_owned)
+        ("_behavior_evidence" in enriched and not agent_owned and not preincident_read)
         or ("_operational_evidence" in enriched and not agent_owned)
         or ("_tool_evidence" in enriched and not read_investigation and not agent_owned)
         or (current_screen_tool is not None and not agent_owned)
@@ -347,7 +351,7 @@ async def _with_agent_evidence(
     if evidence is not None:
         if read_investigation or agent_owned:
             enriched.pop("_tool_evidence", None)
-        if agent_owned:
+        if preincident_read or agent_owned:
             enriched.pop("_behavior_evidence", None)
         enriched["_agent_evidence"] = dict(evidence)
     elif selected_agent is not None:
@@ -637,7 +641,8 @@ def merge_evidence_branch_results(
 
     selected_agent = _selected_agent(prompt, conversation_context, target_agent)
     agent_owned = selected_agent is not None
-    read_investigation = (
+    preincident_read = parse_preincident_activity(prompt) is not None
+    read_investigation = preincident_read or (
         classify_read_investigation_intent(prompt) is not None
         and resource_name_from_question(prompt) is not None
     )
@@ -668,7 +673,7 @@ def merge_evidence_branch_results(
         agent_evidence.get("handoff_from") is not None and agent_evidence.get("answer") is None
     )
     agent_blocked = (
-        ("_behavior_evidence" in merged and not agent_owned)
+        ("_behavior_evidence" in merged and not agent_owned and not preincident_read)
         or ("_operational_evidence" in merged and not agent_owned)
         or ("_tool_evidence" in merged and not read_investigation and not agent_owned)
         or (current_screen_tool is not None and not agent_owned)
@@ -676,8 +681,10 @@ def merge_evidence_branch_results(
     if agent_evidence is not None and not agent_blocked:
         if (read_investigation or agent_owned) and not agent_handoff_only:
             merged.pop("_tool_evidence", None)
-        if agent_owned and not agent_handoff_only:
+        if (preincident_read or agent_owned) and not agent_handoff_only:
             merged.pop("_behavior_evidence", None)
+        if preincident_read and not agent_handoff_only:
+            merged.pop("_screen_scope", None)
         if not agent_handoff_only:
             merged.pop("_web_evidence", None)
         merged["_agent_evidence"] = agent_evidence

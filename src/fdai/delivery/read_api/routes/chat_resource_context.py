@@ -104,6 +104,12 @@ def contextualize_resource_followup(
             f"before={resource_context['event_at']} locale={locale}",
             True,
         )
+    if _PRE_INCIDENT_FOLLOWUP.search(prompt):
+        locale = "ko" if re.search(r"[가-힣]", prompt) else "en"
+        return (
+            f"{name} change history: pre-incident activity anchor=unavailable locale={locale}",
+            True,
+        )
     if _LATEST_CHANGE_FOLLOWUP.search(prompt):
         return f"{name} change history: show the most recent successful operation", True
     if _ATTRIBUTION_FOLLOWUP.search(prompt):
@@ -243,7 +249,23 @@ def resource_followup_verification(
     if answer is None or not isinstance(agent, Mapping):
         return None
     facts = agent.get("facts")
-    if not isinstance(facts, Mapping) or facts.get("status") != "matched":
+    if not isinstance(facts, Mapping):
+        return None
+    if (
+        facts.get("status") == "unavailable"
+        and facts.get("intent") == "pre_incident_changes"
+        and facts.get("reason") == "incident_anchor_unavailable"
+    ):
+        return AnswerVerification(
+            status="unverified",
+            answer=answer,
+            authority="server_read_investigation",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=(),
+            reason_code="incident_anchor_unavailable",
+        )
+    if facts.get("status") != "matched":
         return None
     raw_refs = facts.get("evidence_refs")
     if not isinstance(raw_refs, (list, tuple)) or not 1 <= len(raw_refs) <= 64:
