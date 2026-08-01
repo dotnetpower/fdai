@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 14866a8635656e00525dc2aefb499fd45ff8c6c5
+translation_source_sha: 34efc8de7bbc0318e00194ec0188253ccc051baf
 translation_revised: 2026-08-01
 ---
 
@@ -209,6 +209,11 @@ identity는 Thor에 위임되지 않습니다.
 서버 상태가 사용할 수 있는 운영 기능을 결정합니다. 브라우저는 사용성을 위해 사용할 수 없는 control을
 숨길 수 있지만 모든 제출은 authorization과 revision check를 반복합니다. SSE는 영향받은 source
 reference를 invalidate하고 client가 authoritative state를 다시 읽게 할 수 있습니다.
+
+Invalidation stream은 source record, available operation 또는 identity detail이 아니라 opaque source
+reference와 revision만 전달합니다. 최대 lifetime은 verified token expiry를 넘지 않습니다. Reconnect는
+issuer, audience, tenant, role, scope check를 반복하므로 browser state를 신뢰하지 않고 role revocation을
+반영합니다. SSE는 refresh hint일 뿐 요청을 authorize하지 않습니다.
 
 Bulk request는 도메인 workflow가 atomicity 또는 bounded partial failure, impact limit, rollback 동작을
 정의한 뒤에 도입합니다.

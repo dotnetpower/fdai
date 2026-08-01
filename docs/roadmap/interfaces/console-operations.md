@@ -211,6 +211,11 @@ Server state determines which operations are available. The browser may hide una
 for usability, but every submission repeats authorization and revision checks. SSE can invalidate
 affected source references so the client refetches authoritative state.
 
+An invalidation stream carries opaque source references and revisions, not source records,
+available operations, or identity details. Its maximum lifetime does not exceed the verified token
+expiry. Reconnect repeats issuer, audience, tenant, role, and scope checks, so role revocation takes
+effect without trusting browser state. SSE is a refresh hint only and never authorizes a request.
+
 Bulk requests wait until a domain workflow defines atomicity or bounded partial failure, impact
 limits, and rollback behavior.
 
