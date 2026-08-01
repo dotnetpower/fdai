@@ -891,6 +891,31 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 
+### RUN-0036: Most recent resource change
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q028` |
+| Executed | `2026-08-01` |
+| Prior context | Same verified resource context established by Q026 and Q027. |
+| Question | `Who changed this resource most recently, and what did they do?` |
+| Initial FDAI answer | Reused the stop-attribution renderer and returned an older deallocate operation instead of the most recent change, even though the Activity Log evidence contained a later start. |
+| Azure SRE Agent answer | Selected the latest successful Activity Log entry, identified a user caller, and reported a successful VM start with its timestamp. Deployment-owned values were redacted. |
+| Fixed FDAI answer | Selected the same latest successful start and timestamp and identified the caller as a user with an opaque principal reference. Deployment-owned values were redacted. |
+| Scope alignment | The target resource group remained in FDAI's server-owned reader allowlist from the matched Q027 validation. |
+| Evidence | The resource-context seam canonicalized the latest-change follow-up to resource history, then Heimdall re-resolved the resource and read bounded Activity Log evidence. The result consumed 32 evidence references, verified 32 of 32 checks, and made zero model calls. |
+| Material difference | Both final answers selected the same newest operation, actor kind, and time. FDAI retained an opaque caller reference, exposed deterministic verification, and completed in one bounded read-investigation path. |
+| Winner | FDAI after remediation for equal latest-change correctness with stronger identity minimization and evidence integrity. |
+| General fix | Latest-change follow-ups are distinct from stop attribution. They select the newest successful Activity Log operation of any kind and render operation, timestamp, actor kind, and opaque reference; a later start or update supersedes an older stop. |
+| Status | `fdai-win` |
+
+#### RUN-0036 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -927,7 +952,7 @@ existing seed.
 | Q025 | ko | Health history | 지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘. | `HEALTH` | compared |
 | Q026 | en | Health history | What Resource Health events occurred during the last day? | `HEALTH` | compared |
 | Q027 | ko | Change attribution | 누가 이 리소스를 중지했어? | `CHANGE` | compared |
-| Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | queued |
+| Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | compared |
 | Q029 | ko | Change history | 장애 직전에 발생한 배포와 설정 변경을 찾아줘. | `CHANGE` | queued |
 | Q030 | en | Change history | Build a change timeline for the hour before the incident. | `CHANGE` | queued |
 | Q031 | ko | Guest activity | 운영 체제가 내부에서 종료된 흔적이 있어? | `CHANGE` | queued |
