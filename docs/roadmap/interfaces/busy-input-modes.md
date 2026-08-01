@@ -99,6 +99,11 @@ interrupt:
     or restored as completed work.
 - The active-turn marker is finished in `finally`.
 
+During any active turn, a branch that rejects untrusted planner or provider input with `ValueError`
+settles as `unavailable` and emits one structured info event without a traceback. Unexpected
+exceptions settle as `failed` and retain a warning with a traceback. This distinction does not
+change cancellation authority.
+
 For a normal terminal answer, the stream cancels outstanding planning and finishes the active-turn
 marker before emitting `done`, so no coordinator work runs after the terminal frame. A busy-store
 cleanup error is logged with session and request identifiers but does not corrupt an already

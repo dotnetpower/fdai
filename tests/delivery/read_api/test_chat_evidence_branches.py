@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -103,6 +104,38 @@ async def test_failure_and_timeout_do_not_discard_successful_sibling() -> None:
     ]
     assert results[0].context == {"safe": True}
     assert "_tool_evidence" in results[2].context
+
+
+async def test_validation_rejection_is_unavailable_without_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def reject(_observe: Any) -> dict[str, Any]:
+        raise ValueError("synthetic invalid planner result")
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    with caplog.at_level(
+        logging.INFO,
+        logger="fdai.delivery.read_api.routes.chat_evidence_branches",
+    ):
+        results = await resolve_evidence_branches(
+            request_id="request-rejected",
+            base_context={"safe": True},
+            specs=(
+                EvidenceBranchSpec(
+                    EvidenceBranchKind.TOOL,
+                    reject,
+                    ("_tool_evidence",),
+                ),
+            ),
+            progress_observer=observe,
+        )
+
+    assert results[0].status is EvidenceBranchStatus.UNAVAILABLE
+    assert results[0].context == {"safe": True}
+    assert "chat_evidence_branch_rejected" in caplog.messages
+    assert all(record.levelno < logging.WARNING for record in caplog.records)
 
 
 async def test_cancelling_parent_cancels_and_awaits_every_branch() -> None:

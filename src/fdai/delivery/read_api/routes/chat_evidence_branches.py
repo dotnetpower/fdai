@@ -145,6 +145,24 @@ async def _resolve_branch(
                 exc_info=True,
             )
         raise
+    except ValueError as exc:
+        _LOG.info(
+            "chat_evidence_branch_rejected",
+            extra={
+                "branch_kind": spec.kind.value,
+                "error_type": type(exc).__name__,
+            },
+        )
+        return await _terminal_result(
+            branch_id=branch_id,
+            kind=spec.kind,
+            status=EvidenceBranchStatus.UNAVAILABLE,
+            summary=f"{spec.kind.value} evidence unavailable",
+            context=base_context,
+            started_at=started_at,
+            started=started,
+            progress_observer=progress_observer,
+        )
     except Exception as exc:  # noqa: BLE001 - isolate one read-only evidence branch
         _LOG.warning(
             "chat evidence branch failed: %s",

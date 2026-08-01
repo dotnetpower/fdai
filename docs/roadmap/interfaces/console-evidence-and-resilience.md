@@ -382,11 +382,11 @@ Each branch event carries these bounded fields:
 | `evidence_refs` | Bounded canonical references emitted only at a terminal branch state. |
 
 The server emits branch lifecycle frames in request `seq` order. Branch completion order can vary,
-but the join always merges immutable results in canonical branch-kind order. One unavailable,
-failed, or timed-out independent read does not erase successful sibling evidence. A conflict in
-authoritative facts is different: the join preserves both evidence sets, marks the answer
-unverified, and does not let Bragi choose a winner. Shared mutable context is never written by
-concurrent branches.
+but the join always merges immutable results in canonical branch-kind order. A branch that rejects
+untrusted input with `ValueError` is `unavailable` and emits structured info without a traceback;
+unexpected exceptions remain `failed` and retain a warning traceback. Successful sibling evidence
+stays available. An authoritative-fact conflict preserves both evidence sets, marks the answer
+unverified, and does not let Bragi choose a winner. Concurrent branches never write shared context.
 
 The implemented first wave uses one bounded task group for eligible tool, operational, explicitly
 selected agent, read-investigation agent, and deterministic public-web reads. Agent or web work

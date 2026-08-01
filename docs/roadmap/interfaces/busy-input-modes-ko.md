@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 48d6eae41bc0f11829fa79b20f55aa0cb86a7f46
-translation_revised: 2026-07-31
+translation_source_sha: 98fa6c7bde705a2bb2e81f7efe7e951b8e9a2af8
+translation_revised: 2026-08-01
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -102,6 +102,11 @@ model call은 conversation-local cancellation event와 경쟁합니다. Interrup
 - Interrupted turn은 terminal turn-timing envelope를 emit하지 않습니다. Partial phase timing은
     완료된 작업으로 저장하거나 복원하지 않습니다.
 - Active-turn marker를 `finally`에서 finish합니다.
+
+Active turn 중 신뢰할 수 없는 planner 또는 provider input을 `ValueError`로 수락하지 않는 branch는
+`unavailable`로 종료하고 traceback 없이 구조화된 info event 한 건을 내보냅니다. 예상하지 못한
+exception은 `failed`로 종료하고 traceback을 포함한 warning을 유지합니다. 이 구분은 cancellation
+authority를 변경하지 않습니다.
 
 정상 terminal answer에서는 stream이 남아 있는 planning을 cancel하고 active-turn marker를 finish한
 후 `done`을 emit하므로 terminal frame 이후 coordinator 작업이 실행되지 않습니다. Busy store cleanup

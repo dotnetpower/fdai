@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f15eabff4642b1b808c8e983ac40c329417559e7
+translation_source_sha: a4eb468f46244141373541f5b14d0a0b994d3cd2
 translation_revised: 2026-08-01
 ---
 
@@ -383,11 +383,12 @@ evidence를 소유하고, 결정론적 verification이 확인된 모든 answer s
 | `started_at`, `completed_at`, `duration_ms` | Optional observed timing입니다. Completed time은 started time보다 앞설 수 없습니다. |
 | `evidence_refs` | Terminal branch state에서만 내보내는 bounded canonical reference입니다. |
 
-Server는 request `seq` 순서로 branch lifecycle frame을 내보냅니다. Branch completion 순서는 달라질
-수 있지만 join은 항상 immutable result를 canonical branch-kind 순서로 병합합니다. 하나의 독립 read가
-unavailable, failed 또는 timed out 상태여도 성공한 sibling evidence를 지우지 않습니다. Authoritative
-fact conflict는 다르게 처리합니다. Join은 양쪽 evidence set을 보존하고 answer를 unverified로 표시하며
-Bragi가 한쪽을 선택하지 못하게 합니다. Concurrent branch는 shared mutable context를 변경하지 않습니다.
+Server는 request `seq` 순서로 branch lifecycle frame을 내보냅니다. Branch completion 순서는 달라질 수
+있지만 join은 항상 immutable result를 canonical branch-kind 순서로 병합합니다. 신뢰할 수 없는 input을
+`ValueError`로 수락하지 않는 branch는 `unavailable`로 기록하고 traceback 없이 구조화된 info를
+내보냅니다. 예상하지 못한 exception은 `failed`와 traceback 포함 warning을 유지합니다. 성공한 sibling
+evidence는 계속 사용할 수 있습니다. Authoritative fact conflict는 양쪽 evidence set을 보존하고 answer를
+unverified로 표시하며 Bragi가 한쪽을 선택하지 못하게 합니다. Concurrent branch는 shared context를 변경하지 않습니다.
 
 구현된 first wave는 조건을 충족한 tool, operational, 명시적으로 선택된 agent, read-investigation agent
 및 deterministic public-web read에 bounded task group 하나를 사용합니다. 이전 authority result에 따라
