@@ -821,6 +821,29 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 
+### RUN-0033: Chronological Resource Health history
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q025` |
+| Executed | `2026-08-01` |
+| Question | `지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘.` |
+| Initial FDAI answer | Misrouted the collection request to a single-resource Heimdall investigation, failed resource resolution, and abstained without a history answer. |
+| Azure SRE Agent answer | Returned 11 Resource Health availability and annotation events in chronological order. It classified six as customer-initiated, five as status-only, and zero as platform-initiated. Deployment-owned values were redacted. |
+| Fixed FDAI answer | Returned the same 11 events in chronological order with the same six customer-initiated, five status-only, and zero platform-initiated classification. Deployment-owned values were redacted. |
+| Evidence | One deterministic subscription-health branch compiled a 24-hour lookback, queried bounded Resource Health availability statuses and annotations, merged by occurrence time, preserved partial and truncation state, consumed one evidence reference, verified one of one checks, and made zero model calls. |
+| Material difference | Both products returned the same event set, order, and classification counts. FDAI exposed the typed lookback, source availability, result bound, deterministic verification, and process accounting in one branch. |
+| Winner | FDAI after remediation for equal factual completeness with stronger evidence integrity and deterministic execution. |
+| General fix | Catalog-owned resource-health history intent takes precedence over single-resource investigation. Historical reads cap parsed lookback at 24 hours, never substitute current ARM status, merge availability and annotation rows chronologically, and classify each event deterministically. |
+| Status | `fdai-win` |
+
+#### RUN-0033 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -854,7 +877,7 @@ existing seed.
 | Q022 | en | Platform health | Is any managed resource affected by an active Azure outage? | `HEALTH` | compared |
 | Q023 | ko | Platform health | 플랫폼 문제와 고객이 시작한 중지를 구분해줘. | `HEALTH` | compared |
 | Q024 | en | Platform health | Separate platform-initiated impact from customer-initiated changes. | `HEALTH` | compared |
-| Q025 | ko | Health history | 지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘. | `HEALTH` | queued |
+| Q025 | ko | Health history | 지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘. | `HEALTH` | compared |
 | Q026 | en | Health history | What Resource Health events occurred during the last day? | `HEALTH` | queued |
 | Q027 | ko | Change attribution | 누가 이 리소스를 중지했어? | `CHANGE` | queued |
 | Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | queued |
