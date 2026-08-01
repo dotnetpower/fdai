@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 플랫폼
 translation_of: operating-ontology-platform.md
-translation_source_sha: 26df2216e49d5c6fe0ca74304a59406c84dc828c
+translation_source_sha: 10dede60957fa727602e5d9908fc785a4f0b0613
 translation_revised: 2026-08-01
 ---
 # FDAI 운영 온톨로지 플랫폼
@@ -25,12 +25,17 @@ SDK surface를 추가합니다.
 > 포함합니다. PostgreSQL object/link write는 exact type version과 release digest를 보존하며,
 > production ActionBuilder composition은 전체 loaded release를 사용합니다. Read-only manifest를
 > 전용 HTTP route로 mount하는 작업은 선택적인 Low 우선순위로 남아 있습니다.
+> Pre-migration row는 original release digest를 정직하게 복원할 수 없으므로 명시적으로 unpinned
+> 상태를 유지합니다. 다음 successful write는 완전히 다시 검증한 current-state revision을 새로
+> 만들고 그 새 revision을 해당 시점의 active release로 pin합니다.
 >
 > **하드닝 상태(2026-08-01):** Release identity, persistence, interface compatibility, ObjectSet
 > closure, mutation safety, function authority, projection, reconciliation, generated SDK syntax,
 > manifest disclosure를 대상으로 10회 adversarial round를 수행했습니다. 검증된 Medium 이상 core
 > finding을 수정했습니다. PostgreSQL 및 runtime integration finding도 수정했으며 residual finding은
-> Low입니다.
+> Low입니다. Round 12에서는 legacy read에 current release를 소급 할당하는 동작을 제거했습니다.
+> Round 13에서는 successful update가 새로 검증한 current-state revision을 생성하고 pin하는 것을
+> 확인했습니다.
 
 ## 한눈에 보는 설계
 

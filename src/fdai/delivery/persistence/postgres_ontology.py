@@ -687,11 +687,11 @@ def _row_type_ref(
     kind: OntologyDeclarationKind,
     name: str,
     release: OntologyRelease,
-) -> OntologyTypeRef:
+) -> OntologyTypeRef | None:
     version = row.get("type_version")
     digest = row.get("catalog_digest")
     if version is None and digest is None:
-        return release.type_ref(kind, name)
+        return None
     if not isinstance(version, str) or not isinstance(digest, str):
         raise RuntimeError("persisted ontology type reference is incomplete")
     return OntologyTypeRef(kind=kind, name=name, version=version, catalog_digest=digest)

@@ -22,12 +22,16 @@ preserving FDAI's governed action pipeline.
 > generation, and a read-only manifest. PostgreSQL object/link writes persist exact type versions
 > and release digests, and production ActionBuilder composition uses the full loaded release.
 > Mounting the read-only manifest as a dedicated HTTP route remains optional Low-priority work.
+> Pre-migration rows remain explicitly unpinned because their original release digest cannot be
+> reconstructed honestly. The next successful write creates a new, fully revalidated current-state
+> revision and pins that new revision to the then-active release.
 >
 > **Hardening status (2026-08-01):** Ten adversarial rounds covered release identity, persistence,
 > interface compatibility, ObjectSet closure, mutation safety, function authority, projection,
 > reconciliation, generated SDK syntax, and manifest disclosure. Verified Medium-or-higher core
 > findings are fixed. PostgreSQL and runtime integration findings are also fixed; residual findings
-> are Low.
+> are Low. Round 12 rejected retroactive release assignment for legacy reads. Round 13 confirmed
+> that a successful update creates and pins a newly validated current-state revision.
 
 ## Design at a glance
 

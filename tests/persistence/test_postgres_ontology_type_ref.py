@@ -51,3 +51,19 @@ def test_object_row_rejects_partial_type_ref() -> None:
             },
             _release(),
         )
+
+
+def test_object_row_keeps_pre_migration_type_ref_unknown() -> None:
+    record = _object_from_row(
+        {
+            "id": "workload-a",
+            "object_type": "Workload",
+            "properties": {"id": "workload-a"},
+            "revision": 3,
+            "type_version": None,
+            "catalog_digest": None,
+        },
+        _release(),
+    )
+
+    assert record.type_ref is None

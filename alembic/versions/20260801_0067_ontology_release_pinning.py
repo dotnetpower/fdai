@@ -18,6 +18,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Historical rows predate release digests. Keep them NULL rather than
+    # assigning the migration-time release and fabricating replay provenance.
     op.execute(
         "ALTER TABLE ontology_resource ADD COLUMN type_version TEXT, ADD COLUMN catalog_digest TEXT"
     )
@@ -35,6 +37,14 @@ def upgrade() -> None:
         "CHECK (type_version IS NULL OR type_version ~ '^[0-9]+\\.[0-9]+\\.[0-9]+$'), "
         "ADD CONSTRAINT ontology_link_catalog_digest_format "
         "CHECK (catalog_digest IS NULL OR catalog_digest ~ '^sha256:[a-f0-9]{64}$')"
+    )
+    op.execute(
+        "ALTER TABLE ontology_resource ADD CONSTRAINT ontology_resource_type_ref_pair "
+        "CHECK ((type_version IS NULL) = (catalog_digest IS NULL))"
+    )
+    op.execute(
+        "ALTER TABLE ontology_link ADD CONSTRAINT ontology_link_type_ref_pair "
+        "CHECK ((type_version IS NULL) = (catalog_digest IS NULL))"
     )
 
 
