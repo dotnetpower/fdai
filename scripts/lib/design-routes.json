@@ -1014,6 +1014,21 @@
       ]
     },
     {
+      "id": "network-connectivity-matrix",
+      "paths": [
+        "docs/roadmap/deployment/network-connectivity-matrix*.md"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/deployment/disconnected-deployment.md",
+        "docs/roadmap/architecture/llm-strategy.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/network-connectivity-matrix.md"
+      ]
+    },
+    {
       "id": "fork-customization",
       "paths": [
         "scripts/integrity/**",

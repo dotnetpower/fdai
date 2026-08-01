@@ -1,15 +1,13 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 310a0fc38858da728ecf3292c7154369e5a3779b
+translation_source_sha: e7089486d285bbb9e21cb8cf761e5c63e29306bc
 translation_revised: 2026-08-01
 ---
-
 # FDAI 로드맵
 
 FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 [copilot-instructions.md](../../.github/copilot-instructions.md)의 요약 원칙과
-[architecture.instructions.md](../../.github/instructions/architecture.instructions.md)의
 컨트롤 루프를, 목표·구조·배포·스케일-아웃을 아우르는 단계별 로드맵으로 확장합니다.
 
 > **온라인으로 읽기:** [dotnetpower.github.io/fdai](https://dotnetpower.github.io/fdai/).
@@ -79,6 +77,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 20b | [installable-deployment-cli-ko.md](deployment/installable-deployment-cli-ko.md) | 설치형 `fdaictl` facade: 격리된 `uv` 설치, 읽기 전용 preflight, 서명된 deployment bundle, private runner로 exact-plan 제출 |
 | 20c | [provisioning-execution-profiles-ko.md](deployment/provisioning-execution-profiles-ko.md) | Provisioning profile 선택: online/offline delivery, existing 또는 managed execution host, access preference, workload identity, exact-plan approval |
 | 20d | [disconnected-deployment-ko.md](deployment/disconnected-deployment-ko.md) | 공용 egress 없는 네트워크 배포: 네트워크 profile, 내부 mirror, 서명된 offline kit, 저하된 증거 fallback, 남은 air-gap gap |
+| 20e | [network-connectivity-matrix-ko.md](deployment/network-connectivity-matrix-ko.md) | Scenario별 DNS, IP, protocol, port, private zone, PTU, APIM 및 차단 경로 동작 |
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / assessment를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 scope RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 identity, 오퍼레이터 시작 SRE response, live stage progress, ARB 상태/수동 시작, workflow enforce, local/deployed parity |
