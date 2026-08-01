@@ -15,8 +15,10 @@ Asserts the step-B contract from
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -72,6 +74,45 @@ REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
 _RULE_ID = "object-storage.owner-tag.required"
 _SUBMITTER = "system:control-loop"
 _APPROVER = "alice@example.com"
+
+
+class ResolveDeliveryRaceStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.injected = False
+
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if audit_entry.get("action_kind") == "hil.rejected" and not self.injected:
+            self.injected = True
+            current = await self.read_state(key)
+            assert current is not None
+            delivered = dict(current)
+            delivered["revision"] = expected_revision + 1
+            applied = await super().compare_and_set_state_with_audit(
+                key,
+                delivered,
+                expected_revision=expected_revision,
+                audit_entry={
+                    "actor": "test",
+                    "action_kind": "hil.delivery.observed",
+                    "idempotency_key": f"{key}:delivery-observed",
+                },
+            )
+            assert applied
+            return False
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
 
 
 def _rule() -> Rule:
@@ -134,7 +175,10 @@ def _action(
 
 
 def _coordinator(
-    *, send_error: BaseException | None = None, with_escalation: bool = False
+    *,
+    send_error: BaseException | None = None,
+    with_escalation: bool = False,
+    state_store: InMemoryStateStore | None = None,
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -142,7 +186,7 @@ def _coordinator(
     InMemoryHilChannel,
 ]:
     publisher = RecordingRemediationPrPublisher()
-    store = InMemoryStateStore()
+    store = state_store or InMemoryStateStore()
     executor = ShadowExecutor(
         publisher=publisher,
         audit_store=store,
@@ -229,6 +273,31 @@ async def test_concurrent_terminal_decisions_have_one_winner() -> None:
     assert len(publisher.records) <= 1
     assert parked is not None
     assert parked["revision"] == 1
+
+
+async def test_terminal_decision_retries_after_benign_delivery_revision() -> None:
+    store = ResolveDeliveryRaceStore()
+    coordinator, publisher, _, _ = _coordinator(state_store=store)
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="delivery-race-correlation",
+        approval_id="delivery-race",
+    )
+
+    result = await coordinator.resolve(
+        approval_id="delivery-race",
+        decision=HilDecision.REJECT,
+        approver_oid=_APPROVER,
+    )
+
+    parked = await store.read_state("hil_park:delivery-race")
+    assert result.outcome is ResolveOutcome.REJECTED
+    assert publisher.records == ()
+    assert parked is not None
+    assert parked["status"] == "resolved"
+    assert parked["decision"] == HilDecision.REJECT.value
 
 
 def _audit_kinds(store: InMemoryStateStore) -> list[str]:

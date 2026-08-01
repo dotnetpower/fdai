@@ -749,38 +749,58 @@ class HilResumeCoordinator:
         action_kind: str,
         detail: Mapping[str, Any],
     ) -> bool:
-        revision = parked.get("revision", 0)
-        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
-            raise ValueError("parked approval revision MUST be a non-negative integer")
-        resolved_at = datetime.now(tz=UTC)
-        updated = dict(parked)
-        updated["status"] = _STATUS_RESOLVED
-        updated["decision"] = decision.value
-        updated["approver_oid"] = approver_oid
-        updated["resolved_at"] = resolved_at.isoformat()
-        updated["revision"] = revision + 1
-        escalation = updated.get("escalation")
-        if isinstance(escalation, Mapping):
-            updated["escalation"] = {
-                **dict(escalation),
-                "status": "decided",
-                "terminal_decision": decision.value,
-            }
-        approval_id = str(parked["approval_id"])
-        correlation_id = str(parked.get("correlation_id") or approval_id)
-        idem = str(parked.get("idempotency_key") or approval_id)
-        return await self._state_store.compare_and_set_state_with_audit(
-            _park_key(approval_id),
-            updated,
-            expected_revision=revision,
-            audit_entry=self._audit_entry(
-                action_kind=action_kind,
-                idempotency_key=f"{idem}:{action_kind}:{revision}",
-                approval_id=approval_id,
-                correlation_id=correlation_id,
-                detail=detail,
-            ),
+        immutable = (
+            parked.get("request_fingerprint"),
+            parked.get("action_hash"),
+            parked.get("action"),
         )
+        candidate = parked
+        approval_id = str(parked["approval_id"])
+        for _attempt in range(3):
+            revision = candidate.get("revision", 0)
+            if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+                raise ValueError("parked approval revision MUST be a non-negative integer")
+            resolved_at = datetime.now(tz=UTC)
+            updated = dict(candidate)
+            updated["status"] = _STATUS_RESOLVED
+            updated["decision"] = decision.value
+            updated["approver_oid"] = approver_oid
+            updated["resolved_at"] = resolved_at.isoformat()
+            updated["revision"] = revision + 1
+            escalation = updated.get("escalation")
+            if isinstance(escalation, Mapping):
+                updated["escalation"] = {
+                    **dict(escalation),
+                    "status": "decided",
+                    "terminal_decision": decision.value,
+                }
+            correlation_id = str(candidate.get("correlation_id") or approval_id)
+            idem = str(candidate.get("idempotency_key") or approval_id)
+            applied = await self._state_store.compare_and_set_state_with_audit(
+                _park_key(approval_id),
+                updated,
+                expected_revision=revision,
+                audit_entry=self._audit_entry(
+                    action_kind=action_kind,
+                    idempotency_key=f"{idem}:{action_kind}:{revision}",
+                    approval_id=approval_id,
+                    correlation_id=correlation_id,
+                    detail=detail,
+                ),
+            )
+            if applied:
+                return True
+            latest = await self._state_store.read_state(_park_key(approval_id))
+            if latest is None or latest.get("status") != _STATUS_PENDING:
+                return False
+            if (
+                latest.get("request_fingerprint"),
+                latest.get("action_hash"),
+                latest.get("action"),
+            ) != immutable:
+                return False
+            candidate = latest
+        return False
 
     async def _race_result(
         self,
