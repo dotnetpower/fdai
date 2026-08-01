@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: ea2c9dd4dc83739097fc8249376b50190e7b2a57
+translation_source_sha: 6853aab729c088c814abaf6f1c4565d247bab822
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -10,12 +10,14 @@ translation_revised: 2026-08-01
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 묶음 1부터 묶음 3까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
+> **현재 상태:** 묶음 1부터 묶음 4까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
 > 케이스 코어는 변경 불가능한 의도, 정규화된 독립 검토, 역할 기반 정족수, 리비전 기반
 > `StateStore` 전환, 콘텐츠 없는 감사 기록, 결과 영수증, 실패 시 차단되는 활성화를 제공합니다.
 > Owner 전용 관찰 API와 다섯 번째 IAM Assignments 탭은 정확한 활성 주체 재검증, 제한된 CAS 명령,
-> 조인된 근거, 공급자 변경이 없다는 명확한 표시를 추가합니다. 다음은 담당 체계 PR을 조정하는
-> 묶음 4입니다. 공급자 측 IAM 쓰기, 시간 기반 무응답
+> 조인된 근거, 공급자 변경이 없다는 명확한 표시를 추가합니다. 승인된 platform-wide assignment
+> case는 완전한 v2 ownership map만 렌더링하고 digest-bound governance PR 하나를 열며, 일치하는
+> signed merge에서만 ownership effect를 기록합니다. 다음은 통제된 Entra 적용인 묶음 5입니다.
+> 공급자 측 IAM 쓰기, 시간 기반 무응답
 > 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
 >
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
@@ -166,10 +168,13 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 active로 만들 수 �
 
 ### 묶음 4 - 담당 체계 PR 조정
 
+**상태:** 구현되었습니다. Platform ownership은 `scope:platform`만 허용하며, non-autonomous agent의
+v2 backup coverage가 하나라도 누락되는 partial assignment는 publish 전에 보류합니다.
+
 **변경:** `StewardshipGovernanceService`가 승인된 케이스를 받아 v2 overlay 하나를 렌더링하도록
-확장합니다. PR 영수증을 케이스에 저장합니다. 예상 경로, 커밋, 케이스 ID, 렌더링된 콘텐츠
-다이제스트가 일치할 때만 `human.assignment.ownership_merged`를 게시하도록 서명된 GitHub
-웹후크를 확장합니다.
+확장합니다. Proposal state에 case ID, PR receipt, canonical candidate digest를 저장합니다. Signed
+GitHub merge path는 PR ref와 rendered content digest가 일치할 때만 ownership effect receipt를
+case에 기록합니다.
 
 **테스트:** 추가 병합, 대체 담당자 없는 제거 차단, 원격 PR 재생, 웹후크 서명, 잘못된 저장소 또는
 다이제스트, 중복 전달, 케이스 대체, 알림, 원자적 감사 영수증을 테스트합니다.

@@ -8,13 +8,15 @@ work packages on `main`. Each package lands as one or more focused commits witho
 branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Packages 1 through 3 are implemented on `main`. Stewardship v2 duties and the
+> **Current status:** Packages 1 through 4 are implemented on `main`. Stewardship v2 duties and the
 > composite assignment-case core now provide immutable intent, normalized independent review,
 > role-based quorum, revisioned StateStore transitions, content-free audit records, effect
 > receipts, and fail-closed activation. The Owner-only observation API and fifth IAM Assignments
 > tab add exact active-subject revalidation, bounded CAS commands, joined evidence, and clear
-> no-provider-change presentation. Package 4, ownership PR coordination, is next.
-> Provider-side IAM writes, timed non-response escalation, proactive handover goals, and ontology
+> no-provider-change presentation. Approved platform-wide assignment cases now render only
+> complete v2 ownership maps, open one digest-bound governance PR, and record the ownership effect
+> only from the matching signed merge. Package 5, governed Entra apply, is next. Provider-side IAM
+> writes, timed non-response escalation, proactive handover goals, and ontology
 > candidates don't exist yet.
 >
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
@@ -168,9 +170,12 @@ observation-only case. The UI clearly states that no Entra membership changed.
 
 ### Package 4 - Ownership PR coordination
 
+**Status:** Implemented. Platform ownership accepts only `scope:platform`; a partial assignment
+that leaves any non-autonomous agent without v2 backup coverage is held before publication.
+
 **Changes:** Extend `StewardshipGovernanceService` to accept an approved case and render one v2
-overlay. Persist the PR receipt on the case. Extend the signed GitHub webhook to publish
-`human.assignment.ownership_merged` only when the expected path, commit, case id, and rendered
+overlay. Persist case id, PR receipt, and canonical candidate digest in proposal state. The signed
+GitHub merge path records the ownership effect receipt on the case only when PR ref and rendered
 content digest match.
 
 **Tests:** Additive merge, removal rejection without replacement, remote PR replay, webhook

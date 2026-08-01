@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 24ae130c988bfabdd9a2c91db2ad90023050369b
+translation_source_sha: 2a826c4342f82e89980619bd01c4b4b1bb31cf89
 translation_revised: 2026-08-01
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -139,6 +139,13 @@ notification을 전송합니다. Remote PR 생성 후 local claim 전에 process
 PR을 찾고 duplicate 없이 누락된 local state를 복구합니다. Local state가 존재한 뒤에는 remote
 call 전에 correlation id로 receipt를 resolve하므로 첫 PR이 closed된 후 upload를 재처리해도 다른
 PR을 열지 않습니다.
+
+승인된 human-assignment case도 같은 publisher를 사용하지만 더 엄격한 input gate를 적용합니다.
+이 global map에는 `scope:platform` duty만 표현할 수 있으며, rendered candidate는 모든
+non-autonomous agent에 대해 schema-v2 primary 및 backup/escalation coverage를 완성해야 합니다.
+Proposal state는 assignment case ID, PR ref, canonical candidate digest를 결합합니다. Signed merge는
+merged digest가 proposal과 일치할 때만 case의 ownership effect를 기록합니다. Partial map 또는
+mismatched merge는 보류되며 IAM apply를 시작할 수 없습니다.
 
 ### Merge observation
 

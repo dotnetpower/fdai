@@ -23,6 +23,10 @@ from fdai.core.human_assignment.model import (
     ReviewDecision,
     ReviewReceipt,
 )
+from fdai.core.human_assignment.ownership import (
+    AssignmentOwnershipError,
+    render_assignment_ownership_yaml,
+)
 from fdai.core.human_assignment.service import AssignmentCaseService
 from fdai.core.human_assignment.transitions import (
     ALLOWED_TRANSITIONS,
@@ -41,6 +45,7 @@ __all__ = [
     "AssignmentCoverageError",
     "AssignmentIntent",
     "AssignmentModelError",
+    "AssignmentOwnershipError",
     "AssignmentPermissionError",
     "AssignmentServiceError",
     "AssignmentState",
@@ -55,5 +60,6 @@ __all__ = [
     "TransitionIntent",
     "approval_quorum_satisfied",
     "required_review_quorum",
+    "render_assignment_ownership_yaml",
     "validate_transition",
 ]

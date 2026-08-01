@@ -136,6 +136,13 @@ the local claim, a retry finds the existing PR and repairs the missing local sta
 duplicate. After local state exists, the service resolves the receipt by correlation id before any
 remote call, so reprocessing cannot open another PR even after the first PR is closed.
 
+Approved human-assignment cases use the same publisher with a stricter input gate. Only
+`scope:platform` duties are representable in this global map, and the rendered candidate must
+provide complete schema-v2 primary plus backup/escalation coverage for every non-autonomous agent.
+The proposal state binds assignment case id, PR ref, and canonical candidate digest. A signed merge
+records the case's ownership effect only when the merged digest matches that proposal; a partial
+map or mismatched merge remains held and cannot start IAM apply.
+
 ### Merge observation
 
 The ingestion gateway registers `POST /ingestion/webhooks/github/stewardship` only when governance

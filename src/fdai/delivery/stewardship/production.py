@@ -9,6 +9,7 @@ from typing import cast
 
 import httpx
 
+from fdai.core.human_assignment import AssignmentCaseService
 from fdai.core.notifications import NotificationRouter, load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
 from fdai.core.stewardship import load_stewardship_from_yaml
@@ -112,6 +113,7 @@ def build_production_stewardship_governance(
         ),
         notifications=notifications,
         state_store=state_store,
+        assignment_cases=AssignmentCaseService(store=state_store),
     )
     return ProductionStewardshipGovernance(
         service=service,
