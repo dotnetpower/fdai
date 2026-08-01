@@ -154,6 +154,12 @@ and a status URL. It means "durably queued", never "approved" or "executed". A r
 intent returns the original receipt; terminal outcome is available only from the owning domain
 projection and audit trail.
 
+The intent digest covers the principal, domain operation, exact source reference and revision,
+normalized arguments, and applicable policy or schema version. Reusing an idempotency key with a
+different digest returns `409 Conflict`, emits an audit finding, and publishes no event. Keys are
+scoped to the authenticated principal and operation so unrelated users cannot observe or collide
+with another principal's receipt.
+
 ## Agent and execution authority
 
 The console has no judgment or managed-resource execution authority. The pantheon retains its

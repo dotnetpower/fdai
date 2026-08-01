@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 4e9a55a5ef44c44d00dbda0191328fbb50e9ff64
+translation_source_sha: 0567db861f30a28c565aeb6befca92f020cb8ddd
 translation_revised: 2026-08-01
 ---
 
@@ -154,6 +154,12 @@ Request acceptance는 durable claim과 outbox commit 뒤에만 HTTP `202 Accepte
 `request_id`, `correlation_id`, `idempotency_key`, `intent_digest`, `accepted_at`, status URL을 포함합니다.
 이 응답은 "durably queued"를 뜻하며 "approved"나 "executed"를 뜻하지 않습니다. 같은 intent의 replay는
 원래 receipt를 반환하고 terminal outcome은 owning domain projection과 audit trail에서만 확인합니다.
+
+Intent digest는 principal, domain operation, exact source reference와 revision, normalized argument,
+해당 policy 또는 schema version을 포함합니다. 다른 digest로 같은 idempotency key를 재사용하면 `409
+Conflict`를 반환하고 audit finding을 기록하며 event를 publish하지 않습니다. Key는 authenticated
+principal과 operation 범위로 제한하여 관련 없는 사용자가 다른 principal의 receipt를 보거나 충돌시키지
+못하게 합니다.
 
 ## 에이전트와 실행 authority
 
