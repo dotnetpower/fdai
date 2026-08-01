@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 34efc8de7bbc0318e00194ec0188253ccc051baf
+translation_source_sha: 862659bbc47ae93d82c823b4ac17431c819fc132
 translation_revised: 2026-08-01
 ---
 
@@ -235,7 +235,7 @@ execution은 지원되는 console classification이 아닙니다.
 ### Phase 1 - Operations projection 구성
 
 `ReviewCase`, `Approval`, `Process`, `AccessGrantRequest`를 source별 task view로 projection합니다. Exact
-reference, evidence, freshness, cursor pagination, unavailable state, redaction test를 추가합니다.
+reference, evidence, freshness, cursor pagination, unavailable state, redaction test를 추가하고 첫 projection부터 materialization age와 source-watermark lag를 emit합니다.
 
 Exit criteria: 같은 cutoff에서 projection을 다시 만들면 같은 view가 생성되고 어떤 source lifecycle도
 projection에 의존하지 않습니다. 각 materialization은 ordered redacted output, ontology release,
@@ -246,7 +246,7 @@ projection에 의존하지 않습니다. 각 materialization은 ordered redacted
 ### Phase 2 - 도메인 요청 hardening
 
 도메인 스키마를 대체하지 않고 revision check, idempotency, receipt, outbox 동작을 표준화합니다. Stale
-state, duplicate submission, self-approval, expiry, role change, process restart를 테스트합니다.
+state, duplicate submission, self-approval, expiry, role change, process restart를 테스트하고 accepted, replayed, conflicted, denied, expired, published, reconciled outcome을 count합니다.
 
 Exit criteria: SPA에는 authorization decision이 없고 accepted request가 source owner를 우회하지 않습니다.
 Publish 전, publish 후, response 전 failure injection으로 committed request가 유실되지 않고 event가 두 번
@@ -260,7 +260,7 @@ request route를 추가하면 변경이 차단됩니다.
 ### Phase 3 - Operations view 완성
 
 기존 console shell에 Tasks, Approvals, Investigations, timeline, evidence, conflict recovery를 추가합니다.
-기존 `Process`와 review link를 통해 operational-readiness handover를 projection합니다.
+기존 `Process`와 review link를 통해 operational-readiness handover를 projection하고 source와 outcome별 queue age 및 request-to-terminal-outcome latency를 측정합니다.
 
 Exit criteria: 오퍼레이터가 FDAI Console에서 지원되는 사람 단계를 완료할 수 있으며 모든
 managed-resource mutation은 이후 Thor `ActionRun`으로만 나타납니다.
@@ -269,7 +269,7 @@ managed-resource mutation은 이후 Thor `ActionRun`으로만 나타납니다.
 
 측정된 수요와 도메인 safety contract가 생긴 뒤에만 cross-device saved view 또는 bulk request를
 추가합니다. Queue age, decision latency, conflict rate, duplicate suppression, overdue work, projection
-freshness, request-to-terminal-outcome latency를 측정합니다.
+freshness, request-to-terminal-outcome latency를 측정하고 baseline에서 alert를 설정합니다.
 
 ## 채택하지 않은 대안
 

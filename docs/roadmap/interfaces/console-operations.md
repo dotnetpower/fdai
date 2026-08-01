@@ -237,7 +237,7 @@ managed-resource execution is not a supported console classification.
 
 Project `ReviewCase`, `Approval`, `Process`, and `AccessGrantRequest` into source-specific task
 views. Add exact references, evidence, freshness, cursor pagination, unavailable states, and
-redaction tests.
+redaction tests. Emit materialization age and source-watermark lag from the first projection.
 
 Exit criteria: rebuilding projections at the same cutoff produces the same views, and no source
 lifecycle depends on the projection. Each materialization records one canonical digest over the
@@ -249,7 +249,7 @@ same inputs reproduce the same digest while a changed watermark produces a new s
 
 Standardize revision checks, idempotency, receipts, and outbox behavior without replacing domain
 schemas. Test stale state, duplicate submission, self-approval, expiry, role changes, and process
-restart.
+restart. Count accepted, replayed, conflicted, denied, expired, published, and reconciled outcomes.
 
 Exit criteria: the SPA contains no authorization decision and no accepted request bypasses its
 source owner. Failure injection before publish, after publish, and before response proves that a
@@ -264,7 +264,7 @@ and revoked entitlement. Adding a request route without its matrix row blocks th
 
 Add Tasks, Approvals, Investigations, timeline, evidence, and conflict recovery to the existing
 console shell. Project operational-readiness handover through its existing `Process` and review
-links.
+links. Measure queue age and request-to-terminal-outcome latency by source and outcome.
 
 Exit criteria: operators can complete each supported human step in FDAI Console, while every
 managed-resource mutation appears only as a later Thor `ActionRun`.
@@ -273,7 +273,7 @@ managed-resource mutation appears only as a later Thor `ActionRun`.
 
 Add cross-device saved views or bulk requests only after measured demand and a domain safety
 contract exist. Track queue age, decision latency, conflict rate, duplicate suppression, overdue
-work, projection freshness, and request-to-terminal-outcome latency.
+work, projection freshness, and request-to-terminal-outcome latency; set alerts from measured baselines.
 
 ## Rejected alternatives
 
