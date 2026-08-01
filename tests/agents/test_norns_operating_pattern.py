@@ -94,3 +94,25 @@ async def test_replayed_operating_cohort_emits_one_candidate() -> None:
 
     assert len(norns.pending_candidates) == 1
     assert norns.behavior_snapshot()["operational_case_cohort_duplicate"] == 1
+
+
+async def test_oversized_operating_cohort_is_rejected_before_materialization() -> None:
+    norns = Norns()
+    payload = _payload(
+        *(
+            _case(
+                f"{index:02x}-case",
+                outcome_class=(
+                    OperationalOutcomeClass.SUCCESS
+                    if index % 2 == 0
+                    else OperationalOutcomeClass.ROLLBACK
+                ),
+            )
+            for index in range(101)
+        )
+    )
+
+    await norns.on_typed_message("object.context-index", payload)
+
+    assert norns.pending_candidates == []
+    assert norns.behavior_snapshot()["operational_case_cohort_invalid_payload"] == 1

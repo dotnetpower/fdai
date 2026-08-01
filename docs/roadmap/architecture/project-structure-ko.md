@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cc54e50966f61b0142739cd284a21b374a585ee2
+translation_source_sha: a67eb4e76abe05c399e614c38528f61171126b3f
 translation_revised: 2026-08-01
 ---
 
@@ -426,7 +426,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   Promotion-state refresh failure는 stale enforcement를 재사용하지 않고 unified system-health ceiling을 낮춥니다.
 - **Azure operational evidence**: `bind_azure_operational_evidence`는 strict promoted-inventory
   snapshot reader, current safety evaluator, configured Azure metric, bounded branch estimator,
-  effect-model reader를 조립합니다. Partial binding은 container construction에서 실패합니다.
+  effect-model reader를 조립합니다. Temporal adapter는 evidence hashing 전에 non-finite metric
+  value를 거부합니다. Partial binding은 container construction에서 실패합니다.
 
 ### Capability Bundle
 

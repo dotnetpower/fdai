@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 1129fc29a42be60aa222ccc18ee775f34c2ffc1d
+translation_source_sha: 303c295e2399d18f4ef4cda57c2f337bf65ae08b
 translation_revised: 2026-08-01
 ---
 
@@ -202,7 +202,7 @@ bounded `norns_consensus` 하나를 내보내고, 불일치는 자유 형식 추
 승인 거절 (`revision` / `retirement`), 선택적 scenario gap (`new-scenario`)이며 모두 같은 합의 경계를 거칩니다.
 
 모든 제안은 수치 근거를 기록합니다. Trajectory intake는 reviewed aggregate만 받고 자체 candidate를 만들지 않습니다.
-Huginn은 strict operational-case event를 전달하고 Muninn은 이를 seal해 bounded failure-fingerprint cohort를 publish합니다. Norns는 typed intake를 serialize하고 하나의 fingerprint와 ActionType, balanced evidence, immutable revision, stable correlation 및 idempotency key를 요구한 뒤 bounded 5,000-entry pending queue에 inert candidate를 냅니다. Incomplete evidence는 hold됩니다. Mimir는 concurrent intake를 serialize하고 immutable review package를 compile하며 failed receipt를 quarantine하고 unresolved capacity를 backpressure하며 idempotent PR publication 후 state를 compact합니다. Operational candidate를 process 안에서 promote하지 않으며 reviewed catalog PR과 reload만 activation 경로입니다. Review outcome은 Mimir-owned `object.rule`로 이동하고 Saga가 `object.audit-entry`로 seal합니다.
+Huginn은 strict operational-case event를 전달하고 Muninn은 이를 seal해 bounded failure-fingerprint cohort를 publish합니다. Norns는 typed intake를 serialize하고 100개 초과 operational cohort를 materialization 전에 거부하며 하나의 fingerprint와 ActionType, balanced evidence, immutable revision, stable correlation 및 idempotency key를 요구한 뒤 bounded 5,000-entry pending queue에 inert candidate를 냅니다. Incomplete evidence는 hold됩니다. Mimir는 concurrent intake를 serialize하고 immutable review package를 compile하며 failed receipt를 quarantine하고 unresolved capacity를 backpressure하며 idempotent PR publication 후 state를 compact합니다. Operational candidate를 process 안에서 promote하지 않으며 reviewed catalog PR과 reload만 activation 경로입니다. Review outcome은 Mimir-owned `object.rule`로 이동하고 Saga가 `object.audit-entry`로 seal합니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).

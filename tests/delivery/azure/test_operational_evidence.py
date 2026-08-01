@@ -379,6 +379,36 @@ async def test_temporal_provider_rejects_snapshot_after_feature_cutoff() -> None
         await provider.collect(event=_event(), incident_id="incident-1")
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+async def test_temporal_provider_rejects_non_finite_metric_values(value: float) -> None:
+    points = tuple(
+        MetricPoint(
+            metric_name=metric,
+            at=_NOW - timedelta(minutes=2 - index),
+            value=value if metric == "node_cpu_percent" and index == 0 else float(index),
+            labels={"resource_id": _RESOURCE.casefold()},
+        )
+        for index in range(2)
+        for metric in ("node_cpu_percent", "service_latency_ms")
+    )
+    provider = AzureTemporalCausalEvidenceProvider(
+        snapshots=_HistoricalSnapshots(),
+        metrics=StaticMetricProvider(points),
+        policies={
+            "aks.node-pressure": AzureTemporalPolicy(
+                cause_metric="node_cpu_percent",
+                effect_metric="service_latency_ms",
+                mechanism="node-pressure",
+                required_topology_role="hosts",
+                lookback=timedelta(minutes=20),
+            )
+        },
+    )
+
+    with pytest.raises(ValueError, match="non-finite"):
+        await provider.collect(event=_event(), incident_id="incident-1")
+
+
 class _Estimator:
     async def estimate(self, *, event, action, snapshot, metric):  # type: ignore[no-untyped-def]
         return (

@@ -501,6 +501,8 @@ async def _metric_series(
     points.sort(key=lambda item: item.at)
     if any(point.at.tzinfo is None or point.at < since or point.at > until for point in points):
         raise ValueError("Azure temporal metric provider returned out-of-window points")
+    if any(not math.isfinite(point.value) for point in points):
+        raise ValueError("Azure temporal metric provider returned non-finite values")
     if any(
         point.metric_name != metric
         or point.labels.get("resource_id", "").casefold() != resource_ref.casefold()

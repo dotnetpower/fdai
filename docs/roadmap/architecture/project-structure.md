@@ -440,7 +440,8 @@ clean (see the fork model in
   refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
   inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
-  estimator, and effect-model reader. Partial binding fails at container construction.
+  estimator, and effect-model reader. Temporal adapters reject non-finite metric values before
+  evidence hashing. Partial binding fails at container construction.
 
 ### Capability Bundles
 

@@ -79,6 +79,7 @@ _SUCCESS_RESULTS: frozenset[str] = frozenset({"success", "applied", "ok"})
 # so they cannot grow without bound over the process lifetime.
 _MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
+_MAX_OPERATING_PATTERN_CASES = 100
 
 
 class NornsCapacityError(RuntimeError):
@@ -240,7 +241,10 @@ class Norns(Agent):
             self.record_behavior("operational_case_cohort_invalid_producer")
             return
         raw_cases = payload.get("cases")
-        if not isinstance(raw_cases, list):
+        if (
+            not isinstance(raw_cases, list)
+            or not 1 <= len(raw_cases) <= _MAX_OPERATING_PATTERN_CASES
+        ):
             self.record_behavior("operational_case_cohort_invalid_payload")
             return
         try:
