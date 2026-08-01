@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 602960700fced37242b6a0f728ad9211079fad14
+translation_source_sha: 50cb999a58c0520639748605e3ef3fd651420b06
 translation_revised: 2026-08-01
 ---
 
@@ -124,6 +124,11 @@ reason, last successful watermark, retry guidance를 포함한 explicit unavaila
 Stale cache를 current 상태로 대체하거나 누락된 object를 추론하지 않습니다. 다른 source family는 계속
 표시할 수 있지만 unavailable source에 의존하는 요청은 authoritative state를 다시 읽을 때까지 server
 side에서 비활성화합니다.
+
+각 union arm은 `availability: available | unavailable`을 포함합니다. Unavailable arm은 `source_family`와
+exact ref를 유지하고 domain data를 생략하며 `reason: unauthorized | timeout | source_unavailable |
+freshness_exceeded`, nullable `last_successful_watermark`, nullable bounded `retry_after_seconds`를 추가합니다.
+Unknown reason은 empty source가 되지 않고 decoding에 실패합니다.
 
 ## 운영 요청
 
