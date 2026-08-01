@@ -106,9 +106,9 @@ A versioned projection schema is the machine source for the discriminator, each 
 receipts. Server validation and generated client decoders use the same schema digest. CI rejects an
 unknown family, missing arm, or server/client digest mismatch.
 
-That schema also declares each family's hard item limit, maximum link-traversal depth, stable
-primary-key ordering, and allowed truncation reasons. Materialization rejects a missing or
-unbounded limit. Pagination cannot change the snapshot cutoff, ordering, or source watermarks.
+That schema also declares each family's bounded `freshness_ceiling_seconds`, hard item limit,
+maximum link-traversal depth, stable primary-key ordering, and allowed truncation reasons. A missing
+or unbounded value is rejected; pagination cannot change cutoff, ordering, or source watermarks.
 
 Each source agent remains the single writer of its authoritative record. Muninn is accountable for
 the rebuildable cross-domain context index, its cutoff, freshness, digest, and rebuild evidence.

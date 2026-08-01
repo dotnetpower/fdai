@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 49962e9d3d28a432537bbbacc255169d2a7d83e9
+translation_source_sha: 13a857488e90b4a61b4e69b64bdf8d1945a5cf26
 translation_revised: 2026-08-01
 ---
 
@@ -107,9 +107,10 @@ Versioned projection schema가 discriminator, 각 arm, unavailable receipt의 ma
 validation과 generated client decoder는 같은 schema digest를 사용합니다. Unknown family, missing arm,
 server/client digest mismatch가 있으면 CI가 차단합니다.
 
-해당 schema는 family별 hard item limit, maximum link-traversal depth, stable primary-key ordering,
-allowed truncation reason도 선언합니다. Limit이 없거나 unbounded이면 materialization을 차단합니다.
-Pagination은 snapshot cutoff, ordering, source watermark를 바꾸지 않습니다.
+해당 schema는 family별 bounded `freshness_ceiling_seconds`, hard item limit, maximum link-traversal depth,
+stable primary-key ordering, allowed truncation reason을 선언합니다. Ceiling이나 limit이 없거나
+unbounded이면 materialization을 차단합니다. Pagination은 snapshot cutoff, ordering, source watermark를
+바꾸지 않습니다.
 
 각 source agent는 authoritative record의 single writer로 유지됩니다. Muninn은 rebuildable cross-domain
 context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Read API materializer는
