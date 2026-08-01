@@ -844,6 +844,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 
+### RUN-0034: English Resource Health history generalization
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q026` |
+| Executed | `2026-08-01` |
+| Question | `What Resource Health events occurred during the last day?` |
+| Azure SRE Agent answer | Returned 11 Resource Health events in chronological order: six annotations and five availability-status events. It found no platform-initiated outage event. Deployment-owned values were redacted. |
+| FDAI answer | Returned the same 11 events in chronological order, classified as six customer-initiated, five status-only, and zero platform-initiated. Deployment-owned values were redacted. |
+| Evidence | The Q025 catalog and provider remediation generalized without another code change. One deterministic subscription-health branch compiled `last day` to a bounded 24-hour lookback, consumed one evidence reference, verified one of one checks, and made zero model calls. |
+| Material difference | Both products returned the same event set and causal conclusion. FDAI exposed three-way counts, typed lookback and source authority, partial and truncation state, deterministic verification, and process accounting. |
+| Winner | FDAI for equal factual completeness with stronger evidence integrity and deterministic execution. |
+| General fix | English and Korean resource-health history forms share the catalog-owned historical provider. A missing numeric duration uses the bounded 24-hour default rather than widening to the catalog's generic activity window. |
+| Status | `fdai-win` |
+
+#### RUN-0034 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -878,7 +900,7 @@ existing seed.
 | Q023 | ko | Platform health | 플랫폼 문제와 고객이 시작한 중지를 구분해줘. | `HEALTH` | compared |
 | Q024 | en | Platform health | Separate platform-initiated impact from customer-initiated changes. | `HEALTH` | compared |
 | Q025 | ko | Health history | 지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘. | `HEALTH` | compared |
-| Q026 | en | Health history | What Resource Health events occurred during the last day? | `HEALTH` | queued |
+| Q026 | en | Health history | What Resource Health events occurred during the last day? | `HEALTH` | compared |
 | Q027 | ko | Change attribution | 누가 이 리소스를 중지했어? | `CHANGE` | queued |
 | Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | queued |
 | Q029 | ko | Change history | 장애 직전에 발생한 배포와 설정 변경을 찾아줘. | `CHANGE` | queued |
