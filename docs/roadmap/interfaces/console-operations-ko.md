@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 8b5cf6c9849fd9d6a5987f0905d5b8779c7be171
+translation_source_sha: ef7607c7de9e1f985f5811e62386d5ee047cc103
 translation_revised: 2026-08-01
 ---
 
@@ -138,6 +138,18 @@ Retry는 같은 idempotency key를 사용합니다. Concurrent transition은 최
 어떤 route도 agent implementation을 import하거나 Thor를 직접 호출하거나 다른 owner의 state를 수정하지
 않습니다.
 
+### 전달 내구성
+
+현재 console action route는 durable outbox record를 request acceptance와 같은 transaction에 저장하지
+않고 event bus에 직접 publish합니다. 따라서 publish 전이나 도중에 process가 실패하면 요청 결과가
+ambiguous해질 수 있습니다. Phase 2가 이 gap을 닫기 전에는 durable acceptance나 exactly-once
+submission을 주장하지 않습니다.
+
+Target path는 acceptance를 알리기 전에 idempotency key를 atomically claim하고 intent digest와 actor
+receipt를 저장하며 outbox record를 기록합니다. Retry는 저장된 receipt를 재사용합니다. Relay는 commit된
+미완료 outbox row를 at-least-once publish하고 broker acknowledgment 뒤에만 완료로 표시하며, restart
+reconciliation은 모든 미완료 row를 재개합니다.
+
 ## 에이전트와 실행 authority
 
 콘솔에는 판단 또는 managed-resource 실행 authority가 없습니다. Pantheon은 고정 책임을 유지합니다.
@@ -202,6 +214,8 @@ projection에 의존하지 않습니다.
 state, duplicate submission, self-approval, expiry, role change, process restart를 테스트합니다.
 
 Exit criteria: SPA에는 authorization decision이 없고 accepted request가 source owner를 우회하지 않습니다.
+Publish 전, publish 후, response 전 failure injection으로 committed request가 유실되지 않고 event가 두 번
+적용되지 않음을 증명합니다.
 
 ### Phase 3 - Operations view 완성
 

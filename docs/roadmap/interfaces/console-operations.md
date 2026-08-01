@@ -136,6 +136,18 @@ Every domain route repeats the checks appropriate to its source:
 Retries reuse the same idempotency key. A concurrent transition returns the latest source revision.
 No route imports an agent implementation, calls Thor directly, or writes another owner's state.
 
+### Delivery durability
+
+The shipped console action route publishes directly to the event bus; it does not yet persist a
+durable outbox record in the same transaction as request acceptance. A process failure before or
+during publish can therefore leave an ambiguous request. Until Phase 2 closes this gap, the route
+must not claim durable acceptance or exactly-once submission.
+
+The target path atomically claims the idempotency key, stores the intent digest and actor receipt,
+and writes an outbox record before acknowledging acceptance. A retry reuses the stored receipt. A
+relay publishes uncommitted outbox rows at least once and marks completion only after broker
+acknowledgment; restart reconciliation resumes every uncompleted row.
+
 ## Agent and execution authority
 
 The console has no judgment or managed-resource execution authority. The pantheon retains its
@@ -204,7 +216,8 @@ schemas. Test stale state, duplicate submission, self-approval, expiry, role cha
 restart.
 
 Exit criteria: the SPA contains no authorization decision and no accepted request bypasses its
-source owner.
+source owner. Failure injection before publish, after publish, and before response proves that a
+committed request is never lost and its event is never applied twice.
 
 ### Phase 3 - complete Operations views
 
