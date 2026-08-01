@@ -90,9 +90,8 @@ you already run:
 - **Delivery channels**: actions ship as fix pull requests, and approval requests
   reach you as Teams or Slack Adaptive Cards. Git keeps the change record and the
   rollback reference.
-- **Operator console**: a read-only console and a conversational narrator let you
-  ask questions and review decisions without holding the executor's privileged
-  identity.
+- **FDAI Console**: inspect operations, ask questions, review decisions, and submit bounded
+  operational requests without holding the executor's privileged identity.
 
 ## How it works
 

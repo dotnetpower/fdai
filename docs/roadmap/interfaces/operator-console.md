@@ -1,17 +1,16 @@
 ---
-title: Operator Console (Conversational)
+title: FDAI Console Conversations
 ---
 
-# Operator Console (Conversational)
+# FDAI Console Conversations
 
-How a human operator talks *back to* FDAI through a conversational interface across the CLI, Teams, Slack, and web chat. This
-document is authoritative for the **conversational surface**: the layered
-architecture, the tool catalog, the LLM tier model, session persistence,
-per-tool RBAC, safety invariants, and current rollout status.
+How a human operator talks *back to* FDAI through CLI, Teams, Slack, and web chat. This FDAI
+Console capability owns the **conversational surface**, not a separate product: layered architecture,
+tool catalog, LLM tiers, session persistence, per-tool RBAC, safety invariants, and rollout status.
 
 Push-direction notifications (system → human) live in
-[channels-and-notifications.md](channels-and-notifications.md); the non-privileged workbench is
-defined in [non-privileged-operator-workbench.md](non-privileged-operator-workbench.md), and its SPA lives under
+[channels-and-notifications.md](channels-and-notifications.md); operational views and requests are
+defined in [console-operations.md](console-operations.md), and the SPA lives under
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). The Ontology map renders one generated catalog knowledge graph from `rule-catalog` and `PANTHEON_SPECS`; it doesn't read Architecture or runtime inventory.
 Settings > Integrations can preview the production incident-open email renderer with synthetic
 placeholders. That GET-only preview does not send mail or grant approval or execution authority.
@@ -26,7 +25,7 @@ contract, but they are distinct integration surfaces.
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. Framing - what this is (and what it is not)
 
-The operator console does **not** carry judgment authority. FDAI's
+The FDAI Console conversation surface does **not** carry judgment authority. FDAI's
 judgment stays where it already is - the deterministic engine (T0),
 the quality gate (T2 verifier), the risk gate, and the shipped Rego
 policies. The console is the **conversational surface** through which
@@ -61,7 +60,7 @@ The following tokens are added to the shared vocabulary in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
 and are used consistently by every referring doc:
 
-- **operator-console** - the layered surface documented here.
+- **operator-console** - the legacy contract token for the conversation capability documented here; the product display name remains FDAI Console.
 - **narrator** - the LLM tier of the operator console (translator role;
   never a judge). Distinct from the T2 quality-gate role, which is a
   domain reasoner over a proposed action.
@@ -673,4 +672,4 @@ deployment gates.
 - [rule-governance.md](../rules-and-detection/rule-governance.md) - the discovery loop the
   Month-1 console feeds.
 - [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app) -
-  the non-privileged operator workbench SPA the Month-1 web-chat channel extends.
+  the FDAI Console SPA the Month-1 web-chat channel extends.

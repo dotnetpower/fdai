@@ -1,18 +1,18 @@
 ---
-title: 오퍼레이터 콘솔 (Conversational)
+title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 9a24ba3a3aabb663f028d2750b5a35fb416b2702
+translation_source_sha: ade7e3b241abca868c6817574d6307aa9da655fe
 translation_revised: 2026-08-01
 ---
 
-# 오퍼레이터 콘솔 (Conversational)
+# FDAI Console 대화
 
-사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗의 대화형 인터페이스로 FDAI에 **역으로 말할 수 있는** 방식입니다. 이 문서는
-**대화형 surface**를 권위적으로 정의한다: 계층 아키텍처, tool 카탈로그, LLM
-tier 모델, 세션 지속성, tool 별 RBAC, 안전 invariant, 현재 rollout status.
+사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도
+제품이 아닌 FDAI Console의 **대화형 surface**로서 계층 아키텍처, tool 카탈로그, LLM tier, 세션
+지속성, tool별 RBAC, 안전 invariant, rollout status를 정의합니다.
 
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
-비특권 오퍼레이터 워크벤치는 [non-privileged-operator-workbench-ko.md](non-privileged-operator-workbench-ko.md)에 정의되며 SPA는
+운영 view와 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는
 [project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 Architecture 또는 런타임 인벤토리를 읽지 않습니다.
 Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수
 있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
@@ -26,7 +26,7 @@ surface입니다.
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
-오퍼레이터 콘솔은 **판단 authority 를 가지지 않는다**. FDAI의 판단
+FDAI Console 대화 surface는 **판단 authority를 가지지 않습니다**. FDAI의 판단
 authority 는 이미 있는 곳에 그대로 남는다 - deterministic engine (T0),
 quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
 그 판단을 오퍼레이터가 검사하고, 변경을 시뮬레이션하고, 시스템이

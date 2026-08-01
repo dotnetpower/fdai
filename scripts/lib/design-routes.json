@@ -882,12 +882,12 @@
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/interfaces/non-privileged-operator-workbench.md",
+        "docs/roadmap/interfaces/console-operations.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/operator-console.md",
-        "docs/roadmap/interfaces/non-privileged-operator-workbench.md",
+        "docs/roadmap/interfaces/console-operations.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ]

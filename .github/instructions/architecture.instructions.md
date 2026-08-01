@@ -164,8 +164,8 @@ domain vocabulary. Reuse them verbatim in code, docs, and identifiers.
   applies it. `tool_call` invokes a registered function behind the `ToolExecutor` provider
   (the ontology-native counterpart of an LLM calling a tool; the same seam an MCP adapter
   attaches to), never a substrate mutation.
-- **Operator console** terms:
-  - `operator-console` - the conversational pull-direction surface (CLI / Teams / Slack / web).
+- **FDAI Console** terms:
+  - `operator-console` - the legacy contract token for the conversational pull direction (CLI / Teams / Slack / web); display it as FDAI Console conversations, not as a second product.
   - `Approvals` - the human-facing L2/L3 label for queued `hil` verdicts and the
     `/hil-queue` surface. It improves operator comprehension without renaming the
     canonical machine verdict, route, schema, type, event, or audit value.

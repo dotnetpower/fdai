@@ -31,9 +31,9 @@ Three safety principles govern this design; every choice below preserves them:
    MUST NOT be the approver. Enforced by CI + GitHub CODEOWNERS, not by role separation.
 2. **Approval ≠ execution** - no human role holds the executor Managed Identity. Humans
    author, review, and approve; the MI executes.
-3. **Console is non-privileged** - the console may submit a bounded control-plane command, but it
+3. **Console is non-privileged** - the console may submit a bounded operational request, but it
   never receives the executor identity or mutates a managed resource
-  ([non-privileged-operator-workbench.md](non-privileged-operator-workbench.md)). Draft catalog
+  ([console-operations.md](console-operations.md)). Draft catalog
   changes use PRs authored by a GitHub App on behalf of the console user.
 
 ## 2. Role Model (4 tiers + Break-Glass)

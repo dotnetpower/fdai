@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 2f9663575086fe92bdf081cd8a580dfd078358b5
+translation_source_sha: 019cb0d960565531a61046698b051a96bda46b4b
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -15,7 +15,7 @@ translation_revised: 2026-08-01
 > 제공됩니다. 다음은 통합 할당 케이스인 묶음 2입니다. 공급자 측 IAM 쓰기, 시간 기반 무응답
 > 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
 >
-> **권한 경계:** 운영자 작업 공간은 형식화된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
+> **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
 > ID를 받지 않습니다. 담당 체계 병합, 사람 승인, IAM 적용, 지식 승격은 각각 독립적으로 검증
 > 가능한 결과로 유지합니다.
 

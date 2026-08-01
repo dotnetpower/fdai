@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 3e4d40520476cd847353ce277dcedb1fe042333f
+translation_source_sha: 32bce00b96fdba72ad13425adbe6f1117f50c210
 translation_revised: 2026-08-01
 ---
 # FDAI 로드맵
@@ -96,8 +96,8 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 17 | [risk-classification-ko.md](decisioning/risk-classification-ko.md) | auto vs HIL vs deny 분류: 차원, 초기 규칙 표, 환경 감지 |
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` verdict 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 tier 별 시간 감쇠 에스컬레이션 사다리(채널 fallback 과 구별), 상시 권한(사전 승인·envelope 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | authoritative interactive local/deployed parity, 명시적 fixture profile, deployer-scoped LLM gate |
-| 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | 대화형 surface (CLI / Teams / Slack / web), 3-layer 아키텍처, tool 별 RBAC 매트릭스, LLM tier 모델, 세션 지속성 |
-| 19j | [non-privileged-operator-workbench-ko.md](interfaces/non-privileged-operator-workbench-ko.md) | Federated ontology 기반 work queue, bounded command intake, pantheon ownership, authority 분리, 제공 계획 |
+| 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | CLI, Teams, Slack, web의 FDAI Console 대화, tool별 RBAC, LLM tier, session persistence |
+| 19j | [console-operations-ko.md](interfaces/console-operations-ko.md) | 기존 Operations 탐색, source별 task projection과 schema, 운영 요청, pantheon ownership, 실행 분리 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 evidence provenance, localization, durable replay, stream recovery 및 Architecture map resilience |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format extraction, private storage, 공유 가시성, retention, deletion 계약 |
 | 19g | [conversation-attachments-ko.md](interfaces/conversation-attachments-ko.md) | protected Slack/Teams fetch, explicit handover purpose, web chat document ref, image OCR, production binding 및 security limit |
@@ -190,7 +190,8 @@ Exit 컬럼은 각 페이즈의 primary gate입니다. 각 페이즈 문서는 �
   엔트리 ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
 - **멱등 액션**: 재전달된 이벤트와 재시도된 액션은 이중 적용되지 않음.
 - **직무 분리**: 승인과 실행은 서로 다른 주체.
-  콘솔은 읽기 전용 ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
+  콘솔은 비특권 surface이며 executor identity를 받지 않습니다
+  ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
 - **Bilingual, customer-agnostic artifact**: English와 Korean은 first-class prose language이며
   identifier와 machine record는 language contract에 따라 stable 상태를 유지합니다.
   ([language.instructions.md](../../.github/instructions/language.instructions.md)).

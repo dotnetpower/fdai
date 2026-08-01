@@ -100,8 +100,8 @@ Read the reference docs first, then the phases in order.
 | 17 | [risk-classification.md](decisioning/risk-classification.md) | auto vs HIL vs deny classification: dimensions, initial rule table, environment detection |
 | 17b | [escalation-and-standing-authority.md](decisioning/escalation-and-standing-authority.md) | what happens after a `hil` verdict when nobody answers: the supervised OODA loop, the impact-tiered time-decaying escalation ladder (distinct from channel fallback), and standing authorization (pre-authorized, envelope-bounded, reversible-only conditional auto-action as a deterministic risk-gate input) |
 | 18 | [dev-and-deploy-parity.md](deployment/dev-and-deploy-parity.md) | authoritative interactive local/deployed parity, explicit fixture profile, and deployer-scoped LLM gates |
-| 19 | [operator-console.md](interfaces/operator-console.md) | conversational surface (CLI / Teams / Slack / web), three-layer architecture, per-tool RBAC matrix, LLM tier model, session persistence |
-| 19j | [non-privileged-operator-workbench.md](interfaces/non-privileged-operator-workbench.md) | federated ontology-backed work queue, bounded command intake, pantheon ownership, authority separation, and delivery plan |
+| 19 | [operator-console.md](interfaces/operator-console.md) | FDAI Console conversations across CLI, Teams, Slack, and web, with per-tool RBAC, LLM tiers, and session persistence |
+| 19j | [console-operations.md](interfaces/console-operations.md) | existing Operations navigation, source-specific task projections and schemas, operational requests, pantheon ownership, and execution separation |
 | 19f | [console-evidence-and-resilience.md](interfaces/console-evidence-and-resilience.md) | console evidence provenance, localization, durable replay, stream recovery, and Architecture-map resilience |
 | 19a | [document-ingestion.md](interfaces/document-ingestion.md) | drop-zone UX, large and protected document handling, format extraction, private storage, shared visibility, retention, and deletion contracts |
 | 19g | [conversation-attachments.md](interfaces/conversation-attachments.md) | protected Slack/Teams fetch, explicit handover purpose, web chat document refs, image OCR, production binding, and security limits |
@@ -196,7 +196,8 @@ exit criteria and its dependencies.
 - **Idempotent actions**: re-delivered events and retried actions never
   double-apply.
 - **Separation of duties**: approval and execution are distinct principals; the
-  console is read-only ([security-and-identity.md](architecture/security-and-identity.md)).
+  console is non-privileged and never receives the executor identity
+  ([security-and-identity.md](architecture/security-and-identity.md)).
 - **Bilingual, customer-agnostic artifacts**: English and Korean are first-class prose languages;
   identifiers and machine records remain stable as defined by the language contract
   ([language.instructions.md](../../.github/instructions/language.instructions.md)).

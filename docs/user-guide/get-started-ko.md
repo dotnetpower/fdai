@@ -2,8 +2,8 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: ec0200701a990e30443a4b83d2fa72e8dad8ab44
-translation_revised: 2026-07-29
+translation_source_sha: 383e4cc2647d321feafd86973d34eea835f51dfe
+translation_revised: 2026-08-01
 ---
 
 # FDAI 시작하기
@@ -76,8 +76,8 @@ FDAI는 이벤트 기반이고 중립적 추상화 뒤에 있어, 이미 운영 
   평가됩니다. 따라서 결정론 티어는 기계가 읽을 수 있는 정책 위에서 동작합니다.
 - **전달 채널**: 작업은 수정 pull request로 전달되고, 승인 요청은 Teams 또는 Slack
   Adaptive Card로 도착합니다. Git은 변경 기록과 롤백 참조를 보관합니다.
-- **운영자 콘솔**: 읽기 전용 콘솔과 대화형 내레이터를 사용해 실행기의 특권 자격 증명
-  없이 질문하고 결정을 검토할 수 있습니다.
+- **FDAI Console**: 실행기의 특권 identity 없이 운영 상태를 확인하고, 질문하고, 결정을
+  검토하고, 범위가 제한된 운영 요청을 제출할 수 있습니다.
 
 ## 어떻게 동작하나
 

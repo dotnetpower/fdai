@@ -14,7 +14,7 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 > IAM writes, timed non-response escalation, proactive handover goals, and ontology candidates
 > don't exist yet.
 >
-> **Authority boundary:** The operator workbench submits a typed case. It never receives Graph
+> **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
 > promotion remain independently verifiable effects.
 

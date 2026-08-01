@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 400ed2852f68a03d39ada1ba77d4c2a8ee37adde
+translation_source_sha: afca7e060942ed01bec789cfa0a6e5bdf3a4e83d
 translation_revised: 2026-08-01
 ---
 
@@ -34,9 +34,9 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
    CI + GitHub CODEOWNERS로 강제, 롤 분리로 아님.
 2. **승인 ≠ 실행** - 어떤 사람 롤도 executor Managed Identity를 보유하지 않음. 사람은 작성·
    리뷰·승인; MI가 실행.
-3. **콘솔은 비특권 surface** - 콘솔은 범위가 제한된 control-plane command를 제출할 수 있지만
+3. **콘솔은 비특권 surface** - 콘솔은 범위가 제한된 운영 요청을 제출할 수 있지만
   executor identity를 받거나 managed resource를 변경하지 않습니다
-  ([non-privileged-operator-workbench-ko.md](non-privileged-operator-workbench-ko.md)). Catalog draft
+  ([console-operations-ko.md](console-operations-ko.md)). Catalog draft
   변경은 콘솔 사용자를 대신해 GitHub App이 작성하는 PR을 사용합니다.
 
 ## 2. 롤 모델 (4티어 + Break-Glass)
