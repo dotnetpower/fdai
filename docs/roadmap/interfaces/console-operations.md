@@ -229,7 +229,10 @@ views. Add exact references, evidence, freshness, cursor pagination, unavailable
 redaction tests.
 
 Exit criteria: rebuilding projections at the same cutoff produces the same views, and no source
-lifecycle depends on the projection.
+lifecycle depends on the projection. Each materialization records one canonical digest over the
+ordered redacted output, ontology release, `as_of` cutoff, source watermarks, applied limits, and
+truncation reason. A cache-loss drill deletes only rebuildable projection state and proves that the
+same inputs reproduce the same digest while a changed watermark produces a new snapshot.
 
 ### Phase 2 - harden domain requests
 

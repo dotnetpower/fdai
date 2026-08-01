@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 039f404b0f4b4c394722e012f14514a4360db5c8
+translation_source_sha: 3e9366361aae5dfb82391a57f9fc41ac4d563d5a
 translation_revised: 2026-08-01
 ---
 
@@ -227,7 +227,10 @@ execution은 지원되는 console classification이 아닙니다.
 reference, evidence, freshness, cursor pagination, unavailable state, redaction test를 추가합니다.
 
 Exit criteria: 같은 cutoff에서 projection을 다시 만들면 같은 view가 생성되고 어떤 source lifecycle도
-projection에 의존하지 않습니다.
+projection에 의존하지 않습니다. 각 materialization은 ordered redacted output, ontology release,
+`as_of` cutoff, source watermark, applied limit, truncation reason을 포함하는 canonical digest 하나를
+기록합니다. Cache-loss drill은 rebuildable projection state만 삭제하고 같은 input이 같은 digest를
+재현하며 watermark가 바뀌면 새 snapshot이 생성됨을 증명합니다.
 
 ### Phase 2 - 도메인 요청 hardening
 
