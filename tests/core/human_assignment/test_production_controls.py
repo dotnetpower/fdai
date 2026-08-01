@@ -65,11 +65,15 @@ async def test_reconciler_only_plans_held_cases_and_writes_shadow_audit() -> Non
     ):
         await store.write_state(f"human_assignment:case:{case.case_id}", case.to_dict())
 
-    items = await AssignmentReconciler(store=store).plan(at=datetime(2026, 8, 3, tzinfo=UTC))
+    reconciler = AssignmentReconciler(store=store)
+    items = await reconciler.plan(at=datetime(2026, 8, 3, tzinfo=UTC))
+    replayed = await reconciler.plan(at=datetime(2026, 8, 3, 1, tzinfo=UTC))
 
     assert {item.next_step for item in items} == {
         "request_iam_apply",
         "verify_iam_membership",
         "operator_repair",
     }
+    assert replayed == items
+    assert len(tuple(store.audit_entries)) == 3
     assert all(entry["entry"]["mode"] == "shadow" for entry in store.audit_entries)

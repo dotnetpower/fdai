@@ -11,6 +11,7 @@ from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.state_store import StateStore
 
 _CASE_PREFIX = "human_assignment:case:"
+_RECONCILIATION_PREFIX = "human_assignment:reconciliation:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +69,16 @@ class AssignmentReconciler:
                 reason=case.degraded_reason,
             )
             items.append(item)
-            await self._store.append_audit_entry(
+            recorded_at = timestamp.astimezone(UTC).isoformat()
+            await self._store.write_state_with_audit_if_absent(
+                f"{_RECONCILIATION_PREFIX}{case.case_id}:{case.revision}",
+                {
+                    "case_id": case.case_id,
+                    "revision": case.revision,
+                    "state": case.state.value,
+                    "next_step": next_step,
+                    "observed_at": recorded_at,
+                },
                 {
                     "actor": "fdai.core.human_assignment.reconciler",
                     "action_kind": "human.assignment.reconciliation_observed",
@@ -77,8 +87,8 @@ class AssignmentReconciler:
                     "state": case.state.value,
                     "next_step": next_step,
                     "mode": Mode.SHADOW.value,
-                    "recorded_at": timestamp.astimezone(UTC).isoformat(),
-                }
+                    "recorded_at": recorded_at,
+                },
             )
         return tuple(items)
 
