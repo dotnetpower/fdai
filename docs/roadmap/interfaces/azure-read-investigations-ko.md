@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: da86f6ed5f8f2aa47c4634b6c2227f55b37244f5
+translation_source_sha: 361fd6f762ce48a35a054d491fc250f48e4d7577
 translation_revised: 2026-08-01
 ---
 
@@ -115,7 +115,8 @@ resource group에서 성공한 deployment, write, update 및 configuration opera
 표시할 수 있습니다. Provenance 누락, provider failure 또는 malformed context는 `unavailable`을
 반환합니다. 완전한 anomalous-event anchor가 없는 후속 질문은 Activity Log나 narrator를 호출하지 않고
 terminal unverified evidence gap을 반환합니다. Truncation은 명시하며 답변에는 최대 20개 matching
-event만 포함합니다.
+event만 포함합니다. Anchor가 있는 모든 답변은 analysis-window 시작, bounded interval 및 incident
+anchor를 명시적인 timeline landmark로 표시합니다.
 
 Collection 질문은 별도의 typed activity query를 사용합니다. Server는 Azure subscription 및
 resource-group allowlist를 고정하고 lookback을 최대 30일, 반환 event를 최대 200개로 제한하며 event

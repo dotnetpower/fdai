@@ -116,7 +116,8 @@ hour. If that count is zero, Heimdall may show the nearest earlier matching chan
 claiming causation. Missing provenance, provider failure, or malformed context returns
 `unavailable`; a follow-up with no complete anomalous-event anchor returns a terminal unverified
 evidence gap without calling Activity Log or the narrator. Truncation is explicit, and at most 20
-matching events enter the answer.
+matching events enter the answer. Every anchored answer renders the analysis-window start, bounded
+interval, and incident anchor as explicit timeline landmarks.
 
 Collection questions use a separate typed activity query. The server fixes the Azure subscription
 and resource-group allowlist, caps the lookback at 30 days and the returned events at 200, and

@@ -186,26 +186,35 @@ def _render(
 ) -> str:
     korean = request.locale == "ko"
     anchor = request.before_at.isoformat().replace("+00:00", "Z")
+    window_start = (request.before_at - _IMMEDIATE_WINDOW).isoformat().replace("+00:00", "Z")
     if korean:
-        lines = [f"장애 기준 시각 {anchor} 직전 1시간의 배포/설정 변경은 {len(immediate)}건입니다."]
+        lines = [
+            "장애 직전 변경 타임라인:",
+            f"- {window_start}: 분석 구간 시작.",
+            f"- {window_start} - {anchor}: 직전 1시간의 배포/설정 변경은 {len(immediate)}건입니다.",
+        ]
         if not immediate:
             lines.append("- 직전 1시간에는 일치하는 배포 또는 설정 write가 관찰되지 않았습니다.")
             if nearest:
                 lines.append("가장 가까운 이전 관련 변경:")
         lines.extend(_line(event, korean=True) for event in (immediate[:_MAX_RENDERED] or nearest))
+        lines.append(f"- {anchor}: 장애 기준 시각.")
         lines.append(f"근거: {source}, 관찰 시각 {observed_at}.")
         if truncated:
             lines.append("Activity Log 결과가 잘렸으므로 더 이른 관련 변경이 있을 수 있습니다.")
         return "\n".join(lines)
     lines = [
-        f"Found {len(immediate)} deployment or configuration change(s) in the hour before "
-        f"the incident anchor {anchor}."
+        "Pre-incident change timeline:",
+        f"- {window_start}: Start of analysis window.",
+        f"- {window_start} to {anchor}: Found {len(immediate)} deployment or configuration "
+        "change(s).",
     ]
     if not immediate:
         lines.append("- No matching deployment or configuration write was observed in that hour.")
         if nearest:
             lines.append("Nearest earlier relevant changes:")
     lines.extend(_line(event, korean=False) for event in (immediate[:_MAX_RENDERED] or nearest))
+    lines.append(f"- {anchor}: Incident anchor.")
     lines.append(f"Evidence: {source}, observed {observed_at}.")
     if truncated:
         lines.append("The Activity Log result is truncated; earlier relevant changes may exist.")

@@ -149,6 +149,9 @@ async def test_resolve_preincident_activity_filters_to_successful_group_writes()
     }
     assert "vm-primary forged" in str(result["answer"])
     assert "\nforged" not in str(result["answer"])
+    assert "Pre-incident change timeline:" in str(result["answer"])
+    assert "2026-08-01T01:00:00Z: Start of analysis window." in str(result["answer"])
+    assert "2026-08-01T02:00:00Z: Incident anchor." in str(result["answer"])
 
 
 async def test_resolve_preincident_activity_rejects_invalid_provenance() -> None:
