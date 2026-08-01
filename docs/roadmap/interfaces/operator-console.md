@@ -10,8 +10,8 @@ architecture, the tool catalog, the LLM tier model, session persistence,
 per-tool RBAC, safety invariants, and current rollout status.
 
 Push-direction notifications (system → human) live in
-[channels-and-notifications.md](channels-and-notifications.md); the read-only
-console SPA lives under
+[channels-and-notifications.md](channels-and-notifications.md); the non-privileged workbench is
+defined in [non-privileged-operator-workbench.md](non-privileged-operator-workbench.md), and its SPA lives under
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). The Ontology map renders one generated catalog knowledge graph from `rule-catalog` and `PANTHEON_SPECS`; it doesn't read Architecture or runtime inventory.
 Settings > Integrations can preview the production incident-open email renderer with synthetic
 placeholders. That GET-only preview does not send mail or grant approval or execution authority.
@@ -673,4 +673,4 @@ deployment gates.
 - [rule-governance.md](../rules-and-detection/rule-governance.md) - the discovery loop the
   Month-1 console feeds.
 - [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app) -
-  the read-only console SPA the Month-1 web-chat channel extends.
+  the non-privileged operator workbench SPA the Month-1 web-chat channel extends.

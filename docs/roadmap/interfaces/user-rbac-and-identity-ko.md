@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 123290076f819d1778fd7d8079476728a21247fd
-translation_revised: 2026-07-30
+translation_source_sha: 400ed2852f68a03d39ada1ba77d4c2a8ee37adde
+translation_revised: 2026-08-01
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -34,10 +34,10 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
    CI + GitHub CODEOWNERS로 강제, 롤 분리로 아님.
 2. **승인 ≠ 실행** - 어떤 사람 롤도 executor Managed Identity를 보유하지 않음. 사람은 작성·
    리뷰·승인; MI가 실행.
-3. **콘솔은 읽기 전용** - 콘솔은 절대 라이브 카탈로그를 변형하거나 액션을 실행하지 않음
-   ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)). 편집
-  흐름의 목표 계약은 콘솔 사용자를 대신해 GitHub App이 작성하는 draft PR입니다. 현재
-  GitOps adapter는 remediation PR만 게시하며, 사용자 draft-governance API는 아직 없습니다.
+3. **콘솔은 비특권 surface** - 콘솔은 범위가 제한된 control-plane command를 제출할 수 있지만
+  executor identity를 받거나 managed resource를 변경하지 않습니다
+  ([non-privileged-operator-workbench-ko.md](non-privileged-operator-workbench-ko.md)). Catalog draft
+  변경은 콘솔 사용자를 대신해 GitHub App이 작성하는 PR을 사용합니다.
 
 ## 2. 롤 모델 (4티어 + Break-Glass)
 
@@ -243,8 +243,8 @@ POST /hil/{approval_id}/decision
 
 ## 6. 목표 아이덴티티 흐름: 콘솔 → Draft PR → 감사
 
-목표 흐름은 쓰기를 **GitHub App** 에 위임하여 콘솔의 읽기 전용 경계를 보존하고 사용자의 Entra
-OID를 no-self-approval과 감사 상관관계 검사까지 전달합니다. 현재 `GitOpsPrAdapter`는 executor가
+목표 흐름은 repository write를 **GitHub App** 에 위임하여 콘솔의 비특권 경계를 보존하고 사용자의
+Entra OID를 no-self-approval과 감사 상관관계 검사까지 전달합니다. 현재 `GitOpsPrAdapter`는 executor가
 생성한 remediation draft PR을 게시하지만, 콘솔 draft-governance endpoint, Entra OID trailer,
 사람 OID와 GitHub 로그인 매핑 저장소는 구현되어 있지 않습니다.
 

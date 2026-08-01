@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 840bf068ec9e31bbb4fb93069603b69a1895d5b5
+translation_source_sha: b609b8769d52b9fef61ce1185544537aff94c38d
 translation_revised: 2026-08-01
 ---
 # FDAI 로드맵
@@ -96,6 +96,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` verdict 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 tier 별 시간 감쇠 에스컬레이션 사다리(채널 fallback 과 구별), 상시 권한(사전 승인·envelope 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | authoritative interactive local/deployed parity, 명시적 fixture profile, deployer-scoped LLM gate |
 | 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | 대화형 surface (CLI / Teams / Slack / web), 3-layer 아키텍처, tool 별 RBAC 매트릭스, LLM tier 모델, 세션 지속성 |
+| 19j | [non-privileged-operator-workbench-ko.md](interfaces/non-privileged-operator-workbench-ko.md) | Federated ontology 기반 work queue, bounded command intake, pantheon ownership, authority 분리, 제공 계획 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 evidence provenance, localization, durable replay, stream recovery 및 Architecture map resilience |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format extraction, private storage, 공유 가시성, retention, deletion 계약 |
 | 19g | [conversation-attachments-ko.md](interfaces/conversation-attachments-ko.md) | protected Slack/Teams fetch, explicit handover purpose, web chat document ref, image OCR, production binding 및 security limit |

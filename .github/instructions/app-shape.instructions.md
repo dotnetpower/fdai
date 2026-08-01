@@ -22,7 +22,7 @@ shape maps to environments and CI/CD.
 |---|-------|-------|----------------|-----------|
 | 1 | **Core engine** | headless, event-driven backend (no UI) - trust router, T0/T1/T2, risk gate, executor | not yet | current Azure baseline keeps one replica until a credential-free Kafka-lag scaler is verified; scheduled jobs scale to zero |
 | 2 | **Action delivery** | GitOps / PR-native (GitHub App or Azure DevOps) - actions are remediation PRs/IaC | n/a (git-hosted) | audit, rollback, and approval already exist in git |
-| 3 | **Operator console** | thin, read-only SPA - KPI dashboard, audit log, shadow results, HIL queue view | yes (static hosting) | minimal read surface; never executes actions itself |
+| 3 | **Operator workbench** | thin SPA - query projections plus bounded non-privileged command intake | yes (static hosting) | operator decisions and workflow commands; never executes managed-resource actions |
 | 4 | **Human channel** | ChatOps (Teams bot + Adaptive Cards) - high-risk HIL approvals and alerts | yes (event-driven) | reach operators where they already are |
 | 5 | **Rule catalog** | catalog-as-code (git repo) - versioned rules | n/a (git-hosted) | the update pipeline lands rules via PR |
 
@@ -36,8 +36,12 @@ shape maps to environments and CI/CD.
 
 ## Layer Boundaries (security)
 
-- The **console is read-only**: it renders state and the HIL queue but issues no privileged
-  calls. Approvals flow through ChatOps or PR, never console buttons.
+- The **console is non-privileged, not GET-only**: it renders authoritative projections and MAY
+  submit typed approvals, drafts, investigations, access requests, and workflow commands through
+  server-owned RBAC, revision, idempotency, and audit checks. The SPA and command gateway MUST NOT
+  receive Thor's executor identity, mutate a managed resource, derive authorization in the browser,
+  or bypass the owning agent, quality gate, risk gate, approval, rollback, and audit path. See
+  [../../docs/roadmap/interfaces/non-privileged-operator-workbench.md](../../docs/roadmap/interfaces/non-privileged-operator-workbench.md).
 - The console uses **clean History API URLs** for operator-facing navigation. Paths use
   lowercase `kebab-case` with no spaces or underscores (for example,
   `/operating-outcomes/change-lead-time` and `/verticals/change-safety`). Internal API
