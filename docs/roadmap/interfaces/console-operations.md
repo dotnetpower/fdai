@@ -209,8 +209,9 @@ never invents retry guidance from an HTTP status alone.
 
 The shipped console action route publishes directly to the event bus; it does not yet persist a
 durable outbox record in the same transaction as request acceptance. A process failure before or
-during publish can therefore leave an ambiguous request. Until Phase 2 closes this gap, the route
-must not claim durable acceptance or exactly-once submission.
+during publish can therefore leave an ambiguous request. Its HTTP `200` means only that the direct
+broker publish call returned; it is not a durable acceptance receipt. Response loss is ambiguous
+and reconciled by correlation, never assumed failed. Phase 2 replaces this transitional response.
 
 The target path atomically claims the idempotency key, stores the intent digest and actor receipt,
 and writes an outbox record before acknowledging acceptance. A retry reuses the stored receipt. A

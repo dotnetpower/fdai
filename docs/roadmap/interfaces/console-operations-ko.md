@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 12146f4311f1bfcf32d28f3aa6b85ad803300adc
+translation_source_sha: 1fd2be5d597527be23e8b84d1c96f5d08d12592b
 translation_revised: 2026-08-01
 ---
 
@@ -209,8 +209,9 @@ guidance를 만들지 않습니다.
 
 현재 console action route는 durable outbox record를 request acceptance와 같은 transaction에 저장하지
 않고 event bus에 직접 publish합니다. 따라서 publish 전이나 도중에 process가 실패하면 요청 결과가
-ambiguous해질 수 있습니다. Phase 2가 이 gap을 닫기 전에는 durable acceptance나 exactly-once
-submission을 주장하지 않습니다.
+ambiguous해질 수 있습니다. HTTP `200`은 direct broker publish call이 반환되었다는 뜻일 뿐 durable
+acceptance receipt가 아닙니다. Response loss는 failed로 간주하지 않고 correlation으로 reconcile합니다.
+Phase 2는 이 transitional response를 대체합니다.
 
 Target path는 acceptance를 알리기 전에 idempotency key를 atomically claim하고 intent digest와 actor
 receipt를 저장하며 outbox record를 기록합니다. Retry는 저장된 receipt를 재사용합니다. Relay는 commit된
