@@ -121,6 +121,13 @@ There is no universal request schema. Each operation uses the schema and route o
 `operator_request` describes who initiated an ActionType request. It is not a product name, API
 umbrella, or replacement for domain schemas.
 
+For the ActionType path, `ActionType.trigger_kind.kind` declares whether the action accepts
+`operator_request` or `both`; it is not an event field. The runtime ingress record instead carries
+`event_type: operator_request` and the strict boolean `operator_initiated: true`. Event ingest
+validates those flat fields, then builds the canonical nested `payload.operator_request` consumed
+by the control loop and action builder. Extensions publish through this normalizer and never write
+the nested trusted shape directly. Other domain requests retain their own event contracts.
+
 ### Request checks
 
 Every domain route repeats the checks appropriate to its source:

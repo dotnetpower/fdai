@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 0567db861f30a28c565aeb6befca92f020cb8ddd
+translation_source_sha: cab52752f2c006b7e0f2c50d2da5401cd6439b56
 translation_revised: 2026-08-01
 ---
 
@@ -121,6 +121,13 @@ freshness state를 보존합니다. 브라우저에 free-form graph query를 노
 
 `operator_request`는 ActionType 요청을 누가 시작했는지 나타냅니다. 제품명, API umbrella 또는 domain
 schema의 대체물이 아닙니다.
+
+ActionType 경로에서 `ActionType.trigger_kind.kind`는 해당 action이 `operator_request` 또는 `both`를
+허용하는지 선언하며 event field가 아닙니다. Runtime ingress record는 대신 `event_type:
+operator_request`와 strict boolean `operator_initiated: true`를 포함합니다. Event ingest는 이 flat
+field를 검증한 뒤 control loop와 action builder가 소비하는 canonical nested
+`payload.operator_request`를 만듭니다. Extension은 이 normalizer를 통해 publish하며 nested trusted
+shape를 직접 쓰지 않습니다. 다른 domain request는 자체 event contract를 유지합니다.
 
 ### 요청 검사
 
