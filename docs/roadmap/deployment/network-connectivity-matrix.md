@@ -202,6 +202,45 @@ before using it as the only management route.
 | Container Apps platform tags | revision stuck or environment unhealthy | platform cannot start or manage the workload even if FDAI endpoints are open |
 | APIM platform ports | APIM deployment, health, management, or gateway failure | every APIM-routed model capability is unavailable |
 
+## Automated connectivity check
+
+Run the checker from the network that actually hosts the workload. It discovers the primary and
+auxiliary Kafka endpoints, PostgreSQL, Azure OpenAI, Prometheus, email, and the development gateway
+from known environment variables. It then resolves every DNS name, verifies the resolved address
+class, opens the configured TCP port, and prints required actions.
+
+```bash
+python3 scripts/deployment/azure/check-network-connectivity.py \
+   --profile runtime-private \
+   --env-file .fdai/local-runtime.env \
+   --output tmp/network-connectivity.json
+```
+
+Use `runtime-public` from a public runtime network and `deploy-runner` from the deployment host.
+Use `custom` plus one or more manifests for APIM, ACR data endpoints, storage, Key Vault, or any
+deployment-specific route that isn't represented by an environment variable.
+
+```json
+{
+   "schema_version": "fdai.network-connectivity-manifest.v1",
+   "checks": [
+      {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
+       "required": true, "expected_ip": "private"}
+   ]
+}
+```
+
+Pass the file with `--manifest <path>`. Each check accepts `expected_ip` values `private`, `public`,
+or `any`. The command exits `1` when a required check fails and `2` for invalid input. Optional
+failures produce warnings and exit `0`. The normal report contains actual hostnames and resolved
+addresses, so keep it under ignored local storage such as `tmp/`. Add `--redact` before sharing a
+report; this replaces hosts with hashes and removes addresses.
+
+The action summary distinguishes missing configuration, DNS/private-zone errors, wrong public or
+private address resolution, and blocked TCP ports. A positive endpoint checker cannot prove a full
+air gap. Use `bash scripts/deployment/release/airgap-drill.sh` to verify the network-free release
+path inside a namespace with no route or DNS.
+
 ## Validation checklist
 
 Run probes from the actual Container Apps subnet, APIM subnet, and deploy-host subnet. A laptop

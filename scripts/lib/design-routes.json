@@ -1016,7 +1016,10 @@
     {
       "id": "network-connectivity-matrix",
       "paths": [
-        "docs/roadmap/deployment/network-connectivity-matrix*.md"
+        "docs/roadmap/deployment/network-connectivity-matrix*.md",
+        "scripts/deployment/azure/check-network-connectivity.py",
+        "scripts/deployment/azure/network_connectivity.py",
+        "tests/scripts/test_check_network_connectivity.py"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",

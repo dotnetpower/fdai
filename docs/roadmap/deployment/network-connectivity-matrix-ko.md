@@ -1,7 +1,7 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: 1a2ee3189559a49729de5202c4e1d1a367b6219b
+translation_source_sha: 702db2ec6477db8fabc4b8e391d4e6c84a8cb790
 translation_revised: 2026-08-01
 ---
 # 네트워크 연결 매트릭스
@@ -209,6 +209,45 @@ AKS를 포함한 모든 resource provider를 지원하지는 않습니다. 이 �
 | Approval/delivery host 443 | channel delivery 실패 | queue 또는 구성된 fallback channel 사용, 자동 승인하지 않음 |
 | Container Apps platform tag | revision stuck 또는 environment unhealthy | FDAI endpoint가 열려 있어도 platform이 workload를 시작하거나 관리하지 못함 |
 | APIM platform port | APIM deployment, health, management 또는 gateway 실패 | 모든 APIM route model 기능 사용 불가 |
+
+## 자동 연결 검사
+
+실제 workload가 있는 network에서 checker를 실행하세요. 알려진 environment variable에서 primary
+및 auxiliary Kafka endpoint, PostgreSQL, Azure OpenAI, Prometheus, email, development gateway를
+찾습니다. 그런 다음 각 DNS 이름을 확인하고 resolved address class를 검증하며 구성된 TCP port를
+연 뒤 필요한 조치를 출력합니다.
+
+```bash
+python3 scripts/deployment/azure/check-network-connectivity.py \
+   --profile runtime-private \
+   --env-file .fdai/local-runtime.env \
+   --output tmp/network-connectivity.json
+```
+
+Public runtime network에서는 `runtime-public`, deployment host에서는 `deploy-runner`를 사용하세요.
+Environment variable로 표현되지 않는 APIM, ACR data endpoint, storage, Key Vault 또는
+deployment별 route에는 `custom`과 하나 이상의 manifest를 사용하세요.
+
+```json
+{
+   "schema_version": "fdai.network-connectivity-manifest.v1",
+   "checks": [
+      {"id": "apim-model-gateway", "host": "replace.example.com", "port": 443,
+       "required": true, "expected_ip": "private"}
+   ]
+}
+```
+
+`--manifest <path>`로 파일을 전달하세요. 각 check의 `expected_ip`에는 `private`, `public`, `any`를
+사용할 수 있습니다. 필수 check가 실패하면 command는 `1`, input이 잘못되면 `2`로 종료합니다.
+Optional 실패는 warning을 만들고 `0`으로 종료합니다. 일반 report에는 실제 hostname과 resolved
+address가 있으므로 `tmp/` 같은 ignore된 local storage에 보관하세요. Report를 공유하기 전에는
+`--redact`를 추가하세요. Host는 hash로 바뀌고 address는 제거됩니다.
+
+Action summary는 누락된 configuration, DNS/private-zone 오류, 잘못된 public 또는 private address
+resolution, 차단된 TCP port를 구분합니다. Positive endpoint checker로 full air gap을 증명할 수는
+없습니다. Route와 DNS가 없는 namespace에서 network-free release 경로를 검증하려면
+`bash scripts/deployment/release/airgap-drill.sh`를 사용하세요.
 
 ## 검증 체크리스트
 
