@@ -23,6 +23,9 @@ class _Session:
         self.block_probe = False
         self.closed = False
         self.fail_lists = False
+        self.block_call = False
+        self.call_started = asyncio.Event()
+        self.release_call = asyncio.Event()
 
     async def list_tools(self) -> frozenset[str]:
         self.list_calls += 1
@@ -41,6 +44,9 @@ class _Session:
     ) -> McpCallResult:
         del name, arguments, timeout_seconds
         self.call_calls += 1
+        self.call_started.set()
+        if self.block_call:
+            await self.release_call.wait()
         if self.fail_calls:
             raise RuntimeError("synthetic failure")
         return McpCallResult(structured_content={"ok": True})
@@ -193,3 +199,39 @@ async def test_cancelled_monitor_still_closes_session() -> None:
         await client.close()
 
     assert session.closed is True
+
+
+async def test_close_waits_for_in_flight_call() -> None:
+    session = _Session()
+    session.block_call = True
+    client = _client(session)
+    assert await client.probe() is True
+    call_task = asyncio.create_task(client.call_tool("read", {}))
+    await session.call_started.wait()
+
+    close_task = asyncio.create_task(client.close())
+    await asyncio.sleep(0)
+
+    assert close_task.done() is False
+    assert session.closed is False
+    session.release_call.set()
+    await call_task
+    await close_task
+    assert session.closed is True
+
+
+async def test_cancelled_call_resets_session_before_reuse() -> None:
+    session = _Session()
+    session.block_call = True
+    client = _client(session)
+    assert await client.probe() is True
+    call_task = asyncio.create_task(client.call_tool("read", {}))
+    await session.call_started.wait()
+
+    call_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await call_task
+
+    assert session.closed is True
+    assert client.availability is McpAvailability.UNAVAILABLE
+    assert client.reason == "call_cancelled"

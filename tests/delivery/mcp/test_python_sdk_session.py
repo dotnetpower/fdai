@@ -98,3 +98,28 @@ async def test_hung_sdk_tool_call_is_bounded(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(TimeoutError):
         await session.call_tool("compute", {}, timeout_seconds=0.1)
     await session.close()
+
+
+async def test_sdk_close_waits_for_in_flight_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mcp.client import session_group
+
+    _Group.instances = []
+    _Group.hang_on_exit = False
+    _Group.hang_on_call = True
+    monkeypatch.setattr(session_group, "ClientSessionGroup", _Group)
+    session = PythonSdkMcpSession.stdio(
+        command="azmcp",
+        args=("server", "start"),
+        read_timeout_seconds=1,
+    )
+    call_task = asyncio.create_task(session.call_tool("compute", {}, timeout_seconds=1))
+    await asyncio.sleep(0)
+    close_task = asyncio.create_task(session.close())
+    await asyncio.sleep(0)
+
+    assert close_task.done() is False
+    call_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await call_task
+    await close_task
+    assert _Group.instances[0].exit_calls == 1

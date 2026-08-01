@@ -86,6 +86,7 @@ class ManagedMcpClient:
         self._reason = "not_probed"
         self._discovered_tools: frozenset[str] = frozenset()
         self._probe_lock = asyncio.Lock()
+        self._dispatch_lock = asyncio.Lock()
         self._lifecycle_lock = asyncio.Lock()
         self._stop = asyncio.Event()
         self._monitor_task: asyncio.Task[None] | None = None
@@ -129,10 +130,11 @@ class ManagedMcpClient:
     async def probe(self) -> bool:
         async with self._probe_lock:
             try:
-                tools = await asyncio.wait_for(
-                    self._session.list_tools(),
-                    timeout=self._config.startup_timeout_seconds,
-                )
+                async with self._dispatch_lock:
+                    tools = await asyncio.wait_for(
+                        self._session.list_tools(),
+                        timeout=self._config.startup_timeout_seconds,
+                    )
             except TimeoutError:
                 await self._reset_session()
                 self._mark_unavailable("probe_timed_out")
@@ -170,12 +172,17 @@ class ManagedMcpClient:
             120.0,
         )
         try:
-            return await self._breaker.call(
-                self._session.call_tool,
-                name,
-                dict(arguments),
-                timeout_seconds=timeout,
-            )
+            async with self._dispatch_lock:
+                return await self._breaker.call(
+                    self._session.call_tool,
+                    name,
+                    dict(arguments),
+                    timeout_seconds=timeout,
+                )
+        except asyncio.CancelledError:
+            await self._reset_session()
+            self._mark_unavailable("call_cancelled")
+            raise
         except CircuitOpenError as exc:
             raise ManagedMcpUnavailableError("MCP provider circuit is open") from exc
         except Exception:
@@ -206,7 +213,8 @@ class ManagedMcpClient:
                 if monitor_task is not None:
                     await monitor_task
             finally:
-                await self._session.close()
+                async with self._dispatch_lock:
+                    await self._session.close()
 
     async def _monitor(self) -> None:
         while not self._stop.is_set():
@@ -223,7 +231,8 @@ class ManagedMcpClient:
 
     async def _reset_session(self) -> None:
         try:
-            await self._session.close()
+            async with self._dispatch_lock:
+                await self._session.close()
         except Exception:  # noqa: BLE001 - failed optional cleanup must not block fallback
             return
 
@@ -246,6 +255,7 @@ class PythonSdkMcpSession:
         self._read_timeout_seconds = read_timeout_seconds
         self._group: Any = None
         self._init_lock = asyncio.Lock()
+        self._operation_lock = asyncio.Lock()
         self._close_timeout_seconds = close_timeout_seconds
 
     @classmethod
@@ -293,8 +303,9 @@ class PythonSdkMcpSession:
         )
 
     async def list_tools(self) -> frozenset[str]:
-        group = await self._ensure_group()
-        return frozenset(group.tools)
+        async with self._operation_lock:
+            group = await self._ensure_group()
+            return frozenset(group.tools)
 
     async def call_tool(
         self,
@@ -303,15 +314,16 @@ class PythonSdkMcpSession:
         *,
         timeout_seconds: float,
     ) -> McpCallResult:
-        group = await self._ensure_group()
-        result = await asyncio.wait_for(
-            group.call_tool(
-                name,
-                dict(arguments),
-                read_timeout_seconds=timeout_seconds,
-            ),
-            timeout=timeout_seconds,
-        )
+        async with self._operation_lock:
+            group = await self._ensure_group()
+            result = await asyncio.wait_for(
+                group.call_tool(
+                    name,
+                    dict(arguments),
+                    read_timeout_seconds=timeout_seconds,
+                ),
+                timeout=timeout_seconds,
+            )
         return McpCallResult(
             structured_content=result.structured_content,
             content=tuple(result.content),
@@ -319,11 +331,12 @@ class PythonSdkMcpSession:
         )
 
     async def close(self) -> None:
-        async with self._init_lock:
-            group = self._group
-            self._group = None
-            if group is not None:
-                await self._close_group(group)
+        async with self._operation_lock:
+            async with self._init_lock:
+                group = self._group
+                self._group = None
+                if group is not None:
+                    await self._close_group(group)
 
     async def _ensure_group(self) -> Any:
         if self._group is not None:
