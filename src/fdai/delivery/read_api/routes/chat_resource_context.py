@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, Final
 
 from fdai.delivery.read_api.routes.chat_verification import AnswerVerification
 
 _RESOURCE_NAME: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 _RESOURCE_TYPE: Final = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,127}$")
+_RESOURCE_GROUP: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
+_EVENT_STATUS: Final = re.compile(r"^[A-Za-z][A-Za-z0-9 _.-]{1,63}$")
 _EVIDENCE_REF_PREFIXES: Final = ("inventory:", "subscription-health:")
 _HISTORY_FOLLOWUP: Final = re.compile(
     r"\b(?:since when|when did|when was|how long|history)\b|"
@@ -21,6 +24,11 @@ _LATEST_CHANGE_FOLLOWUP: Final = re.compile(
     r"\b(?:most recent|latest)\b.{0,32}\b(?:change|operation)\b|"
     r"\bwho\b.{0,32}\bchanged\b.{0,32}\bmost recently\b|"
     r"(?:가장 최근|최근).{0,24}(?:변경|작업)|누가.{0,32}(?:가장 최근|최근).{0,16}변경",
+    re.IGNORECASE,
+)
+_PRE_INCIDENT_FOLLOWUP: Final = re.compile(
+    r"(?:before|prior to).{0,24}(?:incident|outage)|(?:incident|outage).{0,24}(?:before|prior)|"
+    r"(?:장애|인시던트).{0,20}(?:직전|이전)|(?:직전|이전).{0,20}(?:장애|인시던트)",
     re.IGNORECASE,
 )
 
@@ -45,11 +53,32 @@ def parse_resource_context(raw: object) -> dict[str, str] | None:
         or len(evidence_ref) > 1024
     ):
         raise ValueError("resource_context.evidence_ref MUST be an inventory reference")
-    return {
+    parsed = {
         "name": name,
         "resource_type": resource_type,
         "evidence_ref": evidence_ref,
     }
+    resource_group = raw.get("resource_group")
+    event_at = raw.get("event_at")
+    event_status = raw.get("event_status")
+    if any(value is not None for value in (resource_group, event_at, event_status)):
+        if (
+            not isinstance(resource_group, str)
+            or _RESOURCE_GROUP.fullmatch(resource_group) is None
+            or not isinstance(event_at, str)
+            or not _valid_timestamp(event_at)
+            or not isinstance(event_status, str)
+            or _EVENT_STATUS.fullmatch(event_status) is None
+        ):
+            raise ValueError("resource_context incident anchor MUST be bounded and complete")
+        parsed.update(
+            {
+                "resource_group": resource_group,
+                "event_at": event_at,
+                "event_status": event_status,
+            }
+        )
+    return parsed
 
 
 def contextualize_resource_followup(
@@ -59,10 +88,22 @@ def contextualize_resource_followup(
     """Bind an elliptical history question to the prior verified resource selector."""
 
     if resource_context is None or not (
-        _HISTORY_FOLLOWUP.search(prompt) or _ATTRIBUTION_FOLLOWUP.search(prompt)
+        _HISTORY_FOLLOWUP.search(prompt)
+        or _ATTRIBUTION_FOLLOWUP.search(prompt)
+        or _PRE_INCIDENT_FOLLOWUP.search(prompt)
     ):
         return prompt, False
     name = resource_context["name"]
+    if _PRE_INCIDENT_FOLLOWUP.search(prompt) and all(
+        field in resource_context for field in ("resource_group", "event_at", "event_status")
+    ):
+        locale = "ko" if re.search(r"[가-힣]", prompt) else "en"
+        return (
+            f"{name} change history: pre-incident activity "
+            f"group={resource_context['resource_group']} "
+            f"before={resource_context['event_at']} locale={locale}",
+            True,
+        )
     if _LATEST_CHANGE_FOLLOWUP.search(prompt):
         return f"{name} change history: show the most recent successful operation", True
     if _ATTRIBUTION_FOLLOWUP.search(prompt):
@@ -126,17 +167,45 @@ def response_resource_context(
                 if latest is not None:
                     provider_type = str(latest.get("resource_type") or "azure-resource")
                     neutral_type = provider_type.casefold().replace("/", ".")
-                    try:
-                        return parse_resource_context(
+                    incident = max(
+                        (
+                            event
+                            for event in events
+                            if isinstance(event, Mapping)
+                            and event.get("resource_name") == latest.get("resource_name")
+                            and event.get("kind") == "availability_status"
+                            and str(event.get("status") or "").casefold()
+                            in {"degraded", "unavailable", "unknown"}
+                        ),
+                        key=lambda event: str(event.get("observed_at") or ""),
+                        default=None,
+                    )
+                    candidate = {
+                        "name": latest.get("resource_name"),
+                        "resource_type": neutral_type,
+                        "evidence_ref": f"subscription-health:{source}@{observed_at}",
+                    }
+                    if incident is not None and latest.get("resource_group"):
+                        candidate.update(
                             {
-                                "name": latest.get("resource_name"),
-                                "resource_type": neutral_type,
-                                "evidence_ref": f"subscription-health:{source}@{observed_at}",
+                                "resource_group": latest.get("resource_group"),
+                                "event_at": incident.get("observed_at"),
+                                "event_status": incident.get("status"),
                             }
                         )
+                    try:
+                        return parse_resource_context(candidate)
                     except ValueError:
                         return None
     return dict(fallback) if fallback is not None else None
+
+
+def _valid_timestamp(value: str) -> bool:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
 
 
 def resource_followup_answer(

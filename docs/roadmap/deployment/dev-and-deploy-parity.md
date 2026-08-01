@@ -283,9 +283,13 @@ mutation `5xx` responses remain ambiguous and aren't automatically repeated.
 
 The same read-investigation wiring constructs the bounded Azure subscription-health provider from
 the applied subscription and resource groups, so local development answers subscription-health
-questions through the identical Azure adapter that deployment uses. The local factory injects that
-provider into the read API only when the read-investigation wiring is present, preserving the
-read-only, server-owned data-plane boundary.
+questions through the same Azure adapter that deployment uses. The adapter defaults to a
+resource-group allowlist. Interactive local explicitly selects its server-owned `subscription`
+mode and a 1,000-resource cap because the authoritative local inventory already reads that complete
+subscription. Deployment retains `resource_groups` unless its composition root deliberately binds
+subscription mode with an appropriately scoped reader identity. Browser and model input cannot
+change the mode. The local factory injects the provider only when read-investigation wiring is
+present, preserving the read-only data-plane boundary.
 
 Direct Command Deck reads also use the same owner-scoped run-ledger executor in both profiles.
 Interactive local binds it to the configured local PostgreSQL database; deployment binds it to

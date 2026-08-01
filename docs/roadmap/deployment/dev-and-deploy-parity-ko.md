@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d377d2ffe2f6cafaed078c7727d07c705172bf34
+translation_source_sha: 44cfc82045ef07205502d42974351a3b3d8fddb5
 translation_revised: 2026-08-01
 ---
 
@@ -288,8 +288,12 @@ idempotency key가 필요합니다. ARM throttling은 최대 3회까지 bounded 
 
 동일한 read-investigation wiring은 applied subscription 및 resource group으로 bounded Azure
 subscription-health provider를 구성하므로, local 개발도 deployment와 동일한 Azure adapter를 통해
-subscription-health 질문에 답합니다. Local factory는 read-investigation wiring이 존재할 때만 해당
-provider를 read API에 주입하여 read-only, server-owned data-plane 경계를 유지합니다.
+subscription-health 질문에 답합니다. Adapter는 resource-group allowlist를 기본으로 사용합니다.
+Interactive local의 authoritative inventory가 이미 전체 subscription을 읽으므로 local은 server-owned
+`subscription` mode와 1,000개 resource cap을 명시적으로 선택합니다. Deployment는 composition root가
+적절한 scope의 reader identity와 함께 subscription mode를 의도적으로 binding하지 않으면
+`resource_groups`를 유지합니다. Browser와 model input은 mode를 변경할 수 없습니다. Local factory는
+read-investigation wiring이 존재할 때만 해당 provider를 주입하여 read-only data-plane 경계를 유지합니다.
 
 Direct Command Deck read도 두 profile에서 동일한 owner-scoped run-ledger executor를 사용합니다.
 Interactive local은 configured local PostgreSQL database에 bind하고 deployment는 Azure PostgreSQL에

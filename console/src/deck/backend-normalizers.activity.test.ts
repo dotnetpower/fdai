@@ -36,11 +36,23 @@ describe("parseResourceContext", () => {
       name: "vm-latest",
       resource_type: "microsoft.compute.virtualmachines",
       evidence_ref: "subscription-health:azure-resource-graph@2026-08-01T02:00:00Z",
+      resource_group: "rg-example",
+      event_at: "2026-08-01T01:34:20Z",
+      event_status: "Unavailable",
     })).toEqual({
       name: "vm-latest",
       resource_type: "microsoft.compute.virtualmachines",
       evidence_ref: "subscription-health:azure-resource-graph@2026-08-01T02:00:00Z",
+      resource_group: "rg-example",
+      event_at: "2026-08-01T01:34:20Z",
+      event_status: "Unavailable",
     });
+    expect(parseResourceContext({
+      name: "vm-latest",
+      resource_type: "microsoft.compute.virtualmachines",
+      evidence_ref: "subscription-health:azure-resource-graph@2026-08-01T02:00:00Z",
+      event_at: "not-a-time",
+    })).toBeUndefined();
     expect(parseResourceContext({
       name: "db-current",
       resource_type: "postgresql-server",

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: dd2e5306c0ad4ab0140fc7f3307298aab01665ef
+translation_source_sha: da696981fc1506772f5b0cd1ba0cdf4823e1ef25
 translation_revised: 2026-08-01
 ---
 
@@ -64,7 +64,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
 | Investigation evidence signal | 구현됨 | Bound된 read-investigation hook은 Heimdall 대화형 포트의 owned evidence로 계산되므로, 로컬 신호 window가 차기 전에도 조사 가능한 turn에는 evidence-gap prompt layer가 붙지 않습니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
-| 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. 생략된 history 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 resource를 다시 resolve한 뒤 일치하는 read evidence를 직접 반환합니다. |
+| 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. Resource Health history는 resource group, timestamp 및 status로 구성된 완전한 anomalous-event anchor 하나도 유지할 수 있습니다. 생략된 history 및 장애 직전 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 bounded context를 다시 검증한 뒤 일치하는 read evidence를 직접 반환합니다. |
 | Subscription scope identity | 구현됨 | 현재 subscription identity 질문은 server에 configured된 subscription name과 state를 Azure Resource Manager에서 읽고, masked subscription ID만 렌더링하며, narrator model을 호출하지 않습니다. |
 | Subscription health sweep | 구현됨 | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 unavailable resource-state 질문이 configured reader scope를 사용합니다. Inventory language catalog가 availability 의미에 대해 Resource Health authority를 선택합니다. Provider는 configured resource-group allowlist를 기본으로 사용합니다. 명시적인 server-owned subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Platform-impact read는 active Service Health event와 impacted resource를 query하고 outage를 maintenance 및 advisory와 분리한 다음 Resource Health cause와 correlate합니다. 다른 diagnosis read는 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인할 수 있습니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
@@ -105,6 +105,15 @@ Server는 이 값을 검증하고 configured subscription 및 resource-group sco
 생성할 수 없습니다. Resource history 및 attribution은 bounded 30일 lookback을 사용합니다. 중지된
 resource에 대해 Heimdall은 최근 성공한 Stop, Power Off 또는 Deallocate Activity Log event를 보고하고,
 현재 중지 상태가 적어도 해당 timestamp부터 이어졌다고 명시합니다.
+
+Resource Health history가 degraded, unavailable 또는 unknown availability event가 있는 resource
+하나를 선택하면 terminal context에 해당 event의 resource group, timestamp 및 status도 포함할 수
+있습니다. 세 field는 모두 있거나 모두 없는 bounded incident anchor로만 수락됩니다. 장애 직전 후속
+질문은 server-configured scope에서 최대 24시간과 Activity Log event 200개를 읽고, anchor 이전의 같은
+resource group에서 성공한 deployment, write, update 및 configuration operation만 유지합니다. 바로 앞
+1시간의 건수를 보고하며, 건수가 0이면 인과관계를 주장하지 않고 가장 가까운 이전 matching change를
+표시할 수 있습니다. Provenance 누락, provider failure 또는 malformed context는 `unavailable`을
+반환합니다. Truncation은 명시하며 답변에는 최대 20개 matching event만 포함합니다.
 
 Collection 질문은 별도의 typed activity query를 사용합니다. Server는 Azure subscription 및
 resource-group allowlist를 고정하고 lookback을 최대 30일, 반환 event를 최대 200개로 제한하며 event
@@ -324,10 +333,13 @@ Investigation은 operator에게 비슷해 보이는 5개 질문을 구분합니�
 3. **Latest control-plane change:** Activity Log는 종류와 관계없이 가장 최신 successful operation을
   선택하고 operation, time, actor kind 및 opaque actor reference를 반환합니다. 더 최신 start 또는
   update가 있으면 이전 stop-only attribution을 재사용하지 않습니다.
-4. **Guest shutdown:** Control-plane operation이 없는 `stopped` VM은 Windows Event Log 또는 Linux
+4. **장애 직전 control-plane change:** 완전한 Resource Health incident anchor는 해당 event 이전의
+  같은 resource group에서 successful deployment 또는 configuration write를 선택합니다. 1시간 건수와
+  가장 가까운 이전 match는 시간적 correlation일 뿐 root-cause attribution이 아닙니다.
+5. **Guest shutdown:** Control-plane operation이 없는 `stopped` VM은 Windows Event Log 또는 Linux
    syslog evidence가 필요합니다. Guest diagnostic이 없으면 actor를 추측하지 않고 `unavailable`을
    반환합니다.
-5. **Platform event:** Resource Health는 host, maintenance 또는 platform availability context를
+6. **Platform event:** Resource Health는 host, maintenance 또는 platform availability context를
   제공합니다. ARG history가 비어 있으면 current-status fallback의 observation timestamp가 요청한
   lookback 안에 있을 때만 evidence로 사용합니다. 사용자가 event를 시작했다는 사실을 증명하지는
   않습니다.

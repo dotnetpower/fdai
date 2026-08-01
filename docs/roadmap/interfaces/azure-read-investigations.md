@@ -63,7 +63,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
 | Investigation evidence signal | Implemented | A bound read-investigation hook counts as owned evidence for Heimdall's conversational port, so an investigable turn is not composed with the evidence-gap prompt layer even before the local signal window fills. |
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
-| Conversational resource continuity | Implemented | Command Deck retains one server-selected inventory resource across terminal turns. Elliptical history follow-ups bypass semantic and public-web planning, then Heimdall re-resolves the resource and returns its matching read evidence directly. |
+| Conversational resource continuity | Implemented | Command Deck retains one server-selected inventory resource across terminal turns. Resource Health history may also retain one complete anomalous-event anchor: resource group, timestamp, and status. Elliptical history and pre-incident follow-ups bypass semantic and public-web planning, then Heimdall revalidates the bounded context and returns matching read evidence directly. |
 | Subscription scope identity | Implemented | Current-subscription identity questions read the server-configured subscription name and state from Azure Resource Manager, render only a masked subscription ID, and never call the narrator model. |
 | Subscription health sweep | Implemented | Explicit subscription checks, general service-outage questions, and generic degraded or unavailable resource-state questions use the configured reader scope. The inventory language catalog selects Resource Health authority for availability semantics. The provider defaults to the configured resource-group allowlist. An explicit server-owned subscription mode aligns interactive local health with its subscription inventory. Platform-impact reads query active Service Health events and impacted resources, separate outages from maintenance and advisories, and correlate Resource Health causes. Other diagnosis reads can check representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
@@ -105,6 +105,16 @@ and resource-group scope. A missing, ambiguous, or mismatched resolution cannot 
 history answer. Resource history and attribution use a bounded 30-day lookback. For a stopped
 resource, Heimdall reports the latest successful Stop, Power Off, or Deallocate Activity Log event
 and states that the current stopped state is confirmed from at least that timestamp.
+
+When Resource Health history selects one resource with a degraded, unavailable, or unknown
+availability event, the terminal context may additionally carry that event's resource group,
+timestamp, and status. The three fields are accepted only as an all-or-none bounded incident
+anchor. A pre-incident follow-up reads at most 24 hours and 200 Activity Log events from the
+server-configured scope, keeps successful deployment, write, update, and configuration operations
+from the same resource group before the anchor, and reports the count in the immediate preceding
+hour. If that count is zero, Heimdall may show the nearest earlier matching changes without
+claiming causation. Missing provenance, provider failure, or malformed context returns
+`unavailable`; truncation is explicit, and at most 20 matching events enter the answer.
 
 Collection questions use a separate typed activity query. The server fixes the Azure subscription
 and resource-group allowlist, caps the lookback at 30 days and the returned events at 200, and
@@ -328,9 +338,13 @@ The investigation separates five questions that look similar to an operator:
 3. **Latest control-plane change:** Activity Log selects the newest successful operation of any
   kind and returns its operation, time, actor kind, and opaque actor reference. It does not reuse
   the older stop-only attribution when a later start or update exists.
-4. **Guest shutdown:** A `stopped` VM without a control-plane operation requires Windows Event Log
+4. **Pre-incident control-plane changes:** A complete Resource Health incident anchor selects
+  successful deployment or configuration writes in the same resource group before that event.
+  The one-hour count and nearest older matches are temporal correlation only, not root-cause
+  attribution.
+5. **Guest shutdown:** A `stopped` VM without a control-plane operation requires Windows Event Log
    or Linux syslog evidence. Missing guest diagnostics produces `unavailable`, not a guessed actor.
-5. **Platform event:** Resource Health provides host, maintenance, or platform availability
+6. **Platform event:** Resource Health provides host, maintenance, or platform availability
     context. When ARG history is empty, the current-status fallback is evidence only if its
     observation timestamp is inside the requested lookback. It does not prove a user initiated the
     event.

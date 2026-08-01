@@ -1062,7 +1062,10 @@ def test_resource_health_history_uses_typed_lookback_and_chronological_order() -
                 "health_history_events": [
                     {
                         "resource_name": "database-later",
-                        "status": "Available",
+                        "resource_type": "Microsoft.DBforPostgreSQL/flexibleServers",
+                        "resource_group": "rg-example",
+                        "kind": "availability_status",
+                        "status": "Unavailable",
                         "reason": "Platform Initiated",
                         "classification": "platform-initiated",
                         "observed_at": "2026-07-22T04:30:00Z",
@@ -1106,10 +1109,13 @@ def test_resource_health_history_uses_typed_lookback_and_chronological_order() -
     assert "platform-initiated 1건" in answer
     assert resource_context == {
         "name": "database-later",
-        "resource_type": "azure-resource",
+        "resource_type": "microsoft.dbforpostgresql.flexibleservers",
         "evidence_ref": (
             "subscription-health:azure-resource-graph+resource-health-history@2026-07-22T05:00:00Z"
         ),
+        "resource_group": "rg-example",
+        "event_at": "2026-07-22T04:30:00Z",
+        "event_status": "Unavailable",
     }
     contextualized, used_context = contextualize_resource_followup(
         "Who changed this resource most recently, and what did they do?",
@@ -1118,6 +1124,15 @@ def test_resource_health_history_uses_typed_lookback_and_chronological_order() -
     assert used_context is True
     assert contextualized == (
         "database-later change history: show the most recent successful operation"
+    )
+    contextualized, used_context = contextualize_resource_followup(
+        "장애 직전에 발생한 배포와 설정 변경을 찾아줘.",
+        resource_context,
+    )
+    assert used_context is True
+    assert contextualized == (
+        "database-later change history: pre-incident activity "
+        "group=rg-example before=2026-07-22T04:30:00Z locale=ko"
     )
     assert backend.calls == 0
 

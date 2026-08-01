@@ -24,6 +24,11 @@ from fdai.core.read_investigation import (
     read_tool_spec,
     resource_name_from_question,
 )
+from fdai.delivery.read_api.routes.chat_preincident_activity import (
+    ScopeActivityProvider,
+    parse_preincident_activity,
+    resolve_preincident_activity,
+)
 from fdai.delivery.read_api.routes.read_investigations import (
     ReadInvestigationDirectExecution,
     ReadInvestigationRunRejectedError,
@@ -41,6 +46,7 @@ from fdai.shared.providers.read_investigation import (
 )
 
 _HISTORY_LOOKBACK_SECONDS = 30 * 24 * 3_600
+_LATEST_CHANGE_SUFFIX = "change history: show the most recent successful operation"
 
 
 class ReadInvestigationDirectExecutor(Protocol):
@@ -66,6 +72,7 @@ class HeimdallReadInvestigationResponder:
         latency_store: ReadLatencyProfileStore,
         scope_ref: str,
         policy: InvestigationExecutionPolicy | None = None,
+        scope_activity_provider: ScopeActivityProvider | None = None,
     ) -> None:
         if not scope_ref.strip() or len(scope_ref) > 256:
             raise ValueError("scope_ref MUST be a bounded identifier")
@@ -73,6 +80,7 @@ class HeimdallReadInvestigationResponder:
         self._latency_store = latency_store
         self._scope_ref = scope_ref
         self._policy = policy or InvestigationExecutionPolicy(streamed_max_ms=20_000)
+        self._scope_activity_provider = scope_activity_provider
 
     async def __call__(
         self,
@@ -81,6 +89,28 @@ class HeimdallReadInvestigationResponder:
         *,
         progress_observer: Callable[[ReadInvestigationProgressKind], Awaitable[None]] | None = None,
     ) -> dict[str, object] | None:
+        preincident = parse_preincident_activity(question)
+        if preincident is not None:
+            if self._scope_activity_provider is None:
+                return {
+                    "answer": (
+                        "Azure Activity Log 근거를 사용할 수 없어 장애 직전 변경을 "
+                        "확정하지 않았습니다."
+                        if preincident.locale == "ko"
+                        else (
+                            "Azure Activity Log evidence is unavailable, so pre-incident "
+                            "changes were not confirmed."
+                        )
+                    ),
+                    "facts": {
+                        "status": "unavailable",
+                        "intent": "pre_incident_changes",
+                        "resource_name": preincident.resource_name,
+                        "reason": "activity_provider_unavailable",
+                        "evidence_refs": (),
+                    },
+                }
+            return await resolve_preincident_activity(preincident, self._scope_activity_provider)
         intent = classify_read_investigation_intent(question)
         resource_name = resource_name_from_question(question)
         if intent is None or resource_name is None:
@@ -172,6 +202,7 @@ class HeimdallReadInvestigationResponder:
             outcome=result.outcome.value,
             evidence=result.evidence,
             korean=_is_korean(question),
+            latest_change_only=question.endswith(_LATEST_CHANGE_SUFFIX),
         )
         return {
             "answer": answer,
@@ -203,6 +234,7 @@ def _render_answer(
     outcome: str,
     evidence: tuple[ReadEvidenceEnvelope, ...],
     korean: bool,
+    latest_change_only: bool,
 ) -> str:
     records = tuple(record for envelope in evidence for record in envelope.records)
     if intent is ReadInvestigationIntent.NETWORK_SECURITY and records:
@@ -238,7 +270,7 @@ def _render_answer(
         )
         prefix = "피어링" if korean else "peerings"
         return f"{resource_name} {prefix}: {rendered}.{caveat}"
-    if intent is ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY:
+    if intent is ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY and latest_change_only:
         successful_changes = sorted(
             (
                 record
@@ -276,7 +308,10 @@ def _render_answer(
                 "Azure Activity Log."
             )
         )
-    if intent is ReadInvestigationIntent.CHANGE_ATTRIBUTION:
+    if intent in {
+        ReadInvestigationIntent.CHANGE_ATTRIBUTION,
+        ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY,
+    }:
         successful_stops = sorted(
             (
                 record

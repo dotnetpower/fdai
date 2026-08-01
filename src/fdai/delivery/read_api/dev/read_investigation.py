@@ -152,6 +152,7 @@ def build_local_read_investigation(
                 ),
                 latency_store=latency_store,
                 scope_ref=scope_ref,
+                scope_activity_provider=inventory_activity_provider,
                 policy=InvestigationExecutionPolicy(
                     direct_max_ms=20_000,
                     streamed_max_ms=30_000,

@@ -379,6 +379,65 @@ async def test_chat_delegate_renders_most_recent_successful_change() -> None:
     assert _facts(result)["intent"] == "resource_change_history"
 
 
+async def test_chat_delegate_renders_preincident_scope_activity() -> None:
+    async def activity_provider(lookback_seconds: int, max_events: int):
+        assert lookback_seconds == 86_400
+        assert max_events == 200
+        return {
+            "status": "matched",
+            "source": "azure-activity-log",
+            "observed_at": "2026-08-01T05:00:00Z",
+            "truncated": False,
+            "events": [
+                {
+                    "occurred_at": "2026-08-01T03:00:00Z",
+                    "event_status": "succeeded",
+                    "operation": "write",
+                    "name": "nsg-rule",
+                    "type": "network.nsg",
+                    "resource_group": "rg-example",
+                },
+                {
+                    "occurred_at": "2026-08-01T04:45:00Z",
+                    "event_status": "succeeded",
+                    "operation": "write",
+                    "name": "other-group-change",
+                    "type": "arm-resource",
+                    "resource_group": "rg-other",
+                },
+            ],
+        }
+
+    executor = _Executor()
+    delegate = HeimdallReadInvestigationChatDelegate(
+        responder=HeimdallReadInvestigationResponder(
+            executor=executor,  # type: ignore[arg-type]
+            latency_store=_Latency(),
+            scope_ref="scope:allowed",
+            scope_activity_provider=activity_provider,
+        )
+    )
+
+    result = await delegate.delegate(
+        prompt=(
+            "vm-01 change history: pre-incident activity "
+            "group=rg-example before=2026-08-01T05:00:00Z locale=ko"
+        ),
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert "직전 1시간의 배포/설정 변경은 0건" in _answer(result)
+    assert "가장 가까운 이전 관련 변경" in _answer(result)
+    assert "nsg-rule" in _answer(result)
+    assert "other-group-change" not in _answer(result)
+    assert _facts(result)["intent"] == "pre_incident_changes"
+    assert _facts(result)["immediate_count"] == 0
+    assert _facts(result)["matched_count"] == 1
+    assert executor.calls == 0
+
+
 async def test_chat_delegate_renders_opaque_attribution_caller() -> None:
     envelope = ReadEvidenceEnvelope(
         status=EvidenceStatus.MATCHED,

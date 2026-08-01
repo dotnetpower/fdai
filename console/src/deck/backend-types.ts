@@ -10,6 +10,9 @@ export interface ResourceContext {
   readonly name: string;
   readonly resource_type: string;
   readonly evidence_ref: string;
+  readonly resource_group?: string;
+  readonly event_at?: string;
+  readonly event_status?: string;
 }
 
 export interface RouterCandidate {

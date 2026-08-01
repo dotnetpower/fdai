@@ -400,6 +400,13 @@ call a bounded set of contributors and aggregate their evidence. Every request
 uses the signed-in operator's bearer token and a stable, server-namespaced
 conversation session. The question path never issues a privileged call.
 
+For resource-history continuity, the deck returns only a server-selected bounded resource context.
+Resource Health history can add a complete anomalous-event anchor consisting of resource group,
+timestamp, and status. The browser preserves these fields without interpreting them; the read API
+rejects partial anchors and uses its configured Azure reader scope for any pre-incident Activity
+Log correlation. Provider failures and truncated reads remain visible instead of falling through
+to an ungrounded narrator answer.
+
 ### Submitting an action or incident
 
 Every natural-language turn, including an explicit operator command

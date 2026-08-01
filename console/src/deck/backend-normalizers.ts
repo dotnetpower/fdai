@@ -26,24 +26,42 @@ const MAX_AGENT_NAME_CHARS = 64;
 const MAX_TRACE_REF_CHARS = 256;
 const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$/;
 const RESOURCE_TYPE_PATTERN = /^[a-z0-9][a-z0-9_.-]{1,127}$/;
+const RESOURCE_GROUP_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$/;
+const EVENT_STATUS_PATTERN = /^[A-Za-z][A-Za-z0-9 _.-]{1,63}$/;
 const RESOURCE_EVIDENCE_PREFIXES = ["inventory:", "subscription-health:"] as const;
 
 export function parseResourceContext(raw: unknown): ResourceContext | undefined {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
   const record = raw as Record<string, unknown>;
+  const evidenceRef = record.evidence_ref;
   if (
     typeof record.name !== "string" ||
     !RESOURCE_NAME_PATTERN.test(record.name) ||
     typeof record.resource_type !== "string" ||
     !RESOURCE_TYPE_PATTERN.test(record.resource_type) ||
-    typeof record.evidence_ref !== "string" ||
-    !RESOURCE_EVIDENCE_PREFIXES.some((prefix) => record.evidence_ref.startsWith(prefix)) ||
-    record.evidence_ref.length > 1024
+    typeof evidenceRef !== "string" ||
+    !RESOURCE_EVIDENCE_PREFIXES.some((prefix) => evidenceRef.startsWith(prefix)) ||
+    evidenceRef.length > 1024
   ) return undefined;
+  const anchorValues = [record.resource_group, record.event_at, record.event_status];
+  const hasAnchor = anchorValues.some((value) => value !== undefined);
+  if (hasAnchor && (
+    typeof record.resource_group !== "string" ||
+    !RESOURCE_GROUP_PATTERN.test(record.resource_group) ||
+    typeof record.event_at !== "string" ||
+    !Number.isFinite(Date.parse(record.event_at)) ||
+    typeof record.event_status !== "string" ||
+    !EVENT_STATUS_PATTERN.test(record.event_status)
+  )) return undefined;
   return {
     name: record.name,
     resource_type: record.resource_type,
-    evidence_ref: record.evidence_ref,
+    evidence_ref: evidenceRef,
+    ...(hasAnchor ? {
+      resource_group: record.resource_group as string,
+      event_at: record.event_at as string,
+      event_status: record.event_status as string,
+    } : {}),
   };
 }
 
