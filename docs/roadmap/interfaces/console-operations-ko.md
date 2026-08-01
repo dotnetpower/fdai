@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 5525266c130212d11c63e5a0915fa5d81ce6ba8e
+translation_source_sha: 73d537ee5992dff64d5cfc2ad35ac54cbbd23008
 translation_revised: 2026-08-01
 ---
 
@@ -167,6 +167,11 @@ shape를 직접 쓰지 않습니다. 다른 domain request는 자체 event contr
 Retry는 같은 idempotency key를 사용합니다. Concurrent transition은 최신 source revision을 반환합니다.
 어떤 route도 agent implementation을 import하거나 Thor를 직접 호출하거나 다른 owner의 state를 수정하지
 않습니다.
+
+Conflict response는 `kind` (`idempotency_collision`, `stale_revision`, `competing_decision`,
+`prior_deny`, `expired`), `retriable`, current source reference와 revision, 존재하는 경우 winning receipt,
+next allowed transition을 포함한 stable problem detail을 사용합니다. 브라우저는 HTTP status만으로 retry
+guidance를 만들지 않습니다.
 
 ### 전달 내구성
 

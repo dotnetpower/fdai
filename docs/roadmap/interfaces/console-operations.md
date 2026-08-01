@@ -167,6 +167,11 @@ Every domain route repeats the checks appropriate to its source:
 Retries reuse the same idempotency key. A concurrent transition returns the latest source revision.
 No route imports an agent implementation, calls Thor directly, or writes another owner's state.
 
+Conflict responses use a stable problem detail with `kind` (`idempotency_collision`,
+`stale_revision`, `competing_decision`, `prior_deny`, or `expired`), `retriable`, current source
+reference and revision, winning receipt when one exists, and next allowed transition. The browser
+never invents retry guidance from an HTTP status alone.
+
 ### Delivery durability
 
 The shipped console action route publishes directly to the event bus; it does not yet persist a
