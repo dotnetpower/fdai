@@ -337,6 +337,48 @@ async def test_chat_delegate_renders_latest_successful_stop_history() -> None:
     assert _facts(result)["intent"] == "resource_change_history"
 
 
+async def test_chat_delegate_renders_most_recent_successful_change() -> None:
+    envelope = ReadEvidenceEnvelope(
+        status=EvidenceStatus.MATCHED,
+        authority="azure.resource_activity",
+        resource_ref="resource:one",
+        observed_at=NOW,
+        freshness=EvidenceFreshness.LIVE,
+        truncated=False,
+        records=(
+            ReadEvidenceRecord(
+                occurred_at=datetime(2026, 7, 31, 12, 0, 36, tzinfo=UTC),
+                status="succeeded",
+                operation_kind="deallocate",
+                actor_ref="principal:service",
+                actor_kind=ActorKind.SERVICE_PRINCIPAL,
+            ),
+            ReadEvidenceRecord(
+                occurred_at=datetime(2026, 8, 1, 1, 38, 13, tzinfo=UTC),
+                status="succeeded",
+                operation_kind="start",
+                actor_ref="principal:user",
+                actor_kind=ActorKind.USER,
+            ),
+        ),
+        evidence_refs=("evidence:activity",),
+    )
+    executor = _NetworkExecutor(envelope)
+
+    result = await _delegate(executor).delegate(
+        prompt="vm-01 change history: show the most recent successful operation",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert "most recent successful change" in _answer(result)
+    assert "start at 2026-08-01T01:38:13Z" in _answer(result)
+    assert "user (principal:user)" in _answer(result)
+    assert "deallocate" not in _answer(result)
+    assert _facts(result)["intent"] == "resource_change_history"
+
+
 async def test_chat_delegate_renders_opaque_attribution_caller() -> None:
     envelope = ReadEvidenceEnvelope(
         status=EvidenceStatus.MATCHED,

@@ -317,7 +317,7 @@ reachability or bidirectional connectivity.
 
 ## Source selection and fallbacks
 
-The investigation separates four questions that look similar to an operator:
+The investigation separates five questions that look similar to an operator:
 
 1. **Current state:** Resource Graph or inventory resolves the VM; instance view confirms
    `running`, `stopped`, or `deallocated`.
@@ -325,9 +325,12 @@ The investigation separates four questions that look similar to an operator:
   operation and its caller when that record exists. The conversational attribution path defaults
   to exact resolution plus Activity Log only; guest shutdown and platform-cause evidence remain
   separate intents or an explicit deep investigation.
-3. **Guest shutdown:** A `stopped` VM without a control-plane operation requires Windows Event Log
+3. **Latest control-plane change:** Activity Log selects the newest successful operation of any
+  kind and returns its operation, time, actor kind, and opaque actor reference. It does not reuse
+  the older stop-only attribution when a later start or update exists.
+4. **Guest shutdown:** A `stopped` VM without a control-plane operation requires Windows Event Log
    or Linux syslog evidence. Missing guest diagnostics produces `unavailable`, not a guessed actor.
-4. **Platform event:** Resource Health provides host, maintenance, or platform availability
+5. **Platform event:** Resource Health provides host, maintenance, or platform availability
     context. When ARG history is empty, the current-status fallback is evidence only if its
     observation timestamp is inside the requested lookback. It does not prove a user initiated the
     event.
