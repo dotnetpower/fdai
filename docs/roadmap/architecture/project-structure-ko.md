@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: df0f89c1fad1a05d5bc4c6a7e6482f8f3ef84ecc
+translation_source_sha: cc54e50966f61b0142739cd284a21b374a585ee2
 translation_revised: 2026-08-01
 ---
 
@@ -409,7 +409,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   resource, topology, graph, owner, policy, dry-run, safety fact를 수집합니다. Azure cache freshness는
   bounded age와 future skew를 사용해 current evaluation clock 기준으로 평가하므로 event 직전의 recent
   cache는 통과할 수 있지만 historical replay가 stale evidence를 되살릴 수는 없습니다. Learned signature는
-  canonical parameter와 complete operational-case context를 bind합니다. Verifier는 execution authority를
+  canonical parameter와 complete operational-case context를 bind합니다. Growth 및 pgvector query/write
+  boundary는 database I/O 전에 non-finite embedding value를 거부합니다. Verifier는 execution authority를
   부여하지 않습니다. Binding이 없으면 operational reuse는 abstain하고 legacy pattern은 계속됩니다.
   Pantheon composition은 `OperatingPatternCompiler`를 inject할 수 있으며 Norns는 typed learning을
   serialize하고 Mimir review 전에 bounded proposal backpressure를 적용합니다.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any
 
@@ -175,6 +176,8 @@ class PostgresVerifiedPatternBuilder:
         vector = await self._embedding_model.embed(projection)
         if len(vector) != 384:
             raise ValueError(f"growth embedding dim MUST be 384; got {len(vector)}")
+        if any(not math.isfinite(float(value)) for value in vector):
+            raise ValueError("growth embedding values MUST be finite")
         signature_material = {
             "action_type_id": record.action_type_id,
             "operational_case": (

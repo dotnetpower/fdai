@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
@@ -57,7 +58,10 @@ def _encode_vector(values: Sequence[float]) -> str:
     """
     if len(values) != _EMBEDDING_DIM:
         raise ValueError(f"embedding dim MUST be {_EMBEDDING_DIM}; got {len(values)}")
-    return "[" + ",".join(f"{float(v):.9g}" for v in values) + "]"
+    normalized = tuple(float(value) for value in values)
+    if any(not math.isfinite(value) for value in normalized):
+        raise ValueError("embedding values MUST be finite")
+    return "[" + ",".join(f"{value:.9g}" for value in normalized) + "]"
 
 
 @dataclass(frozen=True, slots=True)

@@ -245,3 +245,29 @@ def test_effect_prediction_rejects_finite_input_overflow() -> None:
 
     with pytest.raises(ValueError, match="arithmetic MUST remain finite"):
         model.predict(1e308, 1.0)
+
+
+def test_effect_prediction_rejects_finite_interval_bound_overflow() -> None:
+    model = _model(action_type="noop", status=EffectModelStatus.ACTIVE)
+
+    with pytest.raises(ValueError, match="arithmetic MUST remain finite"):
+        model.predict(1e308, 1e308)
+
+
+def test_simulation_rejects_finite_divergence_overflow() -> None:
+    active = replace(
+        _model(action_type="noop", status=EffectModelStatus.ACTIVE),
+        bias_correction=1e308,
+    )
+    challenger = replace(
+        _model(action_type="noop", status=EffectModelStatus.CHALLENGER),
+        bias_correction=-1e308,
+    )
+
+    with pytest.raises(ValueError, match="divergence arithmetic MUST remain finite"):
+        simulate_effect_branches(
+            snapshot=SimulationSnapshot("snapshot-1", "0" * 64, "latency_p99_ms", _NOW),
+            branches=(SimulationBranch("noop", "noop", 0.0, 1.0),),
+            active_models={"noop": active},
+            challenger_models={"noop": challenger},
+        )

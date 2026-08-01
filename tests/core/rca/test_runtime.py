@@ -169,6 +169,9 @@ def test_temporal_runtime_evidence_rejects_unbounded_series_samples() -> None:
         ({"independent_observer": False}, CausalClosure.INCONCLUSIVE),
         ({"intervention_approved": False}, CausalClosure.INCONCLUSIVE),
         ({"affected_scope_safe": False}, CausalClosure.UNSAFE),
+        ({"intervention_target_ref": "resource:wrong"}, CausalClosure.INCONCLUSIVE),
+        ({"predicted_effect_ref": "finding:wrong"}, CausalClosure.INCONCLUSIVE),
+        ({"prohibited_effects_absent": False}, CausalClosure.UNSAFE),
     ],
 )
 async def test_independent_outcome_classifies_and_projects_closure(
@@ -225,6 +228,52 @@ async def test_intervention_at_evidence_cutoff_is_inconclusive() -> None:
             independent_observer=True,
             intervention_receipt_digest="a" * 64,
             intervention_executed_at=analyzed.hypothesis.evidence_cutoff,
+            intervention_target_ref=analyzed.hypothesis.cause_ref,
+            predicted_effect_ref=analyzed.hypothesis.effect_ref,
+            prohibited_effects_absent=True,
+        )
+    )
+
+    assert closed.closure is CausalClosure.INCONCLUSIVE
+
+
+async def test_unverified_intervention_receipt_is_inconclusive() -> None:
+    class _RejectingVerifier:
+        async def verify(self, observation: CausalClosureObservation) -> bool:
+            return False
+
+    projector = _Projector()
+    coordinator = CausalRuntimeCoordinator(
+        evidence_provider=_Provider(_evidence()),
+        analyzer=TemporalCausalityAnalyzer(
+            TemporalCausalityConfig(
+                lag_seconds=(0, 3600, 7200),
+                min_samples=12,
+                min_abs_correlation=0.7,
+                direction_margin=0.2,
+                candidate_count=3,
+            )
+        ),
+        projector=projector,
+        method_version="temporal-causal-v1",
+        intervention_receipt_verifier=_RejectingVerifier(),
+    )
+    analyzed = await coordinator.analyze(event=_event(), incident_id="incident-1")
+    assert analyzed.hypothesis is not None
+    closed = await coordinator.close(
+        CausalClosureObservation(
+            hypothesis=analyzed.hypothesis,
+            finding_id="finding:latency",
+            outcome_ref="outcome:unverified",
+            observed_at=datetime(2026, 8, 2, 1, tzinfo=UTC),
+            expected_direction_matched=True,
+            telemetry_complete=True,
+            within_window=True,
+            affected_scope_safe=True,
+            intervention_approved=True,
+            independent_observer=True,
+            intervention_receipt_digest="a" * 64,
+            intervention_executed_at=datetime(2026, 8, 2, 0, 30, tzinfo=UTC),
             intervention_target_ref=analyzed.hypothesis.cause_ref,
             predicted_effect_ref=analyzed.hypothesis.effect_ref,
             prohibited_effects_absent=True,

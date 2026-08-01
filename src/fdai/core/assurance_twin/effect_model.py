@@ -82,9 +82,11 @@ class EffectModel:
             raise ValueError("simulation interval radius MUST be non-negative")
         predicted = raw_prediction + self.bias_correction
         radius = max(raw_interval_radius, self.interval_radius, self.mean_absolute_error)
-        if not math.isfinite(predicted) or not math.isfinite(radius):
+        lower = predicted - radius
+        upper = predicted + radius
+        if any(not math.isfinite(value) for value in (predicted, radius, lower, upper)):
             raise ValueError("simulation prediction arithmetic MUST remain finite")
-        return predicted, predicted - radius, predicted + radius
+        return predicted, lower, upper
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,6 +306,8 @@ def _predict_branch(
         challenger_value = challenger.predict(branch.raw_prediction, branch.raw_interval_radius)[0]
         challenger_ref = _model_ref(challenger)
         divergence = abs(active_value - challenger_value)
+        if not math.isfinite(divergence):
+            raise ValueError("simulation divergence arithmetic MUST remain finite")
     low_evidence = (
         _EVIDENCE_RANK[active.evidence_grade]
         < _EVIDENCE_RANK[CausalEvidenceGrade.QUASI_EXPERIMENTAL]

@@ -78,6 +78,15 @@ def test_encode_vector_rejects_wrong_dimension() -> None:
         _encode_vector([0.1, 0.2, 0.3])
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_encode_vector_rejects_non_finite_values(value: float) -> None:
+    vector = [0.0] * 384
+    vector[0] = value
+
+    with pytest.raises(ValueError, match="MUST be finite"):
+        _encode_vector(vector)
+
+
 def test_coerce_params_accepts_dict_and_string() -> None:
     assert _coerce_params(None) == {}
     assert _coerce_params({"a": 1}) == {"a": 1}

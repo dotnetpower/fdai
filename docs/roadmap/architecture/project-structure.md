@@ -422,7 +422,8 @@ clean (see the fork model in
   graph, owner, policy, dry-run, and safety facts for an immutable operational case. Azure cache
   freshness is evaluated against the current evaluation clock with bounded age and future skew,
   so a recent pre-event cache can pass while historical replay cannot revive stale evidence.
-  Learned signatures bind canonical parameters and the complete operational-case context. The
+  Learned signatures bind canonical parameters and the complete operational-case context. Growth
+  and pgvector query/write boundaries reject non-finite embedding values before database I/O. The
   verifier grants no execution authority. An absent binding makes operational reuse abstain while
   legacy patterns continue. Pantheon composition can inject `OperatingPatternCompiler`; Norns
   serializes typed learning and applies bounded proposal backpressure before Mimir review.

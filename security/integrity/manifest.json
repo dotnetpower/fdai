@@ -92,7 +92,7 @@
     "src/fdai/core/architecture_review/readiness.py": "00ee52e3ab09a5f14608c20375851b0eaa27362cd36ba8ba6f34d75b8a390531",
     "src/fdai/core/assurance_twin/__init__.py": "9076bf5937ed9e338caabd0cb7f0c2c165e15ac0463d494b6e0bce2644a8dd26",
     "src/fdai/core/assurance_twin/chat.py": "26343e205518976a3936a7516dac9e68505d9d782f69e9584f14fa2f8aeeeba9",
-    "src/fdai/core/assurance_twin/effect_model.py": "6a5a479964636087520339ba292ed1b73b6712ec724797e9e4dcec97610db3aa",
+    "src/fdai/core/assurance_twin/effect_model.py": "4cdd41a6c0b2718d4cd8a595f9c35e86f54844162a67126e5ff60279aadfadc8",
     "src/fdai/core/assurance_twin/fidelity.py": "1f1172ae3a55e0db08deb64557a855af5fcce81526fd0255292809e3f29d4384",
     "src/fdai/core/assurance_twin/model_registry.py": "9ba89bb426fa9ca65728e577b0f5ef5e4fbddf4a6f69bfaa3f47243402ac17a5",
     "src/fdai/core/assurance_twin/projection.py": "9aab5020df0f1e8d738323f017082b61222505cb7c469d92acfe13a69a636c47",
@@ -898,7 +898,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T02:53:10Z",
+  "generated_at": "2026-08-01T02:53:35Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

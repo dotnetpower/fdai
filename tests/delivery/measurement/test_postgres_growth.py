@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
+import pytest
+
 from fdai.core.measurement.pattern_growth import OutcomeRecord
 from fdai.core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
 from fdai.delivery.measurement.postgres_growth import (
@@ -229,3 +231,33 @@ async def test_operational_pattern_signature_binds_case_context(monkeypatch) -> 
 
     assert first is not None and second is not None
     assert first[1].signature != second[1].signature
+
+
+async def test_pattern_builder_rejects_non_finite_embedding(monkeypatch) -> None:
+    class _NonFiniteEmbedding:
+        dim = 384
+
+        async def embed(self, text: str) -> list[float]:
+            vector = [0.0] * self.dim
+            vector[0] = float("nan")
+            return vector
+
+    builder = PostgresVerifiedPatternBuilder(
+        dsn="postgresql://example",
+        embedding_model=_NonFiniteEmbedding(),
+    )
+    monkeypatch.setattr(
+        builder,
+        "_entry",
+        AsyncMock(
+            return_value={
+                "embedding_projection": "operational failure",
+                "params": {},
+                "rule_id": "legacy.rule",
+                "incident_id": "incident-1",
+            }
+        ),
+    )
+
+    with pytest.raises(ValueError, match="MUST be finite"):
+        await builder.build(_growth_record())
