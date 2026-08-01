@@ -14,7 +14,10 @@ from fdai.core.executor.direct_api import DirectApiShadowExecutor
 from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
 from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
+from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
 from fdai.runtime.configuration import _resolve_catalog_root
+from fdai.runtime.human_access import build_human_access_direct_api
+from fdai.shared.providers.direct_api import DirectApiExecutor
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.notifications import NotificationChannel
 from fdai.shared.providers.resource_lock import ResourceLock
@@ -191,26 +194,25 @@ def _build_direct_api_executor(
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
 
-    Opt-in via ``FDAI_DIRECT_API_FAKE=1``: composes a
-    :class:`RecordingDirectApiExecutor` fake behind the
-    :class:`DirectApiShadowExecutor` so an operator can exercise the
-    ``execution_path: direct_api`` dispatch path end-to-end without a
-    substrate SDK. Absent -> returns ``None`` so :class:`ControlLoop`
-    falls back to PR-native routing (the P1 default).
-
-    A real Azure ARM adapter is fork-authored and lands under
-    ``delivery/azure/direct_api/``; when it arrives, this helper grows
-    an additional env-gated branch mirroring the ``_build_publisher``
-    shape.
+    Operations-gateway actions use the existing fallback adapter. Human-access
+    ActionTypes route to a dedicated Entra adapter only when all role-group and
+    workload-identity settings are present. The fake remains an isolated test
+    mode and cannot be combined with live human access.
     """
 
     fake_enabled = os.environ.get("FDAI_DIRECT_API_FAKE", "").strip() == "1"
     gateway_url = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
     gateway_audience = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
+    human_access_configured = bool(os.environ.get("FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON", "").strip())
     if fake_enabled and gateway_url:
         raise RuntimeError("FDAI_DIRECT_API_FAKE conflicts with the operations gateway binding")
+    if fake_enabled and human_access_configured:
+        raise RuntimeError("FDAI_DIRECT_API_FAKE conflicts with the human access binding")
     if bool(gateway_url) != bool(gateway_audience):
         raise RuntimeError("operations gateway URL and audience MUST be configured together")
+
+    fallback: DirectApiExecutor | None = None
+    allow_enforce = False
     if gateway_url:
         if http_client is None or identity is None:
             raise RuntimeError("operations gateway binding requires HTTP and workload identity")
@@ -220,30 +222,42 @@ def _build_direct_api_executor(
         )
 
         _LOGGER.info("direct_api_backend", extra={"backend": "azure-functions-gateway"})
-        return DirectApiShadowExecutor(
-            executor=AzureGatewayDirectApiExecutor(
-                config=AzureGatewayDirectApiConfig(
-                    base_url=gateway_url,
-                    audience=gateway_audience,
-                ),
-                identity=identity,
-                http_client=http_client,
+        fallback = AzureGatewayDirectApiExecutor(
+            config=AzureGatewayDirectApiConfig(
+                base_url=gateway_url,
+                audience=gateway_audience,
             ),
-            audit_store=audit_store,
-            resource_lock=resource_lock,
-            idempotency=idempotency,
-            allow_enforce=True,
+            identity=identity,
+            http_client=http_client,
         )
-    if not fake_enabled:
+        allow_enforce = True
+    elif fake_enabled:
+        _LOGGER.info("direct_api_backend", extra={"backend": "recording"})
+        fallback = RecordingDirectApiExecutor()
+
+    human_access = build_human_access_direct_api(
+        audit_store=audit_store,
+        http_client=http_client,
+    )
+    executor: DirectApiExecutor | None = fallback
+    if human_access is not None:
+        from fdai.delivery.identity import HUMAN_ACCESS_ACTIONS
+
+        _LOGGER.info("direct_api_human_access_backend", extra={"backend": "entra"})
+        executor = RoutedDirectApiExecutor(
+            routes={action_type: human_access for action_type in HUMAN_ACCESS_ACTIONS},
+            fallback=fallback,
+        )
+    if executor is None:
         _LOGGER.info("direct_api_backend", extra={"backend": "none"})
         return None
 
-    _LOGGER.info("direct_api_backend", extra={"backend": "recording"})
     return DirectApiShadowExecutor(
-        executor=RecordingDirectApiExecutor(),
+        executor=executor,
         audit_store=audit_store,
         resource_lock=resource_lock,
         idempotency=idempotency,
+        allow_enforce=allow_enforce,
     )
 
 

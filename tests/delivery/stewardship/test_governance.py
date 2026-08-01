@@ -39,6 +39,15 @@ class RecordingNotifications:
         return object()
 
 
+class RecordingAssignmentApply:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    async def publish(self, **kwargs: object) -> object:
+        self.calls.append(kwargs)
+        return object()
+
+
 def _owner(oid: str) -> Principal:
     return Principal(oid=oid, roles=frozenset({Role.OWNER}))
 
@@ -158,12 +167,14 @@ async def test_assignment_proposal_and_matching_merge_record_ownership_effect() 
     store = InMemoryStateStore()
     assignments = AssignmentCaseService(store)
     approved = await _approved_assignment(assignments)
+    assignment_apply = RecordingAssignmentApply()
     service = StewardshipGovernanceService(
         current_map=load_stewardship_from_yaml(_CONFIG),
         publisher=publisher,
         notifications=notifications,
         state_store=store,
         assignment_cases=assignments,
+        assignment_apply_publisher=assignment_apply,
     )
 
     first = await service.propose_assignment(
@@ -188,17 +199,24 @@ async def test_assignment_proposal_and_matching_merge_record_ownership_effect() 
     )
     assert candidate.version == 2
 
-    assert await service.record_merge(
-        StewardshipMerge(
-            delivery_id="assignment-delivery-1",
-            pr_ref=first.pr_ref,
-            actor_identity="github:reviewer",
-            merged_yaml=publisher.records[0].patch,
-        )
+    merge = StewardshipMerge(
+        delivery_id="assignment-delivery-1",
+        pr_ref=first.pr_ref,
+        actor_identity="github:reviewer",
+        merged_yaml=publisher.records[0].patch,
     )
+    assert await service.record_merge(merge)
+    assert await service.record_merge(merge) is False
     merged = await assignments.get_case(approved.case_id)
     assert merged.state is AssignmentState.OWNERSHIP_MERGED
     assert merged.effect_receipts[0].receipt_ref == first.pr_ref
+    assert assignment_apply.calls == [
+        {
+            "case_id": merged.case_id,
+            "expected_revision": merged.revision,
+            "requester_ref": "requester-1",
+        }
+    ]
 
 
 async def test_assignment_merge_digest_mismatch_is_rejected() -> None:

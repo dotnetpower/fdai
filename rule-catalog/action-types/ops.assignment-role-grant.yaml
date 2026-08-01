@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+name: ops.apply-human-access
+version: 1.0.0
+operation: attach
+interfaces: [ControlPlane, IdempotentByKey, RateLimited]
+rollback_contract: scripted
+irreversible: false
+default_mode: shadow
+promotion_gate: {min_shadow_days: 30, min_samples: 100, min_accuracy: 1.0, max_policy_escapes: 0}
+preconditions:
+- kind: no_conflicting_open_action_on_resource
+stop_conditions:
+- {kind: provider_api_error_streak, count: 3}
+- {kind: time_box_exceeded_seconds, seconds: 120}
+blast_radius: {computation: static_enum, static_bucket: resource, max_affected_resources: 1}
+description: >-
+  Add one reviewed assignment subject to one configured FDAI role group after ownership
+  convergence. The action remains observation-only until a separate promotion.
+category: ops
+trigger_kind: {kind: operator_request}
+execution_path: direct_api
+ceiling_by_tier:
+  t0: {max_autonomy: enforce_hil, min_role: owner}
+  t1: {max_autonomy: shadow_only, min_role: owner}
+  t2: {max_autonomy: shadow_only, min_role: owner}
+argument_schema:
+  type: object
+  additionalProperties: false
+  required: [case_id, expected_revision]
+  properties:
+    case_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,256}$", x-fdai-audit-safe: true}
+    expected_revision: {type: integer, minimum: 1, maximum: 2147483647, x-fdai-audit-safe: true}
+prod_downgrade: {mode: enforce_hil, detection_ref: risk-classification/env-detector}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:ops.apply-human-access@1.0.0
+  content_hash: sha256:627d27f7a6861b30938458515928481470f40bf63e0447de56a98e33b9cf7678
+  license: MIT
+  retrieved_at: "2026-08-01T00:00:00Z"

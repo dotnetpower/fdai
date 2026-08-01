@@ -141,7 +141,9 @@ Approved human-assignment cases use the same publisher with a stricter input gat
 provide complete schema-v2 primary plus backup/escalation coverage for every non-autonomous agent.
 The proposal state binds assignment case id, PR ref, and canonical candidate digest. A signed merge
 records the case's ownership effect only when the merged digest matches that proposal; a partial
-map or mismatched merge remains held and cannot start IAM apply.
+map or mismatched merge remains held and cannot start IAM apply. After the matching receipt is
+stored, the governance service publishes one idempotent `human.assignment.iam_apply_requested`
+origin into typed ingress. The ingestion gateway receives no Graph write identity.
 
 ### Merge observation
 

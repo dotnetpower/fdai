@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 905,
+  "file_count": 907,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "2471192793de5f664453c8fc1eb3d4092fb468fab786f649363a5d0ef5ca7d9d",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -291,7 +291,8 @@
     "src/fdai/core/hil_resume/coordinator.py": "c0fd07ff4d0e25f31525e15c60456e98d003fcc747306f4464cacf68564d0364",
     "src/fdai/core/hil_resume/delegation.py": "0ab805bb50fda4373d4ec31c05ee31583d7a4f94d6a056a8b49c1fe5749a6dfe",
     "src/fdai/core/hil_resume/load_control.py": "ce19ec86b6ea7f26df11758da561ddc62e8933dd0431600da3262a737b2af258",
-    "src/fdai/core/human_assignment/__init__.py": "af74c3177c1c80f3d56db88d36310cbac3d7f28a9ed21cfc653b06ca69a25062",
+    "src/fdai/core/human_assignment/__init__.py": "f8ea4a4c78e30fcf350393165f422b9139f9e084e9fe60c866d1084680394bd9",
+    "src/fdai/core/human_assignment/access_apply.py": "7d038dfd2c8535bca5ed92832bfef8cb1324a66bcb44dee7f0d29fea7faffa7a",
     "src/fdai/core/human_assignment/audit.py": "1ec647e7e1887f30aa9eaeec8193e090d66be465bd7b0e9e55e57a22177c87ba",
     "src/fdai/core/human_assignment/coverage.py": "8430d7f5cebc4879d7e8a14afd9874ed13734c796f5d4dd82ae27df942633d1f",
     "src/fdai/core/human_assignment/errors.py": "edb6bdf6ef954d78a05b640433912f23612ea75e5fb3c8678997ea9cbc5faf11",
@@ -782,7 +783,7 @@
     "src/fdai/shared/contracts/validation.py": "0c2cfcbf67363a8cd9541c5dd5f6cb81d0d054ec7d79bd298544d29cb1eed56a",
     "src/fdai/shared/contracts/workflow/schema.json": "1710086c1683e79b81d1a0cc8fc20fe6a7e2cf91ec36a0d5c86317c5ce683ce8",
     "src/fdai/shared/providers/README.md": "37cd99211824aec6e1de682eeed6241858d20e4b0746493c3fc4f6d7cccdf45f",
-    "src/fdai/shared/providers/__init__.py": "2875feb4b0a04699ff42e7ad7dbe8a743848ca1c718bc0b306ef4bc05d110773",
+    "src/fdai/shared/providers/__init__.py": "4a233843e43c37a6263a5ff1d32c787a5c2e16f71c174e7578043daaa1dbe9eb",
     "src/fdai/shared/providers/audit_hash.py": "fd56fc5ce10e56c3e54b76ea7e2951082699fbda124d4bd0760042c6f7935cec",
     "src/fdai/shared/providers/behavior_knowledge.py": "6c126481c3df5cc5e63c6de579a6dd07d57e0f11bc70aed36c08fe59f77f9bbb",
     "src/fdai/shared/providers/blast_probe.py": "3bc59de452c3d53aabe7304884870016086bc927e9170e0017d10396da66cff8",
@@ -812,6 +813,7 @@
     "src/fdai/shared/providers/feasibility_probe.py": "1b5301d7c0b6e67508c0dc1b79155155c16438478ec2951877d17d8febacccf4",
     "src/fdai/shared/providers/hil_channel.py": "df336b812e75452284b141e051d2745bc3f707a769a33b73e3f8fa7d93de2abc",
     "src/fdai/shared/providers/hil_registry.py": "bc8ee367bac4fafe59e19fa73c77907b7eea9053fc6564a8fe17abf16f03a4c3",
+    "src/fdai/shared/providers/human_access.py": "992cd51c43054fab2272348edc5448870fc63398d7198b113b4428bb7eb65c27",
     "src/fdai/shared/providers/human_identity.py": "6499170caa196ce9944dc03de420b206527a6e93275ec8db932c995e9731b85c",
     "src/fdai/shared/providers/iac_review.py": "c0774b2a510bd1d7ce1617810a1d540e5111328473a8dbd2a68f14ccc517a08f",
     "src/fdai/shared/providers/idempotency.py": "66b21a614515dc2b0578779bf361bd07e812d8a99d44baf7bd392f2388740e1a",
@@ -908,7 +910,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T06:08:22Z",
+  "generated_at": "2026-08-01T06:38:09Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -10,6 +10,7 @@ from fdai.delivery.stewardship.production import (
     build_production_stewardship_governance,
 )
 from fdai.shared.providers.testing import InMemoryStateStore
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 _ROOT = Path(__file__).resolve().parents[3]
 
@@ -62,6 +63,7 @@ def test_production_governance_composes_with_real_bindings() -> None:
         "FDAI_GITOPS_API_BASE": "https://mock.github.local",
         "FDAI_GITHUB_WEBHOOK_SECRET": "s" * 32,
         "FDAI_CHATOPS_WEBHOOK_URL": "https://teams.example.com/webhook",
+        "KAFKA_TOPIC_EVENTS": "aw.events",
         "FDAI_MAINTAINERS": (
             "10000000" + "-0000-0000-0000-000000000001,10000000" + "-0000-0000-0000-000000000002"
         ),
@@ -78,6 +80,7 @@ def test_production_governance_composes_with_real_bindings() -> None:
         repo_root=_ROOT,
         http_client=httpx.AsyncClient(),
         state_store=InMemoryStateStore(),
+        event_bus=InMemoryEventBus(),
     )
 
     assert composed is not None

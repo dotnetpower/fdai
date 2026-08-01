@@ -12,8 +12,11 @@ approval, conversation, and document ingestion while keeping each authority inde
 > ownership map, ordered duties, the composite assignment-case core, and the observation-only
 > Assignments API and console exist. Owners can revalidate one exact active subject, create and
 > review revisioned cases, and inspect joined role, duty, coverage, case, and unavailable-handover
-> evidence. Automatic Entra group mutation, ownership PR coordination, the human non-response
-> supervisor, and proactive handover goals aren't implemented.
+> evidence. Ownership PR coordination and the Entra membership path now publish a typed apply
+> request, plan one allowlisted group mutation, verify convergence, and roll back a failed
+> postcondition. The path remains in observation mode; enforce promotion, automated replacement-
+> coverage revocation, the human non-response supervisor, and proactive handover goals aren't
+> implemented.
 >
 > **Safety boundary:** Mapping a person to an agent never grants an FDAI role. A combined
 > administrator workflow may request both outcomes, but RBAC and operational ownership are still
@@ -151,9 +154,9 @@ schedule adapter supplies the current on-call person.
 
 ## Governed IAM provisioning
 
-The current access-request service records approval but never changes Entra. The target adds a
-write-only `HumanAccessProvisioner` provider behind Thor. The existing `HumanIdentityDirectory`
-remains read-only.
+The assignment path now includes a write-only `HumanAccessProvisioner` provider behind Thor. The
+existing `HumanIdentityDirectory` and every read API route remain read-only. The new path is
+observation-only until its ActionType is separately promoted.
 
 1. Forseti validates the exact active subject, configured role group, coverage rules, requester
    separation, and expected current membership.
@@ -167,9 +170,12 @@ remains read-only.
 6. Saga records every transition. Vidar can remove the new membership if verification proves that
    the wrong subject or group changed.
 
-The adapter uses a dedicated workload identity, the narrowest supported Graph application
-permission, and an immutable allowlist of the five configured FDAI role groups. It can't create a
-group, grant BreakGlass, target an arbitrary group, or reuse Thor's cloud-resource permissions.
+The adapter uses a dedicated workload identity and an immutable allowlist of the four routine FDAI
+role groups. It can't create a group, grant BreakGlass, target an arbitrary, dynamic, or
+role-assignable group, or reuse Thor's cloud-resource permissions. Microsoft Graph requires the
+tenant-wide application permission `GroupMember.ReadWrite.All` for user membership mutation. The
+active-user precheck also requires `User.Read.All`. The allowlist is a compensating control, not a
+directory permission boundary.
 
 For revocation, the administrator assigns replacement coverage first. Access is revoked before the
 old duty is removed, and the backup becomes primary while the reviewed ownership PR converges. No

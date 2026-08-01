@@ -8,15 +8,17 @@ work packages on `main`. Each package lands as one or more focused commits witho
 branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Packages 1 through 4 are implemented on `main`. Stewardship v2 duties and the
+> **Current status:** Packages 1 through 5 are implemented on `main`. Stewardship v2 duties and the
 > composite assignment-case core now provide immutable intent, normalized independent review,
 > role-based quorum, revisioned StateStore transitions, content-free audit records, effect
 > receipts, and fail-closed activation. The Owner-only observation API and fifth IAM Assignments
 > tab add exact active-subject revalidation, bounded CAS commands, joined evidence, and clear
 > no-provider-change presentation. Approved platform-wide assignment cases now render only
 > complete v2 ownership maps, open one digest-bound governance PR, and record the ownership effect
-> only from the matching signed merge. Package 5, governed Entra apply, is next. Provider-side IAM
-> writes, timed non-response escalation, proactive handover goals, and ontology
+> only from the matching signed merge. The matching merge now publishes an idempotent apply request
+> into typed ingress. A dedicated managed identity, allowlisted Graph adapter, direct-API route,
+> bounded convergence checks, rollback, and both human-access ActionTypes are wired in observation
+> mode. Enforce promotion, timed non-response escalation, proactive handover goals, and ontology
 > candidates don't exist yet.
 >
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
@@ -50,8 +52,8 @@ flowchart LR
 
 | Area | Reuse | Missing implementation |
 |------|-------|------------------------|
-| Directory | `HumanIdentityDirectory`, Entra search, exact subject lookup, App Role roster | Write-only membership provider and convergence receipt |
-| Access | `AccessRequestService`, atomic state plus audit, Owner review, no self-approval | Assignment-case join and post-approval execution trigger |
+| Directory | `HumanIdentityDirectory`, Entra search, exact subject lookup, App Role roster, allowlisted Entra membership adapter | Enforce promotion evidence and production permission readiness |
+| Access | `AccessRequestService`, atomic state plus audit, Owner review, no self-approval, assignment-case apply trigger | Revoke replacement-coverage lifecycle and reconciliation |
 | Ownership | Stewardship v1, coverage, escalation ordering, handover PR, signed merge webhook | Explicit `primary`, `backup`, and `escalation` duty slots |
 | Approval | `HilResumeCoordinator`, on-call primary/secondary receipt, reminders, load control | Durable rung deadlines and CAS-owned non-response transitions |
 | Conversation | Authenticated sessions, durable turns, Bragi narration | Sign-in availability event and proactive goal invitation policy |
@@ -114,7 +116,7 @@ events and existing control-loop ingress.
 | `handover.goal.requested` | Mapped agent publishes one bounded knowledge need |
 | `knowledge.evidence.proposed` | Admitted answer or document span is available for review |
 
-Add shadow-default `governance.apply-human-access` and `governance.revoke-human-access`
+Add shadow-default `ops.apply-human-access` and `ops.revoke-human-access`
 ActionTypes. Their pantheon bindings remain Forseti judge, Var approver, Thor executor, Vidar
 recovery, and Saga auditor. No role binding is configurable.
 
@@ -186,6 +188,9 @@ atomic audit receipt.
 the case; IAM remains untouched.
 
 ### Package 5 - Governed Entra membership apply
+
+**Status:** Implemented in observation mode. Enforce remains unavailable until a separate
+promotion records the required non-production evidence.
 
 **Changes:** Add CSP-neutral `shared/providers/human_access.py` with plan, apply, verify, and
 rollback receipts. Add `delivery/identity/entra_access.py`, a runtime binder, ActionTypes, and an

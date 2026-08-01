@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 2a826c4342f82e89980619bd01c4b4b1bb31cf89
+translation_source_sha: e20cd18e381145763fe9b19588a180e9fc693711
 translation_revised: 2026-08-01
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -145,7 +145,9 @@ PR을 열지 않습니다.
 non-autonomous agent에 대해 schema-v2 primary 및 backup/escalation coverage를 완성해야 합니다.
 Proposal state는 assignment case ID, PR ref, canonical candidate digest를 결합합니다. Signed merge는
 merged digest가 proposal과 일치할 때만 case의 ownership effect를 기록합니다. Partial map 또는
-mismatched merge는 보류되며 IAM apply를 시작할 수 없습니다.
+mismatched merge는 보류되며 IAM apply를 시작할 수 없습니다. 일치하는 receipt를 저장한 뒤
+governance service는 멱등 `human.assignment.iam_apply_requested` origin 하나를 typed ingress에
+게시합니다. Ingestion gateway는 Graph write ID를 받지 않습니다.
 
 ### Merge observation
 

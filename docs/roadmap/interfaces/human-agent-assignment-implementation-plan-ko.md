@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 2a3d3218060db94564b07ee4f4cdb2644b4890b9
+translation_source_sha: 0023e12a32dd0d21938510aa4afc73402c441cdc
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -10,15 +10,16 @@ translation_revised: 2026-08-01
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 묶음 1부터 묶음 4까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
+> **현재 상태:** 묶음 1부터 묶음 5까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
 > 케이스 코어는 변경 불가능한 의도, 정규화된 독립 검토, 역할 기반 정족수, 리비전 기반
 > `StateStore` 전환, 콘텐츠 없는 감사 기록, 결과 영수증, 실패 시 차단되는 활성화를 제공합니다.
 > Owner 전용 관찰 API와 다섯 번째 IAM Assignments 탭은 정확한 활성 주체 재검증, 제한된 CAS 명령,
 > 조인된 근거, 공급자 변경이 없다는 명확한 표시를 추가합니다. 승인된 platform-wide assignment
 > case는 완전한 v2 ownership map만 렌더링하고 digest-bound governance PR 하나를 열며, 일치하는
-> signed merge에서만 ownership effect를 기록합니다. 다음은 통제된 Entra 적용인 묶음 5입니다.
-> 공급자 측 IAM 쓰기, 시간 기반 무응답
-> 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
+> signed merge에서만 ownership effect를 기록합니다. 일치하는 병합은 이제 멱등 적용 요청을 typed
+> ingress에 게시합니다. 전용 관리 ID, 허용 목록 Graph adapter, direct-API route, 제한된 수렴 검사,
+> rollback, 두 human-access ActionType이 관찰 모드로 연결되었습니다. 적용 모드 승격, 시간 기반
+> 무응답 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
 >
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
 > ID를 받지 않습니다. 담당 체계 병합, 사람 승인, IAM 적용, 지식 승격은 각각 독립적으로 검증
@@ -50,8 +51,8 @@ flowchart LR
 
 | 영역 | 재사용 | 누락된 구현 |
 |------|--------|-------------|
-| 디렉터리 | `HumanIdentityDirectory`, Entra 검색, 정확한 주체 조회, App Role 목록 | 쓰기 전용 멤버십 공급자와 수렴 영수증 |
-| 접근 | `AccessRequestService`, 원자적 상태와 감사, Owner 검토, 자기 승인 방지 | 할당 케이스 조인과 승인 후 실행 트리거 |
+| 디렉터리 | `HumanIdentityDirectory`, Entra 검색, 정확한 주체 조회, App Role 목록, 허용 목록 Entra 멤버십 adapter | 적용 모드 승격 근거와 프로덕션 권한 준비 상태 |
+| 접근 | `AccessRequestService`, 원자적 상태와 감사, Owner 검토, 자기 승인 방지, 할당 케이스 적용 trigger | 회수용 대체 커버리지 lifecycle과 reconciliation |
 | 담당 체계 | Stewardship v1, 커버리지, 에스컬레이션 순서, 인수인계 PR, 서명된 병합 웹후크 | 명시적인 `primary`, `backup`, `escalation` 임무 슬롯 |
 | 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어 | 영구 단계 마감과 CAS 소유 무응답 전환 |
 | 대화 | 인증된 세션, 영구 turn, Bragi 설명 | 로그인 가용성 이벤트와 선제적 목표 초대 정책 |
@@ -114,7 +115,7 @@ read API는 케이스를 만들 수 있지만 결과를 적용할 수 없습니�
 | `handover.goal.requested` | 매핑된 에이전트가 제한된 지식 요구를 게시합니다. |
 | `knowledge.evidence.proposed` | 승인된 답변 또는 문서 범위를 검토할 수 있습니다. |
 
-관찰 모드가 기본인 `governance.apply-human-access` 및 `governance.revoke-human-access`
+관찰 모드가 기본인 `ops.apply-human-access` 및 `ops.revoke-human-access`
 ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인, Thor 실행, Vidar 복구, Saga
 감사를 유지합니다. 어떤 역할 바인딩도 구성으로 변경할 수 없습니다.
 
@@ -183,6 +184,9 @@ case에 기록합니다.
 진행시킵니다. IAM은 변경되지 않습니다.
 
 ### 묶음 5 - 통제된 Entra 멤버십 적용
+
+**상태:** 관찰 모드로 구현되었습니다. 별도 승격에서 필요한 비프로덕션 근거를 기록할 때까지 적용
+모드는 사용할 수 없습니다.
 
 **변경:** plan, apply, verify, rollback 영수증을 제공하는 CSP 중립
 `shared/providers/human_access.py`를 추가합니다. `delivery/identity/entra_access.py`, 런타임

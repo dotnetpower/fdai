@@ -190,6 +190,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         repo_root=Path(__file__).resolve().parents[4],
         http_client=http_client,
         state_store=state_store,
+        event_bus=event_bus,
     )
     activity = PantheonDocumentActivitySink(
         inner=DurableDocumentActivitySink(

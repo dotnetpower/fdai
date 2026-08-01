@@ -1,5 +1,10 @@
 """Composite human access and agent-duty assignment lifecycle."""
 
+from fdai.core.human_assignment.access_apply import (
+    HumanAccessApplyCoordinator,
+    HumanAccessExecution,
+    HumanAccessExecutionOutcome,
+)
 from fdai.core.human_assignment.audit import AssignmentAuditKind
 from fdai.core.human_assignment.coverage import (
     AssignmentCoverageError,
@@ -53,6 +58,9 @@ __all__ = [
     "DutyBinding",
     "EffectKind",
     "EffectReceipt",
+    "HumanAccessApplyCoordinator",
+    "HumanAccessExecution",
+    "HumanAccessExecutionOutcome",
     "ProviderSubject",
     "ReviewDecision",
     "ReviewReceipt",

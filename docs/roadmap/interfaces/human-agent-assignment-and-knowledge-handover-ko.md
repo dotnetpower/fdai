@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 80299f2bd8c731bf794525984fa51c79ef051f68
+translation_source_sha: b8693db426f2a0ad1e0f20a0ab24f7603309c928
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -13,8 +13,11 @@ translation_revised: 2026-08-01
 > **상태:** 일부 구현되었습니다. 디렉터리 검색, 통제된 접근 요청 기록, 담당 체계 맵, 순서가
 > 있는 임무, 통합 할당 케이스 코어, 관찰 전용 Assignments API와 콘솔이 있습니다. Owner는 정확한
 > 활성 주체 하나를 다시 검증하고, 리비전 기반 케이스를 생성 및 검토하고, 역할, duty, 담당 범위,
-> 케이스 및 unavailable 인수인계 근거를 조인해 조회할 수 있습니다. Entra 그룹 자동 변경, 담당
-> 체계 PR 조정, 사람 무응답 감독자, 선제적 인수인계 목표는 아직 구현되지 않았습니다.
+> 케이스 및 unavailable 인수인계 근거를 조인해 조회할 수 있습니다. 담당 체계 PR 조정과 Entra
+> 멤버십 경로는 이제 typed 적용 요청을 게시하고, 허용 목록 그룹 변경 하나를 계획하고, 수렴을
+> 검증하고, 실패한 postcondition을 rollback합니다. 이 경로는 관찰 모드입니다. 적용 모드 승격,
+> 대체 커버리지를 포함한 자동 회수, 사람 무응답 감독자, 선제적 인수인계 목표는 아직 구현되지
+> 않았습니다.
 >
 > **안전 경계:** 사용자를 에이전트에 매핑해도 FDAI 역할은 부여되지 않습니다. 통합 관리자
 > 워크플로가 두 결과를 함께 요청할 수는 있지만, RBAC과 운영 담당 체계는 여전히 별도 축으로
@@ -154,9 +157,9 @@ AgentDuty -> requires_role -> FDAI App Role
 
 ## 통제된 IAM 프로비저닝
 
-현재 접근 요청 서비스는 승인을 기록하지만 Entra를 변경하지 않습니다. 목표 설계는 Thor 뒤에
-쓰기 전용 `HumanAccessProvisioner` 공급자를 추가합니다. 기존 `HumanIdentityDirectory`는 읽기
-전용으로 유지합니다.
+할당 경로에는 이제 Thor 뒤의 쓰기 전용 `HumanAccessProvisioner` 공급자가 포함됩니다. 기존
+`HumanIdentityDirectory`와 모든 read API route는 읽기 전용입니다. 새 경로는 ActionType을 별도로
+승격할 때까지 관찰 전용입니다.
 
 1. Forseti가 정확한 활성 주체, 구성된 역할 그룹, 커버리지 규칙, 요청자 분리, 예상 현재 멤버십을
    검증합니다.
@@ -170,9 +173,11 @@ AgentDuty -> requires_role -> FDAI App Role
 6. Saga가 모든 전환을 기록합니다. 잘못된 주체나 그룹 변경이 확인되면 Vidar가 새 멤버십을 제거할
    수 있습니다.
 
-어댑터는 전용 워크로드 ID, 지원되는 최소 Graph 애플리케이션 권한, 구성된 FDAI 역할 그룹 5개의
-변경 불가능한 허용 목록을 사용합니다. 그룹 생성, BreakGlass 부여, 임의 그룹 대상 지정, Thor의
-클라우드 리소스 권한 재사용은 지원하지 않습니다.
+어댑터는 전용 워크로드 ID와 일상적인 FDAI 역할 그룹 4개의 변경 불가능한 허용 목록을
+사용합니다. 그룹 생성, BreakGlass 부여, 임의, 동적 또는 role-assignable 그룹 대상 지정, Thor의
+클라우드 리소스 권한 재사용은 지원하지 않습니다. Microsoft Graph의 사용자 멤버십 변경에는
+테넌트 범위 애플리케이션 권한 `GroupMember.ReadWrite.All`이 필요합니다. 활성 사용자 사전
+검사에는 `User.Read.All`도 필요합니다. 허용 목록은 보완 통제이며 디렉터리 권한 경계가 아닙니다.
 
 권한을 회수할 때 관리자는 먼저 대체 커버리지를 할당합니다. 이전 임무를 제거하기 전에 접근 권한을
 회수하고, 검토된 담당 체계 PR이 수렴하는 동안 백업 담당자가 기본 담당자가 됩니다. 자동화된 흐름은

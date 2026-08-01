@@ -51,3 +51,15 @@ def case_history_identity_client_id(environment: Mapping[str, str]) -> str:
     if executor_client_id and client_id == executor_client_id:
         raise RuntimeError("case history and executor workload identities MUST be distinct")
     return client_id
+
+
+def human_access_identity_client_id(environment: Mapping[str, str]) -> str:
+    client_id = environment.get("FDAI_HUMAN_ACCESS_MI_CLIENT_ID", "").strip()
+    if not client_id:
+        raise RuntimeError(
+            "FDAI_HUMAN_ACCESS_MI_CLIENT_ID MUST identify the dedicated workload identity"
+        )
+    executor_client_id = environment.get("FDAI_MI_CLIENT_ID", "").strip()
+    if executor_client_id and client_id == executor_client_id:
+        raise RuntimeError("human access and executor workload identities MUST be distinct")
+    return client_id

@@ -167,6 +167,13 @@ from .hil_registry import (
     hil_pending_item_from_action,
     mutation_target_from_execution_path,
 )
+from .human_access import (
+    HumanAccessOperation,
+    HumanAccessOutcome,
+    HumanAccessPlan,
+    HumanAccessProvisioner,
+    HumanAccessReceipt,
+)
 from .human_identity import (
     HumanIdentity,
     HumanIdentityDirectory,
@@ -419,6 +426,11 @@ __all__ = [
     "HilItemNotFoundError",
     "HilPendingItem",
     "HilRegistryError",
+    "HumanAccessOperation",
+    "HumanAccessOutcome",
+    "HumanAccessPlan",
+    "HumanAccessProvisioner",
+    "HumanAccessReceipt",
     "HumanIdentity",
     "HumanIdentityDirectory",
     "IdentityRosterEntry",

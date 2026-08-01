@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 5c878d7c1f3379494d0a5dd0fd7f78b0ca50fc72
+translation_source_sha: feb93596677c72c6b597f753bc14bf0fe9bec5c1
 translation_revised: 2026-08-01
 ---
 
@@ -548,6 +548,12 @@ subject를 다시 검증하고 변경 불가능한 역할, duty, 목표 및 사�
 제출 및 검토 명령은 CAS를 사용합니다. `GET /iam/assignments`는 관측된 디렉터리 역할, 구성된 담당
 체계 맵, 할당 케이스 및 인수인계 가용성만 조인합니다. 누락된 provider 또는 인수인계 근거는
 `null` 또는 `not_connected`로 유지하며 어떤 route도 Graph write provider를 받지 않습니다.
+
+일치하는 검토 후 담당 체계 병합이 끝나면 governance service가 멱등
+`ops.apply-human-access` 요청 하나를 typed ingress에 게시합니다. Runtime 전용 adapter는
+전용 관리 ID, 구성된 Reader, Contributor, Approver, Owner 그룹 ID, 제한된 apply, verify,
+rollback 호출을 사용합니다. BreakGlass, 동적 그룹, role-assignable 그룹, 임의 그룹 ID를
+차단합니다. 이 경로는 별도 승격 전까지 관찰 전용입니다.
 
 Interactive local mode는 synthetic directory로 fallback하지 않습니다. Microsoft Graph
 adapter는 서버의 Azure CLI credential을 사용해 FDAI service principal, live App Role

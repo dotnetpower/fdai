@@ -49,6 +49,16 @@ class NotificationDispatcher(Protocol):
     async def dispatch(self, message: NotificationMessage) -> object: ...
 
 
+class AssignmentApplyPublisher(Protocol):
+    async def publish(
+        self,
+        *,
+        case_id: str,
+        expected_revision: int,
+        requester_ref: str,
+    ) -> object: ...
+
+
 class HandoverDraftGovernance(Protocol):
     async def propose(
         self,
@@ -79,12 +89,14 @@ class StewardshipGovernanceService(HandoverDraftGovernance):
         notifications: NotificationDispatcher,
         state_store: StateStore,
         assignment_cases: AssignmentCaseService | None = None,
+        assignment_apply_publisher: AssignmentApplyPublisher | None = None,
     ) -> None:
         self._current_map = current_map
         self._publisher = publisher
         self._notifications = notifications
         self._state_store = state_store
         self._assignment_cases = assignment_cases
+        self._assignment_apply_publisher = assignment_apply_publisher
 
     async def propose_assignment(
         self,
@@ -243,6 +255,8 @@ class StewardshipGovernanceService(HandoverDraftGovernance):
 
     async def record_merge(self, merge: StewardshipMerge) -> bool:
         """Record and notify one merge delivery exactly once."""
+        if await self._state_store.read_state(f"{_MERGE_PREFIX}{merge.delivery_id}") is not None:
+            return False
         candidate = _load_yaml(merge.merged_yaml)
         merged_digest = _content_digest(merge.merged_yaml)
         proposal = await self._state_store.find_state(
@@ -261,17 +275,36 @@ class StewardshipGovernanceService(HandoverDraftGovernance):
                 if self._assignment_cases is None:
                     raise RuntimeError("assignment-case governance is not configured")
                 assignment_case = await self._assignment_cases.get_case(assignment_case_id)
-                await self._assignment_cases.record_effect(
-                    case_id=assignment_case.case_id,
-                    expected_revision=assignment_case.revision,
-                    receipt=EffectReceipt(
-                        kind=EffectKind.OWNERSHIP,
-                        receipt_ref=merge.pr_ref,
-                        digest=merged_digest,
-                        received_at=datetime.now(UTC),
+                existing = next(
+                    (
+                        receipt
+                        for receipt in assignment_case.effect_receipts
+                        if receipt.kind is EffectKind.OWNERSHIP
                     ),
-                    actor_ref=merge.actor_identity,
+                    None,
                 )
+                if existing is not None:
+                    if existing.receipt_ref != merge.pr_ref or existing.digest != merged_digest:
+                        raise ValueError("assignment ownership receipt conflicts with merge")
+                    merged_case = assignment_case
+                else:
+                    merged_case = await self._assignment_cases.record_effect(
+                        case_id=assignment_case.case_id,
+                        expected_revision=assignment_case.revision,
+                        receipt=EffectReceipt(
+                            kind=EffectKind.OWNERSHIP,
+                            receipt_ref=merge.pr_ref,
+                            digest=merged_digest,
+                            received_at=datetime.now(UTC),
+                        ),
+                        actor_ref=merge.actor_identity,
+                    )
+                if self._assignment_apply_publisher is not None:
+                    await self._assignment_apply_publisher.publish(
+                        case_id=merged_case.case_id,
+                        expected_revision=merged_case.revision,
+                        requester_ref=merged_case.intent.requester_ref,
+                    )
         affected = tuple(
             sorted(affected_agents_from_stewardship_change(self._current_map, candidate))
         )
@@ -357,6 +390,7 @@ def _prior_receipt(state: object) -> PublishReceipt:
 
 
 __all__ = [
+    "AssignmentApplyPublisher",
     "HandoverDraftGovernance",
     "NotificationDispatcher",
     "StewardshipGovernanceService",

@@ -429,6 +429,8 @@ _DOC_OPS_ACTION_TYPES: frozenset[str] = frozenset(
         "ops.deallocate-vm",
         "ops.upsert-network-rule",
         "ops.delete-network-rule",
+        "ops.apply-human-access",
+        "ops.revoke-human-access",
     }
 )
 

@@ -19,11 +19,13 @@ from fdai.delivery.notifications import (
     TeamsWebhookChannel,
     TeamsWebhookConfig,
 )
+from fdai.delivery.stewardship.assignment_events import EventBusAssignmentApplyPublisher
 from fdai.delivery.stewardship.github_webhook import (
     GitHubStewardshipWebhook,
     GitHubStewardshipWebhookConfig,
 )
 from fdai.delivery.stewardship.governance import StewardshipGovernanceService
+from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.notifications.base import NotificationChannel, TrustTier
 from fdai.shared.providers.state_store import StateStore
 
@@ -34,6 +36,7 @@ _REQUIRED_ENV = (
     "FDAI_GITOPS_REPO",
     "FDAI_GITHUB_WEBHOOK_SECRET",
     "FDAI_CHATOPS_WEBHOOK_URL",
+    "KAFKA_TOPIC_EVENTS",
 )
 
 
@@ -53,6 +56,7 @@ def build_production_stewardship_governance(
     repo_root: Path,
     http_client: httpx.AsyncClient,
     state_store: StateStore,
+    event_bus: EventBus | None = None,
 ) -> ProductionStewardshipGovernance | None:
     """Compose governance delivery when explicitly enabled."""
     enabled = env.get("FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", "").strip().casefold() in _TRUTHY
@@ -62,6 +66,10 @@ def build_production_stewardship_governance(
     if missing:
         raise StewardshipGovernanceConfigError(
             "stewardship governance environment is missing: " + ", ".join(missing)
+        )
+    if event_bus is None:
+        raise StewardshipGovernanceConfigError(
+            "stewardship governance requires the operational event bus"
         )
     token = env["FDAI_GITOPS_TOKEN"].strip()
     owner = env["FDAI_GITOPS_OWNER"].strip()
@@ -114,6 +122,10 @@ def build_production_stewardship_governance(
         notifications=notifications,
         state_store=state_store,
         assignment_cases=AssignmentCaseService(store=state_store),
+        assignment_apply_publisher=EventBusAssignmentApplyPublisher(
+            event_bus=event_bus,
+            topic=env["KAFKA_TOPIC_EVENTS"].strip(),
+        ),
     )
     return ProductionStewardshipGovernance(
         service=service,

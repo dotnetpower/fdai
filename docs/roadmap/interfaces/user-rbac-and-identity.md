@@ -564,6 +564,12 @@ review commands use compare-and-set. `GET /iam/assignments` joins only observed 
 the configured ownership map, assignment cases, and handover availability. Missing provider or
 handover evidence stays `null` or `not_connected`; no route receives a Graph write provider.
 
+After a matching reviewed ownership merge, the governance service publishes one idempotent
+`ops.apply-human-access` request into typed ingress. The runtime-only adapter uses a
+dedicated managed identity, the configured Reader, Contributor, Approver, and Owner group ids, and
+bounded apply, verify, and rollback calls. It rejects BreakGlass, dynamic groups, role-assignable
+groups, and arbitrary group ids. The path is observation-only until separately promoted.
+
 Interactive local mode doesn't fall back to a synthetic directory. The Microsoft Graph
 adapter uses the server's Azure CLI credential to discover the FDAI service principal, its
 live App Role assignments, and transitive group members. Alias search, the role roster, and
