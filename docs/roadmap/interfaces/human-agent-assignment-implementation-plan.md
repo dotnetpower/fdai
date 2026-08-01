@@ -8,11 +8,12 @@ work packages on `main`. Each package lands as one or more focused commits witho
 branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Package 1 is implemented on `main`: stewardship v2 duties, strict primary
-> plus backup/escalation validation, v1 compatibility findings, duty-aware routing, and the safe
-> migration renderer are shipped. Package 2, composite assignment cases, is next. Provider-side
-> IAM writes, timed non-response escalation, proactive handover goals, and ontology candidates
-> don't exist yet.
+> **Current status:** Packages 1 and 2 are implemented on `main`. Stewardship v2 duties and the
+> composite assignment-case core now provide immutable intent, normalized independent review,
+> role-based quorum, revisioned StateStore transitions, content-free audit records, effect
+> receipts, and fail-closed activation. Package 3, the observation-only API and console, is next.
+> Provider-side IAM writes, timed non-response escalation, proactive handover goals, and ontology
+> candidates don't exist yet.
 >
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
@@ -84,6 +85,10 @@ audit hash chain, so no Alembic migration is required for the first release.
 | `human_assignment:active:<subject_hash>:<agent>:<scope_hash>` | Current converged assignment projection without names or usernames |
 | `handover_goal:<goal_id>` | Goal revision, required evidence slots, fatigue state, and review status |
 
+Package 2 writes only the case key. It embeds append-only review receipts in the revisioned case
+snapshot so quorum evidence and lifecycle state advance in one atomic CAS. The separate decision
+and active projection keys remain part of the Package 3 read-model work.
+
 State transitions are `draft -> pending_review -> approved -> ownership_pr_open ->
 ownership_merged -> iam_applying -> active`. Terminal or held states are `rejected`, `degraded`,
 and `superseded`. Compare-and-set revision checks reject stale commands.
@@ -126,6 +131,9 @@ v2 rejects missing primary, missing backup or escalation, cycles, duplicate duti
 coverage.
 
 ### Package 2 - Assignment case core
+
+**Status:** Implemented. The core remains observation-only and has no provider, API, or runtime
+binding.
 
 **Changes:** Add `core/human_assignment/model.py`, `transitions.py`, `coverage.py`, `service.py`, and
 `__init__.py`. Reuse `StateStore.write_state_with_audit_if_absent` and revisioned writes. Add

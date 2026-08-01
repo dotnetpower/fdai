@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 5f5b5bdd155b4a0926a112c72b1428a67987748a
+translation_source_sha: 94dc66854c0236a430fcbe8b7e8b17471880efd0
 translation_revised: 2026-08-01
 ---
 # 코드 맵
@@ -119,6 +119,7 @@ Provider 전체 Azure discovery, 정제된 reproduction command 및 명시적 co
 | reporting | 리포트 컴포저 + 포매터 | [src/fdai/core/reporting/](../../../src/fdai/core/reporting/) | [tests/core/reporting/](../../../tests/core/reporting/) |
 | views | Workflow-matched ViewSpec -> bounded RenderedView 및 deterministic inventory architecture projection | [src/fdai/core/views/](../../../src/fdai/core/views/) | [tests/core/views/](../../../tests/core/views/) 및 read-API architecture-view test |
 | rbac | Read API 인간 RBAC. Principal identity를 대소문자 구분 없이 비교하므로 요청자가 다른 표기로 자기 요청을 승인할 수 없습니다. | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
+| human_assignment | 변경 불가능한 사용자 역할 및 에이전트 임무 의도, 정규화된 독립 검토 정족수, 리비전 기반 StateStore 전환, 독립적인 담당 체계/IAM 결과 영수증 | [src/fdai/core/human_assignment/](../../../src/fdai/core/human_assignment/) | [tests/core/human_assignment/](../../../tests/core/human_assignment/) |
 | stewardship | 사람 <-> agent handover map, authoritative structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) 및 [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) 및 [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
 
 `conversation` 행의 owner-tool 세부 동작은 후처리 첨부가 아니라 인과적 경로입니다. Bragi가

@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 019cb0d960565531a61046698b051a96bda46b4b
+translation_source_sha: 5aee66ac8fa49e7ffeef366987f375273a4b7cc5
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -10,9 +10,10 @@ translation_revised: 2026-08-01
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 묶음 1은 `main`에 구현되었습니다. Stewardship v2 duty, strict primary 및
-> backup/escalation 검증, v1 compatibility finding, duty-aware routing, 안전한 migration renderer가
-> 제공됩니다. 다음은 통합 할당 케이스인 묶음 2입니다. 공급자 측 IAM 쓰기, 시간 기반 무응답
+> **현재 상태:** 묶음 1과 묶음 2가 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
+> 케이스 코어는 변경 불가능한 의도, 정규화된 독립 검토, 역할 기반 정족수, 리비전 기반
+> `StateStore` 전환, 콘텐츠 없는 감사 기록, 결과 영수증, 실패 시 차단되는 활성화를 제공합니다.
+> 다음은 관찰 전용 API와 콘솔을 추가하는 묶음 3입니다. 공급자 측 IAM 쓰기, 시간 기반 무응답
 > 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
 >
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
@@ -84,6 +85,10 @@ Stewardship 스키마 v2는 accountable steward 항목에 `duty: primary | backu
 | `human_assignment:active:<subject_hash>:<agent>:<scope_hash>` | 이름과 사용자 이름이 없는 현재 수렴 할당 프로젝션 |
 | `handover_goal:<goal_id>` | 목표 리비전, 필수 근거 슬롯, 피로도 상태, 검토 상태 |
 
+묶음 2는 case 키만 씁니다. append-only 검토 영수증을 리비전 기반 case snapshot에 포함하므로
+정족수 근거와 lifecycle 상태가 하나의 원자적 CAS로 함께 진행됩니다. 별도의 decision 및 active
+projection 키는 묶음 3 read model 작업에 남아 있습니다.
+
 상태 전환은 `draft -> pending_review -> approved -> ownership_pr_open ->
 ownership_merged -> iam_applying -> active`입니다. 최종 또는 보류 상태는 `rejected`, `degraded`,
 `superseded`입니다. 비교 후 설정 리비전 검사가 오래된 명령을 차단합니다.
@@ -125,6 +130,8 @@ ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인
 누락, backup 또는 escalation 누락, 순환, 중복 임무, 오래된 주체만 있는 커버리지를 차단합니다.
 
 ### 묶음 2 - 할당 케이스 코어
+
+**상태:** 구현되었습니다. 코어는 관찰 전용이며 공급자, API, 런타임 바인딩을 포함하지 않습니다.
 
 **변경:** `core/human_assignment/model.py`, `transitions.py`, `coverage.py`, `service.py`,
 `__init__.py`를 추가합니다. `StateStore.write_state_with_audit_if_absent` 및 리비전 쓰기를

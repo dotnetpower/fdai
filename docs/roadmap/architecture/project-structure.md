@@ -45,6 +45,7 @@ fdai/
 │   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics and enforces the four safety invariants
 │   │   ├── execution_authorization/ # ontology-driven pre-dispatch capability policy, grant lifecycle, and replay-stable decisions
 │   │   ├── rbac/               # human RBAC for the read API (5-role matrix, resolver, enforcer)
+│   │   ├── human_assignment/   # immutable role/duty intent, normalized review quorum, revisioned StateStore lifecycle, and effect receipts
 │   │   ├── hil_resume/         # HIL park/resume plus no-drop grouping, quiet-hour plans, fatigue metrics, bounded reminders
 │   │   ├── executor/           # per-resource lock, idempotent apply via delivery adapters
 │   │   ├── execution_backend/  # profile intersection, durable lifecycle coordination, and shadow probes; no judgment authority

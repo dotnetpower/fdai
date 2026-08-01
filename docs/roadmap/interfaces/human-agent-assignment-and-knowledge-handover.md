@@ -8,10 +8,12 @@ access, mapping the person to agents, establishing approval coverage, and collec
 knowledge without overwhelming the person. It coordinates identity, operational ownership,
 approval, conversation, and document ingestion while keeping each authority independent.
 
-> **Status:** Proposed. Directory search, governed access-request records, the ownership map,
-> document ingestion, and schedule-aware on-call resolution already exist. Automatic Entra group
-> mutation, ordered primary and backup duties, the human non-response supervisor, and proactive
-> handover goals described here aren't implemented.
+> **Status:** Partially implemented. Directory search, governed access-request records, the
+> ownership map, ordered duties, and the composite assignment-case core exist. The case core is
+> observation-only: it validates immutable intent, normalized review quorum, revisioned state,
+> effect receipts, and activation prerequisites. Automatic Entra group mutation, the Assignments
+> API and console, the human non-response supervisor, and proactive handover goals aren't
+> implemented.
 >
 > **Safety boundary:** Mapping a person to an agent never grants an FDAI role. A combined
 > administrator workflow may request both outcomes, but RBAC and operational ownership are still
