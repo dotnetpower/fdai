@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 6f364fc1af8ccd21155df05dbb54847c834e9b9c
+translation_source_sha: 8c9c4d426a409bb7f751e723730067ea81cd6e98
 translation_revised: 2026-08-01
 ---
 
@@ -214,6 +214,11 @@ principal과 operation 범위로 제한하여 관련 없는 사용자가 다른 
 Prior-deny 또는 re-request policy lookup은 claim에 binding할 authoritative revision을 반환합니다. Request를
 commit하는 transaction이나 compare-and-set은 해당 revision을 다시 확인하며 새 deny 또는 policy change가
 있으면 conflict를 반환하고 outbox row를 쓰지 않습니다. Preflight read만으로 publish를 authorize하지
+않습니다.
+
+이 claim은 source revision, current decision 또는 lifecycle state, deadline, policy digest, schema version,
+해당 approval revision을 하나의 precondition snapshot으로 binding합니다. 모든 값이 같고 deadline이 열린
+경우에만 commit하며 그렇지 않으면 typed conflict를 반환하고 audit acceptance나 outbox write를 수행하지
 않습니다.
 
 ## 에이전트와 실행 authority

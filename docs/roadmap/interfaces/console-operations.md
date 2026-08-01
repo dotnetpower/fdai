@@ -216,6 +216,11 @@ claim. The transaction or compare-and-set that commits the request rechecks that
 deny or policy change returns conflict and writes no outbox row. A preflight read alone never
 authorizes publish.
 
+That claim binds one precondition snapshot: source revision, current decision or lifecycle state,
+deadline, policy digest, schema version, and applicable approval revision. Commit succeeds only if
+every value still matches and the deadline remains open; otherwise it returns a typed conflict and
+performs no audit acceptance or outbox write.
+
 ## Agent and execution authority
 
 The console has no judgment or managed-resource execution authority. The pantheon retains its
