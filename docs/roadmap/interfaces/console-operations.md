@@ -262,6 +262,11 @@ promoted, pass quality and risk checks, satisfy approval policy, hold its resour
 dry-run checks, enforce impact limits and stop conditions, preserve idempotency, and emit rollback
 and audit evidence. The signed-in human identity is never delegated to Thor.
 
+Those safety values come from the exact `ActionType`, immutable `MutationPlan`, and unified
+execution model. Console schemas may display their resolved values but cannot supply, relax, or
+override them. A missing exact reference, plan digest, stop condition, impact limit, lock scope, or
+rollback contract makes the request ineligible for execution.
+
 ## Console shape
 
 The current `Operations` navigation group remains the single product surface. Add or refine these
@@ -381,6 +386,7 @@ regressing denial escapes, duplicate application, rollback, or unavailable-sourc
 | Conversational translation and channel tools | [Operator Console](operator-console.md) |
 | Human roles and operation capabilities | [User RBAC and Entra Identity](user-rbac-and-identity.md) |
 | Exact ontology releases and object sets | [Operating Ontology Platform](../architecture/operating-ontology-platform.md) |
+| ActionType safety and execution ceilings | [Action Ontology](../decisioning/action-ontology.md) and [Execution Model](../decisioning/execution-model.md) |
 | Fixed pantheon ownership | [Agent Pantheon](../agents/agent-pantheon.md) |
 | Operational-readiness handover | [Operational Readiness](../operations/operational-readiness.md) |
 | Human assignment delivery | [Human-Agent Assignment Implementation Plan](human-agent-assignment-implementation-plan.md) |

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 84ac3d3a6c7944dce45a5dea39e58d40f706066f
+translation_source_sha: 12146f4311f1bfcf32d28f3aa6b85ad803300adc
 translation_revised: 2026-08-01
 ---
 
@@ -259,6 +259,11 @@ Thor는 eligible `direct_api`, `pr_native`, `tool_call` 실행 경로에서 priv
 dry-run, impact limit와 stop condition, idempotency, rollback과 audit evidence가 필요합니다. 로그인한 사람의
 identity는 Thor에 위임되지 않습니다.
 
+이 safety value는 exact `ActionType`, immutable `MutationPlan`, unified execution model에서 가져옵니다.
+Console schema는 resolved value를 표시할 수 있지만 이를 제공하거나 완화하거나 override할 수 없습니다.
+Exact reference, plan digest, stop condition, impact limit, lock scope 또는 rollback contract가 없으면 request는
+execution 대상이 아닙니다.
+
 ## 콘솔 구조
 
 현재 `Operations` 탐색 그룹을 하나의 제품 surface로 유지합니다. 별도 shell을 만들지 않고 다음 view를
@@ -377,6 +382,7 @@ unavailable-source rate가 악화되지 않을 때만 진행합니다.
 | 대화형 번역과 channel tool | [오퍼레이터 콘솔](operator-console-ko.md) |
 | 사람 role과 operation capability | [사용자 RBAC와 Entra 아이덴티티](user-rbac-and-identity-ko.md) |
 | Exact ontology release와 object set | [운영 온톨로지 플랫폼](../architecture/operating-ontology-platform-ko.md) |
+| ActionType safety와 execution ceiling | [Action Ontology](../decisioning/action-ontology-ko.md)와 [Execution Model](../decisioning/execution-model-ko.md) |
 | 고정 pantheon ownership | [에이전트 판테온](../agents/agent-pantheon-ko.md) |
 | Operational-readiness handover | [운영 준비 상태](../operations/operational-readiness-ko.md) |
 | 사람 assignment 제공 | [사람-에이전트 배정 구현 계획](human-agent-assignment-implementation-plan-ko.md) |
