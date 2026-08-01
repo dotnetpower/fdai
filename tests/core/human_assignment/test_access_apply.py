@@ -30,17 +30,28 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 class RecordingProvisioner:
-    def __init__(self, *, verifies: bool = True, rollback_fails: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        outcome: HumanAccessOutcome = HumanAccessOutcome.APPLIED,
+        verifies: bool = True,
+        verify_fails: bool = False,
+        rollback_fails: bool = False,
+    ) -> None:
+        self.outcome = outcome
         self.verifies = verifies
+        self.verify_fails = verify_fails
         self.rollback_fails = rollback_fails
         self.applied: list[HumanAccessPlan] = []
         self.rolled_back: list[HumanAccessPlan] = []
 
     async def apply(self, plan: HumanAccessPlan) -> HumanAccessReceipt:
         self.applied.append(plan)
-        return HumanAccessReceipt(HumanAccessOutcome.APPLIED, "entra:receipt-1", "a" * 64)
+        return HumanAccessReceipt(self.outcome, "entra:receipt-1", "a" * 64)
 
     async def verify(self, plan: HumanAccessPlan) -> bool:
+        if self.verify_fails:
+            raise RuntimeError("synthetic verification failure")
         return self.verifies
 
     async def rollback(self, plan: HumanAccessPlan) -> HumanAccessReceipt:
@@ -201,6 +212,51 @@ async def test_failed_postcondition_rolls_back_and_degrades() -> None:
     assert provisioner.rolled_back
     assert held.state is AssignmentState.DEGRADED
     assert held.degraded_reason == "iam_postcondition_failed_rolled_back"
+
+
+async def test_failed_postcondition_does_not_remove_preexisting_membership() -> None:
+    store = InMemoryStateStore()
+    cases = AssignmentCaseService(store)
+    merged = await _ownership_merged(cases)
+    provisioner = RecordingProvisioner(
+        outcome=HumanAccessOutcome.ALREADY_APPLIED,
+        verifies=False,
+    )
+    coordinator = HumanAccessApplyCoordinator(cases, provisioner, {Role.READER: "group-reader"})
+
+    result = await coordinator.execute(
+        case_id=merged.case_id,
+        expected_revision=merged.revision,
+        actor_ref="Thor",
+        mode=Mode.ENFORCE,
+    )
+
+    held = await cases.get_case(merged.case_id)
+    assert result.outcome is HumanAccessExecutionOutcome.FAILED
+    assert provisioner.rolled_back == []
+    assert held.state is AssignmentState.DEGRADED
+    assert held.degraded_reason == "iam_postcondition_failed_not_owned"
+
+
+async def test_verification_exception_rolls_back_new_membership() -> None:
+    store = InMemoryStateStore()
+    cases = AssignmentCaseService(store)
+    merged = await _ownership_merged(cases)
+    provisioner = RecordingProvisioner(verify_fails=True)
+    coordinator = HumanAccessApplyCoordinator(cases, provisioner, {Role.READER: "group-reader"})
+
+    result = await coordinator.execute(
+        case_id=merged.case_id,
+        expected_revision=merged.revision,
+        actor_ref="Thor",
+        mode=Mode.ENFORCE,
+    )
+
+    held = await cases.get_case(merged.case_id)
+    assert result.outcome is HumanAccessExecutionOutcome.FAILED
+    assert provisioner.rolled_back
+    assert held.state is AssignmentState.DEGRADED
+    assert held.degraded_reason == "iam_verification_failed_rolled_back"
 
 
 async def test_failed_rollback_is_distinct_degraded_state() -> None:

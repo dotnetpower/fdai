@@ -13,6 +13,7 @@ from fdai.core.rbac.roles import Role
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.human_access import (
     HumanAccessOperation,
+    HumanAccessOutcome,
     HumanAccessPlan,
     HumanAccessProvisioner,
     HumanAccessReceipt,
@@ -76,12 +77,32 @@ class HumanAccessApplyCoordinator:
         )
         try:
             receipt = await self.provisioner.apply(plan)
-            if not await self.provisioner.verify(plan):
-                try:
-                    await self.provisioner.rollback(plan)
-                    reason_code = "iam_postcondition_failed_rolled_back"
-                except Exception:  # noqa: BLE001 - provider boundary fails closed
-                    reason_code = "iam_postcondition_failed_rollback_failed"
+            try:
+                verified = await self.provisioner.verify(plan)
+            except Exception:  # noqa: BLE001 - provider boundary fails closed
+                reason_code = await self._rollback_reason(
+                    plan,
+                    receipt,
+                    failure="iam_verification_failed",
+                )
+                degraded = await self.cases.mark_degraded(
+                    case_id=applying.case_id,
+                    expected_revision=applying.revision,
+                    reason_code=reason_code,
+                    actor_ref=actor_ref,
+                )
+                return HumanAccessExecution(
+                    HumanAccessExecutionOutcome.FAILED,
+                    plan,
+                    receipt,
+                    degraded.degraded_reason,
+                )
+            if not verified:
+                reason_code = await self._rollback_reason(
+                    plan,
+                    receipt,
+                    failure="iam_postcondition_failed",
+                )
                 degraded = await self.cases.mark_degraded(
                     case_id=applying.case_id,
                     expected_revision=applying.revision,
@@ -120,6 +141,21 @@ class HumanAccessApplyCoordinator:
                 plan,
                 reason=type(exc).__name__,
             )
+
+    async def _rollback_reason(
+        self,
+        plan: HumanAccessPlan,
+        receipt: HumanAccessReceipt,
+        *,
+        failure: str,
+    ) -> str:
+        if receipt.outcome is not HumanAccessOutcome.APPLIED:
+            return f"{failure}_not_owned"
+        try:
+            await self.provisioner.rollback(plan)
+        except Exception:  # noqa: BLE001 - provider boundary fails closed
+            return f"{failure}_rollback_failed"
+        return f"{failure}_rolled_back"
 
 
 __all__ = [
