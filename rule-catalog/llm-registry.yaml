@@ -44,9 +44,9 @@ models:
     # protected deploy reconciles WebSearchTool with the exact domain allowlist,
     # then the read API confirms availability with an actual managed-tool probe.
     preferences:
-      - {publisher: OpenAI, family: gpt-5.4}
+      - {publisher: OpenAI, family: gpt-4.1-nano}
     sku: Standard
-    capacity_tpm: 20000
+    capacity_tpm: 1000
 
   t2.reasoner.primary:
     preferences:

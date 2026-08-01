@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dfd91248bfb707a7b83387b760d8f350887f6dee
+translation_source_sha: 02b3cb682eca5665e25e79e4659039bd27c67114
 translation_revised: 2026-08-01
 ---
 
@@ -325,7 +325,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 8 | **User-assigned Managed Identity** | - | executor의 최소권한, 액션-화이트리스트 아이덴티티; [워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 구현 | Phase 1은 built-in 롤 구성으로 RG-스코프의 **하나의** MI (`mi-aw-executor`) 배포; Phase 3에서 도메인별 MI로 분할 - [security-and-identity-ko.md § Identity Mapping (Phased)](../architecture/security-and-identity-ko.md#identity-mapping-phased) 참조 |
 | 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **기본 30일 보존** | traces / metrics / logs / audit-forward | `appi-*` 리소스가 workspace에 바인딩되며 보존은 배포 후 **UI에서 설정 가능** |
 | 10 | **Container Registry (ACR)** | Basic (나중에 geo-replication 필요 시 Standard) | 서명된 이미지 + 빌드 attestation | digest로 고정, mutable 태그 절대 아님 |
-| 11 | **Azure OpenAI account + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployment 및 전용 GPT-5.4 web-search prompt agent | 프로비저닝에는 deployer 권한과 리전 family capacity가 필요하며, 그렇지 않으면 해당 capability가 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. Web search를 활성화하면 Terraform이 별도 `AIServices` Foundry account, project 및 `t1.web_search` deployment를 만들고 deployer와 활성화된 read API identity에 `Azure AI User`를 부여합니다. 보호된 post-apply 단계는 실제 tool readiness probe 전에 정확한 domain allowlist로 `fdai-web-search`를 reconcile합니다. Private mode는 `privatelink.services.ai.azure.com`을 추가하며 tenant policy가 소유하는 deny ACL 세부 정보는 Terraform이 보존합니다. |
+| 11 | **Azure OpenAI account + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployment 및 1K TPM의 전용 GPT-4.1-nano web-search prompt agent | 프로비저닝에는 deployer 권한과 리전 family capacity가 필요하며, 그렇지 않으면 해당 capability가 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. Web search를 활성화하면 Terraform이 deployment region에 별도 `AIServices` Foundry account, project 및 `t1.web_search` deployment를 만들고 deployer와 활성화된 read API identity에 `Azure AI User`를 부여합니다. 보호된 post-apply 단계는 실제 tool readiness probe 전에 정확한 domain allowlist로 `fdai-web-search`를 reconcile합니다. Private mode는 `privatelink.services.ai.azure.com`을 추가하며 tenant policy가 소유하는 deny ACL 세부 정보는 Terraform이 보존합니다. |
 | 12 | **ADLS Gen2 document account** (**opt-in**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | private quarantine, immutable governed version, derived envelope | Private mode에서 Shared Key와 public access 비활성화; soft delete + lifecycle; `blob`과 `dfs` private endpoint |
 | 13 | **Case-history Blob account** (`enable_case_history`) | StorageV2 Standard ZRS | Replay 및 governed Norns 분석용 content-addressed prediction/incident case revision | Shared Key 비활성화, private container, versioning, change feed, soft delete, bounded old-version lifecycle, 전용 case-history UAMI data role, `blob` private endpoint. Executor MI에는 Blob role을 부여하지 않습니다. |
 | 14 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | 인증된 bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle event | Dedicated UAMI를 사용하며 external HTTPS gateway에는 executor permission이 없습니다. Durable worker는 shared `aw.pipeline.stages`의 document lifecycle record를 consume합니다. |
