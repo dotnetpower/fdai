@@ -19,13 +19,15 @@ preserving FDAI's governed action pipeline.
 > releases, ActionBuilder output, and in-memory ontology writes. K1 semantic interface compilation
 > and bounded ObjectSet queries are implemented. K2-K5 core primitives now cover mutation plans,
 > stale revision checks, typed functions, projection bindings, reconciliation, scoped SDK
-> generation, and a read-only manifest. PostgreSQL release persistence, runtime composition, and
-> HTTP mounting remain wiring work.
+> generation, and a read-only manifest. PostgreSQL object/link writes persist exact type versions
+> and release digests, and production ActionBuilder composition uses the full loaded release.
+> Mounting the read-only manifest as a dedicated HTTP route remains optional Low-priority work.
 >
 > **Hardening status (2026-08-01):** Ten adversarial rounds covered release identity, persistence,
 > interface compatibility, ObjectSet closure, mutation safety, function authority, projection,
 > reconciliation, generated SDK syntax, and manifest disclosure. Verified Medium-or-higher core
-> findings are fixed. Integration wiring remains under review and is not counted as complete.
+> findings are fixed. PostgreSQL and runtime integration findings are also fixed; residual findings
+> are Low.
 
 ## Design at a glance
 

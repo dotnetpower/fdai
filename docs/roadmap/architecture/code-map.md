@@ -98,6 +98,7 @@ the safety-core modules held to the >= 90% coverage floor.
 | capability_catalog | What each agent knows how to do | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
 | licensing | Signed capability entitlement for an image-delivered distribution: crypto-free token contract, availability-only resolution, and fail-safe degradation ([design](../fork-and-sequencing/capability-licensing.md)) | [src/fdai/core/licensing/](../../../src/fdai/core/licensing/) | [tests/core/licensing/](../../../tests/core/licensing/) and [tests/scripts/test_issue_license.py](../../../tests/scripts/test_issue_license.py) |
 | ontology_explorer | Deterministic Mermaid renderer for the loaded ObjectType / LinkType catalog (single module, not a package) | [src/fdai/core/ontology_explorer.py](../../../src/fdai/core/ontology_explorer.py) | [tests/core/](../../../tests/core/) |
+| ontology_platform | Exact releases, semantic interfaces, bounded ObjectSets, mutation planning, typed functions, projection and reconciliation, proposal-only SDK generation | [src/fdai/core/ontology_platform/](../../../src/fdai/core/ontology_platform/) | [tests/core/ontology_platform/](../../../tests/core/ontology_platform/) |
 
 Provider-wide Azure discovery, sanitized reproduction commands, and explicit coverage receipts are
 the target design in [Azure Resource Discovery Command Coverage](../interfaces/azure-resource-discovery-commands.md).

@@ -11,7 +11,14 @@ import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
 
-from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
+from fdai.shared.contracts.models import (
+    OntologyDeclarationKind,
+    OntologyLinkType,
+    OntologyObjectType,
+    OntologyRelease,
+    OntologyTypeRef,
+)
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
     OntologyDirection,
     OntologyGraphSnapshot,
@@ -24,6 +31,8 @@ from fdai.shared.providers.ontology_instance import (
     normalize_link_record,
     normalize_object_record,
     ontology_link_sort_key,
+    pin_link_record,
+    pin_object_record,
     validate_link_record,
     validate_object_record,
 )
@@ -60,6 +69,7 @@ class PostgresOntologyInstanceStore:
         self._config = config
         self._object_types = {item.name: item for item in object_types}
         self._link_types = {item.name: item for item in link_types}
+        self._release = build_ontology_release(object_types=object_types, link_types=link_types)
 
     async def sync_catalog(self) -> None:
         """Upsert Git-owned type declarations before writing graph instances."""
@@ -121,7 +131,7 @@ class PostgresOntologyInstanceStore:
         *,
         expected_revision: int | None = None,
     ) -> OntologyObjectRecord:
-        record = normalize_object_record(record)
+        record = normalize_object_record(pin_object_record(record, self._release))
         validate_object_record(record, self._object_types)
         _, properties_json = canonical_json_mapping(
             record.properties,
@@ -139,13 +149,15 @@ class PostgresOntologyInstanceStore:
                     revision = self._validate_missing_revision(record.id, expected_revision)
                     await connection.execute(
                         "INSERT INTO ontology_resource "
-                        "(id, object_type, properties, revision) "
-                        "VALUES (%s, %s, %s::jsonb, %s)",
+                        "(id, object_type, properties, revision, type_version, catalog_digest) "
+                        "VALUES (%s, %s, %s::jsonb, %s, %s, %s)",
                         (
                             record.id,
                             record.object_type,
                             properties_json,
                             revision,
+                            _require_type_ref(record.type_ref).version,
+                            _require_type_ref(record.type_ref).catalog_digest,
                         ),
                     )
                 else:
@@ -193,7 +205,8 @@ class PostgresOntologyInstanceStore:
         revision = current_revision + 1
         await connection.execute(
             "UPDATE ontology_resource "
-            "SET properties = %s::jsonb, revision = %s, updated_at = NOW() "
+            "SET properties = %s::jsonb, revision = %s, type_version = %s, "
+            "catalog_digest = %s, updated_at = NOW() "
             "WHERE id = %s",
             (
                 canonical_json_mapping(
@@ -201,13 +214,15 @@ class PostgresOntologyInstanceStore:
                     path=f"{record.object_type}.properties",
                 )[1],
                 revision,
+                _require_type_ref(record.type_ref).version,
+                _require_type_ref(record.type_ref).catalog_digest,
                 record.id,
             ),
         )
         return revision
 
     async def upsert_link(self, record: OntologyLinkRecord) -> None:
-        record = normalize_link_record(record)
+        record = normalize_link_record(pin_link_record(record, self._release))
         _, properties_json = canonical_json_mapping(
             record.properties,
             path=f"{record.link_type}.properties",
@@ -231,15 +246,19 @@ class PostgresOntologyInstanceStore:
                 )
                 await connection.execute(
                     "INSERT INTO ontology_link "
-                    "(link_type, from_id, to_id, properties) "
-                    "VALUES (%s, %s, %s, %s::jsonb) "
+                    "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                    "VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
                     "ON CONFLICT (from_id, link_type, to_id) "
-                    "DO UPDATE SET properties = EXCLUDED.properties",
+                    "DO UPDATE SET properties = EXCLUDED.properties, "
+                    "type_version = EXCLUDED.type_version, "
+                    "catalog_digest = EXCLUDED.catalog_digest",
                     (
                         record.link_type,
                         record.from_id,
                         record.to_id,
                         properties_json,
+                        _require_type_ref(record.type_ref).version,
+                        _require_type_ref(record.type_ref).catalog_digest,
                     ),
                 )
 
@@ -251,8 +270,12 @@ class PostgresOntologyInstanceStore:
         previous_object_ids: Sequence[str] = (),
         previous_link_keys: Sequence[tuple[str, str, str]] = (),
     ) -> None:
-        normalized_objects = tuple(normalize_object_record(item) for item in objects)
-        normalized_links = tuple(normalize_link_record(item) for item in links)
+        normalized_objects = tuple(
+            normalize_object_record(pin_object_record(item, self._release)) for item in objects
+        )
+        normalized_links = tuple(
+            normalize_link_record(pin_link_record(item, self._release)) for item in links
+        )
         if len({item.id for item in normalized_objects}) != len(normalized_objects):
             raise OntologyInstanceValidationError("replacement object ids MUST be unique")
         if len({(item.from_id, item.link_type, item.to_id) for item in normalized_links}) != len(
@@ -279,8 +302,8 @@ class PostgresOntologyInstanceStore:
                     if existing is None:
                         await connection.execute(
                             "INSERT INTO ontology_resource "
-                            "(id, object_type, properties, revision) "
-                            "VALUES (%s, %s, %s::jsonb, 1)",
+                            "(id, object_type, properties, revision, type_version, catalog_digest) "
+                            "VALUES (%s, %s, %s::jsonb, 1, %s, %s)",
                             (
                                 object_record.id,
                                 object_record.object_type,
@@ -288,6 +311,8 @@ class PostgresOntologyInstanceStore:
                                     object_record.properties,
                                     path=f"{object_record.object_type}.properties",
                                 )[1],
+                                _require_type_ref(object_record.type_ref).version,
+                                _require_type_ref(object_record.type_ref).catalog_digest,
                             ),
                         )
                     else:
@@ -326,10 +351,12 @@ class PostgresOntologyInstanceStore:
                     )
                     await connection.execute(
                         "INSERT INTO ontology_link "
-                        "(link_type, from_id, to_id, properties) "
-                        "VALUES (%s, %s, %s, %s::jsonb) "
+                        "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
+                        "VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
                         "ON CONFLICT (from_id, link_type, to_id) "
-                        "DO UPDATE SET properties = EXCLUDED.properties",
+                        "DO UPDATE SET properties = EXCLUDED.properties, "
+                        "type_version = EXCLUDED.type_version, "
+                        "catalog_digest = EXCLUDED.catalog_digest",
                         (
                             link_record.link_type,
                             link_record.from_id,
@@ -338,6 +365,8 @@ class PostgresOntologyInstanceStore:
                                 link_record.properties,
                                 path=f"{link_record.link_type}.properties",
                             )[1],
+                            _require_type_ref(link_record.type_ref).version,
+                            _require_type_ref(link_record.type_ref).catalog_digest,
                         ),
                     )
 
@@ -388,14 +417,14 @@ class PostgresOntologyInstanceStore:
             await self._set_timeout(connection)
             cursor = await connection.execute(
                 sql.SQL(
-                    "SELECT id, object_type, properties, revision "
+                    "SELECT id, object_type, properties, revision, type_version, catalog_digest "
                     "FROM ontology_resource {} ORDER BY id LIMIT %s"
                 ).format(where),
                 tuple(params),
             )
             rows = await cursor.fetchall()
             truncated = len(rows) > limit
-            objects = tuple(_object_from_row(row) for row in rows[:limit])
+            objects = tuple(_object_from_row(row, self._release) for row in rows[:limit])
             objects_by_id = {item.id: item for item in objects}
             raw_links = await self._links_within(connection, tuple(objects_by_id))
             links = tuple(
@@ -511,11 +540,13 @@ class PostgresOntologyInstanceStore:
         if not identifiers:
             return {}
         cursor = await connection.execute(
-            "SELECT id, object_type, properties, revision "
+            "SELECT id, object_type, properties, revision, type_version, catalog_digest "
             "FROM ontology_resource WHERE id = ANY(%s::text[]) ORDER BY id",
             (list(identifiers),),
         )
-        return {str(row["id"]): _object_from_row(row) for row in await cursor.fetchall()}
+        return {
+            str(row["id"]): _object_from_row(row, self._release) for row in await cursor.fetchall()
+        }
 
     async def _links_within(
         self,
@@ -525,12 +556,13 @@ class PostgresOntologyInstanceStore:
         if not identifiers:
             return ()
         cursor = await connection.execute(
-            "SELECT link_type, from_id, to_id, properties FROM ontology_link "
+            "SELECT link_type, from_id, to_id, properties, type_version, catalog_digest "
+            "FROM ontology_link "
             "WHERE from_id = ANY(%s::text[]) AND to_id = ANY(%s::text[]) "
             "ORDER BY from_id, link_type, to_id",
             (list(identifiers), list(identifiers)),
         )
-        return tuple(_link_from_row(row) for row in await cursor.fetchall())
+        return tuple(_link_from_row(row, self._release) for row in await cursor.fetchall())
 
     async def _cardinality_links(
         self,
@@ -538,12 +570,13 @@ class PostgresOntologyInstanceStore:
         record: OntologyLinkRecord,
     ) -> tuple[OntologyLinkRecord, ...]:
         cursor = await connection.execute(
-            "SELECT link_type, from_id, to_id, properties FROM ontology_link "
+            "SELECT link_type, from_id, to_id, properties, type_version, catalog_digest "
+            "FROM ontology_link "
             "WHERE link_type = %s AND (from_id = %s OR to_id = %s) "
             "ORDER BY from_id, to_id",
             (record.link_type, record.from_id, record.to_id),
         )
-        return tuple(_link_from_row(row) for row in await cursor.fetchall())
+        return tuple(_link_from_row(row, self._release) for row in await cursor.fetchall())
 
     async def _adjacent_links(
         self,
@@ -569,12 +602,13 @@ class PostgresOntologyInstanceStore:
         params.append(limit)
         cursor = await connection.execute(
             sql.SQL(
-                "SELECT link_type, from_id, to_id, properties FROM ontology_link "
+                "SELECT link_type, from_id, to_id, properties, type_version, catalog_digest "
+                "FROM ontology_link "
                 "WHERE {}{} ORDER BY from_id, link_type, to_id LIMIT %s"
             ).format(direction_clause, type_clause),
             tuple(params),
         )
-        return tuple(_link_from_row(row) for row in await cursor.fetchall())
+        return tuple(_link_from_row(row, self._release) for row in await cursor.fetchall())
 
 
 def _next_endpoint(
@@ -590,7 +624,7 @@ def _next_endpoint(
     return None
 
 
-def _object_from_row(row: Mapping[str, Any]) -> OntologyObjectRecord:
+def _object_from_row(row: Mapping[str, Any], release: OntologyRelease) -> OntologyObjectRecord:
     properties = row["properties"]
     if isinstance(properties, str):
         properties = json.loads(properties)
@@ -604,10 +638,16 @@ def _object_from_row(row: Mapping[str, Any]) -> OntologyObjectRecord:
         object_type=str(row["object_type"]),
         properties=normalized,
         revision=int(row["revision"]),
+        type_ref=_row_type_ref(
+            row,
+            kind=OntologyDeclarationKind.OBJECT,
+            name=str(row["object_type"]),
+            release=release,
+        ),
     )
 
 
-def _link_from_row(row: Mapping[str, Any]) -> OntologyLinkRecord:
+def _link_from_row(row: Mapping[str, Any], release: OntologyRelease) -> OntologyLinkRecord:
     properties = row["properties"]
     if isinstance(properties, str):
         properties = json.loads(properties)
@@ -621,12 +661,40 @@ def _link_from_row(row: Mapping[str, Any]) -> OntologyLinkRecord:
         from_id=str(row["from_id"]),
         to_id=str(row["to_id"]),
         properties=normalized,
+        type_ref=_row_type_ref(
+            row,
+            kind=OntologyDeclarationKind.LINK,
+            name=str(row["link_type"]),
+            release=release,
+        ),
     )
 
 
 def _validate_limit(limit: int) -> None:
     if not 1 <= limit <= _MAX_LIMIT:
         raise ValueError(f"limit MUST be in [1, {_MAX_LIMIT}]")
+
+
+def _require_type_ref(value: OntologyTypeRef | None) -> OntologyTypeRef:
+    if value is None:
+        raise RuntimeError("ontology record MUST be pinned before persistence")
+    return value
+
+
+def _row_type_ref(
+    row: Mapping[str, Any],
+    *,
+    kind: OntologyDeclarationKind,
+    name: str,
+    release: OntologyRelease,
+) -> OntologyTypeRef:
+    version = row.get("type_version")
+    digest = row.get("catalog_digest")
+    if version is None and digest is None:
+        return release.type_ref(kind, name)
+    if not isinstance(version, str) or not isinstance(digest, str):
+        raise RuntimeError("persisted ontology type reference is incomplete")
+    return OntologyTypeRef(kind=kind, name=name, version=version, catalog_digest=digest)
 
 
 __all__ = ["PostgresOntologyInstanceStore", "PostgresOntologyInstanceStoreConfig"]

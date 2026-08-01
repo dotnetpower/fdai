@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b88bd810512750bc9e10c9c91e0c4382956830d7
-translation_revised: 2026-07-31
+translation_source_sha: 6853aa322faa9c9da3e7bbcb5f45255257d732ef
+translation_revised: 2026-08-01
 ---
 
 # 프로젝트 구조
@@ -69,6 +69,7 @@ fdai/
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, active/challenger effect model, 결정론적 branch simulation (제안만, 실행 안 함)
+│   │   ├── ontology_platform/   # exact release, semantic interface, bounded object set, mutation plan, typed function, reconciliation, proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator console intent/tool 조정, conflict-aware read plan, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나

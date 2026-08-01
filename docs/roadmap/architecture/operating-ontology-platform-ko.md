@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 플랫폼
 translation_of: operating-ontology-platform.md
-translation_source_sha: b57dbe5926c33f67d3323da3f9e968ce47fc8841
+translation_source_sha: 26df2216e49d5c6fe0ca74304a59406c84dc828c
 translation_revised: 2026-08-01
 ---
 # FDAI 운영 온톨로지 플랫폼
@@ -22,13 +22,15 @@ SDK surface를 추가합니다.
 > K0 contract identity를 구현했습니다. K1 semantic interface compilation과 bounded ObjectSet
 > query도 구현했습니다. K2-K5 core primitive는 mutation plan, stale revision check, typed
 > function, projection binding, reconciliation, scoped SDK generation, read-only manifest를
-> 포함합니다. PostgreSQL release persistence, runtime composition, HTTP mounting은 wiring 작업으로
-> 남아 있습니다.
+> 포함합니다. PostgreSQL object/link write는 exact type version과 release digest를 보존하며,
+> production ActionBuilder composition은 전체 loaded release를 사용합니다. Read-only manifest를
+> 전용 HTTP route로 mount하는 작업은 선택적인 Low 우선순위로 남아 있습니다.
 >
 > **하드닝 상태(2026-08-01):** Release identity, persistence, interface compatibility, ObjectSet
 > closure, mutation safety, function authority, projection, reconciliation, generated SDK syntax,
 > manifest disclosure를 대상으로 10회 adversarial round를 수행했습니다. 검증된 Medium 이상 core
-> finding을 수정했습니다. Integration wiring은 계속 검토 중이며 완료로 계산하지 않습니다.
+> finding을 수정했습니다. PostgreSQL 및 runtime integration finding도 수정했으며 residual finding은
+> Low입니다.
 
 ## 한눈에 보는 설계
 

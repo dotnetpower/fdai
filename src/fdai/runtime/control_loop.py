@@ -87,6 +87,7 @@ from fdai.runtime.providers import (
     _build_resource_lock,
 )
 from fdai.shared.contracts.models import ResponseOutcome
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import StagePublisher
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
@@ -301,7 +302,14 @@ def _build_control_loop(
     trust_router = TrustRouter(index=index)
     event_ingest = EventIngest(validator=container.event_validator)
     action_types_by_name = {a.name: a for a in action_types}
-    action_builder = ActionBuilder(action_types_by_name=action_types_by_name)
+    action_builder = ActionBuilder(
+        action_types_by_name=action_types_by_name,
+        ontology_release=build_ontology_release(
+            object_types=ontology_object_types,
+            link_types=ontology_link_types,
+            action_types=action_types,
+        ),
+    )
 
     audit_store = audit_store or _build_audit_store()
     publisher = _build_publisher(http_client)
