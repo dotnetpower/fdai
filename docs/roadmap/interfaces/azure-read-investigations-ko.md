@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 2c9c7648a52fdf8853bfa477df97cf68dbfe2bd9
+translation_source_sha: f965c9a101752f3296ee008f54dc25d1eb06b20d
 translation_revised: 2026-08-01
 ---
 
@@ -232,14 +232,17 @@ binding하지 않으면 `resource_groups`를 유지합니다. Browser와 narrato
 2. ARG가 health row를 반환하지 않으면 공식 ARM endpoint를 통해 configured subscription 또는 허용된
   각 resource group의 current Resource Health availability status를 나열합니다. 실패한 scope는
   unavailable로 명시합니다.
-3. 명시적인 platform-impact intent에는 active `ServiceHealthResources` event와 bounded
+3. Resource-health history intent에는 catalog에서 parse한 lookback을 최대 24시간으로 제한하여
+  `HealthResources` availability status와 resource annotation을 query합니다. Occurrence time으로
+  merge하고 각 event를 `customer-initiated`, `status-only`, `platform-initiated`로 분류합니다.
+4. 명시적인 platform-impact intent에는 active `ServiceHealthResources` event와 bounded
   impacted-resource row를 query합니다. Rendering 전에 `ServiceIssue`, `PlannedMaintenance` 및
   `HealthAdvisory` count를 분리합니다.
-4. Platform impact가 아닌 diagnosis intent에는 representative Azure Monitor metric을 확인할
+5. Platform impact가 아닌 diagnosis intent에는 representative Azure Monitor metric을 확인할
   supported resource를 최대 16개 선택합니다.
-5. 최대 4개 metric을 동시에 query하고 server-owned threshold와 비교합니다.
-6. Service Health event, Resource Health cause, 실패한 provisioning 및 metric 후보를 unsupported,
-  unavailable, truncated count와 함께 반환합니다.
+6. 최대 4개 metric을 동시에 query하고 server-owned threshold와 비교합니다.
+7. Service Health event, Resource Health cause와 history, 실패한 provisioning 및 metric 후보를
+  unsupported, unavailable, truncated count와 함께 반환합니다.
 
 초기 metric map은 VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU 및
 Application Gateway healthy-host count를 다룹니다. Unsupported resource type은 count에 남아
@@ -248,6 +251,9 @@ Application Gateway healthy-host count를 다룹니다. Unsupported resource typ
 start time 및 impacted-resource projection을 제공합니다.
 Customer-initiated Resource Health state는 Azure platform incident가 아니라 user 또는 automation이
 시작한 상태로 설명하지만, Activity Log evidence를 수집하기 전에는 actor를 알 수 없다고 표시합니다.
+Historical read는 current ARM availability endpoint로 fallback하지 않습니다. Exact lookback,
+chronological order, three-way cause count, partial source failure 및 truncation을 보존하므로 current
+status를 historical event로 표시하지 않습니다.
 명시적인 status collection의 terminal answer는 근거 있는 empty group을 포함하여 요청된 모든 catalog
 state를 request 순서로 렌더링하고, normalized state가 해당 group에 속하는 finding만 나열합니다.
 구체적인 family query는 catalog의 provider type, Azure kind token 및 requested availability state로

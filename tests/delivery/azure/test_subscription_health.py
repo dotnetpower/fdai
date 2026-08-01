@@ -388,6 +388,75 @@ async def test_platform_health_service_health_failure_is_partial() -> None:
     assert result["service_health_events"] == []
 
 
+async def test_resource_health_history_filters_window_and_orders_events() -> None:
+    queries: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        query = json.loads(request.content)["query"]
+        queries.append(query)
+        if "resourceannotations" in query:
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "targetResourceId": _resource_rows()[0]["id"],
+                            "annotationName": "Stopped by user",
+                            "context": "Customer Initiated",
+                            "reason": "Stopped by user",
+                            "occurredTime": "2026-07-22T03:30:00Z",
+                        }
+                    ]
+                },
+            )
+        if query.startswith("HealthResources"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "targetResourceId": _resource_rows()[0]["id"],
+                            "resourceName": "vm-app",
+                            "availabilityState": "Available",
+                            "reasonType": "Platform Initiated",
+                            "title": "Availability restored",
+                            "occurredTime": "2026-07-22T04:30:00Z",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"data": _resource_rows()})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_health_history(86_400)
+
+    assert result["status"] == "matched"
+    assert result["source"] == "azure-resource-graph+resource-health-history"
+    assert result["metrics_requested"] is False
+    assert [event["kind"] for event in result["health_history_events"]] == [
+        "resource_annotation",
+        "availability_status",
+    ]
+    assert [event["classification"] for event in result["health_history_events"]] == [
+        "customer-initiated",
+        "platform-initiated",
+    ]
+    history_queries = [query for query in queries if query.startswith("HealthResources")]
+    assert len(history_queries) == 2
+    assert all("ago(86400s)" in query for query in history_queries)
+    assert all("order by occurredTime asc" in query for query in history_queries)
+    assert all("properties.title" not in query for query in history_queries)
+
+
 async def test_platform_health_annotation_failure_is_partial() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "POST"

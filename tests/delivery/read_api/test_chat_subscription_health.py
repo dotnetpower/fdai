@@ -1026,6 +1026,85 @@ def test_platform_cause_comparisons_suppress_customer_state_groups() -> None:
     assert backend.calls == 0
 
 
+def test_resource_health_history_uses_typed_lookback_and_chronological_order() -> None:
+    calls: list[int] = []
+
+    class Provider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("health history must use the historical provider")
+
+        async def query_health_history(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            calls.append(lookback_seconds)
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health-history",
+                "observed_at": "2026-07-22T05:00:00Z",
+                "resource_count": 2,
+                "resource_health_unavailable": 0,
+                "metrics_requested": False,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [],
+                "health_history_events": [
+                    {
+                        "resource_name": "database-later",
+                        "status": "Available",
+                        "reason": "Platform Initiated",
+                        "classification": "platform-initiated",
+                        "observed_at": "2026-07-22T04:30:00Z",
+                    },
+                    {
+                        "resource_name": "vm-earlier",
+                        "status": "Unavailable",
+                        "reason": "Customer Initiated",
+                        "classification": "customer-initiated",
+                        "observed_at": "2026-07-22T03:00:00Z",
+                    },
+                ],
+            }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(Provider()),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={
+                "prompt": "지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘.",
+                "view_context": {},
+            },
+        )
+
+    answer = response.json()["answer"]
+    assert calls == [86_400]
+    assert answer.index("vm-earlier") < answer.index("database-later")
+    assert "지난 24시간의 리소스 상태 이벤트 2개" in answer
+    assert "customer-initiated 1건" in answer
+    assert "platform-initiated 1건" in answer
+    assert backend.calls == 0
+
+
 def test_subscription_health_provider_failure_fails_closed() -> None:
     async def unavailable(
         lookback_seconds: int,

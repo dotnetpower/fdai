@@ -70,6 +70,16 @@ class ConfigurableSubscriptionHealthProvider(Protocol):
 
 
 @runtime_checkable
+class HistoricalSubscriptionHealthProvider(Protocol):
+    async def query_health_history(
+        self,
+        lookback_seconds: int,
+        *,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> Mapping[str, Any]: ...
+
+
+@runtime_checkable
 class ResourceTypeFilteredSubscriptionHealthProvider(Protocol):
     async def query_resource_types(
         self,
@@ -226,6 +236,21 @@ class SubscriptionHealthChatTools:
         kind_tokens_by_resource_type = resolver.provider_kind_tokens_for(requested_types)
         language = default_inventory_query_language_resolver()
         platform_impact = language.has(language.registry.signals, "platform_health", prompt)
+        health_history = language.has(language.registry.signals, "health_history", prompt)
+        if health_history:
+            if not isinstance(self.provider, HistoricalSubscriptionHealthProvider):
+                raise RuntimeError("subscription health history provider is unavailable")
+            lookback_seconds = min(
+                language.parse_window_seconds(prompt)
+                or language.registry.default_activity_lookback_seconds,
+                86_400,
+            )
+            return dict(
+                await self.provider.query_health_history(
+                    lookback_seconds,
+                    progress_observer=progress_observer,
+                )
+            )
         include_metrics = (
             language.has(language.registry.signals, "diagnosis", prompt) and not platform_impact
         )
@@ -271,8 +296,12 @@ def needs_subscription_health(prompt: str) -> bool:
     if is_specific_inventory_question(prompt):
         return False
     language = default_inventory_query_language_resolver()
-    asks_for_health = language.has(language.registry.signals, "platform_health", prompt) or bool(
-        (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
+    asks_for_health = (
+        language.has(language.registry.signals, "platform_health", prompt)
+        or language.has(language.registry.signals, "health_history", prompt)
+        or bool(
+            (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
+        )
     )
     return asks_for_health and not _MUTATION.search(prompt)
 
@@ -396,6 +425,23 @@ def render_subscription_health_answer(
     requested_groups = _requested_status_groups(evidence, korean=korean)
     query = evidence.get("query")
     platform_impact = isinstance(query, Mapping) and query.get("platform_impact") is True
+    health_history = isinstance(query, Mapping) and query.get("health_history") is True
+    if health_history:
+        history_events = [
+            item for item in result.get("health_history_events", []) if isinstance(item, Mapping)
+        ]
+        lookback_seconds = (
+            _integer(query.get("lookback_seconds")) if isinstance(query, Mapping) else 0
+        )
+        return _render_health_history_answer(
+            history_events,
+            lookback_seconds=lookback_seconds,
+            source=source,
+            observed_at=observed_at,
+            status=str(status),
+            truncated=truncated,
+            korean=korean,
+        )
     if requested_groups:
         grouped_lines, grouped_count = _grouped_finding_lines(
             findings,
@@ -636,16 +682,90 @@ def _service_health_event_lines(
 def _status_query(prompt: str) -> dict[str, object]:
     language = default_inventory_query_language_resolver()
     platform_impact = language.has(language.registry.signals, "platform_health", prompt)
-    groups = () if platform_impact else inventory_query_status_groups(prompt)
+    health_history = language.has(language.registry.signals, "health_history", prompt)
+    groups = () if platform_impact or health_history else inventory_query_status_groups(prompt)
     requested_types = default_inventory_resource_type_resolver().resolve(prompt)
     return {
         "platform_impact": platform_impact,
+        "health_history": health_history,
+        "lookback_seconds": (
+            min(
+                language.parse_window_seconds(prompt)
+                or language.registry.default_activity_lookback_seconds,
+                86_400,
+            )
+            if health_history
+            else None
+        ),
         "requested_resource_types": list(requested_types),
         "requested_status_groups": [
             {"id": group.id, "values": list(group.values), "labels": dict(group.labels)}
             for group in groups
         ],
     }
+
+
+def _render_health_history_answer(
+    events: list[Mapping[str, Any]],
+    *,
+    lookback_seconds: int,
+    source: str,
+    observed_at: str,
+    status: str,
+    truncated: bool,
+    korean: bool,
+) -> str:
+    ordered = sorted(events, key=lambda item: str(item.get("observed_at") or ""))
+    classifications = {
+        classification: sum(1 for event in ordered if event.get("classification") == classification)
+        for classification in ("customer-initiated", "status-only", "platform-initiated")
+    }
+    if korean:
+        lines = [
+            f"지난 {lookback_seconds // 3_600}시간의 리소스 상태 이벤트 {len(ordered)}개입니다."
+        ]
+        lines.extend(
+            f"- {event.get('observed_at', 'unknown')}: {event.get('resource_name', 'unknown')} - "
+            f"{event.get('status', 'unknown')} ({event.get('classification', 'status-only')}, "
+            f"{event.get('reason', 'unknown')})"
+            for event in ordered[:64]
+        )
+        lines.append(
+            "분류: "
+            f"customer-initiated {classifications['customer-initiated']}건, "
+            f"status-only {classifications['status-only']}건, "
+            f"platform-initiated {classifications['platform-initiated']}건."
+        )
+        lines.append(f"근거: {source}, 관찰 시각 {observed_at}.")
+        if truncated:
+            lines.append("조회 한도에 도달했으므로 추가 이벤트가 있을 수 있습니다.")
+        if status == "partial":
+            lines.append("일부 상태 이벤트 근거를 조회할 수 없어 전체 이력을 확정하지 않았습니다.")
+        return "\n".join(lines)
+    lines = [
+        f"Found {len(ordered)} resource health event(s) in the last "
+        f"{lookback_seconds // 3_600} hours."
+    ]
+    lines.extend(
+        f"- {event.get('observed_at', 'unknown')}: {event.get('resource_name', 'unknown')} - "
+        f"{event.get('status', 'unknown')} ({event.get('classification', 'status-only')}, "
+        f"{event.get('reason', 'unknown')})"
+        for event in ordered[:64]
+    )
+    lines.append(
+        "Classification: "
+        f"customer-initiated {classifications['customer-initiated']}, "
+        f"status-only {classifications['status-only']}, "
+        f"platform-initiated {classifications['platform-initiated']}."
+    )
+    lines.append(f"Evidence: {source}, observed {observed_at}.")
+    if truncated:
+        lines.append("The bounded query limit was reached; additional events may exist.")
+    if status == "partial":
+        lines.append(
+            "Some health-event evidence was unavailable, so the complete history was not confirmed."
+        )
+    return "\n".join(lines)
 
 
 def _cause_counts(findings: list[Mapping[str, Any]]) -> tuple[int, int, int]:

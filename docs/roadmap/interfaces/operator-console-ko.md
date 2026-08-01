@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 9631de64e8eac914e9938bd999334c3135758952
+translation_source_sha: dc9d9cc604568d0473ddd8a189205d048cd750fd
 translation_revised: 2026-08-01
 ---
 
@@ -299,6 +299,10 @@ metric을 끄고 active Service Health event와 impacted resource를 query하며
 maintenance 및 advisory와 분리합니다. 누락된 availability cause는 bounded Resource Health
 annotation으로 보강합니다. Service Health 또는 annotation query가 unavailable 또는 truncated이면
 partial coverage gap으로 유지하며 platform impact 0을 증명할 수 없습니다.
+Catalog-owned resource-health history intent도 같은 deterministic precedence를 가집니다. Parse한
+lookback을 최대 24시간으로 제한하고 availability status와 annotation을 chronological order로 merge한
+뒤 customer-initiated, status-only 및 platform-initiated count를 보고합니다. Historical evidence가
+없을 때 current ARM status로 대체하지 않습니다.
 Catalog matching은 `와`, `과`를 포함한 일반적인 격조사 또는 접속 조사가 붙어도 Korean query term을
 보존하므로 compound comparison에서 요청한 semantic class가 누락되지 않습니다.
 

@@ -217,6 +217,26 @@ class AzureSubscriptionHealthProvider:
             availability_states=(),
             include_metrics=include_metrics,
             include_service_health=include_service_health,
+            include_history=False,
+            progress_observer=progress_observer,
+        )
+
+    async def query_health_history(
+        self,
+        lookback_seconds: int,
+        *,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> dict[str, Any]:
+        """Return bounded Resource Health events in chronological order."""
+
+        return await self._query(
+            lookback_seconds,
+            resource_types=(),
+            kind_tokens_by_resource_type={},
+            availability_states=(),
+            include_metrics=False,
+            include_service_health=False,
+            include_history=True,
             progress_observer=progress_observer,
         )
 
@@ -242,6 +262,7 @@ class AzureSubscriptionHealthProvider:
             availability_states=_validated_availability_states(availability_states),
             include_metrics=include_metrics,
             include_service_health=False,
+            include_history=False,
             progress_observer=progress_observer,
         )
 
@@ -254,6 +275,7 @@ class AzureSubscriptionHealthProvider:
         availability_states: tuple[str, ...],
         include_metrics: bool,
         include_service_health: bool,
+        include_history: bool,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None,
     ) -> dict[str, Any]:
         if not 60 <= lookback_seconds <= 86_400:
@@ -284,7 +306,15 @@ class AzureSubscriptionHealthProvider:
                 headers,
                 self._resource_query(resource_types, kind_tokens_by_resource_type),
             ),
-            self._arg(headers, self._health_query(resource_types, availability_states)),
+            self._arg(
+                headers,
+                self._health_query(
+                    resource_types,
+                    availability_states,
+                    lookback_seconds=lookback_seconds,
+                    include_history=include_history,
+                ),
+            ),
             self._service_health(headers) if include_service_health else _empty_service_health(),
         )
         service_events, service_impacts, service_health_unavailable = service_health_result
@@ -300,7 +330,7 @@ class AzureSubscriptionHealthProvider:
             ]
         resource_health_unavailable = 0
         direct_health_truncated = False
-        if not health and not availability_states:
+        if not health and not availability_states and not include_history:
             (
                 health,
                 resource_health_unavailable,
@@ -308,7 +338,19 @@ class AzureSubscriptionHealthProvider:
             ) = await self._current_resource_health(headers, resource_types)
         annotation_unavailable = 0
         annotation_truncated = False
-        if health and not include_metrics and not resource_types:
+        history_annotations: list[Mapping[str, Any]] = []
+        if include_history:
+            try:
+                history_annotations = await self._arg(
+                    headers,
+                    self._history_annotation_query(lookback_seconds),
+                )
+            except Exception:  # noqa: BLE001 - history coverage degrades independently
+                annotation_unavailable = 1
+            else:
+                annotation_truncated = len(history_annotations) > 64
+                history_annotations = history_annotations[:64]
+        elif health and not include_metrics and not resource_types:
             try:
                 annotations = await self._arg(headers, self._annotation_query(health))
             except Exception:  # noqa: BLE001 - cause coverage degrades independently
@@ -318,6 +360,9 @@ class AzureSubscriptionHealthProvider:
                 annotation_truncated = len(annotations) > 64
                 health = _merge_health_annotations(health, annotations[:64])
         health_findings = _health_findings(health)
+        health_history_events = (
+            _health_history_events(health, history_annotations) if include_history else []
+        )
         service_health_events, service_health_truncated = _service_health_events(
             service_events,
             service_impacts,
@@ -469,9 +514,13 @@ class AzureSubscriptionHealthProvider:
                 "azure-resource-graph+resource-health+azure-monitor-metrics"
                 if include_metrics
                 else (
-                    "azure-resource-graph+resource-health+service-health"
-                    if include_service_health
-                    else "azure-resource-graph+resource-health"
+                    "azure-resource-graph+resource-health-history"
+                    if include_history
+                    else (
+                        "azure-resource-graph+resource-health+service-health"
+                        if include_service_health
+                        else "azure-resource-graph+resource-health"
+                    )
                 )
             ),
             "observed_at": datetime.now(tz=UTC).isoformat(),
@@ -489,6 +538,8 @@ class AzureSubscriptionHealthProvider:
             "active_health_advisory_count": len(active_advisories),
             "active_health_advisory_resource_count": _impacted_resource_count(active_advisories),
             "service_health_events": service_health_events[:64],
+            "health_history_requested": include_history,
+            "health_history_events": health_history_events[:64],
             "metrics_requested": include_metrics,
             "supported_metric_resources": len(supported),
             "metric_checked": len(metric_targets) - metric_unavailable,
@@ -700,6 +751,9 @@ class AzureSubscriptionHealthProvider:
         self,
         resource_types: tuple[str, ...],
         availability_states: tuple[str, ...],
+        *,
+        lookback_seconds: int,
+        include_history: bool,
     ) -> str:
         filters = ["type =~ 'microsoft.resourcehealth/availabilitystatuses'"]
         if self._config.scope is AzureSubscriptionHealthScope.SUBSCRIPTION:
@@ -716,16 +770,21 @@ class AzureSubscriptionHealthProvider:
         if availability_states:
             values = ", ".join(f"'{_escaped(item)}'" for item in availability_states)
             filters.append(f"tostring(properties.availabilityState) in~ ({values})")
+        if include_history:
+            filters.append(f"todatetime(properties.occurredTime) >= ago({lookback_seconds}s)")
         where = "".join(f"| where {item} " for item in filters)
-        return (
+        query = (
             f"HealthResources {where}"
             "| project targetResourceId=tostring(properties.targetResourceId), "
             "targetResourceType=tostring(properties.targetResourceType), "
             "resourceName=tostring(properties.targetResourceName), "
             "availabilityState=tostring(properties.availabilityState), "
             "reasonType=tostring(properties.reasonType), "
-            "occurredTime=tostring(properties.occurredTime) | take 65"
+            "occurredTime=tostring(properties.occurredTime) "
         )
+        if include_history:
+            query += "| order by occurredTime asc "
+        return query + "| take 65"
 
     def _annotation_query(self, health: Sequence[Mapping[str, Any]]) -> str:
         target_ids = tuple(
@@ -748,6 +807,25 @@ class AzureSubscriptionHealthProvider:
             "context=tostring(properties.context), reason=tostring(properties.reason), "
             "occurredTime=tostring(properties.occurredTime) "
             "| order by occurredTime desc | take 65"
+        )
+
+    def _history_annotation_query(self, lookback_seconds: int) -> str:
+        filters = ["type =~ 'microsoft.resourcehealth/resourceannotations'"]
+        if self._config.scope is not AzureSubscriptionHealthScope.SUBSCRIPTION:
+            group_filters = " or ".join(
+                f"tostring(properties.targetResourceId) has '/resourceGroups/{_escaped(group)}/'"
+                for group in self._config.resource_groups
+            )
+            filters.append(f"({group_filters})")
+        filters.append(f"todatetime(properties.occurredTime) >= ago({lookback_seconds}s)")
+        where = "".join(f"| where {item} " for item in filters)
+        return (
+            f"HealthResources {where}"
+            "| project targetResourceId=tostring(properties.targetResourceId), "
+            "annotationName=tostring(properties.annotationName), "
+            "context=tostring(properties.context), reason=tostring(properties.reason), "
+            "occurredTime=tostring(properties.occurredTime) "
+            "| order by occurredTime asc | take 65"
         )
 
     def _service_health_event_query(self) -> str:
@@ -960,6 +1038,55 @@ def _health_findings(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return findings
+
+
+def _health_history_events(
+    health: Sequence[Mapping[str, Any]],
+    annotations: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for row in health:
+        resource_id = row.get("targetResourceId")
+        identity = _resource_identity(resource_id if isinstance(resource_id, str) else "")
+        events.append(
+            {
+                "kind": "availability_status",
+                "resource_name": str(row.get("resourceName") or identity["name"] or "unknown"),
+                "resource_type": identity["type"],
+                "resource_group": identity["resource_group"],
+                "status": str(row.get("availabilityState") or "Unknown"),
+                "reason": str(row.get("reasonType") or "unknown"),
+                "classification": _health_event_classification(row.get("reasonType")),
+                "title": _bounded_text(row.get("title")),
+                "observed_at": str(row.get("occurredTime") or "unknown"),
+            }
+        )
+    for row in annotations:
+        resource_id = row.get("targetResourceId")
+        identity = _resource_identity(resource_id if isinstance(resource_id, str) else "")
+        events.append(
+            {
+                "kind": "resource_annotation",
+                "resource_name": identity["name"] or "unknown",
+                "resource_type": identity["type"],
+                "resource_group": identity["resource_group"],
+                "status": _bounded_text(row.get("annotationName")),
+                "reason": _bounded_text(row.get("context") or row.get("reason")),
+                "classification": _health_event_classification(row.get("context")),
+                "title": _bounded_text(row.get("reason")),
+                "observed_at": str(row.get("occurredTime") or "unknown"),
+            }
+        )
+    return sorted(events, key=lambda event: event["observed_at"])[:64]
+
+
+def _health_event_classification(value: object) -> str:
+    normalized = str(value or "").casefold()
+    if "customer" in normalized:
+        return "customer-initiated"
+    if "platform" in normalized:
+        return "platform-initiated"
+    return "status-only"
 
 
 def _merge_health_annotations(

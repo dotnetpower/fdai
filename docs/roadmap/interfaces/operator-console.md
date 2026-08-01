@@ -304,6 +304,10 @@ metrics, query active Service Health events and impacted resources, separate out
 maintenance and advisories, and enrich missing availability causes from bounded Resource Health
 annotations. An unavailable or truncated Service Health or annotation query remains a partial
 coverage gap and cannot prove zero platform impact.
+Catalog-owned resource-health history intent has the same deterministic precedence. It caps a
+parsed lookback at 24 hours, merges availability statuses and annotations chronologically, reports
+customer-initiated, status-only, and platform-initiated counts, and never substitutes current ARM
+status for missing historical evidence.
 Catalog matching preserves Korean query terms when common case or conjunction particles, including
 `와` and `과`, are attached, so compound comparisons retain every requested semantic class.
 

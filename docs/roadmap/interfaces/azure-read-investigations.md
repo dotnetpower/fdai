@@ -235,13 +235,16 @@ appropriately scoped reader identity. Neither the browser nor the narrator can s
 2. If ARG returns no health rows, list current Resource Health availability statuses for the
   configured subscription or each allowed resource group through the official ARM endpoint. A
   failed scope remains explicitly unavailable.
-3. For explicit platform-impact intent, query active `ServiceHealthResources` events and their
+3. For resource-health history intent, query `HealthResources` availability statuses and resource
+  annotations under the catalog-parsed lookback, capped at 24 hours. Merge them by occurrence time
+  and classify each event as `customer-initiated`, `status-only`, or `platform-initiated`.
+4. For explicit platform-impact intent, query active `ServiceHealthResources` events and their
   bounded impacted-resource rows. Separate `ServiceIssue`, `PlannedMaintenance`, and
   `HealthAdvisory` counts before rendering.
-4. For diagnosis intent that isn't platform impact, select up to 16 supported resources for
+5. For diagnosis intent that isn't platform impact, select up to 16 supported resources for
   representative Azure Monitor metrics.
-5. Query at most four metrics concurrently and compare them with server-owned thresholds.
-6. Return Service Health events, Resource Health causes, failed provisioning, and metric
+6. Query at most four metrics concurrently and compare them with server-owned thresholds.
+7. Return Service Health events, Resource Health causes and history, failed provisioning, and metric
   candidates with unsupported, unavailable, and truncated counts.
 
 The initial metric map covers VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU,
@@ -251,6 +254,9 @@ conclusion. Service Health rows expose bounded event type, title, level, start t
 resource projections without raw event or resource IDs. A
 customer-initiated Resource Health state is explained as user- or automation-initiated rather than
 an Azure platform incident, but the actor remains unknown until Activity Log evidence is collected.
+Historical reads don't fall back to the current ARM availability endpoint. They preserve the exact
+lookback, chronological order, three-way cause counts, partial source failures, and truncation, so a
+current status cannot be presented as a historical event.
 For an explicit status collection, the terminal answer renders every requested catalog state in
 request order, including a grounded empty group, and lists only findings whose normalized state
 belongs to that group. A concrete family query prefilters `Resources` and `HealthResources` by the
