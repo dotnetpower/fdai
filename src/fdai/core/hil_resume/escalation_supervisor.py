@@ -105,6 +105,7 @@ class HumanNonResponseSupervisor:
         self._eligibility = eligibility or _AllowAllEligibility()
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._actor = actor
+        self._scan_offset = 0
 
     def attach(
         self,
@@ -190,7 +191,7 @@ class HumanNonResponseSupervisor:
 
     async def tick(self, *, at: datetime | None = None) -> EscalationTickResult:
         now = _aware(at or self._clock())
-        parks = await self._state_store.read_states(_PARK_PREFIX, limit=self.policy.scan_limit)
+        parks = await self._next_scan_page()
         delivered = advanced = exhausted = delivery_failed = observed = 0
         for parked in parks:
             if parked.get("status") != "pending" or not isinstance(
@@ -252,6 +253,22 @@ class HumanNonResponseSupervisor:
             delivery_failed=delivery_failed,
             observed=observed,
         )
+
+    async def _next_scan_page(self) -> tuple[Mapping[str, Any], ...]:
+        offset = self._scan_offset
+        parks, total = await self._state_store.read_state_page(
+            _PARK_PREFIX,
+            limit=self.policy.scan_limit,
+            offset=offset,
+        )
+        if total and not parks and offset:
+            offset = 0
+            parks, total = await self._state_store.read_state_page(
+                _PARK_PREFIX,
+                limit=self.policy.scan_limit,
+            )
+        self._scan_offset = (offset + len(parks)) % total if total else 0
+        return parks
 
     async def run(self, stop: asyncio.Event) -> None:
         while not stop.is_set():

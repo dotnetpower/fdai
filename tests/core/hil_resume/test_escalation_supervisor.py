@@ -110,6 +110,33 @@ async def test_delivery_then_non_response_advances_once_under_concurrent_ticks()
     assert parked["action"] == _park(now)["action"]
 
 
+async def test_bounded_scan_rotates_across_pending_parks() -> None:
+    now = datetime(2026, 8, 1, tzinfo=UTC)
+    store = InMemoryStateStore()
+    channel = InMemoryHilChannel()
+    supervisor = HumanNonResponseSupervisor(
+        state_store=store,
+        channel=channel,
+        policy=EscalationPolicy(scan_limit=1, mode=Mode.ENFORCE),
+        clock=lambda: now,
+    )
+    for suffix in ("1", "2"):
+        pending = _park(now)
+        pending["approval_id"] = f"approval-{suffix}"
+        pending["idempotency_key"] = f"action-{suffix}"
+        pending["action"] = {**dict(pending["action"]), "action_id": f"action-{suffix}"}
+        await store.write_state(
+            f"hil_park:approval-{suffix}",
+            supervisor.attach(pending, rungs=_rungs(), now=now),
+        )
+
+    first = await supervisor.tick(at=now)
+    second = await supervisor.tick(at=now)
+
+    assert first.delivered == second.delivered == 1
+    assert {request.approval_id for request in channel.sent} == {"approval-1", "approval-2"}
+
+
 async def test_concurrent_initial_ticks_send_one_request() -> None:
     now = datetime(2026, 8, 1, tzinfo=UTC)
     channel = BlockingSendChannel()

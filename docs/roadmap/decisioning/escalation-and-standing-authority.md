@@ -26,8 +26,9 @@ existing single-pass control loop.
 > `HilResumeCoordinator` ladder handoff are implemented. They CAS-claim delivery, distinguish
 > channel failure from human silence, verify action integrity and rung eligibility, and record due
 > observations without sending or advancing in shadow mode. The runtime starts the shadow worker,
-> and terminal HIL decisions use one CAS winner. Urgency compression, standing-authority catalogs,
-> and production promotion have not landed.
+> terminal HIL decisions use one CAS winner, and bounded scans rotate across pending pages so older
+> approvals don't starve. Urgency compression, standing-authority catalogs, and production
+> promotion have not landed.
 
 ## What this doc covers
 
