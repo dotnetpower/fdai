@@ -103,6 +103,12 @@ then join only declared links. Preserve the ontology release digest, source wate
 truncation reason, redaction summary, and freshness state. Do not expose free-form graph queries to
 the browser.
 
+If a source family is unavailable, unauthorized, timed out, or behind its freshness ceiling, its
+projection returns an explicit unavailable receipt with source, reason, last successful watermark,
+and retry guidance. It never substitutes a stale cache as current or infers missing objects. Other
+source families may remain visible, but requests that depend on the unavailable source are disabled
+server-side until authoritative state can be re-read.
+
 ## Operational requests
 
 ### Reuse domain request schemas

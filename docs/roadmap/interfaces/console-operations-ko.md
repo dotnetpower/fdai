@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 3e9366361aae5dfb82391a57f9fc41ac4d563d5a
+translation_source_sha: c51deafe4711a5442ef6176ac9f122109d7a6c9d
 translation_revised: 2026-08-01
 ---
 
@@ -103,6 +103,12 @@ API response는 기존 도메인 projection의 discriminated union으로 구현�
 명시적인 `as_of` cutoff에서 source family별 bounded `ObjectSet` definition을 materialize한 뒤 선언된
 link만 join합니다. Ontology release digest, source watermark, cutoff, truncation reason, redaction summary,
 freshness state를 보존합니다. 브라우저에 free-form graph query를 노출하지 않습니다.
+
+Source family가 unavailable, unauthorized, timeout 상태이거나 freshness ceiling을 넘으면 source,
+reason, last successful watermark, retry guidance를 포함한 explicit unavailable receipt를 반환합니다.
+Stale cache를 current 상태로 대체하거나 누락된 object를 추론하지 않습니다. 다른 source family는 계속
+표시할 수 있지만 unavailable source에 의존하는 요청은 authoritative state를 다시 읽을 때까지 server
+side에서 비활성화합니다.
 
 ## 운영 요청
 
