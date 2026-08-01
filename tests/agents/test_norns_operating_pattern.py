@@ -67,6 +67,8 @@ async def test_balanced_operating_cohort_reaches_mimir_guard() -> None:
         "object.rule-candidate",
         {
             "producer_principal": "Norns",
+            "correlation_id": "norns:operating-pattern",
+            "idempotency_key": "rule-candidate:operating-pattern",
             **candidate,
             "norns_consensus": {
                 "decision": "propose",

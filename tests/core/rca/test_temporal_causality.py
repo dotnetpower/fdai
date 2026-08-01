@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -104,3 +104,28 @@ def test_feature_cutoff_rejects_future_sample_leakage() -> None:
             feature_cutoff=series.samples[-2].timestamp,
             evidence_refs=("metric-window:future",),
         )
+
+
+def test_claim_identity_normalizes_equivalent_cutoff_offsets() -> None:
+    cause = _series("request_rate", tuple(float(value) for value in _VALUES))
+    effect = _series("latency", (0.0, *(float(value * 2) for value in _VALUES[:-1])))
+    analyzer = TemporalCausalityAnalyzer(
+        TemporalCausalityConfig(lag_seconds=(3600,), min_samples=12)
+    )
+    cutoff = effect.samples[-1].timestamp
+
+    first = analyzer.analyze(
+        cause=cause,
+        effect=effect,
+        feature_cutoff=cutoff,
+        evidence_refs=("metric-window:offset",),
+    )
+    second = analyzer.analyze(
+        cause=cause,
+        effect=effect,
+        feature_cutoff=cutoff.astimezone(timezone(timedelta(hours=9))),
+        evidence_refs=("metric-window:offset",),
+    )
+
+    assert first is not None and second is not None
+    assert first.claim_id == second.claim_id

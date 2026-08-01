@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 from fdai.core.assurance_twin import (
     CausalEvidenceGrade,
@@ -34,6 +34,7 @@ def _model(
         metric="latency_p99_ms",
         status=status,
         evidence_grade=grade,
+        causal_evidence_receipt_digest="a" * 64,
         learned_at=_NOW,
         learned_through=learned_through,
         bias_correction=bias,
@@ -194,3 +195,25 @@ def test_simulation_identity_binds_snapshot_time_and_raw_branch_values() -> None
     )
 
     assert len({first.simulation_id, changed_value.simulation_id, changed_time.simulation_id}) == 3
+
+
+def test_simulation_identity_normalizes_equivalent_timestamp_offsets() -> None:
+    model = _model(action_type="noop", status=EffectModelStatus.ACTIVE)
+    branch = (SimulationBranch("noop", "noop", 100.0, 5.0),)
+    utc_result = simulate_effect_branches(
+        snapshot=SimulationSnapshot("snapshot-1", "0" * 64, "latency_p99_ms", _NOW),
+        branches=branch,
+        active_models={"noop": model},
+    )
+    offset_result = simulate_effect_branches(
+        snapshot=SimulationSnapshot(
+            "snapshot-1",
+            "0" * 64,
+            "latency_p99_ms",
+            _NOW.astimezone(timezone(timedelta(hours=9))),
+        ),
+        branches=branch,
+        active_models={"noop": model},
+    )
+
+    assert utc_result.simulation_id == offset_result.simulation_id

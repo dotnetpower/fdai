@@ -7,7 +7,7 @@ import json
 import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 
 from fdai.core.assurance_twin import DynamicSimulationRequest, SimulationBranch, SimulationSnapshot
@@ -27,6 +27,7 @@ _MAX_POINTS = 512
 _MAX_EVIDENCE_REFS = 64
 _MAX_BRANCHES = 32
 _MAX_CONTEXT_ITEMS = 32
+_MAX_TEMPORAL_LOOKBACK = timedelta(days=31)
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,9 +165,17 @@ class AzureCurrentReuseVerifier:
         *,
         snapshots: AzureOperationalSnapshotSource,
         safety: AzureReuseSafetyEvaluator,
+        max_snapshot_age: timedelta = timedelta(minutes=5),
+        max_future_skew: timedelta = timedelta(minutes=1),
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
+        if max_snapshot_age <= timedelta(0) or max_future_skew < timedelta(0):
+            raise ValueError("Azure current snapshot freshness bounds are invalid")
         self._snapshots = snapshots
         self._safety = safety
+        self._max_snapshot_age = max_snapshot_age
+        self._max_future_skew = max_future_skew
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def verify(
         self,
@@ -181,6 +190,13 @@ class AzureCurrentReuseVerifier:
             raise ValueError("current Azure operational snapshot is unavailable")
         if snapshot.resource_ref.casefold() != resource_ref.casefold():
             raise ValueError("current Azure operational snapshot target changed")
+        _require_current_snapshot(
+            snapshot,
+            evaluated_at=_evaluation_time(self._clock),
+            max_age=self._max_snapshot_age,
+            max_future_skew=self._max_future_skew,
+            label="current Azure operational",
+        )
         fingerprint = _failure_fingerprint(event)
         checks = await self._safety.evaluate(event=event, action=action, snapshot=snapshot)
         evidence_refs = tuple(sorted({*snapshot.evidence_refs, *checks.evidence_refs}))
@@ -236,6 +252,8 @@ class AzureTemporalPolicy:
             raise ValueError("Azure temporal policy identity MUST be non-empty")
         if self.lookback <= timedelta(0):
             raise ValueError("Azure temporal policy lookback MUST be positive")
+        if self.lookback > _MAX_TEMPORAL_LOOKBACK:
+            raise ValueError("Azure temporal policy lookback exceeds 31 days")
         scores = (
             self.topological_reachability,
             self.mechanism_fit,
@@ -300,11 +318,22 @@ class AzureTemporalCausalEvidenceProvider:
             return None
         evidence_digest = _digest(
             {
-                "cause": [(sample.timestamp.isoformat(), sample.value) for sample in cause.samples],
-                "effect": [
-                    (sample.timestamp.isoformat(), sample.value) for sample in effect.samples
+                "cause_metric": policy.cause_metric,
+                "effect_metric": policy.effect_metric,
+                "mechanism": policy.mechanism,
+                "required_topology_role": policy.required_topology_role,
+                "since": since.astimezone(UTC).isoformat(),
+                "until": event.ingested_at.astimezone(UTC).isoformat(),
+                "graph_revision": snapshot.graph_digest,
+                "cause": [
+                    (sample.timestamp.astimezone(UTC).isoformat(), sample.value)
+                    for sample in cause.samples
                 ],
-                "resource_ref": resource_ref,
+                "effect": [
+                    (sample.timestamp.astimezone(UTC).isoformat(), sample.value)
+                    for sample in effect.samples
+                ],
+                "resource_ref": resource_ref.casefold(),
             }
         )
         evidence_refs = tuple(sorted({*snapshot.evidence_refs, evidence_digest}))
@@ -362,12 +391,15 @@ class AzureDynamicPolicy:
     metric: str
     objective: Literal["minimize", "maximize"] = "minimize"
     divergence_threshold: float = 0.0
+    max_snapshot_age: timedelta = timedelta(minutes=5)
 
     def __post_init__(self) -> None:
         if not self.metric:
             raise ValueError("Azure Dynamic policy metric MUST be non-empty")
         if not math.isfinite(self.divergence_threshold) or self.divergence_threshold < 0.0:
             raise ValueError("Azure Dynamic divergence threshold MUST be finite and non-negative")
+        if self.max_snapshot_age <= timedelta(0):
+            raise ValueError("Azure Dynamic max_snapshot_age MUST be positive")
 
 
 class AzureBranchEstimator(Protocol):
@@ -390,12 +422,18 @@ class AzureDynamicSimulationRequestProvider:
         snapshots: AzureOperationalSnapshotSource,
         estimator: AzureBranchEstimator,
         policies: Mapping[str, AzureDynamicPolicy],
+        max_future_skew: timedelta = timedelta(minutes=1),
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not policies:
             raise ValueError("Azure Dynamic policies MUST be non-empty")
+        if max_future_skew < timedelta(0):
+            raise ValueError("Azure Dynamic max_future_skew MUST be non-negative")
         self._snapshots = snapshots
         self._estimator = estimator
         self._policies = dict(policies)
+        self._max_future_skew = max_future_skew
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def build(
         self,
@@ -409,6 +447,16 @@ class AzureDynamicSimulationRequestProvider:
         snapshot = await self._snapshots.get(_resource_ref(event))
         if snapshot is None:
             return None
+        resource_ref = _resource_ref(event)
+        if snapshot.resource_ref.casefold() != resource_ref.casefold():
+            raise ValueError("Azure Dynamic snapshot target changed")
+        _require_current_snapshot(
+            snapshot,
+            evaluated_at=_evaluation_time(self._clock),
+            max_age=policy.max_snapshot_age,
+            max_future_skew=self._max_future_skew,
+            label="Azure Dynamic",
+        )
         branches = await self._estimator.estimate(
             event=event,
             action=action,
@@ -420,7 +468,7 @@ class AzureDynamicSimulationRequestProvider:
         return DynamicSimulationRequest(
             snapshot=SimulationSnapshot(
                 snapshot_id=f"azure:{snapshot.graph_digest}",
-                target_digest=_digest(snapshot.resource_ref),
+                target_digest=_digest(snapshot.resource_ref.casefold()),
                 metric=policy.metric,
                 observed_at=snapshot.observed_at,
             ),
@@ -451,6 +499,8 @@ async def _metric_series(
         if len(points) > _MAX_POINTS:
             raise ValueError("Azure temporal metric points exceed their limit")
     points.sort(key=lambda item: item.at)
+    if any(point.at.tzinfo is None or point.at < since or point.at > until for point in points):
+        raise ValueError("Azure temporal metric provider returned out-of-window points")
     if any(
         point.metric_name != metric
         or point.labels.get("resource_id", "").casefold() != resource_ref.casefold()
@@ -472,6 +522,25 @@ def _resource_ref(event: Event) -> str:
     if isinstance(resource, Mapping) and isinstance(resource.get("id"), str):
         return str(resource["id"])
     raise ValueError("Azure operational evidence requires an exact resource_ref")
+
+
+def _evaluation_time(clock: Callable[[], datetime]) -> datetime:
+    value = clock()
+    if not isinstance(value, datetime) or value.tzinfo is None:
+        raise TypeError("Azure operational evidence clock MUST return an aware datetime")
+    return value
+
+
+def _require_current_snapshot(
+    snapshot: AzureOperationalSnapshot,
+    *,
+    evaluated_at: datetime,
+    max_age: timedelta,
+    max_future_skew: timedelta,
+    label: str,
+) -> None:
+    if not (evaluated_at - max_age <= snapshot.observed_at <= evaluated_at + max_future_skew):
+        raise ValueError(f"{label} snapshot is stale or future-skewed")
 
 
 def _failure_fingerprint(event: Event) -> FailureFingerprint:

@@ -103,9 +103,11 @@ Leading indicators trigger investigation before a lagging guard metric regresses
   interval, and the scenario-set version. Differences within the confidence interval are
   reported as "no measured change", not as an improvement.
 - **Operational promotion evidence**: bind frozen benchmark and live-shadow samples to one full
-  FDAI revision and scenario-set version. The Wilson 95% accuracy lower bound, live-only observed
-  days, zero policy escapes, rollback, recurrence, causal grade, and Dynamic review gates must all
-  pass. A ready receipt permits a separate review; it never promotes by itself.
+  FDAI revision, ActionType digest, scenario case, and authoritative measurement unit. Latest
+  corrections replace prior rows without changing cohort, scenario, observation time, or causal
+  lineage. Separate frozen/live Wilson 95% lower bounds, distinct live days, zero escapes,
+  executed-action rollback and complete recurrence windows, verified causal receipts, and Dynamic
+  review must pass. Raw metrics cannot promote; a verified receipt permits a separate review only.
 - **Fairness**: baseline and treatment run the same scenarios, the same input distribution, and
   the same measurement window; the reference agent is not deliberately handicapped.
 

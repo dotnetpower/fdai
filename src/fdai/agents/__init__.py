@@ -25,6 +25,7 @@ from fdai.agents._framework.base import (
 )
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, AgentHandlerPhase
+from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings
 from fdai.agents._framework.conversation_prompt import (
     BASELINE_LAYER_IDS,
     CONSTRAINT_LAYER_IDS,
@@ -88,6 +89,7 @@ __all__ = [
     "SemanticToolPlanner",
     "agent_state_evidence_ref",
     "Bragi",
+    "CatalogReviewBindings",
     "ComposedConversationPrompt",
     "ConversationCharter",
     "ConversationSituation",

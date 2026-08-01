@@ -48,8 +48,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from math import isfinite
-from typing import Literal
+from typing import Literal, Protocol
 
+from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.shared.contracts.models import (
     Action,
@@ -107,6 +108,33 @@ class ActionModeRecord:
     promoted_at: datetime | None = None
     demoted_at: datetime | None = None
     metrics: PromotionMetrics | None = None
+    promotion_evidence_digest: str | None = None
+    fdai_revision: str | None = None
+    scenario_set_version: str | None = None
+    action_type_version: str | None = None
+    action_type_digest: str | None = None
+
+
+class OperationalPromotionReceiptVerifier(Protocol):
+    def verify(
+        self,
+        *,
+        action_type: OntologyActionType,
+        receipt: OperationalPromotionReceipt,
+    ) -> bool: ...
+
+
+class PersistedPromotionAuthorityVerifier(Protocol):
+    async def verify(
+        self,
+        *,
+        action_type: str,
+        action_type_version: str,
+        action_type_digest: str,
+        evidence_digest: str,
+        fdai_revision: str,
+        scenario_set_version: str,
+    ) -> bool: ...
 
 
 class ActionPromotionRegistry:
@@ -118,8 +146,15 @@ class ActionPromotionRegistry:
     catalog edit.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        receipt_verifier: OperationalPromotionReceiptVerifier | None = None,
+        allow_legacy_metrics: bool = False,
+    ) -> None:
         self._records: dict[str, ActionModeRecord] = {}
+        self._receipt_verifier = receipt_verifier
+        self._allow_legacy_metrics = allow_legacy_metrics
 
     def mode_of(self, action_type: str) -> Mode:
         record = self._records.get(action_type)
@@ -133,6 +168,7 @@ class ActionPromotionRegistry:
         *,
         action_type: OntologyActionType,
         metrics: PromotionMetrics,
+        receipt: OperationalPromotionReceipt | None = None,
     ) -> ActionModeRecord:
         """Promote the ActionType if metrics clear its ``promotion_gate``.
 
@@ -147,18 +183,51 @@ class ActionPromotionRegistry:
             )
         gate = action_type.promotion_gate
         now = datetime.now(tz=UTC)
-        passes = (
+        metric_passes = (
             metrics.shadow_days >= gate.min_shadow_days
             and metrics.samples >= gate.min_samples
             and metrics.accuracy >= gate.min_accuracy
             and metrics.policy_escapes <= gate.max_policy_escapes
         )
+        receipt_passes = False
+        if receipt is not None and self._receipt_verifier is not None:
+            receipt_passes = (
+                receipt.ready
+                and receipt.action_type_name == action_type.name
+                and receipt.action_type_version == action_type.version
+                and action_type.provenance is not None
+                and receipt.action_type_digest
+                == action_type.provenance.content_hash.removeprefix("sha256:")
+                and receipt.live_observation_days == metrics.shadow_days
+                and receipt.sample_count == metrics.samples
+                and receipt.accuracy == metrics.accuracy
+                and receipt.policy_escapes == metrics.policy_escapes
+                and self._receipt_verifier.verify(
+                    action_type=action_type,
+                    receipt=receipt,
+                )
+            )
+        passes = metric_passes and (
+            receipt_passes or (receipt is None and self._allow_legacy_metrics)
+        )
         if passes:
+            prior = self._records.get(action_type.name)
+            same_authority = (
+                prior is not None
+                and prior.mode is Mode.ENFORCE
+                and prior.promotion_evidence_digest
+                == (receipt.evidence_digest if receipt else None)
+            )
             record = ActionModeRecord(
                 action_type=action_type.name,
                 mode=Mode.ENFORCE,
-                promoted_at=now,
+                promoted_at=(prior.promoted_at if same_authority and prior is not None else now),
                 metrics=metrics,
+                promotion_evidence_digest=(receipt.evidence_digest if receipt else None),
+                fdai_revision=(receipt.fdai_revision if receipt else None),
+                scenario_set_version=(receipt.scenario_set_version if receipt else None),
+                action_type_version=(receipt.action_type_version if receipt else None),
+                action_type_digest=(receipt.action_type_digest if receipt else None),
             )
         else:
             prior = self._records.get(action_type.name)
@@ -169,6 +238,11 @@ class ActionPromotionRegistry:
                 promoted_at=(prior.promoted_at if prior else None),
                 demoted_at=demoted_at,
                 metrics=metrics,
+                promotion_evidence_digest=(receipt.evidence_digest if receipt else None),
+                fdai_revision=(receipt.fdai_revision if receipt else None),
+                scenario_set_version=(receipt.scenario_set_version if receipt else None),
+                action_type_version=(receipt.action_type_version if receipt else None),
+                action_type_digest=(receipt.action_type_digest if receipt else None),
             )
         self._records[action_type.name] = record
         return record

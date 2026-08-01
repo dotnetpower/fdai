@@ -419,11 +419,21 @@ clean (see the fork model in
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
 - **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,
-  graph, owner, policy, dry-run, and safety facts for an immutable operational case. It grants no
-  execution authority. An absent binding makes operational reuse abstain while legacy patterns continue.
+  graph, owner, policy, dry-run, and safety facts for an immutable operational case. Azure cache
+  freshness is evaluated against the current evaluation clock with bounded age and future skew,
+  so a recent pre-event cache can pass while historical replay cannot revive stale evidence.
+  Learned signatures bind canonical parameters and the complete operational-case context. The
+  verifier grants no execution authority. An absent binding makes operational reuse abstain while
+  legacy patterns continue.
 - **Causal and Dynamic runtime evidence**: `TemporalCausalEvidenceProvider` supplies bounded
   pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-
-  state branches. Both are read-only; absent bindings disable their shadow side paths.
+  state branches. `CausalHypothesisProjection` stays Forseti-owned, and model grades require an
+  `EffectModelCausalEvidenceVerifier`. Dynamic models cannot use outcomes later than the simulation
+  snapshot, and current snapshots use evaluation-clock freshness. These seams are read-only; absent
+  bindings disable shadow paths.
+- **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
+  `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
+  shadow without them; raw scalar metrics are a test-only legacy fixture mode.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
   inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
   estimator, and effect-model reader. Partial binding fails at container construction.

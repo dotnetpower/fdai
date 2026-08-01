@@ -100,10 +100,31 @@ def test_confirmed_closure_requires_independent_outcome_and_becomes_intervention
         closure=CausalClosure.CONFIRMED,
         outcome_ref="outcome-1",
         created_at=_NOW + timedelta(seconds=1),
+        interventional_evidence_ref="a" * 64,
     )
     assert closed.evidence_grade is CausalEvidenceGrade.INTERVENTIONAL
     assert closed.to_ontology_object().object_type == "CausalHypothesis"
     assert closed.to_ontology_object().properties["closure"] == "confirmed"
+
+
+def test_confirmed_closure_rejects_missing_interventional_receipt() -> None:
+    with pytest.raises(ValueError, match="interventional evidence"):
+        close_causal_hypothesis(
+            _hypothesis(),
+            closure=CausalClosure.CONFIRMED,
+            outcome_ref="outcome-1",
+            created_at=_NOW + timedelta(seconds=1),
+        )
+
+
+def test_hypothesis_revision_identity_binds_evidence_and_is_order_independent() -> None:
+    first = _hypothesis(supporting_refs=("event:b", "event:a"))
+    reordered = _hypothesis(supporting_refs=("event:a", "event:b"))
+    changed = _hypothesis(supporting_refs=("event:a",))
+
+    assert first.hypothesis_id == reordered.hypothesis_id
+    assert first.hypothesis_id != changed.hypothesis_id
+    assert first.created_at == _NOW
 
 
 @pytest.mark.parametrize("value", [-0.1, 1.1, float("nan"), float("inf")])

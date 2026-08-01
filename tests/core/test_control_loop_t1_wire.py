@@ -32,6 +32,7 @@ from fdai.core.executor import (
 )
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.tiers.t0_deterministic import RuleIndex, T0Engine
+from fdai.core.tiers.t1_lightweight import CurrentReuseVerification
 from fdai.core.tiers.t1_lightweight.testing import (
     DeterministicEmbeddingModel,
     InMemoryPatternLibrary,
@@ -207,6 +208,23 @@ async def test_write_t1_audit_records_the_full_verdict(tmp_path: Path) -> None:
         best_match=best,
         reason=None,
         reasons=(),
+        current_reuse_verification=CurrentReuseVerification(
+            case_ref=f"case-history:case-a:1:{'a' * 64}",
+            observed_at=datetime.now(tz=UTC),
+            evidence_refs=("b" * 64,),
+            failure_fingerprint="c" * 64,
+            resource_type="compute.vm.novel",
+            topology_role="hosts",
+            graph_digest="d" * 64,
+            owner_digest="e" * 64,
+            preconditions_passed=True,
+            target_identity_verified=True,
+            blast_radius_within_limit=True,
+            policy_allowed=True,
+            dry_run_passed=True,
+            idempotency_available=True,
+            rollback_resolved=True,
+        ),
     )
     await loop._write_t1_audit(event=event, decision=routing, t1=t1)  # noqa: SLF001 - test hook
 
@@ -225,6 +243,10 @@ async def test_write_t1_audit_records_the_full_verdict(tmp_path: Path) -> None:
         "success_rate": 0.9,
     }
     assert row["resource_type"] == "compute.vm.novel"
+    verification = row["t1_current_reuse_verification"]
+    assert verification["case_ref"].startswith("case-history:case-a")
+    assert verification["evidence_refs"] == ["b" * 64]
+    assert verification["policy_allowed"] is True
 
 
 @pytest.mark.asyncio
@@ -311,8 +333,43 @@ async def test_dynamic_simulation_is_shadow_audited_without_execution(
     assert row["mode"] == "shadow"
     assert row["simulation_requires_review"] is True
     assert row["simulation_reason"] == (
-        "simulation_failed" if raises else "simulation_request_unavailable"
+        "simulation_failed:RuntimeError" if raises else "simulation_request_unavailable"
     )
+
+
+async def test_successful_simulation_with_audit_failure_is_not_reclassified(
+    tmp_path: Path,
+    caplog,
+) -> None:
+    loop = _make_loop(
+        t1_engine=None,
+        audit=_FailingAudit(),  # type: ignore[arg-type]
+        tmp_path=tmp_path,
+        dynamic_runtime_coordinator=_DynamicCoordinator(raises=False),
+    )
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-audit-failure"))
+    assert event is not None
+    learned = LearnedAction(
+        signature="sig-1",
+        rule_id="ops.legacy.restart",
+        action_type="ops.restart-service",
+        params={},
+        incident_id="inc-01",
+        success_rate=0.9,
+    )
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id=str(event.event_id),
+        threshold=0.7,
+        best_match=SimilarityMatch(action=learned, score=0.9),
+    )
+
+    await loop._simulate_and_audit_dynamic(event=event, t1=t1)  # noqa: SLF001
+
+    record = next(
+        item for item in caplog.records if item.message == "dynamic_simulation_audit_failed"
+    )
+    assert record.simulation_reason == "simulation_request_unavailable"
 
 
 async def test_dynamic_simulation_and_audit_double_failure_is_isolated(tmp_path: Path) -> None:

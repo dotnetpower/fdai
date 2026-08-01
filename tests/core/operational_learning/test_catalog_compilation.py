@@ -237,6 +237,17 @@ def test_oversized_transport_metadata_is_rejected() -> None:
         _compiler().compile(candidate)
 
 
+def test_deep_transport_metadata_is_rejected_before_serialization() -> None:
+    candidate = _candidate()
+    nested: object = "leaf"
+    for _ in range(20):
+        nested = [nested]
+    candidate["correlation_id"] = nested
+
+    with pytest.raises(CatalogCompilationError, match="candidate_wire_too_large"):
+        _compiler().compile(candidate)
+
+
 @pytest.mark.parametrize("failed_check", ["schema", "replay", "shadow", "policy"])
 def test_any_absent_or_failed_check_fails_closed(failed_check: str) -> None:
     class _FailingValidator(_PassingValidator):

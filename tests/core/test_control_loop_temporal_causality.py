@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
@@ -86,4 +87,22 @@ async def test_temporal_causal_runtime_is_not_called_without_incident() -> None:
     await host._analyze_and_audit_temporal_causality(event=_event(), incident_id=None)
 
     assert coordinator.calls == []
+    assert audit.entries == []
+
+
+async def test_temporal_causal_runtime_timeout_does_not_block_decision_path() -> None:
+    class _BlockingCoordinator:
+        async def analyze(self, *, event: Event, incident_id: str) -> CausalRuntimeResult:
+            await asyncio.Event().wait()
+            raise AssertionError("unreachable")
+
+    audit = _Audit()
+    host = _Host(audit, _BlockingCoordinator())
+    host._rca_side_path_timeout_seconds = 0.001
+
+    await host._analyze_and_audit_temporal_causality(
+        event=_event(),
+        incident_id="incident-1",
+    )
+
     assert audit.entries == []

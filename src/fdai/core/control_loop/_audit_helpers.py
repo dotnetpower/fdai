@@ -100,6 +100,7 @@ async def write_t1_audit(
     t1: T1Decision,
 ) -> None:
     best = t1.best_match
+    verification = t1.current_reuse_verification
     best_summary: dict[str, Any] | None = None
     if best is not None:
         best_summary = {
@@ -123,6 +124,27 @@ async def write_t1_audit(
             "t1_reason": t1.reason,
             "t1_reasons": list(t1.reasons),
             "t1_best_match": best_summary,
+            "t1_current_reuse_verification": (
+                {
+                    "case_ref": verification.case_ref,
+                    "observed_at": verification.observed_at.isoformat(),
+                    "evidence_refs": list(verification.evidence_refs),
+                    "failure_fingerprint": verification.failure_fingerprint,
+                    "resource_type": verification.resource_type,
+                    "topology_role": verification.topology_role,
+                    "graph_digest": verification.graph_digest,
+                    "owner_digest": verification.owner_digest,
+                    "preconditions_passed": verification.preconditions_passed,
+                    "target_identity_verified": verification.target_identity_verified,
+                    "blast_radius_within_limit": verification.blast_radius_within_limit,
+                    "policy_allowed": verification.policy_allowed,
+                    "dry_run_passed": verification.dry_run_passed,
+                    "idempotency_available": verification.idempotency_available,
+                    "rollback_resolved": verification.rollback_resolved,
+                }
+                if verification is not None
+                else None
+            ),
             "resource_type": decision.resource_type,
             "recorded_at": datetime.now(tz=UTC).isoformat(),
         }

@@ -29,8 +29,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
-from datetime import datetime
+from dataclasses import dataclass
 from typing import Any, Final
 
 import psycopg
@@ -194,7 +193,10 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                         source_incident_id      = EXCLUDED.source_incident_id,
                         historical_success_rate = EXCLUDED.historical_success_rate,
                         reuse_count             = EXCLUDED.reuse_count,
-                        operational_case        = EXCLUDED.operational_case
+                        operational_case        = COALESCE(
+                            EXCLUDED.operational_case,
+                            t1_pattern_library.operational_case
+                        )
                     """,
                     (
                         action.signature,
@@ -269,9 +271,7 @@ def _coerce_params(value: Any) -> Mapping[str, Any]:
 def _encode_operational_case(context: OperationalCaseContext | None) -> str | None:
     if context is None:
         return None
-    value = asdict(context)
-    value["evidence_cutoff"] = context.evidence_cutoff.isoformat()
-    return json.dumps(value, separators=(",", ":"), sort_keys=True)
+    return json.dumps(context.to_mapping(), separators=(",", ":"), sort_keys=True)
 
 
 def _coerce_operational_case(value: Any) -> OperationalCaseContext | None:
@@ -284,33 +284,8 @@ def _coerce_operational_case(value: Any) -> OperationalCaseContext | None:
             raise RuntimeError("t1_pattern_library.operational_case is invalid JSON") from exc
     if not isinstance(value, dict):
         raise RuntimeError("t1_pattern_library.operational_case MUST be a JSON object")
-    fields = {
-        "case_ref",
-        "failure_fingerprint",
-        "resource_type",
-        "action_type",
-        "required_topology_role",
-        "graph_digest",
-        "owner_digest",
-        "evidence_cutoff",
-    }
-    if set(value) != fields:
-        raise RuntimeError("t1_pattern_library.operational_case has unexpected fields")
-    cutoff = value["evidence_cutoff"]
-    if not isinstance(cutoff, str):
-        raise RuntimeError("t1_pattern_library.operational_case cutoff MUST be a timestamp")
     try:
-        evidence_cutoff = datetime.fromisoformat(cutoff)
-        return OperationalCaseContext(
-            case_ref=str(value["case_ref"]),
-            failure_fingerprint=str(value["failure_fingerprint"]),
-            resource_type=str(value["resource_type"]),
-            action_type=str(value["action_type"]),
-            required_topology_role=str(value["required_topology_role"]),
-            graph_digest=str(value["graph_digest"]),
-            owner_digest=str(value["owner_digest"]),
-            evidence_cutoff=evidence_cutoff,
-        )
+        return OperationalCaseContext.from_mapping(value)
     except (TypeError, ValueError) as exc:
         raise RuntimeError("t1_pattern_library.operational_case is invalid") from exc
 

@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: c22e3b00bdd1baed6209cd913e94f6fcf6ea543f
+translation_source_sha: 1b9e6519e6e079e670b1340af3c82d3c7f5d847a
 translation_revised: 2026-08-01
 ---
 # 운영 학습 온톨로지
@@ -20,11 +20,16 @@ translation_revised: 2026-08-01
 > 되지 않습니다. 재사용 단위는 redaction되고 content-addressed된 증거가 뒷받침하는
 > generic failure mechanism입니다.
 >
-> **구현 상태(2026-08-01):** O0, O1, O2는 구현되었습니다. 변경 불가능한 operational-case
+> **구현 상태(2026-08-01):** O0부터 O7까지 core contract와 runtime injection seam을 구현했습니다.
+> 변경 불가능한 operational-case
 > input은 allowlist된 audit, action, response-outcome, evaluation receipt fact를 canonical source로
 > compile하고, 기존 case-history writer가 `ACTION` 및 `INCIDENT` revision을 seal합니다. Muninn은
 > sealed projection을 failure fingerprint별로 묶고, Norns는 기존 consensus 및 rate limit 경로로
-> balanced inert candidate를 emit합니다. O3 catalog compilation과 O4 T1 reuse는 구현되지 않았습니다.
+> balanced inert candidate를 emit합니다. Operational T1 reuse는 current evidence를 요구하고 causal 및
+> Dynamic grade는 authoritative receipt를 요구하며 promotion은 verified immutable O7 receipt를 요구합니다.
+> Deployment는 O3 validator와 PR publisher, Forseti-owned causal projection, frozen/live evidence source,
+> receipt verifier를 bind해야 합니다. Mimir는 owned rule topic으로 review outcome을 emit하고 Saga는
+> owned audit topic에 이를 seal합니다.
 
 ## 한눈에 보는 설계
 
@@ -212,11 +217,11 @@ idempotency, postcondition, rollback, audit를 우회하지 않습니다.
 | O0 - Contract fixture | 구현됨: canonical operational-case 및 failure-fingerprint model과 fixture입니다. | 이름이 다른 두 환경이 같은 fingerprint를 만들고 mechanism 또는 topology 변경은 다른 fingerprint를 만듭니다. |
 | O1 - Case projection | 구현됨: immutable input, allowlist receipt compilation, projection, artifact-first writer intake, generic metadata persistence, revision backfill입니다. | Canonical digest, redaction, byte ceiling, duplicate delivery, negative-outcome, StateStore, PostgreSQL, legacy forecast compatibility test가 통과합니다. Adapter는 rule/action catalog를 쓰지 않습니다. |
 | O2 - Cohort compiler | 구현됨: Huginn이 strict operational-case event를 전달하고 Muninn이 bounded fingerprint cohort를 seal 및 저장하며 Norns가 consensus와 rate limit을 거쳐 기존 inert `RuleCandidate` mapping을 emit합니다. | 이름이 다른 같은 fingerprint case는 합류하고 다른 mechanism은 합류하지 않습니다. Success-only 및 raw `ResponseOutcome` evidence는 보류되며 balanced evidence는 immutable revision 인용과 함께 한 번만 emit됩니다. |
-| O3 - Catalog compilation | Core 구현됨: Mimir는 승인된 candidate를 draft Rule, 선택적인 explicit shadow-first `ActionType`, schema, policy, replay, shadow receipt가 포함된 immutable review package로 컴파일할 수 있습니다. Production validator 및 PR publisher binding은 deployment 작업으로 남습니다. | 실패하거나 충돌하는 receipt는 candidate를 quarantine합니다. Operational candidate는 Mimir의 direct runtime promotion method를 사용할 수 없으며 catalog 변경은 reviewed PR을 요구합니다. |
-| O4 - T1 reuse | Core 및 persistence 구현됨: T1은 immutable operational-case context를 저장하고 injected current-evidence verifier를 받아 failure fingerprint, resource type, topology role, graph, owner, precondition, identity, blast radius, policy, dry-run, idempotency, rollback state를 다시 확인합니다. Concrete Kubernetes 및 Azure collector는 O5/O6 binding입니다. | Verifier 또는 evidence 누락, stale 또는 변경된 context, safety check 실패는 mutation 없이 항상 검토 보류됩니다. Legacy incident pattern은 기존 동작을 유지합니다. |
+| O3 - Catalog compilation | Core 구현됨: Mimir는 승인된 candidate를 draft Rule, 선택적인 explicit shadow-first `ActionType`, schema, policy, replay, shadow receipt가 포함된 immutable review package로 컴파일할 수 있습니다. Production validator와 PR publisher는 deployment 작업으로 남고 Norns는 stable wire identity를 제공합니다. | 실패하거나 충돌하는 receipt는 candidate를 quarantine합니다. Concurrent retry는 한 번만 publish하고 unresolved capacity는 eviction 없이 backpressure하며 successful publication은 Saga-owned audit 후 in-memory package state를 compact합니다. Operational candidate는 direct runtime promotion을 사용할 수 없습니다. |
+| O4 - T1 reuse | Core 및 persistence 구현됨: T1은 immutable operational-case context를 저장하고 injected current-evidence verifier를 받아 failure fingerprint, resource type, topology role, graph, owner, precondition, identity, blast radius, policy, dry-run, idempotency, rollback state를 다시 확인합니다. Signature는 canonical parameter와 full case context를 bind합니다. Concrete Kubernetes 및 Azure collector는 O5/O6 binding입니다. | Verifier 또는 evidence 누락, stale 또는 변경된 context, safety check 실패는 mutation 없이 항상 검토 보류됩니다. Azure는 evaluation clock 기준 bounded cache age를 평가하면서 event ingestion 직전 recent cache를 허용합니다. Legacy incident pattern은 기존 동작을 유지합니다. |
 | O5 - AKS delivery | 구현 및 non-production live 검증 완료: 기존 Kubernetes 및 Azure read seam이 current reuse, temporal causality, Dynamic request에 evidence를 제공합니다. One-pod invalid-image fault는 server dry-run, isolated namespace, 45초 observation window를 사용했습니다. | Kubernetes는 `ErrImagePull` 및 `ImagePullBackOff`를 보고했고 Azure Monitor는 pod `Pending`, Log Analytics는 pull failure와 terminating evidence, Activity Log는 cluster lifecycle을 보존했습니다. Namespace 삭제로 rollback을 완료하고 one-node cluster는 `Stopped` / `Succeeded`로 돌아갔습니다. Production은 unavailable로 유지했습니다. |
 | O6 - Azure resource absorption | 구현됨: strict promoted-inventory snapshot과 configured Azure metric이 Kubernetes 및 non-Kubernetes resource type에 generic current-reuse, causal, Dynamic evidence binding을 제공합니다. | Read-only non-production Container App drill에서 healthy active revision 1개, replica 1개, restart 0회, administrative write 없이 동일한 pre/post state를 관측했습니다. Unit evidence는 benchmark import 없이 policy/precondition/dry-run fail-closed, ontology projection, bounded query, deterministic restart replay를 증명합니다. |
-| O7 - Promotion measurement | 구현됨: immutable FDAI revision 및 scenario-set batch가 frozen benchmark와 live-shadow cohort를 결합합니다. Audited runner는 promotion state를 변경하지 않고 Wilson 95% accuracy bound, live-only observation day, rollback, recurrence, policy escape, causal grade, Dynamic review rate를 측정합니다. | 모든 action별 gate가 통과해야 별도 promotion review가 가능합니다. 현재 live drill은 binding을 증명하지만 필요한 action-specific observation day와 confidence sample size를 제공하지 않으므로 promotion은 hold 상태입니다. |
+| O7 - Promotion measurement | Core 구현됨: immutable FDAI revision, ActionType digest, scenario case, authoritative measurement unit 및 latest correction이 frozen benchmark와 live-shadow cohort를 결합합니다. Correction은 cohort, case, observation time, causal lineage를 바꿀 수 없습니다. Audited idempotent runner는 separate Wilson 95% cohort bound, distinct live day, executed-action rollback과 complete recurrence window, zero escape, verified causal receipt, Dynamic review rate를 측정합니다. Deployment는 evidence source와 receipt/unit verifier를 bind합니다. | Raw scalar metric은 promote할 수 없습니다. Failed evaluation audit은 이후 successful receipt를 막지 않고 repeated receipt는 original promotion time을 보존하며 persisted enforcement는 restart 후 다시 verify됩니다. 모든 action별 gate가 통과해야 별도 review가 가능하며 현재 drill은 필요한 action-specific day와 confidence sample size가 없어 hold 상태입니다. |
 
 O0부터 O4까지는 cloud-provider-neutral입니다. O5와 O6는 learned pattern이나 control-loop
 authority model을 바꾸지 않고 Azure evidence binding을 제공합니다.

@@ -36,11 +36,14 @@ from __future__ import annotations
 
 from fdai.core.measurement.dora import DeploymentObservation, DoraSummary, compute_dora
 from fdai.core.measurement.operational_promotion import (
+    CausalPromotionReceipt,
+    CausalPromotionReceiptVerifier,
     OperationalPromotionBatch,
     OperationalPromotionEvaluator,
     OperationalPromotionPolicy,
     OperationalPromotionReceipt,
     OperationalPromotionRecord,
+    OperationalPromotionUnitVerifier,
     PromotionEvidenceCohort,
 )
 from fdai.core.measurement.operational_promotion_runner import (
@@ -51,6 +54,8 @@ from fdai.core.measurement.operational_promotion_runner import (
 
 __all__ = [
     "DeploymentObservation",
+    "CausalPromotionReceipt",
+    "CausalPromotionReceiptVerifier",
     "DoraSummary",
     "OperationalPromotionBatch",
     "OperationalPromotionEvaluator",
@@ -60,6 +65,7 @@ __all__ = [
     "OperationalPromotionReceipt",
     "OperationalPromotionRecord",
     "OperationalPromotionRunResult",
+    "OperationalPromotionUnitVerifier",
     "PromotionEvidenceCohort",
     "compute_dora",
 ]

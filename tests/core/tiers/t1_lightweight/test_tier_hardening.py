@@ -77,6 +77,10 @@ async def test_out_of_range_similarity_abstains(score: float) -> None:
         ({"action_type": "\t"}, "invalid_learned_action_action_type"),
         ({"incident_id": " "}, "invalid_learned_action_incident_id"),
         ({"params": []}, "invalid_learned_action_params"),
+        (
+            {"rule_id": "learned.operational.example"},
+            "operational_case_context_missing",
+        ),
     ],
 )
 async def test_invalid_learned_action_evidence_abstains(

@@ -52,6 +52,8 @@ from fdai.core.rca.projection import CausalHypothesisProjector
 from fdai.core.rca.reasoner import RcaReasoner
 from fdai.core.rca.runtime import (
     CausalClosureObservation,
+    CausalHypothesisProjection,
+    CausalInterventionReceiptVerifier,
     CausalRuntimeCoordinator,
     CausalRuntimeOutcome,
     CausalRuntimeResult,
@@ -77,6 +79,8 @@ __all__ = [
     "CausalEvidenceAssessment",
     "CausalHypothesisRecord",
     "CausalHypothesisProjector",
+    "CausalHypothesisProjection",
+    "CausalInterventionReceiptVerifier",
     "CausalHypothesisStatus",
     "CausalIncidentGraph",
     "CausalIncidentGraphMaterializer",

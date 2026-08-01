@@ -43,6 +43,7 @@ from typing import Any, Protocol, runtime_checkable
 from fdai.shared.contracts.models import Event
 
 from .contextual_reuse import (
+    CurrentReuseVerification,
     CurrentReuseVerifier,
     OperationalCaseContext,
     contextual_reuse_reasons,
@@ -107,6 +108,7 @@ class T1Decision:
     § T1 § Learned-action reuse). Always ``True`` for :class:`T1Outcome`
     values that would drive execution - callers who ignore it are
     violating the safety contract."""
+    current_reuse_verification: CurrentReuseVerification | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +259,7 @@ class T1Tier:
             )
 
         context = best.action.operational_case
+        current_verification = None
         if context is not None:
             verifier = self._current_reuse_verifier
             contextual_reasons: tuple[str, ...]
@@ -278,6 +281,7 @@ class T1Tier:
                         context=context,
                         verification=verification,
                     )
+                    current_verification = verification
             if contextual_reasons:
                 return T1Decision(
                     outcome=T1Outcome.ABSTAIN,
@@ -295,6 +299,7 @@ class T1Tier:
             best_match=best,
             reason=None,
             reasons=(),
+            current_reuse_verification=current_verification,
         )
 
 
@@ -311,6 +316,8 @@ def _learned_action_reasons(action: LearnedAction) -> list[str]:
             reasons.append(f"invalid_learned_action_{field_name}")
     if not isinstance(action.params, Mapping):
         reasons.append("invalid_learned_action_params")
+    if action.rule_id.startswith("learned.operational.") and action.operational_case is None:
+        reasons.append("operational_case_context_missing")
     if action.reuse_count < 0:
         reasons.append("negative_reuse_count")
     return reasons

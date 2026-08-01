@@ -260,3 +260,27 @@ def test_pattern_library_len_reports_count() -> None:
     library.add(vector=[0.1] * 8, action=_action())
     library.add(vector=[0.2] * 8, action=_action(signature="s2"))
     assert len(library) == 2
+
+
+async def test_contextless_upsert_cannot_erase_operational_context() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.core.tiers.t1_lightweight import OperationalCaseContext
+
+    library = InMemoryPatternLibrary()
+    context = OperationalCaseContext(
+        case_ref=f"case-history:case-a:1:{'a' * 64}",
+        failure_fingerprint="f" * 64,
+        resource_type="kubernetes.service",
+        action_type="ops.scale-out",
+        required_topology_role="serves",
+        graph_digest="b" * 64,
+        owner_digest="c" * 64,
+        evidence_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+    contextual = _action(signature="same", operational_case=context)
+    await library.upsert_pattern(vector=[0.1] * 8, action=contextual)
+    await library.upsert_pattern(vector=[0.2] * 8, action=_action(signature="same"))
+
+    matches = await library.search([0.2] * 8, k=1)
+    assert matches[0].action.operational_case == context

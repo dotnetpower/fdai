@@ -48,6 +48,8 @@ async def test_norns_publishes_one_unanimous_consensus_result() -> None:
 
     messages = bus.messages_on("object.rule-candidate")
     assert len(messages) == 1
+    assert messages[0].payload["correlation_id"].startswith("norns:")
+    assert messages[0].payload["idempotency_key"].startswith("rule-candidate:")
     assert messages[0].payload["norns_consensus"] == {
         "decision": "propose",
         "unanimous": True,

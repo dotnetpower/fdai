@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1da9ed6a384a03b2b7d160003c4cfe41a9eaabbc
+translation_source_sha: df9f372073514fac3a973fe01111b7add571f7c7
 translation_revised: 2026-08-01
 ---
 
@@ -406,11 +406,20 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **상류의 기본 구현**: 메인 저장소는 모든 seam에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 seam만 교체합니다.
 - **현재 T1 reuse evidence**: `CurrentReuseVerifier`는 immutable operational case를 위해 fresh
-  resource, topology, graph, owner, policy, dry-run, safety fact를 수집하며 execution authority는
+  resource, topology, graph, owner, policy, dry-run, safety fact를 수집합니다. Azure cache freshness는
+  bounded age와 future skew를 사용해 current evaluation clock 기준으로 평가하므로 event 직전의 recent
+  cache는 통과할 수 있지만 historical replay가 stale evidence를 되살릴 수는 없습니다. Learned signature는
+  canonical parameter와 complete operational-case context를 bind합니다. Verifier는 execution authority를
   부여하지 않습니다. Binding이 없으면 operational reuse는 abstain하고 legacy pattern은 계속됩니다.
 - **Causal 및 Dynamic runtime evidence**: `TemporalCausalEvidenceProvider`는 bounded pre-cutoff
   series와 graph fact를 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
-  branch를 제공합니다. 둘 다 read-only이며 binding이 없으면 해당 shadow side path가 비활성화됩니다.
+  branch를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 model grade는
+  `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic model은 simulation snapshot 이후 outcome을
+  사용할 수 없고 current snapshot은 evaluation-clock freshness를 사용합니다. Binding이 없으면 shadow
+  path가 비활성화됩니다.
+- **Operational promotion authority**: `OperationalPromotionReceiptVerifier`와
+  `OperationalPromotionUnitVerifier`가 immutable evidence를 resolve합니다. Production registry는
+  이 binding 없이는 shadow를 유지하며 raw scalar metric은 test-only legacy fixture mode입니다.
 - **Azure operational evidence**: `bind_azure_operational_evidence`는 strict promoted-inventory
   snapshot reader, current safety evaluator, configured Azure metric, bounded branch estimator,
   effect-model reader를 조립합니다. Partial binding은 container construction에서 실패합니다.

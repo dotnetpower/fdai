@@ -55,7 +55,7 @@ async def test_raw_proposal_reaches_vm_runner_after_owner_approval() -> None:
         )
         if item.name == "tool.run-python-on-vm"
     )
-    promotion = ActionPromotionRegistry()
+    promotion = ActionPromotionRegistry(allow_legacy_metrics=True)
     promotion.consider_promotion(
         action_type=action_type,
         metrics=PromotionMetrics(

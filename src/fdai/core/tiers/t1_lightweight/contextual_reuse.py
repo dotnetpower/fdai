@@ -54,6 +54,46 @@ class OperationalCaseContext:
         if self.evidence_cutoff.tzinfo is None:
             raise ValueError("operational case evidence_cutoff MUST be timezone-aware")
 
+    def to_mapping(self) -> dict[str, object]:
+        return {
+            "case_ref": self.case_ref,
+            "failure_fingerprint": self.failure_fingerprint,
+            "resource_type": self.resource_type,
+            "action_type": self.action_type,
+            "required_topology_role": self.required_topology_role,
+            "graph_digest": self.graph_digest,
+            "owner_digest": self.owner_digest,
+            "evidence_cutoff": self.evidence_cutoff.isoformat(),
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, object]) -> OperationalCaseContext:
+        expected = {
+            "case_ref",
+            "failure_fingerprint",
+            "resource_type",
+            "action_type",
+            "required_topology_role",
+            "graph_digest",
+            "owner_digest",
+            "evidence_cutoff",
+        }
+        if set(value) != expected:
+            raise ValueError("operational case context has unexpected fields")
+        cutoff = value.get("evidence_cutoff")
+        if not isinstance(cutoff, str):
+            raise ValueError("operational case context cutoff MUST be a timestamp")
+        return cls(
+            case_ref=_required_text(value, "case_ref"),
+            failure_fingerprint=_required_text(value, "failure_fingerprint"),
+            resource_type=_required_text(value, "resource_type"),
+            action_type=_required_text(value, "action_type"),
+            required_topology_role=_required_text(value, "required_topology_role"),
+            graph_digest=_required_text(value, "graph_digest"),
+            owner_digest=_required_text(value, "owner_digest"),
+            evidence_cutoff=datetime.fromisoformat(cutoff.replace("Z", "+00:00")),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class CurrentReuseVerification:
@@ -136,10 +176,7 @@ def contextual_reuse_reasons(
         reasons.append("operational_case_action_type_changed")
     if verification.case_ref != context.case_ref:
         reasons.append("current_case_ref_conflict")
-    if (
-        verification.observed_at < event.ingested_at
-        or verification.observed_at <= context.evidence_cutoff
-    ):
+    if verification.observed_at <= context.evidence_cutoff:
         reasons.append("current_evidence_stale")
     if (
         event_resource_type != context.resource_type
@@ -174,6 +211,13 @@ def _event_resource_type(event: Event) -> str:
         return ""
     resource_type = resource.get("type")
     return resource_type if isinstance(resource_type, str) else ""
+
+
+def _required_text(value: Mapping[str, object], key: str) -> str:
+    item = value.get(key)
+    if not isinstance(item, str) or not item:
+        raise ValueError(f"operational case context {key} MUST be non-empty")
+    return item
 
 
 __all__ = [

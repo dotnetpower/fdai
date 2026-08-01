@@ -97,7 +97,7 @@ def _promoted_action_registry() -> ActionPromotionRegistry:
         (_ROOT / "rule-catalog/action-types/ops.scale-out.yaml").read_text(encoding="utf-8")
     )
     action = OntologyActionType.model_validate(raw)
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     record = registry.consider_promotion(
         action_type=action,
         metrics=PromotionMetrics(

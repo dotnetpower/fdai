@@ -42,7 +42,6 @@ from fdai.core.quality_gate import (
 )
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rca import (
-    CausalHypothesisProjector,
     CausalRuntimeCoordinator,
     KnowledgeEvidenceGatherer,
     RcaCoordinator,
@@ -334,11 +333,17 @@ def _build_control_loop(
     if os.environ.get("FDAI_STATE_STORE_DSN", "").strip():
         from fdai.delivery.persistence import StateStoreActionPromotionRegistry
 
-        durable_registry = StateStoreActionPromotionRegistry(store=audit_store)
+        durable_registry = StateStoreActionPromotionRegistry(
+            store=audit_store,
+            receipt_verifier=container.operational_promotion_receipt_verifier,
+            persisted_authority_verifier=container.persisted_promotion_authority_verifier,
+        )
         promotion_registry = durable_registry
         promotion_state_refresher = durable_registry.refresh
     else:
-        promotion_registry = ActionPromotionRegistry()
+        promotion_registry = ActionPromotionRegistry(
+            receipt_verifier=container.operational_promotion_receipt_verifier,
+        )
     risk_gate = RiskGate(
         registry=promotion_registry,
         exemption_registry=container.exemption_registry,
@@ -477,22 +482,30 @@ def _build_control_loop(
         else None
     )
     if causal_runtime_coordinator is None and container.temporal_causal_evidence_provider:
-        if ontology_instance_store is None or container.temporal_causality_config is None:
+        if (
+            container.temporal_causality_config is None
+            or container.causal_hypothesis_projection is None
+        ):
             raise RuntimeError(
-                "temporal causal evidence requires an ontology store and analyzer config"
+                "temporal causal evidence requires config and Forseti-owned projection"
             )
         causal_runtime_coordinator = CausalRuntimeCoordinator(
             evidence_provider=container.temporal_causal_evidence_provider,
             analyzer=TemporalCausalityAnalyzer(container.temporal_causality_config),
-            projector=CausalHypothesisProjector(store=ontology_instance_store),
+            projector=container.causal_hypothesis_projection,
             method_version=_TEMPORAL_CAUSAL_METHOD_VERSION,
+            intervention_receipt_verifier=container.causal_intervention_receipt_verifier,
         )
     if dynamic_runtime_coordinator is None and container.dynamic_simulation_request_provider:
-        if container.effect_model_reader is None:
-            raise RuntimeError("Dynamic runtime requires an effect model reader")
+        if (
+            container.effect_model_reader is None
+            or container.effect_model_causal_evidence_verifier is None
+        ):
+            raise RuntimeError("Dynamic runtime requires verified effect model evidence")
         dynamic_runtime_coordinator = DynamicRuntimeCoordinator(
             request_provider=container.dynamic_simulation_request_provider,
             model_reader=container.effect_model_reader,
+            causal_evidence_verifier=container.effect_model_causal_evidence_verifier,
         )
 
     return ControlLoop(

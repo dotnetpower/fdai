@@ -117,7 +117,7 @@ def _action(
 def test_invalid_config_is_rejected(override: dict[str, Any], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         RiskGate(
-            registry=ActionPromotionRegistry(),
+            registry=ActionPromotionRegistry(allow_legacy_metrics=True),
             config=RiskGateConfig(**override),
         )
 
@@ -128,7 +128,7 @@ def test_invalid_config_is_rejected(override: dict[str, Any], message: str) -> N
 
 
 def test_action_in_shadow_mode_returns_hil() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     gate = RiskGate(registry=registry)
     action = _action()
     action_type = _shipped_action_types()["remediate.tag-add"]
@@ -151,7 +151,7 @@ def test_action_in_shadow_mode_returns_hil() -> None:
 
 def _enforced_registry(action_type_name: str) -> ActionPromotionRegistry:
     """Promote ``action_type_name`` to ENFORCE so shadow-mode is not the reason."""
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     at = _shipped_action_types()[action_type_name]
     metrics = PromotionMetrics(
         action_type=at.name,
@@ -218,7 +218,7 @@ def test_unknown_count_fails_closed_by_scope(scope: BlastRadiusScope, fail_close
 
 def test_blast_radius_over_count_cap_is_hil() -> None:
     gate = RiskGate(
-        registry=ActionPromotionRegistry(),
+        registry=ActionPromotionRegistry(allow_legacy_metrics=True),
         config=RiskGateConfig(max_affected_resources=5),
     )
     action_type = _shipped_action_types()["remediate.tag-add"]
@@ -235,7 +235,7 @@ def test_blast_radius_over_count_cap_is_hil() -> None:
 
 def test_blast_radius_over_rate_cap_is_hil() -> None:
     gate = RiskGate(
-        registry=ActionPromotionRegistry(),
+        registry=ActionPromotionRegistry(allow_legacy_metrics=True),
         config=RiskGateConfig(max_rate_per_minute=1),
     )
     action_type = _shipped_action_types()["remediate.tag-add"]
@@ -257,7 +257,7 @@ def test_blast_radius_over_rate_cap_is_hil() -> None:
 
 def test_stale_inventory_precondition_is_hil() -> None:
     """`remediate.disable-public-access` declares `graph_fresh_within_seconds: 300`."""
-    gate = RiskGate(registry=ActionPromotionRegistry())
+    gate = RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True))
     action_type = _shipped_action_types()["remediate.disable-public-access"]
     rule = _shipped_rules_by_id()["object-storage.public-access.deny"]
     action = _action(
@@ -275,7 +275,7 @@ def test_stale_inventory_precondition_is_hil() -> None:
 
 
 def test_fresh_inventory_passes_precondition_check() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     # Promote first so mode is ENFORCE - otherwise shadow-mode default HIL wins.
     action_type = _shipped_action_types()["remediate.disable-public-access"]
     metrics = PromotionMetrics(
@@ -370,7 +370,7 @@ def test_irreversible_action_type_forces_hil() -> None:
     src = _shipped_action_types()["remediate.tag-add"]
     irreversible = src.model_copy(update={"irreversible": True})
 
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     # Promote so shadow-mode is not the reason it's HIL.
     metrics = PromotionMetrics(
         action_type=irreversible.name,
@@ -399,12 +399,12 @@ def test_irreversible_action_type_forces_hil() -> None:
 
 
 def test_promotion_registry_defaults_to_shadow_for_unknown_action_type() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     assert registry.mode_of("remediate.never-registered") is Mode.SHADOW
 
 
 def test_promotion_registry_promotes_when_metrics_pass_gate() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     action_type = _shipped_action_types()["remediate.tag-add"]
     gate = action_type.promotion_gate
     metrics = PromotionMetrics(
@@ -421,7 +421,7 @@ def test_promotion_registry_promotes_when_metrics_pass_gate() -> None:
 
 
 def test_promotion_registry_demotes_when_metrics_regress() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     action_type = _shipped_action_types()["remediate.tag-add"]
     gate = action_type.promotion_gate
     good = PromotionMetrics(
@@ -474,7 +474,7 @@ def test_invalid_promotion_metrics_are_rejected(override: dict[str, Any], messag
 
 
 def test_promotion_registry_rejects_mismatched_metrics() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     action_type = _shipped_action_types()["remediate.tag-add"]
     metrics = PromotionMetrics(
         action_type="remediate.something-else",
@@ -488,7 +488,7 @@ def test_promotion_registry_rejects_mismatched_metrics() -> None:
 
 
 def test_promotion_registry_record_returns_current_state() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     assert registry.record("remediate.tag-add") is None
     action_type = _shipped_action_types()["remediate.tag-add"]
     gate = action_type.promotion_gate
@@ -527,7 +527,7 @@ def test_missing_inventory_age_forces_hil_when_precondition_required() -> None:
     """`remediate.tag-add` declares `graph_fresh_within_seconds`. If the
     caller omits ``inventory_age_seconds``, the gate MUST fail-close to HIL
     (coding-conventions § Error Handling and Boundaries)."""
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     # Even in enforce mode, missing age is still HIL.
     action_type = _shipped_action_types()["remediate.tag-add"]
     metrics = PromotionMetrics(
@@ -553,7 +553,7 @@ def test_missing_inventory_age_forces_hil_when_precondition_required() -> None:
 def test_upstream_deny_short_circuits_to_deny_outcome() -> None:
     """A T2 quality-gate DENY MUST propagate through the risk gate as DENY,
     dominating every other check."""
-    gate = RiskGate(registry=ActionPromotionRegistry())
+    gate = RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True))
     action_type = _shipped_action_types()["remediate.tag-add"]
     rule = _shipped_rules_by_id()["object-storage.owner-tag.required"]
     decision = gate.evaluate(
@@ -573,7 +573,7 @@ def test_upstream_abstain_produces_abstain_when_no_other_reason() -> None:
     Requires the ActionType to be already promoted so shadow-mode is not
     the reason we route to HIL.
     """
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     action_type = _shipped_action_types()["remediate.tag-add"]
     metrics = PromotionMetrics(
         action_type=action_type.name,
@@ -601,7 +601,7 @@ def test_upstream_abstain_produces_abstain_when_no_other_reason() -> None:
 def test_upstream_abstain_yields_to_hil_when_other_reason_present() -> None:
     """When the gate would already HIL (shadow mode, over-cap, ...) an
     upstream abstain must NOT downgrade that to a soft abstain."""
-    gate = RiskGate(registry=ActionPromotionRegistry())  # shadow default
+    gate = RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True))  # shadow default
     action_type = _shipped_action_types()["remediate.tag-add"]
     rule = _shipped_rules_by_id()["object-storage.owner-tag.required"]
     decision = gate.evaluate(
@@ -654,7 +654,7 @@ def test_active_exemption_short_circuits_to_abstain() -> None:
         InMemoryExemptionRegistry,
     )
 
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     action_type = _shipped_action_types()["remediate.tag-add"]
     # Promote so shadow-mode is NOT the reason we return non-AUTO.
     metrics = PromotionMetrics(
@@ -698,7 +698,7 @@ def test_no_exemption_match_yields_normal_outcome() -> None:
         InMemoryExemptionRegistry,
     )
 
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     action_type = _shipped_action_types()["remediate.tag-add"]
     metrics = PromotionMetrics(
         action_type=action_type.name,

@@ -25,6 +25,7 @@ def _model(status: EffectModelStatus) -> EffectModel:
         metric="latency_p99_ms",
         status=status,
         evidence_grade=CausalEvidenceGrade.QUASI_EXPERIMENTAL,
+        causal_evidence_receipt_digest="a" * 64,
         learned_at=_NOW,
         learned_through=_NOW,
     )

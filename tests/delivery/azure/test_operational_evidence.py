@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -25,6 +26,10 @@ _RESOURCE = (
     "/subscriptions/example/resourceGroups/example/providers/"
     "Microsoft.ContainerService/managedClusters/example"
 )
+
+
+def _clock() -> datetime:
+    return _NOW + timedelta(seconds=1)
 
 
 def _fingerprint() -> FailureFingerprint:
@@ -162,7 +167,11 @@ def _context() -> OperationalCaseContext:
 
 
 async def test_current_reuse_verifier_combines_snapshot_and_safety_evidence() -> None:
-    verifier = AzureCurrentReuseVerifier(snapshots=_Snapshots(), safety=_Safety())
+    verifier = AzureCurrentReuseVerifier(
+        snapshots=_Snapshots(),
+        safety=_Safety(),
+        clock=_clock,
+    )
 
     result = await verifier.verify(event=_event(), action=_action(), context=_context())
 
@@ -172,6 +181,37 @@ async def test_current_reuse_verifier_combines_snapshot_and_safety_evidence() ->
     assert result.evidence_refs == ("c" * 64, "d" * 64)
     assert result.policy_allowed is True
     assert result.dry_run_passed is True
+
+
+async def test_current_reuse_accepts_recent_cache_before_event_ingestion() -> None:
+    class _CachedSnapshots:
+        async def get(self, resource_ref: str) -> AzureOperationalSnapshot | None:
+            return replace(_snapshot(), observed_at=_NOW - timedelta(seconds=1))
+
+    verifier = AzureCurrentReuseVerifier(
+        snapshots=_CachedSnapshots(),
+        safety=_Safety(),
+        clock=lambda: _NOW,
+    )
+
+    result = await verifier.verify(event=_event(), action=_action(), context=_context())
+
+    assert result.observed_at == _NOW - timedelta(seconds=1)
+
+
+async def test_current_reuse_rejects_snapshot_stale_at_evaluation_time() -> None:
+    class _StaleSnapshots:
+        async def get(self, resource_ref: str) -> AzureOperationalSnapshot | None:
+            return replace(_snapshot(), observed_at=_NOW - timedelta(minutes=6))
+
+    verifier = AzureCurrentReuseVerifier(
+        snapshots=_StaleSnapshots(),
+        safety=_Safety(),
+        clock=lambda: _NOW,
+    )
+
+    with pytest.raises(ValueError, match="stale or future-skewed"):
+        await verifier.verify(event=_event(), action=_action(), context=_context())
 
 
 def _metrics() -> StaticMetricProvider:
@@ -254,6 +294,36 @@ async def test_temporal_evidence_replays_identically_after_adapter_restart() -> 
     assert first == second
 
 
+async def test_temporal_evidence_identity_binds_metric_policy_and_graph() -> None:
+    base_policy = AzureTemporalPolicy(
+        cause_metric="node_cpu_percent",
+        effect_metric="service_latency_ms",
+        mechanism="node-pressure",
+        required_topology_role="hosts",
+        lookback=timedelta(minutes=20),
+    )
+    changed_policy = AzureTemporalPolicy(
+        cause_metric="node_cpu_percent",
+        effect_metric="service_latency_ms",
+        mechanism="network-pressure",
+        required_topology_role="hosts",
+        lookback=timedelta(minutes=20),
+    )
+    first = await AzureTemporalCausalEvidenceProvider(
+        snapshots=_HistoricalSnapshots(),
+        metrics=_metrics(),
+        policies={"aks.node-pressure": base_policy},
+    ).collect(event=_event(), incident_id="incident-1")
+    changed = await AzureTemporalCausalEvidenceProvider(
+        snapshots=_HistoricalSnapshots(),
+        metrics=_metrics(),
+        policies={"aks.node-pressure": changed_policy},
+    ).collect(event=_event(), incident_id="incident-1")
+
+    assert first is not None and changed is not None
+    assert first.evidence_refs[-1] != changed.evidence_refs[-1]
+
+
 async def test_temporal_provider_holds_without_configured_event_policy() -> None:
     provider = AzureTemporalCausalEvidenceProvider(
         snapshots=_HistoricalSnapshots(),
@@ -327,6 +397,7 @@ async def test_dynamic_provider_builds_bounded_current_snapshot_request() -> Non
                 divergence_threshold=5.0,
             )
         },
+        clock=_clock,
     )
 
     request = await provider.build(event=_event(), action=_action())
@@ -349,7 +420,54 @@ async def test_dynamic_provider_rejects_unbounded_estimator_output() -> None:
         snapshots=_Snapshots(),
         estimator=_UnboundedEstimator(),
         policies={"ops.scale-out": AzureDynamicPolicy(metric="service_latency_ms")},
+        clock=_clock,
     )
 
     with pytest.raises(ValueError, match="branches MUST be bounded"):
         await provider.build(event=_event(), action=_action())
+
+
+async def test_dynamic_provider_rejects_wrong_or_stale_snapshot() -> None:
+    class _WrongSnapshots:
+        async def get(self, resource_ref: str) -> AzureOperationalSnapshot | None:
+            return replace(_snapshot(), resource_ref=f"{resource_ref}/other")
+
+    class _StaleSnapshots:
+        async def get(self, resource_ref: str) -> AzureOperationalSnapshot | None:
+            return replace(_snapshot(), observed_at=_NOW - timedelta(hours=1))
+
+    for snapshots, reason in (
+        (_WrongSnapshots(), "target changed"),
+        (_StaleSnapshots(), "stale or future-skewed"),
+    ):
+        provider = AzureDynamicSimulationRequestProvider(
+            snapshots=snapshots,
+            estimator=_Estimator(),
+            policies={"ops.scale-out": AzureDynamicPolicy(metric="service_latency_ms")},
+            clock=_clock,
+        )
+        with pytest.raises(ValueError, match=reason):
+            await provider.build(event=_event(), action=_action())
+
+
+async def test_dynamic_provider_uses_evaluation_clock_not_event_time() -> None:
+    provider = AzureDynamicSimulationRequestProvider(
+        snapshots=_Snapshots(),
+        estimator=_Estimator(),
+        policies={"ops.scale-out": AzureDynamicPolicy(metric="service_latency_ms")},
+        clock=lambda: _NOW + timedelta(hours=1),
+    )
+
+    with pytest.raises(ValueError, match="stale or future-skewed"):
+        await provider.build(event=_event(), action=_action())
+
+
+def test_temporal_policy_rejects_unbounded_lookback() -> None:
+    with pytest.raises(ValueError, match="exceeds 31 days"):
+        AzureTemporalPolicy(
+            cause_metric="node_cpu_percent",
+            effect_metric="service_latency_ms",
+            mechanism="node-pressure",
+            required_topology_role="hosts",
+            lookback=timedelta(days=32),
+        )

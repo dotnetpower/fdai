@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
+from dataclasses import replace
 
 from fdai.core.tiers.t1_lightweight.tier import (
     EmbeddingModel,
@@ -57,6 +58,8 @@ class InMemoryPatternLibrary(PatternLibrary, PatternLibraryWriter):
         """
         for idx, (_, existing) in enumerate(self._entries):
             if existing.signature == action.signature:
+                if action.operational_case is None and existing.operational_case is not None:
+                    action = replace(action, operational_case=existing.operational_case)
                 self._entries[idx] = (list(vector), action)
                 return
         self._entries.append((list(vector), action))

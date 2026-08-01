@@ -83,6 +83,11 @@ class _Models:
         return None
 
 
+class _EffectModelCausalEvidence:
+    def verify(self, model) -> bool:  # type: ignore[no-untyped-def]
+        return True
+
+
 def test_azure_operational_evidence_binder_is_immutable_and_complete() -> None:
     original = replace(default_container(_config()), metric_provider=StaticMetricProvider(()))
 
@@ -103,6 +108,7 @@ def test_azure_operational_evidence_binder_is_immutable_and_complete() -> None:
         branch_estimator=_Estimator(),
         dynamic_policies={"ops.scale-out": AzureDynamicPolicy(metric="latency_ms")},
         effect_models=_Models(),
+        effect_model_causal_evidence=_EffectModelCausalEvidence(),
     )
 
     assert original.current_reuse_verifier is None

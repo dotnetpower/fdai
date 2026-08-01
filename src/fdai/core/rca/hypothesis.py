@@ -53,6 +53,10 @@ class CausalEvidenceAssessment:
             raise ValueError("ambiguity MUST be >= 1")
         if any(not ref.strip() for ref in (*self.supporting_refs, *self.refuting_refs)):
             raise ValueError("evidence references MUST be non-empty")
+        supporting = tuple(sorted(set(self.supporting_refs)))
+        refuting = tuple(sorted(set(self.refuting_refs)))
+        object.__setattr__(self, "supporting_refs", supporting)
+        object.__setattr__(self, "refuting_refs", refuting)
 
     @property
     def confidence(self) -> float:
@@ -144,6 +148,8 @@ def build_causal_hypothesis(
     assessment: CausalEvidenceAssessment,
     created_at: datetime,
 ) -> CausalHypothesisRecord:
+    if created_at.tzinfo is None or created_at < evidence_cutoff:
+        raise ValueError("causal hypothesis creation MUST NOT precede evidence cutoff")
     identity = _identity(
         incident_id=incident_id,
         cause_ref=cause_ref,
@@ -152,6 +158,11 @@ def build_causal_hypothesis(
         graph_revision=graph_revision,
         evidence_cutoff=evidence_cutoff,
         method_version=method_version,
+        evidence_grade=evidence_grade.value,
+        confidence=assessment.confidence,
+        ambiguity=assessment.ambiguity,
+        supporting_refs=assessment.supporting_refs,
+        refuting_refs=assessment.refuting_refs,
     )
     if assessment.supporting_refs and assessment.refuting_refs:
         status = CausalHypothesisStatus.INCONCLUSIVE
@@ -186,11 +197,16 @@ def close_causal_hypothesis(
     closure: CausalClosure,
     outcome_ref: str,
     created_at: datetime,
+    interventional_evidence_ref: str | None = None,
 ) -> CausalHypothesisRecord:
     if not outcome_ref.strip():
         raise ValueError("outcome_ref MUST be non-empty")
     if created_at.tzinfo is None or created_at < hypothesis.created_at:
         raise ValueError("closure time MUST be timezone-aware and monotonic")
+    if closure is CausalClosure.CONFIRMED and (
+        interventional_evidence_ref is None or not _is_sha256(interventional_evidence_ref)
+    ):
+        raise ValueError("confirmed closure requires interventional evidence SHA-256")
     if closure is CausalClosure.REFUTED:
         status = CausalHypothesisStatus.REFUTED
         grade = CausalEvidenceGrade.ASSOCIATION
@@ -207,6 +223,7 @@ def close_causal_hypothesis(
         prior=hypothesis.hypothesis_id,
         closure=closure.value,
         outcome_ref=outcome_ref,
+        interventional_evidence_ref=interventional_evidence_ref,
     )
     return replace(
         hypothesis,
@@ -227,6 +244,10 @@ def _json_default(value: object) -> str:
     if isinstance(value, datetime):
         return value.astimezone(UTC).isoformat()
     raise TypeError(f"unsupported identity value: {type(value).__name__}")
+
+
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
 __all__ = [

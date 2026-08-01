@@ -220,7 +220,7 @@ overrides or approval rejections (`revision` / `retirement`), and optional scena
 Every proposal records numeric evidence. Trajectory intake accepts only reviewed aggregates and creates no candidate by itself.
 Huginn carries strict operational-case events; Muninn seals them and publishes bounded failure-fingerprint cohorts.
 Norns requires one fingerprint and ActionType, balanced evidence, and immutable revisions before consensus emits an inert candidate.
-Incomplete evidence stays held. Mimir optionally compiles a candidate into an immutable catalog review package and quarantines failed receipts. Mimir never promotes an operational candidate in process; a reviewed catalog PR and ordinary catalog reload remain the only activation path.
+Incomplete evidence stays held. Norns supplies stable correlation and idempotency keys. Mimir serializes concurrent intake, compiles immutable review packages, quarantines failed receipts, backpressures unresolved capacity, and compacts state after idempotent PR publication. It never promotes an operational candidate in process; reviewed catalog PR and reload remain the only activation path. Review outcomes travel on Mimir's `object.rule`; Saga seals them as `object.audit-entry`.
 
 ## 4. Agent catalog
 
@@ -450,7 +450,7 @@ Dead-letter writes retry with bounded backoff before consumer restart. Operator 
 | object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |
 | object.issue | Saga | Norns, Mimir |
 | object.rule-candidate | Norns | Mimir |
-| object.rule | Mimir | Forseti (cache reload) |
+| object.rule | Mimir | Forseti (cache reload), Saga (catalog-review audit) |
 | object.context-index, object.state-snapshot | Muninn | Norns (sealed case-history intake), Saga (snapshot audit) |
 | object.conversation | Bragi | (session index) |
 | object.turn | Bragi | Muninn |

@@ -53,6 +53,7 @@ def _evidence() -> TemporalCausalEvidence:
         intervention_consistency=0.8,
         evidence_completeness=0.9,
         supporting_evidence_ids=("evidence:support",),
+        refutation_complete=True,
         refuting_evidence_ids=("evidence:refutation-query",),
     )
 
@@ -89,6 +90,11 @@ class _Projector:
         self.calls.append((hypothesis, kwargs))
 
 
+class _InterventionVerifier:
+    async def verify(self, observation: CausalClosureObservation) -> bool:
+        return True
+
+
 def _coordinator(provider: _Provider, projector: _Projector) -> CausalRuntimeCoordinator:
     return CausalRuntimeCoordinator(
         evidence_provider=provider,
@@ -103,7 +109,7 @@ def _coordinator(provider: _Provider, projector: _Projector) -> CausalRuntimeCoo
         ),
         projector=projector,
         method_version="temporal-causal-v1",
-        clock=lambda: datetime(2026, 8, 2, tzinfo=UTC),
+        intervention_receipt_verifier=_InterventionVerifier(),
     )
 
 
@@ -140,6 +146,19 @@ def test_temporal_runtime_evidence_rejects_unbounded_projection_refs() -> None:
         )
 
 
+def test_temporal_runtime_evidence_rejects_unbounded_series_samples() -> None:
+    samples = tuple(
+        MetricSample(timestamp=_START + timedelta(seconds=index), value=float(index))
+        for index in range(2_050)
+    )
+    with pytest.raises(ValueError, match="series samples MUST be bounded"):
+        replace(
+            _evidence(),
+            cause=TemporalSeries(metric="cause", samples=samples),
+            effect=TemporalSeries(metric="effect", samples=samples),
+        )
+
+
 @pytest.mark.parametrize(
     ("changes", "expected"),
     [
@@ -171,6 +190,11 @@ async def test_independent_outcome_classifies_and_projects_closure(
         "affected_scope_safe": True,
         "intervention_approved": True,
         "independent_observer": True,
+        "intervention_receipt_digest": "a" * 64,
+        "intervention_executed_at": datetime(2026, 8, 2, 0, 30, tzinfo=UTC),
+        "intervention_target_ref": analyzed.hypothesis.cause_ref,
+        "predicted_effect_ref": analyzed.hypothesis.effect_ref,
+        "prohibited_effects_absent": True,
     }
     values.update(changes)
 

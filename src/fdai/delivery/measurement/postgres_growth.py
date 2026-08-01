@@ -11,7 +11,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from fdai.core.measurement.pattern_growth import OutcomeRecord
-from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel, LearnedAction
+from fdai.core.tiers.t1_lightweight import EmbeddingModel, LearnedAction, OperationalCaseContext
 from fdai.delivery.measurement.outcome_contract import accepted_outcome_timestamp
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
@@ -153,6 +153,7 @@ class PostgresVerifiedPatternBuilder:
         params = entry.get("params")
         rule_id = entry.get("rule_id")
         incident_id = entry.get("incident_id")
+        operational_case_raw = entry.get("operational_case")
         if (
             not isinstance(projection, str)
             or not projection
@@ -163,13 +164,34 @@ class PostgresVerifiedPatternBuilder:
             or not incident_id
         ):
             return None
+        operational_case = None
+        if isinstance(operational_case_raw, Mapping):
+            try:
+                operational_case = OperationalCaseContext.from_mapping(operational_case_raw)
+            except ValueError:
+                return None
+        if rule_id.startswith("learned.operational.") and operational_case is None:
+            return None
         vector = await self._embedding_model.embed(projection)
         if len(vector) != 384:
             raise ValueError(f"growth embedding dim MUST be 384; got {len(vector)}")
-        parameter_keys = ",".join(sorted(str(key) for key in params))
-        signature = hashlib.sha256(
-            f"{rule_id}:{record.action_type_id}:{parameter_keys}".encode()
-        ).hexdigest()
+        signature_material = {
+            "action_type_id": record.action_type_id,
+            "operational_case": (
+                operational_case.to_mapping() if operational_case is not None else None
+            ),
+            "params": dict(params),
+            "rule_id": rule_id,
+        }
+        try:
+            encoded_signature = json.dumps(
+                signature_material,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        except (TypeError, ValueError):
+            return None
+        signature = hashlib.sha256(encoded_signature).hexdigest()
         return (
             vector,
             LearnedAction(
@@ -180,6 +202,7 @@ class PostgresVerifiedPatternBuilder:
                 incident_id=incident_id,
                 success_rate=1.0,
                 reuse_count=1,
+                operational_case=operational_case,
             ),
         )
 

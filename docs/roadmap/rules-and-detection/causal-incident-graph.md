@@ -13,8 +13,11 @@ time-consistent graph while keeping execution authority in the existing control 
 > **Implementation status (2026-08-01):** The typed hypothesis lifecycle, weakest-link scoring,
 > bounded time-consistent graph materializer, support/refutation and closure links, immutable
 > ontology projector, lagged temporal analyzer, runtime coordinator, shadow control-loop caller,
-> independent closure classifier, and regression tests are implemented. Deployments bind bounded
-> temporal-series, ontology, and independent outcome providers; no causal result grants execution.
+> independent closure classifier, and regression tests are implemented. The control loop analyzes
+> and audits in shadow but does not write the ontology as Forseti. Deployments bind bounded temporal
+> series, a Forseti-owned projection publisher, independent outcome provider, and causal receipt
+> resolver. Pre-routing temporal analysis has a bounded timeout, and only a scope- and time-matched
+> verified intervention receipt can confirm closure. No causal result grants execution.
 
 ## Design at a glance
 

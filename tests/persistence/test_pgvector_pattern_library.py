@@ -14,6 +14,7 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -111,7 +112,7 @@ def test_operational_case_context_codec_round_trips() -> None:
 
 
 def test_operational_case_context_codec_rejects_unknown_fields() -> None:
-    with pytest.raises(RuntimeError, match="unexpected fields"):
+    with pytest.raises(RuntimeError, match="operational_case is invalid"):
         _coerce_operational_case({"case_ref": "unexpected-only"})
 
 
@@ -244,6 +245,37 @@ async def test_add_upserts_on_signature_conflict() -> None:
     hits = [m for m in matches if m.action.signature == signature]
     assert len(hits) == 1
     assert hits[0].action.success_rate == pytest.approx(0.9)
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_contextless_upsert_preserves_existing_operational_context() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=_plain_dsn(url)))
+    signature = f"context-upsert-{uuid.uuid4().hex}"
+    context = OperationalCaseContext(
+        case_ref=f"case-history:case-a:1:{'a' * 64}",
+        failure_fingerprint="f" * 64,
+        resource_type="kubernetes.service",
+        action_type="ops.scale-out",
+        required_topology_role="serves",
+        graph_digest="b" * 64,
+        owner_digest="c" * 64,
+        evidence_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+    contextual = replace(
+        _seed_action(signature=signature),
+        operational_case=context,
+    )
+    vector = _unit_vector_at(10)
+    await library.add(vector=vector, action=contextual)
+    await library.add(vector=vector, action=_seed_action(signature=signature))
+
+    match = next(
+        item for item in await library.search(vector, k=20) if item.action.signature == signature
+    )
+    assert match.action.operational_case == context
 
 
 @pytest.mark.integration

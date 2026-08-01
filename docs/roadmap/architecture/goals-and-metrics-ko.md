@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 95ead902e2affbb8f711c530ef89c31bf468a386
+translation_source_sha: 1f558437f32fccfec5942a3860529cbfb8258329
 translation_revised: 2026-08-01
 ---
 
@@ -106,9 +106,11 @@ translation_revised: 2026-08-01
 - **통계적 타당성**: 각 배수는 표본 크기(이벤트 수), 신뢰구간, 시나리오 세트 버전과 함께
   보고합니다. 신뢰구간 안의 차이는 개선이 아니라 "측정된 변화 없음"으로 보고합니다.
 - **Operational promotion evidence**: frozen benchmark와 live-shadow sample을 하나의 full FDAI
-  revision 및 scenario-set version에 bind합니다. Wilson 95% accuracy lower bound, live-only observed
-  day, zero policy escape, rollback, recurrence, causal grade, Dynamic review gate가 모두 통과해야
-  합니다. Ready receipt는 별도 review를 허용할 뿐 자체적으로 promote하지 않습니다.
+  revision, ActionType digest, scenario case, authoritative measurement unit에 bind하고 latest
+  correction이 cohort, scenario, observation time, causal lineage를 바꾸지 않고 이전 row를
+  대체합니다. Separate frozen/live Wilson 95% lower bound, distinct live day, zero escape,
+  executed-action rollback과 complete recurrence window, verified causal receipt, Dynamic review가
+  모두 통과해야 합니다. Raw metric은 promote할 수 없고 verified receipt는 별도 review만 허용합니다.
 - **공정성**: 베이스라인과 트리트먼트는 동일한 시나리오, 동일한 입력 분포, 동일한 측정
   윈도우에서 실행합니다. 레퍼런스 에이전트를 의도적으로 불리하게 만들지 않습니다.
 

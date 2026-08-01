@@ -45,6 +45,7 @@ Optional scenario-coverage learner:
 from __future__ import annotations
 
 import hashlib
+import json
 from collections import Counter, deque
 from datetime import datetime
 from typing import Any
@@ -394,6 +395,8 @@ class Norns(Agent):
                 continue
             payload = {
                 "producer_principal": "Norns",
+                "correlation_id": _candidate_correlation_id(candidate),
+                "idempotency_key": _candidate_idempotency_key(candidate),
                 **candidate,
                 "norns_consensus": consensus.summary(),
             }
@@ -725,6 +728,27 @@ class Norns(Agent):
                 f"{len(self.pending_candidates)} candidate(s) proposed."
             )
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+def _candidate_identity(candidate: dict[str, Any]) -> str:
+    provenance = candidate.get("provenance")
+    if isinstance(provenance, dict):
+        pattern_id = provenance.get("pattern_id")
+        if isinstance(pattern_id, str) and pattern_id:
+            return pattern_id
+    suggested = candidate.get("suggested_pattern")
+    if isinstance(suggested, str) and suggested:
+        return suggested
+    material = json.dumps(candidate, separators=(",", ":"), sort_keys=True, default=str)
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
+def _candidate_correlation_id(candidate: dict[str, Any]) -> str:
+    return f"norns:{_candidate_identity(candidate)[:64]}"
+
+
+def _candidate_idempotency_key(candidate: dict[str, Any]) -> str:
+    return f"rule-candidate:{_candidate_identity(candidate)}"
 
 
 __all__ = ["Norns"]

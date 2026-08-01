@@ -2,17 +2,17 @@
 
 Realizes the phase-2 promotion contract at the ``ActionPromotionRegistry`` seam:
 
-- **Shadow (default)** — a fresh :class:`ActionPromotionRegistry` reports
+- **Shadow (default)** - a fresh :class:`ActionPromotionRegistry` reports
   every ActionType as :class:`Mode.SHADOW`.
-- **Promotion evidence** — a synthetic :class:`PromotionMetrics` that
+- **Promotion evidence** - a synthetic :class:`PromotionMetrics` that
   clears every field of the ActionType's ``promotion_gate`` flips the
   record to :class:`Mode.ENFORCE`, and the risk-gate begins returning
   ``RiskDecision.AUTO`` for that action.
-- **Regression demotion** — a follow-up :class:`PromotionMetrics` that
+- **Regression demotion** - a follow-up :class:`PromotionMetrics` that
   breaches the ``max_policy_escapes`` bound demotes the record back to
   :class:`Mode.SHADOW` and stamps ``demoted_at``; the risk-gate reverts
   to ``RiskDecision.HIL``.
-- **Cross-action isolation** — promoting ``remediate.tag-add`` MUST NOT
+- **Cross-action isolation** - promoting ``remediate.tag-add`` MUST NOT
   affect the mode of ``remediate.disable-public-access``.
 
 The promotion metrics used here are **synthetic** by design: the P2 exit
@@ -86,7 +86,7 @@ def test_default_mode_is_shadow_for_every_shipped_action_type(
     :attr:`Mode.SHADOW`. This is the safety-first default the
     coding-conventions require.
     """
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     for action in action_types.values():
         assert registry.mode_of(action.name) is Mode.SHADOW
 
@@ -96,7 +96,7 @@ def test_first_promotion_flips_tag_add_to_enforce(
 ) -> None:
     """A metrics record that clears the promotion gate flips ENFORCE."""
     action = action_types["remediate.tag-add"]
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     record = registry.consider_promotion(
         action_type=action,
         metrics=_passing_metrics(action),
@@ -116,7 +116,7 @@ def test_regression_demotes_back_to_shadow(
     phase-2 § Shadow -> Enforce Promotion.
     """
     action = action_types["remediate.tag-add"]
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     registry.consider_promotion(action_type=action, metrics=_passing_metrics(action))
     assert registry.mode_of(action.name) is Mode.ENFORCE
 
@@ -137,7 +137,7 @@ def test_cross_action_isolation(
     """Promoting one ActionType MUST NOT affect the mode of another."""
     tag_add = action_types["remediate.tag-add"]
     disable_public = action_types["remediate.disable-public-access"]
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
 
     registry.consider_promotion(action_type=tag_add, metrics=_passing_metrics(tag_add))
     assert registry.mode_of(tag_add.name) is Mode.ENFORCE
@@ -149,7 +149,7 @@ def test_gate_below_min_shadow_days_keeps_shadow(
 ) -> None:
     """Insufficient shadow-time keeps the ActionType in shadow."""
     action = action_types["remediate.tag-add"]
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     metrics = PromotionMetrics(
         action_type=action.name,
         shadow_days=action.promotion_gate.min_shadow_days - 1,
@@ -167,7 +167,7 @@ def test_gate_below_min_samples_keeps_shadow(
 ) -> None:
     """Insufficient shadow-sample count keeps the ActionType in shadow."""
     action = action_types["remediate.tag-add"]
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     metrics = PromotionMetrics(
         action_type=action.name,
         shadow_days=action.promotion_gate.min_shadow_days + 3,
@@ -184,7 +184,7 @@ def test_gate_below_min_accuracy_keeps_shadow(
 ) -> None:
     """Insufficient shadow-mode accuracy keeps the ActionType in shadow."""
     action = action_types["remediate.tag-add"]
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     metrics = PromotionMetrics(
         action_type=action.name,
         shadow_days=action.promotion_gate.min_shadow_days + 3,
@@ -205,7 +205,7 @@ def test_registry_metrics_used_are_preserved_on_the_record(
     registry took a state action; the record's ``metrics`` is that source.
     """
     action = action_types["remediate.tag-add"]
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     metrics = _passing_metrics(action)
     record = registry.consider_promotion(action_type=action, metrics=metrics)
     assert record.metrics == metrics

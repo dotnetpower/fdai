@@ -407,6 +407,7 @@ _SAGA = AgentSpec(
         "object.issue",
         "object.forecast-outcome",
         "object.handoff-escalation",
+        "object.rule",
     ),
     question_domains=("fdai_action_history", "audit_log", "approval_history"),
     owns_code_paths=("src/fdai/agents/saga.py",),

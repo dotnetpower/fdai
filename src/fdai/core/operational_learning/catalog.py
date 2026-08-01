@@ -17,6 +17,9 @@ _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _MAX_CASES = 100
 _MAX_DIGEST_EVIDENCE = 256
 _MAX_CANDIDATE_BYTES = 256 * 1024
+_MAX_CANDIDATE_DEPTH = 16
+_MAX_CANDIDATE_NODES = 4_096
+_MAX_CANDIDATE_STRING_BYTES = 64 * 1024
 _MAX_VERSION_LENGTH = 128
 _CANDIDATE_FIELDS = frozenset(
     {
@@ -129,6 +132,7 @@ class OperationalPatternRuleCandidate:
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> OperationalPatternRuleCandidate:
+        _validate_candidate_bounds(raw)
         if len(_canonical_json(raw).encode()) > _MAX_CANDIDATE_BYTES:
             raise CatalogCompilationError("candidate_wire_too_large")
         if set(raw) - _TRANSPORT_FIELDS != _CANDIDATE_FIELDS:
@@ -649,6 +653,41 @@ def _canonical_json(value: object) -> str:
         )
     except (TypeError, ValueError) as exc:
         raise CatalogCompilationError("candidate_schema_invalid") from exc
+
+
+def _validate_candidate_bounds(value: object) -> None:
+    stack: list[tuple[object, int]] = [(value, 0)]
+    containers: set[int] = set()
+    nodes = 0
+    approximate_bytes = 0
+    while stack:
+        item, depth = stack.pop()
+        nodes += 1
+        if nodes > _MAX_CANDIDATE_NODES or depth > _MAX_CANDIDATE_DEPTH:
+            raise CatalogCompilationError("candidate_wire_too_large")
+        if isinstance(item, str):
+            encoded_size = len(item.encode())
+            if encoded_size > _MAX_CANDIDATE_STRING_BYTES:
+                raise CatalogCompilationError("candidate_wire_too_large")
+            approximate_bytes += encoded_size
+        elif isinstance(item, Mapping):
+            identity = id(item)
+            if identity in containers:
+                raise CatalogCompilationError("candidate_schema_invalid")
+            containers.add(identity)
+            for key, nested in item.items():
+                stack.append((key, depth + 1))
+                stack.append((nested, depth + 1))
+        elif _is_sequence(item):
+            identity = id(item)
+            if identity in containers:
+                raise CatalogCompilationError("candidate_schema_invalid")
+            containers.add(identity)
+            stack.extend((nested, depth + 1) for nested in item)
+        elif item is not None and not isinstance(item, int | float | bool):
+            raise CatalogCompilationError("candidate_schema_invalid")
+        if approximate_bytes > _MAX_CANDIDATE_BYTES:
+            raise CatalogCompilationError("candidate_wire_too_large")
 
 
 def _sha256(value: str) -> str:

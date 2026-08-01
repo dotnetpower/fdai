@@ -206,7 +206,7 @@ def _learned_action(
 
 
 async def test_baseline_pass_writes_pass_audit_and_does_not_demote() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     audit = InMemoryStateStore()
     runner = AutomatedBaselineRunner(
         replayer=_FixedReplayer(
@@ -239,7 +239,7 @@ async def test_baseline_guard_breach_demotes_and_audits() -> None:
     tag_add = _load_action_type("remediate.tag-add")
     # Promote FIRST so the demote transitions ENFORCE → SHADOW and stamps
     # demoted_at (the interesting audited transition).
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     promoted = registry.consider_promotion(
         action_type=tag_add,
         metrics=_pattern_metrics(tag_add.name),
@@ -289,7 +289,7 @@ async def test_baseline_guard_breach_demotes_and_audits() -> None:
 
 
 async def test_baseline_success_drop_also_triggers_demote() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     audit = InMemoryStateStore()
     runner = AutomatedBaselineRunner(
         replayer=_FixedReplayer(
@@ -309,7 +309,7 @@ async def test_baseline_success_drop_also_triggers_demote() -> None:
 
 async def test_baseline_never_promotes() -> None:
     """The runner is a one-way street to shadow - no PASS sample ever calls promote."""
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     audit = InMemoryStateStore()
 
     # Sentinel: monkey-patch consider_promotion so any accidental call raises.
@@ -341,7 +341,7 @@ async def test_baseline_never_promotes() -> None:
 
 
 async def test_baseline_multiple_samples_partitioned_correctly() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     audit = InMemoryStateStore()
     runner = AutomatedBaselineRunner(
         replayer=_FixedReplayer(
@@ -373,7 +373,7 @@ async def test_baseline_replayer_failure_aborts_without_registry_mutation() -> N
     class _BoomError(RuntimeError):
         pass
 
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     audit = InMemoryStateStore()
     runner = AutomatedBaselineRunner(
         replayer=_FixedReplayer(
@@ -652,7 +652,7 @@ async def test_growth_empty_stream_is_a_no_op() -> None:
 
 
 def test_registry_demote_of_new_action_type_creates_shadow_record() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     record = registry.demote("remediate.tag-add")
     assert record.mode is Mode.SHADOW
     assert record.demoted_at is None  # nothing was previously enforced
@@ -661,7 +661,7 @@ def test_registry_demote_of_new_action_type_creates_shadow_record() -> None:
 
 def test_registry_demote_from_enforce_stamps_demoted_at() -> None:
     at = _load_action_type("remediate.tag-add")
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     registry.consider_promotion(action_type=at, metrics=_pattern_metrics(at.name))
     assert registry.record(at.name) is not None
     assert registry.record(at.name).mode is Mode.ENFORCE  # type: ignore[union-attr]
@@ -672,7 +672,7 @@ def test_registry_demote_from_enforce_stamps_demoted_at() -> None:
 
 
 def test_registry_demote_idempotent_on_shadow() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     first = registry.demote("remediate.tag-add")
     second = registry.demote("remediate.tag-add")
     # Both are shadow; the second demote does not re-stamp demoted_at
@@ -684,6 +684,6 @@ def test_registry_demote_idempotent_on_shadow() -> None:
 
 
 def test_registry_demote_rejects_empty_name() -> None:
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     with pytest.raises(ValueError, match="MUST NOT be empty"):
         registry.demote("")

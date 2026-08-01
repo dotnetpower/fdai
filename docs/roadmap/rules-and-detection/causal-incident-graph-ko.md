@@ -1,7 +1,7 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: 45a0f4f05f879ec055de5bd4c7bb3aaec41d7036
+translation_source_sha: e1a0da7b7514d2ac3fb07b3751180dd0b272d088
 translation_revised: 2026-08-01
 ---
 # 인과 incident graph
@@ -16,8 +16,11 @@ Event correlation과 root-cause analysis(RCA)를 ontology 기반의 time-consist
 > **구현 상태(2026-08-01):** Typed hypothesis lifecycle, weakest-link scoring, bounded
 > time-consistent graph materializer, support/refutation 및 closure link, immutable ontology
 > projector, lagged temporal analyzer, runtime coordinator, shadow control-loop caller,
-> independent closure classifier 및 regression test를 구현했습니다. Deployment는 bounded
-> temporal-series, ontology, independent outcome provider를 bind하며 causal result는 execution을 허가하지 않습니다.
+> independent closure classifier 및 regression test를 구현했습니다. Control loop는 shadow에서
+> 분석하고 audit하지만 Forseti 대신 ontology를 쓰지 않습니다. Deployment는 bounded temporal
+> series, Forseti-owned projection publisher, independent outcome provider, causal receipt resolver를
+> bind합니다. Pre-routing temporal analysis에는 bounded timeout이 있으며 scope와 time이 일치하는
+> verified intervention receipt만 closure를 confirm할 수 있습니다. Causal result는 execution을 허가하지 않습니다.
 
 ## 설계 개요
 

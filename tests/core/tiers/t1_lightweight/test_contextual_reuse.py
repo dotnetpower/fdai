@@ -117,6 +117,19 @@ async def test_operational_case_reuse_requires_all_current_checks() -> None:
 
     assert decision.outcome is T1Outcome.REUSED
     assert decision.requires_reverification is True
+    assert decision.current_reuse_verification is not None
+    assert decision.current_reuse_verification.case_ref == _context().case_ref
+    assert decision.current_reuse_verification.evidence_refs == ("d" * 64,)
+
+
+async def test_recent_cached_evidence_may_precede_event_ingestion() -> None:
+    tier, event = await _tier(
+        _Verifier(observed_at=datetime(2026, 8, 1, 0, 0, 0, 500_000, tzinfo=UTC))
+    )
+
+    decision = await tier.evaluate(event=event)
+
+    assert decision.outcome is T1Outcome.REUSED
 
 
 @pytest.mark.parametrize(

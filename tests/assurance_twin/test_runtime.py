@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from fdai.core.assurance_twin import (
     CausalEvidenceGrade,
@@ -49,6 +51,7 @@ def _model(
     status: EffectModelStatus,
     bias: float = 0.0,
     grade: CausalEvidenceGrade = CausalEvidenceGrade.QUASI_EXPERIMENTAL,
+    learned_through: datetime = _NOW,
 ) -> EffectModel:
     return EffectModel(
         model_id=f"model-{status.value}",
@@ -58,8 +61,9 @@ def _model(
         metric="latency",
         status=status,
         evidence_grade=grade,
+        causal_evidence_receipt_digest="a" * 64,
         learned_at=_NOW,
-        learned_through=_NOW,
+        learned_through=learned_through,
         bias_correction=bias,
     )
 
@@ -86,6 +90,14 @@ class _Models:
         metric: str,
     ) -> EffectModel | None:
         return self.models.get((status, action_type_id, metric))
+
+
+class _CausalEvidence:
+    def __init__(self, *, accepted: bool = True) -> None:
+        self.accepted = accepted
+
+    def verify(self, model: EffectModel) -> bool:
+        return self.accepted and model.causal_evidence_receipt_digest == "a" * 64
 
 
 def _request() -> DynamicSimulationRequest:
@@ -117,6 +129,7 @@ async def test_dynamic_runtime_loads_models_and_simulates() -> None:
                 _model(status=EffectModelStatus.CHALLENGER, bias=2.0),
             )
         ),
+        causal_evidence_verifier=_CausalEvidence(),
     )
 
     result = await coordinator.simulate(event=_event(), action=_action())
@@ -133,6 +146,7 @@ async def test_dynamic_runtime_missing_active_model_requires_review() -> None:
     coordinator = DynamicRuntimeCoordinator(
         request_provider=_Provider(_request()),
         model_reader=_Models(()),
+        causal_evidence_verifier=_CausalEvidence(),
     )
 
     result = await coordinator.simulate(event=_event(), action=_action())
@@ -151,6 +165,7 @@ async def test_dynamic_runtime_divergence_requires_review() -> None:
                 _model(status=EffectModelStatus.CHALLENGER, bias=10.0),
             )
         ),
+        causal_evidence_verifier=_CausalEvidence(),
     )
 
     result = await coordinator.simulate(event=_event(), action=_action())
@@ -164,9 +179,42 @@ async def test_dynamic_runtime_holds_when_request_is_unavailable() -> None:
     coordinator = DynamicRuntimeCoordinator(
         request_provider=_Provider(None),
         model_reader=_Models(()),
+        causal_evidence_verifier=_CausalEvidence(),
     )
 
     result = await coordinator.simulate(event=_event(), action=_action())
 
     assert result.simulation is None
     assert result.reason == "simulation_request_unavailable"
+
+
+async def test_dynamic_runtime_rejects_unverified_causal_model_receipt() -> None:
+    coordinator = DynamicRuntimeCoordinator(
+        request_provider=_Provider(_request()),
+        model_reader=_Models((_model(status=EffectModelStatus.ACTIVE),)),
+        causal_evidence_verifier=_CausalEvidence(accepted=False),
+    )
+
+    with pytest.raises(ValueError, match="causal evidence is unverified"):
+        await coordinator.simulate(event=_event(), action=_action())
+
+
+@pytest.mark.parametrize("status", [EffectModelStatus.ACTIVE, EffectModelStatus.CHALLENGER])
+async def test_dynamic_runtime_rejects_model_after_snapshot_cutoff(
+    status: EffectModelStatus,
+) -> None:
+    coordinator = DynamicRuntimeCoordinator(
+        request_provider=_Provider(_request()),
+        model_reader=_Models(
+            (
+                _model(
+                    status=status,
+                    learned_through=_NOW + timedelta(seconds=1),
+                ),
+            )
+        ),
+        causal_evidence_verifier=_CausalEvidence(),
+    )
+
+    with pytest.raises(ValueError, match=f"Dynamic {status.value} model crosses"):
+        await coordinator.simulate(event=_event(), action=_action())

@@ -79,6 +79,7 @@ from fdai.core.assurance_twin.runtime import (
     DynamicRuntimeResult,
     DynamicSimulationRequest,
     DynamicSimulationRequestProvider,
+    EffectModelCausalEvidenceVerifier,
     EffectModelReader,
 )
 
@@ -98,6 +99,7 @@ __all__ = [
     "EffectModel",
     "EffectModelStatus",
     "EffectModelReader",
+    "EffectModelCausalEvidenceVerifier",
     "InMemoryProjection",
     "NlQueryCompiler",
     "PostureAssessmentReport",

@@ -77,48 +77,36 @@ class ControlLoopFallbackMixin:
             return
         try:
             result = await coordinator.simulate(event=event, action=t1.best_match.action)
+        except Exception as exc:  # noqa: BLE001 - simulation never changes fallback
+            simulation = None
+            reason = f"simulation_failed:{type(exc).__name__}"
+        else:
             simulation = result.simulation
-            await self._audit_store.append_audit_entry(
-                {
+            reason = result.reason
+        entry = {
+            "event_id": str(event.event_id),
+            "correlation_id": event.correlation_id or str(event.event_id),
+            "idempotency_key": f"{event.idempotency_key}:dynamic_simulation",
+            "actor": "fdai.core.assurance_twin",
+            "action_kind": "dynamic.simulation",
+            "mode": Mode.SHADOW.value,
+            "simulation_reason": reason,
+            "simulation_id": simulation.simulation_id if simulation else None,
+            "simulation_requires_review": simulation.requires_review if simulation else True,
+            "ordered_branch_ids": list(simulation.ordered_branch_ids) if simulation else [],
+            "recorded_at": datetime.now(tz=UTC).isoformat(),
+        }
+        try:
+            await self._audit_store.append_audit_entry(entry)
+        except Exception:  # noqa: BLE001 - optional side-path audit is best-effort
+            _LOGGER.warning(
+                "dynamic_simulation_audit_failed",
+                extra={
                     "event_id": str(event.event_id),
-                    "correlation_id": event.correlation_id or str(event.event_id),
-                    "idempotency_key": f"{event.idempotency_key}:dynamic_simulation",
-                    "actor": "fdai.core.assurance_twin",
-                    "action_kind": "dynamic.simulation",
-                    "mode": Mode.SHADOW.value,
-                    "simulation_reason": result.reason,
-                    "simulation_id": simulation.simulation_id if simulation else None,
-                    "simulation_requires_review": (
-                        simulation.requires_review if simulation else True
-                    ),
-                    "ordered_branch_ids": (
-                        list(simulation.ordered_branch_ids) if simulation else []
-                    ),
-                    "recorded_at": datetime.now(tz=UTC).isoformat(),
-                }
+                    "simulation_reason": reason,
+                },
+                exc_info=True,
             )
-        except Exception:  # noqa: BLE001 - simulation never changes the fallback decision
-            try:
-                await self._audit_store.append_audit_entry(
-                    {
-                        "event_id": str(event.event_id),
-                        "correlation_id": event.correlation_id or str(event.event_id),
-                        "idempotency_key": f"{event.idempotency_key}:dynamic_simulation_failed",
-                        "actor": "fdai.core.assurance_twin",
-                        "action_kind": "dynamic.simulation",
-                        "mode": Mode.SHADOW.value,
-                        "simulation_reason": "simulation_failed",
-                        "simulation_requires_review": True,
-                        "ordered_branch_ids": [],
-                        "recorded_at": datetime.now(tz=UTC).isoformat(),
-                    }
-                )
-            except Exception:  # noqa: BLE001 - optional side-path audit is best-effort
-                _LOGGER.warning(
-                    "dynamic_simulation_audit_failed",
-                    extra={"event_id": str(event.event_id)},
-                    exc_info=True,
-                )
 
     async def _evaluate_fallback_tiers(
         self,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Iterable, Mapping
@@ -35,6 +36,7 @@ class ControlLoopRcaMixin:
     _causal_runtime_coordinator: CausalRuntimeCoordinator | None
     _causal_chain_window: timedelta
     _resource_dependency_graph: Mapping[str, Iterable[str]] | None
+    _rca_side_path_timeout_seconds: float = 5.0
 
     def _correlate_incident_id(self, event: Event) -> str | None:
         """Anchor an event to a deterministic incident id, or ``None``."""
@@ -68,7 +70,7 @@ class ControlLoopRcaMixin:
                     "correlation_id": event.correlation_id or str(event.event_id),
                     "idempotency_key": f"{event.idempotency_key}:rca:{finding.rule_id}",
                     "actor": "fdai.core.rca",
-                    "producer_principal": "Forseti",
+                    "producer_principal": "control-loop",
                     "action_kind": "rca.hypothesis",
                     "mode": Mode.SHADOW.value,
                     "rule_id": finding.rule_id,
@@ -127,7 +129,7 @@ class ControlLoopRcaMixin:
                     "correlation_id": event.correlation_id or str(event.event_id),
                     "idempotency_key": f"{event.idempotency_key}:rca_t1_chain",
                     "actor": "fdai.core.rca",
-                    "producer_principal": "Forseti",
+                    "producer_principal": "control-loop",
                     "action_kind": "rca.hypothesis",
                     "mode": Mode.SHADOW.value,
                     "incident_id": incident_id,
@@ -166,9 +168,12 @@ class ControlLoopRcaMixin:
         if self._causal_runtime_coordinator is None or incident_id is None:
             return
         try:
-            result = await self._causal_runtime_coordinator.analyze(
-                event=event,
-                incident_id=incident_id,
+            result = await asyncio.wait_for(
+                self._causal_runtime_coordinator.analyze(
+                    event=event,
+                    incident_id=incident_id,
+                ),
+                timeout=self._rca_side_path_timeout_seconds,
             )
             claim = result.claim
             hypothesis = result.hypothesis
@@ -178,7 +183,7 @@ class ControlLoopRcaMixin:
                     "correlation_id": event.correlation_id or str(event.event_id),
                     "idempotency_key": f"{event.idempotency_key}:rca_temporal_causality",
                     "actor": "fdai.core.rca",
-                    "producer_principal": "Forseti",
+                    "producer_principal": "control-loop",
                     "action_kind": "rca.temporal_causality",
                     "mode": Mode.SHADOW.value,
                     "incident_id": incident_id,
@@ -233,7 +238,7 @@ class ControlLoopRcaMixin:
                     "correlation_id": event.correlation_id or str(event.event_id),
                     "idempotency_key": f"{event.idempotency_key}:rca_t2",
                     "actor": "fdai.core.rca",
-                    "producer_principal": "Forseti",
+                    "producer_principal": "control-loop",
                     "action_kind": "rca.hypothesis",
                     "mode": Mode.SHADOW.value,
                     "incident_id": incident_id,

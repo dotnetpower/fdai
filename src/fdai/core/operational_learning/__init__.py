@@ -22,13 +22,18 @@ from .patterns import (
     PatternCase,
     pattern_case_from_operational_case,
 )
-from .review import CatalogReviewPublicationReceipt, CatalogReviewPublisher
+from .review import (
+    CatalogReviewOutcome,
+    CatalogReviewPublicationReceipt,
+    CatalogReviewPublisher,
+)
 
 __all__ = [
     "CatalogCandidateCompiler",
     "CatalogCheckReceipts",
     "CatalogCompilationError",
     "CatalogReviewPackage",
+    "CatalogReviewOutcome",
     "CatalogReviewPublicationReceipt",
     "CatalogReviewPublisher",
     "CatalogValidationRequest",

@@ -49,4 +49,28 @@ class CatalogReviewPublisher(Protocol):
         ...
 
 
-__all__ = ["CatalogReviewPublicationReceipt", "CatalogReviewPublisher"]
+@dataclass(frozen=True, slots=True)
+class CatalogReviewOutcome:
+    idempotency_key: str
+    correlation_id: str
+    candidate_digest: str | None
+    package_digest: str | None
+    outcome: str
+    reason: str
+    review_ref: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.idempotency_key or not self.correlation_id:
+            raise ValueError("catalog review outcome trace identity MUST be non-empty")
+        for digest in (self.candidate_digest, self.package_digest):
+            if digest is not None and _SHA256.fullmatch(digest) is None:
+                raise ValueError("catalog review outcome digests MUST be SHA-256")
+        if not self.outcome or not self.reason:
+            raise ValueError("catalog review outcome decision MUST be non-empty")
+
+
+__all__ = [
+    "CatalogReviewOutcome",
+    "CatalogReviewPublicationReceipt",
+    "CatalogReviewPublisher",
+]

@@ -167,7 +167,7 @@ def test_build_unified_risk_audit_shape(
     valid_rule: dict[str, Any],
     valid_ontology_action_type: dict[str, Any],
 ) -> None:
-    gate = RiskGate(registry=ActionPromotionRegistry())
+    gate = RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True))
     entry = build_unified_risk_audit(
         event=Event.model_validate(valid_event),
         action=Action.model_validate(valid_action),
@@ -189,7 +189,7 @@ def test_build_unified_risk_audit_destructive_is_hil(
     valid_action: dict[str, Any],
     valid_rule: dict[str, Any],
 ) -> None:
-    gate = RiskGate(registry=ActionPromotionRegistry())
+    gate = RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True))
     entry = build_unified_risk_audit(
         event=Event.model_validate(valid_event),
         action=Action.model_validate(valid_action),
@@ -226,7 +226,7 @@ async def test_control_loop_evaluates_event_backed_action_preconditions(
         update={"action_type": action_type.name}
     )
     rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
-    registry = ActionPromotionRegistry()
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     registry.consider_promotion(
         action_type=action_type,
         metrics=PromotionMetrics(
@@ -304,7 +304,7 @@ async def test_control_loop_precondition_evaluator_failure_is_hil(
         rules_by_id={rule.id: rule},
         risk_table=load_risk_table(TABLE_PATH),
         action_types_by_name={action_type.name: action_type},
-        risk_gate=RiskGate(registry=ActionPromotionRegistry()),
+        risk_gate=RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True)),
         precondition_evaluator=RaisingEvaluator(),
     )
 
@@ -412,7 +412,7 @@ def test_unified_risk_audit_honours_cost_override(
     valid_rule: dict[str, Any],
     valid_ontology_action_type: dict[str, Any],
 ) -> None:
-    gate = RiskGate(registry=ActionPromotionRegistry())
+    gate = RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True))
     entry = build_unified_risk_audit(
         event=_non_prod_event(valid_event),
         action=Action.model_validate(valid_action),

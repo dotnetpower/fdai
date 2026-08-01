@@ -8,7 +8,7 @@ import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
@@ -42,6 +42,7 @@ class EffectModel:
     metric: str
     status: EffectModelStatus
     evidence_grade: CausalEvidenceGrade
+    causal_evidence_receipt_digest: str
     learned_at: datetime
     learned_through: datetime
     sample_count: int = 0
@@ -52,6 +53,10 @@ class EffectModel:
     def __post_init__(self) -> None:
         if not all((self.model_id, self.action_type_id, self.metric)):
             raise ValueError("effect model identity MUST be non-empty")
+        if len(self.causal_evidence_receipt_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in self.causal_evidence_receipt_digest
+        ):
+            raise ValueError("effect model causal evidence receipt MUST be SHA-256")
         if _SEMVER.fullmatch(self.version) is None:
             raise ValueError("effect model version MUST use MAJOR.MINOR.PATCH")
         if self.revision < 1 or self.sample_count < 0:
@@ -216,7 +221,7 @@ def simulate_effect_branches(
         "snapshot_id": snapshot.snapshot_id,
         "target_digest": snapshot.target_digest,
         "metric": snapshot.metric,
-        "observed_at": snapshot.observed_at.isoformat(),
+        "observed_at": snapshot.observed_at.astimezone(UTC).isoformat(),
         "objective": objective,
         "branches": [
             {

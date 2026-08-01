@@ -56,6 +56,10 @@ class EffectModelReader(Protocol):
     ) -> EffectModel | None: ...
 
 
+class EffectModelCausalEvidenceVerifier(Protocol):
+    def verify(self, model: EffectModel) -> bool: ...
+
+
 @dataclass(frozen=True, slots=True)
 class DynamicRuntimeResult:
     simulation: DynamicSimulationResult | None
@@ -70,9 +74,11 @@ class DynamicRuntimeCoordinator:
         *,
         request_provider: DynamicSimulationRequestProvider,
         model_reader: EffectModelReader,
+        causal_evidence_verifier: EffectModelCausalEvidenceVerifier,
     ) -> None:
         self._request_provider = request_provider
         self._model_reader = model_reader
+        self._causal_evidence_verifier = causal_evidence_verifier
 
     async def simulate(
         self,
@@ -98,8 +104,16 @@ class DynamicRuntimeCoordinator:
                 metric=request.snapshot.metric,
             )
             if active is not None:
+                if active.learned_through > request.snapshot.observed_at:
+                    raise ValueError("Dynamic active model crosses the snapshot cutoff")
+                if not self._causal_evidence_verifier.verify(active):
+                    raise ValueError("Dynamic active model causal evidence is unverified")
                 active_models[action_type_id] = active
             if challenger is not None:
+                if challenger.learned_through > request.snapshot.observed_at:
+                    raise ValueError("Dynamic challenger model crosses the snapshot cutoff")
+                if not self._causal_evidence_verifier.verify(challenger):
+                    raise ValueError("Dynamic challenger model causal evidence is unverified")
                 challenger_models[action_type_id] = challenger
         simulation = simulate_effect_branches(
             snapshot=request.snapshot,
@@ -118,4 +132,5 @@ __all__ = [
     "DynamicSimulationRequest",
     "DynamicSimulationRequestProvider",
     "EffectModelReader",
+    "EffectModelCausalEvidenceVerifier",
 ]

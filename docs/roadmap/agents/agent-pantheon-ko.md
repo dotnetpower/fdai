@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: a6baf07f8c8b03820136bb13ef727812c4b59e1e
+translation_source_sha: fe0bbb8dec40caed4c1e9bcc4f0e93ce81b87050
 translation_revised: 2026-08-01
 ---
 
@@ -202,7 +202,7 @@ bounded `norns_consensus` 하나를 내보내고, 불일치는 자유 형식 추
 승인 거절 (`revision` / `retirement`), 선택적 scenario gap (`new-scenario`)이며 모두 같은 합의 경계를 거칩니다.
 
 모든 제안은 수치 근거를 기록합니다. Trajectory intake는 reviewed aggregate만 받고 자체 candidate를 만들지 않습니다.
-Huginn은 strict operational-case event를 전달하고 Muninn은 이를 seal해 bounded failure-fingerprint cohort를 publish합니다. Norns는 하나의 fingerprint와 ActionType, balanced evidence, immutable revision을 요구한 뒤 consensus를 거쳐 inert candidate를 냅니다. Incomplete evidence는 hold됩니다. Mimir는 선택적으로 이 candidate를 immutable catalog review package로 컴파일하고 실패한 receipt는 quarantine합니다. Operational candidate를 process 안에서 promote하지 않으며 reviewed catalog PR과 일반 catalog reload만 activation 경로로 유지합니다.
+Huginn은 strict operational-case event를 전달하고 Muninn은 이를 seal해 bounded failure-fingerprint cohort를 publish합니다. Norns는 하나의 fingerprint와 ActionType, balanced evidence, immutable revision, stable correlation 및 idempotency key를 요구한 뒤 inert candidate를 냅니다. Incomplete evidence는 hold됩니다. Mimir는 concurrent intake를 serialize하고 immutable review package를 compile하며 failed receipt를 quarantine하고 unresolved capacity를 backpressure하며 idempotent PR publication 후 state를 compact합니다. Operational candidate를 process 안에서 promote하지 않으며 reviewed catalog PR과 reload만 activation 경로입니다. Review outcome은 Mimir-owned `object.rule`로 이동하고 Saga가 `object.audit-entry`로 seal합니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).
@@ -428,7 +428,7 @@ Dead-letter write는 제한된 backoff 후 consumer를 재시작합니다. 오�
 | object.audit-entry | Saga | Norns, Muninn (문서 인덱스 gate), Var (문서 HIL) |
 | object.issue | Saga | Norns, Mimir |
 | object.rule-candidate | Norns | Mimir |
-| object.rule | Mimir | Forseti (cache reload) |
+| object.rule | Mimir | Forseti (cache reload), Saga (catalog-review audit) |
 | object.context-index, object.state-snapshot | Muninn | Norns (봉인된 case-history intake), Saga (snapshot 감사) |
 | object.conversation | Bragi | (session index) |
 | object.turn | Bragi | Muninn |

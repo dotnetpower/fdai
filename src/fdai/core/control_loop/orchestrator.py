@@ -7,6 +7,7 @@ mixins implement RCA, fallback, execution-authority, and boundary stages.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import timedelta
 from typing import Any
@@ -91,6 +92,7 @@ class ControlLoop(
         incident_member_source: IncidentMemberSource | None = None,
         causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
         causal_chain_window: timedelta | None = None,
+        rca_side_path_timeout_seconds: float = 5.0,
         resource_dependency_graph: Mapping[str, Iterable[str]] | None = None,
         workflow_coordinator: WorkflowTriggerCoordinator | None = None,
         degradation: DegradationController | None = None,
@@ -117,6 +119,8 @@ class ControlLoop(
             )
         if execution_authorization_required and execution_authorization_evaluator is None:
             raise ValueError("execution authorization is required but no evaluator is bound")
+        if not math.isfinite(rca_side_path_timeout_seconds) or rca_side_path_timeout_seconds <= 0.0:
+            raise ValueError("rca_side_path_timeout_seconds MUST be finite and positive")
         self._event_ingest = event_ingest
         self._trust_router = trust_router
         self._t0_engine = t0_engine
@@ -157,6 +161,7 @@ class ControlLoop(
         self._event_correlator = event_correlator
         self._incident_member_source = incident_member_source
         self._causal_runtime_coordinator = causal_runtime_coordinator
+        self._rca_side_path_timeout_seconds = rca_side_path_timeout_seconds
         # ``is None``, not ``or``: timedelta(0) is falsy, so an operator
         # who declares a zero window would silently get fifteen minutes.
         self._causal_chain_window = (

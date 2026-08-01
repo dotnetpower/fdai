@@ -15,6 +15,8 @@ Public exports (P2-D + P2-E):
 from fdai.core.risk_gate.gate import (
     ActionModeRecord,
     ActionPromotionRegistry,
+    OperationalPromotionReceiptVerifier,
+    PersistedPromotionAuthorityVerifier,
     PromotionMetrics,
     RiskDecision,
     RiskDecisionOutcome,
@@ -40,6 +42,8 @@ __all__ = [
     "ActionPromotionRegistry",
     "CandidateAction",
     "EventPreconditionEvaluator",
+    "OperationalPromotionReceiptVerifier",
+    "PersistedPromotionAuthorityVerifier",
     "PrecedenceDecision",
     "PrecedenceOutcome",
     "PrecedenceResolver",

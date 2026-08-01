@@ -5,8 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
+from fdai.core.measurement.pattern_growth import OutcomeRecord
+from fdai.core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
 from fdai.delivery.measurement.postgres_growth import (
     PostgresVerifiedOutcomeSource,
+    PostgresVerifiedPatternBuilder,
     _latest_outcome_rows,
     _outcome_record,
 )
@@ -133,3 +136,96 @@ async def test_outcome_source_advances_watermark_over_superseded_rows(
         ("action-2", True),
     ]
     assert await store.read_state("measurement:pattern_growth:watermark") == {"seq": 3}
+
+
+def _growth_record() -> OutcomeRecord:
+    return OutcomeRecord(
+        action_id="action-1",
+        action_type_id="ops.scale-out",
+        observed_at=datetime(2026, 8, 1, tzinfo=UTC),
+        was_auto=True,
+        was_verified=True,
+        was_rolled_back=False,
+    )
+
+
+async def test_operational_pattern_builder_requires_case_context(monkeypatch) -> None:
+    builder = PostgresVerifiedPatternBuilder(
+        dsn="postgresql://example",
+        embedding_model=DeterministicEmbeddingModel(),
+    )
+    entry = {
+        "embedding_projection": "operational failure",
+        "params": {},
+        "rule_id": "learned.operational.example",
+        "incident_id": "incident-1",
+    }
+    monkeypatch.setattr(builder, "_entry", AsyncMock(return_value=entry))
+
+    assert await builder.build(_growth_record()) is None
+
+
+async def test_operational_pattern_builder_preserves_case_context(monkeypatch) -> None:
+    builder = PostgresVerifiedPatternBuilder(
+        dsn="postgresql://example",
+        embedding_model=DeterministicEmbeddingModel(),
+    )
+    entry = {
+        "embedding_projection": "operational failure",
+        "params": {},
+        "rule_id": "learned.operational.example",
+        "incident_id": "incident-1",
+        "operational_case": {
+            "case_ref": f"case-history:case-a:1:{'a' * 64}",
+            "failure_fingerprint": "f" * 64,
+            "resource_type": "kubernetes.service",
+            "action_type": "ops.scale-out",
+            "required_topology_role": "serves",
+            "graph_digest": "b" * 64,
+            "owner_digest": "c" * 64,
+            "evidence_cutoff": "2026-08-01T00:00:00+00:00",
+        },
+    }
+    monkeypatch.setattr(builder, "_entry", AsyncMock(return_value=entry))
+
+    result = await builder.build(_growth_record())
+
+    assert result is not None
+    assert result[1].operational_case is not None
+
+
+async def test_operational_pattern_signature_binds_case_context(monkeypatch) -> None:
+    builder = PostgresVerifiedPatternBuilder(
+        dsn="postgresql://example",
+        embedding_model=DeterministicEmbeddingModel(),
+    )
+    base = {
+        "embedding_projection": "operational failure",
+        "params": {"replicas": 3},
+        "rule_id": "learned.operational.example",
+        "incident_id": "incident-1",
+        "operational_case": {
+            "case_ref": f"case-history:case-a:1:{'a' * 64}",
+            "failure_fingerprint": "f" * 64,
+            "resource_type": "kubernetes.service",
+            "action_type": "ops.scale-out",
+            "required_topology_role": "serves",
+            "graph_digest": "b" * 64,
+            "owner_digest": "c" * 64,
+            "evidence_cutoff": "2026-08-01T00:00:00+00:00",
+        },
+    }
+    changed = {
+        **base,
+        "operational_case": {
+            **base["operational_case"],  # type: ignore[dict-item]
+            "case_ref": f"case-history:case-a:2:{'d' * 64}",
+        },
+    }
+    monkeypatch.setattr(builder, "_entry", AsyncMock(side_effect=(base, changed)))
+
+    first = await builder.build(_growth_record())
+    second = await builder.build(_growth_record())
+
+    assert first is not None and second is not None
+    assert first[1].signature != second[1].signature

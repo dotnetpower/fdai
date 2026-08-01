@@ -97,8 +97,35 @@ class Saga(Agent):
             await self._republish_outcome(payload, correlation_id)
         if topic == "object.forecast-outcome":
             await self._republish_forecast_outcome(payload, correlation_id)
+        if topic == "object.rule" and payload.get("kind") == "catalog_review_outcome":
+            await self._republish_catalog_review_outcome(payload, correlation_id)
         if topic == "object.handoff-escalation":
             await self._materialize_handoff(payload, correlation_id)
+
+    async def _republish_catalog_review_outcome(
+        self,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        if self.bus is None or not correlation_id:
+            return
+        await self.bus.publish(
+            "Saga",
+            "object.audit-entry",
+            {
+                "producer_principal": "Saga",
+                "correlation_id": correlation_id,
+                "idempotency_key": str(payload.get("idempotency_key") or ""),
+                "audited_topic": "object.rule",
+                "action_kind": "catalog_review.outcome",
+                "candidate_digest": payload.get("candidate_digest"),
+                "package_digest": payload.get("package_digest"),
+                "outcome": str(payload.get("outcome") or ""),
+                "reason": str(payload.get("reason") or ""),
+                "review_ref": payload.get("review_ref"),
+                "mode": "shadow",
+            },
+        )
 
     async def _materialize_handoff(
         self,

@@ -6,7 +6,10 @@ from dataclasses import dataclass
 
 from fdai.agents._framework.base import Agent
 from fdai.agents.mimir import Mimir
-from fdai.core.operational_learning import CatalogCandidateCompiler, CatalogReviewPublisher
+from fdai.core.operational_learning import (
+    CatalogCandidateCompiler,
+    CatalogReviewPublisher,
+)
 
 
 @dataclass(frozen=True, slots=True)

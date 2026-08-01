@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from statistics import fmean
 from uuid import NAMESPACE_URL, uuid5
 
@@ -152,7 +152,8 @@ class TemporalCausalityAnalyzer:
             else CausalEvidenceGrade.ASSOCIATION
         )
         identity = (
-            f"{cause.metric}:{effect.metric}:{lag}:{feature_cutoff.isoformat()}:"
+            f"{cause.metric}:{effect.metric}:{lag}:"
+            f"{feature_cutoff.astimezone(UTC).isoformat()}:"
             f"{confounder.metric if confounder is not None else 'none'}"
         )
         return TemporalCausalClaim(
