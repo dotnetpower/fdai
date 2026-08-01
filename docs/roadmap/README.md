@@ -176,7 +176,7 @@ exit criteria and its dependencies.
 
 | Phase | Goal | Key deliverables | Primary exit gate |
 |-------|------|------------------|-------------------|
-| **[P0](phases/phase-0-instrumentation.md)** | Instrument and unblock | KPI dashboard, baseline report, identity / policy blockers resolved | reproducible baseline exists |
+| **[P0](phases/phase-0-instrumentation.md)** | Establish measurement and remove blockers | KPI dashboard, baseline report, identity / policy blockers resolved | reproducible baseline exists |
 | **[P1](phases/phase-1-rule-catalog-t0.md)** | Deterministic core | rule catalog, T0 engine, policy gate, remediation PRs | Change gate runs in shadow |
 | **[P2](phases/phase-2-quality-and-t1.md)** | Quality and lightweight tier | rule-update pipeline, LLM quality gate (guards T2), T1 similarity reuse | auto-resolution rate validated vs P0 baseline |
 | **[P3](phases/phase-3-integrated-loop.md)** | Integrated autonomy | unified loop, DR / chaos scheduler, cost auto-actions | autonomous MVP across all 3 verticals |
@@ -209,7 +209,7 @@ exit criteria and its dependencies.
 | Understand the 3-tier control loop | [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) |
 | Find a subsystem's source, tests, and design doc | [architecture/code-map.md](architecture/code-map.md) |
 | See the concrete Azure resource inventory | [deploy-and-onboard.md](deployment/deploy-and-onboard.md) |
-| Follow the P0 baseline instrumentation | [phases/phase-0-instrumentation.md](phases/phase-0-instrumentation.md) |
+| Establish the P0 measurement baseline | [phases/phase-0-instrumentation.md](phases/phase-0-instrumentation.md) |
 | Read the safety rules on every autonomous action | [../../.github/instructions/coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md) |
 | Contribute a new rule to the catalog | [../../rule-catalog/RULE_AUTHORING_GUIDE.md](../../rule-catalog/RULE_AUTHORING_GUIDE.md) |
 

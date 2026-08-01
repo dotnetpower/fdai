@@ -1,44 +1,45 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: e7c642c7b528cacb429480e063dcbc5ec66a9cf6
+translation_source_sha: 0210138e56f4afcd2aade3b47d92005cdc03f807
 translation_revised: 2026-08-01
 ---
 # FDAI 로드맵
 
-FDAI 뒤편의 엔지니어링 계획. 이 폴더는
+FDAI의 엔지니어링 계획입니다. 이 폴더는
 [copilot-instructions.md](../../.github/copilot-instructions.md)의 요약 원칙과
-컨트롤 루프를, 목표·구조·배포·스케일-아웃을 아우르는 단계별 로드맵으로 확장합니다.
+[architecture.instructions.md](../../.github/instructions/architecture.instructions.md)의 컨트롤
+루프를 실행 가능한 단계별 로드맵으로 확장하며, 목표와 구조에서 배포 및 확장까지 다룹니다.
 
 > **온라인으로 읽기:** [dotnetpower.github.io/fdai](https://dotnetpower.github.io/fdai/).
-> 여기의 Markdown이 canonical 소스이며, 사이트는 이 파일들을 사이드바 · 우측 TOC ·
-> 전문 검색 · 한/영 스위처와 함께 읽기 전용으로 마운트합니다. 마운트와 배포 방식은
-> [site/](../../site/README.md) 참조.
+> 여기의 Markdown이 기준 원본입니다. 사이트는 이 파일들을 사이드바, 우측 목차,
+> 전문 검색, 한/영 전환 기능과 함께 읽기 전용으로 제공합니다. 구성과 배포 방식은
+> [site/](../../site/README.md)을 참조하세요.
 
-> **범위:** 이 저장소는 generic하고 customer-agnostic입니다. Deployment value는 environment
-> configuration 또는 secret store에 남으며, 선택적 downstream distribution은 지원되는 seam으로
-> capability를 제한하거나 확장합니다.
+> **범위:** 이 저장소는 범용이며 특정 고객에 종속되지 않습니다. 배포 값은 환경 구성 또는
+> 비밀 저장소에서 관리하고, 선택적 downstream 배포판은 지원되는 확장 지점을 통해 기능을
+> 제한하거나 확장합니다.
 > ([generic-scope.instructions.md](../../.github/instructions/generic-scope.instructions.md)).
 >
-> **구현 초점:** Azure가 유일한 구현 대상입니다. 비-Azure 프로바이더와 Phase 4의
-> 멀티 클라우드 확장은 TBD입니다. 이 문서들의 CSP-중립 추상화는 향후 어댑터가
-> 추가적으로 붙을 수 있게 보존된 seam이지 납품 약속이 아닙니다
+> **구현 초점:** 현재 구현 대상은 Azure뿐입니다. 비-Azure 공급자와 P4의 멀티 클라우드
+> 확장은 추후 검토 대상입니다. 이 문서의 CSP 중립 추상화는 향후 어댑터를 추가할 수 있도록
+> 보존한 확장 지점이며, 제공 시점을 약속하는 것은 아닙니다
 > ([Implementation Focus](../../.github/copilot-instructions.md#implementation-focus-must)).
 
 ## 한눈에 보는 설계
 
-결정론 우선, 이벤트 기반, 위험 게이트. 3-tier 신뢰 라우터가 반복 가능한 이벤트를
-규칙과 정책(T0)과 lightweight 유사도 재사용(T1)으로 해결하고, frontier 모델
-추론(T2)은 모호한 잔여에만 할당합니다. 모든 자율 액션은 shadow 모드로 먼저 배포되며,
-개별적으로 명시 승격됩니다. 커버리지 비중과 자율성 배수는 측정된 베이스라인 위에서만
-주장 가능한 설계 목표입니다 ([goals-and-metrics-ko.md](architecture/goals-and-metrics-ko.md)).
+FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합니다. 3-tier 신뢰 라우터는
+반복 가능한 이벤트를 규칙과 정책(T0), 경량 유사 사례 재사용(T1)으로 해결하고, frontier
+모델 추론(T2)은 남은 모호한 사례에만 사용합니다. 모든 자율 액션은 관찰 모드에서 먼저
+검증한 뒤 개별적으로 승격합니다. 처리 비중과 자율성 배수는 측정된 기준선이 있을
+때만 주장할 수 있습니다 ([goals-and-metrics-ko.md](architecture/goals-and-metrics-ko.md)).
 
 ## 이 폴더 읽는 법
 
-레퍼런스 문서는 시스템을 기술하고, 페이즈 문서(P0-P4)는 구축 순서를 시퀀싱합니다.
-레퍼런스 먼저, 그 다음 페이즈 순서대로 읽습니다.
+참조 문서는 시스템을 설명하고, 단계 문서(P0-P4)는 구축 순서를 제시합니다.
+참조 문서를 먼저 읽은 다음 단계 문서를 순서대로 읽으세요.
 
-### Core 레퍼런스 (시스템 형태)
+### 핵심 참조 문서 (시스템 구조)
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
@@ -61,18 +62,18 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
-| 8 | [rule-catalog-collection-ko.md](rules-and-detection/rule-catalog-collection-ko.md) | 규칙 / 체크리스트 / 베이스라인의 출처와 YAML 형태 |
-| 9 | [rule-governance-ko.md](rules-and-detection/rule-governance-ko.md) | 어드민이 규칙을 저작 / 스코핑 / 활성화 / 예외 처리하는 방식 (Azure Policy 유사) |
+| 8 | [rule-catalog-collection-ko.md](rules-and-detection/rule-catalog-collection-ko.md) | 규칙, 체크리스트, 기준선의 출처와 YAML 형식 |
+| 9 | [rule-governance-ko.md](rules-and-detection/rule-governance-ko.md) | 관리자가 규칙을 작성하고 범위를 지정하며 활성화하거나 예외 처리하는 방식 (Azure Policy 유사) |
 | 10 | [observability-and-detection-ko.md](rules-and-detection/observability-and-detection-ko.md) | 이벤트 상관, 이상 탐지, 예측, 근본 원인 분석 |
 | 10a | [manual-distillation-ko.md](rules-and-detection/manual-distillation-ko.md) | 도입 회사의 운영 / 배포 매뉴얼을 결정론적 규칙 / 워크플로우 / 정책으로 컴파일(런타임 RAG 대비)하고 증류를 검증 |
 | 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | Benchmark 및 live incident 결과를 immutable case, deterministic failure fingerprint, governed rule candidate, 재사용 가능한 promoted operating pattern으로 전환 |
 | 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | Ontology 기반 causal hypothesis, support/refutation evidence, evidence grade, outcome closure |
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, fork vs core 분리 |
 | 11a | [deployment-resource-conventions-ko.md](deployment/deployment-resource-conventions-ko.md) | 결정론적 CAF 리소스 이름, 소유권 태그, 배포 공급 태그 규칙 |
-| 11b | [hyperscale-cell-architecture-ko.md](architecture/hyperscale-cell-architecture-ko.md) | 구독 300개용 scale-out 청사진: 셀 기반 스트리밍, 정책-기반 fan-in, 2-평면 로깅, ADX 위의 CQRS 감사 인덱싱, 비용 엔벨로프, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
+| 11b | [hyperscale-cell-architecture-ko.md](architecture/hyperscale-cell-architecture-ko.md) | 구독 300개를 위한 확장 청사진: 셀 기반 스트리밍, 정책 기반 fan-in, 2-평면 로깅, ADX 기반 CQRS 감사 인덱싱, 비용 범위, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
 | 12 | [startup-and-lifecycle-ko.md](operations/startup-and-lifecycle-ko.md) | 콜드 스타트, day-zero 카탈로그, shadow-first 롤아웃, discovery-loop 킥오프 |
 | 13 | [operating-and-verification-ko.md](operations/operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
-| 20 | [deployment-preflight-ko.md](deployment/deployment-preflight-ko.md) | 배포 전 가능성 및 blocker 수집: 프로브 분류법, readiness 리포트, blocker-테라폼-토글 매핑 |
+| 20 | [deployment-preflight-ko.md](deployment/deployment-preflight-ko.md) | 배포 가능성과 선행 장애 요인 점검: 프로브 분류, readiness 보고서, 장애 요인과 Terraform 설정의 매핑 |
 | 20a | [preflight-active-reassembly-ko.md](deployment/preflight-active-reassembly-ko.md) | 능동 플랜 재조립: policy blocker를 capability-mode 토글로 재렌더된 terraform 플랜으로 바꿔 executor를 통해 remediation PR로 전달 (수렴 루프, stop-condition, 한계) |
 | 20b | [installable-deployment-cli-ko.md](deployment/installable-deployment-cli-ko.md) | 설치형 `fdaictl` facade: 격리된 `uv` 설치, 읽기 전용 preflight, 서명된 deployment bundle, private runner로 exact-plan 제출 |
 | 20c | [provisioning-execution-profiles-ko.md](deployment/provisioning-execution-profiles-ko.md) | Provisioning profile 선택: online/offline delivery, existing 또는 managed execution host, access preference, workload identity, exact-plan approval |
@@ -147,7 +148,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 27 | [productization-and-extensibility-ko.md](fork-and-sequencing/productization-and-extensibility-ko.md) | Install 및 diagnostics, bidirectional channel, trusted extension 및 MCP, model 및 scheduler resilience, security audit, typed API와 FDAI app shape 밖에 의도적으로 유지하는 capability의 prioritized P0/P1/P2 상태 matrix |
 | 28 | [capability-licensing-ko.md](fork-and-sequencing/capability-licensing-ko.md) | 이미지로 전달되는 distribution을 위한 서명된 capability entitlement: 이미지 안의 public key, 배포 설정의 서명된 token, available 축 전용 권한, 안전 저하, 정직한 tamper-evidence 한계 |
 
-## 페이즈 타임라인
+## 단계별 일정
 
 ```mermaid
 timeline
@@ -159,31 +160,31 @@ timeline
     P4 Scale : Continuous measurement : Pattern-library and model tracking : Scalability : Multi-cloud expansion (TBD)
 ```
 
-페이즈는 엄격히 순차(P0 -> P1 -> P2 -> P3 -> P4)이며 각 페이즈 문서는 선행 조건을
-*Dependencies* 섹션에 명시합니다. 버티컬 커버리지는 점진적으로 랜딩됩니다: P1에서
-Change Safety, P3에서 Resilience와 Cost Governance. 멀티 클라우드는 P4에서 TBD로
-남습니다 (Azure-only 구현,
+단계는 P0 -> P1 -> P2 -> P3 -> P4 순서로 진행하며, 각 단계 문서는 *Dependencies* 절에
+선행 조건을 명시합니다. 지원 영역은 점진적으로 확장됩니다. P1에서 Change Safety를,
+P3에서 Resilience와 Cost Governance를 제공합니다. 멀티 클라우드는 P4의 추후 검토
+항목으로 남습니다 (Azure-only 구현,
 [Implementation Focus](../../.github/copilot-instructions.md#implementation-focus-must)).
 
-## 페이즈 요약
+## 단계 요약
 
-Exit 컬럼은 각 페이즈의 primary gate입니다. 각 페이즈 문서는 완전한 exit 기준과
-의존성을 나열합니다.
+종료 조건 열은 각 단계의 주요 통과 기준입니다. 각 단계 문서에는 전체 종료 기준과
+의존성이 정리되어 있습니다.
 
 | Phase | 목표 | 주요 산출물 | Primary exit gate |
 |-------|------|-------------|-------------------|
-| **[P0](phases/phase-0-instrumentation-ko.md)** | 계기화와 언블록 | KPI 대시보드, 베이스라인 리포트, identity / policy 블로커 해소 | 재현 가능한 베이스라인 존재 |
+| **[P0](phases/phase-0-instrumentation-ko.md)** | 측정 기반 마련과 선행 장애 요인 해소 | KPI 대시보드, 기준선 보고서, identity 및 policy 장애 요인 해소 | 재현 가능한 기준선 확보 |
 | **[P1](phases/phase-1-rule-catalog-t0-ko.md)** | 결정론 코어 | 규칙 카탈로그, T0 엔진, 정책 게이트, remediation PR | Change gate가 shadow로 동작 |
-| **[P2](phases/phase-2-quality-and-t1-ko.md)** | 품질과 lightweight tier | 규칙 갱신 파이프라인, LLM quality gate (T2 방어), T1 유사도 재사용 | P0 베이스라인 대비 자동 해결 비율 검증 |
+| **[P2](phases/phase-2-quality-and-t1-ko.md)** | 품질과 경량 tier | 규칙 갱신 파이프라인, LLM quality gate (T2 보호), T1 유사 사례 재사용 | P0 기준선 대비 자동 해결 비율 검증 |
 | **[P3](phases/phase-3-integrated-loop-ko.md)** | 통합 자율성 | 통합 루프, DR / chaos 스케줄러, cost 자동 액션 | 3개 버티컬 전반 자율 MVP |
-| **[P4](phases/phase-4-scale-ko.md)** | 스케일 아웃 (Azure) | 지속 측정, 패턴 라이브러리와 모델 추적, 확장성. 멀티 클라우드 어댑터는 TBD | Azure 베이스라인 위에서 guard 지표 안정 |
+| **[P4](phases/phase-4-scale-ko.md)** | Azure 확장 | 지속 측정, 패턴 라이브러리, 모델 추적, 확장성. 멀티 클라우드 어댑터는 추후 검토 | Azure 기준선에서 보호 지표 안정 |
 
-## 전반에 적용되는 가드레일
+## 모든 단계에 적용되는 안전 원칙
 
-- **Measurement first**: 텔레메트리 없이는 자율성 없음. 측정된 베이스라인 없이는
-  배수 / 커버리지 주장 없음.
-- **Shadow before enforce**: 모든 신규 액션은 판정 전용으로 배포된 뒤, 개별적으로
-  명시 승격. 리그레션은 자동 강등.
+- **Measurement first**: 텔레메트리 없이는 자율성을 허용하지 않습니다. 측정된 기준선
+  없이는 향상 배수나 처리 비중을 주장하지 않습니다.
+- **Shadow before enforce**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
+  개별적으로 승격합니다. 회귀가 발생하면 자동으로 관찰 모드로 돌아갑니다.
 - **Choose the safer default when the outcome is uncertain**: 낮은 confidence, verification 실패, budget / rate 초과는
   HIL로 강등되며, 게이트 없는 자동 액션으로는 절대 강등되지 않음.
 - **모든 액션의 안전 불변식**: 정지 조건, 롤백 경로, blast-radius 한계, 감사 로그
@@ -203,16 +204,16 @@ Exit 컬럼은 각 페이즈의 primary gate입니다. 각 페이즈 문서는 �
 | 3-tier 컨트롤 루프 이해 | [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) |
 | 서브시스템의 소스, 테스트, 설계 문서 찾기 | [architecture/code-map-ko.md](architecture/code-map-ko.md) |
 | 구체적인 Azure 리소스 인벤토리 확인 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) |
-| P0 베이스라인 계기화 따라 하기 | [phases/phase-0-instrumentation-ko.md](phases/phase-0-instrumentation-ko.md) |
+| P0 측정 기준선 마련하기 | [phases/phase-0-instrumentation-ko.md](phases/phase-0-instrumentation-ko.md) |
 | 모든 자율 액션의 안전 규칙 읽기 | [../../.github/instructions/coding-conventions.instructions.md](../../.github/instructions/coding-conventions.instructions.md) |
 | 카탈로그에 새 규칙 기여 | [../../rule-catalog/RULE_AUTHORING_GUIDE.md](../../rule-catalog/RULE_AUTHORING_GUIDE.md) |
 
-## 캐노니컬 다이어그램
+## 기준 다이어그램
 
-설계 문서 간 drift를 막기 위해 소수 다이어그램을 **캐노니컬**로 지정한다.
-하위 문서는 같은 형태를 다시 그리지 말고 아래 위치로 링크해야 한다.
+설계 문서 간 불일치를 막기 위해 일부 다이어그램을 **기준 다이어그램**으로 지정합니다.
+하위 문서는 같은 형태를 다시 그리지 말고 아래 위치를 링크해야 합니다.
 
-| 다이어그램 | 캐노니컬 위치 |
+| 다이어그램 | 기준 위치 |
 |-----------|--------------|
 | 컨트롤 루프 (event -> tier -> gate -> action -> audit) | [architecture.instructions.md § Control Loop](../../.github/instructions/architecture.instructions.md#control-loop) |
 | 에이전트 판테온 (15명 조직도) | [agents/agent-pantheon-ko.md](agents/agent-pantheon-ko.md) |

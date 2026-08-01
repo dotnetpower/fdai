@@ -107,7 +107,7 @@ event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
   discovery loop begins proposing catalog updates from your own operating
   signals (approval patterns, observation accuracy drift, overrides).
 
-The longer it runs, the smaller the T2 share and the higher the auto-resolution
+The longer FDAI runs, the smaller the T2 share and the higher the auto-resolution
 rate. All targets require a measured baseline before they can be claimed
 ([goals-and-metrics.md](docs/roadmap/architecture/goals-and-metrics.md)).
 
