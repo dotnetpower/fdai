@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 1fd2be5d597527be23e8b84d1c96f5d08d12592b
+translation_source_sha: 5ec99f9b64488da0b092517896ce87319fe7acfc
 translation_revised: 2026-08-01
 ---
 
@@ -290,11 +290,12 @@ Issuer와 tenant check는 deployment에 설정된 Entra tenant issuer와 API aud
 foreign-tenant, issuer-mismatched token은 role resolution 전에 fail closed하며 request나 stream state를
 tenant boundary 사이에서 공유하지 않습니다.
 
-Multi-effect request는 partial success를 하나의 `submitted` 결과로 합치지 않습니다. 예를 들어 incident
-creation과 ticket proposal은 하나의 parent correlation 아래에서 별도 effect id, receipt, status, retry를
-유지합니다. 모든 required effect가 terminal일 때만 parent가 terminal이 됩니다. Primary effect가 commit되고
-secondary publish가 실패하면 `degraded`이며 durable reconciliation은 incident를 다시 만들지 않고 누락된
-effect만 재개합니다.
+Phase 2 multi-effect request는 partial success를 하나의 `submitted` 결과로 합치지 않습니다. 각 effect는
+하나의 parent correlation 아래에서 `effect_id`, `kind`, `required`, `status: pending | accepted | succeeded |
+failed`, nullable receipt와 reason, retry count를 선언합니다. 모든 required effect가 terminal일 때만
+parent가 terminal이며 required failure가 하나라도 있으면 `degraded`입니다. Incident creation과 ticket
+proposal은 현재 collapsed flag에서 이 shape로 migrate하고 durable reconciliation은 incident를 다시 만들지
+않고 누락된 effect만 재개합니다.
 
 Bulk request는 도메인 workflow가 atomicity 또는 bounded partial failure, impact limit, rollback 동작을
 정의한 뒤에 도입합니다.
