@@ -775,6 +775,29 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 
+### RUN-0031: Platform issues versus customer-initiated stops
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q023` |
+| Executed | `2026-08-01` |
+| Question | `플랫폼 문제와 고객이 시작한 중지를 구분해줘.` |
+| Initial FDAI answer | Interpreted the compound phrase only as a stopped-state query, reported zero stopped resources, and omitted Service Health and Resource Health cause separation. |
+| Azure SRE Agent answer | Separated active Azure outage, planned maintenance or advisory notices, and customer-initiated Resource Health state. It reported no active outage, active platform notices, and one customer-initiated unavailable virtual machine. Deployment-owned values were redacted. |
+| Fixed FDAI answer | Separated zero active outage events, six planned-maintenance events affecting four distinct resources, ten advisories with no directly mapped resources, and Resource Health causes of zero platform-initiated, three customer-initiated, and zero unclassified resources. Deployment-owned values were redacted. |
+| Evidence | One deterministic subscription-health branch consumed bounded Service Health events and impacted-resource projections plus Resource Health availability and annotation causes. Representative metrics and public-web evidence were disabled. The result used fresh observation time, one consumed evidence reference, one of one checks verified, and zero model calls. |
+| Material difference | Both final answers separated platform notices from customer-initiated state. FDAI reported complete event-type and cause counts, distinct impacted-resource coverage, source availability, and deterministic process accounting. |
+| Winner | FDAI after remediation for equal causal correctness with broader classified coverage and stronger evidence integrity. |
+| General fix | The language catalog recognizes generic platform issue and problem terms. Its Korean suffix model accepts conjunction particles such as `와` and `과`, so compound comparisons retain platform-health intent and suppress incidental stopped-state grouping. |
+| Status | `fdai-win` |
+
+#### RUN-0031 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -806,7 +829,7 @@ existing seed.
 | Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | compared |
 | Q021 | ko | Platform health | 현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어? | `HEALTH` | compared |
 | Q022 | en | Platform health | Is any managed resource affected by an active Azure outage? | `HEALTH` | compared |
-| Q023 | ko | Platform health | 플랫폼 문제와 고객이 시작한 중지를 구분해줘. | `HEALTH` | queued |
+| Q023 | ko | Platform health | 플랫폼 문제와 고객이 시작한 중지를 구분해줘. | `HEALTH` | compared |
 | Q024 | en | Platform health | Separate platform-initiated impact from customer-initiated changes. | `HEALTH` | queued |
 | Q025 | ko | Health history | 지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘. | `HEALTH` | queued |
 | Q026 | en | Health history | What Resource Health events occurred during the last day? | `HEALTH` | queued |
