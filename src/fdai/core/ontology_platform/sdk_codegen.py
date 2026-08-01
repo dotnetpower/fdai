@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import keyword
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -86,8 +87,13 @@ def generate_ontology_sdk(
 
 def _python_object(object_type: OntologyObjectType) -> list[str]:
     lines = [f"class {object_type.name}(TypedDict, total=False):"]
+    identifiers: set[str] = set()
     for name, declaration in sorted(object_type.properties.items()):
-        lines.append(f"    {_identifier(name)}: {_python_type(declaration.type.value)}")
+        identifier = _identifier(name)
+        if identifier in identifiers:
+            raise ValueError(f"ObjectType {object_type.name!r} has colliding SDK properties")
+        identifiers.add(identifier)
+        lines.append(f"    {identifier}: {_python_type(declaration.type.value)}")
     return [*lines, ""]
 
 
@@ -95,13 +101,20 @@ def _typescript_object(object_type: OntologyObjectType) -> list[str]:
     lines = [f"export interface {object_type.name} {{"]
     for name, declaration in sorted(object_type.properties.items()):
         optional = "" if declaration.required else "?"
-        lines.append(f"  readonly {name}{optional}: {_typescript_type(declaration.type.value)};")
+        property_name = (
+            name if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", name) else json.dumps(name)
+        )
+        lines.append(
+            f"  readonly {property_name}{optional}: {_typescript_type(declaration.type.value)};"
+        )
     return [*lines, "}", ""]
 
 
 def _identifier(value: str) -> str:
     normalized = re.sub(r"[^A-Za-z0-9_]", "_", value)
-    return f"field_{normalized}" if normalized[:1].isdigit() else normalized
+    if normalized[:1].isdigit() or keyword.iskeyword(normalized):
+        return f"field_{normalized}"
+    return normalized
 
 
 def _python_type(value: str) -> str:

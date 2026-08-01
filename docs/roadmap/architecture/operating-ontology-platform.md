@@ -21,6 +21,11 @@ preserving FDAI's governed action pipeline.
 > stale revision checks, typed functions, projection bindings, reconciliation, scoped SDK
 > generation, and a read-only manifest. PostgreSQL release persistence, runtime composition, and
 > HTTP mounting remain wiring work.
+>
+> **Hardening status (2026-08-01):** Ten adversarial rounds covered release identity, persistence,
+> interface compatibility, ObjectSet closure, mutation safety, function authority, projection,
+> reconciliation, generated SDK syntax, and manifest disclosure. Verified Medium-or-higher core
+> findings are fixed. Integration wiring remains under review and is not counted as complete.
 
 ## Design at a glance
 

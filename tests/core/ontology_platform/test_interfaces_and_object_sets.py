@@ -82,6 +82,19 @@ def test_interface_compilation_rejects_missing_property_and_cycle() -> None:
         compile_interfaces(interfaces=(cyclic,), implementations=(), object_types=())
 
 
+def test_interface_compilation_rejects_incompatible_parent_properties() -> None:
+    left = OntologyInterfaceType(
+        name="Left", version="1.0.0", properties={"value": PropertyDecl(type=PropertyType.STRING)}
+    )
+    right = OntologyInterfaceType(
+        name="Right", version="1.0.0", properties={"value": PropertyDecl(type=PropertyType.INTEGER)}
+    )
+    child = OntologyInterfaceType(name="Child", version="1.0.0", extends=("Left", "Right"))
+
+    with pytest.raises(ValueError, match="conflicting properties"):
+        compile_interfaces(interfaces=(left, right, child), implementations=(), object_types=())
+
+
 async def test_object_set_materializes_interface_query_with_hard_limit() -> None:
     workload = _object_type("Workload")
     ownable, operable = _interfaces()

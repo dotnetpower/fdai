@@ -19,6 +19,7 @@ from .kinetics import MutationEffect, MutationPlan, TargetRevision
 def build_mutation_plan(
     *,
     action_type_ref: OntologyTypeRef,
+    planner_ref: str,
     targets: Sequence[OntologyObjectRecord],
     effects: Sequence[MutationEffect],
     rollback_effects: Sequence[MutationEffect],
@@ -41,6 +42,7 @@ def build_mutation_plan(
         )
     material = {
         "action_type_ref": action_type_ref.model_dump(mode="json"),
+        "planner_ref": planner_ref,
         "targets": [item.model_dump(mode="json") for item in pinned],
         "effects": [_effect_dump(item) for item in effects],
         "rollback_effects": [_effect_dump(item) for item in rollback_effects],
@@ -51,6 +53,7 @@ def build_mutation_plan(
         plan_id=f"mutation-plan:{digest.removeprefix('sha256:')}",
         digest=digest,
         action_type_ref=action_type_ref,
+        planner_ref=planner_ref,
         targets=tuple(pinned),
         effects=tuple(effects),
         rollback_effects=tuple(rollback_effects),

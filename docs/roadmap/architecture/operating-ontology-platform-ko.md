@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 플랫폼
 translation_of: operating-ontology-platform.md
-translation_source_sha: 0532985179180800d589f059469706e908ada4b8
+translation_source_sha: b57dbe5926c33f67d3323da3f9e968ce47fc8841
 translation_revised: 2026-08-01
 ---
 # FDAI 운영 온톨로지 플랫폼
@@ -24,6 +24,11 @@ SDK surface를 추가합니다.
 > function, projection binding, reconciliation, scoped SDK generation, read-only manifest를
 > 포함합니다. PostgreSQL release persistence, runtime composition, HTTP mounting은 wiring 작업으로
 > 남아 있습니다.
+>
+> **하드닝 상태(2026-08-01):** Release identity, persistence, interface compatibility, ObjectSet
+> closure, mutation safety, function authority, projection, reconciliation, generated SDK syntax,
+> manifest disclosure를 대상으로 10회 adversarial round를 수행했습니다. 검증된 Medium 이상 core
+> finding을 수정했습니다. Integration wiring은 계속 검토 중이며 완료로 계산하지 않습니다.
 
 ## 한눈에 보는 설계
 

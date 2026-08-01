@@ -63,6 +63,7 @@ def test_generated_sdks_are_deterministic_and_proposal_only() -> None:
     assert "execute_action" not in first.python
     assert "executeAction" not in first.typescript
     assert json.loads(first.manifest_json)["write_surface"] == "proposal_only"
+    compile(first.python, "<generated-ontology-sdk>", "exec")
 
 
 def test_platform_manifest_denies_mutation_authority() -> None:
@@ -86,3 +87,29 @@ def test_platform_manifest_denies_mutation_authority() -> None:
 
     assert manifest["mutation_authority"] is False
     assert manifest["write_surface"] == "typed_proposal"
+
+
+def test_generated_sdk_escapes_reserved_and_punctuated_properties() -> None:
+    object_type = _object_type().model_copy(
+        update={
+            "properties": {
+                "id": PropertyDecl(type=PropertyType.STRING, required=True),
+                "class": PropertyDecl(type=PropertyType.STRING),
+                "cost-center": PropertyDecl(type=PropertyType.STRING),
+            }
+        }
+    )
+    release = build_ontology_release(object_types=(object_type,))
+    interfaces = compile_interfaces(interfaces=(), implementations=(), object_types=(object_type,))
+
+    generated = generate_ontology_sdk(
+        release=release,
+        object_types=(object_type,),
+        action_types=(),
+        functions=(),
+        interfaces=interfaces,
+    )
+
+    compile(generated.python, "<generated-ontology-sdk>", "exec")
+    assert "field_class" in generated.python
+    assert 'readonly "cost-center"?' in generated.typescript

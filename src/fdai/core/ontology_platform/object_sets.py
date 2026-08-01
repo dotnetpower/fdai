@@ -37,7 +37,13 @@ class ObjectSetService:
             selected = tuple(
                 item for item in graph.objects if item.object_type in set(concrete_types)
             )
-            graph = graph.__class__(objects=selected, links=graph.links, truncated=graph.truncated)
+            selected_ids = {item.id for item in selected}
+            links = tuple(
+                link
+                for link in graph.links
+                if link.from_id in selected_ids and link.to_id in selected_ids
+            )
+            graph = graph.__class__(objects=selected, links=links, truncated=graph.truncated)
         else:
             filters = {item.property: item.equals for item in definition.predicates}
             if len(filters) != len(definition.predicates):

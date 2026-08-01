@@ -39,6 +39,7 @@ class MutationPlan(ContractBase):
     plan_id: Annotated[str, Field(pattern=r"^mutation-plan:[a-f0-9]{64}$")]
     digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     action_type_ref: OntologyTypeRef
+    planner_ref: Annotated[str, Field(min_length=1)]
     targets: tuple[TargetRevision, ...]
     effects: tuple[MutationEffect, ...]
     rollback_effects: tuple[MutationEffect, ...]
@@ -53,6 +54,10 @@ class MutationPlan(ContractBase):
             raise ValueError("MutationPlan requires at least one effect")
         if not self.rollback_effects:
             raise ValueError("MutationPlan requires rollback or compensation effects")
+        effect_targets = {item.target_id for item in self.effects}
+        rollback_targets = {item.target_id for item in self.rollback_effects}
+        if not effect_targets <= rollback_targets:
+            raise ValueError("rollback effects MUST cover every mutation target")
         if self.created_at.tzinfo is None:
             raise ValueError("MutationPlan.created_at MUST be timezone-aware")
         return self
@@ -101,6 +106,7 @@ class ProjectionBinding(ContractBase):
     identity_field: Annotated[str, Field(min_length=1)]
     property_map: dict[str, str]
     watermark_field: Annotated[str, Field(min_length=1)]
+    delete_field: str | None = None
     max_batch_size: int = Field(default=1000, ge=1, le=10_000)
 
 
@@ -115,8 +121,14 @@ class ReconciliationReceipt(ContractBase):
     plan_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     status: ReconciliationStatus
     observed_at: datetime
-    evidence_refs: tuple[str, ...]
+    evidence_refs: Annotated[tuple[str, ...], Field(min_length=1)]
     mismatches: tuple[str, ...] = ()
+
+
+class ProjectedBatch(ContractBase):
+    objects: tuple[Any, ...]
+    deleted_ids: tuple[str, ...]
+    watermark: str | None
 
 
 __all__ = [
@@ -128,6 +140,7 @@ __all__ = [
     "OntologyFunctionKind",
     "OntologyFunctionType",
     "ProjectionBinding",
+    "ProjectedBatch",
     "ReconciliationReceipt",
     "ReconciliationStatus",
     "TargetRevision",

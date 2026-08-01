@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 from .kinetics import CriterionResult, MutationPlan, OntologyFunctionKind, OntologyFunctionType
 
 OntologyFunction = Callable[[Mapping[str, Any]], Awaitable[object]]
@@ -24,6 +26,9 @@ class OntologyFunctionRegistry:
             declaration, function = self._functions[name]
         except KeyError as exc:
             raise KeyError(f"unknown ontology function {name!r}") from exc
+        input_errors = list(Draft202012Validator(declaration.input_schema).iter_errors(arguments))
+        if input_errors:
+            raise ValueError("ontology function arguments violate input_schema")
         result = await function(dict(arguments))
         if declaration.kind is OntologyFunctionKind.VALIDATE and not isinstance(
             result, CriterionResult
@@ -37,6 +42,12 @@ class OntologyFunctionRegistry:
         }
         if read_only_kind and isinstance(result, MutationPlan):
             raise TypeError("read-only ontology function MUST NOT return MutationPlan")
+        serialized = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+        output_errors = list(
+            Draft202012Validator(declaration.output_schema).iter_errors(serialized)
+        )
+        if output_errors:
+            raise TypeError("ontology function result violates output_schema")
         return result
 
 

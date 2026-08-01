@@ -90,6 +90,7 @@ async def test_mutation_plan_is_digest_stable_and_rejects_stale_revision() -> No
     )
     values = dict(
         action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale"),
+        planner_ref="plan.scale@1.0.0",
         targets=(target,),
         effects=(command,),
         rollback_effects=(rollback,),
@@ -149,7 +150,7 @@ async def test_projection_binding_pins_release_and_watermark() -> None:
         watermark_field="observed_at",
     )
 
-    records, watermark = project_source_records(
+    batch = project_source_records(
         binding=binding,
         records=(
             {
@@ -161,9 +162,38 @@ async def test_projection_binding_pins_release_and_watermark() -> None:
         release=release,
     )
 
-    assert records[0].type_ref == binding.object_type_ref
-    assert records[0].properties == {"id": "workload-a", "replicas": 2}
-    assert watermark == "2026-08-01T00:00:00Z"
+    assert batch.objects[0].type_ref == binding.object_type_ref
+    assert batch.objects[0].properties == {"id": "workload-a", "replicas": 2}
+    assert batch.watermark == "2026-08-01T00:00:00Z"
+
+
+async def test_projection_rejects_duplicate_identity_and_emits_tombstone() -> None:
+    release, _target = await _fixture()
+    binding = ProjectionBinding(
+        binding_id="inventory.workload",
+        source_id="inventory",
+        object_type_ref=release.type_ref(OntologyDeclarationKind.OBJECT, "Workload"),
+        authority_class=AuthorityClass.PROVIDER_OBSERVED,
+        identity_field="resource_id",
+        property_map={"resource_id": "id", "replica_count": "replicas"},
+        watermark_field="observed_at",
+        delete_field="deleted",
+    )
+    duplicate = {
+        "resource_id": "workload-a",
+        "replica_count": 2,
+        "observed_at": "2026-08-01T00:00:00Z",
+    }
+    with pytest.raises(ValueError, match="duplicate identity"):
+        project_source_records(binding=binding, records=(duplicate, duplicate), release=release)
+
+    batch = project_source_records(
+        binding=binding,
+        records=({**duplicate, "deleted": True},),
+        release=release,
+    )
+    assert batch.objects == ()
+    assert batch.deleted_ids == ("workload-a",)
 
 
 async def test_reconciliation_distinguishes_receipt_from_observed_state() -> None:
@@ -181,6 +211,7 @@ async def test_reconciliation_distinguishes_receipt_from_observed_state() -> Non
     )
     plan = build_mutation_plan(
         action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale"),
+        planner_ref="plan.scale@1.0.0",
         targets=(target,),
         effects=(command,),
         rollback_effects=(command,),
@@ -192,14 +223,50 @@ async def test_reconciliation_distinguishes_receipt_from_observed_state() -> Non
         plan=plan,
         observed={target.id: target},
         observed_at=datetime(2026, 8, 1, 0, 1, tzinfo=UTC),
+        deadline=datetime(2026, 8, 1, 0, 5, tzinfo=UTC),
         evidence_refs=("inventory:1",),
     )
     converged = reconcile_expected_effects(
         plan=plan,
         observed={target.id: replace(target, properties={"id": target.id, "replicas": 3})},
         observed_at=datetime(2026, 8, 1, 0, 2, tzinfo=UTC),
+        deadline=datetime(2026, 8, 1, 0, 5, tzinfo=UTC),
         evidence_refs=("inventory:2",),
     )
 
     assert mismatch.status is ReconciliationStatus.MISMATCHED
     assert converged.status is ReconciliationStatus.MATCHED
+
+    timed_out = reconcile_expected_effects(
+        plan=plan,
+        observed={},
+        observed_at=datetime(2026, 8, 1, 0, 6, tzinfo=UTC),
+        deadline=datetime(2026, 8, 1, 0, 5, tzinfo=UTC),
+        evidence_refs=("inventory:timeout",),
+    )
+    assert timed_out.status is ReconciliationStatus.TIMED_OUT
+
+
+async def test_mutation_plan_requires_rollback_coverage() -> None:
+    release, target = await _fixture()
+    with pytest.raises(ValueError, match="rollback effects MUST cover"):
+        build_mutation_plan(
+            action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale"),
+            planner_ref="plan.scale@1.0.0",
+            targets=(target,),
+            effects=(
+                MutationEffect(
+                    kind=MutationEffectKind.PROVIDER_COMMAND,
+                    target_id=target.id,
+                    command_ref="provider.scale",
+                ),
+            ),
+            rollback_effects=(
+                MutationEffect(
+                    kind=MutationEffectKind.NOTIFICATION,
+                    target_id="another-target",
+                ),
+            ),
+            created_at=datetime(2026, 8, 1, tzinfo=UTC),
+            max_affected_objects=1,
+        )

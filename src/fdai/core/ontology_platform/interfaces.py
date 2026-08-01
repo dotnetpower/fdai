@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fdai.shared.contracts.models import OntologyObjectType
+from fdai.shared.contracts.models import OntologyObjectType, PropertyDecl
 
 from .models import InterfaceImplementation, OntologyInterfaceType
 
@@ -80,14 +80,34 @@ def _expand(
         current = interfaces[name]
     except KeyError as exc:
         raise ValueError(f"unknown inherited ontology interface {name!r}") from exc
-    properties = {}
+    properties: dict[str, PropertyDecl] = {}
     links: set[str] = set()
     actions: set[str] = set()
     for parent_name in current.extends:
         parent = _expand(parent_name, interfaces, (*stack, name))
+        conflicts = {
+            property_name
+            for property_name in set(properties) & set(parent.properties)
+            if properties[property_name] != parent.properties[property_name]
+        }
+        if conflicts:
+            raise ValueError(
+                f"ontology interface {name!r} inherits conflicting properties: "
+                + ", ".join(sorted(conflicts))
+            )
         properties.update(parent.properties)
         links.update(parent.required_links)
         actions.update(parent.supported_actions)
+    conflicts = {
+        property_name
+        for property_name in set(properties) & set(current.properties)
+        if properties[property_name] != current.properties[property_name]
+    }
+    if conflicts:
+        raise ValueError(
+            f"ontology interface {name!r} overrides inherited properties: "
+            + ", ".join(sorted(conflicts))
+        )
     properties.update(current.properties)
     links.update(current.required_links)
     actions.update(current.supported_actions)
