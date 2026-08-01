@@ -156,9 +156,9 @@ class AzureMcpReadTransport:
                 arguments,
                 timeout_seconds=min(limits.timeout_seconds, 15.0),
             )
+            _enforce_result_cap(result, limits.max_output_bytes)
             if result.is_error:
                 raise ValueError("Azure MCP tool reported an error")
-            _enforce_result_cap(result, limits.max_output_bytes)
             return decode(result)
         except Exception:  # noqa: BLE001 - optional MCP failure preserves typed authority
             if self._client.is_routable:

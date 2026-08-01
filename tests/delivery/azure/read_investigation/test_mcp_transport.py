@@ -309,6 +309,22 @@ async def test_output_cap_counts_content_when_structured_result_exists() -> None
     assert fallback.calls == ["state"]
 
 
+async def test_output_cap_applies_to_error_results() -> None:
+    transport, client, session, fallback = _transport()
+    session.results["compute"] = McpCallResult(
+        structured_content={"error": "x" * 70_000},
+        is_error=True,
+    )
+    assert await client.probe() is True
+
+    first = await transport.get_resource_state(RESOURCE_ID, limits=LIMITS)
+    second = await transport.get_resource_state(RESOURCE_ID, limits=LIMITS)
+
+    assert first[0]["state"] == second[0]["state"] == "fallback"
+    assert len(session.calls) == 1
+    assert fallback.calls == ["state", "state"]
+
+
 async def test_unmapped_sources_always_use_existing_transport() -> None:
     transport, client, session, fallback = _transport()
     assert await client.probe() is True
