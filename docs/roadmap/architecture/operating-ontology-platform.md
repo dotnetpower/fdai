@@ -17,8 +17,10 @@ preserving FDAI's governed action pipeline.
 >
 > **Implementation status (2026-08-01):** K0 contract identity is implemented for canonical
 > releases, ActionBuilder output, and in-memory ontology writes. K1 semantic interface compilation
-> and bounded ObjectSet queries are implemented. PostgreSQL release persistence and runtime-wide
-> release injection remain in K0.
+> and bounded ObjectSet queries are implemented. K2-K5 core primitives now cover mutation plans,
+> stale revision checks, typed functions, projection bindings, reconciliation, scoped SDK
+> generation, and a read-only manifest. PostgreSQL release persistence, runtime composition, and
+> HTTP mounting remain wiring work.
 
 ## Design at a glance
 

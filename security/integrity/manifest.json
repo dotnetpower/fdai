@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 879,
+  "file_count": 885,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "fbfc2f59b5ddb7da81dfb516fa0d6338a303dc4a11fe1ffcf71d00f1402c68cb",
     ".github/instructions/agent-stewardship.instructions.md": "a1d3657f05323259023fbb1abf304495ec923f6bb917be739ed49647171195ba",
@@ -382,10 +382,16 @@
     "src/fdai/core/oncall/__init__.py": "ca8daa982aa60a0f11ae813039f799802ae55e45bfb9b5ca9396cc1909fd4dfa",
     "src/fdai/core/oncall/resolver.py": "35fa432f02b240fd04b03995ade748032093c702272a473004a42ff08a80b178",
     "src/fdai/core/ontology_explorer.py": "013a0fb74b5f42ce905408eba84710d33ed4c45fb1a0cdcb02a059fcd353f950",
-    "src/fdai/core/ontology_platform/__init__.py": "b776080c1b8b2c357760b08eaee828ac38e58021cd9d0fffb28d017340ba9eb4",
+    "src/fdai/core/ontology_platform/__init__.py": "26f04a6ec680e4a7a7a9bb4921e40443ff69a5eca21691ef29d0499ae42b1961",
+    "src/fdai/core/ontology_platform/functions.py": "471a53497af770e87212ec8db61225be862c7251aa1dd024be7cb2a9a4b5f535",
     "src/fdai/core/ontology_platform/interfaces.py": "394851db7af82698e648130c76f3aaa6a8db5f2c02413be2d410627d1f308f45",
+    "src/fdai/core/ontology_platform/introspection.py": "c3c8ad97436e3bf811ef22771f9114e4defb733966f1a15610eac88a1006979d",
+    "src/fdai/core/ontology_platform/kinetics.py": "de85da14e09956ecb4d6cb423897ea71af2ffe036bfe93d06f9e421f0a6405d9",
     "src/fdai/core/ontology_platform/models.py": "aeaf7242566bd92dd3101c40441c85e60145f32e689a89a2acf017fbb6705835",
     "src/fdai/core/ontology_platform/object_sets.py": "769ebb46f08f1ec75329603a56d25a1342a1e2300d541f572fa9342068926a06",
+    "src/fdai/core/ontology_platform/planning.py": "ac66b5e8c8214acde6536fc0043c7ebcea9a56e2cb3348d197b13df1b282a296",
+    "src/fdai/core/ontology_platform/projection.py": "572e0a8e734e54dfaf24920a502615d6bdc2dc3cfa2140ccfb32cc974f4de984",
+    "src/fdai/core/ontology_platform/sdk_codegen.py": "741ddd2da42c05603769502e870a5820a5998ce1653f10cb19f8fc7412acf097",
     "src/fdai/core/operational_context/__init__.py": "3e1986b8cd94ee1c31c06a2aecb94144ce22357db1e5e8cd88c312fdf5e7c49e",
     "src/fdai/core/operational_context/materializer.py": "1a45b596246e33e76807c915a59161149104e499ebe43252cc6ce25bb0da0702",
     "src/fdai/core/operational_context/models.py": "2a6177a56dc19a95f057956a5df198f78c4489a7cc089ba3e61f2b87cdee364b",
@@ -882,7 +888,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T01:53:56Z",
+  "generated_at": "2026-08-01T01:57:00Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
