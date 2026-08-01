@@ -8,6 +8,7 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.read_api.routes.chat import make_chat_route, make_chat_stream_route
+from fdai.delivery.read_api.routes.chat_resource_context import contextualize_resource_followup
 from fdai.delivery.read_api.routes.chat_subscription_health import (
     SubscriptionHealthChatTools,
     needs_subscription_context,
@@ -1110,6 +1111,14 @@ def test_resource_health_history_uses_typed_lookback_and_chronological_order() -
             "subscription-health:azure-resource-graph+resource-health-history@2026-07-22T05:00:00Z"
         ),
     }
+    contextualized, used_context = contextualize_resource_followup(
+        "Who changed this resource most recently, and what did they do?",
+        resource_context,
+    )
+    assert used_context is True
+    assert contextualized == (
+        "database-later change history: show the most recent successful operation"
+    )
     assert backend.calls == 0
 
 

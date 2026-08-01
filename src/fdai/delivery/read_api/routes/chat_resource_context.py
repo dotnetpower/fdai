@@ -17,6 +17,12 @@ _HISTORY_FOLLOWUP: Final = re.compile(
     re.IGNORECASE,
 )
 _ATTRIBUTION_FOLLOWUP: Final = re.compile(r"\bwho\b|누가|변경 주체", re.IGNORECASE)
+_LATEST_CHANGE_FOLLOWUP: Final = re.compile(
+    r"\b(?:most recent|latest)\b.{0,32}\b(?:change|operation)\b|"
+    r"\bwho\b.{0,32}\bchanged\b.{0,32}\bmost recently\b|"
+    r"(?:가장 최근|최근).{0,24}(?:변경|작업)|누가.{0,32}(?:가장 최근|최근).{0,16}변경",
+    re.IGNORECASE,
+)
 
 
 def parse_resource_context(raw: object) -> dict[str, str] | None:
@@ -57,6 +63,8 @@ def contextualize_resource_followup(
     ):
         return prompt, False
     name = resource_context["name"]
+    if _LATEST_CHANGE_FOLLOWUP.search(prompt):
+        return f"{name} change history: show the most recent successful operation", True
     if _ATTRIBUTION_FOLLOWUP.search(prompt):
         return f"누가 {name}을 중지하거나 변경했어? {prompt}", True
     return f"{name} 변경 이력: {prompt}", True

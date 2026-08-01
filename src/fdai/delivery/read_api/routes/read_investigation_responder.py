@@ -238,10 +238,45 @@ def _render_answer(
         )
         prefix = "피어링" if korean else "peerings"
         return f"{resource_name} {prefix}: {rendered}.{caveat}"
-    if intent in {
-        ReadInvestigationIntent.CHANGE_ATTRIBUTION,
-        ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY,
-    }:
+    if intent is ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY:
+        successful_changes = sorted(
+            (
+                record
+                for record in records
+                if record.status == "succeeded" and record.operation_kind is not None
+            ),
+            key=lambda record: record.occurred_at,
+            reverse=True,
+        )
+        if successful_changes:
+            latest = successful_changes[0]
+            observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+            operation = latest.operation_kind or "unknown"
+            actor = (
+                f"{latest.actor_kind.value} ({latest.actor_ref})"
+                if latest.actor_kind is not None and latest.actor_ref is not None
+                else None
+            )
+            if korean:
+                actor_label = actor or "Activity Log에서 확인되지 않은 주체"
+                return (
+                    f"{resource_name}의 가장 최근 성공한 변경은 {observed}의 {operation}입니다. "
+                    f"호출 주체는 {actor_label}입니다."
+                )
+            actor_label = actor or "a caller not present in the Activity Log evidence"
+            return (
+                f"The most recent successful change for {resource_name} was {operation} at "
+                f"{observed}. The caller was {actor_label}."
+            )
+        return (
+            f"최근 30일 Azure Activity Log에서 {resource_name}의 성공한 변경을 찾지 못했습니다."
+            if korean
+            else (
+                f"No successful change for {resource_name} was found in the last 30 days of "
+                "Azure Activity Log."
+            )
+        )
+    if intent is ReadInvestigationIntent.CHANGE_ATTRIBUTION:
         successful_stops = sorted(
             (
                 record

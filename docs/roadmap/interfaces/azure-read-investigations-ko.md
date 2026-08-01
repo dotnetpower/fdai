@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 7f12ad0de8b31259182e4c773a928aca7c71a8bb
+translation_source_sha: dd2e5306c0ad4ab0140fc7f3307298aab01665ef
 translation_revised: 2026-08-01
 ---
 
@@ -313,7 +313,7 @@ rule, Network Watcher IP Flow Verify, 반대편 peering read 및 effective route
 
 ## Source 선택 및 fallback
 
-Investigation은 operator에게 비슷해 보이는 4개 질문을 구분합니다.
+Investigation은 operator에게 비슷해 보이는 5개 질문을 구분합니다.
 
 1. **현재 상태:** Resource Graph 또는 inventory가 VM을 resolve하고 instance view가 `running`,
    `stopped` 또는 `deallocated`를 확인합니다.
@@ -321,10 +321,13 @@ Investigation은 operator에게 비슷해 보이는 4개 질문을 구분합니�
   operation과 caller를 식별합니다. Conversational attribution path는 exact resolution과 Activity
   Log만 기본으로 사용하며, guest shutdown 및 platform-cause evidence는 별도 intent 또는 explicit
   deep investigation에서 추가합니다.
-3. **Guest shutdown:** Control-plane operation이 없는 `stopped` VM은 Windows Event Log 또는 Linux
+3. **Latest control-plane change:** Activity Log는 종류와 관계없이 가장 최신 successful operation을
+  선택하고 operation, time, actor kind 및 opaque actor reference를 반환합니다. 더 최신 start 또는
+  update가 있으면 이전 stop-only attribution을 재사용하지 않습니다.
+4. **Guest shutdown:** Control-plane operation이 없는 `stopped` VM은 Windows Event Log 또는 Linux
    syslog evidence가 필요합니다. Guest diagnostic이 없으면 actor를 추측하지 않고 `unavailable`을
    반환합니다.
-4. **Platform event:** Resource Health는 host, maintenance 또는 platform availability context를
+5. **Platform event:** Resource Health는 host, maintenance 또는 platform availability context를
   제공합니다. ARG history가 비어 있으면 current-status fallback의 observation timestamp가 요청한
   lookback 안에 있을 때만 evidence로 사용합니다. 사용자가 event를 시작했다는 사실을 증명하지는
   않습니다.
