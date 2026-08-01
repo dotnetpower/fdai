@@ -186,8 +186,8 @@ advance."* A **standing authorization** is an operator-authored, policy-as-code
 artifact that says:
 
 > Under **condition** C, for actions inside **envelope** E, if the escalation
-> ladder reaches its deadline **unanswered**, the action that was `hil` becomes
-> `auto`-eligible - and only then.
+> ladder reaches its deadline **unanswered**, the pre-recorded human Approval may satisfy the
+> action's `hil` requirement - and only then.
 
 The crucial design property: a standing authorization is **not a new decision
 engine and not a bypass**. It is a **deterministic input to the existing risk
@@ -203,6 +203,16 @@ verification, never by a model
 version: 1
 id: sa-scale-out-before-quota-breach
 authored_by: aw-owners           # a human authority; recorded as approver-of-record
+valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
+service_ref: <service-id>
+incident_classes: [forecast.breach]
+responders:
+  primary: <on-call-primary>
+  backup: <on-call-backup>
+evidence:
+  history_review_ref: <governed-evidence-ref>
+  scenario_evidence_ref: <dr-chaos-or-simulation-ref>
+  handover_confirmation_ref: <current-owner-confirmation-ref>
 scope:                            # MUST be resource-group-equivalent or narrower
   environment: prod              # (same bound as a human override)
   resource_group: <rg-name>      # placeholder; fork supplies real scope
@@ -238,9 +248,14 @@ mode: shadow                      # judge-and-log until explicitly promoted
   that pre-committed the decision; Var carries it as the standing approval so the
   approve-vs-execute principal split holds (no self-approval, no
   model-as-approver).
-- **All four safety invariants still apply** to the executed action:
-  stop-condition, rollback path, blast-radius limit, audit entry
-  ([architecture.instructions.md § Safety Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+- **Operational evidence is current.** The owner reviews applicable service logs, incidents, and
+  audit history and records whether a precedent exists. When no adequate precedent exists, a
+  current DR drill, bounded Chaos experiment, or simulation supplies scenario evidence.
+- **Handover suspends until reconfirmed.** Every ownership handover requires the new accountable
+  owner to confirm the service, responders, envelope, evidence, and expiry. Missing, stale, or
+  declined confirmation makes the authorization ineligible.
+- **All seven autonomous-action safeguards still apply**
+  ([architecture.instructions.md § Seven Autonomous-Action Safeguards](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)).
 - **Prefer safe-degradation over the risky action.** When possible, the
   pre-authorized action is a **reversible mitigation** (scale out, open a circuit
   breaker, extend a quota) that buys time, not the destructive remediation itself.
@@ -254,18 +269,18 @@ When a standing authorization trips, the supervisor does **not** execute. It
 ```mermaid
 flowchart LR
   SUP["escalation supervisor<br/>(ladder deadline + SA match)"] -->|re-enter| RG["risk-gate<br/>re-evaluates"]
-  RG -->|"SA precondition + envelope verified"| V["Forseti<br/>verdict = auto"]
-  V --> EX["Thor<br/>executor"]
+  RG -->|"SA precondition + envelope verified"| V["Var<br/>standing Approval"]
+  V --> EX["Thor<br/>executes approved HIL action"]
   EX --> DEL["delivery<br/>remediation-PR / direct-api"]
   DEL --> AUD["audit (Saga)<br/>reason: standing-authority sa-...id"]
   RG -->|"SA invalid / envelope exceeded"| NO["terminal no-op<br/>+ A2 alert"]
   NO --> AUD
 ```
 
-- **Forseti re-judges.** The verdict flips to `auto` **only because** the risk
-  gate verified a valid, unexpired, scope-matching standing authorization whose
-  precondition holds and whose envelope contains the action. Judge is still not
-  executor.
+- **Forseti re-judges without raising risk.** The original `hil` baseline remains. The risk gate
+  verifies a valid, unexpired, scope-matching standing authorization whose precondition and
+  envelope still hold; Var materializes its pre-recorded human Approval. Judge, approver, and
+  executor remain distinct.
 - **Thor executes**, Vidar remains the rollback principal, Saga audits with an
   explicit `standing-authority` reason and the authorization id - a replayable,
   attributable record ([architecture.instructions.md § Idempotency, Ordering,
@@ -284,9 +299,9 @@ The supervised loop is expressed with existing agents and their existing topics:
 |-----------|----------|------------------------------|
 | **Observe** | Heimdall, Huginn | re-read forecast finding + pending-approval state (sensing, deterministic-first) |
 | **Orient** | Odin | impact arbitration; which rung and urgency hold now |
-| **Decide** | Forseti (+ risk gate) | re-judge; grant `auto` only on verified standing authorization |
+| **Decide** | Forseti (+ risk gate) | re-judge without raising the original `hil` baseline |
 | **Act (escalate)** | Var | carry the A1 request to the next rung; approver-of-record |
-| **Act (execute)** | Thor | sole privileged executor once verdict is `auto` |
+| **Act (execute)** | Var, Thor | Var supplies standing Approval; Thor remains sole executor |
 | **Recovery** | Vidar | rollback path for the executed mitigation |
 | **Audit / handoff** | Saga | append audit + `HandoffEscalation` on chronic non-response |
 
@@ -302,7 +317,7 @@ Every path ends in an audited terminal state - the loop cannot leak:
 |----------|------|--------|
 | **approved** | any rung decides `approve` | execute via Thor, audit |
 | **rejected** | any rung decides `reject` | no-op, audit |
-| **standing-authority executed** | ladder deadline passed, SA valid, envelope holds | re-decide -> `auto` -> execute, audit with SA id |
+| **standing-authority executed** | ladder deadline passed, SA valid, envelope holds | re-decide -> standing Approval -> execute, audit with SA id |
 | **terminal no-op** | ladder exhausted, no valid SA | no action, A2 alert, audit, `HandoffEscalation` if fingerprint repeats |
 
 **Fail-closed remains the default.** Absent a valid standing authorization, an

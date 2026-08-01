@@ -155,7 +155,7 @@ approved grant, and fresh effective-access evidence is required before the actio
 - Build artifacts (container images) are signed and their provenance/SBOM recorded; the
   executor pulls only verified, pinned digests, never mutable `latest` tags.
 
-## Safety Invariants (every autonomous action)
+## Seven safeguards (every autonomous action)
 
 1. **Stop-condition** - a defined halt state that aborts the action. Declared per-ActionType
    in `stop_conditions[]` and evaluated by the executor during and after apply.
@@ -168,12 +168,16 @@ approved grant, and fresh effective-access evidence is required before the actio
    serialization so concurrent actions on one resource are mutually excluded. `ActionType.blast_radius.computation = graph_derived`
    makes the risk-gate compute the actual impacted set over the Resource → Resource graph
    (`contains` + reverse `depends_on`, depth 2) - the three-value enum is a bucket, not a cap.
-4. **Audit-log entry** - append-only record of who/what/why/when and the outcome.
+4. **What-if or dry-run** - a successful, version-bound prediction receipt before mutation.
+5. **Per-resource lock** - a held lock and causal ordering for every affected resource.
+6. **Idempotency** - a stable key and duplicate suppression across delivery and retries.
+7. **Audit-log entry** - append-only record of who/what/why/when and the outcome.
 
-Missing any of the four = the action is incomplete and must not ship. Each invariant is
+Missing any safeguard means the action is incomplete and must not ship. Each safeguard is
 **testable**: shadow-mode tests prove no mutation, rollback tests prove prior state is restored,
-and property-based tests assert "high-risk never auto-executes" and "re-applying an action is a
-no-op".
+and property-based tests assert that high-impact execution has current or standing human approval,
+silence grants nothing, irreversible actions never use standing authorization, and retries are
+no-ops. Independent effect verification gates every success claim.
 
 ## Rate Limiting and Kill-Switch (DoS and containment)
 
@@ -209,8 +213,10 @@ no-op".
   actions require **quorum (multi-approver)** rather than a single approver.
 - Approvers authenticate with MFA/phishing-resistant credentials; each approval is bound to a
   specific action + idempotency key so it **cannot be replayed** against a different action.
-- **Timeout is fail-closed**: an unapproved HIL item on timeout or reject results in a no-op
-  plus an audit entry, never a default-execute.
+- **Timeout is fail-closed**: an HIL item without current approval or a valid pre-existing standing
+  approval ends as a no-op plus an audit entry. Silence never creates approval. A standing approval
+  applies only through the bounded A3-E contract in
+  [Escalation and Standing Authority](../decisioning/escalation-and-standing-authority.md).
 
 ## Auditability
 

@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: bef76ef406be2ca28db3445f522ce9cc7489266f
-translation_revised: 2026-07-21
+translation_source_sha: 000aab08cf8319d89631b41c763d818643034226
+translation_revised: 2026-08-01
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -47,6 +47,12 @@ axis (Axis A)로 평가한 뒤 그 결과와 6개 ActionType-컨텍스트 ceilin
 포함), `data_plane_touched`, `verifier_confidence` - 는 **여기서만** 평가되며
 ceiling axis는 의도적으로 이들을 재도출하지 않습니다. 두 개의 결정 엔진이
 있는 것이 아니라: 이 테이블 + 그 위에 layer 된 절대-raise-안-하는 ceiling 입니다.
+
+상시 권한은 `hil` 기준 판정을 `auto`로 높이거나 매칭된 규칙을 변경하지 않습니다. 대신 정확한
+A3-E 경계가 계속 유효하고 에스컬레이션 기한이 지난 후 사람이 미리 작성한 Approval을
+제공합니다. Thor는 승인된 HIL 작업을 실행할 수 있으며 감사에는 원래 위험 규칙, 승인 ID,
+상시 권한 ID 및 권한 등급이 유지됩니다. 해당 Approval 없이 침묵만 발생하면 no-op으로
+종료됩니다. [에스컬레이션 및 상시 권한](escalation-and-standing-authority-ko.md)을 참조하세요.
 
 ## 분류 차원
 

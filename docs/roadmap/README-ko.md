@@ -1,12 +1,13 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 0210138e56f4afcd2aade3b47d92005cdc03f807
+translation_source_sha: 3137230ab9f15093c84fd06152163819f9fee03b
 translation_revised: 2026-08-01
 ---
 # FDAI 로드맵
 
-FDAI의 엔지니어링 계획입니다. 이 폴더는
+FDAI의 엔지니어링 계획입니다. [FDAI 헌법](architecture/fdai-constitution-ko.md)이 최상위
+설계 권위를 정의합니다. 이 폴더는
 [copilot-instructions.md](../../.github/copilot-instructions.md)의 요약 원칙과
 [architecture.instructions.md](../../.github/instructions/architecture.instructions.md)의 컨트롤
 루프를 실행 가능한 단계별 로드맵으로 확장하며, 목표와 구조에서 배포 및 확장까지 다룹니다.
@@ -43,6 +44,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
+| 0 | [fdai-constitution-ko.md](architecture/fdai-constitution-ko.md) | 목적, 보장, 권한 우선순위, 도메인, 자율성 및 개정 규칙 |
 | 1 | [goals-and-metrics-ko.md](architecture/goals-and-metrics-ko.md) | 성공 기준, KPI, measurement-first 규칙 |
 | 2 | [project-structure-ko.md](architecture/project-structure-ko.md) | 저장소 레이아웃, 모듈 경계, 컨트롤 루프 배선 |
 | 3 | [tech-stack-ko.md](architecture/tech-stack-ko.md) | 언어, 프레임워크, 데이터 스토어, 이벤트 버스 |
@@ -187,9 +189,9 @@ P3에서 Resilience와 Cost Governance를 제공합니다. 멀티 클라우드�
   개별적으로 승격합니다. 회귀가 발생하면 자동으로 관찰 모드로 돌아갑니다.
 - **Choose the safer default when the outcome is uncertain**: 낮은 confidence, verification 실패, budget / rate 초과는
   HIL로 강등되며, 게이트 없는 자동 액션으로는 절대 강등되지 않음.
-- **모든 액션의 안전 불변식**: 정지 조건, 롤백 경로, blast-radius 한계, 감사 로그
-  엔트리 ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
-- **멱등 액션**: 재전달된 이벤트와 재시도된 액션은 이중 적용되지 않음.
+- **모든 자율 작업의 7개 안전조건**: 중단 조건, 롤백, 장애 반경 제한, dry-run, 리소스별
+  잠금, 멱등성 및 감사 레코드
+  ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
 - **직무 분리**: 승인과 실행은 서로 다른 주체.
   콘솔은 비특권 surface이며 executor identity를 받지 않습니다
   ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
@@ -201,6 +203,7 @@ P3에서 Resilience와 Cost Governance를 제공합니다. 멀티 클라우드�
 
 | 목적 | 시작 지점 |
 |------|-----------|
+| FDAI의 최상위 설계 권위 검토 | [fdai-constitution-ko.md](architecture/fdai-constitution-ko.md) |
 | 3-tier 컨트롤 루프 이해 | [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) |
 | 서브시스템의 소스, 테스트, 설계 문서 찾기 | [architecture/code-map-ko.md](architecture/code-map-ko.md) |
 | 구체적인 Azure 리소스 인벤토리 확인 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) |

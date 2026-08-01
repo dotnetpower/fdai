@@ -13,7 +13,7 @@ See sibling docs for the concepts referenced here:
 [architecture.instructions.md](architecture.instructions.md) (tiers, quality gate, safety
 invariants), [generic-scope.instructions.md](generic-scope.instructions.md) (customer-agnostic
 scope), [app-shape.instructions.md](app-shape.instructions.md) (topology), and
-[language.instructions.md](language.instructions.md) (language policy).
+[language.instructions.md](language.instructions.md) (language policy). The [FDAI Constitution](../../docs/roadmap/architecture/fdai-constitution.md) is the highest design authority.
 
 ## Documentation Workflow
 
@@ -126,9 +126,9 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   committed config. Access secrets through an injected provider, never a global read at import.
 - Keep the repo customer-agnostic; customer-specific values and logic belong in a fork
   (see [generic-scope.instructions.md](generic-scope.instructions.md)).
-- Every autonomous action path MUST implement all four safety invariants: a stop-condition,
-  a rollback path, a blast-radius limit, and an audit-log write. Code that executes changes
-  without all four is incomplete and MUST NOT merge.
+- Every autonomous action path MUST implement all seven safeguards: stop-condition, tested rollback,
+  blast-radius limit, successful what-if/dry-run, per-resource lock, idempotency with duplicate
+  suppression, and append-only audit. Missing one blocks merge; effect verification gates success.
 - **ActionType schema is the enforcement surface for those invariants.** New ontology
   `ActionType` declarations MUST supply `rollback_contract` from the enum
   (`pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only`) - the
@@ -197,9 +197,9 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   check-logic, remediation`) so they exercise real shapes.
 - Add a regression test with every rule change and every fixed defect; the continuous update
   pipeline (source watcher → shadow evaluation → regression → promote/rollback) depends on them.
-- Use property-based tests for the risk gate and idempotency: assert invariants such as
-  "high-risk never auto-executes", "shadow mode never mutates", and "re-applying an action is
-  a no-op" across generated inputs.
+- Use property-based tests for the risk gate and idempotency: assert that high-impact execution has
+  current or standing human approval, silence grants nothing, irreversible actions never use
+  standing authorization, shadow never mutates, and re-applying an action is a no-op.
 - Every autonomous action path MUST have a shadow-mode test proving it judges and logs without
   mutating, plus a rollback test proving the rollback path restores prior state.
 - Do not weaken, mock away, or skip safety checks to make tests pass. Tests MUST be

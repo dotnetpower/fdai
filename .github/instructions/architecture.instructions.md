@@ -8,7 +8,7 @@ applyTo: "src/fdai/core/**,src/fdai/agents/**,src/fdai/shared/contracts/**,src/f
 This file defines the control-plane architecture. It complements the deployment topology in
 [app-shape.instructions.md](app-shape.instructions.md), the code/safety rules in
 [coding-conventions.instructions.md](coding-conventions.instructions.md), and the phased plan
-under [docs/roadmap](../../docs/roadmap/README.md). All coverage, latency, and cost figures
+under [docs/roadmap](../../docs/roadmap/README.md). The [FDAI Constitution](../../docs/roadmap/architecture/fdai-constitution.md) is the higher design authority. All coverage, latency, and cost figures
 below are **targets to validate against a measured baseline**
 ([goals-and-metrics.md](../../docs/roadmap/architecture/goals-and-metrics.md)), not guarantees; state no
 multiplier without measuring baseline and treatment on the same scenario set.
@@ -28,8 +28,7 @@ multiplier without measuring baseline and treatment on the same scenario set.
    checklists. Reach for an LLM only after T0 and T1 cannot resolve the case.
 2. **Confidence tiering** - route by a computed confidence so expensive inference stays a
    small minority of events (target ~5-10%; see Trust Routing).
-3. **Risk-gated autonomy** - low-risk actions auto-execute; high-risk actions require
-   human-in-the-loop (HIL) approval. Autonomy is never unconditional.
+3. **Risk-gated autonomy** - low-risk actions auto-execute; high-impact actions require current HIL approval or valid bounded standing human authorization. Silence never grants authority.
 4. **Agent-driven event choreography** - independently runnable agents react to typed events, fan out work in parallel, and scale to zero when idle; no direct agent call chains.
 5. **Policy, state, and audit as code** - policy-as-code (OPA/Rego), tracked state, and a full
    append-only audit log for every autonomous action.
@@ -47,6 +46,8 @@ multiplier without measuring baseline and treatment on the same scenario set.
    feed back into the discovery loop.
 8. **Fail toward safety** - any failure, low confidence, or budget/rate overflow degrades to
    HIL, never to an ungated auto-action.
+
+Constitutional objective precedence filters policy, safety, security, identity, data-integrity, recovery, and service-objective violations before Odin scores eligible soft-objective tradeoffs.
 
 ## Agent-Driven Runtime (MUST)
 - Every stage has one accountable pantheon agent; gateways, schedulers, adapters, and workers are mechanical relays, not hidden decision makers.
@@ -194,12 +195,11 @@ audits, Vidar rolls back, and Bragi only translates. Typed and conversational po
 correlation trace. Role bindings are distribution-locked and runtime configuration cannot repoint
 them.
 
-## Safety Invariants
+## Seven Autonomous-Action Safeguards
 
-Every autonomous action MUST have: a **stop-condition**, a tested **rollback path**, a
-**blast-radius limit** (scope/batch/rate cap), and an **audit-log entry**; and it MUST run its
-**what-if/dry-run** and hold the per-resource lock before applying a change. Missing any of
-these means the action is incomplete and must not ship.
+Every autonomous action MUST have all seven safeguards: **stop-condition**, tested **rollback**, **blast-radius limit**, successful **what-if/dry-run**, held **per-resource lock**, stable
+**idempotency key**, and **append-only audit record**. Missing one blocks shipment. Independent
+effect verification is additionally required before reporting success.
 
 New capabilities ship in **shadow mode** (judge-and-log only, no execution). Promotion to
 enforce is explicit, per-action, and gated on measured accuracy plus zero policy-violation

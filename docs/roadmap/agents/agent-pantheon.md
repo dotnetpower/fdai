@@ -143,10 +143,11 @@ comparable across verticals:
   normalized; the specialist attaches it so the arbiter reads one field,
   not a raw metric.
 
-Odin resolves the conflict with a deterministic **multi-objective**
-arbiter (`MultiObjectiveArbiter` in
-`src/fdai/agents/_framework/arbitration.py`) rather than a
-blunt priority table:
+Odin resolves the conflict with the deterministic **multi-objective**
+`MultiObjectiveArbiter` in `src/fdai/agents/_framework/arbitration.py`:
+
+- **Constitutional eligibility comes first.** Forseti and the risk gate remove options that violate safety, security, identity, data-integrity, recovery, or service-objective constraints. Odin
+  receives only eligible options; no score can compensate for a failed hard constraint.
 
 - Each domain has a configured **weight** (derived from the priority order
   `resilience > security > change_safety > cost > capacity` by default;
@@ -159,10 +160,9 @@ blunt priority table:
 - The winner is the highest score. With equal impacts this reproduces the
   legacy priority winner exactly, so the arbiter is a strict superset of
   the old table - no behavior regresses.
-- A high-impact lower-priority domain can outrank a low-impact
-  higher-priority one, which is the point: the arbiter weighs *magnitude*,
-  not just rank (it will not save one dollar of on-call time by spending
-  ten dollars of compute).
+- Among eligible soft-objective tradeoffs, a high-impact lower-priority domain can outrank a
+  low-impact higher-priority one. The arbiter weighs *magnitude*, not just rank; this never permits
+  cost or efficiency to override a constitutional constraint.
 - When the top-two **margin** is within a configured HIL band (default
   `0.10`), or a domain has no known weight, the call is too close to
   auto-resolve: the decision is flagged `escalate_hil`, which Forseti turns

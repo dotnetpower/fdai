@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 41850f39aa39ada441cb2acac6679e894048c14e
-translation_revised: 2026-07-31
+translation_source_sha: 4f0bbf54dc7b888b7408b0e5a28aa3e48310464b
+translation_revised: 2026-08-01
 ---
 
 # 보안과 아이덴티티
@@ -152,7 +152,7 @@ fresh effective-access evidence가 있어야 action을 처음부터 다시 평�
 - 빌드 아티팩트(컨테이너 이미지)는 서명되고 provenance/SBOM 기록됨; executor는 검증된 고정
   digest만 pull, 절대 mutable `latest` 태그 아님.
 
-## 안전 불변식 (모든 자율 액션)
+## 7개 안전조건 (모든 자율 액션)
 
 1. **Stop-condition** - 액션을 중단시키는 정의된 halt 상태. ActionType 별로 `stop_conditions[]`
    에 선언되고 executor 가 apply 도중·이후에 평가.
@@ -165,11 +165,16 @@ fresh effective-access evidence가 있어야 action을 처음부터 다시 평�
    직렬화로 한 리소스에 대한 동시 액션은 상호 배제. `ActionType.blast_radius.computation =
    graph_derived` 는 risk-gate 가 Resource → Resource 그래프(`contains` + 역방향
    `depends_on`, depth 2) 로 실제 영향 집합을 계산하게 함 - 3-값 enum 은 상한이 아니라 bucket.
-4. **Audit-log entry** - 누가/무엇을/왜/언제와 결과의 append-only 기록.
+4. **What-if 또는 dry-run** - 변경 전에 성공한 버전 고정 예측 증명.
+5. **리소스별 잠금** - 영향을 받는 모든 리소스에 대해 획득한 잠금과 인과 순서.
+6. **멱등성** - 전송과 재시도 전반의 안정적인 키 및 중복 억제.
+7. **Audit-log entry** - 누가/무엇을/왜/언제와 결과의 append-only 기록.
 
-네 개 중 하나라도 빠지면 = 액션은 미완결이며 출시되지 않음. 각 불변식은 **테스트 가능**:
-shadow-mode 테스트가 변형 없음 증명, rollback 테스트가 이전 상태 복원 증명, property-based
-테스트가 "high-risk는 절대 auto-execute 하지 않는다"와 "액션 재적용은 no-op이다"를 단언.
+안전조건 중 하나라도 빠지면 액션은 미완결이며 출시할 수 없습니다. 각 안전조건은 **테스트할
+수 있습니다**. Shadow-mode 테스트는 변경이 없음을 증명하고 rollback 테스트는 이전 상태
+복원을 증명합니다. 속성 기반 테스트는 영향이 큰 실행에 현재 또는 상시 사람 승인이 있고,
+침묵은 권한을 부여하지 않으며, 비가역 작업은 상시 권한을 사용하지 않고, 재시도는 no-op임을
+단언합니다. 독립적인 효과 검증이 모든 성공 주장을 게이트합니다.
 
 ## Rate Limiting과 Kill-Switch (DoS와 억제)
 
@@ -204,8 +209,10 @@ shadow-mode 테스트가 변형 없음 증명, rollback 테스트가 이전 상�
   아니라 **quorum(멀티 승인자)** 필요.
 - 승인자는 MFA/phishing-resistant 자격증명으로 인증; 각 승인은 특정 액션 + idempotency key에
   바인딩되어 **다른 액션에 대해 재생될 수 없음**.
-- **Timeout은 fail-closed**: 미승인 HIL 항목이 timeout 또는 reject 시 no-op + 감사 엔트리로
-  귀결, 절대 기본-실행 아님.
+- **Timeout은 fail-closed입니다**: 현재 승인 또는 유효한 기존 상시 승인이 없는 HIL 항목은
+  no-op 및 감사 엔트리로 종료됩니다. 침묵은 승인을 만들지 않습니다. 상시 승인은
+  [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md)의 제한된
+  A3-E 계약을 통해서만 적용됩니다.
 
 ## 감사가능성(Auditability)
 

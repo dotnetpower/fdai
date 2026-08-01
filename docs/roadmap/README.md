@@ -3,8 +3,9 @@ title: FDAI Roadmap
 ---
 # FDAI Roadmap
 
-The engineering plan behind FDAI. This folder expands the short-form
-principles in [copilot-instructions.md](../../.github/copilot-instructions.md)
+The engineering plan behind FDAI. The [FDAI Constitution](architecture/fdai-constitution.md)
+defines the highest design authority. This folder expands its short-form execution summary in
+[copilot-instructions.md](../../.github/copilot-instructions.md)
 and the control loop in
 [architecture.instructions.md](../../.github/instructions/architecture.instructions.md)
 into an actionable, phased roadmap: from goals and structure through deployment
@@ -46,6 +47,7 @@ Read the reference docs first, then the phases in order.
 
 | # | Document | What it covers |
 |---|----------|----------------|
+| 0 | [fdai-constitution.md](architecture/fdai-constitution.md) | purpose, guarantees, authority precedence, domains, autonomy, and amendment rules |
 | 1 | [goals-and-metrics.md](architecture/goals-and-metrics.md) | success criteria, KPIs, measurement-first rule |
 | 2 | [project-structure.md](architecture/project-structure.md) | repo layout, module boundaries, control-loop wiring |
 | 3 | [tech-stack.md](architecture/tech-stack.md) | languages, frameworks, data stores, event bus |
@@ -190,11 +192,9 @@ exit criteria and its dependencies.
   per-action explicitly; regressions demote automatically.
 - **Choose the safer default when the outcome is uncertain**: low confidence, verification failure, or budget /
   rate overflow degrades to HIL, never to an ungated auto-action.
-- **Safety invariants on every action**: stop-condition, rollback path,
-  blast-radius limit, and audit-log entry
+- **Seven safeguards on every autonomous action**: stop-condition, rollback, blast-radius limit,
+  dry-run, per-resource lock, idempotency, and audit record
   ([security-and-identity.md](architecture/security-and-identity.md)).
-- **Idempotent actions**: re-delivered events and retried actions never
-  double-apply.
 - **Separation of duties**: approval and execution are distinct principals; the
   console is non-privileged and never receives the executor identity
   ([security-and-identity.md](architecture/security-and-identity.md)).
@@ -206,6 +206,7 @@ exit criteria and its dependencies.
 
 | To do this | Start here |
 |-----------|-----------|
+| Review FDAI's highest design authority | [fdai-constitution.md](architecture/fdai-constitution.md) |
 | Understand the 3-tier control loop | [architecture.instructions.md](../../.github/instructions/architecture.instructions.md) |
 | Find a subsystem's source, tests, and design doc | [architecture/code-map.md](architecture/code-map.md) |
 | See the concrete Azure resource inventory | [deploy-and-onboard.md](deployment/deploy-and-onboard.md) |

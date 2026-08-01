@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 4a13329e36fdb44ee3713282d2b56e0709f4df55
+translation_source_sha: 3daa8492365107c206296c3c714af924b3f47b65
 translation_revised: 2026-08-01
 ---
 
@@ -176,7 +176,7 @@ rung 을 올린다**:
 운영자가 작성한 policy-as-code 아티팩트로 다음을 말한다:
 
 > **조건** C 하에서, **envelope** E 안의 액션에 대해, 에스컬레이션 사다리가 **응답 없이**
-> 데드라인에 도달하면, `hil` 이던 액션이 `auto` 자격을 얻는다 - 오직 그때만.
+> 데드라인에 도달하면, 미리 기록된 사람 Approval이 액션의 `hil` 요구를 충족할 수 있습니다.
 
 핵심 설계 속성: 상시 권한은 **새 결정 엔진이 아니고 우회도 아니다.** 그것은 기존 리스크
 게이트에 대한 **결정론적 입력** 이다. 감독자의 Decide 단계가 *"이것이 무인 상태로 진행될
@@ -190,6 +190,16 @@ rung 을 올린다**:
 version: 1
 id: sa-scale-out-before-quota-breach
 authored_by: aw-owners           # a human authority; recorded as approver-of-record
+valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
+service_ref: <service-id>
+incident_classes: [forecast.breach]
+responders:
+  primary: <on-call-primary>
+  backup: <on-call-backup>
+evidence:
+  history_review_ref: <governed-evidence-ref>
+  scenario_evidence_ref: <dr-chaos-or-simulation-ref>
+  handover_confirmation_ref: <current-owner-confirmation-ref>
 scope:                            # MUST be resource-group-equivalent or narrower
   environment: prod              # (same bound as a human override)
   resource_group: <rg-name>      # placeholder; fork supplies real scope
@@ -223,9 +233,14 @@ mode: shadow                      # judge-and-log until explicitly promoted
 - **사람이 approver-of-record.** `authored_by` 는 결정을 사전 확약한 사람 권한을
   기록한다; Var 가 이를 상시 승인으로 운반해 approve-vs-execute principal 분리가 유지된다
   (self-approval 없음, model-as-approver 없음).
-- **네 안전 불변식이 여전히 적용** 된다: stop-condition, rollback path, blast-radius
-  limit, audit entry
-  ([architecture.instructions.md § Safety Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+- **운영 증거가 최신이어야 합니다.** 담당자는 적용 가능한 서비스 로그, 인시던트 및 감사
+  이력을 검토하고 선례의 존재 여부를 기록합니다. 충분한 선례가 없으면 현재 DR 훈련, 제한된
+  Chaos 실험 또는 시뮬레이션이 시나리오 증거를 제공합니다.
+- **인수인계 후 재확인 전까지 중단합니다.** 모든 담당자 인수인계에서 새 책임 담당자가 서비스,
+  대응자, 경계, 증거 및 만료를 확인해야 합니다. 확인이 누락되거나 오래되거나 거절되면 상시
+  권한을 적용할 수 없습니다.
+- **7개 자율 작업 안전조건이 모두 적용됩니다.**
+  ([architecture.instructions.md § Seven Autonomous-Action Safeguards](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)).
 - **위험한 액션보다 안전 강등(safe-degradation) 을 선호.** 가능하면 사전 승인 액션은
   파괴적 remediation 자체가 아니라 시간을 버는 **가역 완화(scale out, circuit breaker
   열기, quota 확장)** 다. 시간을 버는 것은 사람 루프를 끝내는 대신 재무장시킨다.
@@ -238,17 +253,18 @@ mode: shadow                      # judge-and-log until explicitly promoted
 ```mermaid
 flowchart LR
   SUP["escalation supervisor<br/>(ladder deadline + SA match)"] -->|re-enter| RG["risk-gate<br/>re-evaluates"]
-  RG -->|"SA precondition + envelope verified"| V["Forseti<br/>verdict = auto"]
-  V --> EX["Thor<br/>executor"]
+  RG -->|"SA precondition + envelope verified"| V["Var<br/>standing Approval"]
+  V --> EX["Thor<br/>executes approved HIL action"]
   EX --> DEL["delivery<br/>remediation-PR / direct-api"]
   DEL --> AUD["audit (Saga)<br/>reason: standing-authority sa-...id"]
   RG -->|"SA invalid / envelope exceeded"| NO["terminal no-op<br/>+ A2 alert"]
   NO --> AUD
 ```
 
-- **Forseti 가 재판단한다.** verdict 가 `auto` 로 뒤집히는 것은 **오직** 리스크 게이트가
-  유효하고 만료되지 않았으며 범위가 맞고 precondition 이 성립하고 envelope 이 액션을
-  포함하는 상시 권한을 검증했기 때문이다. 여전히 judge != executor.
+- **Forseti는 위험을 높이지 않고 재판단합니다.** 원래 `hil` 기준 판정은 유지됩니다. Risk gate는
+  유효하고 만료되지 않았으며 범위가 맞고 전제조건과 경계가 계속 성립하는 상시 권한을
+  검증합니다. Var는 미리 기록된 사람 Approval을 구체화합니다. 판단자, 승인자 및 실행자는
+  계속 분리됩니다.
 - **Thor 가 실행** 하고, Vidar 는 rollback principal 로 남으며, Saga 는 명시적
   `standing-authority` 이유와 권한 id 로 감사한다 - 재현 가능하고 귀속 가능한 기록
   ([architecture.instructions.md § Idempotency, Ordering, and Replay](../../../.github/instructions/architecture.instructions.md#idempotency-ordering-and-replay)).
@@ -266,9 +282,9 @@ flowchart LR
 |-----------|----------|--------------------|
 | **Observe** | Heimdall, Huginn | 예보 finding + 보류 승인 상태 재독(센싱, 결정론 우선) |
 | **Orient** | Odin | 영향도 중재; 지금 어느 rung 과 긴급도가 유효한가 |
-| **Decide** | Forseti (+ 리스크 게이트) | 재판단; 검증된 상시 권한에만 `auto` 부여 |
+| **Decide** | Forseti (+ 리스크 게이트) | 원래 `hil` 기준을 높이지 않고 재판단 |
 | **Act (에스컬레이션)** | Var | 다음 rung 으로 A1 요청 운반; approver-of-record |
-| **Act (실행)** | Thor | verdict 가 `auto` 가 된 뒤 유일한 privileged executor |
+| **Act (실행)** | Var, Thor | Var가 상시 Approval을 제공하고 Thor만 실행 |
 | **복구** | Vidar | 실행된 완화의 rollback path |
 | **감사 / 핸드오프** | Saga | 감사 append + 만성 무응답 시 `HandoffEscalation` |
 
@@ -284,7 +300,7 @@ flowchart LR
 |------|------|------|
 | **approved** | 어떤 rung 이 `approve` 결정 | Thor 로 실행, 감사 |
 | **rejected** | 어떤 rung 이 `reject` 결정 | no-op, 감사 |
-| **standing-authority executed** | 사다리 데드라인 경과, SA 유효, envelope 성립 | 재결정 -> `auto` -> 실행, SA id 로 감사 |
+| **standing-authority executed** | 사다리 데드라인 경과, SA 유효, envelope 성립 | 재결정 -> 상시 Approval -> 실행, SA id로 감사 |
 | **terminal no-op** | 사다리 소진, 유효 SA 없음 | 무행동, A2 alert, 감사, fingerprint 반복 시 `HandoffEscalation` |
 
 **Fail-closed 가 여전히 기본값이다.** 유효한 상시 권한이 없으면 응답 없는 사다리는 여전히

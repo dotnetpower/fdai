@@ -7,6 +7,10 @@ applies to other AIOps domains (posture management, SRE/SLO, etc.), which are fu
 Goal: minimize human intervention by resolving most events deterministically and using LLMs
 only for the residual ambiguous cases.
 
+The [FDAI Constitution](../docs/roadmap/architecture/fdai-constitution.md) is the highest design
+authority. This file is its short always-on execution summary; scoped instructions and detailed
+designs may refine the constitution but never override it.
+
 This file is the small always-on contract. Detailed rules are loaded through
 [`design-routes.json`](../scripts/lib/design-routes.json). Before an edit, read every
 `must_read` document selected by all matching routes. The workspace hook blocks edits when
@@ -21,13 +25,14 @@ specific instruction wins a conflict.
    implementation imports, and shared mutable workflow state are prohibited.
 2. **Deterministic-first:** Resolve repeatable decisions with deterministic rules. Adaptive T2
    decisions require mixed-model, verifier, grounding, risk, and approval gates.
-3. **Safe autonomy:** Every autonomous action requires a stop condition, rollback, blast-radius
-   limit, dry-run, per-resource lock, idempotency key, and audit record. New capabilities start in
+3. **Safe autonomy:** Every autonomous action requires all seven safeguards: a stop condition,
+   rollback, blast-radius limit, dry-run, per-resource lock, idempotency key, and audit record. New capabilities start in
    shadow and change mode only through the authoritative promotion registry; runtime, environment,
    and fork status never promote or demote them.
 4. **Evidence-governed:** Every decision and action is attributable, observable, and replayable.
-   Insufficient evidence results in abstention or escalation. Human App Roles and the executor
-   workload identity stay distinct; self-approval is prohibited.
+   Insufficient evidence results in abstention or escalation. High-impact execution requires either
+   current human approval or valid standing human authorization; silence alone never grants authority.
+   Human App Roles and the executor workload identity stay distinct; self-approval is prohibited.
 5. **Secure boundaries:** Keep the repository customer-agnostic and free of secrets, tenant values,
    endpoints, and customer identifiers. Azure is the implemented target, provider contracts stay
    neutral, and non-Azure adapters require explicit approval.

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c65034d0769016ad0f2171f24d4ab989fc032e10
+translation_source_sha: 7ff320141e2b18259c368d92f959e9646a340abc
 translation_revised: 2026-08-02
 ---
 
@@ -141,9 +141,10 @@ Forseti가 도메인별 메트릭을 알 필요가 없고, 크기가 도메인�
   `impact = clamp(forecast_util, 0, 1)`. 평활화된 forecast는 이미 정규화되어
   있으며, 전문가가 이를 붙여 중재기는 원 메트릭이 아니라 하나의 필드를 읽는다.
 
-Odin은 무딘 우선순위 테이블 대신
-`src/fdai/agents/_framework/arbitration.py`의 결정론적 **다목적** 중재기
-`MultiObjectiveArbiter`로 해소한다:
+Odin은 `src/fdai/agents/_framework/arbitration.py`의 결정론적 **다목적**
+`MultiObjectiveArbiter`로 충돌을 해소합니다.
+
+- **헌법 적격성을 먼저 확인합니다.** Forseti와 risk gate는 안전, 보안, ID, 데이터 무결성, 복구 또는 서비스 목표 제약을 위반하는 선택지를 제거합니다. Odin은 적격 선택지만 받으며 어떤 점수도 실패한 강제 제약을 보상할 수 없습니다.
 
 - 각 도메인은 설정된 **가중치**를 가진다(기본은 우선순위 순서
   `resilience > security > change_safety > cost > capacity`에서 도출;
@@ -154,9 +155,8 @@ Odin은 무딘 우선순위 테이블 대신
   `0.4`에 고정하므로 커브를 바꿔도 HIL 밴드와 마진 산술이 그대로 보정된다.
 - 승자는 최고 점수다. 영향 크기가 같으면 기존 우선순위 승자를 정확히 재현하므로,
   중재기는 옛 테이블의 엄격한 상위집합이다 - 어떤 동작도 퇴행하지 않는다.
-- 영향이 큰 낮은-우선순위 도메인이 영향이 작은 높은-우선순위 도메인을 이길 수
-  있고, 그것이 핵심이다: 중재기는 순위가 아니라 *크기*를 저울질한다(온콜 1달러를
-  아끼려고 컴퓨트 10달러를 쓰지 않는다).
+- 적격한 소프트 목표 상충 관계에서는 영향이 큰 낮은 우선순위 도메인이 영향이 작은 높은 우선순위 도메인을 이길 수 있습니다. 중재기는 순위뿐 아니라 *크기*를 평가하지만 비용이나
+  효율성이 헌법 제약을 덮어쓰도록 허용하지 않습니다.
 - 상위 2개의 **마진**이 설정된 HIL 밴드(기본 `0.10`) 이내이거나, 도메인에 알려진
   가중치가 없으면, 자동 해소하기엔 너무 접전이라 결정에 `escalate_hil` 플래그가
   붙고 Forseti가 이를 `hil` 판정으로 바꿔 사람에게 넘긴다 - 절대 조용히 자동

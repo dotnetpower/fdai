@@ -240,6 +240,7 @@ jobs:
       - name: Validate instruction and design routes
         run: |
           python3 scripts/quality/architecture/check-design-routes.py
+          python3 scripts/quality/architecture/check-constitution.py
           python3 scripts/quality/architecture/check-fork-runtime-independence.py
 
       - name: Resolve changed range

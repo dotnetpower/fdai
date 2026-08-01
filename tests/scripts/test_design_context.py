@@ -32,6 +32,16 @@ def test_required_context_composes_every_matching_route() -> None:
     assert "docs/roadmap/interfaces/operator-console.md" in required
 
 
+def test_constitutional_surface_requires_canonical_context() -> None:
+    module = _load_module()
+
+    required = module.required_context((".github/instructions/architecture.instructions.md",))
+
+    assert "docs/roadmap/architecture/fdai-constitution.md" in required
+    assert "docs/roadmap/decisioning/risk-classification.md" in required
+    assert "docs/roadmap/decisioning/escalation-and-standing-authority.md" in required
+
+
 def test_hook_avoids_post_tool_response_payloads() -> None:
     hooks = json.loads(HOOK_CONFIG_PATH.read_text(encoding="utf-8"))["hooks"]
 
