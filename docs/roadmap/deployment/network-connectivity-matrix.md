@@ -237,9 +237,21 @@ addresses, so keep it under ignored local storage such as `tmp/`. Add `--redact`
 report; this replaces hosts with hashes and removes addresses.
 
 The action summary distinguishes missing configuration, DNS/private-zone errors, wrong public or
-private address resolution, and blocked TCP ports. A positive endpoint checker cannot prove a full
-air gap. Use `bash scripts/deployment/release/airgap-drill.sh` to verify the network-free release
-path inside a namespace with no route or DNS.
+private address resolution, and blocked TCP ports.
+
+Protected plans run the checker automatically from the VNet deployment runner before Terraform
+planning. `PREFLIGHT_EGRESS_HOSTS_JSON` continues to drive the existing TLS checks. The workflow
+automatically reads existing Terraform outputs for both Event Hubs shards, PostgreSQL, Key Vault,
+ACR, and Azure OpenAI, and applies the profile's private or public address expectation. Set the
+optional repository variable `PREFLIGHT_NETWORK_CHECKS_JSON` to a complete manifest for additional
+routes such as APIM backends or ACR replica data endpoints. The workflow combines all inputs, blocks
+on any required failure, removes the temporary manifest, and merges only the redacted network
+report into the existing `preflight-evidence.json` digest contract. On an initial deployment,
+Terraform outputs that do not exist yet are skipped.
+
+A positive endpoint checker cannot prove a full air gap. Use
+`bash scripts/deployment/release/airgap-drill.sh` to verify the network-free release path inside a
+namespace with no route or DNS.
 
 ## Validation checklist
 

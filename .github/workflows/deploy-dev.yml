@@ -163,6 +163,7 @@ jobs:
       TF_VAR_runner_vnet_name: ${{ vars.OPS_VNET_NAME }}
       TF_VAR_ops_resource_group_name: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
       PREFLIGHT_EGRESS_HOSTS_JSON: ${{ vars.PREFLIGHT_EGRESS_HOSTS_JSON || '["api.github.com","management.azure.com","login.microsoftonline.com","registry.terraform.io","pypi.org","files.pythonhosted.org"]' }}
+      PREFLIGHT_NETWORK_CHECKS_JSON: ${{ vars.PREFLIGHT_NETWORK_CHECKS_JSON || '' }}
       DEPLOY_PREFLIGHT_INPUT_JSON: ${{ vars.DEPLOY_PREFLIGHT_INPUT_JSON }}
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
@@ -450,9 +451,100 @@ jobs:
       - name: Run runner egress preflight
         run: |
           set -euo pipefail
+          trap 'rm -f runner-network-connectivity-manifest.json runner-network-connectivity.json' EXIT
           printf '%s\n' "$PREFLIGHT_EGRESS_HOSTS_JSON" > runner-egress-hosts.json
           python3 ../scripts/deployment/azure/check-runner-egress.py runner-egress-hosts.json \
             --output runner-egress-evidence.json --timeout-seconds 5
+          export PREFLIGHT_EVENT_BUS_PRIMARY="$(terraform output -raw "event_bus_kafka_bootstrap" 2>/dev/null || true)"
+          export PREFLIGHT_EVENT_BUS_OPERATIONAL="$(terraform output -raw "event_bus_operational_kafka_bootstrap" 2>/dev/null || true)"
+          export PREFLIGHT_POSTGRES="$(terraform output -raw "postgres_fqdn" 2>/dev/null || true)"
+          export PREFLIGHT_KEY_VAULT="$(terraform output -raw "key_vault_uri" 2>/dev/null || true)"
+          export PREFLIGHT_ACR="$(terraform output -raw "container_registry_login_server" 2>/dev/null || true)"
+          export PREFLIGHT_LLM="$(terraform output -raw "llm_endpoint" 2>/dev/null || true)"
+          python3 - <<'PY'
+          import json
+          import os
+          from urllib.parse import urlsplit
+
+          with open("runner-egress-hosts.json", encoding="utf-8") as stream:
+            hosts = json.load(stream)
+          if not isinstance(hosts, list):
+            raise SystemExit("PREFLIGHT_EGRESS_HOSTS_JSON must be an array")
+          checks = [
+            {
+              "id": f"egress-{index:02d}",
+              "host": host,
+              "port": 443,
+              "required": True,
+              "expected_ip": "any",
+            }
+            for index, host in enumerate(hosts, start=1)
+          ]
+          private_networking = os.environ.get(
+            "TF_VAR_enable_private_networking", "false"
+          ).lower() == "true"
+          private_policy = "private" if private_networking else "public"
+          acr_is_private = (
+            private_networking
+            and os.environ.get("TF_VAR_acr_sku", "Basic").lower() == "premium"
+          )
+          state_targets = (
+            ("event-bus-primary", "PREFLIGHT_EVENT_BUS_PRIMARY", 9093, private_policy),
+            ("event-bus-operational", "PREFLIGHT_EVENT_BUS_OPERATIONAL", 9093, private_policy),
+            ("postgres", "PREFLIGHT_POSTGRES", 5432, private_policy),
+            ("key-vault", "PREFLIGHT_KEY_VAULT", 443, private_policy),
+            ("container-registry", "PREFLIGHT_ACR", 443, "private" if acr_is_private else "public"),
+            ("azure-openai", "PREFLIGHT_LLM", 443, private_policy),
+          )
+          for check_id, env_key, port, expected_ip in state_targets:
+            value = os.environ.get(env_key, "").strip()
+            if not value:
+              continue
+            parsed = urlsplit(value if "://" in value else f"//{value}")
+            if not parsed.hostname:
+              raise SystemExit(f"Terraform output for {check_id} has no hostname")
+            checks.append(
+              {
+                "id": check_id,
+                "host": parsed.hostname,
+                "port": port,
+                "required": True,
+                "expected_ip": expected_ip,
+              }
+            )
+          extra_raw = os.environ.get("PREFLIGHT_NETWORK_CHECKS_JSON", "").strip()
+          if extra_raw:
+            extra = json.loads(extra_raw)
+            if (
+              not isinstance(extra, dict)
+              or extra.get("schema_version") != "fdai.network-connectivity-manifest.v1"
+              or not isinstance(extra.get("checks"), list)
+            ):
+              raise SystemExit("PREFLIGHT_NETWORK_CHECKS_JSON is not a valid manifest")
+            checks.extend(extra["checks"])
+          manifest = {
+            "schema_version": "fdai.network-connectivity-manifest.v1",
+            "checks": checks,
+          }
+          with open("runner-network-connectivity-manifest.json", "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream, sort_keys=True, separators=(",", ":"))
+            stream.write("\n")
+          PY
+          python3 ../scripts/deployment/azure/check-network-connectivity.py \
+            --profile custom --manifest runner-network-connectivity-manifest.json \
+            --redact --output runner-network-connectivity.json --timeout-seconds 5
+          python3 - <<'PY'
+          import json
+
+          with open("runner-egress-evidence.json", encoding="utf-8") as stream:
+            egress = json.load(stream)
+          with open("runner-network-connectivity.json", encoding="utf-8") as stream:
+            network = json.load(stream)
+          egress["network_connectivity"] = network
+          with open("runner-egress-evidence.json", "w", encoding="utf-8") as stream:
+            json.dump(egress, stream, sort_keys=True, separators=(",", ":"))
+            stream.write("\n")
+          PY
 
       - name: Terraform plan
         if: ${{ !inputs.apply }}

@@ -1,7 +1,7 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: 702db2ec6477db8fabc4b8e391d4e6c84a8cb790
+translation_source_sha: 0ee78cc3e5e965941f8f83e7ea4b9a31f40cdce8
 translation_revised: 2026-08-01
 ---
 # 네트워크 연결 매트릭스
@@ -245,8 +245,20 @@ address가 있으므로 `tmp/` 같은 ignore된 local storage에 보관하세요
 `--redact`를 추가하세요. Host는 hash로 바뀌고 address는 제거됩니다.
 
 Action summary는 누락된 configuration, DNS/private-zone 오류, 잘못된 public 또는 private address
-resolution, 차단된 TCP port를 구분합니다. Positive endpoint checker로 full air gap을 증명할 수는
-없습니다. Route와 DNS가 없는 namespace에서 network-free release 경로를 검증하려면
+resolution, 차단된 TCP port를 구분합니다.
+
+Protected plan은 Terraform planning 전에 VNet deployment runner에서 checker를 자동으로
+실행합니다. `PREFLIGHT_EGRESS_HOSTS_JSON`은 기존 TLS check를 계속 제어합니다. Workflow는 기존
+Terraform output에서 두 Event Hubs shard, PostgreSQL, Key Vault, ACR 및 Azure OpenAI를 자동으로
+읽고 profile의 private 또는 public address expectation을 적용합니다. APIM backend 또는 ACR
+replica data endpoint 같은 추가 route에는 optional repository variable
+`PREFLIGHT_NETWORK_CHECKS_JSON`에 complete manifest를 설정하세요. Workflow는 모든 input을
+결합하고 required 실패 시 차단하며 temporary manifest를 제거합니다. 기존
+`preflight-evidence.json` digest contract에는 redacted network report만 병합합니다. 최초
+deployment에서는 아직 존재하지 않는 Terraform output을 건너뜁니다.
+
+Positive endpoint checker로 full air gap을 증명할 수는 없습니다. Route와 DNS가 없는
+namespace에서 network-free release 경로를 검증하려면
 `bash scripts/deployment/release/airgap-drill.sh`를 사용하세요.
 
 ## 검증 체크리스트

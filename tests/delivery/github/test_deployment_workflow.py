@@ -354,6 +354,20 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "inputs.apply && !inputs.resume_verification" in workflow
     assert "--source-artifact fdai-dev-operations-gateway.zip" in workflow
     assert "check-runner-egress.py" in workflow
+    assert "PREFLIGHT_NETWORK_CHECKS_JSON" in workflow
+    assert "check-network-connectivity.py" in workflow
+    assert "--profile custom" in workflow
+    assert "--redact" in workflow
+    assert 'egress["network_connectivity"] = network' in workflow
+    for output_name in (
+        "event_bus_kafka_bootstrap",
+        "event_bus_operational_kafka_bootstrap",
+        "postgres_fqdn",
+        "key_vault_uri",
+        "container_registry_login_server",
+        "llm_endpoint",
+    ):
+        assert f'terraform output -raw "{output_name}"' in workflow
     assert "preflight_evidence_digest" in workflow
     assert "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans" in workflow
     assert "TF_VAR_stewardship_maintainers" in workflow
