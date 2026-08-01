@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c105d118bc0f808131adb7e1353408164bd0b6db
+translation_source_sha: 15863128bfe04a7e2645d6317fc0506f42ca755a
 translation_revised: 2026-08-01
 ---
 
@@ -106,6 +106,10 @@ Family 추가는 paired design과 decoder 변경이 필요하며 shared mutation
 Versioned projection schema가 discriminator, 각 arm, unavailable receipt의 machine source입니다. Server
 validation과 generated client decoder는 같은 schema digest를 사용합니다. Unknown family, missing arm,
 server/client digest mismatch가 있으면 CI가 차단합니다.
+
+해당 schema는 family별 hard item limit, maximum link-traversal depth, stable primary-key ordering,
+allowed truncation reason도 선언합니다. Limit이 없거나 unbounded이면 materialization을 차단합니다.
+Pagination은 snapshot cutoff, ordering, source watermark를 바꾸지 않습니다.
 
 각 source agent는 authoritative record의 single writer로 유지됩니다. Muninn은 rebuildable cross-domain
 context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Read API materializer는
