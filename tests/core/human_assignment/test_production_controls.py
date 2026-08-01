@@ -100,3 +100,26 @@ async def test_reconciler_reports_bounded_scan_truncation(caplog) -> None:
     assert record.limit == 1
     assert record.observed == 1
     assert record.total == 2
+
+
+async def test_reconciler_isolates_malformed_case_and_continues(caplog) -> None:
+    store = InMemoryStateStore()
+    first = _case(AssignmentState.OWNERSHIP_MERGED)
+    second = _case(AssignmentState.DEGRADED, reason="iam_provider_failed")
+    await store.write_state(f"human_assignment:case:{first.case_id}", first.to_dict())
+    await store.write_state(
+        "human_assignment:case:malformed",
+        {"case_id": "malformed", "state": AssignmentState.IAM_APPLYING.value},
+    )
+    await store.write_state(f"human_assignment:case:{second.case_id}", second.to_dict())
+
+    with caplog.at_level(logging.ERROR, logger="fdai.human_assignment.reconciliation"):
+        items = await AssignmentReconciler(store=store).plan()
+
+    assert {item.case_id for item in items} == {first.case_id, second.case_id}
+    malformed = next(
+        record
+        for record in caplog.records
+        if record.message == "assignment_reconciliation_case_malformed"
+    )
+    assert malformed.exception_type == "AssignmentModelError"

@@ -7,7 +7,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from fdai.core.human_assignment.model import AssignmentCase, AssignmentState
+from fdai.core.human_assignment.model import (
+    AssignmentCase,
+    AssignmentModelError,
+    AssignmentState,
+)
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.state_store import StateStore
 
@@ -67,7 +71,14 @@ class AssignmentReconciler:
             )
         items: list[AssignmentReconciliationItem] = []
         for value in values:
-            case = AssignmentCase.from_dict(dict(value))
+            try:
+                case = AssignmentCase.from_dict(dict(value))
+            except AssignmentModelError as exc:
+                _LOGGER.error(
+                    "assignment_reconciliation_case_malformed",
+                    extra={"exception_type": type(exc).__name__},
+                )
+                continue
             next_step = _next_step(case)
             if next_step is None:
                 continue

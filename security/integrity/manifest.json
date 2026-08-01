@@ -301,7 +301,7 @@
     "src/fdai/core/human_assignment/goals.py": "9755df702e82239cb5304dc818c66f2beae92a57bf3945359c45cdb91f9ed17a",
     "src/fdai/core/human_assignment/model.py": "2904786a3964290fe529101f4aeffd11c28000fd803a16f6d790e570994e1f70",
     "src/fdai/core/human_assignment/ownership.py": "aa5bcf2a93809740c0e57ebf724f6dd1884d90abbbc16dfb23d76f3141b7bc08",
-    "src/fdai/core/human_assignment/production_controls.py": "ec43b9646d9af0354068ba391aa2fd0d56c55bf3614e9ad12cef565a02c58d3d",
+    "src/fdai/core/human_assignment/production_controls.py": "b362d5d9ecf4cbfd17bad168445b09af6179f0575cb5628d8da8777339ad67e5",
     "src/fdai/core/human_assignment/repository.py": "d4a631195a676e2c90f3f34aea67d47da99aae79b39b415e703e449411da6202",
     "src/fdai/core/human_assignment/service.py": "348d2456a9274304ec0950b0d977a3e736d7d1e2c73f0a4a836bc67bbba24331",
     "src/fdai/core/human_assignment/transitions.py": "4a172201a4395f5927932412cdced3219eb81740d3826c8c585e27d136b70a4e",
@@ -915,7 +915,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T10:35:53Z",
+  "generated_at": "2026-08-01T10:43:38Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
