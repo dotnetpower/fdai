@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: e6293a8adee6ee0c11e7d88adbc146c7b844ee65
+translation_source_sha: a439156acf6be66dccd6c210739912c3dd5c447f
 translation_revised: 2026-08-01
 ---
 
@@ -142,7 +142,9 @@ shape를 직접 쓰지 않습니다. 다른 domain request는 자체 event contr
 1. Entra token, audience, App Role, 필수 capability를 확인합니다.
 2. Authoritative source를 읽고 revision, deadline, 관련 policy digest를 비교합니다.
 3. 도메인 스키마를 검증하고 알 수 없는 field를 차단합니다.
-4. 해당되는 경우 자기 승인 방지, quorum eligibility, scope, purpose check를 적용합니다.
+4. Scope와 purpose check를 적용합니다. 요청을 authorize, advance, promote, grant 또는 execute할 수 있는
+  모든 사람 decision은 no-self-approval과 선언된 quorum을 적용합니다. Requester는 evidence를 제출하거나
+  자신의 pending request를 취소할 수 있지만 decision quorum을 충족하지는 못합니다.
 5. Actor, correlation id, idempotency key, audit 또는 outbox receipt를 원자적으로 기록합니다.
 6. 요청 접수, conflict, denial 또는 expiry를 반환하며 요청 시점에 실행을 주장하지 않습니다.
 7. Owning agent가 처리할 typed event를 publish합니다.

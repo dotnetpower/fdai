@@ -141,7 +141,9 @@ Every domain route repeats the checks appropriate to its source:
 1. Verify the Entra token, audience, App Roles, and required capability.
 2. Load the authoritative source and compare its revision, deadline, and relevant policy digest.
 3. Validate the domain schema and reject unknown fields.
-4. Apply no-self-approval, quorum eligibility, scope, and purpose checks when applicable.
+4. Apply scope and purpose checks. Every human decision that can authorize, advance, promote,
+   grant, or execute the request applies no-self-approval and its declared quorum. A requester may
+   submit evidence or cancel their own pending request but never satisfies its decision quorum.
 5. Record the actor, correlation id, idempotency key, and audit or outbox receipt atomically.
 6. Return request acceptance, conflict, denial, or expiry. Do not claim execution at request time.
 7. Publish the typed event for the owning agent to process.
