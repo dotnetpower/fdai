@@ -941,6 +941,31 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 3 | 4 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0038: English hour-before-incident timeline
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q030` |
+| Executed | `2026-08-01` |
+| Prior context | Each product used its latest verified unavailable Resource Health event. The executions used different evidence windows, so deployment-owned values and exact timestamps are redacted. |
+| Question | `Build a change timeline for the hour before the incident.` |
+| Azure SRE Agent answer | Rendered the analysis-window start, a quiet one-hour interval with no VM operation, write, deployment, or power event, and the unavailable incident anchor. It queried exact resource-group and resource windows and did not pull older changes into the hour. |
+| Initial FDAI answer | Correctly reported zero matching deployment or configuration writes, the incident anchor, evidence source, truncation, and no causal claim, but did not render explicit start and anchor timeline rows. |
+| Fixed FDAI answer | Rendered a `Pre-incident change timeline` with explicit window start, bounded one-hour interval, zero matching changes, incident anchor, evidence observation time, and truncation disclosure. |
+| Scope alignment | FDAI retained the verified server-owned scope and incident selector from the preceding health-history turn. Browser input could not select another subscription, group, or anchor. |
+| Evidence | One Heimdall branch consumed bounded same-group Activity Log evidence, verified one of one checks, and made zero model calls. |
+| Material difference | Both products concluded that the immediate hour was quiet. Azure SRE Agent queried the exact hour without truncation and offered a wider follow-up. FDAI exposed stronger deterministic branch, verification, truncation, and model-call accounting but its 24-hour upstream page remained truncated. |
+| Winner | Tie. Azure SRE Agent had stronger exact-window completeness and actionability; FDAI had stronger evidence limitation, verification, safety, and process disclosure. |
+| General fix | The shared pre-incident renderer always emits window-start, interval, and incident-anchor landmarks in either locale. Exact-window provider filtering remains residual work because the current provider reads a bounded 24-hour page before filtering the hour. |
+| Status | `parity-provider-window-open` |
+
+#### RUN-0038 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 3 | 4 | 4 | 26/28 |
+| FDAI | 4 | 3 | 4 | 4 | 4 | 3 | 4 | 26/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -979,7 +1004,7 @@ existing seed.
 | Q027 | ko | Change attribution | 누가 이 리소스를 중지했어? | `CHANGE` | compared |
 | Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | compared |
 | Q029 | ko | Change history | 장애 직전에 발생한 배포와 설정 변경을 찾아줘. | `CHANGE` | compared |
-| Q030 | en | Change history | Build a change timeline for the hour before the incident. | `CHANGE` | queued |
+| Q030 | en | Change history | Build a change timeline for the hour before the incident. | `CHANGE` | compared |
 | Q031 | ko | Guest activity | 운영 체제가 내부에서 종료된 흔적이 있어? | `CHANGE` | queued |
 | Q032 | en | Guest activity | Was the shutdown initiated inside the guest operating system? | `CHANGE` | queued |
 | Q033 | ko | Authorization | 왜 이 리소스 상태를 읽을 수 없어? | `FAILURE` | queued |
