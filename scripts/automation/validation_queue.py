@@ -222,7 +222,17 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             _link_local_path(paths.repo_root / filename, validation_root / filename)
         environment = _validation_environment(paths)
         sync_status = _run_command(
-            ["uv", "sync", "--frozen", "--extra", "dev", "--python", environment["UV_PYTHON"]],
+            [
+                "uv",
+                "sync",
+                "--frozen",
+                "--extra",
+                "dev",
+                "--extra",
+                "azure-mcp",
+                "--python",
+                environment["UV_PYTHON"],
+            ],
             cwd=validation_root,
             env=environment,
         )

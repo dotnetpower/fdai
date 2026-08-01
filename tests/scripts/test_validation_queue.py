@@ -38,7 +38,12 @@ def git_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     (repo / "bin").mkdir(parents=True)
     (repo / "bin" / "uv").write_text(
-        '#!/usr/bin/env bash\ntest "$1" = sync || exit 11\ntest "$UV_PYTHON" = 3.13 || exit 12\n',
+        "#!/usr/bin/env bash\n"
+        'test "$1" = sync || exit 11\n'
+        'test "$UV_PYTHON" = 3.13 || exit 12\n'
+        'if [[ -n "${FDAI_VALIDATION_TEST_LOG:-}" ]]; then\n'
+        '  printf "uv:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
+        "fi\n",
         encoding="utf-8",
     )
     (repo / "bin" / "uv").chmod(0o755)
@@ -103,6 +108,7 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     assert validated.returncode == 0, validated.stderr
     assert accepted.returncode == 0, accepted.stderr
     assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
         f"changed:--run {parent}..{commit}",
         "verify:--fast",
     ]
@@ -153,7 +159,10 @@ def test_all_mode_skips_changed_test_pass(git_repo: Path, tmp_path: Path) -> Non
     )
 
     assert validated.returncode == 0, validated.stderr
-    assert log_path.read_text(encoding="utf-8").splitlines() == ["verify:--all"]
+    assert log_path.read_text(encoding="utf-8").splitlines() == [
+        "uv:sync --frozen --extra dev --extra azure-mcp --python 3.13",
+        "verify:--all",
+    ]
 
 
 def test_post_commit_hook_automatically_enqueues_commit(git_repo: Path) -> None:
