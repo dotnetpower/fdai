@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from uuid import uuid4
 
@@ -13,7 +14,7 @@ from fdai.delivery.mcp.executor import (
     McpToolExecutor,
     McpToolExecutorConfig,
 )
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import ActionStopCondition, Mode, StopConditionKind
 from fdai.shared.providers.tool import (
     ToolCallOutcome,
     ToolCallRequest,
@@ -281,6 +282,100 @@ async def test_non_json_arguments_fail_before_network() -> None:
     finally:
         await client.aclose()
 
+    assert called == 0
+
+
+@pytest.mark.asyncio
+async def test_oversized_request_fails_before_network() -> None:
+    called = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        nonlocal called
+        called += 1
+        return httpx.Response(200, json={})
+
+    ex, client = _executor(handler, _config(max_request_bytes=100))
+    request = replace(
+        _request(mode=Mode.ENFORCE, labels=("shadow", "enforce")),
+        arguments={"payload": "x" * 1_000},
+    )
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(request)
+    finally:
+        await client.aclose()
+
+    assert exc.value.kind == "protocol"
+    assert called == 0
+
+
+@pytest.mark.asyncio
+async def test_transport_error_does_not_expose_endpoint() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("failed at https://private.example.com/mcp")
+
+    ex, client = _executor(handler)
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(_request(mode=Mode.ENFORCE, labels=("shadow", "enforce")))
+    finally:
+        await client.aclose()
+
+    assert exc.value.kind == "transport"
+    assert "private.example.com" not in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_time_box_stop_condition_returns_stopped() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        await asyncio.Event().wait()
+        return httpx.Response(200, json={})  # pragma: no cover
+
+    ex, client = _executor(handler)
+    request = replace(
+        _request(mode=Mode.ENFORCE, labels=("shadow", "enforce")),
+        stop_conditions=(
+            ActionStopCondition(
+                kind=StopConditionKind.TIME_BOX_EXCEEDED_SECONDS,
+                seconds=1,
+            ),
+        ),
+    )
+    try:
+        receipt = await ex.execute(request)
+    finally:
+        await client.aclose()
+
+    assert receipt.outcome is ToolCallOutcome.STOPPED
+    assert receipt.rollback_succeeded is False
+
+
+@pytest.mark.asyncio
+async def test_unsupported_stop_condition_refuses_before_network() -> None:
+    called = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        nonlocal called
+        called += 1
+        return httpx.Response(200, json={})
+
+    ex, client = _executor(handler)
+    request = replace(
+        _request(mode=Mode.ENFORCE, labels=("shadow", "enforce")),
+        stop_conditions=(
+            ActionStopCondition(
+                kind=StopConditionKind.PROVIDER_API_ERROR_STREAK,
+                count=3,
+            ),
+        ),
+    )
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(request)
+    finally:
+        await client.aclose()
+
+    assert exc.value.kind == "config"
     assert called == 0
 
 

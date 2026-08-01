@@ -36,6 +36,7 @@ Safety semantics
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Mapping
@@ -45,7 +46,7 @@ from typing import Any, Final, Protocol, runtime_checkable
 
 import httpx
 
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import Mode, StopConditionKind
 from fdai.shared.providers.tool import (
     ToolCallOutcome,
     ToolCallReceipt,
@@ -58,6 +59,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
+_DEFAULT_MAX_REQUEST_BYTES: Final[int] = 1_000_000
 _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 5_000_000
 
 
@@ -111,6 +113,9 @@ class McpToolExecutorConfig:
 
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
 
+    max_request_bytes: int = _DEFAULT_MAX_REQUEST_BYTES
+    """Hard cap on the encoded JSON-RPC request body."""
+
     max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
     """Hard cap on the MCP response body. A larger body fails closed with
     a protocol :class:`ToolError` before it is parsed, so a misbehaving or
@@ -119,6 +124,8 @@ class McpToolExecutorConfig:
     def __post_init__(self) -> None:
         if not self.server_url:
             raise ValueError("McpToolExecutorConfig.server_url MUST be non-empty")
+        if self.max_request_bytes < 1:
+            raise ValueError("McpToolExecutorConfig.max_request_bytes MUST be >= 1")
         if self.max_response_bytes < 1:
             raise ValueError("McpToolExecutorConfig.max_response_bytes MUST be >= 1")
 
@@ -179,9 +186,39 @@ class McpToolExecutor:
             )
 
         # 4. Enforce path - the real JSON-RPC invocation.
-        return await self._invoke(request=request, mcp_tool=mcp_tool)
+        timeout_seconds = self._execution_timeout(request)
+        return await self._invoke(
+            request=request,
+            mcp_tool=mcp_tool,
+            timeout_seconds=timeout_seconds,
+        )
 
-    async def _invoke(self, *, request: ToolCallRequest, mcp_tool: str) -> ToolCallReceipt:
+    def _execution_timeout(self, request: ToolCallRequest) -> float:
+        timeout_seconds = self._config.timeout_seconds
+        for condition in request.stop_conditions:
+            if condition.kind is StopConditionKind.TIME_BOX_EXCEEDED_SECONDS:
+                if condition.seconds is None:
+                    raise ToolError(
+                        kind="config",
+                        message="MCP time-box stop condition requires seconds",
+                    )
+                timeout_seconds = min(timeout_seconds, float(condition.seconds))
+                continue
+            raise ToolError(
+                kind="config",
+                message=(
+                    f"MCP executor has no evaluator for stop condition {condition.kind.value!r}"
+                ),
+            )
+        return timeout_seconds
+
+    async def _invoke(
+        self,
+        *,
+        request: ToolCallRequest,
+        mcp_tool: str,
+        timeout_seconds: float,
+    ) -> ToolCallReceipt:
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
         if self._config.audience and self._identity is not None:
             token = await self._identity.get_token(self._config.audience)
@@ -202,18 +239,33 @@ class McpToolExecutor:
                 kind="protocol",
                 message=f"MCP arguments were not JSON-serializable for tool {mcp_tool!r}",
             ) from exc
+        if len(encoded_body.encode("utf-8")) > self._config.max_request_bytes:
+            raise ToolError(
+                kind="protocol",
+                message=f"MCP request exceeded the configured cap for tool {mcp_tool!r}",
+            )
 
         try:
-            response = await self._http.post(
-                self._config.server_url,
-                headers=headers,
-                content=encoded_body,
-                timeout=self._config.timeout_seconds,
+            response = await asyncio.wait_for(
+                self._http.post(
+                    self._config.server_url,
+                    headers=headers,
+                    content=encoded_body,
+                    timeout=timeout_seconds,
+                ),
+                timeout=timeout_seconds,
+            )
+        except (TimeoutError, httpx.TimeoutException):
+            return ToolCallReceipt(
+                outcome=ToolCallOutcome.STOPPED,
+                receipt_ref=f"mcp-timeout:{mcp_tool}",
+                rollback_succeeded=False,
+                detail="MCP tool exceeded its time-box stop condition",
             )
         except httpx.HTTPError as exc:
             raise ToolError(
                 kind="transport",
-                message=f"MCP request failed for tool {mcp_tool!r}: {exc}",
+                message=f"MCP transport failed for tool {mcp_tool!r}",
             ) from exc
 
         if not response.is_success:

@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 09d503c1ebcaf92f902d1b75100341ff7aec5424
-translation_revised: 2026-07-31
+translation_source_sha: 9b7c48156909feddec63b004fc2fc841458a7e89
+translation_revised: 2026-08-01
 ---
 
 # Execution 모델
@@ -596,7 +596,8 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
   ActionType-to-tool allowlist를 검증하고 disabled 상태로 install되며 read-only `tools/list`
   discovery가 모든 allowlisted tool의 존재를 확인한 후에만 enable할 수 있습니다. Public
   endpoint는 HTTPS가 필요하고 HTTP는 loopback sidecar에만 허용됩니다. Payload URL은 configured
-  server endpoint를 override하지 않습니다. 두 enabled server는 같은 ActionType을 소유할 수
+  server endpoint를 override하지 않습니다. Encoded request 및 response body는 network dispatch
+  또는 JSON parsing 전에 서로 독립적인 hard byte cap을 적용합니다. 두 enabled server는 같은 ActionType을 소유할 수
   없습니다. Enabled catalog는 기존 `RoutingToolExecutor`에 route를 project하며 새 execution
   path를 만들지 않습니다.
 - `core/` 는 Protocol 만 안다; fork 가 composition root 에서 live 어댑터
@@ -623,6 +624,10 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
   write failure는 retryable 상태로 남습니다.
 - `auto` 결정 시, HIL 없이 call 진행하며 executor가 ActionType 의 `preconditions` 와 `stop_conditions` 를 enforce.
   Tool adapter는 첫 condition name만이 아니라 authored parameter를 모두 포함한 complete ordered stop-condition tuple을 받음.
+  Generic MCP adapter는 `time_box_exceeded_seconds`를 outer transport deadline으로 적용합니다.
+  Timeout은 rollback 미확인 상태의 `stopped`를 반환합니다. 다른 dynamic stop condition을 가진
+  enforce request는 bound adapter가 해당 evaluator를 제공하지 않으면 network I/O 전에 거부됩니다.
+  Adapter는 평가하지 않은 condition을 무시하지 않습니다.
 - `hil` 결정 시, executor 가 액션을 park 하고 `direct_api` 와 동일한 HIL
   왕복 (§5.5) 으로 승인 후 resume.
 - Rollback 은 ActionType 의 `rollback_contract` 로부터 - 보통

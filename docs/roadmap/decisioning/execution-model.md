@@ -614,7 +614,8 @@ router is an optional seam: absent, the loop behaves exactly as before.
   ActionType-to-tool allowlist, installs disabled, and can enable only after a read-only
   `tools/list` discovery proves every allowlisted tool exists. Public endpoints require HTTPS;
   HTTP is accepted only for loopback sidecars. Payload URLs never override the configured server
-  endpoint. Two enabled servers cannot own the same ActionType. The enabled catalog projects
+  endpoint. Encoded request and response bodies have independent hard byte caps before network
+  dispatch or JSON parsing. Two enabled servers cannot own the same ActionType. The enabled catalog projects
   routes into the existing `RoutingToolExecutor`; it creates no new execution path.
 - `core/` knows only the Protocol; a fork binds a live adapter (a native
   Python registry, an MCP client, an HTTP callout) at the composition
@@ -642,6 +643,10 @@ router is an optional seam: absent, the loop behaves exactly as before.
   remains retryable.
 - On `auto` decision, the call proceeds without HIL; the executor enforces the ActionType's `preconditions` and `stop_conditions`.
   The tool adapter receives the complete ordered stop-condition tuple with all authored parameters rather than only the first condition name.
+  The generic MCP adapter enforces `time_box_exceeded_seconds` as an outer transport deadline. A
+  timeout returns `stopped` with rollback unconfirmed. An enforce request carrying another dynamic
+  stop condition is rejected before network I/O unless the bound adapter supplies its evaluator;
+  the adapter never ignores an unevaluated condition.
 - On `hil` decision, the executor parks the action and resumes it on
   approval through the same HIL round-trip as `direct_api` (§5.5).
 - Rollback comes from the ActionType's `rollback_contract` - usually
