@@ -18,8 +18,10 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 > only from the matching signed merge. The matching merge now publishes an idempotent apply request
 > into typed ingress. A dedicated managed identity, allowlisted Graph adapter, direct-API route,
 > bounded convergence checks, rollback, and both human-access ActionTypes are wired in observation
-> mode. The human non-response supervisor is integrated as a periodic shadow worker. Enforce
-> promotion, proactive handover goals, and ontology candidates don't exist yet.
+> mode. The human non-response supervisor is integrated as a periodic shadow worker. Durable
+> handover goals, fatigue budgets, session availability events, bounded invitation and response
+> commands, and independent goal review are implemented. Enforce promotion, agent-side gap
+> production, localized Bragi invitation rendering, and ontology candidates don't exist yet.
 >
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
@@ -232,6 +234,11 @@ overall expiry, restart replay, and no-op without standing authority.
 mode never changes the action hash, accepts two decisions, or turns exhaustion into execution.
 
 ### Package 7 - Proactive knowledge transfer goals
+
+**Status:** Core lifecycle and read API commands are implemented. Active assignments gate goal
+creation, session and weekly invitation claims survive restart, and raw answers are rejected in
+favor of admitted evidence references. Agent-side goal production and localized Bragi rendering
+remain rollout work.
 
 **Changes:** Add `core/human_assignment/goals.py` and `fatigue.py`. Chat session registration emits a
 content-free availability event. Mapped agents publish goal gaps through the event bus; Odin

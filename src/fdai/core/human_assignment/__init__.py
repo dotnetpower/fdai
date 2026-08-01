@@ -16,6 +16,14 @@ from fdai.core.human_assignment.errors import (
     AssignmentPermissionError,
     AssignmentServiceError,
 )
+from fdai.core.human_assignment.fatigue import HandoverFatiguePolicy
+from fdai.core.human_assignment.goals import (
+    GoalEvidence,
+    HandoverGoal,
+    HandoverGoalService,
+    HandoverGoalState,
+    HandoverInvitation,
+)
 from fdai.core.human_assignment.model import (
     AssignmentCase,
     AssignmentIntent,
@@ -61,6 +69,12 @@ __all__ = [
     "HumanAccessApplyCoordinator",
     "HumanAccessExecution",
     "HumanAccessExecutionOutcome",
+    "GoalEvidence",
+    "HandoverFatiguePolicy",
+    "HandoverGoal",
+    "HandoverGoalService",
+    "HandoverGoalState",
+    "HandoverInvitation",
     "ProviderSubject",
     "ReviewDecision",
     "ReviewReceipt",

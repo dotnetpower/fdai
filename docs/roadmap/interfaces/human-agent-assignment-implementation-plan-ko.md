@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 1364419d7705acf89d26721ff164b5e2c0a0660b
+translation_source_sha: ed1cdff10174439ecabb77283e46b5d072bdc879
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -19,8 +19,9 @@ translation_revised: 2026-08-01
 > signed merge에서만 ownership effect를 기록합니다. 일치하는 병합은 이제 멱등 적용 요청을 typed
 > ingress에 게시합니다. 전용 관리 ID, 허용 목록 Graph adapter, direct-API route, 제한된 수렴 검사,
 > rollback, 두 human-access ActionType이 관찰 모드로 연결되었습니다. 사람 무응답 supervisor는
-> periodic shadow worker로 통합되었습니다. 적용 모드 승격, 선제적 인수인계
-> 목표, 온톨로지 후보는 아직 없습니다.
+> periodic shadow worker로 통합되었습니다. 영구 handover goal, 피로도 예산, session availability
+> event, 제한된 invitation 및 response command, 독립 goal review가 구현되었습니다. 적용 모드
+> 승격, agent-side gap 생산, 현지화된 Bragi invitation rendering, 온톨로지 후보는 아직 없습니다.
 >
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
 > ID를 받지 않습니다. 담당 체계 병합, 사람 승인, IAM 적용, 지식 승격은 각각 독립적으로 검증
@@ -230,6 +231,10 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 해시를 변경하거나 두 결정을 수락하거나 모든 단계 소진을 실행으로 바꾸지 않습니다.
 
 ### 묶음 7 - 선제적 지식 이전 목표
+
+**상태:** Core lifecycle과 read API command가 구현되었습니다. Active assignment가 goal 생성을
+제어하고 session 및 주간 invitation claim은 재시작 후에도 유지되며 raw answer 대신 승인된 evidence
+reference만 받습니다. Agent-side goal 생산과 현지화된 Bragi rendering은 rollout 작업으로 남습니다.
 
 **변경:** `core/human_assignment/goals.py` 및 `fatigue.py`를 추가합니다. 채팅 세션 등록이 콘텐츠
 없는 가용성 이벤트를 냅니다. 매핑된 에이전트가 이벤트 버스로 목표 공백을 게시하고, Odin이 중복

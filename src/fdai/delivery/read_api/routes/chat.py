@@ -8,6 +8,7 @@ This module owns the JSON chat route and remains the compatibility import surfac
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -270,6 +271,7 @@ def make_chat_route(
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     turn_planner: TurnPlanner | None = None,
     turn_tools: tuple[TurnTool, ...] = (),
+    handover_availability_publisher: object | None = None,
     path: str = DEFAULT_ROUTE_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -400,6 +402,14 @@ def make_chat_route(
         )
         view_context["_answer_plan"] = answer_plan.to_dict()
         session_id = _session_id(body)
+        if handover_availability_publisher is not None:
+            task = asyncio.create_task(
+                handover_availability_publisher.publish(
+                    subject_ref=user_id,
+                    session_id=session_id,
+                )
+            )
+            task.add_done_callback(_log_handover_availability_failure)
         request_id = _request_id(body)
         active_turn = None
         if busy_input_coordinator is not None:
@@ -812,6 +822,13 @@ def make_chat_route(
         return JSONResponse(enriched)
 
     return Route(path, handler, methods=["POST"])
+
+
+def _log_handover_availability_failure(task: asyncio.Task[object]) -> None:
+    try:
+        task.result()
+    except Exception as exc:  # noqa: BLE001 - availability never blocks chat
+        _LOG.warning("handover availability publish failed: %s", type(exc).__name__)
 
 
 __all__ = [

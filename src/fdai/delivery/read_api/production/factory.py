@@ -73,12 +73,13 @@ from fdai.core.conversation_assurance import (
     ConversationAssuranceLifecycleCoordinator,
     PromotionConfig,
 )
-from fdai.core.human_assignment import AssignmentCaseService
+from fdai.core.human_assignment import AssignmentCaseService, HandoverGoalService
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.core.stewardship import load_stewardship_from_yaml
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
+from fdai.delivery.handover_events import EventBusHandoverAvailabilityPublisher
 from fdai.delivery.ingestion_gateway.chat_evidence import UploaderDocumentEvidenceResolver
 from fdai.delivery.persistence import (
     PostgresConversationAssuranceLedger,
@@ -879,6 +880,18 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             "BreakGlass": group_mapping.break_glass_group_id,
         },
         human_assignments=AssignmentCaseService(store=state_store),
+        handover_goals=HandoverGoalService(
+            store=state_store,
+            assignments=AssignmentCaseService(store=state_store),
+        ),
+        handover_availability_publisher=(
+            EventBusHandoverAvailabilityPublisher(
+                event_bus=runtime.event_bus,
+                topic=runtime.event_topic,
+            )
+            if runtime.event_bus is not None and runtime.event_topic
+            else None
+        ),
         live_stream=runtime.live_stream,
         agent_activity=runtime.agent_activity,
         data_sources=build_production_data_sources(

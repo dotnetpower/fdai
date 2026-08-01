@@ -97,6 +97,7 @@ def append_auxiliary_routes(
         user_context_ontology_projector=config.user_context_ontology_projector,
         model_settings=config.model_settings,
         console_action=config.console_action,
+        handover_availability_publisher=config.handover_availability_publisher,
         authorize=authorize,
         read_model=read_model,
         core_paths=core_paths,
@@ -108,6 +109,17 @@ def append_auxiliary_routes(
         from fdai.delivery.read_api.routes.user_context import make_user_context_routes
 
         routes.extend(make_user_context_routes(config=config.user_context, authorize=authorize))
+
+    if config.handover_goals is not None:
+        from fdai.delivery.read_api.routes.handover_goals import make_handover_goal_routes
+
+        routes.extend(
+            make_handover_goal_routes(
+                service=config.handover_goals,
+                authorize=authorize,
+                authorize_principal=authorize_principal,
+            )
+        )
 
     if config.task_worker_store is not None:
         from fdai.delivery.read_api.routes.task_workers import make_task_worker_routes

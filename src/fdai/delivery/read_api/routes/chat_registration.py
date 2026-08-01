@@ -121,6 +121,7 @@ def append_chat_routes(
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_settings: object | None = None,
     console_action: object | None = None,
+    handover_availability_publisher: object | None = None,
     authorize: Callable[[Request], Awaitable[str]],
     read_model: ConsoleReadModel,
     core_paths: Collection[str],
@@ -236,6 +237,7 @@ def append_chat_routes(
                 ),
                 turn_planner=turn_planner,
                 turn_tools=turn_tools,
+                handover_availability_publisher=handover_availability_publisher,
             ),
             make_chat_stream_route(
                 backend=backend,

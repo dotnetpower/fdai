@@ -15,8 +15,10 @@ approval, conversation, and document ingestion while keeping each authority inde
 > evidence. Ownership PR coordination and the Entra membership path now publish a typed apply
 > request, plan one allowlisted group mutation, verify convergence, and roll back a failed
 > postcondition. The path remains in observation mode. The human non-response supervisor runs as a
-> shadow-only periodic worker; enforce promotion, automated replacement-
-> coverage revocation, and proactive handover goals aren't implemented.
+> shadow-only periodic worker. Durable goals, restart-safe fatigue budgets, session availability
+> events, bounded invitations, snooze, decline, evidence linking, and independent review are
+> implemented. Enforce promotion, automated replacement-coverage revocation, agent-side gap
+> production, and localized Bragi invitation rendering aren't implemented.
 >
 > **Safety boundary:** Mapping a person to an agent never grants an FDAI role. A combined
 > administrator workflow may request both outcomes, but RBAC and operational ownership are still

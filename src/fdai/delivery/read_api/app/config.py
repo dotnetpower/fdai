@@ -471,6 +471,10 @@ class ReadApiConfig:
     a human-access provisioner or Microsoft Graph write capability.
     """
 
+    handover_goals: Any = None
+    handover_availability_publisher: Any = None
+    """Optional non-privileged goal service and content-free session publisher."""
+
     expose_pantheon: bool = False
     """Opt-in pantheon graph + workflows endpoints. When True, registers
     two read-only routes: ``GET /pantheon/graph`` (15 agents, org chart
