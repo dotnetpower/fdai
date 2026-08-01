@@ -196,10 +196,18 @@ class McpToolExecutor:
         }
 
         try:
+            encoded_body = json.dumps(body)
+        except (TypeError, ValueError) as exc:
+            raise ToolError(
+                kind="protocol",
+                message=f"MCP arguments were not JSON-serializable for tool {mcp_tool!r}",
+            ) from exc
+
+        try:
             response = await self._http.post(
                 self._config.server_url,
                 headers=headers,
-                content=json.dumps(body),
+                content=encoded_body,
                 timeout=self._config.timeout_seconds,
             )
         except httpx.HTTPError as exc:

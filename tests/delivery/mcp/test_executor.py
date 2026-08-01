@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import uuid4
 
 import httpx
@@ -257,6 +258,30 @@ async def test_transport_error_fails_closed() -> None:
         assert exc.value.kind == "transport"
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_non_json_arguments_fail_before_network() -> None:
+    called = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        nonlocal called
+        called += 1
+        return httpx.Response(200, json={})
+
+    ex, client = _executor(handler)
+    request = replace(
+        _request(mode=Mode.ENFORCE, labels=("shadow", "enforce")),
+        arguments={"payload": b"not-json"},
+    )
+    try:
+        with pytest.raises(ToolError) as exc:
+            await ex.execute(request)
+        assert exc.value.kind == "protocol"
+    finally:
+        await client.aclose()
+
+    assert called == 0
 
 
 @pytest.mark.asyncio
