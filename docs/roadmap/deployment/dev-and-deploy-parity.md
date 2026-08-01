@@ -281,15 +281,9 @@ Repeated identical plans return the same unconsumed receipt. A consumed or expir
 new idempotency key. ARM throttling honors a bounded `Retry-After` for at most three attempts, while
 mutation `5xx` responses remain ambiguous and aren't automatically repeated.
 
-The same read-investigation wiring constructs the bounded Azure subscription-health provider from
-the applied subscription and resource groups, so local development answers subscription-health
-questions through the same Azure adapter that deployment uses. The adapter defaults to a
-resource-group allowlist. Interactive local explicitly selects its server-owned `subscription`
-mode and a 1,000-resource cap because the authoritative local inventory already reads that complete
-subscription. Deployment retains `resource_groups` unless its composition root deliberately binds
-subscription mode with an appropriately scoped reader identity. Browser and model input cannot
-change the mode. The local factory injects the provider only when read-investigation wiring is
-present, preserving the read-only data-plane boundary.
+The same read-investigation wiring constructs the bounded Azure subscription-health provider. It defaults to a resource-group allowlist; interactive local selects server-owned `subscription` mode with a 1,000-resource cap because its authoritative inventory already reads the complete subscription, while deployment retains `resource_groups` unless deliberately bound with an appropriately scoped reader identity.
+Browser and model input cannot change the mode. The local factory injects the provider only when read-investigation wiring is present,
+preserving the read-only data-plane boundary.
 
 Direct Command Deck reads also use the same owner-scoped run-ledger executor in both profiles.
 Interactive local binds it to the configured local PostgreSQL database; deployment binds it to
