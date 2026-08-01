@@ -866,6 +866,31 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 
+### RUN-0035: Contextual stop attribution
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q027` |
+| Executed | `2026-08-01` |
+| Prior context | Same Q026 history timeline in each product. The follow-up referred to the latest resource in that verified timeline. |
+| Question | `누가 이 리소스를 중지했어?` |
+| Initial FDAI answer | Lost the prior resource selector and asked for a resource name. After preserving the selector, it initially required detached handoff and then rendered only operation and time without the caller. |
+| Azure SRE Agent answer | Resolved the prior resource, found the successful deallocate operation in Activity Log, and identified the caller as an application service principal. Its directory display-name lookup was unauthorized. Deployment-owned values were redacted. |
+| Fixed FDAI answer | Resolved the same prior resource, found the same successful deallocate operation and timestamp, and identified the caller as a service principal with an opaque principal reference. Deployment-owned values were redacted. |
+| Scope alignment | The target resource group was included in FDAI's server-owned reader allowlist for the matched validation. The browser could not widen that scope. |
+| Evidence | The complete history answer returned its latest verified event as a selector hint. The console preserved the approved hint, and Heimdall re-resolved the resource before a bounded Activity Log read. The result consumed 32 evidence references, verified 32 of 32 checks, and made zero model calls. |
+| Material difference | Both products reached the same actor-kind, operation, and timestamp conclusion. FDAI retained an opaque caller reference instead of exposing raw cloud identity identifiers and disclosed its verification and process accounting. |
+| Winner | FDAI after remediation for equal attribution correctness with stronger identity minimization and evidence integrity. |
+| General fix | Verified health-history turns preserve one latest-resource selector across sync and stream responses. Console and server prefix allowlists agree, but every follow-up re-resolves server scope. Conversational attribution defaults to Activity Log, executes bounded streamed reads up to 20 seconds, and renders normalized actor kind plus opaque reference. |
+| Status | `fdai-win` |
+
+#### RUN-0035 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -901,7 +926,7 @@ existing seed.
 | Q024 | en | Platform health | Separate platform-initiated impact from customer-initiated changes. | `HEALTH` | compared |
 | Q025 | ko | Health history | 지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘. | `HEALTH` | compared |
 | Q026 | en | Health history | What Resource Health events occurred during the last day? | `HEALTH` | compared |
-| Q027 | ko | Change attribution | 누가 이 리소스를 중지했어? | `CHANGE` | queued |
+| Q027 | ko | Change attribution | 누가 이 리소스를 중지했어? | `CHANGE` | compared |
 | Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | queued |
 | Q029 | ko | Change history | 장애 직전에 발생한 배포와 설정 변경을 찾아줘. | `CHANGE` | queued |
 | Q030 | en | Change history | Build a change timeline for the hour before the incident. | `CHANGE` | queued |
