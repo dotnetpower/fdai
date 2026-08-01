@@ -16,8 +16,9 @@ preserving FDAI's governed action pipeline.
 > `MutationPlan`, and every external effect closes through independent reconciliation.
 >
 > **Implementation status (2026-08-01):** K0 contract identity is implemented for canonical
-> `OntologyRelease` construction, ActionBuilder output, and in-memory ontology writes. PostgreSQL
-> persistence, runtime-wide release injection, and retained-audit migration remain in K0.
+> releases, ActionBuilder output, and in-memory ontology writes. K1 semantic interface compilation
+> and bounded ObjectSet queries are implemented. PostgreSQL release persistence and runtime-wide
+> release injection remain in K0.
 
 ## Design at a glance
 
