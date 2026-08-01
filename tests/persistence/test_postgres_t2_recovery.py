@@ -91,7 +91,10 @@ async def test_reads_only_sanitized_legacy_projection(monkeypatch: pytest.Monkey
     )
     assert connect_args["dsn"] == "postgresql://example.invalid/fdai"
     assert connect_args["connect_timeout"] == 3
-    assert connection.queries[0] == ("SET LOCAL statement_timeout = %s", (500,))
+    assert connection.queries[0] == (
+        "SELECT set_config('statement_timeout', %s, true)",
+        ("500",),
+    )
     query, params = connection.queries[1]
     assert "action_kind = 'control_loop.t2_evaluate'" in query
     assert "t2_proposer_error:%" in query

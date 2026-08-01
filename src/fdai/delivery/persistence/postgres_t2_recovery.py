@@ -29,8 +29,8 @@ class PostgresT2RecoveryLegacyReader(T2RecoveryLegacyReader):
         ) as connection:
             async with connection.transaction():
                 await connection.execute(
-                    "SET LOCAL statement_timeout = %s",
-                    (self._config.statement_timeout_ms,),
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (str(self._config.statement_timeout_ms),),
                 )
                 cursor = await connection.execute(
                     """
