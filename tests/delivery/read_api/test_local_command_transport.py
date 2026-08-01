@@ -10,6 +10,7 @@ from fdai.delivery.read_api.dev.command_transport import build_local_command_tra
 from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.read_api.streaming.agent_activity_stream import AgentActivityEvent
 from fdai.shared.providers.local import LocalEventBus
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 class _AgentPublisher:
@@ -21,6 +22,7 @@ def test_transport_defaults_to_local_without_azure_configuration() -> None:
     wiring = build_local_command_transport(
         read_model=InMemoryConsoleReadModel(),
         action_types=(),
+        state_store=InMemoryStateStore(),
         environ={},
     )
 
@@ -45,6 +47,7 @@ def test_partial_transport_configuration_fails_fast(environ: dict[str, str]) -> 
         build_local_command_transport(
             read_model=InMemoryConsoleReadModel(),
             action_types=(),
+            state_store=InMemoryStateStore(),
             environ=environ,
         )
 
@@ -53,6 +56,7 @@ def test_configured_transport_uses_real_broadcasters_without_connecting_eagerly(
     wiring = build_local_command_transport(
         read_model=InMemoryConsoleReadModel(),
         action_types=(),
+        state_store=InMemoryStateStore(),
         environ={
             "FDAI_KAFKA_BOOTSTRAP_SERVERS": "example.servicebus.windows.net:9093",
             "KAFKA_TOPIC_EVENTS": "fdai.events",
