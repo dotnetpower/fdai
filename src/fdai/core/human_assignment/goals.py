@@ -355,8 +355,12 @@ class HandoverGoalService:
         now: datetime | None = None,
     ) -> HandoverGoal:
         current = await self.get_goal(goal_id)
-        if any(item.evidence_ref == evidence.evidence_ref for item in current.evidence):
-            return current
+        for item in current.evidence:
+            if item.evidence_ref != evidence.evidence_ref:
+                continue
+            if item == evidence:
+                return current
+            raise ValueError("handover evidence reference is bound to different content")
         candidate = replace(
             current,
             state=HandoverGoalState.READY_FOR_REVIEW,

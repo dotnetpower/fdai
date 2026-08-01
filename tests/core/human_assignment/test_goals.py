@@ -226,6 +226,13 @@ async def test_snooze_decline_and_evidence_review_lifecycle() -> None:
         evidence=GoalEvidence("doc:document-1:version-1", "c" * 64, "document_span"),
         now=_NOW,
     )
+    with pytest.raises(ValueError, match="different content"):
+        await service.add_evidence(
+            goal_id=goal.goal_id,
+            expected_revision=ready.revision,
+            evidence=GoalEvidence("doc:document-1:version-1", "d" * 64, "document_span"),
+            now=_NOW,
+        )
     ready = await service.add_evidence(
         goal_id=goal.goal_id,
         expected_revision=ready.revision,
