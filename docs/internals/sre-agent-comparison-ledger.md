@@ -916,6 +916,31 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 
+### RUN-0037: Pre-incident deployment and configuration changes
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q029` |
+| Executed | `2026-08-01` |
+| Prior context | Each product used its latest verified Resource Health history. The matched executions occurred in different evidence windows, so deployment-owned values and exact event times are redacted and the factual event sets are not treated as identical. |
+| Question | `장애 직전에 발생한 배포와 설정 변경을 찾아줘.` |
+| Azure SRE Agent answer | Used an earlier unavailable Resource Health event as the incident anchor. It found no matching deployment or configuration write in the preceding hour and showed the nearest older network-security changes without claiming causation. |
+| Initial FDAI answer | Fell through generic screen, incident, behavior, and public-web routing. Even after Heimdall returned unavailable evidence, the terminal path sent that result to the narrator instead of preserving the evidence gap. |
+| Fixed FDAI answer | Used the current verified unavailable Resource Health event as the incident anchor and reported zero matching deployment or configuration writes in the preceding hour. It explicitly disclosed that Activity Log results were truncated and did not infer causation or fabricate older changes. |
+| Scope alignment | FDAI used the same server-owned subscription and resource-group reader scope as the preceding health-history turn. The browser supplied only a bounded selector hint and could not widen scope. |
+| Evidence | One Heimdall branch read bounded same-group Activity Log evidence, consumed one evidence reference, verified one of one checks, and made zero model calls. A missing complete anchor instead terminates as `unverified` with `incident_anchor_unavailable` and performs no Activity Log or narrator call. |
+| Material difference | Both products found zero immediate deployment or configuration writes in their respective incident windows. Azure SRE Agent had older matching changes available; FDAI's current result was truncated and preserved that limitation. FDAI exposed stronger branch ownership, truncation, verification, and model-call accounting. |
+| Winner | Tie across changed evidence windows. FDAI met or exceeded the evidence-integrity and safety outcome while avoiding an unsupported cross-window factual claim. |
+| General fix | Resource Health history publishes an all-or-none incident anchor. The server canonicalizes the follow-up, routes only to Heimdall, revalidates scope, filters successful same-group deployment and configuration writes, bounds lookback and output, and preserves missing-anchor or truncated evidence as terminal facts. Typed canonical requests bypass fuzzy agent-owner arbitration. |
+| Status | `parity-with-fdai-assurance-advantage` |
+
+#### RUN-0037 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 3 | 4 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -953,7 +978,7 @@ existing seed.
 | Q026 | en | Health history | What Resource Health events occurred during the last day? | `HEALTH` | compared |
 | Q027 | ko | Change attribution | 누가 이 리소스를 중지했어? | `CHANGE` | compared |
 | Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | compared |
-| Q029 | ko | Change history | 장애 직전에 발생한 배포와 설정 변경을 찾아줘. | `CHANGE` | queued |
+| Q029 | ko | Change history | 장애 직전에 발생한 배포와 설정 변경을 찾아줘. | `CHANGE` | compared |
 | Q030 | en | Change history | Build a change timeline for the hour before the incident. | `CHANGE` | queued |
 | Q031 | ko | Guest activity | 운영 체제가 내부에서 종료된 흔적이 있어? | `CHANGE` | queued |
 | Q032 | en | Guest activity | Was the shutdown initiated inside the guest operating system? | `CHANGE` | queued |
