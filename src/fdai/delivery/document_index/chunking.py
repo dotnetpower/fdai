@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from uuid import UUID
 
-from fdai.shared.contracts import DocumentEnvelope
+from fdai.shared.contracts import DocumentEnvelope, DocumentSourceSpan
 from fdai.shared.providers.knowledge import chunk_text
 
 
@@ -17,6 +19,9 @@ class DocumentChunkRecord:
     text: str
     source_ref: str
     metadata: Mapping[str, str]
+
+
+_CHUNK_POLICY_VERSION = "structure-aware-v1"
 
 
 def document_version_ref(document_id: UUID, version_id: UUID) -> str:
@@ -34,16 +39,20 @@ def chunk_document_envelope(
     records: list[DocumentChunkRecord] = []
     for unit in envelope.units:
         pieces = chunk_text(unit.text, max_chars=max_chars, overlap=overlap)
+        span = DocumentSourceSpan(
+            document_id=envelope.document_id,
+            version_id=envelope.version_id,
+            unit_id=unit.unit_id,
+            locator=unit.locator,
+        )
         for piece_index, piece in enumerate(pieces):
+            digest = hashlib.sha256(piece.encode("utf-8")).hexdigest()
             records.append(
                 DocumentChunkRecord(
                     chunk_id=f"{version_ref}:{unit.unit_id}:{piece_index}",
                     doc_id=version_ref,
                     text=piece,
-                    source_ref=(
-                        f"document://{envelope.document_id}/versions/"
-                        f"{envelope.version_id}#{unit.unit_id}"
-                    ),
+                    source_ref=span.reference,
                     metadata={
                         "governed_document": "true",
                         "document_id": str(envelope.document_id),
@@ -54,6 +63,15 @@ def chunk_document_envelope(
                         "unit_id": unit.unit_id,
                         "unit_kind": unit.kind,
                         "locator": unit.locator,
+                        "source_span": json.dumps(
+                            span.model_dump(mode="json"),
+                            ensure_ascii=True,
+                            separators=(",", ":"),
+                            sort_keys=True,
+                        ),
+                        "chunk_policy_version": _CHUNK_POLICY_VERSION,
+                        "content_digest": digest,
+                        "goal_ref": envelope.goal_ref or "",
                         "protection_state": envelope.protection_state.value,
                         "purposes": ",".join(purpose.value for purpose in envelope.purposes),
                     },

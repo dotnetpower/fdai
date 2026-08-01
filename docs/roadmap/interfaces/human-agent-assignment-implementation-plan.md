@@ -254,6 +254,10 @@ restart; no conversational path changes IAM, approval, or autonomy.
 
 ### Package 8 - Evidence, chunking, and ontology candidates
 
+**Status:** Deterministic chunk lineage and inert candidate contracts are implemented. Chunks carry
+typed source spans, ACL references, goal references when supplied, policy version, and content
+digest. Goal-to-upload binding and Mimir/Norns candidate delivery remain unbound.
+
 **Changes:** Add a handover evidence purpose and typed events to the document-ingestion path.
 Extend chunk metadata with goal, source-span, ACL, chunk-policy version, and content digest.
 Muninn indexes admitted evidence; Mimir and Norns emit inert ontology or rule candidates; Forseti

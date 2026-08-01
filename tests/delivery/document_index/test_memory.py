@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Sequence
 from uuid import UUID
 
@@ -37,7 +38,12 @@ class _FailingEmbedder:
         raise RuntimeError(f"embedding unavailable for {len(text)} characters")
 
 
-def _envelope(*, text: str, access_ref: str = "collection:shared-knowledge") -> DocumentEnvelope:
+def _envelope(
+    *,
+    text: str,
+    access_ref: str = "collection:shared-knowledge",
+    goal_ref: str | None = None,
+) -> DocumentEnvelope:
     return DocumentEnvelope(
         document_id=_DOCUMENT_ID,
         version_id=_VERSION_ID,
@@ -59,6 +65,7 @@ def _envelope(*, text: str, access_ref: str = "collection:shared-knowledge") -> 
         ),
         extractor_name="test",
         extractor_version="1.0.0",
+        goal_ref=goal_ref,
     )
 
 
@@ -78,6 +85,21 @@ def test_chunk_document_envelope_preserves_structural_provenance() -> None:
     assert [record.chunk_id.rsplit(":", 1)[-1] for record in records] == [
         str(index) for index in range(len(records))
     ]
+
+
+def test_handover_chunks_are_deterministic_and_content_addressed() -> None:
+    envelope = _envelope(text="heading\nrollback steps", goal_ref="goal-1")
+
+    first = chunk_document_envelope(envelope)
+    second = chunk_document_envelope(envelope)
+
+    assert first == second
+    assert first[0].metadata["goal_ref"] == "goal-1"
+    assert first[0].metadata["chunk_policy_version"] == "structure-aware-v1"
+    assert first[0].metadata["content_digest"] == hashlib.sha256(first[0].text.encode()).hexdigest()
+    span = json.loads(first[0].metadata["source_span"])
+    assert span["unit_id"] == "line-7"
+    assert span["locator"] == "line:7"
 
 
 async def test_in_memory_index_searches_only_authorized_collection() -> None:

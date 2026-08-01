@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 09048d9911b5cc0e7d0dc7c5cf6387a06352ff0e
+translation_source_sha: 660bcaa38e18cc2165f807a4900ae387987587de
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -269,6 +269,9 @@ AgentDuty -> requires_role -> FDAI App Role
 청크는 문서 버전과 청크 정책 버전에 대해 결정적입니다. 테넌트 및 문서 ACL을 보존하고, 검색 중
 권한 경계를 넘지 않으며, 소스 버전과 함께 삭제되거나 대체됩니다. 온톨로지 링크와 RAG 청크는
 동일한 소스 범위를 인용합니다.
+Chunk record에는 typed source span, ACL reference, chunk-policy version, content digest,
+optional goal reference가 포함됩니다. Candidate event는 content-free이며 항상 review가 필요합니다.
+자동 goal-to-upload binding과 agent candidate delivery는 rollout 작업으로 남습니다.
 
 ## 보안, 개인정보 보호, 장애 동작
 

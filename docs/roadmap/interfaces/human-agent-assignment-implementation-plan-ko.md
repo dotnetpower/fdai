@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: ed1cdff10174439ecabb77283e46b5d072bdc879
+translation_source_sha: 78c6fc7c5305ce3d1f2f70db0702ddeda7aa57ff
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -249,6 +249,10 @@ reference만 받습니다. Agent-side goal 생산과 현지화된 Bragi renderin
 유지됩니다. 어떤 대화 경로도 IAM, 승인, 자율성을 변경하지 않습니다.
 
 ### 묶음 8 - 근거, 청킹, 온톨로지 후보
+
+**상태:** Deterministic chunk lineage와 inert candidate contract가 구현되었습니다. Chunk는 typed
+source span, ACL reference, 제공된 경우 goal reference, policy version, content digest를
+포함합니다. Goal-to-upload binding과 Mimir/Norns candidate delivery는 아직 연결되지 않았습니다.
 
 **변경:** 인수인계 근거 목적과 형식화된 이벤트를 문서 수집 경로에 추가합니다. 청크 메타데이터를
 목표, 소스 범위, ACL, 청크 정책 버전, 콘텐츠 다이제스트로 확장합니다. Muninn이 승인된 근거를

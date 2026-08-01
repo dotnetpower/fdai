@@ -56,6 +56,7 @@ class DocumentPurpose(StrEnum):
     KNOWLEDGE_BASE = "knowledge_base"
     MANUAL_DISTILLATION = "manual_distillation"
     HANDOVER_BOOTSTRAP = "handover_bootstrap"
+    HANDOVER_EVIDENCE = "handover_evidence"
 
 
 class AccessDescriptor(_Base):
@@ -126,6 +127,17 @@ class StructuralUnit(_Base):
     text: str
 
 
+class DocumentSourceSpan(_Base):
+    document_id: UUID
+    version_id: UUID
+    unit_id: Annotated[str, Field(min_length=1, max_length=128)]
+    locator: Annotated[str, Field(min_length=1, max_length=256)]
+
+    @property
+    def reference(self) -> str:
+        return f"document://{self.document_id}/versions/{self.version_id}#{self.unit_id}"
+
+
 class DocumentEnvelope(_Base):
     schema_version: SemVer = "1.0.0"
     document_id: UUID
@@ -141,6 +153,7 @@ class DocumentEnvelope(_Base):
     units: tuple[StructuralUnit, ...]
     extractor_name: str
     extractor_version: str
+    goal_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     warnings: tuple[str, ...] = ()
 
 
@@ -158,6 +171,7 @@ __all__ = [
     "AccessDescriptor",
     "DocumentEnvelope",
     "DocumentPurpose",
+    "DocumentSourceSpan",
     "DocumentState",
     "DocumentVersion",
     "IngestionCapabilities",

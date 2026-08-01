@@ -267,6 +267,9 @@ Every subscriber is independently retryable, and a missing response doesn't bloc
 Chunks are deterministic for a document version and chunk-policy version. They preserve tenant and
 document ACLs, never cross an authorization boundary during retrieval, and are deleted or
 superseded with their source version. Ontology links and RAG chunks cite the same source spans.
+The chunk record carries a typed source span, ACL reference, chunk-policy version, content digest,
+and optional goal reference. Candidate events are content-free and always require review.
+Automatic goal-to-upload binding and agent candidate delivery remain rollout work.
 
 ## Security, privacy, and failure behavior
 

@@ -59,6 +59,7 @@ from .document import (
     AccessDescriptor,
     DocumentEnvelope,
     DocumentPurpose,
+    DocumentSourceSpan,
     DocumentState,
     DocumentVersion,
     IngestionCapabilities,
@@ -109,6 +110,7 @@ from .forecast_outcome import (
     TelemetryCompleteness,
 )
 from .incident import Incident
+from .knowledge_evidence import KnowledgeEvidenceEvent, KnowledgeEvidenceEventType
 from .ontology import (
     ActionBlastRadius,
     ActionPrecondition,
@@ -239,10 +241,13 @@ __all__ = [
     "WorkflowStep",
     "WorkflowTrigger",
     "DocumentEnvelope",
+    "DocumentSourceSpan",
     "DocumentVersion",
     "DocumentPurpose",
     "DocumentState",
     "IngestionCapabilities",
+    "KnowledgeEvidenceEvent",
+    "KnowledgeEvidenceEventType",
     "MalwareVerdict",
     "SourceStorageMode",
     "ProtectionState",
