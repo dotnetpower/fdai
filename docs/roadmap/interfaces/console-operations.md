@@ -96,6 +96,12 @@ Implement the API response as a discriminated union of existing domain projectio
 cache may store rebuildable output, but cache loss cannot lose work or change a source lifecycle.
 The browser does not infer missing state or authorization.
 
+The closed discriminator is `source_family` with initial values `approval`, `process`,
+`review_case`, and `access_request`. Every arm carries `source_id`, `source_revision`, exact
+`type_ref` (`name`, `version`, `catalog_digest`), `ontology_release_digest`, `as_of`, and its source
+watermark before domain fields. Adding a family requires a paired design and decoder change; it
+does not create a shared mutation schema.
+
 Each source agent remains the single writer of its authoritative record. Muninn is accountable for
 the rebuildable cross-domain context index, its cutoff, freshness, digest, and rebuild evidence.
 The read API materializer is a mechanical relay that reads source-owned state and Muninn's index;
