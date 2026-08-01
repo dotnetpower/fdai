@@ -301,6 +301,11 @@ Add Tasks, Approvals, Investigations, timeline, evidence, and source-specific re
 existing shell. Stale revision reloads authoritative state; a competing decision links its winner;
 expiry or denial explains the next allowed transition. Only a changed intent receives a new key.
 
+Tasks, filters, details, and recovery are fully keyboard operable. Status and authority never rely
+on color alone; source, deadline, and unavailable reason have accessible names. SSE refreshes use
+one polite status announcement without moving focus, while submit conflicts focus the actionable
+summary and return focus to the originating control after dismissal.
+
 Exit criteria: operators can complete each supported human step in FDAI Console, while every
 managed-resource mutation appears only as a later Thor `ActionRun`. Conflict, retry, compensation,
 and rollback drills preserve the original receipt and link every superseding outcome.

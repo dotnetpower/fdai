@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 98e216881cdbf1df5f8be8fa095aab052abed87a
+translation_source_sha: 5525266c130212d11c63e5a0915fa5d81ce6ba8e
 translation_revised: 2026-08-01
 ---
 
@@ -297,6 +297,11 @@ request route를 추가하면 변경이 차단됩니다.
 기존 shell에 Tasks, Approvals, Investigations, timeline, evidence, source별 recovery를 추가합니다. Stale
 revision은 authoritative state를 다시 읽고, competing decision은 winner를 연결하며, expiry나 denial은
 다음 허용 transition을 설명합니다. Intent가 바뀐 경우에만 새 key를 사용합니다.
+
+Tasks, filter, detail, recovery는 keyboard로 모두 조작할 수 있습니다. Status와 authority는 color에만
+의존하지 않고 source, deadline, unavailable reason에 accessible name이 있습니다. SSE refresh는 focus를
+옮기지 않고 하나의 polite status announcement를 사용하며 submit conflict는 actionable summary에 focus한
+뒤 dismiss하면 originating control로 focus를 돌려보냅니다.
 
 Exit criteria: 오퍼레이터가 FDAI Console에서 지원되는 사람 단계를 완료할 수 있으며 모든
 managed-resource mutation은 이후 Thor `ActionRun`으로만 나타납니다. Conflict, retry, compensation,
