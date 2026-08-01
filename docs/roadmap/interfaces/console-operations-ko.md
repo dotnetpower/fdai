@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: a439156acf6be66dccd6c210739912c3dd5c447f
+translation_source_sha: 7bd98e39ef944142957632dce3a6e69ae00c4db6
 translation_revised: 2026-08-01
 ---
 
@@ -216,6 +216,11 @@ Invalidation stream은 source record, available operation 또는 identity detail
 reference와 revision만 전달합니다. 최대 lifetime은 verified token expiry를 넘지 않습니다. Reconnect는
 issuer, audience, tenant, role, scope check를 반복하므로 browser state를 신뢰하지 않고 role revocation을
 반영합니다. SSE는 refresh hint일 뿐 요청을 authorize하지 않습니다.
+
+Issuer와 tenant check는 deployment에 설정된 Entra tenant issuer와 API audience를 exact하게 검증한다는
+뜻입니다. Guest도 해당 home tenant가 발급한 token을 제시해야 합니다. Common, organizations,
+foreign-tenant, issuer-mismatched token은 role resolution 전에 fail closed하며 request나 stream state를
+tenant boundary 사이에서 공유하지 않습니다.
 
 Bulk request는 도메인 workflow가 atomicity 또는 bounded partial failure, impact limit, rollback 동작을
 정의한 뒤에 도입합니다.

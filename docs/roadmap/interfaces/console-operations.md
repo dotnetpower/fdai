@@ -218,6 +218,11 @@ available operations, or identity details. Its maximum lifetime does not exceed 
 expiry. Reconnect repeats issuer, audience, tenant, role, and scope checks, so role revocation takes
 effect without trusting browser state. SSE is a refresh hint only and never authorizes a request.
 
+Issuer and tenant checks mean exact validation against the deployment's configured Entra tenant
+issuer and API audience. A guest must still present a token issued by that home tenant. Common,
+organizations, foreign-tenant, and issuer-mismatched tokens fail closed before role resolution;
+neither request nor stream state is shared across tenant boundaries.
+
 Bulk requests wait until a domain workflow defines atomicity or bounded partial failure, impact
 limits, and rollback behavior.
 
