@@ -187,6 +187,11 @@ Every domain route repeats the checks appropriate to its source:
 6. Return request acceptance, conflict, denial, or expiry. Do not claim execution at request time.
 7. Publish the typed event for the owning agent to process.
 
+Acceptance always creates the typed outbox receipt described below. A refusal, expired request,
+idempotency collision, or precondition conflict creates a Saga `AuditEntry` with stable reason,
+actor, source ref, intent digest, and correlation id but no outbox row. Terminal agent outcomes
+link back to either record through the same correlation and idempotency key.
+
 For a human operation, `actor` and `initiator_principal` are the verified operator OID from that
 request's Entra token. A console service principal, relay identity, or Thor workload identity cannot
 stand in for the human. Machine-initiated requests use a separate domain route and workload

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 3013acac2cfad71d2157b25fa66d114b42f92ea1
+translation_source_sha: 84ac3d3a6c7944dce45a5dea39e58d40f706066f
 translation_revised: 2026-08-01
 ---
 
@@ -185,6 +185,11 @@ boundary는 nested shape를 수락하지 않습니다.
 5. Actor, correlation id, idempotency key, audit 또는 outbox receipt를 원자적으로 기록합니다.
 6. 요청 접수, conflict, denial 또는 expiry를 반환하며 요청 시점에 실행을 주장하지 않습니다.
 7. Owning agent가 처리할 typed event를 publish합니다.
+
+Acceptance는 항상 아래의 typed outbox receipt를 만듭니다. Refusal, expired request, idempotency
+collision 또는 precondition conflict는 stable reason, actor, source ref, intent digest, correlation id를
+포함한 Saga `AuditEntry`를 만들지만 outbox row는 만들지 않습니다. Terminal agent outcome은 같은
+correlation과 idempotency key로 두 record 중 하나에 연결됩니다.
 
 Human operation의 `actor`와 `initiator_principal`은 해당 request Entra token에서 검증한 operator OID입니다.
 Console service principal, relay identity 또는 Thor workload identity가 사람을 대신할 수 없습니다.
