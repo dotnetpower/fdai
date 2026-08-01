@@ -109,7 +109,7 @@ fdai/
 │   │   ├── trajectory/         # deterministic JSONL streaming export with quarantine and atomic partial-file cleanup
 │   │   ├── chaos/              # live chaos-inject adapters when a `Chaos` runbook step goes enforce: `live_injectors.py` (CSP-neutral primitive fan-out) + `chaos_mesh.py` (Chaos Mesh CRDs) + `mysql_load.py` (MySQL benchmark load)
 │   │   ├── remediation/        # concrete `DirectApiExecutor` for direct-API remediation (`live_direct_api.py`); the Protocol lives in `shared/providers/`
-│   │   ├── read_api/           # thin ASGI - `main.py` composes route modules, with focused chat request/setup, bounded terminal turn timing, deterministic history-scoped inventory follow-ups, vision prompt, text verification, principal-timezone server-clock, hybrid T0/semantic search, bounded narrator review, SSE fan-out, and separate dev/production wiring. GET routes project bounded state; POST commands submit governed records or typed proposals and never call a privileged executor directly
+│   │   ├── read_api/           # thin ASGI - `main.py` composes route modules, including Owner-only observation assignment cases beside IAM. GET routes project bounded state; POST commands submit governed records or typed proposals and never call a privileged executor or human-access provisioner directly
 │   │   ├── ingestion_gateway/  # dedicated content-write ASGI: scoped uploads, uploader-scoped web chat refs, governed deletion, and optional handover governance
 │   │   ├── provisioning/       # surface-A Genesis bootstrap: pure `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O injected, no subprocess)
 │   │   └── scheduler_tick_cli.py  # standalone entry point that drives the scheduler tick from a cron / Container Apps Job
@@ -175,7 +175,7 @@ fdai/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # thin read-only SPA (Vite + Preact) - operator views + local display settings
+├── console/                   # thin SPA (Vite + Preact) - operator views, bounded governed commands, local display settings, and observation-only IAM Assignments
 │   ├── src/                    # shell, panel registry, GET-only client, routes, browser-local preferences
 │   ├── index.html              # Vite entrypoint
 │   ├── package.json            # deps: preact, @azure/msal-browser

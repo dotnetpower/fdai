@@ -296,8 +296,8 @@
     "src/fdai/core/human_assignment/coverage.py": "8430d7f5cebc4879d7e8a14afd9874ed13734c796f5d4dd82ae27df942633d1f",
     "src/fdai/core/human_assignment/errors.py": "edb6bdf6ef954d78a05b640433912f23612ea75e5fb3c8678997ea9cbc5faf11",
     "src/fdai/core/human_assignment/model.py": "2904786a3964290fe529101f4aeffd11c28000fd803a16f6d790e570994e1f70",
-    "src/fdai/core/human_assignment/repository.py": "7ef759b47097557784b875165a3726e8df482fdacbd6a792714865299bc69c08",
-    "src/fdai/core/human_assignment/service.py": "b67174cb8d8b354be1b1c5959fba1b4bc3063d3f431164aef92e117a45d70375",
+    "src/fdai/core/human_assignment/repository.py": "d4a631195a676e2c90f3f34aea67d47da99aae79b39b415e703e449411da6202",
+    "src/fdai/core/human_assignment/service.py": "348d2456a9274304ec0950b0d977a3e736d7d1e2c73f0a4a836bc67bbba24331",
     "src/fdai/core/human_assignment/transitions.py": "4a172201a4395f5927932412cdced3219eb81740d3826c8c585e27d136b70a4e",
     "src/fdai/core/impact_analysis/__init__.py": "deb31d57cf1da1cec6493d3a844e0e3f93233e383260476e5251618152e0e805",
     "src/fdai/core/impact_analysis/analyzer.py": "f4c6ec152e76dab40dacd6d0490652fe485b15eae3cd27a31efc2e33b1ce056a",
@@ -907,7 +907,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T05:20:31Z",
+  "generated_at": "2026-08-01T05:54:00Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

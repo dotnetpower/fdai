@@ -5,6 +5,7 @@ import {
   isIamTabRestricted,
   iamTabFromSegment,
   isCurrentIamLoad,
+  nextIamTab,
   referencedUsers,
 } from "./settings-iam";
 import {
@@ -85,6 +86,7 @@ describe("IAM settings contracts", () => {
   test("distinguishes the default IAM tab from an invalid explicit segment", () => {
     expect(iamTabFromSegment(undefined)).toBe("my-access");
     expect(iamTabFromSegment("roles")).toBe("roles");
+    expect(iamTabFromSegment("assignments")).toBe("assignments");
     expect(iamTabFromSegment("not-a-tab")).toBeNull();
   });
 
@@ -92,8 +94,15 @@ describe("IAM settings contracts", () => {
     expect(isIamTabRestricted("users", null)).toBe(false);
     expect(isIamTabRestricted("users", false)).toBe(true);
     expect(isIamTabRestricted("requests", false)).toBe(true);
+    expect(isIamTabRestricted("assignments", false)).toBe(true);
     expect(isIamTabRestricted("roles", false)).toBe(false);
     expect(isIamTabRestricted("users", true)).toBe(false);
+  });
+
+  test("cycles keyboard focus through all five IAM tabs", () => {
+    expect(nextIamTab("requests", "ArrowRight")).toBe("assignments");
+    expect(nextIamTab("assignments", "ArrowRight")).toBe("my-access");
+    expect(nextIamTab("my-access", "ArrowLeft")).toBe("assignments");
   });
 
   test("separates local Entra identity from the dev authorization principal", () => {

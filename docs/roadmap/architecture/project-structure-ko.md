@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 37457b6bf5aa508b6cc806e8b7bbc0eaafdac8aa
+translation_source_sha: 5bb5a8454115fcdceae5cc79f5e3354c0b83a890
 translation_revised: 2026-08-01
 ---
 
@@ -114,7 +114,7 @@ fdai/
 │   │   ├── trajectory/         # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
-│   │   ├── read_api/           # 얇은 ASGI - `main.py`가 focused chat request/setup, bounded terminal turn timing, deterministic history-scoped inventory follow-up, vision prompt, text verification, principal-timezone server-clock, hybrid T0/semantic search, bounded narrator review, SSE fan-out 및 분리된 dev/production wiring을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor를 직접 호출하지 않음
+│   │   ├── read_api/           # 얇은 ASGI - `main.py`가 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
 │   │   ├── ingestion_gateway/  # 전용 content-write ASGI: scoped upload, uploader-scoped web chat ref, governed deletion, optional handover governance
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
@@ -180,7 +180,7 @@ fdai/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # 읽기 전용 얇은 SPA (Vite + Preact) - 운영자 보기 + 로컬 표시 설정
+├── console/                   # 얇은 SPA (Vite + Preact) - 운영자 보기, 제한된 governed command, 로컬 표시 설정, 관찰 전용 IAM Assignments
 │   ├── src/                    # 셸, 패널 레지스트리, GET 전용 클라이언트, 라우트, 브라우저 로컬 환경 설정
 │   ├── index.html              # Vite 진입점
 │   ├── package.json            # 의존: preact, @azure/msal-browser

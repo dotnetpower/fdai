@@ -1,5 +1,9 @@
 import type { ReadApiTransport } from "./api-transport";
 import {
+  decodeAssignmentProjectionPage,
+  type AssignmentProjectionPage,
+} from "./routes/settings-iam-assignments.model";
+import {
   decodeIamAccessRequestPage,
   decodeIamOverview,
   decodeIamSelfStatus,
@@ -45,6 +49,14 @@ export class IamApiClient {
     if (cursor > 0) params.set("cursor", String(cursor));
     return decodeIamAccessRequestPage(
       await this.#transport.getJson<unknown>("/iam/access-requests", params),
+    );
+  }
+
+  async assignments(limit = 100, cursor = 0): Promise<AssignmentProjectionPage> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor > 0) params.set("cursor", String(cursor));
+    return decodeAssignmentProjectionPage(
+      await this.#transport.getJson<unknown>("/iam/assignments", params),
     );
   }
 }

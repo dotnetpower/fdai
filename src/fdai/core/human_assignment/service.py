@@ -29,6 +29,7 @@ from fdai.core.human_assignment.model import (
 from fdai.core.human_assignment.repository import (
     assignment_case_id,
     create_case_state,
+    list_case_states,
     load_case_state,
     persist_case_state,
 )
@@ -70,6 +71,18 @@ class AssignmentCaseService:
         """Load one assignment case by its stable identifier."""
 
         return await load_case_state(self.store, case_id)
+
+    async def list_case_page(
+        self,
+        *,
+        principal: Principal,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[tuple[AssignmentCase, ...], int]:
+        """Return one Owner-only bounded page of immutable case snapshots."""
+
+        _require_owner(principal)
+        return await list_case_states(self.store, limit=limit, offset=offset)
 
     async def submit_for_review(
         self,

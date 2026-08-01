@@ -8,10 +8,12 @@ work packages on `main`. Each package lands as one or more focused commits witho
 branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Packages 1 and 2 are implemented on `main`. Stewardship v2 duties and the
+> **Current status:** Packages 1 through 3 are implemented on `main`. Stewardship v2 duties and the
 > composite assignment-case core now provide immutable intent, normalized independent review,
 > role-based quorum, revisioned StateStore transitions, content-free audit records, effect
-> receipts, and fail-closed activation. Package 3, the observation-only API and console, is next.
+> receipts, and fail-closed activation. The Owner-only observation API and fifth IAM Assignments
+> tab add exact active-subject revalidation, bounded CAS commands, joined evidence, and clear
+> no-provider-change presentation. Package 4, ownership PR coordination, is next.
 > Provider-side IAM writes, timed non-response escalation, proactive handover goals, and ontology
 > candidates don't exist yet.
 >
@@ -52,7 +54,7 @@ flowchart LR
 | Approval | `HilResumeCoordinator`, on-call primary/secondary receipt, reminders, load control | Durable rung deadlines and CAS-owned non-response transitions |
 | Conversation | Authenticated sessions, durable turns, Bragi narration | Sign-in availability event and proactive goal invitation policy |
 | Documents | Agent-owned admission, source spans, chunking, pgvector | Handover evidence purpose, ACL-filtered retrieval, ontology candidates |
-| Console | IAM users, roles, requests, directory search | Assignments tab, composite editor, convergence and goal projections |
+| Console | IAM users, roles, requests, directory search, observation-only Assignments tab and editor | Convergence and active goal projections |
 
 ## Contract decisions before coding
 
@@ -148,6 +150,9 @@ skips review or ownership merge.
 no transition can mark it active without both ownership and IAM receipts.
 
 ### Package 3 - Observation-only API and Assignments tab
+
+**Status:** Implemented. The read API and browser receive no human-access provisioner or Graph
+write capability. Missing directory, role, and handover evidence remains explicitly unavailable.
 
 **Changes:** Add `delivery/read_api/routes/human_assignments.py` and register it beside `iam.py`.
 Extend app config with the case service and ownership projection, not a provisioner. Add

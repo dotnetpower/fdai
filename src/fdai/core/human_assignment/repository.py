@@ -72,6 +72,22 @@ async def load_case_state(store: StateStore, case_id: str) -> AssignmentCase:
     return AssignmentCase.from_dict(dict(value))
 
 
+async def list_case_states(
+    store: StateStore,
+    *,
+    limit: int,
+    offset: int = 0,
+) -> tuple[tuple[AssignmentCase, ...], int]:
+    """Load one bounded newest-first page of assignment snapshots."""
+
+    if limit < 1 or limit > 100:
+        raise AssignmentServiceError("assignment case limit MUST be between 1 and 100")
+    if offset < 0 or offset > 10_000:
+        raise AssignmentServiceError("assignment case cursor MUST be between 0 and 10000")
+    values, total = await store.read_state_page(_CASE_PREFIX, limit=limit, offset=offset)
+    return tuple(AssignmentCase.from_dict(dict(value)) for value in values), total
+
+
 async def persist_case_state(
     store: StateStore,
     current: AssignmentCase,
@@ -128,6 +144,7 @@ def _same_intent_or_conflict(
 __all__ = [
     "assignment_case_id",
     "create_case_state",
+    "list_case_states",
     "load_case_state",
     "persist_case_state",
 ]

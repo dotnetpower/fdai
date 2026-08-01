@@ -558,6 +558,12 @@ Before the API accepts a governed role request, it stamps the configured provide
 `get_by_subject_id` to verify the subject, username, and active state. Client-supplied
 provider labels never select the identity backend.
 
+The fifth Assignments tab is Owner-only. `POST /iam/assignment-cases` revalidates the exact active
+subject and records immutable role, duty, goal, and justification intent. Revisioned submit and
+review commands use compare-and-set. `GET /iam/assignments` joins only observed directory roles,
+the configured ownership map, assignment cases, and handover availability. Missing provider or
+handover evidence stays `null` or `not_connected`; no route receives a Graph write provider.
+
 Interactive local mode doesn't fall back to a synthetic directory. The Microsoft Graph
 adapter uses the server's Azure CLI credential to discover the FDAI service principal, its
 live App Role assignments, and transitive group members. Alias search, the role roster, and

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { ReadApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { Tooltip } from "../components/tooltip";
-import { DataTable, PageHeader, StatusPill, type PillKind } from "../components/ui";
+import { DataTable, LoadingState, PageHeader, StatusPill, type PillKind } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
 import { AccessRequestsView } from "./settings-iam-requests";
+import { SettingsIamAssignments } from "./settings-iam-assignments";
 import { DirectoryUserSearch } from "./settings-iam-users";
 import { submitIamAccessRequest } from "./settings-iam.command";
 import type {
@@ -24,13 +25,13 @@ interface Props {
   readonly auth: AuthContext;
 }
 
-type IamTab = "my-access" | "users" | "roles" | "requests";
+type IamTab = "my-access" | "users" | "roles" | "requests" | "assignments";
 
 export function isIamTabRestricted(
   tab: IamTab,
   canManage: boolean | null,
 ): boolean {
-  return canManage === false && (tab === "users" || tab === "requests");
+  return canManage === false && (tab === "users" || tab === "requests" || tab === "assignments");
 }
 
 export function isCurrentIamLoad(currentGeneration: number, candidate: number): boolean {
@@ -165,6 +166,7 @@ export function SettingsIamRoute({ client, auth }: Props) {
           ["users", t("settings.iam.users")],
           ["roles", t("settings.iam.roles")],
           ["requests", t("settings.iam.requests")],
+          ["assignments", t("settings.iam.assignments")],
         ] as const).map(([id, label]) => {
           const restricted = isIamTabRestricted(id, canManage);
           return (
@@ -192,7 +194,7 @@ export function SettingsIamRoute({ client, auth }: Props) {
         <p class="muted small">{t("settings.iam.ownerTabsHint")}</p>
       ) : null}
 
-      {loading ? <p class="muted" role="status">{t("settings.iam.loading")}</p> : null}
+      {loading ? <LoadingState label={t("settings.iam.loading")} /> : null}
       {error ? <div class="error" role="alert">{t("settings.iam.loadFailed", { error })}</div> : null}
       {!loading && !error && overview && invalidTab ? (
         <div class="state-block state-unavailable" role="alert">
@@ -297,6 +299,15 @@ function renderTab(props: {
           auth={props.auth}
           client={props.client}
           reload={props.reload}
+        />
+      );
+    case "assignments":
+      return (
+        <SettingsIamAssignments
+          client={props.client}
+          auth={props.auth}
+          canManage={props.canManage}
+          principalOid={props.overview.principal.oid}
         />
       );
   }
@@ -457,7 +468,7 @@ function UsersView({
   );
 }
 
-const IAM_TABS: readonly IamTab[] = ["my-access", "users", "roles", "requests"];
+const IAM_TABS: readonly IamTab[] = ["my-access", "users", "roles", "requests", "assignments"];
 
 export function iamTabFromSegment(segment: string | undefined): IamTab | null {
   if (segment === undefined) return "my-access";
@@ -474,13 +485,16 @@ function handleTabKey(
   select: (tab: IamTab) => void,
 ): void {
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-  const offset = event.key === "ArrowRight" ? 1 : -1;
-  const currentIndex = Math.max(0, IAM_TABS.indexOf(current));
-  const next = IAM_TABS[(currentIndex + offset + IAM_TABS.length) % IAM_TABS.length];
-  if (next === undefined) return;
+  const next = nextIamTab(current, event.key);
   event.preventDefault();
   select(next);
   requestAnimationFrame(() => document.getElementById(`settings-iam-tab-${next}`)?.focus());
+}
+
+export function nextIamTab(current: IamTab, key: string): IamTab {
+  const offset = key === "ArrowRight" ? 1 : -1;
+  const currentIndex = Math.max(0, IAM_TABS.indexOf(current));
+  return IAM_TABS[(currentIndex + offset + IAM_TABS.length) % IAM_TABS.length] ?? "my-access";
 }
 
 function RolesView({ roles }: { readonly roles: readonly IamRoleDefinition[] }) {

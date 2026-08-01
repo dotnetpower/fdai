@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 5aee66ac8fa49e7ffeef366987f375273a4b7cc5
+translation_source_sha: ea2c9dd4dc83739097fc8249376b50190e7b2a57
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -10,10 +10,12 @@ translation_revised: 2026-08-01
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 묶음 1과 묶음 2가 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
+> **현재 상태:** 묶음 1부터 묶음 3까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
 > 케이스 코어는 변경 불가능한 의도, 정규화된 독립 검토, 역할 기반 정족수, 리비전 기반
 > `StateStore` 전환, 콘텐츠 없는 감사 기록, 결과 영수증, 실패 시 차단되는 활성화를 제공합니다.
-> 다음은 관찰 전용 API와 콘솔을 추가하는 묶음 3입니다. 공급자 측 IAM 쓰기, 시간 기반 무응답
+> Owner 전용 관찰 API와 다섯 번째 IAM Assignments 탭은 정확한 활성 주체 재검증, 제한된 CAS 명령,
+> 조인된 근거, 공급자 변경이 없다는 명확한 표시를 추가합니다. 다음은 담당 체계 PR을 조정하는
+> 묶음 4입니다. 공급자 측 IAM 쓰기, 시간 기반 무응답
 > 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
 >
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
@@ -52,7 +54,7 @@ flowchart LR
 | 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어 | 영구 단계 마감과 CAS 소유 무응답 전환 |
 | 대화 | 인증된 세션, 영구 turn, Bragi 설명 | 로그인 가용성 이벤트와 선제적 목표 초대 정책 |
 | 문서 | 에이전트 소유 승인, 소스 범위, 청킹, pgvector | 인수인계 근거 목적, ACL 필터 검색, 온톨로지 후보 |
-| 콘솔 | IAM 사용자, 역할, 요청, 디렉터리 검색 | Assignments 탭, 통합 편집기, 수렴 및 목표 프로젝션 |
+| 콘솔 | IAM 사용자, 역할, 요청, 디렉터리 검색, 관찰 전용 Assignments 탭 및 편집기 | 수렴 및 활성 목표 프로젝션 |
 
 ## 코딩 전 계약 결정
 
@@ -146,6 +148,9 @@ ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인
 IAM 영수증 모두 없이 어떤 전환도 케이스를 active로 만들 수 없습니다.
 
 ### 묶음 3 - 관찰 전용 API 및 Assignments 탭
+
+**상태:** 구현되었습니다. Read API와 브라우저는 사용자 접근 provisioner 또는 Graph 쓰기 기능을
+받지 않습니다. 누락된 디렉터리, 역할 및 인수인계 근거는 명시적으로 unavailable 상태를 유지합니다.
 
 **변경:** `delivery/read_api/routes/human_assignments.py`를 추가하고 `iam.py` 옆에 등록합니다. 앱
 구성에는 케이스 서비스와 담당 체계 프로젝션만 추가하고 프로비저너는 넣지 않습니다.

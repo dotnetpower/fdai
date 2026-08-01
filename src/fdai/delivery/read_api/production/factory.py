@@ -73,6 +73,7 @@ from fdai.core.conversation_assurance import (
     ConversationAssuranceLifecycleCoordinator,
     PromotionConfig,
 )
+from fdai.core.human_assignment import AssignmentCaseService
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
@@ -877,6 +878,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             "Owner": group_mapping.owner_group_id,
             "BreakGlass": group_mapping.break_glass_group_id,
         },
+        human_assignments=AssignmentCaseService(store=state_store),
         live_stream=runtime.live_stream,
         agent_activity=runtime.agent_activity,
         data_sources=build_production_data_sources(

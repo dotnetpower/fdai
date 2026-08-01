@@ -45,6 +45,7 @@ from fdai.core.audit.what_if_replay import WhatIfEvaluator  # noqa: E402
 from fdai.core.conversation_assurance import (  # noqa: E402
     InMemoryConversationAssuranceLedger,
 )
+from fdai.core.human_assignment import AssignmentCaseService  # noqa: E402
 from fdai.core.measurement.promotion_gate import (  # noqa: E402
     InMemoryShadowVerdictSource,
 )
@@ -217,7 +218,6 @@ from fdai.runtime.conversation_assurance import (  # noqa: E402
     build_conversation_assurance_coordinator,
 )
 from fdai.shared.config.runtime_flags import pantheon_start_enabled  # noqa: E402
-from fdai.shared.providers.testing.state_store import InMemoryStateStore  # noqa: E402
 
 _DEV_ENV = "FDAI_READ_API_DEV_MODE"
 _LOCAL_ENTRA_ENV = "FDAI_READ_API_LOCAL_ENTRA"
@@ -705,6 +705,7 @@ def build_local_app(
         env=os.environ,
         durable=persistence is not None,
     )
+    assignment_store = persistence.state_store if persistence is not None else models.settings.store
     application = build_app(
         authenticator=authenticator,
         read_model=read_model,
@@ -805,9 +806,10 @@ def build_local_app(
                 if command_transport is not None
                 else None
             ),
-            iam_access=AccessRequestService(store=InMemoryStateStore()),
+            iam_access=AccessRequestService(store=assignment_store),
             iam_directory=iam.directory,
             iam_role_group_ids=iam.role_group_ids,
+            human_assignments=AssignmentCaseService(store=assignment_store),
             expose_pantheon=True,
             stewardship_map=_build_stewardship_map(),
             workflow_authoring=workflow_authoring,

@@ -464,6 +464,12 @@ class ReadApiConfig:
     iam_directory: Any = None  # Cloud-neutral Owner search and roster provider.
     iam_identity_provider: str = "entra"  # Provider stamped on new requests.
     iam_role_group_ids: Mapping[str, str] = field(default_factory=dict)  # Role groups.
+    human_assignments: Any = None
+    """Optional observation-only assignment-case service.
+
+    The service persists immutable case intent and review state. It never receives
+    a human-access provisioner or Microsoft Graph write capability.
+    """
 
     expose_pantheon: bool = False
     """Opt-in pantheon graph + workflows endpoints. When True, registers

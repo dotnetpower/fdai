@@ -8,6 +8,9 @@
 
 import type { AuthContext } from "./auth";
 import {
+  type AssignmentProjectionPage,
+} from "./routes/settings-iam-assignments.model";
+import {
   decodeReadDataSources,
   type ReadDataSourcesPayload,
   unavailableSourceReason,
@@ -171,6 +174,10 @@ export class ReadApiClient {
 
   async listIamAccessRequests(limit = 50, cursor = 0): Promise<IamAccessRequestPage> {
     return this.#iam.listAccessRequests(limit, cursor);
+  }
+
+  async listHumanAssignments(limit = 100, cursor = 0): Promise<AssignmentProjectionPage> {
+    return this.#iam.assignments(limit, cursor);
   }
 
   async reports(): Promise<ReportList> {
