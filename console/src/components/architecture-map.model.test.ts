@@ -335,7 +335,10 @@ describe("architecture map model", () => {
       "../../../rule-catalog/vocabulary/resource-types.yaml",
       import.meta.url,
     ));
-    const canonicalTypes = [...readFileSync(vocabularyPath, "utf8").matchAll(/^  - id: ([a-z0-9.-]+)$/gm)]
+    const vocabulary = readFileSync(vocabularyPath, "utf8");
+    const typesMarker = vocabulary.indexOf("\ntypes:");
+    expect(typesMarker).toBeGreaterThanOrEqual(0);
+    const canonicalTypes = [...vocabulary.slice(typesMarker).matchAll(/^  - id: ([a-z0-9.-]+)$/gm)]
       .map((match) => match[1]!);
     expect(canonicalTypes.length).toBeGreaterThan(0);
     for (const type of canonicalTypes) {

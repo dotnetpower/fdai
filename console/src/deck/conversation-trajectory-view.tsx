@@ -83,13 +83,13 @@ export function ConversationTrajectoryView({
           <h4 class="deck-trajectory-execution-title">{t("deck.trajectory.executionDetails")}</h4>
           <ol class="deck-trajectory-events">
             <TrajectoryPhase index={phaseIndex(timelinePhases, "input")} phase="input"
-              state={presentation.phaseStates.input} title={t("deck.trajectory.phase.input")}
+              state={presentation.phaseStates.input} heading={t("deck.trajectory.phase.input")}
               summary={trajectory.question.text} time={formatTimestamp(trajectory.startedAt, trajectory.question.at)}>
               <p class="deck-trajectory-prose">{trajectory.question.text}</p>
             </TrajectoryPhase>
             {timelinePhases.includes("evidence") ? (
               <TrajectoryPhase index={phaseIndex(timelinePhases, "evidence")} phase="evidence"
-                state={presentation.phaseStates.evidence} title={t("deck.trajectory.phase.evidence")}
+                state={presentation.phaseStates.evidence} heading={t("deck.trajectory.phase.evidence")}
                 summary={t("deck.trajectory.evidenceSummary", {
                   successful: presentation.evidenceCompletedCount,
                   attempted: presentation.evidenceAttemptCount,
@@ -149,7 +149,7 @@ function VerificationPhase({ trajectory, index, state }: {
   if (!verification) return null;
   return (
     <TrajectoryPhase index={index} phase="verification" state={state}
-      title={t("deck.trajectory.phase.verification")}
+      heading={t("deck.trajectory.phase.verification")}
       summary={`${t(`deck.grounded.verificationStatus.${verification.status}`)} / ${verification.checks_completed}/${verification.checks_total}`}>
       <dl class="deck-trajectory-facts">
         <dt>{t("deck.trajectory.status")}</dt><dd>{t(`deck.grounded.verificationStatus.${verification.status}`)}</dd>
@@ -193,7 +193,7 @@ function AnswerPhase({ trajectory, index }: {
   const { answer } = trajectory;
   return (
     <TrajectoryPhase index={index} phase="answer" state="completed"
-      title={t("deck.trajectory.phase.answer")}
+      heading={t("deck.trajectory.phase.answer")}
       summary={answer.source ?? answer.agent ?? t("deck.trajectory.recorded")}
       time={formatTimestamp(trajectory.completedAt, answer.at)}>
       <dl class="deck-trajectory-facts">
@@ -219,16 +219,16 @@ function AnswerPhase({ trajectory, index }: {
   );
 }
 
-function TrajectoryPhase({ index, phase, state, title, summary, time, children }: {
+function TrajectoryPhase({ index, phase, state, heading, summary, time, children }: {
   readonly index: string; readonly phase: TrajectoryPhase; readonly state: TrajectoryPhaseState;
-  readonly title: string; readonly summary: string; readonly time?: string;
+  readonly heading: string; readonly summary: string; readonly time?: string;
   readonly children: ComponentChildren;
 }) {
   return (
     <li class="deck-trajectory-event" data-phase={phase} data-state={state}>
       <span class="deck-trajectory-event-index" aria-hidden="true">{index}</span>
       <details>
-        <summary><span><strong>{title}</strong><small>{summary}</small></span>
+        <summary><span><strong>{heading}</strong><small>{summary}</small></span>
           <span class="deck-trajectory-event-meta">
             {time ? <time>{time}</time> : null}
             <span class="deck-trajectory-state">{phaseStateLabel(state)}</span>

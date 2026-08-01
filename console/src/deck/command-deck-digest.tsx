@@ -1,4 +1,5 @@
 import { useMemo } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import { useViewContext } from "./context";
 
@@ -114,7 +115,11 @@ export function DigestList({ snapshot }: { readonly snapshot: ReturnType<typeof 
               const description = descriptionKey ? t(`deck.digest.fact.${descriptionKey}`) : "";
               return (
                 <div key={fact.key} class="deck-digest-row">
-                  <dt title={fact.key}>{digestFactLabel(fact.key, fact.label)}</dt>
+                  <dt>
+                    <Tooltip content={fact.key}>
+                      <span>{digestFactLabel(fact.key, fact.label)}</span>
+                    </Tooltip>
+                  </dt>
                   <dd>{digestFactValue(fact.value)}</dd>
                   {description ? (
                     <span class="deck-digest-tip" role="tooltip">

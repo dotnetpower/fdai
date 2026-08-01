@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import mainCatalog from "./messages.en.json";
 import analyticsCatalog from "../routes/i18n/analytics.en.json";
 import architectureCatalog from "../routes/i18n/architecture.en.json";
+import conversationAssuranceCatalog from "../routes/i18n/conversation-assurance.en.json";
 import detectionReadinessCatalog from "../routes/i18n/detection-readiness.en.json";
 import evidenceCatalog from "../routes/i18n/evidence.en.json";
 import governanceCatalog from "../routes/i18n/governance.en.json";
@@ -85,6 +86,7 @@ describe("console static translation keys", () => {
       ...catalogKeys(architectureCatalog),
       ...catalogKeys({ architecture: architectureCatalog }),
     ]);
+    const conversationAssuranceKeys = catalogKeys({ assurance: conversationAssuranceCatalog });
     const evidenceKeys = new Set([
       ...catalogKeys(evidenceCatalog),
       ...catalogKeys({ evidence: evidenceCatalog }),
@@ -116,6 +118,8 @@ describe("console static translation keys", () => {
             ? detectionReadinessKeys
           : source.includes("i18n/architecture")
             ? architectureKeys
+              : source.includes("i18n/conversation-assurance")
+                ? conversationAssuranceKeys
             : source.includes("i18n/evidence")
               ? evidenceKeys
               : source.includes("i18n/governance")

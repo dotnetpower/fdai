@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 
 const MINUTE_MS = 60_000;
@@ -48,7 +49,9 @@ export function ContextFreshnessIndicator({ capturedAt }: { readonly capturedAt:
     : new Date(capturedAt).toLocaleString();
   return (
     <div class="deck-context-freshness" data-state={freshness.state}>
-      <time dateTime={capturedAt} title={exact}>{age}</time>
+      <Tooltip content={exact}>
+        <time dateTime={capturedAt}>{age}</time>
+      </Tooltip>
       {freshness.state === "stale" ? (
         <>
           <span class="deck-context-stale">{t("deck.digest.freshness.stale")}</span>

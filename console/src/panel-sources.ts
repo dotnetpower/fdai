@@ -38,6 +38,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "forecast-learning": ["/forecast-learning"],
   reports: ["/reports", "/reports/registry"],
   "conversation-search": ["/me/conversations/search"],
+  "conversation-assurance": ["/conversation-assurance"],
   "scheduled-continuations": ["/me/context"],
   "workflow-builder": ["/workflows/catalog", "/workflows/action-types", "/workflows/definitions", "/python-tasks/capabilities"],
   skills: ["/skills"],
