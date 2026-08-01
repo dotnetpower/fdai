@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 8c550413a2e4e37cd9af08c8a3c8743bd5bc5fd1
+translation_source_sha: 77e79a6ae8abacde4ce2b7db18ddff9f7b517559
 translation_revised: 2026-08-01
 ---
 
@@ -97,6 +97,11 @@ source reference, source revision, evidence reference, freshness, redaction stat
 API response는 기존 도메인 projection의 discriminated union으로 구현합니다. Projection cache는 다시
 만들 수 있는 output을 저장할 수 있지만 cache 손실로 작업을 잃거나 source lifecycle이 바뀌면 안
 됩니다. 브라우저는 누락된 상태나 authorization을 추론하지 않습니다.
+
+각 source agent는 authoritative record의 single writer로 유지됩니다. Muninn은 rebuildable cross-domain
+context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Read API materializer는
+source-owned state와 Muninn index를 읽는 mechanical relay이며 source object를 publish하거나 lifecycle을
+진행하지 않습니다.
 
 ### Ontology query 전략
 

@@ -96,6 +96,11 @@ Implement the API response as a discriminated union of existing domain projectio
 cache may store rebuildable output, but cache loss cannot lose work or change a source lifecycle.
 The browser does not infer missing state or authorization.
 
+Each source agent remains the single writer of its authoritative record. Muninn is accountable for
+the rebuildable cross-domain context index, its cutoff, freshness, digest, and rebuild evidence.
+The read API materializer is a mechanical relay that reads source-owned state and Muninn's index;
+it never publishes a source object or advances a lifecycle.
+
 ### Ontology query strategy
 
 Materialize bounded `ObjectSet` definitions for each source family at an explicit `as_of` cutoff,
