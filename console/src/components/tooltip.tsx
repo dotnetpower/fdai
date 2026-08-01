@@ -17,6 +17,7 @@ type TooltipState = "delayed-open" | "instant-open" | "closed";
 
 interface TooltipTriggerProps {
   readonly "aria-describedby"?: string;
+  readonly tabIndex?: number;
   readonly onFocus?: (event: JSX.TargetedFocusEvent<HTMLElement>) => void;
   readonly onBlur?: (event: JSX.TargetedFocusEvent<HTMLElement>) => void;
   readonly onKeyDown?: (event: JSX.TargetedKeyboardEvent<HTMLElement>) => void;
@@ -96,8 +97,15 @@ function ActiveTooltip({
     const dismissOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") hide();
     };
+    const dismissOutside = (event: PointerEvent) => {
+      if (!anchorRef.current?.contains(event.target as Node | null)) hide();
+    };
     document.addEventListener("keydown", dismissOnEscape);
-    return () => document.removeEventListener("keydown", dismissOnEscape);
+    document.addEventListener("pointerdown", dismissOutside);
+    return () => {
+      document.removeEventListener("keydown", dismissOnEscape);
+      document.removeEventListener("pointerdown", dismissOutside);
+    };
   }, [state]);
 
   useLayoutEffect(() => {
@@ -128,8 +136,13 @@ function ActiveTooltip({
     };
   }, [placement, sideOffset, state]);
 
+  const nativeTrigger = typeof children.type === "string" ? children.type : null;
+  const naturallyFocusable = nativeTrigger !== null && [
+    "a", "button", "input", "select", "textarea",
+  ].includes(nativeTrigger);
   const describedTrigger = cloneElement(children, {
     "aria-describedby": state === null ? undefined : id,
+    tabIndex: children.props.tabIndex ?? (nativeTrigger !== null && !naturallyFocusable ? 0 : undefined),
     onFocus: (event: JSX.TargetedFocusEvent<HTMLElement>) => {
       children.props.onFocus?.(event);
       show(0);
@@ -152,8 +165,10 @@ function ActiveTooltip({
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") show(delay);
       }}
+      onPointerDown={(event) => {
+        if (event.pointerType === "touch") show(0);
+      }}
       onPointerLeave={hide}
-      onClick={hide}
     >
       {describedTrigger}
       {state !== null && typeof document !== "undefined"

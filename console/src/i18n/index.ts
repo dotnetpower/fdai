@@ -46,7 +46,7 @@ function lookup(catalog: Catalog, key: string): string | undefined {
     if (typeof cursor !== "object" || cursor === null) return undefined;
     cursor = (cursor as Record<string, unknown>)[part];
   }
-  return typeof cursor === "string" ? cursor : undefined;
+  return typeof cursor === "string" && cursor.length > 0 ? cursor : undefined;
 }
 
 /**

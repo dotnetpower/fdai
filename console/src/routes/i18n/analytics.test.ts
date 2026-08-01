@@ -42,4 +42,16 @@ describe("analytics route localization", () => {
       mutableKo.outcomes.costNoticeTitle = original;
     }
   });
+
+  it("falls back to English for an empty Korean route value", () => {
+    const mutableKo = ko as { outcomes: { costNoticeTitle: string } };
+    const original = mutableKo.outcomes.costNoticeTitle;
+    mutableKo.outcomes.costNoticeTitle = "";
+    try {
+      setLocale("ko");
+      expect(t("analytics.outcomes.costNoticeTitle")).toBe("Standard-price estimate");
+    } finally {
+      mutableKo.outcomes.costNoticeTitle = original;
+    }
+  });
 });

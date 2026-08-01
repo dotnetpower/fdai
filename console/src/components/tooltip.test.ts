@@ -11,6 +11,7 @@ describe("shared Tooltip contract", () => {
     expect(TOOLTIP_DELAY_MS).toBe(100);
     expect(TOOLTIP_EXIT_MS).toBe(50);
     expect(source).toContain('event.pointerType !== "touch"');
+    expect(source).toContain('event.pointerType === "touch"');
     expect(source).toContain("children.props.onFocus?.(event)");
     expect(source).toContain("show(0)");
     expect(source).toContain("children.props.onBlur?.(event)");
@@ -20,8 +21,10 @@ describe("shared Tooltip contract", () => {
     expect(source).toContain('"aria-describedby": state === null ? undefined : id');
     expect(source).toContain('event.key === "Escape"');
     expect(source).toContain('document.addEventListener("keydown", dismissOnEscape)');
+    expect(source).toContain('document.addEventListener("pointerdown", dismissOutside)');
     expect(source).toContain('role="tooltip"');
-    expect(source).toContain("onClick={hide}");
+    expect(source).toContain("tabIndex: children.props.tabIndex");
+    expect(source).not.toContain("onClick={hide}");
   });
 
   test("renders in a portal and avoids viewport collisions", () => {

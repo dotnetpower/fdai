@@ -43,6 +43,8 @@ export function ConversationTrajectoryView({
     ...(answer.verification ? ["verification" as const] : []),
     "answer",
   ];
+  const startedAt = firstValidTimestamp(trajectory.startedAt, trajectory.question.at);
+  const completedAt = firstValidTimestamp(trajectory.completedAt, trajectory.answer.at);
 
   return (
     <details class="deck-trajectory" onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -69,9 +71,9 @@ export function ConversationTrajectoryView({
         <div class="deck-trajectory-body">
           <PhaseStrip phaseStates={presentation.phaseStates} />
           <div class="deck-trajectory-window">
-            <span>{formatTimestamp(trajectory.startedAt, trajectory.question.at)}</span>
+            <Timestamp value={startedAt} />
             <span aria-hidden="true" />
-            <span>{formatTimestamp(trajectory.completedAt, trajectory.answer.at)}</span>
+            <Timestamp value={completedAt} />
           </div>
           <TrajectoryDecisionContext trajectory={trajectory}
             collaborationState={presentation.phaseStates.collaboration} />
@@ -84,7 +86,8 @@ export function ConversationTrajectoryView({
           <ol class="deck-trajectory-events">
             <TrajectoryPhase index={phaseIndex(timelinePhases, "input")} phase="input"
               state={presentation.phaseStates.input} heading={t("deck.trajectory.phase.input")}
-              summary={trajectory.question.text} time={formatTimestamp(trajectory.startedAt, trajectory.question.at)}>
+              summary={trajectory.question.text} time={formatTimestamp(startedAt)}
+              {...(startedAt ? { dateTime: startedAt } : {})}>
               <p class="deck-trajectory-prose">{trajectory.question.text}</p>
             </TrajectoryPhase>
             {timelinePhases.includes("evidence") ? (
@@ -95,8 +98,7 @@ export function ConversationTrajectoryView({
                   attempted: presentation.evidenceAttemptCount,
                   references: evidenceRefs.length,
                 })}>
-                <EvidenceTimeline trajectory={trajectory} activities={activities} branches={branches}
-                  milestones={milestones} evidenceRefs={evidenceRefs} />
+                <EvidenceTimeline activities={activities} branches={branches} milestones={milestones} />
               </TrajectoryPhase>
             ) : null}
             {answer.verification ? (
@@ -195,7 +197,10 @@ function AnswerPhase({ trajectory, index }: {
     <TrajectoryPhase index={index} phase="answer" state="completed"
       heading={t("deck.trajectory.phase.answer")}
       summary={answer.source ?? answer.agent ?? t("deck.trajectory.recorded")}
-      time={formatTimestamp(trajectory.completedAt, answer.at)}>
+      time={formatTimestamp(firstValidTimestamp(trajectory.completedAt, answer.at))}
+      {...(firstValidTimestamp(trajectory.completedAt, answer.at)
+        ? { dateTime: firstValidTimestamp(trajectory.completedAt, answer.at)! }
+        : {})}>
       <dl class="deck-trajectory-facts">
         <dt>{t("deck.trajectory.agent")}</dt><dd>{answer.agent ?? t("deck.trajectory.none")}</dd>
         <dt>{t("deck.trajectory.source")}</dt><dd>{answer.source ?? t("deck.trajectory.none")}</dd>
@@ -219,9 +224,9 @@ function AnswerPhase({ trajectory, index }: {
   );
 }
 
-function TrajectoryPhase({ index, phase, state, heading, summary, time, children }: {
+function TrajectoryPhase({ index, phase, state, heading, summary, time, dateTime, children }: {
   readonly index: string; readonly phase: TrajectoryPhase; readonly state: TrajectoryPhaseState;
-  readonly heading: string; readonly summary: string; readonly time?: string;
+  readonly heading: string; readonly summary: string; readonly time?: string; readonly dateTime?: string;
   readonly children: ComponentChildren;
 }) {
   return (
@@ -230,7 +235,7 @@ function TrajectoryPhase({ index, phase, state, heading, summary, time, children
       <details>
         <summary><span><strong>{heading}</strong><small>{summary}</small></span>
           <span class="deck-trajectory-event-meta">
-            {time ? <time>{time}</time> : null}
+            {time ? <Timestamp value={dateTime} fallback={time} /> : null}
             <span class="deck-trajectory-state">{phaseStateLabel(state)}</span>
           </span>
         </summary>
@@ -240,26 +245,30 @@ function TrajectoryPhase({ index, phase, state, heading, summary, time, children
   );
 }
 
-function EvidenceTimeline({ trajectory, activities, branches, milestones, evidenceRefs }: {
-  readonly trajectory: ConversationTrajectory; readonly activities: readonly InvestigationActivity[];
+function EvidenceTimeline({ activities, branches, milestones }: {
+  readonly activities: readonly InvestigationActivity[];
   readonly branches: readonly EvidenceBranch[]; readonly milestones: ConversationTrajectory["milestones"];
-  readonly evidenceRefs: readonly string[];
 }) {
   return (
-    <>
-      <ReferenceList refs={evidenceRefs} />
       <ol class="deck-trajectory-evidence">
-        {branches.map((branch) => (
+        {branches.map((branch) => {
+          const startedAt = firstValidTimestamp(branch.startedAt);
+          return (
         <li key={branch.branchId} data-status={branch.status}>
           <details><summary><span class={`deck-trajectory-kind is-${branch.kind}`}>{t(`deck.investigation.kind.${branch.kind}`)}</span>
-            <strong>{t(`deck.investigation.${branch.status}`)}</strong><time>{formatTimestamp(branch.startedAt)}{branch.durationMs !== undefined ? ` / ${formatDuration(branch.durationMs)}` : ""}</time></summary>
+            <strong>{t(`deck.investigation.${branch.status}`)}</strong>
+            <span><Timestamp value={startedAt} />
+              {branch.durationMs !== undefined ? ` / ${formatDuration(branch.durationMs)}` : ""}</span></summary>
             <p>{branch.summary}</p><ReferenceList refs={branch.evidenceRefs} /></details>
         </li>
-        ))}
-        {activities.map((activity) => (
+          );
+        })}
+        {activities.map((activity) => {
+          const observedAt = firstValidTimestamp(activity.execution?.startedAt, activity.observedAt);
+          return (
         <li key={activity.activityId} data-status={activity.status}>
           <details><summary><span class="deck-trajectory-kind is-activity">{activity.execution?.inputKind ?? activity.kind}</span>
-            <strong>{activity.label}</strong><time>{formatTimestamp(activity.execution?.startedAt ?? activity.observedAt)}</time></summary>
+            <strong>{activity.label}</strong><Timestamp value={observedAt} /></summary>
             {activity.detail ? <p>{activity.detail}</p> : null}
             <dl class="deck-trajectory-facts">
               <dt>{t("deck.trajectory.status")}</dt><dd>{t(`deck.investigation.${activity.status}`)}</dd>
@@ -269,14 +278,17 @@ function EvidenceTimeline({ trajectory, activities, branches, milestones, eviden
             {activity.execution ? <ExecutionDetail activity={activity} /> : null}
           </details>
         </li>
-        ))}
-        {milestones.map((milestone) => (
+          );
+        })}
+        {milestones.map((milestone) => {
+          const recordedAt = firstValidTimestamp(milestone.recordedAt);
+          return (
         <li key={milestone.messageId} data-status="completed"><span class="deck-trajectory-milestone" aria-hidden="true" />
           <div class="deck-trajectory-milestone-copy"><span class="deck-trajectory-kind is-milestone">{t("deck.trajectory.milestone")}</span>
-            <strong>{milestone.text}</strong><time>{formatTimestamp(milestone.recordedAt)}</time></div></li>
-        ))}
+            <strong>{milestone.text}</strong><Timestamp value={recordedAt} /></div></li>
+          );
+        })}
       </ol>
-    </>
   );
 }
 
@@ -318,5 +330,18 @@ function formatTimestamp(value: string | undefined, fallback: string = t("deck.t
   });
 }
 
+function Timestamp({ value, fallback }: {
+  readonly value: string | undefined;
+  readonly fallback?: string;
+}) {
+  const timestamp = firstValidTimestamp(value);
+  return timestamp
+    ? <time class="deck-trajectory-timestamp" dateTime={timestamp}>{formatTimestamp(timestamp)}</time>
+    : <span class="deck-trajectory-timestamp">{fallback ?? t("deck.trajectory.notRecorded")}</span>;
+}
+
 function uniqueStrings(values: readonly string[]): string[] { return [...new Set(values.filter(Boolean))]; }
 function validTimestamp(value: string | undefined): value is string { return value !== undefined && Number.isFinite(Date.parse(value)); }
+function firstValidTimestamp(...values: readonly (string | undefined)[]): string | undefined {
+  return values.find(validTimestamp);
+}

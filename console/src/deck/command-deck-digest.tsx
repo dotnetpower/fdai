@@ -113,6 +113,7 @@ export function DigestList({ snapshot }: { readonly snapshot: ReturnType<typeof 
             {facts.map((fact) => {
               const descriptionKey = FACT_DESCRIPTIONS[fact.key];
               const description = descriptionKey ? t(`deck.digest.fact.${descriptionKey}`) : "";
+              const value = digestFactValue(fact.value);
               return (
                 <div key={fact.key} class="deck-digest-row">
                   <dt>
@@ -120,12 +121,9 @@ export function DigestList({ snapshot }: { readonly snapshot: ReturnType<typeof 
                       <span>{digestFactLabel(fact.key, fact.label)}</span>
                     </Tooltip>
                   </dt>
-                  <dd>{digestFactValue(fact.value)}</dd>
-                  {description ? (
-                    <span class="deck-digest-tip" role="tooltip">
-                      {description}
-                    </span>
-                  ) : null}
+                  <dd>{description ? (
+                    <Tooltip content={description}><span>{value}</span></Tooltip>
+                  ) : value}</dd>
                 </div>
               );
             })}
