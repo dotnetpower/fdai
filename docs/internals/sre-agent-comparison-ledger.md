@@ -753,6 +753,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
 
+### RUN-0030: Active Azure outage and managed-resource impact
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q022` |
+| Executed | `2026-08-01` |
+| Question | `Is any managed resource affected by an active Azure outage?` |
+| Azure SRE Agent answer | Reported no active service-issue outage tied to the accessible subscription. It separately identified active planned-maintenance notices affecting managed resources and one unavailable virtual machine whose state was customer-initiated. Deployment-owned values were redacted. |
+| FDAI answer | Reported zero active outage events affecting zero managed resources, six active planned-maintenance events affecting four distinct resources, and ten active advisories with no directly mapped resources. Resource Health separately reported zero platform-initiated, three customer-initiated, and zero unclassified resources. Deployment-owned values were redacted. |
+| Evidence | One deterministic subscription-health branch joined bounded active Service Health events and impacted-resource projections with Resource Health availability and annotation causes. Representative metrics and public-web evidence were disabled. The result used fresh observation time, one consumed evidence reference, one of one checks verified, and zero model calls. |
+| Material difference | Both products correctly separated active outage from planned maintenance and customer-initiated unavailability. FDAI additionally reported advisory coverage, distinct impacted-resource counts, explicit Service Health and Resource Health unavailable counts, and one typed server-owned execution instead of exploratory query retries. |
+| Winner | FDAI for equal outage correctness with broader classified health coverage, stronger evidence integrity, and deterministic verification. |
+| General fix | Catalog-owned platform-health intent suppresses incidental resource-state terms, representative metrics, semantic planning, and public-web branches. The provider reads bounded active Service Health events and impacted resources, separates outage, maintenance, and advisory types, enriches Resource Health causes, and marks either evidence source unavailable or truncated instead of proving zero impact. |
+| Status | `fdai-win` |
+
+#### RUN-0030 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -783,7 +805,7 @@ existing seed.
 | Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | compared |
 | Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | compared |
 | Q021 | ko | Platform health | 현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어? | `HEALTH` | compared |
-| Q022 | en | Platform health | Is any managed resource affected by an active Azure outage? | `HEALTH` | queued |
+| Q022 | en | Platform health | Is any managed resource affected by an active Azure outage? | `HEALTH` | compared |
 | Q023 | ko | Platform health | 플랫폼 문제와 고객이 시작한 중지를 구분해줘. | `HEALTH` | queued |
 | Q024 | en | Platform health | Separate platform-initiated impact from customer-initiated changes. | `HEALTH` | queued |
 | Q025 | ko | Health history | 지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘. | `HEALTH` | queued |
