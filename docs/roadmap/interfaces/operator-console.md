@@ -293,6 +293,10 @@ Inventory records preserve the displayed state's provenance independently. The c
 `state_coverage` result treats operational and power evidence as directly observed, while
 provisioning-only and unknown evidence remain operationally unavailable. A selected-screen
 continuation reuses only the bounded group selector and rechecks all records in server inventory.
+The catalog-owned `inventory_coverage` result reports checked provider types separately from
+skipped and failed types. A complete atomic snapshot can prove zero skipped and zero failed types;
+a truncated snapshot leaves skipped coverage unknown. Operational-state limitations remain a
+separate coverage class and are never relabeled as inventory read failures.
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does

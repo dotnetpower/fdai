@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 73549b62fee447d87873c4e04002ccad35dfaa53
+translation_source_sha: a9618335d14d5ee1a8b4786c363144681a16a29d
 translation_revised: 2026-08-01
 ---
 
@@ -288,6 +288,10 @@ Inventory record는 displayed state의 provenance를 별도로 유지합니다. 
 `state_coverage` result는 operational 및 power evidence를 직접 관찰로 취급하고,
 provisioning-only 및 unknown evidence는 operationally unavailable로 유지합니다. Selected-screen
 continuation은 bounded group selector만 재사용하며 모든 record를 server inventory에서 재확인합니다.
+Catalog-owned `inventory_coverage` result는 확인한 provider type과 skipped 및 failed type을
+분리해 보고합니다. Complete atomic snapshot은 skipped 0 및 failed 0을 증명할 수 있지만,
+truncated snapshot은 skipped coverage를 unknown으로 유지합니다. Operational-state limitation은
+별도 coverage class이며 inventory read failure로 바꾸지 않습니다.
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
 `EventIngest -> TrustRouter -> T0Engine`을 **메모리 내에서만** 실행: T1

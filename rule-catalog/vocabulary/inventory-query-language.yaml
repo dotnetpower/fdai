@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.9"
+version: "1.1.10"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -20,7 +20,7 @@ signals:
   workload:
     terms: [deployment, deployments, deploying, pod, pods, node, nodes, node pool, node pools, workload, workloads, running apps, 배포, 파드, 노드, 노드 풀, 워크로드, 실행 중인 앱]
   continuation:
-    terms: [also, as well, together, too, 도 함께, 함께, 도 알려줘]
+    terms: [also, as well, together, too, did you check, did you skip, fail to read, 도 함께, 함께, 도 알려줘]
   unfiltered:
     terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, Azure 리소스 뭐 있어, Azure 인벤토리 목록]
 query_kinds:
@@ -28,6 +28,8 @@ query_kinds:
     terms: [resources and resource groups, resource and resource group counts, resource count and resource group count, 리소스와 리소스 그룹 수, 리소스와 리소스 그룹 개수]
   count:
     terms: [how many, count, 몇 개, 개수]
+  inventory_coverage:
+    terms: [inventory types did you check, inventory types checked, skipped inventory types, failed inventory types, checked skipped or failed, 확인한 인벤토리 유형, 건너뛴 인벤토리 유형, 읽기 실패한 인벤토리 유형]
   state_coverage:
     terms: [resource types with unavailable state, resource types whose state cannot be determined, types with unknown state, 상태를 확인할 수 없는 리소스 유형, 상태 확인 불가 리소스 유형, 상태 미확인 유형]
   types:

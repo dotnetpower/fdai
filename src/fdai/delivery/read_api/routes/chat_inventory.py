@@ -314,6 +314,7 @@ def _project_verified_inventory_result(
         str(item.get("provider_type") or item["type"]).casefold() for item in reported_resources
     )
     state_coverage = query.kind is InventoryQueryKind.STATE_COVERAGE
+    inventory_coverage = query.kind is InventoryQueryKind.INVENTORY_COVERAGE
     direct_state_sources = {"operational", "power"}
     unavailable_state_resources = [
         item for item in reported_resources if item.get("status_source") not in direct_state_sources
@@ -365,6 +366,10 @@ def _project_verified_inventory_result(
         "provider_type_summary": provider_type_summary,
         "scope_counts": scope_counts,
         "state_coverage": state_coverage,
+        "inventory_coverage": inventory_coverage,
+        "inventory_coverage_complete": not bool(graph.get("truncated")),
+        "inventory_checked_type_counts": dict(sorted(matched_type_counts.items())),
+        "inventory_failed_type_count": 0,
         "state_unavailable_resource_count": len(unavailable_state_resources),
         "state_unavailable_type_counts": dict(
             sorted(
@@ -490,6 +495,7 @@ def render_inventory_answer(
     provider_type_summary = bool(result.get("provider_type_summary"))
     scope_counts = bool(result.get("scope_counts"))
     state_coverage = bool(result.get("state_coverage"))
+    inventory_coverage = bool(result.get("inventory_coverage"))
     type_counts = result.get("matched_type_counts")
     type_count = len(type_counts) if isinstance(type_counts, Mapping) else 0
     resource_group_count = int(result.get("resource_group_count") or 0)
@@ -554,6 +560,53 @@ def render_inventory_answer(
                 if korean
                 else "The inventory snapshot is truncated, so coverage is partial."
             )
+        return "\n".join(lines)
+
+    if inventory_coverage:
+        checked_counts = _safe_count_mapping(result.get("inventory_checked_type_counts"))
+        complete = bool(result.get("inventory_coverage_complete"))
+        failed_types = int(result.get("inventory_failed_type_count") or 0)
+        unavailable_counts = _safe_count_mapping(result.get("state_unavailable_type_counts"))
+        if korean:
+            lines = [
+                f"Provider inventory에서 리소스 {count}개, 유형 {len(checked_counts)}개를 "
+                "확인했습니다.",
+                "**확인한 유형**",
+            ]
+            lines.extend(f"- {kind}: {value}개" for kind, value in checked_counts.items())
+            lines.extend(
+                (
+                    "**건너뛴 유형**: 없음",
+                    f"**읽기 실패 유형**: {failed_types}개",
+                    f"운영 상태 직접 확인 불가: {len(unavailable_counts)}개 유형. "
+                    "이는 inventory 읽기 실패가 아닙니다.",
+                )
+                if complete
+                else (
+                    "**건너뛴 유형**: snapshot truncation으로 확정 불가",
+                    f"**읽기 실패 유형**: {failed_types}개",
+                )
+            )
+        else:
+            lines = [
+                f"Checked {count} provider inventory resources across {len(checked_counts)} types.",
+                "**Checked types**",
+            ]
+            lines.extend(f"- {kind}: {value}" for kind, value in checked_counts.items())
+            lines.extend(
+                (
+                    "**Skipped types**: none",
+                    f"**Failed-to-read types**: {failed_types}",
+                    f"Operational state unavailable for {len(unavailable_counts)} types; "
+                    "this is not an inventory read failure.",
+                )
+                if complete
+                else (
+                    "**Skipped types**: unknown because the snapshot is truncated",
+                    f"**Failed-to-read types**: {failed_types}",
+                )
+            )
+        lines.append(_inventory_evidence_line(source, snapshot, freshness, korean=korean))
         return "\n".join(lines)
 
     if answer_format == "table":

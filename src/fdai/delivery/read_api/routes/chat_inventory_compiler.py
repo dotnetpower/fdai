@@ -105,7 +105,11 @@ def compile_inventory_query(
         item for item in resources if not resource_types or item.get("type") in resource_types
     )
     name = _facet_value(prompt, typed_resources, "name", language=lexical)
-    if name == group:
+    if (
+        name is not None
+        and group is not None
+        and (normalize_inventory_value(name) == normalize_inventory_value(group))
+    ):
         name = None
     operations = lexical.matched_values(registry.operations, prompt)
     source = _source(prompt, operations=operations, language=lexical)

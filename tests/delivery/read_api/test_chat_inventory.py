@@ -1191,12 +1191,43 @@ def test_continuation_contextualizes_selected_state_coverage() -> None:
         prompt,
         resources=(
             {"type": "resource-group", "name": "rg-data", "resource_group": "rg-data"},
-            {"type": "sql-database", "name": "db", "resource_group": "rg-data"},
+            {"type": "sql-database", "name": "rg-data", "resource_group": "RG-DATA"},
         ),
     )
     assert query is not None
     assert query.kind.value == "state_coverage"
     assert query.predicates[0].value == "rg-data"
+
+
+def test_inventory_coverage_continuation_keeps_selected_group() -> None:
+    prompt, contextualized = contextualize_inventory_screen_scope(
+        "What inventory types did you check, skip, or fail to read?",
+        {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-data",
+                        "name": "rg-data",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert contextualized is True
+    query = compile_inventory_query(
+        prompt,
+        resources=(
+            {"type": "resource-group", "name": "rg-data", "resource_group": "rg-data"},
+            {"type": "sql-database", "name": "db", "resource_group": "rg-data"},
+        ),
+    )
+    assert query is not None
+    assert query.kind.value == "inventory_coverage"
+    assert query.predicates[0].value == "rg-data"
+    assert all(predicate.field.value != "name" for predicate in query.predicates)
 
 
 def test_selected_architecture_group_routes_to_verified_service_types() -> None:
@@ -1344,6 +1375,48 @@ def test_selected_group_state_coverage_separates_status_provenance() -> None:
     assert "postgresql-server: 1개" in answer
     assert "운영 상태 직접 확인 불가 유형" in answer
     assert "sql-database: 1개" in answer
+    assert backend.calls == 0
+
+
+def test_selected_group_inventory_coverage_separates_skips_and_failures() -> None:
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_projected_provider),
+            )
+        ]
+    )
+    body = {
+        "prompt": "What inventory types did you check, skip, or fail to read?",
+        "view_context": {
+            "routeId": "architecture",
+            "records": {
+                "selected_resource": [
+                    {
+                        "id": "rg-data",
+                        "name": "rg-data",
+                        "type": "resource-group",
+                    }
+                ]
+            },
+        },
+    }
+
+    with TestClient(app) as client:
+        stream = client.post("/chat/stream", json=body)
+
+    done = _inventory_done_event(stream.text)
+    assert done is not None
+    answer = done["answer"]
+    assert "Checked 2 provider inventory resources across 2 types" in answer
+    assert "postgresql-server: 1" in answer
+    assert "sql-database: 1" in answer
+    assert "**Skipped types**: none" in answer
+    assert "**Failed-to-read types**: 0" in answer
+    assert "Operational state unavailable for 1 types" in answer
     assert backend.calls == 0
 
 
