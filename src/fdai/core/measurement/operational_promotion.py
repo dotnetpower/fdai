@@ -50,6 +50,8 @@ class CausalPromotionReceipt:
             raise ValueError("supported causal promotion evidence MUST NOT declare closure")
         if self.status == "closed" and self.closure not in _CAUSAL_CLOSURES:
             raise ValueError("closed causal promotion evidence requires a valid closure")
+        if self.status == "closed" and self.closure != "confirmed":
+            raise ValueError("closed causal promotion evidence closure MUST be confirmed")
         if self.evidence_grade is CausalEvidenceGrade.INTERVENTIONAL and (
             self.status != "closed" or self.closure != "confirmed"
         ):

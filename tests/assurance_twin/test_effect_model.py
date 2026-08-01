@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
+
+import pytest
 
 from fdai.core.assurance_twin import (
     CausalEvidenceGrade,
@@ -217,3 +220,28 @@ def test_simulation_identity_normalizes_equivalent_timestamp_offsets() -> None:
     )
 
     assert utc_result.simulation_id == offset_result.simulation_id
+
+
+def test_pure_simulation_rejects_model_after_snapshot_cutoff() -> None:
+    snapshot = SimulationSnapshot("snapshot-1", "0" * 64, "latency_p99_ms", _NOW)
+    future_model = replace(
+        _model(action_type="noop", status=EffectModelStatus.ACTIVE),
+        learned_through=_NOW + timedelta(seconds=1),
+    )
+
+    with pytest.raises(ValueError, match="crosses the simulation snapshot cutoff"):
+        simulate_effect_branches(
+            snapshot=snapshot,
+            branches=(SimulationBranch("noop", "noop", 100.0, 5.0),),
+            active_models={"noop": future_model},
+        )
+
+
+def test_effect_prediction_rejects_finite_input_overflow() -> None:
+    model = replace(
+        _model(action_type="noop", status=EffectModelStatus.ACTIVE),
+        bias_correction=1e308,
+    )
+
+    with pytest.raises(ValueError, match="arithmetic MUST remain finite"):
+        model.predict(1e308, 1.0)

@@ -430,8 +430,9 @@ clean (see the fork model in
   pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-
   state branches. `CausalHypothesisProjection` stays Forseti-owned, and model grades require an
   `EffectModelCausalEvidenceVerifier`. Dynamic models cannot use outcomes later than the simulation
-  snapshot, and current snapshots use evaluation-clock freshness. These seams are read-only; absent
-  bindings disable shadow paths.
+  snapshot, current snapshots use evaluation-clock freshness, and the pure simulator rejects model
+  cutoff or finite-arithmetic violations even outside the coordinator. These seams are read-only;
+  absent bindings disable shadow paths.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state

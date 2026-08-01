@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 1553f27f1c96d6be82dc0bc24fe81bd653f82d4e
+translation_source_sha: a32ac6f7cd9e9ba86d3c289b6490abcb54917f1b
 translation_revised: 2026-08-01
 ---
 
@@ -111,7 +111,8 @@ translation_revised: 2026-08-01
   correction이 cohort, scenario, observation time, causal lineage를 바꾸지 않고 이전 row를
   대체합니다. Separate frozen/live Wilson 95% lower bound, distinct live day, zero escape,
   executed-action rollback과 complete recurrence window, verified causal receipt, Dynamic review가
-  모두 통과해야 합니다. Raw metric은 promote할 수 없고 verified receipt는 별도 review만 허용합니다.
+  모두 통과해야 합니다. Closed causal receipt는 confirmed closure일 때만 계산합니다. Raw metric은
+  promote할 수 없고 verified receipt는 별도 review만 허용합니다.
 - **공정성**: 베이스라인과 트리트먼트는 동일한 시나리오, 동일한 입력 분포, 동일한 측정
   윈도우에서 실행합니다. 레퍼런스 에이전트를 의도적으로 불리하게 만들지 않습니다.
 

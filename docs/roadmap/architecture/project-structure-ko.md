@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ac9656ab58e35891500190eaf9f3795126070412
+translation_source_sha: df0f89c1fad1a05d5bc4c6a7e6482f8f3ef84ecc
 translation_revised: 2026-08-01
 ---
 
@@ -417,8 +417,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   series와 graph fact를 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
   branch를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 model grade는
   `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic model은 simulation snapshot 이후 outcome을
-  사용할 수 없고 current snapshot은 evaluation-clock freshness를 사용합니다. Binding이 없으면 shadow
-  path가 비활성화됩니다.
+  사용할 수 없고 current snapshot은 evaluation-clock freshness를 사용합니다. Pure simulator도 coordinator
+  밖에서 model cutoff 또는 finite-arithmetic 위반을 거부합니다. Binding이 없으면 shadow path가 비활성화됩니다.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 immutable evidence를 resolve합니다. Production registry는
   이 binding 없이는 shadow를 유지하며 raw scalar metric은 test-only legacy fixture mode입니다.

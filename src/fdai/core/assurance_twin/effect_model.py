@@ -82,6 +82,8 @@ class EffectModel:
             raise ValueError("simulation interval radius MUST be non-negative")
         predicted = raw_prediction + self.bias_correction
         radius = max(raw_interval_radius, self.interval_radius, self.mean_absolute_error)
+        if not math.isfinite(predicted) or not math.isfinite(radius):
+            raise ValueError("simulation prediction arithmetic MUST remain finite")
         return predicted, predicted - radius, predicted + radius
 
 
@@ -116,6 +118,9 @@ def update_challenger(model: EffectModel, outcome: ResponseOutcome) -> Challenge
     sample_count = model.sample_count + 1
     bias = model.bias_correction + (residual - model.bias_correction) / sample_count
     mae = (model.mean_absolute_error * model.sample_count + prediction_error) / sample_count
+    arithmetic = (raw_prediction, residual, prediction_error, bias, mae)
+    if any(not math.isfinite(value) for value in arithmetic):
+        return ChallengerUpdate(model, False, "outcome_effect_arithmetic_non_finite")
     updated = replace(
         model,
         revision=model.revision + 1,
@@ -209,6 +214,7 @@ def simulate_effect_branches(
         _predict_branch(
             branch=branch,
             metric=snapshot.metric,
+            observed_at=snapshot.observed_at,
             active=active_models.get(branch.action_type_id),
             challenger=challengers.get(branch.action_type_id),
             divergence_threshold=divergence_threshold,
@@ -257,6 +263,7 @@ def _predict_branch(
     *,
     branch: SimulationBranch,
     metric: str,
+    observed_at: datetime,
     active: EffectModel | None,
     challenger: EffectModel | None,
     divergence_threshold: float,
@@ -276,6 +283,8 @@ def _predict_branch(
             requires_review=True,
             reason="active_model_unavailable",
         )
+    if active.learned_through > observed_at:
+        raise ValueError("active effect model crosses the simulation snapshot cutoff")
     _validate_model_scope(active, branch=branch, metric=metric, status=EffectModelStatus.ACTIVE)
     active_value, active_min, active_max = active.predict(
         branch.raw_prediction, branch.raw_interval_radius
@@ -284,6 +293,8 @@ def _predict_branch(
     challenger_ref = None
     divergence = None
     if challenger is not None:
+        if challenger.learned_through > observed_at:
+            raise ValueError("challenger effect model crosses the simulation snapshot cutoff")
         _validate_model_scope(
             challenger,
             branch=branch,

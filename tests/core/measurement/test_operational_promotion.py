@@ -523,7 +523,13 @@ def test_zero_samples_report_unknown_confidence_interval() -> None:
 
 @pytest.mark.parametrize(
     ("status", "closure"),
-    [("supported", "confirmed"), ("closed", None), ("closed", "unknown")],
+    [
+        ("supported", "confirmed"),
+        ("closed", None),
+        ("closed", "unknown"),
+        ("closed", "refuted"),
+        ("closed", "unsafe"),
+    ],
 )
 def test_causal_promotion_receipt_rejects_invalid_closure_state(
     status: str,

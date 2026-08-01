@@ -108,7 +108,8 @@ Leading indicators trigger investigation before a lagging guard metric regresses
   corrections replace prior rows without changing cohort, scenario, observation time, or causal
   lineage. Separate frozen/live Wilson 95% lower bounds, distinct live days, zero escapes,
   executed-action rollback and complete recurrence windows, verified causal receipts, and Dynamic
-  review must pass. Raw metrics cannot promote; a verified receipt permits a separate review only.
+  review must pass. A closed causal receipt counts only with confirmed closure. Raw metrics cannot
+  promote; a verified receipt permits a separate review only.
 - **Fairness**: baseline and treatment run the same scenarios, the same input distribution, and
   the same measurement window; the reference agent is not deliberately handicapped.
 
