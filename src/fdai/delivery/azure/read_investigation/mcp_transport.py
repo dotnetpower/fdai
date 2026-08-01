@@ -79,7 +79,7 @@ class AzureMcpReadTransport:
                 "parameters": {"resource-id": provider_ref, "hours": hours},
             },
             limits=limits,
-            decode=_activity_rows,
+            decode=lambda result: _activity_rows(result, provider_ref=provider_ref),
             fallback=lambda: self._fallback.query_resource_activity(
                 provider_ref,
                 lookback_seconds=lookback_seconds,
@@ -175,9 +175,12 @@ def _vm_parts(provider_ref: str) -> tuple[str, str]:
     except ValueError as exc:
         raise ValueError("resolved VM reference is not an Azure resource ID") from exc
     if (
-        provider_index + 3 >= len(parts)
+        group_index >= provider_index
+        or provider_index + 4 != len(parts)
         or parts[provider_index + 1].casefold() != "microsoft.compute"
         or parts[provider_index + 2].casefold() != "virtualmachines"
+        or not parts[group_index]
+        or not parts[provider_index + 3]
     ):
         raise ValueError("resolved resource is not an Azure virtual machine")
     return parts[group_index], parts[provider_index + 3]
@@ -226,34 +229,45 @@ def _state_rows(result: McpCallResult, *, observed_at: datetime) -> Sequence[Azu
 
 
 def _find_state(value: object) -> str | None:
-    if isinstance(value, Mapping):
-        for key in ("powerState", "power_state", "powerstate", "state"):
-            candidate = value.get(key)
-            if isinstance(candidate, str) and candidate:
-                return candidate.rsplit("/", 1)[-1]
-        statuses = value.get("statuses")
-        if isinstance(statuses, Sequence) and not isinstance(statuses, (str, bytes)):
-            for status in statuses:
-                if isinstance(status, Mapping):
-                    code = status.get("code")
-                    if isinstance(code, str) and code.casefold().startswith("powerstate/"):
-                        return code.rsplit("/", 1)[-1]
-        for nested in value.values():
-            if (state := _find_state(nested)) is not None:
-                return state
-    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-        for nested in value:
-            if (state := _find_state(nested)) is not None:
-                return state
+    pending = [value]
+    visited = 0
+    while pending:
+        current = pending.pop()
+        visited += 1
+        if visited > 2_048:
+            raise ValueError("Azure MCP VM result exceeded the traversal cap")
+        if isinstance(current, Mapping):
+            for key in ("powerState", "power_state", "powerstate", "state"):
+                candidate = current.get(key)
+                if isinstance(candidate, str) and candidate:
+                    return candidate.rsplit("/", 1)[-1]
+            statuses = current.get("statuses")
+            if isinstance(statuses, Sequence) and not isinstance(statuses, (str, bytes)):
+                for status in statuses:
+                    if isinstance(status, Mapping):
+                        code = status.get("code")
+                        if isinstance(code, str) and code.casefold().startswith("powerstate/"):
+                            return code.rsplit("/", 1)[-1]
+            pending.extend(current.values())
+        elif isinstance(current, Sequence) and not isinstance(current, (str, bytes)):
+            pending.extend(current)
     return None
 
 
-def _activity_rows(result: McpCallResult) -> Sequence[AzureRow]:
+def _activity_rows(result: McpCallResult, *, provider_ref: str) -> Sequence[AzureRow]:
     payload = _results(result)
     items = _records(payload)
     rows: list[AzureRow] = []
     for item in items:
-        occurred_at = _text(item, "eventTimestamp", "event_timestamp", "occurred_at")
+        resource_ref = _text(item, "resourceId", "resource_id", "resourceUri", "resource_uri")
+        if resource_ref is not None and resource_ref.casefold() != provider_ref.casefold():
+            raise ValueError("Azure MCP activity result widened the resolved resource")
+        occurred_at = _timestamp_text(
+            item,
+            "eventTimestamp",
+            "event_timestamp",
+            "occurred_at",
+        )
         operation = _localized(item.get("operationName") or item.get("operation"))
         status = _localized(item.get("status")) or "unknown"
         if occurred_at is None or operation is None:
@@ -272,7 +286,7 @@ def _activity_rows(result: McpCallResult) -> Sequence[AzureRow]:
 
 def _health_rows(result: McpCallResult, *, observed_at: datetime) -> Sequence[AzureRow]:
     payload = _results(result)
-    items = _records(payload)
+    items = _records(payload, allow_singleton=True)
     rows: list[AzureRow] = []
     for item in items or (() if not isinstance(payload, Mapping) else (payload,)):
         properties = item.get("properties")
@@ -282,7 +296,7 @@ def _health_rows(result: McpCallResult, *, observed_at: datetime) -> Sequence[Az
             continue
         rows.append(
             {
-                "occurred_at": _text(source, "occurredTime", "occurred_at")
+                "occurred_at": _timestamp_text(source, "occurredTime", "occurred_at")
                 or observed_at.isoformat(),
                 "status": status,
                 "health_kind": _text(source, "reasonType", "reason_type") or "unknown",
@@ -293,15 +307,28 @@ def _health_rows(result: McpCallResult, *, observed_at: datetime) -> Sequence[Az
     return rows
 
 
-def _records(value: object) -> tuple[Mapping[str, object], ...]:
+def _records(
+    value: object,
+    *,
+    allow_singleton: bool = False,
+) -> tuple[Mapping[str, object], ...]:
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        if any(not isinstance(item, Mapping) for item in value):
+            raise ValueError("Azure MCP result contained a malformed record")
         return tuple(item for item in value if isinstance(item, Mapping))
     if isinstance(value, Mapping):
         for key in ("value", "items", "events", "data"):
+            if key not in value:
+                continue
             nested = value.get(key)
             if isinstance(nested, Sequence) and not isinstance(nested, (str, bytes)):
+                if any(not isinstance(item, Mapping) for item in nested):
+                    raise ValueError("Azure MCP result contained a malformed record")
                 return tuple(item for item in nested if isinstance(item, Mapping))
-    return ()
+            raise ValueError("Azure MCP result record container was not an array")
+        if allow_singleton:
+            return ()
+    raise ValueError("Azure MCP result omitted its record container")
 
 
 def _text(value: Mapping[str, object], *keys: str) -> str | None:
@@ -310,6 +337,19 @@ def _text(value: Mapping[str, object], *keys: str) -> str | None:
         if isinstance(candidate, str) and candidate:
             return candidate
     return None
+
+
+def _timestamp_text(value: Mapping[str, object], *keys: str) -> str | None:
+    candidate = _text(value, *keys)
+    if candidate is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Azure MCP result contained an invalid timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("Azure MCP result timestamp MUST include a timezone")
+    return parsed.isoformat()
 
 
 def _localized(value: object) -> str | None:

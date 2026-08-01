@@ -164,6 +164,25 @@ async def test_vm_state_uses_exact_namespace_command() -> None:
     }
 
 
+async def test_vm_state_rejects_child_resource_suffix() -> None:
+    transport, client, session, fallback = _transport()
+    session.results["compute"] = McpCallResult(
+        structured_content={"results": {"powerState": "running"}}
+    )
+    assert await client.probe() is True
+
+    child_ref = f"{RESOURCE_ID}/extensions/example"
+    try:
+        await transport.get_resource_state(child_ref, limits=LIMITS)
+    except ValueError as exc:
+        assert "not an Azure virtual machine" in str(exc)
+    else:  # pragma: no cover - exact resource validation must reject
+        raise AssertionError("child resource suffix was accepted as a VM")
+
+    assert session.calls == []
+    assert fallback.calls == []
+
+
 async def test_activity_text_result_is_normalized() -> None:
     transport, client, session, fallback = _transport()
     payload = {
@@ -196,6 +215,61 @@ async def test_activity_text_result_is_normalized() -> None:
     assert rows[0]["caller"] == "opaque@example.com"
     assert fallback.calls == []
     assert session.calls[0][1]["parameters"] == {"resource-id": RESOURCE_ID, "hours": 2}
+
+
+async def test_activity_invalid_timestamp_uses_fallback() -> None:
+    transport, client, session, fallback = _transport()
+    session.results["monitor"] = McpCallResult(
+        structured_content={
+            "results": {
+                "value": [
+                    {
+                        "eventTimestamp": "not-a-timestamp",
+                        "operationName": {"value": "deallocate"},
+                    }
+                ]
+            }
+        }
+    )
+    assert await client.probe() is True
+
+    await transport.query_resource_activity(RESOURCE_ID, lookback_seconds=60, limits=LIMITS)
+
+    assert fallback.calls == ["activity"]
+
+
+async def test_activity_cross_resource_result_uses_fallback() -> None:
+    transport, client, session, fallback = _transport()
+    session.results["monitor"] = McpCallResult(
+        structured_content={
+            "results": {
+                "value": [
+                    {
+                        "resourceId": RESOURCE_ID.replace("vm-01", "vm-02"),
+                        "eventTimestamp": NOW.isoformat(),
+                        "operationName": {"value": "deallocate"},
+                    }
+                ]
+            }
+        }
+    )
+    assert await client.probe() is True
+
+    await transport.query_resource_activity(RESOURCE_ID, lookback_seconds=60, limits=LIMITS)
+
+    assert fallback.calls == ["activity"]
+
+
+async def test_activity_malformed_container_uses_fallback() -> None:
+    transport, client, session, fallback = _transport()
+    session.results["monitor"] = McpCallResult(
+        structured_content={"results": {"value": "not-an-array"}}
+    )
+    assert await client.probe() is True
+
+    await transport.query_resource_activity(RESOURCE_ID, lookback_seconds=60, limits=LIMITS)
+
+    assert fallback.calls == ["activity"]
 
 
 async def test_malformed_mcp_result_falls_back_and_opens_circuit() -> None:
