@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 53b8e47baa7bc2dc4bdd9f27e2049dc15b9afa79
+translation_source_sha: 9f05a6d7b0d8fcbb02996be6e6ad68524e44daaf
 translation_revised: 2026-08-01
 ---
 
@@ -103,9 +103,9 @@ Closed discriminator는 `source_family`이며 초기 값은 `approval`, `process
 (`name`, `version`, `catalog_digest`), `ontology_release_digest`, `as_of`, source watermark를 포함합니다.
 Family 추가는 paired design과 decoder 변경이 필요하며 shared mutation schema를 만들지 않습니다.
 
-Versioned projection schema가 discriminator, 각 arm, unavailable receipt의 machine source입니다. Server
-validation과 generated client decoder는 같은 schema digest를 사용합니다. Unknown family, missing arm,
-server/client digest mismatch가 있으면 CI가 차단합니다.
+Phase 1은 `rule-catalog/schema/console-operations-projection.schema.json`을 각 arm, unavailable receipt,
+freshness ceiling의 versioned machine source로 추가합니다. Muninn이 책임지고 FDAI maintainer가 schema
+변경을 review하며 server와 generated client digest는 CI에서 일치해야 합니다.
 
 해당 schema는 family별 bounded `freshness_ceiling_seconds`, hard item limit, maximum link-traversal depth,
 stable primary-key ordering, allowed truncation reason을 선언합니다. Ceiling이나 limit이 없거나

@@ -102,9 +102,9 @@ The closed discriminator is `source_family` with initial values `approval`, `pro
 watermark before domain fields. Adding a family requires a paired design and decoder change; it
 does not create a shared mutation schema.
 
-A versioned projection schema is the machine source for the discriminator, each arm, and unavailable
-receipts. Server validation and generated client decoders use the same schema digest. CI rejects an
-unknown family, missing arm, or server/client digest mismatch.
+Phase 1 introduces `rule-catalog/schema/console-operations-projection.schema.json` as the versioned
+machine source for every arm, unavailable receipt, and freshness ceiling. Muninn is accountable;
+FDAI maintainers review schema changes. Server and generated client digests must match in CI.
 
 That schema also declares each family's bounded `freshness_ceiling_seconds`, hard item limit,
 maximum link-traversal depth, stable primary-key ordering, and allowed truncation reasons. A missing
