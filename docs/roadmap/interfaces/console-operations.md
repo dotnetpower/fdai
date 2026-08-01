@@ -223,6 +223,12 @@ issuer and API audience. A guest must still present a token issued by that home 
 organizations, foreign-tenant, and issuer-mismatched tokens fail closed before role resolution;
 neither request nor stream state is shared across tenant boundaries.
 
+Multi-effect requests never collapse partial success into one `submitted` result. Incident creation
+and ticket proposal, for example, retain separate effect ids, receipts, statuses, and retries under
+one parent correlation. The parent is terminal only when every required effect is terminal. A
+committed primary effect plus failed secondary publish is `degraded`, and durable reconciliation
+resumes only the missing effect without recreating the incident.
+
 Bulk requests wait until a domain workflow defines atomicity or bounded partial failure, impact
 limits, and rollback behavior.
 

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7bd98e39ef944142957632dce3a6e69ae00c4db6
+translation_source_sha: bcffabdf2eb1131d506b12571faeb7a3c7f91ac8
 translation_revised: 2026-08-01
 ---
 
@@ -221,6 +221,12 @@ Issuer와 tenant check는 deployment에 설정된 Entra tenant issuer와 API aud
 뜻입니다. Guest도 해당 home tenant가 발급한 token을 제시해야 합니다. Common, organizations,
 foreign-tenant, issuer-mismatched token은 role resolution 전에 fail closed하며 request나 stream state를
 tenant boundary 사이에서 공유하지 않습니다.
+
+Multi-effect request는 partial success를 하나의 `submitted` 결과로 합치지 않습니다. 예를 들어 incident
+creation과 ticket proposal은 하나의 parent correlation 아래에서 별도 effect id, receipt, status, retry를
+유지합니다. 모든 required effect가 terminal일 때만 parent가 terminal이 됩니다. Primary effect가 commit되고
+secondary publish가 실패하면 `degraded`이며 durable reconciliation은 incident를 다시 만들지 않고 누락된
+effect만 재개합니다.
 
 Bulk request는 도메인 workflow가 atomicity 또는 bounded partial failure, impact limit, rollback 동작을
 정의한 뒤에 도입합니다.
