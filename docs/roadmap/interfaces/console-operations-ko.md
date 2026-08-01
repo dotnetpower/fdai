@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 15863128bfe04a7e2645d6317fc0506f42ca755a
+translation_source_sha: 3013acac2cfad71d2157b25fa66d114b42f92ea1
 translation_revised: 2026-08-01
 ---
 
@@ -132,6 +132,10 @@ reason, last successful watermark, retry guidance를 포함한 explicit unavaila
 Stale cache를 current 상태로 대체하거나 누락된 object를 추론하지 않습니다. 다른 source family는 계속
 표시할 수 있지만 unavailable source에 의존하는 요청은 authoritative state를 다시 읽을 때까지 server
 side에서 비활성화합니다.
+
+각 route-inventory row는 closed `required_source_families` set을 선언합니다. Server는 모든 required
+family가 request cutoff에서 `available`이고 exact revision을 다시 읽을 수 있을 때만 operation을
+활성화합니다. 선언되지 않은 dependency는 available을 default하지 않고 inventory gate에서 실패합니다.
 
 각 union arm은 `availability: available | unavailable`을 포함합니다. Unavailable arm은 `source_family`와
 exact ref를 유지하고 domain data를 생략하며 `reason: unauthorized | timeout | source_unavailable |

@@ -133,6 +133,11 @@ and retry guidance. It never substitutes a stale cache as current or infers miss
 source families may remain visible, but requests that depend on the unavailable source are disabled
 server-side until authoritative state can be re-read.
 
+Each route-inventory row declares a closed `required_source_families` set. The server enables that
+operation only when every required family is `available` at the request's cutoff and its exact
+revision can be re-read. An undeclared dependency fails the inventory gate rather than defaulting
+to available.
+
 Each union arm carries `availability: available | unavailable`. An unavailable arm retains its
 `source_family` and exact refs, omits domain data, and adds `reason: unauthorized | timeout |
 source_unavailable | freshness_exceeded`, nullable `last_successful_watermark`, and nullable bounded
