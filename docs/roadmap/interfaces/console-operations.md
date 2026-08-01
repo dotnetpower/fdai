@@ -217,7 +217,10 @@ rule, receipt, and identity dependency. Classify it as query, simulation, approv
 request, execution, or break-glass.
 
 Exit criteria: every shipped request has one domain schema, owner, capability, idempotency rule,
-and audit path.
+and audit path. A machine-readable route inventory records method and path, classification, schema,
+source owner, capability, revision rule, idempotency scope, receipt, audit event, and owning test.
+A diff gate fails when a console route is missing, duplicated, or classified as execution; direct
+managed-resource execution is not a supported console classification.
 
 ### Phase 1 - compose Operations projections
 

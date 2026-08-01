@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: cab52752f2c006b7e0f2c50d2da5401cd6439b56
+translation_source_sha: 039f404b0f4b4c394722e012f14514a4360db5c8
 translation_revised: 2026-08-01
 ---
 
@@ -216,7 +216,10 @@ dependency를 catalog합니다. Query, simulation, approval, operational request
 분류합니다.
 
 Exit criteria: 제공되는 모든 요청에 domain schema, owner, capability, idempotency rule, audit path가 하나씩
-있습니다.
+있습니다. Machine-readable route inventory는 method와 path, classification, schema, source owner,
+capability, revision rule, idempotency scope, receipt, audit event, owning test를 기록합니다. Console
+route가 누락되거나 중복되거나 execution으로 분류되면 diff gate가 실패합니다. Managed-resource direct
+execution은 지원되는 console classification이 아닙니다.
 
 ### Phase 1 - Operations projection 구성
 
