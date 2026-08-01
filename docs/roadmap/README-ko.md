@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 560d51902a7514775e7b4dbf09805e9f81138dce
+translation_source_sha: 310a0fc38858da728ecf3292c7154369e5a3779b
 translation_revised: 2026-08-01
 ---
 
@@ -51,6 +51,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | tier별 모델 선택, mixed-model 게이트, 추상화 |
 | 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | Service, workload, objective, decision, effect, agent ownership, 통제된 확장을 위한 공유 cloud-operations 의미 |
 | 5b | [outcome-assurance-ko.md](architecture/outcome-assurance-ko.md) | FDAI의 세 vertical을 대상으로 하는 운영 준비도, 목표 정렬, 통제 보증 projection |
+| 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | Exact ontology release, semantic interface, bounded object set, mutation plan, typed function, reconciliation, generated SDK |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 identity, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | Canonical ARB 패킷: 결정 경계, evidence contract, owner, dependency, production 종료 gate |

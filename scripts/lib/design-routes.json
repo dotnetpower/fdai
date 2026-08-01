@@ -108,12 +108,14 @@
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/agent-pantheon.instructions.md",
         "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/llm-strategy.md",
         "docs/roadmap/decisioning/action-ontology.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "docs_update": [
         "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/agents/agent-pantheon.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md"
