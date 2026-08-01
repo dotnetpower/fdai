@@ -13,6 +13,15 @@ from fdai.core.hil_resume.coordinator import (
     ResolveOutcome,
     ResolveResult,
 )
+from fdai.core.hil_resume.escalation_supervisor import (
+    EscalationDuty,
+    EscalationPolicy,
+    EscalationRung,
+    EscalationStatus,
+    EscalationTickResult,
+    HumanNonResponseSupervisor,
+    RungEligibility,
+)
 from fdai.core.hil_resume.load_control import (
     ApprovalDispatchMode,
     ApprovalLoadController,
@@ -34,4 +43,11 @@ __all__ = [
     "ApprovalLoadPolicy",
     "ApprovalLoadSnapshot",
     "ApprovalReminderDispatcher",
+    "EscalationDuty",
+    "EscalationPolicy",
+    "EscalationRung",
+    "EscalationStatus",
+    "EscalationTickResult",
+    "HumanNonResponseSupervisor",
+    "RungEligibility",
 ]

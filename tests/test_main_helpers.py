@@ -38,6 +38,7 @@ from fdai.core.notifications.router import ChannelRegistry
 from fdai.runtime.bootstrap import _operational_event_bus
 from fdai.runtime.delivery import _incident_roster_url, _validate_incident_notification_route
 from fdai.shared.config import AppConfig
+from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 
@@ -1196,6 +1197,9 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
     loop = _build_control_loop(default_container(app_config), http_client=httpx.AsyncClient())
     assert loop._hil_resume_coordinator is not None
     assert loop._hil_resume_coordinator.reminder_dispatcher is not None
+    supervisor = loop._hil_resume_coordinator.escalation_supervisor
+    assert supervisor is not None
+    assert supervisor.policy.mode is Mode.SHADOW
 
 
 def test_semantic_router_config_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:

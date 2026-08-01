@@ -757,6 +757,7 @@ async def _run() -> int:
                 )
             hil_decision_task: asyncio.Task[None] | None = None
             hil_reminder_task: asyncio.Task[None] | None = None
+            hil_escalation_task: asyncio.Task[None] | None = None
             if control_loop._hil_resume_coordinator is not None:
                 from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
@@ -784,6 +785,15 @@ async def _run() -> int:
                             lambda: reminder_dispatcher.run(stop),
                         ),
                         name="hil-approval-reminders",
+                    )
+                escalation_supervisor = hil_coordinator.escalation_supervisor
+                if escalation_supervisor is not None:
+                    hil_escalation_task = asyncio.create_task(
+                        startup_readiness_runtime.run_when_ready(
+                            stop,
+                            lambda: escalation_supervisor.run(stop),
+                        ),
+                        name="hil-escalation-supervisor",
                     )
             wait_task = asyncio.create_task(stop.wait())
 
@@ -848,6 +858,7 @@ async def _run() -> int:
                     canary_task,
                     hil_decision_task,
                     hil_reminder_task,
+                    hil_escalation_task,
                     case_history_retention_task,
                 ),
                 background=(

@@ -8,7 +8,7 @@ work packages on `main`. Each package lands as one or more focused commits witho
 branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Packages 1 through 5 are implemented on `main`. Stewardship v2 duties and the
+> **Current status:** Packages 1 through 6 are implemented on `main`. Stewardship v2 duties and the
 > composite assignment-case core now provide immutable intent, normalized independent review,
 > role-based quorum, revisioned StateStore transitions, content-free audit records, effect
 > receipts, and fail-closed activation. The Owner-only observation API and fifth IAM Assignments
@@ -18,8 +18,8 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 > only from the matching signed merge. The matching merge now publishes an idempotent apply request
 > into typed ingress. A dedicated managed identity, allowlisted Graph adapter, direct-API route,
 > bounded convergence checks, rollback, and both human-access ActionTypes are wired in observation
-> mode. Enforce promotion, timed non-response escalation, proactive handover goals, and ontology
-> candidates don't exist yet.
+> mode. The human non-response supervisor is integrated as a periodic shadow worker. Enforce
+> promotion, proactive handover goals, and ontology candidates don't exist yet.
 >
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
@@ -55,7 +55,7 @@ flowchart LR
 | Directory | `HumanIdentityDirectory`, Entra search, exact subject lookup, App Role roster, allowlisted Entra membership adapter | Enforce promotion evidence and production permission readiness |
 | Access | `AccessRequestService`, atomic state plus audit, Owner review, no self-approval, assignment-case apply trigger | Revoke replacement-coverage lifecycle and reconciliation |
 | Ownership | Stewardship v1, coverage, escalation ordering, handover PR, signed merge webhook | Explicit `primary`, `backup`, and `escalation` duty slots |
-| Approval | `HilResumeCoordinator`, on-call primary/secondary receipt, reminders, load control | Durable rung deadlines and CAS-owned non-response transitions |
+| Approval | `HilResumeCoordinator`, on-call primary/secondary receipt, reminders, load control, periodic shadow non-response observation | Production promotion, live rung-role verification, and urgency compression |
 | Conversation | Authenticated sessions, durable turns, Bragi narration | Sign-in availability event and proactive goal invitation policy |
 | Documents | Agent-owned admission, source spans, chunking, pgvector | Handover evidence purpose, ACL-filtered retrieval, ontology candidates |
 | Console | IAM users, roles, requests, directory search, observation-only Assignments tab and editor | Convergence and active goal projections |
@@ -214,6 +214,10 @@ separate focused commit on `main` after zero target mismatches and successful ad
 and restore drills in a non-production tenant.
 
 ### Package 6 - Human non-response supervisor
+
+**Status:** Implemented as a periodic shadow worker. Coordinator parks snapshot the bounded ladder
+and delivery receipt, and terminal decisions use one CAS winner. Production promotion remains
+unbound.
 
 **Changes:** Add `core/hil_resume/escalation_supervisor.py`. On parking, snapshot the ordered
 primary, backup, escalation, and maintainer rungs with role eligibility, delivery deadline, action

@@ -22,10 +22,12 @@ existing single-pass control loop.
 > this doc ships **shadow-first** ([architecture.instructions.md § Safety
 > Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
-> **Implementation status (2026-07-21):** Proposed. The human non-response
-> ladder, standing-authority catalogs, temporal supervisor, and runtime bindings
-> described here have not landed. `core/quality_gate/escalation_ladder.py` is a
-> separate model-escalation policy and does not implement this design.
+> **Implementation status (2026-08-01):** The durable shadow supervisor core and
+> `HilResumeCoordinator` ladder handoff are implemented. They CAS-claim delivery, distinguish
+> channel failure from human silence, verify action integrity and rung eligibility, and record due
+> observations without sending or advancing in shadow mode. The runtime starts the shadow worker,
+> and terminal HIL decisions use one CAS winner. Urgency compression, standing-authority catalogs,
+> and production promotion have not landed.
 
 ## What this doc covers
 

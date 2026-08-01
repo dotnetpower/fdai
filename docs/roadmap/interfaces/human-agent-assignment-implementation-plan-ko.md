@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 0023e12a32dd0d21938510aa4afc73402c441cdc
+translation_source_sha: 1364419d7705acf89d26721ff164b5e2c0a0660b
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -10,7 +10,7 @@ translation_revised: 2026-08-01
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 묶음 1부터 묶음 5까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
+> **현재 상태:** 묶음 1부터 묶음 6까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
 > 케이스 코어는 변경 불가능한 의도, 정규화된 독립 검토, 역할 기반 정족수, 리비전 기반
 > `StateStore` 전환, 콘텐츠 없는 감사 기록, 결과 영수증, 실패 시 차단되는 활성화를 제공합니다.
 > Owner 전용 관찰 API와 다섯 번째 IAM Assignments 탭은 정확한 활성 주체 재검증, 제한된 CAS 명령,
@@ -18,8 +18,9 @@ translation_revised: 2026-08-01
 > case는 완전한 v2 ownership map만 렌더링하고 digest-bound governance PR 하나를 열며, 일치하는
 > signed merge에서만 ownership effect를 기록합니다. 일치하는 병합은 이제 멱등 적용 요청을 typed
 > ingress에 게시합니다. 전용 관리 ID, 허용 목록 Graph adapter, direct-API route, 제한된 수렴 검사,
-> rollback, 두 human-access ActionType이 관찰 모드로 연결되었습니다. 적용 모드 승격, 시간 기반
-> 무응답 에스컬레이션, 선제적 인수인계 목표, 온톨로지 후보는 아직 없습니다.
+> rollback, 두 human-access ActionType이 관찰 모드로 연결되었습니다. 사람 무응답 supervisor는
+> periodic shadow worker로 통합되었습니다. 적용 모드 승격, 선제적 인수인계
+> 목표, 온톨로지 후보는 아직 없습니다.
 >
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
 > ID를 받지 않습니다. 담당 체계 병합, 사람 승인, IAM 적용, 지식 승격은 각각 독립적으로 검증
@@ -54,7 +55,7 @@ flowchart LR
 | 디렉터리 | `HumanIdentityDirectory`, Entra 검색, 정확한 주체 조회, App Role 목록, 허용 목록 Entra 멤버십 adapter | 적용 모드 승격 근거와 프로덕션 권한 준비 상태 |
 | 접근 | `AccessRequestService`, 원자적 상태와 감사, Owner 검토, 자기 승인 방지, 할당 케이스 적용 trigger | 회수용 대체 커버리지 lifecycle과 reconciliation |
 | 담당 체계 | Stewardship v1, 커버리지, 에스컬레이션 순서, 인수인계 PR, 서명된 병합 웹후크 | 명시적인 `primary`, `backup`, `escalation` 임무 슬롯 |
-| 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어 | 영구 단계 마감과 CAS 소유 무응답 전환 |
+| 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어, periodic shadow 무응답 관찰 | Production 승격, live rung-role 검증, urgency compression |
 | 대화 | 인증된 세션, 영구 turn, Bragi 설명 | 로그인 가용성 이벤트와 선제적 목표 초대 정책 |
 | 문서 | 에이전트 소유 승인, 소스 범위, 청킹, pgvector | 인수인계 근거 목적, ACL 필터 검색, 온톨로지 후보 |
 | 콘솔 | IAM 사용자, 역할, 요청, 디렉터리 검색, 관찰 전용 Assignments 탭 및 편집기 | 수렴 및 활성 목표 프로젝션 |
@@ -211,6 +212,10 @@ add, verify, remove, restore 훈련 성공을 확인한 후 `main`의 별도 집
 승격합니다.
 
 ### 묶음 6 - 사람 무응답 감독자
+
+**상태:** Periodic shadow worker로 구현되었습니다. Coordinator park가 bounded ladder와 delivery
+receipt를 snapshot하며 최종 결정은 CAS 승자 하나만 수락합니다. Production 승격은 사용할 수
+없습니다.
 
 **변경:** `core/hil_resume/escalation_supervisor.py`를 추가합니다. 승인 대기 시 역할 적격성, 전달
 마감, 작업 해시, 전체 마감과 함께 primary, backup, escalation, maintainer 단계 스냅샷을

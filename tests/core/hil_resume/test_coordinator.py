@@ -14,6 +14,7 @@ Asserts the step-B contract from
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -28,7 +29,11 @@ from fdai.core.hil_resume import (
     ApprovalLoadController,
     ApprovalLoadPolicy,
     ApprovalReminderDispatcher,
+    EscalationDuty,
+    EscalationPolicy,
+    EscalationRung,
     HilResumeCoordinator,
+    HumanNonResponseSupervisor,
     RequestOutcome,
     ResolveOutcome,
 )
@@ -129,7 +134,7 @@ def _action(
 
 
 def _coordinator(
-    *, send_error: BaseException | None = None
+    *, send_error: BaseException | None = None, with_escalation: bool = False
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -145,13 +150,85 @@ def _coordinator(
         resource_lock=ResourceLockManager(),
     )
     channel = InMemoryHilChannel(send_error=send_error)
+    escalation_supervisor = (
+        HumanNonResponseSupervisor(
+            state_store=store,
+            channel=channel,
+            policy=EscalationPolicy(decision_timeout_seconds=60),
+        )
+        if with_escalation
+        else None
+    )
     coordinator = HilResumeCoordinator(
         state_store=store,
         executor=executor,
         hil_channel=channel,
         rules_by_id={_RULE_ID: _rule()},
+        escalation_supervisor=escalation_supervisor,
     )
     return coordinator, publisher, store, channel
+
+
+async def test_request_snapshots_and_starts_escalation_after_delivery() -> None:
+    coordinator, _, store, channel = _coordinator(with_escalation=True)
+
+    result = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="escalation-correlation",
+        approval_id="escalation-approval",
+        escalation_rungs=(
+            EscalationRung(_APPROVER, EscalationDuty.PRIMARY),
+            EscalationRung("backup@example.com", EscalationDuty.BACKUP),
+        ),
+    )
+
+    parked = await store.read_state("hil_park:escalation-approval")
+    assert result.outcome is RequestOutcome.PARKED
+    assert len(channel.sent) == 1
+    assert parked is not None
+    assert parked["assignee_oid"] == _APPROVER
+    assert parked["revision"] == 1
+    assert parked["escalation"]["status"] == "awaiting_decision"
+    requested = next(
+        entry["entry"]
+        for entry in store.audit_entries
+        if entry["entry"].get("action_kind") == "hil.requested"
+    )
+    assert requested["assignee_oid"] == _APPROVER
+
+
+async def test_concurrent_terminal_decisions_have_one_winner() -> None:
+    coordinator, publisher, store, _ = _coordinator()
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="decision-race-correlation",
+        approval_id="decision-race",
+    )
+
+    approve, reject = await asyncio.gather(
+        coordinator.resolve(
+            approval_id="decision-race",
+            decision=HilDecision.APPROVE,
+            approver_oid="approver-1",
+        ),
+        coordinator.resolve(
+            approval_id="decision-race",
+            decision=HilDecision.REJECT,
+            approver_oid="approver-2",
+        ),
+    )
+
+    outcomes = {approve.outcome, reject.outcome}
+    parked = await store.read_state("hil_park:decision-race")
+    assert len(outcomes & {ResolveOutcome.EXECUTED, ResolveOutcome.REJECTED}) == 1
+    assert ResolveOutcome.CONFLICTING_DECISION in outcomes
+    assert len(publisher.records) <= 1
+    assert parked is not None
+    assert parked["revision"] == 1
 
 
 def _audit_kinds(store: InMemoryStateStore) -> list[str]:

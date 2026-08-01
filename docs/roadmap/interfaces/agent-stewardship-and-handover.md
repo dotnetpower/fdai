@@ -211,10 +211,10 @@ request), `core/stewardship` builds an ordered recipient list:
 
 The plan carries a `hop_timeout_seconds` hint for each person tier. Stewardship owns recipient
 ordering, not a human non-response timer. Channel delivery failure uses the notifications matrix
-`on_all_fail: hil_escalate` path. A future timer that advances after successful delivery but no
-human decision belongs to the separate
+`on_all_fail: hil_escalate` path. The separate
 [escalation and standing authority](../decisioning/escalation-and-standing-authority.md)
-supervisor, which remains proposed.
+supervisor owns post-delivery non-response; its periodic shadow tick records due observations
+without advancing the recipient ladder.
 
 ### 6.2 Person -> channel bridge
 

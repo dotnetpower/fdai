@@ -6,6 +6,7 @@ import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,11 @@ from fdai.core.hil_resume import (
     ApprovalLoadController,
     ApprovalLoadPolicy,
     ApprovalReminderDispatcher,
+    EscalationDuty,
+    EscalationPolicy,
+    EscalationRung,
     HilResumeCoordinator,
+    HumanNonResponseSupervisor,
 )
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.quality_gate import (
@@ -50,6 +55,12 @@ from fdai.core.rca import (
 )
 from fdai.core.risk_gate import ActionPromotionRegistry, RiskGate
 from fdai.core.risk_gate.risk_table import load_risk_table
+from fdai.core.stewardship import (
+    Duty,
+    EscalationTier,
+    build_escalation_plan,
+    load_stewardship_from_yaml,
+)
 from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.core.tiers.t0_deterministic.index import RuleIndex
 from fdai.core.tiers.t0_deterministic.opa_evaluator import (
@@ -93,7 +104,7 @@ from fdai.runtime.providers import (
     _build_process_store,
     _build_resource_lock,
 )
-from fdai.shared.contracts.models import ResponseOutcome
+from fdai.shared.contracts.models import Mode, ResponseOutcome
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import StagePublisher
@@ -202,6 +213,33 @@ def _load_approval_load_policy(catalog_root: Path) -> ApprovalLoadPolicy | None:
     if not isinstance(decoded, Mapping):
         raise ValueError("approval load policy MUST be a YAML object")
     return ApprovalLoadPolicy.from_mapping(decoded)
+
+
+def _load_hil_escalation_rungs(catalog_root: Path) -> tuple[EscalationRung, ...]:
+    stewardship = load_stewardship_from_yaml(
+        catalog_root.parent / "config" / "agent-stewardship.yaml",
+        environ=os.environ,
+    )
+    plan = build_escalation_plan(stewardship, "Var")
+    duty_map = {
+        Duty.PRIMARY: EscalationDuty.PRIMARY,
+        Duty.BACKUP: EscalationDuty.BACKUP,
+        Duty.ESCALATION: EscalationDuty.ESCALATION,
+    }
+    rungs: list[EscalationRung] = []
+    for recipient in plan.recipients:
+        if recipient.tier is EscalationTier.INFORMED:
+            continue
+        if recipient.tier is EscalationTier.MAINTAINER:
+            duty = EscalationDuty.MAINTAINER
+            minimum_role = "Owner"
+        elif recipient.duty is not None:
+            duty = duty_map[recipient.duty]
+            minimum_role = "Approver"
+        else:
+            continue
+        rungs.append(EscalationRung(recipient.id, duty, minimum_role))
+    return tuple(rungs)
 
 
 def _build_control_loop(
@@ -445,6 +483,28 @@ def _build_control_loop(
     # no-self-approval + idempotency invariants.
     hil_channel = _build_hil_channel(http_client)
     approval_load_policy = _load_approval_load_policy(catalog_root)
+    escalation_rungs = _load_hil_escalation_rungs(catalog_root) if hil_channel else ()
+    escalation_supervisor = (
+        HumanNonResponseSupervisor(
+            state_store=audit_store,
+            channel=hil_channel,
+            policy=EscalationPolicy(
+                decision_timeout_seconds=300,
+                overall_timeout_seconds=1800,
+                mode=Mode.SHADOW,
+            ),
+        )
+        if hil_channel is not None and escalation_rungs
+        else None
+    )
+
+    async def _observe_escalation_delivery(
+        approval_id: str,
+        delivered_at: datetime,
+    ) -> None:
+        if escalation_supervisor is not None:
+            await escalation_supervisor.mark_delivered(approval_id, at=delivered_at)
+
     approval_load_controller = (
         ApprovalLoadController(state_store=audit_store, policy=approval_load_policy)
         if hil_channel is not None and approval_load_policy is not None
@@ -455,6 +515,9 @@ def _build_control_loop(
             state_store=audit_store,
             channel=hil_channel,
             policy=approval_load_policy,
+            delivery_observer=(
+                _observe_escalation_delivery if escalation_supervisor is not None else None
+            ),
         )
         if hil_channel is not None and approval_load_policy is not None
         else None
@@ -470,6 +533,8 @@ def _build_control_loop(
         pending_index_writer=_pending_index_writer,
         approval_load_controller=approval_load_controller,
         approval_reminder_dispatcher=approval_reminder_dispatcher,
+        escalation_supervisor=escalation_supervisor,
+        default_escalation_rungs=escalation_rungs,
     )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

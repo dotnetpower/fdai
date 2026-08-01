@@ -182,11 +182,17 @@ async def test_deferred_initial_dispatch_waits_until_quiet_end() -> None:
     await _store_park(store, parked)
     controller = ApprovalLoadController(state_store=store, policy=policy, clock=lambda: current)
     plan = await controller.plan(parked, severity="medium")
+    deliveries: list[tuple[str, datetime]] = []
+
+    async def observe_delivery(approval_id: str, delivered_at: datetime) -> None:
+        deliveries.append((approval_id, delivered_at))
+
     dispatcher = ApprovalReminderDispatcher(
         state_store=store,
         channel=channel,
         policy=policy,
         clock=lambda: current,
+        delivery_observer=observe_delivery,
     )
 
     assert plan.mode is ApprovalDispatchMode.DEFERRED
@@ -194,6 +200,7 @@ async def test_deferred_initial_dispatch_waits_until_quiet_end() -> None:
     current = datetime(2026, 7, 26, 6, 0, tzinfo=UTC)
     assert await dispatcher.drain_due() == 1
     assert channel.sent[0].metadata["approval_load_mode"] == "deferred_initial"
+    assert deliveries == [("deferred-one", current)]
 
 
 async def test_grouped_approvals_emit_one_anchor_digest_after_window() -> None:

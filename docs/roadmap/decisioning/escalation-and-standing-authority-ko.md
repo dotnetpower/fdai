@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 0aa187344d378320c144bf5cac89a0458da3f146
-translation_revised: 2026-07-21
+translation_source_sha: fde5d86aef6829a95d337c2b0dc07713a4f1bdf0
+translation_revised: 2026-08-01
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -24,10 +24,12 @@ translation_revised: 2026-07-21
 > 못한다. 이 문서의 모든 신규 역량은 **shadow 우선** 으로 ship 된다
 > ([architecture.instructions.md § Safety Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
-> **구현 상태 (2026-07-21):** Proposed. 이 문서의 사람 무응답 ladder,
-> standing-authority catalog, temporal supervisor, runtime binding은 아직 구현되지 않았습니다.
-> `core/quality_gate/escalation_ladder.py`는 별도의 model escalation policy이며 이 설계를
-> 구현하지 않습니다.
+> **구현 상태 (2026-08-01):** 영구 shadow supervisor core와 `HilResumeCoordinator` ladder
+> handoff가 구현되었습니다. 전달을 CAS로 점유하고 channel failure와 사람 무응답을 구분하며,
+> action integrity와 rung eligibility를 검증하고 shadow mode에서는 전송하거나 진행하지 않고 due
+> observation만 기록합니다. Runtime은 shadow worker를 시작하며 최종 HIL 결정은 CAS 승자 하나만
+> 수락합니다. Urgency compression, standing-authority catalog 및 production 승격은 아직 구현되지
+> 않았습니다.
 
 ## 이 문서가 다루는 것
 

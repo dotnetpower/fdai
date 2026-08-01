@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 907,
+  "file_count": 908,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "2471192793de5f664453c8fc1eb3d4092fb468fab786f649363a5d0ef5ca7d9d",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -287,10 +287,11 @@
     "src/fdai/core/executor/path_selection.py": "7754782c19f29db1a235688893eda1f53ae1107ef50066e329a2dd67873c61c7",
     "src/fdai/core/executor/renderer.py": "9f87c695aba42442a6bc7027cc007a4ed52c0b8cfd8748a02a1d4ccd150b7556",
     "src/fdai/core/executor/tool_call.py": "70d3f185d307d38373c57d618d54160c97fb98faf62d2a83998eac4eec47ef06",
-    "src/fdai/core/hil_resume/__init__.py": "f1ef3d58e7c2d19b48d296eed5cae3263442e34886aea790565e13d8a7ff224a",
-    "src/fdai/core/hil_resume/coordinator.py": "c0fd07ff4d0e25f31525e15c60456e98d003fcc747306f4464cacf68564d0364",
+    "src/fdai/core/hil_resume/__init__.py": "cf9bfbc5ee4621ae6de6975c3beb3d1d2b2b995e19cd631500bfe06a6f079c97",
+    "src/fdai/core/hil_resume/coordinator.py": "f89126a9933a55414db79236fa9048bd3803814cb73b5ff81ff52b55d59e28c8",
     "src/fdai/core/hil_resume/delegation.py": "0ab805bb50fda4373d4ec31c05ee31583d7a4f94d6a056a8b49c1fe5749a6dfe",
-    "src/fdai/core/hil_resume/load_control.py": "ce19ec86b6ea7f26df11758da561ddc62e8933dd0431600da3262a737b2af258",
+    "src/fdai/core/hil_resume/escalation_supervisor.py": "06166a0c0031434b6bf5dc253373df9c7010cae7b1372eb6437c70c54ac39958",
+    "src/fdai/core/hil_resume/load_control.py": "c501ac94e59a2facb4cc665aab79ffbef03bd546f90d9a74c35d934de7e0d7be",
     "src/fdai/core/human_assignment/__init__.py": "f8ea4a4c78e30fcf350393165f422b9139f9e084e9fe60c866d1084680394bd9",
     "src/fdai/core/human_assignment/access_apply.py": "7d038dfd2c8535bca5ed92832bfef8cb1324a66bcb44dee7f0d29fea7faffa7a",
     "src/fdai/core/human_assignment/audit.py": "1ec647e7e1887f30aa9eaeec8193e090d66be465bd7b0e9e55e57a22177c87ba",
@@ -910,7 +911,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T06:38:09Z",
+  "generated_at": "2026-08-01T07:05:37Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

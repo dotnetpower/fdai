@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5bb5a8454115fcdceae5cc79f5e3354c0b83a890
+translation_source_sha: 85e18e80632c84dd8160a1ddbc4384e853c652b1
 translation_revised: 2026-08-01
 ---
 
@@ -51,7 +51,7 @@ fdai/
 │   │   ├── execution_authorization/ # 온톨로지 기반 pre-dispatch capability policy, grant lifecycle, replay-stable decision
 │   │   ├── rbac/               # 리드 API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)
 │   │   ├── human_assignment/   # 변경 불가능한 역할/임무 의도, 정규화된 검토 정족수, 리비전 기반 StateStore lifecycle, 결과 영수증
-│   │   ├── hil_resume/         # HIL park/resume + no-drop grouping, quiet-hour plan, fatigue metric, bounded reminder
+│   │   ├── hil_resume/         # HIL park/resume, no-drop grouping, bounded reminder, CAS 소유 shadow non-response supervision
 │   │   ├── executor/           # 리소스별 락, 딜리버리 어댑터로 멱등 적용
 │   │   ├── execution_backend/  # profile intersection, durable lifecycle coordination, shadow probe; 판단 authority 없음
 │   │   ├── audit/              # append-only 해시 체인 감사 로그 + KPI/메트릭 발행

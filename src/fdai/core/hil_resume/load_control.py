@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import re
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -289,11 +289,13 @@ class ApprovalReminderDispatcher:
         channel: HilChannel,
         policy: ApprovalLoadPolicy,
         clock: Callable[[], datetime] | None = None,
+        delivery_observer: Callable[[str, datetime], Awaitable[object]] | None = None,
     ) -> None:
         self._state_store = state_store
         self._channel = channel
         self._policy = policy
         self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._delivery_observer = delivery_observer
 
     async def expire_due(self) -> int:
         """Atomically terminalize expired pending parks across replicas."""
@@ -450,6 +452,8 @@ class ApprovalReminderDispatcher:
                         )
                     )
                 else:
+                    if is_initial and self._delivery_observer is not None:
+                        await self._delivery_observer(dispatch_approval_id, now)
                     await self._state_store.append_audit_entry(
                         _audit(
                             kind=(

@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 0fa3b707257b1afe5fbb06a419cc0ad992dbdff0
+translation_source_sha: 032f053c4544d9b37dfa822c23b3077b22373b5b
 translation_revised: 2026-08-01
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -202,10 +202,10 @@ drift할 수 없다. `core/`는 `agents/`를 import하지 않으며(module-bound
 
 Plan은 각 person tier의 `hop_timeout_seconds` hint를 포함합니다. Stewardship은 recipient ordering을
 소유하지만 human non-response timer를 소유하지 않습니다. Channel delivery failure는 notifications
-matrix의 `on_all_fail: hil_escalate`를 사용합니다. Delivery 성공 후 human decision이 없을 때 다음
-tier로 진행하는 timer는 별도
-[에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md) supervisor가
-소유하며, 이 supervisor는 아직 proposed 상태입니다.
+matrix의 `on_all_fail: hil_escalate`를 사용합니다. Delivery 성공 후 human decision이 없을 때의
+처리는 별도 [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md)
+supervisor가 소유합니다. Periodic shadow tick은 recipient ladder를 진행하지 않고 due observation만
+기록합니다.
 
 ### 6.2 사람 -> 채널 브릿지
 

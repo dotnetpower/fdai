@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: b8693db426f2a0ad1e0f20a0ab24f7603309c928
+translation_source_sha: e61d39d1063d690c91a2021cef99f14129c71f3b
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -15,9 +15,9 @@ translation_revised: 2026-08-01
 > 활성 주체 하나를 다시 검증하고, 리비전 기반 케이스를 생성 및 검토하고, 역할, duty, 담당 범위,
 > 케이스 및 unavailable 인수인계 근거를 조인해 조회할 수 있습니다. 담당 체계 PR 조정과 Entra
 > 멤버십 경로는 이제 typed 적용 요청을 게시하고, 허용 목록 그룹 변경 하나를 계획하고, 수렴을
-> 검증하고, 실패한 postcondition을 rollback합니다. 이 경로는 관찰 모드입니다. 적용 모드 승격,
-> 대체 커버리지를 포함한 자동 회수, 사람 무응답 감독자, 선제적 인수인계 목표는 아직 구현되지
-> 않았습니다.
+> 검증하고, 실패한 postcondition을 rollback합니다. 이 경로는 관찰 모드입니다. 사람 무응답
+> supervisor는 shadow-only periodic worker로 실행됩니다. 적용 모드 승격, 대체
+> 커버리지를 포함한 자동 회수, 선제적 인수인계 목표는 아직 구현되지 않았습니다.
 >
 > **안전 경계:** 사용자를 에이전트에 매핑해도 FDAI 역할은 부여되지 않습니다. 통합 관리자
 > 워크플로가 두 결과를 함께 요청할 수는 있지만, RBAC과 운영 담당 체계는 여전히 별도 축으로

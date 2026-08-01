@@ -67,6 +67,10 @@ from fdai.core.hil_resume.delegation import (
     DelegationRefusal,
     evaluate_hil_delegation,
 )
+from fdai.core.hil_resume.escalation_supervisor import (
+    EscalationRung,
+    HumanNonResponseSupervisor,
+)
 from fdai.core.hil_resume.load_control import (
     ApprovalDispatchMode,
     ApprovalLoadController,
@@ -228,6 +232,8 @@ class HilResumeCoordinator:
         pending_index_writer: Callable[[StateStore, str], Awaitable[None]] | None = None,
         approval_load_controller: ApprovalLoadController | None = None,
         approval_reminder_dispatcher: ApprovalReminderDispatcher | None = None,
+        escalation_supervisor: HumanNonResponseSupervisor | None = None,
+        default_escalation_rungs: Sequence[EscalationRung] = (),
     ) -> None:
         self._state_store = state_store
         self._executor = executor
@@ -244,6 +250,8 @@ class HilResumeCoordinator:
         self._pending_index_writer = pending_index_writer
         self._approval_load_controller = approval_load_controller
         self.reminder_dispatcher = approval_reminder_dispatcher
+        self.escalation_supervisor = escalation_supervisor
+        self._default_escalation_rungs = tuple(default_escalation_rungs)
 
     async def _resolve_on_call(self) -> OnCallResolution | None:
         """Resolve the current on-call responder, or ``None`` when unconfigured.
@@ -274,6 +282,7 @@ class HilResumeCoordinator:
         ttl_seconds: int = 1800,
         approval_id: str | None = None,
         assignee_oid: str | None = None,
+        escalation_rungs: Sequence[EscalationRung] = (),
     ) -> RequestApprovalResult:
         """Park ``action`` and push an A1 approval card.
 
@@ -320,6 +329,7 @@ class HilResumeCoordinator:
         )
         parked = {
             "status": _STATUS_PENDING,
+            "revision": 0,
             "approval_id": aid,
             "action": action.model_dump(mode="json"),
             "rule_id": rule.id,
@@ -341,6 +351,16 @@ class HilResumeCoordinator:
             },
             "on_call": _on_call_detail(on_call),
         }
+        resolved_escalation_rungs = tuple(escalation_rungs) or self._default_escalation_rungs
+        if resolved_escalation_rungs:
+            if self.escalation_supervisor is None:
+                raise ValueError("escalation_rungs require an escalation supervisor")
+            parked = self.escalation_supervisor.attach(
+                parked,
+                rungs=resolved_escalation_rungs,
+                now=parked_at,
+            )
+        effective_assignee = str(parked.get("assignee_oid") or "").strip() or None
         requested_audit = self._audit_entry(
             action_kind="hil.requested",
             idempotency_key=f"{action.idempotency_key}:hil_request",
@@ -352,7 +372,7 @@ class HilResumeCoordinator:
                 "severity": rule.severity.value,
                 "category": rule.category.value,
                 "submitter_oid": normalized_submitter,
-                "assignee_oid": resolved_assignee,
+                "assignee_oid": effective_assignee,
                 "on_call": _on_call_detail(on_call),
             },
         )
@@ -449,6 +469,8 @@ class HilResumeCoordinator:
                 outcome=RequestOutcome.PARKED_DISPATCH_FAILED,
                 approval_id=aid,
             )
+        if self.escalation_supervisor is not None and resolved_escalation_rungs:
+            await self.escalation_supervisor.mark_delivered(aid, at=receipt.sent_at)
         return RequestApprovalResult(
             outcome=RequestOutcome.PARKED,
             approval_id=aid,
@@ -521,16 +543,15 @@ class HilResumeCoordinator:
             return ResolveResult(outcome=ResolveOutcome.ALREADY_RESOLVED, approval_id=approval_id)
 
         if decision is HilDecision.APPROVE and _approval_expired(parked, now=datetime.now(tz=UTC)):
-            await self._mark_resolved(
-                parked, decision=HilDecision.TIMEOUT, approver_oid=approver_oid
-            )
-            await self._audit(
+            claimed = await self._mark_resolved(
+                parked,
+                decision=HilDecision.TIMEOUT,
+                approver_oid=approver_oid,
                 action_kind="hil.timeout",
-                idempotency_key=f"{idem}:hil_timeout",
-                approval_id=approval_id,
-                correlation_id=correlation_id,
                 detail={"reason": "approval_expired", "attempted_decision": decision.value},
             )
+            if not claimed:
+                return await self._race_result(approval_id, attempted=decision)
             return ResolveResult(
                 outcome=ResolveOutcome.TIMED_OUT,
                 approval_id=approval_id,
@@ -587,27 +608,29 @@ class HilResumeCoordinator:
                 )
 
         if decision is HilDecision.REJECT:
-            await self._mark_resolved(parked, decision=decision, approver_oid=approver_oid)
-            await self._audit(
+            claimed = await self._mark_resolved(
+                parked,
+                decision=decision,
+                approver_oid=approver_oid,
                 action_kind="hil.rejected",
-                idempotency_key=f"{idem}:hil_rejected",
-                approval_id=approval_id,
-                correlation_id=correlation_id,
                 detail={"approver_oid": approver_oid, "reason": reason},
             )
+            if not claimed:
+                return await self._race_result(approval_id, attempted=decision)
             return ResolveResult(
                 outcome=ResolveOutcome.REJECTED, approval_id=approval_id, reason=reason
             )
 
         if decision is HilDecision.TIMEOUT:
-            await self._mark_resolved(parked, decision=decision, approver_oid=approver_oid)
-            await self._audit(
+            claimed = await self._mark_resolved(
+                parked,
+                decision=decision,
+                approver_oid=approver_oid,
                 action_kind="hil.timeout",
-                idempotency_key=f"{idem}:hil_timeout",
-                approval_id=approval_id,
-                correlation_id=correlation_id,
                 detail={},
             )
+            if not claimed:
+                return await self._race_result(approval_id, attempted=decision)
             return ResolveResult(outcome=ResolveOutcome.TIMED_OUT, approval_id=approval_id)
 
         # decision is APPROVE and the delegation gate allowed it -> re-dispatch.
@@ -619,7 +642,15 @@ class HilResumeCoordinator:
         # Mark resolved BEFORE executing so a concurrent duplicate decision
         # cannot double-apply; the executor is itself idempotent by
         # idempotency_key, this is defense in depth.
-        await self._mark_resolved(parked, decision=decision, approver_oid=approver_oid)
+        claimed = await self._mark_resolved(
+            parked,
+            decision=decision,
+            approver_oid=approver_oid,
+            action_kind="hil.approved.claimed",
+            detail={"approver_oid": approver_oid},
+        )
+        if not claimed:
+            return await self._race_result(approval_id, attempted=decision)
         if rule is None:
             _LOGGER.error(
                 "hil_resolve_rule_missing",
@@ -697,13 +728,63 @@ class HilResumeCoordinator:
         *,
         decision: HilDecision,
         approver_oid: str,
-    ) -> None:
+        action_kind: str,
+        detail: Mapping[str, Any],
+    ) -> bool:
+        revision = parked.get("revision", 0)
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+            raise ValueError("parked approval revision MUST be a non-negative integer")
+        resolved_at = datetime.now(tz=UTC)
         updated = dict(parked)
         updated["status"] = _STATUS_RESOLVED
         updated["decision"] = decision.value
         updated["approver_oid"] = approver_oid
-        updated["resolved_at"] = datetime.now(tz=UTC).isoformat()
-        await self._state_store.write_state(_park_key(str(parked["approval_id"])), updated)
+        updated["resolved_at"] = resolved_at.isoformat()
+        updated["revision"] = revision + 1
+        escalation = updated.get("escalation")
+        if isinstance(escalation, Mapping):
+            updated["escalation"] = {
+                **dict(escalation),
+                "status": "decided",
+                "terminal_decision": decision.value,
+            }
+        approval_id = str(parked["approval_id"])
+        correlation_id = str(parked.get("correlation_id") or approval_id)
+        idem = str(parked.get("idempotency_key") or approval_id)
+        return await self._state_store.compare_and_set_state_with_audit(
+            _park_key(approval_id),
+            updated,
+            expected_revision=revision,
+            audit_entry=self._audit_entry(
+                action_kind=action_kind,
+                idempotency_key=f"{idem}:{action_kind}:{revision}",
+                approval_id=approval_id,
+                correlation_id=correlation_id,
+                detail=detail,
+            ),
+        )
+
+    async def _race_result(
+        self,
+        approval_id: str,
+        *,
+        attempted: HilDecision,
+    ) -> ResolveResult:
+        latest = await self._state_store.read_state(_park_key(approval_id))
+        prior = str(latest.get("decision") or "") if latest is not None else ""
+        if prior == HilDecision.TIMEOUT.value:
+            return ResolveResult(
+                outcome=ResolveOutcome.TIMED_OUT,
+                approval_id=approval_id,
+                reason="approval_expired",
+            )
+        if prior and prior != attempted.value:
+            return ResolveResult(
+                outcome=ResolveOutcome.CONFLICTING_DECISION,
+                approval_id=approval_id,
+                reason=f"already resolved as {prior}",
+            )
+        return ResolveResult(outcome=ResolveOutcome.ALREADY_RESOLVED, approval_id=approval_id)
 
     async def _audit(
         self,
