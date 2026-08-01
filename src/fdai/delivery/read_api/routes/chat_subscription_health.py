@@ -58,6 +58,17 @@ class SubscriptionHealthProvider(Protocol):
 
 
 @runtime_checkable
+class ConfigurableSubscriptionHealthProvider(Protocol):
+    async def query_health(
+        self,
+        lookback_seconds: int,
+        *,
+        include_metrics: bool,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> Mapping[str, Any]: ...
+
+
+@runtime_checkable
 class ResourceTypeFilteredSubscriptionHealthProvider(Protocol):
     async def query_resource_types(
         self,
@@ -213,7 +224,9 @@ class SubscriptionHealthChatTools:
         provider_types = resolver.provider_types_for(requested_types)
         kind_tokens_by_resource_type = resolver.provider_kind_tokens_for(requested_types)
         language = default_inventory_query_language_resolver()
-        include_metrics = language.has(language.registry.signals, "diagnosis", prompt)
+        include_metrics = language.has(
+            language.registry.signals, "diagnosis", prompt
+        ) and not _SERVICE_HEALTH.search(prompt)
         availability_states = tuple(
             dict.fromkeys(
                 value for group in inventory_query_status_groups(prompt) for value in group.values
@@ -228,6 +241,14 @@ class SubscriptionHealthChatTools:
                     resource_types=provider_types,
                     kind_tokens_by_resource_type=kind_tokens_by_resource_type,
                     availability_states=availability_states,
+                    include_metrics=include_metrics,
+                    progress_observer=progress_observer,
+                )
+            )
+        if isinstance(self.provider, ConfigurableSubscriptionHealthProvider):
+            return dict(
+                await self.provider.query_health(
+                    3_600,
                     include_metrics=include_metrics,
                     progress_observer=progress_observer,
                 )
@@ -352,6 +373,8 @@ def render_subscription_health_answer(
     observed_at = str(result.get("observed_at") or "unknown")
     truncated = bool(result.get("truncated"))
     requested_groups = _requested_status_groups(evidence, korean=korean)
+    query = evidence.get("query")
+    platform_impact = isinstance(query, Mapping) and query.get("platform_impact") is True
     if requested_groups:
         grouped_lines, grouped_count = _grouped_finding_lines(
             findings,
@@ -365,6 +388,18 @@ def render_subscription_health_answer(
             else (
                 f"Checked {resource_count} resources in the allowed Azure scope and found "
                 f"{grouped_count} resource(s) in the requested states."
+            )
+        )
+    elif platform_impact:
+        grouped_lines = _finding_lines(findings, korean=korean)
+        platform_count, customer_count, unknown_count = _cause_counts(findings)
+        summary = (
+            f"Azure 플랫폼 영향으로 분류된 리소스는 {platform_count}개입니다. "
+            f"Customer-initiated {customer_count}개, 원인 미확정 {unknown_count}개입니다."
+            if korean
+            else (
+                f"{platform_count} resource(s) were classified as Azure platform impact; "
+                f"{customer_count} were customer-initiated and {unknown_count} were unclassified."
             )
         )
     else:
@@ -526,12 +561,30 @@ def _status_query(prompt: str) -> dict[str, object]:
     groups = inventory_query_status_groups(prompt)
     requested_types = default_inventory_resource_type_resolver().resolve(prompt)
     return {
+        "platform_impact": bool(_SERVICE_HEALTH.search(prompt)),
         "requested_resource_types": list(requested_types),
         "requested_status_groups": [
             {"id": group.id, "values": list(group.values), "labels": dict(group.labels)}
             for group in groups
         ],
     }
+
+
+def _cause_counts(findings: list[Mapping[str, Any]]) -> tuple[int, int, int]:
+    platform = 0
+    customer = 0
+    unknown = 0
+    for finding in findings:
+        if finding.get("kind") != "resource_health":
+            continue
+        reason = normalize_inventory_value(finding.get("reason"))
+        if reason == "platform initiated":
+            platform += 1
+        elif reason == "customer initiated":
+            customer += 1
+        else:
+            unknown += 1
+    return platform, customer, unknown
 
 
 def _filter_findings_by_requested_type(

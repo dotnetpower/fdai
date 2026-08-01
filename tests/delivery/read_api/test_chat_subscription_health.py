@@ -102,6 +102,39 @@ class _SubscriptionProvider:
 
 def test_generic_service_outage_question_uses_subscription_health() -> None:
     assert needs_subscription_health("서비스 장애 나고 있는게 있어?")
+    assert needs_subscription_health("현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?")
+
+
+def test_platform_health_skips_semantic_turn_planner() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("deterministic health must skip semantic planning")
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(_provider),
+                turn_planner=Planner(),  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat/stream",
+            json={
+                "prompt": "현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?",
+                "view_context": {},
+            },
+        )
+
+    assert response.status_code == 200
+    assert "server_subscription_health" in response.text
+    assert "model fallback" not in response.text
+    assert backend.calls == 0
 
 
 def test_generic_resource_health_states_use_subscription_health() -> None:
@@ -722,6 +755,87 @@ def test_service_outage_answer_explains_customer_initiated_resource_health() -> 
     assert "Stopped" in answer
     assert "사용자 또는 자동화 작업" in answer
     assert "Azure 플랫폼 장애" in answer
+    assert backend.calls == 0
+
+
+def test_platform_health_reports_cause_counts_without_metrics() -> None:
+    class Provider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("platform health must use configurable broad query")
+
+        async def query_health(
+            self,
+            lookback_seconds: int,
+            *,
+            include_metrics: bool,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            assert lookback_seconds == 3_600
+            assert include_metrics is False
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health",
+                "observed_at": "2026-07-22T05:00:00Z",
+                "resource_count": 3,
+                "resource_health_unavailable": 0,
+                "metrics_requested": False,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [
+                    {
+                        "kind": "resource_health",
+                        "resource_name": "vm-customer",
+                        "status": "Unavailable",
+                        "reason": "Customer Initiated",
+                    },
+                    {
+                        "kind": "resource_health",
+                        "resource_name": "vm-platform",
+                        "status": "Degraded",
+                        "reason": "Platform Initiated",
+                    },
+                    {
+                        "kind": "resource_health",
+                        "resource_name": "vm-unknown",
+                        "status": "Unknown",
+                        "reason": "unknown",
+                    },
+                ],
+            }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(Provider()),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={
+                "prompt": "현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?",
+                "view_context": {},
+            },
+        )
+
+    answer = response.json()["answer"]
+    assert "Azure 플랫폼 영향으로 분류된 리소스는 1개" in answer
+    assert "Customer-initiated 1개" in answer
+    assert "원인 미확정 1개" in answer
+    assert "대표 메트릭: 요청되지 않음" in answer
     assert backend.calls == 0
 
 

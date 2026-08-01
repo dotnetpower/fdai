@@ -194,12 +194,27 @@ class AzureSubscriptionHealthProvider:
         *,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
     ) -> dict[str, Any]:
+        return await self.query_health(
+            lookback_seconds,
+            include_metrics=True,
+            progress_observer=progress_observer,
+        )
+
+    async def query_health(
+        self,
+        lookback_seconds: int,
+        *,
+        include_metrics: bool,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> dict[str, Any]:
+        """Inspect broad health with a server-selected metric policy."""
+
         return await self._query(
             lookback_seconds,
             resource_types=(),
             kind_tokens_by_resource_type={},
             availability_states=(),
-            include_metrics=True,
+            include_metrics=include_metrics,
             progress_observer=progress_observer,
         )
 
@@ -278,6 +293,17 @@ class AzureSubscriptionHealthProvider:
                 resource_health_unavailable,
                 direct_health_truncated,
             ) = await self._current_resource_health(headers, resource_types)
+        annotation_unavailable = 0
+        annotation_truncated = False
+        if health and not include_metrics and not resource_types:
+            try:
+                annotations = await self._arg(headers, self._annotation_query(health))
+            except Exception:  # noqa: BLE001 - cause coverage degrades independently
+                annotations = []
+                annotation_unavailable = 1
+            else:
+                annotation_truncated = len(annotations) > 64
+                health = _merge_health_annotations(health, annotations[:64])
         health_findings = _health_findings(health)
         provisioning_findings = _provisioning_findings(safe_resources)
         state_findings = _resource_state_findings(safe_resources, availability_states)
@@ -370,7 +396,9 @@ class AzureSubscriptionHealthProvider:
         unsupported_metric_resources = (
             len(safe_resources) - len(supported) if include_metrics else 0
         )
-        truncated = resource_truncated or health_truncated or metric_truncated
+        truncated = (
+            resource_truncated or health_truncated or metric_truncated or annotation_truncated
+        )
         await _emit(
             progress_observer,
             kind="evidence.correlating",
@@ -382,6 +410,7 @@ class AzureSubscriptionHealthProvider:
                 "partial"
                 if (
                     resource_health_unavailable
+                    or annotation_unavailable
                     or metric_unavailable
                     or unsupported_metric_resources
                     or truncated
@@ -396,6 +425,7 @@ class AzureSubscriptionHealthProvider:
             "observed_at": datetime.now(tz=UTC).isoformat(),
             "resource_count": len(safe_resources),
             "resource_health_unavailable": resource_health_unavailable,
+            "resource_annotation_unavailable": annotation_unavailable,
             "metrics_requested": include_metrics,
             "supported_metric_resources": len(supported),
             "metric_checked": len(metric_targets) - metric_unavailable,
@@ -621,6 +651,29 @@ class AzureSubscriptionHealthProvider:
             "occurredTime=tostring(properties.occurredTime) | take 65"
         )
 
+    def _annotation_query(self, health: Sequence[Mapping[str, Any]]) -> str:
+        target_ids = tuple(
+            dict.fromkeys(
+                str(item.get("targetResourceId"))
+                for item in health
+                if isinstance(item.get("targetResourceId"), str)
+                and str(item["targetResourceId"])
+                .casefold()
+                .startswith(f"/subscriptions/{self._config.subscription_id.casefold()}/")
+            )
+        )
+        values = ", ".join(f"'{_escaped(item)}'" for item in target_ids[:64])
+        return (
+            "HealthResources "
+            "| where type =~ 'microsoft.resourcehealth/resourceannotations' "
+            f"| where tostring(properties.targetResourceId) in~ ({values}) "
+            "| project targetResourceId=tostring(properties.targetResourceId), "
+            "annotationName=tostring(properties.annotationName), "
+            "context=tostring(properties.context), reason=tostring(properties.reason), "
+            "occurredTime=tostring(properties.occurredTime) "
+            "| order by occurredTime desc | take 65"
+        )
+
 
 def _validated_resource_types(values: Sequence[str]) -> tuple[str, ...]:
     normalized = tuple(dict.fromkeys(item.strip() for item in values))
@@ -719,6 +772,40 @@ def _health_findings(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return findings
+
+
+def _merge_health_annotations(
+    health: Sequence[Mapping[str, Any]],
+    annotations: Sequence[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    reason_by_target: dict[str, str] = {}
+    for annotation in annotations:
+        target = annotation.get("targetResourceId")
+        if not isinstance(target, str) or target.casefold() in reason_by_target:
+            continue
+        candidates = tuple(
+            str(annotation.get(field) or "").strip()
+            for field in ("context", "reason", "annotationName")
+        )
+        recognized = next(
+            (
+                "Customer Initiated" if "customer" in candidate.casefold() else "Platform Initiated"
+                for candidate in candidates
+                if "customer" in candidate.casefold() or "platform" in candidate.casefold()
+            ),
+            None,
+        )
+        fallback = next((candidate for candidate in candidates if candidate), None)
+        if recognized or fallback:
+            reason_by_target[target.casefold()] = recognized or fallback or "unknown"
+    merged: list[Mapping[str, Any]] = []
+    for row in health:
+        reason = str(row.get("reasonType") or "").strip()
+        target = str(row.get("targetResourceId") or "").casefold()
+        if not reason or reason.casefold() == "unknown":
+            reason = reason_by_target.get(target, reason or "unknown")
+        merged.append({**row, "reasonType": reason})
+    return merged
 
 
 def _resource_identity(resource_id: str) -> dict[str, str]:

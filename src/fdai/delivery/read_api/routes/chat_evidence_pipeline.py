@@ -32,6 +32,7 @@ from fdai.delivery.read_api.routes.chat_evidence_enrichment import (
 )
 from fdai.delivery.read_api.routes.chat_inventory import needs_inventory_evidence
 from fdai.delivery.read_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.read_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.read_api.routes.chat_web_search_intent import classify_search_intent
 
 
@@ -100,18 +101,19 @@ async def resolve_parallel_chat_evidence(
     deterministic_inventory_turn = (
         needs_inventory_evidence(prompt) and not explicit_web_search and not read_investigation
     )
+    deterministic_tool_turn = deterministic_inventory_turn or needs_subscription_health(prompt)
     selected_incident_turn = _screen_incident_context(
         prompt, base_context
     ) is not None and not _is_explicit_tool_command(prompt)
     selected_agent = _selected_agent(prompt, conversation_context, target_agent)
-    parallel_agent = not deterministic_inventory_turn and (
+    parallel_agent = not deterministic_tool_turn and (
         planned_agent is not None
         or selected_agent is not None
         or (not has_semantic_plan and read_investigation)
     )
     parallel_web = (
         web_search_resolver is not None
-        and not deterministic_inventory_turn
+        and not deterministic_tool_turn
         and web_requested
         and "_behavior_evidence" not in base_context
         and "_screen_scope" not in base_context
@@ -121,7 +123,7 @@ async def resolve_parallel_chat_evidence(
         planned_direct_read
         and planned_tool_resolver is not None
         and not selected_incident_turn
-        and (not deterministic_inventory_turn or planned_inventory)
+        and (not deterministic_tool_turn or planned_inventory)
     ):
         selected_tool_name = cast(str, planned_tool_name)
         selected_arguments = cast(Mapping[str, object], planned_arguments)
@@ -155,7 +157,7 @@ async def resolve_parallel_chat_evidence(
             )
         )
     elif (
-        (not has_semantic_plan or deterministic_inventory_turn)
+        (not has_semantic_plan or deterministic_tool_turn)
         and tool_resolver is not None
         and not selected_incident_turn
     ):
@@ -180,6 +182,7 @@ async def resolve_parallel_chat_evidence(
     if (
         (not has_semantic_plan or selected_incident_turn)
         and evidence_resolver is not None
+        and not deterministic_tool_turn
         and "_inventory_screen_scope" not in base_context
     ):
 
@@ -269,7 +272,7 @@ async def resolve_parallel_chat_evidence(
         allow_agent_web=web_requested,
     )
 
-    if not parallel_agent and not selected_incident_turn and not deterministic_inventory_turn:
+    if not parallel_agent and not selected_incident_turn and not deterministic_tool_turn:
 
         async def resolve_dependent_agent(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_agent_evidence(

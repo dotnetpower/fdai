@@ -112,6 +112,7 @@ from fdai.delivery.read_api.routes.chat_stream_terminal import (
     build_done_payload,
     verification_events,
 )
+from fdai.delivery.read_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.read_api.routes.chat_trajectory_detail import (
     TrajectoryDetailCollector,
@@ -219,6 +220,7 @@ def make_chat_stream_route(
             resource_followup
             or prepared.inventory_screen_scope
             or prepared.inventory_scope_followup
+            or needs_subscription_health(evidence_prompt)
         )
         view_context = prepared.view_context
         conversation_context = prepared.conversation_context

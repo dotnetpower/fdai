@@ -196,6 +196,7 @@ from fdai.delivery.read_api.routes.chat_stream_protocol import (
     _sse_heartbeat,
     _with_sse_heartbeats,
 )
+from fdai.delivery.read_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.read_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.read_api.routes.chat_turn_plan import (
     TurnPlanner,
@@ -387,7 +388,10 @@ def make_chat_route(
         if inventory_screen_scope:
             view_context["_inventory_screen_scope"] = {"authority": "selector_hint"}
         deterministic_followup = (
-            resource_followup or inventory_screen_scope or inventory_scope_followup
+            resource_followup
+            or inventory_screen_scope
+            or inventory_scope_followup
+            or needs_subscription_health(evidence_prompt)
         )
         answer_plan = build_answer_plan(
             evidence_prompt,

@@ -381,6 +381,106 @@ async def test_chat_pipeline_overlaps_tool_and_operational_resolvers() -> None:
     assert "_operational_evidence" not in merged
 
 
+async def test_subscription_health_overrides_semantic_web_plan() -> None:
+    calls: list[str] = []
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del principal_id
+            calls.append("tool")
+            return {
+                "tool": "query_subscription_health",
+                "authority": "server_subscription_health",
+                "result": {"status": "matched", "prompt": prompt},
+            }
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            del prompt, conversation_context
+            raise AssertionError("deterministic health must not query operational evidence")
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del prompt, user_id, session_id
+            raise AssertionError("deterministic health must not invoke an agent")
+
+    class WebResolver:
+        async def resolve(self, prompt: str, view_context: Mapping[str, Any]):
+            del prompt, view_context
+            raise AssertionError("deterministic health must not search the public web")
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-platform-health",
+        prompt="현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?",
+        view_context={
+            "_turn_plan": {
+                "kind": "read_tool",
+                "tool_name": "web_search",
+                "arguments": {"query": "Azure platform outage"},
+            }
+        },
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=AgentDelegate(),
+        web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert calls == ["tool"]
+    assert merged["_tool_evidence"]["tool"] == "query_subscription_health"
+    assert "_web_evidence" not in merged
+
+
+async def test_subscription_health_without_plan_skips_operational_branch() -> None:
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del prompt, principal_id
+            return {"tool": "query_subscription_health", "result": {"status": "matched"}}
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            del prompt, conversation_context
+            raise AssertionError("deterministic health must not query operational evidence")
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-platform-health-no-plan",
+        prompt="현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?",
+        view_context={},
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=observe,
+    )
+
+    assert merged["_tool_evidence"]["tool"] == "query_subscription_health"
+    assert "_operational_evidence" not in merged
+
+
 async def test_chat_pipeline_prefers_referenced_selected_incident() -> None:
     prompt = "Resource inventory change - Storage account storage-example 이거는 어떤 상태인거야?"
     events: list[dict[str, Any]] = []

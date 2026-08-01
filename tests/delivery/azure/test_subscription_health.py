@@ -175,6 +175,103 @@ async def test_subscription_health_metric_failure_is_partial_not_healthy() -> No
     assert result["findings"]
 
 
+async def test_platform_health_merges_customer_annotation_without_metrics() -> None:
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        query = json.loads(request.content)["query"]
+        requests.append(query)
+        if "resourceannotations" in query:
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "targetResourceId": _resource_rows()[0]["id"],
+                            "annotationName": "Stopped by user",
+                            "context": "Customer Initiated",
+                            "reason": "Stopped by user",
+                            "occurredTime": "2026-07-22T04:56:00Z",
+                        }
+                    ]
+                },
+            )
+        if query.startswith("HealthResources"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "targetResourceId": _resource_rows()[0]["id"],
+                            "resourceName": "vm-app",
+                            "availabilityState": "Unavailable",
+                            "reasonType": "",
+                            "occurredTime": "2026-07-22T04:55:00Z",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"data": _resource_rows()})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_health(3_600, include_metrics=False)
+
+    finding = next(item for item in result["findings"] if item["kind"] == "resource_health")
+    assert finding["reason"] == "Customer Initiated"
+    assert result["metrics_requested"] is False
+    assert result["metric_checked"] == 0
+    assert result["resource_annotation_unavailable"] == 0
+    assert any("resourceannotations" in query for query in requests)
+
+
+async def test_platform_health_annotation_failure_is_partial() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        query = json.loads(request.content)["query"]
+        if "resourceannotations" in query:
+            return httpx.Response(503, json={"error": "unavailable"})
+        if query.startswith("HealthResources"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "targetResourceId": _resource_rows()[0]["id"],
+                            "resourceName": "vm-app",
+                            "availabilityState": "Unknown",
+                            "reasonType": "",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"data": _resource_rows()})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_health(3_600, include_metrics=False)
+
+    assert result["status"] == "partial"
+    assert result["resource_annotation_unavailable"] == 1
+    finding = next(item for item in result["findings"] if item["kind"] == "resource_health")
+    assert finding["reason"] == "unknown"
+
+
 async def test_subscription_scope_metadata_uses_configured_subscription() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "GET"
