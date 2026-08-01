@@ -250,6 +250,10 @@ class RuntimeSettingsService:
             ),
             mode="shadow",
         )
+        if human_access["ready"] and not _valid_human_access_role_groups(
+            self.env.get("FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON", "")
+        ):
+            human_access = _invalid_configuration("human-access")
         human_access.update(
             {
                 "available": human_access["ready"],
@@ -548,6 +552,20 @@ def _invalid_configuration(key: str) -> dict[str, object]:
         "mode": "disabled",
         "reason": "configuration is invalid",
     }
+
+
+def _valid_human_access_role_groups(raw: str) -> bool:
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return False
+    expected = {"Reader", "Contributor", "Approver", "Owner"}
+    if not isinstance(value, dict) or set(value) != expected:
+        return False
+    group_ids = tuple(value.values())
+    return all(isinstance(item, str) and bool(item.strip()) for item in group_ids) and len(
+        set(group_ids)
+    ) == len(group_ids)
 
 
 __all__ = [

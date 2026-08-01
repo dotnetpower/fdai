@@ -262,6 +262,8 @@ async def test_malformed_integration_json_is_not_ready() -> None:
             "FDAI_JIRA_ACCOUNT_EMAIL": "configured",
             "FDAI_JIRA_API_TOKEN_SECRET": "configured",
             "FDAI_JIRA_TOOL_MAP_JSON": "[]",
+            "FDAI_HUMAN_ACCESS_MI_CLIENT_ID": "identity-client",
+            "FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON": '{"Reader": "same"}',
             "FDAI_STATE_STORE_DSN": "configured",
         },
     )
@@ -274,6 +276,8 @@ async def test_malformed_integration_json_is_not_ready() -> None:
     assert integrations["email"]["ready"] is False
     assert integrations["jira"]["reason"] == "configuration is invalid"
     assert integrations["jira"]["ready"] is False
+    assert integrations["human-access"]["reason"] == "configuration is invalid"
+    assert integrations["human-access"]["available"] is False
 
 
 def _setting(projection: dict[str, Any], key: str) -> dict[str, Any]:
