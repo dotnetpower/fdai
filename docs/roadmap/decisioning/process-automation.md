@@ -201,6 +201,13 @@ diagnostic evidence therefore use the same deployed or test catalog instead of
 silently falling back to the repository default. Composition without an
 explicit override retains the default catalog.
 
+Direct API delivery routes registered ActionTypes to dedicated adapters before using the
+operations gateway fallback. Human-access actions bind their allowlisted Entra adapter only when
+the workload identity, HTTP client, state store, and complete role-group mapping are configured;
+they remain in observation mode until separately promoted. All other supported operations keep
+the existing gateway path. A recording fake can't be combined with either live binding, and a
+partial gateway or human-access configuration stops startup instead of selecting a weaker path.
+
 ## 5. Saga compensation
 
 A multi-step process that fails partway MUST be able to undo the steps that

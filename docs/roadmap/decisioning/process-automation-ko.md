@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 1e24e4957a4981c1a69154563600e84d4f409142
-translation_revised: 2026-07-30
+translation_source_sha: 962fa94f38186155c87ee8ecc8a0b2e1a2c70a03
+translation_revised: 2026-08-01
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -196,6 +196,13 @@ focused owner 문서로 이동했습니다: [workflow-control-loop-integration-k
 전달해야 합니다. 따라서 실행 자격, 승격 상태, 진단 근거는 저장소 기본값으로
 조용히 되돌아가지 않고 동일한 배포 또는 테스트 카탈로그를 사용합니다. 명시적
 override가 없는 구성은 기본 카탈로그를 유지합니다.
+
+Direct API 전달은 등록된 ActionType을 전용 adapter로 먼저 route한 다음 operations gateway
+fallback을 사용합니다. Human-access action은 workload identity, HTTP client, state store 및 전체
+role-group mapping이 구성된 경우에만 허용 목록 기반 Entra adapter를 bind하며 별도 승격 전까지
+관찰 모드를 유지합니다. 나머지 지원 작업은 기존 gateway 경로를 유지합니다. Recording fake는
+어떤 live binding과도 결합할 수 없으며 gateway 또는 human-access 구성이 일부만 있으면 더 약한
+경로를 선택하지 않고 startup을 중단합니다.
 
 ## 5. saga 보상(saga compensation)
 
