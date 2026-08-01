@@ -21,7 +21,8 @@ preserving FDAI's governed action pipeline.
 > stale revision checks, typed functions, projection bindings, reconciliation, scoped SDK
 > generation, and a read-only manifest. PostgreSQL object/link writes persist exact type versions
 > and release digests, and production ActionBuilder composition uses the full loaded release.
-> Mounting the read-only manifest as a dedicated HTTP route remains optional Low-priority work.
+> The existing Reader-gated `GET /ontology/graph` projection exposes the release digest,
+> proposal-only write surface, and `mutation_authority: false`; it adds no mutation route.
 > Pre-migration rows remain explicitly unpinned because their original release digest cannot be
 > reconstructed honestly. The next successful write creates a new, fully revalidated current-state
 > revision and pins that new revision to the then-active release.

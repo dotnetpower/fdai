@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 플랫폼
 translation_of: operating-ontology-platform.md
-translation_source_sha: 10dede60957fa727602e5d9908fc785a4f0b0613
+translation_source_sha: e0ba023b09d36982d201ca99c69365dcacd23954
 translation_revised: 2026-08-01
 ---
 # FDAI 운영 온톨로지 플랫폼
@@ -23,8 +23,9 @@ SDK surface를 추가합니다.
 > query도 구현했습니다. K2-K5 core primitive는 mutation plan, stale revision check, typed
 > function, projection binding, reconciliation, scoped SDK generation, read-only manifest를
 > 포함합니다. PostgreSQL object/link write는 exact type version과 release digest를 보존하며,
-> production ActionBuilder composition은 전체 loaded release를 사용합니다. Read-only manifest를
-> 전용 HTTP route로 mount하는 작업은 선택적인 Low 우선순위로 남아 있습니다.
+> production ActionBuilder composition은 전체 loaded release를 사용합니다. 기존 Reader-gated
+> `GET /ontology/graph` projection은 release digest, proposal-only write surface,
+> `mutation_authority: false`를 노출하며 mutation route를 추가하지 않습니다.
 > Pre-migration row는 original release digest를 정직하게 복원할 수 없으므로 명시적으로 unpinned
 > 상태를 유지합니다. 다음 successful write는 완전히 다시 검증한 current-state revision을 새로
 > 만들고 그 새 revision을 해당 시점의 active release로 pin합니다.

@@ -84,6 +84,11 @@ def test_ontology_graph_returns_mermaid_and_counts() -> None:
     assert issue["lifecycle"]["creation"][0]["source_refs"]
     assert issue["lifecycle"]["deduplication"]["strategy"] == "deterministic fingerprint"
     assert body["operating_model"] == {"status": "unavailable"}
+    platform = body["ontology_platform"]
+    assert platform["release_digest"].startswith("sha256:")
+    assert platform["mutation_authority"] is False
+    assert platform["write_surface"] == "typed_proposal"
+    assert "ops.scale-out" in platform["action_types"]
 
 
 def test_ontology_graph_returns_bounded_operating_model_status() -> None:

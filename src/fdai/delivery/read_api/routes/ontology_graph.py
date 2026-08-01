@@ -20,11 +20,13 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai.core.ontology_explorer import render_ontology_mermaid
+from fdai.core.ontology_platform import CompiledInterfaceCatalog, platform_manifest
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyLinkType,
     OntologyObjectType,
 )
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.state_store import StateStore
 
 DEFAULT_ROUTE_PATH = "/ontology/graph"
@@ -114,6 +116,17 @@ def make_ontology_graph_route(
             action_type.model_dump(mode="json", exclude_none=True)
             for action_type in sorted(action_types, key=lambda item: item.name)
         ]
+        release = build_ontology_release(
+            object_types=object_types,
+            link_types=link_types,
+            action_types=action_types,
+        )
+        ontology_platform = platform_manifest(
+            release=release,
+            interfaces=CompiledInterfaceCatalog(interfaces={}, concrete_types={}),
+            action_types=action_types,
+            functions=(),
+        )
         operating_model = {"status": "unavailable"}
         if status_reader is not None:
             from fdai.runtime.operating_model import OPERATING_MODEL_STATUS_KEY
@@ -143,6 +156,7 @@ def make_ontology_graph_route(
                 "nodes": nodes,
                 "edges": edges,
                 "operating_model": operating_model,
+                "ontology_platform": ontology_platform,
             }
         )
 
