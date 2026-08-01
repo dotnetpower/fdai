@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.10"
+version: "1.1.11"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -19,6 +19,8 @@ signals:
     terms: [changed resources, created resources, deleted resources, updated resources, resource changes, 변경된 리소스, 생성된 리소스, 삭제된 리소스, 수정된 리소스]
   workload:
     terms: [deployment, deployments, deploying, pod, pods, node, nodes, node pool, node pools, workload, workloads, running apps, 배포, 파드, 노드, 노드 풀, 워크로드, 실행 중인 앱]
+  platform_health:
+    terms: [azure outage, azure incident, platform outage, platform incident, service outage, service incident, affected by an azure outage, affected by a platform outage, Azure 플랫폼 장애, Azure 서비스 장애, 플랫폼 장애, 서비스 장애]
   continuation:
     terms: [also, as well, together, too, did you check, did you skip, fail to read, 도 함께, 함께, 도 알려줘]
   unfiltered:

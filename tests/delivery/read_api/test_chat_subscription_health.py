@@ -103,6 +103,7 @@ class _SubscriptionProvider:
 def test_generic_service_outage_question_uses_subscription_health() -> None:
     assert needs_subscription_health("서비스 장애 나고 있는게 있어?")
     assert needs_subscription_health("현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?")
+    assert needs_subscription_health("Is any managed resource affected by an active Azure outage?")
 
 
 def test_platform_health_skips_semantic_turn_planner() -> None:

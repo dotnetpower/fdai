@@ -261,7 +261,8 @@ def needs_subscription_health(prompt: str) -> bool:
         return not _MUTATION.search(prompt)
     if is_specific_inventory_question(prompt):
         return False
-    asks_for_health = bool(
+    language = default_inventory_query_language_resolver()
+    asks_for_health = language.has(language.registry.signals, "platform_health", prompt) or bool(
         (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
     )
     return asks_for_health and not _MUTATION.search(prompt)
@@ -560,8 +561,9 @@ def _metric_observation_lines(
 def _status_query(prompt: str) -> dict[str, object]:
     groups = inventory_query_status_groups(prompt)
     requested_types = default_inventory_resource_type_resolver().resolve(prompt)
+    language = default_inventory_query_language_resolver()
     return {
-        "platform_impact": bool(_SERVICE_HEALTH.search(prompt)),
+        "platform_impact": language.has(language.registry.signals, "platform_health", prompt),
         "requested_resource_types": list(requested_types),
         "requested_status_groups": [
             {"id": group.id, "values": list(group.values), "labels": dict(group.labels)}
