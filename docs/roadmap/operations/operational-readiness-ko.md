@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: a66a3f4e5d069419eb438f617780a1980d35dfe2
-translation_revised: 2026-07-29
+translation_source_sha: 49e42d24023d4ef4f58d6af0cf1c1b4403cbd2c0
+translation_revised: 2026-08-01
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -222,9 +222,9 @@ publisher adapter를 binding합니다.
 ## 안전 posture
 
 - **읽기 전용 리뷰, gate 된 실행**: ORR 과 모든 finding 은 읽기 전용입니다;
-  mutation 으로의 유일한 경로는 `risk-gate -> executor` 에 진입하는 제안이며, 네
-  가지 안전 불변식(stop-condition, rollback, blast-radius 한도, audit entry) 이
-  거기서 강제됩니다.
+  mutation 으로의 유일한 경로는 `risk-gate -> executor` 에 진입하는 제안이며, 7개
+  안전조건(stop-condition, rollback, blast-radius 한도, dry-run, resource lock,
+  idempotency, audit entry)이 거기서 강제됩니다.
 - **승인과 실행은 구별 유지**: 핸드오프는 submitter 가 요청하고 구별된
   principal이 승인하고 절대 self-approve하지 않는 것이 목표 workflow 계약입니다. 현재
   `OwnershipTransfer`와 `OperationalReadinessService`는 approval decision 또는 approver identity를

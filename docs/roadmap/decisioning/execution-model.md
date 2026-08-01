@@ -654,7 +654,7 @@ router is an optional seam: absent, the loop behaves exactly as before.
 - **Idempotency invariant** - every tool call uses the action's stable
   idempotency key; a retried call MUST NOT re-run the tool (a second
   call with the same key returns `already_applied`).
-- All four safety invariants still apply. A `tool.*` ActionType is
+- All seven safeguards still apply. A `tool.*` ActionType is
   shadow-first with a measurable `promotion_gate`, exactly like a
   mutation ActionType; the executor writes exactly one audit entry per
   attempt with `action_kind=executor.tool_call.<outcome>` and
@@ -669,21 +669,21 @@ Best for: document generation, notifications, ticketing, and any
 registered function a workflow step wants to invoke via
 `action_type_ref` without opening a PR or touching a substrate.
 
-## 6. Safety invariants (unchanged + one extension)
+## 6. Seven safeguards and one replay extension
 
-Every executed action already carries the four autonomy invariants
+Every executed action already carries the seven safeguards
 from
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
-(stop-condition, rollback, blast-radius limit, audit). This document
-adds one:
+(stop-condition, rollback, blast-radius limit, dry-run, resource lock, idempotency, audit). This
+document adds one replay requirement:
 
-5. **Every dispatch writes its `resolved_ceiling`.** The audit entry
+- **Every dispatch writes its `resolved_ceiling`.** The audit entry
    MUST carry the full 6-axis breakdown (including the `risk_table` axis)
    that produced the decision, so
    a future overlay change never breaks the reproducibility of a past
    decision.
 
-The other invariants apply exactly as before - no chat-specific
+The safeguards apply exactly as before - no chat-specific
 carve-outs, no direct-API relaxation.
 
 ### 6.1 Interaction with the operator-console invariants

@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 9a9cd0f8e9bccbd1db24405d193e7599959836fb
+translation_source_sha: 4dfdc0cfd32c6dcf743650ab1da29a901a5e5ec8
 translation_revised: 2026-08-01
 ---
 
@@ -22,9 +22,13 @@ translation_revised: 2026-08-01
 ## 주요 목표(Primary Objective)
 
 3개 초기 버티컬(Resilience, Change Safety, Cost Governance)을 가진 AIOps 접근에서 클라우드
-운영의 사람 검토을 최소화 - 대부분의 이벤트를 결정론적(T0/T1)으로 해결하고 LLM 추론(T2)은
+운영의 사람 검토를 최소화 - 대부분의 이벤트를 결정론적(T0/T1)으로 해결하고 LLM 추론(T2)은
 잔여 모호한 소수에 한정하며, **가드 메트릭을 회귀시키지 않은 채로** 달성합니다. 성공 메트릭을
 개선하면서 가드 메트릭을 악화시키는 자율성은 실패이지 승리가 아닙니다.
+
+SRE는 세 vertical 전체의 운영 모델입니다. 재해 복구와 Chaos Engineering은 Resilience
+capability이고, Architecture Review Board 거버넌스는 도메인 전체에 적용되며, FinOps는 Cost
+Governance 규율입니다.
 
 ### 정확성 계약
 

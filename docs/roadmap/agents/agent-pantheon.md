@@ -52,8 +52,8 @@ it makes the roles legible and auditable.
   checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
   Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside
   standing authority.
-- **Two-port model.** Every agent exposes a typed pub/sub port for machine
-  traffic and a conversational port for humans and other agents (§6).
+- **Two-port model.** Every agent exposes typed pub/sub for authority-bearing machine traffic and a
+  read-only conversational presentation port for operators and bounded peer deliberation (§6).
 - **Single-writer, multi-reader topics.** Each object type has exactly one
   owner agent that publishes; anyone may subscribe (§6.1).
 - **Judge is not the executor.** Forseti issues a verdict; Thor dispatches
@@ -475,7 +475,7 @@ Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: b
 `is_action_intent` makes commands abstain with `requires_typed_pipeline`; chat never executes.
 Owned-state scope narrowing matches complete canonical identifiers with internal `.`, `_`, or `-`
 inside the bounded question and never accepts a shorter candidate that is only an identifier prefix.
-`PantheonRuntime.introspect` supports attributed A2A reads and digest-only Bragi Turns; bounded multi-agent discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
+`PantheonRuntime.introspect` supports attributed read-only peer projections and digest-only Bragi Turns; bounded presentation discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
 
 `AgentConversationToolRegistry` binds every declared id to one owner, rejects invalid calls, bounds time
 and data, and holds errors or sensitive output without values. Tool results expose only `agent`, `evidence_refs`, and declared fact keys, with no undeclared `_ref` exception. Direct and tool-routed results without durable refs receive the same content-addressed `agent-state` ref over normalized facts, never an `agent-spec` runtime claim. Unbound projections state unavailable instead of exposing unrelated facts. Health reports tool availability and counters. Calls use only the conversational port, so actions cannot reach an executor or cloud SDK.

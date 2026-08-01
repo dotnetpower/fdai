@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 3daa8492365107c206296c3c714af924b3f47b65
+translation_source_sha: 0cb66cd993111c3aea83ee40113172f767f937ad
 translation_revised: 2026-08-01
 ---
 
@@ -10,7 +10,7 @@ translation_revised: 2026-08-01
 리스크 게이트가 **고위험 결정을 사람에게 넘겨 일시정지시킨 뒤** - 아무도 응답하지
 않을 때 - 무슨 일이 벌어지는가. 이 문서는 응답 없는 승인 요청을 영향도에 따라 on-call
 사슬 위로 걸어 올리는 **시간 제한 에스컬레이션 사다리(escalation ladder)** 와, 기다리는
-것이 행동하는 것보다 더 위험한 경우를 위해 운영자가 **경계가 정해진 조건부 자동 조치**
+것이 행동하는 것보다 더 위험한 경우를 위해 운영자가 **경계가 정해진 조건부 실행**
 를 미리 확약해 둘 수 있는 **상시 권한(standing authorization)** 아티팩트를 규정한다.
 둘 다 기존 단일 패스 컨트롤 루프 위에 얹는 **감독형 OODA 루프** 로 설계된다.
 
@@ -170,7 +170,7 @@ rung 을 올린다**:
 긴급도는 사다리를 **얼마나 빨리** 걷는지를 바꾼다; 액션이 auto-execute 되도록 허용되는지
 **여부** 는 절대 바꾸지 않는다. 그 게이트가 상시 권한이다.
 
-## 상시 권한(사전 승인 조건부 자동 조치)
+## 상시 권한(사전 승인 조건부 실행)
 
 이것이 *"운영자가 자동 조치를 미리 설정해 둔"* 경우 뒤의 메커니즘이다. **상시 권한** 은
 운영자가 작성한 policy-as-code 아티팩트로 다음을 말한다:
@@ -189,9 +189,13 @@ rung 을 올린다**:
 # rule-catalog/standing-authority/<name>.yaml
 version: 1
 id: sa-scale-out-before-quota-breach
+authorization_revision: <content-digest>
 authored_by: aw-owners           # a human authority; recorded as approver-of-record
 valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
 service_ref: <service-id>
+target_revision: <inventory-and-operating-model-revision>
+policy_digest: <risk-and-approval-policy-digest>
+action_type_versions: [remediate.scale-out.compute@<version>]
 incident_classes: [forecast.breach]
 responders:
   primary: <on-call-primary>
@@ -223,13 +227,13 @@ mode: shadow                      # judge-and-log until explicitly promoted
   한다 - 사람 override 메커니즘이 강제하는 것과 동일한 상한
   ([architecture.instructions.md § Human Override](../../../.github/instructions/architecture.instructions.md#human-override)).
   subscription 전역 상시 권한은 없다.
-- **가역(reversible) 액션만.** `irreversible: true` 액션은 절대 사전 승인될 수 없다;
+- **비파괴적이고 가역적인 액션만.** 파괴적 액션 또는 `irreversible: true` 액션은 절대 사전 승인될 수 없다;
   항상 HIL+quorum 으로 라우팅된다
   ([coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)).
   상시 권한은 선언되고 테스트된 `rollback_contract` 를 요구한다.
-- **사다리 우선, 사다리 대체 아님.** 트리거는 `after: ladder_unanswered` 다. 상시 권한은
-  실제 사람들이 요청받고 데드라인이 지난 뒤에만 발동될 수 있다 - *꼬리를 줄일* 뿐,
-  사람을 대체하지 않는다.
+- **사다리 우선, 사다리 대체 아님.** 트리거는 `after: ladder_unanswered`입니다. 먼저 채널
+  fallback이 전달을 확인해야 하며 연락할 수 없는 사람을 침묵으로 기록하지 않습니다. 상시 권한은
+  실제 사람들이 요청받고 데드라인이 지난 뒤에만 발동할 수 있습니다.
 - **사람이 approver-of-record.** `authored_by` 는 결정을 사전 확약한 사람 권한을
   기록한다; Var 가 이를 상시 승인으로 운반해 approve-vs-execute principal 분리가 유지된다
   (self-approval 없음, model-as-approver 없음).
@@ -239,6 +243,11 @@ mode: shadow                      # judge-and-log until explicitly promoted
 - **인수인계 후 재확인 전까지 중단합니다.** 모든 담당자 인수인계에서 새 책임 담당자가 서비스,
   대응자, 경계, 증거 및 만료를 확인해야 합니다. 확인이 누락되거나 오래되거나 거절되면 상시
   권한을 적용할 수 없습니다.
+- **버전을 고정하고 취소할 수 있습니다.** 권한 리비전, 정책 digest, 대상 리비전, ActionType 및
+  워크플로우 버전, 증거 리비전을 고정합니다. 불일치, 취소, 정책 변경, 대상 drift 또는 카탈로그
+  변경이 발생하면 독립적인 재승인이 필요합니다.
+- **Chaos injection은 제외됩니다.** 상시 권한은 fault injection을 승인하지 않습니다. 별도로
+  사람이 승인한 실험은 제한된 중단 및 복구 경로만 사전승인할 수 있습니다.
 - **7개 자율 작업 안전조건이 모두 적용됩니다.**
   ([architecture.instructions.md § Seven Autonomous-Action Safeguards](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)).
 - **위험한 액션보다 안전 강등(safe-degradation) 을 선호.** 가능하면 사전 승인 액션은

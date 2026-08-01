@@ -87,8 +87,8 @@ interface (see [project-structure.md](../architecture/project-structure.md)):
 - **Policy adapter** - evaluates the same OPA/Rego policies with provider-parameterized inputs;
   no per-cloud policy fork.
 - **IaC / executor adapter** - applies remediation via Terraform/OpenTofu providers; emits the
-  remediation PR, honoring the four safety invariants (stop-condition, rollback, blast-radius,
-  audit) per CSP.
+  remediation PR, honoring the seven safeguards (stop-condition, rollback, blast-radius, dry-run,
+  resource lock, idempotency, audit) per CSP.
 - **Identity adapter** - supplies the scoped execution principal (see below).
 - **Event-source / bus adapter** - normalizes provider events into the versioned internal
   schema at ingress.

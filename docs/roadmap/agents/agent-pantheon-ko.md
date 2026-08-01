@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7ff320141e2b18259c368d92f959e9646a340abc
+translation_source_sha: 083a02ace00274d1a3627e8fcb676ba0dc9e1290
 translation_revised: 2026-08-02
 ---
 
@@ -52,8 +52,8 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations runtime�
   alternate-source check, deterministic reevaluation, 더 작은 safe plan, no-op 또는 rollback을
   수행합니다. Var는 residual ambiguity, policy-mandated approval 또는 standing authority 밖의
   risk에만 사람 검토를 요청합니다.
-- **Two-port 모델.** 모든 에이전트는 machine 트래픽용 typed pub/sub port 와
-  사람 / 다른 에이전트용 conversational port 를 노출한다 (§6).
+- **Two-port 모델.** 모든 에이전트는 권한이 있는 machine 트래픽용 typed pub/sub와
+  operator 및 제한된 peer deliberation용 read-only conversational presentation port를 제공합니다 (§6).
 - **Single-writer, multi-reader topics.** 각 object type 은 정확히 하나의
   owner agent 만 publish 하고, 누구나 subscribe 할 수 있다 (§6.1).
 - **판사는 executor 가 아니다.** Forseti 는 verdict 를 발행하고, Thor 는
@@ -453,7 +453,7 @@ Question은 2,000자로 제한하고 session마다 monotonic turn 100개를 보�
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
 Owned-state scope narrowing은 bounded question 안에서 내부 `.`, `_`, `-`를 가진 complete canonical
 identifier만 매칭하며, 더 긴 identifier의 prefix일 뿐인 짧은 candidate는 허용하지 않습니다.
-`PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공하며 bounded multi-agent discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
+`PantheonRuntime.introspect`는 귀속되는 read-only peer projection과 digest-only Bragi Turn을 제공하며 제한된 presentation discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 owner에 bind하고 invalid call을 거부하며 time과
 data를 제한합니다. Tool result는 `agent`, `evidence_refs`, declared fact key만 노출하며 undeclared `_ref` 예외가 없습니다. Direct 및 tool-routed result는 durable ref가 없으면 normalized fact 기반 content-addressed `agent-state` ref를 사용하며 `agent-spec`을 runtime claim으로 표시하지 않습니다.

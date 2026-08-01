@@ -1,8 +1,8 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: eaa2952d1f1ae3e47077b6303a77beb6ec7314ac
-translation_revised: 2026-07-21
+translation_source_sha: 8a9eb45168bf54d285b8cd0e9b16f32de038ace2
+translation_revised: 2026-08-01
 ---
 # 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 
@@ -94,7 +94,7 @@ terraform plan (JSON)
 
 능동 재조립은 **새로운** 특권 경로가 **아닙니다**. 일급 온톨로지 `ActionType`을 등록하여
 기존 [executor](../../../src/fdai/core/executor/executor.py)를 재사용하므로, 네 개의 안전
-불변식, shadow-first 게이팅, append-only 감사 항목이 공짜로 따라옵니다 (콘솔 어휘가 모든
+7개 안전조건, shadow-first 게이팅, append-only 감사 항목이 공짜로 따라옵니다 (콘솔 어휘가 모든
 액션을 타입드 파이프라인으로 라우팅하는 것과 같은 이유,
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#action-ontology-and-console-vocabulary)
 참조).
@@ -167,7 +167,7 @@ discovery 루프는 환경 전반에서 반복되는 `MANUAL` blocker를 **새�
 
 ## 안전 불변식
 
-모든 재조립 액션은 그것이 재사용하는 executor에 의해 강제되어 네 개의 불변식을 모두
+모든 재조립 액션은 그것이 재사용하는 executor에 의해 강제되어 7개 안전조건을 모두
 만족합니다:
 
 - **Stop-condition** - ActionType에 선언된 위의 수렴 캡.
@@ -226,4 +226,4 @@ draft입니다.
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) - 컨트롤 루프, quality gate, 안전 불변식, 액션 온톨로지
 - [project-structure-ko.md](../architecture/project-structure-ko.md) - executor, 모듈 경계, infra 서브 모듈 패턴
 - [risk-classification-ko.md](../decisioning/risk-classification-ko.md) - blocking finding이 `hil`로 라우팅되는 방식
-- [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) - 네 개의 안전 불변식, shadow-first, ActionType 계약
+- [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) - 7개 안전조건, shadow-first, ActionType 계약

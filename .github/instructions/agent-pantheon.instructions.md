@@ -68,7 +68,7 @@ This is the G-7 layout from tracker #14 and it is enforced by
 > `owns_code_paths`. The tables in this file and in
 > [`docs/roadmap/agents/agent-pantheon.md`](../../docs/roadmap/agents/agent-pantheon.md)
 > paraphrase that data for human readers. If they disagree, the code
-> wins - and a regression test
+> and documents are inconsistent; neither overrides the Constitution. A regression test
 > ([`tests/agents/test_pantheon_doc_parity.py`](../../tests/agents/test_pantheon_doc_parity.py))
 > catches the drift on the 15 agent names.
 
@@ -136,7 +136,8 @@ MAY publish that object type's topic.
    `rollback_contract` remain ActionType safety boundaries.
 9. **Two ports share nothing but the trace (MUST).** The typed pub/sub port and
    the conversational port are separate. A conversational answer MUST NOT bypass
-   the typed pipeline's judge/approve/execute steps.
+   the typed pipeline's judge/approve/execute steps. Peer deliberation is read-only
+   presentation over bounded projections, not authority-bearing collaboration.
 10. **Hard constraints precede weighted arbitration (MUST).** Forseti and the risk
    gate remove options that violate constitutional safety, security, identity,
    data-integrity, recovery, and approved service-objective constraints before Odin

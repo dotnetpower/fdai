@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: f02010aa18fdd8a5c42ffc4d1b4416dbb711215b
+translation_source_sha: 52c567b304267389bde66bc32945a34aa380fae8
 translation_revised: 2026-08-02
 ---
 
@@ -32,7 +32,7 @@ dispatch 한다.
 
 | 개념 | 책임 | 백킹 |
 |------|------|------|
-| **ActionType** | 안전 불변식(stop-condition, rollback contract, blast-radius cap, audit)을 가진 하나의 CSP-중립 mutation 카테고리 | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology-ko.md) |
+| **ActionType** | 7개 안전조건(stop, rollback, impact cap, dry-run, lock, idempotency, audit)을 가진 CSP-중립 mutation 카테고리 | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology-ko.md) |
 | **Workflow** | 비즈니스 프로세스의 *선언*: 각각 하나의 `ActionType` 을 참조하는 스텝의 순서 리스트 + 트리거 + promotion gate + 기본 모드 | [`rule-catalog/workflows/`](../../../rule-catalog/workflows), 아래 스키마 |
 | **Process** | 실행 중 워크플로의 *런타임 인스턴스와 상태*: 현재 스텝, 대상 리소스, 진행한 finding | `Process` ObjectType (ontology) |
 | **Runbook** | *실행 메커니즘*: 스텝 리스트를 걷고, `on_failure` 를 존중하며, 집계 audit row 를 기록 | [`src/fdai/core/runbook/`](../../../src/fdai/core/runbook) |
@@ -118,10 +118,10 @@ anti_scope: >-                          # 선택적; 워크플로가 의도적�
   취급하라.
 - **`on_failure` 는 성공 경로에서도 실행된다.** 컴파일된 Runbook 러너는 선언된
   모든 스텝을 순서대로 걷는다; `on_failure` 대상은 성공 시에도 실행되는 일반
-  스텝이며, 추가로 실패 시 fallback 으로도 실행된다. `on_failure` 대상은 두 경로
-  모두에서 안전하게 (idempotent) 실행되는 스텝으로 작성하거나, null 로 두고
-  `compensated_by` 에 의존하라. 출시된 워크플로는 이 이유로 `on_failure` 를 null
-  로 둔다.
+  스텝이며, 추가로 실패 시 fallback 으로도 실행된다. 조건부 분기가 구현되고 테스트되기
+  전까지 `on_failure`가 null이 아닌 워크플로우는 enforce 승격 대상이 아니며 shadow에
+  남아야 합니다. 제공 워크플로우는 이를 null로 두고 `compensated_by`를 사용합니다. 멱등
+  fallback을 작성해도 승격 차단이 해제되지 않습니다.
 
 ### 2.2 Definition, 소유권, binding
 

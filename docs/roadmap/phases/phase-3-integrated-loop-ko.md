@@ -1,8 +1,8 @@
 ---
 title: Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
 translation_of: phase-3-integrated-loop.md
-translation_source_sha: b0c323cc76362474063665f7eb88eb4ea25ac43c
-translation_revised: 2026-07-21
+translation_source_sha: 5b79a7f1654ae25720240d142a3240ad5634ef2e
+translation_revised: 2026-08-01
 ---
 
 # Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
@@ -62,10 +62,10 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality gate, 리스크 게이트
   버티컬도 다른 버티컬의 아이덴티티를 assume할 수 없음 ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
 - **순서와 락**: 같은 리소스를 변형하는 액션은 리소스별 키에 직렬화; `executor` 는 액션 윈도우
   전체에 대해 리소스별 락 보유. 한 리소스의 동시 변형은 도메인 간 상호 배제.
-- **크로스-버티컬 충돌 처리**: 두 버티컬이 같은 윈도우에 같은 리소스를 대상으로 할 때(예:
-  비용 idle-shutdown vs DR failover rehearsal, 변경 reconcile vs rightsizing PR),
-  루프는 **Resilience safety hold > Change Safety > Cost Governance** 우선순위로 해결; 낮은 우선순위 액션은
-  연기·재평가되거나 안전하게 연기될 수 없으면 HIL로 escalate. 충돌은 절대 racing으로 해결되지 않음.
+- **크로스-버티컬 충돌 처리**: 헌법 hard constraint가 먼저 부적격 선택지를 제거합니다. 남은
+  soft-objective 액션이 같은 윈도우에 같은 리소스를 대상으로 하면 기본 우선순위는
+  **Resilience safety hold > Change Safety > Cost Governance**입니다. 낮은 선택지는 연기 및
+  재평가되거나 HIL로 escalate되며 충돌은 racing으로 해결하지 않습니다.
 - **멱등**: 모든 P3 액션은 안정 idempotency 키를 사용; 재전달된 이벤트와 재시도된 액션은 이미
   적용된 상태에서 no-op.
 - **감사**: 모든 종단 결과 - auto-apply, HIL approve/reject/timeout, defer, abstain, 모든 스케줄
@@ -87,7 +87,7 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality gate, 리스크 게이트
 
 ### DR 안전 불변식 (모든 실험)
 
-각 실험 경로는 네 불변식 모두 충족해야 함, 아니면 출시 안 됨
+각 실험 경로는 7개 안전조건을 모두 충족해야 함, 아니면 출시 안 됨
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)):
 
 - **Stop-condition**: 실험을 auto-halt하는 명시적 abort 트리거(헬스 프로브 실패, 에러율/지연
@@ -164,7 +164,7 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
 각 기준은 고정 시나리오 세트와 측정 윈도우에서 측정 가능
 ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)):
 
-- 자율 MVP가 세 버티컬 모두에 걸쳐 네 안전 불변식 강제와 **정책 위반 escape 0** 으로 운영.
+- 자율 MVP가 세 버티컬 모두에 걸쳐 7개 안전조건 강제와 **정책 위반 escape 0** 으로 운영.
 - DR/Chaos가 승인된 윈도우 내 스케줄에 실행, 목표 대비 측정된 RPO/RTO(median과 p90) 보고, 자동
   롤백 검증됨.
 - Deep DB-DR이 restore-into-isolated-env를 **무결성 mismatch 0** 과 앱-레벨 smoke 테스트 통과로

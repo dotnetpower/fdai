@@ -28,14 +28,14 @@ composition-bound T2 synthesizer to render the bounded claims.
 
 ## Situational prompt composition
 
-One static string cannot serve every turn. An operator asking in Korean, a peer agent asking
-through the A2A port, a critique round inside a deliberation, and a fact-scoped tool call each need
+One static string cannot serve every turn. An operator asking in Korean, a read-only peer
+deliberation request, a critique round inside a deliberation, and a fact-scoped tool call each need
 different instructions. `compose_conversation_prompt` builds the effective prompt per turn from the
 baseline plus the layers a `ConversationSituation` selects.
 
 | Layer | Selected when |
 |-------|---------------|
-| `audience_peer` | The turn arrives through the agent-to-agent port, including a Bragi contributor call. |
+| `audience_peer` | A composition-owned read-only peer deliberation or Bragi contributor request selects this presentation layer. |
 | `phase_position` | The deliberation is in its primary position round. |
 | `phase_critique` | The deliberation is in its peer critique round. |
 | `tier_t2` | The turn runs at T2 synthesis. |

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 99305e2197ff8ee76937c2228b9fd5540484a64d
+translation_source_sha: b6262e236936f65212777af5980ed22b10fa7be5
 translation_revised: 2026-08-02
 ---
 
@@ -381,36 +381,36 @@ focused owner 문서로 이동했습니다: [operator-console-runtime-model-ko.m
 ## 7. 안전 invariant (chat은 이를 약화시키지 않음)
 
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
-의 4 autonomy invariant는 변경 없이 적용. Chat은 그 위에 자체적으로 3개를
+의 7개 자율 작업 안전조건은 변경 없이 적용. Chat은 그 위에 자체적으로 3개를
 추가.
 
-### 7.1 기존 4 invariant
+### 7.1 기존 7개 안전조건
 
 매 write-class tool call (`simulate_change` in enforce mode - 오늘 허용
 안 됨 -, `approve_hil`, `run_runbook --live`)은 다음을 carry MUST:
 
-1. **Stop-condition** - 기저 ActionType이 이미 하나를 선언; 콘솔은 추가
-   하거나 제거하지 않음.
-2. **Rollback path** - ActionType의 `rollback_contract` 재사용.
-3. **Blast-radius limit** - ActionType의 `blast_radius` 블록 재사용;
-   오퍼레이터는 자연어로 이를 widen 할 수 없음.
-4. **Audit entry** - tool이 실제로 dispatch 하기 전에 coordinator가
-   write.
+1. **Stop-condition** - 콘솔 변경 없이 기저 ActionType에서 상속.
+2. **Rollback path** - ActionType의 `rollback_contract`에서 상속.
+3. **Blast-radius limit** - `blast_radius`에서 상속하며 자연어로 넓힐 수 없음.
+4. **Dry-run receipt** - write-class tool의 live dispatch 전에 필요.
+5. **Per-resource lock** - 브라우저가 아닌 실행 경로에서 획득.
+6. **Idempotency** - 재시도를 같은 action에 연결하고 중복 변경을 억제.
+7. **Audit entry** - dispatch 전에 기록하고 terminal outcome으로 닫음.
 
 ### 7.2 Chat 특화 3 invariant
 
-5. **매 write-class tool call 에서 verifier re-check.** Narrator가 write-
+8. **매 write-class tool call 에서 verifier re-check.** Narrator가 write-
    class tool을 겨냥하는 `tool_calls` frame을 emit 한 후, coordinator는
    tool 인자에 대해 T0Engine + policy-as-code check를 재실행. Abstain /
    deny 시, tool call은 drop 되고 turn은 HIL로 fall through (§7.4 참조).
    이것이 "LLM은 execution eligibility를 절대 부여하지 않는다" 뒤의
    mechanical guarantee.
-6. **Chat-scoped no self-approval.** `approve_hil`은 caller의 Entra
+9. **Chat-scoped no self-approval.** `approve_hil`은 caller의 Entra
    `oid`가 큐잉된 item에 recorded 된 requester와 매치하면 caller가
    Owner를 holding 하고 있어도 refuse. PR gate
    ([security-and-identity.md](../architecture/security-and-identity-ko.md))와 동일한
    invariant; chat은 refuse 시 audit reason에 invariant 이름을 추가.
-7. **BreakGlass 요청은 time-boxed 이고 명시적이어야 함.**
+10. **BreakGlass 요청은 time-boxed 이고 명시적이어야 함.**
    `activate_break_glass`는 `(reason, expiry <= 4h)` 요구하고 configured
    Owner 모두에게 push-방향 Slack/Teams adapter
    ([channels-and-notifications.md](channels-and-notifications-ko.md))로
@@ -422,7 +422,7 @@ focused owner 문서로 이동했습니다: [operator-console-runtime-model-ko.m
   `ConversationSession`, `Principal`, RiskGate role axis를 변경하지 않으므로 승인 자격도 raise하지
   않습니다. 실제 session-scoped grant store와 dispatch integration이 추가되기 전에는 elevation이
   발생하지 않는 fail-safe 상태입니다. 향후 grant도 `auto`를 절대 반환하거나 자기 요청 승인을
-  허용하면 안 됩니다(invariant 6 유지). 정확한 자격 의미는
+  허용하면 안 됩니다(safeguard 9 유지). 정확한 자격 의미는
    [user-rbac-and-identity.md § 2](user-rbac-and-identity-ko.md#2-롤-모델-4-tier--break-glass)
    에 정의되고 RiskGate role axis
    ([execution-model.md § 2.5](../decisioning/execution-model-ko.md#25-axis-f---role-rbac))가 mirror.
@@ -439,7 +439,7 @@ elevation evidence로 사용하면 안 됩니다.
 
 Narrator는 오퍼레이터가 "그냥 fix 해" 라고 말할 때
 `run_runbook(dry_run=false)` 또는 `approve_hil`을 위한 `tool_call`을
-emit MAY. Verifier re-check (invariant 5) 시:
+emit MAY. Verifier re-check (safeguard 8) 시:
 
 - Verifier pass AND RBAC 충족 → tool call 진행.
 - Verifier abstain 또는 RBAC 하한 미달 → coordinator는 기존 HIL 큐에

@@ -388,38 +388,37 @@ Moved to a focused owner document: [operator-console-runtime-model.md](operator-
 See [operator-console-runtime-model.md#6-session-model--memory](operator-console-runtime-model.md#6-session-model--memory).
 ## 7. Safety invariants (chat does not weaken them)
 
-The four autonomy invariants from
+The seven autonomous-action safeguards from
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
 apply unchanged. Chat adds three of its own on top.
 
-### 7.1 The four existing invariants
+### 7.1 The seven existing safeguards
 
 Every write-class tool call (`simulate_change` in enforce mode -
 disallowed today - `approve_hil`, `run_runbook --live`) MUST carry:
 
-1. **Stop-condition** - the underlying ActionType already declares one;
-   the console does not add or remove.
-2. **Rollback path** - reused from the ActionType's `rollback_contract`.
-3. **Blast-radius limit** - reused from the ActionType's
-   `blast_radius` block; the operator cannot widen it via natural
-   language.
-4. **Audit entry** - written by the coordinator before the tool actually
-   dispatches.
+1. **Stop-condition** - inherited from the ActionType without console alteration.
+2. **Rollback path** - inherited from the ActionType's `rollback_contract`.
+3. **Blast-radius limit** - inherited from `blast_radius`; language cannot widen it.
+4. **Dry-run receipt** - required before a write-class tool reaches live dispatch.
+5. **Per-resource lock** - held by the execution path, never by the browser.
+6. **Idempotency** - binds retries to the same action and suppresses duplicate mutation.
+7. **Audit entry** - persisted before dispatch and closed with the terminal outcome.
 
 ### 7.2 Three chat-specific invariants
 
-5. **Verifier re-check on every write-class tool call.** After the
+8. **Verifier re-check on every write-class tool call.** After the
    narrator emits a `tool_calls` frame that targets a write-class tool,
    the coordinator re-runs the T0Engine + policy-as-code check against
    the tool arguments. On abstain / deny, the tool call is dropped and
    the turn falls through to HIL (see §7.4). This is the mechanical
    guarantee behind "the LLM never grants execution eligibility".
-6. **No self-approval, chat-scoped.** `approve_hil` refuses when the
+9. **No self-approval, chat-scoped.** `approve_hil` refuses when the
    caller's Entra `oid` matches the requester recorded on the queued
    item, even if the caller holds Owner. This is the same invariant as
    the PR gate ([security-and-identity.md](../architecture/security-and-identity.md));
    chat adds the invariant name to the audit reason on refusal.
-7. **A BreakGlass request must be time-boxed and explicit.** `activate_break_glass`
+10. **A BreakGlass request must be time-boxed and explicit.** `activate_break_glass`
    requires `(reason, expiry <= 4h)` and pages every configured Owner via
    the push-direction Slack/Teams adapter
    ([channels-and-notifications.md](channels-and-notifications.md)). No
@@ -431,7 +430,7 @@ disallowed today - `approve_hil`, `run_runbook --live`) MUST carry:
   see the attempt. The shipped tool returns pager and audit receipts only; it does not change
   `ConversationSession`, `Principal`, or the RiskGate role axis, so it raises no approval
   eligibility. Until a session-scoped grant store and dispatch integration exist, no elevation
-  occurs. A future grant must never return `auto` or permit self-approval (invariant 6). The exact
+  occurs. A future grant must never return `auto` or permit self-approval (safeguard 9). The exact
    eligibility semantics are defined in
    [user-rbac-and-identity.md § 2](user-rbac-and-identity.md#2-role-model-4-tiers--break-glass)
    and mirrored by the RiskGate role axis
@@ -449,7 +448,7 @@ the receipt as elevation evidence.
 
 The narrator MAY, when the operator says "just fix it", emit a
 `tool_call` for `run_runbook(dry_run=false)` or `approve_hil`. On the
-verifier re-check (invariant 5):
+verifier re-check (safeguard 8):
 
 - If verifier passes AND RBAC is satisfied → the tool call proceeds.
 - If verifier abstains or RBAC is under the floor → the coordinator

@@ -1,7 +1,7 @@
 ---
 title: 구현 계획 기록 (2026-07-06 표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: 8fe829728ea97691e75ee80cea7afc5bd94dc411
+translation_source_sha: dc8261052680f3fd5517f390201f15ee2cb3784d
 translation_revised: 2026-08-02
 ---
 
@@ -296,8 +296,8 @@ R7은 이 둘을 평평하게 만든다.
 명확성을 위해: 아래는 2026-07-06 문서에 기술된 그대로 유지된다. 하위
 PR이 아래 중 어느 것이라도 바뀐 것으로 읽는다면 그 독해가 잘못된 것이다.
 
-- 자율 액션마다의 네 가지 안전 불변식(stop-condition, rollback,
-  blast-radius limit, audit entry). chat 특별예외 없음, direct-API
+- 자율 액션마다의 7개 안전조건(stop-condition, rollback, blast-radius limit, dry-run,
+  resource lock, idempotency, audit entry). chat 특별예외 없음, direct-API
   완화 없음.
   [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
   참조.
@@ -502,8 +502,8 @@ W1 뒤.
   FAILED`) 뿐 아니라, `core/executor/direct_api.py` 글루
   (:class:`DirectApiShadowExecutor`)까지 shipping - 이는
   :class:`~fdai.core.executor.executor.ShadowExecutor`를 미러링:
-  동일한 per-resource lock, 동일한 blast-radius cap, 동일한 4-safety
-  invariant fail-close, 동일한 enforce-mode Action 거부 (shadow-only).
+  동일한 per-resource lock, 동일한 blast-radius cap, 동일한 7-safeguard
+  fail-close, 동일한 enforce-mode Action 거부 (shadow-only).
   모든 terminal path가 정확히 하나의
   ``action_kind = "executor.direct_api.<outcome>"`` 감사 엔트리 (8개
   distinct outcome) + ``execution_path = "direct_api"``를 기록하여

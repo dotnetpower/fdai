@@ -1,8 +1,8 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: c8e95685444b8d45d679d10b8284df997ba2d306
-translation_revised: 2026-07-21
+translation_source_sha: 9fef1470fe457a1d8327eeea75a6a7b9ab38e804
+translation_revised: 2026-08-01
 ---
 # 스코프 개선 및 구조적 갭
 
@@ -251,7 +251,7 @@ runbook 은 여러 ActionType 을 chain (예: `db.failover` → `app.restart`
   optional `on_failure` branch step id 포함.
 - **Runner**: `core/runbook/runner.py` 와 `RunbookRunner.run(runbook,
   context)` 가 `RunbookResult` (per-step outcome + terminal state)
-  반환. Runner 는 **모든 step 에서** 4 대 safety invariant 를 honor -
+  반환. Runner 는 **모든 step 에서** 7개 안전조건을 honor -
   terminal 뿐만 아니라 - 실패 step 의 rollback branch 자체가 runner
   short-circuit 전에 audit.
 - **최소 viable 스코프**: linear sequence + single `on_failure` branch

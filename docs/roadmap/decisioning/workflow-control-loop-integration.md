@@ -18,7 +18,7 @@ There is no direct RPC between steps and no bypass of the risk-gate. This
 matches the pantheon rule that any request to act re-enters the typed pipeline
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 
-Every state-changing action step is an `ActionType` invocation, so its four safety invariants hold.
+Every state-changing action step is an `ActionType` invocation, so its seven safeguards hold.
 Evidence and control steps have no mutation authority and use their dedicated typed contracts. The
 runner adds one aggregate `runbook.terminal` audit row for reconstruction.
 

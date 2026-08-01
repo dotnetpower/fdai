@@ -51,7 +51,7 @@ Constitutional objective precedence filters policy, safety, security, identity, 
 
 ## Agent-Driven Runtime (MUST)
 - Every stage has one accountable pantheon agent; gateways, schedulers, adapters, and workers are mechanical relays, not hidden decision makers.
-- Agents MUST be independently schedulable and concurrent: typed pub/sub only, no direct workflow calls/RPC/imports or shared mutable workflow state. Slow, failed, or backpressured subscribers MUST NOT block unrelated work.
+- Agents MUST be independently schedulable and concurrent: authority-bearing work uses typed pub/sub only, with no direct workflow calls/RPC/imports or shared mutable workflow state. Read-only conversational deliberation is presentation over bounded owned projections, never a state or authority channel. Slow, failed, or backpressured subscribers MUST NOT block unrelated work.
 - Explicit owners join correlated branches under deadlines/quorum/arbitration; ordering is causal/per-resource only. Bragi read-only introspection MUST NOT join, decide, approve, or execute.
 - Delivery is at-least-once with idempotency, per-subscriber retry/backpressure, dead-letter, replay, and local/deployed parity. Tests prove overlap, isolation, ownership, duplicate/reorder safety, and restart/replay.
 

@@ -8,8 +8,8 @@ How FDAI turns raw telemetry into **findings** the control loop can act on:
 **root-cause analysis (RCA)**. These are the detection signals an AIOps platform is expected to
 provide - added here **without breaking deterministic-first**: every signal emits a normalized
 finding that flows through the existing `trust-router → tiers → risk-gate → executor → audit`
-path, never a side channel, and nothing auto-executes outside the risk gate and the four safety
-invariants.
+path, never a side channel, and nothing auto-executes outside the risk gate and the seven
+safeguards.
 
 Reference: control loop, tiers, and the quality gate in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md);
@@ -229,7 +229,7 @@ capacity bottlenecks and service failures" use case - kept deterministic-first.
   **demotes** the forecaster back to shadow.
 - **Safety**: a prediction **raises a finding** (shadow-mode by default) or a proactive
   remediation PR; it never auto-executes on its own. Acting on a forecast still passes the risk
-  gate and carries all four safety invariants.
+  gate and carries all seven safeguards.
 - **Measurement**: define **lead time** = `actual_breach_time − finding_time` (a valid
   prediction has positive lead time above an actionable minimum) and score **precision/recall**,
   where a true positive is a predicted breach whose actual breach occurs within the horizon. A

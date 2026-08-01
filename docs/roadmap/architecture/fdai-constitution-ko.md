@@ -1,7 +1,7 @@
 ---
 title: FDAI 헌법
 translation_of: fdai-constitution.md
-translation_source_sha: 8ff8690bf84a6d3b9a52b3ed1d98e5fa39136c84
+translation_source_sha: ccb23f1948019eb65da652422e3fd21980a5bb13
 translation_revised: 2026-08-01
 ---
 # FDAI 헌법
@@ -28,8 +28,8 @@ FDAI는 증거로 관리되는 자율 클라우드 운영 제어 평면입니다
 
 **FDAI-CONST-001 - 자율 클라우드 운영.** FDAI는 안전성, 책임성 및 측정된 운영 목표를
 보존하면서 클라우드 운영의 사람 개입을 최소화하기 위해 존재합니다. FDAI는 얇은 FDAI Console
-및 ChatOps 화면을 갖춘 헤드리스 제어 평면이며 챗봇, 대시보드, 범용 워크플로우 엔진 또는
-경계 없는 기업 의사결정 플랫폼이 아닙니다.
+및 ChatOps 화면을 갖춘 헤드리스 제어 평면이며 챗봇, 대시보드, 클라우드 운영 밖의 범용
+워크플로우 플랫폼 또는 경계 없는 기업 의사결정 플랫폼이 아닙니다.
 
 Azure가 구현된 공급자입니다. 공급자 계약은 클라우드 공급자에 중립적으로 유지하므로 헌법적
 동작을 바꾸지 않고 다른 공급자를 추가할 수 있습니다. 업스트림 산출물은 고객에 독립적으로
@@ -56,9 +56,11 @@ Azure가 구현된 공급자입니다. 공급자 계약은 클라우드 공급�
 
 **FDAI-CONST-003 - 독립적인 책임 에이전트.** 모든 capability와 상태 전이에는 고정된 15개
 에이전트 판테온의 책임 에이전트가 하나 있습니다. 에이전트는 독립적으로 스케줄할 수 있고
-동시에 실행할 수 있습니다. 기계 간 협업에는 스키마로 검증된 이벤트 버스 게시 및 구독만
-사용합니다. 직접 에이전트 호출, RPC 체인, 에이전트 간 구현 import 및 공유 가변 워크플로우
-상태는 지원하지 않습니다.
+동시에 실행할 수 있습니다. 권한이 있는 협업과 모든 상태 전이에는 스키마로 검증된 이벤트 버스
+게시 및 구독만 사용합니다. 직접 에이전트 호출, RPC 체인, 에이전트 간 구현 import 및 공유 가변
+워크플로우 상태는 지원하지 않습니다. 제한된 peer deliberation은 presentation 목적으로만
+composition-owned registry를 통해 소유된 변경 불가능한 projection을 읽을 수 있습니다. 상태를
+게시하거나 판단, 승인, 실행 또는 권한 부여를 수행할 수 없습니다.
 
 단일 작성자 소유권과 직무 분리는 절대적입니다.
 
@@ -91,6 +93,10 @@ Azure가 구현된 공급자입니다. 공급자 계약은 클라우드 공급�
 알고리즘만 의사결정 시점에 계산할 수 있습니다. 누락되거나 오래되거나 충돌하거나 입증되지
 않은 컨텍스트는 자율성 수준을 유지하거나 낮출 수만 있습니다.
 
+모든 활성, 후보 또는 계산된 임계값은 의미 형식, 단위, 범위, 허용 구간, 정확한 버전 또는
+digest, 유효 구간, 증거 cutoff, 알고리즘 또는 모델 버전, 승격 증거 및 롤백 대상을 기록합니다.
+Replay는 원래 결정 cutoff의 정확한 값을 해석하며 최신 값이 과거 결정을 다시 쓰지 않습니다.
+
 ## 제5조: 운영 도메인
 
 **FDAI-CONST-005 - 하나의 제어 평면과 여러 운영 도메인.** 도메인 capability는 도메인별
@@ -107,6 +113,13 @@ Azure가 구현된 공급자입니다. 공급자 계약은 클라우드 공급�
 SRE는 전체 운영 모델입니다. Resilience, Change Safety 및 Cost Governance는 초기 제품
 vertical로 유지합니다. 재해 복구와 Chaos Engineering은 서로 구분되는 Resilience
 capability이며 Architecture Review Board 거버넌스는 모든 도메인에 적용됩니다.
+
+| 도메인 상세 | 소유 문서 |
+|-------------|-----------|
+| SRE 운영 | [관측 가능성 및 탐지](../rules-and-detection/observability-and-detection-ko.md), [운영자 시작 SRE 및 ARB](../operations/operator-initiated-sre-and-arb-ko.md) |
+| Resilience Engineering | [복구 및 Chaos 적용](../decisioning/recovery-and-chaos-enforcement-ko.md) |
+| 변경 및 아키텍처 거버넌스 | [Architecture Review Board 패킷](architecture-review-board-ko.md), [Action Ontology](../decisioning/action-ontology-ko.md) |
+| FinOps | [비용 모델](../interfaces/cost-model-ko.md), [에이전트 워크플로우](../agents/agent-workflows-ko.md) |
 
 도메인 적용 범위에는 관측, 정규화, 증거 수집, 결정, 계획, 권한 확인, 실행, 검증 및 학습의
 전체 루프가 필요합니다. Target, Implemented 및 Planned 상태는 항상 명시적으로 구분합니다.
@@ -157,7 +170,7 @@ capability이며 Architecture Review Board 거버넌스는 모든 도메인에 �
 | A1 | 현재 정책 안에서 가역적이고 리소스 범위인 저위험 작업 실행 |
 | A2 | 측정되고 사전승인된 범위 안에서 승격된 워크플로우 실행 |
 | A3-H | 영향이 큰 작업을 실행별 독립적인 사람 승인까지 보류 |
-| A3-E | 유효한 상시 사람 권한에 따라 가역적인 비상 완화 실행 |
+| A3-E | 유효한 상시 사람 권한에 따라 비파괴적이고 가역적인 비상 완화 실행 |
 | A4 | 금지, 자기 승인, 무제한, 테넌트 간 또는 검증할 수 없는 작업 차단 |
 
 A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인입니다. 다음 조건을 모두 만족할
@@ -165,18 +178,23 @@ A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인�
 
 - 지정된 책임자가 서비스, 인시던트 분류, ActionType, 범위, 트리거, 에스컬레이션 기한,
   영향 경계, 중단 조건, 롤백, 유효기간 및 주 담당자와 백업 담당자를 승인했습니다.
+- 권한은 리소스 그룹과 동등하거나 더 좁은 범위이며 자체 리비전, 정책 digest, ActionType 및
+  워크플로우 버전, 대상 리비전 및 증거 리비전을 고정합니다. 변경 또는 취소가 발생하면 독립적인
+  재승인 전까지 적용할 수 없습니다.
 - 적용 가능한 서비스 로그, 인시던트 및 감사 이력을 검토하고 선례의 존재 여부를 기록했습니다.
   충분한 선례가 없으면 현재 DR 훈련, 제한된 Chaos 실험 또는 시뮬레이션이 동등한 시나리오
   증거를 제공합니다.
 - 모든 담당자 인수인계에서 위임을 다시 확인합니다. 확인이 누락되거나 오래되거나 거절되면
   위임을 일시 중단합니다.
-- 선언된 에스컬레이션 단계로 실제 사람에게 연락하고 모든 시도를 감사합니다.
+- 사람의 침묵을 측정하기 전에 선언된 채널 fallback으로 전달을 확인합니다. 모든 연락, 전달 및
+  에스컬레이션 시도를 감사합니다.
 - 기한 만료 시 작업이 가역적이고 정확한 경계 안에 계속 있습니다.
 - 감독자가 형식화된 위험 파이프라인으로 다시 진입하며 실행자를 직접 호출하지 않습니다.
 - 실행 직후 알림과 기한이 있는 사후 검토를 수행합니다.
 
 상시 권한은 A4에 적용되지 않습니다. 비가역적이거나 더 넓은 범위의 복구에는 구성된 정족수를
-충족하는 새로운 사람 승인이 필요합니다.
+충족하는 새로운 사람 승인이 필요합니다. A3-E는 Chaos fault injection을 승인하지 않습니다.
+별도로 사람이 승인한 실험은 제한된 중단 및 복구 시퀀스만 사전승인할 수 있습니다.
 
 ## 제9조: 워크플로우 거버넌스
 
@@ -186,12 +204,15 @@ A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인�
 실행자, 복구 또는 감사 경로를 우회할 수 없습니다.
 
 모든 워크플로우는 목표, 트리거, 전제조건, 보호할 목표, 제한된 단계, 기한, 중단 조건, 예상
-효과, 실패 동작, 보상, 완료 기준 및 제외 범위를 선언합니다. 런타임 Process는 공유 가변 조정
-상태 대신 추가 전용 저널과 변경 불가능한 프로젝션에서 재구성합니다.
+효과, 실패 동작, 보상, 완료 기준 및 제외 범위를 선언합니다. 책임 담당자 하나가 revision이 있는
+내구성 Process snapshot과 append-only journal을 진행합니다. Ontology 및 console projection은
+재구성 가능한 read model이며 에이전트는 가변 Process 상태를 공유하여 조정하지 않습니다.
 
 새 워크플로우 또는 실질적으로 변경된 워크플로우는 shadow 모드에서 시작하며 구조 검증,
-시뮬레이션 또는 dry-run, 시나리오 회귀 및 명시적 승격을 통과합니다. 이미 승격된 템플릿은
-활성 권한 안에서만 정책 매개 변수를 조정하거나 승인된 primitive를 구성할 수 있습니다.
+시뮬레이션 또는 dry-run, 시나리오 회귀 및 명시적 승격을 통과합니다. 승격된 워크플로우
+인스턴스는 활성 경계 안에서 선언된 매개 변수만 변경할 수 있습니다. Step, ActionType, guard,
+순서, 실패 edge 또는 보상을 바꾸면 새 immutable workflow version이 되어 shadow로 돌아갑니다.
+승인된 primitive를 사용해도 새 조합이 사전승인되지는 않습니다.
 
 ## 제10조: 증거, 추적성 및 개정
 
@@ -202,6 +223,19 @@ A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인�
 purpose -> constitutional requirement -> ontology or schema -> policy -> agent responsibility
         -> workflow or ActionType -> implementation -> test -> runtime evidence
 ```
+
+| 조항 | 상세 소유자 | 필수 검증 증거 |
+|------|-------------|----------------|
+| 001 | App Shape, Generic Scope | 범위 gate, provider 경계 테스트, 배포 상태 |
+| 002 | Goals and Metrics, Outcome Assurance | 0 임계값 guard, outcome receipt, replay |
+| 003 | Agent Pantheon | 역할 parity, topic ownership, 동시성, 필수 의존성 테스트 |
+| 004 | Operating Ontology, Rule Governance | 스키마, provenance, freshness, 승격, replay 테스트 |
+| 005 | 제5조의 도메인 소유 문서 | 도메인별 전체 루프 시나리오 및 상태 증거 |
+| 006 | Agent Pantheon arbitration, Risk Classification | hard constraint 및 arbitration 속성 테스트 |
+| 007 | Security and Identity, Action Ontology | shadow, dry-run, lock, idempotency, rollback, audit 테스트 |
+| 008 | Risk Classification, Escalation and Standing Authority | 승인, 만료, 인수인계, 경계, 차단 테스트 |
+| 009 | Process Automation, Workflow Control-Loop Integration | loader, 버전 고정, guard, 보상, 승격 테스트 |
+| 010 | Design Routes, Constitution Checker | 양언어, 링크, route, 추적성 및 CI 검사 |
 
 권위는 다음 순서로 내려갑니다.
 

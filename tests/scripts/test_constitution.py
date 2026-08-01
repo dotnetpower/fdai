@@ -18,12 +18,13 @@ def _load_module() -> ModuleType:
 
 def _valid_texts(module: ModuleType) -> dict[str, str]:
     ids = "\n".join(module.EXPECTED_IDS)
+    trace_rows = "\n".join(f"| {row} | owner | evidence |" for row in module.EXPECTED_TRACE_ROWS)
     texts = {
-        module.ENGLISH_CONSTITUTION: ids,
-        module.KOREAN_CONSTITUTION: ids,
+        module.ENGLISH_CONSTITUTION: f"{ids}\n{trace_rows}",
+        module.KOREAN_CONSTITUTION: f"{ids}\n{trace_rows}",
     }
     for path, phrases in module.REQUIRED_PHRASES.items():
-        texts[path] = "\n".join(phrases)
+        texts[path] = "\n".join(filter(None, (texts.get(path), *phrases)))
     return texts
 
 
@@ -45,6 +46,19 @@ def test_missing_requirement_id_is_rejected() -> None:
     ]
 
 
+def test_missing_traceability_row_is_rejected() -> None:
+    module = _load_module()
+    texts = _valid_texts(module)
+    texts[module.KOREAN_CONSTITUTION] = texts[module.KOREAN_CONSTITUTION].replace(
+        "| 007 | owner | evidence |", ""
+    )
+
+    assert any(
+        "expected traceability rows 001..010 once in order" in error
+        for error in module.validate_texts(texts)
+    )
+
+
 def test_missing_mirror_and_obsolete_phrase_are_rejected() -> None:
     module = _load_module()
     texts = _valid_texts(module)
@@ -55,3 +69,13 @@ def test_missing_mirror_and_obsolete_phrase_are_rejected() -> None:
 
     assert any("missing required constitutional phrase" in error for error in errors)
     assert any("obsolete constitutional phrase" in error for error in errors)
+
+
+def test_obsolete_safeguard_count_is_rejected_across_roadmap() -> None:
+    module = _load_module()
+    texts = _valid_texts(module)
+    texts["docs/roadmap/example.md"] = "All four safety invariants apply."
+
+    assert any(
+        "obsolete roadmap safeguard phrase" in error for error in module.validate_texts(texts)
+    )

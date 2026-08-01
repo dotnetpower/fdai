@@ -255,7 +255,7 @@ composition primitive today.
   by name, plus an optional `on_failure` branch step id.
 - **Runner**: `core/runbook/runner.py` with `RunbookRunner.run(runbook,
   context)` returning a `RunbookResult` (per-step outcomes + terminal
-  state). The runner honors the four safety invariants **on every
+  state). The runner honors the seven safeguards **on every
   step** (not just the terminal one) - a failing step's rollback
   branch is itself audited before the runner short-circuits.
 - **Minimum viable scope**: linear sequence + single `on_failure`

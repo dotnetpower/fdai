@@ -27,7 +27,8 @@ touchpoints without weakening those boundaries.
 **FDAI-CONST-001 - Autonomous cloud operations.** FDAI exists to minimize human intervention in
 cloud operations while preserving safety, accountability, and measured operational objectives.
 It is a headless control plane with a thin FDAI Console and ChatOps surfaces, not a chatbot,
-dashboard, general workflow engine, or unbounded enterprise decision platform.
+dashboard, general-purpose workflow platform outside cloud operations, or unbounded enterprise
+decision platform.
 
 Azure is the implemented provider. Provider contracts remain cloud-provider-neutral so another
 provider can be added without changing constitutional behavior. Upstream artifacts remain
@@ -53,9 +54,11 @@ The following outcomes are constitutional violations with a threshold of zero:
 
 **FDAI-CONST-003 - Independent accountable agents.** Every capability and state transition has one
 accountable agent in the fixed 15-agent pantheon. Agents are independently schedulable and
-concurrent. Machine collaboration uses schema-validated event-bus publish and subscribe only.
-Direct agent calls, RPC chains, implementation imports between agents, and shared mutable workflow
-state are not supported.
+concurrent. Authority-bearing collaboration and every state transition use schema-validated
+event-bus publish and subscribe only. Direct agent calls, RPC chains, implementation imports
+between agents, and shared mutable workflow state are not supported. Bounded peer deliberation may
+read owned immutable projections through a composition-owned registry only for presentation; it
+cannot publish state, decide, approve, execute, or grant authority.
 
 Single-writer ownership and separation of duties are absolute:
 
@@ -87,6 +90,11 @@ after evidence, validation, shadow evaluation, and promotion. Situation-specific
 calculated at decision time only by an approved, versioned algorithm. Missing, stale, conflicting,
 or unproven context can only preserve or lower autonomy.
 
+Every active, candidate, or calculated threshold records its semantic type, unit, scope, allowed
+range, exact version or digest, effective interval, evidence cutoff, algorithm or model version,
+promotion evidence, and rollback target. Replay resolves those exact values at the original
+decision cutoff; a latest value never rewrites a historical decision.
+
 ## Article 5: Operating domains
 
 **FDAI-CONST-005 - One control plane, multiple operating domains.** Domain capability does not
@@ -103,6 +111,13 @@ ontology across these operating domains:
 SRE is the overall operating model. Resilience, Change Safety, and Cost Governance remain the
 initial product verticals. Disaster recovery and Chaos Engineering are distinct Resilience
 capabilities; Architecture Review Board governance applies across all domains.
+
+| Domain detail | Owner documents |
+|---------------|-----------------|
+| SRE operations | [Observability and Detection](../rules-and-detection/observability-and-detection.md), [Operator-Initiated SRE and ARB](../operations/operator-initiated-sre-and-arb.md) |
+| Resilience Engineering | [Recovery and Chaos Enforcement](../decisioning/recovery-and-chaos-enforcement.md) |
+| Change and Architecture Governance | [Architecture Review Board Packet](architecture-review-board.md), [Action Ontology](../decisioning/action-ontology.md) |
+| FinOps | [Cost Model](../interfaces/cost-model.md), [Agent Workflows](../agents/agent-workflows.md) |
 
 Coverage requires the complete loop for each domain: observe, normalize, gather evidence, decide,
 plan, authorize, act, verify, and learn. Target, implemented, and planned status must remain
@@ -155,7 +170,7 @@ authority automatically.
 | A1 | execute a reversible, resource-scoped, low-risk action inside current policy |
 | A2 | execute a promoted workflow inside a measured and pre-approved envelope |
 | A3-H | hold a high-impact action for independent per-execution human approval |
-| A3-E | execute a reversible emergency mitigation under valid standing human authorization |
+| A3-E | execute a non-destructive, reversible emergency mitigation under valid standing human authorization |
 | A4 | deny prohibited, self-approved, unbounded, cross-tenant, or unverifiable action |
 
 A3-E is approval given in advance, not approval inferred from silence. It is valid only when all of
@@ -164,18 +179,23 @@ these conditions hold:
 - a named accountable human approved the service, incident class, ActionTypes, scope, trigger,
   escalation deadline, impact envelope, stop conditions, rollback, validity period, and primary
   and backup responders;
+- the authorization is resource-group-equivalent or narrower and pins its own revision, policy
+  digest, ActionType and workflow versions, target revision, and evidence revisions; any change or
+  revocation makes it ineligible until independently approved again;
 - applicable service logs, incidents, and audit history were reviewed and the presence or absence
   of a precedent was recorded; when no adequate precedent exists, a current DR drill, bounded Chaos
   experiment, or simulation provides equivalent scenario evidence;
 - every ownership handover re-confirms the delegation; missing, stale, or declined confirmation
   suspends it;
-- real humans are contacted through the declared escalation ladder and every attempt is audited;
+- delivery through the declared channel fallback is confirmed before human silence is measured;
+  every contact, delivery, and escalation attempt is audited;
 - the action remains reversible and inside the exact envelope when the deadline expires;
 - the supervisor re-enters the typed risk pipeline and never calls the executor directly;
 - immediate notification and time-bounded post-action review follow execution.
 
 Standing authorization never applies to A4. Irreversible or wider-scope recovery requires fresh
-human approval with the configured quorum.
+human approval with the configured quorum. A3-E never authorizes Chaos fault injection; an already
+approved experiment may pre-authorize only its bounded stop and recovery sequence.
 
 ## Article 9: Workflow governance
 
@@ -186,12 +206,15 @@ gate, approval, executor, recovery, or audit path.
 
 Every workflow declares its goal, trigger, preconditions, protected objectives, bounded steps,
 deadlines, stop conditions, expected effects, failure behavior, compensation, completion criteria,
-and anti-scope. Its runtime Process is reconstructed from an append-only journal and immutable
-projections rather than shared mutable coordination state.
+and anti-scope. One accountable owner advances a revisioned durable Process snapshot and
+append-only journal. Ontology and console projections are rebuildable read models; agents never
+coordinate by sharing mutable Process state.
 
 A new or materially changed workflow begins in shadow mode and passes structural validation,
-simulation or dry-run, scenario regression, and explicit promotion. Previously promoted templates
-may adapt policy parameters or compose approved primitives only inside their active authority.
+simulation or dry-run, scenario regression, and explicit promotion. A promoted workflow instance
+may vary only declared parameters inside their active bounds. Changing a step, ActionType, guard,
+order, failure edge, or compensation creates a new immutable workflow version that returns to
+shadow; approved primitives do not make a new composition pre-approved.
 
 ## Article 10: Evidence, traceability, and amendment
 
@@ -202,6 +225,19 @@ must be traceable through this chain:
 purpose -> constitutional requirement -> ontology or schema -> policy -> agent responsibility
         -> workflow or ActionType -> implementation -> test -> runtime evidence
 ```
+
+| Article | Detailed owners | Required verification evidence |
+|---------|-----------------|--------------------------------|
+| 001 | App Shape, Generic Scope | scope gates, provider-boundary tests, deployment status |
+| 002 | Goals and Metrics, Outcome Assurance | zero-threshold guards, outcome receipts, replay |
+| 003 | Agent Pantheon | role parity, topic ownership, concurrency, hard-dependency tests |
+| 004 | Operating Ontology, Rule Governance | schema, provenance, freshness, promotion, replay tests |
+| 005 | Domain owner documents in Article 5 | per-domain full-loop scenario and status evidence |
+| 006 | Agent Pantheon arbitration, Risk Classification | hard-constraint and arbitration property tests |
+| 007 | Security and Identity, Action Ontology | shadow, dry-run, lock, idempotency, rollback, audit tests |
+| 008 | Risk Classification, Escalation and Standing Authority | approval, expiry, handover, envelope, denial tests |
+| 009 | Process Automation, Workflow Control-Loop Integration | loader, version pinning, guard, compensation, promotion tests |
+| 010 | Design Routes, Constitution Checker | bilingual, link, route, traceability, and CI checks |
 
 Authority descends in this order:
 

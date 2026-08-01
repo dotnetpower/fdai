@@ -2,8 +2,8 @@
 
 Autonomous cloud operations control plane - an **AIOps** approach whose initial verticals
 are **Resilience** (disaster recovery and chaos/resilience testing), **Change Safety** (safe
-change and drift remediation), and **Cost Governance** (FinOps). The same architecture
-applies to other AIOps domains (posture management, SRE/SLO, etc.), which are future scope.
+change, ARB, and drift remediation), and **Cost Governance** (FinOps). SRE/SLO is the operating
+model across those verticals; additional AIOps domains such as posture management are future scope.
 Goal: minimize human intervention by resolving most events deterministically and using LLMs
 only for the residual ambiguous cases.
 
@@ -16,12 +16,13 @@ This file is the small always-on contract. Detailed rules are loaded through
 `must_read` document selected by all matching routes. The workspace hook blocks edits when
 that context is missing or stale. The single pre-tool hook records existing repository files
 requested through `read_file`; no post-tool hook receives or logs tool response bodies. A more
-specific instruction wins a conflict.
+specific instruction wins a conflict only within the Constitution's bounds; the Constitution
+always prevails.
 
 ## Core Principles (MUST)
 
 1. **Agent-driven:** Every capability belongs to an independently and concurrently runnable agent.
-   Machine collaboration uses schema-validated event-bus pub/sub only; direct agent calls, RPC,
+   Authority-bearing collaboration and state transitions use schema-validated event-bus pub/sub only; direct agent calls, RPC,
    implementation imports, and shared mutable workflow state are prohibited.
 2. **Deterministic-first:** Resolve repeatable decisions with deterministic rules. Adaptive T2
    decisions require mixed-model, verifier, grounding, risk, and approval gates.

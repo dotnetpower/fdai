@@ -606,7 +606,7 @@ Configurable + observable seams:
 - **Cross-vertical arbitration (live loop).** When an event carries
   conflicting `domain_advice` (`{domain: recommendation}`), Forseti -
   the sole writer of `object.arbitration-request` - raises the conflict;
-  Odin resolves it by the deterministic priority order
+  after constitutional hard constraints remove ineligible options, Odin resolves the remaining soft-objective conflict by the deterministic priority order
   (`resilience > security > change_safety > cost > capacity`, fork-
   overridable) and publishes `object.arbitration-decision`, which
   Forseti records. Forseti also aggregates advice arriving on *separate*

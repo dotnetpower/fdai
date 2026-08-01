@@ -6,8 +6,8 @@ applyTo: ".vscode/**,console/**,src/fdai/delivery/operator_api/**,src/fdai/runti
 # App Shape
 Not one big web app. The system is a **headless control plane + thin console + ChatOps**,
 serving three initial verticals under an AIOps approach - Resilience, Change Safety, and
-Cost Governance. A large always-on UI would contradict the "minimize human intervention"
-goal.
+Cost Governance. SRE is the operating model across them, and ARB is cross-domain governance. A
+large always-on UI would contradict the "minimize human intervention" goal.
 
 The layers are **loosely coupled**: they communicate through the event bus and git, not
 direct in-process calls, so any layer can fail or scale independently. See

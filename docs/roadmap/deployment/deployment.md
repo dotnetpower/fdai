@@ -161,8 +161,8 @@ an earlier revision automatically.
 
 ## Release and Rollback
 
-Every autonomous action carries the four safety invariants (stop-condition, rollback path,
-blast-radius limit, audit entry) from
+Every autonomous action carries the seven safeguards (stop-condition, rollback path,
+blast-radius limit, dry-run, resource lock, idempotency, audit entry) from
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md);
 deployment rollback complements, not replaces, per-action rollback.
 

@@ -1,7 +1,7 @@
 ---
 title: 초대규모 셀 아키텍처 (B안)
 translation_of: hyperscale-cell-architecture.md
-translation_source_sha: f2f811147877b3302179490d1fc33a0e8a3b1762
+translation_source_sha: 3024209d31e26e417a87bc63d2adb382b14db507
 translation_revised: 2026-08-02
 ---
 # 초대규모 셀 아키텍처 (B안)
@@ -40,7 +40,7 @@ deterministic-first 제어 루프는 그대로 두고, **셀 기반 스트리밍
 체인이 직렬화됨), **조회 / 인덱싱**(텔레메트리 볼륨은 결정 수가 아니라 리소스
 수에 비례)이다. B안은 세 가지를 모두 답한다: fan-in 은 Azure Policy 산출물이
 되고, 런타임은 수평 샤딩된 셀이 되며, 감사 경로는 락-프리 쓰기 평면과 async
-인덱스 평면으로 분리된다. 제어 루프, 티어, 리스크 게이트, 4대 안전 불변식은
+인덱스 평면으로 분리된다. 제어 루프, 티어, 리스크 게이트, 7개 자율 작업 안전조건은
 건드리지 않는다.
 
 ```mermaid

@@ -312,8 +312,8 @@ For clarity: the following stay exactly as described in the 2026-07-06
 docs. If a downstream PR reads one of these as changed, the reader is
 mis-reading this document.
 
-- The four safety invariants (stop-condition, rollback, blast-radius
-  limit, audit entry) apply to every autonomous action, no chat-specific
+- The seven safeguards (stop-condition, rollback, blast-radius limit, dry-run, resource lock,
+  idempotency, audit entry) apply to every autonomous action, no chat-specific
   carve-outs, no direct-API relaxation. See
   [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety).
 - Shadow-first for every new action. Promotion to enforce is per-action,
@@ -524,7 +524,7 @@ Follows W1. Implements
   / FAILED`) - AND the `core/executor/direct_api.py` glue
   (:class:`DirectApiShadowExecutor`) that mirrors
   :class:`~fdai.core.executor.executor.ShadowExecutor`: same
-  per-resource lock, same blast-radius cap, same four-safety-
+  per-resource lock, same blast-radius cap, same seven-safeguard-
   invariant fail-close, same shadow-only refusal for enforce-mode
   Actions. Every terminal path writes exactly one audit entry with
   ``action_kind = "executor.direct_api.<outcome>"`` (eight distinct

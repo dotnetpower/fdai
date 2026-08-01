@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 981f273ae1ba1b0e1b88549df3a150bc0c3b1416
+translation_source_sha: 9b8b0e606faae9c8311c380281e034419b18101f
 translation_revised: 2026-08-01
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -271,8 +271,8 @@ source coverage는 control 실패가 아니라 `unknown` 또는 `unavailable`로
 ## 안전 자세
 
 - **읽기 전용 트윈, gated 실행**: 트윈과 모든 답은 읽기 전용입니다; mutation으로의 유일한
-  경로는 `risk-gate -> executor` 로 진입하는 제안이며, 네 가지 safety invariant(stop-condition,
-  rollback, blast-radius 제한, audit 항목)는 트윈이 아니라 거기서 강제됩니다.
+  경로는 `risk-gate -> executor` 로 진입하는 제안이며, 7개 안전조건(stop-condition, rollback,
+  blast-radius 제한, dry-run, resource lock, idempotency, audit 항목)은 거기서 강제됩니다.
 - **Fail closed**: 근거 댈 수 없는 답은 abstain하고; 잘못 타입되거나 읽기 전용이 아닌 컴파일된
   질의는 거부되며; stale된 트윈(`Inventory` freshness가 `freshness_ttl` 초과)은 ghost 데이터로
   답하는 대신 estate 상태 질문에 답하기를 거부합니다, `RequiresInventoryFresh`

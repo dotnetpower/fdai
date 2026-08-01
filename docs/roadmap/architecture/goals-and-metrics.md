@@ -21,6 +21,10 @@ deterministically (T0/T1) and reserving LLM inference (T2) for the residual ambi
 minority, **without regressing the guard metrics**. Autonomy that improves a success metric
 while degrading a guard metric is a failure, not a win.
 
+SRE is the operating model across the three verticals. Disaster recovery and Chaos Engineering
+are Resilience capabilities, Architecture Review Board governance applies across domains, and
+FinOps is the Cost Governance discipline.
+
 ### Accuracy contract
 
 FDAI does not claim that every novel diagnosis is correct. It targets **100% contract-conformant

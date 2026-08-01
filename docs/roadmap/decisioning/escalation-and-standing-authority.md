@@ -7,7 +7,7 @@ What happens to a **high-risk decision after the risk gate pauses it for a
 human** - and nobody answers. This doc specifies the **time-bounded escalation
 ladder** that walks an unanswered approval up the on-call chain by impact, and
 the **standing authorization** artifact that lets an operator pre-commit a
-bounded, conditional auto-action for the case where waiting is more dangerous
+bounded, conditional execution for the case where waiting is more dangerous
 than acting. Both are framed as a **supervised OODA loop** layered on the
 existing single-pass control loop.
 
@@ -179,7 +179,7 @@ and uses it to **compress** rung TTLs and to **raise the starting rung**:
 Urgency changes **how fast** the ladder is walked; it never changes **whether**
 an action is allowed to auto-execute. That gate is standing authorization.
 
-## Standing authorization (pre-authorized conditional auto-action)
+## Standing authorization (pre-authorized conditional execution)
 
 This is the mechanism behind *"the operator configured an automatic action in
 advance."* A **standing authorization** is an operator-authored, policy-as-code
@@ -202,9 +202,13 @@ verification, never by a model
 # rule-catalog/standing-authority/<name>.yaml
 version: 1
 id: sa-scale-out-before-quota-breach
+authorization_revision: <content-digest>
 authored_by: aw-owners           # a human authority; recorded as approver-of-record
 valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
 service_ref: <service-id>
+target_revision: <inventory-and-operating-model-revision>
+policy_digest: <risk-and-approval-policy-digest>
+action_type_versions: [remediate.scale-out.compute@<version>]
 incident_classes: [forecast.breach]
 responders:
   primary: <on-call-primary>
@@ -236,14 +240,14 @@ mode: shadow                      # judge-and-log until explicitly promoted
   narrower - the same ceiling the human-override mechanism enforces
   ([architecture.instructions.md § Human Override](../../../.github/instructions/architecture.instructions.md#human-override)).
   There is no subscription-wide standing authorization.
-- **Reversible-only.** An `irreversible: true` action can never be pre-authorized;
+- **Non-destructive and reversible only.** A destructive or `irreversible: true` action can never be pre-authorized;
   it always routes HIL+quorum
   ([coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)).
   A standing authorization requires a declared, tested `rollback_contract`.
 - **Ladder-first, never ladder-instead.** The trigger is `after:
-  ladder_unanswered`. A standing authorization can only fire once real humans
-  were asked and the deadline passed - it *shortens the tail*, it does not
-  replace the human.
+  ladder_unanswered`. Channel fallback must first confirm delivery; an unreachable person is not
+  recorded as silent. A standing authorization can only fire once real humans were asked and the
+  deadline passed - it *shortens the tail*, it does not replace the human.
 - **Human is the approver-of-record.** `authored_by` records the human authority
   that pre-committed the decision; Var carries it as the standing approval so the
   approve-vs-execute principal split holds (no self-approval, no
@@ -254,6 +258,11 @@ mode: shadow                      # judge-and-log until explicitly promoted
 - **Handover suspends until reconfirmed.** Every ownership handover requires the new accountable
   owner to confirm the service, responders, envelope, evidence, and expiry. Missing, stale, or
   declined confirmation makes the authorization ineligible.
+- **Version-bound and revocable.** The authorization pins its revision, policy digest, target
+  revision, ActionType and workflow versions, and evidence revisions. Any mismatch, revocation,
+  policy change, target drift, or catalog change requires independent re-approval.
+- **Chaos injection is excluded.** A standing authorization never approves fault injection. A
+  separately human-approved experiment may pre-authorize only its bounded stop and recovery path.
 - **All seven autonomous-action safeguards still apply**
   ([architecture.instructions.md § Seven Autonomous-Action Safeguards](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)).
 - **Prefer safe-degradation over the risky action.** When possible, the

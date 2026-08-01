@@ -46,6 +46,10 @@ execution) and is promoted to `enforce` only after its declared
 `promotion_gate` is measured green - defined in
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety).
 
+Every fork-added ActionType and state-changing workflow step inherits all seven constitutional
+safeguards. A provider binding, catalog entry, environment, or fork marker never promotes
+authority, waives a safeguard, or turns a new composition directly into enforce mode.
+
 ## 1. Fork model at a glance
 
 - **Upstream** = this repository. Ships the generic control plane

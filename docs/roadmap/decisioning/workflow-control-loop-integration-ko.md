@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 416c9e73bbc250882700046046b7e88a05cdd34c
+translation_source_sha: 7eee02d07bcf34b604f17dd9941996fbbdcd00b0
 translation_revised: 2026-08-02
 ---
 
@@ -21,7 +21,7 @@ risk-gate 우회도 없다. 이는 행동 요청은 typed 파이프라인에 재
 규칙과 일치한다
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 
-상태를 변경하는 각 action step은 `ActionType` 호출이므로 네 가지 safety invariant가 적용됩니다.
+상태를 변경하는 각 action step은 `ActionType` 호출이므로 7개 안전조건이 적용됩니다.
 Evidence 및 control step은 mutation authority가 없고 전용 typed contract를 사용합니다. Runner는
 재구성을 위한 aggregate `runbook.terminal` audit row를 추가합니다.
 

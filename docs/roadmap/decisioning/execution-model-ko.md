@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 88e31763f6feff3c58c44bd5ae418b7d3fbbe305
+translation_source_sha: 3ab099d36f54cb659bbe3d150b2259a6e7207c6f
 translation_revised: 2026-08-02
 ---
 
@@ -635,7 +635,7 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
 - **Idempotency invariant** - 매 tool call 은 액션의 안정된 idempotency
   key 를 사용; 재시도 call 은 tool 을 재실행 MUST NOT (같은 key 의 두 번째
   call 은 `already_applied` 반환).
-- 4 개 안전 invariant 는 그대로 적용. `tool.*` ActionType 은 mutation
+- 7개 안전조건은 그대로 적용. `tool.*` ActionType 은 mutation
   ActionType 과 똑같이 측정 가능한 `promotion_gate` 를 가진 shadow-first;
   executor 는 시도당 정확히 하나의 audit entry 를
   `action_kind=executor.tool_call.<outcome>` 와
@@ -649,18 +649,18 @@ Best for: 문서 생성, 알림, 티켓팅, 그리고 워크플로 스텝이 PR 
 substrate 를 건드리지 않고 `action_type_ref` 로 invoke 하려는 임의의 등록된
 함수.
 
-## 6. 안전 invariant (변경 없음 + 하나 확장)
+## 6. 7개 안전조건과 하나의 replay 확장
 
 모든 executed 액션은 이미
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
-의 4 autonomy invariant (stop-condition, rollback, blast-radius limit,
-audit) 를 carry. 이 문서는 하나 추가:
+의 7개 안전조건(stop-condition, rollback, blast-radius limit, dry-run, resource lock,
+idempotency, audit)을 carry. 이 문서는 replay 요구사항 하나를 추가:
 
-5. **매 dispatch 는 `resolved_ceiling` 을 write.** Audit entry 는
+- **매 dispatch 는 `resolved_ceiling` 을 write.** Audit entry 는
    결정을 생성한 완전한 6-axis breakdown (`risk_table` axis 포함) 을
    carry MUST -> 향후 overlay 변경이 과거 결정의 재현성을 절대 break 안 함.
 
-다른 invariant 는 정확히 이전과 같이 적용 - chat-specific carve-out
+안전조건은 정확히 이전과 같이 적용 - chat-specific carve-out
 없음, direct-API relaxation 없음.
 
 ### 6.1 오퍼레이터-콘솔 invariant 와의 상호작용
@@ -668,13 +668,13 @@ audit) 를 carry. 이 문서는 하나 추가:
 Chat-특화 invariant ([operator-console.md § 7.2](../interfaces/operator-console-ko.md#72-chat-특화-3-invariant))
 는 additive:
 
-- **Chat invariant 5 (verifier re-check)** = "매 write-class tool call
+- **Chat safeguard 8 (verifier re-check)** = "매 write-class tool call
   에서 RiskGate 실행". 이 문서가 해당 RiskGate 의 정의; 콘솔은 그저
   호출.
-- **Chat invariant 6 (no self-approval)** = RiskGate 의 role axis
+- **Chat safeguard 9 (no self-approval)** = RiskGate 의 role axis
   (Axis F) 가 caller 의 Entra `oid` 가 큐잉된 item 의 requester 와
   매치할 때 `approve_hil` refuse.
-- **Chat invariant 7 (BreakGlass time-boxed)** = Axis F 의 BreakGlass
+- **Chat safeguard 10 (BreakGlass time-boxed)** = Axis F 의 BreakGlass
   동작 (§2.5): BreakGlass 는 approval 을 위한 eligible role 을 raise
   하지만 HIL 을 절대 우회 안 함.
 
