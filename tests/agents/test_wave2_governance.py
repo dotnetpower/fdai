@@ -440,12 +440,19 @@ def test_muninn_introspect_general_and_scoped() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _mimir_with_bus() -> Mimir:
+    mimir = Mimir()
+    mimir.bind_bus(InMemoryBus(registry=load_pantheon()))
+    return mimir
+
+
 def test_mimir_accepts_and_drains_rule_candidates() -> None:
     mimir = Mimir()
     asyncio.run(
         mimir.on_typed_message(
             "object.rule-candidate",
             {
+                "idempotency_key": "candidate:storage-public-deny:1",
                 "target_rule_id": "storage.public.deny",
                 "proposal_kind": "new",
                 "proposed_by": "Norns",
@@ -465,11 +472,16 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
 
 def test_mimir_quarantines_ungrounded_candidate() -> None:
     """A candidate with no evidence is quarantined, not accepted."""
-    mimir = Mimir()
+    mimir = _mimir_with_bus()
     asyncio.run(
         mimir.on_typed_message(
             "object.rule-candidate",
-            {"target_rule_id": "r1", "proposal_kind": "new", "proposed_by": "Norns"},
+            {
+                "idempotency_key": "candidate:r1:ungrounded:1",
+                "target_rule_id": "r1",
+                "proposal_kind": "new",
+                "proposed_by": "Norns",
+            },
         )
     )
     assert mimir.pending_candidates() == ()
@@ -479,11 +491,16 @@ def test_mimir_quarantines_ungrounded_candidate() -> None:
 
 
 def test_mimir_quarantines_missing_provenance() -> None:
-    mimir = Mimir()
+    mimir = _mimir_with_bus()
     asyncio.run(
         mimir.on_typed_message(
             "object.rule-candidate",
-            {"target_rule_id": "r1", "proposal_kind": "new", "evidence": {"x": 1}},
+            {
+                "idempotency_key": "candidate:r1:missing-provenance:1",
+                "target_rule_id": "r1",
+                "proposal_kind": "new",
+                "evidence": {"x": 1},
+            },
         )
     )
     assert mimir.pending_candidates() == ()
@@ -498,13 +515,18 @@ def test_mimir_quarantine_is_bounded_against_poisoning_flood() -> None:
     # memory (DoS), while keeping the most recent rejects for diagnostics.
     from fdai.agents.mimir import _MAX_QUARANTINE
 
-    mimir = Mimir()
+    mimir = _mimir_with_bus()
     for i in range(_MAX_QUARANTINE + 50):
         asyncio.run(
             mimir.on_typed_message(
                 "object.rule-candidate",
                 # No provenance -> guard rejects -> quarantined.
-                {"target_rule_id": f"r{i}", "proposal_kind": "new", "evidence": {"x": 1}},
+                {
+                    "idempotency_key": f"candidate:r{i}:poisoning:1",
+                    "target_rule_id": f"r{i}",
+                    "proposal_kind": "new",
+                    "evidence": {"x": 1},
+                },
             )
         )
     assert len(mimir.quarantined_candidates()) == _MAX_QUARANTINE
