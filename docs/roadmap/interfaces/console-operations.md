@@ -227,8 +227,9 @@ projection and audit trail.
 The intent digest covers the principal, domain operation, exact source reference and revision,
 normalized arguments, and applicable policy or schema version. Reusing an idempotency key with a
 different digest returns `409 Conflict`, emits an audit finding, and publishes no event. Keys are
-scoped to the authenticated principal and operation so unrelated users cannot observe or collide
-with another principal's receipt.
+namespaced by `(operator_oid, route_inventory_operation_id, source_family, source_id)`, then compared
+by intent digest. The operation id is a stable route-inventory token, not an HTTP path or ActionType
+label. Unrelated principals and sources cannot observe or collide with another receipt.
 
 Any prior-deny or re-request policy lookup returns an authoritative revision that is bound into the
 claim. The transaction or compare-and-set that commits the request rechecks that revision; a new

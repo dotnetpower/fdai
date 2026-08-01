@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 006635707f6fc5552c53ba7efe361cad14b0e200
+translation_source_sha: e9b3c236239a6c132303d27b14fbae9677d76b29
 translation_revised: 2026-08-01
 ---
 
@@ -226,8 +226,9 @@ Request acceptance는 durable claim과 outbox commit 뒤에만 HTTP `202 Accepte
 Intent digest는 principal, domain operation, exact source reference와 revision, normalized argument,
 해당 policy 또는 schema version을 포함합니다. 다른 digest로 같은 idempotency key를 재사용하면 `409
 Conflict`를 반환하고 audit finding을 기록하며 event를 publish하지 않습니다. Key는 authenticated
-principal과 operation 범위로 제한하여 관련 없는 사용자가 다른 principal의 receipt를 보거나 충돌시키지
-못하게 합니다.
+`(operator_oid, route_inventory_operation_id, source_family, source_id)`로 namespace를 만든 뒤 intent
+digest로 비교합니다. Operation id는 HTTP path나 ActionType label이 아닌 stable route-inventory token입니다.
+관련 없는 principal과 source는 다른 receipt를 보거나 충돌시키지 못합니다.
 
 Prior-deny 또는 re-request policy lookup은 claim에 binding할 authoritative revision을 반환합니다. Request를
 commit하는 transaction이나 compare-and-set은 해당 revision을 다시 확인하며 새 deny 또는 policy change가
