@@ -86,6 +86,11 @@ export function SettingsIamAssignments({ client, auth, canManage, principalOid }
           </div>
           <StatusPill kind="neutral" label={t("settings.iam.assignmentCount", { count: page?.total ?? 0 })} />
         </header>
+        {page?.caseProjectionTruncated ? (
+          <div class="state-block state-unavailable" role="status">
+            {t("settings.iam.assignmentProjectionTruncated")}
+          </div>
+        ) : null}
         <AssignmentFilterBar filters={filters} onChange={setFilters} />
         {error ? <div class="error" role="alert">{error}</div> : null}
         {items.length === 0 ? (
@@ -218,14 +223,24 @@ function AssignmentEditor({ client, auth, onCreated }: {
     intent.current = mutation;
     setBusy(true);
     setError(null);
+    let createdCase: AssignmentCase | null = null;
     try {
-      const created = await createAssignmentCase(auth, client.readApiBaseUrl, draft, mutation.idempotencyKey);
-      await submitAssignmentCase(auth, client.readApiBaseUrl, created);
+      createdCase = await createAssignmentCase(
+        auth,
+        client.readApiBaseUrl,
+        draft,
+        mutation.idempotencyKey,
+      );
+      await submitAssignmentCase(auth, client.readApiBaseUrl, createdCase);
       intent.current = null;
       setDraft({ ...draft, identity: null, goalRefs: [], justification: "" });
       setResults([]);
       await onCreated();
-    } catch (reason) { setError(message(reason)); }
+    } catch (reason) {
+      setError(createdCase
+        ? t("settings.iam.assignmentCreatedNotSubmitted", { error: message(reason) })
+        : message(reason));
+    }
     finally { setBusy(false); }
   };
 
@@ -272,22 +287,28 @@ function AssignmentEditor({ client, auth, onCreated }: {
 }
 
 function DutyRow({ duty, onChange, onRemove }: { readonly duty: AssignmentDutyBinding; readonly onChange: (next: AssignmentDutyBinding) => void; readonly onRemove: () => void }) {
-  return <div class="assignment-duty-row"><select aria-label={t("settings.iam.agent")} value={duty.agentName} onChange={(event) => onChange({ ...duty, agentName: event.currentTarget.value })}>{AGENTS.map((agent) => <option key={agent}>{agent}</option>)}</select><select aria-label={t("settings.iam.duty")} value={duty.duty} onChange={(event) => onChange({ ...duty, duty: event.currentTarget.value as AssignmentDuty })}>{DUTIES.map((value) => <option key={value} value={value}>{t(`settings.iam.dutyValue.${value}`)}</option>)}</select><input aria-label={t("settings.iam.scope")} value={duty.scopeRef} maxLength={256} onInput={(event) => onChange({ ...duty, scopeRef: event.currentTarget.value })} /><button type="button" class="secondary" onClick={onRemove} aria-label={t("settings.iam.removeDuty")}>×</button></div>;
+  return <div class="assignment-duty-row"><select aria-label={t("settings.iam.agent")} value={duty.agentName} onChange={(event) => onChange({ ...duty, agentName: event.currentTarget.value })}>{AGENTS.map((agent) => <option key={agent}>{agent}</option>)}</select><select aria-label={t("settings.iam.duty")} value={duty.duty} onChange={(event) => onChange({ ...duty, duty: event.currentTarget.value as AssignmentDuty })}>{DUTIES.map((value) => <option key={value} value={value}>{t(`settings.iam.dutyValue.${value}`)}</option>)}</select><input type="text" aria-label={t("settings.iam.scope")} value={duty.scopeRef} maxLength={256} onInput={(event) => onChange({ ...duty, scopeRef: event.currentTarget.value })} /><button type="button" class="secondary" onClick={onRemove} aria-label={t("settings.iam.removeDuty")}>×</button></div>;
 }
 
 function AssignmentEvidence({ item, auth, client, principalOid, onClose, onChanged }: { readonly item: AssignmentProjectionItem; readonly auth: AuthContext; readonly client: ReadApiClient; readonly principalOid: string; readonly onClose: () => void; readonly onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const assignmentCase = item.assignmentCase;
   const decide = async (decision: "approve" | "reject") => {
     if (!assignmentCase) return;
     setBusy(true);
+    setError(null);
     try { await reviewAssignmentCase(auth, client.readApiBaseUrl, assignmentCase, decision); await onChanged(); }
+    catch (reason) { setError(message(reason)); }
     finally { setBusy(false); }
   };
-  return <section class="settings-iam-panel assignment-evidence" aria-labelledby="assignment-evidence-heading"><header class="settings-iam-panel-head"><div><h3 id="assignment-evidence-heading">{t("settings.iam.evidenceDetails")}</h3><p>{item.subject.displayName ?? item.subject.subjectId}</p></div><button type="button" class="secondary" onClick={onClose}>{t("settings.iam.close")}</button></header><dl><dt>{t("settings.iam.caseState")}</dt><dd>{assignmentCase ? assignmentStateLabel(assignmentCase) : t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.caseRevision")}</dt><dd>{assignmentCase?.revision ?? t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.reviewEvidence")}</dt><dd>{assignmentCase?.reviews.length ?? 0}</dd><dt>{t("settings.iam.effectEvidence")}</dt><dd>{assignmentCase?.effectReceipts.map((receipt) => `${receipt.kind}: ${receipt.receiptRef}`).join(", ") || t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.handoverEvidence")}</dt><dd>{item.handover.availability === "not_connected" ? t("settings.iam.notConnected") : item.handover.state}</dd></dl>{assignmentCase?.state === "pending_review" && assignmentCase.requesterRef.toLowerCase() !== principalOid.toLowerCase() ? <div class="assignment-review-actions"><button type="button" disabled={busy} onClick={() => { void decide("approve"); }}>{t("settings.iam.approve")}</button><button type="button" class="secondary" disabled={busy} onClick={() => { void decide("reject"); }}>{t("settings.iam.reject")}</button></div> : null}</section>;
+  return <section class="settings-iam-panel assignment-evidence" aria-labelledby="assignment-evidence-heading"><header class="settings-iam-panel-head"><div><h3 id="assignment-evidence-heading">{t("settings.iam.evidenceDetails")}</h3><p>{item.subject.displayName ?? item.subject.subjectId}</p></div><button type="button" class="secondary" onClick={onClose}>{t("settings.iam.close")}</button></header><dl><dt>{t("settings.iam.caseState")}</dt><dd>{assignmentCase ? assignmentStateLabel(assignmentCase) : t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.caseRevision")}</dt><dd>{assignmentCase?.revision ?? t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.reviewEvidence")}</dt><dd>{assignmentCase?.reviews.length ?? 0}</dd><dt>{t("settings.iam.effectEvidence")}</dt><dd>{assignmentCase?.effectReceipts.map((receipt) => `${receipt.kind}: ${receipt.receiptRef}`).join(", ") || t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.handoverEvidence")}</dt><dd>{item.handover.availability === "not_connected" ? t("settings.iam.notConnected") : item.handover.state}</dd></dl>{error ? <div class="error" role="alert">{error}</div> : null}{assignmentCase?.state === "pending_review" && canReviewAssignmentCase(assignmentCase.requesterRef, principalOid) ? <div class="assignment-review-actions"><button type="button" disabled={busy} onClick={() => { void decide("approve"); }}>{t("settings.iam.approve")}</button><button type="button" class="secondary" disabled={busy} onClick={() => { void decide("reject"); }}>{t("settings.iam.reject")}</button></div> : null}</section>;
 }
 
 function CoveragePill({ item }: { readonly item: AssignmentProjectionItem }) { const kind = item.coverage === null ? "neutral" : item.coverage.some((entry) => entry.primaryCount < 1 || entry.backupOrEscalationCount < 1) ? "warning" : "success"; const label = item.coverage === null ? t("settings.iam.notObserved") : kind === "warning" ? t("settings.iam.coverageGap") : t("settings.iam.covered"); return <StatusPill kind={kind} label={label} />; }
 function AssignmentLocked() { return <section class="settings-iam-panel settings-locked-panel" role="alert"><strong>{t("settings.iam.accessDenied")}</strong><p>{t("settings.iam.assignmentsOwnerOnly")}</p></section>; }
 function assignmentStateLabel(assignmentCase: AssignmentCase): string { return t(`settings.iam.assignmentState.${assignmentCase.state}`); }
+export function canReviewAssignmentCase(requesterRef: string, principalOid: string): boolean {
+  return requesterRef.trim().toLowerCase() !== principalOid.trim().toLowerCase();
+}
 function message(reason: unknown): string { return reason instanceof Error ? reason.message : String(reason); }

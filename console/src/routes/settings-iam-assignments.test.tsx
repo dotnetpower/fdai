@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { AuthContext } from "../auth";
+import { canReviewAssignmentCase } from "./settings-iam-assignments";
 import { createAssignmentCase, submitAssignmentCase } from "./settings-iam-assignments.command";
 import { assignmentValidation, decodeAssignmentProjectionPage, filterAssignments, type AssignmentDraft } from "./settings-iam-assignments.model";
 
@@ -50,5 +51,10 @@ describe("IAM assignment contracts", () => {
     expect(source).toContain('role="alert"');
     expect(source).toContain("<fieldset>");
     expect(source).toContain('aria-label={t("settings.iam.assignmentFilters")}');
+  });
+
+  test("normalizes principal ids before exposing independent review", () => {
+    expect(canReviewAssignmentCase(" owner-1 ", "OWNER-1")).toBe(false);
+    expect(canReviewAssignmentCase("requester-1", "owner-1")).toBe(true);
   });
 });

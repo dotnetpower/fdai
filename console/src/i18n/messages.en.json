@@ -1663,6 +1663,8 @@
       "notConnected": "Not connected",
       "assignmentTableCaption": "Observed human roles, duties, coverage, cases, and handover state",
       "noAssignments": "No assignments match these filters.",
+      "assignmentProjectionTruncated": "The roster is incomplete because the case projection reached its safety limit.",
+      "assignmentCreatedNotSubmitted": "The case was created but not submitted. Refresh and retry from the current revision. {error}",
       "assignmentEditor": "Create assignment case",
       "assignmentEditorHint": "Select one exact active identity, then compose role, duties, goals, and justification.",
       "identity": "Identity",

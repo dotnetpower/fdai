@@ -1663,6 +1663,8 @@
       "notConnected": "연결되지 않음",
       "assignmentTableCaption": "관측된 사용자 역할, duty, 담당 범위, 케이스 및 인수인계 상태",
       "noAssignments": "필터와 일치하는 할당이 없습니다.",
+      "assignmentProjectionTruncated": "케이스 프로젝션이 안전 한도에 도달하여 담당 목록이 완전하지 않습니다.",
+      "assignmentCreatedNotSubmitted": "케이스는 생성되었지만 제출되지 않았습니다. 새로 고친 후 현재 리비전에서 다시 시도하세요. {error}",
       "assignmentEditor": "할당 케이스 만들기",
       "assignmentEditorHint": "정확한 활성 ID 하나를 선택한 후 역할, duty, 목표 및 사유를 구성하세요.",
       "identity": "ID",
