@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 27799310937fe8138f0ff02618eb666d14af90da
+translation_source_sha: 6f364fc1af8ccd21155df05dbb54847c834e9b9c
 translation_revised: 2026-08-01
 ---
 
@@ -173,6 +173,11 @@ boundary는 nested shape를 수락하지 않습니다.
 5. Actor, correlation id, idempotency key, audit 또는 outbox receipt를 원자적으로 기록합니다.
 6. 요청 접수, conflict, denial 또는 expiry를 반환하며 요청 시점에 실행을 주장하지 않습니다.
 7. Owning agent가 처리할 typed event를 publish합니다.
+
+Human operation의 `actor`와 `initiator_principal`은 해당 request Entra token에서 검증한 operator OID입니다.
+Console service principal, relay identity 또는 Thor workload identity가 사람을 대신할 수 없습니다.
+Machine-initiated request는 operator를 impersonate하지 않고 별도 domain route와 workload principal
+contract를 사용합니다.
 
 Retry는 같은 idempotency key를 사용합니다. Concurrent transition은 최신 source revision을 반환합니다.
 어떤 route도 agent implementation을 import하거나 Thor를 직접 호출하거나 다른 owner의 state를 수정하지

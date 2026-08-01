@@ -174,6 +174,11 @@ Every domain route repeats the checks appropriate to its source:
 6. Return request acceptance, conflict, denial, or expiry. Do not claim execution at request time.
 7. Publish the typed event for the owning agent to process.
 
+For a human operation, `actor` and `initiator_principal` are the verified operator OID from that
+request's Entra token. A console service principal, relay identity, or Thor workload identity cannot
+stand in for the human. Machine-initiated requests use a separate domain route and workload
+principal contract rather than impersonating an operator.
+
 Retries reuse the same idempotency key. A concurrent transition returns the latest source revision.
 No route imports an agent implementation, calls Thor directly, or writes another owner's state.
 
