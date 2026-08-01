@@ -731,6 +731,28 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0029: Current Azure platform impact
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q021` |
+| Executed | `2026-08-01` |
+| Question | `현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?` |
+| Azure SRE Agent answer | Found three abnormal Resource Health records, enriched them with resource annotations and VM power state, and concluded that all three were customer-initiated rather than Azure platform impact. Deployment-owned values were redacted. |
+| FDAI answer | Reached the same conclusion: zero platform-initiated resources, three customer-initiated resources, and zero unclassified causes. Deployment-owned values were redacted. |
+| Evidence | Deterministic subscription-health routing, Resource Graph inventory and availability status, bounded Resource Health annotation enrichment, no representative metrics, fresh observation time, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products reached the same factual and causal conclusion. FDAI exposed explicit platform, customer, and unknown cause counts, disabled irrelevant metrics, and verified the result against one server-owned health reference. |
+| Winner | FDAI for equal factual completeness with stronger evidence integrity and deterministic cause accounting. |
+| General fix | Explicit platform-health intent bypasses semantic planning and competing evidence branches. Broad health reads enrich missing availability causes from bounded Resource Health annotations; annotation failure remains partial and cannot prove zero impact. |
+| Status | `fdai-win` |
+
+#### RUN-0029 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 28/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -760,7 +782,7 @@ existing seed.
 | Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | compared |
 | Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | compared |
 | Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | compared |
-| Q021 | ko | Platform health | 현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어? | `HEALTH` | queued |
+| Q021 | ko | Platform health | 현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어? | `HEALTH` | compared |
 | Q022 | en | Platform health | Is any managed resource affected by an active Azure outage? | `HEALTH` | queued |
 | Q023 | ko | Platform health | 플랫폼 문제와 고객이 시작한 중지를 구분해줘. | `HEALTH` | queued |
 | Q024 | en | Platform health | Separate platform-initiated impact from customer-initiated changes. | `HEALTH` | queued |
