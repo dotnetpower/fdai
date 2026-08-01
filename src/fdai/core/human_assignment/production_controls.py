@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 
 from fdai.core.human_assignment.model import (
     AssignmentCase,
-    AssignmentModelError,
     AssignmentState,
 )
 from fdai.shared.contracts.models import Mode
@@ -73,7 +72,7 @@ class AssignmentReconciler:
         for value in values:
             try:
                 case = AssignmentCase.from_dict(dict(value))
-            except AssignmentModelError as exc:
+            except ValueError as exc:
                 _LOGGER.error(
                     "assignment_reconciliation_case_malformed",
                     extra={"exception_type": type(exc).__name__},

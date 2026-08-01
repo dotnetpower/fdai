@@ -123,3 +123,24 @@ async def test_reconciler_isolates_malformed_case_and_continues(caplog) -> None:
         if record.message == "assignment_reconciliation_case_malformed"
     )
     assert malformed.exception_type == "AssignmentModelError"
+
+
+async def test_reconciler_isolates_plain_value_error_from_decoder(caplog) -> None:
+    store = InMemoryStateStore()
+    valid = _case(AssignmentState.DEGRADED, reason="iam_provider_failed")
+    malformed = _case(AssignmentState.IAM_APPLYING).to_dict()
+    malformed["case_id"] = "invalid-state"
+    malformed["state"] = "not-an-assignment-state"
+    await store.write_state("human_assignment:case:invalid-state", malformed)
+    await store.write_state(f"human_assignment:case:{valid.case_id}", valid.to_dict())
+
+    with caplog.at_level(logging.ERROR, logger="fdai.human_assignment.reconciliation"):
+        items = await AssignmentReconciler(store=store).plan()
+
+    assert {item.case_id for item in items} == {valid.case_id}
+    malformed_record = next(
+        record
+        for record in caplog.records
+        if record.message == "assignment_reconciliation_case_malformed"
+    )
+    assert malformed_record.exception_type == "ValueError"
