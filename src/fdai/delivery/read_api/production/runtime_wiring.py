@@ -62,6 +62,7 @@ def build_production_runtime(
     http_client: httpx.AsyncClient | None = None
     incident_sla_stop: Callable[[], Awaitable[None]] | None = None
     hil_decision_recovery_stop: Callable[[], Awaitable[None]] | None = None
+    console_action_recovery_stop: Callable[[], Awaitable[None]] | None = None
     hil_secret = env.get(_env.HIL_SECRET_ENV, "").strip()
     kafka_bootstrap = env.get("FDAI_KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if hil_secret or kafka_bootstrap:
@@ -186,6 +187,10 @@ def build_production_runtime(
             from fdai.core.notifications.matrix import load_matrix_from_yaml
             from fdai.core.notifications.router import ChannelRegistry, NotificationRouter
             from fdai.delivery.notifications import StateStoreHilEscalationSink
+            from fdai.delivery.read_api.console_action_dispatch import (
+                ConsoleActionDispatcherConfig,
+                ConsoleActionDispatchRecovery,
+            )
             from fdai.delivery.read_api.routes.console_action import ConsoleActionSubmitter
 
             incident_registry = IncidentRegistry(state_store=state_store)
@@ -208,12 +213,47 @@ def build_production_runtime(
                 event_bus=event_bus,
                 raw_event_topic=event_topic,
                 action_type_names=frozenset(item.name for item in action_types),
+                dispatch_state_store=state_store,
+                dispatch_config=ConsoleActionDispatcherConfig(
+                    worker_id="console-action-dispatch-production",
+                    lease_seconds=_parse_positive_int(
+                        env,
+                        _env.CONSOLE_ACTION_LEASE_ENV,
+                        30,
+                    ),
+                    publish_timeout_seconds=_parse_positive_int(
+                        env,
+                        _env.CONSOLE_ACTION_PUBLISH_TIMEOUT_ENV,
+                        10,
+                    ),
+                    retry_delay_seconds=_parse_positive_int(
+                        env,
+                        _env.CONSOLE_ACTION_RETRY_DELAY_ENV,
+                        30,
+                    ),
+                    batch_size=_parse_positive_int(
+                        env,
+                        _env.CONSOLE_ACTION_BATCH_SIZE_ENV,
+                        100,
+                    ),
+                ),
                 incident_workflow=IncidentLifecycleWorkflow(
                     registry=incident_registry,
                     notifier=incident_notifier,
                 ),
                 incident_proposals=PostgresIncidentProposalStore(config=state_store_config),
             )
+            console_action_recovery = ConsoleActionDispatchRecovery(
+                dispatcher=console_action.dispatcher,
+                interval_seconds=_parse_positive_int(
+                    env,
+                    _env.CONSOLE_ACTION_RECOVERY_INTERVAL_ENV,
+                    30,
+                ),
+                reconcile=console_action.reconcile_incident_ticket_dispatches,
+            )
+            startup_callbacks = (*startup_callbacks, console_action_recovery.start)
+            console_action_recovery_stop = console_action_recovery.stop
 
             async def _rehydrate_incidents() -> None:
                 entries = await state_store.read_incident_transitions()
@@ -252,6 +292,7 @@ def build_production_runtime(
         shutdown_callbacks = (
             *((hil_decision_recovery_stop,) if hil_decision_recovery_stop is not None else ()),
             *((incident_sla_stop,) if incident_sla_stop is not None else ()),
+            *((console_action_recovery_stop,) if console_action_recovery_stop is not None else ()),
             *shutdown_callbacks,
             _close_event_transport,
         )

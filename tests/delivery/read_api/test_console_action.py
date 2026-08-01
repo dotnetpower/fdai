@@ -1,8 +1,8 @@
 """Tests for the console action-submit path (``POST /chat/action``).
 
 Covers the submitter logic (RBAC capability gate, verb -> ActionType mapping,
-proposal shape published to the raw event topic) and the route wiring (200
-submitted / 403 capability / 400 bad body). The proposal that lands on the bus
+proposal shape published to the raw event topic) and the route wiring (202
+accepted / 403 capability / 400 bad body). The proposal that lands on the bus
 is exactly what the pantheon's Huginn ingests, so the judge/approve/execute
 pipeline (tested in tests/agents/test_chat_to_pipeline_e2e.py) takes over from
 there.
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
 
@@ -38,6 +39,7 @@ from fdai.delivery.read_api.routes.console_action import (
 )
 from fdai.delivery.read_api.routes.incident_projection import project_incidents
 from fdai.shared.contracts.models import IncidentSeverity, IncidentState
+from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -54,6 +56,16 @@ async def _drain(bus: InMemoryEventBus, topic: str) -> list[Any]:
     async for env in bus.subscribe(topic, "test-group"):
         out.append(env)
     return out
+
+
+class _UnavailableEventBus(InMemoryEventBus):
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        payload: Mapping[str, Any],
+    ) -> PublishReceipt:
+        raise RuntimeError("broker unavailable")
 
 
 def _principal(oid: str, role: Role) -> Principal:
@@ -185,7 +197,7 @@ def test_investigation_opens_incident_and_reuses_its_correlation() -> None:
     assert second["incident_id"] == first["incident_id"]
     assert len(registry.snapshot()) == 1
     envelopes = asyncio.run(_drain(bus, _TOPIC))
-    assert len(envelopes) == 2
+    assert len(envelopes) == 1
     assert {item.payload["idempotency_key"] for item in envelopes} == {
         f"u-contrib::investigation::{first['incident_id']}"
     }
@@ -243,6 +255,82 @@ def test_incident_request_requires_same_session_confirmation_then_creates() -> N
     assert len(events) == 1
     assert events[0].payload["action_type"] == "tool.open-incident-ticket"
     assert events[0].payload["params"]["ticket_provider"] == "github"
+
+
+class _CrashBeforeTicketActivationSubmitter(ConsoleActionSubmitter):
+    async def _publish_incident_ticket_proposal(self, **_kwargs: object):  # type: ignore[no-untyped-def]
+        raise RuntimeError("simulated process loss before ticket activation")
+
+
+class _FailIncidentCreationWorkflow(IncidentLifecycleWorkflow):
+    async def confirm_chat(self, **_kwargs: object):  # type: ignore[no-untyped-def]
+        raise RuntimeError("simulated incident persistence failure")
+
+
+def test_incident_ticket_reconciles_after_crash_between_open_and_activation() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryEventBus()
+    workflow = IncidentLifecycleWorkflow(registry=IncidentRegistry(state_store=store))
+    submitter = _CrashBeforeTicketActivationSubmitter(
+        event_bus=bus,
+        raw_event_topic=_TOPIC,
+        incident_workflow=workflow,
+        dispatch_state_store=store,
+    )
+    principal = _principal("u-contrib", Role.CONTRIBUTOR)
+
+    asyncio.run(
+        submitter.submit(
+            question="Open a SEV2 incident for target prod-api-01",
+            principal=principal,
+            session_id="s1",
+        )
+    )
+    created = asyncio.run(
+        submitter.submit(question="confirm", principal=principal, session_id="s1")
+    )
+
+    assert created["submitted"] is True
+    assert created["ticket_proposal_submitted"] is False
+    assert asyncio.run(_drain(bus, _TOPIC)) == []
+
+    restarted = ConsoleActionSubmitter(
+        event_bus=bus,
+        raw_event_topic=_TOPIC,
+        incident_workflow=workflow,
+        dispatch_state_store=store,
+    )
+    assert asyncio.run(restarted.reconcile_incident_ticket_dispatches()) == 1
+    assert asyncio.run(restarted.reconcile_incident_ticket_dispatches()) == 0
+    events = asyncio.run(_drain(bus, _TOPIC))
+    assert len(events) == 1
+    assert events[0].payload["action_type"] == "tool.open-incident-ticket"
+
+
+def test_incident_ticket_remains_blocked_when_incident_creation_fails() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryEventBus()
+    workflow = _FailIncidentCreationWorkflow(registry=IncidentRegistry(state_store=store))
+    submitter = ConsoleActionSubmitter(
+        event_bus=bus,
+        raw_event_topic=_TOPIC,
+        incident_workflow=workflow,
+        dispatch_state_store=store,
+    )
+    principal = _principal("u-contrib", Role.CONTRIBUTOR)
+
+    asyncio.run(
+        submitter.submit(
+            question="Open a SEV2 incident for target prod-api-01",
+            principal=principal,
+            session_id="s1",
+        )
+    )
+    with pytest.raises(RuntimeError, match="persistence failure"):
+        asyncio.run(submitter.submit(question="confirm", principal=principal, session_id="s1"))
+
+    assert asyncio.run(submitter.reconcile_incident_ticket_dispatches()) == 0
+    assert asyncio.run(_drain(bus, _TOPIC)) == []
 
 
 def test_created_incident_audit_projects_into_roster() -> None:
@@ -706,12 +794,39 @@ def _confirm_app(sub: ConsoleActionSubmitter, principal: Principal) -> Starlette
     )
 
 
-def test_route_contributor_gets_200_submitted() -> None:
+def test_route_contributor_gets_202_durable_acceptance() -> None:
     sub, _bus = _submitter()
     client = TestClient(_app(sub, _principal("u", Role.CONTRIBUTOR)))
     resp = client.post("/chat/action", json={"prompt": "restart svc-1", "session_id": "s"})
-    assert resp.status_code == 200
+    assert resp.status_code == 202
     assert resp.json()["submitted"] is True
+    assert resp.json()["durably_queued"] is True
+
+
+def test_route_returns_202_pending_when_initial_broker_publish_fails() -> None:
+    bus = _UnavailableEventBus()
+    state_store = InMemoryStateStore()
+    submitter = ConsoleActionSubmitter(
+        event_bus=bus,
+        raw_event_topic=_TOPIC,
+        action_type_names=frozenset({"ops.restart-service"}),
+        dispatch_state_store=state_store,
+    )
+    client = TestClient(_app(submitter, _principal("u", Role.CONTRIBUTOR)))
+
+    response = client.post(
+        "/chat/action",
+        json={
+            "prompt": "restart svc-1",
+            "session_id": "s",
+            "idempotency_key": "pending-1",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json()["durably_queued"] is True
+    assert response.json()["dispatch_status"] == "pending"
+    assert asyncio.run(state_store.read_states("console_action_dispatch:", limit=1))
 
 
 def test_route_reader_gets_403_capability() -> None:
@@ -758,7 +873,7 @@ def test_typed_confirmation_publishes_allowlisted_action_once() -> None:
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     assert response.json()["submitted"] is True
     envelopes = asyncio.run(_drain(bus, _TOPIC))
     assert len(envelopes) == 1
@@ -836,7 +951,7 @@ def test_build_app_registers_action_route_when_wired(_dev_mode: None) -> None:
     client, bus = _built_client(wire_action=True)
     # dev mode grants a Contributor principal, so the submit succeeds.
     resp = client.post("/chat/action", json={"prompt": "restart svc-1"})
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 202, resp.text
     assert resp.json()["submitted"] is True
     # The proposal actually reached the bus.
     envs = asyncio.run(_drain(bus, _TOPIC))

@@ -10,7 +10,7 @@ from typing import Any, Literal
 from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
-from fdai.delivery.read_api.dev.incident_store import ProjectingIncidentStateStore
+from fdai.delivery.read_api.console_action_dispatch import ConsoleActionDispatchRecovery
 from fdai.delivery.read_api.routes.console_action import ConsoleActionSubmitter
 from fdai.delivery.read_api.streaming.agent_activity_broadcaster import (
     DEFAULT_GROUP_ID as DEFAULT_AGENT_ACTIVITY_GROUP_ID,
@@ -31,6 +31,7 @@ from fdai.delivery.read_api.streaming.live_stream import LiveStreamConfig
 from fdai.delivery.workflow_action_dispatcher import EventBusWorkflowActionDispatcher
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.local import LocalEventBus, LocalSseSink
+from fdai.shared.providers.state_store import StateStore
 
 _BOOTSTRAP_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
 _EVENT_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
@@ -46,6 +47,7 @@ class LocalCommandTransport:
     action_dispatcher: EventBusWorkflowActionDispatcher
     live_stream: LiveStreamConfig
     agent_activity: AgentActivityStreamConfig
+    start: Callable[[], Awaitable[None]]
     shutdown: Callable[[], Awaitable[None]]
 
 
@@ -53,6 +55,7 @@ def build_local_command_transport(
     *,
     read_model: Any,
     action_types: tuple[Any, ...],
+    state_store: StateStore,
     environ: Mapping[str, str] | None = None,
 ) -> LocalCommandTransport:
     """Build Azure transport when configured, otherwise the default local transport."""
@@ -77,13 +80,26 @@ def build_local_command_transport(
         )
         kind = "azure"
     incident_workflow = IncidentLifecycleWorkflow(
-        registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model))
+        registry=IncidentRegistry(state_store=state_store)
     )
     stage_topic = env.get(_STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
     agent_activity_group = instance_consumer_group(DEFAULT_AGENT_ACTIVITY_GROUP_ID, env)
     live_stage_group = instance_consumer_group(DEFAULT_LIVE_STAGE_GROUP_ID, env)
 
+    console_action = ConsoleActionSubmitter(
+        event_bus=event_bus,
+        raw_event_topic=event_topic,
+        action_type_names=frozenset(item.name for item in action_types),
+        incident_workflow=incident_workflow,
+        dispatch_state_store=state_store,
+    )
+    recovery = ConsoleActionDispatchRecovery(
+        dispatcher=console_action.dispatcher,
+        reconcile=console_action.reconcile_incident_ticket_dispatches,
+    )
+
     async def shutdown() -> None:
+        await recovery.stop()
         if isinstance(event_bus, EventHubsKafkaBus):
             await event_bus.close()
 
@@ -112,18 +128,14 @@ def build_local_command_transport(
         kind=kind,
         event_bus=event_bus,
         event_topic=event_topic,
-        console_action=ConsoleActionSubmitter(
-            event_bus=event_bus,
-            raw_event_topic=event_topic,
-            action_type_names=frozenset(item.name for item in action_types),
-            incident_workflow=incident_workflow,
-        ),
+        console_action=console_action,
         action_dispatcher=EventBusWorkflowActionDispatcher(
             event_bus=event_bus,
             topic=event_topic,
         ),
         live_stream=live_stream,
         agent_activity=agent_activity,
+        start=recovery.start,
         shutdown=shutdown,
     )
 

@@ -146,6 +146,9 @@ from fdai.delivery.read_api.dev.helpers import (  # noqa: E402
 from fdai.delivery.read_api.dev.iam_directory import (  # noqa: E402
     build_local_iam_directory,
 )
+from fdai.delivery.read_api.dev.incident_store import (  # noqa: E402
+    ProjectingIncidentStateStore,
+)
 from fdai.delivery.read_api.dev.model_wiring import build_local_model_wiring  # noqa: E402
 from fdai.delivery.read_api.dev.read_investigation import (  # noqa: E402
     build_local_read_investigation,
@@ -478,6 +481,13 @@ def build_local_app(
         else build_local_command_transport(
             read_model=read_model,
             action_types=tuple(action_types),
+            state_store=(
+                persistence.state_store
+                if persistence is not None
+                else ProjectingIncidentStateStore(
+                    read_model=cast(InMemoryConsoleReadModel, read_model)
+                )
+            ),
         )
     )
     remote_agent_delegate = None
@@ -827,6 +837,7 @@ def build_local_app(
             + ((local_read_investigation.start,) if local_read_investigation is not None else ())
             + ((remote_agent_delegate.start,) if remote_agent_delegate is not None else ())
             + ((runtime.start_pantheon_runtime,) if runtime is not None else ())
+            + ((command_transport.start,) if command_transport is not None else ())
             + (
                 (runtime.operator_runtime.start,)
                 if runtime is not None and runtime.operator_runtime is not None

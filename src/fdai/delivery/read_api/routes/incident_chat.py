@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -30,6 +31,11 @@ _ASSIGN_PATTERNS = (
     re.compile(rf"^incident\s+{_UUID}\s+담당자\s+(?P<assignee>\S+)\s+지정$", re.I),
 )
 
+PrepareIncidentTicket = Callable[
+    [IncidentCreationProposal, Principal, str],
+    Awaitable[None],
+]
+
 
 @dataclass(frozen=True, slots=True)
 class _IncidentPrincipal:
@@ -48,6 +54,7 @@ async def submit_incident_chat(
     session_id: str | None,
     correlation_id: str,
     max_question_chars: int,
+    prepare_incident_ticket: PrepareIncidentTicket | None = None,
 ) -> dict[str, Any] | None:
     """Prepare or confirm an incident request; return None for other intents."""
     if _is_ticket_action_request(question):
@@ -77,6 +84,7 @@ async def submit_incident_chat(
             session_key=session_key,
             correlation_id=correlation_id,
             decision=decision,
+            prepare_incident_ticket=prepare_incident_ticket,
         )
 
     turn = workflow.prepare_chat(
@@ -144,6 +152,7 @@ async def _consume_confirmation(
     session_key: str,
     correlation_id: str,
     decision: str,
+    prepare_incident_ticket: PrepareIncidentTicket | None,
 ) -> dict[str, Any] | None:
     now = datetime.now(tz=UTC)
     taken = await proposals.take(
@@ -170,6 +179,8 @@ async def _consume_confirmation(
             "action_type": "incident.create",
             "message": "Incident creation cancelled.",
         }
+    if prepare_incident_ticket is not None:
+        await prepare_incident_ticket(pending, principal, session_key)
     try:
         result = await workflow.confirm_chat(
             proposal=pending,

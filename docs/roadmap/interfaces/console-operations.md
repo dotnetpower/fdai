@@ -14,8 +14,9 @@ second execution authority.
 >
 > **Implementation status:** The Operations navigation, incidents, approvals, processes, scheduler
 > runs, provisioning, onboarding, and bounded investigations are shipped as separate domain views.
-> The federated Tasks view, cross-domain projection metadata, and shared request hardening gates in
-> this document are proposed. A target-phase statement never implies that its API or UI is live.
+> Console action dispatch now persists payload-bearing receipts before broker publication and
+> recovers pending delivery after restart. The federated Tasks view, cross-domain projection
+> metadata, and hardening of the remaining domain routes are proposed.
 
 ## Design at a glance
 
@@ -207,22 +208,22 @@ never invents retry guidance from an HTTP status alone.
 
 ### Delivery durability
 
-The shipped console action route publishes directly to the event bus; it does not yet persist a
-durable outbox record in the same transaction as request acceptance. A process failure before or
-during publish can therefore leave an ambiguous request. Its HTTP `200` means only that the direct
-broker publish call returned; it is not a durable acceptance receipt. Response loss is ambiguous
-and reconciled by correlation, never assumed failed. Phase 2 replaces this transitional response.
+The shipped console action route atomically claims the idempotency key and stores the complete
+proposal, intent digest, actor, correlation, and audit receipt before broker publication. Delivery
+uses a bounded lease, publish timeout, retry delay, and batch size. Startup and periodic recovery
+resume pending or expired-lease records, while downstream consumers still deduplicate the
+at-least-once event by its stable idempotency key.
 
-The target path atomically claims the idempotency key, stores the intent digest and actor receipt,
-and writes an outbox record before acknowledging acceptance. A retry reuses the stored receipt. A
-relay publishes uncommitted outbox rows at least once and marks completion only after broker
-acknowledgment; restart reconciliation resumes every uncompleted row.
+Request acceptance uses HTTP `202 Accepted` only after the durable record commits. The current
+receipt returns `request_id`, `correlation_id`, `dispatch_status`, `accepted_at`, and
+`durably_queued`; it means "durably queued", never "approved" or "executed". A same-intent replay
+reuses the record without republishing a completed event. A different intent under the same key
+returns `409 Conflict`. A status URL and the remaining shared receipt fields stay Phase 2 work.
 
-Request acceptance uses HTTP `202 Accepted` only after the durable claim and outbox commit. Its
-receipt contains `request_id`, `correlation_id`, `idempotency_key`, `intent_digest`, `accepted_at`,
-and a status URL. It means "durably queued", never "approved" or "executed". A replay of the same
-intent returns the original receipt; terminal outcome is available only from the owning domain
-projection and audit trail.
+Confirmed incident creation prepares its ticket dispatch in a blocked durable state before writing
+the incident. The dispatch activates only after `incident.open` appears in durable audit. Recovery
+activates a missing ticket effect without recreating the incident, and a failed incident write
+leaves the ticket blocked and unpublished.
 
 The intent digest covers the principal, domain operation, exact source reference and revision,
 normalized arguments, and applicable policy or schema version. Reusing an idempotency key with a
@@ -341,6 +342,9 @@ Standardize revision checks, idempotency, receipts, and outbox behavior without 
 schemas. Test stale state, duplicate submission, self-approval, expiry, role changes, and process
 restart. Run the same route inventory and authorization matrix in browser-Entra local and deployed
 composition, without fixture principals. Count all request and delivery outcomes in both venues.
+
+The Console action durability slice is shipped. Phase 2 extends the same contract to the remaining
+domain routes and replaces the incident response's collapsed ticket flag with typed effects.
 
 Exit criteria: the SPA contains no authorization decision and no accepted request bypasses its
 source owner. Failure injection before publish, after publish, and before response proves that a

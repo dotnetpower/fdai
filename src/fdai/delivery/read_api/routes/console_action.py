@@ -1,34 +1,9 @@
-"""Console action submission - the write-direction conversational entry.
+"""Durable write-direction entry for FDAI Console conversations.
 
-The read-only console deck answers questions (see :mod:`chat`). This module
-adds the ONE write-direction path an operator conversation needs. Ordinary
-mutation requests (``restart vm-1``) enter the typed pantheon pipeline, where
-Forseti judges them, Var approves high-risk requests, and Thor executes.
-Incident requests prepare and confirm an audited control-plane record through
-``IncidentLifecycleWorkflow``; they never invoke a resource executor.
-
-Boundary contract (why this is not a "console button that executes"):
-
-- **Propose, never execute.** The submitter publishes an ``ActionProposal``
-  record onto the raw event topic (the same topic the pantheon's Huginn
-  ingests). It holds no executor identity and calls no mutation surface. The
-  proposal is a *signal*, exactly like a rule-fired event - the same precedent
-  as the HIL approval callback (operator-console.md 13.3).
-- **Confirm incident records.** Incident creation requires severity, target,
-  Contributor RBAC, and a same-principal/session confirmation. The registry is
-  the sole writer and the chat route holds no cloud mutation identity.
-- **Server-derived RBAC.** The operator's role comes from the validated bearer
-  token (:class:`~fdai.core.rbac.resolver.Principal`), never from client JSON.
-  An operator without ``author-draft-pr`` capability (Reader) is refused before
-  anything is published. Forseti re-checks the initiator principal downstream
-  (deny + SecurityEvent) - defense in depth.
-- **initiator_principal is the operator.** Bragi's ``translate_action_intent``
-  is the single source of truth for verb -> ActionType, shared with the
-  pantheon-internal path so the two never drift.
-
-Registered only when a :class:`ConsoleActionSubmitter` is wired at the
-composition root (``ReadApiConfig.console_action``); absent, the route does not
-exist and the console has no action-submit surface.
+The route proposes typed events and confirms incident records; it never holds
+an executor identity or mutates a managed resource. Server-derived RBAC and
+the owning agents remain authoritative. The route exists only when a
+``ConsoleActionSubmitter`` is supplied at the composition root.
 """
 
 from __future__ import annotations
@@ -60,7 +35,19 @@ from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Capability, has_capability
 from fdai.shared.contracts.models import IncidentSeverity
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from ..console_action_dispatch import (
+    ConsoleActionDispatch,
+    ConsoleActionDispatchConflictError,
+    ConsoleActionDispatcher,
+    ConsoleActionDispatcherConfig,
+    ConsoleActionDispatchState,
+    ConsoleActionDispatchStore,
+    console_action_intent_digest,
+)
+from ..console_incident_ticket import ConsoleIncidentTicketCoordinator
 from .incident_chat import open_investigation_incident, submit_incident_chat
 
 _LOG = logging.getLogger(__name__)
@@ -155,12 +142,39 @@ class ConsoleActionSubmitter:
         default_factory=InMemoryIncidentProposalStore,
         repr=False,
     )
+    dispatch_state_store: StateStore = field(default_factory=InMemoryStateStore, repr=False)
+    dispatch_config: ConsoleActionDispatcherConfig = field(
+        default_factory=ConsoleActionDispatcherConfig,
+        repr=False,
+    )
+    _dispatcher: ConsoleActionDispatcher = field(init=False, repr=False, compare=False)
+    _incident_ticket: ConsoleIncidentTicketCoordinator = field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         # Fail fast at composition: an empty topic would publish proposals into
         # a nameless stream the pantheon never consumes.
         if not self.raw_event_topic or not self.raw_event_topic.strip():
             raise ValueError("raw_event_topic MUST be a non-empty topic name")
+        dispatcher = ConsoleActionDispatcher(
+            store=ConsoleActionDispatchStore(self.dispatch_state_store),
+            event_bus=self.event_bus,
+            config=self.dispatch_config,
+        )
+        object.__setattr__(self, "_dispatcher", dispatcher)
+        object.__setattr__(
+            self,
+            "_incident_ticket",
+            ConsoleIncidentTicketCoordinator(
+                dispatcher=dispatcher,
+                state_store=self.dispatch_state_store,
+                event_topic=self.raw_event_topic,
+                batch_size=self.dispatch_config.batch_size,
+            ),
+        )
 
     async def _refuse(
         self,
@@ -268,6 +282,7 @@ class ConsoleActionSubmitter:
                 session_id=session_id,
                 correlation_id=correlation_id,
                 max_question_chars=MAX_QUESTION_CHARS,
+                prepare_incident_ticket=self._prepare_incident_ticket,
             )
             if incident_result is not None:
                 if (
@@ -275,7 +290,7 @@ class ConsoleActionSubmitter:
                     and incident_result.get("action_type") == "incident.create"
                 ):
                     try:
-                        await self._publish_incident_ticket_proposal(
+                        dispatch = await self._publish_incident_ticket_proposal(
                             incident_result=incident_result,
                             principal=principal,
                             session_id=session_id,
@@ -284,7 +299,11 @@ class ConsoleActionSubmitter:
                         _LOG.exception("incident ticket proposal publish failed")
                         incident_result["ticket_proposal_submitted"] = False
                     else:
-                        incident_result["ticket_proposal_submitted"] = True
+                        incident_result["ticket_proposal_submitted"] = (
+                            dispatch.state is ConsoleActionDispatchState.PUBLISHED
+                        )
+                        incident_result["ticket_proposal_status"] = dispatch.state.value
+                        incident_result["ticket_proposal_request_id"] = dispatch.dispatch_id
                 return incident_result
         action_type, resource_id = translate_action_intent(question, self.action_type_names)
         if action_type is None:
@@ -402,7 +421,21 @@ class ConsoleActionSubmitter:
         # Key by resource (per-resource ordering) so concurrent proposals on
         # the same resource serialize; fall back to the dedup key.
         key = bounded_resource or dedup_key
-        await self.event_bus.publish(self.raw_event_topic, key, proposal)
+        try:
+            dispatch = await self._dispatch_proposal(
+                key=key,
+                proposal=proposal,
+            )
+        except ConsoleActionDispatchConflictError:
+            return await self._refuse(
+                reason="idempotency_collision",
+                actor=principal.oid,
+                correlation_id=correlation_id,
+                action_type=action_type,
+                resource_id=bounded_resource,
+                extra={"action_type": action_type},
+            )
+        correlation_id = dispatch.correlation_id
         _LOG.info(
             "console action submitted: action_type=%s correlation_id=%s",
             action_type,
@@ -413,6 +446,10 @@ class ConsoleActionSubmitter:
             "correlation_id": correlation_id,
             "action_type": action_type,
             "resource_id": bounded_resource,
+            "durably_queued": True,
+            "request_id": dispatch.dispatch_id,
+            "dispatch_status": dispatch.state.value,
+            "accepted_at": dispatch.accepted_at.isoformat(),
         }
         if incident_id is not None:
             response.update(
@@ -492,28 +529,52 @@ class ConsoleActionSubmitter:
         incident_result: dict[str, Any],
         principal: Principal,
         session_id: str | None,
+    ) -> ConsoleActionDispatch:
+        return await self._incident_ticket.publish(
+            incident_id=str(incident_result["incident_id"]),
+            actor_oid=principal.oid,
+            session_id=session_id,
+        )
+
+    async def _prepare_incident_ticket(
+        self,
+        proposal: Any,
+        principal: Principal,
+        session_id: str,
     ) -> None:
-        incident_id = str(incident_result["incident_id"])
-        resource_id = f"incident:{incident_id}"
-        correlation_id = f"incident-ticket:{incident_id}"
-        payload: dict[str, Any] = {
-            "idempotency_key": correlation_id,
-            "correlation_id": correlation_id,
-            "initiator_principal": principal.oid,
-            "operator_initiated": True,
-            "action_type": "tool.open-incident-ticket",
-            "resource_id": resource_id,
-            "event_type": "operator_request",
-            "params": {
-                "incident_id": incident_id,
-                "ticket_provider": "github",
-                "summary": f"FDAI incident {incident_id}",
-                "description": "Created from a confirmed operator conversation.",
-                "labels": ["fdai-incident"],
-            },
-            "session_id": session_id,
-        }
-        await self.event_bus.publish(self.raw_event_topic, resource_id, payload)
+        await self._incident_ticket.prepare(proposal, principal.oid, session_id)
+
+    async def reconcile_incident_ticket_dispatches(self) -> int:
+        return await self._incident_ticket.reconcile()
+
+    async def _dispatch_proposal(
+        self,
+        *,
+        key: str,
+        proposal: Mapping[str, object],
+    ) -> ConsoleActionDispatch:
+        return await self._dispatcher.submit(
+            idempotency_key=str(proposal["idempotency_key"]),
+            intent_digest=console_action_intent_digest(
+                topic=self.raw_event_topic,
+                partition_key=key,
+                payload=proposal,
+            ),
+            topic=self.raw_event_topic,
+            partition_key=key,
+            payload=proposal,
+            correlation_id=str(proposal["correlation_id"]),
+            actor_oid=str(proposal["initiator_principal"]),
+        )
+
+    async def redrive_pending(self) -> int:
+        """Publish one bounded batch of durable pending proposals."""
+        return await self._dispatcher.drain_due()
+
+    @property
+    def dispatcher(self) -> ConsoleActionDispatcher:
+        """Return the dispatcher for the composition-owned recovery worker."""
+        return self._dispatcher
 
 
 _CHAOS_REQUEST = re.compile(
@@ -629,9 +690,12 @@ def make_console_action_route(
             session_id=session_id,
             idempotency_key=idempotency_key,
         )
-        status_code = (
-            403 if result.get("reason") in ("rbac_capability", "deny_override_forbidden") else 200
-        )
+        if result.get("reason") == "idempotency_collision":
+            status_code = 409
+        elif result.get("reason") in ("rbac_capability", "deny_override_forbidden"):
+            status_code = 403
+        else:
+            status_code = 202 if result.get("durably_queued") is True else 200
         return JSONResponse(result, status_code=status_code)
 
     return Route(path, handler, methods=["POST"])
@@ -688,9 +752,12 @@ def make_console_action_confirm_route(
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        status_code = (
-            403 if result.get("reason") in ("rbac_capability", "deny_override_forbidden") else 200
-        )
+        if result.get("reason") == "idempotency_collision":
+            status_code = 409
+        elif result.get("reason") in ("rbac_capability", "deny_override_forbidden"):
+            status_code = 403
+        else:
+            status_code = 202 if result.get("durably_queued") is True else 200
         return JSONResponse(result, status_code=status_code)
 
     return Route(path, handler, methods=["POST"])

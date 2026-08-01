@@ -592,7 +592,7 @@ class TestLocalEntrypoint:
                 },
             )
 
-            assert response.status_code == 200
+            assert response.status_code == 202
             payload = response.json()
             assert payload["submitted"] is True
             assert payload["action_type"] == "ops.restart-service"

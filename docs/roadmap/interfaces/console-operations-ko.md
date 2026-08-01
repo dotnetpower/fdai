@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 9f05a6d7b0d8fcbb02996be6e6ad68524e44daaf
+translation_source_sha: 35e492f43f762b7f7bb922511c01bad87dedd7a0
 translation_revised: 2026-08-01
 ---
 
@@ -16,9 +16,9 @@ translation_revised: 2026-08-01
 > 변경하지 않습니다.
 >
 > **구현 상태:** Operations 탐색, incident, approval, process, scheduler run, provisioning,
-> onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. 이 문서의 federated Tasks
-> view, cross-domain projection metadata, 공통 request hardening gate는 제안 상태입니다. Target phase
-> 설명은 해당 API나 UI가 live 상태라는 뜻이 아닙니다.
+> onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. Console action dispatch는
+> broker publish 전에 payload를 포함한 receipt를 저장하고 restart 뒤 pending delivery를 복구합니다.
+> Federated Tasks view, cross-domain projection metadata, 나머지 domain route hardening은 제안 상태입니다.
 
 ## 설계 요약
 
@@ -208,21 +208,20 @@ guidance를 만들지 않습니다.
 
 ### 전달 내구성
 
-현재 console action route는 durable outbox record를 request acceptance와 같은 transaction에 저장하지
-않고 event bus에 직접 publish합니다. 따라서 publish 전이나 도중에 process가 실패하면 요청 결과가
-ambiguous해질 수 있습니다. HTTP `200`은 direct broker publish call이 반환되었다는 뜻일 뿐 durable
-acceptance receipt가 아닙니다. Response loss는 failed로 간주하지 않고 correlation으로 reconcile합니다.
-Phase 2는 이 transitional response를 대체합니다.
+현재 console action route는 broker publish 전에 idempotency key를 atomically claim하고 전체 proposal,
+intent digest, actor, correlation, audit receipt를 저장합니다. Delivery는 bounded lease, publish timeout,
+retry delay, batch size를 사용합니다. Startup 및 periodic recovery는 pending record와 lease가 만료된 record를
+재개하며 downstream consumer는 stable idempotency key로 at-least-once event를 deduplicate합니다.
 
-Target path는 acceptance를 알리기 전에 idempotency key를 atomically claim하고 intent digest와 actor
-receipt를 저장하며 outbox record를 기록합니다. Retry는 저장된 receipt를 재사용합니다. Relay는 commit된
-미완료 outbox row를 at-least-once publish하고 broker acknowledgment 뒤에만 완료로 표시하며, restart
-reconciliation은 모든 미완료 row를 재개합니다.
+Request acceptance는 durable record가 commit된 뒤에만 HTTP `202 Accepted`를 사용합니다. 현재 receipt는
+`request_id`, `correlation_id`, `dispatch_status`, `accepted_at`, `durably_queued`를 반환하며 "approved"나
+"executed"가 아닌 "durably queued"를 뜻합니다. 같은 intent replay는 completed event를 다시 publish하지
+않고 기존 record를 재사용합니다. 같은 key의 다른 intent는 `409 Conflict`를 반환합니다. Status URL과
+나머지 공통 receipt field는 Phase 2 범위입니다.
 
-Request acceptance는 durable claim과 outbox commit 뒤에만 HTTP `202 Accepted`를 사용합니다. Receipt는
-`request_id`, `correlation_id`, `idempotency_key`, `intent_digest`, `accepted_at`, status URL을 포함합니다.
-이 응답은 "durably queued"를 뜻하며 "approved"나 "executed"를 뜻하지 않습니다. 같은 intent의 replay는
-원래 receipt를 반환하고 terminal outcome은 owning domain projection과 audit trail에서만 확인합니다.
+확인된 incident creation은 incident를 쓰기 전에 ticket dispatch를 blocked durable state로 준비합니다.
+`incident.open`이 durable audit에 나타난 뒤에만 dispatch를 activate합니다. Recovery는 incident를 다시
+만들지 않고 누락된 ticket effect를 activate하며, incident write가 실패하면 ticket은 publish되지 않습니다.
 
 Intent digest는 principal, domain operation, exact source reference와 revision, normalized argument,
 해당 policy 또는 schema version을 포함합니다. 다른 digest로 같은 idempotency key를 재사용하면 `409
@@ -338,6 +337,9 @@ projection에 의존하지 않습니다. 각 materialization은 ordered redacted
 state, duplicate submission, self-approval, expiry, role change, process restart를 테스트합니다. Fixture
 principal 없이 browser-Entra local과 deployed composition에서 같은 route inventory와 authorization
 matrix를 실행하고 두 venue의 모든 request 및 delivery outcome을 count합니다.
+
+Console action durability slice는 제공됩니다. Phase 2는 같은 contract를 나머지 domain route로 확장하고
+incident response의 collapsed ticket flag를 typed effect로 대체합니다.
 
 Exit criteria: SPA에는 authorization decision이 없고 accepted request가 source owner를 우회하지 않습니다.
 Publish 전, publish 후, response 전 failure injection으로 committed request가 유실되지 않고 event가 두 번

@@ -17,6 +17,7 @@ from fdai.core.incident import (
     open_detected_incident_candidate,
 )
 from fdai.core.scheduler.store import InMemoryScheduleStore
+from fdai.delivery.read_api.console_action_dispatch import ConsoleActionDispatchRecovery
 from fdai.delivery.read_api.dev.incident_store import ProjectingIncidentStateStore
 from fdai.delivery.read_api.dev.operator_runtime import build_local_operator_runtime
 from fdai.delivery.read_api.routes.console_action import ConsoleActionSubmitter
@@ -49,6 +50,7 @@ class LocalRuntimeWiring:
 
 def _runtime_callbacks(
     pantheon_runtime: PantheonRuntime,
+    recovery: ConsoleActionDispatchRecovery | None = None,
 ) -> tuple[Any, Any]:
     runtime_task: asyncio.Task[None] | None = None
 
@@ -61,8 +63,12 @@ def _runtime_callbacks(
         await asyncio.sleep(0)
         if runtime_task.done():
             await runtime_task
+        if recovery is not None:
+            await recovery.start()
 
     async def stop_pantheon_runtime() -> None:
+        if recovery is not None:
+            await recovery.stop()
         await pantheon_runtime.stop()
         if runtime_task is None:
             return
@@ -119,8 +125,9 @@ def build_interactive_pantheon_wiring(
     runtime_values: Mapping[str, object] | None = None,
 ) -> LocalRuntimeWiring:
     """Wire all agents to the selected local transport without fixture executors."""
+    state_store = ProjectingIncidentStateStore(read_model=read_model)
     incident_workflow = IncidentLifecycleWorkflow(
-        registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model)),
+        registry=IncidentRegistry(state_store=state_store),
         allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
     )
     incident_auto_open_policy, rate_threshold, rate_window = _incident_runtime_policy(
@@ -169,8 +176,9 @@ def build_local_runtime_wiring(
 ) -> LocalRuntimeWiring:
     """Compose local event processing and governed Python-task routes."""
     event_bus = LiveInMemoryEventBus()
+    state_store = ProjectingIncidentStateStore(read_model=read_model)
     incident_workflow = IncidentLifecycleWorkflow(
-        registry=IncidentRegistry(state_store=ProjectingIncidentStateStore(read_model=read_model)),
+        registry=IncidentRegistry(state_store=state_store),
         allowed_agent_principals={"Huginn", "Heimdall", "Forseti"},
     )
     incident_auto_open_policy, rate_threshold, rate_window = _incident_runtime_policy(
@@ -199,6 +207,11 @@ def build_local_runtime_wiring(
         raw_event_topic=action_topic,
         action_type_names=local_action_types,
         incident_workflow=incident_workflow,
+        dispatch_state_store=state_store,
+    )
+    recovery = ConsoleActionDispatchRecovery(
+        dispatcher=console_action.dispatcher,
+        reconcile=console_action.reconcile_incident_ticket_dispatches,
     )
 
     artifacts = InMemoryPythonTaskArtifactStore()
@@ -247,7 +260,10 @@ def build_local_runtime_wiring(
         stage_publisher=stage_publisher,
     )
 
-    start_pantheon_runtime, stop_pantheon_runtime = _runtime_callbacks(pantheon_runtime)
+    start_pantheon_runtime, stop_pantheon_runtime = _runtime_callbacks(
+        pantheon_runtime,
+        recovery,
+    )
 
     return LocalRuntimeWiring(
         pantheon_runtime=pantheon_runtime,
