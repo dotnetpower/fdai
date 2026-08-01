@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: bcffabdf2eb1131d506b12571faeb7a3c7f91ac8
+translation_source_sha: 8c550413a2e4e37cd9af08c8a3c8743bd5bc5fd1
 translation_revised: 2026-08-01
 ---
 
@@ -175,6 +175,11 @@ Intent digest는 principal, domain operation, exact source reference와 revision
 Conflict`를 반환하고 audit finding을 기록하며 event를 publish하지 않습니다. Key는 authenticated
 principal과 operation 범위로 제한하여 관련 없는 사용자가 다른 principal의 receipt를 보거나 충돌시키지
 못하게 합니다.
+
+Prior-deny 또는 re-request policy lookup은 claim에 binding할 authoritative revision을 반환합니다. Request를
+commit하는 transaction이나 compare-and-set은 해당 revision을 다시 확인하며 새 deny 또는 policy change가
+있으면 conflict를 반환하고 outbox row를 쓰지 않습니다. Preflight read만으로 publish를 authorize하지
+않습니다.
 
 ## 에이전트와 실행 authority
 

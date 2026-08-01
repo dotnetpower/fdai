@@ -175,6 +175,11 @@ different digest returns `409 Conflict`, emits an audit finding, and publishes n
 scoped to the authenticated principal and operation so unrelated users cannot observe or collide
 with another principal's receipt.
 
+Any prior-deny or re-request policy lookup returns an authoritative revision that is bound into the
+claim. The transaction or compare-and-set that commits the request rechecks that revision; a new
+deny or policy change returns conflict and writes no outbox row. A preflight read alone never
+authorizes publish.
+
 ## Agent and execution authority
 
 The console has no judgment or managed-resource execution authority. The pantheon retains its
