@@ -275,6 +275,10 @@ superseded with their source version. Ontology links and RAG chunks cite the sam
 
 ## Delivery plan and exit criteria
 
+The dependency order, PR-owned file surfaces, compatibility migration, focused tests, Azure
+permissions, rollout evidence, and stop conditions are defined in the
+[Human-agent assignment implementation plan](human-agent-assignment-implementation-plan.md).
+
 1. **Assignment projection:** Add the composite read model, coverage validator, and Assignments tab.
    Submission remains observation-only and creates no provider mutation.
 2. **Governed IAM apply:** Add the allowlisted provisioner, elevated-review policy, convergence
@@ -301,6 +305,7 @@ The first release is complete when:
 
 | To learn about | Read |
 |----------------|------|
+| Dependency-ordered implementation and rollout | [Human-agent assignment implementation plan](human-agent-assignment-implementation-plan.md) |
 | FDAI roles, directory search, and current access requests | [User RBAC and Entra identity](user-rbac-and-identity.md) |
 | Ownership map and accountable owners | [Agent operational ownership and ownership handover](agent-stewardship-and-handover.md) |
 | Human non-response and standing authorization | [Escalation and standing authority](../decisioning/escalation-and-standing-authority.md) |

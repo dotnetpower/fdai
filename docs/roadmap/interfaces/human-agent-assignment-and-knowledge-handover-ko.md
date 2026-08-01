@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: f24d3aa7c6e04304e2b9e4a6f7cb9dd94dbdfb74
+translation_source_sha: 5dac3f95cae0b7e7b226ebcb0860c0f3ccbce007
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 및 지식 인수인계
@@ -278,6 +278,10 @@ AgentDuty -> requires_role -> FDAI App Role
 
 ## 제공 계획 및 종료 기준
 
+종속성 순서, PR 소유 파일 표면, 호환성 마이그레이션, 집중 테스트, Azure 권한, 롤아웃 근거,
+중지 조건은 [사용자-에이전트 할당 구현 계획](human-agent-assignment-implementation-plan-ko.md)에
+정의되어 있습니다.
+
 1. **할당 프로젝션:** 통합 읽기 모델, 커버리지 검증기, Assignments 탭을 추가합니다. 제출은 관찰
    전용이며 공급자 변경을 만들지 않습니다.
 2. **통제된 IAM 적용:** 허용 목록 프로비저너, 상위 검토 정책, 수렴 영수증, 재시도, 롤백을
@@ -306,6 +310,7 @@ AgentDuty -> requires_role -> FDAI App Role
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 종속성 순서 구현 및 롤아웃 | [사용자-에이전트 할당 구현 계획](human-agent-assignment-implementation-plan-ko.md) |
 | FDAI 역할, 디렉터리 검색, 현재 접근 요청 | [사용자 RBAC 및 Entra ID](user-rbac-and-identity-ko.md) |
 | 담당 체계 맵과 최종 책임자 | [에이전트 운영 담당 체계 및 담당자 인수인계](agent-stewardship-and-handover-ko.md) |
 | 사람 무응답과 상시 권한 | [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md) |
