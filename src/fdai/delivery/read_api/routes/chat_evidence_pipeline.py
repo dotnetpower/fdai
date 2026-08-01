@@ -189,7 +189,7 @@ async def resolve_parallel_chat_evidence(
     if (
         (not has_semantic_plan or selected_incident_turn)
         and evidence_resolver is not None
-        and not deterministic_tool_turn
+        and (selected_incident_turn or not deterministic_tool_turn)
         and not preincident_read
         and "_inventory_screen_scope" not in base_context
     ):

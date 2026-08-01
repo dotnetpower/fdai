@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Final
+from typing import Any, Final, TypeGuard
 
 from fdai.delivery.read_api.routes.chat_verification import AnswerVerification
 
@@ -33,6 +33,12 @@ _PRE_INCIDENT_FOLLOWUP: Final = re.compile(
 )
 
 
+def is_bounded_resource_name(value: object) -> TypeGuard[str]:
+    """Return whether a selector value is a bounded resource name."""
+
+    return isinstance(value, str) and _RESOURCE_NAME.fullmatch(value) is not None
+
+
 def parse_resource_context(raw: object) -> dict[str, str] | None:
     """Parse one client-returned selector hint without granting it authority."""
 
@@ -43,7 +49,7 @@ def parse_resource_context(raw: object) -> dict[str, str] | None:
     name = raw.get("name")
     resource_type = raw.get("resource_type")
     evidence_ref = raw.get("evidence_ref")
-    if not isinstance(name, str) or _RESOURCE_NAME.fullmatch(name) is None:
+    if not is_bounded_resource_name(name):
         raise ValueError("resource_context.name MUST be a bounded resource name")
     if not isinstance(resource_type, str) or _RESOURCE_TYPE.fullmatch(resource_type) is None:
         raise ValueError("resource_context.resource_type MUST be a bounded resource type")
@@ -286,6 +292,7 @@ def resource_followup_verification(
 
 __all__ = [
     "contextualize_resource_followup",
+    "is_bounded_resource_name",
     "parse_resource_context",
     "resource_followup_answer",
     "resource_followup_verification",

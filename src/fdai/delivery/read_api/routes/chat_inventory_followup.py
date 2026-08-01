@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, Sequence
-from typing import Final
 
 from fdai.delivery.read_api.routes.chat_inventory_compiler import is_inventory_question
 from fdai.delivery.read_api.routes.chat_inventory_language import (
@@ -13,7 +11,6 @@ from fdai.delivery.read_api.routes.chat_inventory_language import (
 
 SUBSCRIPTION_ROOT = "azure-subscription"
 SUBSCRIPTION_ROOT_LIMIT = 1_000
-_SCREEN_RESOURCE_NAME: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 
 
 def contextualize_inventory_scope_followup(
@@ -49,6 +46,8 @@ def contextualize_inventory_screen_scope(
 ) -> tuple[str, bool]:
     """Bind a current-screen inventory question to one selected resource group hint."""
 
+    from fdai.delivery.read_api.routes.chat_resource_context import is_bounded_resource_name
+
     resolver = default_inventory_query_language_resolver()
     selected_scope = resolver.has(resolver.registry.scopes, "active_view", prompt) or resolver.has(
         resolver.registry.signals,
@@ -67,7 +66,7 @@ def contextualize_inventory_screen_scope(
     if not isinstance(resource, Mapping) or resource.get("type") != "resource-group":
         return prompt, False
     name = resource.get("name")
-    if not isinstance(name, str) or _SCREEN_RESOURCE_NAME.fullmatch(name) is None:
+    if not is_bounded_resource_name(name):
         return prompt, False
     return f"{prompt} {name}", True
 
