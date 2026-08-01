@@ -937,6 +937,83 @@ def test_active_azure_outage_does_not_compile_running_state_or_metrics() -> None
     assert backend.calls == 0
 
 
+def test_platform_problem_suppresses_customer_stop_state_group() -> None:
+    calls: list[dict[str, object]] = []
+
+    class Provider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("platform health must use configurable broad query")
+
+        async def query_health(
+            self,
+            lookback_seconds: int,
+            *,
+            include_metrics: bool,
+            include_service_health: bool = False,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            calls.append(
+                {
+                    "lookback_seconds": lookback_seconds,
+                    "include_metrics": include_metrics,
+                    "include_service_health": include_service_health,
+                }
+            )
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health+service-health",
+                "observed_at": "2026-07-22T05:00:00Z",
+                "resource_count": 1,
+                "resource_health_unavailable": 0,
+                "service_health_requested": include_service_health,
+                "service_health_unavailable": 0,
+                "metrics_requested": include_metrics,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [],
+            }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(Provider()),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={
+                "prompt": "플랫폼 문제와 고객이 시작한 중지를 구분해줘.",
+                "view_context": {},
+            },
+        )
+
+    payload = response.json()
+    assert calls == [
+        {
+            "lookback_seconds": 3_600,
+            "include_metrics": False,
+            "include_service_health": True,
+        }
+    ]
+    assert "활성 Azure 장애 이벤트" in payload["answer"]
+    assert "**stopped**" not in payload["answer"]
+    assert backend.calls == 0
+
+
 def test_subscription_health_provider_failure_fails_closed() -> None:
     async def unavailable(
         lookback_seconds: int,

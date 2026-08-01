@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 53199e1c1f7d596b332205eec3921ce2094fe0ae
+translation_source_sha: 9631de64e8eac914e9938bd999334c3135758952
 translation_revised: 2026-08-01
 ---
 
@@ -299,6 +299,8 @@ metric을 끄고 active Service Health event와 impacted resource를 query하며
 maintenance 및 advisory와 분리합니다. 누락된 availability cause는 bounded Resource Health
 annotation으로 보강합니다. Service Health 또는 annotation query가 unavailable 또는 truncated이면
 partial coverage gap으로 유지하며 platform impact 0을 증명할 수 없습니다.
+Catalog matching은 `와`, `과`를 포함한 일반적인 격조사 또는 접속 조사가 붙어도 Korean query term을
+보존하므로 compound comparison에서 요청한 semantic class가 누락되지 않습니다.
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
 `EventIngest -> TrustRouter -> T0Engine`을 **메모리 내에서만** 실행: T1

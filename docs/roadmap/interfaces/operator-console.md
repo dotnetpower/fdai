@@ -304,6 +304,8 @@ metrics, query active Service Health events and impacted resources, separate out
 maintenance and advisories, and enrich missing availability causes from bounded Resource Health
 annotations. An unavailable or truncated Service Health or annotation query remains a partial
 coverage gap and cannot prove zero platform impact.
+Catalog matching preserves Korean query terms when common case or conjunction particles, including
+`와` and `과`, are attached, so compound comparisons retain every requested semantic class.
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does

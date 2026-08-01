@@ -1,9 +1,9 @@
 schema_version: "1.1.0"
-version: "1.1.11"
+version: "1.1.12"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
-suffixes: [은, 는, 이, 가, 의, 에, 에서, 을, 를, 도, 만, 인, 로, 으로, 야, 된, 되고, 거나, 하거나]
+suffixes: [은, 는, 이, 가, 의, 에, 에서, 을, 를, 도, 만, 와, 과, 인, 로, 으로, 야, 된, 되고, 거나, 하거나]
 signals:
   resource_subject:
     terms: [resource, resources, asset, assets, inventory, azure resource, azure resources, 리소스, 인벤토리, Azure 리소스]
@@ -20,7 +20,7 @@ signals:
   workload:
     terms: [deployment, deployments, deploying, pod, pods, node, nodes, node pool, node pools, workload, workloads, running apps, 배포, 파드, 노드, 노드 풀, 워크로드, 실행 중인 앱]
   platform_health:
-    terms: [azure outage, azure incident, platform outage, platform incident, service outage, service incident, affected by an azure outage, affected by a platform outage, Azure 플랫폼 장애, Azure 서비스 장애, 플랫폼 장애, 서비스 장애]
+    terms: [azure outage, azure incident, platform outage, platform incident, platform issue, platform issues, platform problem, platform problems, service outage, service incident, affected by an azure outage, affected by a platform outage, Azure 플랫폼 장애, Azure 서비스 장애, 플랫폼 장애, 플랫폼 문제, 서비스 장애]
   continuation:
     terms: [also, as well, together, too, did you check, did you skip, fail to read, 도 함께, 함께, 도 알려줘]
   unfiltered:
