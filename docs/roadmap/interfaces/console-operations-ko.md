@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 13a857488e90b4a61b4e69b64bdf8d1945a5cf26
+translation_source_sha: 53b8e47baa7bc2dc4bdd9f27e2049dc15b9afa79
 translation_revised: 2026-08-01
 ---
 
@@ -180,9 +180,9 @@ boundary는 nested shape를 수락하지 않습니다.
 1. Entra token, audience, App Role, 필수 capability를 확인합니다.
 2. Authoritative source를 읽고 revision, deadline, 관련 policy digest를 비교합니다.
 3. 도메인 스키마를 검증하고 알 수 없는 field를 차단합니다.
-4. Route는 scope, purpose, no-self-approval, quorum eligibility를 precheck합니다. Source-owning decision
-  service는 authorize, advance, promote, grant 또는 execute할 수 있는 decision을 기록할 때 이를 atomically
-  recheck합니다. Requester는 자신의 decision quorum을 충족하지 못합니다.
+4. Route는 scope, purpose, no-self-approval, quorum eligibility를 precheck합니다. Final enforcement는
+  `Approval`의 Var, `ReviewCase`/`Decision`의 Forseti, `Process`의 current step owner,
+  grant review의 `AccessGrantRequestService`가 담당하며 requester는 quorum을 충족하지 못합니다.
 5. Actor, correlation id, idempotency key, audit 또는 outbox receipt를 원자적으로 기록합니다.
 6. 요청 접수, conflict, denial 또는 expiry를 반환하며 요청 시점에 실행을 주장하지 않습니다.
 7. Owning agent가 처리할 typed event를 publish합니다.
