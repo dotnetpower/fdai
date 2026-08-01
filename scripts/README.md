@@ -106,3 +106,65 @@ Worker sessions may still use `bash scripts/verify.sh --full <path>` for one
 focused pytest target. Direct fast/all verification and unscoped test-tool runs
 are denied by the workspace `PreToolUse` hook so parallel sessions cannot duplicate
 the centralized load.
+
+## Roadmap implementation verification
+
+The roadmap verification pipeline treats each canonical English document and its
+Korean translation as one durable job. Queue state, leases, receipts, diagnostics,
+and the append-only ledger live under the Git common directory at
+`.git/fdai-roadmap-verification/`, so linked worktrees and process restarts share one
+campaign without committing runtime state.
+
+Synchronize the tracked `docs/roadmap/**/*.md` inventory and inspect progress:
+
+```bash
+make roadmap-verification-sync
+make roadmap-verification-status
+```
+
+`report` mode gives Copilot read and shell tools in an isolated worktree but no
+write tool. It records `reviewed`, `gap_found`, `designed`, `not_applicable`, or
+`blocked` evidence and removes the temporary branch:
+
+```bash
+make roadmap-verification-report
+```
+
+`apply` mode is for the dedicated clean campaign worktree created by the timer
+installer. It may implement a verified gap, add focused tests, update both document
+variants, and commit. The orchestration layer then independently runs the diff-based
+test selector and translation gate, checks `code_verification_status` and
+`code_verified_at` frontmatter, and fast-forwards the campaign branch only when every
+check passes:
+
+```bash
+make roadmap-verification-apply
+```
+
+Receipts retain the exact evidence paths, their content digest, the document blob,
+the tested commit, and the independent checks. A later document, route mapping, code,
+or test evidence change invalidates the receipt and returns the job to `queued`.
+Ambiguous design stays `blocked`; it never receives an implementation receipt.
+
+Install a persistent user-systemd timer in report mode first:
+
+```bash
+python3 scripts/automation/install_roadmap_verification_timer.py install
+```
+
+After reviewing report outcomes, reinstall in apply mode to use the cumulative
+`roadmap-verification/campaign` worktree:
+
+```bash
+python3 scripts/automation/install_roadmap_verification_timer.py install --apply
+```
+
+Each timer tick exits after at most one document. Recent Copilot activity and fresh
+`.improve/sessions/*.lease` files hold the cycle. If a process stops mid-job, the
+lease expires and the next tick reclaims that same document before selecting another.
+Create `.git/fdai-roadmap-verification/STOP` or `.improve/STOP` for an explicit pause.
+Removing the timer leaves the campaign branch, receipts, and diagnostics intact:
+
+```bash
+python3 scripts/automation/install_roadmap_verification_timer.py remove
+```
