@@ -250,6 +250,11 @@ Exit criteria: the SPA contains no authorization decision and no accepted reques
 source owner. Failure injection before publish, after publish, and before response proves that a
 committed request is never lost and its event is never applied twice.
 
+An authorization-boundary matrix covers every inventory row with unauthenticated, unassigned,
+Reader, Contributor, Approver, Owner, and BreakGlass principals as applicable. It also exercises
+self-approval, insufficient quorum, stale revision, expired deadline, wrong scope, changed role,
+and revoked entitlement. Adding a request route without its matrix row blocks the change.
+
 ### Phase 3 - complete Operations views
 
 Add Tasks, Approvals, Investigations, timeline, evidence, and conflict recovery to the existing

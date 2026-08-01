@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c51deafe4711a5442ef6176ac9f122109d7a6c9d
+translation_source_sha: 14866a8635656e00525dc2aefb499fd45ff8c6c5
 translation_revised: 2026-08-01
 ---
 
@@ -246,6 +246,11 @@ state, duplicate submission, self-approval, expiry, role change, process restart
 Exit criteria: SPA에는 authorization decision이 없고 accepted request가 source owner를 우회하지 않습니다.
 Publish 전, publish 후, response 전 failure injection으로 committed request가 유실되지 않고 event가 두 번
 적용되지 않음을 증명합니다.
+
+Authorization-boundary matrix는 각 inventory row에 대해 해당되는 unauthenticated, unassigned, Reader,
+Contributor, Approver, Owner, BreakGlass principal을 다룹니다. Self-approval, insufficient quorum, stale
+revision, expired deadline, wrong scope, changed role, revoked entitlement도 검증합니다. Matrix row가 없는
+request route를 추가하면 변경이 차단됩니다.
 
 ### Phase 3 - Operations view 완성
 
