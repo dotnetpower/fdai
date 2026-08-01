@@ -937,7 +937,7 @@ def test_active_azure_outage_does_not_compile_running_state_or_metrics() -> None
     assert backend.calls == 0
 
 
-def test_platform_problem_suppresses_customer_stop_state_group() -> None:
+def test_platform_cause_comparisons_suppress_customer_state_groups() -> None:
     calls: list[dict[str, object]] = []
 
     class Provider:
@@ -992,25 +992,37 @@ def test_platform_problem_suppresses_customer_stop_state_group() -> None:
         ]
     )
 
+    prompts = (
+        ("플랫폼 문제와 고객이 시작한 중지를 구분해줘.", "활성 Azure 장애 이벤트"),
+        (
+            "Separate platform-initiated impact from customer-initiated changes.",
+            "active Azure outage event(s)",
+        ),
+    )
     with TestClient(app) as client:
-        response = client.post(
-            "/chat",
-            json={
-                "prompt": "플랫폼 문제와 고객이 시작한 중지를 구분해줘.",
-                "view_context": {},
-            },
-        )
+        payloads = [
+            client.post(
+                "/chat",
+                json={"prompt": prompt, "view_context": {}},
+            ).json()
+            for prompt, _summary in prompts
+        ]
 
-    payload = response.json()
     assert calls == [
         {
             "lookback_seconds": 3_600,
             "include_metrics": False,
             "include_service_health": True,
-        }
+        },
+        {
+            "lookback_seconds": 3_600,
+            "include_metrics": False,
+            "include_service_health": True,
+        },
     ]
-    assert "활성 Azure 장애 이벤트" in payload["answer"]
-    assert "**stopped**" not in payload["answer"]
+    for payload, (_prompt, summary) in zip(payloads, prompts, strict=True):
+        assert summary in payload["answer"]
+        assert "**stopped**" not in payload["answer"]
     assert backend.calls == 0
 
 
