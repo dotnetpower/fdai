@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 3ca1212cf92ad8f1ae16ab340773e204b69898eb
+translation_source_sha: 98e216881cdbf1df5f8be8fa095aab052abed87a
 translation_revised: 2026-08-01
 ---
 
@@ -107,6 +107,11 @@ Family 추가는 paired design과 decoder 변경이 필요하며 shared mutation
 context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Read API materializer는
 source-owned state와 Muninn index를 읽는 mechanical relay이며 source object를 publish하거나 lifecycle을
 진행하지 않습니다.
+
+Server cache는 materializer 뒤의 optional provider이며 complete canonical digest input으로 key를 만들고
+immutable projection byte를 저장합니다. Miss나 eviction은 authoritative source를 다시 읽습니다. TTL은
+freshness를 결정하지 않고 cached byte는 request를 authorize하지 않습니다. Provider가 없는 deployment는
+같은 limit과 digest contract로 request마다 materialize합니다.
 
 ### Ontology query 전략
 

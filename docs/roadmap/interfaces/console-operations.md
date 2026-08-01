@@ -107,6 +107,11 @@ the rebuildable cross-domain context index, its cutoff, freshness, digest, and r
 The read API materializer is a mechanical relay that reads source-owned state and Muninn's index;
 it never publishes a source object or advances a lifecycle.
 
+Any server cache is an optional provider behind the materializer, keyed by the complete canonical
+digest inputs and storing immutable projection bytes. A miss or eviction re-reads authoritative
+sources; TTL never establishes freshness, and cached bytes never authorize a request. Deployments
+without that provider materialize per request with the same limits and digest contract.
+
 ### Ontology query strategy
 
 Materialize bounded `ObjectSet` definitions for each source family at an explicit `as_of` cutoff,
