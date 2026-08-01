@@ -102,6 +102,10 @@ The closed discriminator is `source_family` with initial values `approval`, `pro
 watermark before domain fields. Adding a family requires a paired design and decoder change; it
 does not create a shared mutation schema.
 
+A versioned projection schema is the machine source for the discriminator, each arm, and unavailable
+receipts. Server validation and generated client decoders use the same schema digest. CI rejects an
+unknown family, missing arm, or server/client digest mismatch.
+
 Each source agent remains the single writer of its authoritative record. Muninn is accountable for
 the rebuildable cross-domain context index, its cutoff, freshness, digest, and rebuild evidence.
 The read API materializer is a mechanical relay that reads source-owned state and Muninn's index;

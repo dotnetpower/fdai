@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 8c9c4d426a409bb7f751e723730067ea81cd6e98
+translation_source_sha: c105d118bc0f808131adb7e1353408164bd0b6db
 translation_revised: 2026-08-01
 ---
 
@@ -102,6 +102,10 @@ Closed discriminator는 `source_family`이며 초기 값은 `approval`, `process
 `access_request`입니다. 각 arm은 domain field 앞에 `source_id`, `source_revision`, exact `type_ref`
 (`name`, `version`, `catalog_digest`), `ontology_release_digest`, `as_of`, source watermark를 포함합니다.
 Family 추가는 paired design과 decoder 변경이 필요하며 shared mutation schema를 만들지 않습니다.
+
+Versioned projection schema가 discriminator, 각 arm, unavailable receipt의 machine source입니다. Server
+validation과 generated client decoder는 같은 schema digest를 사용합니다. Unknown family, missing arm,
+server/client digest mismatch가 있으면 CI가 차단합니다.
 
 각 source agent는 authoritative record의 single writer로 유지됩니다. Muninn은 rebuildable cross-domain
 context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Read API materializer는
