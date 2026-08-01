@@ -231,6 +231,9 @@ namespaced by `(operator_oid, route_inventory_operation_id, source_family, sourc
 by intent digest. The operation id is a stable route-inventory token, not an HTTP path or ActionType
 label. Unrelated principals and sources cannot observe or collide with another receipt.
 
+The policy digest canonically orders the exact risk, approval, promotion, exemption or override,
+scope, and schema references actually consulted for the request; an unused policy is excluded.
+
 Any prior-deny or re-request policy lookup returns an authoritative revision that is bound into the
 claim. The transaction or compare-and-set that commits the request rechecks that revision; a new
 deny or policy change returns conflict and writes no outbox row. A preflight read alone never
@@ -311,7 +314,8 @@ limits, and rollback behavior.
 
 Catalog each current console write route, source schema, owner, capability, revision, idempotency
 rule, receipt, and identity dependency. Classify it as query, simulation, approval, operational
-request, execution, or break-glass.
+request, execution, or break-glass. From the first shipped route, browser-Entra local and deployed
+use the same schema, authorization, and source binding; fixture principals remain pytest-only.
 
 Exit criteria: every shipped request has one domain schema, owner, capability, idempotency rule,
 and audit path. A machine-readable route inventory records method and path, classification, schema,

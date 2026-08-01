@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: e9b3c236239a6c132303d27b14fbae9677d76b29
+translation_source_sha: ea8dc3198ac8887a226f30f417c8777b66881216
 translation_revised: 2026-08-01
 ---
 
@@ -230,6 +230,9 @@ Conflict`를 반환하고 audit finding을 기록하며 event를 publish하지 �
 digest로 비교합니다. Operation id는 HTTP path나 ActionType label이 아닌 stable route-inventory token입니다.
 관련 없는 principal과 source는 다른 receipt를 보거나 충돌시키지 못합니다.
 
+Policy digest는 request 판단에 실제 사용된 exact risk, approval, promotion, exemption 또는 override,
+scope, schema reference를 canonical order로 포함하며 사용하지 않은 policy는 제외합니다.
+
 Prior-deny 또는 re-request policy lookup은 claim에 binding할 authoritative revision을 반환합니다. Request를
 commit하는 transaction이나 compare-and-set은 해당 revision을 다시 확인하며 새 deny 또는 policy change가
 있으면 conflict를 반환하고 outbox row를 쓰지 않습니다. Preflight read만으로 publish를 authorize하지
@@ -308,7 +311,8 @@ Bulk request는 도메인 workflow가 atomicity 또는 bounded partial failure, 
 
 현재 console write route별 source schema, owner, capability, revision, idempotency rule, receipt, identity
 dependency를 catalog합니다. Query, simulation, approval, operational request, execution, break-glass로
-분류합니다.
+분류합니다. 첫 shipped route부터 browser-Entra local과 deployed는 같은 schema, authorization, source
+binding을 사용하고 fixture principal은 pytest 전용으로 유지합니다.
 
 Exit criteria: 제공되는 모든 요청에 domain schema, owner, capability, idempotency rule, audit path가 하나씩
 있습니다. Machine-readable route inventory는 method와 path, classification, schema, source owner,
