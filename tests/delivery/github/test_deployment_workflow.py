@@ -416,6 +416,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "Verify Terraform convergence" in workflow
     assert "TF_VAR_read_api_web_search_enabled" in workflow
     assert "TF_VAR_read_api_web_search_allowed_domains" in workflow
+    assert "vars.ENABLE_LLM == 'true' || vars.READ_API_WEB_SEARCH_ENABLED == 'true'" in workflow
     assert "Reconcile Foundry web-search agent" in workflow
     assert "foundry_web_search_project_endpoint" in workflow
     assert "fdai.delivery.azure.foundry_agent_reconciler" in workflow
