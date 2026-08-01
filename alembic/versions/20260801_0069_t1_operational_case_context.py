@@ -1,7 +1,7 @@
 """T1 operational case context
 
-Revision ID: 20260801_0068
-Revises: 20260801_0067
+Revision ID: 20260801_0069
+Revises: 20260801_0068
 Create Date: 2026-08-01 00:00:01+00:00
 """
 
@@ -11,8 +11,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "20260801_0068"
-down_revision: str | None = "20260801_0067"
+revision: str = "20260801_0069"
+down_revision: str | None = "20260801_0068"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

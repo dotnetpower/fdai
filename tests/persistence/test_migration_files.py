@@ -40,6 +40,9 @@ def test_migration_module_is_importable(path: Path) -> None:
     assert callable(getattr(module, "downgrade", None)), f"{path.name}: downgrade missing"
     assert isinstance(module.revision, str)
     assert module.down_revision is None or isinstance(module.down_revision, str)
+    assert f"_{module.revision}_" in f"_{path.stem}_", (
+        f"{path.name}: filename does not match revision {module.revision}"
+    )
 
 
 def test_migration_chain_is_linear() -> None:
@@ -47,16 +50,14 @@ def test_migration_chain_is_linear() -> None:
     revisions: dict[str, str | None] = {}
     for path in MIGRATION_FILES:
         module = _load_migration(path)
+        assert module.revision not in revisions, f"duplicate revision id: {module.revision}"
         revisions[module.revision] = module.down_revision
 
     parents = {parent for parent in revisions.values() if parent is not None}
     heads = set(revisions.keys()) - parents
     assert len(heads) == 1, f"expected one head, got {heads}"
 
-    seen: set[str] = set()
     for rev, parent in revisions.items():
-        assert rev not in seen, f"duplicate revision id: {rev}"
-        seen.add(rev)
         if parent is not None:
             assert parent in revisions, f"{rev}: parent {parent} not found"
 
