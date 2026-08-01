@@ -329,6 +329,10 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
         '"label": "console: core runtime (Azure transport, local PostgreSQL)"',
         1,
     )[0]
+    local_state_task = tasks.split('"label": "console: prepare local state"', 1)[1].split(
+        '"label": "console: prepare full stack"',
+        1,
+    )[0]
     core_task = tasks.split(
         '"label": "console: core runtime (Azure transport, local PostgreSQL)"',
         1,
@@ -361,6 +365,8 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
         "console: sync local Entra redirects",
     ):
         assert preparation in prepare_task
+    assert '"runOn": "folderOpen"' in local_state_task
+    assert '"instanceLimit": 1' in local_state_task
     assert all(
         '"dependsOn"' not in standalone_task for standalone_task in (core_task, frontend_task)
     )

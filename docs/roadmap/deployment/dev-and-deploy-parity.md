@@ -82,6 +82,10 @@ site is static and separate from the authenticated Console full stack.
 
 The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and read API. It does
 not start the static design mocks or the isolated test ingestion gateway.
+Opening the trusted workspace automatically runs `console: prepare local state` once, which starts
+the local PostgreSQL and Redpanda containers and applies pending migrations. The committed workspace
+setting allows automatic tasks, and the task's single-instance limit avoids duplicate preparation,
+so no separate task selection is required.
 The compound completes `console: prepare full stack` once before starting any child configuration,
 so PostgreSQL migration, runtime environment generation, and Entra synchronization are not repeated
 by both backend launches. Run that preparation task first when starting the standalone Core Runtime

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 11e57d9f73779831fdb131f573ce5584e8497ac3
+translation_source_sha: d377d2ffe2f6cafaed078c7727d07c705172bf34
 translation_revised: 2026-08-01
 ---
 
@@ -85,6 +85,10 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 
 `Console Web: Full Stack` compound는 core runtime, Console SPA, read API를 시작합니다. 정적 design
 mock과 격리된 test ingestion gateway는 시작하지 않습니다.
+신뢰된 workspace를 열면 `console: prepare local state`가 한 번 자동 실행되어 local PostgreSQL과
+Redpanda container를 시작하고 대기 중인 migration을 적용합니다. 커밋된 workspace 설정이 automatic
+task를 허용하고 task의 single-instance limit가 중복 준비를 방지하므로 별도 task 선택이 필요하지
+않습니다.
 Compound는 child configuration을 시작하기 전에 `console: prepare full stack`을 한 번 완료합니다.
 따라서 두 backend launch가 PostgreSQL migration, runtime environment 생성, Entra 동기화를 반복하지
 않습니다. Standalone Core Runtime 또는 Read API debug configuration을 시작할 때는 이 준비 task를

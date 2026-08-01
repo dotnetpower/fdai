@@ -128,6 +128,10 @@
         "panel": "dedicated",
         "group": "console-full-stack",
         "close": true
+      },
+      "runOptions": {
+        "runOn": "folderOpen",
+        "instanceLimit": 1
       }
     },
     {
