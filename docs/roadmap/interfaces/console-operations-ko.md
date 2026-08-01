@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 50cb999a58c0520639748605e3ef3fd651420b06
+translation_source_sha: 27799310937fe8138f0ff02618eb666d14af90da
 translation_revised: 2026-08-01
 ---
 
@@ -154,6 +154,11 @@ operator_request`와 strict boolean `operator_initiated: true`를 포함합니�
 field를 검증한 뒤 control loop와 action builder가 소비하는 canonical nested
 `payload.operator_request`를 만듭니다. Extension은 이 normalizer를 통해 publish하며 nested trusted
 shape를 직접 쓰지 않습니다. 다른 domain request는 자체 event contract를 유지합니다.
+
+Untrusted flat ingress는 `initiator_principal`, `action_type`, `params`, `resource_ref`, `correlation_id`,
+`idempotency_key`도 포함하며 unknown field를 차단합니다. Request route가 이 flat record를 만들고
+`fdai.core.event_ingest`만 이를 검증하고 normalize한 뒤 Huginn이 owned `Event`를 republish합니다. External
+boundary는 nested shape를 수락하지 않습니다.
 
 ### 요청 검사
 

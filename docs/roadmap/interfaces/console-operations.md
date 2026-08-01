@@ -155,6 +155,11 @@ validates those flat fields, then builds the canonical nested `payload.operator_
 by the control loop and action builder. Extensions publish through this normalizer and never write
 the nested trusted shape directly. Other domain requests retain their own event contracts.
 
+The untrusted flat ingress also carries `initiator_principal`, `action_type`, `params`,
+`resource_ref`, `correlation_id`, and `idempotency_key`; unknown fields are rejected. The request
+route creates this flat record. `fdai.core.event_ingest` alone validates and normalizes it before
+Huginn republishes the owned `Event`. The nested shape is not accepted at an external boundary.
+
 ### Request checks
 
 Every domain route repeats the checks appropriate to its source:
