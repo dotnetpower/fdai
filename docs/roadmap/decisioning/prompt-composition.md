@@ -280,10 +280,10 @@ grounding source.
 - **Replay determinism**: results are stored by `(content_hash, url, fetched_at)`
   in `web_evidence`; audit entries reference the hash. Replay reads the
   stored snapshot instead of re-fetching, so past runs stay reproducible.
-- **Controlled Azure Responses adapter**: the Azure-first implementation wraps
-  the Responses API managed `web_search` tool behind `WebSearchProvider`, sends
-  `allowed_domains` on every request, verifies that a `web_search_call`
-  occurred, rejects citations outside the allowlist, and stores the sanitized
+- **Controlled Azure Responses adapter**: the Azure-first implementation wraps managed
+  `web_search` behind `WebSearchProvider`. Direct Responses sends `allowed_domains` on every request;
+  the optional Foundry prompt-agent route uses the exact deployment allowlist and refuses runtime
+  drift. Both verify `web_search_call`, reject off-allowlist citations, and store the sanitized
   evidence snapshot with the durable conversation turn. Only the bounded
   operator query leaves FDAI; the screen snapshot and conversation history are
   never sent to the search call. Provider failures become bounded reason codes such as `tool_blocked`,

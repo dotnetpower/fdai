@@ -1,7 +1,7 @@
 ---
 title: 콘솔 read-API 프로덕션 배포
 translation_of: read-api-prod.md
-translation_source_sha: a2c280184e0f2502bb3e9d4470f2dfbe3a0db665
+translation_source_sha: 1a3437ab0291ca15cf572179642456c94235bf0c
 translation_revised: 2026-08-01
 ---
 # 콘솔 read-API 프로덕션 배포
@@ -85,8 +85,10 @@ pytest의 `test_fixtures=True`에서만 `UnsafeClaimsExtractor`와 synthetic vie
 | `FDAI_IAM_DIRECTORY_PROVIDER` | 비어 있음 (directory 검색 비활성화) | Owner 전용 사용자 directory 검색을 활성화합니다. 구현된 값은 `entra`이며 지원되지 않는 향후 provider 이름은 startup을 차단합니다. |
 | `FDAI_IAM_ENTRA_GRAPH_BASE_URL` | `https://graph.microsoft.com/v1.0` | Sovereign cloud 또는 테스트 override용 Microsoft Graph base URL입니다. Directory provider가 `entra`일 때만 사용합니다. |
 | `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` | `300` | Routed narrator latency probe 간격(초)입니다. 최솟값은 `30`이며 주기 round마다 후보별 model-only sample을 하나 추가합니다. |
-| `FDAI_WEB_SEARCH_ENABLED` | `false` | 조건을 충족한 Chat T2 turn에서 통제된 Azure Responses web search를 활성화합니다. Resolved narrator candidate와 allowed-domain 목록이 필요합니다. |
+| `FDAI_WEB_SEARCH_ENABLED` | `false` | 조건을 충족한 Chat T2 turn에서 통제된 Azure Responses web search를 활성화합니다. Resolved web-search candidate와 allowed-domain 목록이 필요합니다. |
 | `FDAI_WEB_SEARCH_ALLOWED_DOMAINS` | 비어 있음 | 콤마로 구분된 public source 도메인입니다. Web search를 활성화할 때 필요하며 최대 100개까지 설정할 수 있습니다. 각 항목은 DNS 하위 도메인도 허용합니다. |
+| `FDAI_WEB_SEARCH_FOUNDRY_PROJECT_ENDPOINT` | 비어 있음 | 선택적 Foundry project HTTPS endpoint입니다. 정확한 allowed-domain 목록을 가진 Web Search tool의 prompt agent를 사용하려면 `FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME`과 함께 구성합니다. |
+| `FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME` | 비어 있음 | 선택적 Foundry prompt-agent 이름입니다. Foundry 구성이 불완전하면 startup이 실패합니다. Provision된 agent와 일치하지 않는 runtime domain 변경은 fail closed합니다. |
 | `FDAI_WEB_SEARCH_MAX_RESULTS` | `3` | 한 검색에서 유지할 citation 수입니다. `1`부터 `10`까지 허용합니다. |
 | `FDAI_WEB_SEARCH_BUDGET_MS` | `15000` | 검색별 endpoint timeout(ms)입니다. |
 | `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` | `300` | Web-search candidate model probe 간격(초)입니다. 최솟값은 `30`이며 probe는 검색 툴을 호출하지 않습니다. |

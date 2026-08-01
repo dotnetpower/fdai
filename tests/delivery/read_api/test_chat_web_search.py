@@ -207,6 +207,41 @@ def test_web_search_factory_rejects_narrator_only_artifact(tmp_path: Path) -> No
         )
 
 
+def test_web_search_factory_prefers_configured_foundry_agent(tmp_path: Path) -> None:
+    resolved_path = tmp_path / "resolved-models.json"
+    _write_resolved_models(resolved_path, include_web_search=True)
+
+    resolver = chat_web_search_from_env(
+        {
+            "FDAI_WEB_SEARCH_ENABLED": "1",
+            "FDAI_WEB_SEARCH_ALLOWED_DOMAINS": "learn.microsoft.com",
+            "FDAI_WEB_SEARCH_FOUNDRY_PROJECT_ENDPOINT": (
+                "https://example.services.ai.azure.com/api/projects/example"
+            ),
+            "FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME": "fdai-web-search",
+            "LLM_RESOLVED_MODELS_PATH": str(resolved_path),
+        }
+    )
+
+    assert resolver is not None
+    assert resolver.descriptor()["router"]["chose"] == "foundry-agent:fdai-web-search"
+
+
+def test_web_search_factory_rejects_partial_foundry_configuration(tmp_path: Path) -> None:
+    resolved_path = tmp_path / "resolved-models.json"
+    _write_resolved_models(resolved_path, include_web_search=True)
+
+    with pytest.raises(ValueError, match="MUST be configured together"):
+        chat_web_search_from_env(
+            {
+                "FDAI_WEB_SEARCH_ENABLED": "1",
+                "FDAI_WEB_SEARCH_ALLOWED_DOMAINS": "learn.microsoft.com",
+                "FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME": "fdai-web-search",
+                "LLM_RESOLVED_MODELS_PATH": str(resolved_path),
+            }
+        )
+
+
 async def test_normal_screen_question_does_not_search() -> None:
     provider = _Provider()
 

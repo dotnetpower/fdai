@@ -102,6 +102,28 @@ class AzureResponsesWebSearchConfig:
             raise ValueError("max_output_tokens MUST be >= 1")
 
 
+@dataclass(frozen=True, slots=True)
+class FoundryAgentWebSearchConfig:
+    """One Foundry prompt agent with a preconfigured bounded web-search tool."""
+
+    project_endpoint: str
+    agent_name: str
+    allowed_domains: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            not self.project_endpoint.startswith("https://")
+            or "/api/projects/" not in self.project_endpoint
+            or "?" in self.project_endpoint
+            or "#" in self.project_endpoint
+        ):
+            raise ValueError("project_endpoint MUST be a Foundry project HTTPS endpoint")
+        if not self.agent_name or "/" in self.agent_name or len(self.agent_name) > 128:
+            raise ValueError("agent_name MUST be a bounded Foundry agent name")
+        if not self.allowed_domains:
+            raise ValueError("Foundry web search requires allowed_domains")
+
+
 class WebSearchModelCandidate(Protocol):
     """Model-backed search candidate consumed by the latency pool."""
 
@@ -115,6 +137,107 @@ class WebSearchModelCandidate(Protocol):
     ) -> Mapping[str, object]: ...
 
     async def probe(self) -> None: ...
+
+
+class FoundryAgentWebSearchCandidate:
+    """Call a Foundry prompt agent whose managed tool carries the allowlist."""
+
+    def __init__(
+        self,
+        *,
+        config: FoundryAgentWebSearchConfig,
+        intent_candidate: WebSearchModelCandidate,
+        identity: WorkloadIdentity | None = None,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self._config = config
+        self._intent_candidate = intent_candidate
+        self._identity = identity
+        self._http = http_client or httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=5.0),
+            follow_redirects=False,
+        )
+        self._fallback_identity: Any = None
+
+    async def search(self, query: WebSearchQuery) -> WebSearchResult:
+        configured = frozenset(
+            domain.casefold().rstrip(".") for domain in self._config.allowed_domains
+        )
+        requested = frozenset(domain.casefold().rstrip(".") for domain in query.allowed_domains)
+        if requested != configured and query.metadata.get("surface") != "startup-readiness":
+            return WebSearchResult(
+                query=query,
+                reasons=("foundry_agent_allowlist_mismatch",),
+            )
+        instruction = (
+            "Perform a public web search for the query below. Use only the agent's configured "
+            "domain allowlist and answer with source citations."
+        )
+        envelope = await self._post(
+            {
+                "tool_choice": "required",
+                "include": ["web_search_call.action.sources"],
+                "input": f"{instruction}\n\nQuery: {query.text[:1000]}",
+                "agent_reference": {
+                    "name": self._config.agent_name,
+                    "type": "agent_reference",
+                },
+            },
+            timeout_seconds=query.budget_ms / 1000,
+        )
+        return result_from_envelope(
+            envelope,
+            query=query,
+            deployment=f"foundry-agent:{self._config.agent_name}",
+        )
+
+    async def classify_intent(
+        self,
+        prompt: str,
+        *,
+        budget_ms: int,
+    ) -> Mapping[str, object]:
+        return await self._intent_candidate.classify_intent(prompt, budget_ms=budget_ms)
+
+    async def probe(self) -> None:
+        await self._intent_candidate.probe()
+
+    async def _post(self, body: Mapping[str, Any], *, timeout_seconds: float) -> Mapping[str, Any]:
+        token = await self._access_token()
+        try:
+            response = await self._http.post(
+                f"{self._config.project_endpoint.rstrip('/')}/openai/v1/responses",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json=dict(body),
+                timeout=max(0.1, timeout_seconds),
+            )
+        except httpx.HTTPError as exc:
+            raise AzureWebSearchRequestError("provider_unreachable") from exc
+        if response.status_code >= 400:
+            raise AzureWebSearchRequestError(_response_error_reason(response))
+        try:
+            envelope = response.json()
+        except ValueError as exc:
+            raise RuntimeError("Foundry web search returned non-JSON") from exc
+        if not isinstance(envelope, Mapping):
+            raise RuntimeError("Foundry web search returned an invalid envelope")
+        return envelope
+
+    async def _access_token(self) -> str:
+        if self._identity is not None:
+            token = await self._identity.get_token(_AI_SCOPE)
+            return token.token
+        import asyncio
+
+        if self._fallback_identity is None:
+            from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
+
+            self._fallback_identity = AzureCliWorkloadIdentity.from_env()
+        token = await asyncio.to_thread(self._fallback_identity.get_token_sync, _AI_SCOPE)
+        return token.token
 
 
 class AzureResponsesWebSearchCandidate:
@@ -513,6 +636,8 @@ __all__ = [
     "AzureResponsesWebSearchCandidate",
     "AzureResponsesWebSearchConfig",
     "AzureWebSearchRequestError",
+    "FoundryAgentWebSearchCandidate",
+    "FoundryAgentWebSearchConfig",
     "LatencyRoutedWebSearchProvider",
     "WebSearchModelCandidate",
 ]

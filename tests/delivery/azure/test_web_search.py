@@ -14,6 +14,8 @@ from fdai.delivery.azure.web_search import (
     AzureResponsesWebSearchCandidate,
     AzureResponsesWebSearchConfig,
     AzureWebSearchRequestError,
+    FoundryAgentWebSearchCandidate,
+    FoundryAgentWebSearchConfig,
     LatencyRoutedWebSearchProvider,
 )
 from fdai.delivery.azure.web_search_response import _alternative_source_allowed
@@ -304,6 +306,99 @@ async def test_azure_candidate_enforces_filters_and_parses_citations() -> None:
     assert body["tools"][0]["filters"]["allowed_domains"] == ["example.com"]
     assert [snippet.url for snippet in result.snippets] == ["https://docs.example.com/release"]
     assert result.snippets[0].text == "Version 2 is the latest release."
+
+
+async def test_foundry_agent_candidate_posts_reference_and_parses_citations() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "output": [
+                    {"type": "web_search_call", "status": "completed"},
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "Azure web search documentation is available.",
+                                "annotations": [
+                                    {
+                                        "type": "url_citation",
+                                        "start_index": 0,
+                                        "end_index": 44,
+                                        "url": "https://learn.microsoft.com/azure/foundry/openai/how-to/web-search",
+                                        "title": "Web search",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                ]
+            },
+        )
+
+    candidate = FoundryAgentWebSearchCandidate(
+        config=FoundryAgentWebSearchConfig(
+            project_endpoint="https://example.services.ai.azure.com/api/projects/example",
+            agent_name="fdai-web-search",
+            allowed_domains=("learn.microsoft.com",),
+        ),
+        intent_candidate=_Candidate(delay_ms=0, intent_route="web"),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    result = await candidate.search(
+        WebSearchQuery(
+            text="Azure web search documentation",
+            allowed_domains=("learn.microsoft.com",),
+        )
+    )
+
+    assert captured["url"] == (
+        "https://example.services.ai.azure.com/api/projects/example/openai/v1/responses"
+    )
+    body = captured["body"]
+    assert isinstance(body, dict)
+    assert body["agent_reference"] == {
+        "name": "fdai-web-search",
+        "type": "agent_reference",
+    }
+    assert body["tool_choice"] == "required"
+    assert [snippet.domain for snippet in result.snippets] == ["learn.microsoft.com"]
+
+
+async def test_foundry_agent_candidate_rejects_runtime_allowlist_drift() -> None:
+    called = False
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal called
+        called = True
+        return httpx.Response(500)
+
+    candidate = FoundryAgentWebSearchCandidate(
+        config=FoundryAgentWebSearchConfig(
+            project_endpoint="https://example.services.ai.azure.com/api/projects/example",
+            agent_name="fdai-web-search",
+            allowed_domains=("learn.microsoft.com", "azure.microsoft.com"),
+        ),
+        intent_candidate=_Candidate(delay_ms=0),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    result = await candidate.search(
+        WebSearchQuery(
+            text="Azure web search documentation",
+            allowed_domains=("learn.microsoft.com",),
+        )
+    )
+
+    assert result.snippets == ()
+    assert result.reasons == ("foundry_agent_allowlist_mismatch",)
+    assert called is False
 
 
 async def test_azure_candidate_classifies_multilingual_search_intent_as_strict_json() -> None:

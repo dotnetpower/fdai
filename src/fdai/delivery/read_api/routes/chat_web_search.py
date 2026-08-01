@@ -25,6 +25,8 @@ from fdai.delivery.azure.web_search import (
     AzureResponsesWebSearchCandidate,
     AzureResponsesWebSearchConfig,
     AzureWebSearchRequestError,
+    FoundryAgentWebSearchCandidate,
+    FoundryAgentWebSearchConfig,
     LatencyRoutedWebSearchProvider,
     WebSearchModelCandidate,
 )
@@ -47,6 +49,8 @@ _DOMAINS_ENV: Final[str] = "FDAI_WEB_SEARCH_ALLOWED_DOMAINS"
 _MAX_RESULTS_ENV: Final[str] = "FDAI_WEB_SEARCH_MAX_RESULTS"
 _BUDGET_MS_ENV: Final[str] = "FDAI_WEB_SEARCH_BUDGET_MS"
 _PROBE_INTERVAL_ENV: Final[str] = "FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS"
+_FOUNDRY_PROJECT_ENDPOINT_ENV: Final[str] = "FDAI_WEB_SEARCH_FOUNDRY_PROJECT_ENDPOINT"
+_FOUNDRY_AGENT_NAME_ENV: Final[str] = "FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME"
 _RESOLVED_MODELS_ENV: Final[str] = "LLM_RESOLVED_MODELS_PATH"
 
 _SENSITIVE_QUERY = re.compile(
@@ -535,6 +539,30 @@ def chat_web_search_from_env(
         raise ValueError(
             "web search is enabled but resolved-models.json has no web-search candidates"
         )
+    foundry_project_endpoint = source.get(_FOUNDRY_PROJECT_ENDPOINT_ENV, "").strip()
+    foundry_agent_name = source.get(_FOUNDRY_AGENT_NAME_ENV, "").strip()
+    if bool(foundry_project_endpoint) != bool(foundry_agent_name):
+        raise ValueError(
+            f"{_FOUNDRY_PROJECT_ENDPOINT_ENV} and {_FOUNDRY_AGENT_NAME_ENV} "
+            "MUST be configured together"
+        )
+    if foundry_project_endpoint:
+        intent_candidate = candidates[0][1]
+        candidates = [
+            (
+                f"foundry-agent:{foundry_agent_name}",
+                FoundryAgentWebSearchCandidate(
+                    config=FoundryAgentWebSearchConfig(
+                        project_endpoint=foundry_project_endpoint,
+                        agent_name=foundry_agent_name,
+                        allowed_domains=config.allowed_domains,
+                    ),
+                    intent_candidate=intent_candidate,
+                    identity=identity,
+                    http_client=http_client,
+                ),
+            )
+        ]
     provider = LatencyRoutedWebSearchProvider(candidates=candidates)
     return ChatWebSearchResolver(
         provider=provider,

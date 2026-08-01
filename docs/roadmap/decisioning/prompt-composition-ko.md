@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: e902a1788b015138cf1e3ddcfbbdbed64c53413b
+translation_source_sha: 7e2fadf478c8b92a30dc42e1bfa7de3f4d1e6cf5
 translation_revised: 2026-08-01
 ---
 
@@ -277,10 +277,10 @@ Web search는 최후의 수단 툴입니다. 배포별 opt-in이며 절대 groun
 - **Replay 결정성**: 결과는 `web_evidence`에 `(content_hash, url, fetched_at)`
   로 저장. audit 엔트리는 hash를 참조. Replay는 저장된 스냅샷을 읽으며 다시 fetch
   하지 않으므로 과거 실행이 재현 가능하게 유지됩니다.
-- **통제된 Azure Responses adapter**: Azure-first 구현은 Responses API managed
-  `web_search` tool을 `WebSearchProvider` 뒤에 감싸고, 매 요청에
-  `allowed_domains`를 보내며, 실제 `web_search_call` 발생을 검증합니다.
-  Allowlist 밖 citation은 거부하고 sanitized evidence snapshot은 durable
+- **통제된 Azure Responses adapter**: Azure-first 구현은 managed `web_search`를 `WebSearchProvider`
+  뒤에 감쌉니다. Direct Responses는 매 요청에 `allowed_domains`를 보내고, 선택적 Foundry
+  prompt-agent 경로는 정확한 deployment allowlist를 사용하며 runtime drift를 거부합니다. 두 경로
+  모두 `web_search_call`을 검증하고 off-allowlist citation을 거부하며 sanitized evidence snapshot을 durable
   conversation turn에 저장합니다. 제한된 operator query만 FDAI 밖으로 나가며
   화면 snapshot과 대화 history는 검색 호출에 전송되지 않습니다. Provider 실패는 `tool_blocked`, `provider_unauthorized`, `provider_rate_limited` 같은 제한된 reason code로 변환하며 raw response body는 대화에 포함하지 않습니다. 조직 전체 차단 및 authorization 실패는 model failover를 중단하고 transient 실패만 다음 deployment를 시도합니다.
 - **지연 기반 모델 pool**: 검색 후보는 `resolved-models.json`의
