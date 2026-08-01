@@ -283,10 +283,11 @@ Server state determines which operations are available. The browser may hide una
 for usability, but every submission repeats authorization and revision checks. SSE can invalidate
 affected source references so the client refetches authoritative state.
 
-An invalidation stream carries opaque source references and revisions, not source records,
-available operations, or identity details. Its maximum lifetime does not exceed the verified token
-expiry. Reconnect repeats issuer, audience, tenant, role, and scope checks, so role revocation takes
-effect without trusting browser state. SSE is a refresh hint only and never authorizes a request.
+An SSE invalidation frame contains `event_id`, `source_family`, opaque `source_id`,
+`source_revision`, and `as_of`, never records, operations, or identity details. The server closes the
+stream no later than token expiry. The client obtains a new token and reconnects with the
+Authorization header plus the last event id; reconnect repeats all authorization checks and a gap
+forces authoritative refetch. SSE is a refresh hint only and never authorizes a request.
 
 Issuer and tenant checks mean exact validation against the deployment's configured Entra tenant
 issuer and API audience. A guest must still present a token issued by that home tenant. Common,

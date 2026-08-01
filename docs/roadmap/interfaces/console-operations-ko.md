@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 5ec99f9b64488da0b092517896ce87319fe7acfc
+translation_source_sha: 006635707f6fc5552c53ba7efe361cad14b0e200
 translation_revised: 2026-08-01
 ---
 
@@ -280,10 +280,11 @@ execution 대상이 아닙니다.
 숨길 수 있지만 모든 제출은 authorization과 revision check를 반복합니다. SSE는 영향받은 source
 reference를 invalidate하고 client가 authoritative state를 다시 읽게 할 수 있습니다.
 
-Invalidation stream은 source record, available operation 또는 identity detail이 아니라 opaque source
-reference와 revision만 전달합니다. 최대 lifetime은 verified token expiry를 넘지 않습니다. Reconnect는
-issuer, audience, tenant, role, scope check를 반복하므로 browser state를 신뢰하지 않고 role revocation을
-반영합니다. SSE는 refresh hint일 뿐 요청을 authorize하지 않습니다.
+SSE invalidation frame은 `event_id`, `source_family`, opaque `source_id`, `source_revision`, `as_of`를
+포함하며 record, operation, identity detail은 포함하지 않습니다. Server는 token expiry 전까지 stream을
+닫습니다. Client는 새 token을 얻고 Authorization header와 last event id로 reconnect합니다. Reconnect는
+모든 authorization check를 반복하며 gap이 있으면 authoritative refetch를 수행합니다. SSE는 refresh
+hint일 뿐 요청을 authorize하지 않습니다.
 
 Issuer와 tenant check는 deployment에 설정된 Entra tenant issuer와 API audience를 exact하게 검증한다는
 뜻입니다. Guest도 해당 home tenant가 발급한 token을 제시해야 합니다. Common, organizations,
