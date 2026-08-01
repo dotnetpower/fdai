@@ -205,6 +205,7 @@ class AzureSubscriptionHealthProvider:
         lookback_seconds: int,
         *,
         include_metrics: bool,
+        include_service_health: bool = False,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
     ) -> dict[str, Any]:
         """Inspect broad health with a server-selected metric policy."""
@@ -215,6 +216,7 @@ class AzureSubscriptionHealthProvider:
             kind_tokens_by_resource_type={},
             availability_states=(),
             include_metrics=include_metrics,
+            include_service_health=include_service_health,
             progress_observer=progress_observer,
         )
 
@@ -239,6 +241,7 @@ class AzureSubscriptionHealthProvider:
             ),
             availability_states=_validated_availability_states(availability_states),
             include_metrics=include_metrics,
+            include_service_health=False,
             progress_observer=progress_observer,
         )
 
@@ -250,6 +253,7 @@ class AzureSubscriptionHealthProvider:
         kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
         availability_states: tuple[str, ...],
         include_metrics: bool,
+        include_service_health: bool,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None,
     ) -> dict[str, Any]:
         if not 60 <= lookback_seconds <= 86_400:
@@ -268,13 +272,22 @@ class AzureSubscriptionHealthProvider:
             status="running",
             label="Checking Resource Health",
         )
-        resources, health = await asyncio.gather(
+        if include_service_health:
+            await _emit(
+                progress_observer,
+                kind="service-health.querying",
+                status="running",
+                label="Checking Service Health",
+            )
+        resources, health, service_health_result = await asyncio.gather(
             self._arg(
                 headers,
                 self._resource_query(resource_types, kind_tokens_by_resource_type),
             ),
             self._arg(headers, self._health_query(resource_types, availability_states)),
+            self._service_health(headers) if include_service_health else _empty_service_health(),
         )
+        service_events, service_impacts, service_health_unavailable = service_health_result
         safe_resources = [item for item in resources if _valid_resource(item)]
         resource_truncated = len(safe_resources) > self._config.max_resources
         safe_resources = safe_resources[: self._config.max_resources]
@@ -305,6 +318,12 @@ class AzureSubscriptionHealthProvider:
                 annotation_truncated = len(annotations) > 64
                 health = _merge_health_annotations(health, annotations[:64])
         health_findings = _health_findings(health)
+        service_health_events, service_health_truncated = _service_health_events(
+            service_events,
+            service_impacts,
+            subscription_scope=self._config.scope is AzureSubscriptionHealthScope.SUBSCRIPTION,
+            max_impacts=self._config.max_resources,
+        )
         provisioning_findings = _provisioning_findings(safe_resources)
         state_findings = _resource_state_findings(safe_resources, availability_states)
         health_truncated = len(health) > 64 or direct_health_truncated
@@ -324,6 +343,15 @@ class AzureSubscriptionHealthProvider:
             completed=min(len(health), 64),
             total=min(len(health), 64),
         )
+        if include_service_health:
+            await _emit(
+                progress_observer,
+                kind="service-health.completed",
+                status="unavailable" if service_health_unavailable else "completed",
+                label="Service Health checked",
+                completed=len(service_health_events),
+                total=len(service_health_events),
+            )
         supported = (
             [
                 item
@@ -397,8 +425,27 @@ class AzureSubscriptionHealthProvider:
             len(safe_resources) - len(supported) if include_metrics else 0
         )
         truncated = (
-            resource_truncated or health_truncated or metric_truncated or annotation_truncated
+            resource_truncated
+            or health_truncated
+            or metric_truncated
+            or annotation_truncated
+            or service_health_truncated
         )
+        active_service_issues = [
+            event
+            for event in service_health_events
+            if str(event.get("event_type") or "").casefold() == "serviceissue"
+        ]
+        active_maintenance = [
+            event
+            for event in service_health_events
+            if str(event.get("event_type") or "").casefold() == "plannedmaintenance"
+        ]
+        active_advisories = [
+            event
+            for event in service_health_events
+            if str(event.get("event_type") or "").casefold() == "healthadvisory"
+        ]
         await _emit(
             progress_observer,
             kind="evidence.correlating",
@@ -411,6 +458,7 @@ class AzureSubscriptionHealthProvider:
                 if (
                     resource_health_unavailable
                     or annotation_unavailable
+                    or service_health_unavailable
                     or metric_unavailable
                     or unsupported_metric_resources
                     or truncated
@@ -420,12 +468,27 @@ class AzureSubscriptionHealthProvider:
             "source": (
                 "azure-resource-graph+resource-health+azure-monitor-metrics"
                 if include_metrics
-                else "azure-resource-graph+resource-health"
+                else (
+                    "azure-resource-graph+resource-health+service-health"
+                    if include_service_health
+                    else "azure-resource-graph+resource-health"
+                )
             ),
             "observed_at": datetime.now(tz=UTC).isoformat(),
             "resource_count": len(safe_resources),
             "resource_health_unavailable": resource_health_unavailable,
             "resource_annotation_unavailable": annotation_unavailable,
+            "service_health_requested": include_service_health,
+            "service_health_unavailable": service_health_unavailable,
+            "active_service_issue_count": len(active_service_issues),
+            "active_service_issue_resource_count": _impacted_resource_count(active_service_issues),
+            "active_planned_maintenance_count": len(active_maintenance),
+            "active_planned_maintenance_resource_count": _impacted_resource_count(
+                active_maintenance
+            ),
+            "active_health_advisory_count": len(active_advisories),
+            "active_health_advisory_resource_count": _impacted_resource_count(active_advisories),
+            "service_health_events": service_health_events[:64],
             "metrics_requested": include_metrics,
             "supported_metric_resources": len(supported),
             "metric_checked": len(metric_targets) - metric_unavailable,
@@ -435,6 +498,19 @@ class AzureSubscriptionHealthProvider:
             "truncated": truncated,
             "findings": findings[:64],
         }
+
+    async def _service_health(
+        self,
+        headers: Mapping[str, str],
+    ) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]], int]:
+        try:
+            events, impacts = await asyncio.gather(
+                self._arg(headers, self._service_health_event_query()),
+                self._arg(headers, self._service_health_impact_query()),
+            )
+        except Exception:  # noqa: BLE001 - Service Health degrades independently
+            return [], [], 1
+        return events, impacts, 0
 
     async def _current_resource_health(
         self,
@@ -674,6 +750,36 @@ class AzureSubscriptionHealthProvider:
             "| order by occurredTime desc | take 65"
         )
 
+    def _service_health_event_query(self) -> str:
+        return (
+            "ServiceHealthResources "
+            "| where type =~ 'microsoft.resourcehealth/events' "
+            "| where tostring(properties.Status) =~ 'Active' "
+            "| project eventName=name, trackingId=tostring(properties.TrackingId), "
+            "eventType=tostring(properties.EventType), status=tostring(properties.Status), "
+            "level=tostring(properties.Level), title=tostring(properties.Title), "
+            "impactStartTime=tostring(properties.ImpactStartTime) "
+            "| take 65"
+        )
+
+    def _service_health_impact_query(self) -> str:
+        scope_filter = self._scope_filter("tostring(properties.resourceGroup)")
+        where = f"| where {scope_filter} " if scope_filter is not None else ""
+        return (
+            "ServiceHealthResources "
+            "| where type =~ 'microsoft.resourcehealth/events/impactedresources' "
+            f"{where}"
+            "| extend parentEventId=tostring(split(id, '/impactedResources/')[0]) "
+            "| project eventTrackingId=tostring(split(parentEventId, '/events/')[1]), "
+            "targetResourceId=tostring(properties.targetResourceId), "
+            "resourceName=tostring(properties.resourceName), "
+            "resourceGroup=tostring(properties.resourceGroup), "
+            "targetResourceType=tostring(properties.targetResourceType), "
+            "targetRegion=tostring(properties.targetRegion), "
+            "status=tostring(properties.status) "
+            f"| take {self._config.max_resources + 1}"
+        )
+
 
 def _validated_resource_types(values: Sequence[str]) -> tuple[str, ...]:
     normalized = tuple(dict.fromkeys(item.strip() for item in values))
@@ -741,6 +847,88 @@ async def _emit(
             "total": total,
         }
     )
+
+
+async def _empty_service_health() -> tuple[
+    list[Mapping[str, Any]],
+    list[Mapping[str, Any]],
+    int,
+]:
+    return [], [], 0
+
+
+def _service_health_events(
+    events: Sequence[Mapping[str, Any]],
+    impacts: Sequence[Mapping[str, Any]],
+    *,
+    subscription_scope: bool,
+    max_impacts: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    impacts_by_event: dict[str, list[Mapping[str, Any]]] = {}
+    for impact in impacts[: max_impacts + 1]:
+        tracking_id = str(impact.get("eventTrackingId") or "").strip().casefold()
+        if tracking_id:
+            impacts_by_event.setdefault(tracking_id, []).append(impact)
+    normalized: list[dict[str, Any]] = []
+    for event in events[:65]:
+        tracking_id = str(event.get("trackingId") or "").strip()
+        event_name = str(event.get("eventName") or "").strip()
+        aliases = {value.casefold() for value in (tracking_id, event_name) if value}
+        matched_impacts = [
+            impact for alias in aliases for impact in impacts_by_event.get(alias, ())
+        ]
+        if not subscription_scope and not matched_impacts:
+            continue
+        impacted_resources: list[dict[str, str]] = []
+        seen_resources: set[tuple[str, str, str]] = set()
+        for impact in matched_impacts:
+            name = _bounded_text(impact.get("resourceName"))
+            resource_group = _bounded_text(impact.get("resourceGroup"))
+            resource_type = _bounded_text(impact.get("targetResourceType"))
+            resource_key = (name.casefold(), resource_group.casefold(), resource_type.casefold())
+            if resource_key in seen_resources:
+                continue
+            seen_resources.add(resource_key)
+            impacted_resources.append(
+                {
+                    "name": name,
+                    "resource_group": resource_group,
+                    "resource_type": resource_type,
+                    "region": _bounded_text(impact.get("targetRegion")),
+                    "status": _bounded_text(impact.get("status")),
+                }
+            )
+        normalized.append(
+            {
+                "event_type": _bounded_text(event.get("eventType")),
+                "status": _bounded_text(event.get("status")),
+                "level": _bounded_text(event.get("level")),
+                "title": _bounded_text(event.get("title")),
+                "impact_start_time": _bounded_text(event.get("impactStartTime")),
+                "impacted_resource_count": len(impacted_resources),
+                "impacted_resources": impacted_resources[:64],
+            }
+        )
+    return normalized[:64], len(events) > 64 or len(impacts) > max_impacts
+
+
+def _impacted_resource_count(events: Sequence[Mapping[str, Any]]) -> int:
+    resources: set[tuple[str, str, str]] = set()
+    for event in events:
+        impacted = event.get("impacted_resources")
+        if not isinstance(impacted, list):
+            continue
+        for resource in impacted:
+            if not isinstance(resource, Mapping):
+                continue
+            resources.add(
+                (
+                    str(resource.get("name") or "").casefold(),
+                    str(resource.get("resource_group") or "").casefold(),
+                    str(resource.get("resource_type") or "").casefold(),
+                )
+            )
+    return len(resources)
 
 
 def _valid_resource(value: Mapping[str, Any]) -> bool:

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: 8ab1205c775a220b6eb7eea4b5f064ea20483bb9
+translation_source_sha: 53199e1c1f7d596b332205eec3921ce2094fe0ae
 translation_revised: 2026-08-01
 ---
 
@@ -295,9 +295,10 @@ truncated snapshot은 skipped coverage를 unknown으로 유지합니다. Operati
 명시적인 subscription 또는 platform-health intent는 semantic agent 또는 public-web plan보다
 deterministic tool precedence를 가집니다. Resource Health cause classification은 narration 전에
 platform impact와 customer-initiated state를 분리합니다. Broad platform-impact read는 대표
-metric을 끄고 누락된 availability cause를 bounded Resource Health annotation으로 보강합니다.
-Annotation query가 unavailable 또는 truncated이면 partial coverage gap으로 유지하며 platform
-impact 0을 증명할 수 없습니다.
+metric을 끄고 active Service Health event와 impacted resource를 query하며 outage를 planned
+maintenance 및 advisory와 분리합니다. 누락된 availability cause는 bounded Resource Health
+annotation으로 보강합니다. Service Health 또는 annotation query가 unavailable 또는 truncated이면
+partial coverage gap으로 유지하며 platform impact 0을 증명할 수 없습니다.
 
 **Reader-하한 tool은 증명 가능하게 side-effect-free.** `describe_event`는
 `EventIngest -> TrustRouter -> T0Engine`을 **메모리 내에서만** 실행: T1

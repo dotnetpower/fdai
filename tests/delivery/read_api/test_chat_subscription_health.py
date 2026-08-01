@@ -774,17 +774,34 @@ def test_platform_health_reports_cause_counts_without_metrics() -> None:
             lookback_seconds: int,
             *,
             include_metrics: bool,
+            include_service_health: bool = False,
             progress_observer: Any = None,
         ) -> dict[str, Any]:
             del progress_observer
             assert lookback_seconds == 3_600
             assert include_metrics is False
+            assert include_service_health is True
             return {
                 "status": "matched",
-                "source": "azure-resource-graph+resource-health",
+                "source": "azure-resource-graph+resource-health+service-health",
                 "observed_at": "2026-07-22T05:00:00Z",
                 "resource_count": 3,
                 "resource_health_unavailable": 0,
+                "service_health_requested": True,
+                "service_health_unavailable": 0,
+                "active_service_issue_count": 0,
+                "active_service_issue_resource_count": 0,
+                "active_planned_maintenance_count": 1,
+                "active_planned_maintenance_resource_count": 1,
+                "active_health_advisory_count": 0,
+                "active_health_advisory_resource_count": 0,
+                "service_health_events": [
+                    {
+                        "event_type": "PlannedMaintenance",
+                        "title": "Example maintenance",
+                        "impacted_resources": [{"name": "database-app"}],
+                    }
+                ],
                 "metrics_requested": False,
                 "metric_checked": 0,
                 "metric_unavailable": 0,
@@ -833,10 +850,90 @@ def test_platform_health_reports_cause_counts_without_metrics() -> None:
         )
 
     answer = response.json()["answer"]
-    assert "Azure 플랫폼 영향으로 분류된 리소스는 1개" in answer
+    assert "활성 Azure 장애 이벤트 0개" in answer
+    assert "활성 계획 유지 관리 1개" in answer
+    assert "Service Health PlannedMaintenance" in answer
+    assert "Azure 플랫폼 영향 1개" in answer
     assert "Customer-initiated 1개" in answer
     assert "원인 미확정 1개" in answer
     assert "대표 메트릭: 요청되지 않음" in answer
+    assert backend.calls == 0
+
+
+def test_active_azure_outage_does_not_compile_running_state_or_metrics() -> None:
+    calls: list[dict[str, object]] = []
+
+    class Provider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("platform health must use configurable broad query")
+
+        async def query_health(
+            self,
+            lookback_seconds: int,
+            *,
+            include_metrics: bool,
+            include_service_health: bool = False,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            calls.append(
+                {
+                    "lookback_seconds": lookback_seconds,
+                    "include_metrics": include_metrics,
+                    "include_service_health": include_service_health,
+                }
+            )
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health+service-health",
+                "observed_at": "2026-07-22T05:00:00Z",
+                "resource_count": 1,
+                "resource_health_unavailable": 0,
+                "service_health_requested": include_service_health,
+                "service_health_unavailable": 0,
+                "metrics_requested": include_metrics,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [],
+            }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(Provider()),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat",
+            json={
+                "prompt": "Is any managed resource affected by an active Azure outage?",
+                "view_context": {},
+            },
+        )
+
+    payload = response.json()
+    assert calls == [
+        {
+            "lookback_seconds": 3_600,
+            "include_metrics": False,
+            "include_service_health": True,
+        }
+    ]
+    assert "0 active Azure outage event(s) affecting 0 managed resource(s)" in payload["answer"]
+    assert "running" not in payload["answer"]
     assert backend.calls == 0
 
 

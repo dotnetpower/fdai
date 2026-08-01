@@ -65,7 +65,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
 | Conversational resource continuity | Implemented | Command Deck retains one server-selected inventory resource across terminal turns. Elliptical history follow-ups bypass semantic and public-web planning, then Heimdall re-resolves the resource and returns its matching read evidence directly. |
 | Subscription scope identity | Implemented | Current-subscription identity questions read the server-configured subscription name and state from Azure Resource Manager, render only a masked subscription ID, and never call the narrator model. |
-| Subscription health sweep | Implemented | Explicit subscription checks, general service-outage questions, and generic degraded or unavailable resource-state questions use the configured reader scope. The inventory language catalog selects Resource Health authority for availability semantics. The provider defaults to the configured resource-group allowlist. An explicit server-owned subscription mode aligns interactive local health with its subscription inventory. The provider queries Resource Graph inventory and Resource Health, falls back to the corresponding current Resource Health scope when ARG is empty, then checks representative metrics for up to 16 supported resources with concurrency limited to four. |
+| Subscription health sweep | Implemented | Explicit subscription checks, general service-outage questions, and generic degraded or unavailable resource-state questions use the configured reader scope. The inventory language catalog selects Resource Health authority for availability semantics. The provider defaults to the configured resource-group allowlist. An explicit server-owned subscription mode aligns interactive local health with its subscription inventory. Platform-impact reads query active Service Health events and impacted resources, separate outages from maintenance and advisories, and correlate Resource Health causes. Other diagnosis reads can check representative metrics for up to 16 supported resources with concurrency limited to four. |
 | Azure evidence adapters | Implemented | REST covers state, Activity Log, Resource Health, guest logs, configured NSG rules, and VNet peering properties. Interactive local can route NSG and peering reads through the registered development operations gateway without receiving its executor identity. The typed CLI fallback covers resource, VM state, and Activity Log through registered plans. |
 | Optional Azure MCP reads | Implemented | The official MCP Python SDK starts the pinned Azure MCP Server over stdio, probes its namespace allowlist before traffic, uses it for VM state, Activity Log, and Resource Health, and immediately falls back to typed REST when unavailable or rejected by its circuit breaker. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
@@ -235,14 +235,20 @@ appropriately scoped reader identity. Neither the browser nor the narrator can s
 2. If ARG returns no health rows, list current Resource Health availability statuses for the
   configured subscription or each allowed resource group through the official ARM endpoint. A
   failed scope remains explicitly unavailable.
-3. Select up to 16 supported resources for representative Azure Monitor metrics.
-4. Query at most four metrics concurrently and compare them with server-owned thresholds.
-5. Return Resource Health, failed provisioning, and metric candidates with unsupported,
-   unavailable, and truncated counts.
+3. For explicit platform-impact intent, query active `ServiceHealthResources` events and their
+  bounded impacted-resource rows. Separate `ServiceIssue`, `PlannedMaintenance`, and
+  `HealthAdvisory` counts before rendering.
+4. For diagnosis intent that isn't platform impact, select up to 16 supported resources for
+  representative Azure Monitor metrics.
+5. Query at most four metrics concurrently and compare them with server-owned thresholds.
+6. Return Service Health events, Resource Health causes, failed provisioning, and metric
+  candidates with unsupported, unavailable, and truncated counts.
 
 The initial metric map covers VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU,
 and Application Gateway healthy-host count. Unsupported resource types remain counted and visible.
-A Resource Health or metric failure produces `partial`, never a healthy conclusion. A
+A Service Health, Resource Health, or metric failure produces `partial`, never a healthy
+conclusion. Service Health rows expose bounded event type, title, level, start time, and impacted
+resource projections without raw event or resource IDs. A
 customer-initiated Resource Health state is explained as user- or automation-initiated rather than
 an Azure platform incident, but the actor remains unknown until Activity Log evidence is collected.
 For an explicit status collection, the terminal answer renders every requested catalog state in

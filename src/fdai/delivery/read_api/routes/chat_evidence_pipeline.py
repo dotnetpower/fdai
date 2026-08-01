@@ -311,7 +311,7 @@ async def resolve_parallel_chat_evidence(
         not parallel_web
         and web_search_resolver is not None
         and not selected_incident_turn
-        and not deterministic_inventory_turn
+        and not deterministic_tool_turn
         and selected_agent is None
     ):
 

@@ -300,9 +300,10 @@ separate coverage class and are never relabeled as inventory read failures.
 Explicit subscription or platform-health intent has deterministic tool precedence over a semantic
 agent or public-web plan. Resource Health cause classification separates platform impact from
 customer-initiated state before narration. Broad platform-impact reads disable representative
-metrics and enrich missing availability causes from bounded Resource Health annotations. An
-unavailable or truncated annotation query remains a partial coverage gap and cannot prove zero
-platform impact.
+metrics, query active Service Health events and impacted resources, separate outages from planned
+maintenance and advisories, and enrich missing availability causes from bounded Resource Health
+annotations. An unavailable or truncated Service Health or annotation query remains a partial
+coverage gap and cannot prove zero platform impact.
 
 **Reader-floor tools are provably side-effect-free.** `describe_event`
 runs `EventIngest -> TrustRouter -> T0Engine` **in memory only**: it does

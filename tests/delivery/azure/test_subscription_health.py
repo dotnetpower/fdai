@@ -233,6 +233,161 @@ async def test_platform_health_merges_customer_annotation_without_metrics() -> N
     assert any("resourceannotations" in query for query in requests)
 
 
+async def test_platform_health_correlates_active_service_health_events() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"value": []})
+        query = json.loads(request.content)["query"]
+        if query.startswith("ServiceHealthResources") and "impactedresources" in query:
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "eventTrackingId": "issue-1",
+                            "resourceName": "vm-app",
+                            "resourceGroup": "rg-example",
+                            "targetResourceType": "Microsoft.Compute/virtualMachines",
+                            "targetRegion": "example-region",
+                            "status": "Active",
+                        },
+                        {
+                            "eventTrackingId": "maintenance-1",
+                            "resourceName": "database-app",
+                            "resourceGroup": "rg-example",
+                            "targetResourceType": "Microsoft.DBforPostgreSQL/flexibleServers",
+                            "targetRegion": "example-region",
+                            "status": "Active",
+                        },
+                    ]
+                },
+            )
+        if query.startswith("ServiceHealthResources"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "eventName": "issue-1",
+                            "trackingId": "issue-1",
+                            "eventType": "ServiceIssue",
+                            "status": "Active",
+                            "level": "Warning",
+                            "title": "Example compute issue",
+                            "impactStartTime": "2026-07-22T04:50:00Z",
+                        },
+                        {
+                            "eventName": "maintenance-1",
+                            "trackingId": "maintenance-1",
+                            "eventType": "PlannedMaintenance",
+                            "status": "Active",
+                            "level": "Informational",
+                            "title": "Example database maintenance",
+                            "impactStartTime": "2026-07-22T05:00:00Z",
+                        },
+                    ]
+                },
+            )
+        if "resourceannotations" in query:
+            return httpx.Response(200, json={"data": []})
+        if query.startswith("HealthResources"):
+            return httpx.Response(200, json={"data": []})
+        return httpx.Response(200, json={"data": _resource_rows()})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+                scope=AzureSubscriptionHealthScope.SUBSCRIPTION,
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_health(
+            3_600,
+            include_metrics=False,
+            include_service_health=True,
+        )
+
+    assert result["status"] == "matched"
+    assert result["source"] == "azure-resource-graph+resource-health+service-health"
+    assert result["service_health_unavailable"] == 0
+    assert result["active_service_issue_count"] == 1
+    assert result["active_service_issue_resource_count"] == 1
+    assert result["active_planned_maintenance_count"] == 1
+    assert result["active_planned_maintenance_resource_count"] == 1
+    assert result["service_health_events"] == [
+        {
+            "event_type": "ServiceIssue",
+            "status": "Active",
+            "level": "Warning",
+            "title": "Example compute issue",
+            "impact_start_time": "2026-07-22T04:50:00Z",
+            "impacted_resource_count": 1,
+            "impacted_resources": [
+                {
+                    "name": "vm-app",
+                    "resource_group": "rg-example",
+                    "resource_type": "Microsoft.Compute/virtualMachines",
+                    "region": "example-region",
+                    "status": "Active",
+                }
+            ],
+        },
+        {
+            "event_type": "PlannedMaintenance",
+            "status": "Active",
+            "level": "Informational",
+            "title": "Example database maintenance",
+            "impact_start_time": "2026-07-22T05:00:00Z",
+            "impacted_resource_count": 1,
+            "impacted_resources": [
+                {
+                    "name": "database-app",
+                    "resource_group": "rg-example",
+                    "resource_type": "Microsoft.DBforPostgreSQL/flexibleServers",
+                    "region": "example-region",
+                    "status": "Active",
+                }
+            ],
+        },
+    ]
+
+
+async def test_platform_health_service_health_failure_is_partial() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"value": []})
+        query = json.loads(request.content)["query"]
+        if query.startswith("ServiceHealthResources"):
+            return httpx.Response(503, json={"error": "unavailable"})
+        if query.startswith("HealthResources"):
+            return httpx.Response(200, json={"data": []})
+        return httpx.Response(200, json={"data": _resource_rows()})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+                scope=AzureSubscriptionHealthScope.SUBSCRIPTION,
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_health(
+            3_600,
+            include_metrics=False,
+            include_service_health=True,
+        )
+
+    assert result["status"] == "partial"
+    assert result["resource_count"] == 2
+    assert result["service_health_unavailable"] == 1
+    assert result["service_health_events"] == []
+
+
 async def test_platform_health_annotation_failure_is_partial() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "POST"

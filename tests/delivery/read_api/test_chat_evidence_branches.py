@@ -619,6 +619,52 @@ async def test_chat_pipeline_prefers_local_aks_inventory_over_planned_web() -> N
     assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {"tool"}
 
 
+async def test_chat_pipeline_uses_only_subscription_health_for_platform_outage() -> None:
+    events: list[dict[str, Any]] = []
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del principal_id
+            assert prompt == "Is any managed resource affected by an active Azure outage?"
+            return {
+                "tool": "query_subscription_health",
+                "authority": "server_subscription_health",
+                "result": {"status": "matched", "findings": []},
+            }
+
+    class AgentDelegate:
+        async def delegate(self, *, prompt: str, user_id: str, session_id: str):
+            del prompt, user_id, session_id
+            raise AssertionError("deterministic platform health must not invoke an agent")
+
+    class WebResolver:
+        async def resolve(self, *args: object, **kwargs: object):
+            del args, kwargs
+            raise AssertionError("deterministic platform health must not search the public web")
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        events.append(dict(event))
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-platform-health",
+        prompt="Is any managed resource affected by an active Azure outage?",
+        view_context={"routeId": "architecture"},
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=None,
+        agent_delegate=AgentDelegate(),
+        web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert merged["_tool_evidence"]["tool"] == "query_subscription_health"
+    assert "_web_evidence" not in merged
+    assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {"tool"}
+
+
 async def test_chat_pipeline_overlaps_explicit_web_and_tool_resolvers() -> None:
     started: set[str] = set()
     both_started = asyncio.Event()

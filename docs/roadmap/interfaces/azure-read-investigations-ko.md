@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 49eb4feb74ad64fed209efd854f2666935cf2d37
+translation_source_sha: 2c9c7648a52fdf8853bfa477df97cf68dbfe2bd9
 translation_revised: 2026-08-01
 ---
 
@@ -66,7 +66,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
 | 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. 생략된 history 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 resource를 다시 resolve한 뒤 일치하는 read evidence를 직접 반환합니다. |
 | Subscription scope identity | 구현됨 | 현재 subscription identity 질문은 server에 configured된 subscription name과 state를 Azure Resource Manager에서 읽고, masked subscription ID만 렌더링하며, narrator model을 호출하지 않습니다. |
-| Subscription health sweep | 구현됨 | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 unavailable resource-state 질문이 configured reader scope를 사용합니다. Inventory language catalog가 availability 의미에 대해 Resource Health authority를 선택합니다. Provider는 configured resource-group allowlist를 기본으로 사용합니다. 명시적인 server-owned subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Provider는 Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 해당 current Resource Health scope로 fallback한 다음 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인합니다. |
+| Subscription health sweep | 구현됨 | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 unavailable resource-state 질문이 configured reader scope를 사용합니다. Inventory language catalog가 availability 의미에 대해 Resource Health authority를 선택합니다. Provider는 configured resource-group allowlist를 기본으로 사용합니다. 명시적인 server-owned subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Platform-impact read는 active Service Health event와 impacted resource를 query하고 outage를 maintenance 및 advisory와 분리한 다음 Resource Health cause와 correlate합니다. 다른 diagnosis read는 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인할 수 있습니다. |
 | Azure evidence adapter | 구현됨 | REST는 state, Activity Log, Resource Health, guest log, 구성된 NSG rule 및 VNet peering property를 지원합니다. Interactive local은 executor identity를 받지 않고 registered development operations gateway를 통해 NSG 및 peering read를 전달할 수 있습니다. Typed CLI fallback은 registered plan으로 resource, VM state, Activity Log를 지원합니다. |
 | 선택적 Azure MCP read | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP Server를 stdio로 시작하고 traffic 전에 namespace allowlist를 probe합니다. VM state, Activity Log, Resource Health에 사용하며 unavailable 상태이거나 circuit breaker에서 차단되면 typed REST로 즉시 fallback합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
@@ -232,14 +232,20 @@ binding하지 않으면 `resource_groups`를 유지합니다. Browser와 narrato
 2. ARG가 health row를 반환하지 않으면 공식 ARM endpoint를 통해 configured subscription 또는 허용된
   각 resource group의 current Resource Health availability status를 나열합니다. 실패한 scope는
   unavailable로 명시합니다.
-3. 대표 Azure Monitor metric을 확인할 supported resource를 최대 16개 선택합니다.
-4. 최대 4개 metric을 동시에 query하고 server-owned threshold와 비교합니다.
-5. Resource Health, 실패한 provisioning, metric 후보와 unsupported, unavailable, truncated count를
-  반환합니다.
+3. 명시적인 platform-impact intent에는 active `ServiceHealthResources` event와 bounded
+  impacted-resource row를 query합니다. Rendering 전에 `ServiceIssue`, `PlannedMaintenance` 및
+  `HealthAdvisory` count를 분리합니다.
+4. Platform impact가 아닌 diagnosis intent에는 representative Azure Monitor metric을 확인할
+  supported resource를 최대 16개 선택합니다.
+5. 최대 4개 metric을 동시에 query하고 server-owned threshold와 비교합니다.
+6. Service Health event, Resource Health cause, 실패한 provisioning 및 metric 후보를 unsupported,
+  unavailable, truncated count와 함께 반환합니다.
 
 초기 metric map은 VM CPU, AKS node CPU, Storage availability, PostgreSQL/MySQL/SQL CPU 및
 Application Gateway healthy-host count를 다룹니다. Unsupported resource type은 count에 남아
-표시됩니다. Resource Health 또는 metric failure는 healthy 결론이 아니라 `partial`을 생성합니다.
+표시됩니다. Service Health, Resource Health 또는 metric failure는 healthy 결론이 아니라 `partial`을
+생성합니다. Service Health row는 raw event 또는 resource ID 없이 bounded event type, title, level,
+start time 및 impacted-resource projection을 제공합니다.
 Customer-initiated Resource Health state는 Azure platform incident가 아니라 user 또는 automation이
 시작한 상태로 설명하지만, Activity Log evidence를 수집하기 전에는 actor를 알 수 없다고 표시합니다.
 명시적인 status collection의 terminal answer는 근거 있는 empty group을 포함하여 요청된 모든 catalog

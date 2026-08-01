@@ -64,6 +64,7 @@ class ConfigurableSubscriptionHealthProvider(Protocol):
         lookback_seconds: int,
         *,
         include_metrics: bool,
+        include_service_health: bool = False,
         progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
     ) -> Mapping[str, Any]: ...
 
@@ -224,12 +225,19 @@ class SubscriptionHealthChatTools:
         provider_types = resolver.provider_types_for(requested_types)
         kind_tokens_by_resource_type = resolver.provider_kind_tokens_for(requested_types)
         language = default_inventory_query_language_resolver()
-        include_metrics = language.has(
-            language.registry.signals, "diagnosis", prompt
-        ) and not _SERVICE_HEALTH.search(prompt)
-        availability_states = tuple(
-            dict.fromkeys(
-                value for group in inventory_query_status_groups(prompt) for value in group.values
+        platform_impact = language.has(language.registry.signals, "platform_health", prompt)
+        include_metrics = (
+            language.has(language.registry.signals, "diagnosis", prompt) and not platform_impact
+        )
+        availability_states = (
+            ()
+            if platform_impact
+            else tuple(
+                dict.fromkeys(
+                    value
+                    for group in inventory_query_status_groups(prompt)
+                    for value in group.values
+                )
             )
         )
         if provider_types and isinstance(
@@ -250,6 +258,7 @@ class SubscriptionHealthChatTools:
                 await self.provider.query_health(
                     3_600,
                     include_metrics=include_metrics,
+                    include_service_health=platform_impact,
                     progress_observer=progress_observer,
                 )
             )
@@ -361,6 +370,17 @@ def render_subscription_health_answer(
         )
     resource_count = _integer(result.get("resource_count"))
     resource_health_unavailable = _integer(result.get("resource_health_unavailable"))
+    service_health_unavailable = _integer(result.get("service_health_unavailable"))
+    service_health_requested = result.get("service_health_requested") is True
+    active_service_issues = _integer(result.get("active_service_issue_count"))
+    active_service_issue_resources = _integer(result.get("active_service_issue_resource_count"))
+    active_maintenance = _integer(result.get("active_planned_maintenance_count"))
+    active_maintenance_resources = _integer(result.get("active_planned_maintenance_resource_count"))
+    active_advisories = _integer(result.get("active_health_advisory_count"))
+    active_advisory_resources = _integer(result.get("active_health_advisory_resource_count"))
+    service_health_events = [
+        item for item in result.get("service_health_events", []) if isinstance(item, Mapping)
+    ]
     metric_checked = _integer(result.get("metric_checked"))
     metric_unavailable = _integer(result.get("metric_unavailable"))
     unsupported = _integer(result.get("unsupported_metric_resources"))
@@ -392,15 +412,29 @@ def render_subscription_health_answer(
             )
         )
     elif platform_impact:
-        grouped_lines = _finding_lines(findings, korean=korean)
+        grouped_lines = [
+            *_service_health_event_lines(service_health_events, korean=korean),
+            *_finding_lines(findings, korean=korean),
+        ]
         platform_count, customer_count, unknown_count = _cause_counts(findings)
         summary = (
-            f"Azure 플랫폼 영향으로 분류된 리소스는 {platform_count}개입니다. "
-            f"Customer-initiated {customer_count}개, 원인 미확정 {unknown_count}개입니다."
+            f"Service Health에서 활성 Azure 장애 이벤트 {active_service_issues}개와 "
+            f"영향받는 관리형 리소스 {active_service_issue_resources}개를 확인했습니다. "
+            f"활성 계획 유지 관리 {active_maintenance}개가 리소스 "
+            f"{active_maintenance_resources}개에, 활성 권고 {active_advisories}개가 리소스 "
+            f"{active_advisory_resources}개에 연결됩니다. Resource Health에서는 Azure 플랫폼 "
+            f"영향 {platform_count}개, Customer-initiated {customer_count}개, 원인 미확정 "
+            f"{unknown_count}개로 분류했습니다."
             if korean
             else (
-                f"{platform_count} resource(s) were classified as Azure platform impact; "
-                f"{customer_count} were customer-initiated and {unknown_count} were unclassified."
+                f"Service Health found {active_service_issues} active Azure outage event(s) "
+                f"affecting {active_service_issue_resources} managed resource(s). It also found "
+                f"{active_maintenance} active planned-maintenance event(s) affecting "
+                f"{active_maintenance_resources} resource(s) and {active_advisories} active "
+                f"advisory event(s) affecting {active_advisory_resources} resource(s). Resource "
+                f"Health separately classified {platform_count} resource(s) as Azure platform "
+                f"impact, {customer_count} as customer-initiated, and {unknown_count} as "
+                "unclassified."
             )
         )
     else:
@@ -425,14 +459,21 @@ def render_subscription_health_answer(
             else "대표 메트릭: 요청되지 않음."
         )
         lines.append(
-            f"Resource Health 조회 불가 범위 {resource_health_unavailable}개. {metric_summary}"
+            f"Resource Health 조회 불가 범위 {resource_health_unavailable}개. "
+            + (
+                f"Service Health 조회 불가 {service_health_unavailable}개. "
+                if service_health_requested
+                else ""
+            )
+            + metric_summary
         )
         lines.append(f"근거: {source}, 관찰 시각 {observed_at}.")
         if truncated:
             lines.append("조회 한도에 도달했으므로 추가 리소스나 후보가 있을 수 있습니다.")
         if status == "partial":
             lines.append(
-                "일부 Resource Health 또는 메트릭 근거가 조회 불가이거나 미지원이므로 "
+                "일부 Resource Health, Service Health 또는 메트릭 근거가 조회 불가이거나 "
+                "미지원이므로 "
                 "전체 정상 상태를 확정하지 않았습니다."
             )
         return "\n".join(lines)
@@ -446,14 +487,21 @@ def render_subscription_health_answer(
         else "Representative metrics were not requested."
     )
     lines.append(
-        f"Resource Health: {resource_health_unavailable} scope(s) unavailable. {metric_summary}"
+        f"Resource Health: {resource_health_unavailable} scope(s) unavailable. "
+        + (
+            f"Service Health: {service_health_unavailable} query set(s) unavailable. "
+            if service_health_requested
+            else ""
+        )
+        + metric_summary
     )
     lines.append(f"Evidence: {source}, observed {observed_at}.")
     if truncated:
         lines.append("The bounded query limit was reached; additional resources may exist.")
     if status == "partial":
         lines.append(
-            "Some Resource Health or metric evidence was unavailable or unsupported, so "
+            "Some Resource Health, Service Health, or metric evidence was unavailable or "
+            "unsupported, so "
             "complete normal operation was not confirmed."
         )
     return "\n".join(lines)
@@ -558,12 +606,40 @@ def _metric_observation_lines(
     return lines
 
 
+def _service_health_event_lines(
+    events: list[Mapping[str, Any]],
+    *,
+    korean: bool,
+) -> list[str]:
+    lines: list[str] = []
+    for event in events[:20]:
+        event_type = str(event.get("event_type") or "unknown")
+        title = str(event.get("title") or "unknown")
+        impacted = [
+            item for item in event.get("impacted_resources", []) if isinstance(item, Mapping)
+        ]
+        names = ", ".join(str(item.get("name") or "unknown") for item in impacted[:10])
+        resource_suffix = f": {names}" if names else ""
+        if korean:
+            lines.append(
+                f"- Service Health {event_type}: {title}. 영향받는 관리형 리소스 "
+                f"{len(impacted)}개{resource_suffix}"
+            )
+        else:
+            lines.append(
+                f"- Service Health {event_type}: {title}. {len(impacted)} impacted managed "
+                f"resource(s){resource_suffix}"
+            )
+    return lines
+
+
 def _status_query(prompt: str) -> dict[str, object]:
-    groups = inventory_query_status_groups(prompt)
-    requested_types = default_inventory_resource_type_resolver().resolve(prompt)
     language = default_inventory_query_language_resolver()
+    platform_impact = language.has(language.registry.signals, "platform_health", prompt)
+    groups = () if platform_impact else inventory_query_status_groups(prompt)
+    requested_types = default_inventory_resource_type_resolver().resolve(prompt)
     return {
-        "platform_impact": language.has(language.registry.signals, "platform_health", prompt),
+        "platform_impact": platform_impact,
         "requested_resource_types": list(requested_types),
         "requested_status_groups": [
             {"id": group.id, "values": list(group.values), "labels": dict(group.labels)}
