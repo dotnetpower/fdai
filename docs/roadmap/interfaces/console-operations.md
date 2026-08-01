@@ -263,12 +263,13 @@ and revoked entitlement. Adding a request route without its matrix row blocks th
 
 ### Phase 3 - complete Operations views
 
-Add Tasks, Approvals, Investigations, timeline, evidence, and conflict recovery to the existing
-console shell. Project operational-readiness handover through its existing `Process` and review
-links. Measure queue age and request-to-terminal-outcome latency by source and outcome.
+Add Tasks, Approvals, Investigations, timeline, evidence, and source-specific recovery to the
+existing shell. Stale revision reloads authoritative state; a competing decision links its winner;
+expiry or denial explains the next allowed transition. Only a changed intent receives a new key.
 
 Exit criteria: operators can complete each supported human step in FDAI Console, while every
-managed-resource mutation appears only as a later Thor `ActionRun`.
+managed-resource mutation appears only as a later Thor `ActionRun`. Conflict, retry, compensation,
+and rollback drills preserve the original receipt and link every superseding outcome.
 
 ### Phase 4 - optimize from measurements
 

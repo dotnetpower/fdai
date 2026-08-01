@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: a1f0bef04001b5ae17885ba5a330b40db9726b93
+translation_source_sha: e6293a8adee6ee0c11e7d88adbc146c7b844ee65
 translation_revised: 2026-08-01
 ---
 
@@ -261,11 +261,13 @@ request route를 추가하면 변경이 차단됩니다.
 
 ### Phase 3 - Operations view 완성
 
-기존 console shell에 Tasks, Approvals, Investigations, timeline, evidence, conflict recovery를 추가합니다.
-기존 `Process`와 review link를 통해 operational-readiness handover를 projection하고 source와 outcome별 queue age 및 request-to-terminal-outcome latency를 측정합니다.
+기존 shell에 Tasks, Approvals, Investigations, timeline, evidence, source별 recovery를 추가합니다. Stale
+revision은 authoritative state를 다시 읽고, competing decision은 winner를 연결하며, expiry나 denial은
+다음 허용 transition을 설명합니다. Intent가 바뀐 경우에만 새 key를 사용합니다.
 
 Exit criteria: 오퍼레이터가 FDAI Console에서 지원되는 사람 단계를 완료할 수 있으며 모든
-managed-resource mutation은 이후 Thor `ActionRun`으로만 나타납니다.
+managed-resource mutation은 이후 Thor `ActionRun`으로만 나타납니다. Conflict, retry, compensation,
+rollback drill은 원래 receipt를 보존하고 모든 superseding outcome을 연결합니다.
 
 ### Phase 4 - 측정 기반 최적화
 
