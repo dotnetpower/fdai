@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 73d537ee5992dff64d5cfc2ad35ac54cbbd23008
+translation_source_sha: 602960700fced37242b6a0f728ad9211079fad14
 translation_revised: 2026-08-01
 ---
 
@@ -317,6 +317,11 @@ rollback drill은 원래 receipt를 보존하고 모든 superseding outcome을 �
 측정된 수요와 도메인 safety contract가 생긴 뒤에만 cross-device saved view 또는 bulk request를
 추가합니다. Queue age, decision latency, conflict rate, duplicate suppression, overdue work, projection
 freshness, request-to-terminal-outcome latency를 측정하고 baseline에서 alert를 설정합니다.
+
+Exit criteria: source별 reviewed baseline window와 minimum sample floor를 고정하고 모든 metric은 bounded
+label을 사용하며 alert fire/recovery를 연습합니다. Optimization은 같은 scenario set에서 먼저 shadow로
+실행하고 target metric이 개선되면서 denial escape, duplicate application, rollback,
+unavailable-source rate가 악화되지 않을 때만 진행합니다.
 
 ## 채택하지 않은 대안
 

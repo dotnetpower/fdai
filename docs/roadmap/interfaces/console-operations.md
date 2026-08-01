@@ -321,6 +321,11 @@ Add cross-device saved views or bulk requests only after measured demand and a d
 contract exist. Track queue age, decision latency, conflict rate, duplicate suppression, overdue
 work, projection freshness, and request-to-terminal-outcome latency; set alerts from measured baselines.
 
+Exit criteria: a reviewed baseline window and minimum sample floor are frozen per source, every
+metric has bounded labels, and alert fire/recovery is exercised. An optimization first runs in
+shadow against the same scenario set and advances only when its target metric improves without
+regressing denial escapes, duplicate application, rollback, or unavailable-source rates.
+
 ## Rejected alternatives
 
 - **Separate operations app:** Duplicates FDAI Console and suggests a second product.
