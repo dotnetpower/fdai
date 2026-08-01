@@ -161,7 +161,7 @@ def test_local_cli_wiring_does_not_set_fake_managed_identity_client_id() -> None
     assert parameters.env["AZURE_CONFIG_DIR"] == "/profiles/azure"
 
 
-async def test_missing_mcp_executable_degrades_without_blocking_startup() -> None:
+def test_missing_mcp_executable_degrades_without_probe_timeout() -> None:
     wiring = build_azure_mcp_read_wiring(
         fallback=_Fallback(),
         environment={
@@ -173,13 +173,22 @@ async def test_missing_mcp_executable_degrades_without_blocking_startup() -> Non
         subscription_id="subscription",
     )
 
-    await wiring.start()
-    try:
-        assert wiring.client is not None
-        assert wiring.client.is_routable is False
-        assert wiring.client.reason == "probe_failed"
-    finally:
-        await wiring.close()
+    assert wiring.client is None
+    assert isinstance(wiring.transport, _Fallback)
+
+
+def test_missing_mcp_executable_rejects_explicit_enable() -> None:
+    with pytest.raises(RuntimeError, match="requires executable"):
+        build_azure_mcp_read_wiring(
+            fallback=_Fallback(),
+            environment={
+                "PATH": "/bin",
+                "FDAI_AZURE_MCP_COMMAND": "missing-azmcp",
+                "FDAI_AZURE_MCP_ENABLED": "true",
+            },
+            reader_client_id="reader",
+            subscription_id="subscription",
+        )
 
 
 @pytest.mark.parametrize("value", ("maybe", "2", "enabled"))
@@ -198,6 +207,27 @@ def test_command_rejects_paths() -> None:
         build_azure_mcp_read_wiring(
             fallback=_Fallback(),
             environment={"FDAI_AZURE_MCP_COMMAND": "tools/azmcp"},
+            reader_client_id="reader",
+            subscription_id="subscription",
+        )
+
+
+@pytest.mark.parametrize("value", ("nan", "inf", "-inf"))
+def test_numeric_controls_reject_nonfinite_values(value: str) -> None:
+    with pytest.raises(ValueError, match="MUST be finite"):
+        build_azure_mcp_read_wiring(
+            fallback=_Fallback(),
+            environment={"FDAI_AZURE_MCP_RESET_TIMEOUT_SECONDS": value},
+            reader_client_id="reader",
+            subscription_id="subscription",
+        )
+
+
+def test_telemetry_control_rejects_unknown_token() -> None:
+    with pytest.raises(ValueError, match="boolean token"):
+        build_azure_mcp_read_wiring(
+            fallback=_Fallback(),
+            environment={"AZURE_MCP_COLLECT_TELEMETRY": "sometimes"},
             reader_client_id="reader",
             subscription_id="subscription",
         )

@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+import math
+import shutil
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from fdai.delivery.azure.read_investigation.mcp_transport import (
     AZURE_MCP_READ_TOOLS,
@@ -11,6 +16,8 @@ from fdai.delivery.azure.read_investigation.mcp_transport import (
 )
 from fdai.delivery.azure.read_investigation.transport import AzureReadTransport
 from fdai.delivery.mcp import ManagedMcpClient, ManagedMcpClientConfig, PythonSdkMcpSession
+
+_LOGGER = logging.getLogger(__name__)
 
 _CHILD_ENV_ALLOWLIST = frozenset(
     {
@@ -54,6 +61,7 @@ def build_azure_mcp_read_wiring(
 ) -> AzureMcpReadWiring:
     raw_enabled = environment.get("FDAI_AZURE_MCP_ENABLED")
     if not _enabled(raw_enabled, default=True):
+        _LOGGER.info("azure_mcp_disabled")
         return AzureMcpReadWiring(transport=fallback)
     explicitly_enabled = bool(raw_enabled and raw_enabled.strip())
     command = environment.get("FDAI_AZURE_MCP_COMMAND", "azmcp").strip()
@@ -65,16 +73,26 @@ def build_azure_mcp_read_wiring(
     child_environment.update(
         {
             "AZURE_SUBSCRIPTION_ID": subscription_id,
-            "AZURE_MCP_COLLECT_TELEMETRY": environment.get("AZURE_MCP_COLLECT_TELEMETRY", "false"),
+            "AZURE_MCP_COLLECT_TELEMETRY": _boolean_token(
+                environment.get("AZURE_MCP_COLLECT_TELEMETRY"),
+                name="AZURE_MCP_COLLECT_TELEMETRY",
+                default=False,
+            ),
         }
     )
     if reader_client_id != "azure-cli":
         child_environment["AZURE_CLIENT_ID"] = reader_client_id
     startup_timeout = _float(environment, "FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS", 2.0)
     call_timeout = _float(environment, "FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS", 10.0)
+    resolved_command = _resolve_command(command, path=child_environment.get("PATH"))
+    if resolved_command is None:
+        if explicitly_enabled:
+            raise RuntimeError(f"FDAI_AZURE_MCP_ENABLED=true requires executable {command!r}")
+        _LOGGER.warning("azure_mcp_executable_unavailable")
+        return AzureMcpReadWiring(transport=fallback)
     try:
         session = PythonSdkMcpSession.stdio(
-            command=command,
+            command=resolved_command,
             args=("server", "start"),
             environment=child_environment,
             read_timeout_seconds=call_timeout,
@@ -87,6 +105,7 @@ def build_azure_mcp_read_wiring(
             raise RuntimeError(
                 "FDAI_AZURE_MCP_ENABLED=true requires the 'azure-mcp' optional dependency"
             ) from exc
+        _LOGGER.warning("azure_mcp_sdk_unavailable")
         return AzureMcpReadWiring(transport=fallback)
     client = ManagedMcpClient(
         session=session,
@@ -123,9 +142,31 @@ def _float(environment: Mapping[str, str], name: str, default: float) -> float:
     if not raw:
         return default
     try:
-        return float(raw)
+        value = float(raw)
     except ValueError as exc:
         raise ValueError(f"{name} MUST be a number") from exc
+    if not math.isfinite(value):
+        raise ValueError(f"{name} MUST be finite")
+    return value
+
+
+def _boolean_token(value: str | None, *, name: str, default: bool) -> str:
+    if value is None or not value.strip():
+        return str(default).lower()
+    normalized = value.strip().casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return "true"
+    if normalized in {"0", "false", "no", "off"}:
+        return "false"
+    raise ValueError(f"{name} MUST be a boolean token")
+
+
+def _resolve_command(command: str, *, path: str | None) -> str | None:
+    resolved = shutil.which(command, path=path)
+    if resolved is not None:
+        return resolved
+    sibling = Path(sys.executable).with_name(command)
+    return str(sibling) if sibling.is_file() else None
 
 
 __all__ = ["AzureMcpReadWiring", "build_azure_mcp_read_wiring"]
