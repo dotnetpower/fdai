@@ -90,6 +90,7 @@ Optional (defaults apply):
 | `FDAI_WEB_SEARCH_ALLOWED_DOMAINS` | empty | Comma-separated public source domains. Required when web search is enabled; at most 100 domains. Each entry also allows its DNS subdomains. |
 | `FDAI_WEB_SEARCH_FOUNDRY_PROJECT_ENDPOINT` | empty | Optional Foundry project HTTPS endpoint. Configure together with `FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME` to use a prompt agent whose Web Search tool has the exact allowed-domain list. |
 | `FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME` | empty | Optional Foundry prompt-agent name. Partial Foundry configuration fails startup. Runtime domain changes that don't match the provisioned agent fail closed. |
+| `FDAI_WEB_SEARCH_FOUNDRY_MODEL_DEPLOYMENT` | resolved direct candidate | Sanitized model deployment referenced by the Foundry prompt agent and projected in Settings. Terraform supplies the deployment-owned value when Foundry search is enabled. |
 | `FDAI_WEB_SEARCH_MAX_RESULTS` | `3` | Maximum citations retained from one search, from `1` through `10`. |
 | `FDAI_WEB_SEARCH_BUDGET_MS` | `15000` | Per-search endpoint timeout in milliseconds. |
 | `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` | `300` | Seconds between web-search candidate model probes. Minimum `30`; probes don't invoke the search tool. |

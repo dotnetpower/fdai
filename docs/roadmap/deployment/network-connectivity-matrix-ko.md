@@ -1,7 +1,7 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: 0ee78cc3e5e965941f8f83e7ea4b9a31f40cdce8
+translation_source_sha: be7abc3c113a11e9c02a82b7864c3681de2d107c
 translation_revised: 2026-08-01
 ---
 # 네트워크 연결 매트릭스
@@ -55,6 +55,7 @@ destination port를 제한하는 것이 좋습니다.
 | FDAI core와 job | `<namespace>.servicebus.windows.net` | TCP 9093 | 필수 Event Hubs Kafka transport | event ingest, derived event publish, canary 및 scheduled producer 중지 |
 | FDAI app과 job | `<server>.postgres.database.azure.com` | TCP 5432 | state, audit, schedule, projection 및 pgvector | startup/readiness 실패 또는 관련 projection 사용 불가 |
 | FDAI model client | `<account>.openai.azure.com` | TCP 443 | direct Standard 또는 PTU inference, embedding, narrator 및 managed web search | adaptive 기능 사용 불가, 관련 작업은 deterministic-only 또는 사람 검토 필요 |
+| Deploy runner 및 FDAI web-search client | `<account>.services.ai.azure.com`, private mode에서는 `privatelink.services.ai.azure.com` | TCP 443 | deployment-owned Foundry prompt agent를 reconcile하고 호출하며 실제 tool readiness probe 실행 | Agent reconcile 또는 startup readiness 실패, web search가 unavailable 보고 |
 | FDAI model client | deployment가 공급한 APIM gateway FQDN | TCP 443 | APIM을 통한 PTU 또는 Standard inference | gateway route 기능 사용 불가 |
 | FDAI storage client | `<account>.blob.core.windows.net` | TCP 443 | case history, document blob 및 deployment state | 관련 artifact, replay 또는 deployment operation 실패 |
 | FDAI document client | `<account>.dfs.core.windows.net` | TCP 443 | ADLS Gen2 rename 및 hierarchical namespace operation | document ingestion이 quarantine content를 governed storage로 승격하지 못함 |

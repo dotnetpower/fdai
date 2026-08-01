@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: c6acc8ac8367386cdc61ef1030fda5c60a2bfcff
+translation_source_sha: a3e7a710c6d1d4aef49f3babb651116047cba79d
 translation_revised: 2026-08-01
 ---
 
@@ -76,6 +76,9 @@ Public retrieval은 `narrator_candidates`를 빌리지 않습니다. Resolver는
 `web_search_candidates`로 선택하고 startup은 read API가 traffic을 serve하기 전에 candidate별 실제
 managed-tool request를 한 번 전송합니다. 실패 candidate는 제외합니다. 남은 candidate가 없으면 Settings는
 enabled preference를 보존하지만 제한된 reason과 함께 `available=false`를 보고하고 관리를 비활성화합니다.
+Settings는 sanitized provider, Foundry project 구성 여부, agent 이름, model deployment,
+provisioning status 및 실제 tool readiness도 표시합니다. Project endpoint, Azure resource ID,
+tenant identity 또는 credential은 노출하지 않습니다.
 
 ### 4.1.1 Cross-process agent introspection
 

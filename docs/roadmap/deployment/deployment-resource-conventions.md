@@ -49,6 +49,8 @@ placement (none today).
 | Key Vault | `kv-` | 3-24; alphanumerics + hyphens | `kv-fdai` |
 | **Container Registry (ACR)** | `cr` | 5-50; **alphanumeric only, no hyphens** | `crfdai` |
 | Log Analytics workspace | `log-` | 4-63 | `log-fdai` |
+| Foundry account (`AIServices`) | `aif-` | 2-64; alphanumerics + hyphens | `aif-fdai-search` |
+| Foundry account project | `proj-` | 2-64; alphanumerics + hyphens | `proj-fdai-search` |
 | Azure Bot (HIL Adaptive Cards) | `bot-` | 2-64 | `bot-fdai` |
 | Static Web App (read-only console) | `stapp-` | 2-40 | `stapp-fdai` |
 

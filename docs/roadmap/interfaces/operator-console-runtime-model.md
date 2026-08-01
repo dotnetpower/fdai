@@ -74,6 +74,9 @@ Public retrieval never borrows `narrator_candidates`. The resolver selects `t1.w
 `web_search_candidates`, and startup sends one actual managed-tool request per candidate before the
 read API serves traffic. Failed candidates are excluded. If none remain, Settings preserves the
 enabled preference but reports `available=false` with a bounded reason and disables management.
+Settings also shows the sanitized provider, whether the Foundry project is configured, agent name,
+model deployment, provisioning status, and real-tool readiness. It never exposes the project
+endpoint, Azure resource ID, tenant identity, or credentials.
 
 ### 4.1.1 Cross-process agent introspection
 

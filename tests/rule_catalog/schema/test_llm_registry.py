@@ -58,6 +58,7 @@ def test_upstream_registry_file_loads_clean() -> None:
         "gpt-5.2",
         "gpt-5.4",
     }
+    assert registry.models["t1.web_search"].preferences[0].family == "gpt-5.4"
 
 
 def test_load_from_mapping_accepts_minimal_shape() -> None:

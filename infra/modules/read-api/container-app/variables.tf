@@ -134,6 +134,24 @@ variable "web_search_probe_interval_seconds" {
   }
 }
 
+variable "web_search_foundry_project_endpoint" {
+  description = "Foundry project endpoint for the deployment-owned web-search prompt agent."
+  type        = string
+  default     = ""
+}
+
+variable "web_search_foundry_agent_name" {
+  description = "Deployment-owned Foundry web-search prompt-agent name."
+  type        = string
+  default     = ""
+}
+
+variable "web_search_foundry_model_deployment" {
+  description = "Foundry model deployment referenced by the web-search prompt agent."
+  type        = string
+  default     = ""
+}
+
 variable "acr_login_server" {
   description = "ACR login server for MI-authenticated image pulls. Empty string for a public image."
   type        = string

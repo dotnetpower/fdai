@@ -186,6 +186,21 @@ output "llm_capacity_units" {
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].capacity_units : {}
 }
 
+output "foundry_web_search_project_endpoint" {
+  description = "Foundry project endpoint. Empty when deployment-owned web search is disabled."
+  value       = local.foundry_web_search_enabled ? module.foundry_web_search[0].project_endpoint : ""
+}
+
+output "foundry_web_search_agent_name" {
+  description = "Foundry prompt-agent name. Empty when deployment-owned web search is disabled."
+  value       = local.foundry_web_search_enabled ? module.foundry_web_search[0].agent_name : ""
+}
+
+output "foundry_web_search_model_deployment" {
+  description = "Foundry model deployment. Empty when deployment-owned web search is disabled."
+  value       = local.foundry_web_search_enabled ? module.foundry_web_search[0].model_deployment_name : ""
+}
+
 output "model_apim_gateway_endpoint" {
   description = "Optional OpenAI-compatible APIM endpoint. Null when the existing-APIM integration is disabled."
   value       = try(module.model_apim_gateway[0].gateway_endpoint, null)

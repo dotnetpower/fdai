@@ -249,6 +249,26 @@ export function SettingsModelsRoute({ client, auth }: Props) {
           group: "web_search",
         },
         { key: "web_search_provider", value: view.webSearch.provider, group: "web_search" },
+        {
+          key: "web_search_agent",
+          value: view.webSearch.agentName,
+          group: "web_search",
+        },
+        {
+          key: "web_search_model_deployment",
+          value: view.webSearch.modelDeployment,
+          group: "web_search",
+        },
+        {
+          key: "web_search_provisioning_status",
+          value: view.webSearch.provisioningStatus,
+          group: "web_search",
+        },
+        {
+          key: "web_search_readiness_status",
+          value: view.webSearch.readinessStatus,
+          group: "web_search",
+        },
         { key: "resolved_metadata_source", value: view.resolvedMetadata.source, group: "models" },
         { key: "resolved_metadata_as_of", value: view.resolvedMetadata.asOf, group: "models" },
         { key: "model_catalog_available", value: view.modelCatalog.available, group: "models" },
@@ -658,6 +678,32 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 <div>
                   <dt>{t("settings.models.provider")}</dt>
                   <dd>{view.webSearch.provider}</dd>
+                </div>
+                <div>
+                  <dt>{t("settings.models.foundryProject")}</dt>
+                  <dd>{view.webSearch.projectConfigured
+                    ? t("settings.models.configured")
+                    : t("settings.models.notConfigured")}</dd>
+                </div>
+                <div>
+                  <dt>{t("settings.models.searchAgent")}</dt>
+                  <dd>{view.webSearch.agentName ?? t("settings.models.unavailable")}</dd>
+                </div>
+                <div>
+                  <dt>{t("settings.models.searchModelDeployment")}</dt>
+                  <dd>{view.webSearch.modelDeployment ?? t("settings.models.unavailable")}</dd>
+                </div>
+                <div>
+                  <dt>{t("settings.models.agentProvisioning")}</dt>
+                  <dd>{view.webSearch.provisioningStatus === "configured"
+                    ? t("settings.models.configured")
+                    : t("settings.models.notConfigured")}</dd>
+                </div>
+                <div>
+                  <dt>{t("settings.models.agentReadiness")}</dt>
+                  <dd>{view.webSearch.readinessStatus === "ready"
+                    ? t("settings.models.ready")
+                    : t("settings.models.unavailable")}</dd>
                 </div>
                 <div>
                   <dt>{t("settings.models.currentSearchModel")}</dt>

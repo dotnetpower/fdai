@@ -52,6 +52,7 @@ protocol, and destination port.
 | FDAI core and jobs | `<namespace>.servicebus.windows.net` | TCP 9093 | required Event Hubs Kafka transport | event ingest, derived event publication, canary, and scheduled producers stop |
 | FDAI apps and jobs | `<server>.postgres.database.azure.com` | TCP 5432 | state, audit, schedules, projections, and pgvector | startup/readiness fails or the affected projection becomes unavailable |
 | FDAI model clients | `<account>.openai.azure.com` | TCP 443 | direct Standard or PTU inference, embeddings, narrator, and managed web search | adaptive capabilities become unavailable; affected work stays deterministic-only or requires human review |
+| Deploy runner and FDAI web-search client | `<account>.services.ai.azure.com`, or `privatelink.services.ai.azure.com` in private mode | TCP 443 | reconcile and invoke the deployment-owned Foundry prompt agent and run real-tool readiness probes | agent reconciliation or startup readiness fails; web search reports unavailable |
 | FDAI model clients | deployment-supplied APIM gateway FQDN | TCP 443 | APIM-fronted PTU or Standard inference | gateway-routed capabilities become unavailable |
 | FDAI storage clients | `<account>.blob.core.windows.net` | TCP 443 | case history, document blobs, and deployment state | the owning artifact, replay, or deployment operation fails |
 | FDAI document clients | `<account>.dfs.core.windows.net` | TCP 443 | ADLS Gen2 rename and hierarchical namespace operations | document ingestion cannot promote quarantine content to governed storage |

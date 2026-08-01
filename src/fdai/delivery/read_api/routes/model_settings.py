@@ -398,6 +398,11 @@ class ModelSettingsService:
                 "revision": 0,
                 "can_manage": False,
                 "provider": "unavailable",
+                "project_configured": False,
+                "agent_name": None,
+                "model_deployment": None,
+                "provisioning_status": "not-configured",
+                "readiness_status": "unavailable",
                 "current_auto_pick": None,
                 "candidates": [],
             }
@@ -406,6 +411,7 @@ class ModelSettingsService:
         descriptor_fn = getattr(self.web_search_resolver, "descriptor", None)
         descriptor = descriptor_fn() if descriptor_fn is not None else {}
         router = descriptor.get("router") if isinstance(descriptor, Mapping) else None
+        deployment = descriptor.get("deployment") if isinstance(descriptor, Mapping) else None
         available = (
             bool(descriptor.get("available", True)) if isinstance(descriptor, Mapping) else False
         )
@@ -421,7 +427,31 @@ class ModelSettingsService:
             "allowed_domains": list(record["allowed_domains"]),
             "revision": int(record["revision"]),
             "can_manage": can_manage and available,
-            "provider": "azure-responses",
+            "provider": (
+                str(deployment.get("provider"))
+                if isinstance(deployment, Mapping)
+                else "azure-responses"
+            ),
+            "project_configured": (
+                bool(deployment.get("project_configured"))
+                if isinstance(deployment, Mapping)
+                else False
+            ),
+            "agent_name": (
+                deployment.get("agent_name") if isinstance(deployment, Mapping) else None
+            ),
+            "model_deployment": (
+                deployment.get("model_deployment") if isinstance(deployment, Mapping) else None
+            ),
+            "provisioning_status": (
+                "configured"
+                if isinstance(deployment, Mapping)
+                and bool(deployment.get("project_configured"))
+                and isinstance(deployment.get("agent_name"), str)
+                and isinstance(deployment.get("model_deployment"), str)
+                else "not-configured"
+            ),
+            "readiness_status": "ready" if available else "unavailable",
             "current_auto_pick": (router.get("chose") if isinstance(router, Mapping) else None),
             "candidates": (
                 list(router.get("candidates", [])) if isinstance(router, Mapping) else []

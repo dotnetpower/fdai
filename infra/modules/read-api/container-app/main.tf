@@ -259,6 +259,27 @@ resource "azurerm_container_app" "read_api" {
           value = tostring(var.web_search_probe_interval_seconds)
         }
       }
+      dynamic "env" {
+        for_each = var.web_search_foundry_project_endpoint == "" ? [] : [1]
+        content {
+          name  = "FDAI_WEB_SEARCH_FOUNDRY_PROJECT_ENDPOINT"
+          value = var.web_search_foundry_project_endpoint
+        }
+      }
+      dynamic "env" {
+        for_each = var.web_search_foundry_agent_name == "" ? [] : [1]
+        content {
+          name  = "FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME"
+          value = var.web_search_foundry_agent_name
+        }
+      }
+      dynamic "env" {
+        for_each = var.web_search_foundry_model_deployment == "" ? [] : [1]
+        content {
+          name  = "FDAI_WEB_SEARCH_FOUNDRY_MODEL_DEPLOYMENT"
+          value = var.web_search_foundry_model_deployment
+        }
+      }
       env {
         name  = "FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID"
         value = var.executor_event_role_definition_id

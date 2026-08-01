@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: f3d9010fbd4a2c57c654bc519651cae4e6ce68f6
+translation_source_sha: 77cbaa71a570beedfbad50ff22f754bf8e5e1e91
 translation_revised: 2026-08-01
 ---
 
@@ -264,10 +264,10 @@ models:
   grounded 되지 않으면 그 출력은 거부됨 (observability-and-detection.md section 4 참조).
 - **Tool capability는 독립적으로 resolve합니다.** `tool_calling_required`는 일반 function
   tool을 gate합니다. Public retrieval은 전용 `t1.web_search` preference를 사용하며 해당
-  deployment만 `web_search_candidates`로 serialize합니다. Read API는 startup에 실제 Azure
-  Responses `web_search`를 호출하고 managed tool을 실행한 candidate만 available로 유지합니다.
-  Model support, account entitlement 또는 provider readiness가 없으면 narrator pool을 빌리지
-  않고 search만 unavailable로 전환합니다. Conversation 및 execution authority는 바뀌지 않습니다.
+  deployment만 `web_search_candidates`로 serialize합니다. Protected apply는 정확한 domain
+  allowlist로 Foundry prompt agent를 reconcile하고 read API는 startup에 실제 managed-tool
+  request를 전송합니다. Model, project, agent, entitlement 또는 tool readiness가 없으면 narrator
+  pool을 빌리지 않고 search만 unavailable로 전환합니다. Conversation authority는 바뀌지 않습니다.
 
 ### 부트스트랩 Provisioner
 

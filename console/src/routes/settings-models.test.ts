@@ -98,8 +98,13 @@ const payload = {
     allowed_domains: [...DEFAULT_WEB_SEARCH_DOMAINS],
     revision: 1,
     can_manage: true,
-    provider: "azure-responses",
-    current_auto_pick: "narrator-fast",
+    provider: "foundry-agent",
+    project_configured: true,
+    agent_name: "fdai-web-search",
+    model_deployment: "t1.web_search",
+    provisioning_status: "configured",
+    readiness_status: "ready",
+    current_auto_pick: "foundry-agent:fdai-web-search",
     candidates: [],
   },
   model_routing: [{
@@ -193,6 +198,14 @@ describe("Settings Models contracts", () => {
     expect(decoded.webSearch.unavailableReason).toBeNull();
     expect(decoded.webSearch.allowedDomains).toEqual(DEFAULT_WEB_SEARCH_DOMAINS);
     expect(decoded.webSearch.revision).toBe(1);
+    expect(decoded.webSearch).toMatchObject({
+      provider: "foundry-agent",
+      projectConfigured: true,
+      agentName: "fdai-web-search",
+      modelDeployment: "t1.web_search",
+      provisioningStatus: "configured",
+      readinessStatus: "ready",
+    });
     expect(decoded.modelRouting[0]?.selectedDeployment).toBe("primary-b");
     expect(decoded.modelRouting[0]?.candidates[0]?.status).toBe("recovered");
     expect(decoded.endpointInventory[0]).toMatchObject({

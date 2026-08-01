@@ -54,6 +54,12 @@ class _WebSearchResolver:
             "enabled": self.enabled,
             "unavailable_reason": self.unavailable_reason,
             "allowed_domains": list(self.domains),
+            "deployment": {
+                "provider": "foundry-agent",
+                "project_configured": True,
+                "agent_name": "fdai-web-search",
+                "model_deployment": "t1.web_search",
+            },
             "router": {"chose": "narrator-fast", "candidates": []},
         }
 
@@ -404,7 +410,12 @@ async def test_projects_capabilities_provisioning_and_latency_candidates(tmp_pat
         "allowed_domains": ["learn.microsoft.com"],
         "revision": 0,
         "can_manage": False,
-        "provider": "azure-responses",
+        "provider": "foundry-agent",
+        "project_configured": True,
+        "agent_name": "fdai-web-search",
+        "model_deployment": "t1.web_search",
+        "provisioning_status": "configured",
+        "readiness_status": "ready",
         "current_auto_pick": "narrator-fast",
         "candidates": [],
     }
@@ -426,6 +437,11 @@ async def test_unconfigured_web_search_is_unavailable_and_not_writable(tmp_path:
         "revision": 0,
         "can_manage": False,
         "provider": "unavailable",
+        "project_configured": False,
+        "agent_name": None,
+        "model_deployment": None,
+        "provisioning_status": "not-configured",
+        "readiness_status": "unavailable",
         "current_auto_pick": None,
         "candidates": [],
     }
@@ -560,7 +576,12 @@ def test_owner_updates_web_search_and_stale_revision_conflicts(tmp_path: Path) -
         "allowed_domains": ["nvd.nist.gov"],
         "revision": 1,
         "can_manage": True,
-        "provider": "azure-responses",
+        "provider": "foundry-agent",
+        "project_configured": True,
+        "agent_name": "fdai-web-search",
+        "model_deployment": "t1.web_search",
+        "provisioning_status": "configured",
+        "readiness_status": "ready",
         "current_auto_pick": "narrator-fast",
         "candidates": [],
     }

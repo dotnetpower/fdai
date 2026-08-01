@@ -1502,6 +1502,77 @@ module "llm_azure_openai" {
   tags                  = local.tags
 }
 
+locals {
+  foundry_web_search_enabled = var.enable_llm && var.read_api_web_search_enabled
+  foundry_web_search_capabilities = [
+    for capability in var.resolved_capabilities : capability if capability.name == "t1.web_search"
+  ]
+  foundry_web_search_capability = try(
+    local.foundry_web_search_capabilities[0],
+    {
+      name           = "t1.web_search"
+      family         = ""
+      sku            = "Standard"
+      capacity_tpm   = 0
+      capacity_unit  = "tpm"
+      capacity_value = 0
+    },
+  )
+}
+
+resource "terraform_data" "foundry_web_search_contract" {
+  count = local.foundry_web_search_enabled ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition = (
+        length(local.foundry_web_search_capabilities) == 1 &&
+        local.foundry_web_search_capability.family != "" &&
+        local.foundry_web_search_capability.capacity_unit == "tpm" &&
+        local.foundry_web_search_capability.capacity_tpm >= 1000
+      )
+      error_message = "Enabled Foundry web search requires one resolved TPM t1.web_search capability."
+    }
+  }
+}
+
+module "foundry_web_search" {
+  count  = local.foundry_web_search_enabled ? 1 : 0
+  source = "./modules/llm/foundry-web-search"
+
+  account_name               = "aif-${var.workload}-search${local.full_suffix}"
+  project_name               = "proj-${var.workload}-search${local.full_suffix}"
+  location                   = var.region
+  resource_group_name        = module.resource_group.name
+  private_networking_enabled = var.enable_private_networking
+  model_deployment_name      = local.foundry_web_search_capability.name
+  model_family               = local.foundry_web_search_capability.family
+  model_sku                  = local.foundry_web_search_capability.sku
+  model_capacity_tpm         = local.foundry_web_search_capability.capacity_tpm
+  user_principal_ids = merge(
+    { deployer = data.azurerm_client_config.current.object_id },
+    var.enable_read_api ? { read_api = module.read_api_identity[0].principal_id } : {},
+  )
+  tags = merge(local.tags, { "fdai:component" = "web-search" })
+
+  depends_on = [terraform_data.foundry_web_search_contract]
+}
+
+module "foundry_web_search_private_endpoint" {
+  count                 = local.foundry_web_search_enabled && var.enable_private_networking ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-aif-${var.workload}-search${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.foundry_web_search[0].account_id
+  subresource_name      = "account"
+  private_dns_zone_name = "privatelink.services.ai.azure.com"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = merge(local.tags, { "fdai:component" = "web-search" })
+}
+
 module "model_apim_gateway" {
   count  = var.enable_model_apim_gateway ? 1 : 0
   source = "./modules/llm/apim-ai-gateway"
@@ -1654,8 +1725,17 @@ module "read_api" {
   web_search_max_results            = var.read_api_web_search_max_results
   web_search_budget_ms              = var.read_api_web_search_budget_ms
   web_search_probe_interval_seconds = var.read_api_web_search_probe_interval_seconds
-  acr_login_server                  = module.container_registry.login_server
-  state_store_dsn_secret_id         = azurerm_key_vault_secret.state_store_dsn.id
+  web_search_foundry_project_endpoint = (
+    local.foundry_web_search_enabled ? module.foundry_web_search[0].project_endpoint : ""
+  )
+  web_search_foundry_agent_name = (
+    local.foundry_web_search_enabled ? module.foundry_web_search[0].agent_name : ""
+  )
+  web_search_foundry_model_deployment = (
+    local.foundry_web_search_enabled ? module.foundry_web_search[0].model_deployment_name : ""
+  )
+  acr_login_server          = module.container_registry.login_server
+  state_store_dsn_secret_id = azurerm_key_vault_secret.state_store_dsn.id
   chatops_webhook_secret_id = (
     var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_secret[0].id : ""
   )

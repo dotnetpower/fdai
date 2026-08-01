@@ -414,6 +414,14 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in workflow
     assert "if: ${{ !inputs.apply }}\n        run: terraform plan" in workflow
     assert "Verify Terraform convergence" in workflow
+    assert "TF_VAR_read_api_web_search_enabled" in workflow
+    assert "TF_VAR_read_api_web_search_allowed_domains" in workflow
+    assert "Reconcile Foundry web-search agent" in workflow
+    assert "foundry_web_search_project_endpoint" in workflow
+    assert "fdai.delivery.azure.foundry_agent_reconciler" in workflow
+    assert workflow.index("Verify Terraform convergence") < workflow.index(
+        "Reconcile Foundry web-search agent"
+    )
     assert "-detailed-exitcode" in workflow
     assert "Prepare exact development operations gateway source" in workflow
     assert "Publish exact development operations gateway source" in workflow

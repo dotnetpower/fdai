@@ -51,6 +51,7 @@ _BUDGET_MS_ENV: Final[str] = "FDAI_WEB_SEARCH_BUDGET_MS"
 _PROBE_INTERVAL_ENV: Final[str] = "FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS"
 _FOUNDRY_PROJECT_ENDPOINT_ENV: Final[str] = "FDAI_WEB_SEARCH_FOUNDRY_PROJECT_ENDPOINT"
 _FOUNDRY_AGENT_NAME_ENV: Final[str] = "FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME"
+_FOUNDRY_MODEL_DEPLOYMENT_ENV: Final[str] = "FDAI_WEB_SEARCH_FOUNDRY_MODEL_DEPLOYMENT"
 _RESOLVED_MODELS_ENV: Final[str] = "LLM_RESOLVED_MODELS_PATH"
 
 _SENSITIVE_QUERY = re.compile(
@@ -101,6 +102,16 @@ class ChatWebSearchConfig:
             raise ValueError("web search probe interval MUST be >= 30 seconds")
 
 
+@dataclass(frozen=True, slots=True)
+class WebSearchDeploymentDescriptor:
+    """Sanitized deployment identity exposed to Settings without endpoints."""
+
+    provider: str = "azure-responses"
+    project_configured: bool = False
+    agent_name: str | None = None
+    model_deployment: str | None = None
+
+
 class ChatWebSearchResolver:
     """Decide, fetch, sanitize, and expose server-owned public-web evidence."""
 
@@ -110,10 +121,12 @@ class ChatWebSearchResolver:
         provider: ChatWebSearchProvider,
         intent_classifier: ChatWebSearchIntentClassifier | None = None,
         config: ChatWebSearchConfig,
+        deployment: WebSearchDeploymentDescriptor | None = None,
     ) -> None:
         self._provider = provider
         self._intent_classifier = intent_classifier
         self._config = config
+        self._deployment = deployment or WebSearchDeploymentDescriptor()
         self._policy = WebSearchPolicyConfig(enabled=True)
         self._available = True
         self._unavailable_reason: str | None = None
@@ -188,8 +201,14 @@ class ChatWebSearchResolver:
             "available": self._available,
             "enabled": self._policy.enabled,
             "unavailable_reason": self._unavailable_reason,
-            "mode": "azure-responses-web-search",
+            "mode": f"{self._deployment.provider}-web-search",
             "allowed_domains": list(self._config.allowed_domains),
+            "deployment": {
+                "provider": self._deployment.provider,
+                "project_configured": self._deployment.project_configured,
+                "agent_name": self._deployment.agent_name,
+                "model_deployment": self._deployment.model_deployment,
+            },
             "router": {
                 "chose": chose,
                 "candidates": candidates,
@@ -539,6 +558,7 @@ def chat_web_search_from_env(
         raise ValueError(
             "web search is enabled but resolved-models.json has no web-search candidates"
         )
+    direct_model_deployment = candidates[0][0]
     foundry_project_endpoint = source.get(_FOUNDRY_PROJECT_ENDPOINT_ENV, "").strip()
     foundry_agent_name = source.get(_FOUNDRY_AGENT_NAME_ENV, "").strip()
     if bool(foundry_project_endpoint) != bool(foundry_agent_name):
@@ -546,8 +566,12 @@ def chat_web_search_from_env(
             f"{_FOUNDRY_PROJECT_ENDPOINT_ENV} and {_FOUNDRY_AGENT_NAME_ENV} "
             "MUST be configured together"
         )
+    deployment = WebSearchDeploymentDescriptor(model_deployment=direct_model_deployment)
     if foundry_project_endpoint:
         intent_candidate = candidates[0][1]
+        foundry_model_deployment = (
+            source.get(_FOUNDRY_MODEL_DEPLOYMENT_ENV, "").strip() or direct_model_deployment
+        )
         candidates = [
             (
                 f"foundry-agent:{foundry_agent_name}",
@@ -563,11 +587,18 @@ def chat_web_search_from_env(
                 ),
             )
         ]
+        deployment = WebSearchDeploymentDescriptor(
+            provider="foundry-agent",
+            project_configured=True,
+            agent_name=foundry_agent_name,
+            model_deployment=foundry_model_deployment,
+        )
     provider = LatencyRoutedWebSearchProvider(candidates=candidates)
     return ChatWebSearchResolver(
         provider=provider,
         intent_classifier=provider,
         config=config,
+        deployment=deployment,
     )
 
 

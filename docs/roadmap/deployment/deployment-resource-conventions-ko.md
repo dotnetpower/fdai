@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 2481745891d99875bfc26b6224253407f35107db
-translation_revised: 2026-07-24
+translation_source_sha: 277d42b675cf4b481faf689a3673b8e01b4cb08c
+translation_revised: 2026-08-01
 ---
 # 배포 리소스 규약
 
@@ -51,6 +51,8 @@ upstream distribution 외부에 두는 데 사용하세요.
 | Key Vault | `kv-` | 3-24; 영숫자 + 하이픈 | `kv-fdai` |
 | **Container Registry (ACR)** | `cr` | 5-50; **영숫자만 허용, 하이픈 불가** | `crfdai` |
 | Log Analytics workspace | `log-` | 4-63 | `log-fdai` |
+| Foundry account (`AIServices`) | `aif-` | 2-64; 영숫자 + 하이픈 | `aif-fdai-search` |
+| Foundry account project | `proj-` | 2-64; 영숫자 + 하이픈 | `proj-fdai-search` |
 | Azure Bot (HIL Adaptive Cards) | `bot-` | 2-64 | `bot-fdai` |
 | Static Web App (read-only console) | `stapp-` | 2-40 | `stapp-fdai` |
 

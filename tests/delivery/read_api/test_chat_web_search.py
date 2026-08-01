@@ -219,12 +219,19 @@ def test_web_search_factory_prefers_configured_foundry_agent(tmp_path: Path) -> 
                 "https://example.services.ai.azure.com/api/projects/example"
             ),
             "FDAI_WEB_SEARCH_FOUNDRY_AGENT_NAME": "fdai-web-search",
+            "FDAI_WEB_SEARCH_FOUNDRY_MODEL_DEPLOYMENT": "t1.web_search",
             "LLM_RESOLVED_MODELS_PATH": str(resolved_path),
         }
     )
 
     assert resolver is not None
     assert resolver.descriptor()["router"]["chose"] == "foundry-agent:fdai-web-search"
+    assert resolver.descriptor()["deployment"] == {
+        "provider": "foundry-agent",
+        "project_configured": True,
+        "agent_name": "fdai-web-search",
+        "model_deployment": "t1.web_search",
+    }
 
 
 def test_web_search_factory_rejects_partial_foundry_configuration(tmp_path: Path) -> None:

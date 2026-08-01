@@ -57,6 +57,11 @@ export interface WebSearchSettingsView {
   readonly revision: number;
   readonly canManage: boolean;
   readonly provider: string;
+  readonly projectConfigured: boolean;
+  readonly agentName: string | null;
+  readonly modelDeployment: string | null;
+  readonly provisioningStatus: "configured" | "not-configured";
+  readonly readinessStatus: "ready" | "unavailable";
   readonly currentAutoPick: string | null;
   readonly candidates: readonly unknown[];
 }
@@ -327,6 +332,25 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
       revision: nonNegativeInteger(webSearch["revision"], "web_search.revision"),
       canManage: boolean(webSearch["can_manage"], "web_search.can_manage"),
       provider: string(webSearch["provider"], "web_search.provider"),
+      projectConfigured: boolean(
+        webSearch["project_configured"],
+        "web_search.project_configured",
+      ),
+      agentName: nullableString(webSearch["agent_name"], "web_search.agent_name"),
+      modelDeployment: nullableString(
+        webSearch["model_deployment"],
+        "web_search.model_deployment",
+      ),
+      provisioningStatus: knownString(
+        webSearch["provisioning_status"],
+        "web_search.provisioning_status",
+        ["configured", "not-configured"],
+      ) as WebSearchSettingsView["provisioningStatus"],
+      readinessStatus: knownString(
+        webSearch["readiness_status"],
+        "web_search.readiness_status",
+        ["ready", "unavailable"],
+      ) as WebSearchSettingsView["readinessStatus"],
       currentAutoPick: nullableString(
         webSearch["current_auto_pick"],
         "web_search.current_auto_pick",

@@ -279,10 +279,10 @@ Rules the registry enforces (MUST, at config load):
   [observability-and-detection.md](../rules-and-detection/observability-and-detection.md) section 4).
 - **Tool capabilities resolve independently.** `tool_calling_required` gates ordinary function
   tools. Public retrieval uses the dedicated `t1.web_search` preference and serializes only its
-  deployments into `web_search_candidates`. The read API sends an actual Azure Responses
-  `web_search` call at startup; only candidates that execute the managed tool remain available.
-  Missing model support, account entitlement, or provider readiness makes search unavailable
-  without borrowing the narrator pool or changing conversation and execution authority.
+  deployment into `web_search_candidates`. Protected apply reconciles its Foundry prompt agent
+  with the exact domain allowlist, and the read API sends an actual managed-tool request at startup.
+  Missing model, project, agent, entitlement, or tool readiness makes search unavailable without
+  borrowing the narrator pool or changing conversation and execution authority.
 
 ### Bootstrap Provisioner
 

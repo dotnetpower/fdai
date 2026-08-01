@@ -40,11 +40,11 @@ models:
     capacity_tpm: 200000
 
   t1.web_search:
-    # Dedicated Responses API model for public-web retrieval. Availability is
-    # confirmed by an actual managed-tool probe at read API startup; generic
-    # function-calling support is not sufficient evidence.
+    # Dedicated Foundry prompt-agent model for public-web retrieval. The
+    # protected deploy reconciles WebSearchTool with the exact domain allowlist,
+    # then the read API confirms availability with an actual managed-tool probe.
     preferences:
-      - {publisher: OpenAI, family: gpt-4.1-mini}
+      - {publisher: OpenAI, family: gpt-5.4}
     sku: Standard
     capacity_tpm: 20000
 
