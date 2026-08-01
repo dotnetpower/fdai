@@ -150,10 +150,15 @@ class EntraHumanAccessProvisioner:
             or group_payload.get("securityEnabled") is not True
         ):
             raise ValueError("human access target is not the expected security group")
-        if group_payload.get("isAssignableToRole") is True:
-            raise PermissionError("role-assignable groups are not supported for routine access")
+        is_assignable_to_role = group_payload.get("isAssignableToRole")
         group_types = group_payload.get("groupTypes")
-        if isinstance(group_types, list) and "DynamicMembership" in group_types:
+        if not isinstance(is_assignable_to_role, bool) or not isinstance(group_types, list):
+            raise ValueError("human access target group classification is incomplete")
+        if not all(isinstance(group_type, str) for group_type in group_types):
+            raise ValueError("human access target group classification is invalid")
+        if is_assignable_to_role:
+            raise PermissionError("role-assignable groups are not supported for routine access")
+        if "DynamicMembership" in group_types:
             raise PermissionError("dynamic groups are not supported for routine access")
 
     async def _membership(self, plan: HumanAccessPlan, *, headers: dict[str, str]) -> bool:

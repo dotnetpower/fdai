@@ -53,6 +53,7 @@ async def test_entra_access_applies_and_verifies_allowlisted_membership() -> Non
                 json={
                     "id": "group-reader",
                     "securityEnabled": True,
+                    "groupTypes": [],
                     "isAssignableToRole": False,
                 },
             )
@@ -112,6 +113,7 @@ async def test_entra_access_refuses_role_assignable_group() -> None:
                 json={
                     "id": "group-reader",
                     "securityEnabled": True,
+                    "groupTypes": [],
                     "isAssignableToRole": True,
                 },
             )
@@ -150,6 +152,39 @@ async def test_entra_access_refuses_dynamic_group() -> None:
             allowed_group_ids=frozenset({"group-reader"}),
         )
         with pytest.raises(PermissionError, match="dynamic groups"):
+            await adapter.apply(_plan())
+
+
+@pytest.mark.parametrize(
+    "group_payload",
+    [
+        {"id": "group-reader", "securityEnabled": True, "isAssignableToRole": False},
+        {"id": "group-reader", "securityEnabled": True, "groupTypes": []},
+        {
+            "id": "group-reader",
+            "securityEnabled": True,
+            "groupTypes": [False],
+            "isAssignableToRole": False,
+        },
+    ],
+)
+async def test_entra_access_refuses_incomplete_group_classification(
+    group_payload: dict[str, object],
+) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1.0/users/user-1":
+            return httpx.Response(200, json={"id": "user-1", "accountEnabled": True})
+        if request.url.path == "/v1.0/groups/group-reader":
+            return httpx.Response(200, json=group_payload)
+        raise AssertionError(request.url.path)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = EntraHumanAccessProvisioner(
+            client=client,
+            identity=FakeIdentity(),
+            allowed_group_ids=frozenset({"group-reader"}),
+        )
+        with pytest.raises(ValueError, match="classification"):
             await adapter.apply(_plan())
 
 
@@ -240,6 +275,7 @@ async def test_entra_access_retries_transient_graph_response() -> None:
                 json={
                     "id": "group-reader",
                     "securityEnabled": True,
+                    "groupTypes": [],
                     "isAssignableToRole": False,
                 },
             )
@@ -273,6 +309,7 @@ async def test_entra_access_revoke_and_restore_are_exact_inverses() -> None:
                 json={
                     "id": "group-reader",
                     "securityEnabled": True,
+                    "groupTypes": [],
                     "isAssignableToRole": False,
                 },
             )
