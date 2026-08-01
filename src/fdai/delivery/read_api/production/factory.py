@@ -713,7 +713,6 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 executor=IdempotentReadInvestigationExecutor(read_investigation_routes),
                 latency_store=read_latency_store,
                 scope_ref=reader_scope_ref,
-                policy=read_investigation_routes.execution_policy,
             )
         )
     remote_agent_delegate = None

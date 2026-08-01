@@ -1097,11 +1097,19 @@ def test_resource_health_history_uses_typed_lookback_and_chronological_order() -
         )
 
     answer = response.json()["answer"]
+    resource_context = response.json()["resource_context"]
     assert calls == [86_400]
     assert answer.index("vm-earlier") < answer.index("database-later")
     assert "지난 24시간의 리소스 상태 이벤트 2개" in answer
     assert "customer-initiated 1건" in answer
     assert "platform-initiated 1건" in answer
+    assert resource_context == {
+        "name": "database-later",
+        "resource_type": "azure-resource",
+        "evidence_ref": (
+            "subscription-health:azure-resource-graph+resource-health-history@2026-07-22T05:00:00Z"
+        ),
+    }
     assert backend.calls == 0
 
 

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: f965c9a101752f3296ee008f54dc25d1eb06b20d
+translation_source_sha: 7f12ad0de8b31259182e4c773a928aca7c71a8bb
 translation_revised: 2026-08-01
 ---
 
@@ -318,7 +318,9 @@ Investigation은 operator에게 비슷해 보이는 4개 질문을 구분합니�
 1. **현재 상태:** Resource Graph 또는 inventory가 VM을 resolve하고 instance view가 `running`,
    `stopped` 또는 `deallocated`를 확인합니다.
 2. **Control-plane actor:** Activity Log는 기록이 있는 경우 성공한 Stop, Power Off 또는 Deallocate
-   operation과 caller를 식별합니다.
+  operation과 caller를 식별합니다. Conversational attribution path는 exact resolution과 Activity
+  Log만 기본으로 사용하며, guest shutdown 및 platform-cause evidence는 별도 intent 또는 explicit
+  deep investigation에서 추가합니다.
 3. **Guest shutdown:** Control-plane operation이 없는 `stopped` VM은 Windows Event Log 또는 Linux
    syslog evidence가 필요합니다. Guest diagnostic이 없으면 actor를 추측하지 않고 `unavailable`을
    반환합니다.
@@ -353,7 +355,10 @@ run ledger를 사용합니다. Ledger는 selector, lookback, evidence, 모든 bu
 result를 replay합니다. Active request는 bounded retry interval을 반환하고 failed 또는 expired request는
 총 세 번까지 key를 reclaim할 수 있습니다. Lease는 원래 wall-clock ceiling 안에서만 renew되며 terminal
 row는 retention이 끝난 후에만 제거됩니다. Command Deck adapter도 ledger를 우회해 provider service를
-직접 호출하지 않고 같은 direct executor를 사용합니다.
+직접 호출하지 않고 같은 direct executor를 사용합니다. Conversational responder는 이 bounded
+progress path에서 direct 및 streamed plan을 모두 실행하며, detached selection만 durable-task handoff를
+반환합니다. 초기 streamed ceiling은 20초이므로 cold exact Activity Log attribution estimate가 open chat
+stream에서 완료될 수 있고, generic read-investigation route는 초기 15초 ceiling을 유지합니다.
 
 Detached creation은 context binding에도 같은 canonical request digest를 사용합니다. 따라서 budget 또는
 다른 request field가 달라진 상태에서 key를 재사용하면 다른 limit으로 생성된 task를 replay하지 않고

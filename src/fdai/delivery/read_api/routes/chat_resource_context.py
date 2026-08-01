@@ -10,6 +10,7 @@ from fdai.delivery.read_api.routes.chat_verification import AnswerVerification
 
 _RESOURCE_NAME: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 _RESOURCE_TYPE: Final = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,127}$")
+_EVIDENCE_REF_PREFIXES: Final = ("inventory:", "subscription-health:")
 _HISTORY_FOLLOWUP: Final = re.compile(
     r"\b(?:since when|when did|when was|how long|history)\b|"
     r"언제부터|언제.{0,20}(?:중지|정지|변경)|얼마나 오래|이력",
@@ -34,7 +35,7 @@ def parse_resource_context(raw: object) -> dict[str, str] | None:
         raise ValueError("resource_context.resource_type MUST be a bounded resource type")
     if (
         not isinstance(evidence_ref, str)
-        or not evidence_ref.startswith("inventory:")
+        or not evidence_ref.startswith(_EVIDENCE_REF_PREFIXES)
         or len(evidence_ref) > 1024
     ):
         raise ValueError("resource_context.evidence_ref MUST be an inventory reference")
@@ -87,6 +88,42 @@ def response_resource_context(
                                 "name": resource.get("name"),
                                 "resource_type": resource.get("type"),
                                 "evidence_ref": f"inventory:{source}@{snapshot}",
+                            }
+                        )
+                    except ValueError:
+                        return None
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_subscription_health":
+        query = tool.get("query")
+        result = tool.get("result")
+        if (
+            isinstance(query, Mapping)
+            and query.get("health_history") is True
+            and isinstance(result, Mapping)
+            and result.get("status") == "matched"
+        ):
+            events = result.get("health_history_events")
+            source = result.get("source")
+            observed_at = result.get("observed_at")
+            if (
+                isinstance(events, list)
+                and events
+                and isinstance(source, str)
+                and isinstance(observed_at, str)
+            ):
+                latest = max(
+                    (event for event in events if isinstance(event, Mapping)),
+                    key=lambda event: str(event.get("observed_at") or ""),
+                    default=None,
+                )
+                if latest is not None:
+                    provider_type = str(latest.get("resource_type") or "azure-resource")
+                    neutral_type = provider_type.casefold().replace("/", ".")
+                    try:
+                        return parse_resource_context(
+                            {
+                                "name": latest.get("resource_name"),
+                                "resource_type": neutral_type,
+                                "evidence_ref": f"subscription-health:{source}@{observed_at}",
                             }
                         )
                     except ValueError:

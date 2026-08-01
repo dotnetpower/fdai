@@ -15,6 +15,7 @@ from fdai.delivery.read_api.routes.read_investigations import (
     ReadInvestigationRunRejectedError,
 )
 from fdai.shared.providers.read_investigation import (
+    ActorKind,
     EvidenceFreshness,
     EvidenceStatus,
     ReadEvidenceEnvelope,
@@ -128,6 +129,19 @@ class _Latency:
             )
             for _ in range(20)
         )
+
+
+class _ColdLatency:
+    async def recent(
+        self,
+        *,
+        tool_id: ReadToolId,
+        transport: str,
+        operation_class: str,
+        limit: int,
+    ) -> tuple[ReadLatencySample, ...]:
+        del tool_id, transport, operation_class, limit
+        return ()
 
 
 def _delegate(executor: _Executor) -> HeimdallReadInvestigationChatDelegate:
@@ -252,7 +266,7 @@ async def test_chat_delegate_streams_activities_and_milestones() -> None:
     assert execution["exit_code"] is None
 
 
-async def test_chat_delegate_hands_multi_source_work_off_before_cloud_io() -> None:
+async def test_chat_delegate_executes_measured_attribution_read() -> None:
     executor = _Executor()
     result = await _delegate(executor).delegate(
         prompt="Who stopped vm-01?",
@@ -260,9 +274,31 @@ async def test_chat_delegate_hands_multi_source_work_off_before_cloud_io() -> No
         session_id="session-one",
     )
     assert result is not None
-    assert _facts(result)["mode"] == "detached"
-    assert _facts(result)["status"] == "handoff_required"
-    assert executor.calls == 0
+    assert _facts(result)["mode"] == "direct"
+    assert _facts(result)["status"] == "matched"
+    assert executor.calls == 1
+
+
+async def test_chat_delegate_executes_cold_streamed_attribution_read() -> None:
+    executor = _Executor()
+    delegate = HeimdallReadInvestigationChatDelegate(
+        responder=HeimdallReadInvestigationResponder(
+            executor=executor,  # type: ignore[arg-type]
+            latency_store=_ColdLatency(),
+            scope_ref="scope:allowed",
+        )
+    )
+
+    result = await delegate.delegate(
+        prompt="Who stopped vm-01?",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert _facts(result)["mode"] == "streamed"
+    assert _facts(result)["status"] == "matched"
+    assert executor.calls == 1
 
 
 async def test_chat_delegate_renders_latest_successful_stop_history() -> None:
@@ -299,6 +335,39 @@ async def test_chat_delegate_renders_latest_successful_stop_history() -> None:
     assert "최근 성공한 중지 작업" in _answer(result)
     assert "적어도 이 시점부터" in _answer(result)
     assert _facts(result)["intent"] == "resource_change_history"
+
+
+async def test_chat_delegate_renders_opaque_attribution_caller() -> None:
+    envelope = ReadEvidenceEnvelope(
+        status=EvidenceStatus.MATCHED,
+        authority="azure.resource_activity",
+        resource_ref="resource:one",
+        observed_at=NOW,
+        freshness=EvidenceFreshness.LIVE,
+        truncated=False,
+        records=(
+            ReadEvidenceRecord(
+                occurred_at=datetime(2026, 7, 31, 12, 0, 36, tzinfo=UTC),
+                status="succeeded",
+                operation_kind="deallocate",
+                actor_ref="principal:opaque",
+                actor_kind=ActorKind.SERVICE_PRINCIPAL,
+            ),
+        ),
+        evidence_refs=("evidence:activity",),
+    )
+    executor = _NetworkExecutor(envelope)
+
+    result = await _delegate(executor).delegate(
+        prompt="vm-01을 누가 중지했어?",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert "호출 주체는 service_principal (principal:opaque)" in _answer(result)
+    assert "작업 종류는 deallocate" in _answer(result)
+    assert _facts(result)["intent"] == "change_attribution"
 
 
 async def test_chat_delegate_ignores_unrelated_question() -> None:

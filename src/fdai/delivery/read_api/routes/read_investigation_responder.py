@@ -36,6 +36,7 @@ from fdai.shared.providers.read_investigation import (
     ReadEvidenceEnvelope,
     ReadInvestigationIntent,
     ReadLatencyProfileStore,
+    ReadToolId,
     ResourceSelector,
 )
 
@@ -71,7 +72,7 @@ class HeimdallReadInvestigationResponder:
         self._executor = executor
         self._latency_store = latency_store
         self._scope_ref = scope_ref
-        self._policy = policy or InvestigationExecutionPolicy()
+        self._policy = policy or InvestigationExecutionPolicy(streamed_max_ms=20_000)
 
     async def __call__(
         self,
@@ -107,7 +108,11 @@ class HeimdallReadInvestigationResponder:
                 }
                 else 3_600
             ),
-            requested_evidence=(),
+            requested_evidence=(
+                (ReadToolId.QUERY_RESOURCE_ACTIVITY,)
+                if intent is ReadInvestigationIntent.CHANGE_ATTRIBUTION
+                else ()
+            ),
             budget=ReadInvestigationBudget(),
             idempotency_key=f"read:sha256:{digest}",
             created_at=datetime.now(UTC),
@@ -129,7 +134,7 @@ class HeimdallReadInvestigationResponder:
             minimum_samples=self._policy.minimum_profile_samples,
         )
         mode = self._policy.select(plan, estimate)
-        if mode is not ReadInvestigationExecutionMode.DIRECT:
+        if mode is ReadInvestigationExecutionMode.DETACHED:
             return {
                 "answer": (
                     "This investigation requires the durable read-investigation route "
@@ -251,15 +256,32 @@ def _render_answer(
             latest = successful_stops[0]
             observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
             operation = latest.operation_kind or "stop"
+            actor = (
+                f"{latest.actor_kind.value} ({latest.actor_ref})"
+                if latest.actor_kind is not None and latest.actor_ref is not None
+                else None
+            )
             if korean:
+                actor_sentence = (
+                    f" 호출 주체는 {actor}입니다."
+                    if actor is not None
+                    else " 호출 주체는 Activity Log에서 확인되지 않았습니다."
+                )
                 return (
                     f"{resource_name}의 최근 성공한 중지 작업은 {observed}에 Azure Activity Log에 "
-                    f"기록되었습니다. 작업 종류는 {operation}입니다. 현재 중지 상태는 적어도 이 "
+                    f"기록되었습니다. 작업 종류는 {operation}입니다.{actor_sentence} "
+                    "현재 중지 상태는 적어도 이 "
                     "시점부터 이어진 것으로 확인됩니다."
                 )
+            actor_sentence = (
+                f" The caller was {actor}."
+                if actor is not None
+                else " The caller was not present in the Activity Log evidence."
+            )
             return (
                 f"The latest successful stop for {resource_name} was recorded in Azure Activity "
-                f"Log at {observed}. The operation was {operation}; the current stopped state is "
+                f"Log at {observed}. The operation was {operation}.{actor_sentence} "
+                "The current stopped state is "
                 "confirmed from at least that time."
             )
         if korean:

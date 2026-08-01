@@ -308,6 +308,9 @@ Catalog-owned resource-health history intent has the same deterministic preceden
 parsed lookback at 24 hours, merges availability statuses and annotations chronologically, reports
 customer-initiated, status-only, and platform-initiated counts, and never substitutes current ARM
 status for missing historical evidence.
+A complete history answer can return its latest verified event resource as the next-turn selector
+hint. Attribution and history follow-ups must re-resolve that resource in server scope and collect
+fresh Activity Log or Resource Health evidence; the hint never becomes evidence authority.
 Catalog matching preserves Korean query terms when common case or conjunction particles, including
 `와` and `과`, are attached, so compound comparisons retain every requested semantic class.
 

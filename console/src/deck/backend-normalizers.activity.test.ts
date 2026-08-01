@@ -22,7 +22,7 @@ function activity(execution: Record<string, unknown>) {
 }
 
 describe("parseResourceContext", () => {
-  it("accepts only bounded inventory-backed context", () => {
+  it("accepts only bounded server-backed context", () => {
     expect(parseResourceContext({
       name: "db-current",
       resource_type: "postgresql-server",
@@ -31,6 +31,15 @@ describe("parseResourceContext", () => {
       name: "db-current",
       resource_type: "postgresql-server",
       evidence_ref: "inventory:/subscriptions/test/resourceGroups/rg/providers/db/current",
+    });
+    expect(parseResourceContext({
+      name: "vm-latest",
+      resource_type: "microsoft.compute.virtualmachines",
+      evidence_ref: "subscription-health:azure-resource-graph@2026-08-01T02:00:00Z",
+    })).toEqual({
+      name: "vm-latest",
+      resource_type: "microsoft.compute.virtualmachines",
+      evidence_ref: "subscription-health:azure-resource-graph@2026-08-01T02:00:00Z",
     });
     expect(parseResourceContext({
       name: "db-current",

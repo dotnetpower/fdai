@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 (Conversational)
 translation_of: operator-console.md
-translation_source_sha: dc9d9cc604568d0473ddd8a189205d048cd750fd
+translation_source_sha: f0fcfc78426af1f06428a64156255062993d8da3
 translation_revised: 2026-08-01
 ---
 
@@ -303,6 +303,9 @@ Catalog-owned resource-health history intent도 같은 deterministic precedence�
 lookback을 최대 24시간으로 제한하고 availability status와 annotation을 chronological order로 merge한
 뒤 customer-initiated, status-only 및 platform-initiated count를 보고합니다. Historical evidence가
 없을 때 current ARM status로 대체하지 않습니다.
+Complete history answer는 latest verified event resource를 next-turn selector hint로 반환할 수 있습니다.
+Attribution 및 history follow-up은 server scope에서 해당 resource를 다시 resolve하고 fresh Activity Log
+또는 Resource Health evidence를 수집해야 하며, hint 자체는 evidence authority가 되지 않습니다.
 Catalog matching은 `와`, `과`를 포함한 일반적인 격조사 또는 접속 조사가 붙어도 Korean query term을
 보존하므로 compound comparison에서 요청한 semantic class가 누락되지 않습니다.
 

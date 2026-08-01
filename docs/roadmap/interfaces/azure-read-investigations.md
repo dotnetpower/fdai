@@ -322,7 +322,9 @@ The investigation separates four questions that look similar to an operator:
 1. **Current state:** Resource Graph or inventory resolves the VM; instance view confirms
    `running`, `stopped`, or `deallocated`.
 2. **Control-plane actor:** Activity Log identifies a successful Stop, Power Off, or Deallocate
-   operation and its caller when that record exists.
+  operation and its caller when that record exists. The conversational attribution path defaults
+  to exact resolution plus Activity Log only; guest shutdown and platform-cause evidence remain
+  separate intents or an explicit deep investigation.
 3. **Guest shutdown:** A `stopped` VM without a control-plane operation requires Windows Event Log
    or Linux syslog evidence. Missing guest diagnostics produces `unavailable`, not a guessed actor.
 4. **Platform event:** Resource Health provides host, maintenance, or platform availability
@@ -358,6 +360,10 @@ and a failed or expired request can reclaim its key up to three total attempts. 
 inside the original wall-clock ceiling, and terminal rows are removed only after retention expires.
 The Command Deck adapter uses this same direct executor instead of calling the provider service
 around the ledger.
+The conversational responder executes both direct and streamed plans in this bounded progress path;
+only a detached selection returns a durable-task handoff. Its initial streamed ceiling is 20
+seconds so a cold exact Activity Log attribution estimate can complete in the open chat stream;
+generic read-investigation routes retain the 15-second initial ceiling.
 
 Detached creation uses the same canonical request digest in its context binding. Reusing a key
 with a different budget or other request field therefore returns a conflict instead of replaying a
