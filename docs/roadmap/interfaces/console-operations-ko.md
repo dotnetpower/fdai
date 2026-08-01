@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 99893ce23a4a7bb9467b0ffb20c458ef1262516f
+translation_source_sha: 8b5cf6c9849fd9d6a5987f0905d5b8779c7be171
 translation_revised: 2026-08-01
 ---
 
@@ -14,6 +14,11 @@ translation_revised: 2026-08-01
 > **제품 경계:** 제품명은 `FDAI Console`로 유지합니다. `Operations` / `운영`은 제품 안에 이미
 > 존재하는 탐색 그룹입니다. 콘솔은 Thor의 executor identity를 받거나 관리 리소스를 직접
 > 변경하지 않습니다.
+>
+> **구현 상태:** Operations 탐색, incident, approval, process, scheduler run, provisioning,
+> onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. 이 문서의 federated Tasks
+> view, cross-domain projection metadata, 공통 request hardening gate는 제안 상태입니다. Target phase
+> 설명은 해당 API나 UI가 live 상태라는 뜻이 아닙니다.
 
 ## 설계 요약
 

@@ -11,6 +11,11 @@ second execution authority.
 > **Product boundary:** The product remains `FDAI Console`. `Operations` is an existing navigation
 > group inside that product. The console never receives Thor's executor identity or mutates a
 > managed resource directly.
+>
+> **Implementation status:** The Operations navigation, incidents, approvals, processes, scheduler
+> runs, provisioning, onboarding, and bounded investigations are shipped as separate domain views.
+> The federated Tasks view, cross-domain projection metadata, and shared request hardening gates in
+> this document are proposed. A target-phase statement never implies that its API or UI is live.
 
 ## Design at a glance
 
