@@ -807,6 +807,37 @@
       ]
     },
     {
+      "id": "human-agent-assignment",
+      "paths": [
+        "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover*.md",
+        "src/fdai/core/human_assignment/**",
+        "src/fdai/core/rbac/access_request.py",
+        "src/fdai/shared/providers/human_access.py",
+        "src/fdai/shared/providers/human_identity.py",
+        "src/fdai/delivery/read_api/routes/iam.py",
+        "console/src/routes/iam*"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/interfaces/agent-stewardship-and-handover.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority.md",
+        "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/interfaces/agent-stewardship-and-handover.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "bash scripts/quality/localization/check-translations.sh"
+      ]
+    },
+    {
       "id": "conversation-assurance",
       "paths": [
         "src/fdai/core/conversation_assurance/**",

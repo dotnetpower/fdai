@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: e7089486d285bbb9e21cb8cf761e5c63e29306bc
+translation_source_sha: 840bf068ec9e31bbb4fb93069603b69a1895d5b5
 translation_revised: 2026-08-01
 ---
 # FDAI 로드맵
@@ -90,6 +90,7 @@ FDAI 뒤편의 엔지니어링 계획. 이 폴더는
 | 15 | [user-rbac-and-identity-ko.md](interfaces/user-rbac-and-identity-ko.md) | 사람 역할(Reader / Contributor / Approver / Owner + Break-Glass), Entra ID 아티팩트, console-to-PR identity 흐름 |
 | 15b | [agent-stewardship-and-handover-ko.md](interfaces/agent-stewardship-and-handover-ko.md) | 사람 <-> 15-에이전트 인수인계 맵: steward(accountable / informed), maintainer(최소 1, 권장 2), 에스컬레이션 체인, 커버리지 + bus-factor |
 | 15c | [agent-stewardship-operations-ko.md](interfaces/agent-stewardship-operations-ko.md) | production binding, stale identity health, handover draft PR, signed merge notification/audit, recovery 및 verification |
+| 15d | [human-agent-assignment-and-knowledge-handover-ko.md](interfaces/human-agent-assignment-and-knowledge-handover-ko.md) | 관리자 ID 검색, 통제된 IAM 등록, 기본 및 백업 에이전트 임무, 승인 무응답 에스컬레이션, 피로도 제한 인수인계 목표, 에이전트 소유 지식 처리 |
 | 16 | [channels-and-notifications-ko.md](interfaces/channels-and-notifications-ko.md) | 비-웹UI 채널(Teams / Slack / email / webhook / pager / SMS), 카테고리와 trust-tier 매트릭스 |
 | 17 | [risk-classification-ko.md](decisioning/risk-classification-ko.md) | auto vs HIL vs deny 분류: 차원, 초기 규칙 표, 환경 감지 |
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` verdict 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 tier 별 시간 감쇠 에스컬레이션 사다리(채널 fallback 과 구별), 상시 권한(사전 승인·envelope 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
