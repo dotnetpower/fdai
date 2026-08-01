@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 
@@ -24,6 +26,22 @@ from fdai.core.stewardship import Duty
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 3, 9, 0, tzinfo=UTC)
+
+
+class _ConcurrentInvitationReadStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self._session_reads = 0
+        self._both_sessions_read = asyncio.Event()
+
+    async def read_state(self, key: str) -> Mapping[str, Any] | None:
+        value = await super().read_state(key)
+        if key.startswith("handover_goal:invitation:session:") and self._session_reads < 2:
+            self._session_reads += 1
+            if self._session_reads == 2:
+                self._both_sessions_read.set()
+            await self._both_sessions_read.wait()
+        return value
 
 
 def _assignment(*, state: AssignmentState = AssignmentState.ACTIVE) -> AssignmentCase:
@@ -124,6 +142,31 @@ async def test_concurrent_sessions_cannot_exceed_weekly_budget() -> None:
     )
 
     assert sum(item is not None for item in invitations) == 1
+
+
+async def test_concurrent_same_session_consumes_one_weekly_budget_slot() -> None:
+    store = _ConcurrentInvitationReadStore()
+    await store.write_state("human_assignment:case:case-1", _assignment().to_dict())
+    service = HandoverGoalService(
+        store=store,
+        assignments=AssignmentCaseService(store),
+        fatigue=HandoverFatiguePolicy(max_invitations_per_week=2),
+    )
+    await _goal(service)
+
+    invitations = await asyncio.gather(
+        service.invitation_for_session(
+            subject_ref="subject-1", session_id="session-shared", now=_NOW
+        ),
+        service.invitation_for_session(
+            subject_ref="subject-1", session_id="session-shared", now=_NOW
+        ),
+    )
+    weekly = await store.read_states("handover_goal:week:", limit=1)
+
+    assert sum(item is not None for item in invitations) == 1
+    assert weekly[0]["count"] == 1
+    assert len(weekly[0]["claimed_sessions"]) == 1
 
 
 async def test_incident_and_pending_approval_suppress_without_consuming_budget() -> None:

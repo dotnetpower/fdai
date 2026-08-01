@@ -254,7 +254,7 @@ class HandoverGoalService:
                 break
         if goal is None:
             return None
-        if not await self._claim_weekly_budget(subject_hash, week, timestamp):
+        if not await self._claim_weekly_budget(subject_hash, week, session_key, timestamp):
             return None
         invitation_id = _digest(f"{session_key}\0{goal.goal_id}")
         record = {
@@ -286,27 +286,44 @@ class HandoverGoalService:
         self,
         subject_hash: str,
         week: str,
+        session_key: str,
         now: datetime,
     ) -> bool:
         key = f"{_WEEK_PREFIX}{subject_hash}:{week}"
         for _attempt in range(4):
             current = await self._store.read_state(key)
             if current is None:
-                if await self._store.write_state_if_absent(
+                if await self._store.write_state_with_audit_if_absent(
                     key,
-                    {"revision": 1, "count": 1, "week": week, "updated_at": now.isoformat()},
+                    {
+                        "revision": 1,
+                        "count": 1,
+                        "claimed_sessions": [session_key],
+                        "week": week,
+                        "updated_at": now.isoformat(),
+                    },
+                    self._audit(
+                        "handover.fatigue.claimed",
+                        f"{subject_hash}:{week}:1",
+                        now,
+                    ),
                 ):
                     return True
                 continue
             revision = current.get("revision")
             count = current.get("count")
+            claimed_sessions = current.get("claimed_sessions", [])
             if (
                 isinstance(revision, bool)
                 or not isinstance(revision, int)
                 or isinstance(count, bool)
                 or not isinstance(count, int)
+                or not isinstance(claimed_sessions, list)
+                or not all(isinstance(item, str) for item in claimed_sessions)
             ):
                 raise ValueError("handover fatigue state is malformed")
+            if session_key in claimed_sessions:
+                return True
             if count >= self._fatigue.max_invitations_per_week:
                 return False
             applied = await self._store.compare_and_set_state_with_audit(
@@ -314,6 +331,7 @@ class HandoverGoalService:
                 {
                     "revision": revision + 1,
                     "count": count + 1,
+                    "claimed_sessions": [*claimed_sessions, session_key],
                     "week": week,
                     "updated_at": now.isoformat(),
                 },
