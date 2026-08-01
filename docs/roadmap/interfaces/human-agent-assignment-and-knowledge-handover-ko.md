@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 660bcaa38e18cc2165f807a4900ae387987587de
+translation_source_sha: 2494c71c59f886838951aa027740b5015d8aaf88
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -293,6 +293,12 @@ optional goal reference가 포함됩니다. Candidate event는 content-free이�
 종속성 순서, PR 소유 파일 표면, 호환성 마이그레이션, 집중 테스트, Azure 권한, 롤아웃 근거,
 중지 조건은 [사용자-에이전트 할당 구현 계획](human-agent-assignment-implementation-plan-ko.md)에
 정의되어 있습니다.
+
+Production control은 독립적인 availability, enabled, authority-mode axis를 노출합니다. Kill switch는
+mutation eligibility를 낮출 수만 있습니다. 감사되는 enabled preference는 restart 시 적용되며
+promotion state를 바꾸지 않고 privileged adapter composition을 억제할 수 있습니다.
+Reconciliation은 현재 held case의 audited shadow recovery plan만 만들며 IAM provider를 호출하지
+않습니다.
 
 1. **할당 프로젝션:** 통합 읽기 모델, 커버리지 검증기, Assignments 탭을 추가합니다. 제출은 관찰
    전용이며 공급자 변경을 만들지 않습니다.

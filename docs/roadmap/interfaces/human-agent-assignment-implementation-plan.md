@@ -8,7 +8,7 @@ work packages on `main`. Each package lands as one or more focused commits witho
 branch. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
-> **Current status:** Packages 1 through 6 are implemented on `main`. Stewardship v2 duties and the
+> **Current status:** Packages 1 through 9 have implemented foundations on `main`. Stewardship v2 duties and the
 > composite assignment-case core now provide immutable intent, normalized independent review,
 > role-based quorum, revisioned StateStore transitions, content-free audit records, effect
 > receipts, and fail-closed activation. The Owner-only observation API and fifth IAM Assignments
@@ -20,8 +20,10 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 > bounded convergence checks, rollback, and both human-access ActionTypes are wired in observation
 > mode. The human non-response supervisor is integrated as a periodic shadow worker. Durable
 > handover goals, fatigue budgets, session availability events, bounded invitation and response
-> commands, and independent goal review are implemented. Enforce promotion, agent-side gap
-> production, localized Bragi invitation rendering, and ontology candidates don't exist yet.
+> commands, independent goal review, governed evidence metadata, capability axes, durable
+> disablement, and shadow recovery planning are implemented. Enforce promotion, agent-side gap
+> production, localized Bragi invitation rendering, candidate delivery, Azure permission probes,
+> and production drills remain rollout work.
 >
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
@@ -271,6 +273,13 @@ content-free events, source-span citation, and candidate non-promotion.
 document or conversation can directly mutate the ontology or rule catalog.
 
 ### Package 9 - Production rollout and operations
+
+**Status:** Capability axes and shadow reconciliation are implemented. Settings separates
+availability, enabled preference, and authority mode; kill switch state can only lower mutation
+eligibility. The audited `human_access.enabled` setting is applied at restart and can suppress the
+privileged adapter without changing promotion state. Held cases project recovery steps with audit
+and no provider call. Azure permission
+probes, automatic repair, dashboards, alerts, and deployment recovery drills remain rollout work.
 
 **Changes:** Expose separate `available`, `enabled`, and `mode` states in Settings. Add readiness
 checks, dashboards, alerts, recovery runbooks, deployment inputs, managed-identity permission

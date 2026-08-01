@@ -40,6 +40,12 @@ from fdai.core.human_assignment.ownership import (
     AssignmentOwnershipError,
     render_assignment_ownership_yaml,
 )
+from fdai.core.human_assignment.production_controls import (
+    AssignmentCapabilityStatus,
+    AssignmentReconciler,
+    AssignmentReconciliationItem,
+    assignment_capability_status,
+)
 from fdai.core.human_assignment.service import AssignmentCaseService
 from fdai.core.human_assignment.transitions import (
     ALLOWED_TRANSITIONS,
@@ -54,6 +60,9 @@ __all__ = [
     "AssignmentAuditKind",
     "AssignmentCase",
     "AssignmentCaseService",
+    "AssignmentCapabilityStatus",
+    "AssignmentReconciler",
+    "AssignmentReconciliationItem",
     "AssignmentConflictError",
     "AssignmentCoverageError",
     "AssignmentIntent",
@@ -83,5 +92,6 @@ __all__ = [
     "approval_quorum_satisfied",
     "required_review_quorum",
     "render_assignment_ownership_yaml",
+    "assignment_capability_status",
     "validate_transition",
 ]

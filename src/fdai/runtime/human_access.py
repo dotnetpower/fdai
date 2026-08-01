@@ -24,7 +24,10 @@ def build_human_access_direct_api(
     audit_store: StateStore,
     http_client: httpx.AsyncClient | None,
     environment: Mapping[str, str] = os.environ,
+    enabled: bool = True,
 ) -> DirectApiExecutor | None:
+    if not enabled:
+        return None
     raw = environment.get("FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON", "").strip()
     if not raw:
         return None

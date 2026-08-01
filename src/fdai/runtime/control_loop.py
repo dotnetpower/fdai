@@ -255,6 +255,7 @@ def _build_control_loop(
     current_reuse_verifier: CurrentReuseVerifier | None = None,
     causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
     dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
+    human_access_enabled: bool = True,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -420,6 +421,7 @@ def _build_control_loop(
         idempotency=idempotency_store,
         http_client=http_client,
         identity=identity,
+        human_access_enabled=human_access_enabled,
     )
     tool_executor = _build_tool_executor(
         audit_store=audit_store,

@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 78c6fc7c5305ce3d1f2f70db0702ddeda7aa57ff
+translation_source_sha: 8a5eda09ecc57525b302087a6e5f1c741f203e94
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -10,7 +10,7 @@ translation_revised: 2026-08-01
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
-> **현재 상태:** 묶음 1부터 묶음 6까지 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
+> **현재 상태:** 묶음 1부터 묶음 9까지의 기반이 `main`에 구현되었습니다. Stewardship v2 duty와 통합 할당
 > 케이스 코어는 변경 불가능한 의도, 정규화된 독립 검토, 역할 기반 정족수, 리비전 기반
 > `StateStore` 전환, 콘텐츠 없는 감사 기록, 결과 영수증, 실패 시 차단되는 활성화를 제공합니다.
 > Owner 전용 관찰 API와 다섯 번째 IAM Assignments 탭은 정확한 활성 주체 재검증, 제한된 CAS 명령,
@@ -20,8 +20,10 @@ translation_revised: 2026-08-01
 > ingress에 게시합니다. 전용 관리 ID, 허용 목록 Graph adapter, direct-API route, 제한된 수렴 검사,
 > rollback, 두 human-access ActionType이 관찰 모드로 연결되었습니다. 사람 무응답 supervisor는
 > periodic shadow worker로 통합되었습니다. 영구 handover goal, 피로도 예산, session availability
-> event, 제한된 invitation 및 response command, 독립 goal review가 구현되었습니다. 적용 모드
-> 승격, agent-side gap 생산, 현지화된 Bragi invitation rendering, 온톨로지 후보는 아직 없습니다.
+> event, 제한된 invitation 및 response command, 독립 goal review, governed evidence metadata,
+> capability axis, durable disablement, shadow recovery planning이 구현되었습니다. 적용 모드 승격,
+> agent-side gap 생산, 현지화된 Bragi invitation rendering, candidate delivery, Azure permission
+> probe, production drill은 rollout 작업입니다.
 >
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
 > ID를 받지 않습니다. 담당 체계 병합, 사람 승인, IAM 적용, 지식 승격은 각각 독립적으로 검증
@@ -266,6 +268,13 @@ source span, ACL reference, 제공된 경우 goal reference, policy version, con
 대화도 온톨로지 또는 규칙 카탈로그를 직접 변경할 수 없습니다.
 
 ### 묶음 9 - 프로덕션 롤아웃 및 운영
+
+**상태:** Capability axis와 shadow reconciliation이 구현되었습니다. Settings는 availability,
+enabled preference, authority mode를 분리하며 kill switch 상태는 mutation eligibility를 낮출 수만
+있습니다. 감사되는 `human_access.enabled` setting은 restart 시 적용되며 promotion state를 바꾸지
+않고 privileged adapter를 억제할 수 있습니다. Held case는 provider 호출 없이 audit와 함께
+recovery step을 projection합니다. Azure
+permission probe, automatic repair, dashboard, alert, deployment recovery drill은 rollout 작업입니다.
 
 **변경:** Settings에 분리된 `available`, `enabled`, `mode` 상태를 표시합니다. 준비도 검사,
 대시보드, 경고, 복구 런북, 배포 입력, 관리 ID 권한 검증, 결과 사이에서 보류된 케이스의 조정 작업을

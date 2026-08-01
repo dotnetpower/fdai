@@ -349,6 +349,7 @@ async def _run() -> int:
                 symptom_index=runtime_symptom_index,
                 identity=identity,
                 response_outcome_sink=_relay_response_outcome,
+                human_access_enabled=runtime_values["human_access.enabled"] is True,
             )
             operating_model_result = await project_operating_model_from_env(
                 store=control_loop.ontology_instance_store,

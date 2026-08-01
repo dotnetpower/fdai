@@ -191,6 +191,7 @@ def _build_direct_api_executor(
     idempotency: IdempotencyStore | None = None,
     http_client: httpx.AsyncClient | None = None,
     identity: WorkloadIdentity | None = None,
+    human_access_enabled: bool = True,
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
 
@@ -238,6 +239,7 @@ def _build_direct_api_executor(
     human_access = build_human_access_direct_api(
         audit_store=audit_store,
         http_client=http_client,
+        enabled=human_access_enabled,
     )
     executor: DirectApiExecutor | None = fallback
     if human_access is not None:

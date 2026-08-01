@@ -68,6 +68,14 @@ class RuntimeSettingSpec:
 
 
 RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
+    RuntimeSettingSpec(
+        "human_access.enabled",
+        "FDAI_HUMAN_ACCESS_ENABLED",
+        "identity",
+        "boolean",
+        True,
+        restart_required=True,
+    ),
     RuntimeSettingSpec("irp.enabled", "FDAI_IRP_ENABLED", "investigation", "boolean", False),
     RuntimeSettingSpec(
         "irp.budget_seconds",
@@ -211,7 +219,7 @@ class RuntimeSettingsService:
             "can_manage": can_manage,
             "updated_at": record.get("updated_at"),
             "updated_by": record.get("updated_by"),
-            "integrations": self._integration_projection(),
+            "integrations": self._integration_projection(effective),
             "runtime": self._runtime_projection(),
             "settings": [
                 {
@@ -232,7 +240,23 @@ class RuntimeSettingsService:
             ],
         }
 
-    def _integration_projection(self) -> list[dict[str, object]]:
+    def _integration_projection(self, effective: Mapping[str, object]) -> list[dict[str, object]]:
+        human_access = self._required_configuration(
+            "human-access",
+            (
+                "FDAI_HUMAN_ACCESS_MI_CLIENT_ID",
+                "FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON",
+                "FDAI_STATE_STORE_DSN",
+            ),
+            mode="shadow",
+        )
+        human_access.update(
+            {
+                "available": human_access["ready"],
+                "enabled": effective["human_access.enabled"],
+                "authority_mode": "shadow",
+            }
+        )
         email = self._required_configuration(
             "email",
             (
@@ -288,7 +312,7 @@ class RuntimeSettingsService:
                 else "not configured"
             ),
         }
-        return [chatops, email, gitops, jira]
+        return [chatops, email, gitops, jira, human_access]
 
     def _runtime_projection(self) -> dict[str, object]:
         runtime_env = self.env.get("RUNTIME_ENV", "").strip().lower()

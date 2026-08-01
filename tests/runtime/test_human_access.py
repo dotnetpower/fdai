@@ -38,6 +38,18 @@ def test_human_access_runtime_is_absent_without_configuration() -> None:
     )
 
 
+def test_human_access_runtime_is_absent_when_disabled() -> None:
+    assert (
+        build_human_access_direct_api(
+            audit_store=InMemoryStateStore(),
+            http_client=None,
+            environment=_environment(),
+            enabled=False,
+        )
+        is None
+    )
+
+
 async def test_human_access_runtime_uses_dedicated_identity_and_exact_role_map() -> None:
     environment = _environment()
     async with httpx.AsyncClient() as client:

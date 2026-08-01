@@ -292,6 +292,11 @@ The dependency order, PR-owned file surfaces, compatibility migration, focused t
 permissions, rollout evidence, and stop conditions are defined in the
 [Human-agent assignment implementation plan](human-agent-assignment-implementation-plan.md).
 
+Production controls expose independent availability, enabled, and authority-mode axes. A kill
+switch only lowers mutation eligibility. The audited enabled preference takes effect at restart
+and can suppress privileged adapter composition without changing promotion state. Reconciliation
+currently emits audited shadow recovery plans for held cases and never invokes the IAM provider.
+
 1. **Assignment projection:** Add the composite read model, coverage validator, and Assignments tab.
    Submission remains observation-only and creates no provider mutation.
 2. **Governed IAM apply:** Add the allowlisted provisioner, elevated-review policy, convergence

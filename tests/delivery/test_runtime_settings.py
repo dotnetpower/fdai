@@ -37,6 +37,31 @@ async def test_projection_merges_environment_and_override() -> None:
     assert len(tuple(store.audit_entries)) == 1
 
 
+async def test_human_access_enabled_is_validated_and_durably_overridable() -> None:
+    service = RuntimeSettingsService(
+        store=InMemoryStateStore(),
+        env={
+            "FDAI_HUMAN_ACCESS_ENABLED": "true",
+            "FDAI_HUMAN_ACCESS_MI_CLIENT_ID": "identity-client",
+            "FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON": "{}",
+            "FDAI_STATE_STORE_DSN": "configured",
+        },
+    )
+
+    await service.update(
+        actor_id="owner-1",
+        changes={"human_access.enabled": False},
+        expected_revision=0,
+    )
+
+    projection = await service.projection(can_manage=True)
+    human_access = next(
+        item for item in projection["integrations"] if item["key"] == "human-access"
+    )
+    assert human_access["enabled"] is False
+    assert _setting(projection, "human_access.enabled")["restart_required"] is True
+
+
 async def test_null_change_restores_environment_value() -> None:
     service = RuntimeSettingsService(
         store=InMemoryStateStore(),
@@ -209,6 +234,9 @@ async def test_projection_sanitizes_integration_and_runtime_status() -> None:
     assert integrations["jira"]["configured"] is True
     assert integrations["jira"]["ready"] is False
     assert integrations["jira"]["mode"] == "disabled"
+    assert integrations["human-access"]["available"] is False
+    assert integrations["human-access"]["enabled"] is True
+    assert integrations["human-access"]["authority_mode"] == "shadow"
     assert projection["runtime"] == {
         "environment": "prod",
         "state_store_durable": True,
