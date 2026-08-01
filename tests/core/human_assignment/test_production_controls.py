@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from fdai.core.human_assignment import (
@@ -77,3 +78,25 @@ async def test_reconciler_only_plans_held_cases_and_writes_shadow_audit() -> Non
     assert replayed == items
     assert len(tuple(store.audit_entries)) == 3
     assert all(entry["entry"]["mode"] == "shadow" for entry in store.audit_entries)
+
+
+async def test_reconciler_reports_bounded_scan_truncation(caplog) -> None:
+    store = InMemoryStateStore()
+    for case in (
+        _case(AssignmentState.OWNERSHIP_MERGED),
+        _case(AssignmentState.IAM_APPLYING),
+    ):
+        await store.write_state(f"human_assignment:case:{case.case_id}", case.to_dict())
+
+    with caplog.at_level(logging.WARNING, logger="fdai.human_assignment.reconciliation"):
+        items = await AssignmentReconciler(store=store, scan_limit=1).plan()
+
+    assert len(items) == 1
+    record = next(
+        item
+        for item in caplog.records
+        if item.message == "assignment_reconciliation_scan_truncated"
+    )
+    assert record.limit == 1
+    assert record.observed == 1
+    assert record.total == 2

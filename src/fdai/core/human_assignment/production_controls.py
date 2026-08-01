@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -12,6 +13,7 @@ from fdai.shared.providers.state_store import StateStore
 
 _CASE_PREFIX = "human_assignment:case:"
 _RECONCILIATION_PREFIX = "human_assignment:reconciliation:"
+_LOGGER = logging.getLogger("fdai.human_assignment.reconciliation")
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +56,15 @@ class AssignmentReconciler:
         timestamp = at or datetime.now(UTC)
         if timestamp.tzinfo is None:
             raise ValueError("assignment reconciliation timestamp MUST be timezone-aware")
-        values = await self._store.read_states(_CASE_PREFIX, limit=self._scan_limit)
+        values, total = await self._store.read_state_page(
+            _CASE_PREFIX,
+            limit=self._scan_limit,
+        )
+        if total > len(values):
+            _LOGGER.warning(
+                "assignment_reconciliation_scan_truncated",
+                extra={"limit": self._scan_limit, "observed": len(values), "total": total},
+            )
         items: list[AssignmentReconciliationItem] = []
         for value in values:
             case = AssignmentCase.from_dict(dict(value))
