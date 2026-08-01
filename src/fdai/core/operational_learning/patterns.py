@@ -17,6 +17,11 @@ from fdai.core.case_history import (
 )
 
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
+_MAX_CASES = 100
+_MAX_CASE_ID_CHARS = 256
+_MAX_IDENTIFIER_CHARS = 128
+_MAX_CASE_EVIDENCE_REFS = 64
+_MAX_PATTERN_EVIDENCE_REFS = 256
 _NEGATIVE_OUTCOMES = frozenset(
     {
         OperationalOutcomeClass.FAILURE,
@@ -56,7 +61,7 @@ class PatternCase:
     digest_evidence: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.case_id or self.revision < 1:
+        if not self.case_id or len(self.case_id) > _MAX_CASE_ID_CHARS or self.revision < 1:
             raise ValueError("pattern case MUST cite a case id and positive revision")
         for name, value in (
             ("manifest_digest", self.manifest_digest),
@@ -68,7 +73,7 @@ class PatternCase:
             ("resource_type", self.resource_type),
             ("action_type", self.action_type),
         ):
-            if _IDENTIFIER.fullmatch(value) is None:
+            if len(value) > _MAX_IDENTIFIER_CHARS or _IDENTIFIER.fullmatch(value) is None:
                 raise ValueError(f"pattern case {name} MUST be a canonical identifier")
         expected_reusable = self.outcome_class is OperationalOutcomeClass.SUCCESS
         expected_negative = self.outcome_class in _NEGATIVE_OUTCOMES
@@ -77,7 +82,9 @@ class PatternCase:
         if self.reusable == self.negative:
             raise ValueError("pattern case MUST be reusable or negative")
         evidence = tuple(sorted(set(self.digest_evidence)))
-        if not evidence or any(not _is_sha256(item) for item in evidence):
+        if not 1 <= len(evidence) <= _MAX_CASE_EVIDENCE_REFS or any(
+            not _is_sha256(item) for item in evidence
+        ):
             raise ValueError("pattern case digest evidence MUST contain SHA-256 values")
         object.__setattr__(self, "digest_evidence", evidence)
 
@@ -117,6 +124,8 @@ class PatternCase:
         evidence = value.get("digest_evidence")
         if not isinstance(evidence, Sequence) or isinstance(evidence, str | bytes):
             raise ValueError("pattern case digest_evidence MUST be an array")
+        if not 1 <= len(evidence) <= _MAX_CASE_EVIDENCE_REFS:
+            raise ValueError("pattern case digest_evidence MUST be bounded")
         if any(not isinstance(item, str) for item in evidence):
             raise ValueError("pattern case digest_evidence MUST contain strings")
         return cls(
@@ -174,6 +183,8 @@ class OperatingPatternCompiler:
     def compile(self, cases: Sequence[PatternCase]) -> OperatingPatternCandidate | None:
         if len(cases) < 2:
             return None
+        if len(cases) > _MAX_CASES:
+            raise ValueError("operational pattern cohort exceeds its case limit")
         fingerprints = {case.failure_fingerprint for case in cases}
         resource_types = {case.resource_type for case in cases}
         action_types = {case.action_type for case in cases}
@@ -189,6 +200,8 @@ class OperatingPatternCompiler:
         digest_evidence = tuple(
             sorted({digest for case in cases for digest in case.digest_evidence})
         )
+        if len(digest_evidence) > _MAX_PATTERN_EVIDENCE_REFS:
+            raise ValueError("operational pattern evidence exceeds its aggregate limit")
         outcome_counts = tuple(sorted(Counter(case.outcome_class.value for case in cases).items()))
         material = {
             "action_type": cases[0].action_type,
@@ -241,6 +254,7 @@ def pattern_case_from_operational_case(
             audit.get("mode") == "enforce"
             and response.get("label") == "verified"
             and response.get("verification_status") == "verified"
+            and response.get("rollback_succeeded") is False
             and (
                 evaluation is None
                 or (

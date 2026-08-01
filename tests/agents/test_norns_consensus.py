@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
@@ -9,7 +10,7 @@ import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.registry import load_pantheon
-from fdai.agents.norns import Norns
+from fdai.agents.norns import Norns, NornsCapacityError
 from fdai.core.learning import RuleCandidateHint
 
 
@@ -96,3 +97,54 @@ async def test_norns_holds_candidate_when_one_perspective_disagrees() -> None:
         },
     )
     assert norns.behavior_snapshot()["rule_candidate_consensus_held"] == 1
+
+
+async def test_norns_capacity_backpressure_does_not_mutate_new_fingerprint() -> None:
+    norns = Norns(promotion_threshold=1, max_pending_candidates=1)
+
+    await norns.on_typed_message("object.issue", {"fingerprint": "fp-one"})
+    with pytest.raises(NornsCapacityError, match="capacity exhausted"):
+        await norns.on_typed_message("object.issue", {"fingerprint": "fp-two"})
+
+    assert norns.occurrences("fp-one") == 1
+    assert norns.occurrences("fp-two") == 0
+    assert len(norns.pending_candidates) == 1
+
+
+async def test_norns_serializes_async_case_analysis() -> None:
+    class _Analyzer:
+        def __init__(self) -> None:
+            self.active = 0
+            self.maximum = 0
+
+        async def analyze(self, payload):  # type: ignore[no-untyped-def]
+            self.active += 1
+            self.maximum = max(self.maximum, self.active)
+            await asyncio.sleep(0)
+            self.active -= 1
+            return None
+
+    analyzer = _Analyzer()
+    norns = Norns(forecast_error_threshold=1, case_history_analyzer=analyzer)  # type: ignore[arg-type]
+
+    def payload(identifier: str) -> dict[str, object]:
+        return {
+            "producer_principal": "Muninn",
+            "kind": "forecast_case_history",
+            "correlation_id": f"corr-{identifier}",
+            "idempotency_key": f"case-index-{identifier}",
+            "case_id": f"case-{identifier}",
+            "revision": 1,
+            "manifest_digest": "a" * 64,
+            "outcome_label": "false_positive",
+            "detector_id": f"detector-{identifier}",
+            "metric": "capacity_percent",
+            "case_ref": f"case-history:case-{identifier}:1:{'a' * 64}",
+        }
+
+    await asyncio.gather(
+        norns.on_typed_message("object.context-index", payload("one")),
+        norns.on_typed_message("object.context-index", payload("two")),
+    )
+
+    assert analyzer.maximum == 1

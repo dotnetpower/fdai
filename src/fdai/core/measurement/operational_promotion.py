@@ -17,6 +17,7 @@ _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _MAX_RECORDS = 10_000
 _MAX_EVIDENCE_REFS = 64
+_CAUSAL_CLOSURES = frozenset({"confirmed", "refuted", "inconclusive", "unsafe"})
 _EVIDENCE_RANK = {
     CausalEvidenceGrade.ASSOCIATION: 0,
     CausalEvidenceGrade.PREDICTIVE_PRECEDENCE: 1,
@@ -45,6 +46,10 @@ class CausalPromotionReceipt:
             raise ValueError("causal promotion hypothesis revision MUST be SHA-256")
         if self.status not in {"supported", "closed"}:
             raise ValueError("causal promotion hypothesis MUST be supported or closed")
+        if self.status == "supported" and self.closure is not None:
+            raise ValueError("supported causal promotion evidence MUST NOT declare closure")
+        if self.status == "closed" and self.closure not in _CAUSAL_CLOSURES:
+            raise ValueError("closed causal promotion evidence requires a valid closure")
         if self.evidence_grade is CausalEvidenceGrade.INTERVENTIONAL and (
             self.status != "closed" or self.closure != "confirmed"
         ):
@@ -576,7 +581,7 @@ def _latest_records(
 
 def _wilson_interval(successes: int, samples: int) -> tuple[float, float]:
     if samples == 0:
-        return 0.0, 0.0
+        return 0.0, 1.0
     z = 1.959963984540054
     proportion = successes / samples
     denominator = 1.0 + z * z / samples

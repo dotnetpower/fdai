@@ -44,6 +44,7 @@ Optional scenario-coverage learner:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections import Counter, deque
@@ -77,6 +78,11 @@ _SUCCESS_RESULTS: frozenset[str] = frozenset({"success", "applied", "ok"})
 # LRU cap on the per-event / per-fingerprint maps a long-lived learner keeps,
 # so they cannot grow without bound over the process lifetime.
 _MAX_TRACKED = 50_000
+_MAX_PENDING_CANDIDATES = 5_000
+
+
+class NornsCapacityError(RuntimeError):
+    """Pending proposals are saturated; the caller must retry or dead-letter."""
 
 
 class Norns(Agent):
@@ -95,6 +101,7 @@ class Norns(Agent):
         forecast_error_threshold: int = 3,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
+        max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
         # impossible evidence (e.g. min_outcome_samples=0 fires on a single
@@ -111,6 +118,8 @@ class Norns(Agent):
             raise ValueError("rejection_revise_threshold MUST be >= 1")
         if forecast_error_threshold < 1:
             raise ValueError("forecast_error_threshold MUST be >= 1")
+        if max_pending_candidates < 1:
+            raise ValueError("max_pending_candidates MUST be >= 1")
         super().__init__(spec=_NORNS)
         # Fingerprints are content hashes (one per distinct incident), so the
         # counter is bounded by an LRU cap - a long-lived learner would leak
@@ -122,6 +131,8 @@ class Norns(Agent):
         self._proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._promotion_threshold = promotion_threshold
         self.pending_candidates: list[dict[str, Any]] = []
+        self._max_pending_candidates = max_pending_candidates
+        self._learning_lock = asyncio.Lock()
         # Cursor into ``pending_candidates`` marking how many have already been
         # published onto ``object.rule-candidate``. Publishing is idempotent:
         # a re-flush only sends candidates past the cursor, so a candidate is
@@ -192,6 +203,16 @@ class Norns(Agent):
         return True
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.post-turn-review":
+            await self._observe_post_turn_review(payload)
+            return
+        async with self._learning_lock:
+            await self._handle_typed_message(topic, payload)
+
+    async def _handle_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if len(self.pending_candidates) >= self._max_pending_candidates:
+            await self._flush_candidates_unlocked()
+        self._ensure_pending_capacity()
         if topic == "object.issue":
             self._observe_fingerprint(payload)
         elif topic == "object.audit-entry":
@@ -202,8 +223,6 @@ class Norns(Agent):
             # Var publishes the final HIL decision (approved / rejected); the
             # approval-pattern learner scores recurring rejections from it.
             self._observe_approval(payload)
-        elif topic == "object.post-turn-review":
-            await self._observe_post_turn_review(payload)
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
                 self._observe_operational_case_cohort(payload)
@@ -214,7 +233,7 @@ class Norns(Agent):
         # / rule-catalog machinery). That machinery calls observe_override()
         # directly.
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
-        await self.flush_candidates()
+        await self._flush_candidates_unlocked()
 
     def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":
@@ -247,7 +266,7 @@ class Norns(Agent):
             self.record_behavior("operational_case_cohort_duplicate")
             return
         self._operating_pattern_ids.add(candidate.pattern_id)
-        self.pending_candidates.append(candidate.to_rule_candidate_mapping())
+        self._append_candidate(candidate.to_rule_candidate_mapping())
         self.record_behavior("operational_case_candidate_created")
 
     async def _observe_forecast_case(self, payload: dict[str, Any]) -> None:
@@ -292,7 +311,7 @@ class Norns(Agent):
                 self.record_behavior("forecast_case:analysis_invalid")
                 hint = None
             if isinstance(hint, RuleCandidateHint):
-                self.pending_candidates.append(
+                self._append_candidate(
                     {
                         "source_signal": "forecast_case_history_analysis",
                         "evidence": {
@@ -314,7 +333,7 @@ class Norns(Agent):
                     }
                 )
                 return
-        self.pending_candidates.append(
+        self._append_candidate(
             {
                 "source_signal": "forecast_case_history",
                 "evidence": {
@@ -355,6 +374,10 @@ class Norns(Agent):
     # ---- candidate publication (Norns -> Mimir discovery loop) ---------
 
     async def flush_candidates(self) -> int:
+        async with self._learning_lock:
+            return await self._flush_candidates_unlocked()
+
+    async def _flush_candidates_unlocked(self) -> int:
         """Publish newly-accumulated inert RuleCandidates onto the bus.
 
         Norns is the single writer of ``object.rule-candidate`` (it owns the
@@ -426,7 +449,7 @@ class Norns(Agent):
         self._fingerprint_counter.set(fp, count)
         if count >= self._promotion_threshold and fp not in self._proposed:
             self._proposed.add(fp)
-            self.pending_candidates.append(
+            self._append_candidate(
                 {
                     "source_signal": "handoff_fingerprint",
                     "evidence": {
@@ -483,7 +506,7 @@ class Norns(Agent):
         if rollback_rate <= self._rollback_alarm_rate:
             return
         self._outcome_proposed.add(target)
-        self.pending_candidates.append(
+        self._append_candidate(
             {
                 "source_signal": "audit_outcome",
                 "evidence": {
@@ -530,7 +553,7 @@ class Norns(Agent):
         if counts["rejected"] < self._rejection_revise_threshold:
             return
         self._approval_proposed.add(action_type)
-        self.pending_candidates.append(
+        self._append_candidate(
             {
                 "source_signal": "recurring_hil_rejection",
                 "evidence": {
@@ -556,6 +579,7 @@ class Norns(Agent):
         fit for the scope; a `disabled` mode proposes retirement, anything
         else a revision.
         """
+        self._ensure_pending_capacity()
         rule_id = str(payload.get("rule_id") or payload.get("target_rule_id") or "")
         event = str(payload.get("event", "create")).lower()
         if not rule_id or event not in ("create", "modify"):
@@ -569,7 +593,7 @@ class Norns(Agent):
         self._override_proposed.add(rule_id)
         mode = str(payload.get("mode", ""))
         kind = "retirement" if mode == "disabled" else "revision"
-        self.pending_candidates.append(
+        self._append_candidate(
             {
                 "source_signal": "recurring_override",
                 "evidence": {
@@ -606,6 +630,7 @@ class Norns(Agent):
         `CandidateGuard` treats them identically - grounded provenance,
         same quality gate.
         """
+        self._ensure_pending_capacity()
         if self._coverage_aggregator is None:
             return
         self._coverage_aggregator.observe(
@@ -615,7 +640,7 @@ class Norns(Agent):
             severity=severity,
         )
         for candidate in self._coverage_aggregator.drain_proposals():
-            self.pending_candidates.append(
+            self._append_candidate(
                 {
                     "source_signal": "scenario_coverage_gap",
                     "evidence": candidate["target_symptom"],
@@ -635,12 +660,27 @@ class Norns(Agent):
         proposed_by: str,
         at: datetime,
     ) -> str:
+        async with self._learning_lock:
+            return await self._submit_rule_hint_unlocked(
+                hint,
+                proposed_by=proposed_by,
+                at=at,
+            )
+
+    async def _submit_rule_hint_unlocked(
+        self,
+        hint: RuleCandidateHint,
+        *,
+        proposed_by: str,
+        at: datetime,
+    ) -> str:
         """Convert one verified post-turn hint into an inert RuleCandidate.
 
         Norns remains the sole writer. The caller supplies a verified hint,
         but this method still derives a deterministic reference, deduplicates
         it, and publishes only through Norns' existing rate-limited topic.
         """
+        self._ensure_pending_capacity()
         if proposed_by != self.spec.name:
             raise ValueError("post-turn rule hints MUST be proposed by Norns")
         if at.tzinfo is None:
@@ -658,7 +698,7 @@ class Norns(Agent):
         if digest in self._post_turn_hint_proposed:
             return proposal_ref
         self._post_turn_hint_proposed.add(digest)
-        self.pending_candidates.append(
+        self._append_candidate(
             {
                 "source_signal": "post_turn_review",
                 "evidence": {
@@ -676,8 +716,16 @@ class Norns(Agent):
                 "suggested_pattern": hint.pattern,
             }
         )
-        await self.flush_candidates()
+        await self._flush_candidates_unlocked()
         return proposal_ref
+
+    def _append_candidate(self, candidate: dict[str, Any]) -> None:
+        self._ensure_pending_capacity()
+        self.pending_candidates.append(candidate)
+
+    def _ensure_pending_capacity(self) -> None:
+        if len(self.pending_candidates) >= self._max_pending_candidates:
+            raise NornsCapacityError("Norns pending candidate capacity exhausted")
 
     # ---- observers -----------------------------------------------------
 
@@ -751,4 +799,4 @@ def _candidate_idempotency_key(candidate: dict[str, Any]) -> str:
     return f"rule-candidate:{_candidate_identity(candidate)}"
 
 
-__all__ = ["Norns"]
+__all__ = ["Norns", "NornsCapacityError"]

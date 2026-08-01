@@ -502,6 +502,43 @@ def test_future_sealed_batch_is_not_ready() -> None:
     assert "batch_sealed_in_future" in receipt.gaps
 
 
+def test_zero_samples_report_unknown_confidence_interval() -> None:
+    action = _action()
+    assert action.provenance is not None
+    batch = OperationalPromotionBatch(
+        fdai_revision=_REVISION,
+        scenario_set_version=_SCENARIO,
+        action_type_name=action.name,
+        action_type_version=action.version,
+        action_type_digest=action.provenance.content_hash.removeprefix("sha256:"),
+        sealed_at=_SEALED,
+        records=(),
+    )
+
+    receipt = _evaluator().evaluate(action, batch)
+
+    assert (receipt.accuracy_ci_lower, receipt.accuracy_ci_upper) == (0.0, 1.0)
+    assert receipt.ready is False
+
+
+@pytest.mark.parametrize(
+    ("status", "closure"),
+    [("supported", "confirmed"), ("closed", None), ("closed", "unknown")],
+)
+def test_causal_promotion_receipt_rejects_invalid_closure_state(
+    status: str,
+    closure: str | None,
+) -> None:
+    with pytest.raises(ValueError, match="closure"):
+        CausalPromotionReceipt(
+            hypothesis_id="causal-invalid",
+            hypothesis_revision_digest="a" * 64,
+            evidence_grade=CausalEvidenceGrade.QUASI_EXPERIMENTAL,
+            status=status,
+            closure=closure,
+        )
+
+
 def test_record_after_batch_sealing_is_rejected() -> None:
     batch = _passing_batch()
     with pytest.raises(ValueError, match="MUST NOT follow sealing"):

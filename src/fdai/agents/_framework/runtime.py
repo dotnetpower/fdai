@@ -85,6 +85,7 @@ from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
 from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_learning import OperatingPatternCompiler
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
@@ -148,6 +149,7 @@ class PantheonRuntime:
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
         post_turn_review: PostTurnReviewCoordinator | None = None,
         case_history_materializer: CaseHistoryMaterializer | None = None,
+        operating_pattern_compiler: OperatingPatternCompiler | None = None,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
         catalog_review: CatalogReviewBindings | None = None,
@@ -171,16 +173,11 @@ class PantheonRuntime:
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
-        ``raw_event_topic`` is the ingress topic (the same
-        ``kafka.topic_events`` the P1 loop consumes); its records are fed
-        into Huginn under a distinct consumer group, so the pantheon runs
-        as a parallel shadow of the P1 pipeline rather than stealing its
-        records.
+        ``raw_event_topic`` is the P1 ingress topic. Huginn consumes it under a
+        distinct group, so the pantheon remains a parallel shadow.
 
-        ``enforce`` defaults to ``False`` (shadow): Thor is forced
-        judge-and-log only so the pantheon never mutates alongside the P1
-        loop. Set ``True`` only after an explicit, separately reviewed
-        promotion.
+        ``enforce`` defaults to ``False`` so Thor is judge-and-log only. Set it
+        only after explicit, separately reviewed promotion.
 
         ``saga`` injects a durable auditor (a fork wires an append-only
         StateStore-backed ``Saga``); the default is the in-memory audit
@@ -259,11 +256,13 @@ class PantheonRuntime:
             scenario_coverage_aggregator is not None
             or post_turn_review is not None
             or case_history_analyzer is not None
+            or operating_pattern_compiler is not None
         ):
             instantiated["Norns"] = Norns(
                 coverage_aggregator=scenario_coverage_aggregator,
                 post_turn_review=post_turn_review,
                 case_history_analyzer=case_history_analyzer,
+                operating_pattern_compiler=operating_pattern_compiler,
             )
         if (
             muninn_state_store is not None

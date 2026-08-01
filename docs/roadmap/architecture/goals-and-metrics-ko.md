@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 1f558437f32fccfec5942a3860529cbfb8258329
+translation_source_sha: 1553f27f1c96d6be82dc0bc24fe81bd653f82d4e
 translation_revised: 2026-08-01
 ---
 
@@ -104,7 +104,8 @@ translation_revised: 2026-08-01
 - 배수 주장(2-4)은 베이스라인과 트리트먼트가 **동일한 고정 시나리오 세트 버전에서** 모두
   측정된 후에만 언급됩니다.
 - **통계적 타당성**: 각 배수는 표본 크기(이벤트 수), 신뢰구간, 시나리오 세트 버전과 함께
-  보고합니다. 신뢰구간 안의 차이는 개선이 아니라 "측정된 변화 없음"으로 보고합니다.
+  보고합니다. 신뢰구간 안의 차이는 개선이 아니라 "측정된 변화 없음"으로 보고합니다. Zero-sample
+  Wilson interval은 accuracy가 정확히 0이라는 evidence가 아니라 `[0, 1]` unknown입니다.
 - **Operational promotion evidence**: frozen benchmark와 live-shadow sample을 하나의 full FDAI
   revision, ActionType digest, scenario case, authoritative measurement unit에 bind하고 latest
   correction이 cohort, scenario, observation time, causal lineage를 바꾸지 않고 이전 row를

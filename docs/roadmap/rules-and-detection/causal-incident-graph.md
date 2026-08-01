@@ -180,6 +180,8 @@ hypothesis revision and can demote the related action or chaos scenario to shado
 A recovery or experiment declares expected observations before execution. Heimdall independently
 measures the effect after Thor executes or Loki's approved experiment runs. Closure compares the
 observed direction, magnitude, affected set, and time window with those predictions.
+The verified intervention execution time must be strictly later than the hypothesis evidence
+cutoff. Equality remains inconclusive because the pre-intervention evidence window is not separated.
 
 - **Confirmed:** Required effects match and prohibited effects do not occur.
 - **Refuted:** A required effect moves in the opposite direction or does not appear with complete

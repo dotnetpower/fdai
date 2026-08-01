@@ -78,6 +78,8 @@ bounded structured facts:
 
 Successful and failed treatments are both retained. A safe refusal, failed postcondition, or
 successful rollback is negative evidence that prevents FDAI from repeating an unsafe action.
+A success counts as reusable only when the response receipt explicitly records verified enforcement
+and `rollback_succeeded: false`; missing rollback state remains insufficient evidence.
 
 ### Failure fingerprint
 
@@ -108,7 +110,13 @@ Norns compiles a cohort into the existing `RuleCandidate` object. Candidate evid
 - success, no-op, refusal, rollback, and recurrence counts;
 - the proposed signal predicates and causal graph requirements;
 - the proposed existing or new `ActionType` reference;
+- at most 100 immutable cases, 64 digest refs per case, and 256 aggregate digest refs;
 - confidence bounds, known exclusions, and unresolved conflicts.
+
+Typed learning handlers are serialized per Norns instance. The pending proposal queue is bounded at
+5,000 entries; saturation first retries a drain and then backpressures the transport without changing
+the new signal's learner state. Runtime composition can replace the deterministic
+`OperatingPatternCompiler` through its constructor seam.
 
 One successful benchmark case cannot produce a promotable candidate. The initial gate requires at
 least one successful treatment, one negative or control case, deterministic replay, and no policy

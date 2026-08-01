@@ -344,7 +344,7 @@ def _classify_closure(
         or not intervention_verified
         or observation.intervention_receipt_digest is None
         or observation.intervention_executed_at is None
-        or observation.intervention_executed_at < observation.hypothesis.evidence_cutoff
+        or observation.intervention_executed_at <= observation.hypothesis.evidence_cutoff
         or observation.intervention_target_ref != observation.hypothesis.cause_ref
         or observation.predicted_effect_ref != observation.hypothesis.effect_ref
         or observation.prohibited_effects_absent is not True

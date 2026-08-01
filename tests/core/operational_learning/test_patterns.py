@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
 from tests.core.case_history.test_operational_case import _case_input, _receipt
 
 from fdai.core.case_history import (
@@ -11,6 +12,7 @@ from fdai.core.case_history import (
 )
 from fdai.core.operational_learning import (
     OperatingPatternCompiler,
+    PatternCase,
     pattern_case_from_operational_case,
 )
 
@@ -82,3 +84,58 @@ def test_compiler_requires_one_fingerprint_and_action_with_balanced_evidence() -
         )
         is None
     )
+
+
+def test_success_without_explicit_rollback_result_is_not_reusable() -> None:
+    case_input = _case_input(outcome_class=OperationalOutcomeClass.SUCCESS)
+    receipts = []
+    for receipt in case_input.receipts:
+        if receipt.receipt_type is OperationalReceiptType.AUDIT:
+            receipts.append(
+                replace(
+                    receipt,
+                    facts=tuple(
+                        (key, "enforce" if key == "mode" else value) for key, value in receipt.facts
+                    ),
+                )
+            )
+        elif receipt.receipt_type is OperationalReceiptType.RESPONSE_OUTCOME:
+            receipts.append(
+                replace(
+                    receipt,
+                    facts=tuple(
+                        (key, value) for key, value in receipt.facts if key != "rollback_succeeded"
+                    ),
+                )
+            )
+        else:
+            receipts.append(receipt)
+    case_input = replace(case_input, receipts=tuple(receipts))
+    projection = compile_operational_case(case_input).projection(
+        case_id="case-missing-rollback",
+        case_revision=1,
+        manifest_digest="c" * 64,
+    )
+
+    assert pattern_case_from_operational_case(case_input, projection) is None
+
+
+def test_pattern_case_and_cohort_inputs_are_bounded() -> None:
+    success = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    rollback = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
+    assert success is not None and rollback is not None
+
+    with pytest.raises(ValueError, match="case id"):
+        replace(success, case_id="x" * 257)
+    with pytest.raises(ValueError, match="digest evidence"):
+        replace(success, digest_evidence=tuple(f"{index:064x}" for index in range(65)))
+    cases: tuple[PatternCase, ...] = tuple(
+        replace(
+            success if index % 2 == 0 else rollback,
+            case_id=f"case-{index}",
+            manifest_digest=f"{index + 1:064x}",
+        )
+        for index in range(101)
+    )
+    with pytest.raises(ValueError, match="case limit"):
+        OperatingPatternCompiler().compile(cases)

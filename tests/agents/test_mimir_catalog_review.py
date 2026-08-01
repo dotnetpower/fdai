@@ -9,6 +9,7 @@ from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.mimir import CatalogReviewCapacityError, Mimir
+from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.core.case_history import OperationalOutcomeClass
 from fdai.core.operational_learning import (
@@ -263,6 +264,19 @@ async def test_runtime_injects_catalog_review_bindings() -> None:
     await mimir.on_typed_message("object.rule-candidate", _candidate())
 
     assert len(mimir.catalog_review_publication_receipts()) == 1
+
+
+def test_runtime_injects_operating_pattern_compiler() -> None:
+    compiler = OperatingPatternCompiler()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        operating_pattern_compiler=compiler,
+    )
+
+    norns = runtime.agents["Norns"]
+    assert isinstance(norns, Norns)
+    assert norns._operating_pattern_compiler is compiler
 
 
 def test_operational_candidate_cannot_use_direct_runtime_promotion() -> None:

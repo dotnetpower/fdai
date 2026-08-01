@@ -101,7 +101,8 @@ Leading indicators trigger investigation before a lagging guard metric regresses
   under the identical, frozen scenario-set version.
 - **Statistical validity**: report each factor with a sample size (event count), a confidence
   interval, and the scenario-set version. Differences within the confidence interval are
-  reported as "no measured change", not as an improvement.
+  reported as "no measured change", not as an improvement. A zero-sample Wilson interval is
+  `[0, 1]` (unknown), never evidence that accuracy is exactly zero.
 - **Operational promotion evidence**: bind frozen benchmark and live-shadow samples to one full
   FDAI revision, ActionType digest, scenario case, and authoritative measurement unit. Latest
   corrections replace prior rows without changing cohort, scenario, observation time, or causal

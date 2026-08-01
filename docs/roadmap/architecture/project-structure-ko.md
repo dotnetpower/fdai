@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: df9f372073514fac3a973fe01111b7add571f7c7
+translation_source_sha: ac9656ab58e35891500190eaf9f3795126070412
 translation_revised: 2026-08-01
 ---
 
@@ -411,6 +411,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   cache는 통과할 수 있지만 historical replay가 stale evidence를 되살릴 수는 없습니다. Learned signature는
   canonical parameter와 complete operational-case context를 bind합니다. Verifier는 execution authority를
   부여하지 않습니다. Binding이 없으면 operational reuse는 abstain하고 legacy pattern은 계속됩니다.
+  Pantheon composition은 `OperatingPatternCompiler`를 inject할 수 있으며 Norns는 typed learning을
+  serialize하고 Mimir review 전에 bounded proposal backpressure를 적용합니다.
 - **Causal 및 Dynamic runtime evidence**: `TemporalCausalEvidenceProvider`는 bounded pre-cutoff
   series와 graph fact를 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
   branch를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 model grade는
@@ -420,6 +422,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 immutable evidence를 resolve합니다. Production registry는
   이 binding 없이는 shadow를 유지하며 raw scalar metric은 test-only legacy fixture mode입니다.
+  Promotion-state refresh failure는 stale enforcement를 재사용하지 않고 unified system-health ceiling을 낮춥니다.
 - **Azure operational evidence**: `bind_azure_operational_evidence`는 strict promoted-inventory
   snapshot reader, current safety evaluator, configured Azure metric, bounded branch estimator,
   effect-model reader를 조립합니다. Partial binding은 container construction에서 실패합니다.

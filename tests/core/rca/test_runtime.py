@@ -203,3 +203,32 @@ async def test_independent_outcome_classifies_and_projects_closure(
     assert closed.closure is expected
     assert projector.calls[-1][1]["outcome_ids"] == ("outcome:1",)
     assert projector.calls[-1][1]["previous_hypothesis_id"] == (analyzed.hypothesis.hypothesis_id)
+
+
+async def test_intervention_at_evidence_cutoff_is_inconclusive() -> None:
+    projector = _Projector()
+    coordinator = _coordinator(_Provider(_evidence()), projector)
+    analyzed = await coordinator.analyze(event=_event(), incident_id="incident-1")
+    assert analyzed.hypothesis is not None
+
+    closed = await coordinator.close(
+        CausalClosureObservation(
+            hypothesis=analyzed.hypothesis,
+            finding_id="finding:latency",
+            outcome_ref="outcome:cutoff",
+            observed_at=datetime(2026, 8, 2, 1, tzinfo=UTC),
+            expected_direction_matched=True,
+            telemetry_complete=True,
+            within_window=True,
+            affected_scope_safe=True,
+            intervention_approved=True,
+            independent_observer=True,
+            intervention_receipt_digest="a" * 64,
+            intervention_executed_at=analyzed.hypothesis.evidence_cutoff,
+            intervention_target_ref=analyzed.hypothesis.cause_ref,
+            predicted_effect_ref=analyzed.hypothesis.effect_ref,
+            prohibited_effects_absent=True,
+        )
+    )
+
+    assert closed.closure is CausalClosure.INCONCLUSIVE

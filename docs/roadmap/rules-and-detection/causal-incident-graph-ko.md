@@ -1,7 +1,7 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: e1a0da7b7514d2ac3fb07b3751180dd0b272d088
+translation_source_sha: 953d23d0d44f3f1f1f8c810489e9414f50965643
 translation_revised: 2026-08-01
 ---
 # 인과 incident graph
@@ -187,6 +187,8 @@ revision을 만들고 관련 action 또는 chaos scenario를 shadow mode로 demo
 Recovery 또는 experiment는 실행 전에 expected observation을 선언합니다. Heimdall은 Thor가
 실행하거나 Loki의 승인된 experiment가 실행된 뒤 effect를 독립적으로 측정합니다. Closure는
 observed direction, magnitude, affected set, time window를 prediction과 비교합니다.
+Verified intervention execution time은 hypothesis evidence cutoff보다 엄격히 이후여야 합니다.
+같은 시각이면 pre-intervention evidence window가 분리되지 않았으므로 inconclusive입니다.
 
 - **Confirmed:** Required effect가 일치하고 prohibited effect가 발생하지 않았습니다.
 - **Refuted:** Complete telemetry에서 required effect가 반대 방향으로 움직이거나 나타나지

@@ -424,7 +424,8 @@ clean (see the fork model in
   so a recent pre-event cache can pass while historical replay cannot revive stale evidence.
   Learned signatures bind canonical parameters and the complete operational-case context. The
   verifier grants no execution authority. An absent binding makes operational reuse abstain while
-  legacy patterns continue.
+  legacy patterns continue. Pantheon composition can inject `OperatingPatternCompiler`; Norns
+  serializes typed learning and applies bounded proposal backpressure before Mimir review.
 - **Causal and Dynamic runtime evidence**: `TemporalCausalEvidenceProvider` supplies bounded
   pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-
   state branches. `CausalHypothesisProjection` stays Forseti-owned, and model grades require an
@@ -433,7 +434,8 @@ clean (see the fork model in
   bindings disable shadow paths.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
-  shadow without them; raw scalar metrics are a test-only legacy fixture mode.
+  shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
+  refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
   inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
   estimator, and effect-model reader. Partial binding fails at container construction.

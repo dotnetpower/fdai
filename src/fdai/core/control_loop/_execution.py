@@ -406,10 +406,19 @@ class ControlLoopExecutionMixin:
         action_type = self._action_types_by_name.get(action.action_type)
         if action_type is None:
             return None
+        promotion_refresh_failed = False
         if self._promotion_state_refresher is not None:
-            await self._promotion_state_refresher(action_type.name)
+            try:
+                await self._promotion_state_refresher(action_type.name)
+            except Exception:  # noqa: BLE001 - stale promotion authority fails closed
+                promotion_refresh_failed = True
+                _LOGGER.warning(
+                    "promotion_state_refresh_failed",
+                    extra={"action_type": action.action_type},
+                    exc_info=True,
+                )
         cost_override = await self._resolve_cost_override(rule=rule, action_type=action_type)
-        system_degraded = (
+        system_degraded = promotion_refresh_failed or (
             self._degradation is not None and not self._degradation.autonomy_permitted()
         )
         kill_switch_refresh_failed = False

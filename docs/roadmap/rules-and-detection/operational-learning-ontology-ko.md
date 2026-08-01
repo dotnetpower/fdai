@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 1b9e6519e6e079e670b1340af3c82d3c7f5d847a
+translation_source_sha: 96784dfd0cd2671a72c8144297d83bbdc78bdced
 translation_revised: 2026-08-01
 ---
 # 운영 학습 온톨로지
@@ -81,6 +81,8 @@ Operational case는 `kind: incident` 또는 `kind: action`인 `CaseHistoryRevisi
 
 성공한 처리와 실패한 처리를 모두 보존합니다. 안전한 거부, postcondition 실패, 성공한
 rollback은 FDAI가 안전하지 않은 action을 반복하지 않도록 하는 negative evidence입니다.
+Success는 response receipt가 verified enforcement와 `rollback_succeeded: false`를 명시적으로
+기록할 때만 reusable로 계산합니다. Rollback state 누락은 insufficient evidence로 유지합니다.
 
 ### Failure fingerprint
 
@@ -112,7 +114,13 @@ Norns는 cohort를 기존 `RuleCandidate` object로 컴파일합니다. Candidat
 - success, no-op, refusal, rollback, recurrence count;
 - 제안된 signal predicate와 causal graph requirement;
 - 제안된 기존 또는 신규 `ActionType` reference;
+- 최대 100개 immutable case, case당 64개 digest ref, aggregate 256개 digest ref;
 - confidence bound, 알려진 exclusion, 해결되지 않은 conflict.
+
+Typed learning handler는 Norns instance별로 serialize됩니다. Pending proposal queue는 5,000개로
+bounded되며 saturation 시 먼저 drain을 retry하고, 여전히 가득 차면 새 signal의 learner state를
+바꾸지 않은 채 transport를 backpressure합니다. Runtime composition은 constructor seam을 통해
+deterministic `OperatingPatternCompiler`를 교체할 수 있습니다.
 
 성공한 벤치마크 case 하나만으로는 승격 가능한 candidate를 만들 수 없습니다. 초기 게이트는
 최소 하나의 성공 처리, 하나의 negative 또는 control case, deterministic replay, policy escape
