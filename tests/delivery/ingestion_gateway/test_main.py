@@ -41,8 +41,12 @@ def _authenticator() -> Authenticator:
     )
 
     def verify(token: str):
-        role = "Reader" if token == "reader" else "Contributor"
-        return {"oid": token, "roles": [role]}
+        role = "Reader" if token in {"reader", "group-reader"} else "Contributor"
+        return {
+            "oid": token,
+            "roles": [role],
+            "groups": ["reader-group"] if token == "group-reader" else [],
+        }
 
     return Authenticator(
         verifier=verify,
@@ -274,6 +278,46 @@ def test_collection_policy_rejects_client_reader_group_override() -> None:
 
     assert response.status_code == 400
     assert "collection policy" in response.json()["message"]
+
+
+def test_document_search_enforces_collection_reader_groups() -> None:
+    class Search:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def search(self, query, *, collection_id, allowed_access_refs, k=5):
+            self.calls += 1
+            return ()
+
+    service, worker = _stack()
+    search = Search()
+    app = build_app(
+        authenticator=_authenticator(),
+        service=service,
+        worker=worker,
+        search_index=search,
+        config=IngestionGatewayConfig(
+            default_reader_groups=("reader-group",),
+            allowed_collections=("collection-a",),
+        ),
+    )
+    client = TestClient(app)
+    params = {"q": "recovery", "collection_id": "collection-a"}
+
+    denied = client.get(
+        "/documents/search", headers={"authorization": "Bearer reader"}, params=params
+    )
+    group_reader = client.get(
+        "/documents/search", headers={"authorization": "Bearer group-reader"}, params=params
+    )
+    contributor = client.get(
+        "/documents/search", headers={"authorization": "Bearer contributor"}, params=params
+    )
+
+    assert denied.status_code == 403
+    assert group_reader.status_code == 200
+    assert contributor.status_code == 200
+    assert search.calls == 2
 
 
 @pytest.mark.parametrize(

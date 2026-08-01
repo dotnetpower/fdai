@@ -242,7 +242,7 @@ def build_app(
         return _json(version, status_code=202)
 
     async def search_documents(request: Request) -> Response:
-        authorize(request, _READER_ROLES)
+        principal = authorize(request, _READER_ROLES)
         if search_index is None:
             return _error(404, "not_found", "document search is unavailable")
         query = request.query_params.get("q", "").strip()
@@ -250,6 +250,11 @@ def build_app(
         if not query or not collection_id:
             raise ValueError("q and collection_id are required")
         if resolved.allowed_collections and collection_id not in resolved.allowed_collections:
+            raise DocumentAccessDeniedError("document collection access is denied")
+        if resolved.default_reader_groups and not (
+            principal.groups.intersection(resolved.default_reader_groups)
+            or principal.roles.intersection(_CONTRIBUTOR_ROLES)
+        ):
             raise DocumentAccessDeniedError("document collection access is denied")
         raw_limit = request.query_params.get("limit", "5")
         limit = int(raw_limit)
