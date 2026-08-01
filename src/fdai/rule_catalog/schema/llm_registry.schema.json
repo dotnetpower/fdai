@@ -103,7 +103,7 @@
             "tool_calling_required": {
               "type": "boolean",
               "default": false,
-              "description": "Capability must resolve to a function-calling-capable family (its tool allowlist includes web.search or another tool call). The resolver degrades it to hil-only when a tool-calling family set is supplied and the chosen family is not in it."
+              "description": "Capability must resolve to a function-calling-capable family. The resolver degrades it to hil-only when a tool-calling family set is supplied and the chosen family is not in it. Public web search is resolved separately by t1.web_search and a live startup managed-tool probe."
             }
           }
         }

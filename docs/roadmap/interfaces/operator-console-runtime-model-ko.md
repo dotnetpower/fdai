@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: e8df6a23af6b19a483cd992038ae59ba3c6c4a57
+translation_source_sha: c6acc8ac8367386cdc61ef1030fda5c60a2bfcff
 translation_revised: 2026-08-01
 ---
 
@@ -71,6 +71,11 @@ local 또는 sensitive-data denial을 override할 수 없습니다. Alternative�
 계속 fail closed합니다. Candidate의 제한된 output budget을 classification에도 적용하므로 reasoning token이
 valid structured decision을 truncate하지 않습니다. 이 classifier prompt는 Bragi answer-generation prompt와
 분리됩니다.
+
+Public retrieval은 `narrator_candidates`를 빌리지 않습니다. Resolver는 `t1.web_search`를
+`web_search_candidates`로 선택하고 startup은 read API가 traffic을 serve하기 전에 candidate별 실제
+managed-tool request를 한 번 전송합니다. 실패 candidate는 제외합니다. 남은 candidate가 없으면 Settings는
+enabled preference를 보존하지만 제한된 reason과 함께 `available=false`를 보고하고 관리를 비활성화합니다.
 
 ### 4.1.1 Cross-process agent introspection
 

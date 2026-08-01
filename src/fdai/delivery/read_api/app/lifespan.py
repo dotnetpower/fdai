@@ -55,6 +55,17 @@ def build_lifespan(
         probe_tasks: list[Any] = []
         chat_backend = config.chat
         web_search_resolver = config.chat_web_search
+        web_search_ready = False
+        if web_search_resolver is not None:
+            verify = getattr(web_search_resolver, "verify_availability", None)
+            if callable(verify):
+                try:
+                    web_search_ready = bool(await verify())
+                except Exception as exc:  # noqa: BLE001 - capability fails closed
+                    logger.warning(
+                        "read_api_web_search_readiness_failed",
+                        extra={"error_type": type(exc).__name__},
+                    )
         if chat_registration.is_routed_chat_backend(chat_backend):
             probe_tasks.append(
                 asyncio.create_task(
@@ -66,7 +77,7 @@ def build_lifespan(
                     )
                 )
             )
-        if web_search_resolver is not None:
+        if web_search_resolver is not None and web_search_ready:
             probe_tasks.append(
                 asyncio.create_task(
                     _run_correlated_latency_probe(

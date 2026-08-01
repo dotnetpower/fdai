@@ -49,8 +49,11 @@ from fdai.rule_catalog.schema.llm_endpoint_selection import (
     collect_narrator_deployments,
     collect_primary_candidates,
     collect_primary_deployments,
+    collect_web_search_candidates,
+    collect_web_search_deployments,
     narrator_deployment_name,
     reasoner_primary_deployment_name,
+    web_search_deployment_name,
 )
 from fdai.rule_catalog.schema.llm_registry import (
     LlmRegistry,
@@ -184,6 +187,9 @@ class ResolvedModels:
     (single-narrator path) or a deterministic answerer.
     """
 
+    web_search_candidates: tuple[NarratorCandidate, ...] = ()
+    """Responses API candidates selected only from ``t1.web_search``."""
+
     reasoner_primary_candidates: tuple[NarratorCandidate, ...] = ()
     """Same-publisher latency pool for the T2 primary proposer (opt-in).
 
@@ -233,6 +239,10 @@ class ResolvedModels:
             payload["narrator_candidates"] = [
                 _narrator_to_dict(n) for n in self.narrator_candidates
             ]
+        if self.web_search_candidates:
+            payload["web_search_candidates"] = [
+                _narrator_to_dict(candidate) for candidate in self.web_search_candidates
+            ]
         if self.reasoner_primary_candidates:
             payload["reasoner_primary_candidates"] = [
                 _narrator_to_dict(n) for n in self.reasoner_primary_candidates
@@ -275,6 +285,11 @@ class ResolvedModels:
                 _narrator_from_dict(n)
                 for n in raw.get("narrator_candidates", ())
                 if isinstance(n, dict)
+            ),
+            web_search_candidates=tuple(
+                _narrator_from_dict(candidate)
+                for candidate in raw.get("web_search_candidates", ())
+                if isinstance(candidate, dict)
             ),
             reasoner_primary_candidates=tuple(
                 _narrator_from_dict(n)
@@ -581,7 +596,10 @@ __all__ = [
     "collect_narrator_deployments",
     "collect_primary_candidates",
     "collect_primary_deployments",
+    "collect_web_search_candidates",
+    "collect_web_search_deployments",
     "narrator_deployment_name",
     "reasoner_primary_deployment_name",
+    "web_search_deployment_name",
     "resolve",
 ]

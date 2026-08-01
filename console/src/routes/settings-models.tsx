@@ -28,6 +28,7 @@ import {
   type NarratorCandidateView,
   type T2ModelChoiceView,
   webSearchControlsDisabled,
+  webSearchUnavailableMessageKey,
 } from "./settings-models.model";
 
 interface Props {
@@ -237,6 +238,11 @@ export function SettingsModelsRoute({ client, auth }: Props) {
         { key: "capability_count", value: view.capabilities.length, group: "models" },
         { key: "web_search_enabled", value: view.webSearch.enabled, group: "web_search" },
         { key: "web_search_available", value: view.webSearch.available, group: "web_search" },
+        {
+          key: "web_search_unavailable_reason",
+          value: view.webSearch.unavailableReason,
+          group: "web_search",
+        },
         {
           key: "web_search_allowed_domain_count",
           value: view.webSearch.allowedDomains.length,
@@ -657,6 +663,12 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                   <dt>{t("settings.models.currentSearchModel")}</dt>
                   <dd>{view.webSearch.currentAutoPick ?? t("settings.models.unavailable")}</dd>
                 </div>
+                {view.webSearch.unavailableReason ? (
+                  <div>
+                    <dt>{t("settings.models.unavailableReason")}</dt>
+                    <dd>{t(webSearchUnavailableMessageKey(view.webSearch.unavailableReason))}</dd>
+                  </div>
+                ) : null}
               </dl>
               {webSearchError ? (
                 <div class="error settings-web-search-error" role="alert">

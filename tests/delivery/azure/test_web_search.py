@@ -172,6 +172,39 @@ async def test_latency_router_does_not_retry_terminal_tool_block() -> None:
     assert unused.search_calls == 0
 
 
+async def test_readiness_excludes_blocked_candidate_and_keeps_healthy_candidate() -> None:
+    blocked = _BlockedCandidate(delay_ms=1)
+    healthy = _Candidate(delay_ms=1)
+    provider = LatencyRoutedWebSearchProvider(
+        candidates=[("blocked", blocked), ("healthy", healthy)]
+    )
+    query = WebSearchQuery(text="official documentation", allowed_domains=("example.com",))
+
+    selected = await provider.check_readiness(query)
+    result = await provider.search(query)
+
+    assert selected == "healthy"
+    assert blocked.search_calls == 1
+    assert healthy.search_calls == 2
+    assert result.snippets
+    stats = {item["deployment"]: item for item in provider.stats()}
+    assert stats["blocked"]["available"] is False
+    assert stats["blocked"]["unavailable_reason"] == "tool_blocked"
+    assert stats["healthy"]["available"] is True
+
+
+async def test_readiness_all_blocked_leaves_no_current_pick() -> None:
+    blocked = _BlockedCandidate(delay_ms=1)
+    provider = LatencyRoutedWebSearchProvider(candidates=[("blocked", blocked)])
+
+    with pytest.raises(AzureWebSearchRequestError, match="tool_blocked"):
+        await provider.check_readiness(
+            WebSearchQuery(text="official documentation", allowed_domains=("example.com",))
+        )
+
+    assert provider.current_pick_name() is None
+
+
 async def test_latency_router_fails_over_when_fastest_candidate_has_no_snippets() -> None:
     empty = _Candidate(delay_ms=1, empty_search=True)
     healthy = _Candidate(delay_ms=15)

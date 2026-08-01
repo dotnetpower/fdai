@@ -70,6 +70,11 @@ fields are discarded because they do not affect routing; malformed required fiel
 The bounded candidate output budget applies to classification so reasoning tokens cannot truncate a
 valid structured decision. This classifier prompt is separate from Bragi's answer-generation prompt.
 
+Public retrieval never borrows `narrator_candidates`. The resolver selects `t1.web_search` into
+`web_search_candidates`, and startup sends one actual managed-tool request per candidate before the
+read API serves traffic. Failed candidates are excluded. If none remain, Settings preserves the
+enabled preference but reports `available=false` with a bounded reason and disables management.
+
 ### 4.1.1 Cross-process agent introspection
 
 The core runtime remains the only Pantheon owner. A separate read API reaches Bragi through two

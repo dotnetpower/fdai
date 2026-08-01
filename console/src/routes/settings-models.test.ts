@@ -14,7 +14,17 @@ import {
   renderT2GovernanceDraft,
   t2PairIsValid,
   webSearchControlsDisabled,
+  webSearchUnavailableMessageKey,
 } from "./settings-models.model";
+  it("maps web-search readiness codes to operator messages", () => {
+    expect(webSearchUnavailableMessageKey("tool_blocked")).toBe(
+      "settings.models.webSearchToolBlocked",
+    );
+    expect(webSearchUnavailableMessageKey("provider_timeout")).toBe(
+      "settings.models.webSearchProviderUnavailable",
+    );
+  });
+
 
 const payload = {
   region: "example-region",
@@ -84,6 +94,7 @@ const payload = {
   web_search: {
     available: true,
     enabled: true,
+    unavailable_reason: null,
     allowed_domains: [...DEFAULT_WEB_SEARCH_DOMAINS],
     revision: 1,
     can_manage: true,
@@ -179,6 +190,7 @@ describe("Settings Models contracts", () => {
     expect(decoded.resolvedMetadata.asOf).toBe("2026-07-17T08:00:00+00:00");
     expect(decoded.webSearch.enabled).toBe(true);
     expect(decoded.webSearch.available).toBe(true);
+    expect(decoded.webSearch.unavailableReason).toBeNull();
     expect(decoded.webSearch.allowedDomains).toEqual(DEFAULT_WEB_SEARCH_DOMAINS);
     expect(decoded.webSearch.revision).toBe(1);
     expect(decoded.modelRouting[0]?.selectedDeployment).toBe("primary-b");

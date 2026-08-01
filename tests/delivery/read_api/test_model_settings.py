@@ -45,10 +45,14 @@ class _WebSearchResolver:
     def __init__(self) -> None:
         self.enabled = True
         self.domains = ("learn.microsoft.com",)
+        self.available = True
+        self.unavailable_reason: str | None = None
 
     def descriptor(self) -> dict[str, Any]:
         return {
+            "available": self.available,
             "enabled": self.enabled,
+            "unavailable_reason": self.unavailable_reason,
             "allowed_domains": list(self.domains),
             "router": {"chose": "narrator-fast", "candidates": []},
         }
@@ -396,6 +400,7 @@ async def test_projects_capabilities_provisioning_and_latency_candidates(tmp_pat
     assert projection["web_search"] == {
         "available": True,
         "enabled": True,
+        "unavailable_reason": None,
         "allowed_domains": ["learn.microsoft.com"],
         "revision": 0,
         "can_manage": False,
@@ -416,6 +421,7 @@ async def test_unconfigured_web_search_is_unavailable_and_not_writable(tmp_path:
     assert projection["web_search"] == {
         "available": False,
         "enabled": False,
+        "unavailable_reason": "not_configured",
         "allowed_domains": [],
         "revision": 0,
         "can_manage": False,
@@ -430,6 +436,21 @@ async def test_unconfigured_web_search_is_unavailable_and_not_writable(tmp_path:
             allowed_domains=("learn.microsoft.com",),
             expected_revision=0,
         )
+
+
+async def test_blocked_web_search_is_unavailable_and_not_manageable(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    resolver = service.web_search_resolver
+    assert isinstance(resolver, _WebSearchResolver)
+    resolver.available = False
+    resolver.unavailable_reason = "tool_blocked"
+
+    projection = await service.projection("user-1", can_manage_web_search=True)
+
+    assert projection["web_search"]["available"] is False
+    assert projection["web_search"]["enabled"] is True
+    assert projection["web_search"]["unavailable_reason"] == "tool_blocked"
+    assert projection["web_search"]["can_manage"] is False
 
 
 async def test_persists_allowlisted_user_preference(tmp_path: Path) -> None:
@@ -535,6 +556,7 @@ def test_owner_updates_web_search_and_stale_revision_conflicts(tmp_path: Path) -
     assert updated.json()["web_search"] == {
         "available": True,
         "enabled": False,
+        "unavailable_reason": None,
         "allowed_domains": ["nvd.nist.gov"],
         "revision": 1,
         "can_manage": True,

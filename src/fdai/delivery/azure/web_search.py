@@ -291,9 +291,13 @@ class LatencyRoutedWebSearchProvider:
             name: deque(maxlen=_WINDOW_SIZE) for name, _ in self._candidates
         }
         self._in_flight = {name: 0 for name, _ in self._candidates}
+        self._unavailable: dict[str, str] = {}
 
-    def current_pick_name(self) -> str:
-        name, _ = self._pick()
+    def current_pick_name(self) -> str | None:
+        try:
+            name, _ = self._pick()
+        except RuntimeError:
+            return None
         return name
 
     def stats(self) -> list[dict[str, Any]]:
@@ -304,9 +308,47 @@ class LatencyRoutedWebSearchProvider:
                 "p95_ms": _p95(samples) if samples else None,
                 "samples": len(samples),
                 "history_ms": list(samples),
+                "available": name not in self._unavailable,
+                "unavailable_reason": self._unavailable.get(name),
             }
             for name, samples in self._samples.items()
         ]
+
+    async def check_readiness(self, query: WebSearchQuery) -> str:
+        """Retain only candidates that can execute the managed search tool."""
+        import asyncio
+
+        async def _check(name: str, candidate: WebSearchModelCandidate) -> None:
+            started = time.monotonic()
+            try:
+                await candidate.search(query)
+            except Exception as exc:  # noqa: BLE001 - readiness classifies failures
+                reason = (
+                    exc.reason if isinstance(exc, AzureWebSearchRequestError) else "provider_error"
+                )
+                self._unavailable[name] = reason
+                self._samples[name].append(_FAILURE_PENALTY_MS)
+                _LOG.warning(
+                    "web_search_router.readiness_failed",
+                    extra={
+                        "candidate": name,
+                        "error_type": type(exc).__name__,
+                        "reason": reason,
+                    },
+                )
+                return
+            self._unavailable.pop(name, None)
+            self._samples[name].append(int((time.monotonic() - started) * 1000))
+
+        await asyncio.gather(*(_check(name, candidate) for name, candidate in self._candidates))
+        if len(self._unavailable) == len(self._candidates):
+            reasons = set(self._unavailable.values())
+            reason = reasons.pop() if len(reasons) == 1 else "provider_unavailable"
+            raise AzureWebSearchRequestError(reason)
+        selected = self.current_pick_name()
+        if selected is None:
+            raise AzureWebSearchRequestError("provider_unavailable")
+        return selected
 
     async def benchmark(self, *, rounds: int | None = None) -> str:
         import asyncio
@@ -328,7 +370,10 @@ class LatencyRoutedWebSearchProvider:
 
         for _ in range(effective_rounds):
             await asyncio.gather(*(_probe(name, candidate) for name, candidate in self._candidates))
-        return self.current_pick_name()
+        selected = self.current_pick_name()
+        if selected is None:
+            raise RuntimeError("web search benchmark has no available candidate")
+        return selected
 
     async def search(self, query: WebSearchQuery) -> WebSearchResult:
         attempted: set[str] = set()
@@ -416,7 +461,11 @@ class LatencyRoutedWebSearchProvider:
         exclude: set[str] | None = None,
     ) -> tuple[str, WebSearchModelCandidate]:
         excluded = exclude or set()
-        available = [item for item in self._candidates if item[0] not in excluded]
+        available = [
+            item
+            for item in self._candidates
+            if item[0] not in excluded and item[0] not in self._unavailable
+        ]
         if not available:
             raise RuntimeError("web search router has no available candidate")
         cold = [

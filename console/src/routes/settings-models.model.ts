@@ -52,6 +52,7 @@ export interface NarratorCandidateView {
 export interface WebSearchSettingsView {
   readonly available: boolean;
   readonly enabled: boolean;
+  readonly unavailableReason: string | null;
   readonly allowedDomains: readonly string[];
   readonly revision: number;
   readonly canManage: boolean;
@@ -152,6 +153,21 @@ export const DEFAULT_WEB_SEARCH_DOMAINS = [
   "datatracker.ietf.org",
   "rfc-editor.org",
 ] as const;
+export function webSearchUnavailableMessageKey(reason: string): string {
+  switch (reason) {
+    case "tool_blocked":
+      return "settings.models.webSearchToolBlocked";
+    case "provider_unauthorized":
+      return "settings.models.webSearchUnauthorized";
+    case "provider_rate_limited":
+      return "settings.models.webSearchRateLimited";
+    case "not_configured":
+    case "readiness_probe_unavailable":
+      return "settings.models.webSearchNotConfigured";
+    default:
+      return "settings.models.webSearchProviderUnavailable";
+  }
+}
 
 export function draftRevisionIsCurrent(current: number, submitted: number): boolean {
   return current === submitted;
@@ -297,6 +313,10 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
     webSearch: {
       available: boolean(webSearch["available"], "web_search.available"),
       enabled: boolean(webSearch["enabled"], "web_search.enabled"),
+      unavailableReason: nullableString(
+        webSearch["unavailable_reason"],
+        "web_search.unavailable_reason",
+      ),
       allowedDomains: array(webSearch["allowed_domains"], "web_search.allowed_domains").map(
         (domain) => {
           const parsed = string(domain, "web_search.allowed_domains[]");

@@ -39,6 +39,15 @@ models:
     sku: Standard
     capacity_tpm: 200000
 
+  t1.web_search:
+    # Dedicated Responses API model for public-web retrieval. Availability is
+    # confirmed by an actual managed-tool probe at read API startup; generic
+    # function-calling support is not sufficient evidence.
+    preferences:
+      - {publisher: OpenAI, family: gpt-4.1-mini}
+    sku: Standard
+    capacity_tpm: 20000
+
   t2.reasoner.primary:
     preferences:
       - {publisher: OpenAI, family: gpt-4o}
@@ -49,11 +58,8 @@ models:
       - {publisher: OpenAI, family: gpt-4-turbo}
     sku: Standard
     capacity_tpm: 20000
-    # The Proposer's tool manifest may include web.search; it MUST resolve
-    # to a function-calling-capable family or the tool breaks at runtime.
-    # Web search stays a self-hosted WebSearchProvider behind this tool
-    # manifest - never a model's native browsing (that would hide the
-    # allowlist + evidence-store replay determinism the core controls).
+    # The Proposer's non-web tool manifest requires function calling. Public
+    # web retrieval is independently owned by t1.web_search.
     tool_calling_required: true
 
   t2.reasoner.secondary:

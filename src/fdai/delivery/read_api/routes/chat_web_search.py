@@ -111,6 +111,8 @@ class ChatWebSearchResolver:
         self._intent_classifier = intent_classifier
         self._config = config
         self._policy = WebSearchPolicyConfig(enabled=True)
+        self._available = True
+        self._unavailable_reason: str | None = None
 
     def update_settings(
         self,
@@ -133,10 +135,45 @@ class ChatWebSearchResolver:
         return self._config.probe_interval_seconds
 
     async def benchmark(self, *, rounds: int | None = None) -> str | None:
+        if not self._available:
+            return None
         benchmark = getattr(self._provider, "benchmark", None)
         if benchmark is None:
             return None
         return str(await benchmark(rounds=rounds))
+
+    async def verify_availability(self) -> bool:
+        """Probe the billed managed tool once before exposing web search."""
+        check = getattr(self._provider, "check_readiness", None)
+        if not callable(check):
+            self._available = False
+            self._unavailable_reason = "readiness_probe_unavailable"
+            return False
+        probe_domain = self._config.allowed_domains[0]
+        query = WebSearchQuery(
+            text=f"official documentation site:{probe_domain}",
+            allowed_domains=(probe_domain,),
+            max_results=1,
+            budget_ms=self._config.budget_ms,
+            metadata={"surface": "startup-readiness", "goal": "current_fact"},
+        )
+        try:
+            await check(query)
+        except AzureWebSearchRequestError as exc:
+            self._available = False
+            self._unavailable_reason = exc.reason
+            return False
+        except Exception as exc:  # noqa: BLE001 - readiness fails closed
+            _LOG.warning(
+                "chat.web_search_readiness_failed",
+                extra={"error_type": type(exc).__name__},
+            )
+            self._available = False
+            self._unavailable_reason = "provider_error"
+            return False
+        self._available = True
+        self._unavailable_reason = None
+        return True
 
     def descriptor(self) -> dict[str, Any]:
         stats_fn = getattr(self._provider, "stats", None)
@@ -144,8 +181,9 @@ class ChatWebSearchResolver:
         candidates = stats_fn() if stats_fn is not None else []
         chose = pick_fn() if pick_fn is not None else None
         return {
-            "available": True,
+            "available": self._available,
             "enabled": self._policy.enabled,
+            "unavailable_reason": self._unavailable_reason,
             "mode": "azure-responses-web-search",
             "allowed_domains": list(self._config.allowed_domains),
             "router": {
@@ -220,6 +258,12 @@ class ChatWebSearchResolver:
             return {
                 "status": "skipped",
                 "reason": "query_not_public_safe",
+                "sources": [],
+            }
+        if not self._available:
+            return {
+                "status": "unavailable",
+                "reason": self._unavailable_reason or "provider_unavailable",
                 "sources": [],
             }
 
@@ -458,10 +502,9 @@ def chat_web_search_from_env(
         probe_interval_seconds=_parse_int(source, _PROBE_INTERVAL_ENV, 300),
     )
     model_data = _load_resolved_models(source)
-    raw_candidates = model_data.get("narrator_candidates")
-    if not isinstance(raw_candidates, list) or not raw_candidates:
-        narrator = model_data.get("narrator")
-        raw_candidates = [narrator] if isinstance(narrator, Mapping) else []
+    raw_candidates = model_data.get("web_search_candidates")
+    if not isinstance(raw_candidates, list):
+        raw_candidates = []
 
     candidates: list[tuple[str, WebSearchModelCandidate]] = []
     seen: set[str] = set()
@@ -490,7 +533,7 @@ def chat_web_search_from_env(
         )
     if not candidates:
         raise ValueError(
-            "web search is enabled but resolved-models.json has no narrator candidates"
+            "web search is enabled but resolved-models.json has no web-search candidates"
         )
     provider = LatencyRoutedWebSearchProvider(candidates=candidates)
     return ChatWebSearchResolver(

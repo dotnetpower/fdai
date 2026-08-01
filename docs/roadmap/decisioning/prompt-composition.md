@@ -280,24 +280,19 @@ grounding source.
 - **Replay determinism**: results are stored by `(content_hash, url, fetched_at)`
   in `web_evidence`; audit entries reference the hash. Replay reads the
   stored snapshot instead of re-fetching, so past runs stay reproducible.
-- **Controlled Azure Responses adapter**: arbitrary opaque native browsing is
-  not supported. The Azure-first adapter is the reviewed exception: it wraps
-  the Responses API `web_search` tool behind `WebSearchProvider`, sends
+- **Controlled Azure Responses adapter**: the Azure-first implementation wraps
+  the Responses API managed `web_search` tool behind `WebSearchProvider`, sends
   `allowed_domains` on every request, verifies that a `web_search_call`
   occurred, rejects citations outside the allowlist, and stores the sanitized
   evidence snapshot with the durable conversation turn. Only the bounded
   operator query leaves FDAI; the screen snapshot and conversation history are
   never sent to the search call. Provider failures become bounded reason codes such as `tool_blocked`,
-  `provider_unauthorized`, or `provider_rate_limited`; raw response bodies never enter the conversation. Organization-wide and authorization failures stop model failover, while transient failures can try the next deployment. The capability whose allowlist carries
-  `web.search` sets
-  `tool_calling_required: true` in `rule-catalog/llm-registry.yaml`; the
-  bootstrap resolver degrades it to `hil-only` when the target region has no
-  function-calling-capable family, so a tool that cannot actually be called
-  never ships silently.
+  `provider_unauthorized`, or `provider_rate_limited`; raw response bodies never enter the conversation. Organization-wide and authorization failures stop model failover, while transient failures can try the next deployment.
 - **Latency-routed model pool**: search candidates come from
-  `resolved-models.json`'s `narrator_candidates`. Startup measures every
-  candidate twice, then a periodic probe adds one sample per candidate every
-  300 seconds by default. Search calls choose the lowest rolling p50 and fail
+  the dedicated `t1.web_search` registry capability and serialize as
+  `web_search_candidates`; narrator candidates are never a fallback. Startup sends one actual
+  managed-tool search per candidate and excludes failures before serving. Periodic model-only probes
+  then update latency without search charges. Calls choose the lowest rolling p50 and fail
   over on errors; the selected deployment, p50/p95 history, and actual search
   latency are returned as provenance. The probe does not invoke web search, so
   periodic health measurement does not incur search-tool charges.

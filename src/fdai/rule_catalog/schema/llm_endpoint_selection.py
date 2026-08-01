@@ -17,6 +17,11 @@ def reasoner_primary_deployment_name(family: str) -> str:
     return "t2primary-" + family.replace(".", "-")
 
 
+def web_search_deployment_name(family: str) -> str:
+    """Return the URL-safe Azure deployment name for a web-search family."""
+    return "websearch-" + family.replace(".", "-")
+
+
 def _viable_narrator_prefs(
     *,
     registry: LlmRegistry,
@@ -128,6 +133,79 @@ def collect_narrator_deployments(
             )
         )
     return tuple(out)
+
+
+def collect_web_search_candidates(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: Any,
+    quota: Any,
+    endpoint: str,
+    api_version: str = "2024-08-01-preview",
+    capability_name: str = "t1.web_search",
+) -> tuple[Any, ...]:
+    """Collect model candidates dedicated to the Responses web-search tool."""
+    from fdai.rule_catalog.schema.llm_resolver import NarratorCandidate
+
+    prefs = _viable_narrator_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    return tuple(
+        NarratorCandidate(
+            endpoint=endpoint,
+            deployment=web_search_deployment_name(pref.family),
+            api_version=api_version,
+        )
+        for pref in prefs
+    )
+
+
+def collect_web_search_deployments(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: Any,
+    quota: Any,
+    capability_name: str = "t1.web_search",
+) -> tuple[Any, ...]:
+    """Emit one provisionable capability for each web-search candidate."""
+    from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus, ResolvedCapability
+
+    prefs = _viable_narrator_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    spec = registry.models.get(capability_name)
+    if spec is None:
+        return ()
+    return tuple(
+        ResolvedCapability(
+            name=web_search_deployment_name(pref.family),
+            status=CapabilityStatus.RESOLVED,
+            publisher=pref.publisher,
+            family=pref.family,
+            sku=spec.sku.value,
+            capacity_tpm=min(
+                spec.requested_capacity,
+                quota.available_capacity_tpm(
+                    region=region,
+                    publisher=pref.publisher,
+                    family=pref.family,
+                ),
+            ),
+            invocation=spec.invocation.value,
+            reasons=(f"web_search_deployment_for={capability_name}",),
+        )
+        for pref in prefs
+    )
 
 
 def collect_primary_candidates(

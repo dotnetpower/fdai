@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: b59fa244f3ade7fcf89eb6c185d3fa003228e2d1
+translation_source_sha: e902a1788b015138cf1e3ddcfbbdbed64c53413b
 translation_revised: 2026-08-01
 ---
 
@@ -277,19 +277,17 @@ Web search는 최후의 수단 툴입니다. 배포별 opt-in이며 절대 groun
 - **Replay 결정성**: 결과는 `web_evidence`에 `(content_hash, url, fetched_at)`
   로 저장. audit 엔트리는 hash를 참조. Replay는 저장된 스냅샷을 읽으며 다시 fetch
   하지 않으므로 과거 실행이 재현 가능하게 유지됩니다.
-- **통제된 Azure Responses adapter**: 임의의 불투명한 native browsing은
-  지원되지 않습니다. Azure-first adapter는 검토된 예외입니다. Responses API
-  `web_search` 툴을 `WebSearchProvider` 뒤에 감싸고, 매 요청에
+- **통제된 Azure Responses adapter**: Azure-first 구현은 Responses API managed
+  `web_search` tool을 `WebSearchProvider` 뒤에 감싸고, 매 요청에
   `allowed_domains`를 보내며, 실제 `web_search_call` 발생을 검증합니다.
   Allowlist 밖 citation은 거부하고 sanitized evidence snapshot은 durable
   conversation turn에 저장합니다. 제한된 operator query만 FDAI 밖으로 나가며
-  화면 snapshot과 대화 history는 검색 호출에 전송되지 않습니다. Provider 실패는 `tool_blocked`, `provider_unauthorized`, `provider_rate_limited` 같은 제한된 reason code로 변환하며 raw response body는 대화에 포함하지 않습니다. 조직 전체 차단 및 authorization 실패는 model failover를 중단하고 transient 실패만 다음 deployment를 시도합니다. Allowlist가
-  `web.search`를 담은 capability는 `rule-catalog/llm-registry.yaml`에
-  `tool_calling_required: true`를 설정합니다. 부트스트랩 resolver는 대상 리전에
-  function-calling 가능 family가 없으면 `hil-only`로 강등합니다.
+  화면 snapshot과 대화 history는 검색 호출에 전송되지 않습니다. Provider 실패는 `tool_blocked`, `provider_unauthorized`, `provider_rate_limited` 같은 제한된 reason code로 변환하며 raw response body는 대화에 포함하지 않습니다. 조직 전체 차단 및 authorization 실패는 model failover를 중단하고 transient 실패만 다음 deployment를 시도합니다.
 - **지연 기반 모델 pool**: 검색 후보는 `resolved-models.json`의
-  `narrator_candidates`에서 가져옵니다. 시작할 때 각 후보를 두 번 측정한 뒤,
-  기본 300초마다 후보별 sample을 하나씩 추가합니다. 검색 호출은 rolling p50이
+  전용 `t1.web_search` registry capability에서 가져와 `web_search_candidates`로
+  serialize합니다. Narrator candidate는 fallback으로 사용하지 않습니다. Startup은 candidate별
+  managed-tool search를 실제로 한 번 보내고 실패 candidate를 serving 전에 제외합니다. 이후
+  periodic model-only probe는 검색 비용 없이 latency를 갱신합니다. 검색 호출은 rolling p50이
   가장 낮은 후보를 선택하고 오류 시 다음 후보로 failover합니다. 선택 deployment,
   p50/p95 history, 실제 검색 latency를 provenance로 반환합니다. Probe는 웹 검색을
   호출하지 않으므로 주기적 상태 측정에는 검색 툴 비용이 발생하지 않습니다.

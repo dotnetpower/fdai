@@ -277,12 +277,12 @@ Rules the registry enforces (MUST, at config load):
   `t2.rca`); it fires only on a novel incident the deterministic tiers could not resolve,
   and its output is refused unless grounded on the supplied evidence (see
   [observability-and-detection.md](../rules-and-detection/observability-and-detection.md) section 4).
-- **`tool_calling_required` gates function-calling families.** A capability whose tool
-  allowlist includes `web.search` (or any tool call) sets `tool_calling_required: true`; the
-  resolver degrades it to `hil-only` when the target region has no function-calling-capable
-  family (a tool that cannot be called must not ship silently). Web search is always the
-  self-hosted `WebSearchProvider` behind the T2 tool manifest - FDAI never delegates to a
-  model's native browsing.
+- **Tool capabilities resolve independently.** `tool_calling_required` gates ordinary function
+  tools. Public retrieval uses the dedicated `t1.web_search` preference and serializes only its
+  deployments into `web_search_candidates`. The read API sends an actual Azure Responses
+  `web_search` call at startup; only candidates that execute the managed tool remain available.
+  Missing model support, account entitlement, or provider readiness makes search unavailable
+  without borrowing the narrator pool or changing conversation and execution authority.
 
 ### Bootstrap Provisioner
 

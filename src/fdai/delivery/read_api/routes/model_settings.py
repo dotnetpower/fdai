@@ -393,6 +393,7 @@ class ModelSettingsService:
             return {
                 "available": False,
                 "enabled": False,
+                "unavailable_reason": "not_configured",
                 "allowed_domains": [],
                 "revision": 0,
                 "can_manage": False,
@@ -405,12 +406,21 @@ class ModelSettingsService:
         descriptor_fn = getattr(self.web_search_resolver, "descriptor", None)
         descriptor = descriptor_fn() if descriptor_fn is not None else {}
         router = descriptor.get("router") if isinstance(descriptor, Mapping) else None
+        available = (
+            bool(descriptor.get("available", True)) if isinstance(descriptor, Mapping) else False
+        )
+        unavailable_reason = (
+            descriptor.get("unavailable_reason")
+            if isinstance(descriptor, Mapping)
+            else "descriptor_unavailable"
+        )
         return {
-            "available": True,
+            "available": available,
             "enabled": bool(record["enabled"]),
+            "unavailable_reason": unavailable_reason,
             "allowed_domains": list(record["allowed_domains"]),
             "revision": int(record["revision"]),
-            "can_manage": can_manage,
+            "can_manage": can_manage and available,
             "provider": "azure-responses",
             "current_auto_pick": (router.get("chose") if isinstance(router, Mapping) else None),
             "candidates": (

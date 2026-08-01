@@ -184,13 +184,16 @@ class TestResolvedModelsNarratorSerialization:
             capabilities=(),
             narrator=winner,
             narrator_candidates=(winner, second),
+            web_search_candidates=(second,),
         )
         text = original.to_json()
         assert "narrator" in text
         assert "narrator_candidates" in text
+        assert "web_search_candidates" in text
         restored = ResolvedModels.from_json(text)
         assert restored.narrator == winner
         assert restored.narrator_candidates == (winner, second)
+        assert restored.web_search_candidates == (second,)
         assert restored.to_json() == text
 
 

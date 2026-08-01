@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 88de2c7a36160bffdba8f3add0adbf88a416df0e
+translation_source_sha: f3d9010fbd4a2c57c654bc519651cae4e6ce68f6
 translation_revised: 2026-08-01
 ---
 
@@ -262,12 +262,12 @@ models:
 - **RCA reasoner는 invocation별 opt-in** (`invocation: on_novel_case`, capability
   `t2.rca`); 결정론적 tier가 해결하지 못한 novel incident에만 발화하며, 제공된 evidence에
   grounded 되지 않으면 그 출력은 거부됨 (observability-and-detection.md section 4 참조).
-- **`tool_calling_required`는 function-calling family를 게이팅.** tool allowlist가
-  `web.search`(또는 임의의 tool call)를 포함하는 capability는 `tool_calling_required: true`
-  를 설정함; resolver는 대상 리전에 function-calling 가능 family가 없으면 `hil-only`로
-  강등시킴 (호출할 수 없는 툴은 조용히 배포되면 안 됨). Web search는 항상 T2 tool
-  manifest 뒤의 self-hosted `WebSearchProvider` - FDAI는 절대 모델의 native browsing에
-  위임하지 않음.
+- **Tool capability는 독립적으로 resolve합니다.** `tool_calling_required`는 일반 function
+  tool을 gate합니다. Public retrieval은 전용 `t1.web_search` preference를 사용하며 해당
+  deployment만 `web_search_candidates`로 serialize합니다. Read API는 startup에 실제 Azure
+  Responses `web_search`를 호출하고 managed tool을 실행한 candidate만 available로 유지합니다.
+  Model support, account entitlement 또는 provider readiness가 없으면 narrator pool을 빌리지
+  않고 search만 unavailable로 전환합니다. Conversation 및 execution authority는 바뀌지 않습니다.
 
 ### 부트스트랩 Provisioner
 

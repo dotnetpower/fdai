@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
+import pytest
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
@@ -16,6 +19,7 @@ from fdai.delivery.read_api.routes.chat_web_search import (
     ChatWebSearchConfig,
     ChatWebSearchResolver,
     _classify_search_intent,
+    chat_web_search_from_env,
 )
 
 
@@ -78,8 +82,16 @@ class _Provider:
 
 
 class _BlockedProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
     async def search(self, query: WebSearchQuery) -> WebSearchResult:
+        self.calls += 1
         raise AzureWebSearchRequestError("tool_blocked")
+
+    async def check_readiness(self, query: WebSearchQuery) -> str:
+        await self.search(query)
+        raise AssertionError("unreachable")
 
 
 class _IntentClassifier:
@@ -151,6 +163,50 @@ def _resolver(provider: _Provider) -> ChatWebSearchResolver:
     )
 
 
+def _write_resolved_models(path: Path, *, include_web_search: bool) -> None:
+    candidate = {
+        "endpoint": "https://example-openai.openai.azure.com/",
+        "deployment": "websearch-gpt-4-1-mini",
+        "api_version": "2024-08-01-preview",
+    }
+    payload: dict[str, object] = {
+        "narrator_candidates": [{**candidate, "deployment": "narrator-gpt-4-1-mini"}]
+    }
+    if include_web_search:
+        payload["web_search_candidates"] = [candidate]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_web_search_factory_uses_dedicated_candidates(tmp_path: Path) -> None:
+    resolved_path = tmp_path / "resolved-models.json"
+    _write_resolved_models(resolved_path, include_web_search=True)
+
+    resolver = chat_web_search_from_env(
+        {
+            "FDAI_WEB_SEARCH_ENABLED": "1",
+            "FDAI_WEB_SEARCH_ALLOWED_DOMAINS": "learn.microsoft.com",
+            "LLM_RESOLVED_MODELS_PATH": str(resolved_path),
+        }
+    )
+
+    assert resolver is not None
+    assert resolver.descriptor()["router"]["chose"] == "websearch-gpt-4-1-mini"
+
+
+def test_web_search_factory_rejects_narrator_only_artifact(tmp_path: Path) -> None:
+    resolved_path = tmp_path / "resolved-models.json"
+    _write_resolved_models(resolved_path, include_web_search=False)
+
+    with pytest.raises(ValueError, match="no web-search candidates"):
+        chat_web_search_from_env(
+            {
+                "FDAI_WEB_SEARCH_ENABLED": "1",
+                "FDAI_WEB_SEARCH_ALLOWED_DOMAINS": "learn.microsoft.com",
+                "LLM_RESOLVED_MODELS_PATH": str(resolved_path),
+            }
+        )
+
+
 async def test_normal_screen_question_does_not_search() -> None:
     provider = _Provider()
 
@@ -195,8 +251,9 @@ async def test_latest_public_fact_searches_and_returns_sanitized_evidence() -> N
 
 
 async def test_blocked_provider_returns_stable_unavailable_reason() -> None:
+    provider = _BlockedProvider()
     resolver = ChatWebSearchResolver(
-        provider=_BlockedProvider(),
+        provider=provider,
         config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
     )
 
@@ -210,6 +267,30 @@ async def test_blocked_provider_returns_stable_unavailable_reason() -> None:
         "reason": "tool_blocked",
         "sources": [],
     }
+
+
+async def test_readiness_marks_blocked_tool_unavailable_without_retrying() -> None:
+    provider = _BlockedProvider()
+    resolver = ChatWebSearchResolver(
+        provider=provider,
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+
+    assert await resolver.verify_availability() is False
+    assert resolver.descriptor()["available"] is False
+    assert resolver.descriptor()["unavailable_reason"] == "tool_blocked"
+
+    evidence = await resolver.resolve(
+        "Search the web for the latest Azure SDK version.",
+        {},
+    )
+
+    assert evidence == {
+        "status": "unavailable",
+        "reason": "tool_blocked",
+        "sources": [],
+    }
+    assert provider.calls == 1
 
 
 async def test_explicit_search_can_fill_gap_after_internal_evidence() -> None:
