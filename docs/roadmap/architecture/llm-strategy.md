@@ -267,10 +267,10 @@ Rules the registry enforces (MUST, at config load):
 - **Family, not version.** Preferences pin the model *family* (e.g. `gpt-4o-mini`); the
   bootstrap resolver picks the latest stable version at provisioning time and records it in
   the resolved mapping. Never pin a dated version in the registry - it hides deprecation.
-- **Capacity units are explicit.** Standard and Global Standard use `capacity_tpm` as a cost ceiling.
-  `ProvisionedManaged`, `GlobalProvisionedManaged`, and `DataZoneProvisionedManaged` use
-  `capacity_ptu`; supplying TPM for a provisioned SKU or PTU for a standard SKU is invalid. Overflow
-  degrades to HIL (per Cost Controls).
+- **Capacity units are explicit.** Standard and Global Standard use `capacity_tpm` as a request ceiling.
+  Azure usage `Count` values are converted from 1K TPM units; batch and fine-tune quota is excluded.
+  `ProvisionedManaged`, `GlobalProvisionedManaged`, and `DataZoneProvisionedManaged` use `capacity_ptu`.
+  Supplying TPM for a provisioned SKU or PTU for a standard SKU is invalid; overflow degrades to HIL.
 - **Escalated capability is opt-in per invocation** (`invocation: on_disagreement`); it is
   not called on every T2 request and never bypasses the quality gate.
 - **RCA reasoner is opt-in per invocation** (`invocation: on_novel_case`, capability

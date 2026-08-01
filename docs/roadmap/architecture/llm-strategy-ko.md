@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 77cbaa71a570beedfbad50ff22f754bf8e5e1e91
+translation_source_sha: 35dd9c3bf74321f24932ed8121fd59d58cf5da82
 translation_revised: 2026-08-01
 ---
 
@@ -253,10 +253,10 @@ models:
 - **버전이 아니라 family.** 선호는 모델 *family* 를 pin(예: `gpt-4o-mini`); 부트스트랩 resolver
   가 프로비저닝 시점에 최신 안정 버전 선택하고 resolved 매핑에 기록. 레지스트리에 절대 dated
   버전 pin 안 함 - 폐기를 숨김.
-- **Capacity unit은 explicit입니다.** Standard 및 Global Standard는 `capacity_tpm`을 비용 천장으로
-  사용합니다. `ProvisionedManaged`, `GlobalProvisionedManaged`,
-  `DataZoneProvisionedManaged`는 `capacity_ptu`를 사용합니다. Provisioned SKU에 TPM을 공급하거나
-  standard SKU에 PTU를 공급하면 invalid입니다. Overflow는 HIL로 강등됩니다.
+- **Capacity unit은 explicit입니다.** Standard 및 Global Standard는 `capacity_tpm`을 요청 천장으로
+  사용합니다. Azure usage `Count`는 1K TPM 단위에서 변환하며 batch 및 fine-tune quota는 제외합니다.
+  `ProvisionedManaged`, `GlobalProvisionedManaged`, `DataZoneProvisionedManaged`는 `capacity_ptu`를 사용합니다.
+  Provisioned SKU에 TPM을 공급하거나 standard SKU에 PTU를 공급하면 invalid이며 overflow는 HIL로 강등됩니다.
 - **Escalated capability는 invocation별 opt-in** (`invocation: on_disagreement`); 모든 T2
   요청에 호출되지 않고 절대 quality gate를 우회하지 않음.
 - **RCA reasoner는 invocation별 opt-in** (`invocation: on_novel_case`, capability

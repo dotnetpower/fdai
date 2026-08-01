@@ -35,6 +35,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
 )
 
 _DEFAULT_TIMEOUT_SECONDS: float = 30.0
+_TPM_PER_USAGE_UNIT = 1_000
 
 
 class AzureCliResolverError(RuntimeError):
@@ -183,21 +184,22 @@ class AzureCliPermissionQuery(PermissionQuery):
 class AzureCliQuotaQuery(QuotaQuery):
     """Per-region Azure OpenAI usage snapshot from ``az cognitiveservices usage list``.
 
-    The az command returns per-quota-metric usage in a shape like::
+    The az command returns per-quota-metric usage in thousands of TPM::
 
         [
           {
-            "currentValue": 40000,
-            "limit": 240000,
+            "currentValue": 40,
+            "limit": 240,
             "name": {"value": "OpenAI.Standard.gpt-4o-mini"}
           },
           ...
         ]
 
     The ``name.value`` shape is a dotted quota-id whose LAST segment is
-    the model family. This adapter matches on the last segment (case
-    sensitive) and returns ``limit - currentValue`` as the available
-    capacity_tpm. Any un-parseable entry contributes zero.
+    the model family. This adapter matches runtime inference tiers only,
+    converts ``limit - currentValue`` to TPM, and excludes batch,
+    fine-tune, developer, and provisioned quota. Any un-parseable entry
+    contributes zero.
 
     Publisher is not part of the quota id, so this adapter treats
     ``(region, family)`` as the lookup key and ignores the publisher
@@ -227,9 +229,7 @@ class AzureCliQuotaQuery(QuotaQuery):
         # (``gpt-5.4-mini``). Look up both forms so the resolver stays
         # consistent regardless of which convention Azure lands on for
         # the model of the day.
-        direct = by_family.get(family, 0)
-        dashed = by_family.get(family.replace(".", "-"), 0) if "." in family else 0
-        return max(direct, dashed)
+        return max((by_family.get(alias, 0) for alias in _family_aliases(family)), default=0)
 
     def _load_region(self, region: str) -> dict[str, int]:
         argv = [
@@ -260,11 +260,13 @@ class AzureCliQuotaQuery(QuotaQuery):
                 name_value = name
             if not isinstance(name_value, str) or not name_value:
                 continue
+            if not _is_interactive_tpm_quota(name_value):
+                continue
             limit = _as_int(entry.get("limit"))
             current = _as_int(entry.get("currentValue"))
             if limit is None:
                 continue
-            available = max(0, limit - (current or 0))
+            available = max(0, limit - (current or 0)) * _TPM_PER_USAGE_UNIT
             # Index the entry under every family-shaped key we can pull
             # from the quota metric name. Azure historically uses
             # ``OpenAI.Standard.<family>`` where <family> may itself
@@ -493,6 +495,27 @@ def _family_keys(name_value: str) -> set[str]:
     # Always include the trailing dot segment as a fallback.
     keys.add(name_value.rsplit(".", 1)[-1])
     return keys
+
+
+def _family_aliases(family: str) -> set[str]:
+    aliases = {family, family.replace(".", "-")}
+    if family.startswith("gpt-"):
+        compact = "gpt" + family[4:]
+        aliases.update((compact, compact.replace(".", "-")))
+    elif family.startswith("gpt") and len(family) > 3 and family[3].isdigit():
+        expanded = "gpt-" + family[3:]
+        aliases.update((expanded, expanded.replace(".", "-")))
+    return aliases
+
+
+def _is_interactive_tpm_quota(name_value: str) -> bool:
+    lowered = name_value.casefold()
+    if "finetune" in lowered:
+        return False
+    return any(
+        marker.casefold() in lowered
+        for marker in (".Standard.", ".GlobalStandard.", ".DataZoneStandard.", ".PayGo.")
+    )
 
 
 __all__ = [

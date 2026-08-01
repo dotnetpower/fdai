@@ -59,7 +59,31 @@ def test_upstream_registry_file_loads_clean() -> None:
         "gpt-5.4",
     }
     assert registry.models["t1.web_search"].preferences[0].family == "gpt-4.1-nano"
-    assert registry.models["t1.web_search"].capacity_tpm == 1_000
+    assert registry.models["t1.web_search"].sku is Sku.GLOBAL_STANDARD
+    assert {
+        name: registry.models[name].capacity_tpm
+        for name in (
+            "t1.embedding",
+            "t1.judge",
+            "t1.web_search",
+            "t2.reasoner.primary",
+            "t2.reasoner.secondary",
+            "t2.reasoner.escalated",
+            "t2.critic",
+            "t2.rca",
+            "t2.rubric.judge",
+        )
+    } == {
+        "t1.embedding": 200_000,
+        "t1.judge": 200_000,
+        "t1.web_search": 100_000,
+        "t2.reasoner.primary": 100_000,
+        "t2.reasoner.secondary": 100_000,
+        "t2.reasoner.escalated": 50_000,
+        "t2.critic": 50_000,
+        "t2.rca": 50_000,
+        "t2.rubric.judge": 50_000,
+    }
 
 
 def test_load_from_mapping_accepts_minimal_shape() -> None:

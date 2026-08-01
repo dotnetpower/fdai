@@ -159,13 +159,13 @@ class TestQuotaQuery:
                 stdout=json.dumps(
                     [
                         {
-                            "currentValue": 40_000,
-                            "limit": 240_000,
+                            "currentValue": 40,
+                            "limit": 240,
                             "name": {"value": "OpenAI.Standard.gpt-4o-mini"},
                         },
                         {
                             "currentValue": 0,
-                            "limit": 200_000,
+                            "limit": 200,
                             "name": {"value": "OpenAI.Standard.gpt-5.4-mini"},
                         },
                     ]
@@ -243,7 +243,40 @@ class TestQuotaQuery:
             AzureCliQuotaQuery().available_capacity_tpm(
                 region="koreacentral", publisher="OpenAI", family="gpt-4o-mini"
             )
-            == 50  # 100 - 50, other entries dropped
+            == 50_000  # 50 x 1K TPM, other entries dropped
+        )
+
+    def test_excludes_noninteractive_quota(self, fake_subprocess: _FakeSubprocess) -> None:
+        fake_subprocess._responses = [
+            _CompletedProc(
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "currentValue": 0,
+                            "limit": 1_000,
+                            "name": {"value": "OpenAI.GlobalBatch.gpt-4.1-nano"},
+                        },
+                        {
+                            "currentValue": 0,
+                            "limit": 500,
+                            "name": {"value": "OpenAI.GlobalStandard.gpt4.1-nano-finetune"},
+                        },
+                        {
+                            "currentValue": 5,
+                            "limit": 25,
+                            "name": {"value": "OpenAI.GlobalStandard.gpt4.1-nano"},
+                        },
+                    ]
+                ),
+            )
+        ]
+
+        assert (
+            AzureCliQuotaQuery().available_capacity_tpm(
+                region="koreacentral", publisher="OpenAI", family="gpt-4.1-nano"
+            )
+            == 20_000
         )
 
     def test_raises_on_nonzero_exit(self, fake_subprocess: _FakeSubprocess) -> None:

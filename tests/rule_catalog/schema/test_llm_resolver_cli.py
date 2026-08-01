@@ -115,7 +115,7 @@ def test_cli_populates_narrator_when_endpoint_given(tmp_path: Path) -> None:
 
     web_search_candidates = payload["web_search_candidates"]
     assert [candidate["deployment"] for candidate in web_search_candidates] == [
-        "websearch-gpt-4-1-mini"
+        "websearch-gpt-4-1-nano"
     ]
     assert web_search_candidates[0]["endpoint"] == endpoint
 
@@ -124,7 +124,7 @@ def test_cli_populates_narrator_when_endpoint_given(tmp_path: Path) -> None:
     cap_names = {c["name"] for c in payload["capabilities"]}
     for cand in candidates:
         assert cand in cap_names, f"missing terraform capability for {cand}"
-    assert "websearch-gpt-4-1-mini" in cap_names
+    assert "websearch-gpt-4-1-nano" in cap_names
 
     # The original t1.judge capability is preserved (composition.py depends
     # on it for judge binding); narrator capabilities are additive.

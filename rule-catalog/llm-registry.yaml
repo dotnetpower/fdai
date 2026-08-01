@@ -23,7 +23,7 @@ models:
       - {publisher: OpenAI, family: text-embedding-3-small}
       - {publisher: OpenAI, family: text-embedding-3-large}
     sku: Standard
-    capacity_tpm: 100000
+    capacity_tpm: 200000
 
   t1.judge:
     # Latency-first mini stack. The resolver picks the first family the
@@ -45,8 +45,8 @@ models:
     # then the read API confirms availability with an actual managed-tool probe.
     preferences:
       - {publisher: OpenAI, family: gpt-4.1-nano}
-    sku: Standard
-    capacity_tpm: 1000
+    sku: GlobalStandard
+    capacity_tpm: 100000
 
   t2.reasoner.primary:
     preferences:
@@ -57,7 +57,7 @@ models:
       - {publisher: OpenAI, family: gpt-4.1}
       - {publisher: OpenAI, family: gpt-4-turbo}
     sku: Standard
-    capacity_tpm: 20000
+    capacity_tpm: 100000
     # The Proposer's non-web tool manifest requires function calling. Public
     # web retrieval is independently owned by t1.web_search.
     tool_calling_required: true
@@ -67,14 +67,14 @@ models:
       - {publisher: Anthropic, family: claude-opus-4}
       - {publisher: MistralAI, family: mistral-large-2}
     sku: Standard
-    capacity_tpm: 10000
+    capacity_tpm: 100000
 
   t2.reasoner.escalated:
     preferences:
       - {publisher: OpenAI, family: o1}
       - {publisher: Anthropic, family: claude-opus-4}
     sku: Standard
-    capacity_tpm: 5000
+    capacity_tpm: 50000
     invocation: on_disagreement
 
   # Wave 4 beta-2: Critic role for the debate orchestrator. Distinct-
@@ -88,7 +88,7 @@ models:
       - {publisher: Anthropic, family: claude-opus-4}
       - {publisher: OpenAI, family: gpt-4o}
     sku: Standard
-    capacity_tpm: 5000
+    capacity_tpm: 50000
     invocation: on_disagreement
 
   # T2 root-cause reasoner (observability-and-detection.md § 4). Fires
@@ -102,7 +102,7 @@ models:
       - {publisher: OpenAI, family: gpt-4o}
       - {publisher: Anthropic, family: claude-opus-4}
     sku: Standard
-    capacity_tpm: 5000
+    capacity_tpm: 50000
     invocation: on_novel_case
 
   # Rubric judge for the hallucination filter (docs/roadmap/
@@ -118,5 +118,5 @@ models:
       - {publisher: Anthropic, family: claude-opus-4}
       - {publisher: OpenAI, family: gpt-4o}
     sku: Standard
-    capacity_tpm: 5000
+    capacity_tpm: 50000
     invocation: on_novel_case
