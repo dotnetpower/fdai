@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 8a5eda09ecc57525b302087a6e5f1c741f203e94
+translation_source_sha: 22403d4eea64c237343b2f21d3e741b594b42e6c
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -234,8 +234,8 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 
 ### 묶음 7 - 선제적 지식 이전 목표
 
-**상태:** Core lifecycle과 read API command가 구현되었습니다. Active assignment가 goal 생성을
-제어하고 session 및 주간 invitation claim은 재시작 후에도 유지되며 raw answer 대신 승인된 evidence
+**상태:** Core lifecycle과 read API command가 구현되었습니다. Active assignment가 goal 생성과
+mutation을 제어하고 session 및 주간 invitation claim은 재시작 후에도 유지되며 raw answer 대신 승인된 evidence
 reference만 받습니다. Agent-side goal 생산과 현지화된 Bragi rendering은 rollout 작업으로 남습니다.
 
 **변경:** `core/human_assignment/goals.py` 및 `fatigue.py`를 추가합니다. 채팅 세션 등록이 콘텐츠

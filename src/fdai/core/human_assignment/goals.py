@@ -441,6 +441,9 @@ class HandoverGoalService:
     ) -> HandoverGoal:
         if expected_revision != current.revision:
             raise ValueError("stale handover goal revision")
+        assignment = await self._assignments.get_case(current.assignment_case_id)
+        if assignment.state is not AssignmentState.ACTIVE:
+            raise ValueError("handover goal requires an active assignment")
         timestamp = _aware(now or datetime.now(UTC))
         applied = await self._store.compare_and_set_state_with_audit(
             f"{_GOAL_PREFIX}{current.goal_id}",

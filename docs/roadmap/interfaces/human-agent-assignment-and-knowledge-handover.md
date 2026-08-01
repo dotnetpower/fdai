@@ -122,7 +122,8 @@ later intent change creates a superseding case instead of editing approved histo
 
 Recommended states are `draft`, `pending_review`, `approved`, `ownership_pr_open`,
 `ownership_merged`, `iam_applying`, `active`, `rejected`, `degraded`, and `superseded`. Only
-`active` allows a proactive handover invitation.
+`active` allows a proactive handover invitation or a goal mutation. A degraded or superseded
+assignment leaves existing evidence readable but can't add, defer, decline, or accept a goal.
 
 ### Minimum coverage
 

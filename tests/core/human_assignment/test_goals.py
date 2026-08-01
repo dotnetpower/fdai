@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -102,6 +103,26 @@ async def test_goal_requires_active_matching_assignment() -> None:
 
     with pytest.raises(ValueError, match="active assignment"):
         await _goal(service)
+
+
+async def test_goal_mutation_stops_after_assignment_leaves_active() -> None:
+    service, store = await _service()
+    goal = await _goal(service)
+    degraded = replace(
+        _assignment(),
+        state=AssignmentState.DEGRADED,
+        revision=8,
+        degraded_reason="membership_revalidation_failed",
+    )
+    await store.write_state("human_assignment:case:case-1", degraded.to_dict())
+
+    with pytest.raises(ValueError, match="active assignment"):
+        await service.add_evidence(
+            goal_id=goal.goal_id,
+            expected_revision=goal.revision,
+            evidence=GoalEvidence("doc:document-1:version-1", "c" * 64, "document_span"),
+            now=_NOW,
+        )
 
 
 async def test_one_invitation_per_session_and_weekly_budget_survives_restart() -> None:

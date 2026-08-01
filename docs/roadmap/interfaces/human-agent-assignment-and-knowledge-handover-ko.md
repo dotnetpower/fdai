@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 2494c71c59f886838951aa027740b5015d8aaf88
+translation_source_sha: 189c8d84f28e3f8059e051662ecd3ac95fa9338d
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -124,7 +124,8 @@ flowchart LR
 
 권장 상태는 `draft`, `pending_review`, `approved`, `ownership_pr_open`,
 `ownership_merged`, `iam_applying`, `active`, `rejected`, `degraded`, `superseded`입니다.
-`active`만 선제적 인수인계 초대를 허용합니다.
+`active`만 선제적 인수인계 초대 또는 goal mutation을 허용합니다. Degraded 또는 superseded
+assignment의 기존 근거는 읽을 수 있지만 goal을 추가, 연기, 거절 또는 수락할 수 없습니다.
 
 ### 최소 커버리지
 

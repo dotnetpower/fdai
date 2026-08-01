@@ -238,7 +238,7 @@ mode never changes the action hash, accepts two decisions, or turns exhaustion i
 ### Package 7 - Proactive knowledge transfer goals
 
 **Status:** Core lifecycle and read API commands are implemented. Active assignments gate goal
-creation, session and weekly invitation claims survive restart, and raw answers are rejected in
+creation and mutation, session and weekly invitation claims survive restart, and raw answers are rejected in
 favor of admitted evidence references. Agent-side goal production and localized Bragi rendering
 remain rollout work.
 
