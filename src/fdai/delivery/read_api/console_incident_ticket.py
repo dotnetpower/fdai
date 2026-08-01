@@ -74,10 +74,14 @@ class ConsoleIncidentTicketCoordinator:
             if row.get("kind") == "incident.open" and row.get("incident_id")
         }
         activated = 0
-        for record in await self.dispatcher.store.blocked(limit=self.batch_size):
+        matched = 0
+        for record in await self.dispatcher.store.blocked(limit=self.dispatcher.store.scan_limit):
             incident_id = _ticket_incident_id(record.payload)
             if incident_id is None or incident_id not in opened_ids:
                 continue
+            if matched >= self.batch_size:
+                break
+            matched += 1
             result = await self.dispatcher.activate_and_deliver(record.dispatch_id)
             activated += int(result.state is ConsoleActionDispatchState.PUBLISHED)
         return activated

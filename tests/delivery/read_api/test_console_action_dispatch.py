@@ -14,6 +14,7 @@ from fdai.delivery.read_api.console_action_dispatch import (
     ConsoleActionDispatchStore,
     console_action_intent_digest,
 )
+from fdai.delivery.read_api.console_incident_ticket import ConsoleIncidentTicketCoordinator
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -87,6 +88,20 @@ def _payload(*, action_type: str = "ops.restart-service") -> dict[str, object]:
         "resource_id": "service-1",
         "event_type": "operator_request",
         "params": {"question": "restart service-1"},
+    }
+
+
+def _ticket_payload(incident_id: str) -> dict[str, object]:
+    correlation_id = f"incident-ticket:{incident_id}"
+    return {
+        "idempotency_key": correlation_id,
+        "correlation_id": correlation_id,
+        "initiator_principal": "user-1",
+        "operator_initiated": True,
+        "action_type": "tool.open-incident-ticket",
+        "resource_id": f"incident:{incident_id}",
+        "event_type": "operator_request",
+        "params": {"incident_id": incident_id},
     }
 
 
@@ -307,3 +322,49 @@ async def test_publish_receipt_cas_failure_returns_durable_record_and_recovers()
     assert recovered.state is ConsoleActionDispatchState.PUBLISHED
     assert recovered.attempt_count == 2
     assert await _records(bus) == [payload]
+
+
+async def test_stale_blocked_ticket_does_not_starve_later_open_incident() -> None:
+    dispatcher, state_store, bus, clock = _dispatcher()
+    stale_payload = _ticket_payload("incident-stale")
+    valid_payload = _ticket_payload("incident-valid")
+    for payload in (stale_payload, valid_payload):
+        resource_id = str(payload["resource_id"])
+        await dispatcher.prepare_blocked(
+            idempotency_key=str(payload["idempotency_key"]),
+            intent_digest=console_action_intent_digest(
+                topic=_TOPIC,
+                partition_key=resource_id,
+                payload=payload,
+            ),
+            topic=_TOPIC,
+            partition_key=resource_id,
+            payload=payload,
+            correlation_id=str(payload["correlation_id"]),
+            actor_oid="user-1",
+        )
+        clock.advance(1)
+    await state_store.append_incident_transition(
+        {
+            "kind": "incident.open",
+            "idempotency_key": "incident-valid::open",
+            "correlation_id": "incident-valid",
+            "incident_id": "incident-valid",
+            "severity": "sev2",
+            "state": "open",
+            "actor_oid": "user-1",
+            "opened_at": clock().isoformat(),
+            "assignee_oid": None,
+            "correlation_keys": ["target:valid"],
+            "member_event_ids": [],
+        }
+    )
+    coordinator = ConsoleIncidentTicketCoordinator(
+        dispatcher=dispatcher,
+        state_store=state_store,
+        event_topic=_TOPIC,
+        batch_size=1,
+    )
+
+    assert await coordinator.reconcile() == 1
+    assert await _records(bus) == [valid_payload]
