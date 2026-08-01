@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 862659bbc47ae93d82c823b4ac17431c819fc132
+translation_source_sha: a1f0bef04001b5ae17885ba5a330b40db9726b93
 translation_revised: 2026-08-01
 ---
 
@@ -246,7 +246,9 @@ projection에 의존하지 않습니다. 각 materialization은 ordered redacted
 ### Phase 2 - 도메인 요청 hardening
 
 도메인 스키마를 대체하지 않고 revision check, idempotency, receipt, outbox 동작을 표준화합니다. Stale
-state, duplicate submission, self-approval, expiry, role change, process restart를 테스트하고 accepted, replayed, conflicted, denied, expired, published, reconciled outcome을 count합니다.
+state, duplicate submission, self-approval, expiry, role change, process restart를 테스트합니다. Fixture
+principal 없이 browser-Entra local과 deployed composition에서 같은 route inventory와 authorization
+matrix를 실행하고 두 venue의 모든 request 및 delivery outcome을 count합니다.
 
 Exit criteria: SPA에는 authorization decision이 없고 accepted request가 source owner를 우회하지 않습니다.
 Publish 전, publish 후, response 전 failure injection으로 committed request가 유실되지 않고 event가 두 번

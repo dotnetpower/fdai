@@ -249,7 +249,8 @@ same inputs reproduce the same digest while a changed watermark produces a new s
 
 Standardize revision checks, idempotency, receipts, and outbox behavior without replacing domain
 schemas. Test stale state, duplicate submission, self-approval, expiry, role changes, and process
-restart. Count accepted, replayed, conflicted, denied, expired, published, and reconciled outcomes.
+restart. Run the same route inventory and authorization matrix in browser-Entra local and deployed
+composition, without fixture principals. Count all request and delivery outcomes in both venues.
 
 Exit criteria: the SPA contains no authorization decision and no accepted request bypasses its
 source owner. Failure injection before publish, after publish, and before response proves that a
