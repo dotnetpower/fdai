@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -15,6 +16,8 @@ from fdai.delivery.mcp.catalog import (
     McpServerCatalog,
     McpServerManifest,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class McpHealthStatus(StrEnum):
@@ -303,7 +306,13 @@ class McpHealthMonitor:
 
     async def run(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
-            await self.run_once()
+            try:
+                await self.run_once()
+            except Exception as exc:  # noqa: BLE001 - retry transient health failures
+                _LOGGER.warning(
+                    "mcp_health_check_failed",
+                    extra={"error_type": type(exc).__name__},
+                )
             try:
                 await asyncio.wait_for(stop.wait(), timeout=self._interval)
             except TimeoutError:

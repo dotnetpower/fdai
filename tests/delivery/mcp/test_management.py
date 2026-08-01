@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
@@ -102,6 +103,30 @@ async def test_periodic_monitor_checks_enabled_servers() -> None:
     assert [server.server_id for server in (await store.load()).routable_servers()] == [
         "example.tools"
     ]
+
+
+async def test_periodic_monitor_retries_after_transient_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryMcpCatalogStore()
+    service = ManagedMcpCatalogService(store=store, discovery=_Discovery())
+    monitor = McpHealthMonitor(service=service, clock=lambda: _NOW, interval_seconds=0.001)
+    stop = asyncio.Event()
+    calls = 0
+
+    async def run_once() -> tuple[()]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise McpCatalogError("synthetic revision conflict")
+        stop.set()
+        return ()
+
+    monkeypatch.setattr(monitor, "run_once", run_once)
+
+    await asyncio.wait_for(monitor.run(stop), timeout=0.1)
+
+    assert calls == 2
 
 
 async def test_revision_conflict_fails_without_unaudited_overwrite() -> None:
