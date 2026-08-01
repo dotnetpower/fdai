@@ -4,7 +4,6 @@ applyTo: ".vscode/**,console/**,src/fdai/delivery/read_api/**,src/fdai/runtime/*
 ---
 
 # App Shape
-
 Not one big web app. The system is a **headless control plane + thin console + ChatOps**,
 serving three initial verticals under an AIOps approach - Resilience, Change Safety, and
 Cost Governance. A large always-on UI would contradict the "minimize human intervention"
@@ -219,6 +218,3 @@ Recommended mapping:
   the approval/execution boundary.
 - **Actions without a rollback or audit path** - any change delivered outside git must still
   provide both, or it is incomplete.
-
-> One line: brain = headless event-driven control plane, hands = GitOps/PR,
-> human touchpoint = thin console + Teams bot.

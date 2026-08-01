@@ -1,9 +1,9 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: d1bbe3b177a81b68622e1e895f7cbce0d1c2d481
+translation_source_sha: 80299f2bd8c731bf794525984fa51c79ef051f68
 translation_revised: 2026-08-01
 ---
-# 사용자-에이전트 할당 및 지식 인수인계
+# 사용자-에이전트 할당 및 지식 이전
 
 이 문서는 관리자가 사용자를 검색하고, FDAI 접근 권한을 할당하고, 사용자를 에이전트에
 매핑하고, 승인 대응 체계를 구성하고, 사용자에게 과도한 부담을 주지 않으면서 운영 지식을
@@ -195,7 +195,7 @@ AgentDuty -> requires_role -> FDAI App Role
 모든 단계가 만료되면 작업은 감사된 no-op으로 종료됩니다. 별도로 구성된 상시 권한은 일반 안전성
 검토로 다시 진입할 수 있지만, 사용자의 부재만으로 자동 권한이 생기지는 않습니다.
 
-## 선제적 지식 인수인계
+## 선제적 지식 이전
 
 ### 세션 트리거
 
@@ -208,7 +208,7 @@ AgentDuty -> requires_role -> FDAI App Role
 매핑된 에이전트가 질문과 수락 기준을 소유합니다. Bragi는 이를 번역하고 렌더링할 뿐입니다. 거절이나
 다시 알림은 콘솔 접근을 막지 않으며 목표를 완료로 표시하지 않습니다.
 
-### 인수인계 목표
+### 지식 이전 목표
 
 `HandoverGoal`은 근거 요구 사항이 있는 버전 관리 체크리스트입니다. 기본 템플릿은 다음을 다룹니다.
 

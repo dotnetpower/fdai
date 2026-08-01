@@ -1,7 +1,7 @@
 ---
-title: Human-Agent Assignment and Knowledge Handover
+title: Human-Agent Assignment and Knowledge Transfer
 ---
-# Human-Agent Assignment and Knowledge Handover
+# Human-Agent Assignment and Knowledge Transfer
 
 This document defines the target administrator workflow for finding a person, assigning FDAI
 access, mapping the person to agents, establishing approval coverage, and collecting operational
@@ -193,7 +193,7 @@ and ignored.
 If all rungs expire, the action ends as an audited no-op. Standing authorization, when separately
 configured, may re-enter the normal risk gate, but absence never creates automatic authority.
 
-## Proactive knowledge handover
+## Proactive knowledge transfer
 
 ### Session trigger
 
@@ -206,7 +206,7 @@ remind me later."
 The mapped agent owns the question and acceptance criteria. Bragi only translates and renders it.
 Declining or snoozing never blocks console access and never marks a goal complete.
 
-### Handover goals
+### Knowledge transfer goals
 
 A `HandoverGoal` is a versioned checklist with evidence requirements. The default template covers:
 

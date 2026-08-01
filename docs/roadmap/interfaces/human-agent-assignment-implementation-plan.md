@@ -120,7 +120,7 @@ recovery, and Saga auditor. No role binding is configurable.
 
 ## Main-branch work package sequence
 
-### Package 1 - Stewardship v2 and coverage
+### Package 1 - Operational ownership v2 and coverage
 
 **Changes:** Extend `core/stewardship/model.py`, `resolver.py`, `coverage.py`, `escalation.py`, the
 config checker, and both ownership design docs. Add the migration renderer and fixtures. Keep v1
@@ -222,7 +222,7 @@ overall expiry, restart replay, and no-op without standing authority.
 **Exit:** Shadow metrics match historical approval timing before rung dispatch is enabled. Enforce
 mode never changes the action hash, accepts two decisions, or turns exhaustion into execution.
 
-### Package 7 - Proactive handover goals
+### Package 7 - Proactive knowledge transfer goals
 
 **Changes:** Add `core/human_assignment/goals.py` and `fatigue.py`. Chat session registration emits a
 content-free availability event. Mapped agents publish goal gaps through the event bus; Odin

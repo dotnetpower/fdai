@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 6853aab729c088c814abaf6f1c4565d247bab822
+translation_source_sha: 2a3d3218060db94564b07ee4f4cdb2644b4890b9
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -120,7 +120,7 @@ ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인
 
 ## main 브랜치 작업 묶음 순서
 
-### 묶음 1 - Stewardship v2 및 커버리지
+### 묶음 1 - 운영 책임 v2 및 커버리지
 
 **변경:** `core/stewardship/model.py`, `resolver.py`, `coverage.py`, `escalation.py`, 구성 검사기,
 담당 체계 설계 문서 쌍을 확장합니다. 마이그레이션 렌더러와 fixture를 추가합니다. v1 읽기 호환성과
@@ -220,7 +220,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 **종료:** 단계 전달을 활성화하기 전에 관찰 지표가 과거 승인 시간과 일치합니다. 적용 모드는 작업
 해시를 변경하거나 두 결정을 수락하거나 모든 단계 소진을 실행으로 바꾸지 않습니다.
 
-### 묶음 7 - 선제적 인수인계 목표
+### 묶음 7 - 선제적 지식 이전 목표
 
 **변경:** `core/human_assignment/goals.py` 및 `fatigue.py`를 추가합니다. 채팅 세션 등록이 콘텐츠
 없는 가용성 이벤트를 냅니다. 매핑된 에이전트가 이벤트 버스로 목표 공백을 게시하고, Odin이 중복
