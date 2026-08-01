@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: ea76a8b5f2f8deb9c756ff44b0db704ed80f3420
+translation_source_sha: 0e567d86b1cb058cea282a657abc6d9ac2c5830d
 translation_revised: 2026-08-01
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -190,7 +190,8 @@ case에 기록합니다.
 ### 묶음 5 - 통제된 Entra 멤버십 적용
 
 **상태:** 관찰 모드로 구현되었습니다. 별도 승격에서 필요한 비프로덕션 근거를 기록할 때까지 적용
-모드는 사용할 수 없습니다.
+모드는 사용할 수 없습니다. Postcondition 실패 시 현재 시도에서 적용한 membership만 rollback합니다.
+기존 membership은 유지하며 verification exception도 같은 소유권 인식 복구 경로를 사용합니다.
 
 **변경:** plan, apply, verify, rollback 영수증을 제공하는 CSP 중립
 `shared/providers/human_access.py`를 추가합니다. `delivery/identity/entra_access.py`, 런타임
@@ -218,7 +219,8 @@ add, verify, remove, restore 훈련 성공을 확인한 후 `main`의 별도 집
 
 **상태:** Periodic shadow worker로 구현되었습니다. Coordinator park가 bounded ladder와 delivery
 receipt를 snapshot하며 최종 결정은 CAS 승자 하나만 수락합니다. Production 승격은 사용할 수
-없습니다.
+없습니다. Terminal claim은 parked action, action hash, request fingerprint가 바뀌지 않은 동안에만
+delivery-state revision 변경을 제한적으로 재시도할 수 있습니다.
 
 **변경:** `core/hil_resume/escalation_supervisor.py`를 추가합니다. 승인 대기 시 역할 적격성, 전달
 마감, 작업 해시, 전체 마감과 함께 primary, backup, escalation, maintainer 단계 스냅샷을
@@ -273,7 +275,9 @@ source span, ACL reference, 제공된 경우 goal reference, policy version, con
 enabled preference, authority mode를 분리하며 kill switch 상태는 mutation eligibility를 낮출 수만
 있습니다. 감사되는 `human_access.enabled` setting은 restart 시 적용되며 promotion state를 바꾸지
 않고 privileged adapter를 억제할 수 있습니다. Held case는 provider 호출 없이 audit와 함께
-recovery step을 projection합니다. Azure
+recovery step을 projection합니다. Malformed persisted case record는 content-free error와 함께
+격리하므로 뒤의 valid case를 계속 관찰할 수 있으며, StateStore I/O failure는 worker retry를 위해
+계속 전파됩니다. Azure
 permission probe, automatic repair, dashboard, alert, deployment recovery drill은 rollout 작업입니다.
 
 Durable state가 구성되면 readiness-gated runtime worker가 제한된

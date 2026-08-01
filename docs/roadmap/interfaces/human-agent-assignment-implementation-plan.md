@@ -194,7 +194,9 @@ the case; IAM remains untouched.
 ### Package 5 - Governed Entra membership apply
 
 **Status:** Implemented in observation mode. Enforce remains unavailable until a separate
-promotion records the required non-production evidence.
+promotion records the required non-production evidence. Postcondition failure rolls back only a
+membership applied by the current attempt; a pre-existing membership is retained, and verification
+exceptions use the same ownership-aware recovery path.
 
 **Changes:** Add CSP-neutral `shared/providers/human_access.py` with plan, apply, verify, and
 rollback receipts. Add `delivery/identity/entra_access.py`, a runtime binder, ActionTypes, and an
@@ -221,7 +223,8 @@ and restore drills in a non-production tenant.
 
 **Status:** Implemented as a periodic shadow worker. Coordinator parks snapshot the bounded ladder
 and delivery receipt, and terminal decisions use one CAS winner. Production promotion remains
-unbound.
+unbound. A terminal claim may retry bounded delivery-state revision changes only while the parked
+action, action hash, and request fingerprint remain unchanged.
 
 **Changes:** Add `core/hil_resume/escalation_supervisor.py`. On parking, snapshot the ordered
 primary, backup, escalation, and maintainer rungs with role eligibility, delivery deadline, action
@@ -278,8 +281,10 @@ document or conversation can directly mutate the ontology or rule catalog.
 availability, enabled preference, and authority mode; kill switch state can only lower mutation
 eligibility. The audited `human_access.enabled` setting is applied at restart and can suppress the
 privileged adapter without changing promotion state. Held cases project recovery steps with audit
-and no provider call. A durable, readiness-gated runtime worker repeats the observation at the
-bounded `human_access.reconciliation_interval_seconds` cadence. Azure permission
+and no provider call. Malformed persisted case records are isolated with content-free errors so
+later valid cases remain observable, while StateStore I/O failures still propagate for worker
+retry. A durable, readiness-gated runtime worker repeats the observation at the bounded
+`human_access.reconciliation_interval_seconds` cadence. Azure permission
 probes, automatic repair, dashboards, alerts, and deployment recovery drills remain rollout work.
 
 **Changes:** Expose separate `available`, `enabled`, and `mode` states in Settings. Add readiness
