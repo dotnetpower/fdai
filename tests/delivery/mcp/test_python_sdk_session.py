@@ -10,6 +10,7 @@ from fdai.delivery.mcp import PythonSdkMcpSession
 class _Group:
     instances: list[_Group] = []
     hang_on_exit = False
+    hang_on_call = False
 
     def __init__(self) -> None:
         self.tools = {"compute": object()}
@@ -27,6 +28,15 @@ class _Group:
     async def connect_to_server(self, *_args: object) -> None:
         await asyncio.sleep(0)
 
+    async def call_tool(self, *_args: object, **_kwargs: object) -> object:
+        if self.hang_on_call:
+            await asyncio.Event().wait()
+        return type(
+            "Result",
+            (),
+            {"structured_content": {"ok": True}, "content": (), "is_error": False},
+        )()
+
 
 async def test_concurrent_discovery_initializes_one_sdk_group(
     monkeypatch: pytest.MonkeyPatch,
@@ -35,6 +45,7 @@ async def test_concurrent_discovery_initializes_one_sdk_group(
 
     _Group.instances = []
     _Group.hang_on_exit = False
+    _Group.hang_on_call = False
     monkeypatch.setattr(session_group, "ClientSessionGroup", _Group)
     session = PythonSdkMcpSession.stdio(
         command="azmcp",
@@ -55,6 +66,7 @@ async def test_hung_sdk_group_close_is_bounded(monkeypatch: pytest.MonkeyPatch) 
 
     _Group.instances = []
     _Group.hang_on_exit = True
+    _Group.hang_on_call = False
     monkeypatch.setattr(session_group, "ClientSessionGroup", _Group)
     session = PythonSdkMcpSession.stdio(
         command="azmcp",
@@ -68,3 +80,21 @@ async def test_hung_sdk_group_close_is_bounded(monkeypatch: pytest.MonkeyPatch) 
         await session.close()
 
     assert _Group.instances[0].exit_calls == 1
+
+
+async def test_hung_sdk_tool_call_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mcp.client import session_group
+
+    _Group.instances = []
+    _Group.hang_on_exit = False
+    _Group.hang_on_call = True
+    monkeypatch.setattr(session_group, "ClientSessionGroup", _Group)
+    session = PythonSdkMcpSession.stdio(
+        command="azmcp",
+        args=("server", "start"),
+        read_timeout_seconds=1,
+    )
+
+    with pytest.raises(TimeoutError):
+        await session.call_tool("compute", {}, timeout_seconds=0.1)
+    await session.close()

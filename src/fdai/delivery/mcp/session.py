@@ -304,10 +304,13 @@ class PythonSdkMcpSession:
         timeout_seconds: float,
     ) -> McpCallResult:
         group = await self._ensure_group()
-        result = await group.call_tool(
-            name,
-            dict(arguments),
-            read_timeout_seconds=timeout_seconds,
+        result = await asyncio.wait_for(
+            group.call_tool(
+                name,
+                dict(arguments),
+                read_timeout_seconds=timeout_seconds,
+            ),
+            timeout=timeout_seconds,
         )
         return McpCallResult(
             structured_content=result.structured_content,
