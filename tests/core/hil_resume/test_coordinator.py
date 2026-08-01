@@ -533,6 +533,27 @@ async def test_approve_resumes_and_executes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_approve_refuses_tampered_parked_action() -> None:
+    coordinator, publisher, store, _ = _coordinator()
+    await _park(coordinator, approval_id="aid-tampered")
+    parked = await store.read_state("hil_park:aid-tampered")
+    assert parked is not None
+    parked["action"]["target_resource_ref"] = "azure://resource/changed"
+    await store.write_state("hil_park:aid-tampered", parked)
+
+    result = await coordinator.resolve(
+        approval_id="aid-tampered",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.TIMED_OUT
+    assert result.reason == "approval_integrity_failed"
+    assert publisher.records == ()
+    assert "hil.resolve.integrity_failed" in _audit_kinds(store)
+
+
+@pytest.mark.asyncio
 async def test_reject_records_no_execution() -> None:
     coordinator, publisher, store, _ = _coordinator()
     await _park(coordinator, approval_id="aid-3")

@@ -288,7 +288,7 @@
     "src/fdai/core/executor/renderer.py": "9f87c695aba42442a6bc7027cc007a4ed52c0b8cfd8748a02a1d4ccd150b7556",
     "src/fdai/core/executor/tool_call.py": "70d3f185d307d38373c57d618d54160c97fb98faf62d2a83998eac4eec47ef06",
     "src/fdai/core/hil_resume/__init__.py": "cf9bfbc5ee4621ae6de6975c3beb3d1d2b2b995e19cd631500bfe06a6f079c97",
-    "src/fdai/core/hil_resume/coordinator.py": "f89126a9933a55414db79236fa9048bd3803814cb73b5ff81ff52b55d59e28c8",
+    "src/fdai/core/hil_resume/coordinator.py": "a4b33f0a460d8e9a1203be4b72704b6295d8558d3ce8f4e94f14f2d337714559",
     "src/fdai/core/hil_resume/delegation.py": "0ab805bb50fda4373d4ec31c05ee31583d7a4f94d6a056a8b49c1fe5749a6dfe",
     "src/fdai/core/hil_resume/escalation_supervisor.py": "06166a0c0031434b6bf5dc253373df9c7010cae7b1372eb6437c70c54ac39958",
     "src/fdai/core/hil_resume/load_control.py": "c501ac94e59a2facb4cc665aab79ffbef03bd546f90d9a74c35d934de7e0d7be",
@@ -915,7 +915,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T08:10:07Z",
+  "generated_at": "2026-08-01T08:14:24Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

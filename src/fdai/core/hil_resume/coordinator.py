@@ -327,11 +327,13 @@ class HilResumeCoordinator:
             ttl_seconds=ttl_seconds,
             assignee_oid=resolved_assignee,
         )
+        action_payload = action.model_dump(mode="json")
         parked = {
             "status": _STATUS_PENDING,
             "revision": 0,
             "approval_id": aid,
-            "action": action.model_dump(mode="json"),
+            "action": action_payload,
+            "action_hash": _action_payload_hash(action_payload),
             "rule_id": rule.id,
             "rule": rule.model_dump(mode="json"),
             "action_type": action.action_type,
@@ -541,6 +543,22 @@ class HilResumeCoordinator:
                     reason=f"already resolved as {prior}",
                 )
             return ResolveResult(outcome=ResolveOutcome.ALREADY_RESOLVED, approval_id=approval_id)
+
+        if not _parked_action_integrity_matches(parked):
+            claimed = await self._mark_resolved(
+                parked,
+                decision=HilDecision.TIMEOUT,
+                approver_oid=approver_oid,
+                action_kind="hil.resolve.integrity_failed",
+                detail={"attempted_decision": decision.value},
+            )
+            if not claimed:
+                return await self._race_result(approval_id, attempted=decision)
+            return ResolveResult(
+                outcome=ResolveOutcome.TIMED_OUT,
+                approval_id=approval_id,
+                reason="approval_integrity_failed",
+            )
 
         if decision is HilDecision.APPROVE and _approval_expired(parked, now=datetime.now(tz=UTC)):
             claimed = await self._mark_resolved(
@@ -849,6 +867,26 @@ def _approval_request_fingerprint(
     }
     canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _action_payload_hash(action: Mapping[str, Any]) -> str:
+    canonical = json.dumps(action, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _parked_action_integrity_matches(parked: Mapping[str, Any]) -> bool:
+    expected = parked.get("action_hash")
+    escalation = parked.get("escalation")
+    if expected is None and isinstance(escalation, Mapping):
+        expected = escalation.get("action_hash")
+    if expected is None:
+        return True
+    action = parked.get("action")
+    return (
+        isinstance(expected, str)
+        and isinstance(action, Mapping)
+        and expected == _action_payload_hash(action)
+    )
 
 
 def _is_success(
