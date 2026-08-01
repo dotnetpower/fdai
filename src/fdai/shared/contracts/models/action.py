@@ -16,6 +16,7 @@ from pydantic import Field, model_validator
 
 from ._base import IdempotencyKey, SemVer, _Base
 from .enums import BlastRadiusScope, Mode, Operation, RollbackKind
+from .ontology_identity import OntologyDeclarationKind, OntologyTypeRef
 from .safety import ActionStopCondition
 
 
@@ -48,11 +49,22 @@ class Action(_Base):
     mode: Mode
     citing_rules: Annotated[list[str], Field(min_length=1)]
     created_at: datetime
+    action_type_ref: OntologyTypeRef | None = None
 
     @model_validator(mode="after")
     def _stop_condition_shorthand_matches_contract(self) -> Action:
         if self.stop_conditions and self.stop_condition != self.stop_conditions[0].kind.value:
             raise ValueError("stop_condition MUST match the first structured stop condition")
+        return self
+
+    @model_validator(mode="after")
+    def _action_type_reference_matches_name(self) -> Action:
+        if self.action_type_ref is None:
+            return self
+        if self.action_type_ref.kind is not OntologyDeclarationKind.ACTION:
+            raise ValueError("action_type_ref.kind MUST be action")
+        if self.action_type_ref.name != self.action_type:
+            raise ValueError("action_type_ref.name MUST match action_type")
         return self
 
 

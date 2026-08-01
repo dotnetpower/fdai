@@ -125,6 +125,32 @@
       ]
     },
     {
+      "id": "operating-ontology-platform",
+      "paths": [
+        "docs/roadmap/architecture/operating-ontology-platform*.md",
+        "src/fdai/shared/contracts/models/ontology_identity.py",
+        "src/fdai/shared/ontology/release.py",
+        "src/fdai/core/ontology_platform/**",
+        "tests/shared/test_ontology_release.py",
+        "tests/core/ontology_platform/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/decisioning/action-ontology.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/shared/test_ontology_release.py tests/core/ontology_platform"
+      ]
+    },
+    {
       "id": "execution-authorization",
       "paths": [
         "docs/roadmap/decisioning/execution-authorization-ontology*.md",

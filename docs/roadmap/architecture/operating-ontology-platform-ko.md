@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 플랫폼
 translation_of: operating-ontology-platform.md
-translation_source_sha: 7191ac02568fbca21d5ad9d8dc7daa35d7452181
+translation_source_sha: 4dd567316f2957bcdf99dd9725f8ea4b9a8b37af
 translation_revised: 2026-08-01
 ---
 # FDAI 운영 온톨로지 플랫폼
@@ -17,6 +17,10 @@ SDK surface를 추가합니다.
 >
 > **안전 경계:** Function은 plan, query, derive 또는 validate만 수행합니다. Thor만 승인된
 > `MutationPlan`을 실행하며 모든 외부 effect는 독립 reconciliation으로 종료합니다.
+>
+> **구현 상태(2026-08-01):** Canonical `OntologyRelease` construction, ActionBuilder output,
+> in-memory ontology write에 K0 contract identity를 구현했습니다. PostgreSQL persistence,
+> runtime-wide release injection, retained-audit migration은 K0에 남아 있습니다.
 
 ## 한눈에 보는 설계
 

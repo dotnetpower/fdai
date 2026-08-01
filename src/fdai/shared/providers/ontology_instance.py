@@ -5,14 +5,17 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from fdai.shared.contracts.models import (
     LinkCardinality,
+    OntologyDeclarationKind,
     OntologyLinkType,
     OntologyObjectType,
+    OntologyRelease,
+    OntologyTypeRef,
     PropertyType,
 )
 
@@ -28,6 +31,7 @@ class OntologyObjectRecord:
     object_type: str
     properties: Mapping[str, Any]
     revision: int = 0
+    type_ref: OntologyTypeRef | None = None
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -36,6 +40,11 @@ class OntologyObjectRecord:
             raise ValueError("OntologyObjectRecord.object_type MUST be non-empty")
         if self.revision < 0:
             raise ValueError("OntologyObjectRecord.revision MUST be >= 0")
+        if self.type_ref is not None and (
+            self.type_ref.kind is not OntologyDeclarationKind.OBJECT
+            or self.type_ref.name != self.object_type
+        ):
+            raise ValueError("OntologyObjectRecord.type_ref MUST match object_type")
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +55,7 @@ class OntologyLinkRecord:
     from_id: str
     to_id: str
     properties: Mapping[str, Any] = field(default_factory=dict)
+    type_ref: OntologyTypeRef | None = None
 
     def __post_init__(self) -> None:
         for field_name, value in (
@@ -55,6 +65,11 @@ class OntologyLinkRecord:
         ):
             if not value.strip():
                 raise ValueError(f"OntologyLinkRecord.{field_name} MUST be non-empty")
+        if self.type_ref is not None and (
+            self.type_ref.kind is not OntologyDeclarationKind.LINK
+            or self.type_ref.name != self.link_type
+        ):
+            raise ValueError("OntologyLinkRecord.type_ref MUST match link_type")
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +155,7 @@ def normalize_object_record(record: OntologyObjectRecord) -> OntologyObjectRecor
         object_type=record.object_type,
         properties=properties,
         revision=record.revision,
+        type_ref=record.type_ref,
     )
 
 
@@ -153,7 +169,32 @@ def normalize_link_record(record: OntologyLinkRecord) -> OntologyLinkRecord:
         from_id=record.from_id,
         to_id=record.to_id,
         properties=properties,
+        type_ref=record.type_ref,
     )
+
+
+def pin_object_record(
+    record: OntologyObjectRecord,
+    release: OntologyRelease,
+) -> OntologyObjectRecord:
+    expected = release.type_ref(OntologyDeclarationKind.OBJECT, record.object_type)
+    if record.type_ref is not None and record.type_ref != expected:
+        raise OntologyInstanceValidationError(
+            f"{record.object_type} type_ref does not match the active ontology release"
+        )
+    return replace(record, type_ref=expected)
+
+
+def pin_link_record(
+    record: OntologyLinkRecord,
+    release: OntologyRelease,
+) -> OntologyLinkRecord:
+    expected = release.type_ref(OntologyDeclarationKind.LINK, record.link_type)
+    if record.type_ref is not None and record.type_ref != expected:
+        raise OntologyInstanceValidationError(
+            f"{record.link_type} type_ref does not match the active ontology release"
+        )
+    return replace(record, type_ref=expected)
 
 
 def validate_object_record(
@@ -375,6 +416,8 @@ __all__ = [
     "normalize_json_value",
     "normalize_link_record",
     "normalize_object_record",
+    "pin_link_record",
+    "pin_object_record",
     "ontology_link_sort_key",
     "validate_link_record",
     "validate_object_record",

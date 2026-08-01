@@ -110,6 +110,10 @@ def test_builds_valid_action_for_tag_add_type() -> None:
     assert action.citing_rules == ["r1"]
     assert action.rollback_ref.kind is RollbackKind.PR_REVERT
     assert action.blast_radius.scope is BlastRadiusScope.RESOURCE
+    assert action.action_type_ref is not None
+    assert action.action_type_ref.name == "remediate.tag-add"
+    assert action.action_type_ref.version == "1.0.0"
+    assert action.action_type_ref.catalog_digest.startswith("sha256:")
 
 
 def test_deterministic_action_id_across_replays() -> None:

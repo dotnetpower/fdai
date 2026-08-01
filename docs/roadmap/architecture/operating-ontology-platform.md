@@ -14,6 +14,10 @@ preserving FDAI's governed action pipeline.
 >
 > **Safety boundary:** Functions plan, query, derive, or validate. Only Thor executes an approved
 > `MutationPlan`, and every external effect closes through independent reconciliation.
+>
+> **Implementation status (2026-08-01):** K0 contract identity is implemented for canonical
+> `OntologyRelease` construction, ActionBuilder output, and in-memory ontology writes. PostgreSQL
+> persistence, runtime-wide release injection, and retained-audit migration remain in K0.
 
 ## Design at a glance
 

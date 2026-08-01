@@ -45,6 +45,18 @@
       "type": "string",
       "description": "Refers to an ontology ActionType.name."
     },
+    "action_type_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "version", "catalog_digest"],
+      "properties": {
+        "kind": {"const": "action"},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+        "catalog_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      },
+      "description": "Exact ActionType declaration and ontology release used to build the action."
+    },
     "target_resource_ref": {
       "type": "string",
       "description": "Ontology Resource id the action targets."

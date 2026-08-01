@@ -41,10 +41,14 @@ from fdai.shared.contracts.models import (
     Event,
     Mode,
     OntologyActionType,
+    OntologyDeclarationKind,
+    OntologyRelease,
+    OntologyTypeRef,
     RollbackRef,
     Rule,
     TriggerKind,
 )
+from fdai.shared.ontology.release import build_ontology_release
 
 
 class ActionBuildError(ValueError):
@@ -62,6 +66,7 @@ class ActionBuilder:
     """
 
     action_types_by_name: dict[str, OntologyActionType]
+    ontology_release: OntologyRelease | None = None
 
     def build_from_finding(
         self,
@@ -105,6 +110,7 @@ class ActionBuilder:
             mode=Mode.SHADOW,
             citing_rules=[finding.rule_id],
             created_at=datetime.now(tz=UTC),
+            action_type_ref=self._action_type_ref(action_type),
         )
 
     def build_from_candidate(
@@ -162,6 +168,7 @@ class ActionBuilder:
             mode=Mode.SHADOW,
             citing_rules=list(candidate.cited_rule_ids),
             created_at=datetime.now(tz=UTC),
+            action_type_ref=self._action_type_ref(action_type),
         )
 
     def build_from_operator_request(self, *, event: Event) -> tuple[Action, Rule]:
@@ -232,9 +239,16 @@ class ActionBuilder:
                 mode=Mode.SHADOW,
                 citing_rules=[rule.id],
                 created_at=datetime.now(tz=UTC),
+                action_type_ref=self._action_type_ref(action_type),
             ),
             rule,
         )
+
+    def _action_type_ref(self, action_type: OntologyActionType) -> OntologyTypeRef:
+        release = self.ontology_release or build_ontology_release(
+            action_types=tuple(self.action_types_by_name.values())
+        )
+        return release.type_ref(OntologyDeclarationKind.ACTION, action_type.name)
 
 
 def _operator_request_rule(action_type: OntologyActionType, resource_type: str) -> Rule:

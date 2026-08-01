@@ -91,6 +91,30 @@ async def test_upsert_validates_and_increments_revision() -> None:
     assert first.revision == 1
     assert second.revision == 2
     assert second.properties["status"] == "in_review"
+    assert first.type_ref is not None
+    assert first.type_ref.name == "ReviewCase"
+    assert first.type_ref.version == "1.0.0"
+
+
+async def test_upsert_rejects_type_ref_from_another_release() -> None:
+    store = _store()
+    other_store = InMemoryOntologyInstanceStore(
+        object_types=(
+            _object_type("ReviewCase").model_copy(update={"version": "2.0.0"}),
+            _object_type("ReviewCheck"),
+        ),
+        link_types=(_link_type(),),
+    )
+    record = await other_store.upsert_object(
+        OntologyObjectRecord(
+            id="review-1",
+            object_type="ReviewCase",
+            properties={"id": "review-1", "status": "open"},
+        )
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="active ontology release"):
+        await store.upsert_object(record)
 
 
 async def test_upsert_rejects_unknown_missing_and_bad_key() -> None:

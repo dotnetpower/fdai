@@ -127,6 +127,12 @@ from .ontology import (
     TierCeiling,
     TriggerKindDecl,
 )
+from .ontology_identity import (
+    OntologyDeclarationKind,
+    OntologyDeclarationRef,
+    OntologyRelease,
+    OntologyTypeRef,
+)
 from .response_outcome import (
     ResponseOutcome,
     ResponseOutcomeLabel,
@@ -203,6 +209,10 @@ __all__ = [
     "LifecycleDeduplication",
     "LifecycleOwner",
     "ObjectLifecycle",
+    "OntologyDeclarationKind",
+    "OntologyDeclarationRef",
+    "OntologyRelease",
+    "OntologyTypeRef",
     "OntologyActionType",
     "ProdDowngrade",
     "TierCeiling",

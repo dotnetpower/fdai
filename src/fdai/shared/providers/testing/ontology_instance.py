@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import Any
 
 from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
     OntologyDirection,
     OntologyGraphSnapshot,
@@ -19,6 +20,8 @@ from fdai.shared.providers.ontology_instance import (
     normalize_link_record,
     normalize_object_record,
     ontology_link_sort_key,
+    pin_link_record,
+    pin_object_record,
     validate_link_record,
     validate_object_record,
 )
@@ -37,6 +40,7 @@ class InMemoryOntologyInstanceStore:
         self._link_types = {item.name: item for item in link_types}
         self._objects: dict[str, OntologyObjectRecord] = {}
         self._links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
+        self._release = build_ontology_release(object_types=object_types, link_types=link_types)
 
     async def upsert_object(
         self,
@@ -44,7 +48,7 @@ class InMemoryOntologyInstanceStore:
         *,
         expected_revision: int | None = None,
     ) -> OntologyObjectRecord:
-        record = normalize_object_record(record)
+        record = normalize_object_record(pin_object_record(record, self._release))
         validate_object_record(record, self._object_types)
         existing = self._objects.get(record.id)
         current_revision = existing.revision if existing is not None else 0
@@ -63,7 +67,7 @@ class InMemoryOntologyInstanceStore:
         return stored
 
     async def upsert_link(self, record: OntologyLinkRecord) -> None:
-        record = normalize_link_record(record)
+        record = normalize_link_record(pin_link_record(record, self._release))
         validate_link_record(
             record,
             link_types=self._link_types,
@@ -80,8 +84,12 @@ class InMemoryOntologyInstanceStore:
         previous_object_ids: Sequence[str] = (),
         previous_link_keys: Sequence[tuple[str, str, str]] = (),
     ) -> None:
-        normalized_objects = tuple(normalize_object_record(item) for item in objects)
-        normalized_links = tuple(normalize_link_record(item) for item in links)
+        normalized_objects = tuple(
+            normalize_object_record(pin_object_record(item, self._release)) for item in objects
+        )
+        normalized_links = tuple(
+            normalize_link_record(pin_link_record(item, self._release)) for item in links
+        )
         if len({item.id for item in normalized_objects}) != len(normalized_objects):
             raise OntologyInstanceValidationError("replacement object ids MUST be unique")
         working_objects = dict(self._objects)
