@@ -624,7 +624,10 @@ def _next_endpoint(
     return None
 
 
-def _object_from_row(row: Mapping[str, Any], release: OntologyRelease) -> OntologyObjectRecord:
+def _object_from_row(
+    row: Mapping[str, Any],
+    release: OntologyRelease | None = None,
+) -> OntologyObjectRecord:
     properties = row["properties"]
     if isinstance(properties, str):
         properties = json.loads(properties)
@@ -647,7 +650,10 @@ def _object_from_row(row: Mapping[str, Any], release: OntologyRelease) -> Ontolo
     )
 
 
-def _link_from_row(row: Mapping[str, Any], release: OntologyRelease) -> OntologyLinkRecord:
+def _link_from_row(
+    row: Mapping[str, Any],
+    release: OntologyRelease | None = None,
+) -> OntologyLinkRecord:
     properties = row["properties"]
     if isinstance(properties, str):
         properties = json.loads(properties)
@@ -686,7 +692,7 @@ def _row_type_ref(
     *,
     kind: OntologyDeclarationKind,
     name: str,
-    release: OntologyRelease,
+    release: OntologyRelease | None,
 ) -> OntologyTypeRef | None:
     version = row.get("type_version")
     digest = row.get("catalog_digest")

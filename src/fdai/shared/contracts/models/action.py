@@ -14,9 +14,8 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from ._base import IdempotencyKey, SemVer, _Base
+from ._base import IdempotencyKey, OntologyDeclarationKind, OntologyTypeRef, SemVer, _Base
 from .enums import BlastRadiusScope, Mode, Operation, RollbackKind
-from .ontology_identity import OntologyDeclarationKind, OntologyTypeRef
 from .safety import ActionStopCondition
 
 

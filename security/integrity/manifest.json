@@ -735,8 +735,8 @@
     "src/fdai/shared/contracts/forecast-outcome/schema.json": "45d383d590859573545e746e3d57ed96e1ecb11b04b9b7f2bbc2904163675b30",
     "src/fdai/shared/contracts/incident/schema.json": "66ba53a7590f81bc3609787ce3b6d37fa0e6c784975d6a247e432574fac431b1",
     "src/fdai/shared/contracts/models/__init__.py": "b6bfa60e7caf95a93acc852ceb86d3c28589350425b6108825cf951e223fc10b",
-    "src/fdai/shared/contracts/models/_base.py": "60a3b242e2987a7a347adb5de7877d99938e7568e1a92033dca97a0497e77a21",
-    "src/fdai/shared/contracts/models/action.py": "a329893900386a5c770cac893d2fe25f65a0da80daec459b785e5e9593a46e3f",
+    "src/fdai/shared/contracts/models/_base.py": "839230a7655d4595eac2a3a9586c976dca2808beb7e0d5cd5d9060a65c6061eb",
+    "src/fdai/shared/contracts/models/action.py": "2e88fa1ff94839f5ce0830ac1abcfc0f7b2deb5def708628f8a01cf65f4e850d",
     "src/fdai/shared/contracts/models/best_practice.py": "a494a469ac5e39c054b280ff738773556d766bf59d6ef6b959d74d7d42022c5e",
     "src/fdai/shared/contracts/models/document.py": "6b7909812015156d2f3a5e183616836903ea2d35c56c6a7169a8d67cb8f471ee",
     "src/fdai/shared/contracts/models/enums.py": "c7340a5de0bbd2c3d157abba0f58d963faf919f8160c74e8f6475662ce0a0339",
@@ -744,7 +744,7 @@
     "src/fdai/shared/contracts/models/forecast_outcome.py": "5bd2dfb3f808c095c89d56b6e76e81bfbb3d81fac1f3ad13528b0da790d1f1d3",
     "src/fdai/shared/contracts/models/incident.py": "8e52497b9ec47fd7b0eb72135e029b84ef5b8bcd1d474f05885ef5d4a50010f0",
     "src/fdai/shared/contracts/models/ontology.py": "81408c8a0495750f30aadff8469b6a8c9c4b7920852ba8e80b9db8e61ea1ec71",
-    "src/fdai/shared/contracts/models/ontology_identity.py": "25c61adefa93739af1c6f061c7c1de36ded0dc1dce4625e06b7466e2fc4a5f20",
+    "src/fdai/shared/contracts/models/ontology_identity.py": "3f7ab0bafcf44437494fc11bcf8300c3bcf913c7c6d415ee32988ca9a007a06d",
     "src/fdai/shared/contracts/models/response_outcome.py": "da61b4a4607b8d439dfb6ef2a6849a9ab6b2b7678af328454dd793f7b62887ab",
     "src/fdai/shared/contracts/models/rule.py": "691ad3f098dca67d0771277d63f645b6e9a8d9c440f2d68a196af19f4c17497d",
     "src/fdai/shared/contracts/models/safety.py": "bc22fc306e973d692cdf99681175d40da9ab64916da5c38140b0e1b65e3c02df",
@@ -888,7 +888,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-01T02:05:37Z",
+  "generated_at": "2026-08-01T02:33:11Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

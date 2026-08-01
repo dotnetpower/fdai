@@ -7,14 +7,12 @@ import json
 from collections.abc import Sequence
 from typing import Any
 
-from fdai.shared.contracts.models.ontology import (
+from fdai.shared.contracts.models import (
     OntologyActionType,
-    OntologyLinkType,
-    OntologyObjectType,
-)
-from fdai.shared.contracts.models.ontology_identity import (
     OntologyDeclarationKind,
     OntologyDeclarationRef,
+    OntologyLinkType,
+    OntologyObjectType,
     OntologyRelease,
 )
 
