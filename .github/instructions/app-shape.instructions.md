@@ -1,6 +1,6 @@
 ---
-description: "Use when changing the console, read API, local launch, runtime topology, deployment, or layer boundaries. Covers app shape and local/deployed parity."
-applyTo: ".vscode/**,console/**,src/fdai/delivery/read_api/**,src/fdai/runtime/**,infra/**,azure.yaml"
+description: "Use when changing the console, Operator API, local launch, runtime topology, deployment, or layer boundaries. Covers app shape and local/deployed parity."
+applyTo: ".vscode/**,console/**,src/fdai/delivery/read_api/**,src/fdai/delivery/operator_api/**,src/fdai/runtime/**,infra/**,azure.yaml"
 ---
 
 # App Shape
@@ -35,9 +35,11 @@ shape maps to environments and CI/CD.
 
 ## Layer Boundaries (security)
 
-- The **console is non-privileged, not GET-only**: it renders authoritative projections and MAY
+- The **Operator API is the non-privileged, not-GET-only backend for FDAI Console and operator
+  clients**: it renders authoritative projections and MAY
   submit domain-typed approvals, drafts, investigations, access requests, and workflow requests
-  through server-owned RBAC, revision, idempotency, and audit checks. The SPA and request routes MUST NOT
+  through server-owned RBAC, revision, idempotency, and audit checks. The Operator API, SPA, and
+  request routes MUST NOT
   receive Thor's executor identity, mutate a managed resource, derive authorization in the browser,
   or bypass the owning agent, quality gate, risk gate, approval, rollback, and audit path. See
   [../../docs/roadmap/interfaces/console-operations.md](../../docs/roadmap/interfaces/console-operations.md).
@@ -68,7 +70,7 @@ shape maps to environments and CI/CD.
 ## Local Console Port Contract (MUST)
 
 - [../../.vscode/launch.json](../../.vscode/launch.json) is the source of truth for the
-  local `Console Web: Full Stack` topology: console SPA `5273` and read API `8010`.
+  local `Console Web: Full Stack` topology: console SPA `5273` and Operator API `8010`.
   Port `8011` remains reserved for the isolated test ingestion gateway, but that synthetic
   gateway MUST NOT be part of the interactive full-stack compound. Documents remain
   unavailable until an Azure-backed ingestion adapter is configured.
@@ -83,11 +85,12 @@ shape maps to environments and CI/CD.
 ## Local Azure Truth Contract (MUST)
 
 - The standard interactive profile uses browser Entra sign-in and verifies the same JWT, audience,
-  issuer, lifetime, and App Roles as deployment (`FDAI_READ_API_LOCAL_ENTRA=1`). The server's
+  issuer, lifetime, and App Roles as deployment (`FDAI_OPERATOR_API_LOCAL_ENTRA=1`). The server's
   current Azure CLI session supplies short-lived credentials only to Azure read/provider adapters.
   It never replaces the browser principal or Thor's executor identity.
-- `FDAI_READ_API_LOCAL_AZURE_CLI=1` plus `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit CLI-principal
-  debug alternative with a fixed role ceiling. `FDAI_READ_API_DEV_MODE=1`, `VITE_DEV_MODE=1`, and
+- `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` plus `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
+  CLI-principal debug alternative with a fixed role ceiling. `FDAI_OPERATOR_API_DEV_MODE=1`,
+  `VITE_DEV_MODE=1`, and
   synthetic fixtures are pytest/mock-only and MUST NOT be used by the VS Code full-stack profile.
 - Interactive local routes MUST NOT seed or synthesize audit rows, Incidents, Approvals,
   agent activity, live control-loop frames, findings, inventory, scope, blast-radius graphs,

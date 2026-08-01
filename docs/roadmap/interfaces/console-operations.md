@@ -27,7 +27,7 @@ recover, and audit the request through typed events.
 ```mermaid
 flowchart LR
   UI[FDAI Console - Operations] --> READ[Domain projections]
-  UI --> API[Domain request routes]
+  UI --> API[Operator API request routes]
   API --> BUS[Typed event bus]
   BUS --> OWNER[Owning agents]
   OWNER --> GATES[Quality and risk gates]
@@ -46,11 +46,13 @@ Console operations use four boundaries:
 |----------|----------------|-----------|
 | Console presentation | Operations navigation, tasks, approvals, investigations, evidence, and timelines | Renders server-owned state and available operations. |
 | Domain projections | Reads authoritative `Approval`, `Process`, `ReviewCase`, `AccessGrantRequest`, and action records | Read-only over each source lifecycle. |
-| Domain request routes | Authenticate, authorize, validate the source revision and domain schema, deduplicate, and publish | Accept a request; never decide or execute it. |
+| Operator API domain request routes | Authenticate, authorize, validate the source revision and domain schema, deduplicate, and publish | Accept a request; never decide or execute it. |
 | Agent runtime | Judge, approve, execute, recover, and audit through typed pub/sub | Existing pantheon ownership remains authoritative. |
 
-The API remains a mechanical relay. It does not become an orchestrator, a hidden agent, or a
-generic workflow engine. Agents do not call each other directly.
+The Operator API remains a mechanical relay. It is the shared, non-privileged HTTP backend for
+FDAI Console and operator clients. It does not become an orchestrator, a hidden agent, or a generic
+workflow engine, and it never receives Thor's executor identity. Agents do not call each other
+directly.
 
 ## Product vocabulary
 
@@ -59,6 +61,7 @@ Use one product name and plain operational labels:
 | Scope | Term |
 |-------|------|
 | Product | `FDAI Console` |
+| Shared HTTP backend | `Operator API` |
 | Existing navigation group | `Operations` / `운영` |
 | Human-facing action | Operational request / 운영 요청 |
 | Operations views | Tasks, Approvals, Investigations |
@@ -113,7 +116,7 @@ or unbounded value is rejected; pagination cannot change cutoff, ordering, or so
 
 Each source agent remains the single writer of its authoritative record. Muninn is accountable for
 the rebuildable cross-domain context index, its cutoff, freshness, digest, and rebuild evidence.
-The read API materializer is a mechanical relay that reads source-owned state and Muninn's index;
+The Operator API materializer is a mechanical relay that reads source-owned state and Muninn's index;
 it never publishes a source object or advances a lifecycle.
 
 Any server cache is an optional provider behind the materializer, keyed by the complete canonical

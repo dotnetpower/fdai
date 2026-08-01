@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: f170216698801064d06be331231c54b5eff3a2fa
-translation_revised: 2026-08-01
+translation_source_sha: 87145b1ac19e082f7042886d59e7855caf1d9e35
+translation_revised: 2026-08-02
 ---
 
 # 콘솔 운영
@@ -29,7 +29,7 @@ Operations 영역은 기존 도메인 projection을 읽고, 각 스키마와 lif
 ```mermaid
 flowchart LR
   UI[FDAI Console - Operations] --> READ[Domain projections]
-  UI --> API[Domain request routes]
+  UI --> API[Operator API request routes]
   API --> BUS[Typed event bus]
   BUS --> OWNER[Owning agents]
   OWNER --> GATES[Quality and risk gates]
@@ -48,11 +48,12 @@ flowchart LR
 |------|------|-----------|
 | 콘솔 presentation | Operations 탐색, Tasks, Approvals, Investigations, evidence, timeline | 서버 소유 상태와 사용할 수 있는 운영 기능을 렌더링합니다. |
 | 도메인 projection | Authoritative `Approval`, `Process`, `ReviewCase`, `AccessGrantRequest`, action record 조회 | 각 source lifecycle을 읽기만 합니다. |
-| 도메인 요청 route | 인증, 인가, source revision과 도메인 스키마 검증, 중복 제거, publish | 요청을 접수하며 판단하거나 실행하지 않습니다. |
+| Operator API 도메인 요청 route | 인증, 인가, source revision과 도메인 스키마 검증, 중복 제거, publish | 요청을 접수하며 판단하거나 실행하지 않습니다. |
 | 에이전트 runtime | Typed pub/sub으로 판단, 승인, 실행, 복구, 감사 | 기존 pantheon ownership이 authority를 유지합니다. |
 
-API는 mechanical relay로 유지합니다. Orchestrator, 숨은 에이전트 또는 범용 workflow engine이 되지
-않습니다. 에이전트는 서로 직접 호출하지 않습니다.
+Operator API는 mechanical relay로 유지합니다. FDAI Console과 operator client가 공유하는
+비특권 HTTP backend이며 Thor의 executor identity를 받지 않습니다. Orchestrator, 숨은 에이전트 또는
+범용 workflow engine이 되지 않으며 에이전트는 서로 직접 호출하지 않습니다.
 
 ## 제품 용어
 
@@ -61,6 +62,7 @@ API는 mechanical relay로 유지합니다. Orchestrator, 숨은 에이전트 �
 | 범위 | 용어 |
 |------|------|
 | 제품 | `FDAI Console` |
+| 공유 HTTP backend | `Operator API` |
 | 기존 탐색 그룹 | `Operations` / `운영` |
 | 사용자에게 보이는 동작 | Operational request / 운영 요청 |
 | Operations view | Tasks, Approvals, Investigations |
@@ -113,9 +115,9 @@ unbounded이면 materialization을 차단합니다. Pagination은 snapshot cutof
 바꾸지 않습니다.
 
 각 source agent는 authoritative record의 single writer로 유지됩니다. Muninn은 rebuildable cross-domain
-context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Read API materializer는
-source-owned state와 Muninn index를 읽는 mechanical relay이며 source object를 publish하거나 lifecycle을
-진행하지 않습니다.
+context index와 그 cutoff, freshness, digest, rebuild evidence를 책임집니다. Operator API
+materializer는 source-owned state와 Muninn index를 읽는 mechanical relay이며 source object를
+publish하거나 lifecycle을 진행하지 않습니다.
 
 Server cache는 materializer 뒤의 optional provider이며 complete canonical digest input으로 key를 만들고
 immutable projection byte를 저장합니다. Miss나 eviction은 authoritative source를 다시 읽습니다. TTL은

@@ -165,6 +165,9 @@ domain vocabulary. Reuse them verbatim in code, docs, and identifiers.
   (the ontology-native counterpart of an LLM calling a tool; the same seam an MCP adapter
   attaches to), never a substrate mutation.
 - **FDAI Console** terms:
+  - `operator-api` - the non-privileged HTTP backend shared by FDAI Console and operator clients.
+    It serves projections and accepts governed requests, but never judges or executes a
+    managed-resource action and never receives Thor's executor identity.
   - `operator-console` - the legacy contract token for the conversational pull direction (CLI / Teams / Slack / web); display it as FDAI Console conversations, not as a second product.
   - `Approvals` - the human-facing L2/L3 label for queued `hil` verdicts and the
     `/hil-queue` surface. It improves operator comprehension without renaming the
