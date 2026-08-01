@@ -1032,6 +1032,57 @@ def test_client_idempotency_key_becomes_the_proposal_dedup_key() -> None:
     assert envs[0].payload["correlation_id"] != "dup-1"
 
 
+def test_long_client_idempotency_keys_do_not_collide_after_namespacing() -> None:
+    submitter, bus = _submitter()
+    principal = _principal("operator-with-a-long-identifier", Role.CONTRIBUTOR)
+    shared_prefix = "k" * 199
+
+    first = asyncio.run(
+        submitter.submit(
+            question="restart svc-1",
+            principal=principal,
+            idempotency_key=f"{shared_prefix}a",
+        )
+    )
+    second = asyncio.run(
+        submitter.submit(
+            question="restart svc-1",
+            principal=principal,
+            idempotency_key=f"{shared_prefix}b",
+        )
+    )
+
+    assert first["request_id"] != second["request_id"]
+    payloads = [item.payload for item in asyncio.run(_drain(bus, _TOPIC))]
+    assert len(payloads) == 2
+    assert payloads[0]["idempotency_key"] != payloads[1]["idempotency_key"]
+    assert all(str(item["idempotency_key"]).startswith("operator::") for item in payloads)
+
+
+def test_route_idempotency_conflict_returns_winning_receipt() -> None:
+    submitter, _bus = _submitter()
+    client = TestClient(_app(submitter, _principal("u", Role.CONTRIBUTOR)))
+    request = {
+        "prompt": "restart svc-1",
+        "session_id": "s",
+        "idempotency_key": "same-key",
+    }
+
+    first = client.post("/chat/action", json=request)
+    conflict = client.post(
+        "/chat/action",
+        json={**request, "prompt": "restart svc-2"},
+    )
+
+    assert first.status_code == 202
+    assert conflict.status_code == 409
+    body = conflict.json()
+    assert body["reason"] == "idempotency_collision"
+    assert body["winning_request_id"] == first.json()["request_id"]
+    assert body["winning_correlation_id"] == first.json()["correlation_id"]
+    assert body["winning_accepted_at"] == first.json()["accepted_at"]
+
+
 def test_oversized_session_and_idempotency_keys_are_rejected() -> None:
     sub, bus = _submitter()
     oversized_session = asyncio.run(

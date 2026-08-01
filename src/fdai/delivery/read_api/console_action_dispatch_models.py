@@ -14,8 +14,22 @@ _SCHEMA_VERSION: Final[str] = "1.0.0"
 class ConsoleActionDispatchConflictError(RuntimeError):
     """Raised when one idempotency key is reused for another intent."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        dispatch_id: str,
+        correlation_id: str,
+        accepted_at: datetime,
+    ) -> None:
+        super().__init__(message)
+        self.dispatch_id = dispatch_id
+        self.correlation_id = correlation_id
+        self.accepted_at = accepted_at
+
 
 class ConsoleActionDispatchState(StrEnum):
+    ABANDONED = "abandoned"
     BLOCKED = "blocked"
     PENDING = "pending"
     PUBLISHING = "publishing"

@@ -8,6 +8,7 @@ the owning agents remain authoritative. The route exists only when a
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -147,6 +148,7 @@ class ConsoleActionSubmitter:
         default_factory=ConsoleActionDispatcherConfig,
         repr=False,
     )
+    incident_ticket_retention_seconds: int = 86_400
     _dispatcher: ConsoleActionDispatcher = field(init=False, repr=False, compare=False)
     _incident_ticket: ConsoleIncidentTicketCoordinator = field(
         init=False,
@@ -173,6 +175,7 @@ class ConsoleActionSubmitter:
                 state_store=self.dispatch_state_store,
                 event_topic=self.raw_event_topic,
                 batch_size=self.dispatch_config.batch_size,
+                blocked_retention_seconds=self.incident_ticket_retention_seconds,
             ),
         )
 
@@ -396,13 +399,11 @@ class ConsoleActionSubmitter:
         # Namespace the dedup key by the initiator so one operator cannot reuse
         # (or guess) another operator's idempotency key to suppress their action
         # at Huginn. Absent a client key, fall back to the unique correlation.
-        # The whole key is bounded so a long oid + key cannot become a huge bus
-        # partition value.
         if incident_id is not None:
             dedup_key = f"{principal.oid}::investigation::{incident_id}"[:MAX_IDEMPOTENCY_CHARS]
         else:
             dedup_key = (
-                f"{principal.oid}::{client_key}"[:MAX_IDEMPOTENCY_CHARS]
+                _operator_idempotency_key(principal.oid, client_key)
                 if client_key
                 else correlation_id
             )
@@ -426,14 +427,19 @@ class ConsoleActionSubmitter:
                 key=key,
                 proposal=proposal,
             )
-        except ConsoleActionDispatchConflictError:
+        except ConsoleActionDispatchConflictError as exc:
             return await self._refuse(
                 reason="idempotency_collision",
                 actor=principal.oid,
                 correlation_id=correlation_id,
                 action_type=action_type,
                 resource_id=bounded_resource,
-                extra={"action_type": action_type},
+                extra={
+                    "action_type": action_type,
+                    "winning_request_id": exc.dispatch_id,
+                    "winning_correlation_id": exc.correlation_id,
+                    "winning_accepted_at": exc.accepted_at.isoformat(),
+                },
             )
         correlation_id = dispatch.correlation_id
         _LOG.info(
@@ -612,6 +618,14 @@ def _parse_investigation_request(question: str) -> tuple[str, str] | None:
 def _reject_planned_arguments(arguments: Mapping[str, object], allowed: set[str]) -> None:
     if any(not isinstance(key, str) or key not in allowed for key in arguments):
         raise ValueError("planned action arguments contain unsupported fields")
+
+
+def _operator_idempotency_key(principal_oid: str, client_key: str) -> str:
+    namespaced = f"{principal_oid}::{client_key}"
+    if len(namespaced) <= MAX_IDEMPOTENCY_CHARS:
+        return namespaced
+    digest = hashlib.sha256(namespaced.encode("utf-8")).hexdigest()
+    return f"operator::{digest}"
 
 
 AuthorizePrincipalFn = Callable[[Request], Awaitable[Principal]]

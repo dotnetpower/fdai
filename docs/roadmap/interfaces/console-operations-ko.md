@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 35e492f43f762b7f7bb922511c01bad87dedd7a0
+translation_source_sha: f170216698801064d06be331231c54b5eff3a2fa
 translation_revised: 2026-08-01
 ---
 
@@ -211,24 +211,25 @@ guidance를 만들지 않습니다.
 현재 console action route는 broker publish 전에 idempotency key를 atomically claim하고 전체 proposal,
 intent digest, actor, correlation, audit receipt를 저장합니다. Delivery는 bounded lease, publish timeout,
 retry delay, batch size를 사용합니다. Startup 및 periodic recovery는 pending record와 lease가 만료된 record를
-재개하며 downstream consumer는 stable idempotency key로 at-least-once event를 deduplicate합니다.
+재개합니다. 실패한 periodic cycle은 기록 후 재시도하며 shutdown은 진행 중인 recovery를 취소하고 lease를
+회수 가능한 상태로 둡니다. Downstream consumer는 stable idempotency key로 at-least-once event를 deduplicate합니다.
 
 Request acceptance는 durable record가 commit된 뒤에만 HTTP `202 Accepted`를 사용합니다. 현재 receipt는
 `request_id`, `correlation_id`, `dispatch_status`, `accepted_at`, `durably_queued`를 반환하며 "approved"나
 "executed"가 아닌 "durably queued"를 뜻합니다. 같은 intent replay는 completed event를 다시 publish하지
-않고 기존 record를 재사용합니다. 같은 key의 다른 intent는 `409 Conflict`를 반환합니다. Status URL과
-나머지 공통 receipt field는 Phase 2 범위입니다.
+않고 기존 record를 재사용합니다. 같은 key의 다른 intent는 `409 Conflict`와 함께 winning request,
+correlation, acceptance time을 반환합니다. Status URL과 나머지 공통 receipt field는 Phase 2 범위입니다.
 
 확인된 incident creation은 incident를 쓰기 전에 ticket dispatch를 blocked durable state로 준비합니다.
 `incident.open`이 durable audit에 나타난 뒤에만 dispatch를 activate합니다. Recovery는 incident를 다시
-만들지 않고 누락된 ticket effect를 activate하며, incident write가 실패하면 ticket은 publish되지 않습니다.
+만들지 않고 누락된 ticket effect를 activate합니다. Durable incident가 없는 blocked ticket은 configurable
+retention period, 기본 24시간 뒤 audit 가능한 abandoned 상태가 되며 publish되지 않습니다.
 
 Intent digest는 principal, domain operation, exact source reference와 revision, normalized argument,
 해당 policy 또는 schema version을 포함합니다. 다른 digest로 같은 idempotency key를 재사용하면 `409
 Conflict`를 반환하고 audit finding을 기록하며 event를 publish하지 않습니다. Key는 authenticated
-`(operator_oid, route_inventory_operation_id, source_family, source_id)`로 namespace를 만든 뒤 intent
-digest로 비교합니다. Operation id는 HTTP path나 ActionType label이 아닌 stable route-inventory token입니다.
-관련 없는 principal과 source는 다른 receipt를 보거나 충돌시키지 못합니다.
+operator namespace를 사용하고 intent digest로 비교합니다. 긴 operator/client namespace는 자르지 않고
+전체 SHA-256을 사용합니다. 관련 없는 principal은 다른 receipt를 보거나 충돌시키지 못합니다.
 
 Policy digest는 request 판단에 실제 사용된 exact risk, approval, promotion, exemption 또는 override,
 scope, schema reference를 canonical order로 포함하며 사용하지 않은 policy는 제외합니다.

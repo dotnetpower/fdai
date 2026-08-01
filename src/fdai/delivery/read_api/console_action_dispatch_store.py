@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -18,6 +19,7 @@ from .console_action_dispatch_models import (
 
 _PREFIX: Final[str] = "console_action_dispatch:"
 _SCHEMA_VERSION: Final[str] = "1.0.0"
+_LOGGER = logging.getLogger(__name__)
 
 
 def console_action_dispatch_id(idempotency_key: str) -> str:
@@ -82,7 +84,10 @@ class ConsoleActionDispatchStore:
             raise RuntimeError("console action dispatch disappeared after enqueue race")
         if existing.idempotency_key != idempotency_key or existing.intent_digest != intent_digest:
             raise ConsoleActionDispatchConflictError(
-                "console action idempotency key is bound to another intent"
+                "console action idempotency key is bound to another intent",
+                dispatch_id=existing.dispatch_id,
+                correlation_id=existing.correlation_id,
+                accepted_at=existing.accepted_at,
             )
         return existing, False
 
@@ -103,6 +108,7 @@ class ConsoleActionDispatchStore:
         for _attempt in range(5):
             current = await self.get(dispatch_id)
             if current is None or current.state in {
+                ConsoleActionDispatchState.ABANDONED,
                 ConsoleActionDispatchState.BLOCKED,
                 ConsoleActionDispatchState.PUBLISHED,
             }:
@@ -141,6 +147,7 @@ class ConsoleActionDispatchStore:
             if (
                 record.state
                 in {
+                    ConsoleActionDispatchState.ABANDONED,
                     ConsoleActionDispatchState.BLOCKED,
                     ConsoleActionDispatchState.PUBLISHED,
                 }
@@ -183,7 +190,16 @@ class ConsoleActionDispatchStore:
             field=field,
             value=value,
         )
-        return tuple(ConsoleActionDispatch.from_mapping(item) for item in values)
+        records = []
+        for item in values:
+            try:
+                records.append(ConsoleActionDispatch.from_mapping(item))
+            except (TypeError, ValueError):
+                _LOGGER.exception(
+                    "console_action_dispatch_record_invalid",
+                    extra={"dispatch_id": str(item.get("dispatch_id") or "unknown")[:200]},
+                )
+        return tuple(records)
 
     async def activate(
         self,
@@ -209,6 +225,39 @@ class ConsoleActionDispatchStore:
                 updated.to_mapping(),
                 expected_revision=current.revision,
                 audit_entry=_audit(updated, "console.action.dispatch.activated", now),
+            ):
+                return updated
+        return None
+
+    async def abandon(
+        self,
+        dispatch_id: str,
+        *,
+        now: datetime,
+        reason: str,
+    ) -> ConsoleActionDispatch | None:
+        if not reason.strip():
+            raise ValueError("console action abandonment reason MUST be non-empty")
+        for _attempt in range(5):
+            current = await self.get(dispatch_id)
+            if current is None:
+                return None
+            if current.state is not ConsoleActionDispatchState.BLOCKED:
+                return current
+            updated = replace(
+                current,
+                state=ConsoleActionDispatchState.ABANDONED,
+                revision=current.revision + 1,
+                updated_at=now,
+                lease_owner=None,
+                lease_until=None,
+                last_error=reason[:200],
+            )
+            if await self.state_store.compare_and_set_state_with_audit(
+                _state_key(dispatch_id),
+                updated.to_mapping(),
+                expected_revision=current.revision,
+                audit_entry=_audit(updated, "console.action.dispatch.abandoned", now),
             ):
                 return updated
         return None

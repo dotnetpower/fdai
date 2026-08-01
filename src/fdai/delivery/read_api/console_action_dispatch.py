@@ -185,13 +185,13 @@ class ConsoleActionDispatcher:
 @dataclass(slots=True)
 class ConsoleActionDispatchRecovery:
     dispatcher: ConsoleActionDispatcher
-    interval_seconds: int = 30
+    interval_seconds: float = 30
     reconcile: Callable[[], Awaitable[object]] | None = None
     _stop: asyncio.Event = field(default_factory=asyncio.Event, init=False)
     _task: asyncio.Task[None] | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        if self.interval_seconds < 1:
+        if self.interval_seconds <= 0:
             raise ValueError("console action recovery interval MUST be positive")
 
     async def start(self) -> None:
@@ -203,8 +203,10 @@ class ConsoleActionDispatchRecovery:
 
     async def stop(self) -> None:
         self._stop.set()
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
         if self._task is not None:
-            await self._task
+            await asyncio.gather(self._task, return_exceptions=True)
         self._task = None
 
     async def _run(self) -> None:
@@ -212,7 +214,12 @@ class ConsoleActionDispatchRecovery:
             try:
                 await asyncio.wait_for(self._stop.wait(), timeout=self.interval_seconds)
             except TimeoutError:
-                await self._recover_once()
+                try:
+                    await self._recover_once()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    _LOGGER.exception("console_action_dispatch_recovery_cycle_failed")
 
     async def _recover_once(self) -> None:
         if self.reconcile is not None:

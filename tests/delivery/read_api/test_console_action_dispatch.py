@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -10,6 +11,7 @@ from fdai.delivery.read_api.console_action_dispatch import (
     ConsoleActionDispatchConflictError,
     ConsoleActionDispatcher,
     ConsoleActionDispatcherConfig,
+    ConsoleActionDispatchRecovery,
     ConsoleActionDispatchState,
     ConsoleActionDispatchStore,
     console_action_intent_digest,
@@ -191,6 +193,35 @@ async def test_retry_after_publish_failure_redrives_durable_payload() -> None:
     assert await _records(bus) == [payload]
 
 
+async def test_malformed_durable_row_does_not_poison_pending_recovery() -> None:
+    dispatcher, state_store, bus, clock = _dispatcher()
+    payload = _payload()
+    pending, _created = await dispatcher.store.enqueue(
+        idempotency_key="user-1::recoverable",
+        intent_digest=console_action_intent_digest(
+            topic=_TOPIC,
+            partition_key="service-1",
+            payload=payload,
+        ),
+        topic=_TOPIC,
+        partition_key="service-1",
+        payload=payload,
+        correlation_id="correlation-1",
+        actor_oid="user-1",
+        now=clock(),
+    )
+    await state_store.write_state(
+        "console_action_dispatch:poison",
+        {"schema_version": "unsupported", "dispatch_id": "poison"},
+    )
+
+    assert await dispatcher.drain_due() == 1
+    recovered = await dispatcher.store.get(pending.dispatch_id)
+    assert recovered is not None
+    assert recovered.state is ConsoleActionDispatchState.PUBLISHED
+    assert await _records(bus) == [payload]
+
+
 async def test_replay_returns_published_record_without_republishing() -> None:
     dispatcher, _state_store, bus, _clock = _dispatcher()
     payload = _payload()
@@ -241,7 +272,7 @@ async def test_idempotency_key_conflict_never_publishes_second_intent() -> None:
         correlation_id="correlation-1",
         actor_oid="user-1",
     )
-    with pytest.raises(ConsoleActionDispatchConflictError):
+    with pytest.raises(ConsoleActionDispatchConflictError) as conflict:
         await dispatcher.submit(
             idempotency_key="user-1::request-1",
             intent_digest=console_action_intent_digest(
@@ -256,6 +287,9 @@ async def test_idempotency_key_conflict_never_publishes_second_intent() -> None:
             actor_oid="user-1",
         )
 
+    assert conflict.value.dispatch_id
+    assert conflict.value.correlation_id == "correlation-1"
+    assert conflict.value.accepted_at == _clock()
     assert await _records(bus) == [first_payload]
 
 
@@ -368,3 +402,95 @@ async def test_stale_blocked_ticket_does_not_starve_later_open_incident() -> Non
 
     assert await coordinator.reconcile() == 1
     assert await _records(bus) == [valid_payload]
+
+
+async def test_orphaned_blocked_ticket_is_auditably_abandoned_after_retention() -> None:
+    dispatcher, state_store, bus, clock = _dispatcher()
+    payload = _ticket_payload("incident-orphaned")
+    resource_id = str(payload["resource_id"])
+    record = await dispatcher.prepare_blocked(
+        idempotency_key=str(payload["idempotency_key"]),
+        intent_digest=console_action_intent_digest(
+            topic=_TOPIC,
+            partition_key=resource_id,
+            payload=payload,
+        ),
+        topic=_TOPIC,
+        partition_key=resource_id,
+        payload=payload,
+        correlation_id=str(payload["correlation_id"]),
+        actor_oid="user-1",
+    )
+    coordinator = ConsoleIncidentTicketCoordinator(
+        dispatcher=dispatcher,
+        state_store=state_store,
+        event_topic=_TOPIC,
+        batch_size=1,
+        blocked_retention_seconds=10,
+    )
+
+    clock.advance(11)
+    assert await coordinator.reconcile() == 0
+
+    abandoned = await dispatcher.store.get(record.dispatch_id)
+    assert abandoned is not None
+    assert abandoned.state is ConsoleActionDispatchState.ABANDONED
+    assert abandoned.last_error == "incident_not_opened_before_retention_expiry"
+    assert await _records(bus) == []
+    assert state_store.audit_entries[-1]["entry"]["kind"] == ("console.action.dispatch.abandoned")
+
+
+async def test_periodic_recovery_continues_after_one_cycle_fails() -> None:
+    dispatcher, _state_store, _bus, _clock = _dispatcher()
+    completed = asyncio.Event()
+    attempts = 0
+
+    async def reconcile() -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 2:
+            raise RuntimeError("transient reconciliation failure")
+        if attempts == 3:
+            completed.set()
+
+    recovery = ConsoleActionDispatchRecovery(
+        dispatcher=dispatcher,
+        interval_seconds=0.001,
+        reconcile=reconcile,
+    )
+
+    await recovery.start()
+    await asyncio.wait_for(completed.wait(), timeout=1)
+    await recovery.stop()
+
+    assert attempts >= 3
+
+
+async def test_recovery_stop_cancels_in_flight_cycle() -> None:
+    dispatcher, _state_store, _bus, _clock = _dispatcher()
+    cycle_started = asyncio.Event()
+    cycle_cancelled = asyncio.Event()
+    calls = 0
+
+    async def reconcile() -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return
+        cycle_started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cycle_cancelled.set()
+
+    recovery = ConsoleActionDispatchRecovery(
+        dispatcher=dispatcher,
+        interval_seconds=0.001,
+        reconcile=reconcile,
+    )
+
+    await recovery.start()
+    await asyncio.wait_for(cycle_started.wait(), timeout=1)
+    await asyncio.wait_for(recovery.stop(), timeout=1)
+
+    assert cycle_cancelled.is_set()

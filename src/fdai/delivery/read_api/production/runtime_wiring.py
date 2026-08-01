@@ -242,6 +242,11 @@ def build_production_runtime(
                     notifier=incident_notifier,
                 ),
                 incident_proposals=PostgresIncidentProposalStore(config=state_store_config),
+                incident_ticket_retention_seconds=_parse_positive_int(
+                    env,
+                    _env.CONSOLE_ACTION_BLOCKED_RETENTION_ENV,
+                    86_400,
+                ),
             )
             console_action_recovery = ConsoleActionDispatchRecovery(
                 dispatcher=console_action.dispatcher,
