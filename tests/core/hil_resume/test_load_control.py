@@ -147,6 +147,22 @@ async def test_policy_simulation_never_drops_or_defers_critical() -> None:
     assert snapshot.urgent_plans == 10
 
 
+async def test_load_plan_counts_pending_beyond_page_size() -> None:
+    store = InMemoryStateStore()
+    policy = _policy(scan_limit=1, max_pending_per_assignee=1)
+    controller = ApprovalLoadController(state_store=store, policy=policy, clock=lambda: _BASE)
+    first = _park("alice-old", at=_BASE, assignee="alice")
+    other = _park("bob-new", at=_BASE, assignee="bob")
+    current = _park("alice-current", at=_BASE, assignee="alice")
+    for parked in (first, other, current):
+        await _store_park(store, parked)
+
+    plan = await controller.plan(current, severity="medium")
+
+    assert plan.pending_for_assignee == 2
+    assert plan.overloaded is True
+
+
 async def test_due_reminders_are_attempted_once_across_repeated_drains() -> None:
     now = _BASE
     current = now
@@ -321,6 +337,26 @@ async def test_expired_park_is_atomically_reaped_once_across_workers() -> None:
         item for item in store.audit_entries if item["entry"].get("action_kind") == "hil.timeout"
     ]
     assert len(timeout_audits) == 1
+
+
+async def test_expiry_reaches_oldest_park_beyond_page_size() -> None:
+    current = _BASE + timedelta(seconds=10)
+    store = InMemoryStateStore()
+    expired = _park("expired-oldest", at=_BASE, ttl_seconds=5)
+    unexpired = _park("unexpired-newest", at=_BASE, ttl_seconds=100)
+    await _store_park(store, expired)
+    await _store_park(store, unexpired)
+    dispatcher = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=InMemoryHilChannel(),
+        policy=_policy(scan_limit=1),
+        clock=lambda: current,
+    )
+
+    assert await dispatcher.expire_due() == 1
+    reaped = await store.read_state("hil_park:expired-oldest")
+    assert reaped is not None
+    assert reaped["decision"] == "timeout"
 
 
 async def test_malformed_expiry_fails_closed_to_timeout() -> None:

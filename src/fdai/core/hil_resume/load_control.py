@@ -172,7 +172,11 @@ class ApprovalLoadController:
         normalized_severity = severity.strip().casefold()
         urgent = normalized_severity in self.policy.urgent_severities
 
-        parks = await self._state_store.read_states(_PARK_PREFIX, limit=self.policy.scan_limit)
+        parks = await _read_all_state_pages(
+            self._state_store,
+            _PARK_PREFIX,
+            page_size=self.policy.scan_limit,
+        )
         pending_for_assignee = sum(
             1
             for item in parks
@@ -266,7 +270,11 @@ class ApprovalLoadController:
         return plan
 
     async def snapshot(self) -> ApprovalLoadSnapshot:
-        records = await self._state_store.read_states(_PLAN_PREFIX, limit=self.policy.scan_limit)
+        records = await _read_all_state_pages(
+            self._state_store,
+            _PLAN_PREFIX,
+            page_size=self.policy.scan_limit,
+        )
         modes = Counter(str(item.get("mode") or "unknown") for item in records)
         return ApprovalLoadSnapshot(
             total_plans=len(records),
@@ -302,9 +310,10 @@ class ApprovalReminderDispatcher:
         now = self._clock()
         if now.tzinfo is None:
             raise RuntimeError("approval expiry clock MUST be timezone-aware")
-        parks = await self._state_store.read_states(
+        parks = await _read_all_state_pages(
+            self._state_store,
             _PARK_PREFIX,
-            limit=self._policy.scan_limit,
+            page_size=self._policy.scan_limit,
         )
         expired = 0
         for park in parks:
@@ -350,7 +359,11 @@ class ApprovalReminderDispatcher:
         if now.tzinfo is None:
             raise RuntimeError("approval reminder clock MUST be timezone-aware")
         await self.expire_due()
-        plans = await self._state_store.read_states(_PLAN_PREFIX, limit=self._policy.scan_limit)
+        plans = await _read_all_state_pages(
+            self._state_store,
+            _PLAN_PREFIX,
+            page_size=self._policy.scan_limit,
+        )
         attempts = 0
         for plan in plans:
             approval_id = str(plan.get("approval_id") or "")
@@ -529,6 +542,28 @@ async def _pending_group_dispatch(
             continue
         pending.append(park)
     return (pending[0], len(pending)) if pending else None
+
+
+async def _read_all_state_pages(
+    state_store: StateStore,
+    prefix: str,
+    *,
+    page_size: int,
+) -> tuple[Mapping[str, Any], ...]:
+    records: list[Mapping[str, Any]] = []
+    offset = 0
+    total = 1
+    while offset < total:
+        page, total = await state_store.read_state_page(
+            prefix,
+            limit=page_size,
+            offset=offset,
+        )
+        if not page:
+            break
+        records.extend(page)
+        offset += len(page)
+    return tuple(records)
 
 
 def _same_group(

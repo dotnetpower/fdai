@@ -27,8 +27,9 @@ existing single-pass control loop.
 > channel failure from human silence, verify action integrity and rung eligibility, and record due
 > observations without sending or advancing in shadow mode. The runtime starts the shadow worker,
 > terminal HIL decisions use one CAS winner, and bounded scans rotate across pending pages so older
-> approvals don't starve. Urgency compression, standing-authority catalogs, and production
-> promotion have not landed.
+> approvals don't starve. Load counts, expiry, and reminder dispatch page through the complete
+> durable set. Urgency compression, standing-authority catalogs, and production promotion have not
+> landed.
 
 ## What this doc covers
 

@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 7d9bf66462276fae14cf768cdbb2640cba647dbf
+translation_source_sha: 4a13329e36fdb44ee3713282d2b56e0709f4df55
 translation_revised: 2026-08-01
 ---
 
@@ -29,7 +29,8 @@ translation_revised: 2026-08-01
 > action integrity와 rung eligibility를 검증하고 shadow mode에서는 전송하거나 진행하지 않고 due
 > observation만 기록합니다. Runtime은 shadow worker를 시작하며 최종 HIL 결정은 CAS 승자 하나만
 > 수락합니다. Bounded scan은 pending page를 순환하므로 오래된 승인이 starvation되지 않습니다.
-> Urgency compression, standing-authority catalog 및 production 승격은 아직 구현되지 않았습니다.
+> Load count, expiry, reminder dispatch는 complete durable set을 page 단위로 순회합니다. Urgency
+> compression, standing-authority catalog 및 production 승격은 아직 구현되지 않았습니다.
 
 ## 이 문서가 다루는 것
 
