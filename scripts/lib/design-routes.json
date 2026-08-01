@@ -812,10 +812,16 @@
         "docs/roadmap/interfaces/human-agent-assignment*.md",
         "src/fdai/core/human_assignment/**",
         "src/fdai/core/rbac/access_request.py",
+        "src/fdai/shared/providers/human_access.py",
         "src/fdai/shared/providers/human_identity.py",
+        "src/fdai/delivery/direct_api_router.py",
+        "src/fdai/delivery/identity/direct_api.py",
+        "src/fdai/delivery/identity/entra_access.py",
         "src/fdai/delivery/read_api/routes/iam.py",
         "src/fdai/delivery/read_api/routes/human_assignments.py",
+        "src/fdai/runtime/human_access.py",
         "console/src/routes/settings-iam*",
+        "rule-catalog/action-types/ops.assignment-role-*",
         "tests/**/*human_assignment*"
       ],
       "must_read": [
