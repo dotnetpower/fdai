@@ -708,6 +708,29 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
 | FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
 
+### RUN-0028: Inventory read coverage accounting
+
+| Field | Value |
+|-------|-------|
+| Question ID | `Q020` |
+| Executed | `2026-08-01` |
+| Question | `What inventory types did you check, skip, or fail to read?` |
+| Scope alignment | Both products continued from the same selected resource group. Deployment-owned values were redacted. |
+| Azure SRE Agent answer | Reported that all 32 resources across 19 provider types were checked, no types were skipped, and no type read failed. It separately listed 15 types with provisioning-only state evidence. |
+| FDAI answer | Reported the same 32 resources and 19 checked provider types, zero skipped types, and zero failed-to-read types. It separately reported 14 operational-state-limited types. |
+| Evidence | Catalog-owned `inventory_coverage` query, bounded continuation selector, exact group/container/provider predicates, complete atomic snapshot, status provenance, fresh observation time, no truncation, one consumed evidence reference, deterministic verification, and zero model calls. |
+| Material difference | Both products agreed on inventory coverage. FDAI exposed the exact typed query and proved snapshot completeness, distinguished state limitation from read failure, and consumed VM power evidence that removed virtual machines from the limited set. |
+| Winner | FDAI for equal inventory coverage with stronger evidence integrity and more complete state evidence. |
+| General fix | Inventory coverage is a dedicated typed result. Complete atomic snapshots can prove zero skipped and failed types; truncated snapshots cannot. State limitations remain separate, and normalized selector equality prevents duplicate name predicates under provider casing differences. |
+| Status | `fdai-win` |
+
+#### RUN-0028 scores
+
+| Product | Correctness | Completeness | Freshness | Evidence | Safety | Actionability | Clarity | Total |
+|---------|------------:|-------------:|----------:|---------:|-------:|--------------:|--------:|------:|
+| Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 4 | 4 | 27/28 |
+| FDAI | 4 | 4 | 4 | 4 | 4 | 3 | 4 | 27/28 |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -736,7 +759,7 @@ existing seed.
 | Q017 | ko | Scope inventory | 현재 화면의 리소스 그룹에 어떤 서비스가 있어? | `LIST` | compared |
 | Q018 | en | Scope inventory | List resources in this group with type, region, and state. | `LIST` | compared |
 | Q019 | ko | Unsupported type | 상태를 확인할 수 없는 리소스 유형도 함께 알려줘. | `FAILURE` | compared |
-| Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | queued |
+| Q020 | en | Coverage | What inventory types did you check, skip, or fail to read? | `FAILURE` | compared |
 | Q021 | ko | Platform health | 현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어? | `HEALTH` | queued |
 | Q022 | en | Platform health | Is any managed resource affected by an active Azure outage? | `HEALTH` | queued |
 | Q023 | ko | Platform health | 플랫폼 문제와 고객이 시작한 중지를 구분해줘. | `HEALTH` | queued |
