@@ -247,6 +247,16 @@ def apply_intent_graph_to_answer_plan(plan: AnswerPlan, graph: IntentGraph) -> A
     return apply_answer_intent_to_plan(plan, graph.primary_intent)
 
 
+def draft_capability_available(graph: IntentGraph, tools: Sequence[TurnTool]) -> bool:
+    """Return whether the graph's retained draft capability is still writable now."""
+    if not graph.requires_confirmation or graph.draft_goal_id is None:
+        return False
+    draft = next((goal for goal in graph.goals if goal.goal_id == graph.draft_goal_id), None)
+    if draft is None or draft.capability is None:
+        return False
+    return any(tool.name == draft.capability and tool.side_effect_class != "read" for tool in tools)
+
+
 def intent_graph_schema(tools: Sequence[TurnTool]) -> dict[str, object]:
     """Return the strict structured-output schema for one capability manifest."""
     names = [tool.name for tool in tools[:_MAX_CAPABILITIES]]
@@ -561,6 +571,7 @@ __all__ = [
     "IntentGraph",
     "IntentGraphPlanner",
     "apply_intent_graph_to_answer_plan",
+    "draft_capability_available",
     "intent_graph_schema",
     "planner_context_envelope",
     "plan_semantic_turn",

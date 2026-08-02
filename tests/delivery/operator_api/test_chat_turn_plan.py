@@ -553,6 +553,80 @@ def test_hierarchical_planner_owns_multilingual_health_intent(
 
 
 @pytest.mark.parametrize("stream", [False, True])
+def test_graph_draft_rechecks_current_capability_manifest(stream: bool) -> None:
+    action = TurnTool(
+        "ops.restart-service",
+        "Draft a restart.",
+        "write",
+        {
+            "type": "object",
+            "properties": {"resource_ref": {"type": "string"}},
+            "required": ["resource_ref"],
+            "additionalProperties": False,
+        },
+    )
+    graph = parse_intent_graph(
+        {
+            "schema_version": 2,
+            "goals": [
+                {
+                    "goal_id": "restart",
+                    "intent": "proposal",
+                    "capability": "ops.restart-service",
+                    "arguments": {"resource_ref": "service-example"},
+                    "depends_on": [],
+                    "evidence_mode": "operational",
+                    "freshness_required": True,
+                    "confidence": 0.9,
+                    "alternatives": [],
+                }
+            ],
+            "clarification": None,
+            "confidence": 0.9,
+            "action_posture": "draft_only",
+        },
+        tools=(action,),
+    )
+
+    class DraftPlanner:
+        async def plan_turn(self, **_kwargs: object):
+            return graph
+
+    manifest_reads = 0
+
+    def current_tools() -> tuple[TurnTool, ...]:
+        nonlocal manifest_reads
+        manifest_reads += 1
+        return (action,) if manifest_reads == 1 else ()
+
+    route = (
+        make_chat_stream_route(
+            backend=_AnswerBackend(),
+            authorize=_allow,
+            turn_planner=DraftPlanner(),
+            turn_tools=current_tools,
+        )
+        if stream
+        else make_chat_route(
+            backend=_AnswerBackend(),
+            authorize=_allow,
+            turn_planner=DraftPlanner(),
+            turn_tools=current_tools,
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": "Draft a restart"},
+    )
+
+    assert manifest_reads == 2
+    assert "draft capability is no longer available" in response.text
+    assert '"action_draft"' not in response.text
+    assert response.status_code == (200 if stream else 409)
+
+
+@pytest.mark.parametrize("stream", [False, True])
 def test_chat_write_plan_returns_draft_without_calling_answer_backend(stream: bool) -> None:
     backend = _AnswerBackend()
     planner = _Planner(

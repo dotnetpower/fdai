@@ -123,6 +123,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
     IntentGraphPlanner,
     apply_intent_graph_to_answer_plan,
+    draft_capability_available,
     plan_semantic_turn,
     planner_context_envelope,
 )
@@ -510,6 +511,20 @@ def make_chat_route(
                         )
                     return JSONResponse(completed_replay_payload(completed_turn))
             if semantic_plan is not None and semantic_plan.requires_confirmation:
+                if isinstance(semantic_plan, IntentGraph) and not draft_capability_available(
+                    semantic_plan,
+                    turn_tools() if callable(turn_tools) else turn_tools,
+                ):
+                    if busy_input_coordinator is not None and active_turn is not None:
+                        await busy_input_coordinator.finish_turn(
+                            session_id=session_id,
+                            turn_id=request_id,
+                            principal_id=user_id,
+                        )
+                    return JSONResponse(
+                        {"detail": "draft capability is no longer available"},
+                        status_code=409,
+                    )
                 if busy_input_coordinator is not None and active_turn is not None:
                     await busy_input_coordinator.finish_turn(
                         session_id=session_id,

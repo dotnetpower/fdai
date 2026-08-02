@@ -78,6 +78,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
     IntentGraphPlanner,
     apply_intent_graph_to_answer_plan,
+    draft_capability_available,
     plan_semantic_turn,
     planner_context_envelope,
 )
@@ -396,6 +397,21 @@ def make_chat_stream_route(
                             else "_turn_plan"
                         ] = semantic_plan.to_dict()
                         if semantic_plan.requires_confirmation:
+                            if isinstance(
+                                semantic_plan, IntentGraph
+                            ) and not draft_capability_available(
+                                semantic_plan,
+                                turn_tools() if callable(turn_tools) else turn_tools,
+                            ):
+                                await cleanup()
+                                yield frame(
+                                    "error",
+                                    {
+                                        "error": "draft capability is no longer available",
+                                        "status": 409,
+                                    },
+                                )
+                                return
                             await cleanup()
                             yield frame(
                                 "done",
