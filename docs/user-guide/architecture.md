@@ -61,7 +61,7 @@ The diagram shows the FDAI Web Console path. The FDAI CLI uses the same
 Operator API but is omitted from this view for clarity.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Primary and operational Azure Event Hubs namespaces, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, optional ADLS Gen2 storage, and case-history Blob storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 The baseline portion shows the default private-networking profile, where
@@ -69,9 +69,10 @@ The baseline portion shows the default private-networking profile, where
 Setting `enable_private_postgres=true` replaces that path with PostgreSQL
 Flexible Server in its delegated subnet and doesn't create the endpoint.
 The optional document-ingestion path shows its Ingestion Gateway, Blob and DFS
-private endpoints, and ADLS Gen2 account. Case-history storage is enabled by
-default but isn't drawn yet. The development operations gateway and APIM remain
-in their feature-specific profiles.
+private endpoints, and ADLS Gen2 account. The diagram also separates the primary
+and operational Event Hubs namespaces and shows the default case-history Blob
+account with its private endpoint. The development operations gateway and APIM
+remain in their feature-specific profiles.
 
 The same view overlays the intended gateway, model platform, observability, and
 delivery-provider topology. Status remains in this document rather than on the
@@ -92,16 +93,15 @@ document resources that only support those paths.
 
 | Terraform resource or resource group | Diagram treatment | Reason |
 |--------------------------------------|-------------------|--------|
-| Operational Event Hubs namespace and its private endpoint | Add in the next diagram revision | It is an always-on second namespace with a distinct Kafka and private-link path |
-| Case-history Blob account and its private endpoint | Add in the next diagram revision | It is enabled by default and carries a distinct replay and case-artifact path |
+| Operational Event Hubs namespace and its private endpoint | Shown directly | It is an always-on second namespace with a distinct Kafka and private-link path |
+| Case-history Blob account and its private endpoint | Shown directly | It is enabled by default and carries a distinct replay and case-artifact path |
 | Container Apps environment | Keep aggregated | The Container Apps subnet boundary and app/job nodes already communicate its hosting role |
 | Private DNS zones and VNet links | Keep implicit in private-endpoint paths | Drawing each zone and link would duplicate every private endpoint without changing the workload flow |
 | Action group, metric alerts, and diagnostic settings | Keep aggregated under App Insights and Logs | These resources implement observability routing rather than a separate workload data path |
 | Event Grid realtime inventory topic | Exclude from this private profile | Terraform enables it only when private networking is disabled |
 
-This means no immediate expansion is required. The next diagram update should
-add only the operational Event Hubs and case-history paths; the other omissions
-remain intentional abstractions.
+The diagram now includes the two network-significant baseline omissions. The
+other omissions remain intentional abstractions and do not require expansion.
 
 Azure Resource Graph reads and observability writes are shown outside the
 private data-plane path because they use Azure control-plane and telemetry

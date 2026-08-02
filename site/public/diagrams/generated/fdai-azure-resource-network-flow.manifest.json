@@ -6,12 +6,12 @@
     "en": {
       "title": "FDAI Azure resource network flow",
       "description": "Azure resources, private-endpoint flows, target-state gateway services, and governed delivery channels for FDAI private networking.",
-      "alt": "An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests."
+      "alt": "An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Primary and operational Azure Event Hubs namespaces, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, optional ADLS Gen2 storage, and case-history Blob storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests."
     },
     "ko": {
       "title": "FDAI Azure resource network flow",
       "description": "FDAI private networking의 Azure resource, private endpoint, target-state gateway service 및 통제된 전달 채널입니다.",
-      "alt": "운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다."
+      "alt": "운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Primary 및 operational Azure Event Hubs namespace, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, optional ADLS Gen2 storage 및 case-history Blob storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다."
     }
   },
   "assets": {
@@ -144,6 +144,18 @@
       }
     },
     {
+      "id": "operational-event-hubs-pe",
+      "kind": "service",
+      "label": {
+        "en": "Ops Event Hubs",
+        "ko": "Ops Event Hubs"
+      },
+      "description": {
+        "en": "Ops Event Hubs",
+        "ko": "Ops Event Hubs"
+      }
+    },
+    {
       "id": "registry-pe",
       "kind": "service",
       "label": {
@@ -228,6 +240,18 @@
       }
     },
     {
+      "id": "case-history-pe",
+      "kind": "service",
+      "label": {
+        "en": "Case history",
+        "ko": "Case history"
+      },
+      "description": {
+        "en": "Case history",
+        "ko": "Case history"
+      }
+    },
+    {
       "id": "event-hubs",
       "kind": "azure-service",
       "label": {
@@ -237,6 +261,18 @@
       "description": {
         "en": "Kafka :9093 topics, control topics, replay, and dead-letter streams",
         "ko": "Kafka :9093 topic, control topic, replay 및 dead-letter stream"
+      }
+    },
+    {
+      "id": "operational-event-hubs",
+      "kind": "azure-service",
+      "label": {
+        "en": "Ops Event Hubs",
+        "ko": "Ops Event Hubs"
+      },
+      "description": {
+        "en": "Canary and raw inventory Kafka topics in an isolated namespace",
+        "ko": "격리된 namespace의 canary 및 raw inventory Kafka topic"
       }
     },
     {
@@ -309,6 +345,18 @@
       "description": {
         "en": "Quarantine, governed source, and derived filesystems",
         "ko": "Quarantine, governed source 및 derived filesystem"
+      }
+    },
+    {
+      "id": "case-history-storage",
+      "kind": "store",
+      "label": {
+        "en": "Case history",
+        "ko": "Case history"
+      },
+      "description": {
+        "en": "Versioned prediction and incident case artifacts for replay",
+        "ko": "Replay를 위한 versioned prediction 및 incident case artifact"
       }
     },
     {
@@ -489,6 +537,13 @@
       "step": 3
     },
     {
+      "id": "operational-event-hubs-to-pe",
+      "from": "operational-event-hubs",
+      "to": "operational-event-hubs-pe",
+      "kind": "event",
+      "label": null
+    },
+    {
       "id": "event-pe-to-core",
       "from": "event-hubs-pe",
       "to": "core-runtime",
@@ -499,6 +554,20 @@
       "id": "api-to-event-pe",
       "from": "operator-api",
       "to": "event-hubs-pe",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "scheduled-jobs-to-operational-event-pe",
+      "from": "scheduled-jobs",
+      "to": "operational-event-hubs-pe",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "operational-event-pe-to-core",
+      "from": "operational-event-hubs-pe",
+      "to": "core-runtime",
       "kind": "event",
       "label": null
     },
@@ -612,6 +681,20 @@
       "id": "dfs-pe-to-storage",
       "from": "document-dfs-pe",
       "to": "document-storage",
+      "kind": "write",
+      "label": null
+    },
+    {
+      "id": "core-to-case-history-pe",
+      "from": "core-runtime",
+      "to": "case-history-pe",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "case-history-pe-to-storage",
+      "from": "case-history-pe",
+      "to": "case-history-storage",
       "kind": "write",
       "label": null
     },
