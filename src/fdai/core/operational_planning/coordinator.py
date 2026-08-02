@@ -17,6 +17,9 @@ from fdai.core.decision_case import (
 from fdai.core.operational_context import OperationalContextSnapshot
 
 from .models import (
+    MAX_PLAN_CONSTRAINTS,
+    MAX_PLAN_EFFECTS,
+    MAX_PLAN_SPECIALIST_DOMAINS,
     ConstraintEvaluation,
     OperationalPlan,
     PlanCandidate,
@@ -149,6 +152,17 @@ class SpecialistPlanningCoordinator:
         impacts: dict[str, float],
         created_at: datetime,
     ) -> SpecialistPlanningProjection | None:
+        if len(advice) > MAX_PLAN_SPECIALIST_DOMAINS or len(impacts) > MAX_PLAN_SPECIALIST_DOMAINS:
+            raise ValueError("specialist planning domain count exceeds the hard limit")
+        objective_ids = {
+            *context.service_objective_ids,
+            *context.recovery_objective_ids,
+            *context.cost_objective_ids,
+        }
+        if len(objective_ids) > MAX_PLAN_EFFECTS:
+            raise ValueError("specialist planning objective count exceeds the hard limit")
+        if len(context.constraint_ids) + 2 > MAX_PLAN_CONSTRAINTS:
+            raise ValueError("specialist planning constraint count exceeds the hard limit")
         base = self._decision_coordinator.build(
             correlation_id=correlation_id,
             context=context,

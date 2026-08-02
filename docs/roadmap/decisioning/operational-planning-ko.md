@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: b9d88789c053eb7198c46d628621630523aa973c
+translation_source_sha: de453b4d00038913e0bfc6a42883d3afe33e0c62
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -152,6 +152,11 @@ effect range, uncertainty, violated constraint, evidence reference를 기록합�
 초기 optimizer는 schema-valid 후보를 결정론적 순서로 최대 32개 열거합니다. Cap을 초과하는 input은
 분해하거나 검토를 위해 보류하며 조용히 자르지 않습니다. Frozen fixture가 bounded enumeration으로
 필요한 문제를 표현할 수 없음을 증명한 뒤에만 solver adapter를 추가합니다.
+
+Artifact validation은 objective 또는 effect entry를 32개, constraint를 64개, candidate별 simulation을
+8개, item별 evidence reference를 64개, 전체 nested evidence manifest를 unique reference 256개로
+제한합니다. 이 check는 simulation 또는 artifact 생성 전에 실행됩니다. Caller는 더 작은 read
+projection 뒤에 초과 lineage를 숨길 수 없습니다.
 
 ## Simulation 수준
 

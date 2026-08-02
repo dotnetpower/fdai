@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from fdai.core.decision_case import ActionOption, ObjectiveEffect
 from fdai.core.operational_planning import (
+    MAX_PLAN_CONSTRAINTS,
     ConstitutionalPlanningConstraintEvaluator,
     ConstraintStatus,
 )
@@ -52,3 +55,22 @@ async def test_constitutional_constraints_treat_review_context_as_unknown() -> N
     )
 
     assert results[0].status is ConstraintStatus.UNKNOWN
+
+
+async def test_constraint_limit_fails_before_evaluation() -> None:
+    context = replace(
+        _context(),
+        constraint_ids=tuple(f"constraint-{index}" for index in range(MAX_PLAN_CONSTRAINTS - 1)),
+    )
+    option = ActionOption(
+        option_id="capacity:scale_up",
+        action_type="ops.scale-out",
+        effects=(ObjectiveEffect("reliability", 0.8, 0.9, "availability", 0.9, 1.0, 300),),
+        evidence_refs=("forecast:capacity",),
+    )
+
+    with pytest.raises(ValueError, match="constraint count exceeds"):
+        await ConstitutionalPlanningConstraintEvaluator().evaluate(
+            context=context,
+            option=option,
+        )

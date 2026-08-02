@@ -155,6 +155,11 @@ An input that would exceed the cap is decomposed or held for review; it is never
 truncated. A solver adapter is added only after a frozen fixture demonstrates that bounded
 enumeration cannot express the required problem.
 
+Artifact validation also caps objective or effect entries at 32, constraints at 64, simulations
+per candidate at 8, evidence references per item at 64, and the complete nested evidence manifest
+at 256 unique references. These checks run before simulation or artifact construction. A caller
+cannot hide excess lineage behind a smaller read projection.
+
 ## Simulation levels
 
 The word simulation covers three distinct authority envelopes.

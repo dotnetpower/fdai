@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -7,6 +8,11 @@ import pytest
 from fdai.core.decision_case import ObjectiveEffect
 from fdai.core.operational_context import OperationalContextSnapshot
 from fdai.core.operational_planning import (
+    MAX_PLAN_EFFECTS,
+    MAX_PLAN_EVIDENCE_REFS,
+    MAX_PLAN_ITEM_EVIDENCE_REFS,
+    MAX_PLAN_SIMULATIONS,
+    MAX_PLAN_TEXT_LENGTH,
     CandidateDisposition,
     ConstraintEvaluation,
     ConstraintStatus,
@@ -196,3 +202,50 @@ def test_candidate_limit_fails_closed_instead_of_truncating() -> None:
 
     with pytest.raises(ValueError, match="hard limit"):
         _request(candidates)
+
+
+def test_nested_collection_limits_fail_closed() -> None:
+    candidate = _candidate("selected", 0.8, -0.2)
+    too_many_effects = tuple(
+        _effect(f"objective-{index}", 0.1) for index in range(MAX_PLAN_EFFECTS + 1)
+    )
+    too_many_simulations = tuple(
+        replace(
+            candidate.simulations[0],
+            receipt_id=f"simulation:{index}",
+        )
+        for index in range(MAX_PLAN_SIMULATIONS + 1)
+    )
+
+    with pytest.raises(ValueError, match="effect count exceeds"):
+        replace(candidate, effects=too_many_effects)
+    with pytest.raises(ValueError, match="simulation count exceeds"):
+        replace(candidate, simulations=too_many_simulations)
+    with pytest.raises(ValueError, match="assumptions values MUST be non-empty and bounded"):
+        replace(candidate, assumptions=("x" * (MAX_PLAN_TEXT_LENGTH + 1),))
+
+
+def test_item_and_aggregate_evidence_limits_cover_nested_receipts() -> None:
+    candidate = _candidate("selected", 0.8, -0.2)
+    with pytest.raises(ValueError, match="plan candidate evidence count exceeds"):
+        replace(
+            candidate,
+            evidence_refs=tuple(
+                f"evidence:{index}" for index in range(MAX_PLAN_ITEM_EVIDENCE_REFS + 1)
+            ),
+        )
+
+    candidates = []
+    evidence_per_candidate = MAX_PLAN_EVIDENCE_REFS // 32
+    for index in range(32):
+        item = _candidate(f"candidate-{index}", 0.8, -0.2)
+        contribution = replace(
+            item.contributions[0],
+            logic_receipt_refs=tuple(
+                f"logic:{index}:{offset}" for offset in range(evidence_per_candidate)
+            ),
+        )
+        candidates.append(replace(item, contributions=(contribution,)))
+
+    with pytest.raises(ValueError, match="planning evidence count exceeds"):
+        _request(tuple(candidates))

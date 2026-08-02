@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
+
+import pytest
 
 from fdai.core.decision_case import ActionOption, ObjectiveEffect
 from fdai.core.operational_context import OperationalContextSnapshot
 from fdai.core.operational_planning import (
+    MAX_PLAN_EFFECTS,
     ConstraintEvaluation,
     ConstraintStatus,
     SimulationReceipt,
@@ -58,6 +62,9 @@ class _PassedConstraints:
 
 
 class _Simulator:
+    def __init__(self) -> None:
+        self.calls = 0
+
     async def simulate(
         self,
         *,
@@ -67,6 +74,7 @@ class _Simulator:
         effects: tuple[ObjectiveEffect, ...],
         observed_at: datetime,
     ) -> SimulationReceipt:
+        self.calls += 1
         return SimulationReceipt(
             receipt_id=f"simulation:{candidate_id}",
             candidate_id=candidate_id,
@@ -102,3 +110,29 @@ async def test_specialist_planning_enriches_existing_decision_case() -> None:
     options = mapping["options"]
     assert {tuple(option["proposing_agents"]) for option in options} == {("Njord",), ("Freyr",)}
     assert all(option["simulation_receipt_refs"] for option in options)
+
+
+async def test_oversized_objective_set_is_rejected_before_simulation() -> None:
+    simulator = _Simulator()
+    coordinator = SpecialistPlanningCoordinator(
+        logic_release_digest="sha256:" + "c" * 64,
+        constraint_evaluator=_PassedConstraints(),
+        simulator=simulator,
+    )
+    objectives = tuple(f"objective-{index}" for index in range(MAX_PLAN_EFFECTS + 1))
+
+    with pytest.raises(ValueError, match="objective count exceeds"):
+        await coordinator.build(
+            correlation_id="correlation-example",
+            context=replace(
+                _context(),
+                objective_ids=objectives,
+                service_objective_ids=objectives,
+                cost_objective_ids=(),
+            ),
+            advice={"capacity": "scale_up"},
+            impacts={"capacity": 0.9},
+            created_at=NOW,
+        )
+
+    assert simulator.calls == 0

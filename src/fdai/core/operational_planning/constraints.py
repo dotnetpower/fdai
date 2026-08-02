@@ -5,7 +5,7 @@ from __future__ import annotations
 from fdai.core.decision_case import ActionOption
 from fdai.core.operational_context import OperationalContextSnapshot
 
-from .models import ConstraintEvaluation, ConstraintStatus
+from .models import MAX_PLAN_CONSTRAINTS, ConstraintEvaluation, ConstraintStatus
 
 
 class ConstitutionalPlanningConstraintEvaluator:
@@ -17,6 +17,8 @@ class ConstitutionalPlanningConstraintEvaluator:
         context: OperationalContextSnapshot,
         option: ActionOption,
     ) -> tuple[ConstraintEvaluation, ...]:
+        if len(context.constraint_ids) + 2 > MAX_PLAN_CONSTRAINTS:
+            raise ValueError("planning constraint count exceeds the hard limit")
         evidence = (f"context:{context.snapshot_id}", *option.evidence_refs)
         results = [
             ConstraintEvaluation(

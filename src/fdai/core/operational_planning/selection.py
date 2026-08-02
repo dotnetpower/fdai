@@ -40,7 +40,11 @@ def build_operational_plan(request: PlanningRequest) -> OperationalPlan:
             dict.fromkeys(
                 (
                     request.logic_release_digest,
-                    *(ref for candidate in request.candidates for ref in candidate.evidence_refs),
+                    *(
+                        ref
+                        for candidate in request.candidates
+                        for ref in candidate.evidence_manifest
+                    ),
                 )
             )
         ),
