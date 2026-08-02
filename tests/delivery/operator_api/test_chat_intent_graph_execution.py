@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from typing import Any
 
+import pytest
+
+import fdai.delivery.operator_api.routes.chat_intent_graph_execution as graph_execution
 from fdai.delivery.operator_api.routes.chat_intent_graph import parse_intent_graph
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     resolve_intent_graph_evidence,
@@ -29,6 +33,28 @@ class _Tools:
             "authority": "server_read_model",
             "result": {"arguments": dict(arguments), "principal": principal_id},
         }
+
+
+class _BlockingTools:
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+        self.cancelled = asyncio.Event()
+
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> Mapping[str, Any] | None:
+        del tool_name, arguments, principal_id
+        self.started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled.set()
+            raise
+        return None
 
 
 class _Web:
@@ -346,6 +372,59 @@ async def test_fresh_web_goal_stays_unavailable_without_model_fallback() -> None
     assert ledger["status"] == "unavailable"
     assert ledger["evidence_mode"] == "held_for_review"
     assert ledger["goals"][0]["status"] == "unavailable"
+
+
+async def test_goal_timeout_skips_dependent_goal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(graph_execution, "_GOAL_TIMEOUT_SECONDS", 0.01)
+    resolver = _BlockingTools()
+    graph = _graph(
+        _goal("blocked", "query_health"),
+        _goal("dependent", "query_health", depends_on=["blocked"]),
+    )
+
+    result = await resolve_intent_graph_evidence(
+        request_id="request-8",
+        prompt="run a bounded query",
+        graph=graph,
+        view_context={},
+        user_id="reader",
+        session_id="session-8",
+        planned_tool_resolver=resolver,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=lambda _event: _completed(),
+    )
+
+    receipts = result["_intent_graph_evidence"]["goals"]
+    assert [receipt["status"] for receipt in receipts] == ["timed_out", "skipped"]
+    assert receipts[1]["blocked_by"] == ["blocked"]
+    assert resolver.cancelled.is_set()
+
+
+async def test_request_cancellation_reaches_goal_provider() -> None:
+    resolver = _BlockingTools()
+    graph = _graph(_goal("blocked", "query_health"))
+    task = asyncio.create_task(
+        resolve_intent_graph_evidence(
+            request_id="request-9",
+            prompt="cancel this query",
+            graph=graph,
+            view_context={},
+            user_id="reader",
+            session_id="session-9",
+            planned_tool_resolver=resolver,
+            agent_delegate=None,
+            web_search_resolver=None,
+            progress_observer=lambda _event: _completed(),
+        )
+    )
+    await resolver.started.wait()
+
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert resolver.cancelled.is_set()
 
 
 async def _completed() -> None:
