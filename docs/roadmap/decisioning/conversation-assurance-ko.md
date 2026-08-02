@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 4f3ea9d8175252607c3e8b915160d48b73deaa0a
+translation_source_sha: 6889e82f6e4392f15e2994c60d0fdd641b9ca43d
 translation_revised: 2026-08-04
 ---
 # 대화 품질 보증
@@ -103,6 +103,9 @@ provider mapping, projection binding, ontology declaration, rule candidate 또�
 - **최신성**: 시간에 민감한 근거가 주장에 충분히 최신입니다.
 
 하드 검사 실패는 `fail`입니다. 근거 부족은 `inconclusive`이며 통과로 바뀌지 않습니다.
+Deterministic answer는 terminal evidence manifest에 reference가 하나 이상 있고 verification
+authority가 available인 경우에만 통과합니다. Route name, completed check count 또는 deterministic
+source flag는 terminal evidence를 대체할 수 없습니다.
 
 ### 의미 루브릭
 

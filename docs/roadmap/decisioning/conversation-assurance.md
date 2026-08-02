@@ -102,6 +102,9 @@ Hard checks run for every completed answer without a model call:
 - **Freshness**: Time-sensitive evidence is current enough for the claim.
 
 A hard failure produces `fail`. Missing evidence produces `inconclusive`; it never becomes a pass.
+A deterministic answer passes only when the terminal evidence manifest contains at least one
+reference and its verification authority is available. A route name, completed check count, or
+deterministic source flag cannot substitute for terminal evidence.
 
 ### Semantic rubric
 

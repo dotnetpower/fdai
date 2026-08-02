@@ -91,6 +91,23 @@ def test_deterministic_verified_answer_skips_semantic_review() -> None:
     assert not result.needs_semantic_review
 
 
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"evidence_refs": ()}, "evidence_manifest_empty"),
+        ({"verification_authority": "unavailable"}, "verification_authority_unavailable"),
+    ],
+)
+def test_deterministic_answer_requires_terminal_evidence(
+    overrides: dict[str, object],
+    reason: str,
+) -> None:
+    result = assess_deterministically(_turn(deterministic_answer=True, **overrides))
+
+    assert result.verdict is AssuranceVerdict.INCONCLUSIVE
+    assert result.reasons == (reason,)
+
+
 def test_deterministic_failed_claim_fails() -> None:
     result = assess_deterministically(_turn(failed_claim_ids=("claim-1",)))
 
