@@ -109,6 +109,9 @@ shape maps to environments and CI/CD.
 - Offline development without Azure access is fail-closed: reference/catalog screens may load,
   but Azure runtime screens remain unavailable. There is no synthetic offline mode for the
   interactive Console.
+- Local preparation enables optional web search only when the resolved-model artifact contains at
+  least one usable `web_search_candidates` entry. Missing candidates leave web search unavailable;
+  launch tasks MUST NOT override that capability decision.
 
 ## Local Runtime Parity Contract (MUST)
 

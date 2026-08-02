@@ -344,10 +344,7 @@ def test_full_stack_launch_uses_entra_rbac_without_fixture_or_cli_principal() ->
     frontend_task = tasks.split('"label": "console: frontend (Browser Entra)"', 1)[1]
     assert '"reveal": "silent"' in operator_api_task
     assert '"focus": false' in operator_api_task
-    assert (
-        "-u FDAI_OPERATOR_API_LOCAL_AZURE_CLI FDAI_WEB_SEARCH_ENABLED=1 PYTHONPATH"
-        in operator_api_task
-    )
+    assert "FDAI_WEB_SEARCH_ENABLED=" not in operator_api_task
     assert "env -u AZURE_CONFIG_DIR -u FDAI_OPERATOR_API_DEV_MODE" in operator_api_task
     assert (
         "env -u AZURE_CONFIG_DIR bash scripts/deployment/azure/prepare-local-runtime-env.sh"

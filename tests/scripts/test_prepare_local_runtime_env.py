@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import stat
 import subprocess
 from pathlib import Path
+
+import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = _REPO_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh"
@@ -18,14 +21,39 @@ _EXECUTOR_RESOURCE_ID = (
 )
 
 
-def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("web_search_candidates", "expected_web_search_enabled"),
+    [
+        ([], "0"),
+        (
+            [
+                {
+                    "endpoint": "https://models.example.com/",
+                    "deployment": "web-search",
+                }
+            ],
+            "1",
+        ),
+    ],
+)
+def test_prepares_deployed_transport_without_copying_stale_transport(
+    tmp_path: Path,
+    web_search_candidates: list[dict[str, str]],
+    expected_web_search_enabled: str,
+) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
     (repo / "infra").mkdir()
     (repo / ".venv/bin").mkdir(parents=True)
     (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
     (repo / "resolved-models.json").write_text(
-        '{"narrator": {"endpoint": "https://models.example.com/"}}\n',
+        json.dumps(
+            {
+                "narrator": {"endpoint": "https://models.example.com/"},
+                "web_search_candidates": web_search_candidates,
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     (repo / "console/.env.local").write_text(
@@ -42,6 +70,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_AZURE_READER_RESOURCE_GROUPS=stale-group\n"
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://stale.example.com\n"
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n"
+        "FDAI_WEB_SEARCH_ENABLED=1\n"
         "FDAI_DIRECT_API_FAKE=1\n",
         encoding="utf-8",
     )
@@ -126,6 +155,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "LLM_MODE=azure",
         f"LLM_RESOLVED_MODELS_PATH={repo / 'resolved-models.json'}",
         "FDAI_LLM_ENDPOINT=https://models.example.com",
+        f"FDAI_WEB_SEARCH_ENABLED={expected_web_search_enabled}",
         "RUNTIME_ENV=dev",
         "AUTONOMY_MODE_DEFAULT=shadow",
         "FDAI_START_CONSUMER=1",

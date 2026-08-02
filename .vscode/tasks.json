@@ -174,7 +174,7 @@
     {
       "label": "console: Operator API (Local Entra)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh operator-api \"$PWD/.fdai/logs/operator-api.log\" -- env -u AZURE_CONFIG_DIR -u FDAI_OPERATOR_API_DEV_MODE -u FDAI_OPERATOR_API_LOCAL_AZURE_CLI FDAI_WEB_SEARCH_ENABLED=1 PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" FDAI_OPERATOR_API_LOCAL_ENTRA=1 FDAI_OPERATOR_API_EMBED_PANTHEON=0 FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273 .venv/bin/python -m uvicorn fdai.delivery.operator_api.dev.local:server_app --factory --host 127.0.0.1 --port 8010 --no-access-log",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh operator-api \"$PWD/.fdai/logs/operator-api.log\" -- env -u AZURE_CONFIG_DIR -u FDAI_OPERATOR_API_DEV_MODE -u FDAI_OPERATOR_API_LOCAL_AZURE_CLI PYTHONPATH=\"$PWD/src${PYTHONPATH:+:$PYTHONPATH}\" FDAI_OPERATOR_API_LOCAL_ENTRA=1 FDAI_OPERATOR_API_EMBED_PANTHEON=0 FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5273,http://localhost:5273 .venv/bin/python -m uvicorn fdai.delivery.operator_api.dev.local:server_app --factory --host 127.0.0.1 --port 8010 --no-access-log",
       "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": {
