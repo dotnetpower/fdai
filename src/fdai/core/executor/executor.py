@@ -477,6 +477,7 @@ class ShadowExecutor:
             "rule_version": rule.version,
             "resource_ref": action.target_resource_ref,
             "operation": action.operation.value,
+            "executor_identity_ref": action.executor_identity_ref,
             "rollback_kind": action.rollback_ref.kind.value,
             "rollback_reference": action.rollback_ref.reference,
             "stop_condition": action.stop_condition,
@@ -509,6 +510,7 @@ class ShadowExecutor:
                 "rule_id": rule.id,
                 "rule_version": rule.version,
                 "resource_ref": action.target_resource_ref,
+                "executor_identity_ref": action.executor_identity_ref,
                 "dry_run_receipt": dry_run_receipt,
                 "dry_run_passed": True,
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
@@ -554,6 +556,7 @@ def _execution_fingerprint(*, action: Action, rule: Rule) -> str:
             "rate_per_minute": action.blast_radius.rate_per_minute,
         },
         "mode": action.mode.value,
+        "executor_identity_ref": action.executor_identity_ref,
         "citing_rules": sorted(action.citing_rules),
         "rule": {"id": rule.id, "version": rule.version},
     }
@@ -617,6 +620,9 @@ def _build_remediation_pr(
         "ActionType's `promotion_gate` clears on the frozen scenario set.",
     ]
     body = "\n".join(body_lines)
+    metadata = {"dry_run_receipt": dry_run_receipt}
+    if action.executor_identity_ref is not None:
+        metadata["executor_identity_ref"] = action.executor_identity_ref
     return RemediationPr(
         action_id=action.action_id,
         idempotency_key=action.idempotency_key,
@@ -627,7 +633,7 @@ def _build_remediation_pr(
         patch_path=_default_patch_path(action=action, rule=rule),
         labels=("shadow", f"rule:{rule.id}", f"action:{action.action_type}"),
         mode=Mode.SHADOW,
-        metadata={"dry_run_receipt": dry_run_receipt},
+        metadata=metadata,
     )
 
 
