@@ -41,7 +41,8 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-group-id="fdai-vnet"/);
   assert.match(svg, /data-group-id="container-apps-subnet"/);
   assert.match(svg, /data-group-id="private-endpoint-subnet"/);
-  assert.match(svg, /data-group-id="postgres-subnet"/);
+  assert.doesNotMatch(svg, /data-group-id="postgres-subnet"/);
+  assert.match(svg, /data-node-id="postgres-pe"/);
   assert.match(svg, /data-node-id="operator-console"/);
   assert.doesNotMatch(svg, /data-node-id="operator-cli"/);
   for (const groupId of [
@@ -67,7 +68,6 @@ test("Azure resource network flow routes every compound edge", async () => {
   ];
   assert.ok(Math.max(...gridGroups.map((group) => group.x)) - Math.min(...gridGroups.map((group) => group.x)) <= 1);
   assert.ok(Math.max(...gridGroups.map((group) => group.width)) - Math.min(...gridGroups.map((group) => group.width)) <= 1);
-  assert.ok(layout.groups.get("postgres-subnet")!.width >= 200);
   const containerApps = layout.groups.get("container-apps-subnet")!;
   const privateEndpoints = layout.groups.get("private-endpoint-subnet")!;
   const privateServices = layout.groups.get("private-service-backends")!;
@@ -151,8 +151,8 @@ test("Azure resource network flow routes every compound edge", async () => {
     "registry-pe-to-core",
     "core-to-key-vault-pe",
     "core-to-openai-pe",
-    "core-to-postgres",
-    "api-to-postgres",
+    "core-to-postgres-pe",
+    "api-to-postgres-pe",
   ]) {
     const edge = layout.edges.find((candidate) => candidate.id === edgeId)!;
     const bends = edge.sections?.[0]?.bendPoints ?? [];
@@ -171,4 +171,13 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.ok(gitSection.bendPoints[0]!.y < gitSection.startPoint.y);
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-teams")!.step, 6);
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-git")!.step, 7);
+  assert.equal(
+    spec.nodes.find((node) => node.id === "postgres")!.parent,
+    "private-service-backends",
+  );
+  const postgresWrite = spec.edges.find(
+    (edge) => edge.id === "postgres-pe-to-service",
+  )!;
+  assert.equal(postgresWrite.from, "postgres-pe");
+  assert.equal(postgresWrite.to, "postgres");
 });

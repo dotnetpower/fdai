@@ -5,12 +5,12 @@ updated: 2026-08-02
 locales:
   en:
     title: FDAI Azure resource network flow
-    description: Azure resources, private network boundaries, identities, and governed operator flows for the FDAI deployment.
-    alt: An operator signs in through Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, and Azure OpenAI connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet, while Azure Database for PostgreSQL runs in its delegated subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests.
+    description: Azure resources and private-endpoint flows for the default FDAI private-networking profile.
+    alt: An operator signs in through Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, and Azure Database for PostgreSQL connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests.
   ko:
     title: FDAI Azure resource network flow
-    description: FDAI Azure 배포의 resource, private network, identity 및 통제된 flow입니다.
-    alt: 운영자는 Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault 및 Azure OpenAI는 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행되고 Azure Database for PostgreSQL은 delegated subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다.
+    description: FDAI default private-networking profile의 Azure resource 및 private endpoint flow입니다.
+    alt: 운영자는 Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI 및 Azure Database for PostgreSQL은 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다.
 canvas:
   width: 1600
   height: 960
@@ -46,7 +46,7 @@ groups:
     direction: RIGHT
     layout: row
     alignWith: private-endpoint-subnet
-    width: 548
+    width: 680
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -54,15 +54,7 @@ groups:
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: RIGHT
     layout: row
-    width: 548
-  - id: postgres-subnet
-    parent: fdai-vnet
-    kind: subnet
-    presentation: band
-    label: { en: PostgreSQL delegated subnet, ko: PostgreSQL delegated subnet }
-    direction: RIGHT
-    layout: row
-    width: 200
+    width: 680
   - id: private-service-backends
     parent: azure-region
     kind: layer
@@ -72,7 +64,7 @@ groups:
     layout: row
     placement: below
     alignWith: private-endpoint-subnet
-    width: 548
+    width: 680
   - id: platform-services
     parent: azure-region
     kind: layer
@@ -148,13 +140,12 @@ nodes:
     icon: private-endpoint
     presentation: icon
     label: { en: Azure OpenAI private endpoint, ko: Azure OpenAI private endpoint }
-  - id: postgres
-    parent: postgres-subnet
-    kind: azure-service
-    icon: postgresql
+  - id: postgres-pe
+    parent: private-endpoint-subnet
+    kind: service
+    icon: private-endpoint
     presentation: icon
-    label: { en: Azure Database for PostgreSQL, ko: Azure Database for PostgreSQL }
-    description: { en: "State, append-only audit, operator memory, and pgvector", ko: "상태, 추가 전용 감사, operator memory 및 pgvector" }
+    label: { en: PostgreSQL private endpoint, ko: PostgreSQL private endpoint }
   - id: event-hubs
     parent: private-service-backends
     kind: azure-service
@@ -183,6 +174,13 @@ nodes:
     presentation: icon
     label: { en: Azure OpenAI, ko: Azure OpenAI }
     description: { en: Optional governed T2 model capabilities, ko: 선택적인 통제된 T2 model capability }
+  - id: postgres
+    parent: private-service-backends
+    kind: azure-service
+    icon: postgresql
+    presentation: icon
+    label: { en: Azure Database for PostgreSQL, ko: Azure Database for PostgreSQL }
+    description: { en: "State, append-only audit, operator memory, and pgvector", ko: "상태, 추가 전용 감사, operator memory 및 pgvector" }
   - id: workload-identities
     parent: platform-services
     kind: azure-service
@@ -286,20 +284,25 @@ edges:
     to: azure-openai
     kind: request
     route: orthogonal
-  - id: core-to-postgres
+  - id: core-to-postgres-pe
     from: core-runtime
-    to: postgres
+    to: postgres-pe
     kind: audit
     route: orthogonal-trunk
     lane: 2
     step: 5
-    label: { en: State and audit, ko: 상태 및 감사 }
-  - id: api-to-postgres
+  - id: api-to-postgres-pe
     from: operator-api
-    to: postgres
+    to: postgres-pe
     kind: read
     route: orthogonal-trunk
     lane: 2
+  - id: postgres-pe-to-service
+    from: postgres-pe
+    to: postgres
+    kind: write
+    route: orthogonal
+    label: { en: PostgreSQL private link, ko: PostgreSQL private link }
   - id: core-to-resource-graph
     from: core-runtime
     to: resource-graph
