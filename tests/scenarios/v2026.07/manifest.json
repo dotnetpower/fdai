@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_set_version": "v2026.07",
+  "status": "incomplete",
+  "capability_packs": {
+    "sre": {
+      "status": "missing",
+      "scenario_ids": [],
+      "coverage": {"successful_full_loop": false, "unknown_or_deny": false, "cross_objective_conflict": false, "partial_failure_recovery": false, "a3e_or_non_applicability": false, "deterministic_replay_with_evidence": false}
+    },
+    "arb_change_safety": {
+      "status": "partial",
+      "scenario_ids": ["change.drift-manual-portal-edit.003", "change.nsg-allow-any-inbound.002", "change.tag-owner-missing.001"],
+      "coverage": {"successful_full_loop": false, "unknown_or_deny": false, "cross_objective_conflict": false, "partial_failure_recovery": false, "a3e_or_non_applicability": false, "deterministic_replay_with_evidence": true}
+    },
+    "finops": {
+      "status": "partial",
+      "scenario_ids": ["finops.right-size-vm-high-monthly.002", "finops.stop-idle-dev-vm-off-hours.003", "finops.unattached-public-ip.001"],
+      "coverage": {"successful_full_loop": false, "unknown_or_deny": false, "cross_objective_conflict": false, "partial_failure_recovery": false, "a3e_or_non_applicability": false, "deterministic_replay_with_evidence": true}
+    },
+    "dr": {
+      "status": "partial",
+      "scenario_ids": ["dr.backup-vault-restore-rehearsal.002", "dr.replica-lag-degraded.001"],
+      "coverage": {"successful_full_loop": false, "unknown_or_deny": false, "cross_objective_conflict": false, "partial_failure_recovery": false, "a3e_or_non_applicability": false, "deterministic_replay_with_evidence": true}
+    },
+    "chaos": {
+      "status": "partial",
+      "scenario_ids": ["dr.chaos-experiment-novel.003"],
+      "coverage": {"successful_full_loop": false, "unknown_or_deny": false, "cross_objective_conflict": false, "partial_failure_recovery": false, "a3e_or_non_applicability": true, "deterministic_replay_with_evidence": true}
+    }
+  }
+}

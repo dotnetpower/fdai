@@ -59,6 +59,7 @@ async def test_same_key_with_different_action_is_audited_conflict(
     assert conflict.outcome is ExecutorOutcome.REJECTED_IDEMPOTENCY_CONFLICT
     assert len(publisher.records) == 1
     assert [item["entry"]["outcome"] for item in audit.audit_entries] == [
+        "intent_persisted",
         "published",
         "rejected_idempotency_conflict",
     ]
@@ -147,6 +148,7 @@ async def test_concurrent_same_key_different_resources_are_serialized() -> None:
     assert conflict.outcome is ExecutorOutcome.REJECTED_IDEMPOTENCY_CONFLICT
     assert publisher.calls == 1
     assert [item["entry"]["outcome"] for item in audit.audit_entries] == [
+        "intent_persisted",
         "published",
         "rejected_idempotency_conflict",
     ]

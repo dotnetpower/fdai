@@ -50,7 +50,7 @@ fdai/
 │   │   ├── rbac/               # human RBAC for the Operator API (5-role matrix, resolver, enforcer)
 │   │   ├── human_assignment/   # immutable role/duty intent, normalized review quorum, revisioned StateStore lifecycle, and effect receipts
 │   │   ├── hil_resume/         # HIL park/resume, no-drop grouping, bounded reminders, and CAS-owned shadow non-response supervision
-│   │   ├── executor/           # per-resource lock, idempotent apply via delivery adapters
+│   │   ├── executor/           # logical-target lock, idempotency, dry-run receipt, pre-effect/terminal audit, delivery adapters
 │   │   ├── execution_backend/  # profile intersection, durable lifecycle coordination, and shadow probes; no judgment authority
 │   │   ├── audit/              # append-only, hash-chained audit log + KPI/metric emission
 │   │   ├── notifications/      # channel-routing layer over the notifications matrix

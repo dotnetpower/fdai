@@ -3,6 +3,7 @@
   "id": "finops.right-size-vm-high-monthly.002",
   "version": "v2026.07",
   "domain": "finops",
+  "capability": "finops",
   "tags": [
     "right-sizing",
     "high-cost"

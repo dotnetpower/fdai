@@ -1,9 +1,8 @@
 ---
 title: FDAI 헌법
 translation_of: fdai-constitution.md
-translation_source_sha: c287646ab889b825f021f8c0a78deca1228030b9
+translation_source_sha: 0146a323b16611f7b0e0a413ef8a9613f9ed7126
 translation_revised: 2026-08-01
----
 # FDAI 헌법
 
 이 문서는 FDAI의 최상위 설계 권위입니다. 모든 상세 설계, 기계 계약, 구현, 워크플로우 및
@@ -11,6 +10,10 @@ translation_revised: 2026-08-01
 
 > **규범 범위:** 이 헌법은 목표 동작을 정의합니다. 구현 상태는 capability 및 제공 문서에
 > 기록하며 헌법 요구사항을 약화해서는 안 됩니다.
+>
+> **구현 증거:** [`config/constitution-traceability.json`](../../../config/constitution-traceability.json)은
+> requirement-to-code/test/evidence machine register입니다. `partial` 또는 `planned` entry는 완전한
+> constitutional runtime conformance 주장을 차단하며 이 목표를 약화하지 않습니다.
 >
 > **정확성 범위:** FDAI는 모든 새로운 상황에서 정확한 진단이나 성공적인 외부 결과를
 > 보장하지 않습니다. 계약을 준수하는 동작을 보장합니다. 불확실하면 지원되지 않는 작업을

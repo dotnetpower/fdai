@@ -1,9 +1,9 @@
-"""Action contract - the autonomous change the executor may apply.
+"""Action proposal contract - the state change an executor may evaluate.
 
-The four safety-invariant fields (``stop_condition``, ``rollback_ref``,
-``blast_radius``, plus the audit entry that consumers of this model MUST
-write when they persist the action) are mandatory. An action missing any
-of them is incomplete and MUST NOT execute.
+The proposal carries stop, rollback, impact, idempotency, and target identity.
+Execution paths add their content-addressed dry-run receipt, logical-target lock,
+and pre-effect/terminal audit lifecycle. An incomplete path MUST NOT apply a
+side effect.
 """
 
 from __future__ import annotations

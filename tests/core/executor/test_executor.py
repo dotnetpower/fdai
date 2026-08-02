@@ -4,7 +4,7 @@ Every property this suite asserts corresponds to a rule in
 [`.github/instructions/coding-conventions.instructions.md § Safety`]:
 
 - shadow-mode NEVER mutates state - enforce-mode Actions are rejected.
-- Every terminal path writes exactly one audit entry.
+- Every publishable path writes intent then terminal audit; pre-effect refusals write one terminal.
 - Idempotent by ``Action.idempotency_key`` - a re-delivered event
   returns the cached receipt and does NOT republish.
 - Blast-radius over the executor cap → abstain + audit.
@@ -49,6 +49,7 @@ from fdai.shared.contracts.models import (
     Severity,
     StopConditionKind,
 )
+from fdai.shared.providers.remediation_pr import PublishReceipt, RemediationPr
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
@@ -168,9 +169,82 @@ async def test_publishes_shadow_pr_and_writes_audit() -> None:
     assert '"owner" = "team-a"' in pr.patch
 
     entries = list(audit.audit_entries)
+    assert [row["entry"]["audit_phase"] for row in entries] == ["intent", "terminal"]
+    assert entries[0]["entry"]["outcome"] == "intent_persisted"
+    assert entries[1]["entry"]["outcome"] == "published"
+    assert entries[0]["entry"]["dry_run_receipt"] == entries[1]["entry"]["dry_run_receipt"]
+    assert pr.metadata["dry_run_receipt"] == entries[0]["entry"]["dry_run_receipt"]
+
+
+@pytest.mark.asyncio
+async def test_audit_intent_is_durable_before_publisher_call() -> None:
+    audit = InMemoryStateStore()
+
+    class _OrderingPublisher(RecordingRemediationPrPublisher):
+        async def publish(self, pr: RemediationPr) -> PublishReceipt:
+            entries = list(audit.audit_entries)
+            assert len(entries) == 1
+            assert entries[0]["entry"]["audit_phase"] == "intent"
+            assert entries[0]["entry"]["dry_run_receipt"] == pr.metadata["dry_run_receipt"]
+            return await super().publish(pr)
+
+    publisher = _OrderingPublisher()
+    executor = ShadowExecutor(
+        publisher=publisher,
+        audit_store=audit,
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+    )
+
+    result = await executor.execute(action=_action(), rule=_rule())
+
+    assert result.outcome is ExecutorOutcome.PUBLISHED
+    assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == [
+        "intent",
+        "terminal",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_publisher_failure_leaves_only_pending_intent() -> None:
+    class _FailingPublisher(RecordingRemediationPrPublisher):
+        async def publish(self, pr: RemediationPr) -> PublishReceipt:
+            raise RuntimeError("publisher outcome unknown")
+
+    audit = InMemoryStateStore()
+    executor = ShadowExecutor(
+        publisher=_FailingPublisher(),
+        audit_store=audit,
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+    )
+
+    with pytest.raises(RuntimeError, match="publisher outcome unknown"):
+        await executor.execute(action=_action(idempotency_key="publisher-unknown"), rule=_rule())
+
+    entries = list(audit.audit_entries)
     assert len(entries) == 1
-    assert entries[0]["entry"]["outcome"] == "published"
-    assert entries[0]["entry"]["mode"] == "shadow"
+    assert entries[0]["entry"]["audit_phase"] == "intent"
+    assert "publisher-unknown" not in executor._dedupe
+
+
+@pytest.mark.asyncio
+async def test_dry_run_receipt_is_deterministic_and_input_sensitive() -> None:
+    first, first_publisher, _ = _executor()
+    second, second_publisher, _ = _executor()
+    changed, changed_publisher, _ = _executor()
+
+    await first.execute(action=_action(idempotency_key="receipt-a"), rule=_rule())
+    await second.execute(action=_action(idempotency_key="receipt-a"), rule=_rule())
+    await changed.execute(
+        action=_action(idempotency_key="receipt-b", params={"tag_value": "team-b"}),
+        rule=_rule(),
+    )
+
+    first_receipt = first_publisher.records[0].metadata["dry_run_receipt"]
+    assert first_receipt.startswith("sha256:")
+    assert second_publisher.records[0].metadata["dry_run_receipt"] == first_receipt
+    assert changed_publisher.records[0].metadata["dry_run_receipt"] != first_receipt
 
 
 # ---------------------------------------------------------------------------
@@ -190,8 +264,8 @@ async def test_enforce_mode_action_is_rejected_without_mutation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_every_terminal_path_writes_exactly_one_audit_entry() -> None:
-    """Property: audit count == number of execute() calls, in every branch."""
+async def test_every_terminal_path_writes_expected_audit_lifecycle() -> None:
+    """Publish writes intent+terminal; a refusal before any side effect writes terminal only."""
     render_error_rule = Rule(
         schema_version="1.0.0",
         id="compute.vm-scale-set.over-provisioned",
@@ -213,13 +287,14 @@ async def test_every_terminal_path_writes_exactly_one_audit_entry() -> None:
             retrieved_at="2026-07-05T00:00:00Z",  # type: ignore[arg-type]
         ),
     )
-    cases: list[tuple[Any, Rule]] = [
-        (_action(idempotency_key="k1"), _rule()),  # published
+    cases: list[tuple[Any, Rule, int]] = [
+        (_action(idempotency_key="k1"), _rule(), 2),  # published: intent + terminal
         (
             _action(mode=Mode.ENFORCE, idempotency_key="k2"),
             _rule(),
+            1,
         ),  # rejected mode
-        (_action(count=10_000, idempotency_key="k3"), _rule()),  # blast radius
+        (_action(count=10_000, idempotency_key="k3"), _rule(), 1),  # blast radius
         (
             _action(
                 idempotency_key="k4",
@@ -227,12 +302,13 @@ async def test_every_terminal_path_writes_exactly_one_audit_entry() -> None:
                 params={},
             ),
             render_error_rule,
+            1,
         ),  # render error
     ]
-    for action, rule in cases:
+    for action, rule, expected_count in cases:
         executor, publisher, audit = _executor()
         await executor.execute(action=action, rule=rule)
-        assert len(list(audit.audit_entries)) == 1
+        assert len(list(audit.audit_entries)) == expected_count
 
 
 # ---------------------------------------------------------------------------
@@ -330,9 +406,9 @@ async def test_second_delivery_of_same_key_is_deduped() -> None:
 
     assert first.outcome is ExecutorOutcome.PUBLISHED
     assert second is first  # cached
-    # publisher saw ONE record; audit saw ONE entry.
+    # Publisher saw one record; audit retained one intent and one terminal closure.
     assert len(publisher.records) == 1
-    assert len(list(audit.audit_entries)) == 1
+    assert len(list(audit.audit_entries)) == 2
 
 
 @pytest.mark.asyncio
@@ -361,10 +437,10 @@ async def test_publisher_reports_already_existed_after_process_restart() -> None
     )
     result_b = await exec_b.execute(action=action, rule=_rule())
     assert result_b.outcome is ExecutorOutcome.ALREADY_EXISTED
-    # New executor writes its own audit entry with the ALREADY_EXISTED outcome.
+    # New executor writes intent plus terminal ALREADY_EXISTED closure.
     entries = list(audit_b.audit_entries)
-    assert len(entries) == 1
-    assert entries[0]["entry"]["outcome"] == "already_existed"
+    assert len(entries) == 2
+    assert entries[1]["entry"]["outcome"] == "already_existed"
 
 
 @pytest.mark.asyncio
@@ -433,10 +509,10 @@ async def test_actions_on_same_resource_are_serialized() -> None:
 
 @pytest.mark.asyncio
 async def test_audit_entry_captures_every_safety_invariant() -> None:
-    """The audit record MUST contain the four invariants + citing rules."""
+    """The terminal audit MUST close all safeguards and cite its dry-run intent."""
     executor, _, audit = _executor()
     await executor.execute(action=_action(), rule=_rule())
-    (record,) = list(audit.audit_entries)
+    intent, record = list(audit.audit_entries)
     entry = record["entry"]
     for field in (
         "stop_condition",
@@ -445,10 +521,13 @@ async def test_audit_entry_captures_every_safety_invariant() -> None:
         "blast_radius",
         "citing_rule_ids",
         "mode",
+        "dry_run_receipt",
     ):
         assert field in entry, f"missing audit field: {field}"
     assert entry["mode"] == "shadow"
     assert entry["citing_rule_ids"] == ["object-storage.owner-tag.required"]
+    assert intent["entry"]["audit_phase"] == "intent"
+    assert intent["entry"]["dry_run_passed"] is True
 
 
 @pytest.mark.asyncio
@@ -561,6 +640,7 @@ async def test_audit_failure_does_not_poison_dedupe_cache() -> None:
     with pytest.raises(RuntimeError, match="audit store unavailable"):
         await executor.execute(action=_action(idempotency_key="poison-test"), rule=_rule())
 
+    assert publisher.records == ()
     # Cache MUST NOT carry the failed key - a retry would otherwise
     # short-circuit past the audit path and never persist the record.
     assert "poison-test" not in executor._dedupe

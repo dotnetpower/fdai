@@ -10,6 +10,7 @@
     "id",
     "version",
     "domain",
+    "capability",
     "tags",
     "event",
     "expected"
@@ -33,6 +34,11 @@
       "type": "string",
       "enum": ["change", "dr", "finops"],
       "description": "Vertical the scenario belongs to."
+    },
+    "capability": {
+      "type": "string",
+      "enum": ["sre", "arb_change_safety", "finops", "dr", "chaos"],
+      "description": "Constitutional capability pack used for coverage accounting."
     },
     "tags": {
       "type": "array",

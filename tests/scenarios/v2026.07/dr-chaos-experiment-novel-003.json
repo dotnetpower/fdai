@@ -3,6 +3,7 @@
   "id": "dr.chaos-experiment-novel.003",
   "version": "v2026.07",
   "domain": "dr",
+  "capability": "chaos",
   "tags": [
     "chaos",
     "novel-scenario"

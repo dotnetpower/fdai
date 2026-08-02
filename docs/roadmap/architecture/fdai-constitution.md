@@ -10,6 +10,10 @@ implementation, workflow, and deployment must preserve.
 > **Normative scope:** This constitution defines target behavior. Implementation status belongs in
 > capability and delivery documents and must never weaken a constitutional requirement.
 >
+> **Implementation evidence:** [`config/constitution-traceability.json`](../../../config/constitution-traceability.json)
+> is the machine-readable requirement-to-code/test/evidence register. `partial` or `planned` entries
+> block any claim of complete constitutional runtime conformance; they do not weaken this target.
+>
 > **Accuracy scope:** FDAI guarantees contract-conformant behavior, not a correct diagnosis or a
 > successful external outcome in every novel situation. Uncertainty results in recovery, a smaller
 > safe plan, no-op, denial, rollback, or human review instead of an unsupported action.

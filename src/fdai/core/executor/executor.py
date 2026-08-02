@@ -1,6 +1,6 @@
-"""Shadow-mode executor - the safety-invariant enforcement point.
+"""Shadow-mode executor - the seven-safeguard enforcement point.
 
-Every autonomous change MUST carry the four invariants declared in
+Every autonomous state-changing action MUST carry the safeguards declared in
 [`.github/instructions/coding-conventions.instructions.md § Safety`]:
 
 1. **Stop-condition** - comes from the rule's ``ActionType`` (declared at
@@ -11,9 +11,13 @@ Every autonomous change MUST carry the four invariants declared in
 3. **Blast-radius limit** - the executor abstains and escalates when the
    Action's :attr:`~fdai.shared.contracts.models.BlastRadius.count`
    or ``rate_per_minute`` exceeds the executor-side cap.
-4. **Audit-log entry** - every terminal outcome (published, dedup-hit,
-   abstain, render error, blast-radius refusal, precondition failure)
-   writes one and only one hash-chained record via
+4. **Dry-run receipt** - successful pure rendering produces a content-addressed
+    receipt before the publisher sees an intent.
+5. **Logical-target lock** - idempotency and resource locks remain held through
+    publish and terminal persistence.
+6. **Idempotency** - the stable key is checked under the lock and persisted.
+7. **Audit lifecycle** - a publishable intent is persisted before the side
+    effect and closed by a terminal hash-chained record via
    :class:`~fdai.shared.providers.state_store.StateStore.append_audit_entry`.
 
 Shadow-only
@@ -294,7 +298,18 @@ class ShadowExecutor:
                     reason=str(exc),
                 )
 
-            pr = _build_remediation_pr(action=action, rule=rule, patch=patch)
+            dry_run_receipt = _dry_run_receipt(action=action, rule=rule, patch=patch)
+            await self._write_audit_intent(
+                action=action,
+                rule=rule,
+                dry_run_receipt=dry_run_receipt,
+            )
+            pr = _build_remediation_pr(
+                action=action,
+                rule=rule,
+                patch=patch,
+                dry_run_receipt=dry_run_receipt,
+            )
             receipt = await self._publisher.publish(pr)
 
             outcome = (
@@ -309,6 +324,7 @@ class ShadowExecutor:
                 reason=None,
                 pr_ref=receipt.pr_ref,
                 pr_url=receipt.url,
+                dry_run_receipt=dry_run_receipt,
             )
             return result
 
@@ -347,6 +363,7 @@ class ShadowExecutor:
         reason: str | None,
         pr_ref: str | None = None,
         pr_url: str | None = None,
+        dry_run_receipt: str | None = None,
         remember: bool = True,
     ) -> ExecutionResult:
         result = ExecutionResult(
@@ -364,6 +381,7 @@ class ShadowExecutor:
                 "operation": action.operation.value,
                 "blast_radius_scope": action.blast_radius.scope.value,
                 "idempotency_fingerprint": _execution_fingerprint(action=action, rule=rule),
+                "dry_run_receipt": dry_run_receipt,
             },
         )
         # Write audit BEFORE caching the result. If the audit-store
@@ -409,12 +427,14 @@ class ShadowExecutor:
             "idempotency_key": action.idempotency_key,
             "actor": "fdai.core.executor.shadow",
             "action_kind": action.action_type,
+            "audit_phase": "terminal",
             "mode": Mode.SHADOW.value,
             "citing_rule_ids": list(action.citing_rules),
             "outcome": result.outcome.value,
             "pr_ref": result.pr_ref,
             "pr_url": result.pr_url,
             "reason": result.reason,
+            "dry_run_receipt": result.audit_context.get("dry_run_receipt"),
             "rule_id": rule.id,
             "rule_version": rule.version,
             "resource_ref": action.target_resource_ref,
@@ -430,6 +450,32 @@ class ShadowExecutor:
             "recorded_at": datetime.now(tz=UTC).isoformat(),
         }
         await self._audit_store.append_audit_entry(entry)
+
+    async def _write_audit_intent(
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        dry_run_receipt: str,
+    ) -> None:
+        await self._audit_store.append_audit_entry(
+            {
+                "event_id": str(action.event_id),
+                "action_id": str(action.action_id),
+                "idempotency_key": action.idempotency_key,
+                "actor": "fdai.core.executor.shadow",
+                "action_kind": action.action_type,
+                "audit_phase": "intent",
+                "mode": Mode.SHADOW.value,
+                "outcome": "intent_persisted",
+                "rule_id": rule.id,
+                "rule_version": rule.version,
+                "resource_ref": action.target_resource_ref,
+                "dry_run_receipt": dry_run_receipt,
+                "dry_run_passed": True,
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            }
+        )
 
 
 def _missing_safety_invariant(action: Action) -> str | None:
@@ -477,6 +523,16 @@ def _execution_fingerprint(*, action: Action, rule: Rule) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _dry_run_receipt(*, action: Action, rule: Rule, patch: str) -> str:
+    payload = {
+        "execution_fingerprint": _execution_fingerprint(action=action, rule=rule),
+        "patch_sha256": hashlib.sha256(patch.encode("utf-8")).hexdigest(),
+        "template_ref": rule.remediation.template_ref,
+    }
+    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+
+
 def _idempotency_lock_key(key: str) -> str:
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
     return f"fdai:idempotency:{digest}"
@@ -486,13 +542,20 @@ def _resource_lock_key(resource_ref: str) -> str:
     return f"fdai:resource:{resource_ref}"
 
 
-def _build_remediation_pr(*, action: Action, rule: Rule, patch: str) -> RemediationPr:
+def _build_remediation_pr(
+    *,
+    action: Action,
+    rule: Rule,
+    patch: str,
+    dry_run_receipt: str,
+) -> RemediationPr:
     title = f"[shadow] {rule.id}: {action.action_type}"
     body_lines = [
         f"**Rule**: `{rule.id}` v{rule.version}",
         f"**ActionType**: `{action.action_type}`",
         f"**Target**: `{action.target_resource_ref}`",
         f"**Stop condition**: `{action.stop_condition}`",
+        f"**Dry-run receipt**: `{dry_run_receipt}`",
         (
             f"**Rollback**: `{action.rollback_ref.kind.value}`"
             + (f" → `{action.rollback_ref.reference}`" if action.rollback_ref.reference else "")
@@ -526,6 +589,7 @@ def _build_remediation_pr(*, action: Action, rule: Rule, patch: str) -> Remediat
         patch_path=_default_patch_path(action=action, rule=rule),
         labels=("shadow", f"rule:{rule.id}", f"action:{action.action_type}"),
         mode=Mode.SHADOW,
+        metadata={"dry_run_receipt": dry_run_receipt},
     )
 
 

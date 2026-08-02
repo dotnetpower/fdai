@@ -3,6 +3,7 @@
   "id": "dr.replica-lag-degraded.001",
   "version": "v2026.07",
   "domain": "dr",
+  "capability": "dr",
   "tags": [
     "postgres",
     "replica-lag"

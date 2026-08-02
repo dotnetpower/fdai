@@ -60,8 +60,8 @@ class RemediationPr:
 
     title: str
     body: str
-    """Rendered PR title + body (Markdown). Body carries the four safety
-    invariants and the rollback pointer per phase-1 spec."""
+    """Rendered PR title + body. It carries the seven safeguards, including
+    the content-addressed dry-run receipt, per the phase-1 contract."""
 
     patch: str
     """Rendered Terraform / IaC patch content the PR proposes."""

@@ -3,6 +3,7 @@
   "id": "change.tag-owner-missing.001",
   "version": "v2026.07",
   "domain": "change",
+  "capability": "arb_change_safety",
   "tags": [
     "azure-policy",
     "tag-compliance"

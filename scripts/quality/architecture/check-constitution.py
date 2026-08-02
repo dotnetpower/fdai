@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from collections.abc import Mapping
@@ -11,6 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ENGLISH_CONSTITUTION = "docs/roadmap/architecture/fdai-constitution.md"
 KOREAN_CONSTITUTION = "docs/roadmap/architecture/fdai-constitution-ko.md"
+TRACEABILITY_MANIFEST = "config/constitution-traceability.json"
 EXPECTED_IDS = tuple(f"FDAI-CONST-{number:03d}" for number in range(1, 11))
 ID_PATTERN = re.compile(r"FDAI-CONST-\d{3}")
 EXPECTED_TRACE_ROWS = tuple(f"{number:03d}" for number in range(1, 11))
@@ -58,6 +60,8 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
     ),
     "docs/roadmap/README.md": ("architecture/fdai-constitution.md",),
     "docs/roadmap/architecture/fdai-constitution.md": (
+        "config/constitution-traceability.json",
+        "block any claim of complete constitutional runtime conformance",
         "resource-group-equivalent or narrower",
         "A3-E never authorizes Chaos fault injection",
         "Every active, candidate, or calculated threshold",
@@ -155,6 +159,9 @@ GLOBAL_ROADMAP_FORBIDDEN = (
     "4 autonomy invariant",
 )
 
+TRACE_STATUSES = frozenset({"implemented", "partial", "planned"})
+TRACE_PATH_FIELDS = ("owner_docs", "implementation", "schemas", "tests", "runtime_evidence")
+
 
 def validate_texts(texts: Mapping[str, str]) -> list[str]:
     """Return constitutional consistency errors for repository-relative texts."""
@@ -220,7 +227,63 @@ def validate(root: Path = REPO_ROOT) -> list[str]:
     texts = {
         path: (root / path).read_text(encoding="utf-8") for path in paths if (root / path).is_file()
     }
-    return validate_texts(texts)
+    return [*validate_texts(texts), *_validate_traceability(root)]
+
+
+def _validate_traceability(root: Path) -> list[str]:
+    path = root / TRACEABILITY_MANIFEST
+    if not path.is_file():
+        return [f"missing constitutional traceability manifest: {TRACEABILITY_MANIFEST}"]
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return [f"{TRACEABILITY_MANIFEST}: invalid JSON: {exc}"]
+    if raw.get("version") != 1 or not isinstance(raw.get("requirements"), list):
+        return [f"{TRACEABILITY_MANIFEST}: expected version 1 and requirements list"]
+
+    errors: list[str] = []
+    requirements = raw["requirements"]
+    ids = tuple(item.get("id") for item in requirements if isinstance(item, dict))
+    if ids != EXPECTED_IDS:
+        errors.append(f"{TRACEABILITY_MANIFEST}: expected FDAI-CONST-001..010 once in order")
+    for item in requirements:
+        if not isinstance(item, dict):
+            errors.append(f"{TRACEABILITY_MANIFEST}: requirement entries must be objects")
+            continue
+        requirement_id = str(item.get("id", "<missing>"))
+        status = item.get("status")
+        if status not in TRACE_STATUSES:
+            errors.append(f"{TRACEABILITY_MANIFEST}: {requirement_id} has invalid status")
+        gap = item.get("gap")
+        if status == "implemented" and gap is not None:
+            errors.append(
+                f"{TRACEABILITY_MANIFEST}: {requirement_id} implemented status requires null gap"
+            )
+        if status in {"partial", "planned"} and not isinstance(gap, str):
+            errors.append(f"{TRACEABILITY_MANIFEST}: {requirement_id} requires a non-empty gap")
+        for field_name in TRACE_PATH_FIELDS:
+            values = item.get(field_name)
+            if not isinstance(values, list):
+                errors.append(
+                    f"{TRACEABILITY_MANIFEST}: {requirement_id}.{field_name} must be a list"
+                )
+                continue
+            if field_name in {"owner_docs", "runtime_evidence"} and not values:
+                errors.append(
+                    f"{TRACEABILITY_MANIFEST}: {requirement_id}.{field_name} must not be empty"
+                )
+            for relative in values:
+                if not isinstance(relative, str) or not (root / relative).exists():
+                    errors.append(
+                        f"{TRACEABILITY_MANIFEST}: {requirement_id}.{field_name} "
+                        f"missing path: {relative}"
+                    )
+        if status == "implemented" and (not item.get("implementation") or not item.get("tests")):
+            errors.append(
+                f"{TRACEABILITY_MANIFEST}: {requirement_id} implemented status "
+                "requires code and tests"
+            )
+    return errors
 
 
 def main() -> int:
