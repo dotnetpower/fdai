@@ -17,7 +17,7 @@ export interface DiagramGroup {
   description?: LocalizedText;
   direction?: Direction;
   layout?: "flow" | "row" | "column" | "free";
-  placement?: "below";
+  placement?: "below" | "right";
   alignWith?: string;
 }
 
@@ -60,6 +60,7 @@ export interface DiagramEdge {
     | "diagonal"
     | "curve"
     | "orthogonal"
+    | "orthogonal-horizontal"
     | "orthogonal-above"
     | "orthogonal-right";
   step?: number;
@@ -75,6 +76,7 @@ export interface DiagramSpec {
     width: number;
     height: number;
     direction: Direction;
+    rootLayout?: "row" | "column";
     padding?: number;
     profile?: "default" | "azure-reference";
   };

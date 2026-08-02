@@ -327,6 +327,49 @@ function moveGroupTree(
   }
 }
 
+function applyDirectNodeLayouts(
+  spec: DiagramSpec,
+  groups: Map<string, PositionedShape>,
+  nodes: Map<string, PositionedShape>,
+): void {
+  const compact = spec.canvas.profile === "azure-reference";
+  const left = compact ? 18 : 28;
+  const top = compact ? 44 : 52;
+  const bottom = compact ? 18 : 28;
+  const gap = compact ? 16 : 22;
+  for (const groupSpec of spec.groups.filter(
+    (group) => group.layout === "row" || group.layout === "column",
+  )) {
+    const group = groups.get(groupSpec.id);
+    const children = spec.nodes
+      .filter((node) => node.parent === groupSpec.id)
+      .map((node) => nodes.get(node.id))
+      .filter((node): node is PositionedShape => Boolean(node));
+    if (!group || !children.length) continue;
+    if (groupSpec.layout === "row") {
+      const contentHeight = Math.max(...children.map((node) => node.height));
+      let x = group.x + left;
+      for (const child of children) {
+        child.x = x;
+        child.y = group.y + top + (contentHeight - child.height) / 2;
+        x += child.width + gap;
+      }
+      group.width = x - gap - group.x + left;
+      group.height = top + contentHeight + bottom;
+      continue;
+    }
+    const contentWidth = Math.max(...children.map((node) => node.width));
+    let y = group.y + top;
+    for (const child of children) {
+      child.x = group.x + left + (contentWidth - child.width) / 2;
+      child.y = y;
+      y += child.height + gap;
+    }
+    group.width = left + contentWidth + left;
+    group.height = y - gap - group.y + bottom;
+  }
+}
+
 function applyGroupPlacements(
   spec: DiagramSpec,
   groups: Map<string, PositionedShape>,
@@ -403,6 +446,45 @@ function applyGroupPlacements(
     parent.height = Math.max(...childBottoms) - parent.y + 28;
     bottom = Math.max(bottom, parent.y + parent.height);
   }
+  for (const groupSpec of spec.groups.filter(
+    (group) => group.placement === "right" && group.parent,
+  )) {
+    const group = groups.get(groupSpec.id);
+    const parent = groups.get(groupSpec.parent!);
+    const alignment = groupSpec.alignWith
+      ? groups.get(groupSpec.alignWith)
+      : undefined;
+    if (!group || !parent || !alignment) continue;
+    const nextX = alignment.x + alignment.width + 24;
+    const nextY = alignment.y;
+    moveGroupTree(
+      spec,
+      group.id,
+      nextX - group.x,
+      nextY - group.y,
+      groups,
+      nodes,
+    );
+    const childShapes = [
+      ...spec.groups
+        .filter((candidate) => candidate.parent === parent.id)
+        .map((candidate) => groups.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+      ...spec.nodes
+        .filter((candidate) => candidate.parent === parent.id)
+        .map((candidate) => nodes.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+    ];
+    parent.width = Math.max(
+      parent.width,
+      ...childShapes.map((shape) => shape.x + shape.width - parent.x + 28),
+    );
+    parent.height = Math.max(
+      parent.height,
+      ...childShapes.map((shape) => shape.y + shape.height - parent.y + 28),
+    );
+    bottom = Math.max(bottom, parent.y + parent.height);
+  }
   return bottom;
 }
 
@@ -412,8 +494,8 @@ function applyRootGroupFlow(
   nodes: Map<string, PositionedShape>,
 ): { width: number; bottom: number } | undefined {
   if (
-    spec.canvas.direction !== "DOWN" ||
-    spec.canvas.profile !== "azure-reference"
+    spec.canvas.profile !== "azure-reference" ||
+    (!spec.canvas.rootLayout && spec.canvas.direction !== "DOWN")
   ) {
     return undefined;
   }
@@ -424,6 +506,21 @@ function applyRootGroupFlow(
   if (!rootGroups.length) return undefined;
   const padding = spec.canvas.padding ?? 24;
   const gap = 38;
+  const rootLayout = spec.canvas.rootLayout ??
+    (spec.canvas.direction === "DOWN" ? "column" : "row");
+  if (rootLayout === "row") {
+    const contentHeight = Math.max(...rootGroups.map((group) => group.height));
+    let x = padding;
+    for (const group of rootGroups) {
+      const y = padding + (contentHeight - group.height) / 2;
+      moveGroupTree(spec, group.id, x - group.x, y - group.y, groups, nodes);
+      x += group.width + gap;
+    }
+    return {
+      width: x - gap + padding,
+      bottom: contentHeight + padding * 2,
+    };
+  }
   const contentWidth = Math.max(...rootGroups.map((group) => group.width));
   let y = padding;
   for (const group of rootGroups) {
@@ -461,6 +558,7 @@ function orthogonalRouteSection(
   edgeId: string,
   source: PositionedShape,
   target: PositionedShape,
+  forceHorizontal = false,
 ): ElkEdgeSection {
   const sourceCenter = {
     x: source.x + source.width / 2,
@@ -470,7 +568,7 @@ function orthogonalRouteSection(
     x: target.x + target.width / 2,
     y: target.y + target.height / 2,
   };
-  const horizontal =
+  const horizontal = forceHorizontal ||
     Math.abs(targetCenter.x - sourceCenter.x) >=
     Math.abs(targetCenter.y - sourceCenter.y);
   if (horizontal) {
@@ -517,6 +615,46 @@ function orthogonalRouteSection(
     bendPoints: [
       { x: startPoint.x, y: laneY },
       { x: endPoint.x, y: laneY },
+    ],
+    endPoint,
+  };
+}
+
+function orthogonalHorizontalRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  nodes: Map<string, PositionedShape>,
+  laneIndex: number,
+): ElkEdgeSection {
+  const targetIsRight = target.x >= source.x;
+  const startPoint = {
+    x: targetIsRight ? source.x + source.width : source.x,
+    y: source.y + source.height / 2,
+  };
+  const endPoint = {
+    x: targetIsRight ? target.x : target.x + target.width,
+    y: target.y + target.height / 2,
+  };
+  const candidates = [...nodes.values()].filter(
+    (node) =>
+      node.id !== source.id &&
+      node.id !== target.id &&
+      (targetIsRight
+        ? node.x + node.width <= endPoint.x
+        : node.x >= endPoint.x),
+  );
+  const obstacleEdge = targetIsRight
+    ? Math.max(startPoint.x, ...candidates.map((node) => node.x + node.width))
+    : Math.min(startPoint.x, ...candidates.map((node) => node.x));
+  const laneX = obstacleEdge + (targetIsRight ? 24 : -24) +
+    laneIndex * (targetIsRight ? 24 : -24);
+  return {
+    id: `${edgeId}-orthogonal-horizontal-route`,
+    startPoint,
+    bendPoints: [
+      { x: laneX, y: startPoint.y },
+      { x: laneX, y: endPoint.y },
     ],
     endPoint,
   };
@@ -685,6 +823,16 @@ function applyExplicitRoutes(
     rightLaneByEdge.set(edge.id, lane);
     rightLaneCountByTargetGroup.set(targetGroup, lane + 1);
   }
+  const horizontalLaneByEdge = new Map<string, number>();
+  const horizontalLaneCountByTargetGroup = new Map<string, number>();
+  for (const edge of spec.edges.filter(
+    (candidate) => candidate.route === "orthogonal-horizontal",
+  )) {
+    const targetGroup = elementParent(spec, endpointNodeId(edge.to));
+    const lane = horizontalLaneCountByTargetGroup.get(targetGroup) ?? 0;
+    horizontalLaneByEdge.set(edge.id, lane);
+    horizontalLaneCountByTargetGroup.set(targetGroup, lane + 1);
+  }
   return edges.map((edge) => {
     const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
     if (
@@ -692,6 +840,7 @@ function applyExplicitRoutes(
       (specEdge.route !== "diagonal" &&
         specEdge.route !== "curve" &&
       specEdge.route !== "orthogonal" &&
+        specEdge.route !== "orthogonal-horizontal" &&
         specEdge.route !== "orthogonal-above" &&
         specEdge.route !== "orthogonal-right")
     ) {
@@ -700,8 +849,20 @@ function applyExplicitRoutes(
     const source = nodes.get(endpointNodeId(specEdge.from));
     const target = nodes.get(endpointNodeId(specEdge.to));
     if (!source || !target) return edge;
-    const section = specEdge.route === "orthogonal"
-      ? orthogonalRouteSection(edge.id, source, target)
+    const section = specEdge.route === "orthogonal-horizontal"
+      ? orthogonalHorizontalRouteSection(
+          edge.id,
+          source,
+          target,
+          nodes,
+          horizontalLaneByEdge.get(edge.id) ?? 0,
+        )
+      : specEdge.route === "orthogonal"
+      ? orthogonalRouteSection(
+          edge.id,
+          source,
+          target,
+        )
       : specEdge.route === "orthogonal-above"
         ? orthogonalAboveRouteSection(
             edge.id,
@@ -725,7 +886,8 @@ function applyExplicitRoutes(
           };
     const labels = edge.labels?.map((label) => ({
       ...label,
-      ...(specEdge.route === "orthogonal-right"
+      ...(specEdge.route === "orthogonal-right" ||
+      specEdge.route === "orthogonal-horizontal"
         ? rightRouteLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : specEdge.route === "orthogonal" ||
       specEdge.route === "orthogonal-above"
@@ -789,6 +951,7 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     nodes,
     edges,
   );
+  applyDirectNodeLayouts(spec, groups, nodes);
   const placementBottom = applyGroupPlacements(spec, groups, nodes);
   const rootFlow = applyRootGroupFlow(spec, groups, nodes);
   const explicitRoutes = applyExplicitRoutes(spec, edges, nodes);
@@ -812,15 +975,25 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     }
   }
 
+  const width = rootFlow
+    ? Math.max(spec.canvas.width, rootFlow.width, routeRight + 24)
+    : Math.max(result.width ?? spec.canvas.width, routeRight + 24);
+  const height = rootFlow
+    ? Math.max(
+        spec.canvas.height,
+        rootFlow.bottom,
+        routed.bottom + 24,
+        routeBottom + 24,
+      )
+    : Math.max(
+        result.height ?? spec.canvas.height,
+        placementBottom + 36,
+        routed.bottom + 24,
+        routeBottom + 24,
+      );
   return {
-    width: Math.max(result.width ?? spec.canvas.width, rootFlow?.width ?? 0, routeRight + 24),
-    height: Math.max(
-      result.height ?? spec.canvas.height,
-      placementBottom + 36,
-      rootFlow?.bottom ?? 0,
-      routed.bottom + 24,
-      routeBottom + 24,
-    ),
+    width,
+    height,
     groups,
     nodes,
     edges: routed.edges,

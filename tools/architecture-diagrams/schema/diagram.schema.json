@@ -29,6 +29,7 @@
         "width": { "type": "integer", "minimum": 640, "maximum": 2400 },
         "height": { "type": "integer", "minimum": 360, "maximum": 1800 },
         "direction": { "enum": ["RIGHT", "DOWN"] },
+        "rootLayout": { "enum": ["row", "column"] },
         "padding": { "type": "integer", "minimum": 16, "maximum": 160, "default": 40 },
         "profile": { "enum": ["default", "azure-reference"], "default": "default" }
       }
@@ -100,7 +101,7 @@
         "description": { "$ref": "#/definitions/localizedText" },
         "direction": { "enum": ["RIGHT", "DOWN"] },
         "layout": { "enum": ["flow", "row", "column", "free"] },
-        "placement": { "enum": ["below"] },
+        "placement": { "enum": ["below", "right"] },
         "alignWith": { "$ref": "#/definitions/id" }
       }
     },
@@ -148,7 +149,7 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-above", "orthogonal-right"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-horizontal", "orthogonal-above", "orthogonal-right"] },
         "step": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },

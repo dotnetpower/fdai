@@ -15,6 +15,7 @@ canvas:
   width: 1600
   height: 1120
   direction: DOWN
+  rootLayout: row
   padding: 24
   profile: azure-reference
 groups:
@@ -65,8 +66,10 @@ groups:
     kind: layer
     presentation: panel
     label: { en: Azure platform services, ko: Azure platform service }
-    direction: RIGHT
-    placement: below
+    direction: DOWN
+    layout: column
+    placement: right
+    alignWith: fdai-vnet
   - id: governed-delivery
     kind: layer
     presentation: panel
@@ -224,14 +227,14 @@ edges:
     from: operator-console
     to: operator-api
     kind: request
-    route: orthogonal-right
+    route: orthogonal-horizontal
     step: 2
     label: { en: HTTPS request, ko: HTTPS 요청 }
   - id: cli-to-api
     from: operator-cli
     to: operator-api
     kind: request
-    route: orthogonal-right
+    route: orthogonal-horizontal
     step: 2
     label: { en: HTTPS and SSE, ko: HTTPS 및 SSE }
   - id: event-pe-to-backend
@@ -293,13 +296,13 @@ edges:
     from: core-runtime
     to: resource-graph
     kind: read
-    route: orthogonal-right
+    route: orthogonal
     label: { en: Azure control-plane inventory read, ko: Azure control-plane inventory 조회 }
   - id: core-to-monitor
     from: core-runtime
     to: monitor
     kind: audit
-    route: orthogonal-right
+    route: orthogonal
   - id: core-to-teams
     from: core-runtime
     to: teams-approval

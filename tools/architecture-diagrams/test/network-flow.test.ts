@@ -18,13 +18,16 @@ test("Azure resource network flow routes every compound edge", async () => {
   const svg = await renderSvg(spec, layout, "en");
 
   assert.equal(spec.kind, "deployment");
-  assert.ok(layout.height > layout.width);
   assert.equal(layout.edges.length, spec.edges.length);
   assert.ok(layout.edges.every((edge) => (edge.sections?.length ?? 0) > 0));
   assert.deepEqual(layoutIntegrityErrors(spec, layout), []);
   const explicitRoutes = new Set(
     spec.edges
-      .filter((edge) => edge.route === "orthogonal")
+      .filter(
+        (edge) =>
+          edge.route === "orthogonal" ||
+          edge.route === "orthogonal-horizontal",
+      )
       .map((edge) => edge.id),
   );
   for (const edge of layout.edges.filter((candidate) => explicitRoutes.has(candidate.id))) {
@@ -62,6 +65,28 @@ test("Azure resource network flow routes every compound edge", async () => {
   const privateServices = layout.groups.get("private-service-backends")!;
   assert.ok(containerApps.y + containerApps.height < privateEndpoints.y);
   assert.ok(privateEndpoints.y + privateEndpoints.height < privateServices.y);
+  const operatorAccess = layout.groups.get("operator-access")!;
+  const azureRegion = layout.groups.get("azure-region")!;
+  const governedDelivery = layout.groups.get("governed-delivery")!;
+  assert.ok(operatorAccess.x + operatorAccess.width < azureRegion.x);
+  assert.ok(azureRegion.x + azureRegion.width < governedDelivery.x);
+  const contentBottom = Math.max(
+    operatorAccess.y + operatorAccess.height,
+    azureRegion.y + azureRegion.height,
+    governedDelivery.y + governedDelivery.height,
+  );
+  assert.ok(layout.height - contentBottom <= 72);
+  const vnet = layout.groups.get("fdai-vnet")!;
+  const platformServices = layout.groups.get("platform-services")!;
+  assert.ok(vnet.x + vnet.width < platformServices.x);
+  const platformNodes = spec.nodes
+    .filter((node) => node.parent === "platform-services")
+    .map((node) => layout.nodes.get(node.id)!);
+  const platformCenters = platformNodes.map((node) => node.x + node.width / 2);
+  assert.ok(Math.max(...platformCenters) - Math.min(...platformCenters) <= 1);
+  for (let index = 1; index < platformNodes.length; index += 1) {
+    assert.ok(platformNodes[index - 1]!.y < platformNodes[index]!.y);
+  }
   for (const [endpointId, serviceId] of [
     ["registry-pe", "container-registry"],
     ["event-hubs-pe", "event-hubs"],
@@ -77,13 +102,14 @@ test("Azure resource network flow routes every compound edge", async () => {
       `${endpointId} must align with ${serviceId}`,
     );
   }
-  for (const edgeId of ["core-to-resource-graph", "core-to-git"]) {
-    const edge = layout.edges.find((candidate) => candidate.id === edgeId);
-    const section = edge?.sections?.[0];
-    assert.ok(section?.bendPoints?.length === 3, `${edgeId} must use a right lane`);
-    assert.ok(
-      section.bendPoints[0]!.x > section.startPoint.x,
-      `${edgeId} must leave through the right corridor`,
-    );
-  }
+  const resourceGraphEdge = layout.edges.find(
+    (candidate) => candidate.id === "core-to-resource-graph",
+  );
+  const resourceGraphBends = resourceGraphEdge?.sections?.[0]?.bendPoints ?? [];
+  assert.ok(resourceGraphBends.length <= 2);
+  const gitSection = layout.edges.find(
+    (candidate) => candidate.id === "core-to-git",
+  )?.sections?.[0];
+  assert.ok(gitSection?.bendPoints?.length === 3);
+  assert.ok(gitSection.bendPoints[0]!.x > gitSection.startPoint.x);
 });
