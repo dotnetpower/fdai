@@ -5,12 +5,12 @@ updated: 2026-08-02
 locales:
   en:
     title: FDAI Azure resource network flow
-    description: Azure resources and private-endpoint flows for the default FDAI private-networking profile.
-    alt: An operator signs in through Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, and Azure Database for PostgreSQL connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests.
+    description: Azure resources, private-endpoint flows, and the optional document storage path for FDAI private networking.
+    alt: An operator signs in through Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, and Azure Database for PostgreSQL connect through dedicated private endpoints in the private endpoint subnet. When document ingestion is enabled, an Ingestion Gateway Container App reaches ADLS Gen2 document storage through Blob and DFS private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests.
   ko:
     title: FDAI Azure resource network flow
-    description: FDAI default private-networking profile의 Azure resource 및 private endpoint flow입니다.
-    alt: 운영자는 Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI 및 Azure Database for PostgreSQL은 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다.
+    description: FDAI private networking의 Azure resource, private endpoint 및 optional document storage flow입니다.
+    alt: 운영자는 Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI 및 Azure Database for PostgreSQL은 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. Document ingestion을 활성화하면 Ingestion Gateway Container App이 Blob 및 DFS private endpoint를 통해 ADLS Gen2 document storage에 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다.
 canvas:
   width: 1600
   height: 960
@@ -46,7 +46,7 @@ groups:
     direction: RIGHT
     layout: row
     alignWith: private-endpoint-subnet
-    width: 680
+    width: 944
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -54,7 +54,7 @@ groups:
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: RIGHT
     layout: row
-    width: 680
+    width: 944
   - id: private-service-backends
     parent: azure-region
     kind: layer
@@ -64,7 +64,7 @@ groups:
     layout: row
     placement: below
     alignWith: private-endpoint-subnet
-    width: 680
+    width: 944
   - id: platform-services
     parent: azure-region
     kind: layer
@@ -110,6 +110,12 @@ nodes:
     presentation: icon
     label: { en: Container Apps Jobs, ko: Container Apps Jobs }
     description: { en: "Inventory, detection, canary, measurement, and resilience jobs", ko: "Inventory, detection, canary, measurement 및 resilience job" }
+  - id: ingestion-gateway
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Ingestion Gateway (optional), ko: Ingestion Gateway (optional) }
+    description: { en: Authenticated document upload and governed ingestion, ko: 인증된 document upload 및 통제된 ingestion }
   - id: core-runtime
     parent: container-apps-subnet
     kind: process
@@ -146,6 +152,18 @@ nodes:
     icon: private-endpoint
     presentation: icon
     label: { en: PostgreSQL private endpoint, ko: PostgreSQL private endpoint }
+  - id: document-blob-pe
+    parent: private-endpoint-subnet
+    kind: service
+    icon: private-endpoint
+    presentation: icon
+    label: { en: Document Blob PE (optional), ko: Document Blob PE (optional) }
+  - id: document-dfs-pe
+    parent: private-endpoint-subnet
+    kind: service
+    icon: private-endpoint
+    presentation: icon
+    label: { en: Document DFS PE (optional), ko: Document DFS PE (optional) }
   - id: event-hubs
     parent: private-service-backends
     kind: azure-service
@@ -181,6 +199,11 @@ nodes:
     presentation: icon
     label: { en: Azure Database for PostgreSQL, ko: Azure Database for PostgreSQL }
     description: { en: "State, append-only audit, operator memory, and pgvector", ko: "상태, 추가 전용 감사, operator memory 및 pgvector" }
+  - id: document-storage
+    parent: private-service-backends
+    kind: store
+    label: { en: ADLS Gen2 Storage Account (optional), ko: ADLS Gen2 Storage Account (optional) }
+    description: { en: "Quarantine, governed source, and derived filesystems", ko: "Quarantine, governed source 및 derived filesystem" }
   - id: workload-identities
     parent: platform-services
     kind: azure-service
@@ -230,6 +253,11 @@ edges:
     kind: request
     route: orthogonal-horizontal
     step: 2
+  - id: console-to-ingestion
+    from: operator-console
+    to: ingestion-gateway
+    kind: request
+    route: orthogonal-top
   - id: event-hubs-to-pe
     from: event-hubs
     to: event-hubs-pe
@@ -303,6 +331,28 @@ edges:
     kind: write
     route: orthogonal
     label: { en: PostgreSQL private link, ko: PostgreSQL private link }
+  - id: ingestion-to-blob-pe
+    from: ingestion-gateway
+    to: document-blob-pe
+    kind: write
+    route: orthogonal-trunk
+    lane: 3
+  - id: ingestion-to-dfs-pe
+    from: ingestion-gateway
+    to: document-dfs-pe
+    kind: write
+    route: orthogonal-trunk
+    lane: 4
+  - id: blob-pe-to-storage
+    from: document-blob-pe
+    to: document-storage
+    kind: write
+    route: orthogonal
+  - id: dfs-pe-to-storage
+    from: document-dfs-pe
+    to: document-storage
+    kind: write
+    route: orthogonal
   - id: core-to-resource-graph
     from: core-runtime
     to: resource-graph

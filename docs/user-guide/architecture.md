@@ -67,6 +67,9 @@ This view shows the default private-networking profile, where
 `enable_private_postgres=false` adds a `postgresqlServer` private endpoint.
 Setting `enable_private_postgres=true` replaces that path with PostgreSQL
 Flexible Server in its delegated subnet and doesn't create the endpoint.
+The optional document-ingestion path shows its Ingestion Gateway, Blob and DFS
+private endpoints, and ADLS Gen2 account. Case-history storage, the development
+operations gateway, and Foundry/APIM remain in their feature-specific profiles.
 
 Azure Resource Graph reads and observability writes are shown outside the
 private data-plane path because they use Azure control-plane and telemetry

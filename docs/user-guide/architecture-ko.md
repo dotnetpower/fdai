@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 9b51ac72c37f5ef838fe540fd3c7ead569a9d59a
+translation_source_sha: 709b9cec93d24014ff76a5b54ca500f1759fa6b6
 translation_revised: 2026-08-02
 ---
 
@@ -68,6 +68,9 @@ managed service backend에 연결합니다.
 추가하는 기본 private-networking profile을 표시합니다. `enable_private_postgres=true`로
 설정하면 이 경로 대신 PostgreSQL Flexible Server를 delegated subnet에 배치하고 endpoint를
 생성하지 않습니다.
+Optional document-ingestion 경로는 Ingestion Gateway, Blob 및 DFS private endpoint와 ADLS
+Gen2 account를 표시합니다. Case-history storage, development operations gateway 및
+Foundry/APIM은 각각의 feature-specific profile에 남아 있습니다.
 
 Azure Resource Graph 조회와 observability 쓰기는 Azure control-plane 및 telemetry contract를
 사용하므로 private data-plane 경로 밖에 표시합니다. Terraform 배포가 소유하지 않는

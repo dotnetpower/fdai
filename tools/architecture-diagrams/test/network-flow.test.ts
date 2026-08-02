@@ -43,6 +43,14 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-group-id="private-endpoint-subnet"/);
   assert.doesNotMatch(svg, /data-group-id="postgres-subnet"/);
   assert.match(svg, /data-node-id="postgres-pe"/);
+  assert.match(svg, /data-node-id="ingestion-gateway"/);
+  assert.match(svg, /data-node-id="document-blob-pe"/);
+  assert.match(svg, /data-node-id="document-dfs-pe"/);
+  assert.match(svg, /data-node-id="document-storage"/);
+  assert.equal(
+    spec.nodes.find((node) => node.id === "document-storage")!.label.en,
+    "ADLS Gen2 Storage Account (optional)",
+  );
   assert.match(svg, /data-node-id="operator-console"/);
   assert.doesNotMatch(svg, /data-node-id="operator-cli"/);
   for (const groupId of [
@@ -180,4 +188,10 @@ test("Azure resource network flow routes every compound edge", async () => {
   )!;
   assert.equal(postgresWrite.from, "postgres-pe");
   assert.equal(postgresWrite.to, "postgres");
+  const blobWrite = spec.edges.find((edge) => edge.id === "blob-pe-to-storage")!;
+  const dfsWrite = spec.edges.find((edge) => edge.id === "dfs-pe-to-storage")!;
+  assert.equal(blobWrite.from, "document-blob-pe");
+  assert.equal(blobWrite.to, "document-storage");
+  assert.equal(dfsWrite.from, "document-dfs-pe");
+  assert.equal(dfsWrite.to, "document-storage");
 });
