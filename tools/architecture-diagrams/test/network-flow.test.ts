@@ -49,10 +49,6 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-node-id="document-blob-pe"/);
   assert.match(svg, /data-node-id="document-dfs-pe"/);
   assert.match(svg, /data-node-id="document-storage"/);
-  assert.match(svg, /data-node-id="operational-event-hubs-pe"/);
-  assert.match(svg, /data-node-id="operational-event-hubs"/);
-  assert.match(svg, /data-node-id="case-history-pe"/);
-  assert.match(svg, /data-node-id="case-history-storage"/);
   for (const [nodeId, icon] of [
     ["operator", "users"],
     ["entra-id", "entra-id"],
@@ -66,10 +62,6 @@ test("Azure resource network flow routes every compound edge", async () => {
     ["github-delivery", "github"],
     ["gitlab-delivery", "gitlab"],
     ["azure-devops-delivery", "azure-devops"],
-    ["operational-event-hubs", "event-hubs"],
-    ["operational-event-hubs-pe", "private-endpoint"],
-    ["case-history-storage", "storage-account"],
-    ["case-history-pe", "private-endpoint"],
   ] as const) {
     assert.equal(spec.nodes.find((node) => node.id === nodeId)?.icon, icon);
     assert.match(svg, new RegExp(`data-node-id="${nodeId}"`));
@@ -151,7 +143,7 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.equal(operatorAccess.width, 184);
   assert.ok(operatorAccess.height > operatorAccess.width);
   assert.ok(governedDelivery.width <= 460);
-  assert.ok(layout.width < 2300);
+  assert.ok(layout.width < 2050);
   const gitProviders = layout.groups.get("git-providers")!;
   const approvalChannels = layout.groups.get("approval-channels")!;
   assert.ok(gitProviders.y + gitProviders.height < approvalChannels.y);
@@ -224,12 +216,10 @@ test("Azure resource network flow routes every compound edge", async () => {
   for (const [endpointId, serviceId] of [
     ["registry-pe", "container-registry"],
     ["event-hubs-pe", "event-hubs"],
-    ["operational-event-hubs-pe", "operational-event-hubs"],
     ["key-vault-pe", "key-vault"],
     ["openai-pe", "azure-openai"],
     ["foundry-pe", "microsoft-foundry"],
     ["postgres-pe", "postgres"],
-    ["case-history-pe", "case-history-storage"],
   ] as const) {
     const endpoint = layout.nodes.get(endpointId)!;
     const service = layout.nodes.get(serviceId)!;
@@ -269,9 +259,6 @@ test("Azure resource network flow routes every compound edge", async () => {
     "core-to-foundry-pe",
     "core-to-postgres-pe",
     "api-to-postgres-pe",
-    "scheduled-jobs-to-operational-event-pe",
-    "operational-event-pe-to-core",
-    "core-to-case-history-pe",
   ]) {
     const edge = layout.edges.find((candidate) => candidate.id === edgeId)!;
     const bends = edge.sections?.[0]?.bendPoints ?? [];

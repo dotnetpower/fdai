@@ -7,11 +7,11 @@ locales:
   en:
     title: FDAI Azure resource network flow
     description: Azure resources, private-endpoint flows, target-state gateway services, and governed delivery channels for FDAI private networking.
-    alt: An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Primary and operational Azure Event Hubs namespaces, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, optional ADLS Gen2 storage, and case-history Blob storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests.
+    alt: An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests.
   ko:
     title: FDAI Azure resource network flow
     description: FDAI private networking의 Azure resource, private endpoint, target-state gateway service 및 통제된 전달 채널입니다.
-    alt: 운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Primary 및 operational Azure Event Hubs namespace, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, optional ADLS Gen2 storage 및 case-history Blob storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다.
+    alt: 운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다.
 canvas:
   width: 1600
   height: 960
@@ -63,7 +63,7 @@ groups:
     gap: 48
     justify: center
     alignWith: private-endpoint-subnet
-    width: 1180
+    width: 948
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -71,7 +71,7 @@ groups:
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: RIGHT
     layout: row
-    width: 1180
+    width: 948
   - id: private-service-backends
     parent: azure-region
     kind: layer
@@ -82,7 +82,7 @@ groups:
     placement: below
     placementGap: 48
     alignWith: private-endpoint-subnet
-    width: 1180
+    width: 948
   - id: platform-services
     parent: azure-region
     kind: layer
@@ -182,13 +182,6 @@ nodes:
     presentation: icon
     label: { en: Event Hubs, ko: Event Hubs }
     width: 100
-  - id: operational-event-hubs-pe
-    parent: private-endpoint-subnet
-    kind: service
-    icon: private-endpoint
-    presentation: icon
-    label: { en: Ops Event Hubs, ko: Ops Event Hubs }
-    width: 100
   - id: registry-pe
     parent: private-endpoint-subnet
     kind: service
@@ -238,13 +231,6 @@ nodes:
     presentation: icon
     label: { en: DFS (optional), ko: DFS (optional) }
     width: 100
-  - id: case-history-pe
-    parent: private-endpoint-subnet
-    kind: service
-    icon: private-endpoint
-    presentation: icon
-    label: { en: Case history, ko: Case history }
-    width: 100
   - id: event-hubs
     parent: private-service-backends
     kind: azure-service
@@ -252,15 +238,7 @@ nodes:
     presentation: icon
     width: 100
     label: { en: Event Hubs, ko: Event Hubs }
-    description: { en: "Kafka :9093 topics, control topics, replay, and dead-letter streams", ko: "Kafka :9093 topic, control topic, replay 및 dead-letter stream" }
-  - id: operational-event-hubs
-    parent: private-service-backends
-    kind: azure-service
-    icon: event-hubs
-    presentation: icon
-    width: 100
-    label: { en: Ops Event Hubs, ko: Ops Event Hubs }
-    description: { en: Canary and raw inventory Kafka topics in an isolated namespace, ko: 격리된 namespace의 canary 및 raw inventory Kafka topic }
+    description: { en: "Primary and operational Kafka :9093 namespaces for governed, canary, inventory, replay, and dead-letter topics", ko: "Governed, canary, inventory, replay 및 dead-letter topic을 위한 primary 및 operational Kafka :9093 namespace" }
   - id: container-registry
     parent: private-service-backends
     kind: azure-service
@@ -309,14 +287,6 @@ nodes:
     width: 216
     label: { en: ADLS Gen2 (optional), ko: ADLS Gen2 (optional) }
     description: { en: "Quarantine, governed source, and derived filesystems", ko: "Quarantine, governed source 및 derived filesystem" }
-  - id: case-history-storage
-    parent: private-service-backends
-    kind: store
-    icon: storage-account
-    presentation: icon
-    width: 100
-    label: { en: Case history, ko: Case history }
-    description: { en: Versioned prediction and incident case artifacts for replay, ko: Replay를 위한 versioned prediction 및 incident case artifact }
   - id: workload-identities
     parent: platform-services
     kind: azure-service
@@ -427,11 +397,6 @@ edges:
     route: orthogonal
     step: 3
     label: { en: Kafka private link, ko: Kafka private link }
-  - id: operational-event-hubs-to-pe
-    from: operational-event-hubs
-    to: operational-event-hubs-pe
-    kind: event
-    route: orthogonal
   - id: event-pe-to-core
     from: event-hubs-pe
     to: core-runtime
@@ -444,18 +409,6 @@ edges:
     kind: event
     route: orthogonal-trunk
     lane: -1
-  - id: scheduled-jobs-to-operational-event-pe
-    from: scheduled-jobs
-    to: operational-event-hubs-pe
-    kind: event
-    route: orthogonal-trunk
-    lane: -1
-  - id: operational-event-pe-to-core
-    from: operational-event-hubs-pe
-    to: core-runtime
-    kind: event
-    route: orthogonal-trunk
-    lane: 0
   - id: registry-to-pe
     from: container-registry
     to: registry-pe
@@ -541,17 +494,6 @@ edges:
   - id: dfs-pe-to-storage
     from: document-dfs-pe
     to: document-storage
-    kind: write
-    route: orthogonal
-  - id: core-to-case-history-pe
-    from: core-runtime
-    to: case-history-pe
-    kind: audit
-    route: orthogonal-trunk
-    lane: 6
-  - id: case-history-pe-to-storage
-    from: case-history-pe
-    to: case-history-storage
     kind: write
     route: orthogonal
   - id: core-to-resource-graph
