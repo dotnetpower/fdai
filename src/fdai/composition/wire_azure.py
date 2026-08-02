@@ -1,13 +1,8 @@
-"""Azure fork-wire container (extracted from composition.py, G-3).
+"""Azure fork-wire container extracted from the former composition module.
 
-Contains :class:`AzureWireOverrides` (declarative fork overrides
-dataclass) and :func:`wire_azure_container` (async composition helper
-that combines a fork's overrides with the upstream defaults + the
-:func:`bind_azure_llm_bindings` result).
-
-Kept in its own module so a fork maintainer can read the whole
-Azure-wire path without scrolling past every unrelated binder in the
-old ``composition.py``.
+Contains the declarative :class:`AzureWireOverrides` and the
+:func:`wire_azure_container` helper that combines fork overrides with
+the upstream defaults and Azure LLM bindings.
 """
 
 from __future__ import annotations
@@ -278,11 +273,7 @@ async def wire_azure_container(
         providers=tool_providers,
     )
 
-    # Wave 4 beta-2: compose the Critic system prompt from the shipped
-    # ``rule-catalog/prompts/base/t2-critic.v1.yaml`` seed. When no
-    # critic base prompt is found we log and skip - the bind step then
-    # leaves ``LlmBindings.critic_model = None`` and the debate
-    # orchestrator degrades to the pre-Wave-4 cross-check flow.
+    # A missing optional role prompt leaves that model binding disabled.
     critic_system_prompt: str | None = None
     try:
         critic_composed = await composer.compose(capability_id="t2.critic")
