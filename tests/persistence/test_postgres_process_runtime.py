@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import subprocess
 import sys
@@ -107,3 +108,53 @@ async def test_postgres_process_create_transition_and_replay() -> None:
     for job in jobs:
         if job.event.process_id == process_id:
             await store.complete_projection(job.event.event_id)
+
+
+async def test_postgres_process_concurrent_duplicate_append_is_idempotent() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = PostgresProcessRuntimeStore(
+        config=PostgresProcessRuntimeStoreConfig(dsn=_requires_live_db())
+    )
+    suffix = uuid.uuid4().hex
+    process_id = f"process-{suffix}"
+    now = datetime.now(tz=UTC)
+    await store.create(
+        snapshot=ProcessSnapshot(
+            process_id=process_id,
+            workflow_ref="operational-planning",
+            workflow_version="1.0.0",
+            status=ProcessStatus.PENDING,
+            current_step="",
+            target_resource_id="scope-example",
+            started_at=now,
+            updated_at=now,
+            correlation_id=f"corr-{suffix}",
+        ),
+        event=ProcessEvent(
+            event_id=f"event-create-{suffix}",
+            process_id=process_id,
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key=f"create-{suffix}",
+            recorded_at=now,
+            correlation_id=f"corr-{suffix}",
+        ),
+    )
+    duplicate = ProcessEvent(
+        event_id=f"event-phase-{suffix}",
+        process_id=process_id,
+        kind=ProcessEventKind.STEP_COMPLETED,
+        idempotency_key=f"phase-{suffix}",
+        recorded_at=now + timedelta(seconds=1),
+        correlation_id=f"corr-{suffix}",
+        step_id="context_frozen",
+    )
+
+    results = await asyncio.gather(
+        store.append_event(duplicate),
+        store.append_event(duplicate),
+    )
+
+    assert sorted(results) == [False, True]
+    events = await store.events(process_id)
+    assert sum(event.idempotency_key == duplicate.idempotency_key for event in events) == 1

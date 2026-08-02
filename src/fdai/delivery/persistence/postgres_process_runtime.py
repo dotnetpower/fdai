@@ -146,21 +146,22 @@ class PostgresProcessRuntimeStore:
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
-                duplicate = await self._event_by_key(connection, event.idempotency_key)
-                if duplicate is not None:
-                    if duplicate.process_id != event.process_id:
-                        raise ProcessRuntimeError(
-                            "process event idempotency key belongs to another process"
-                        )
-                    return False
                 cursor = await connection.execute(
                     "SELECT 1 FROM process_runtime WHERE process_id = %s",
                     (event.process_id,),
                 )
                 if await cursor.fetchone() is None:
                     raise ProcessRuntimeError(f"unknown process {event.process_id!r}")
-                await self._insert_event(connection, event)
-                return True
+                if await self._insert_event_if_absent(connection, event):
+                    return True
+                duplicate = await self._event_by_key(connection, event.idempotency_key)
+                if duplicate is None:
+                    raise ProcessRuntimeError("process event conflict did not resolve to a replay")
+                if duplicate.process_id != event.process_id:
+                    raise ProcessRuntimeError(
+                        "process event idempotency key belongs to another process"
+                    )
+                return False
 
     async def claim_projections(
         self,
@@ -327,6 +328,40 @@ class PostgresProcessRuntimeStore:
             "ON CONFLICT (event_id) DO NOTHING",
             (event.event_id, event.process_id, event.recorded_at),
         )
+
+    async def _insert_event_if_absent(
+        self,
+        connection: psycopg.AsyncConnection[Any],
+        event: ProcessEvent,
+    ) -> bool:
+        cursor = await connection.execute(
+            "INSERT INTO process_event "
+            "(event_id, process_id, kind, idempotency_key, recorded_at, correlation_id, "
+            "causation_id, step_id, attempt, payload) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb) "
+            "ON CONFLICT (idempotency_key) DO NOTHING RETURNING event_id",
+            (
+                event.event_id,
+                event.process_id,
+                event.kind.value,
+                event.idempotency_key,
+                event.recorded_at,
+                event.correlation_id,
+                event.causation_id,
+                event.step_id,
+                event.attempt,
+                json.dumps(dict(event.payload), default=str),
+            ),
+        )
+        if await cursor.fetchone() is None:
+            return False
+        await connection.execute(
+            "INSERT INTO process_projection_outbox "
+            "(event_id, process_id, available_at) VALUES (%s, %s, %s) "
+            "ON CONFLICT (event_id) DO NOTHING",
+            (event.event_id, event.process_id, event.recorded_at),
+        )
+        return True
 
 
 def _snapshot_from_row(row: Mapping[str, Any]) -> ProcessSnapshot:
