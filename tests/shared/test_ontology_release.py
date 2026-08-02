@@ -7,6 +7,8 @@ import pytest
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyDeclarationKind,
+    OntologyFunctionKind,
+    OntologyFunctionType,
     Operation,
     PromotionGate,
     RollbackKind,
@@ -54,3 +56,25 @@ def test_release_returns_exact_type_reference() -> None:
 def test_release_rejects_duplicate_declaration_identity() -> None:
     with pytest.raises(ValueError, match="identities MUST be unique"):
         build_ontology_release(action_types=(_action("ops.alpha"), _action("ops.alpha")))
+
+
+def test_release_pins_function_identity_and_artifact_changes() -> None:
+    function = OntologyFunctionType(
+        name="predict.capacity",
+        version="1.0.0",
+        kind=OntologyFunctionKind.DERIVE,
+        artifact_digest="sha256:" + "a" * 64,
+        publisher="fdai",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+    )
+    release = build_ontology_release(function_types=(function,))
+    changed = build_ontology_release(
+        function_types=(function.model_copy(update={"artifact_digest": "sha256:" + "b" * 64}),)
+    )
+
+    reference = release.type_ref(OntologyDeclarationKind.FUNCTION, function.name)
+
+    assert reference.version == function.version
+    assert reference.catalog_digest == release.digest
+    assert changed.digest != release.digest

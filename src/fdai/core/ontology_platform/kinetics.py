@@ -8,7 +8,13 @@ from typing import Annotated, Any
 
 from pydantic import Field, model_validator
 
-from fdai.shared.contracts.models import ContractBase, OntologyTypeRef, SemVer
+from fdai.shared.contracts.models import (
+    ContractBase,
+    OntologyFunctionKind,
+    OntologyFunctionType,
+    OntologyTypeRef,
+    SemVer,
+)
 
 
 class MutationEffectKind(StrEnum):
@@ -61,27 +67,6 @@ class MutationPlan(ContractBase):
         if self.created_at.tzinfo is None:
             raise ValueError("MutationPlan.created_at MUST be timezone-aware")
         return self
-
-
-class OntologyFunctionKind(StrEnum):
-    QUERY = "query"
-    DERIVE = "derive"
-    VALIDATE = "validate"
-    PLAN = "plan"
-
-
-class OntologyFunctionType(ContractBase):
-    name: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")]
-    version: SemVer
-    kind: OntologyFunctionKind
-    artifact_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
-    publisher: Annotated[str, Field(min_length=1)]
-    input_schema: dict[str, Any]
-    output_schema: dict[str, Any]
-    read_sets: tuple[str, ...] = ()
-    timeout_seconds: int = Field(default=30, ge=1, le=300)
-    memory_bytes: int = Field(default=134_217_728, ge=1, le=1_073_741_824)
-    network_allowed: bool = False
 
 
 class CriterionResult(ContractBase):

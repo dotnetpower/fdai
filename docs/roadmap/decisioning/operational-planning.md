@@ -17,9 +17,10 @@ central planner or another authority surface.
 > Read-only conversational deliberation may explain the same evidence, but its text never advances
 > a Process or changes a DecisionCase.
 >
-> **Implementation status:** The semantic decision path, specialist arbitration, Process journal,
-> typed function primitives, sandbox profiles, and Dynamic simulation exist separately. The
-> delivery plan in this document connects them into one replayable operational-planning workflow.
+> **Implementation status:** P1 function identity is implemented. Canonical ontology releases pin
+> function declarations, and authorized invocation emits replay-stable receipts. The semantic
+> decision path, specialist arbitration, Process journal, sandbox profiles, and Dynamic simulation
+> still exist separately until P2-P7 connect them into one operational-planning workflow.
 
 ## Design at a glance
 

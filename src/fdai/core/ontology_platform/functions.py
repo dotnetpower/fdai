@@ -2,34 +2,119 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from pydantic import Field
+
+from fdai.shared.contracts.models import (
+    CEILING_ROLE_RANK,
+    CeilingRole,
+    ContractBase,
+    LogicExecutionClass,
+    OntologyDeclarationKind,
+    OntologyRelease,
+    OntologyTypeRef,
+)
 
 from .kinetics import CriterionResult, MutationPlan, OntologyFunctionKind, OntologyFunctionType
 
 OntologyFunction = Callable[[Mapping[str, Any]], Awaitable[object]]
 
 
+class FunctionInvocationContext(ContractBase):
+    caller_agent: str = Field(min_length=1, max_length=64)
+    caller_role: CeilingRole = CeilingRole.READER
+    purposes: tuple[str, ...] = ()
+    evidence_refs: tuple[str, ...] = ()
+
+
+class FunctionInvocationReceipt(ContractBase):
+    invocation_id: str = Field(pattern=r"^logic-invocation:[a-f0-9]{64}$")
+    function_ref: OntologyTypeRef
+    caller_agent: str
+    input_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    output_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    seed: int | None = None
+    started_at: datetime
+    completed_at: datetime
+    evidence_refs: tuple[str, ...] = ()
+
+
 class OntologyFunctionRegistry:
-    def __init__(self) -> None:
+    def __init__(self, *, release: OntologyRelease | None = None) -> None:
         self._functions: dict[str, tuple[OntologyFunctionType, OntologyFunction]] = {}
+        self._release = release
 
     def register(self, declaration: OntologyFunctionType, function: OntologyFunction) -> None:
         if declaration.name in self._functions:
             raise ValueError(f"duplicate ontology function {declaration.name!r}")
+        if self._release is not None:
+            reference = self._release.type_ref(OntologyDeclarationKind.FUNCTION, declaration.name)
+            if reference.version != declaration.version:
+                raise ValueError("ontology function declaration does not match release")
         self._functions[declaration.name] = (declaration, function)
 
-    async def invoke(self, name: str, arguments: Mapping[str, Any]) -> object:
+    async def invoke(
+        self,
+        name: str,
+        arguments: Mapping[str, Any],
+        *,
+        context: FunctionInvocationContext | None = None,
+    ) -> object:
+        result, _receipt = await self._invoke(name, arguments, context=context, with_receipt=False)
+        return result
+
+    async def invoke_with_receipt(
+        self,
+        name: str,
+        arguments: Mapping[str, Any],
+        *,
+        context: FunctionInvocationContext,
+    ) -> tuple[object, FunctionInvocationReceipt]:
+        if self._release is None:
+            raise ValueError("ontology function receipts require an exact release")
+        result, receipt = await self._invoke(name, arguments, context=context, with_receipt=True)
+        if receipt is None:  # pragma: no cover - with_receipt invariant
+            raise RuntimeError("ontology function receipt was not produced")
+        return result, receipt
+
+    async def _invoke(
+        self,
+        name: str,
+        arguments: Mapping[str, Any],
+        *,
+        context: FunctionInvocationContext | None,
+        with_receipt: bool,
+    ) -> tuple[object, FunctionInvocationReceipt | None]:
         try:
             declaration, function = self._functions[name]
         except KeyError as exc:
             raise KeyError(f"unknown ontology function {name!r}") from exc
-        input_errors = list(Draft202012Validator(declaration.input_schema).iter_errors(arguments))
+        invocation_context = context or FunctionInvocationContext(caller_agent="unattributed")
+        _authorize(declaration, invocation_context)
+        raw_arguments = dict(arguments)
+        raw_digest = _digest(raw_arguments)
+        seed = None
+        if declaration.execution_class is LogicExecutionClass.SEEDED_STOCHASTIC:
+            seed = int(
+                hashlib.sha256(f"{declaration.artifact_digest}:{raw_digest}".encode()).hexdigest()[
+                    :16
+                ],
+                16,
+            )
+            raw_arguments[declaration.seed_field or "fdai_seed"] = seed
+        input_errors = list(
+            Draft202012Validator(declaration.input_schema).iter_errors(raw_arguments)
+        )
         if input_errors:
             raise ValueError("ontology function arguments violate input_schema")
-        result = await function(dict(arguments))
+        started_at = datetime.now(tz=UTC)
+        result = await function(raw_arguments)
         if declaration.kind is OntologyFunctionKind.VALIDATE and not isinstance(
             result, CriterionResult
         ):
@@ -48,7 +133,63 @@ class OntologyFunctionRegistry:
         )
         if output_errors:
             raise TypeError("ontology function result violates output_schema")
-        return result
+        if not with_receipt:
+            return result, None
+        release = self._release
+        if release is None:  # pragma: no cover - checked by public method
+            raise RuntimeError("ontology release is unavailable")
+        function_ref = release.type_ref(OntologyDeclarationKind.FUNCTION, declaration.name)
+        input_digest = _digest(raw_arguments)
+        output_digest = _digest(serialized)
+        identity = _digest(
+            {
+                "function_ref": function_ref.model_dump(mode="json"),
+                "input_digest": input_digest,
+                "output_digest": output_digest,
+                "caller_agent": invocation_context.caller_agent,
+            }
+        ).removeprefix("sha256:")
+        return result, FunctionInvocationReceipt(
+            invocation_id=f"logic-invocation:{identity}",
+            function_ref=function_ref,
+            caller_agent=invocation_context.caller_agent,
+            input_digest=input_digest,
+            output_digest=output_digest,
+            seed=seed,
+            started_at=started_at,
+            completed_at=datetime.now(tz=UTC),
+            evidence_refs=invocation_context.evidence_refs,
+        )
 
 
-__all__ = ["OntologyFunction", "OntologyFunctionRegistry"]
+def _authorize(declaration: OntologyFunctionType, context: FunctionInvocationContext) -> None:
+    if CEILING_ROLE_RANK[context.caller_role] < CEILING_ROLE_RANK[declaration.required_role]:
+        raise PermissionError("ontology function caller role is below required_role")
+    if declaration.allowed_agents and context.caller_agent not in declaration.allowed_agents:
+        raise PermissionError("ontology function caller agent is not allowed")
+    if declaration.purpose_bindings and not set(context.purposes).intersection(
+        declaration.purpose_bindings
+    ):
+        raise PermissionError("ontology function caller purpose is not allowed")
+
+
+def _digest(value: object) -> str:
+    try:
+        encoded = json.dumps(
+            value,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("ontology function values MUST be canonical JSON") from exc
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+__all__ = [
+    "FunctionInvocationContext",
+    "FunctionInvocationReceipt",
+    "OntologyFunction",
+    "OntologyFunctionRegistry",
+]

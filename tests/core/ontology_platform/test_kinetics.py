@@ -10,6 +10,7 @@ import pytest
 from fdai.core.ontology_platform import (
     AuthorityClass,
     CriterionResult,
+    FunctionInvocationContext,
     MutationEffect,
     MutationEffectKind,
     OntologyFunctionKind,
@@ -23,6 +24,9 @@ from fdai.core.ontology_platform import (
     validate_plan_revisions,
 )
 from fdai.shared.contracts.models import (
+    CeilingRole,
+    LogicCapability,
+    LogicExecutionClass,
     OntologyActionType,
     OntologyDeclarationKind,
     OntologyObjectType,
@@ -109,7 +113,6 @@ async def test_mutation_plan_is_digest_stable_and_rejects_stale_revision() -> No
 
 
 async def test_typed_functions_cannot_return_plan_from_read_kind() -> None:
-    registry = OntologyFunctionRegistry()
     declaration = OntologyFunctionType(
         name="query.workloads",
         version="1.0.0",
@@ -119,6 +122,11 @@ async def test_typed_functions_cannot_return_plan_from_read_kind() -> None:
         input_schema={"type": "object"},
         output_schema={"type": "object"},
     )
+    validate_decl = declaration.model_copy(
+        update={"name": "validate.workload", "kind": OntologyFunctionKind.VALIDATE}
+    )
+    release = build_ontology_release(function_types=(declaration, validate_decl))
+    registry = OntologyFunctionRegistry(release=release)
 
     async def query(_arguments):
         return {"count": 1}
@@ -126,16 +134,73 @@ async def test_typed_functions_cannot_return_plan_from_read_kind() -> None:
     registry.register(declaration, query)
     assert await registry.invoke("query.workloads", {}) == {"count": 1}
 
-    validate_decl = declaration.model_copy(
-        update={"name": "validate.workload", "kind": OntologyFunctionKind.VALIDATE}
-    )
-
     async def validate(_arguments):
         return CriterionResult(passed=True, reason_code="ready", evidence_refs=("object:x",))
 
     registry.register(validate_decl, validate)
     result = await registry.invoke("validate.workload", {})
     assert isinstance(result, CriterionResult)
+
+
+async def test_function_invocation_is_authorized_release_pinned_and_replay_stable() -> None:
+    declaration = OntologyFunctionType(
+        name="simulate.capacity",
+        version="1.0.0",
+        kind=OntologyFunctionKind.DERIVE,
+        capabilities=[LogicCapability.SIMULATE],
+        artifact_digest="sha256:" + "c" * 64,
+        publisher="fdai",
+        input_schema={
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["replicas", "fdai_seed"],
+            "properties": {
+                "replicas": {"type": "integer"},
+                "fdai_seed": {"type": "integer"},
+            },
+        },
+        output_schema={
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["predicted"],
+            "properties": {"predicted": {"type": "number"}},
+        },
+        execution_class=LogicExecutionClass.SEEDED_STOCHASTIC,
+        seed_field="fdai_seed",
+        required_role=CeilingRole.CONTRIBUTOR,
+        purpose_bindings=["operational_planning"],
+        allowed_agents=["Freyr"],
+    )
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+
+    async def simulate(arguments):
+        return {"predicted": arguments["replicas"] + arguments["fdai_seed"] % 2}
+
+    registry.register(declaration, simulate)
+    context = FunctionInvocationContext(
+        caller_agent="Freyr",
+        caller_role=CeilingRole.CONTRIBUTOR,
+        purposes=("operational_planning",),
+        evidence_refs=("snapshot:1",),
+    )
+    first, first_receipt = await registry.invoke_with_receipt(
+        declaration.name, {"replicas": 2}, context=context
+    )
+    replay, replay_receipt = await registry.invoke_with_receipt(
+        declaration.name, {"replicas": 2}, context=context
+    )
+
+    assert replay == first
+    assert replay_receipt.invocation_id == first_receipt.invocation_id
+    assert replay_receipt.seed == first_receipt.seed
+    assert replay_receipt.function_ref.catalog_digest == release.digest
+    with pytest.raises(PermissionError, match="role"):
+        await registry.invoke(
+            declaration.name,
+            {"replicas": 2},
+            context=context.model_copy(update={"caller_role": CeilingRole.READER}),
+        )
 
 
 async def test_projection_binding_pins_release_and_watermark() -> None:

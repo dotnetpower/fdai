@@ -1,6 +1,11 @@
 """Typed operational ontology platform primitives."""
 
-from .functions import OntologyFunction, OntologyFunctionRegistry
+from .functions import (
+    FunctionInvocationContext,
+    FunctionInvocationReceipt,
+    OntologyFunction,
+    OntologyFunctionRegistry,
+)
 from .interfaces import CompiledInterfaceCatalog, compile_interfaces
 from .introspection import platform_manifest
 from .kinetics import (
@@ -36,6 +41,8 @@ __all__ = [
     "AuthorityClass",
     "CriterionResult",
     "GeneratedOntologySdk",
+    "FunctionInvocationContext",
+    "FunctionInvocationReceipt",
     "InterfaceImplementation",
     "ObjectPredicate",
     "ObjectSelector",

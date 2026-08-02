@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: a13d28d9a8714c0de61a45ba87ecd5a39b44e827
-translation_revised: 2026-08-01
+translation_source_sha: 0d4b733f9afd1c77a666dbade609829d7dd73457
+translation_revised: 2026-08-03
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -29,6 +29,9 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > Pre-migration row는 original release digest를 정직하게 복원할 수 없으므로 명시적으로 unpinned
 > 상태를 유지합니다. 다음 successful write는 완전히 다시 검증한 current-state revision을 새로
 > 만들고 그 새 revision을 해당 시점의 active release로 pin합니다.
+> Canonical release는 이제 typed function declaration을 포함합니다. Function registry는 caller
+> agent, role, purpose를 검사하고, 선언된 stochastic function을 위해 replay-stable seed를 파생하며,
+> 정확한 release에 고정된 content-addressed invocation receipt를 emit합니다.
 >
 > **하드닝 상태(2026-08-01):** Release identity, persistence, interface compatibility, ObjectSet
 > closure, mutation safety, function authority, projection, reconciliation, generated SDK syntax,

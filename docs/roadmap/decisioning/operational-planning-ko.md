@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 80572b37a48ca65bad3568585845b054bde3ac7a
+translation_source_sha: 2e949be5ddc8546ce14ac3959f61a2f30bdcc54c
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -17,9 +17,10 @@ DecisionCase, ActionOption, typed ontology function, Assurance Twin을 재사용
 > 대화형 숙의는 같은 증거를 설명할 수 있지만, 그 text는 Process를 진행하거나 DecisionCase를
 > 변경하지 않습니다.
 >
-> **구현 상태:** 의미 기반 결정 경로, 전문 에이전트 arbitration, Process journal, typed function
-> primitive, sandbox profile, Dynamic simulation은 각각 존재합니다. 이 문서의 delivery plan은 이를
-> 하나의 재생 가능한 운영 계획 workflow로 연결합니다.
+> **구현 상태:** P1 function identity가 구현되었습니다. Canonical ontology release가 function
+> declaration을 고정하고 authorized invocation이 replay-stable receipt를 emit합니다. 의미 기반 결정
+> 경로, 전문 에이전트 arbitration, Process journal, sandbox profile, Dynamic simulation은 P2-P7이
+> 하나의 운영 계획 workflow로 연결할 때까지 각각 존재합니다.
 
 ## 한눈에 보는 설계
 
