@@ -52,6 +52,7 @@ def _tools() -> tuple[TurnTool, ...]:
     return (
         TurnTool("query_health", "Read health.", "read", schema),
         TurnTool("query_unavailable", "Unavailable read.", "read", schema),
+        TurnTool("ops.restart", "Draft a restart.", "write", schema),
         TurnTool(
             "web_search",
             "Search public web.",
@@ -87,14 +88,14 @@ def _goal(
     }
 
 
-def _graph(*goals: dict[str, object]):
+def _graph(*goals: dict[str, object], action_posture: str = "advise_only"):
     return parse_intent_graph(
         {
             "schema_version": 2,
             "goals": list(goals),
             "clarification": None,
             "confidence": 0.9,
-            "action_posture": "advise_only",
+            "action_posture": action_posture,
         },
         tools=_tools(),
     )
@@ -234,6 +235,32 @@ async def test_graph_executor_runs_repeated_capability_for_each_goal() -> None:
         "completed",
         "completed",
     ]
+
+
+async def test_graph_executor_never_dispatches_write_goal() -> None:
+    resolver = _Tools()
+    graph = _graph(
+        _goal("restart", "ops.restart"),
+        action_posture="draft_only",
+    )
+
+    result = await resolve_intent_graph_evidence(
+        request_id="request-5",
+        prompt="restart the service",
+        graph=graph,
+        view_context={},
+        user_id="reader",
+        session_id="session-5",
+        planned_tool_resolver=resolver,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=lambda _event: _completed(),
+    )
+
+    receipt = result["_intent_graph_evidence"]["goals"][0]
+    assert resolver.calls == []
+    assert receipt["status"] == "skipped"
+    assert receipt["reason"] == "write_execution_forbidden"
 
 
 async def _completed() -> None:

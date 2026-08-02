@@ -47,6 +47,7 @@ class IntentGoal:
     freshness_required: bool
     confidence: float
     alternatives: tuple[str, ...]
+    side_effect_class: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,6 +346,7 @@ def _parse_goal(raw: object, by_name: Mapping[str, TurnTool]) -> IntentGoal:
         freshness_required=freshness,
         confidence=_confidence(raw.get("confidence"), "goal"),
         alternatives=alternatives,
+        side_effect_class=by_name[capability].side_effect_class if capability is not None else None,
     )
 
 

@@ -136,6 +136,24 @@ async def _resolve_goal(
     status = "completed"
     reason: str | None = None
     evidence: Mapping[str, Any] | None = None
+    if goal.side_effect_class not in {None, "read"}:
+        duration_ms = max(0, int((time.monotonic() - started) * 1000))
+        receipt = _goal_receipt(
+            goal,
+            status="skipped",
+            duration_ms=duration_ms,
+            reason="write_execution_forbidden",
+        )
+        await progress_observer(
+            _progress(
+                branch_id,
+                goal,
+                "unavailable",
+                "Write goal held for explicit review",
+                duration_ms,
+            )
+        )
+        return receipt
     try:
         async with asyncio.timeout(_GOAL_TIMEOUT_SECONDS):
             evidence = await _dispatch_goal(
@@ -165,6 +183,22 @@ async def _resolve_goal(
         status = "failed"
         reason = "capability_failed"
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
+    receipt = _goal_receipt(goal, status=status, duration_ms=duration_ms, reason=reason)
+    if evidence is not None:
+        receipt["evidence"] = dict(evidence)
+    await progress_observer(
+        _progress(branch_id, goal, status, f"Intent goal {status}", duration_ms)
+    )
+    return receipt
+
+
+def _goal_receipt(
+    goal: IntentGoal,
+    *,
+    status: str,
+    duration_ms: int,
+    reason: str | None,
+) -> dict[str, Any]:
     receipt: dict[str, Any] = {
         "goal_id": goal.goal_id,
         "intent": goal.intent.value,
@@ -176,11 +210,6 @@ async def _resolve_goal(
     }
     if reason is not None:
         receipt["reason"] = reason
-    if evidence is not None:
-        receipt["evidence"] = dict(evidence)
-    await progress_observer(
-        _progress(branch_id, goal, status, f"Intent goal {status}", duration_ms)
-    )
     return receipt
 
 
