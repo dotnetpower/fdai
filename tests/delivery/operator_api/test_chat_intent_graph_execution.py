@@ -47,6 +47,18 @@ class _Web:
         }
 
 
+class _UnavailableWeb:
+    async def resolve_planned(
+        self,
+        arguments: Mapping[str, object],
+        view_context: Mapping[str, Any],
+        *,
+        progress_observer: Any = None,
+    ) -> Mapping[str, Any] | None:
+        del arguments, view_context, progress_observer
+        return {"status": "unavailable", "reason": "provider_unavailable", "sources": []}
+
+
 def _tools() -> tuple[TurnTool, ...]:
     schema = {"type": "object", "properties": {}, "additionalProperties": False}
     return (
@@ -74,6 +86,7 @@ def _goal(
     depends_on: list[str] | None = None,
     arguments: Mapping[str, object] | None = None,
     evidence_mode: str = "operational",
+    freshness_required: bool | None = None,
 ) -> dict[str, object]:
     return {
         "goal_id": goal_id,
@@ -82,7 +95,11 @@ def _goal(
         "arguments": dict(arguments or {}),
         "depends_on": depends_on or [],
         "evidence_mode": evidence_mode,
-        "freshness_required": evidence_mode in {"operational", "web", "mixed"},
+        "freshness_required": (
+            evidence_mode in {"operational", "web", "mixed"}
+            if freshness_required is None
+            else freshness_required
+        ),
         "confidence": 0.9,
         "alternatives": [],
     }
@@ -267,6 +284,68 @@ async def test_graph_executor_never_dispatches_write_goal() -> None:
     assert resolver.calls == []
     assert receipt["status"] == "skipped"
     assert receipt["reason"] == "write_execution_forbidden"
+
+
+async def test_nonfresh_web_goal_falls_back_to_labeled_model_knowledge() -> None:
+    graph = _graph(
+        _goal(
+            "mythology",
+            "web_search",
+            arguments={"query": "Bragi mythology"},
+            evidence_mode="web",
+            freshness_required=False,
+        )
+    )
+
+    result = await resolve_intent_graph_evidence(
+        request_id="request-6",
+        prompt="Who is Bragi in mythology?",
+        graph=graph,
+        view_context={},
+        user_id="reader",
+        session_id="session-6",
+        planned_tool_resolver=None,
+        agent_delegate=None,
+        web_search_resolver=_UnavailableWeb(),
+        progress_observer=lambda _event: _completed(),
+    )
+
+    ledger = result["_intent_graph_evidence"]
+    assert ledger["status"] == "completed"
+    assert ledger["evidence_mode"] == "model_knowledge"
+    assert ledger["goals"][0]["reason"] == "web_unavailable_model_knowledge_fallback"
+    assert ledger["goals"][0]["evidence"]["authority"] == "model_knowledge"
+    assert "_web_evidence" not in result
+
+
+async def test_fresh_web_goal_stays_unavailable_without_model_fallback() -> None:
+    graph = _graph(
+        _goal(
+            "latest",
+            "web_search",
+            arguments={"query": "latest recovery benchmark"},
+            evidence_mode="web",
+            freshness_required=True,
+        )
+    )
+
+    result = await resolve_intent_graph_evidence(
+        request_id="request-7",
+        prompt="What is the latest recovery benchmark?",
+        graph=graph,
+        view_context={},
+        user_id="reader",
+        session_id="session-7",
+        planned_tool_resolver=None,
+        agent_delegate=None,
+        web_search_resolver=_UnavailableWeb(),
+        progress_observer=lambda _event: _completed(),
+    )
+
+    ledger = result["_intent_graph_evidence"]
+    assert ledger["status"] == "unavailable"
+    assert ledger["evidence_mode"] == "held_for_review"
+    assert ledger["goals"][0]["status"] == "unavailable"
 
 
 async def _completed() -> None:

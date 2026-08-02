@@ -141,6 +141,7 @@ async def _resolve_goal(
     status = "completed"
     reason: str | None = None
     evidence: Mapping[str, Any] | None = None
+    effective_evidence_mode = goal.evidence_mode.value
     if goal.side_effect_class not in {None, "read"}:
         duration_ms = max(0, int((time.monotonic() - started) * 1000))
         receipt = _goal_receipt(
@@ -174,7 +175,20 @@ async def _resolve_goal(
                 web_search_resolver=web_search_resolver,
                 progress_observer=progress_observer,
             )
-        if goal.capability is not None and evidence is None:
+        unavailable_evidence = evidence is None or (
+            isinstance(evidence, Mapping)
+            and evidence.get("status") in {"unavailable", "failed", "skipped"}
+        )
+        if goal.capability == "web_search" and unavailable_evidence and not goal.freshness_required:
+            evidence = {
+                "authority": "model_knowledge",
+                "status": "model_knowledge_fallback",
+                "fallback_from": "web_search",
+                "freshness_required": False,
+            }
+            effective_evidence_mode = EvidenceMode.MODEL_KNOWLEDGE.value
+            reason = "web_unavailable_model_knowledge_fallback"
+        elif goal.capability is not None and unavailable_evidence:
             status = "unavailable"
             reason = "capability_unavailable"
     except TimeoutError:
@@ -197,6 +211,7 @@ async def _resolve_goal(
         status=status,
         duration_ms=duration_ms,
         reason=reason,
+        evidence_mode=effective_evidence_mode,
     )
     if evidence is not None:
         receipt["evidence"] = dict(evidence)
@@ -214,13 +229,14 @@ def _goal_receipt(
     status: str,
     duration_ms: int,
     reason: str | None,
+    evidence_mode: str | None = None,
 ) -> dict[str, Any]:
     receipt: dict[str, Any] = {
         "task_id": task_id,
         "goal_id": goal.goal_id,
         "intent": goal.intent.value,
         "capability": goal.capability,
-        "evidence_mode": goal.evidence_mode.value,
+        "evidence_mode": evidence_mode or goal.evidence_mode.value,
         "status": status,
         "duration_ms": duration_ms,
         "depends_on": list(goal.depends_on),
@@ -291,6 +307,8 @@ async def _dispatch_goal(
 def _merge_compatibility_evidence(context: dict[str, Any], receipt: Mapping[str, Any]) -> None:
     evidence = receipt.get("evidence")
     if not isinstance(evidence, Mapping):
+        return
+    if evidence.get("authority") == "model_knowledge":
         return
     capability = receipt.get("capability")
     if capability == "web_search":
