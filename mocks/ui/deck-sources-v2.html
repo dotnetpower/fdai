@@ -60,6 +60,18 @@
     .ex-run::before { content: ""; position: absolute; z-index: 0; top: 24px; bottom: 35px; left: 9px; width: 1px; background: #cbd2d9; pointer-events: none; }
     .ex-phase { display: none; }
     .ex-phase.is-visible { position: relative; z-index: 1; display: block; animation: ex-arrive .32s cubic-bezier(.22,1,.36,1) both; }
+    .ex-next-skeleton { position: relative; z-index: 1; display: none; grid-template-columns: 19px minmax(0, 1fr); gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
+    .ex-next-skeleton.is-visible { display: grid; animation: ex-arrive .22s cubic-bezier(.22,1,.36,1) both; }
+    .ex-next-skeleton-mark { width: 19px; height: 19px; border: 1px solid rgba(53,109,155,.2); border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #fff; }
+    .ex-next-skeleton-stack { min-width: 0; display: grid; gap: 10px; }
+    .ex-next-skeleton-card { display: grid; gap: 7px; padding: 9px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fbfcfd; }
+    .ex-next-skeleton-session { min-height: 42px; display: grid; grid-template-columns: 15px minmax(0, 1fr) 58px; align-items: center; gap: 9px; padding: 0 3px 7px; }
+    .ex-next-skeleton-dot, .ex-next-skeleton-line, .ex-next-skeleton-pill { display: block; background: linear-gradient(90deg, #eef1f3 25%, #dde3e7 45%, #eef1f3 65%); background-size: 240% 100%; animation: cs-skeleton-pulse 1.4s ease-in-out infinite; }
+    .ex-next-skeleton-dot { width: 15px; height: 15px; border-radius: 50%; }
+    .ex-next-skeleton-line { width: min(100%, 520px); height: 10px; border-radius: 5px; }
+    .ex-next-skeleton-line.is-label { width: 88px; height: 7px; }
+    .ex-next-skeleton-session .ex-next-skeleton-line { width: min(58%, 240px); }
+    .ex-next-skeleton-pill { width: 58px; height: 19px; border-radius: 10px; }
     .ex-progress-note { display: flex; align-items: flex-start; gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
     .ex-progress-mark { position: relative; z-index: 2; width: 19px; height: 19px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(53,109,155,.34); border-radius: 50%; background: #fff; color: var(--ex-blue); font: 700 7.5px "JetBrains Mono", monospace; box-shadow: 0 0 0 3px #fff; }
     .ex-progress-body { min-width: 0; padding: 7px 9px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fbfcfd; }
@@ -542,6 +554,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var finalSource = finalAnswer.querySelector(".ex-agent-source");
       var finalSourceText = finalSource.textContent;
       var streamAnswer = finalAnswer.querySelector(".ex-stream-answer");
+      var nextSkeleton = null;
       var runToken = 0;
       var waits = [];
 
@@ -689,7 +702,24 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           phaseNode.appendChild(session);
           runHost.appendChild(phaseNode);
         });
+        nextSkeleton = create("div", "ex-next-skeleton");
+        nextSkeleton.setAttribute("aria-hidden", "true");
+        nextSkeleton.appendChild(create("span", "ex-next-skeleton-mark"));
+        var skeletonStack = create("div", "ex-next-skeleton-stack");
+        var skeletonCard = create("div", "ex-next-skeleton-card");
+        skeletonCard.appendChild(create("span", "ex-next-skeleton-line is-label"));
+        skeletonCard.appendChild(create("span", "ex-next-skeleton-line"));
+        skeletonStack.appendChild(skeletonCard);
+        var skeletonSession = create("div", "ex-next-skeleton-session");
+        skeletonSession.appendChild(create("span", "ex-next-skeleton-dot"));
+        skeletonSession.appendChild(create("span", "ex-next-skeleton-line"));
+        skeletonSession.appendChild(create("span", "ex-next-skeleton-pill"));
+        skeletonStack.appendChild(skeletonSession);
+        nextSkeleton.appendChild(skeletonStack);
+        runHost.appendChild(nextSkeleton);
       }
+
+      function showNextSkeleton(visible) { nextSkeleton.classList.toggle("is-visible", visible); }
 
       function reset() {
         runToken += 1;
@@ -730,7 +760,8 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       function completeRun() {
-        Array.prototype.forEach.call(runHost.children, function (phaseNode, phaseIndex) {
+        showNextSkeleton(false);
+        Array.prototype.forEach.call(runHost.querySelectorAll(".ex-phase"), function (phaseNode, phaseIndex) {
           phaseNode.classList.add("is-visible");
           phaseNode.querySelector(".ex-progress-copy").textContent = PHASES[phaseIndex].update;
           completePhase(phaseNode, PHASES[phaseIndex]);
@@ -750,6 +781,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
           var phase = PHASES[phaseIndex];
           var phaseNode = runHost.children[phaseIndex];
+          showNextSkeleton(false);
           phaseNode.classList.add("is-visible");
           var progressCopy = phaseNode.querySelector(".ex-progress-copy");
           if (!await streamNodeText(progressCopy, phase.update, token, 14)) return;
@@ -774,8 +806,10 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
             if (!await wait(240, token)) return;
           }
           completePhase(phaseNode, phase);
+          showNextSkeleton(true);
           if (!await wait(620, token)) return;
         }
+        showNextSkeleton(false);
         answerPreparing.classList.remove("is-active");
         await streamFinalAnswer(token);
       }
