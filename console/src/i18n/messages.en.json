@@ -2115,6 +2115,7 @@
       "pending": "Pending",
       "running": "In progress",
       "completed": "Completed",
+      "partial": "Partial",
       "unavailable": "Unavailable",
       "failed": "Failed",
       "timed_out": "Timed out",

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { InvestigationActivity } from "./backend";
 import {
+  investigationTone,
   unrepresentedEvidenceBranches,
   upsertEvidenceBranch,
   upsertInvestigationActivity,
@@ -153,5 +154,18 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.deck-branch-item\s*\{[^}]*grid-template-columns:\s*42px minmax\(0, 1fr\)/,
     );
+  });
+});
+
+describe("investigationTone", () => {
+  it("keeps mixed successful and unavailable evidence visibly partial", () => {
+    expect(investigationTone([], [branch("completed"), branch("unavailable")]))
+      .toBe("partial");
+  });
+
+  it("distinguishes all unavailable, all completed, and failed evidence", () => {
+    expect(investigationTone([], [branch("unavailable")])).toBe("unavailable");
+    expect(investigationTone([], [branch("completed")])).toBe("completed");
+    expect(investigationTone([], [branch("completed"), branch("failed")])).toBe("failed");
   });
 });

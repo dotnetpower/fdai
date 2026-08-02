@@ -2115,6 +2115,7 @@
       "pending": "대기 중",
       "running": "진행 중",
       "completed": "완료",
+      "partial": "일부 완료",
       "unavailable": "사용할 수 없음",
       "failed": "실패",
       "timed_out": "시간 초과",
