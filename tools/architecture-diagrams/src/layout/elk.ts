@@ -397,16 +397,18 @@ function applyDirectLayouts(
       continue;
     }
     const contentWidth = Math.max(...children.map((node) => node.width));
+    const targetWidth = Math.max(left + contentWidth + left, groupSpec.width ?? 0);
+    const innerWidth = targetWidth - left * 2;
     let y = group.y + top;
     for (const child of children) {
       moveChild(
         child,
-        group.x + left + (contentWidth - child.width) / 2,
+        group.x + left + (innerWidth - child.width) / 2,
         y,
       );
       y += child.height + childGap;
     }
-    group.width = Math.max(left + contentWidth + left, groupSpec.width ?? 0);
+    group.width = targetWidth;
     group.height = y - childGap - group.y + bottom;
   }
 }

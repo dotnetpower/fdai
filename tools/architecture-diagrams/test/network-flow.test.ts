@@ -129,8 +129,10 @@ test("Azure resource network flow routes every compound edge", async () => {
   const governedDelivery = layout.groups.get("governed-delivery")!;
   assert.ok(operatorAccess.x + operatorAccess.width < azureRegion.x);
   assert.ok(azureRegion.x + azureRegion.width < governedDelivery.x);
+  assert.equal(operatorAccess.width, 184);
+  assert.ok(operatorAccess.height > operatorAccess.width);
   assert.ok(governedDelivery.width <= 460);
-  assert.ok(layout.width < 2500);
+  assert.ok(layout.width < 2050);
   const gitProviders = layout.groups.get("git-providers")!;
   const approvalChannels = layout.groups.get("approval-channels")!;
   assert.ok(gitProviders.y + gitProviders.height < approvalChannels.y);
@@ -159,18 +161,16 @@ test("Azure resource network flow routes every compound edge", async () => {
   const operatorNodes = spec.nodes
     .filter((node) => node.parent === "operator-access")
     .map((node) => layout.nodes.get(node.id)!);
-  const operatorCenters = operatorNodes.map(
-    (node) => node.y + node.height / 2,
-  );
-  assert.ok(Math.max(...operatorCenters) - Math.min(...operatorCenters) <= 9);
+  const operatorCenters = operatorNodes.map((node) => node.x + node.width / 2);
+  assert.ok(Math.max(...operatorCenters) - Math.min(...operatorCenters) <= 1);
   const orderedOperatorNodes = ["operator", "entra-id", "operator-console"].map(
     (id) => layout.nodes.get(id)!,
   );
   for (let index = 1; index < orderedOperatorNodes.length; index += 1) {
     const gap =
-      orderedOperatorNodes[index]!.x -
-      (orderedOperatorNodes[index - 1]!.x + orderedOperatorNodes[index - 1]!.width);
-    assert.ok(gap >= 70, `operator access gap ${index} is ${gap}`);
+      orderedOperatorNodes[index]!.y -
+      (orderedOperatorNodes[index - 1]!.y + orderedOperatorNodes[index - 1]!.height);
+    assert.equal(gap, 16, `operator access gap ${index} is ${gap}`);
   }
   assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Microsoft Entra ID");
   assert.equal(

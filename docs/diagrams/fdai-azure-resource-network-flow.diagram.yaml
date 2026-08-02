@@ -24,9 +24,9 @@ groups:
     kind: layer
     presentation: panel
     label: { en: Operator access, ko: 운영자 접근 }
-    direction: RIGHT
-    layout: row
-    width: 540
+    direction: DOWN
+    layout: column
+    width: 184
   - id: azure-region
     kind: cloud
     presentation: panel
