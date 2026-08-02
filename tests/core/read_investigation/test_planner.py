@@ -56,6 +56,16 @@ def test_planner_resolves_before_any_history_query() -> None:
     ]
 
 
+@pytest.mark.parametrize("intent", tuple(ReadInvestigationIntent))
+def test_planner_has_default_evidence_for_every_runtime_intent(
+    intent: ReadInvestigationIntent,
+) -> None:
+    plan = plan_read_investigation(_request(intent))
+
+    assert plan.request.intent is intent
+    assert plan.evidence_steps
+
+
 def test_planner_never_widens_budget_or_accepts_client_resolution() -> None:
     plan = plan_read_investigation(
         _request(

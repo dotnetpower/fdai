@@ -24,6 +24,9 @@ _DEFAULT_EVIDENCE: dict[ReadInvestigationIntent, tuple[ReadToolId, ...]] = {
     ReadInvestigationIntent.NETWORK_PEERING: (ReadToolId.QUERY_NETWORK_PEERINGS,),
 }
 
+if set(_DEFAULT_EVIDENCE) != set(ReadInvestigationIntent):
+    raise RuntimeError("read investigation planner intent coverage is incomplete")
+
 
 def plan_read_investigation(request: ReadInvestigationRequest) -> ReadInvestigationPlan:
     requested = request.requested_evidence or _DEFAULT_EVIDENCE[request.intent]
