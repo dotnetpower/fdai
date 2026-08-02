@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 1d9deb411a159379a007de0c4ae973d530b87cc0
+translation_source_sha: 4ed388897cdce5c6dc885061bd4d059ec7a6d4d3
 translation_revised: 2026-08-04
 ---
 
@@ -248,7 +248,7 @@ flowchart TD
     `chat_verification_text.py`와 `chat_verification_rendering.py`는 terminal integrity와 prose를 소유합니다.
   - `read_investigation_responder.py`는 등록된 모든 Heimdall read intent를 typed evidence field에서
     렌더링합니다. Evidence가 없으면 명시적인 unavailable answer를 반환하며, 처리되지 않은 intent는
-    generic success prose로 fallback하지 않고 exhaustive type checking에서 실패합니다. Fallback은 Pantheon agent를 embed하지 않고 bound된 typed responder를 호출합니다. 하나의 runtime intent spec이 tool과 lookback을 공급하며 `read_investigation_catalog.py`는 catalog ID, owner 또는 plan binding drift 시 startup을 차단합니다.
+    generic success prose로 fallback하지 않고 exhaustive type checking에서 실패합니다. Fallback은 Pantheon agent를 embed하지 않고 bound된 typed responder를 호출하며 direct `PantheonChatDelegate` 사용은 fixture-only입니다. 하나의 runtime intent spec이 tool과 lookback을 공급하며 `read_investigation_catalog.py`는 catalog ID, owner 또는 plan binding drift 시 startup을 차단합니다.
 
 이 layer의 영어 및 한국어 presentation literal은 NFC UTF-8로 작성합니다. Repository gate는 escape된
 Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만

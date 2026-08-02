@@ -748,6 +748,7 @@ class TestLocalEntraLoginHarness:
         assert application.state.pantheon_runtime is not None
         assert len(application.state.pantheon_runtime.agents) == 15
         assert application.state.pantheon_runtime.bridge.handler_observer is not None
+        assert application.state.chat_agent_delegate is None
 
     def test_explicit_pantheon_disable_omits_runtime_and_stream(
         self, monkeypatch: pytest.MonkeyPatch

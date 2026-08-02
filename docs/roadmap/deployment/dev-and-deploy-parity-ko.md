@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 348f1686df19483986aa2f56bb1f9c309ee23a10
+translation_source_sha: dcd48caf0c0286c380b86bfbaec8a00a0a9ec44d
 translation_revised: 2026-08-04
 ---
 
@@ -134,7 +134,7 @@ Vite local address 게시를 각각 확인한 뒤에만 background task를 ready
 표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로,
 `python -m fdai`를 직접 실행해도 singleton guard를 우회할 수 없습니다. Production runtime은 deployment에서
 명시적으로 구성한 경우에만 process lock을 계속 사용합니다.
-Core runtime만 Pantheon을 소유하며 local 및 deployed interactive read는 같은 execution-mode policy를 사용하고 intent ID, Heimdall ownership 또는 plan binding drift 시 startup을 차단합니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
+Core runtime만 Pantheon을 소유하며 local 및 deployed interactive read는 같은 execution-mode policy를 사용하고 intent ID, Heimdall ownership 또는 plan binding drift 시 startup을 차단합니다. Embedded direct Pantheon chat delegation은 fixture-only입니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
 port에 접근합니다. Startup probe로 response consumer 준비를 확인한 후 traffic을 받습니다. Client는
 retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Production
 replica는 server consumer group을 공유하므로 request마다 replica 하나만 응답합니다. Singleton local

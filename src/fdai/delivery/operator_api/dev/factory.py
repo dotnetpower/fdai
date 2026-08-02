@@ -896,7 +896,7 @@ def build_local_app(
                 else local_read_investigation.chat_delegate
                 if local_read_investigation is not None
                 else PantheonChatDelegate(runtime.pantheon_runtime)
-                if runtime is not None
+                if test_fixtures and runtime is not None
                 else None
             ),
             console_action=(
@@ -959,7 +959,7 @@ def build_local_app(
         else local_read_investigation.chat_delegate
         if local_read_investigation is not None
         else PantheonChatDelegate(runtime.pantheon_runtime)
-        if runtime is not None
+        if test_fixtures and runtime is not None
         else None
     )
     application.state.local_operator_runtime = (
