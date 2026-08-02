@@ -243,6 +243,7 @@ def append_chat_routes(
                 owner="approved_web_search",
                 authority="read",
                 available=lambda: bool(getattr(web_search_resolver, "available", True)),
+                enabled=lambda: bool(getattr(web_search_resolver, "enabled", True)),
                 unavailable_reason="web_search_unavailable",
             )
         )

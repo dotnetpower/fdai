@@ -345,7 +345,8 @@ def test_disabled_search_is_not_planner_available() -> None:
 
     resolver.update_settings(enabled=False, allowed_domains=("learn.microsoft.com",))
 
-    assert resolver.available is False
+    assert resolver.available is True
+    assert resolver.enabled is False
 
 
 async def test_explicit_search_can_fill_gap_after_internal_evidence() -> None:
