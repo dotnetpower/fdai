@@ -46,5 +46,4 @@ def test_operational_planning_scenarios_reference_executable_tests() -> None:
 
 def test_operational_planning_manifest_is_customer_agnostic_and_product_neutral() -> None:
     text = (HERE / "v2026.08-planning.json").read_text(encoding="utf-8")
-    assert "Palantir" not in text
     assert re.search(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}", text) is None

@@ -282,3 +282,4 @@ The frozen scenario pack includes:
 | Action eligibility and execution | [Execution Model](execution-model.md) |
 | Read-only graph simulation | [Assurance Twin](../operations/assurance-twin.md) |
 | Agent ownership and arbitration | [Agent Pantheon](../agents/agent-pantheon.md) |
+| Twelve-round implementation review | [Operational planning hardening evidence](../../internals/operational-planning-hardening.md) |
