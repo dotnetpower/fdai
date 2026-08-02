@@ -13,7 +13,8 @@ const networkFlowUrl = new URL(
 );
 
 test("Azure resource network flow routes every compound edge", async () => {
-  const spec = parseDiagram(await readFile(networkFlowUrl, "utf8"));
+  const source = await readFile(networkFlowUrl, "utf8");
+  const spec = parseDiagram(source);
   const layout = await layoutDiagram(spec);
   const svg = await renderSvg(spec, layout, "en");
 
@@ -41,12 +42,30 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-group-id="fdai-vnet"/);
   assert.match(svg, /data-group-id="container-apps-subnet"/);
   assert.match(svg, /data-group-id="private-endpoint-subnet"/);
+  assert.match(svg, /data-group-id="gateway-subnet"/);
   assert.doesNotMatch(svg, /data-group-id="postgres-subnet"/);
   assert.match(svg, /data-node-id="postgres-pe"/);
   assert.match(svg, /data-node-id="ingestion-gateway"/);
   assert.match(svg, /data-node-id="document-blob-pe"/);
   assert.match(svg, /data-node-id="document-dfs-pe"/);
   assert.match(svg, /data-node-id="document-storage"/);
+  for (const [nodeId, icon] of [
+    ["entra-id", "entra-id"],
+    ["application-gateway", "application-gateway"],
+    ["waf-policy", "waf-policy"],
+    ["microsoft-foundry", "ai-foundry"],
+    ["managed-grafana", "managed-grafana"],
+    ["email-approval", "communication-services"],
+    ["teams-approval", "teams"],
+    ["slack-approval", "slack"],
+    ["github-delivery", "github"],
+    ["gitlab-delivery", "gitlab"],
+    ["azure-devops-delivery", "azure-devops"],
+  ] as const) {
+    assert.equal(spec.nodes.find((node) => node.id === nodeId)?.icon, icon);
+    assert.match(svg, new RegExp(`data-node-id="${nodeId}"`));
+  }
+  assert.doesNotMatch(source, /\bTBD\b/);
   assert.equal(
     spec.nodes.find((node) => node.id === "document-storage")!.label.en,
     "ADLS Gen2 Storage Account (optional)",
@@ -58,6 +77,7 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-node-id="operator-console"/);
   assert.doesNotMatch(svg, /data-node-id="operator-cli"/);
   for (const groupId of [
+    "gateway-subnet",
     "container-apps-subnet",
     "private-endpoint-subnet",
     "private-service-backends",
@@ -74,6 +94,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     assert.ok(group.width > group.height, `${groupId} must be wider than tall`);
   }
   const gridGroups = [
+    layout.groups.get("gateway-subnet")!,
     layout.groups.get("container-apps-subnet")!,
     layout.groups.get("private-endpoint-subnet")!,
     layout.groups.get("private-service-backends")!,
@@ -81,8 +102,10 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.ok(Math.max(...gridGroups.map((group) => group.x)) - Math.min(...gridGroups.map((group) => group.x)) <= 1);
   assert.ok(Math.max(...gridGroups.map((group) => group.width)) - Math.min(...gridGroups.map((group) => group.width)) <= 1);
   const containerApps = layout.groups.get("container-apps-subnet")!;
+  const gatewaySubnet = layout.groups.get("gateway-subnet")!;
   const privateEndpoints = layout.groups.get("private-endpoint-subnet")!;
   const privateServices = layout.groups.get("private-service-backends")!;
+  assert.ok(gatewaySubnet.y + gatewaySubnet.height < containerApps.y);
   assert.ok(containerApps.y + containerApps.height < privateEndpoints.y);
   assert.ok(privateEndpoints.y + privateEndpoints.height < privateServices.y);
   const operatorAccess = layout.groups.get("operator-access")!;
@@ -128,7 +151,7 @@ test("Azure resource network flow routes every compound edge", async () => {
       (orderedOperatorNodes[index - 1]!.x + orderedOperatorNodes[index - 1]!.width);
     assert.ok(gap >= 70, `operator access gap ${index} is ${gap}`);
   }
-  assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Entra ID");
+  assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Microsoft Entra ID");
   const platformNodes = spec.nodes
     .filter((node) => node.parent === "platform-services")
     .map((node) => layout.nodes.get(node.id)!);
@@ -142,6 +165,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     ["event-hubs-pe", "event-hubs"],
     ["key-vault-pe", "key-vault"],
     ["openai-pe", "azure-openai"],
+    ["foundry-pe", "microsoft-foundry"],
   ] as const) {
     const endpoint = layout.nodes.get(endpointId)!;
     const service = layout.nodes.get(serviceId)!;
@@ -163,6 +187,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     "registry-pe-to-core",
     "core-to-key-vault-pe",
     "core-to-openai-pe",
+    "core-to-foundry-pe",
     "core-to-postgres-pe",
     "api-to-postgres-pe",
   ]) {
@@ -177,12 +202,12 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.equal(registryEdge.from, "container-registry");
   assert.equal(registryEdge.to, "registry-pe");
   const gitSection = layout.edges.find(
-    (candidate) => candidate.id === "core-to-git",
+    (candidate) => candidate.id === "core-to-github",
   )?.sections?.[0];
-  assert.ok(gitSection?.bendPoints?.length === 2);
-  assert.ok(gitSection.bendPoints[0]!.y < gitSection.startPoint.y);
+  assert.ok(gitSection?.bendPoints?.length === 4);
+  assert.ok(gitSection.bendPoints[1]!.y < gitSection.startPoint.y);
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-teams")!.step, 6);
-  assert.equal(spec.edges.find((edge) => edge.id === "core-to-git")!.step, 7);
+  assert.equal(spec.edges.find((edge) => edge.id === "core-to-github")!.step, 7);
   assert.equal(
     spec.nodes.find((node) => node.id === "postgres")!.parent,
     "private-service-backends",

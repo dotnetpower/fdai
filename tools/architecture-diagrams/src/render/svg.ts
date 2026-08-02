@@ -50,25 +50,33 @@ const edgeKindLabels: Record<EdgeKind, Record<Locale, string>> = {
   write: { en: "Write", ko: "쓰기" },
 };
 
+interface IconEntry {
+  file: string;
+  mediaType?: "image/png" | "image/svg+xml";
+  productName: string;
+  sha256: string;
+}
+
 interface IconLock {
-  icons: Record<string, { file: string; productName: string; sha256: string }>;
+  icons: Record<string, IconEntry>;
+}
+
+interface PantheonIconEntry {
+  name: string;
+  role: string;
+  accent: string;
+  file: string;
 }
 
 interface PantheonIconManifest {
-  agents: Array<{
-    name: string;
-    role: string;
-    accent: string;
-    file: string;
-  }>;
+  collective: PantheonIconEntry;
+  agents: PantheonIconEntry[];
 }
 
-const iconDirectory = fileURLToPath(
-  new URL("../../assets/azure/", import.meta.url),
-);
-const iconLock = JSON.parse(
-  await readFile(new URL("../../assets/azure/icons.lock.json", import.meta.url), "utf8"),
-) as IconLock;
+const iconCatalogs = await Promise.all([
+  loadIconCatalog("azure"),
+  loadIconCatalog("brands"),
+]);
 const pantheonIconDirectory = fileURLToPath(
   new URL("../../../../console/public/agent-icons/", import.meta.url),
 );
@@ -78,6 +86,19 @@ const pantheonIconManifest = JSON.parse(
 const pantheonIconById = new Map(
   pantheonIconManifest.agents.map((agent) => [agent.name.toLowerCase(), agent]),
 );
+
+async function loadIconCatalog(name: string): Promise<{
+  directory: string;
+  lock: IconLock;
+}> {
+  const assetUrl = new URL(`../../assets/${name}/`, import.meta.url);
+  return {
+    directory: fileURLToPath(assetUrl),
+    lock: JSON.parse(
+      await readFile(new URL("icons.lock.json", assetUrl), "utf8"),
+    ) as IconLock,
+  };
+}
 
 function escapeXml(value: string): string {
   return value
@@ -106,32 +127,38 @@ function textLines(
 
 async function iconDataUri(icon: string | undefined): Promise<string | undefined> {
   if (!icon) return undefined;
-  const entry = iconLock.icons[icon];
+  const catalog = iconCatalogs.find(({ lock }) => lock.icons[icon]);
+  if (!catalog) throw new Error(`Unknown diagram icon '${icon}'`);
+  const entry = catalog.lock.icons[icon];
   if (!entry) throw new Error(`Unknown diagram icon '${icon}'`);
-  const source = await readFile(`${iconDirectory}/${entry.file}`);
+  const source = await readFile(`${catalog.directory}/${entry.file}`);
   const payload = source.at(-1) === 0x0a ? source.subarray(0, -1) : source;
   const digest = createHash("sha256").update(payload).digest("hex");
   if (digest !== entry.sha256) {
     throw new Error(`Diagram icon '${icon}' does not match icons.lock.json`);
   }
-  return `data:image/svg+xml;base64,${source.toString("base64")}`;
+  return `data:${entry.mediaType ?? "image/svg+xml"};base64,${source.toString("base64")}`;
 }
 
-async function pantheonIconDataUri(node: DiagramNode): Promise<string> {
-  const entry = pantheonIconById.get(node.id);
-  if (!entry) {
-    throw new Error(`Unknown pantheon agent icon '${node.id}'`);
-  }
+async function pantheonIconDataUri(entry: PantheonIconEntry, iconId: string): Promise<string> {
   const source = await readFile(`${pantheonIconDirectory}/${entry.file}`, "utf8");
   if (
     !source.startsWith("<svg ") ||
     /<(?:script|foreignObject)\b|\b(?:href|src)\s*=/iu.test(source)
   ) {
-    throw new Error(`Pantheon agent icon '${node.id}' contains unsupported SVG content`);
+    throw new Error(`Pantheon icon '${iconId}' contains unsupported SVG content`);
   }
   return `data:image/svg+xml;base64,${Buffer.from(
     source.replaceAll("currentColor", entry.accent),
   ).toString("base64")}`;
+}
+
+async function pantheonAgentIconDataUri(node: DiagramNode): Promise<string> {
+  const entry = pantheonIconById.get(node.id);
+  if (!entry) {
+    throw new Error(`Unknown pantheon agent icon '${node.id}'`);
+  }
+  return pantheonIconDataUri(entry, node.id);
 }
 
 async function renderNode(
@@ -141,8 +168,10 @@ async function renderNode(
 ): Promise<string> {
   const geometry = nodeGeometry(node);
   const icon = node.kind === "agent"
-    ? await pantheonIconDataUri(node)
-    : await iconDataUri(node.icon);
+    ? await pantheonAgentIconDataUri(node)
+    : node.icon === "agent-pantheon"
+      ? await pantheonIconDataUri(pantheonIconManifest.collective, node.icon)
+      : await iconDataUri(node.icon);
   const x = shape.x + shape.width / 2;
   const labelLines = wrapText(node.label[locale], geometry.maxLabelUnits);
   const labelStart = shape.y + geometry.labelTop + NODE_FONT_SIZE;

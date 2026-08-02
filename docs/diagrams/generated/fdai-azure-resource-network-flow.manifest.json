@@ -5,13 +5,13 @@
   "locales": {
     "en": {
       "title": "FDAI Azure resource network flow",
-      "description": "Azure resources, private-endpoint flows, and the optional document storage path for FDAI private networking.",
-      "alt": "An operator signs in through Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, and Azure Database for PostgreSQL connect through dedicated private endpoints in the private endpoint subnet. When document ingestion is enabled, an Ingestion Gateway Container App reaches ADLS Gen2 document storage through Blob and DFS private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests."
+      "description": "Azure resources, private-endpoint flows, target-state gateway services, and governed delivery channels for FDAI private networking.",
+      "alt": "An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests."
     },
     "ko": {
       "title": "FDAI Azure resource network flow",
-      "description": "FDAI private networking의 Azure resource, private endpoint 및 optional document storage flow입니다.",
-      "alt": "운영자는 Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI 및 Azure Database for PostgreSQL은 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. Document ingestion을 활성화하면 Ingestion Gateway Container App이 Blob 및 DFS private endpoint를 통해 ADLS Gen2 document storage에 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다."
+      "description": "FDAI private networking의 Azure resource, private endpoint, target-state gateway service 및 통제된 전달 채널입니다.",
+      "alt": "운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다."
     }
   },
   "assets": {
@@ -41,8 +41,8 @@
       "id": "entra-id",
       "kind": "external",
       "label": {
-        "en": "Entra ID",
-        "ko": "Entra ID"
+        "en": "Microsoft Entra ID",
+        "ko": "Microsoft Entra ID"
       },
       "description": {
         "en": "Browser authentication and App Roles",
@@ -74,15 +74,27 @@
       }
     },
     {
-      "id": "scheduled-jobs",
-      "kind": "process",
+      "id": "application-gateway",
+      "kind": "azure-service",
       "label": {
-        "en": "Container Apps Jobs",
-        "ko": "Container Apps Jobs"
+        "en": "Application Gateway",
+        "ko": "Application Gateway"
       },
       "description": {
-        "en": "Inventory, detection, canary, measurement, and resilience jobs",
-        "ko": "Inventory, detection, canary, measurement 및 resilience job"
+        "en": "Private ingress for operator and ingestion requests",
+        "ko": "운영자 및 ingestion 요청을 위한 private ingress"
+      }
+    },
+    {
+      "id": "waf-policy",
+      "kind": "azure-service",
+      "label": {
+        "en": "WAF policy",
+        "ko": "WAF policy"
+      },
+      "description": {
+        "en": "Managed protection attached to Application Gateway",
+        "ko": "Application Gateway에 연결된 managed protection"
       }
     },
     {
@@ -95,6 +107,18 @@
       "description": {
         "en": "Authenticated document upload and governed ingestion",
         "ko": "인증된 document upload 및 통제된 ingestion"
+      }
+    },
+    {
+      "id": "scheduled-jobs",
+      "kind": "process",
+      "label": {
+        "en": "Container Apps Jobs",
+        "ko": "Container Apps Jobs"
+      },
+      "description": {
+        "en": "Inventory, detection, canary, measurement, and resilience jobs",
+        "ko": "Inventory, detection, canary, measurement 및 resilience job"
       }
     },
     {
@@ -155,6 +179,18 @@
       "description": {
         "en": "Azure OpenAI private endpoint",
         "ko": "Azure OpenAI private endpoint"
+      }
+    },
+    {
+      "id": "foundry-pe",
+      "kind": "service",
+      "label": {
+        "en": "Microsoft Foundry private endpoint",
+        "ko": "Microsoft Foundry private endpoint"
+      },
+      "description": {
+        "en": "Microsoft Foundry private endpoint",
+        "ko": "Microsoft Foundry private endpoint"
       }
     },
     {
@@ -242,6 +278,18 @@
       }
     },
     {
+      "id": "microsoft-foundry",
+      "kind": "azure-service",
+      "label": {
+        "en": "Microsoft Foundry",
+        "ko": "Microsoft Foundry"
+      },
+      "description": {
+        "en": "Governed model, evaluation, and agent project plane",
+        "ko": "통제된 model, evaluation 및 agent project plane"
+      }
+    },
+    {
       "id": "postgres",
       "kind": "azure-service",
       "label": {
@@ -302,11 +350,35 @@
       }
     },
     {
+      "id": "managed-grafana",
+      "kind": "azure-service",
+      "label": {
+        "en": "Azure Managed Grafana",
+        "ko": "Azure Managed Grafana"
+      },
+      "description": {
+        "en": "Governed dashboards over Azure Monitor data",
+        "ko": "Azure Monitor data 기반의 통제된 dashboard"
+      }
+    },
+    {
+      "id": "email-approval",
+      "kind": "azure-service",
+      "label": {
+        "en": "Email",
+        "ko": "Email"
+      },
+      "description": {
+        "en": "Azure Communication Services email adapter",
+        "ko": "Azure Communication Services email adapter"
+      }
+    },
+    {
       "id": "teams-approval",
       "kind": "external",
       "label": {
-        "en": "Teams approval channel",
-        "ko": "Teams 승인 채널"
+        "en": "Microsoft Teams",
+        "ko": "Microsoft Teams"
       },
       "description": {
         "en": "Human approval with a separate approver identity",
@@ -314,11 +386,47 @@
       }
     },
     {
-      "id": "git-delivery",
+      "id": "slack-approval",
       "kind": "external",
       "label": {
-        "en": "Git remediation pull request",
-        "ko": "Git 수정 pull request"
+        "en": "Slack",
+        "ko": "Slack"
+      },
+      "description": {
+        "en": "Reauthenticated approval and notification adapter",
+        "ko": "재인증된 승인 및 알림 adapter"
+      }
+    },
+    {
+      "id": "github-delivery",
+      "kind": "external",
+      "label": {
+        "en": "GitHub",
+        "ko": "GitHub"
+      },
+      "description": {
+        "en": "Reviewable and reversible change delivery",
+        "ko": "검토 및 되돌리기가 가능한 변경 전달"
+      }
+    },
+    {
+      "id": "gitlab-delivery",
+      "kind": "external",
+      "label": {
+        "en": "GitLab",
+        "ko": "GitLab"
+      },
+      "description": {
+        "en": "Reviewable and reversible change delivery",
+        "ko": "검토 및 되돌리기가 가능한 변경 전달"
+      }
+    },
+    {
+      "id": "azure-devops-delivery",
+      "kind": "azure-service",
+      "label": {
+        "en": "Azure DevOps",
+        "ko": "Azure DevOps"
       },
       "description": {
         "en": "Reviewable and reversible change delivery",
@@ -343,16 +451,30 @@
       "label": null
     },
     {
-      "id": "console-to-api",
+      "id": "console-to-gateway",
       "from": "operator-console",
-      "to": "operator-api",
+      "to": "application-gateway",
       "kind": "request",
       "label": null,
       "step": 2
     },
     {
-      "id": "console-to-ingestion",
-      "from": "operator-console",
+      "id": "waf-to-gateway",
+      "from": "waf-policy",
+      "to": "application-gateway",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "gateway-to-api",
+      "from": "application-gateway",
+      "to": "operator-api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "gateway-to-ingestion",
+      "from": "application-gateway",
       "to": "ingestion-gateway",
       "kind": "request",
       "label": null
@@ -429,6 +551,20 @@
       "label": null
     },
     {
+      "id": "core-to-foundry-pe",
+      "from": "core-runtime",
+      "to": "foundry-pe",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "foundry-pe-to-service",
+      "from": "foundry-pe",
+      "to": "microsoft-foundry",
+      "kind": "request",
+      "label": null
+    },
+    {
       "id": "core-to-postgres-pe",
       "from": "core-runtime",
       "to": "postgres-pe",
@@ -496,6 +632,13 @@
       "label": null
     },
     {
+      "id": "monitor-to-grafana",
+      "from": "monitor",
+      "to": "managed-grafana",
+      "kind": "read",
+      "label": null
+    },
+    {
       "id": "core-to-teams",
       "from": "core-runtime",
       "to": "teams-approval",
@@ -504,9 +647,9 @@
       "step": 6
     },
     {
-      "id": "core-to-git",
+      "id": "core-to-github",
       "from": "core-runtime",
-      "to": "git-delivery",
+      "to": "github-delivery",
       "kind": "mutation",
       "label": null,
       "step": 7

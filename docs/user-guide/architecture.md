@@ -53,28 +53,40 @@ profile.
 
 ## Azure resource network flow
 
-Use this view to trace each connection at the Azure resource level. It separates
-the Container Apps infrastructure subnet and private endpoint subnet, then maps
-each private endpoint to its managed service backend.
+Use this view to trace current and target-state connections at the Azure resource
+level. It separates the private Application Gateway, Container Apps infrastructure,
+and private endpoint subnets, then maps each private endpoint to its managed service
+backend.
 The diagram shows the FDAI Web Console path. The FDAI CLI uses the same
 Operator API but is omitted from this view for clarity.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, and Azure Database for PostgreSQL connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
-This view shows the default private-networking profile, where
+The baseline portion shows the default private-networking profile, where
 `enable_private_postgres=false` adds a `postgresqlServer` private endpoint.
 Setting `enable_private_postgres=true` replaces that path with PostgreSQL
 Flexible Server in its delegated subnet and doesn't create the endpoint.
 The optional document-ingestion path shows its Ingestion Gateway, Blob and DFS
-private endpoints, and ADLS Gen2 account. Case-history storage, the development
-operations gateway, and Foundry/APIM remain in their feature-specific profiles.
+private endpoints, and ADLS Gen2 account. Case-history storage and the development
+operations gateway remain in their feature-specific profiles. APIM isn't shown.
+
+The same view overlays the intended gateway, model platform, observability, and
+delivery-provider topology. Status remains in this document rather than on the
+diagram so product and network labels stay stable.
+
+| Target-state element | Day-zero baseline | Status |
+|----------------------|-------------------|--------|
+| Private Application Gateway subnet with Application Gateway and WAF policy | Not provisioned | TBD - add the Terraform profile and validate the private operator access path |
+| Microsoft Foundry private endpoint and Azure Managed Grafana | Not provisioned | TBD - bind each service through its feature-specific deployment profile |
+| Email, Teams, and Slack approval channels | Adapter choices | TBD per deployment - select channels, credentials, callback identity, and fallback policy |
+| GitHub, GitLab, and Azure DevOps delivery providers | Provider choices | TBD per deployment - select the Git host and configure review and rollback bindings |
 
 Azure Resource Graph reads and observability writes are shown outside the
 private data-plane path because they use Azure control-plane and telemetry
-contracts. The baseline does not add an Application Gateway, WAF, or load
-balancer that the Terraform deployment does not own.
+contracts. The day-zero Terraform baseline still doesn't add an Application
+Gateway, WAF, Managed Grafana, or load balancer.
 
 ## The five architecture layers
 

@@ -5,10 +5,30 @@
   "published": "2026-07-08",
   "archiveSha256": "921594ccd1bf3d9c0a1bd7b6d924e050551a59342f2b353bb74bdcf761c35141",
   "icons": {
+    "ai-foundry": {
+      "file": "ai-foundry.svg",
+      "productName": "Microsoft Foundry",
+      "sha256": "fab039a771f72780ae34e59065d61c66a02d3c347d50923ef2956f34912ea02c"
+    },
+    "application-gateway": {
+      "file": "application-gateway.svg",
+      "productName": "Application Gateway",
+      "sha256": "531e668e47cf61872b2811ec67dcc103cee2ecc1d272f07132d6196d68ba6c19"
+    },
+    "azure-devops": {
+      "file": "azure-devops.svg",
+      "productName": "Azure DevOps",
+      "sha256": "15b5068ceeb28f0f3cf566aa8cf99619f99d47059d7a91fda0ef47091a71a041"
+    },
     "azure-openai": {
       "file": "azure-openai.svg",
       "productName": "Azure OpenAI",
       "sha256": "4859f2c78b6b81acbbaf94e7348cb7dcbe97955a038be903de01cf46a7206aad"
+    },
+    "communication-services": {
+      "file": "communication-services.svg",
+      "productName": "Azure Communication Services",
+      "sha256": "ce7efbd63d4598f12d6759e958dc44f682bafb8e6b432b72595aa933f26f4955"
     },
     "container-apps": {
       "file": "container-apps.svg",
@@ -29,6 +49,11 @@
       "file": "key-vault.svg",
       "productName": "Azure Key Vault",
       "sha256": "712b426f54f0fc50d0816dc79df709daa7ac5f93ccaf4e9b3527f627f6e9ad97"
+    },
+    "managed-grafana": {
+      "file": "managed-grafana.svg",
+      "productName": "Azure Managed Grafana",
+      "sha256": "0a6c8a31178b6288930f4c52eb1ffcdded5ca6f7ee6d7c9b0b2766c35e5585ec"
     },
     "managed-identity": {
       "file": "managed-identity.svg",
@@ -64,6 +89,11 @@
       "file": "static-web-app.svg",
       "productName": "Azure Static Web Apps",
       "sha256": "c3075406ba25213b52f9fdbee5dfeb3cc31217be17a867ed6dca32020ec03646"
+    },
+    "waf-policy": {
+      "file": "waf-policy.svg",
+      "productName": "Web Application Firewall Policies",
+      "sha256": "b790e4e7b7617c8155025ab238cfab39a303df74dc030dbe9943a6eef2732255"
     }
   }
 }

@@ -820,7 +820,7 @@ function orthogonalAboveRouteSection(
   const sourceX = target.x >= source.x ? source.x + source.width : source.x;
   const sourceCorridorX = target.x >= source.x ? sourceX + 24 : sourceX - 24;
   const targetX = target.x >= source.x ? target.x : target.x + target.width;
-  const corridorX = target.x >= source.x ? targetX - 24 : targetX + 24;
+  const corridorX = target.x >= source.x ? targetX - 8 : targetX + 8;
   const minimumX = Math.min(sourceCorridorX, corridorX);
   const maximumX = Math.max(sourceCorridorX, corridorX);
   const obstacleTop = Math.min(

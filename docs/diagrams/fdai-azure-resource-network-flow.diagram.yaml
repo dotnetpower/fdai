@@ -5,12 +5,12 @@ updated: 2026-08-02
 locales:
   en:
     title: FDAI Azure resource network flow
-    description: Azure resources, private-endpoint flows, and the optional document storage path for FDAI private networking.
-    alt: An operator signs in through Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, and Azure Database for PostgreSQL connect through dedicated private endpoints in the private endpoint subnet. When document ingestion is enabled, an Ingestion Gateway Container App reaches ADLS Gen2 document storage through Blob and DFS private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests.
+    description: Azure resources, private-endpoint flows, target-state gateway services, and governed delivery channels for FDAI private networking.
+    alt: An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests.
   ko:
     title: FDAI Azure resource network flow
-    description: FDAI private networking의 Azure resource, private endpoint 및 optional document storage flow입니다.
-    alt: 운영자는 Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI 및 Azure Database for PostgreSQL은 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. Document ingestion을 활성화하면 Ingestion Gateway Container App이 Blob 및 DFS private endpoint를 통해 ADLS Gen2 document storage에 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다.
+    description: FDAI private networking의 Azure resource, private endpoint, target-state gateway service 및 통제된 전달 채널입니다.
+    alt: 운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다.
 canvas:
   width: 1600
   height: 960
@@ -38,6 +38,15 @@ groups:
     label: { en: FDAI virtual network, ko: FDAI virtual network }
     direction: DOWN
     placement: top
+  - id: gateway-subnet
+    parent: fdai-vnet
+    kind: subnet
+    presentation: band
+    label: { en: Private Application Gateway subnet, ko: Private Application Gateway subnet }
+    direction: RIGHT
+    layout: row
+    alignWith: private-endpoint-subnet
+    width: 1080
   - id: container-apps-subnet
     parent: fdai-vnet
     kind: subnet
@@ -46,7 +55,7 @@ groups:
     direction: RIGHT
     layout: row
     alignWith: private-endpoint-subnet
-    width: 944
+    width: 1080
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -54,7 +63,7 @@ groups:
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: RIGHT
     layout: row
-    width: 944
+    width: 1080
   - id: private-service-backends
     parent: azure-region
     kind: layer
@@ -64,7 +73,7 @@ groups:
     layout: row
     placement: below
     alignWith: private-endpoint-subnet
-    width: 944
+    width: 1080
   - id: platform-services
     parent: azure-region
     kind: layer
@@ -78,7 +87,21 @@ groups:
     kind: layer
     presentation: panel
     label: { en: Governed delivery channels, ko: 통제된 전달 채널 }
+    direction: DOWN
+  - id: approval-channels
+    parent: governed-delivery
+    kind: layer
+    presentation: band
+    label: { en: Human approval channels, ko: 사람 승인 채널 }
     direction: RIGHT
+    layout: row
+  - id: git-providers
+    parent: governed-delivery
+    kind: layer
+    presentation: band
+    label: { en: Git delivery providers, ko: Git 전달 provider }
+    direction: RIGHT
+    layout: row
 nodes:
   - id: operator
     parent: operator-access
@@ -88,7 +111,9 @@ nodes:
   - id: entra-id
     parent: operator-access
     kind: external
-    label: { en: Entra ID, ko: Entra ID }
+    icon: entra-id
+    presentation: icon
+    label: { en: Microsoft Entra ID, ko: Microsoft Entra ID }
     description: { en: Browser authentication and App Roles, ko: Browser 인증 및 App Role }
   - id: operator-console
     parent: operator-access
@@ -103,6 +128,26 @@ nodes:
     icon: container-apps
     label: { en: Operator API Container App, ko: Operator API Container App }
     description: { en: Separate read and command transport identities with no executor permission, ko: Executor 권한 없이 분리된 read 및 command transport identity }
+  - id: application-gateway
+    parent: gateway-subnet
+    kind: azure-service
+    icon: application-gateway
+    presentation: icon
+    label: { en: Application Gateway, ko: Application Gateway }
+    description: { en: Private ingress for operator and ingestion requests, ko: 운영자 및 ingestion 요청을 위한 private ingress }
+  - id: waf-policy
+    parent: gateway-subnet
+    kind: azure-service
+    icon: waf-policy
+    presentation: icon
+    label: { en: WAF policy, ko: WAF policy }
+    description: { en: Managed protection attached to Application Gateway, ko: Application Gateway에 연결된 managed protection }
+  - id: ingestion-gateway
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Ingestion Gateway (optional), ko: Ingestion Gateway (optional) }
+    description: { en: Authenticated document upload and governed ingestion, ko: 인증된 document upload 및 통제된 ingestion }
   - id: scheduled-jobs
     parent: container-apps-subnet
     kind: process
@@ -110,12 +155,6 @@ nodes:
     presentation: icon
     label: { en: Container Apps Jobs, ko: Container Apps Jobs }
     description: { en: "Inventory, detection, canary, measurement, and resilience jobs", ko: "Inventory, detection, canary, measurement 및 resilience job" }
-  - id: ingestion-gateway
-    parent: container-apps-subnet
-    kind: process
-    icon: container-apps
-    label: { en: Ingestion Gateway (optional), ko: Ingestion Gateway (optional) }
-    description: { en: Authenticated document upload and governed ingestion, ko: 인증된 document upload 및 통제된 ingestion }
   - id: core-runtime
     parent: container-apps-subnet
     kind: process
@@ -146,6 +185,12 @@ nodes:
     icon: private-endpoint
     presentation: icon
     label: { en: Azure OpenAI private endpoint, ko: Azure OpenAI private endpoint }
+  - id: foundry-pe
+    parent: private-endpoint-subnet
+    kind: service
+    icon: private-endpoint
+    presentation: icon
+    label: { en: Microsoft Foundry private endpoint, ko: Microsoft Foundry private endpoint }
   - id: postgres-pe
     parent: private-endpoint-subnet
     kind: service
@@ -192,6 +237,13 @@ nodes:
     presentation: icon
     label: { en: Azure OpenAI, ko: Azure OpenAI }
     description: { en: Optional governed T2 model capabilities, ko: 선택적인 통제된 T2 model capability }
+  - id: microsoft-foundry
+    parent: private-service-backends
+    kind: azure-service
+    icon: ai-foundry
+    presentation: icon
+    label: { en: Microsoft Foundry, ko: Microsoft Foundry }
+    description: { en: "Governed model, evaluation, and agent project plane", ko: "통제된 model, evaluation 및 agent project plane" }
   - id: postgres
     parent: private-service-backends
     kind: azure-service
@@ -227,15 +279,54 @@ nodes:
     presentation: icon
     label: { en: Application Insights and Log Analytics, ko: Application Insights 및 Log Analytics }
     description: { en: "Traces, metrics, logs, alerts, and correlation", ko: "Trace, metric, log, alert 및 correlation" }
+  - id: managed-grafana
+    parent: platform-services
+    kind: azure-service
+    icon: managed-grafana
+    presentation: icon
+    label: { en: Azure Managed Grafana, ko: Azure Managed Grafana }
+    description: { en: Governed dashboards over Azure Monitor data, ko: Azure Monitor data 기반의 통제된 dashboard }
+  - id: email-approval
+    parent: approval-channels
+    kind: azure-service
+    icon: communication-services
+    presentation: icon
+    label: { en: Email, ko: Email }
+    description: { en: Azure Communication Services email adapter, ko: Azure Communication Services email adapter }
   - id: teams-approval
-    parent: governed-delivery
+    parent: approval-channels
     kind: external
-    label: { en: Teams approval channel, ko: Teams 승인 채널 }
+    icon: teams
+    presentation: icon
+    label: { en: Microsoft Teams, ko: Microsoft Teams }
     description: { en: Human approval with a separate approver identity, ko: 분리된 approver identity를 사용하는 사람 승인 }
-  - id: git-delivery
-    parent: governed-delivery
+  - id: slack-approval
+    parent: approval-channels
     kind: external
-    label: { en: Git remediation pull request, ko: Git 수정 pull request }
+    icon: slack
+    presentation: icon
+    label: { en: Slack, ko: Slack }
+    description: { en: Reauthenticated approval and notification adapter, ko: 재인증된 승인 및 알림 adapter }
+  - id: github-delivery
+    parent: git-providers
+    kind: external
+    icon: github
+    presentation: icon
+    label: { en: GitHub, ko: GitHub }
+    description: { en: Reviewable and reversible change delivery, ko: 검토 및 되돌리기가 가능한 변경 전달 }
+  - id: gitlab-delivery
+    parent: git-providers
+    kind: external
+    icon: gitlab
+    presentation: icon
+    label: { en: GitLab, ko: GitLab }
+    description: { en: Reviewable and reversible change delivery, ko: 검토 및 되돌리기가 가능한 변경 전달 }
+  - id: azure-devops-delivery
+    parent: git-providers
+    kind: azure-service
+    icon: azure-devops
+    presentation: icon
+    label: { en: Azure DevOps, ko: Azure DevOps }
     description: { en: Reviewable and reversible change delivery, ko: 검토 및 되돌리기가 가능한 변경 전달 }
 edges:
   - id: operator-to-entra
@@ -249,17 +340,27 @@ edges:
     to: operator-console
     kind: approval
     route: orthogonal
-  - id: console-to-api
+  - id: console-to-gateway
     from: operator-console
-    to: operator-api
+    to: application-gateway
     kind: request
     route: orthogonal-horizontal
     step: 2
-  - id: console-to-ingestion
-    from: operator-console
+  - id: waf-to-gateway
+    from: waf-policy
+    to: application-gateway
+    kind: read
+    route: orthogonal-horizontal
+  - id: gateway-to-api
+    from: application-gateway
+    to: operator-api
+    kind: request
+    route: orthogonal
+  - id: gateway-to-ingestion
+    from: application-gateway
     to: ingestion-gateway
     kind: request
-    route: orthogonal-top
+    route: orthogonal
   - id: event-hubs-to-pe
     from: event-hubs
     to: event-hubs-pe
@@ -314,19 +415,30 @@ edges:
     to: azure-openai
     kind: request
     route: orthogonal
+  - id: core-to-foundry-pe
+    from: core-runtime
+    to: foundry-pe
+    kind: request
+    route: orthogonal-trunk
+    lane: 2
+  - id: foundry-pe-to-service
+    from: foundry-pe
+    to: microsoft-foundry
+    kind: request
+    route: orthogonal
   - id: core-to-postgres-pe
     from: core-runtime
     to: postgres-pe
     kind: audit
     route: orthogonal-trunk
-    lane: 2
+    lane: 3
     step: 5
   - id: api-to-postgres-pe
     from: operator-api
     to: postgres-pe
     kind: read
     route: orthogonal-trunk
-    lane: 2
+    lane: 3
   - id: postgres-pe-to-service
     from: postgres-pe
     to: postgres
@@ -338,13 +450,13 @@ edges:
     to: document-blob-pe
     kind: write
     route: orthogonal-trunk
-    lane: 3
+    lane: 4
   - id: ingestion-to-dfs-pe
     from: ingestion-gateway
     to: document-dfs-pe
     kind: write
     route: orthogonal-trunk
-    lane: 4
+    lane: 5
   - id: blob-pe-to-storage
     from: document-blob-pe
     to: document-storage
@@ -365,17 +477,22 @@ edges:
     to: monitor
     kind: audit
     route: orthogonal
+  - id: monitor-to-grafana
+    from: monitor
+    to: managed-grafana
+    kind: read
+    route: orthogonal
   - id: core-to-teams
     from: core-runtime
     to: teams-approval
     kind: approval
-    route: orthogonal-top
+    route: orthogonal-above
     step: 6
-  - id: core-to-git
+  - id: core-to-github
     from: core-runtime
-    to: git-delivery
+    to: github-delivery
     kind: mutation
-    route: orthogonal-top
+    route: orthogonal-above
     step: 7
 legend:
   - kind: event
