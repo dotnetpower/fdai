@@ -42,13 +42,20 @@ from fdai.core.trust_router import TrustRouter
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDetector
 from fdai.core.workflow.coordinator import WorkflowTriggerCoordinator
 from fdai.rule_catalog.schema.assignment import Assignment
-from fdai.shared.contracts.models import Event, OntologyActionType, ResponseOutcome, Rule
+from fdai.shared.contracts.models import (
+    Event,
+    OntologyActionType,
+    OntologyRelease,
+    ResponseOutcome,
+    Rule,
+)
 from fdai.shared.providers.cost_estimator import CostEstimator
 from fdai.shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
     ExecutionAuthorizationEvaluator,
 )
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
+from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 from fdai.shared.providers.stage_publisher import NullStagePublisher, StagePublisher
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.resilience import DegradationController, KillSwitch
@@ -95,6 +102,7 @@ class ControlLoop(
         rca_side_path_timeout_seconds: float = 5.0,
         resource_dependency_graph: Mapping[str, Iterable[str]] | None = None,
         workflow_coordinator: WorkflowTriggerCoordinator | None = None,
+        process_runtime_store: ProcessRuntimeStore | None = None,
         degradation: DegradationController | None = None,
         kill_switch: KillSwitch | None = None,
         kill_switch_refresher: Callable[[], Awaitable[None]] | None = None,
@@ -171,6 +179,7 @@ class ControlLoop(
             dict(resource_dependency_graph) if resource_dependency_graph is not None else None
         )
         self._workflow_coordinator = workflow_coordinator
+        self._process_runtime_store = process_runtime_store
 
     async def _maybe_fire_workflows(self, event: Event) -> None:
         """Fire matched shadow Workflows without changing the primary decision."""
@@ -196,6 +205,16 @@ class ControlLoop(
     def action_types(self) -> tuple[OntologyActionType, ...]:
         """Return the immutable ActionType catalog loaded by this loop."""
         return tuple(self._action_types_by_name.values())
+
+    @property
+    def ontology_release(self) -> OntologyRelease | None:
+        """Return the exact ontology release used by ActionBuilder records."""
+        return self._action_builder.ontology_release
+
+    @property
+    def process_runtime_store(self) -> ProcessRuntimeStore | None:
+        """Return the Process store shared by workflow and planning recorders."""
+        return self._process_runtime_store
 
     @property
     def ontology_instance_store(self) -> OntologyInstanceStore | None:

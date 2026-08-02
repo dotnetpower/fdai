@@ -307,3 +307,67 @@ def test_mutation_compiler_rejects_action_mismatch_or_incomplete_plan() -> None:
             action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
             **{**values, "plan": incomplete},
         )
+
+
+def test_partial_failure_keeps_rollback_and_is_not_reusable() -> None:
+    plan, target, release = _plan_and_release()
+    mutation = compile_selected_mutation_plan(
+        plan=plan,
+        target=target,
+        action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+        command_ref="provider.scale-out",
+        rollback_command_ref="provider.scale-in",
+        created_at=NOW,
+        max_affected_objects=1,
+    )
+    action_id = uuid4()
+    outcome = ResponseOutcome(
+        schema_version="1.0.0",
+        outcome_id=uuid4(),
+        idempotency_key=f"response-outcome:{action_id}",
+        action_id=action_id,
+        event_id=uuid4(),
+        action_type_id="ops.scale-out",
+        target_digest="e" * 64,
+        prediction_id=mutation.plan_id,
+        metric="availability",
+        expected_min=0.9,
+        expected_max=1.0,
+        observed_value=0.5,
+        predicted_at=NOW,
+        observation_deadline=NOW + timedelta(minutes=5),
+        observed_at=NOW + timedelta(minutes=4),
+        label=ResponseOutcomeLabel.MISMATCH,
+        verification_status=ResponseVerificationStatus.MISMATCH,
+        verification_reason="outside_expected_range",
+        execution_mode=Mode.ENFORCE,
+        execution_outcome="rolled_back",
+        decision="hil",
+        rollback_succeeded=True,
+        evidence_refs=("metric:failure", "rollback:verified"),
+        recorded_at=NOW + timedelta(minutes=5),
+    )
+
+    closure = close_operational_plan(plan, outcome)
+
+    assert mutation.rollback_effects[0].command_ref == "provider.scale-in"
+    assert closure.effect_verified is False
+    assert closure.reusable is False
+
+
+def test_a0_planning_produces_proposal_without_execution_authority() -> None:
+    plan, target, release = _plan_and_release()
+
+    mutation = compile_selected_mutation_plan(
+        plan=plan,
+        target=target,
+        action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+        command_ref="provider.scale-out",
+        rollback_command_ref="provider.scale-in",
+        created_at=NOW,
+        max_affected_objects=1,
+    )
+
+    assert mutation.planner_ref == plan.plan_id
+    assert not hasattr(mutation, "approval")
+    assert not hasattr(mutation, "executor_identity")

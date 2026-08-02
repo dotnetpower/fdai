@@ -25,7 +25,11 @@ central planner or another authority surface.
 > pipeline sandbox and treats timeout or malformed output as unscorable. P5 adds a read-only Twin
 > adapter, exact selected-option MutationPlan compilation, and independent ResponseOutcome closure.
 > P6 adds a strict, read-only Planning Room projection inside the existing Process detail route.
-> P7 still needs frozen scenarios, staging proof, and shadow measurement.
+> P7 adds a durable Process recorder, a shadow-only planning Workflow, a nine-dimension frozen
+> scenario pack, deterministic constitutional constraint checks, and conditional production
+> runtime binding. The runtime binds planning only when the exact ontology release, operational
+> context, Process store, active effect-model reader, and causal verifier are available. Staging
+> proof and shadow measurement remain release evidence, not missing runtime behavior.
 
 ## Design at a glance
 

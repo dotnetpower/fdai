@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -25,6 +26,12 @@ from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
 from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_planning import (
+    AssuranceTwinPlanningSimulator,
+    ConstitutionalPlanningConstraintEvaluator,
+    ProcessPlanningRecorder,
+    SpecialistPlanningCoordinator,
+)
 from fdai.core.readiness import AuthorityCeiling
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
@@ -530,6 +537,31 @@ async def _run() -> int:
                     runtime_values,
                     "case_history.deletion_days",
                 )
+                operational_context_materializer = (
+                    OperationalContextMaterializer(store=control_loop.ontology_instance_store)
+                    if control_loop.ontology_instance_store is not None
+                    else None
+                )
+                operational_planner = None
+                if (
+                    operational_context_materializer is not None
+                    and control_loop.ontology_release is not None
+                    and control_loop.process_runtime_store is not None
+                    and container.effect_model_reader is not None
+                    and container.effect_model_causal_evidence_verifier is not None
+                ):
+                    operational_planner = SpecialistPlanningCoordinator(
+                        logic_release_digest=control_loop.ontology_release.digest,
+                        constraint_evaluator=ConstitutionalPlanningConstraintEvaluator(),
+                        simulator=AssuranceTwinPlanningSimulator(
+                            model_reader=container.effect_model_reader,
+                            causal_evidence_verifier=(
+                                container.effect_model_causal_evidence_verifier
+                            ),
+                            clock=lambda: datetime.now(tz=UTC),
+                        ),
+                        recorder=ProcessPlanningRecorder(store=control_loop.process_runtime_store),
+                    )
                 pantheon_runtime = PantheonRuntime.build(
                     provider=bus,
                     raw_event_topic=container.config.kafka.topic_events,
@@ -579,11 +611,8 @@ async def _run() -> int:
                     case_history_analyzer=(
                         case_history_runtime.analyzer if case_history_runtime is not None else None
                     ),
-                    operational_context_materializer=(
-                        OperationalContextMaterializer(store=control_loop.ontology_instance_store)
-                        if control_loop.ontology_instance_store is not None
-                        else None
-                    ),
+                    operational_context_materializer=operational_context_materializer,
+                    operational_planner=operational_planner,
                     case_history_retention=(
                         case_history_runtime.retention if case_history_runtime is not None else None
                     ),

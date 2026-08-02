@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 
@@ -25,6 +26,7 @@ from fdai.agents._framework.provider_adapters import (
     StateStoreAuditChainAdapter,
 )
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.muninn import Muninn
@@ -34,6 +36,7 @@ from fdai.agents.thor import Thor
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
+from fdai.core.operational_planning import SpecialistPlanningCoordinator
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -44,6 +47,20 @@ def _build() -> tuple[PantheonRuntime, InMemoryEventBus]:
     provider = InMemoryEventBus()
     runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
     return runtime, provider
+
+
+def test_build_injects_operational_planner_into_forseti() -> None:
+    planner = cast(SpecialistPlanningCoordinator, object())
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        operational_planner=planner,
+    )
+
+    forseti = runtime.agents["Forseti"]
+    assert isinstance(forseti, Forseti)
+    assert forseti._operational_planner is planner
 
 
 def test_build_instantiates_all_fifteen_agents() -> None:

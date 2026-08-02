@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/operational-planning-scenario-set/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scenario_set_version", "status", "scenarios"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "scenario_set_version": {"const": "v2026.08-planning"},
+    "status": {"const": "complete"},
+    "scenarios": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "dimension", "expected", "test_ref"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^planning\\.[a-z0-9._-]+$"},
+          "dimension": {
+            "enum": [
+              "successful_full_loop",
+              "unknown_or_deny",
+              "cross_objective_conflict",
+              "sandbox_timeout",
+              "partial_failure_recovery",
+              "duplicate_restart_replay",
+              "model_divergence",
+              "artifact_tamper_escape",
+              "a3e_non_applicability"
+            ]
+          },
+          "expected": {"type": "string", "minLength": 1, "maxLength": 200},
+          "test_ref": {
+            "type": "string",
+            "pattern": "^tests/.+\\.py::test_[A-Za-z0-9_]+$"
+          }
+        }
+      }
+    }
+  }
+}

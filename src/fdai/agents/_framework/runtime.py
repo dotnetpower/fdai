@@ -86,6 +86,7 @@ from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_learning import OperatingPatternCompiler
+from fdai.core.operational_planning import SpecialistPlanningCoordinator
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
@@ -152,6 +153,7 @@ class PantheonRuntime:
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
+        operational_planner: SpecialistPlanningCoordinator | None = None,
         catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
@@ -278,12 +280,18 @@ class PantheonRuntime:
             )
         if any(
             value is not None
-            for value in (operator_rbac, action_semantics, operational_context_materializer)
+            for value in (
+                operator_rbac,
+                action_semantics,
+                operational_context_materializer,
+                operational_planner,
+            )
         ):
             instantiated["Forseti"] = Forseti(
                 rbac=operator_rbac,
                 action_semantics=action_semantics,
                 operational_context=operational_context_materializer,
+                operational_planner=operational_planner,
             )
         if (forecast_evaluator is None) != (forecast_closer is None) or (
             forecast_evaluator is None

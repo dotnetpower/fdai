@@ -575,6 +575,7 @@ def _build_control_loop(
             causal_evidence_verifier=container.effect_model_causal_evidence_verifier,
         )
 
+    process_runtime_store = _build_process_store()
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -600,9 +601,10 @@ def _build_control_loop(
             workflows=workflows,
             action_types_by_name=action_types_by_name,
             audit_store=audit_store,
-            process_store=_build_process_store(),
+            process_store=process_runtime_store,
             ontology_store=ontology_instance_store,
         ),
+        process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,
         inventory_age_provider=_build_inventory_age_provider(),
         inventory_context_provider=_build_inventory_context_provider(),

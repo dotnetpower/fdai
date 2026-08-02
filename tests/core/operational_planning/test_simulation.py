@@ -174,3 +174,20 @@ async def test_programmatic_simulator_holds_failed_or_malformed_output() -> None
     assert timed_out.requires_review is True
     assert unscorable.status.value == "unscorable"
     assert unscorable.predicted_effects == ()
+
+
+def test_planning_program_rejects_artifact_tampering() -> None:
+    program = _program()
+
+    try:
+        PlanningProgram(
+            function_ref=program.function_ref,
+            reviewed_source=program.reviewed_source + "# changed\n",
+            source_digest=program.source_digest,
+            sandbox_profile_id=program.sandbox_profile_id,
+            allowed_read_tools=program.allowed_read_tools,
+        )
+    except ValueError as exc:
+        assert "digest mismatch" in str(exc)
+    else:  # pragma: no cover - explicit fail path
+        raise AssertionError("tampered planning source was accepted")

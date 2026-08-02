@@ -54,6 +54,16 @@ class PlanningCandidateSimulator(Protocol):
     ) -> SimulationReceipt: ...
 
 
+class PlanningProjectionRecorder(Protocol):
+    async def record(
+        self,
+        *,
+        projection: SpecialistPlanningProjection,
+        context: OperationalContextSnapshot,
+        recorded_at: datetime,
+    ) -> None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class SpecialistPlanningProjection:
     plan: OperationalPlan
@@ -120,6 +130,7 @@ class SpecialistPlanningCoordinator:
         constraint_evaluator: PlanningConstraintEvaluator,
         simulator: PlanningCandidateSimulator,
         decision_coordinator: DomainDecisionCoordinator | None = None,
+        recorder: PlanningProjectionRecorder | None = None,
     ) -> None:
         if not logic_release_digest.startswith("sha256:") or len(logic_release_digest) != 71:
             raise ValueError("planning logic release digest MUST be SHA-256")
@@ -127,6 +138,7 @@ class SpecialistPlanningCoordinator:
         self._constraint_evaluator = constraint_evaluator
         self._simulator = simulator
         self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
+        self._recorder = recorder
 
     async def build(
         self,
@@ -207,7 +219,17 @@ class SpecialistPlanningCoordinator:
                 created_at=created_at,
             )
         )
-        return SpecialistPlanningProjection(plan=plan, option_by_domain=tuple(option_by_domain))
+        projection = SpecialistPlanningProjection(
+            plan=plan,
+            option_by_domain=tuple(option_by_domain),
+        )
+        if self._recorder is not None:
+            await self._recorder.record(
+                projection=projection,
+                context=context,
+                recorded_at=created_at,
+            )
+        return projection
 
 
 def _objective_weights(context: OperationalContextSnapshot) -> tuple[tuple[str, float], ...]:
@@ -250,6 +272,7 @@ def _option_mapping(option: ActionOption) -> dict[str, object]:
 __all__ = [
     "PlanningCandidateSimulator",
     "PlanningConstraintEvaluator",
+    "PlanningProjectionRecorder",
     "SpecialistPlanningCoordinator",
     "SpecialistPlanningProjection",
 ]

@@ -1,0 +1,20 @@
+schema_version: "1.0.0"
+name: operational-planning
+version: "1.0.0"
+description: >-
+  Record bounded specialist proposals, simulations, constraints, and one governed planning result.
+trigger:
+  kind: signal
+  signal_type: object.capacity-forecast
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+steps:
+  - id: select_plan
+    kind: decision
+    outcomes: [selected, held, abstained]
+anti_scope: >-
+  Planning is A0 evidence work. This workflow never executes, approves, or promotes its selected ActionType.

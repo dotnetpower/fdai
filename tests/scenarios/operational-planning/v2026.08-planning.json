@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_set_version": "v2026.08-planning",
+  "status": "complete",
+  "scenarios": [
+    {
+      "id": "planning.capacity.full-loop.001",
+      "dimension": "successful_full_loop",
+      "expected": "Select an eligible scale-out proposal, compile exact targets, and close the observed effect.",
+      "test_ref": "tests/core/operational_planning/test_twin_execution.py::test_selected_plan_compiles_exact_mutation_plan_and_closes_outcome"
+    },
+    {
+      "id": "planning.capacity.unknown.002",
+      "dimension": "unknown_or_deny",
+      "expected": "Unknown constraint or stale simulation evidence holds the plan without selection.",
+      "test_ref": "tests/core/operational_planning/test_selection.py::test_incomplete_evidence_holds_without_selection"
+    },
+    {
+      "id": "planning.capacity.conflict.003",
+      "dimension": "cross_objective_conflict",
+      "expected": "Hard constraints run before Pareto pruning and weighted arbitration.",
+      "test_ref": "tests/core/operational_planning/test_selection.py::test_hard_constraints_precede_pareto_and_weighted_selection"
+    },
+    {
+      "id": "planning.sandbox.timeout.004",
+      "dimension": "sandbox_timeout",
+      "expected": "A timed-out sandbox produces an unselected review-required receipt.",
+      "test_ref": "tests/core/operational_planning/test_simulation.py::test_programmatic_simulator_holds_failed_or_malformed_output"
+    },
+    {
+      "id": "planning.staging.partial-recovery.005",
+      "dimension": "partial_failure_recovery",
+      "expected": "A mismatched effect keeps rollback evidence and cannot become reusable success.",
+      "test_ref": "tests/core/operational_planning/test_twin_execution.py::test_partial_failure_keeps_rollback_and_is_not_reusable"
+    },
+    {
+      "id": "planning.process.replay.006",
+      "dimension": "duplicate_restart_replay",
+      "expected": "Duplicate planning delivery preserves one terminal Process and one immutable plan.",
+      "test_ref": "tests/core/operational_planning/test_workflow.py::test_planning_coordinator_records_complete_replayable_process"
+    },
+    {
+      "id": "planning.model.divergence.007",
+      "dimension": "model_divergence",
+      "expected": "Active and challenger divergence requires review and never selects automatically.",
+      "test_ref": "tests/core/operational_planning/test_twin_execution.py::test_twin_simulation_uses_active_model_and_flags_divergence"
+    },
+    {
+      "id": "planning.artifact.tamper.008",
+      "dimension": "artifact_tamper_escape",
+      "expected": "Changed source or capability overreach is rejected before sandbox execution.",
+      "test_ref": "tests/core/operational_planning/test_simulation.py::test_planning_program_rejects_artifact_tampering"
+    },
+    {
+      "id": "planning.authority.a0.009",
+      "dimension": "a3e_non_applicability",
+      "expected": "A0 planning emits a proposal with no approval or executor identity.",
+      "test_ref": "tests/core/operational_planning/test_twin_execution.py::test_a0_planning_produces_proposal_without_execution_authority"
+    }
+  ]
+}
