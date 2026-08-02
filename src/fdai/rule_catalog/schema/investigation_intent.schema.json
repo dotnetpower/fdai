@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/rule-catalog/investigation-intent/2.0.0",
+  "title": "InvestigationIntentRegistry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "version", "suffixes", "intents"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "2.0.0"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "suffixes": {"$ref": "#/$defs/terms"},
+    "intents": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+      "additionalProperties": {"$ref": "#/$defs/intent"}
+    }
+  },
+  "$defs": {
+    "terms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "optionalTerms": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "termEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["terms"],
+      "properties": {"terms": {"$ref": "#/$defs/terms"}}
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorities", "required_facets", "max_age_seconds", "allow_stale", "on_missing"],
+      "properties": {
+        "authorities": {"$ref": "#/$defs/terms"},
+        "required_facets": {"$ref": "#/$defs/terms"},
+        "max_age_seconds": {"type": "integer", "minimum": 0, "maximum": 2592000},
+        "allow_stale": {"type": "boolean"},
+        "on_missing": {"type": "string", "enum": ["abstain", "clarify"]}
+      }
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_class", "owner_agent", "plan_id", "selector_kind", "answer_contract",
+        "required_any", "required_all", "excluded_any", "evidence"
+      ],
+      "properties": {
+        "work_class": {"type": "string", "enum": ["read", "problem_response", "action"]},
+        "owner_agent": {
+          "type": "string",
+          "enum": ["Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi", "Saga", "Mimir", "Muninn", "Norns", "Njord", "Freyr", "Loki"]
+        },
+        "plan_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+        "selector_kind": {"type": "string", "enum": ["resource", "incident", "scope", "none"]},
+        "answer_contract": {"type": "string", "enum": ["list", "state", "health", "diagnosis", "change", "topology", "knowledge", "failure"]},
+        "required_any": {"$ref": "#/$defs/optionalTerms"},
+        "required_all": {"type": "array", "items": {"$ref": "#/$defs/termEntry"}},
+        "excluded_any": {"$ref": "#/$defs/optionalTerms"},
+        "response_modes": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+          "additionalProperties": {"$ref": "#/$defs/termEntry"},
+          "default": {}
+        },
+        "response_mode_order": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "default": []
+        },
+        "evidence": {"$ref": "#/$defs/evidence"}
+      }
+    }
+  }
+}

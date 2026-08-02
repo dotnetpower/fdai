@@ -82,6 +82,17 @@ requester, conversation and correlation references, intent, resource selector, l
 evidence, budget, and idempotency key. Deterministic classification runs before any model sees a
 tool description.
 
+The schema-validated `investigation-intents.yaml` catalog owns the language-to-contract boundary.
+Each entry declares a work class, accountable Pantheon agent, registered plan ID, selector kind,
+answer contract, reviewed English and Korean match terms, evidence authorities and facets, and a
+numeric freshness budget. The catalog cannot contain executable text or grant tool authority. An
+unknown owner, work class, selector, answer contract, field, or response-mode order blocks catalog
+loading before provider I/O.
+
+The first catalog revision describes the seven read intents below. Every entry is owned by
+Heimdall, uses `work_class: read`, and points to a registered plan. Bragi can classify and route a
+turn, but it cannot replace the catalog owner, evidence requirements, or freshness budget.
+
 The initial intent vocabulary is:
 
 - **`resource_state`**: Resolve a resource and return its current observed state.

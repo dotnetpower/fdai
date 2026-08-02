@@ -1,0 +1,109 @@
+schema_version: "2.0.0"
+version: "2.0.0"
+suffixes: [은, 는, 이, 가, 의, 에, 에서, 을, 를, 도, 만, 와, 과, 인, 로, 으로, 야]
+intents:
+  resource_state:
+    work_class: read
+    owner_agent: Heimdall
+    plan_id: read.resource-state.v1
+    selector_kind: resource
+    answer_contract: state
+    required_any: [current state, resource state, vm state, power state, status, running, stopped, deallocated, 현재 상태, 리소스 상태, 가상 머신 상태, 전원 상태, 실행 중, 중지됨, 할당 해제]
+    required_all: []
+    excluded_any: [start it, stop it, restart it, 시작해, 중지해, 재시작해]
+    evidence:
+      authorities: [inventory.current]
+      required_facets: [resource.identity, resource.state, observation.time]
+      max_age_seconds: 300
+      allow_stale: false
+      on_missing: clarify
+  change_attribution:
+    work_class: read
+    owner_agent: Heimdall
+    plan_id: read.change-attribution.v1
+    selector_kind: resource
+    answer_contract: change
+    required_any: [who stopped, who changed, actor, caller, initiator, principal, 누가 중지, 누가 변경, 행위자, 호출자, 작업자, 변경 주체]
+    required_all: []
+    excluded_any: []
+    evidence:
+      authorities: [azure.activity-log]
+      required_facets: [resource.identity, operation.kind, operation.time, actor.identity]
+      max_age_seconds: 300
+      allow_stale: false
+      on_missing: clarify
+  resource_change_history:
+    work_class: read
+    owner_agent: Heimdall
+    plan_id: read.resource-change-history.v1
+    selector_kind: resource
+    answer_contract: change
+    required_any: [activity log, change history, resource history, recent changes, operation history, 활동 로그, 변경 이력, 리소스 이력, 최근 변경, 작업 이력]
+    required_all: []
+    excluded_any: []
+    evidence:
+      authorities: [azure.activity-log]
+      required_facets: [resource.identity, operation.kind, operation.time]
+      max_age_seconds: 86400
+      allow_stale: true
+      on_missing: clarify
+  platform_health:
+    work_class: read
+    owner_agent: Heimdall
+    plan_id: read.platform-health.v1
+    selector_kind: resource
+    answer_contract: health
+    required_any: [resource health, platform health, platform outage, host failure, maintenance event, 리소스 상태, 플랫폼 상태, 플랫폼 장애, 호스트 장애, 유지 관리]
+    required_all: []
+    excluded_any: []
+    evidence:
+      authorities: [azure.resource-health]
+      required_facets: [resource.identity, health.status, observation.time]
+      max_age_seconds: 300
+      allow_stale: false
+      on_missing: clarify
+  guest_shutdown:
+    work_class: read
+    owner_agent: Heimdall
+    plan_id: read.guest-shutdown.v1
+    selector_kind: resource
+    answer_contract: change
+    required_any: [guest shutdown, operating system shutdown, event log shutdown, syslog shutdown, 게스트 종료, 운영체제 종료, 이벤트 로그 종료, 시스템 로그 종료]
+    required_all: []
+    excluded_any: []
+    evidence:
+      authorities: [azure.monitor-logs]
+      required_facets: [resource.identity, guest.event, event.time]
+      max_age_seconds: 3600
+      allow_stale: true
+      on_missing: clarify
+  network_security:
+    work_class: read
+    owner_agent: Heimdall
+    plan_id: read.network-security.v1
+    selector_kind: resource
+    answer_contract: topology
+    required_any: [nsg rules, network security group rules, open ports, allowed ports, NSG 규칙, 네트워크 보안 그룹 규칙, 열린 포트, 허용된 포트]
+    required_all: []
+    excluded_any: [open the port, close the port, allow the port, deny the port, 포트 열어, 포트 닫아, 포트 허용, 포트 차단]
+    evidence:
+      authorities: [azure.network]
+      required_facets: [resource.identity, network.rules, observation.time]
+      max_age_seconds: 300
+      allow_stale: false
+      on_missing: clarify
+  network_peering:
+    work_class: read
+    owner_agent: Heimdall
+    plan_id: read.network-peering.v1
+    selector_kind: resource
+    answer_contract: topology
+    required_any: [vnet peering, virtual network peering, peering topology, VNet 피어링, 가상 네트워크 피어링, 피어링 토폴로지]
+    required_all: []
+    excluded_any: [create peering, delete peering, connect peering, 피어링 생성, 피어링 삭제, 피어링 연결]
+    evidence:
+      authorities: [azure.network]
+      required_facets: [resource.identity, network.peerings, observation.time]
+      max_age_seconds: 300
+      allow_stale: false
+      on_missing: clarify
