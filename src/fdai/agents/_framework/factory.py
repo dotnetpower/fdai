@@ -52,7 +52,11 @@ _CLASSES: tuple[Callable[[], Agent], ...] = (
 
 def instantiate_pantheon() -> dict[str, Agent]:
     """Instantiate all 15 pantheon agents and return them keyed by name."""
-    return {cls().spec.name: cls() for cls in _CLASSES}
+    instances: dict[str, Agent] = {}
+    for construct in _CLASSES:
+        agent = construct()
+        instances[agent.spec.name] = agent
+    return instances
 
 
 __all__ = ["instantiate_pantheon"]
