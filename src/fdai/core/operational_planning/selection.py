@@ -94,6 +94,7 @@ def build_operational_plan(request: PlanningRequest) -> OperationalPlan:
     ordered_assessments = tuple(assessments[candidate_id] for candidate_id in sorted(assessments))
     material = {
         "process_id": request.process_id,
+        "target_resource_id": request.context.target_resource_id,
         "case_id": decision_case.case_id,
         "logic_release_digest": request.logic_release_digest,
         "selection": selection.selected_option_id,
@@ -112,6 +113,7 @@ def build_operational_plan(request: PlanningRequest) -> OperationalPlan:
     return OperationalPlan(
         plan_id=f"operational-plan:{digest}",
         process_id=request.process_id,
+        target_resource_id=request.context.target_resource_id,
         logic_release_digest=request.logic_release_digest,
         decision_case=decision_case,
         selection=selection,

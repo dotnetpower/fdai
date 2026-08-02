@@ -188,12 +188,17 @@ class CandidateAssessment:
 class OperationalPlan:
     plan_id: str
     process_id: str
+    target_resource_id: str
     logic_release_digest: str
     decision_case: DecisionCase
     selection: DecisionSelection
     assessments: tuple[CandidateAssessment, ...]
     complete: bool
     reason: str
+
+    def __post_init__(self) -> None:
+        if not self.plan_id or not self.process_id or not self.target_resource_id:
+            raise ValueError("operational plan identities MUST be non-empty")
 
 
 __all__ = [

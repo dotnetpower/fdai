@@ -391,6 +391,22 @@ def test_mutation_compiler_rejects_action_mismatch_or_incomplete_plan() -> None:
         )
 
 
+def test_mutation_compiler_rejects_cross_resource_target() -> None:
+    plan, target, release = _plan_and_release()
+    wrong_target = replace(target, id="other-resource")
+
+    with pytest.raises(ValueError, match="does not match operational plan target"):
+        compile_selected_mutation_plan(
+            plan=plan,
+            target=wrong_target,
+            action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+            command_ref="provider.scale-out",
+            rollback_command_ref="provider.scale-in",
+            created_at=NOW,
+            max_affected_objects=1,
+        )
+
+
 def test_outcome_closure_requires_exact_mutation_prediction() -> None:
     plan, target, release = _plan_and_release()
     mutation = compile_selected_mutation_plan(

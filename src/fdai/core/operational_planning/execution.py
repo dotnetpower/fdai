@@ -30,6 +30,8 @@ def compile_selected_mutation_plan(
     selected_id = plan.selection.selected_option_id
     if not plan.complete or selected_id is None:
         raise ValueError("operational plan has no complete selection")
+    if target.id != plan.target_resource_id:
+        raise ValueError("mutation target does not match operational plan target")
     selected_option = next(
         (option for option in plan.decision_case.options if option.option_id == selected_id),
         None,
