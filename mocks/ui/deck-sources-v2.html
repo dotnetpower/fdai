@@ -90,7 +90,9 @@
     .ex-chevron { width: 7px; height: 7px; border-right: 1.5px solid var(--ex-muted); border-bottom: 1.5px solid var(--ex-muted); transform: rotate(45deg) translateY(-2px); transition: transform .16s ease; }
     .ex-step-toggle[aria-expanded="true"] .ex-chevron { transform: rotate(225deg) translate(-1px, -1px); }
 
-    .ex-step-detail { overflow: hidden; margin: 2px 0 2px 8px; border-radius: 6px; background: var(--ex-terminal); box-shadow: 0 4px 14px rgba(31,36,40,.12); }
+    .ex-step-detail { max-height: 0; overflow: hidden; margin: 0 0 0 8px; border-radius: 6px; background: var(--ex-terminal); opacity: 0; transform: translateY(-3px); transition: max-height 90ms cubic-bezier(.2,0,.2,1), margin 90ms cubic-bezier(.2,0,.2,1), opacity 55ms linear, transform 90ms cubic-bezier(.2,0,.2,1), box-shadow 90ms linear; }
+    .ex-step-detail.is-open { max-height: var(--ex-detail-height); margin: 2px 0 2px 8px; opacity: 1; transform: none; box-shadow: 0 4px 14px rgba(31,36,40,.12); }
+    .ex-step-detail-inner { min-height: 0; overflow: hidden; }
     .ex-commandbar { min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #343b42; color: #aeb7c0; font-size: 10px; }
     .ex-command-kind { color: #d8dee4; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
     .ex-command-safety { color: #87b28c; }
@@ -356,7 +358,16 @@
       function create(tag, className, text) { var node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
       function wait(ms, token) { return new Promise(function (resolve) { var timer = setTimeout(function () { resolve(token === runToken); }, ms); waits.push(timer); }); }
       function clearWaits() { waits.forEach(clearTimeout); waits = []; }
-      function setExpanded(step, expanded) { var toggle = step.querySelector(".ex-step-toggle"); var detail = step.querySelector(".ex-step-detail"); toggle.setAttribute("aria-expanded", String(expanded)); detail.hidden = !expanded; }
+      function setExpanded(step, expanded) {
+        var toggle = step.querySelector(".ex-step-toggle");
+        var detail = step.querySelector(".ex-step-detail");
+        var detailInner = detail.querySelector(".ex-step-detail-inner");
+        if (expanded) detail.style.setProperty("--ex-detail-height", detailInner.scrollHeight + "px");
+        toggle.setAttribute("aria-expanded", String(expanded));
+        detail.classList.toggle("is-open", expanded);
+        detail.setAttribute("aria-hidden", String(!expanded));
+        detail.inert = !expanded;
+      }
 
       function renderSteps(stepsHost, activities, phaseIndex) {
         activities.forEach(function (activity, index) {
@@ -378,7 +389,9 @@
           toggle.appendChild(create("span", "ex-chevron"));
           var detail = create("div", "ex-step-detail");
           detail.id = "ex-detail-" + phaseIndex + "-" + index;
-          detail.hidden = true;
+          detail.setAttribute("aria-hidden", "true");
+          detail.inert = true;
+          var detailInner = create("div", "ex-step-detail-inner");
           var commandBar = create("div", "ex-commandbar");
           commandBar.appendChild(create("span", "ex-command-kind", activity.kind));
           commandBar.appendChild(create("span", "ex-command-safety", activity.safety));
@@ -390,10 +403,11 @@
             navigator.clipboard.writeText(activity.command).then(function () { copyButton.textContent = "Copied"; setTimeout(function () { copyButton.textContent = "Copy"; }, 1200); });
           });
           commandBar.appendChild(copyButton);
-          detail.appendChild(commandBar);
+          detailInner.appendChild(commandBar);
           var terminal = create("pre", "ex-terminal");
           terminal.appendChild(create("span", "ex-prompt", "$ " + activity.command + "\n"));
-          detail.appendChild(terminal);
+          detailInner.appendChild(terminal);
+          detail.appendChild(detailInner);
           toggle.addEventListener("click", function () { setExpanded(step, toggle.getAttribute("aria-expanded") !== "true"); });
           step.appendChild(toggle);
           step.appendChild(detail);
@@ -443,6 +457,10 @@
         if (activity.success && (line.indexOf("passed") >= 0 || line.indexOf("Exit code 0") >= 0)) output.classList.add("is-success");
         if (activity.warning && (line.indexOf("unhealthy") >= 0 || line.indexOf("Exit code 1") >= 0)) output.classList.add("is-warning");
         step.querySelector(".ex-terminal").appendChild(output);
+        var detail = step.querySelector(".ex-step-detail");
+        if (detail.classList.contains("is-open")) {
+          detail.style.setProperty("--ex-detail-height", detail.querySelector(".ex-step-detail-inner").scrollHeight + "px");
+        }
       }
 
       function completePhase(phaseNode, phase) {
