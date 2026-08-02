@@ -214,6 +214,10 @@ provider payloads, and validation results remain unchanged.
 ## Observed conversation trajectory
 
 Each completed Command Deck question exposes one collapsed observed trajectory. Its status overview distinguishes completed, corrected, degraded, failed, unverified, running, and unobserved phases; record presence isn't success.
+Recorded event, evidence, reference, and verification counts appear as compact result chips. The
+expanded view leads with the six-phase rail, expandable observed-event timeline, and provenance
+signals, while timing windows, decision context, phase records, and coverage gaps remain in one
+collapsed execution-details disclosure.
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
 Primary text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
 The transcript uses 15 px text, trajectory headings and primary detail use 14 px, controls use 13 px,

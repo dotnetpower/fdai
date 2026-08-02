@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e6fdfb1401119c6ad3cb20efdbd45e3a33896ef4
+translation_source_sha: b423f00528ca52afa64da6533e0c770e011dbd72
 translation_revised: 2026-08-02
 ---
 
@@ -213,7 +213,10 @@ provider payload 및 validation result는 변경하지 않습니다.
 
 완료된 각 Command Deck 질문은 접힌 observed trajectory를 표시합니다. 상태 개요는 완료, 수정 후 완료,
 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며 record 존재를 성공으로 표시하지
-않습니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
+않습니다. 기록된 event, evidence, reference 및 verification count는 compact result chip으로 표시합니다.
+펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
+timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
+유지합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
 및 tool, model call, verification 및 delivery만 timeline에 표시합니다. Primary text는 14 px 이상이고,
 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
 Transcript text는 15 px, trajectory heading과 primary detail은 14 px, control은 13 px을 사용하며 읽기

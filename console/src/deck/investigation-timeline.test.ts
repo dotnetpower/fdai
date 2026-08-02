@@ -167,6 +167,17 @@ describe("upsertEvidenceBranch", () => {
     expect(trajectory).toContain("<IntentGraphPhase");
     expect(trajectory).toContain('class="deck-trajectory-goals"');
     expect(trajectory).toContain('t("deck.trajectory.runRecord")');
+    expect(trajectory).toContain('class="deck-trajectory-results"');
+    expect(trajectory).toContain('class="deck-trajectory-signals"');
+    expect(trajectory).toContain("buildExecutionTimeline(trajectory");
+    expect(trajectory).toContain("function phaseMark(");
+    expect(trajectory).toContain('class="deck-trajectory-records"');
+    expect(trajectory).toContain('t("deck.trajectory.checks")');
+    expect(styles).toContain(".deck-trajectory-results {");
+    expect(styles).toContain(".deck-trajectory-signals {");
+    expect(styles).toContain(".deck-execution-chevron {");
+    expect(styles).toContain(".deck-overlay-mode-workspace .deck-header {");
+    expect(styles).toContain(".deck-overlay-mode-workspace .deck-transcript-tools {");
     expect(styles).toContain(".deck-trajectory-goal-status.is-skipped");
     expect(styles).toContain(".deck-trajectory-title-copy");
     expect(styles).toMatch(
