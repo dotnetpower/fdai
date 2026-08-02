@@ -106,7 +106,7 @@ def test_shipped_workflow_action_refs_resolve() -> None:
 def test_workflow_step_can_reference_a_tool_action_type() -> None:
     """The 'generate a document from a workflow' scenario: a workflow
     step references a tool.* ActionType by action_type_ref exactly like
-    any mutation ActionType, so it inherits the four safety invariants.
+    any mutation ActionType, so it enters the same seven-safeguard path.
     tool.generate-pdf is a shipped ActionType, so a real catalog resolves
     the reference."""
     names = _action_type_names()

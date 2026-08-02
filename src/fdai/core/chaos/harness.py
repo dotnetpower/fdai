@@ -2,7 +2,8 @@
 
 The harness runs a :class:`FaultScenario` against a set of
 **already-approved** targets and returns an audit-shaped
-:class:`ExperimentResult`. It enforces all four safety invariants:
+:class:`ExperimentResult`. It enforces the experiment's local containment
+controls:
 
 - Shadow is the default and **never** touches an injector (shadow never
   mutates); it records intent and returns ``SHADOWED``.

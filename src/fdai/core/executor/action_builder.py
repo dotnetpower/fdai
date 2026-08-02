@@ -2,7 +2,7 @@
 
 The T0 engine emits :class:`Finding` records (rule matches on resources).
 The :class:`ShadowExecutor` consumes :class:`Action` values that carry the
-four safety invariants inline. This module is the bridge: given a
+action-level safeguard declarations inline. This module is the bridge: given a
 Finding + the matched Rule + the referenced ActionType, produce a valid
 Action that pydantic accepts.
 

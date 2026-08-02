@@ -23,8 +23,9 @@ from enum import StrEnum
 class RequirementKind(StrEnum):
     """A safety requirement a plan MUST satisfy before activation.
 
-    Mirrors the four safety invariants plus the approval/notify wiring the
-    IRP needs to be safe to run.
+    Mirrors the action-level stop, rollback, and impact declarations plus
+    the approval and notification wiring the IRP needs before it can enter
+    a seven-safeguard execution path.
     """
 
     STOP_CONDITION = "stop_condition"

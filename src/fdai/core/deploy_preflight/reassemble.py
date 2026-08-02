@@ -17,7 +17,7 @@ imports no cloud SDK. The caller injects an async ``reanalyze`` callable that
 takes the accumulated tfvars overrides, re-renders + re-plans the deployment,
 and returns a fresh report. The rendered overrides are handed to the executor
 (via the ``remediate.apply-preflight-toggle`` ActionType) which owns the PR and
-the four safety invariants; this module only decides *what* to reassemble.
+the seven execution safeguards; this module only decides *what* to reassemble.
 
 Fail-closed: a ``reanalyze`` (or probe) that raises propagates - the caller
 degrades to ``hil`` rather than reassembling on a partial pass.

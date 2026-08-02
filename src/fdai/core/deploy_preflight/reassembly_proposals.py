@@ -15,7 +15,7 @@ Pure ``core/`` logic. This module constructs no cloud SDK, opens no PR, and
 never executes - it builds proposal envelopes and hands them to the same typed
 pipeline seam an operator command re-enters through
 (:data:`fdai.agents.bragi.ProposalSink`). Forseti judges each proposal, Thor
-executes shadow-first, and the four safety invariants come from the executor,
+executes shadow-first, and all seven safeguards come from the executor path,
 not from here. An escalated outcome yields **no** proposals (the caller routes
 it to ``hil``); a partial reassembly is never submitted.
 """

@@ -3,12 +3,16 @@
 A chaos experiment is a **governed, reversible perturbation** used to
 validate that the control loop detects and proposes mitigation for an
 injected fault (session notes slide 9: "Fault Injection x SRE Agent"). It
-carries all four safety invariants by construction:
+declares four local containment controls by construction:
 
 - **stop-condition** - a bounded ``duration_seconds`` and an explicit stop.
 - **rollback** - the injector's ``stop`` is always called (harness finally).
 - **blast-radius limit** - a per-scenario ``blast_radius_cap`` on targets.
 - **audit** - every experiment produces an :class:`ExperimentResult`.
+
+The governed execution path supplies the dry-run receipt, logical-target
+lock, idempotency, and two-phase audit lifecycle required by the complete
+seven-safeguard contract.
 
 Chaos is HIL-only: Loki (the chaos agent) proposes an experiment, Forseti
 judges it, and Var approves it before the harness may run in ``enforce``

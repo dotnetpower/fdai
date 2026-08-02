@@ -40,7 +40,8 @@ class WorkflowStep(_Base):
     """One step in a Workflow: an ActionType invocation plus optional
     guard, saga-compensation, and on-failure branch. A step never carries
     its own mutation logic - it delegates to ``action_type_ref`` so it
-    inherits that ActionType's four safety invariants."""
+    inherits that ActionType's safeguard declarations and reaches execution
+    only through a path that completes all seven safeguards."""
 
     id: Annotated[str, Field(min_length=1)]
     kind: WorkflowStepKind = WorkflowStepKind.ACTION

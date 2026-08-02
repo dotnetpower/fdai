@@ -1,4 +1,4 @@
-"""Risk scoring; auto vs HIL vs deny; enforces the four safety invariants.
+"""Risk scoring and eligibility for seven-safeguard execution.
 
 Public exports (P2-D + P2-E):
 

@@ -115,7 +115,7 @@ class DirectApiExecutionOutcome(StrEnum):
     the promotion label."""
 
     REJECTED_INVARIANT = "rejected_invariant"
-    """Action was missing one of the four safety invariants (empty
+    """Action was missing a required action-level safeguard (empty
     ``stop_condition``, missing ``rollback_ref.kind``, missing
     ``blast_radius``, missing ``citing_rules``)."""
 
