@@ -48,7 +48,7 @@
       "implementation": ["src/fdai/core/verticals", "src/fdai/core/chaos"],
       "schemas": ["tests/scenarios/schema.json", "tests/scenarios/manifest.schema.json"],
       "tests": ["tests/scenarios/test_frozen.py", "tests/scenarios/test_v2026_07_replay.py"],
-      "runtime_evidence": ["tests/scenarios/v2026.07/manifest.json"],
+      "runtime_evidence": ["tests/scenarios/manifests/v2026.07.json"],
       "gap": "Capability accounting is machine-validated, but SRE has no scenario and every existing pack still lacks one or more constitutional coverage dimensions."
     },
     {

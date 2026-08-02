@@ -20,7 +20,7 @@ from fdai.shared.contracts.validation import JsonSchemaContractValidator
 SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.07"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.json"
 MANIFEST_SCHEMA_PATH = Path(__file__).resolve().parent / "manifest.schema.json"
-MANIFEST_PATH = SCENARIO_DIR / "manifest.json"
+MANIFEST_PATH = Path(__file__).resolve().parent / "manifests" / "v2026.07.json"
 
 # ── Guard patterns ──────────────────────────────────────────────────────────
 # Any GUID whose first four groups are non-zero is a real customer identifier
