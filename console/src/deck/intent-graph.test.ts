@@ -57,6 +57,9 @@ describe("parseIntentGraphEvidence", () => {
         duration_ms: 12,
         depends_on: [],
         evidence_refs: ["subscription-health:latest"],
+        task_id: "request-1:health",
+        started_at: "2026-08-02T03:00:00Z",
+        completed_at: "2026-08-02T03:00:00.012Z",
       }],
     });
 
@@ -82,6 +85,9 @@ describe("parseIntentGraphEvidence", () => {
       status: "completed",
       duration_ms: 12,
       depends_on: [],
+      task_id: "request-1:health",
+      started_at: "2026-08-02T03:00:00Z",
+      completed_at: "2026-08-02T03:00:00.012Z",
     };
     expect(parseIntentGraphEvidence({
       schema_version: 1,

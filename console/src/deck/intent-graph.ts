@@ -12,8 +12,8 @@ const GOAL_FIELDS = [
   "freshness_required", "confidence", "alternatives",
 ];
 const RECEIPT_FIELDS = [
-  "goal_id", "intent", "capability", "evidence_mode", "status", "duration_ms",
-  "depends_on", "reason", "blocked_by", "evidence_refs",
+  "task_id", "goal_id", "intent", "capability", "evidence_mode", "status", "duration_ms",
+  "depends_on", "reason", "blocked_by", "evidence_refs", "started_at", "completed_at",
 ];
 const GOAL_EVIDENCE_MODES = ["screen", "catalog", "operational", "web", "model_knowledge", "mixed"];
 const RECEIPT_STATUSES = ["completed", "unavailable", "failed", "timed_out", "skipped"];
@@ -97,6 +97,7 @@ function parseGoal(raw: unknown): IntentGraphMetadata["goals"][number] | undefin
 function parseReceipt(raw: unknown): IntentGraphEvidence["goals"][number] | undefined {
   const record = objectRecord(raw);
   if (!record || !hasAllowedKeys(record, RECEIPT_FIELDS) ||
+      !boundedString(record.task_id, 256) ||
       typeof record.goal_id !== "string" || !GOAL_ID.test(record.goal_id) ||
       !boundedString(record.intent, 64) ||
       !(record.capability === null || boundedString(record.capability, 128)) ||
@@ -106,10 +107,12 @@ function parseReceipt(raw: unknown): IntentGraphEvidence["goals"][number] | unde
       Number(record.duration_ms) > 86_400_000 || !stringArray(record.depends_on, 7) ||
       !(record.reason === undefined || boundedString(record.reason, 128)) ||
       !(record.blocked_by === undefined || stringArray(record.blocked_by, 7)) ||
-      !(record.evidence_refs === undefined || stringArray(record.evidence_refs, 12, 512))) {
+      !(record.evidence_refs === undefined || stringArray(record.evidence_refs, 12, 512)) ||
+      !isoTimestamp(record.started_at) || !isoTimestamp(record.completed_at)) {
     return undefined;
   }
   return {
+    task_id: record.task_id,
     goal_id: record.goal_id,
     intent: record.intent,
     capability: record.capability as string | null,
@@ -124,6 +127,8 @@ function parseReceipt(raw: unknown): IntentGraphEvidence["goals"][number] | unde
     ...(record.evidence_refs === undefined
       ? {}
       : { evidence_refs: record.evidence_refs as readonly string[] }),
+    started_at: record.started_at,
+    completed_at: record.completed_at,
   };
 }
 
@@ -140,6 +145,10 @@ function stringArray(value: unknown, maximum: number, maxItemLength = 128): bool
 
 function boundedString(value: unknown, maximum: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= maximum;
+}
+
+function isoTimestamp(value: unknown): value is string {
+  return boundedString(value, 64) && Number.isFinite(Date.parse(value));
 }
 
 function hasExactKeys(record: Record<string, unknown>, expected: readonly string[]): boolean {

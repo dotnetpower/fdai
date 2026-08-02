@@ -355,6 +355,7 @@ export interface IntentGraphEvidence {
   readonly status: "completed" | "partial" | "unavailable" | "failed";
   readonly evidence_mode: IntentEvidenceMode;
   readonly goals: readonly {
+    readonly task_id: string;
     readonly goal_id: string;
     readonly intent: string;
     readonly capability: string | null;
@@ -365,6 +366,8 @@ export interface IntentGraphEvidence {
     readonly reason?: string;
     readonly blocked_by?: readonly string[];
     readonly evidence_refs?: readonly string[];
+    readonly started_at: string;
+    readonly completed_at: string;
   }[];
 }
 

@@ -136,6 +136,12 @@ async def test_graph_executor_preserves_dependency_order_and_all_evidence() -> N
     assert ledger["status"] == "completed"
     assert ledger["evidence_mode"] == "mixed_grounded"
     assert [goal["goal_id"] for goal in ledger["goals"]] == ["health", "benchmark"]
+    assert [goal["task_id"] for goal in ledger["goals"]] == [
+        "request-1:health",
+        "request-1:benchmark",
+    ]
+    assert all(goal["started_at"].endswith("+00:00") for goal in ledger["goals"])
+    assert all(goal["completed_at"].endswith("+00:00") for goal in ledger["goals"])
     assert resolver.calls == ["query_health"]
     assert result["_tool_evidence"]["tool"] == "query_health"
     assert result["_web_evidence"]["status"] == "matched"

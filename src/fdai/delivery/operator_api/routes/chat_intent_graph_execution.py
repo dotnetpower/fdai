@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, Final
 
 from fdai.delivery.operator_api.routes.chat_evidence_branches import BranchProgressObserver
@@ -84,6 +85,7 @@ async def resolve_intent_graph_evidence(
                     if terminal_statuses[dependency] != "completed"
                 ]
                 receipt = {
+                    "task_id": f"{request_id}:{goal.goal_id}",
                     "goal_id": goal.goal_id,
                     "intent": goal.intent.value,
                     "capability": goal.capability,
@@ -93,6 +95,8 @@ async def resolve_intent_graph_evidence(
                     "depends_on": list(goal.depends_on),
                     "reason": "dependency_not_completed",
                     "blocked_by": blocked_by,
+                    "started_at": datetime.now(UTC).isoformat(),
+                    "completed_at": datetime.now(UTC).isoformat(),
                 }
                 await progress_observer(
                     _progress(
@@ -132,6 +136,7 @@ async def _resolve_goal(
 ) -> dict[str, Any]:
     branch_id = f"{request_id}:{goal.goal_id}"
     started = time.monotonic()
+    started_at = datetime.now(UTC).isoformat()
     await progress_observer(_progress(branch_id, goal, "running", "Resolving intent goal", 0))
     status = "completed"
     reason: str | None = None
@@ -140,6 +145,8 @@ async def _resolve_goal(
         duration_ms = max(0, int((time.monotonic() - started) * 1000))
         receipt = _goal_receipt(
             goal,
+            task_id=branch_id,
+            started_at=started_at,
             status="skipped",
             duration_ms=duration_ms,
             reason="write_execution_forbidden",
@@ -183,7 +190,14 @@ async def _resolve_goal(
         status = "failed"
         reason = "capability_failed"
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
-    receipt = _goal_receipt(goal, status=status, duration_ms=duration_ms, reason=reason)
+    receipt = _goal_receipt(
+        goal,
+        task_id=branch_id,
+        started_at=started_at,
+        status=status,
+        duration_ms=duration_ms,
+        reason=reason,
+    )
     if evidence is not None:
         receipt["evidence"] = dict(evidence)
     await progress_observer(
@@ -195,11 +209,14 @@ async def _resolve_goal(
 def _goal_receipt(
     goal: IntentGoal,
     *,
+    task_id: str,
+    started_at: str,
     status: str,
     duration_ms: int,
     reason: str | None,
 ) -> dict[str, Any]:
     receipt: dict[str, Any] = {
+        "task_id": task_id,
         "goal_id": goal.goal_id,
         "intent": goal.intent.value,
         "capability": goal.capability,
@@ -207,6 +224,8 @@ def _goal_receipt(
         "status": status,
         "duration_ms": duration_ms,
         "depends_on": list(goal.depends_on),
+        "started_at": started_at,
+        "completed_at": datetime.now(UTC).isoformat(),
     }
     if reason is not None:
         receipt["reason"] = reason
@@ -352,6 +371,7 @@ def public_intent_graph_evidence(raw: Mapping[str, Any]) -> dict[str, Any]:
                 key: item[key]
                 for key in (
                     "goal_id",
+                    "task_id",
                     "intent",
                     "capability",
                     "evidence_mode",
@@ -360,6 +380,8 @@ def public_intent_graph_evidence(raw: Mapping[str, Any]) -> dict[str, Any]:
                     "depends_on",
                     "reason",
                     "blocked_by",
+                    "started_at",
+                    "completed_at",
                 )
                 if key in item
             }
