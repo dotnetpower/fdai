@@ -22,6 +22,11 @@ from .models import (
     SpecialistContribution,
 )
 from .selection import build_operational_plan
+from .simulation import (
+    PlanningProgram,
+    ProgrammaticPlanningRunner,
+    ProgrammaticPlanningSimulator,
+)
 
 __all__ = [
     "CandidateAssessment",
@@ -36,6 +41,9 @@ __all__ = [
     "PlanningCandidateSimulator",
     "PlanningConstraintEvaluator",
     "PlanningRequest",
+    "PlanningProgram",
+    "ProgrammaticPlanningRunner",
+    "ProgrammaticPlanningSimulator",
     "SimulationReceipt",
     "SimulationStatus",
     "SpecialistContribution",

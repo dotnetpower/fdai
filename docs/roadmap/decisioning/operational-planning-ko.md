@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 06c8d1585eea679074050b9359078b54fda398c1
+translation_source_sha: 3e2c7be193edc142a8956d7e79a84267e5670179
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -17,12 +17,13 @@ DecisionCase, ActionOption, typed ontology function, Assurance Twin을 재사용
 > 대화형 숙의는 같은 증거를 설명할 수 있지만, 그 text는 Process를 진행하거나 DecisionCase를
 > 변경하지 않습니다.
 >
-> **구현 상태:** P1-P2 core contract가 구현되었습니다. Canonical ontology release가 function
-> declaration을 고정하고, authorized invocation이 replay-stable receipt를 emit하며, operational
-> planning은 Pareto pruning 및 weighted selection 전에 hard constraint를 적용하고, ordered planning
-> phase는 snapshot을 변경하지 않고 기존 Process journal에 append합니다. P3-P7은 sandbox execution,
-> P3도 기존 Cost 및 Capacity topic 위의 optional Forseti coordinator로 구현되었습니다. P4-P7은
-> concrete sandbox execution, governed execution, Console, live proof를 계속 연결해야 합니다.
+> **구현 상태:** P1-P4 core path가 구현되었습니다. Canonical release가 function declaration을
+> 고정하고, authorized invocation이 replay-stable receipt를 emit하며, operational planning은 Pareto
+> pruning 및 weighted selection 전에 hard constraint를 적용하고, ordered planning phase는 기존
+> Process journal에 append합니다. Forseti는 optional coordinator로 기존 Cost 및 Capacity topic을
+> enrich할 수 있습니다. Programmatic simulator는 exact reviewed source를 bounded pipeline sandbox에서
+> 실행하고 timeout 또는 malformed output을 unscorable로 처리합니다. P5-P7은 Twin 및 staging
+> execution, governed execution bridge, Console, live proof를 계속 연결해야 합니다.
 
 ## 한눈에 보는 설계
 

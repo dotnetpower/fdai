@@ -174,11 +174,12 @@ class SpecialistPlanningCoordinator:
                 effects=option.effects,
                 observed_at=created_at,
             )
+            simulated_effects = simulation.predicted_effects or option.effects
             candidates.append(
                 PlanCandidate(
                     candidate_id=option.option_id,
                     action_type=option.action_type,
-                    effects=option.effects,
+                    effects=simulated_effects,
                     contributions=(contribution,),
                     constraints=constraints,
                     simulations=(simulation,),

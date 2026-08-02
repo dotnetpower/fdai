@@ -17,12 +17,13 @@ central planner or another authority surface.
 > Read-only conversational deliberation may explain the same evidence, but its text never advances
 > a Process or changes a DecisionCase.
 >
-> **Implementation status:** P1-P2 core contracts are implemented. Canonical releases pin function
+> **Implementation status:** P1-P4 core paths are implemented. Canonical releases pin function
 > declarations; authorized invocation emits replay-stable receipts; operational planning applies
 > hard constraints before Pareto pruning and weighted selection; and ordered planning phases append
-> to the existing Process journal without changing its snapshot. P3 is also implemented as an
-> optional Forseti coordinator over the existing Cost and Capacity topics. P4-P7 still need to
-> connect concrete sandbox execution, governed execution, the Console, and live proof.
+> to the existing Process journal. Forseti can enrich the existing Cost and Capacity topics through
+> an optional coordinator. A programmatic simulator runs exact reviewed sources through the bounded
+> pipeline sandbox and treats timeout or malformed output as unscorable. P5-P7 still need Twin and
+> staging execution, the governed execution bridge, the Console, and live proof.
 
 ## Design at a glance
 

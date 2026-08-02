@@ -93,6 +93,7 @@ class SimulationReceipt:
     started_at: datetime
     completed_at: datetime
     evidence_refs: tuple[str, ...]
+    predicted_effects: tuple[ObjectiveEffect, ...] = ()
     requires_review: bool = False
     reason: str = ""
 
@@ -107,6 +108,9 @@ class SimulationReceipt:
             raise ValueError("simulation receipt completion MUST follow start")
         if not self.evidence_refs:
             raise ValueError("simulation receipt requires evidence")
+        objective_ids = [effect.objective_id for effect in self.predicted_effects]
+        if len(objective_ids) != len(set(objective_ids)):
+            raise ValueError("simulation receipt MUST contain one effect per objective")
 
 
 @dataclass(frozen=True, slots=True)
