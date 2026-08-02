@@ -48,6 +48,9 @@ is composition of existing parts.
 > hook, and twin-specific ReadPanel aren't wired yet. The ambient-review, action-bridging, and
 > self-improving delivery flows below are target design. A separate Security Assessment report
 > feed and Azure analyzer are implemented in the current reporting subsystem.
+> Operational planning now has a read-only Twin adapter that applies verified active and challenger
+> effect models per objective. Missing or future-cutoff models are unscorable, and divergence marks
+> the candidate for review. The adapter produces evidence only and never selects execution.
 
 ## Why not a chatbot
 

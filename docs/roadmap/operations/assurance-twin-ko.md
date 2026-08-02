@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 9b8b0e606faae9c8311c380281e034419b18101f
-translation_revised: 2026-08-01
+translation_source_sha: c2dd8e84b8a7fe022bd2f677457e86a1a266e691
+translation_revised: 2026-08-03
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -45,6 +45,9 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > intent, Checks API publisher, discovery-loop hook, twin 전용 ReadPanel은 아직 연결되지 않았습니다.
 > 아래 ambient review, action-bridging, self-improving delivery 흐름은 목표 설계입니다. 별도의
 > Security Assessment report feed와 Azure analyzer는 현재 reporting subsystem에 구현되어 있습니다.
+> Operational planning에는 이제 objective별로 검증된 active 및 challenger effect model을 적용하는
+> read-only Twin adapter가 있습니다. 누락되거나 future-cutoff인 model은 unscorable이며 divergence는
+> candidate를 review 대상으로 표시합니다. Adapter는 evidence만 만들고 execution을 선택하지 않습니다.
 
 ## 왜 챗봇이 아닌가
 

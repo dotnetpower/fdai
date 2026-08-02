@@ -6,6 +6,7 @@ from .coordinator import (
     SpecialistPlanningCoordinator,
     SpecialistPlanningProjection,
 )
+from .execution import close_operational_plan, compile_selected_mutation_plan
 from .journal import PlanningPhaseOrderError, append_planning_phase
 from .models import (
     MAX_PLAN_CANDIDATES,
@@ -27,12 +28,14 @@ from .simulation import (
     ProgrammaticPlanningRunner,
     ProgrammaticPlanningSimulator,
 )
+from .twin import AssuranceTwinPlanningSimulator
 
 __all__ = [
     "CandidateAssessment",
     "CandidateDisposition",
     "ConstraintEvaluation",
     "ConstraintStatus",
+    "AssuranceTwinPlanningSimulator",
     "MAX_PLAN_CANDIDATES",
     "OperationalPlan",
     "PlanCandidate",
@@ -51,4 +54,6 @@ __all__ = [
     "SpecialistPlanningProjection",
     "append_planning_phase",
     "build_operational_plan",
+    "close_operational_plan",
+    "compile_selected_mutation_plan",
 ]

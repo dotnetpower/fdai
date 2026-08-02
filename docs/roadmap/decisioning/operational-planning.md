@@ -22,8 +22,9 @@ central planner or another authority surface.
 > hard constraints before Pareto pruning and weighted selection; and ordered planning phases append
 > to the existing Process journal. Forseti can enrich the existing Cost and Capacity topics through
 > an optional coordinator. A programmatic simulator runs exact reviewed sources through the bounded
-> pipeline sandbox and treats timeout or malformed output as unscorable. P5-P7 still need Twin and
-> staging execution, the governed execution bridge, the Console, and live proof.
+> pipeline sandbox and treats timeout or malformed output as unscorable. P5 adds a read-only Twin
+> adapter, exact selected-option MutationPlan compilation, and independent ResponseOutcome closure.
+> P6-P7 still need the Console, frozen scenarios, staging proof, and shadow measurement.
 
 ## Design at a glance
 
