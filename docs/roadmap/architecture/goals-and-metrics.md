@@ -21,6 +21,10 @@ deterministically (T0/T1) and reserving LLM inference (T2) for the residual ambi
 minority, **without regressing the guard metrics**. Autonomy that improves a success metric
 while degrading a guard metric is a failure, not a win.
 
+SRE is the operating model across the three verticals. Disaster recovery and Chaos Engineering
+are Resilience capabilities, Architecture Review Board governance applies across domains, and
+FinOps is the Cost Governance discipline.
+
 ### Accuracy contract
 
 FDAI does not claim that every novel diagnosis is correct. It targets **100% contract-conformant
@@ -50,9 +54,15 @@ Terms used across all metrics, fixed here to avoid ambiguity:
 
 - **Event**: one normalized, deduplicated item entering the control loop (post `event-ingest`),
   identified by its stable idempotency key. All per-event rates are computed over this unit.
-- **Scenario set**: a frozen, versioned collection of Resilience, Change Safety, and Cost
-  Governance cases used identically for baseline and treatment. Each release records the
-  scenario-set version (e.g. `v2026.07`).
+- **Scenario set**: a frozen, versioned collection spanning SRE, ARB / Change Safety, FinOps / Cost
+  Governance, DR, and Chaos Engineering capability packs, used identically for baseline and
+  treatment. Each release records the scenario-set and per-pack versions (e.g. `v2026.07`).
+
+> **Current coverage gap:** `tests/scenarios/manifests/v2026.07.json` assigns every fixture to SRE,
+> ARB / Change Safety, FinOps, DR, or Chaos. A coverage dimension counts only when it cites a
+> scenario owned by that pack and an existing executable test. The set remains `incomplete`: SRE
+> has no scenario and every existing pack lacks one or more required cases.
+> FDAI must not claim complete domain coverage until all five packs are complete.
 - **Reference agent**: the fixed comparison system (documented, single-model, no tiering)
   measured in Phase 0. Its version is pinned per baseline run.
 - **Human touchpoint**: any action requiring a human decision or input (HIL approval, manual

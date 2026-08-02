@@ -18,7 +18,7 @@ There is no direct RPC between steps and no bypass of the risk-gate. This
 matches the pantheon rule that any request to act re-enters the typed pipeline
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 
-Every state-changing action step is an `ActionType` invocation, so its four safety invariants hold.
+Every state-changing action step is an `ActionType` invocation, so its seven safeguards hold.
 Evidence and control steps have no mutation authority and use their dedicated typed contracts. The
 runner adds one aggregate `runbook.terminal` audit row for reconstruction.
 
@@ -83,9 +83,10 @@ answers "how did it get here?" Typed events cover creation, step lifecycle,
 wait/approval/decision state, parallel branch outcomes, compensation, timeout, and
 terminal outcomes. Approval steps count distinct approving principals, exclude the
 requester when `no_self_approval` is enabled, and remain waiting until their quorum
-is met. Wait and approval timeouts end the Process as `timed_out`. Parallel branches
-run concurrently and write child events without competing for the parent snapshot
-revision.
+is met. Wait and approval timeouts with no applied step end as `timed_out`; after any applied step
+they stop forward dispatch and enter compensation. Parallel branches run concurrently and write
+child events without competing for the parent snapshot revision, but a failure freezes new branch
+dispatch and joins applied receipts before reverse-dependency compensation.
 
 The ontology graph is a read model, not the source of truth. After each committed
 event, `ProcessOntologyProjector` materializes the current `Process` object and its

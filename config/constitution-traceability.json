@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "requirements": [
+    {
+      "id": "FDAI-CONST-001",
+      "status": "partial",
+      "owner_docs": [".github/instructions/app-shape.instructions.md", ".github/instructions/generic-scope.instructions.md"],
+      "implementation": ["src/fdai/delivery/operator_api", "src/fdai/composition"],
+      "schemas": [],
+      "tests": ["tests/test_composition_llm.py", "tests/scripts/test_fork_runtime_independence.py"],
+      "runtime_evidence": ["src/fdai/delivery/operator_api", "src/fdai/runtime"],
+      "gap": "Product-purpose and customer-agnostic boundaries are enforced by several gates rather than one runtime receipt."
+    },
+    {
+      "id": "FDAI-CONST-002",
+      "status": "partial",
+      "owner_docs": ["docs/roadmap/architecture/goals-and-metrics.md", "docs/roadmap/architecture/outcome-assurance.md"],
+      "implementation": ["src/fdai/core/risk_gate", "src/fdai/core/measurement"],
+      "schemas": ["src/fdai/shared/contracts/action/schema.json", "src/fdai/shared/contracts/response-outcome/schema.json"],
+      "tests": ["tests/core/risk_gate", "tests/core/measurement"],
+      "runtime_evidence": ["src/fdai/core/audit", "src/fdai/core/measurement"],
+      "gap": "One shared decision-critical evidence receipt contract is not yet enforced at every decision boundary."
+    },
+    {
+      "id": "FDAI-CONST-003",
+      "status": "implemented",
+      "owner_docs": ["docs/roadmap/agents/agent-pantheon.md"],
+      "implementation": ["src/fdai/agents/_framework/pantheon.py", "src/fdai/agents/_framework/runtime.py"],
+      "schemas": [],
+      "tests": ["tests/agents/test_pantheon_doc_parity.py", "tests/agents/test_pantheon_concurrency_proof.py"],
+      "runtime_evidence": ["src/fdai/agents/_framework/bus_metrics.py"],
+      "gap": null
+    },
+    {
+      "id": "FDAI-CONST-004",
+      "status": "partial",
+      "owner_docs": ["docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/rules-and-detection/rule-governance.md"],
+      "implementation": ["src/fdai/shared/ontology", "src/fdai/core/operational_learning"],
+      "schemas": ["src/fdai/shared/contracts/ontology/object-type.json", "src/fdai/shared/contracts/ontology/action-type.json"],
+      "tests": ["tests/agents/test_ontology_alignment.py", "tests/core/operational_learning"],
+      "runtime_evidence": ["src/fdai/core/operational_context", "src/fdai/core/operational_learning"],
+      "gap": "A single property test does not yet prove that every adaptive threshold remains inside its ontology hard bounds."
+    },
+    {
+      "id": "FDAI-CONST-005",
+      "status": "partial",
+      "owner_docs": ["docs/roadmap/architecture/goals-and-metrics.md", "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md"],
+      "implementation": ["src/fdai/core/verticals", "src/fdai/core/chaos"],
+      "schemas": ["tests/scenarios/schema.json", "tests/scenarios/manifest.schema.json"],
+      "tests": ["tests/scenarios/test_frozen.py", "tests/scenarios/test_v2026_07_replay.py"],
+      "runtime_evidence": ["tests/scenarios/manifests/v2026.07.json"],
+      "gap": "Capability accounting is machine-validated, but SRE has no scenario and every existing pack still lacks one or more constitutional coverage dimensions."
+    },
+    {
+      "id": "FDAI-CONST-006",
+      "status": "implemented",
+      "owner_docs": ["docs/roadmap/agents/agent-pantheon.md", "docs/roadmap/decisioning/risk-classification.md"],
+      "implementation": ["src/fdai/core/risk_gate/precedence.py", "src/fdai/agents/_framework/arbitration.py"],
+      "schemas": [],
+      "tests": ["tests/core/risk_gate/test_precedence.py", "tests/agents/test_arbitration.py"],
+      "runtime_evidence": ["src/fdai/agents/_framework/arbitration.py"],
+      "gap": null
+    },
+    {
+      "id": "FDAI-CONST-007",
+      "status": "partial",
+      "owner_docs": ["docs/roadmap/architecture/security-and-identity.md", "docs/roadmap/decisioning/action-ontology.md"],
+      "implementation": ["src/fdai/shared/contracts/models/action.py", "src/fdai/core/executor"],
+      "schemas": ["src/fdai/shared/contracts/action/schema.json", "src/fdai/shared/contracts/ontology/action-type.json"],
+      "tests": ["tests/core/executor/test_executor.py", "tests/core/executor/test_lock.py"],
+      "runtime_evidence": ["src/fdai/core/audit", "src/fdai/shared/providers/state_store.py"],
+      "gap": "The PR-native shadow executor now emits a dry-run receipt and pre-effect/terminal audit lifecycle; equivalent guarantees are not yet represented by one shared contract across every execution path."
+    },
+    {
+      "id": "FDAI-CONST-008",
+      "status": "planned",
+      "owner_docs": ["docs/roadmap/decisioning/escalation-and-standing-authority.md", "docs/roadmap/decisioning/risk-classification.md"],
+      "implementation": ["src/fdai/core/hil_resume"],
+      "schemas": [],
+      "tests": ["tests/core/hil_resume"],
+      "runtime_evidence": ["src/fdai/core/hil_resume"],
+      "gap": "A3-E standing human authorization has no executable catalog schema, evaluator, or production promotion path."
+    },
+    {
+      "id": "FDAI-CONST-009",
+      "status": "partial",
+      "owner_docs": ["docs/roadmap/decisioning/process-automation.md", "docs/roadmap/decisioning/workflow-control-loop-integration.md"],
+      "implementation": ["src/fdai/core/workflow", "src/fdai/shared/providers/process_runtime.py"],
+      "schemas": ["src/fdai/shared/contracts/workflow/schema.json"],
+      "tests": ["tests/core/workflow/test_orchestrator.py", "tests/core/workflow/test_coordinator.py"],
+      "runtime_evidence": ["src/fdai/shared/providers/process_runtime.py"],
+      "gap": "Compensation failure does not yet create an executable durable automation hold that blocks later forward dispatch."
+    },
+    {
+      "id": "FDAI-CONST-010",
+      "status": "implemented",
+      "owner_docs": ["docs/roadmap/architecture/fdai-constitution.md", "scripts/lib/design-routes.json"],
+      "implementation": ["scripts/quality/architecture/check-constitution.py", "scripts/agent/design_context.py"],
+      "schemas": ["config/constitution-traceability.json"],
+      "tests": ["tests/scripts/test_constitution.py", "tests/scripts/test_design_context.py"],
+      "runtime_evidence": [".github/workflows/ci.yml", "scripts/verify.sh"],
+      "gap": null
+    }
+  ]
+}

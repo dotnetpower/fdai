@@ -6,9 +6,47 @@
       "id": "baseline",
       "paths": ["**"],
       "must_read": [
-        ".github/copilot-instructions.md"
+        ".github/copilot-instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md"
       ],
       "validate": ["scripts/verify.sh"]
+    },
+    {
+      "id": "constitution",
+      "paths": [
+        ".github/copilot-instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/workflows/ci.yml",
+        "config/constitution-traceability.json",
+        "docs/roadmap/README*.md",
+        "docs/roadmap/architecture/fdai-constitution*.md",
+        "docs/roadmap/architecture/security-and-identity*.md",
+        "docs/roadmap/agents/agent-pantheon*.md",
+        "docs/roadmap/decisioning/risk-classification*.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority*.md",
+        "scripts/lib/design-routes.json",
+        "scripts/quality/architecture/check-constitution.py",
+        "scripts/verify.sh",
+        "tests/scripts/test_constitution.py"
+      ],
+      "must_read": [
+        ".github/copilot-instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "config/constitution-traceability.json",
+        "docs/roadmap/architecture/goals-and-metrics.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/decisioning/risk-classification.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority.md",
+        "docs/roadmap/decisioning/process-automation.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-constitution.py",
+        "uv run pytest -q --no-cov tests/scripts/test_constitution.py"
+      ]
     },
     {
       "id": "issue-lifecycle",

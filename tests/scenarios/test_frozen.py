@@ -19,6 +19,8 @@ from fdai.shared.contracts.validation import JsonSchemaContractValidator
 
 SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.07"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.json"
+MANIFEST_SCHEMA_PATH = Path(__file__).resolve().parent / "manifest.schema.json"
+MANIFEST_PATH = Path(__file__).resolve().parent / "manifests" / "v2026.07.json"
 
 # ── Guard patterns ──────────────────────────────────────────────────────────
 # Any GUID whose first four groups are non-zero is a real customer identifier
@@ -36,8 +38,23 @@ def _load_scenario_schema() -> dict[str, Any]:
 
 
 def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
-    files = sorted(SCENARIO_DIR.glob("*.json"))
+    files = sorted(path for path in SCENARIO_DIR.glob("*.json") if path.name != "manifest.json")
     return [(p, cast(dict[str, Any], json.loads(p.read_text(encoding="utf-8")))) for p in files]
+
+
+def _load_manifest() -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
+
+
+def _test_ref_exists(test_ref: str) -> bool:
+    relative_path, separator, test_name = test_ref.partition("::")
+    if not separator:
+        return False
+    path = Path(__file__).resolve().parents[2] / relative_path
+    if not path.is_file():
+        return False
+    pattern = re.compile(rf"^(?:async )?def {re.escape(test_name)}\(", re.MULTILINE)
+    return pattern.search(path.read_text(encoding="utf-8")) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +64,55 @@ def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
 
 def test_scenario_schema_is_valid_draft_2020_12() -> None:
     Draft202012Validator.check_schema(_load_scenario_schema())
+
+
+def test_capability_manifest_is_schema_valid() -> None:
+    schema = cast(dict[str, Any], json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8")))
+    Draft202012Validator.check_schema(schema)
+    Draft202012Validator(schema).validate(_load_manifest())
+
+
+def test_capability_manifest_assigns_every_scenario_exactly_once() -> None:
+    scenarios = {raw["id"]: raw for _, raw in _load_scenarios()}
+    manifest = _load_manifest()
+    assigned: list[str] = []
+    for capability, pack in manifest["capability_packs"].items():
+        for scenario_id in pack["scenario_ids"]:
+            assert scenarios[scenario_id]["capability"] == capability
+            assigned.append(scenario_id)
+    assert sorted(assigned) == sorted(scenarios)
+    assert len(assigned) == len(set(assigned))
+
+
+def test_capability_coverage_references_owned_scenarios_and_tests() -> None:
+    manifest = _load_manifest()
+    for pack in manifest["capability_packs"].values():
+        scenario_ids = set(pack["scenario_ids"])
+        for evidence_records in pack["coverage"].values():
+            for evidence in evidence_records:
+                assert evidence["scenario_id"] in scenario_ids
+                assert _test_ref_exists(evidence["test_ref"])
+
+
+def test_complete_pack_requires_every_coverage_dimension() -> None:
+    manifest = _load_manifest()
+    for pack in manifest["capability_packs"].values():
+        expected_pack_status = (
+            "missing"
+            if not pack["scenario_ids"]
+            else "complete"
+            if all(pack["coverage"].values())
+            else "partial"
+        )
+        assert pack["status"] == expected_pack_status
+        if pack["status"] == "complete":
+            assert all(pack["coverage"].values())
+    expected_status = (
+        "complete"
+        if all(pack["status"] == "complete" for pack in manifest["capability_packs"].values())
+        else "incomplete"
+    )
+    assert manifest["status"] == expected_status
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_scenarios())

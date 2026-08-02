@@ -52,8 +52,8 @@ it makes the roles legible and auditable.
   checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
   Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside
   standing authority.
-- **Two-port model.** Every agent exposes a typed pub/sub port for machine
-  traffic and a conversational port for humans and other agents (§6).
+- **Two-port model.** Every agent exposes typed pub/sub for authority-bearing machine traffic and a
+  read-only conversational presentation port for operators and bounded peer deliberation (§6).
 - **Single-writer, multi-reader topics.** Each object type has exactly one
   owner agent that publishes; anyone may subscribe (§6.1).
 - **Judge is not the executor.** Forseti issues a verdict; Thor dispatches
@@ -143,10 +143,11 @@ comparable across verticals:
   normalized; the specialist attaches it so the arbiter reads one field,
   not a raw metric.
 
-Odin resolves the conflict with a deterministic **multi-objective**
-arbiter (`MultiObjectiveArbiter` in
-`src/fdai/agents/_framework/arbitration.py`) rather than a
-blunt priority table:
+Odin resolves the conflict with the deterministic **multi-objective**
+`MultiObjectiveArbiter` in `src/fdai/agents/_framework/arbitration.py`:
+
+- **Constitutional eligibility comes first.** Forseti and the risk gate remove options that violate safety, security, identity, data-integrity, recovery, or service-objective constraints. Odin
+  receives only eligible options; no score can compensate for a failed hard constraint.
 
 - Each domain has a configured **weight** (derived from the priority order
   `resilience > security > change_safety > cost > capacity` by default;
@@ -159,10 +160,9 @@ blunt priority table:
 - The winner is the highest score. With equal impacts this reproduces the
   legacy priority winner exactly, so the arbiter is a strict superset of
   the old table - no behavior regresses.
-- A high-impact lower-priority domain can outrank a low-impact
-  higher-priority one, which is the point: the arbiter weighs *magnitude*,
-  not just rank (it will not save one dollar of on-call time by spending
-  ten dollars of compute).
+- Among eligible soft-objective tradeoffs, a high-impact lower-priority domain can outrank a
+  low-impact higher-priority one. The arbiter weighs *magnitude*, not just rank; this never permits
+  cost or efficiency to override a constitutional constraint.
 - When the top-two **margin** is within a configured HIL band (default
   `0.10`), or a domain has no known weight, the call is too close to
   auto-resolve: the decision is flagged `escalate_hil`, which Forseti turns
@@ -352,14 +352,14 @@ behaviors. Anti-pattern §11 forbids collapsing these to nothing.
 | **Saga** | audit unavailable | **HARD FAIL**: no new mutation permitted; whole system demoted to shadow |
 | **Vidar** | rollback unavailable | Thor refuses new auto executions; all new actions demoted to shadow |
 | **Forseti** | judgment stopped | Huginn / Heimdall keep publishing (Kafka retains); no verdict fallback (judgment cannot proceed without judge); operator alert |
-| **Odin** | cross-vertical arbitration missing | Forseti auto-promotes conflict verdicts to HIL (human arbitrates) |
+| **Odin** | cross-vertical arbitration missing | Forseti lowers conflict verdicts to HIL (human arbitrates) |
 | **Thor** | execution stopped | verdicts queued; verdict TTL expiry drops stale ones (re-judge on republish) |
 | **Huginn** | ingestion stopped | Kafka retention preserves events; Huginn resumes from checkpoint on recovery (idempotent) |
-| **Heimdall** | detection stopped | rule-only judgments continue via Huginn -> Forseti; security correlation delayed but RBAC deny still audited |
-| **Var** | HIL blocked | HIL queue preserved; timeout auto-extended; admin alert; auto actions continue |
+| **Heimdall** | detection/effect observation stopped | reads, deny, and shadow judgment continue; new state changes needing Heimdall observation are blocked, existing outcomes remain pending, RBAC deny stays audited |
+| **Var** | HIL blocked | HIL queue preserved; timeout auto-extended; admin alert; only actions already eligible as A1/A2 without approval continue; HIL and A3-E cannot execute |
 | **Bragi** | conversation blocked | operator falls back to console read-only view + direct audit query |
 | **Mimir** | rule updates stopped | cached rules continue; Forseti raises stale-rule warning; new rule updates deferred |
-| **Muninn** | context unavailable | Forseti judges without context (T2 escalation rate rises expected); "context unavailable" logged |
+| **Muninn** | context unavailable | reads, deny, and shadow judgment continue; context-dependent state changes are blocked as unknown and "context unavailable" is audited |
 | **Norns** | learning stopped | no immediate impact (off-path); long-term discovery velocity drops - warning raised |
 | **Njord / Freyr / Loki** | domain advice missing | Forseti demotes that domain's actions to HIL |
 
@@ -368,8 +368,8 @@ Common rules:
 - **Saga and Vidar are hard dependencies** for mutation: terminal consumer or health failure forces sticky shadow until restart. Noncritical terminal consumers degrade only their agent; siblings continue and health records exact agent/topic state instead of a false live heartbeat. The unified concurrency test pins all 15 consumer identities and non-stealing same-topic fan-out.
 - **Any judge / executor / auditor triad missing** demotes new mutation to
   shadow.
-- **Sensing degradation (Heimdall / Var / Vidar failure)** allows the
-  pipeline to keep running with reduced autonomy.
+- **Noncritical sensing degradation** may preserve read, deny, queue, and shadow paths only.
+  Vidar remains a mutation hard dependency; Var independently controls HIL and A3-E eligibility.
 - Every degradation surfaces in Odin's portfolio report (workflow 7).
 
 ### 4.4 Task tier classification (LLM policy per task)
@@ -475,7 +475,7 @@ Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: b
 `is_action_intent` makes commands abstain with `requires_typed_pipeline`; chat never executes.
 Owned-state scope narrowing matches complete canonical identifiers with internal `.`, `_`, or `-`
 inside the bounded question and never accepts a shorter candidate that is only an identifier prefix.
-`PantheonRuntime.introspect` supports attributed A2A reads and digest-only Bragi Turns; bounded multi-agent discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
+`PantheonRuntime.introspect` supports attributed read-only peer projections and digest-only Bragi Turns; bounded presentation discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
 
 `AgentConversationToolRegistry` binds every declared id to one owner, rejects invalid calls, bounds time
 and data, and holds errors or sensitive output without values. Tool results expose only `agent`, `evidence_refs`, and declared fact keys, with no undeclared `_ref` exception. Direct and tool-routed results without durable refs receive the same content-addressed `agent-state` ref over normalized facts, never an `agent-spec` runtime claim. Unbound projections state unavailable instead of exposing unrelated facts. Health reports tool availability and counters. Calls use only the conversational port, so actions cannot reach an executor or cloud SDK.

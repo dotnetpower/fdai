@@ -110,6 +110,7 @@ fi
 run_gate "ci-contracts" python3 scripts/quality/ci/check-ci-contracts.py
 run_gate "issue-lifecycle" python3 scripts/quality/repository/check-issue-lifecycle.py
 run_gate "design-routes" python3 scripts/quality/architecture/check-design-routes.py
+run_gate "constitution" python3 scripts/quality/architecture/check-constitution.py
 run_gate "design-doc-impact" python3 scripts/quality/architecture/check-design-doc-impact.py
 run_gate "fork-runtime-independence" python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate "evaluation-boundaries" python3 scripts/quality/architecture/check-evaluation-boundaries.py

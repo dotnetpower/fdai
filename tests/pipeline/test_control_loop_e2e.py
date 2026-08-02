@@ -750,13 +750,13 @@ async def test_every_terminal_path_writes_audit(
     entries = list(audit.audit_entries)
     # A: 1 abstain entry (routing)
     # B: 1 abstain entry (T0 no-match)
-    # C: N executor entries (one per shipped-rule finding)
+    # C: two executor entries per shipped-rule finding (intent + terminal)
     abstain_entries = sum(
         1 for e in entries if e["entry"].get("action_kind") == "control_loop.abstain"
     )
     executor_entries = len(entries) - abstain_entries
     assert abstain_entries == 2
-    assert executor_entries == len(result_c.execution_results)
+    assert executor_entries == 2 * len(result_c.execution_results)
     assert await audit.verify_chain(), "audit chain broken"
 
 

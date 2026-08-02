@@ -296,8 +296,8 @@ or ChatOps binding. Adding them doesn't introduce a new privileged surface.
 
 - **Read-only twin, gated execution**: the twin and every answer are read-only;
   the only path to a mutation is a proposal that enters `risk-gate -> executor`,
-  with the four safety invariants (stop-condition, rollback, blast-radius limit,
-  audit entry) enforced there, not in the twin.
+  with the seven safeguards (stop-condition, rollback, blast-radius limit, dry-run, resource lock,
+  idempotency, audit entry) enforced there, not in the twin.
 - **Fail closed**: an ungroundable answer abstains; a mis-typed or non-read-only
   compiled query is rejected; a stale twin (`Inventory` freshness beyond
   `freshness_ttl`) refuses to answer estate-state questions rather than answer

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c65034d0769016ad0f2171f24d4ab989fc032e10
+translation_source_sha: effc6bd86a40a76314128ad2abbc69c34a4b68e7
 translation_revised: 2026-08-02
 ---
 
@@ -52,8 +52,8 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations runtime�
   alternate-source check, deterministic reevaluation, 더 작은 safe plan, no-op 또는 rollback을
   수행합니다. Var는 residual ambiguity, policy-mandated approval 또는 standing authority 밖의
   risk에만 사람 검토를 요청합니다.
-- **Two-port 모델.** 모든 에이전트는 machine 트래픽용 typed pub/sub port 와
-  사람 / 다른 에이전트용 conversational port 를 노출한다 (§6).
+- **Two-port 모델.** 모든 에이전트는 권한이 있는 machine 트래픽용 typed pub/sub와
+  operator 및 제한된 peer deliberation용 read-only conversational presentation port를 제공합니다 (§6).
 - **Single-writer, multi-reader topics.** 각 object type 은 정확히 하나의
   owner agent 만 publish 하고, 누구나 subscribe 할 수 있다 (§6.1).
 - **판사는 executor 가 아니다.** Forseti 는 verdict 를 발행하고, Thor 는
@@ -141,9 +141,10 @@ Forseti가 도메인별 메트릭을 알 필요가 없고, 크기가 도메인�
   `impact = clamp(forecast_util, 0, 1)`. 평활화된 forecast는 이미 정규화되어
   있으며, 전문가가 이를 붙여 중재기는 원 메트릭이 아니라 하나의 필드를 읽는다.
 
-Odin은 무딘 우선순위 테이블 대신
-`src/fdai/agents/_framework/arbitration.py`의 결정론적 **다목적** 중재기
-`MultiObjectiveArbiter`로 해소한다:
+Odin은 `src/fdai/agents/_framework/arbitration.py`의 결정론적 **다목적**
+`MultiObjectiveArbiter`로 충돌을 해소합니다.
+
+- **헌법 적격성을 먼저 확인합니다.** Forseti와 risk gate는 안전, 보안, ID, 데이터 무결성, 복구 또는 서비스 목표 제약을 위반하는 선택지를 제거합니다. Odin은 적격 선택지만 받으며 어떤 점수도 실패한 강제 제약을 보상할 수 없습니다.
 
 - 각 도메인은 설정된 **가중치**를 가진다(기본은 우선순위 순서
   `resilience > security > change_safety > cost > capacity`에서 도출;
@@ -154,9 +155,8 @@ Odin은 무딘 우선순위 테이블 대신
   `0.4`에 고정하므로 커브를 바꿔도 HIL 밴드와 마진 산술이 그대로 보정된다.
 - 승자는 최고 점수다. 영향 크기가 같으면 기존 우선순위 승자를 정확히 재현하므로,
   중재기는 옛 테이블의 엄격한 상위집합이다 - 어떤 동작도 퇴행하지 않는다.
-- 영향이 큰 낮은-우선순위 도메인이 영향이 작은 높은-우선순위 도메인을 이길 수
-  있고, 그것이 핵심이다: 중재기는 순위가 아니라 *크기*를 저울질한다(온콜 1달러를
-  아끼려고 컴퓨트 10달러를 쓰지 않는다).
+- 적격한 소프트 목표 상충 관계에서는 영향이 큰 낮은 우선순위 도메인이 영향이 작은 높은 우선순위 도메인을 이길 수 있습니다. 중재기는 순위뿐 아니라 *크기*를 평가하지만 비용이나
+  효율성이 헌법 제약을 덮어쓰도록 허용하지 않습니다.
 - 상위 2개의 **마진**이 설정된 HIL 밴드(기본 `0.10`) 이내이거나, 도메인에 알려진
   가중치가 없으면, 자동 해소하기엔 너무 접전이라 결정에 `escalate_hil` 플래그가
   붙고 Forseti가 이를 `hil` 판정으로 바꿔 사람에게 넘긴다 - 절대 조용히 자동
@@ -331,14 +331,14 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 | **Saga** | audit 불가 | **HARD FAIL**: 새 mutation 허용 안 됨; 전체 시스템 shadow 로 강등 |
 | **Vidar** | rollback 불가 | Thor 가 새 auto 실행 거부; 모든 새 action shadow 로 강등 |
 | **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); verdict fallback 없음 (판사 없이 판단 불가); operator alert |
-| **Odin** | cross-vertical arbitration 누락 | Forseti 가 conflict verdict 를 자동으로 HIL 로 승격 (사람이 arbitrate) |
+| **Odin** | cross-vertical arbitration 누락 | Forseti가 conflict verdict를 HIL로 낮춤 (사람이 arbitrate) |
 | **Thor** | 실행 정지 | verdict 큐잉; verdict TTL 만료 시 stale drop (republish 시 재판단) |
 | **Huginn** | ingestion 정지 | Kafka retention 이 이벤트 보존; Huginn 복구 시 checkpoint 부터 재개 (idempotent) |
-| **Heimdall** | 감지 정지 | Huginn -> Forseti 로 rule-only 판단 계속; 보안 correlation 지연되지만 RBAC deny 는 여전히 audit |
-| **Var** | HIL 차단 | HIL 큐 보존; timeout 자동 확장; admin alert; auto action 계속 |
+| **Heimdall** | 감지/effect observation 정지 | read, deny, shadow judgment는 계속; Heimdall observation이 필요한 새 state change는 차단되고 기존 outcome은 pending, RBAC deny는 audit |
+| **Var** | HIL 차단 | HIL 큐 보존; timeout 자동 확장; admin alert; 승인 없이 이미 A1/A2 eligible인 action만 계속하며 HIL과 A3-E는 실행 불가 |
 | **Bragi** | 대화 차단 | operator 는 console read-only view + 직접 audit query 로 fallback |
 | **Mimir** | rule 업데이트 정지 | 캐시된 rule 계속; Forseti 가 stale-rule 경고; 새 rule 업데이트 지연 |
-| **Muninn** | context 불가 | Forseti 가 context 없이 판단 (T2 escalation rate 상승 예상); "context unavailable" 로그 |
+| **Muninn** | context 불가 | read, deny, shadow judgment는 계속; context-dependent state change는 unknown으로 차단하고 "context unavailable" audit |
 | **Norns** | 학습 정지 | 즉시 영향 없음 (off-path); 장기 미가동 시 discovery velocity 저하 경고 |
 | **Njord / Freyr / Loki** | 도메인 자문 누락 | Forseti 가 해당 도메인 action 을 HIL 로 강등 |
 
@@ -347,8 +347,8 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 - **Saga와 Vidar는 mutation의 hard dependency**입니다. Terminal consumer/health failure는 restart 전까지 sticky shadow를 강제합니다. Noncritical terminal consumer는 해당 agent만 degrade하고 sibling은 계속 실행하며 health는 false heartbeat 대신 exact agent/topic state를 기록합니다. Unified concurrency test는 15개 consumer identity와 same-topic non-stealing fan-out을 pin합니다.
 - **판단자 / 실행자 / 감사자 triad 중 하나라도 누락** 시 새 mutation 을
   shadow 로 강등.
-- **Sensing degradation (Heimdall / Var / Vidar 실패)** 는 파이프라인이
-  축소된 autonomy 로 계속 실행되도록 허용.
+- **Noncritical sensing degradation**은 read, deny, queue 및 shadow path만 보존할 수 있습니다.
+  Vidar는 mutation hard dependency이고 Var는 HIL 및 A3-E eligibility를 별도로 통제합니다.
 - 모든 degradation 은 Odin 의 portfolio 리포트에 surfacing (워크플로우 7).
 
 ### 4.4 Task tier 분류 (per-task LLM 정책)
@@ -453,7 +453,7 @@ Question은 2,000자로 제한하고 session마다 monotonic turn 100개를 보�
 `is_action_intent`는 command를 `requires_typed_pipeline`으로 abstain시켜 chat 실행을 막습니다.
 Owned-state scope narrowing은 bounded question 안에서 내부 `.`, `_`, `-`를 가진 complete canonical
 identifier만 매칭하며, 더 긴 identifier의 prefix일 뿐인 짧은 candidate는 허용하지 않습니다.
-`PantheonRuntime.introspect`는 attributed A2A read와 digest-only Bragi Turn을 제공하며 bounded multi-agent discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
+`PantheonRuntime.introspect`는 귀속되는 read-only peer projection과 digest-only Bragi Turn을 제공하며 제한된 presentation discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 owner에 bind하고 invalid call을 거부하며 time과
 data를 제한합니다. Tool result는 `agent`, `evidence_refs`, declared fact key만 노출하며 undeclared `_ref` 예외가 없습니다. Direct 및 tool-routed result는 durable ref가 없으면 normalized fact 기반 content-addressed `agent-state` ref를 사용하며 `agent-spec`을 runtime claim으로 표시하지 않습니다.

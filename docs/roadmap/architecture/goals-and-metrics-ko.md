@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 9a9cd0f8e9bccbd1db24405d193e7599959836fb
-translation_revised: 2026-08-01
+translation_source_sha: a75593fff77569c7074a7c0f84504a198cfdb955
+translation_revised: 2026-08-02
 ---
 
 # 목표와 메트릭
@@ -22,9 +22,13 @@ translation_revised: 2026-08-01
 ## 주요 목표(Primary Objective)
 
 3개 초기 버티컬(Resilience, Change Safety, Cost Governance)을 가진 AIOps 접근에서 클라우드
-운영의 사람 검토을 최소화 - 대부분의 이벤트를 결정론적(T0/T1)으로 해결하고 LLM 추론(T2)은
+운영의 사람 검토를 최소화 - 대부분의 이벤트를 결정론적(T0/T1)으로 해결하고 LLM 추론(T2)은
 잔여 모호한 소수에 한정하며, **가드 메트릭을 회귀시키지 않은 채로** 달성합니다. 성공 메트릭을
 개선하면서 가드 메트릭을 악화시키는 자율성은 실패이지 승리가 아닙니다.
+
+SRE는 세 vertical 전체의 운영 모델입니다. 재해 복구와 Chaos Engineering은 Resilience
+capability이고, Architecture Review Board 거버넌스는 도메인 전체에 적용되며, FinOps는 Cost
+Governance 규율입니다.
 
 ### 정확성 계약
 
@@ -55,8 +59,15 @@ event correlation을 공유하고 추가 human touchpoint를 만들지 않습니
 
 - **Event**: `event-ingest` 이후 컨트롤 루프에 들어가는 정규화·중복제거된 한 항목. 안정적인
   idempotency key로 식별됩니다. 이벤트당(rate) 계산은 모두 이 단위 위에서 이루어집니다.
-- **Scenario set**: 베이스라인과 트리트먼트에 동일하게 사용되는 고정·버전된 Resilience, Change
-  Safety, Cost Governance 케이스 모음. 각 릴리스는 시나리오 세트 버전을 기록합니다(예: `v2026.07`).
+- **Scenario set**: SRE, ARB / Change Safety, FinOps / Cost Governance, DR 및 Chaos Engineering
+  capability pack을 포괄하며 baseline과 treatment에 동일하게 사용하는 frozen, versioned
+  collection입니다. 각 release는 scenario set 및 pack별 version을 기록합니다(예: `v2026.07`).
+
+> **현재 coverage gap:** `tests/scenarios/manifests/v2026.07.json`은 모든 fixture를 SRE, ARB /
+> Change Safety, FinOps, DR 또는 Chaos에 할당합니다. Coverage dimension은 해당 pack이 소유한
+> scenario와 실제 실행 가능한 test를 함께 인용할 때만 계산됩니다. Set은 `incomplete`입니다.
+> SRE scenario가 없고 모든 기존 pack이 하나 이상의 필수 case를 누락합니다. 다섯 pack이 모두
+> complete일 때까지 complete domain coverage를 주장하면 안 됩니다.
 - **Reference agent**: Phase 0에서 측정된 고정 비교 시스템(문서화됨, 단일 모델, 티어링 없음).
   버전은 베이스라인 실행마다 고정됩니다.
 - **Human touchpoint**: 사람의 결정 또는 입력이 필요한 모든 액션(HIL 승인, 수동 편집, 수동

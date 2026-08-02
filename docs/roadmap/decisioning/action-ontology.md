@@ -339,7 +339,7 @@ fork binds a live adapter (a native Python registry, an MCP client, an
 HTTP callout) at the composition root - the registry is the natural
 attach point for an MCP adapter, mapping one MCP server tool onto one
 `tool.*` ActionType. A `tool.*` ActionType is shadow-first with a
-measurable `promotion_gate` and carries the same four safety invariants
+measurable `promotion_gate` and carries the same seven safeguards
 as any mutation ActionType, so a workflow step MAY reference it via
 `action_type_ref` and inherit them. See
 [execution-model.md § 5.6](execution-model.md#56-tool-call-tool_call).

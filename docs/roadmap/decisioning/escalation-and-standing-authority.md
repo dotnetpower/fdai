@@ -7,7 +7,7 @@ What happens to a **high-risk decision after the risk gate pauses it for a
 human** - and nobody answers. This doc specifies the **time-bounded escalation
 ladder** that walks an unanswered approval up the on-call chain by impact, and
 the **standing authorization** artifact that lets an operator pre-commit a
-bounded, conditional auto-action for the case where waiting is more dangerous
+bounded, conditional execution for the case where waiting is more dangerous
 than acting. Both are framed as a **supervised OODA loop** layered on the
 existing single-pass control loop.
 
@@ -177,17 +177,17 @@ and uses it to **compress** rung TTLs and to **raise the starting rung**:
   a noisy point-estimate breach does not get to compress deadlines.
 
 Urgency changes **how fast** the ladder is walked; it never changes **whether**
-an action is allowed to auto-execute. That gate is standing authorization.
+an unattended approved execution is allowed. That gate is standing authorization.
 
-## Standing authorization (pre-authorized conditional auto-action)
+## Standing authorization (pre-authorized conditional execution)
 
 This is the mechanism behind *"the operator configured an automatic action in
 advance."* A **standing authorization** is an operator-authored, policy-as-code
 artifact that says:
 
 > Under **condition** C, for actions inside **envelope** E, if the escalation
-> ladder reaches its deadline **unanswered**, the action that was `hil` becomes
-> `auto`-eligible - and only then.
+> ladder reaches its deadline **unanswered**, the pre-recorded human Approval may satisfy the
+> action's `hil` requirement - and only then.
 
 The crucial design property: a standing authorization is **not a new decision
 engine and not a bypass**. It is a **deterministic input to the existing risk
@@ -202,7 +202,29 @@ verification, never by a model
 # rule-catalog/standing-authority/<name>.yaml
 version: 1
 id: sa-scale-out-before-quota-breach
-authored_by: aw-owners           # a human authority; recorded as approver-of-record
+authorization_revision: <content-digest>
+requested_by: <normalized-human-principal>
+approved_by:                    # distinct normalized human principals; min 2
+  - <accountable-service-owner>
+  - <owner-level-approver>
+quorum_required: 2
+valid_from: <rfc3339-timestamp>
+valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
+status: active                  # active | revoked | expired | superseded
+revocation_ref: null
+service_ref: <service-id>
+target_revision: <inventory-and-operating-model-revision>
+policy_digest: <risk-and-approval-policy-digest>
+action_type_versions: [remediate.scale-out.compute@<version>]
+incident_classes: [forecast.breach]
+responders:
+  primary: <on-call-primary>
+  backup: <on-call-backup>
+  resolved_at: <rfc3339-timestamp>
+evidence:
+  history_review_ref: <governed-evidence-ref>
+  scenario_evidence_ref: <dr-chaos-or-simulation-ref>
+  handover_confirmation_ref: <current-owner-confirmation-ref>
 scope:                            # MUST be resource-group-equivalent or narrower
   environment: prod              # (same bound as a human override)
   resource_group: <rg-name>      # placeholder; fork supplies real scope
@@ -213,6 +235,7 @@ precondition:                     # all must hold, deterministically checked
 envelope:                         # the action MUST fall entirely inside this
   action_types: [remediate.scale-out.compute]
   max_blast_radius: resource_group
+  max_duration_seconds: <bounded-duration>
   reversible: true               # only reversible actions may be pre-authorized
   rollback_contract: scripted    # a tested undo path is mandatory
 trigger:
@@ -226,21 +249,41 @@ mode: shadow                      # judge-and-log until explicitly promoted
   narrower - the same ceiling the human-override mechanism enforces
   ([architecture.instructions.md § Human Override](../../../.github/instructions/architecture.instructions.md#human-override)).
   There is no subscription-wide standing authorization.
-- **Reversible-only.** An `irreversible: true` action can never be pre-authorized;
+- **Non-destructive and reversible only.** A destructive or `irreversible: true` action can never be pre-authorized;
   it always routes HIL+quorum
   ([coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)).
   A standing authorization requires a declared, tested `rollback_contract`.
 - **Ladder-first, never ladder-instead.** The trigger is `after:
-  ladder_unanswered`. A standing authorization can only fire once real humans
-  were asked and the deadline passed - it *shortens the tail*, it does not
-  replace the human.
-- **Human is the approver-of-record.** `authored_by` records the human authority
-  that pre-committed the decision; Var carries it as the standing approval so the
-  approve-vs-execute principal split holds (no self-approval, no
-  model-as-approver).
-- **All four safety invariants still apply** to the executed action:
-  stop-condition, rollback path, blast-radius limit, audit entry
-  ([architecture.instructions.md § Safety Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+  ladder_unanswered`. Channel fallback must first confirm delivery; an unreachable person is not
+  recorded as silent. A standing authorization can only fire once real humans were asked and the
+  deadline passed - it *shortens the tail*, it does not replace the human.
+- **Distinct human quorum is the approver-of-record.** At least two normalized, distinct human
+  principals approve: the accountable service owner and an Owner-level authority. The requester
+  and executor are ineligible. Var carries their signed revision as the standing Approval, so
+  approve-vs-execute separation holds with no model-as-approver.
+- **Operational evidence is current.** The owner reviews applicable service logs, incidents, and
+  audit history and records whether a precedent exists. When no adequate precedent exists, a
+  current DR drill, bounded Chaos experiment, or simulation supplies scenario evidence.
+- **Handover suspends until reconfirmed.** Every ownership handover requires the new accountable
+  owner to confirm the service, responders, envelope, evidence, and expiry. Missing, stale, or
+  declined confirmation makes the authorization ineligible.
+- **Validity and revocation are monotonic.** `valid_from <= now < valid_until` and `status=active`
+  are required. Revocation is immediate and blocks pending re-decisions. Renewal creates a new
+  immutable revision with fresh quorum, evidence, and responder confirmation; it never extends the
+  old record in place.
+- **Execution fits the validity window.** The risk gate requires
+  `now + max_duration_seconds <= valid_until` before dispatch. It uses trusted UTC for persisted
+  instants and monotonic elapsed time for the running deadline. Clock unavailability or excessive
+  skew makes the authorization ineligible.
+- **Responders are current.** Eligibility requires a time-aware OnCallSchedule receipt or explicit
+  primary and backup identities resolved with an expiry no later than `valid_until`.
+- **Version-bound and revocable.** The authorization pins its revision, policy digest, target
+  revision, ActionType and workflow versions, and evidence revisions. Any mismatch, revocation,
+  policy change, target drift, or catalog change requires independent re-approval.
+- **Chaos injection is excluded.** A standing authorization never approves fault injection. A
+  separately human-approved experiment may pre-authorize only its bounded stop and recovery path.
+- **All seven autonomous-action safeguards still apply**
+  ([architecture.instructions.md § Seven Autonomous-Action Safeguards](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)).
 - **Prefer safe-degradation over the risky action.** When possible, the
   pre-authorized action is a **reversible mitigation** (scale out, open a circuit
   breaker, extend a quota) that buys time, not the destructive remediation itself.
@@ -254,18 +297,18 @@ When a standing authorization trips, the supervisor does **not** execute. It
 ```mermaid
 flowchart LR
   SUP["escalation supervisor<br/>(ladder deadline + SA match)"] -->|re-enter| RG["risk-gate<br/>re-evaluates"]
-  RG -->|"SA precondition + envelope verified"| V["Forseti<br/>verdict = auto"]
-  V --> EX["Thor<br/>executor"]
+  RG -->|"SA precondition + envelope verified"| V["Var<br/>standing Approval"]
+  V --> EX["Thor<br/>executes approved HIL action"]
   EX --> DEL["delivery<br/>remediation-PR / direct-api"]
   DEL --> AUD["audit (Saga)<br/>reason: standing-authority sa-...id"]
   RG -->|"SA invalid / envelope exceeded"| NO["terminal no-op<br/>+ A2 alert"]
   NO --> AUD
 ```
 
-- **Forseti re-judges.** The verdict flips to `auto` **only because** the risk
-  gate verified a valid, unexpired, scope-matching standing authorization whose
-  precondition holds and whose envelope contains the action. Judge is still not
-  executor.
+- **Forseti re-judges without raising risk.** The original `hil` baseline remains. The risk gate
+  verifies a valid, unexpired, scope-matching standing authorization whose precondition and
+  envelope still hold; Var materializes its pre-recorded human Approval. Judge, approver, and
+  executor remain distinct.
 - **Thor executes**, Vidar remains the rollback principal, Saga audits with an
   explicit `standing-authority` reason and the authorization id - a replayable,
   attributable record ([architecture.instructions.md § Idempotency, Ordering,
@@ -284,9 +327,9 @@ The supervised loop is expressed with existing agents and their existing topics:
 |-----------|----------|------------------------------|
 | **Observe** | Heimdall, Huginn | re-read forecast finding + pending-approval state (sensing, deterministic-first) |
 | **Orient** | Odin | impact arbitration; which rung and urgency hold now |
-| **Decide** | Forseti (+ risk gate) | re-judge; grant `auto` only on verified standing authorization |
+| **Decide** | Forseti (+ risk gate) | re-judge without raising the original `hil` baseline |
 | **Act (escalate)** | Var | carry the A1 request to the next rung; approver-of-record |
-| **Act (execute)** | Thor | sole privileged executor once verdict is `auto` |
+| **Act (execute)** | Var, Thor | Var supplies standing Approval; Thor remains sole executor |
 | **Recovery** | Vidar | rollback path for the executed mitigation |
 | **Audit / handoff** | Saga | append audit + `HandoffEscalation` on chronic non-response |
 
@@ -302,7 +345,7 @@ Every path ends in an audited terminal state - the loop cannot leak:
 |----------|------|--------|
 | **approved** | any rung decides `approve` | execute via Thor, audit |
 | **rejected** | any rung decides `reject` | no-op, audit |
-| **standing-authority executed** | ladder deadline passed, SA valid, envelope holds | re-decide -> `auto` -> execute, audit with SA id |
+| **standing-authority executed** | ladder deadline passed, SA valid, envelope holds | re-decide -> standing Approval -> execute, audit with SA id |
 | **terminal no-op** | ladder exhausted, no valid SA | no action, A2 alert, audit, `HandoffEscalation` if fingerprint repeats |
 
 **Fail-closed remains the default.** Absent a valid standing authorization, an
@@ -332,10 +375,6 @@ wider, impact-tiered, time-decaying set of humans were given the chance to act.
   groups, or introduce an on-call schedule integration (PagerDuty/Opsgenie
   schedule read) so "who is primary" is time-aware? Leaning group-first for the
   upstream, schedule integration as a fork seam.
-- **Standing-authority quorum to author.** Human override needs a distinct
-  approver; a standing authorization pre-commits autonomy, so it likely needs
-  the **elevated quorum of 2** already used for the risk-classification table
-  ([risk-classification.md](risk-classification.md)). To confirm.
 - **Urgency function shape.** The `k * remaining_lead_time` compression is a
   starting heuristic; the exact curve is a tuning parameter to backtest against
   historical forecast-to-breach series before enforce.

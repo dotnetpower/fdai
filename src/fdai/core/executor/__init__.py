@@ -3,8 +3,8 @@
 Public exports (P1 W-3 Step 3e):
 
 - :class:`~fdai.core.executor.executor.ShadowExecutor` - the one
-  execution surface for P1 remediation PRs; enforces the four safety
-  invariants and always writes an audit entry.
+  execution surface for P1 remediation PRs; enforces all seven safeguards
+  and closes every attempted publish with an audit outcome.
 - :class:`~fdai.core.executor.executor.ExecutorConfig` /
   :class:`~fdai.core.executor.executor.ExecutorOutcome` /
   :class:`~fdai.core.executor.executor.ExecutionResult` - data types

@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: fcfd12cd718d0179ae4176e47d8cf05ed088aee9
+translation_source_sha: 078ebb347cf26f4f896bb89769cab0be0508768a
 translation_revised: 2026-08-02
 ---
 
@@ -323,8 +323,8 @@ Judge     -- decision in {accept, revise_and_retry (<=1), escalate_hil}
 [llm-strategy-ko.md](../architecture/llm-strategy-ko.md#t2---reasoning-tier-quality-gate-required)).
 Judge는 더 작고 저렴한 모델이어도 됩니다.
 
-Critic의 역할은 "다른 의견"이 아니라, 네 개의 안전 불변식(stop-condition, 롤백,
-blast-radius, audit-log)에 대한 체크리스트 + citation validity + operator memory
+Critic의 역할은 "다른 의견"이 아니라, 7개 안전조건(stop-condition, 롤백, blast-radius,
+dry-run, lock, idempotency, audit-log)에 대한 체크리스트 + citation validity + operator memory
 와의 모순 여부입니다.
 
 ## Operator memory 파이프라인

@@ -1,8 +1,8 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 67d30c156d468d7529720a8ea8edb0f990fa9ee8
-translation_revised: 2026-07-21
+translation_source_sha: 21716c40de966968c4496928d0b3608e49836938
+translation_revised: 2026-08-01
 ---
 
 # 매뉴얼 증류(Manual Distillation)
@@ -210,8 +210,8 @@ fragment가 옳게 동작하나"의 정답이다.** 따라서 검증은 2갈래�
 ### 갈래 B - 현실 충실도 ("fragment가 옳게 동작하나")
 
 - **Schema + verifier (불안전/malformed 차단).** 후보는 rule / workflow / action-type 스키마로
-  로드돼야 하고, 모든 action은 네 가지 안전 불변식(`rollback_contract`, stop-condition,
-  blast-radius, audit)을 가져야 한다. 누락은 첫 dispatch가 아니라 load에서 실패한다.
+  로드돼야 하고, 모든 action은 7개 안전조건(stop-condition, `rollback_contract`, blast-radius,
+  dry-run, lock, idempotency, audit)을 가져야 한다. 누락은 첫 dispatch가 아니라 load에서 실패한다.
 - **Shadow-mode 리플레이 (경험적 증명).** fragment를 회사의 **실제 과거 이벤트와 audit log**에
   `default_mode: shadow`로 돌린다. 매뉴얼대로라면 발동했어야 할 때 발동했나? shadow 판정이
   운영자가 실제로 한 것과 일치하나? precision / recall을 측정한다 - "텍스트가 그럴듯하다"가

@@ -3,6 +3,7 @@
   "id": "change.drift-manual-portal-edit.003",
   "version": "v2026.07",
   "domain": "change",
+  "capability": "arb_change_safety",
   "tags": [
     "config-drift",
     "out-of-band"

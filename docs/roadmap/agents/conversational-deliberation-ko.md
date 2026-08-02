@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 1ef69c5be3cd3b700519ff56a96eff592a31664f
-translation_revised: 2026-07-28
+translation_source_sha: a48ffdacc7442df79fc6d2fd0782c47b80955d59
+translation_revised: 2026-08-01
 ---
 # 판테온 대화형 숙의
 
@@ -31,14 +31,14 @@ composition-bound T2 synthesizer에 bounded claim 렌더링을 요청합니다.
 
 ## 상황별 prompt 조립
 
-정적 문자열 하나로 모든 turn을 감당할 수 없습니다. 한국어로 묻는 operator, A2A port로 묻는
-peer agent, deliberation의 critique round, fact-scoped tool 호출은 각각 다른 instruction이
+정적 문자열 하나로 모든 turn을 감당할 수 없습니다. 한국어로 묻는 operator, read-only peer
+deliberation 요청, deliberation의 critique round, fact-scoped tool 호출은 각각 다른 instruction이
 필요합니다. `compose_conversation_prompt`는 baseline에 `ConversationSituation`이 선택한 layer를
 더해 turn마다 실제 prompt를 조립합니다.
 
 | Layer | 선택 조건 |
 |-------|-----------|
-| `audience_peer` | Turn이 agent-to-agent port로 도착했습니다. Bragi의 contributor 호출도 포함합니다. |
+| `audience_peer` | Composition-owned read-only peer deliberation 또는 Bragi contributor 요청이 이 presentation layer를 선택합니다. |
 | `phase_position` | Deliberation이 primary position round입니다. |
 | `phase_critique` | Deliberation이 peer critique round입니다. |
 | `tier_t2` | Turn이 T2 synthesis에서 실행됩니다. |

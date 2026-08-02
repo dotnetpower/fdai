@@ -3,6 +3,7 @@
   "id": "finops.stop-idle-dev-vm-off-hours.003",
   "version": "v2026.07",
   "domain": "finops",
+  "capability": "finops",
   "tags": [
     "schedule",
     "dev-environment"

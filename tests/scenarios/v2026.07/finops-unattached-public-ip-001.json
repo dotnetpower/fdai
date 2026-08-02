@@ -3,6 +3,7 @@
   "id": "finops.unattached-public-ip.001",
   "version": "v2026.07",
   "domain": "finops",
+  "capability": "finops",
   "tags": [
     "cost-cleanup",
     "unattached-resource"

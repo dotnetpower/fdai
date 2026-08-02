@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fdai.dev/schemas/action/1.0.0",
   "title": "Action",
-  "description": "An autonomous action proposed by a tier and gated by risk. Every field required by the four safety invariants (stop-condition, rollback path, blast radius, audit entry) is mandatory.",
+  "description": "An autonomous action proposed by a tier and gated by risk. Its action-level declarations cover stop conditions, rollback, blast radius, target identity, and idempotency; each executor must complete the seven-safeguard contract with dry-run, lock, duplicate suppression, and audit lifecycle.",
   "type": "object",
   "additionalProperties": false,
   "required": [

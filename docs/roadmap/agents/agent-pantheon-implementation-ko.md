@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d440b2a6e504952845e18a71bc30c4871d46ced1
+translation_source_sha: ffe0b1862495734f2f62000f4f52892fe8f290e0
 translation_revised: 2026-08-02
 ---
 
@@ -588,7 +588,7 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
 - **cross-vertical 중재 (라이브 루프).** 이벤트가 상충하는 `domain_advice`
   (`{domain: recommendation}`)를 실으면 Forseti -
   `object.arbitration-request` 의 단일 라이터 - 가 충돌을 제기하고,
-  Odin 이 결정적 우선순위(`resilience > security > change_safety > cost >
+  헌법 hard constraint가 부적격 선택지를 제거한 뒤 Odin이 남은 soft-objective 충돌을 결정적 우선순위(`resilience > security > change_safety > cost >
   capacity`, fork 오버라이드 가능)로 해결해 `object.arbitration-decision`
   을 발행하며, Forseti 가 이를 기록한다. Forseti 는 *별개* 도메인 신호로
   도착한 조언도 누적한다 - 같은 리소스에 대한 Njord `object.cost-anomaly`

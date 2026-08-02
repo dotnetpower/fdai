@@ -12,7 +12,9 @@ never silently drifting from the design.
 
 The authoritative design is [../../docs/roadmap/agents/agent-pantheon.md](../../docs/roadmap/agents/agent-pantheon.md)
 (org chart, topic contract, ActionType role bindings, LLM policy, degradation
-policy). This file is the short, always-loaded rule set; when the two disagree,
+policy). Both refine the higher
+[FDAI Constitution](../../docs/roadmap/architecture/fdai-constitution.md). This file is the short,
+always-loaded rule set; when the two disagree,
 `agent-pantheon.md` wins for design and this file wins for the change process.
 Related: [architecture.instructions.md](architecture.instructions.md) (Agent
 Pantheon section, safety invariants), [coding-conventions.instructions.md](coding-conventions.instructions.md)
@@ -66,7 +68,7 @@ This is the G-7 layout from tracker #14 and it is enforced by
 > `owns_code_paths`. The tables in this file and in
 > [`docs/roadmap/agents/agent-pantheon.md`](../../docs/roadmap/agents/agent-pantheon.md)
 > paraphrase that data for human readers. If they disagree, the code
-> wins - and a regression test
+> and documents are inconsistent; neither overrides the Constitution. A regression test
 > ([`tests/agents/test_pantheon_doc_parity.py`](../../tests/agents/test_pantheon_doc_parity.py))
 > catches the drift on the 15 agent names.
 
@@ -134,7 +136,13 @@ MAY publish that object type's topic.
    `rollback_contract` remain ActionType safety boundaries.
 9. **Two ports share nothing but the trace (MUST).** The typed pub/sub port and
    the conversational port are separate. A conversational answer MUST NOT bypass
-   the typed pipeline's judge/approve/execute steps.
+   the typed pipeline's judge/approve/execute steps. Peer deliberation is read-only
+   presentation over bounded projections, not authority-bearing collaboration.
+10. **Hard constraints precede weighted arbitration (MUST).** Forseti and the risk
+   gate remove options that violate constitutional safety, security, identity,
+   data-integrity, recovery, and approved service-objective constraints before Odin
+   scores the remaining options. A lower-priority objective MAY win only among
+   constitutionally eligible soft-objective tradeoffs.
 
 ## 4. Code-change MUST rules (the reason this file auto-loads)
 
@@ -157,15 +165,15 @@ do all of the following before proposing the change as complete:
    handler whose topic is not in the agent's `subscribes`, and any publish whose
    topic the agent does not own.
 4. **Preserve every structural invariant in section 3.** Re-check the change
-   against all nine. A change that weakens judge/executor separation,
+   against all ten. A change that weakens judge/executor separation,
    single-writer, approval/execution separation, hard-dependency fail-safe, or
    the deterministic hot-path is not mergeable.
-5. **Uphold the safety invariants for any autonomous action path.** Every action
-   an agent initiates, judges, approves, executes, or audits MUST carry a
-   stop-condition, a rollback path (or `irreversible: true` + HIL quorum), a
-   blast-radius limit, and an audit entry - and these MUST be present on the wire
-   payload (e.g. `ActionRun`), not only in a constructor default. New behavior
-   ships **shadow-first**.
+5. **Uphold all seven safeguards for any autonomous state-changing path.** Every such
+   action an agent initiates, judges, approves, executes, or audits MUST carry a
+   stop-condition, rollback path, blast-radius limit, dry-run receipt, logical-target lock,
+   idempotency key, and audit intent plus terminal closure - and these MUST be present on the wire payload
+   (e.g. `ActionRun`), not only in a constructor default. New behavior ships
+   **shadow-first**. An irreversible action is not autonomous and remains HIL+quorum.
 6. **Enforce quorum for irreversible actions.** An `irreversible` ActionType MUST
    route through HIL with `quorum_required >= 2`, distinct approvers, and no
    self-approval. If you touch the verdict -> dispatch -> approval path (Forseti,
@@ -193,5 +201,5 @@ not in this edit-time contract. Before changing an affected path, load the
 [agent-pantheon-edit skill](../skills/agent-pantheon-edit/SKILL.md), verify the
 current implementation and neighboring tests, and update the plan when behavior changes.
 
-> One line: restate the agent role, preserve all nine structural invariants, satisfy all nine
+> One line: restate the agent role, preserve all ten structural invariants, satisfy all nine
 > change rules, and call out any dead seam exposed by the edit.

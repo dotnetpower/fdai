@@ -35,7 +35,7 @@ class StepExecutor(Protocol):
 
     Concrete implementations map an ``action_type`` name to the
     appropriate executor (PR-native, direct-api, pr-manual) and honor
-    the four safety invariants per the ontology. The runner never
+    all seven safeguards per the ontology and execution contract. The runner never
     reaches into that logic - it is entirely up to the executor.
     """
 

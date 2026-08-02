@@ -449,16 +449,16 @@ mutates no substrate, so it does not sit on that ladder.
 
 ### 5.1 PR-native (`pr_native`)
 
-- Executor builds a PR via
-  [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py).
-- On `auto` decision, the PR carries no `hil` label and the branch's
-  auto-merge policy accepts.
-- On `hil` decision, the PR carries the `hil` label and an approver
-  merges via the console.
+- Executor builds a PR via [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py).
+- On `auto` decision, the PR carries no `hil` label and the branch's auto-merge policy accepts.
+- On `hil` decision, the PR carries the `hil` label and an approver merges via the console.
 - Audit + rollback lean on git: revert commit is the rollback path.
+- The PR-native executor persists a content-addressed dry-run and audit intent before it calls the
+  publisher. An exception without an authoritative receipt records terminal
+  `publish_outcome_unknown`, stays out of the success cache, and propagates. Retry uses the same
+  idempotency key, so the publisher reconciles any remotely accepted PR before creating another.
 
-Best for: configuration changes, IaC patches, catalog updates,
-governance changes.
+Best for: configuration changes, IaC patches, catalog updates, governance changes.
 
 ### 5.2 Direct API (`direct_api`)
 
@@ -520,12 +520,12 @@ can never move it down for latency. A fork can force every dispatch in
 prod to `pr_manual` via the env axis. The upstream never forces from
 below (never lifts `pr_manual` to `direct_api` for speed).
 
-**Fallback idempotency.** When a dispatch degrades from `direct_api` to
-`pr_manual` mid-flight (§11), the fallback PR reuses the action's stable
-idempotency key. The direct-API adapter records the attempted-and-failed
-call under that key so the manual PR path cannot double-apply the same
-mutation; a subsequent retry observes the key and is a no-op on whichever
-path already succeeded.
+**Fallback idempotency.** `direct_api` may degrade to `pr_manual` only before a side-effect attempt
+or after an authoritative no-effect receipt; fallback reuses the stable idempotency key. A timeout,
+lost response, or accepted asynchronous request is ambiguous: keep the operation record, target
+lock, and pending outcome while reconciling authoritative provider/effect state. Never open a PR,
+retry another path, report failure, or release the target without a terminal receipt. Exhaustion
+escalates with an automation hold and never guesses.
 
 ### 5.5 Human approval round-trip (park and resume)
 
@@ -654,7 +654,7 @@ router is an optional seam: absent, the loop behaves exactly as before.
 - **Idempotency invariant** - every tool call uses the action's stable
   idempotency key; a retried call MUST NOT re-run the tool (a second
   call with the same key returns `already_applied`).
-- All four safety invariants still apply. A `tool.*` ActionType is
+- All seven safeguards still apply. A `tool.*` ActionType is
   shadow-first with a measurable `promotion_gate`, exactly like a
   mutation ActionType; the executor writes exactly one audit entry per
   attempt with `action_kind=executor.tool_call.<outcome>` and
@@ -669,21 +669,21 @@ Best for: document generation, notifications, ticketing, and any
 registered function a workflow step wants to invoke via
 `action_type_ref` without opening a PR or touching a substrate.
 
-## 6. Safety invariants (unchanged + one extension)
+## 6. Seven safeguards and one replay extension
 
-Every executed action already carries the four autonomy invariants
+Every executed action already carries the seven safeguards
 from
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
-(stop-condition, rollback, blast-radius limit, audit). This document
-adds one:
+(stop-condition, rollback, blast-radius limit, dry-run, resource lock, idempotency, audit). This
+document adds one replay requirement:
 
-5. **Every dispatch writes its `resolved_ceiling`.** The audit entry
+- **Every dispatch writes its `resolved_ceiling`.** The audit entry
    MUST carry the full 6-axis breakdown (including the `risk_table` axis)
    that produced the decision, so
    a future overlay change never breaks the reproducibility of a past
    decision.
 
-The other invariants apply exactly as before - no chat-specific
+The safeguards apply exactly as before - no chat-specific
 carve-outs, no direct-API relaxation.
 
 ### 6.1 Interaction with the operator-console invariants
@@ -833,7 +833,7 @@ migration record in [action-ontology.md § 10](action-ontology.md#10-migration-r
   writes an `overlay.load_failed` audit and marks `overlay_layers_applied`
   so it never silently pretends the overlay was applied.
 - **Executor path unreachable** (direct_api adapter down) -> for a
-  low-urgency action, fall back to `pr_manual` and write
+  low-urgency action with no side-effect attempt, fall back to `pr_manual` and write
   `executor.path.degraded`. For a **latency-critical ops action**
   (`ops.restart-service`, `ops.failover-primary`, anything whose
   ActionType sets `urgency: high`), a `pr_manual` fallback would defeat

@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 0b05ba6ed1ab387092726ca56a8ef55aaa280b07
+translation_source_sha: 7713c4836ecb0a9b67efde3667c7b4715c87b69d
 translation_revised: 2026-08-02
 ---
 
@@ -163,7 +163,8 @@ canary publisher smoke를 실행하며, 실패 시 run을 중단하지만 이전
 
 모든 자율 액션은
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
-네 가지 안전 불변식(stop-condition, rollback path, blast-radius limit, audit entry) 을
+7개 안전조건(stop-condition, rollback path, blast-radius limit, dry-run, resource lock,
+idempotency, audit entry)을
 운반합니다; 배포 롤백은 액션당 롤백을 대체하지 않고 보완합니다.
 
 - **애플리케이션 롤백**: 이전 컨테이너 revision으로 트래픽 시프트.

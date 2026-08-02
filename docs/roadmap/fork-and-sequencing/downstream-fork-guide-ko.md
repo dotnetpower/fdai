@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 3283f382ef075aa565e2cadd1e17c0b1f78a58fc
-translation_revised: 2026-07-23
+translation_source_sha: f4c10d578b19bc51e31e848e63419bc4c9456a04
+translation_revised: 2026-08-01
 ---
 
 # Downstream Fork 가이드
@@ -51,6 +51,10 @@ gate 개념은
 invariant -
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)에
 정의됨 (`.github/**`는 English-only).
+
+Fork가 추가한 모든 ActionType과 상태 변경 workflow step은 헌법의 7개 안전조건을 모두
+상속합니다. Provider binding, catalog entry, environment 또는 fork marker는 권한을 승격하거나
+안전조건을 면제하거나 새 조합을 바로 enforce 모드로 바꾸지 않습니다.
 
 ## 1. Fork 모델 한눈에
 

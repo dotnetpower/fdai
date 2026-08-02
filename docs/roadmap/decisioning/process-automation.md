@@ -30,7 +30,7 @@ a single responsibility.
 
 | Concept | Responsibility | Backing |
 |---------|----------------|---------|
-| **ActionType** | one CSP-neutral mutation category with its safety invariants (stop-condition, rollback contract, blast-radius cap, audit) | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology.md) |
+| **ActionType** | one CSP-neutral mutation category with seven safeguards (stop, rollback, impact cap, dry-run, lock, idempotency, audit) | [`rule-catalog/action-types/`](../../../rule-catalog/action-types), [action-ontology.md](action-ontology.md) |
 | **Workflow** | the *declaration* of a business process: an ordered list of steps, each referencing one `ActionType`, plus a trigger, a promotion gate, and a default mode | [`rule-catalog/workflows/`](../../../rule-catalog/workflows), schema below |
 | **Process** | the *runtime instance and state* of a running workflow: which step is current, which resource it targets, which findings it advanced through | `Process` ObjectType (ontology) |
 | **Runbook** | the *execution mechanism*: walk the step list, honor `on_failure`, write the aggregate audit row | [`src/fdai/core/runbook/`](../../../src/fdai/core/runbook) |
@@ -120,9 +120,9 @@ Field rules the loader enforces:
 - **`on_failure` also runs on the success path.** The compiled Runbook runner
   walks every declared step in order; an `on_failure` target is a normal step
   that runs on success too, and additionally runs as the fallback on failure.
-  Author an `on_failure` target as a step that is safe to run in both paths
-  (idempotent), or leave it null and rely on `compensated_by`. The shipped
-  workflows leave `on_failure` null for this reason.
+  Until conditional branching is implemented and tested, any workflow with non-null `on_failure`
+  is ineligible for enforce promotion and must remain shadow. Shipped workflows leave it null and
+  use `compensated_by`; authoring an idempotent fallback does not waive the promotion block.
 
 ### 2.2 Definitions, ownership, and bindings
 
@@ -219,7 +219,15 @@ reverses it. The compensation contract is:
 - Compensation actions are themselves `ActionType` invocations, so they carry
   their own rollback contract and audit entry - there is no unaudited undo.
 - A step with no `compensated_by` and a non-reversible `ActionType` forces the
-  workflow to route the failure to HIL rather than leaving partial state.
+  workflow to stop forward dispatch, record the exact partial state, and route recovery to HIL.
+  HIL does not make the partial state disappear.
+- Failure, cancellation, or timeout after any applied step triggers reverse-dependency compensation
+  before a normal terminal status. Parallel branches stop accepting new work and join their applied
+  receipts before compensation order is computed.
+- Missing, failed, or unscorable compensation ends with `status=failed` plus
+  `recovery_incomplete=true`, cited applied/compensation receipts, and a durable automation hold on
+  affected targets. Only reads and separately approved Vidar recovery may cross that hold. A
+  verified full compensation may use `status=compensated`; no partial outcome becomes `succeeded`.
 
 In P1 the runner executes the linear sequence plus the single `on_failure`
 branch; the declared `compensated_by` mapping is validated at load and exposed

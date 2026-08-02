@@ -65,11 +65,10 @@ package that carries the deliverable in
 - **Ordering and locking**: actions that mutate the same resource are serialized on a
   per-resource key; the `executor` holds the per-resource lock for the whole action window.
   Concurrent mutations on one resource are mutually excluded across domains.
-- **Cross-vertical conflict handling**: when two verticals target the same resource in the
-  same window (e.g. a cost idle-shutdown vs a DR failover rehearsal, or a change reconcile vs
-  a rightsizing PR), the loop resolves by precedence **Resilience safety hold > Change Safety
-  > Cost Governance**; the lower-precedence action is deferred and re-evaluated, or escalated
-  to HIL if it cannot be safely deferred. Conflicts never resolve by racing.
+- **Cross-vertical conflict handling**: constitutional hard constraints first remove ineligible
+  options. When two remaining soft-objective actions target the same resource in the same window,
+  the default precedence is **Resilience safety hold > Change Safety > Cost Governance**. The lower
+  option is deferred and re-evaluated or escalated to HIL; conflicts never resolve by racing.
 - **Idempotency**: all P3 actions key off the stable idempotency key; re-delivered events and
   retried actions are no-ops on already-applied state.
 - **Audit**: every terminal outcome - auto-apply, HIL approve/reject/timeout, defer, abstain,
@@ -93,7 +92,7 @@ package that carries the deliverable in
 
 ### DR Safety Invariants (every experiment)
 
-Each experiment path MUST satisfy all four invariants, or it does not ship
+Each experiment path MUST satisfy all seven safeguards, or it does not ship
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)):
 
 - **Stop-condition**: explicit abort triggers (health-probe failure, error-rate/latency
@@ -180,7 +179,7 @@ isolated copy and never on the live production DB.
 Each criterion is measurable on the fixed scenario set and measurement window
 ([goals-and-metrics.md](../architecture/goals-and-metrics.md)):
 
-- Autonomous MVP operates across all three verticals with all four safety invariants enforced and
+- Autonomous MVP operates across all three verticals with all seven safeguards enforced and
   **zero policy-violation escapes**.
 - DR/Chaos runs on schedule within approved windows, reporting measured RPO/RTO (median and p90)
   against objectives, with automatic rollback verified.

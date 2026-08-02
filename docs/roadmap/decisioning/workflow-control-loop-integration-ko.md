@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 416c9e73bbc250882700046046b7e88a05cdd34c
+translation_source_sha: 2aaa7d7bd36a70e6cd8f96bcbefd51896a5aaf3f
 translation_revised: 2026-08-02
 ---
 
@@ -21,7 +21,7 @@ risk-gate 우회도 없다. 이는 행동 요청은 typed 파이프라인에 재
 규칙과 일치한다
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
 
-상태를 변경하는 각 action step은 `ActionType` 호출이므로 네 가지 safety invariant가 적용됩니다.
+상태를 변경하는 각 action step은 `ActionType` 호출이므로 7개 안전조건이 적용됩니다.
 Evidence 및 control step은 mutation authority가 없고 전용 typed contract를 사용합니다. Runner는
 재구성을 위한 aggregate `runbook.terminal` audit row를 추가합니다.
 
@@ -83,9 +83,11 @@ journal 은 "어떻게 여기까지 왔는가?"에 답합니다. Typed event 는
 lifecycle, wait/approval/decision 상태, parallel branch 결과, compensation, timeout,
 terminal 결과를 다룹니다. Approval step 은 서로 다른 승인 principal 수를 세고,
 `no_self_approval` 이 켜져 있으면 requester 를 제외하며, quorum 을 충족할 때까지
-waiting 상태를 유지합니다. Wait 및 approval timeout 은 Process 를 `timed_out` 으로
-종료합니다. Parallel branch 는 동시에 실행되고 parent snapshot revision 을 두고
-경쟁하지 않는 child event 를 기록합니다.
+waiting 상태를 유지합니다. Applied step이 없는 wait 및 approval timeout은 Process를
+`timed_out`으로 끝내지만 applied step 이후에는 forward dispatch를 중단하고 compensation에
+진입합니다. Parallel branch는 동시에 실행되고 parent snapshot revision을 두고 경쟁하지 않는
+child event를 기록하지만 failure는 새 branch dispatch를 freeze하고 applied receipt를 join한 뒤
+reverse-dependency compensation을 시작합니다.
 
 Ontology graph 는 source of truth 가 아니라 read model 입니다. 각 event 가 commit 된
 후 `ProcessOntologyProjector` 가 현재 `Process` object 와 `targets` link 를

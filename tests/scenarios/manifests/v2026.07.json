@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.1.0",
+  "scenario_set_version": "v2026.07",
+  "status": "incomplete",
+  "capability_packs": {
+    "sre": {
+      "status": "missing",
+      "scenario_ids": [],
+      "coverage": {"successful_full_loop": [], "unknown_or_deny": [], "cross_objective_conflict": [], "partial_failure_recovery": [], "a3e_or_non_applicability": [], "deterministic_replay_with_evidence": []}
+    },
+    "arb_change_safety": {
+      "status": "partial",
+      "scenario_ids": ["change.drift-manual-portal-edit.003", "change.nsg-allow-any-inbound.002", "change.tag-owner-missing.001"],
+      "coverage": {"successful_full_loop": [], "unknown_or_deny": [], "cross_objective_conflict": [], "partial_failure_recovery": [], "a3e_or_non_applicability": [], "deterministic_replay_with_evidence": [{"scenario_id": "change.drift-manual-portal-edit.003", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}, {"scenario_id": "change.nsg-allow-any-inbound.002", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}, {"scenario_id": "change.tag-owner-missing.001", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}]}
+    },
+    "finops": {
+      "status": "partial",
+      "scenario_ids": ["finops.right-size-vm-high-monthly.002", "finops.stop-idle-dev-vm-off-hours.003", "finops.unattached-public-ip.001"],
+      "coverage": {"successful_full_loop": [], "unknown_or_deny": [], "cross_objective_conflict": [], "partial_failure_recovery": [], "a3e_or_non_applicability": [], "deterministic_replay_with_evidence": [{"scenario_id": "finops.right-size-vm-high-monthly.002", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}, {"scenario_id": "finops.stop-idle-dev-vm-off-hours.003", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}, {"scenario_id": "finops.unattached-public-ip.001", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}]}
+    },
+    "dr": {
+      "status": "partial",
+      "scenario_ids": ["dr.backup-vault-restore-rehearsal.002", "dr.replica-lag-degraded.001"],
+      "coverage": {"successful_full_loop": [], "unknown_or_deny": [], "cross_objective_conflict": [], "partial_failure_recovery": [], "a3e_or_non_applicability": [], "deterministic_replay_with_evidence": [{"scenario_id": "dr.backup-vault-restore-rehearsal.002", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}, {"scenario_id": "dr.replica-lag-degraded.001", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}]}
+    },
+    "chaos": {
+      "status": "partial",
+      "scenario_ids": ["dr.chaos-experiment-novel.003"],
+      "coverage": {"successful_full_loop": [], "unknown_or_deny": [], "cross_objective_conflict": [], "partial_failure_recovery": [], "a3e_or_non_applicability": [{"scenario_id": "dr.chaos-experiment-novel.003", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}], "deterministic_replay_with_evidence": [{"scenario_id": "dr.chaos-experiment-novel.003", "test_ref": "tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}]}
+    }
+  }
+}

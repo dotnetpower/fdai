@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: c7e925c8c5604639710ba964a94b07cc0aa5f1d5
-translation_revised: 2026-07-21
+translation_source_sha: 60223497aa5359093c2b26c6fd4735976e99c338
+translation_revised: 2026-08-01
 ---
 
 # 규칙 거버넌스(Rule Governance)
@@ -86,7 +86,8 @@ Effect(위반 시 무엇을 할지)는 **enforcement 모드** (액션할지 여�
   따라 HIL로 라우팅.
 - `deny`/`remediate` 액션은
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
-  의 네 안전 불변식(stop-condition, rollback, blast-radius limit, audit entry) 운반. 오발동
+  의 7개 안전조건(stop-condition, rollback, blast-radius limit, dry-run, resource lock,
+  idempotency, audit entry) 운반. 오발동
   `deny` 는 글로벌 kill-switch 또는 time-boxed exemption으로 복구 가능(그 blast radius는
   *정당한 변경을 블록* ); `remediate` PR은 멱등 - 재평가된 finding은 중복 오픈이 아니라 열린
   PR 업데이트.

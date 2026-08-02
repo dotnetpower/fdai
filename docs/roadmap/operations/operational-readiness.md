@@ -220,8 +220,8 @@ posture, checklist evidence, and report publisher adapters.
 
 - **Read-only review, gated execution**: the ORR and every finding are
   read-only; the only path to a mutation is a proposal that enters
-  `risk-gate -> executor`, with the four safety invariants (stop-condition,
-  rollback, blast-radius limit, audit entry) enforced there.
+  `risk-gate -> executor`, with the seven safeguards (stop-condition, rollback, blast-radius
+  limit, dry-run, resource lock, idempotency, audit entry) enforced there.
 - **Approval and execution stay distinct**: The target workflow has a distinct principal approve a
   submitter's handoff and prevents self-approval. Current `OwnershipTransfer` and
   `OperationalReadinessService` don't receive an approval decision or approver identity, so Var

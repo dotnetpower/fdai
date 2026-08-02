@@ -330,8 +330,8 @@ distinctness rule in
 [llm-strategy.md](../architecture/llm-strategy.md#t2---reasoning-tier-quality-gate-required)).
 The Judge may be a smaller / cheaper model.
 
-Critic's role is not "another opinion"; it is a checklist against the four
-safety invariants (stop-condition, rollback, blast-radius, audit-log) plus
+Critic's role is not "another opinion"; it is a checklist against the seven safeguards
+(stop-condition, rollback, blast-radius, dry-run, lock, idempotency, audit-log) plus
 citation validity and contradiction against operator memory.
 
 ## Operator memory pipeline

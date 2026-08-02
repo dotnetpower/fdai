@@ -228,7 +228,7 @@ no PR is merged and no state is mutated.
 
 ## Fix PR (observation mode)
 
-Even though nothing merges in Phase 1, each generated PR MUST already carry the four safety
+Even though nothing merges in Phase 1, each generated PR MUST already carry the seven safeguards
 invariants from
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md),
 so the artifact is enforce-ready when Phase 2 promotes it:
@@ -292,7 +292,7 @@ Each criterion is measurable against the Phase 0 telemetry and scenario set, not
 - The rule catalog covers a defined initial target set (enumerated per source) and is
   version-pinned; dedup/precedence resolves the fixture conflict cases with zero unresolved
   auto-selections.
-- Remediation PRs are generated, carry all four safety invariants, and are reviewable; no PR is
+- Remediation PRs are generated, carry all seven safeguards, and are reviewable; no PR is
   mergeable in shadow.
 - Out-of-band detection reports **precision and recall against a labeled fixture set**, with the
   false-positive suppression rate recorded - establishing the detection baseline Phase 2 must

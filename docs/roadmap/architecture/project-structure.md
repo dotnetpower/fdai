@@ -45,12 +45,12 @@ fdai/
 │   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gates, immutable citations, and inert candidate mappings
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding; failed fan-out cancels and drains siblings (guards T2)
 │   │   ├── rca/                # root-cause analysis (T0 deterministic + T2 reasoner behind seam; grounding-gated)
-│   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics and enforces the four safety invariants
+│   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics and enforces the seven safeguards
 │   │   ├── execution_authorization/ # ontology-driven pre-dispatch capability policy, grant lifecycle, and replay-stable decisions
 │   │   ├── rbac/               # human RBAC for the Operator API (5-role matrix, resolver, enforcer)
 │   │   ├── human_assignment/   # immutable role/duty intent, normalized review quorum, revisioned StateStore lifecycle, and effect receipts
 │   │   ├── hil_resume/         # HIL park/resume, no-drop grouping, bounded reminders, and CAS-owned shadow non-response supervision
-│   │   ├── executor/           # per-resource lock, idempotent apply via delivery adapters
+│   │   ├── executor/           # logical-target lock, idempotency, dry-run receipt, pre-effect/terminal audit, delivery adapters
 │   │   ├── execution_backend/  # profile intersection, durable lifecycle coordination, and shadow probes; no judgment authority
 │   │   ├── audit/              # append-only, hash-chained audit log + KPI/metric emission
 │   │   ├── notifications/      # channel-routing layer over the notifications matrix

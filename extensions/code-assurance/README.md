@@ -11,7 +11,7 @@ The package contributes two shadow-first reasoning tools:
 | Code review | `code-assurance.review-pr` | Deterministic correctness checks on added patch lines |
 | Security review | `code-assurance.security-review` | Credential, dynamic-code, command, TLS, and deserialization checks |
 
-Both tools return immutable base and head commit SHAs, reviewed-file coverage, omitted patch files, and structured findings. Credential-like source text is never returned. A finding carries only its rule id, severity, path, line, message, and evidence SHA-256.
+Both tools return immutable base and head commit SHAs, reviewed-file coverage, omitted patch files, and structured detected issues (`findings`). Credential-like source text is never returned. A detected issue carries only its rule id, severity, path, line, message, and evidence SHA-256.
 
 > GitHub may omit `patch` for binary or oversized files. The package reports those paths in `omitted_patch_files` and does not claim complete review coverage.
 
@@ -50,7 +50,7 @@ source = GitHubPullRequestSource(
 container = install_code_assurance_capabilities(container, source=source)
 ```
 
-The helper is for a reviewed image composition root. For durable extension lifecycle, build a digest-bound package with `build_code_assurance_extension(...)`, then pass it through FDAI's `TrustedArtifactInstaller` and `ExtensionManager`. Installation starts disabled. Enabling the extension does not promote either reasoning tool out of shadow mode.
+The helper is for a reviewed image composition root. For durable extension lifecycle, build a digest-bound package with `build_code_assurance_extension(...)`, then pass it through FDAI's `TrustedArtifactInstaller` and `ExtensionManager`. Installation starts disabled. Enabling the extension keeps both reasoning tools in observation mode.
 
 ## Governed skills
 

@@ -4,16 +4,13 @@ applyTo: ".vscode/**,console/**,src/fdai/delivery/operator_api/**,src/fdai/runti
 ---
 
 # App Shape
-Not one big web app. The system is a **headless control plane + thin console + ChatOps**,
-serving three initial verticals under an AIOps approach - Resilience, Change Safety, and
-Cost Governance. A large always-on UI would contradict the "minimize human intervention"
-goal.
+Not one big web app. The system is a **headless control plane + thin console + ChatOps**, serving
+Resilience, Change Safety, and Cost Governance. SRE is their operating model and ARB is cross-domain
+governance. A large always-on UI would contradict the "minimize human intervention" goal.
 
-The layers are **loosely coupled**: they communicate through the event bus and git, not
-direct in-process calls, so any layer can fail or scale independently. See
-[architecture.instructions.md](architecture.instructions.md) for the trust-routing control
-loop and [../../docs/roadmap/deployment/deployment.md](../../docs/roadmap/deployment/deployment.md) for how the
-shape maps to environments and CI/CD.
+The layers communicate through the event bus and git, not direct in-process calls, so they fail and
+scale independently. See [Architecture](architecture.instructions.md) for trust routing and
+[Deployment](../../docs/roadmap/deployment/deployment.md) for environment and CI/CD mapping.
 
 ## Layers
 
@@ -35,13 +32,10 @@ shape maps to environments and CI/CD.
 
 ## Layer Boundaries (security)
 
-- The **Operator API is the non-privileged, not-GET-only backend for FDAI Console and operator
-  clients**: it renders authoritative projections and MAY
-  submit domain-typed approvals, drafts, investigations, access requests, and workflow requests
-  through server-owned RBAC, revision, idempotency, and audit checks. The Operator API, SPA, and
-  request routes MUST NOT
-  receive Thor's executor identity, mutate a managed resource, derive authorization in the browser,
-  or bypass the owning agent, quality gate, risk gate, approval, rollback, and audit path. See
+- The **Operator API is the non-privileged, not-GET-only backend for FDAI Console and operator clients**.
+  It renders authoritative projections and MAY submit typed requests through server-owned RBAC,
+  revision, idempotency, and audit. It and the SPA MUST NOT receive Thor's identity, mutate managed
+  resources, derive browser authorization, or bypass agent, quality, risk, approval, recovery, or audit. See
   [../../docs/roadmap/interfaces/console-operations.md](../../docs/roadmap/interfaces/console-operations.md).
 - The console uses **clean History API URLs** for operator-facing navigation. Paths use
   lowercase `kebab-case` with no spaces or underscores (for example,
@@ -210,8 +204,7 @@ Recommended mapping:
   without approval.
 - **Event-bus backpressure** - rely on ordering plus dead-letter queues; the core reprocesses,
   it does not drop events.
-- **Any layer** that triggers a change still owes a stop-condition, rollback path,
-  blast-radius limit, and audit entry (see coding-conventions and security-and-identity).
+- **Any layer** that triggers a state change owes all seven safeguards (see coding conventions and security/identity).
 
 ## Anti-Patterns (avoid)
 

@@ -41,7 +41,7 @@ At 300 subscriptions the bottleneck is never a single decision - it is
 count). Plan B answers all three: fan-in becomes an Azure Policy artifact, the
 runtime becomes horizontally-sharded cells, and the audit path splits into a
 lock-free write plane and an async index plane. The control loop, the tiers, the
-risk gate, and the four safety invariants are untouched.
+risk gate, and the seven autonomous-action safeguards are untouched.
 
 ```mermaid
 flowchart TB

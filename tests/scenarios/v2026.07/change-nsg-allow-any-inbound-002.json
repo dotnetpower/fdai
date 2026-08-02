@@ -3,6 +3,7 @@
   "id": "change.nsg-allow-any-inbound.002",
   "version": "v2026.07",
   "domain": "change",
+  "capability": "arb_change_safety",
   "tags": [
     "network-security",
     "cis-benchmark"

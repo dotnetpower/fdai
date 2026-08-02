@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 901afb8201e7f3f597dd50d86ed85978d2088b0b
-translation_revised: 2026-07-29
+translation_source_sha: 317df8cab47ea131b90d164297d22c7ad4a00fe6
+translation_revised: 2026-08-01
 ---
 
 # Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -86,7 +86,8 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - **Policy 어댑터** - 프로바이더-파라미터화된 입력으로 같은 OPA/Rego 정책 평가; per-cloud 정책
   포크 없음.
 - **IaC / executor 어댑터** - Terraform/OpenTofu 프로바이더로 remediation 적용; remediation PR
-  emit, CSP당 네 안전 불변식(stop-condition, rollback, blast-radius, audit) 준수.
+  emit, CSP당 7개 안전조건(stop-condition, rollback, blast-radius, dry-run, resource lock,
+  idempotency, audit) 준수.
 - **Identity 어댑터** - 범위된 실행 principal 공급(아래 참조).
 - **Event-source / bus 어댑터** - 프로바이더 이벤트를 인그레스에서 버전된 내부 스키마로 정규화.
 - **State-store 어댑터** - audit/pattern-library/KPI 저장을 이식 가능하게 유지.

@@ -81,8 +81,8 @@ assignment's top-level `effect` is the default for rules without an override.
   default-audit, not default-deny); this does not fail open at runtime - an unmatched or ambiguous
   event still routes to HIL per
   [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
-- `deny`/`remediate` actions carry the four safety invariants (stop-condition, rollback,
-  blast-radius limit, audit entry) from
+- `deny`/`remediate` actions carry the seven safeguards (stop-condition, rollback,
+  blast-radius limit, dry-run, resource lock, idempotency, audit entry) from
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md).
   A misfiring `deny` is recoverable via the global kill-switch or a time-boxed exemption (its blast
   radius is *blocking legitimate change*); a `remediate` PR is idempotent - a re-evaluated finding

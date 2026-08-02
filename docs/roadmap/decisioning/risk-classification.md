@@ -46,6 +46,13 @@ Signals that need finding-level data - `cost_impact_monthly`,
 axes deliberately do not re-derive them. There are not two decision
 engines: there is this table, plus a never-raising ceiling layered on top.
 
+Standing authorization does not raise an `hil` baseline to `auto` or alter the matched rule.
+Instead, it supplies a pre-existing, human-authored Approval after the escalation deadline when
+the exact A3-E envelope remains valid. Thor may execute the approved HIL action while the audit
+retains the original risk rule, approval identity, standing-authorization id, and authority class.
+Silence without that Approval remains a no-op. See
+[Escalation and Standing Authority](escalation-and-standing-authority.md).
+
 ## Classification Dimensions
 
 The risk gate composes a **feature vector** for every candidate action from the ontology

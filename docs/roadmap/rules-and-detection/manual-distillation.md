@@ -234,8 +234,8 @@ act correctly".** Verification therefore has two prongs.
 ### Prong B - reality fidelity ("does the fragment act correctly")
 
 - **Schema + verifier (blocks unsafe / malformed).** The candidate must load against
-  the rule / workflow / action-type schema, and every action must carry the four
-  safety invariants (`rollback_contract`, stop-condition, blast-radius, audit).
+  the rule / workflow / action-type schema, and every action must carry the seven safeguards
+  (stop-condition, `rollback_contract`, blast-radius, dry-run, lock, idempotency, audit).
   A miss fails at load, not at first dispatch.
 - **Shadow-mode replay (the empirical proof).** The fragment runs `default_mode:
   shadow` against the company's **real historical events and audit log**. Did it fire

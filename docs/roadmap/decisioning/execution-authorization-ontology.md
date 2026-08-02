@@ -161,6 +161,10 @@ enforcement: do-not-enforce
 | `request_jit` | A bounded grant request may be created when access is missing. |
 | `standing` | A reviewed standing grant is allowed within the assignment constraints. |
 
+`standing` here is a provider-access posture, not the Constitution's A3-E standing human
+authorization. An `AccessGrant` never satisfies action HIL or standing Approval, and an A3-E
+Approval never creates provider permission. Both independent gates must pass when both apply.
+
 New assignments start with `enforcement: do-not-enforce`. Shadow evaluation records the decision
 that enforcement would have produced. Promotion to `enforce` follows the ordinary reviewed
 catalog transition and cannot be selected by an environment or fork marker.
@@ -275,7 +279,10 @@ sequenceDiagram
 
 The executor identity cannot grant roles to itself. The protected deployer applies the approved
 exact plan. A changed scope, operation set, duration, identity profile, or plan digest invalidates
-approval. Expiry and revocation are part of completion, not optional cleanup.
+approval. Each grant records `status`, `valid_from`, `expires_at`, optional `revoked_at`, and an
+immutable revocation receipt. Pre-dispatch evaluation requires `status=active`, checks the validity
+interval, and obtains a fresh effective-access observation. Revocation blocks pending actions
+immediately. Expiry and revocation are part of completion, not optional cleanup.
 
 ## Runtime failure classification
 

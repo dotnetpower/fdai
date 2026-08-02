@@ -1,7 +1,7 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: 998f69be1e43189dbeaf5fea292bd626799b30c7
+translation_source_sha: a249418e210142428cd6a72a0827032ac6c192ea
 translation_revised: 2026-08-02
 ---
 
@@ -218,7 +218,7 @@ CSP-중립 어휘로 정규화되어 한 프로바이더용으로 작성된 규�
 
 Phase 1에서 아무것도 머지되지 않지만, 각 생성된 PR은
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
-의 네 안전 불변식을 이미 운반해야 함 - Phase 2가 승격할 때 아티팩트가 enforce-ready:
+의 7개 안전조건을 이미 운반해야 함 - Phase 2가 승격할 때 아티팩트가 enforce-ready:
 
 - **멱등** - 이벤트의 안정 idempotency 키에 keyed; 같은 이벤트에 재생성은 같은 diff, 절대 중복
   변경 아님.
@@ -276,7 +276,7 @@ PR은 `shadow` 라벨되고 draft로(또는 shadow 브랜치에 대해) 오픈�
   (이벤트 id, 티어, 판정, 인용 규칙 id, 모드).
 - 규칙 카탈로그가 정의된 초기 대상 세트(소스별 열거) 를 커버하고 버전 고정; dedup/우선순위가
   픽스처 충돌 케이스를 미해결 auto-select 0으로 해결.
-- Remediation PR이 생성되고, 네 안전 불변식 모두 운반하며, 리뷰 가능; shadow에서 어떤 PR도
+- Remediation PR이 생성되고, 7개 안전조건을 모두 운반하며, 리뷰 가능; shadow에서 어떤 PR도
   병합되지 않습니다.
 - Out-of-band 감지가 라벨된 픽스처 세트에 대한 **precision과 recall** 을 보고, false-positive
   억제 비율 기록 - Phase 2가 회귀시키면 안 되는 감지 베이스라인 확립.

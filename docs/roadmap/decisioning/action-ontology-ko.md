@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: c3de4994eb42273cbd197e594e79ac13def039fb
+translation_source_sha: b09d2b74b96237346a4cc92418870bb9dd8cd5bf
 translation_revised: 2026-08-01
 ---
 
@@ -332,7 +332,7 @@ composition root 에서 live 어댑터 (네이티브 Python registry, MCP 클라
 HTTP callout) 를 bind - registry 는 MCP 어댑터의 자연스러운 attach point 로,
 MCP 서버 tool 하나를 `tool.*` ActionType 하나에 매핑한다. `tool.*` ActionType
 은 측정 가능한 `promotion_gate` 를 가진 shadow-first 이고 임의의 mutation
-ActionType 과 동일한 4 개 안전 invariant 를 carry 하므로, 워크플로 스텝이
+ActionType 과 동일한 7개 안전조건을 carry 하므로, 워크플로 스텝이
 `action_type_ref` 로 참조하며 이를 상속 MAY.
 [execution-model-ko.md § 5.6](execution-model-ko.md#56-tool-call-tool_call) 참조.
 

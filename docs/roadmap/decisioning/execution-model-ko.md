@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 88e31763f6feff3c58c44bd5ae418b7d3fbbe305
+translation_source_sha: 894bfc1f2751fc8a781420c0f60576c46d8903e5
 translation_revised: 2026-08-02
 ---
 
@@ -440,16 +440,16 @@ RiskGate 는 `pr_manual` 로 downgrade MAY (upgrade 절대 안 함). 네 번째
 
 ### 5.1 PR-native (`pr_native`)
 
-- Executor 가
-  [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py)
-  로 PR 빌드.
-- `auto` 결정 시, PR 은 `hil` label 을 carry 안 함 → branch 의
-  auto-merge 정책이 accept.
+- Executor 가 [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py) 로 PR 빌드.
+- `auto` 결정 시, PR 은 `hil` label 을 carry 안 함 → branch 의 auto-merge 정책이 accept.
 - `hil` 결정 시, PR 은 `hil` label 을 carry → approver 가 콘솔로 merge.
 - 감사 + rollback 은 git 에 lean: revert commit 이 rollback path.
+- PR-native executor는 publisher를 호출하기 전에 content-addressed dry-run과 audit intent를
+  영속화합니다. Authoritative receipt 없는 예외는 terminal `publish_outcome_unknown`을 기록하고
+  success cache에 넣지 않은 채 다시 전달합니다. Retry는 같은 idempotency key를 사용하므로
+  publisher는 새 PR 생성 전에 원격에서 수락된 PR이 있는지 reconcile해야 합니다.
 
-Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance
-변경.
+Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance 변경.
 
 ### 5.2 Direct API (`direct_api`)
 
@@ -507,10 +507,9 @@ final_path = strictest(requested_path, forced_path)
 `pr_manual` 로 강제 가능. Upstream 은 절대 아래로부터 강제 안 함 (속도를
 위해 `pr_manual` 을 `direct_api` 로 lift 안 함).
 
-**Fallback idempotency.** dispatch 가 도중에 `direct_api` 에서 `pr_manual`
-로 degrade 될 때 (§11), fallback PR 은 액션의 안정된 idempotency key 를
-재사용. direct-API adapter 는 시도-및-실패한 call 을 그 key 하에 기록하여
-manual PR 경로가 동일 mutation 을 double-apply 할 수 없도록 함.
+**Fallback idempotency.** `direct_api`는 side-effect 전 또는 authoritative no-effect receipt 후에만 stable idempotency key로 `pr_manual` fallback할 수 있습니다. Timeout, lost response 또는 accepted
+async request는 operation record, target lock 및 pending outcome을 유지하며 authoritative state를
+reconcile합니다. Terminal receipt 전에는 다른 mutation path를 열지 않고 exhaustion은 automation hold로 escalate합니다.
 
 ### 5.5 사람 승인 왕복 (park and resume)
 
@@ -635,7 +634,7 @@ operational-alert 도 emit 한다 - outbound-only, 정보성이며 승인 버튼
 - **Idempotency invariant** - 매 tool call 은 액션의 안정된 idempotency
   key 를 사용; 재시도 call 은 tool 을 재실행 MUST NOT (같은 key 의 두 번째
   call 은 `already_applied` 반환).
-- 4 개 안전 invariant 는 그대로 적용. `tool.*` ActionType 은 mutation
+- 7개 안전조건은 그대로 적용. `tool.*` ActionType 은 mutation
   ActionType 과 똑같이 측정 가능한 `promotion_gate` 를 가진 shadow-first;
   executor 는 시도당 정확히 하나의 audit entry 를
   `action_kind=executor.tool_call.<outcome>` 와
@@ -649,18 +648,18 @@ Best for: 문서 생성, 알림, 티켓팅, 그리고 워크플로 스텝이 PR 
 substrate 를 건드리지 않고 `action_type_ref` 로 invoke 하려는 임의의 등록된
 함수.
 
-## 6. 안전 invariant (변경 없음 + 하나 확장)
+## 6. 7개 안전조건과 하나의 replay 확장
 
 모든 executed 액션은 이미
 [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
-의 4 autonomy invariant (stop-condition, rollback, blast-radius limit,
-audit) 를 carry. 이 문서는 하나 추가:
+의 7개 안전조건(stop-condition, rollback, blast-radius limit, dry-run, resource lock,
+idempotency, audit)을 carry. 이 문서는 replay 요구사항 하나를 추가:
 
-5. **매 dispatch 는 `resolved_ceiling` 을 write.** Audit entry 는
+- **매 dispatch 는 `resolved_ceiling` 을 write.** Audit entry 는
    결정을 생성한 완전한 6-axis breakdown (`risk_table` axis 포함) 을
    carry MUST -> 향후 overlay 변경이 과거 결정의 재현성을 절대 break 안 함.
 
-다른 invariant 는 정확히 이전과 같이 적용 - chat-specific carve-out
+안전조건은 정확히 이전과 같이 적용 - chat-specific carve-out
 없음, direct-API relaxation 없음.
 
 ### 6.1 오퍼레이터-콘솔 invariant 와의 상호작용
@@ -668,13 +667,13 @@ audit) 를 carry. 이 문서는 하나 추가:
 Chat-특화 invariant ([operator-console.md § 7.2](../interfaces/operator-console-ko.md#72-chat-특화-3-invariant))
 는 additive:
 
-- **Chat invariant 5 (verifier re-check)** = "매 write-class tool call
+- **Chat safeguard 8 (verifier re-check)** = "매 write-class tool call
   에서 RiskGate 실행". 이 문서가 해당 RiskGate 의 정의; 콘솔은 그저
   호출.
-- **Chat invariant 6 (no self-approval)** = RiskGate 의 role axis
+- **Chat safeguard 9 (no self-approval)** = RiskGate 의 role axis
   (Axis F) 가 caller 의 Entra `oid` 가 큐잉된 item 의 requester 와
   매치할 때 `approve_hil` refuse.
-- **Chat invariant 7 (BreakGlass time-boxed)** = Axis F 의 BreakGlass
+- **Chat safeguard 10 (BreakGlass time-boxed)** = Axis F 의 BreakGlass
   동작 (§2.5): BreakGlass 는 approval 을 위한 eligible role 을 raise
   하지만 HIL 을 절대 우회 안 함.
 
@@ -808,7 +807,7 @@ ActionType migration record와 일치합니다.
   upstream 값을 그대로 둠. 어느 쪽든 `overlay.load_failed` audit 를 write
   하고 `overlay_layers_applied` 를 mark 하여 overlay 가 applied 인 척 절대
   안 함.
-- **Executor path 도달 불가** (direct_api adapter down) -> 저-긴급 액션은
+- **Executor path 도달 불가** (side-effect 시도 전 direct_api adapter down) -> 저-긴급 액션은
   `pr_manual` 로 fallback 하고 `executor.path.degraded` write. **latency-
   critical ops 액션** (`ops.restart-service`, `ops.failover-primary`,
   ActionType 이 `urgency: high` 설정한 것) 은 `pr_manual` fallback 이
@@ -830,7 +829,7 @@ ActionType migration record와 일치합니다.
 - [risk-classification.md](risk-classification-ko.md) - 6-axis ceiling 이
   `min()` 으로 결합하는 권위적 first-match auto / HIL / deny 표 (Axis A,
   §2.0); 매트릭스로 대체되지 않음.
-- [security-and-identity.md](../architecture/security-and-identity-ko.md) - 4 autonomy
-  invariant + executor identity 계약.
+- [security-and-identity.md](../architecture/security-and-identity-ko.md) - 7개 안전조건 + executor
+  identity 계약.
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
   trust routing, verifier authority.

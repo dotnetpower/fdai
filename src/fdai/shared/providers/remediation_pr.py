@@ -60,8 +60,8 @@ class RemediationPr:
 
     title: str
     body: str
-    """Rendered PR title + body (Markdown). Body carries the four safety
-    invariants and the rollback pointer per phase-1 spec."""
+    """Rendered PR title + body. It carries the seven safeguards, including
+    the content-addressed dry-run receipt, per the phase-1 contract."""
 
     patch: str
     """Rendered Terraform / IaC patch content the PR proposes."""
@@ -113,6 +113,8 @@ class RemediationPrPublisher(Protocol):
         - be **idempotent by ``pr.idempotency_key``** - a second call
           with the same key returns ``already_existed=True`` and MUST
           NOT open a duplicate PR;
+        - reconcile remote state by that key after an ambiguous transport
+          failure before attempting another create;
         - reject an intent whose ``mode`` is enforce and whose ``labels``
           do not include ``enforce`` (P1 promotion contract);
         - never merge, never remove the ``shadow`` label, never bypass

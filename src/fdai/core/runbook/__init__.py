@@ -8,10 +8,9 @@ ontology, plus an optional ``on_failure`` step id to run when this
 step fails. A full DAG is deferred until two callers need it.
 
 Every step runs through the same execution surface as a rule-fired
-Action, so the four safety invariants
-([architecture.instructions.md](../../../../.github/instructions/architecture.instructions.md#safety-invariants))
-still hold on every step - the runner is a composer, not an escape
-hatch.
+Action, so its executor must complete all seven safeguards
+([architecture.instructions.md](../../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)).
+The runner is a composer, not an escape hatch.
 """
 
 from __future__ import annotations

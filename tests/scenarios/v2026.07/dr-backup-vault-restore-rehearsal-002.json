@@ -3,6 +3,7 @@
   "id": "dr.backup-vault-restore-rehearsal.002",
   "version": "v2026.07",
   "domain": "dr",
+  "capability": "dr",
   "tags": [
     "backup",
     "restore-rehearsal"

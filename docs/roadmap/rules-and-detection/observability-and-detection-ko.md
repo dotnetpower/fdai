@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: cb161bd8b2cbcfd8da875b4908e53221a4953ef7
+translation_source_sha: 6e15b7effc5e5934f50a47d73821240d0f2a64b7
 translation_revised: 2026-08-02
 ---
 
@@ -11,7 +11,7 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
 **이벤트 상관관계**, **이상 감지**, **예측 / 예보**, **근본원인 분석(RCA)**. 이들은 AIOps
 플랫폼이 제공하리라 기대되는 감지 신호이며 - **결정론 우선을 깨지 않고** 여기에 추가됩니다:
 모든 신호는 기존 `trust-router → tiers → risk-gate → executor → audit` 경로를 통해 흐르는
-정규화된 finding을 emit하며, 사이드 채널이 아니고, 어떤 것도 리스크 게이트와 네 안전 불변식
+정규화된 finding을 emit하며, 사이드 채널이 아니고, 어떤 것도 리스크 게이트와 7개 안전조건
 밖에서 auto-execute 하지 않습니다.
 
 참조: 컨트롤 루프, 티어, quality gate는
@@ -220,7 +220,7 @@ Proactive 감지: 발생 **전에** 임계 위반을 예측 - AIOps "용량 병�
 - **드리프트**: 예보 오차는 시간에 걸쳐 추적; 측정된 저하(드리프트)는 자동으로 예보기를 shadow로
   **강등**.
 - **안전**: 예측은 **finding 발동**(기본 shadow 모드) 또는 proactive remediation PR; 자체로
-  auto-execute 하지 않음. 예보에 액션하는 것은 여전히 리스크 게이트를 통과하고 네 안전 불변식을
+  auto-execute 하지 않음. 예보에 액션하는 것은 여전히 리스크 게이트를 통과하고 7개 안전조건을
   운반.
 - **측정**: **lead time** = `actual_breach_time − finding_time` 정의(유효한 예측은
   actionable minimum 위의 positive lead time을 가짐), **precision/recall** 스코어 (true

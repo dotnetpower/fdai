@@ -95,7 +95,7 @@ configuration, not hardcoded literals, so a fork can tune them without editing
 
 Active reassembly is **not** a new privileged path. It reuses the existing
 [executor](../../../src/fdai/core/executor/executor.py) by registering a first-class
-ontology `ActionType`, so the four safety invariants, shadow-first gating, and
+ontology `ActionType`, so the seven safeguards, shadow-first gating, and
 the append-only audit entry come for free (the same reason the console vocabulary
 routes every action through the typed pipeline, see
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md#action-ontology-and-console-vocabulary)).
@@ -171,7 +171,7 @@ then enters the catalog through the standard quality gate
 
 ## Safety Invariants
 
-Every reassembly action satisfies all four invariants, enforced by the executor
+Every reassembly action satisfies all seven safeguards, enforced by the executor
 it reuses:
 
 - **Stop-condition** - the convergence caps above, declared on the ActionType.
@@ -232,4 +232,4 @@ Each is separately reviewable:
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) - control loop, quality gate, safety invariants, action ontology
 - [project-structure.md](../architecture/project-structure.md) - executor, module boundaries, infra sub-module pattern
 - [risk-classification.md](../decisioning/risk-classification.md) - how a blocking finding routes to `hil`
-- [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) - the four safety invariants, shadow-first, ActionType contract
+- [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) - the seven safeguards, shadow-first, ActionType contract

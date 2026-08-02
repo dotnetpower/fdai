@@ -131,7 +131,7 @@ Outcome Assurance composes existing readiness owners instead of creating another
 | Platform | required resources and role bindings observed | missing state store, event bus, executor identity |
 | Evidence | telemetry and inventory sources connected and fresh | stale objective, unavailable telemetry, incomplete inventory |
 | Detection | required detection dimensions ready | missing SLO or detector evidence, stale snapshot |
-| Action safety | rollback, stop condition, impact scope, dry run, lock | missing safety invariant or hard dependency |
+| Action safety | stop, rollback, impact scope, dry run, lock, idempotency, audit lifecycle | missing safeguard or hard dependency |
 | Operational handoff | applicable readiness report is clear | blocking policy, reliability, ownership, or RBAC finding |
 | Measurement | baseline and treatment use the same scenario set | synthetic source, missing baseline, insufficient sample |
 | Promotion | per-ActionType gate passes | policy escape, guard regression, observation evidence gap |

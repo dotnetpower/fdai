@@ -123,7 +123,7 @@ def _scenario_id_to_filename(scenario_id: str) -> str:
 
 
 def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
-    files = sorted(SCENARIO_DIR.glob("*.json"))
+    files = sorted(path for path in SCENARIO_DIR.glob("*.json") if path.name != "manifest.json")
     return [(p, json.loads(p.read_text(encoding="utf-8"))) for p in files]
 
 
