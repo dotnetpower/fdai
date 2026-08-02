@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -32,6 +33,9 @@ from fdai.delivery.azure.subscription_health import (
 )
 from fdai.delivery.mcp import ManagedMcpClient
 from fdai.delivery.operator_api.routes.chat_inventory import InventoryActivityProvider
+from fdai.delivery.operator_api.routes.read_investigation_catalog import (
+    load_bound_investigation_intents,
+)
 from fdai.delivery.operator_api.routes.read_investigation_responder import (
     HeimdallReadInvestigationChatDelegate,
     HeimdallReadInvestigationResponder,
@@ -79,6 +83,7 @@ def build_local_read_investigation(
     )
     if not subscription_id or not resource_groups:
         return None
+    load_bound_investigation_intents(Path(__file__).resolve().parents[5])
     scope_ref = "azure-reader-local"
     http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)

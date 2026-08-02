@@ -711,6 +711,9 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         and reader_scope_ref is not None
     ):
         from fdai.core.read_investigation import interactive_investigation_policy
+        from fdai.delivery.operator_api.routes.read_investigation_catalog import (
+            load_bound_investigation_intents,
+        )
         from fdai.delivery.operator_api.routes.read_investigation_responder import (
             HeimdallReadInvestigationChatDelegate,
             HeimdallReadInvestigationResponder,
@@ -720,6 +723,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             ReadInvestigationRoutesConfig,
         )
 
+        load_bound_investigation_intents(_REPO_ROOT)
         read_investigation_routes = ReadInvestigationRoutesConfig(
             service=read_investigation_service,
             run_store=read_investigation_run_store,

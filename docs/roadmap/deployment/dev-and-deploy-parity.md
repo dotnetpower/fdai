@@ -128,7 +128,7 @@ respectively, so a spawned process isn't presented as a ready service.
 The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is
 unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes
 continue to use a process lock only when the deployment configures one explicitly.
-The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the Operator API reaches Bragi's conversational port through bounded request and response logical topics on the
+The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy and fail startup when intent IDs, Heimdall ownership, or plan bindings drift. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the Operator API reaches Bragi's conversational port through bounded request and response logical topics on the
 existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before
 traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second
 initial Event Hubs group join. Production replicas share the server consumer group so one replica

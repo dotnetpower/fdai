@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 5859324d314e3147b40c425b31776525b9d0a045
+translation_source_sha: 0b16a6f71de61efd2a07f18f70e54321cce4f069
 translation_revised: 2026-08-04
 ---
 
@@ -65,6 +65,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Investigation evidence signal | 구현됨 | Bound된 read-investigation hook은 Heimdall 대화형 포트의 owned evidence로 계산되므로, 로컬 신호 window가 차기 전에도 조사 가능한 turn에는 evidence-gap prompt layer가 붙지 않습니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
 | Typed intent rendering | 구현됨 | 등록된 read intent 7개가 모두 typed evidence field와 observation time을 렌더링합니다. Renderer가 없는 enum을 추가하면 generic success string을 반환하지 않고 exhaustive type checking이 실패합니다. |
+| Catalog/runtime binding | 구현됨 | Catalog intent ID가 runtime enum과 정확히 일치하고 모든 read intent를 Heimdall이 계속 소유하며 plan ID가 unique인 경우에만 local 및 deployed composition이 provider I/O 전에 시작됩니다. |
 | 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. Resource Health history는 resource group, timestamp 및 status로 구성된 완전한 anomalous-event anchor 하나도 유지할 수 있습니다. 생략된 history 및 장애 직전 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 bounded context를 다시 검증한 뒤 일치하는 read evidence를 직접 반환합니다. |
 | Subscription scope identity | 구현됨 | 현재 subscription identity 질문은 server에 configured된 subscription name과 state를 Azure Resource Manager에서 읽고, masked subscription ID만 렌더링하며, narrator model을 호출하지 않습니다. |
 | Subscription health sweep | 구현됨 | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 unavailable resource-state 질문이 configured reader scope를 사용합니다. Inventory language catalog가 availability 의미에 대해 Resource Health authority를 선택합니다. Provider는 configured resource-group allowlist를 기본으로 사용합니다. 명시적인 server-owned subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Platform-impact read는 active Service Health event와 impacted resource를 query하고 outage를 maintenance 및 advisory와 분리한 다음 Resource Health cause와 correlate합니다. 다른 diagnosis read는 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인할 수 있습니다. |

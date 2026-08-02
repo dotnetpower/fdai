@@ -440,6 +440,7 @@
         "src/fdai/delivery/azure/subscription_health.py",
         "src/fdai/delivery/persistence/read_investigation_latency.py",
         "src/fdai/delivery/operator_api/routes/chat_subscription_health.py",
+        "src/fdai/delivery/operator_api/routes/read_investigation_catalog.py",
         "src/fdai/delivery/operator_api/routes/read_investigations.py",
         "rule-catalog/vocabulary/investigation-intents.yaml",
         "src/fdai/agents/heimdall.py",
