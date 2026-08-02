@@ -208,6 +208,95 @@ async def test_backend_planner_projects_validated_images_into_intent_input() -> 
     }
 
 
+@pytest.mark.asyncio
+async def test_backend_planner_accepts_multiservice_image_diagnosis_graph() -> None:
+    inventory_schema = {
+        "type": "object",
+        "properties": {
+            "source": {"type": "string", "enum": ["current"]},
+            "kind": {"type": "string", "enum": ["list"]},
+            "provider_type": {"type": "string", "maxLength": 128},
+        },
+        "required": ["source", "kind", "provider_type"],
+        "additionalProperties": False,
+    }
+    inventory_tool = TurnTool(
+        "query_inventory",
+        "Read one current service type.",
+        "read",
+        inventory_schema,
+    )
+    service_goals = [
+        _goal(
+            goal_id,
+            capability="query_inventory",
+            arguments={"source": "current", "kind": "list", "provider_type": provider_type},
+            intent="diagnosis",
+        )
+        for goal_id, provider_type in (
+            ("app_gateway", "Microsoft.Network/applicationGateways"),
+            ("aks", "Microsoft.ContainerService/managedClusters"),
+            ("api_management", "Microsoft.ApiManagement/service"),
+            ("mysql", "Microsoft.DBforMySQL/flexibleServers"),
+            ("azure_openai", "Microsoft.CognitiveServices/accounts"),
+        )
+    ]
+    correlate = _goal(
+        "correlate",
+        capability=None,
+        depends_on=[goal["goal_id"] for goal in service_goals],
+        evidence_mode="screen",
+        intent="diagnosis",
+    )
+    backend = _StructuredBackend(_graph(*service_goals, correlate))
+    context = planner_context_envelope(
+        {
+            "routeId": "resilience",
+            "headline": "Five-service topology",
+            "facts": [
+                {
+                    "key": "window",
+                    "value": "30m",
+                    "label": "Observation window",
+                    "window": "30m",
+                }
+            ],
+            "_attachments": [
+                {
+                    "name": "service-topology.png",
+                    "media_type": "image/png",
+                    "data_url": "data:image/png;base64,cG5n",
+                    "byte_size": 3,
+                }
+            ],
+        },
+        resource_context=None,
+        conversation_context=None,
+    )
+
+    graph = await BackendIntentGraphPlanner(backend).plan_turn_with_context(
+        prompt="이 화면의 다섯 서비스를 함께 진단하고 상관관계를 설명해줘.",
+        tools=(inventory_tool,),
+        history=(),
+        attachments=[
+            {
+                "name": "service-topology.png",
+                "media_type": "image/png",
+                "data_url": "data:image/png;base64,cG5n",
+                "byte_size": 3,
+            }
+        ],
+        context=context,
+    )
+
+    assert [goal.capability for goal in graph.goals[:5]] == ["query_inventory"] * 5
+    assert graph.goals[-1].depends_on == tuple(goal["goal_id"] for goal in service_goals)
+    assert graph.action_posture is ActionPosture.ADVISE_ONLY
+    planner_text = backend.call["user_content"][0]["text"]
+    assert "service-topology.png" in planner_text
+    assert "data:image" not in planner_text
+
+
 def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
     graph = parse_intent_graph(
         _graph(
