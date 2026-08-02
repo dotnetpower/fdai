@@ -197,8 +197,8 @@ them.
 
 ## Seven Autonomous-Action Safeguards
 
-Every autonomous action MUST have all seven safeguards: **stop-condition**, tested **rollback**, **blast-radius limit**, successful **what-if/dry-run**, held **per-resource lock**, stable
-**idempotency key**, and **append-only audit record**. Missing one blocks shipment. Independent
+Every autonomous state-changing action MUST have all seven safeguards: **stop-condition**, tested **rollback**, **blast-radius limit**, successful **what-if/dry-run**, held **logical-target lock**, stable
+**idempotency key**, and **append-only audit intent plus terminal closure**. Missing one blocks shipment. Independent
 effect verification is additionally required before reporting success.
 
 New capabilities ship in **shadow mode** (judge-and-log only, no execution). Promotion to

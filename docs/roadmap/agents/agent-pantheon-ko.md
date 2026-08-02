@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 083a02ace00274d1a3627e8fcb676ba0dc9e1290
+translation_source_sha: effc6bd86a40a76314128ad2abbc69c34a4b68e7
 translation_revised: 2026-08-02
 ---
 
@@ -331,14 +331,14 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 | **Saga** | audit 불가 | **HARD FAIL**: 새 mutation 허용 안 됨; 전체 시스템 shadow 로 강등 |
 | **Vidar** | rollback 불가 | Thor 가 새 auto 실행 거부; 모든 새 action shadow 로 강등 |
 | **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); verdict fallback 없음 (판사 없이 판단 불가); operator alert |
-| **Odin** | cross-vertical arbitration 누락 | Forseti 가 conflict verdict 를 자동으로 HIL 로 승격 (사람이 arbitrate) |
+| **Odin** | cross-vertical arbitration 누락 | Forseti가 conflict verdict를 HIL로 낮춤 (사람이 arbitrate) |
 | **Thor** | 실행 정지 | verdict 큐잉; verdict TTL 만료 시 stale drop (republish 시 재판단) |
 | **Huginn** | ingestion 정지 | Kafka retention 이 이벤트 보존; Huginn 복구 시 checkpoint 부터 재개 (idempotent) |
-| **Heimdall** | 감지 정지 | Huginn -> Forseti 로 rule-only 판단 계속; 보안 correlation 지연되지만 RBAC deny 는 여전히 audit |
-| **Var** | HIL 차단 | HIL 큐 보존; timeout 자동 확장; admin alert; auto action 계속 |
+| **Heimdall** | 감지/effect observation 정지 | read, deny, shadow judgment는 계속; Heimdall observation이 필요한 새 state change는 차단되고 기존 outcome은 pending, RBAC deny는 audit |
+| **Var** | HIL 차단 | HIL 큐 보존; timeout 자동 확장; admin alert; 승인 없이 이미 A1/A2 eligible인 action만 계속하며 HIL과 A3-E는 실행 불가 |
 | **Bragi** | 대화 차단 | operator 는 console read-only view + 직접 audit query 로 fallback |
 | **Mimir** | rule 업데이트 정지 | 캐시된 rule 계속; Forseti 가 stale-rule 경고; 새 rule 업데이트 지연 |
-| **Muninn** | context 불가 | Forseti 가 context 없이 판단 (T2 escalation rate 상승 예상); "context unavailable" 로그 |
+| **Muninn** | context 불가 | read, deny, shadow judgment는 계속; context-dependent state change는 unknown으로 차단하고 "context unavailable" audit |
 | **Norns** | 학습 정지 | 즉시 영향 없음 (off-path); 장기 미가동 시 discovery velocity 저하 경고 |
 | **Njord / Freyr / Loki** | 도메인 자문 누락 | Forseti 가 해당 도메인 action 을 HIL 로 강등 |
 
@@ -347,8 +347,8 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 - **Saga와 Vidar는 mutation의 hard dependency**입니다. Terminal consumer/health failure는 restart 전까지 sticky shadow를 강제합니다. Noncritical terminal consumer는 해당 agent만 degrade하고 sibling은 계속 실행하며 health는 false heartbeat 대신 exact agent/topic state를 기록합니다. Unified concurrency test는 15개 consumer identity와 same-topic non-stealing fan-out을 pin합니다.
 - **판단자 / 실행자 / 감사자 triad 중 하나라도 누락** 시 새 mutation 을
   shadow 로 강등.
-- **Sensing degradation (Heimdall / Var / Vidar 실패)** 는 파이프라인이
-  축소된 autonomy 로 계속 실행되도록 허용.
+- **Noncritical sensing degradation**은 read, deny, queue 및 shadow path만 보존할 수 있습니다.
+  Vidar는 mutation hard dependency이고 Var는 HIL 및 A3-E eligibility를 별도로 통제합니다.
 - 모든 degradation 은 Odin 의 portfolio 리포트에 surfacing (워크플로우 7).
 
 ### 4.4 Task tier 분류 (per-task LLM 정책)

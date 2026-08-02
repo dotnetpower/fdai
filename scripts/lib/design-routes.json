@@ -6,7 +6,8 @@
       "id": "baseline",
       "paths": ["**"],
       "must_read": [
-        ".github/copilot-instructions.md"
+        ".github/copilot-instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md"
       ],
       "validate": ["scripts/verify.sh"]
     },

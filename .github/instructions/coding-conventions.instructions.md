@@ -126,9 +126,9 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   committed config. Access secrets through an injected provider, never a global read at import.
 - Keep the repo customer-agnostic; customer-specific values and logic belong in a fork
   (see [generic-scope.instructions.md](generic-scope.instructions.md)).
-- Every autonomous action path MUST implement all seven safeguards: stop-condition, tested rollback,
-  blast-radius limit, successful what-if/dry-run, per-resource lock, idempotency with duplicate
-  suppression, and append-only audit. Missing one blocks merge; effect verification gates success.
+- Every autonomous state-changing action path MUST implement all seven safeguards: stop-condition, tested rollback, blast-radius limit, successful what-if/dry-run, logical-target lock, idempotency
+  with duplicate suppression, and audit intent before effect plus terminal closure. Missing one
+  blocks merge; effect verification gates success. Pure read paths use their read contracts instead.
 - **ActionType schema is the enforcement surface for those invariants.** New ontology
   `ActionType` declarations MUST supply `rollback_contract` from the enum
   (`pr_revert` / `scripted` / `pitr` / `snapshot_restore` / `state_forward_only`) - the

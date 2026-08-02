@@ -76,6 +76,9 @@ flowchart LR
 ## 3. Categories (A1-A4)
 
 Every channel message carries a **category tag** and must obey that category's rules.
+These are `notification.a1` through `notification.a4` machine categories. They are not the
+Constitution's `autonomy.a0` through `autonomy.a4` authority classes, and no numeric suffix implies
+equivalence or conversion between the enum families.
 
 | Category | Direction | Examples | Auth strength needed |
 |----------|-----------|----------|----------------------|

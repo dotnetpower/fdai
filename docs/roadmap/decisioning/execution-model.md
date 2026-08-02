@@ -520,12 +520,12 @@ can never move it down for latency. A fork can force every dispatch in
 prod to `pr_manual` via the env axis. The upstream never forces from
 below (never lifts `pr_manual` to `direct_api` for speed).
 
-**Fallback idempotency.** When a dispatch degrades from `direct_api` to
-`pr_manual` mid-flight (§11), the fallback PR reuses the action's stable
-idempotency key. The direct-API adapter records the attempted-and-failed
-call under that key so the manual PR path cannot double-apply the same
-mutation; a subsequent retry observes the key and is a no-op on whichever
-path already succeeded.
+**Fallback idempotency.** `direct_api` may degrade to `pr_manual` only before a side-effect attempt
+or after an authoritative no-effect receipt; fallback reuses the stable idempotency key. A timeout,
+lost response, or accepted asynchronous request is ambiguous: keep the operation record, target
+lock, and pending outcome while reconciling authoritative provider/effect state. Never open a PR,
+retry another path, report failure, or release the target without a terminal receipt. Exhaustion
+escalates with an automation hold and never guesses.
 
 ### 5.5 Human approval round-trip (park and resume)
 
@@ -833,7 +833,7 @@ migration record in [action-ontology.md § 10](action-ontology.md#10-migration-r
   writes an `overlay.load_failed` audit and marks `overlay_layers_applied`
   so it never silently pretends the overlay was applied.
 - **Executor path unreachable** (direct_api adapter down) -> for a
-  low-urgency action, fall back to `pr_manual` and write
+  low-urgency action with no side-effect attempt, fall back to `pr_manual` and write
   `executor.path.degraded`. For a **latency-critical ops action**
   (`ops.restart-service`, `ops.failover-primary`, anything whose
   ActionType sets `urgency: high`), a `pr_manual` fallback would defeat

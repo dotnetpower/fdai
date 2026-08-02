@@ -83,9 +83,10 @@ answers "how did it get here?" Typed events cover creation, step lifecycle,
 wait/approval/decision state, parallel branch outcomes, compensation, timeout, and
 terminal outcomes. Approval steps count distinct approving principals, exclude the
 requester when `no_self_approval` is enabled, and remain waiting until their quorum
-is met. Wait and approval timeouts end the Process as `timed_out`. Parallel branches
-run concurrently and write child events without competing for the parent snapshot
-revision.
+is met. Wait and approval timeouts with no applied step end as `timed_out`; after any applied step
+they stop forward dispatch and enter compensation. Parallel branches run concurrently and write
+child events without competing for the parent snapshot revision, but a failure freezes new branch
+dispatch and joins applied receipts before reverse-dependency compensation.
 
 The ontology graph is a read model, not the source of truth. After each committed
 event, `ProcessOntologyProjector` materializes the current `Process` object and its

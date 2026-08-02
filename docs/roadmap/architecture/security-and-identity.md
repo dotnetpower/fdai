@@ -155,7 +155,7 @@ approved grant, and fresh effective-access evidence is required before the actio
 - Build artifacts (container images) are signed and their provenance/SBOM recorded; the
   executor pulls only verified, pinned digests, never mutable `latest` tags.
 
-## Seven safeguards (every autonomous action)
+## Seven safeguards (every autonomous state-changing action)
 
 1. **Stop-condition** - a defined halt state that aborts the action. Declared per-ActionType
    in `stop_conditions[]` and evaluated by the executor during and after apply.
@@ -169,15 +169,19 @@ approved grant, and fresh effective-access evidence is required before the actio
    makes the risk-gate compute the actual impacted set over the Resource → Resource graph
    (`contains` + reverse `depends_on`, depth 2) - the three-value enum is a bucket, not a cap.
 4. **What-if or dry-run** - a successful, version-bound prediction receipt before mutation.
-5. **Per-resource lock** - a held lock and causal ordering for every affected resource.
+5. **Logical-target lock** - a held lock and causal ordering for every affected target; managed
+  resource changes use the exact resource identity.
 6. **Idempotency** - a stable key and duplicate suppression across delivery and retries.
-7. **Audit-log entry** - append-only record of who/what/why/when and the outcome.
+7. **Audit lifecycle** - append-only intent persisted before the side effect, then terminal
+  execution and outcome closure after it.
 
 Missing any safeguard means the action is incomplete and must not ship. Each safeguard is
 **testable**: shadow-mode tests prove no mutation, rollback tests prove prior state is restored,
 and property-based tests assert that high-impact execution has current or standing human approval,
 silence grants nothing, irreversible actions never use standing authorization, and retries are
-no-ops. Independent effect verification gates every success claim.
+no-ops. Pure A0 reads follow their bounded read authorization and evidence contracts rather than
+mutation rollback, dry-run, and lock requirements. Independent effect verification gates every
+success claim.
 
 ## Rate Limiting and Kill-Switch (DoS and containment)
 

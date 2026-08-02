@@ -352,14 +352,14 @@ behaviors. Anti-pattern §11 forbids collapsing these to nothing.
 | **Saga** | audit unavailable | **HARD FAIL**: no new mutation permitted; whole system demoted to shadow |
 | **Vidar** | rollback unavailable | Thor refuses new auto executions; all new actions demoted to shadow |
 | **Forseti** | judgment stopped | Huginn / Heimdall keep publishing (Kafka retains); no verdict fallback (judgment cannot proceed without judge); operator alert |
-| **Odin** | cross-vertical arbitration missing | Forseti auto-promotes conflict verdicts to HIL (human arbitrates) |
+| **Odin** | cross-vertical arbitration missing | Forseti lowers conflict verdicts to HIL (human arbitrates) |
 | **Thor** | execution stopped | verdicts queued; verdict TTL expiry drops stale ones (re-judge on republish) |
 | **Huginn** | ingestion stopped | Kafka retention preserves events; Huginn resumes from checkpoint on recovery (idempotent) |
-| **Heimdall** | detection stopped | rule-only judgments continue via Huginn -> Forseti; security correlation delayed but RBAC deny still audited |
-| **Var** | HIL blocked | HIL queue preserved; timeout auto-extended; admin alert; auto actions continue |
+| **Heimdall** | detection/effect observation stopped | reads, deny, and shadow judgment continue; new state changes needing Heimdall observation are blocked, existing outcomes remain pending, RBAC deny stays audited |
+| **Var** | HIL blocked | HIL queue preserved; timeout auto-extended; admin alert; only actions already eligible as A1/A2 without approval continue; HIL and A3-E cannot execute |
 | **Bragi** | conversation blocked | operator falls back to console read-only view + direct audit query |
 | **Mimir** | rule updates stopped | cached rules continue; Forseti raises stale-rule warning; new rule updates deferred |
-| **Muninn** | context unavailable | Forseti judges without context (T2 escalation rate rises expected); "context unavailable" logged |
+| **Muninn** | context unavailable | reads, deny, and shadow judgment continue; context-dependent state changes are blocked as unknown and "context unavailable" is audited |
 | **Norns** | learning stopped | no immediate impact (off-path); long-term discovery velocity drops - warning raised |
 | **Njord / Freyr / Loki** | domain advice missing | Forseti demotes that domain's actions to HIL |
 
@@ -368,8 +368,8 @@ Common rules:
 - **Saga and Vidar are hard dependencies** for mutation: terminal consumer or health failure forces sticky shadow until restart. Noncritical terminal consumers degrade only their agent; siblings continue and health records exact agent/topic state instead of a false live heartbeat. The unified concurrency test pins all 15 consumer identities and non-stealing same-topic fan-out.
 - **Any judge / executor / auditor triad missing** demotes new mutation to
   shadow.
-- **Sensing degradation (Heimdall / Var / Vidar failure)** allows the
-  pipeline to keep running with reduced autonomy.
+- **Noncritical sensing degradation** may preserve read, deny, queue, and shadow paths only.
+  Vidar remains a mutation hard dependency; Var independently controls HIL and A3-E eligibility.
 - Every degradation surfaces in Odin's portfolio report (workflow 7).
 
 ### 4.4 Task tier classification (LLM policy per task)

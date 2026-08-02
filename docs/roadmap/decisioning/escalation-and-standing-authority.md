@@ -177,7 +177,7 @@ and uses it to **compress** rung TTLs and to **raise the starting rung**:
   a noisy point-estimate breach does not get to compress deadlines.
 
 Urgency changes **how fast** the ladder is walked; it never changes **whether**
-an action is allowed to auto-execute. That gate is standing authorization.
+an unattended approved execution is allowed. That gate is standing authorization.
 
 ## Standing authorization (pre-authorized conditional execution)
 
@@ -203,8 +203,15 @@ verification, never by a model
 version: 1
 id: sa-scale-out-before-quota-breach
 authorization_revision: <content-digest>
-authored_by: aw-owners           # a human authority; recorded as approver-of-record
+requested_by: <normalized-human-principal>
+approved_by:                    # distinct normalized human principals; min 2
+  - <accountable-service-owner>
+  - <owner-level-approver>
+quorum_required: 2
+valid_from: <rfc3339-timestamp>
 valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
+status: active                  # active | revoked | expired | superseded
+revocation_ref: null
 service_ref: <service-id>
 target_revision: <inventory-and-operating-model-revision>
 policy_digest: <risk-and-approval-policy-digest>
@@ -213,6 +220,7 @@ incident_classes: [forecast.breach]
 responders:
   primary: <on-call-primary>
   backup: <on-call-backup>
+  resolved_at: <rfc3339-timestamp>
 evidence:
   history_review_ref: <governed-evidence-ref>
   scenario_evidence_ref: <dr-chaos-or-simulation-ref>
@@ -227,6 +235,7 @@ precondition:                     # all must hold, deterministically checked
 envelope:                         # the action MUST fall entirely inside this
   action_types: [remediate.scale-out.compute]
   max_blast_radius: resource_group
+  max_duration_seconds: <bounded-duration>
   reversible: true               # only reversible actions may be pre-authorized
   rollback_contract: scripted    # a tested undo path is mandatory
 trigger:
@@ -248,16 +257,26 @@ mode: shadow                      # judge-and-log until explicitly promoted
   ladder_unanswered`. Channel fallback must first confirm delivery; an unreachable person is not
   recorded as silent. A standing authorization can only fire once real humans were asked and the
   deadline passed - it *shortens the tail*, it does not replace the human.
-- **Human is the approver-of-record.** `authored_by` records the human authority
-  that pre-committed the decision; Var carries it as the standing approval so the
-  approve-vs-execute principal split holds (no self-approval, no
-  model-as-approver).
+- **Distinct human quorum is the approver-of-record.** At least two normalized, distinct human
+  principals approve: the accountable service owner and an Owner-level authority. The requester
+  and executor are ineligible. Var carries their signed revision as the standing Approval, so
+  approve-vs-execute separation holds with no model-as-approver.
 - **Operational evidence is current.** The owner reviews applicable service logs, incidents, and
   audit history and records whether a precedent exists. When no adequate precedent exists, a
   current DR drill, bounded Chaos experiment, or simulation supplies scenario evidence.
 - **Handover suspends until reconfirmed.** Every ownership handover requires the new accountable
   owner to confirm the service, responders, envelope, evidence, and expiry. Missing, stale, or
   declined confirmation makes the authorization ineligible.
+- **Validity and revocation are monotonic.** `valid_from <= now < valid_until` and `status=active`
+  are required. Revocation is immediate and blocks pending re-decisions. Renewal creates a new
+  immutable revision with fresh quorum, evidence, and responder confirmation; it never extends the
+  old record in place.
+- **Execution fits the validity window.** The risk gate requires
+  `now + max_duration_seconds <= valid_until` before dispatch. It uses trusted UTC for persisted
+  instants and monotonic elapsed time for the running deadline. Clock unavailability or excessive
+  skew makes the authorization ineligible.
+- **Responders are current.** Eligibility requires a time-aware OnCallSchedule receipt or explicit
+  primary and backup identities resolved with an expiry no later than `valid_until`.
 - **Version-bound and revocable.** The authorization pins its revision, policy digest, target
   revision, ActionType and workflow versions, and evidence revisions. Any mismatch, revocation,
   policy change, target drift, or catalog change requires independent re-approval.
@@ -356,10 +375,6 @@ wider, impact-tiered, time-decaying set of humans were given the chance to act.
   groups, or introduce an on-call schedule integration (PagerDuty/Opsgenie
   schedule read) so "who is primary" is time-aware? Leaning group-first for the
   upstream, schedule integration as a fork seam.
-- **Standing-authority quorum to author.** Human override needs a distinct
-  approver; a standing authorization pre-commits autonomy, so it likely needs
-  the **elevated quorum of 2** already used for the risk-classification table
-  ([risk-classification.md](risk-classification.md)). To confirm.
 - **Urgency function shape.** The `k * remaining_lead_time` compression is a
   starting heuristic; the exact curve is a tuning parameter to backtest against
   historical forecast-to-breach series before enforce.

@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: aa92c88f4a788c424667a1455427604da63e6b2d
-translation_revised: 2026-07-31
+translation_source_sha: 8a3231577232a0faa1e3f0f6de33c7a5c31e233f
+translation_revised: 2026-08-02
 ---
 # 실행 권한 부여 온톨로지
 
@@ -162,6 +162,10 @@ enforcement: do-not-enforce
 | `request_jit` | 접근이 없을 때 bounded grant request를 생성할 수 있습니다. |
 | `standing` | Assignment constraint 내에서 검토된 standing grant가 허용됩니다. |
 
+여기의 `standing`은 provider-access posture이며 헌법의 A3-E standing human authorization이
+아닙니다. `AccessGrant`는 action HIL 또는 standing Approval을 충족하지 않고 A3-E Approval은
+provider permission을 만들지 않습니다. 둘 다 적용되면 두 독립 gate가 모두 통과해야 합니다.
+
 새 assignment는 `enforcement: do-not-enforce`로 시작합니다. Shadow evaluation은 enforcement가 생성할
 결정을 기록합니다. `enforce` promotion은 existing reviewed catalog transition을 따르며 environment 또는
 fork marker로 선택할 수 없습니다.
@@ -276,7 +280,10 @@ sequenceDiagram
 
 Executor identity는 자체 역할을 부여할 수 없습니다. Protected deployer가 승인된 exact plan을 적용합니다.
 Scope, operation set, duration, identity profile 또는 plan digest가 변경되면 승인은 무효가 됩니다. Expiry와
-revocation은 선택적 cleanup이 아니라 완료 조건입니다.
+revocation은 선택적 cleanup이 아니라 완료 조건입니다. 각 grant는 `status`, `valid_from`,
+`expires_at`, optional `revoked_at` 및 immutable revocation receipt를 기록합니다. Pre-dispatch
+evaluation은 `status=active`, validity interval 및 fresh effective-access observation을 요구합니다.
+Revocation은 pending action을 즉시 차단합니다.
 
 ## Runtime failure classification
 

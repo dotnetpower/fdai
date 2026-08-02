@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 4f0bbf54dc7b888b7408b0e5a28aa3e48310464b
+translation_source_sha: a1b539658ea7c14288343dc7db4c80548d5628b3
 translation_revised: 2026-08-01
 ---
 
@@ -152,7 +152,7 @@ fresh effective-access evidence가 있어야 action을 처음부터 다시 평�
 - 빌드 아티팩트(컨테이너 이미지)는 서명되고 provenance/SBOM 기록됨; executor는 검증된 고정
   digest만 pull, 절대 mutable `latest` 태그 아님.
 
-## 7개 안전조건 (모든 자율 액션)
+## 7개 안전조건 (모든 자율 상태 변경 액션)
 
 1. **Stop-condition** - 액션을 중단시키는 정의된 halt 상태. ActionType 별로 `stop_conditions[]`
    에 선언되고 executor 가 apply 도중·이후에 평가.
@@ -166,15 +166,18 @@ fresh effective-access evidence가 있어야 action을 처음부터 다시 평�
    graph_derived` 는 risk-gate 가 Resource → Resource 그래프(`contains` + 역방향
    `depends_on`, depth 2) 로 실제 영향 집합을 계산하게 함 - 3-값 enum 은 상한이 아니라 bucket.
 4. **What-if 또는 dry-run** - 변경 전에 성공한 버전 고정 예측 증명.
-5. **리소스별 잠금** - 영향을 받는 모든 리소스에 대해 획득한 잠금과 인과 순서.
+5. **Logical-target 잠금** - 영향을 받는 모든 대상의 잠금과 인과 순서. 관리 리소스 변경에는
+  정확한 리소스 ID를 사용합니다.
 6. **멱등성** - 전송과 재시도 전반의 안정적인 키 및 중복 억제.
-7. **Audit-log entry** - 누가/무엇을/왜/언제와 결과의 append-only 기록.
+7. **Audit lifecycle** - side effect 전에 append-only intent를 기록하고 이후 terminal
+  execution 및 outcome으로 닫습니다.
 
 안전조건 중 하나라도 빠지면 액션은 미완결이며 출시할 수 없습니다. 각 안전조건은 **테스트할
 수 있습니다**. Shadow-mode 테스트는 변경이 없음을 증명하고 rollback 테스트는 이전 상태
 복원을 증명합니다. 속성 기반 테스트는 영향이 큰 실행에 현재 또는 상시 사람 승인이 있고,
 침묵은 권한을 부여하지 않으며, 비가역 작업은 상시 권한을 사용하지 않고, 재시도는 no-op임을
-단언합니다. 독립적인 효과 검증이 모든 성공 주장을 게이트합니다.
+단언합니다. 순수 A0 read는 mutation rollback, dry-run 및 lock 대신 제한된 read 권한과 증거
+계약을 따릅니다. 독립적인 효과 검증이 모든 성공 주장을 게이트합니다.
 
 ## Rate Limiting과 Kill-Switch (DoS와 억제)
 

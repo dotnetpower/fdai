@@ -15,6 +15,24 @@ EXPECTED_IDS = tuple(f"FDAI-CONST-{number:03d}" for number in range(1, 11))
 ID_PATTERN = re.compile(r"FDAI-CONST-\d{3}")
 EXPECTED_TRACE_ROWS = tuple(f"{number:03d}" for number in range(1, 11))
 TRACE_ROW_PATTERN = re.compile(r"^\| (00[1-9]|010) \|", re.MULTILINE)
+EXPECTED_AUTONOMY_VALUES = (
+    "autonomy.a0",
+    "autonomy.a1",
+    "autonomy.a2",
+    "autonomy.a3_h",
+    "autonomy.a3_e",
+    "autonomy.a4",
+)
+AUTONOMY_VALUE_PATTERN = re.compile(r"`(autonomy\.[a-z0-9_]+)`")
+EXPECTED_SAFEGUARDS = (
+    "machine-evaluable stop condition",
+    "tested rollback or bounded recovery path",
+    "computed impact scope and blast-radius limit",
+    "successful what-if or dry-run receipt",
+    "held logical-target lock with causal ordering",
+    "stable idempotency key with duplicate suppression",
+    "append-only audit intent persisted before the side effect",
+)
 
 REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
     ".github/copilot-instructions.md": (
@@ -44,11 +62,24 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
         "A3-E never authorizes Chaos fault injection",
         "Every active, candidate, or calculated threshold",
         "latest value never rewrites a historical decision",
+        "Every decision-critical evidence receipt",
+        "absence claim requires positive coverage",
+        "trusted UTC clock source",
         "Bounded peer deliberation may",
         "Recovery and Chaos Enforcement",
         "Operator-Initiated SRE and ARB",
+        "Each domain capability is covered only when",
         "approved primitives do not make a new composition pre-approved",
+        "durable automation hold",
+        "at least two normalized, distinct humans",
+        "renewal creates a new immutable revision",
+        "Dependency loss preserves only paths",
     ),
+    "docs/roadmap/architecture/goals-and-metrics.md": (
+        "Current coverage gap",
+        "FDAI must not claim complete domain",
+    ),
+    "docs/roadmap/architecture/outcome-assurance.md": ("idempotency, audit lifecycle",),
     "docs/roadmap/agents/agent-pantheon.md": ("Constitutional eligibility comes first",),
     "docs/roadmap/agents/conversational-deliberation.md": (
         "composition-owned read-only peer deliberation",
@@ -60,6 +91,14 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
         "constitutional hard constraints first remove ineligible",
     ),
     "docs/roadmap/decisioning/process-automation.md": ("ineligible for enforce promotion",),
+    "docs/roadmap/decisioning/execution-authorization-ontology.md": (
+        "provider-access posture, not the Constitution's A3-E",
+        "Revocation blocks pending actions",
+    ),
+    "docs/roadmap/decisioning/execution-model.md": (
+        "only before a side-effect attempt",
+        "authoritative no-effect receipt",
+    ),
     "docs/roadmap/decisioning/risk-classification.md": (
         "Standing authorization does not raise an `hil` baseline to `auto`",
     ),
@@ -71,6 +110,14 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
         "history_review_ref",
         "handover_confirmation_ref",
         "Chaos injection is excluded",
+        "quorum_required: 2",
+        "valid_from:",
+        "status: active",
+        "now + max_duration_seconds <= valid_until",
+    ),
+    "docs/roadmap/interfaces/channels-and-notifications.md": (
+        "notification.a1",
+        "Constitution's `autonomy.a0`",
     ),
 }
 
@@ -89,6 +136,7 @@ FORBIDDEN_PHRASES: Mapping[str, tuple[str, ...]] = {
     "docs/roadmap/decisioning/escalation-and-standing-authority.md": (
         "`auto`-eligible",
         "verdict flips to `auto`",
+        "Standing-authority quorum to author",
     ),
 }
 
@@ -122,6 +170,14 @@ def validate_texts(texts: Mapping[str, str]) -> list[str]:
         found_trace_rows = tuple(TRACE_ROW_PATTERN.findall(text))
         if found_trace_rows != EXPECTED_TRACE_ROWS:
             errors.append(f"{path}: expected traceability rows 001..010 once in order")
+
+    english = texts.get(ENGLISH_CONSTITUTION, "")
+    found_autonomy_values = tuple(dict.fromkeys(AUTONOMY_VALUE_PATTERN.findall(english)))
+    if found_autonomy_values != EXPECTED_AUTONOMY_VALUES:
+        errors.append(f"{ENGLISH_CONSTITUTION}: expected exact autonomy machine-value set")
+    for safeguard in EXPECTED_SAFEGUARDS:
+        if safeguard not in english:
+            errors.append(f"{ENGLISH_CONSTITUTION}: missing safeguard: {safeguard}")
 
     for path, phrases in REQUIRED_PHRASES.items():
         text = texts.get(path)

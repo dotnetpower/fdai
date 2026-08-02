@@ -19,8 +19,10 @@ def _load_module() -> ModuleType:
 def _valid_texts(module: ModuleType) -> dict[str, str]:
     ids = "\n".join(module.EXPECTED_IDS)
     trace_rows = "\n".join(f"| {row} | owner | evidence |" for row in module.EXPECTED_TRACE_ROWS)
+    autonomy_values = "\n".join(f"`{value}`" for value in module.EXPECTED_AUTONOMY_VALUES)
+    safeguards = "\n".join(module.EXPECTED_SAFEGUARDS)
     texts = {
-        module.ENGLISH_CONSTITUTION: f"{ids}\n{trace_rows}",
+        module.ENGLISH_CONSTITUTION: f"{ids}\n{trace_rows}\n{autonomy_values}\n{safeguards}",
         module.KOREAN_CONSTITUTION: f"{ids}\n{trace_rows}",
     }
     for path, phrases in module.REQUIRED_PHRASES.items():
@@ -79,3 +81,18 @@ def test_obsolete_safeguard_count_is_rejected_across_roadmap() -> None:
     assert any(
         "obsolete roadmap safeguard phrase" in error for error in module.validate_texts(texts)
     )
+
+
+def test_autonomy_namespace_and_safeguards_are_structural() -> None:
+    module = _load_module()
+    texts = _valid_texts(module)
+    texts[module.ENGLISH_CONSTITUTION] = (
+        texts[module.ENGLISH_CONSTITUTION]
+        .replace("`autonomy.a3_e`", "`autonomy.a3`")
+        .replace("held logical-target lock with causal ordering", "held lock")
+    )
+
+    errors = module.validate_texts(texts)
+
+    assert any("expected exact autonomy machine-value set" in error for error in errors)
+    assert any("missing safeguard" in error for error in errors)

@@ -1,7 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 4dfdc0cfd32c6dcf743650ab1da29a901a5e5ec8
+translation_source_sha: 6d92af1994aea6b4eadf201d46b78773d8f19ba3
+translation_revised: 2026-08-02
 translation_revised: 2026-08-01
 ---
 
@@ -59,8 +60,14 @@ event correlation을 공유하고 추가 human touchpoint를 만들지 않습니
 
 - **Event**: `event-ingest` 이후 컨트롤 루프에 들어가는 정규화·중복제거된 한 항목. 안정적인
   idempotency key로 식별됩니다. 이벤트당(rate) 계산은 모두 이 단위 위에서 이루어집니다.
-- **Scenario set**: 베이스라인과 트리트먼트에 동일하게 사용되는 고정·버전된 Resilience, Change
-  Safety, Cost Governance 케이스 모음. 각 릴리스는 시나리오 세트 버전을 기록합니다(예: `v2026.07`).
+- **Scenario set**: SRE, ARB / Change Safety, FinOps / Cost Governance, DR 및 Chaos Engineering
+  capability pack을 포괄하며 baseline과 treatment에 동일하게 사용하는 frozen, versioned
+  collection입니다. 각 release는 scenario set 및 pack별 version을 기록합니다(예: `v2026.07`).
+
+> **현재 coverage gap:** committed `tests/scenarios/v2026.07` fixture set 및 schema는 아직 legacy
+> `change`, `dr`, `finops` grouping을 encode합니다. Mechanics는 검증하지만 헌법의 별도 SRE, ARB,
+> FinOps, DR, Chaos capability-pack acceptance는 충족하지 않습니다. Versioned pack manifest와
+> 누락 case가 추가될 때까지 해당 fixture set으로 complete domain coverage를 주장하면 안 됩니다.
 - **Reference agent**: Phase 0에서 측정된 고정 비교 시스템(문서화됨, 단일 모델, 티어링 없음).
   버전은 베이스라인 실행마다 고정됩니다.
 - **Human touchpoint**: 사람의 결정 또는 입력이 필요한 모든 액션(HIL 승인, 수동 편집, 수동

@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 3ab099d36f54cb659bbe3d150b2259a6e7207c6f
+translation_source_sha: 41058c5f08fa38a7dc0fad8447067e79458ed02a
 translation_revised: 2026-08-02
 ---
 
@@ -507,10 +507,9 @@ final_path = strictest(requested_path, forced_path)
 `pr_manual` 로 강제 가능. Upstream 은 절대 아래로부터 강제 안 함 (속도를
 위해 `pr_manual` 을 `direct_api` 로 lift 안 함).
 
-**Fallback idempotency.** dispatch 가 도중에 `direct_api` 에서 `pr_manual`
-로 degrade 될 때 (§11), fallback PR 은 액션의 안정된 idempotency key 를
-재사용. direct-API adapter 는 시도-및-실패한 call 을 그 key 하에 기록하여
-manual PR 경로가 동일 mutation 을 double-apply 할 수 없도록 함.
+**Fallback idempotency.** `direct_api`는 side-effect 전 또는 authoritative no-effect receipt 후에만 stable idempotency key로 `pr_manual` fallback할 수 있습니다. Timeout, lost response 또는 accepted
+async request는 operation record, target lock 및 pending outcome을 유지하며 authoritative state를
+reconcile합니다. Terminal receipt 전에는 다른 mutation path를 열지 않고 exhaustion은 automation hold로 escalate합니다.
 
 ### 5.5 사람 승인 왕복 (park and resume)
 
@@ -808,7 +807,7 @@ ActionType migration record와 일치합니다.
   upstream 값을 그대로 둠. 어느 쪽든 `overlay.load_failed` audit 를 write
   하고 `overlay_layers_applied` 를 mark 하여 overlay 가 applied 인 척 절대
   안 함.
-- **Executor path 도달 불가** (direct_api adapter down) -> 저-긴급 액션은
+- **Executor path 도달 불가** (side-effect 시도 전 direct_api adapter down) -> 저-긴급 액션은
   `pr_manual` 로 fallback 하고 `executor.path.degraded` write. **latency-
   critical ops 액션** (`ops.restart-service`, `ops.failover-primary`,
   ActionType 이 `urgency: high` 설정한 것) 은 `pr_manual` fallback 이
@@ -830,7 +829,7 @@ ActionType migration record와 일치합니다.
 - [risk-classification.md](risk-classification-ko.md) - 6-axis ceiling 이
   `min()` 으로 결합하는 권위적 first-match auto / HIL / deny 표 (Axis A,
   §2.0); 매트릭스로 대체되지 않음.
-- [security-and-identity.md](../architecture/security-and-identity-ko.md) - 4 autonomy
-  invariant + executor identity 계약.
+- [security-and-identity.md](../architecture/security-and-identity-ko.md) - 7개 안전조건 + executor
+  identity 계약.
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
   trust routing, verifier authority.

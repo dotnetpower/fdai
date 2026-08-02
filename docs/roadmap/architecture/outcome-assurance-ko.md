@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 84d875724fbc67921e994cc2cbf0297e90b490e5
+translation_source_sha: 42ad0ccd5dfa636bbea0e07cced675b3314057f0
 translation_revised: 2026-08-02
 ---
 # Outcome Assurance
@@ -134,7 +134,7 @@ Outcome Assurance는 또 하나의 gate를 만들지 않고 기존 readiness own
 | Platform | 필수 resource와 role binding 관측 | state store, event bus, executor identity 누락 |
 | Evidence | telemetry와 inventory source 연결 및 freshness 충족 | stale objective, unavailable telemetry, incomplete inventory |
 | Detection | 필수 detection dimension ready | SLO 또는 detector evidence 누락, stale snapshot |
-| Action safety | rollback, stop condition, impact scope, dry run, lock | safety invariant 또는 hard dependency 누락 |
+| Action safety | stop, rollback, impact scope, dry run, lock, idempotency, audit lifecycle | safeguard 또는 hard dependency 누락 |
 | Operational handoff | 적용 가능한 readiness report가 clear | blocking policy, reliability, ownership, RBAC finding |
 | Measurement | baseline과 treatment가 동일한 scenario set 사용 | synthetic source, missing baseline, insufficient sample |
 | Promotion | ActionType별 gate 통과 | policy escape, guard regression, observation evidence gap |

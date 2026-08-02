@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 0cb66cd993111c3aea83ee40113172f767f937ad
+translation_source_sha: 2558f23eea2ac4da4fa4d3c89186a67f49420422
 translation_revised: 2026-08-01
 ---
 
@@ -167,8 +167,8 @@ rung 을 올린다**:
   때만 긴급도를 몰아간다([observability-and-detection-ko.md § 3](../rules-and-detection/observability-and-detection-ko.md#3-예측--예보predictive--forecasting));
   잡음 섞인 point-estimate 위반은 데드라인을 압축하지 못한다.
 
-긴급도는 사다리를 **얼마나 빨리** 걷는지를 바꾼다; 액션이 auto-execute 되도록 허용되는지
-**여부** 는 절대 바꾸지 않는다. 그 게이트가 상시 권한이다.
+긴급도는 사다리를 **얼마나 빨리** 걷는지를 바꿉니다. 무인 상태의 승인된 실행을 허용할지는
+바꾸지 않으며 그 gate가 상시 권한입니다.
 
 ## 상시 권한(사전 승인 조건부 실행)
 
@@ -190,8 +190,15 @@ rung 을 올린다**:
 version: 1
 id: sa-scale-out-before-quota-breach
 authorization_revision: <content-digest>
-authored_by: aw-owners           # a human authority; recorded as approver-of-record
+requested_by: <normalized-human-principal>
+approved_by:                    # distinct normalized human principals; min 2
+  - <accountable-service-owner>
+  - <owner-level-approver>
+quorum_required: 2
+valid_from: <rfc3339-timestamp>
 valid_until: <rfc3339-timestamp>  # expires unless renewed by the accountable owner
+status: active                  # active | revoked | expired | superseded
+revocation_ref: null
 service_ref: <service-id>
 target_revision: <inventory-and-operating-model-revision>
 policy_digest: <risk-and-approval-policy-digest>
@@ -200,6 +207,7 @@ incident_classes: [forecast.breach]
 responders:
   primary: <on-call-primary>
   backup: <on-call-backup>
+  resolved_at: <rfc3339-timestamp>
 evidence:
   history_review_ref: <governed-evidence-ref>
   scenario_evidence_ref: <dr-chaos-or-simulation-ref>
@@ -214,6 +222,7 @@ precondition:                     # all must hold, deterministically checked
 envelope:                         # the action MUST fall entirely inside this
   action_types: [remediate.scale-out.compute]
   max_blast_radius: resource_group
+  max_duration_seconds: <bounded-duration>
   reversible: true               # only reversible actions may be pre-authorized
   rollback_contract: scripted    # a tested undo path is mandatory
 trigger:
@@ -234,15 +243,25 @@ mode: shadow                      # judge-and-log until explicitly promoted
 - **사다리 우선, 사다리 대체 아님.** 트리거는 `after: ladder_unanswered`입니다. 먼저 채널
   fallback이 전달을 확인해야 하며 연락할 수 없는 사람을 침묵으로 기록하지 않습니다. 상시 권한은
   실제 사람들이 요청받고 데드라인이 지난 뒤에만 발동할 수 있습니다.
-- **사람이 approver-of-record.** `authored_by` 는 결정을 사전 확약한 사람 권한을
-  기록한다; Var 가 이를 상시 승인으로 운반해 approve-vs-execute principal 분리가 유지된다
-  (self-approval 없음, model-as-approver 없음).
+- **Distinct human quorum이 approver-of-record입니다.** 최소 2명의 normalized distinct human,
+  accountable service owner 및 Owner-level authority가 승인합니다. 요청자와 실행자는 제외됩니다.
+  Var가 서명된 revision을 standing Approval로 전달하며 model-as-approver는 허용되지 않습니다.
 - **운영 증거가 최신이어야 합니다.** 담당자는 적용 가능한 서비스 로그, 인시던트 및 감사
   이력을 검토하고 선례의 존재 여부를 기록합니다. 충분한 선례가 없으면 현재 DR 훈련, 제한된
   Chaos 실험 또는 시뮬레이션이 시나리오 증거를 제공합니다.
 - **인수인계 후 재확인 전까지 중단합니다.** 모든 담당자 인수인계에서 새 책임 담당자가 서비스,
   대응자, 경계, 증거 및 만료를 확인해야 합니다. 확인이 누락되거나 오래되거나 거절되면 상시
   권한을 적용할 수 없습니다.
+- **Validity와 revocation은 단조롭습니다.** `valid_from <= now < valid_until` 및
+  `status=active`가 필요합니다. 취소는 즉시 pending re-decision을 차단합니다. Renewal은 기존
+  레코드를 연장하지 않고 fresh quorum, evidence 및 responder confirmation을 가진 새 immutable
+  revision을 생성합니다.
+- **실행이 validity window 안에 들어갑니다.** Risk gate는 dispatch 전에
+  `now + max_duration_seconds <= valid_until`을 요구합니다. Persisted instant에는 trusted UTC를,
+  실행 deadline에는 monotonic elapsed time을 사용합니다. Clock unavailable 또는 과도한 skew가
+  있으면 권한을 적용할 수 없습니다.
+- **Responder가 최신이어야 합니다.** Eligibility에는 time-aware OnCallSchedule receipt 또는
+  `valid_until`보다 늦지 않게 만료되는 명시적 primary 및 backup identity가 필요합니다.
 - **버전을 고정하고 취소할 수 있습니다.** 권한 리비전, 정책 digest, 대상 리비전, ActionType 및
   워크플로우 버전, 증거 리비전을 고정합니다. 불일치, 취소, 정책 변경, 대상 drift 또는 카탈로그
   변경이 발생하면 독립적인 재승인이 필요합니다.
@@ -335,9 +354,6 @@ no-op 으로 끝난다 - 오늘의 동작 그대로이되, 더 넓고 영향도 
 - **Rung 멤버십 소스.** 승인자 그룹에 쓰는 Entra 그룹 바인딩을 재사용할지, 아니면
   on-call 스케줄 연동(PagerDuty/Opsgenie 스케줄 읽기)을 도입해 "누가 primary 인가" 가
   시간 인식적이게 할지. 업스트림은 그룹 우선, 스케줄 연동은 포크 seam 으로 기운다.
-- **상시 권한 작성 정족수.** 사람 override 는 별개 승인자를 요구한다; 상시 권한은
-  자율성을 사전 확약하므로 리스크 분류 테이블에 이미 쓰이는 **정족수 2 상향**
-  ([risk-classification-ko.md](risk-classification-ko.md))이 필요할 가능성이 크다. 확인 필요.
 - **긴급도 함수 형태.** `k * remaining_lead_time` 압축은 시작 휴리스틱이다; 정확한 곡선은
   enforce 전에 과거 예보-대-위반 시리즈로 backtest 할 튜닝 파라미터다.
 

@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 7eee02d07bcf34b604f17dd9941996fbbdcd00b0
+translation_source_sha: 2aaa7d7bd36a70e6cd8f96bcbefd51896a5aaf3f
 translation_revised: 2026-08-02
 ---
 
@@ -83,9 +83,11 @@ journal 은 "어떻게 여기까지 왔는가?"에 답합니다. Typed event 는
 lifecycle, wait/approval/decision 상태, parallel branch 결과, compensation, timeout,
 terminal 결과를 다룹니다. Approval step 은 서로 다른 승인 principal 수를 세고,
 `no_self_approval` 이 켜져 있으면 requester 를 제외하며, quorum 을 충족할 때까지
-waiting 상태를 유지합니다. Wait 및 approval timeout 은 Process 를 `timed_out` 으로
-종료합니다. Parallel branch 는 동시에 실행되고 parent snapshot revision 을 두고
-경쟁하지 않는 child event 를 기록합니다.
+waiting 상태를 유지합니다. Applied step이 없는 wait 및 approval timeout은 Process를
+`timed_out`으로 끝내지만 applied step 이후에는 forward dispatch를 중단하고 compensation에
+진입합니다. Parallel branch는 동시에 실행되고 parent snapshot revision을 두고 경쟁하지 않는
+child event를 기록하지만 failure는 새 branch dispatch를 freeze하고 applied receipt를 join한 뒤
+reverse-dependency compensation을 시작합니다.
 
 Ontology graph 는 source of truth 가 아니라 read model 입니다. 각 event 가 commit 된
 후 `ProcessOntologyProjector` 가 현재 `Process` object 와 `targets` link 를

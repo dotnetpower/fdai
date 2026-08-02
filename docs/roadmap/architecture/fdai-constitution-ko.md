@@ -1,7 +1,7 @@
 ---
 title: FDAI 헌법
 translation_of: fdai-constitution.md
-translation_source_sha: ccb23f1948019eb65da652422e3fd21980a5bb13
+translation_source_sha: c287646ab889b825f021f8c0a78deca1228030b9
 translation_revised: 2026-08-01
 ---
 # FDAI 헌법
@@ -52,6 +52,18 @@ Azure가 구현된 공급자입니다. 공급자 계약은 클라우드 공급�
 - 권위 있는 관측 대신 온톨로지 또는 카탈로그 쓰기에서 추론한 외부 사실
 - 검토 및 승격 증거 없이 권한을 높인 학습 결과
 
+모든 decision-critical evidence receipt는 authority class, 인증된 source identity, scope,
+purpose, query 또는 detector version, event/recorded time, freshness policy, coverage 또는
+completeness, provenance digest 및 synthetic status를 명시합니다. Synthetic 또는 fixture evidence는
+mechanics를 검증할 수 있지만 live readiness, production approval 또는 promotion evidence를
+충족하지 못합니다. Absence claim에는 positive coverage와 completeness proof가 필요하며 missing,
+censored, inaccessible 또는 unobserved data는 healthy가 아니라 unknown으로 남습니다.
+
+Effect verification은 executor 및 command channel과 독립적입니다. Broker, provider 또는 API
+receipt는 dispatch만 증명합니다. 별도 observer가 authoritative effect source로 expected observation
+window를 닫습니다. 충돌하는 authoritative source는 명시적 conflict로 남아 자율성을 낮추며
+aggregation으로 평균 내어 숨기지 않습니다.
+
 ## 제3조: 에이전트 주도 권한
 
 **FDAI-CONST-003 - 독립적인 책임 에이전트.** 모든 capability와 상태 전이에는 고정된 15개
@@ -71,6 +83,12 @@ composition-owned registry를 통해 소유된 변경 불가능한 projection을
 - Bragi는 자연어와 형식화된 도구 사이를 번역하며 판단, 승인 또는 실행하지 않습니다.
 - Saga와 Vidar는 변경 작업의 필수 의존성입니다. 사용할 수 없으면 capability를 shadow 또는
   무작업으로 낮추며 실패 시 권한을 열지 않습니다.
+
+Dependency loss는 필요한 계약 전체가 독립적으로 계속 사용 가능한 경로만 보존합니다. Read,
+deny, queue 및 shadow evaluation은 계속할 수 있습니다. Judge, executor, auditor, recovery path,
+필수 observer, context materializer 또는 적용되는 approval lane이 unavailable이면 state change를
+차단합니다. 한 component의 heartbeat 또는 cached output이 누락된 authority나 fresh evidence
+receipt를 대체하지 않습니다.
 
 ## 제4조: 의미, 정책 및 학습 경계
 
@@ -96,6 +114,12 @@ composition-owned registry를 통해 소유된 변경 불가능한 projection을
 모든 활성, 후보 또는 계산된 임계값은 의미 형식, 단위, 범위, 허용 구간, 정확한 버전 또는
 digest, 유효 구간, 증거 cutoff, 알고리즘 또는 모델 버전, 승격 증거 및 롤백 대상을 기록합니다.
 Replay는 원래 결정 cutoff의 정확한 값을 해석하며 최신 값이 과거 결정을 다시 쓰지 않습니다.
+
+모든 decision context는 event time, recorded time, 각 fact의 effective interval, evidence cutoff,
+source별 freshness receipt 및 trusted UTC clock source를 고정합니다. 늦은 evidence는 새 revision을
+만들며 원래 context를 다시 쓰지 않습니다. Deadline은 persisted instant에 trusted UTC를 사용하고
+process 내부 경과시간에는 monotonic time을 사용합니다. Time authority 누락, 과도한 clock skew,
+future-effective fact 또는 expired fact는 자율성을 낮추고 replay에 계속 표시됩니다.
 
 ## 제5조: 운영 도메인
 
@@ -124,6 +148,18 @@ capability이며 Architecture Review Board 거버넌스는 모든 도메인에 �
 도메인 적용 범위에는 관측, 정규화, 증거 수집, 결정, 계획, 권한 확인, 실행, 검증 및 학습의
 전체 루프가 필요합니다. Target, Implemented 및 Planned 상태는 항상 명시적으로 구분합니다.
 
+각 도메인 capability는 frozen scenario pack에 성공적인 전체 루프, 명시적 unknown 또는 deny,
+cross-objective conflict, 부분 실패 및 복구, A3-E 또는 문서화된 non-applicability, 인용된 runtime
+evidence를 가진 결정론적 replay가 모두 있을 때만 covered입니다. 최소 outcome은 다음과 같습니다.
+
+| Capability | 필수 outcome proof |
+|------------|--------------------|
+| SRE | SLO 또는 incident detection부터 독립적으로 검증된 recovery 및 recurrence closure까지 |
+| ARB / Change Safety | graph diff 및 constraint부터 approval condition 및 post-change verification까지 |
+| FinOps | forecast 또는 finding부터 protected reliability objective를 유지한 realized savings까지 |
+| DR | failover 또는 restore부터 data-integrity check 및 측정된 RTO/RPO까지 |
+| Chaos Engineering | 명시적인 사람 승인 injection부터 continuous stop guard 및 verified recovery까지. A3-E injection은 적용되지 않음 |
+
 ## 제6조: 목표 우선순위
 
 **FDAI-CONST-006 - 최적화보다 제약 우선.** FDAI는 먼저 상위 제약을 위반하는 모든 선택지를
@@ -144,18 +180,22 @@ capability이며 Architecture Review Board 거버넌스는 모든 도메인에 �
 
 ## 제7조: 자율 작업 안전조건
 
-**FDAI-CONST-007 - 모든 자율 변경의 7개 안전조건.** 다음 7개 안전조건이 모두 있고
-검증되지 않으면 자율 변경을 실행할 수 없습니다.
+**FDAI-CONST-007 - 모든 자율 상태 변경의 7개 안전조건.** 관리 리소스, 외부 시스템, 내구성
+artifact, 승인 상태 또는 알림 상태를 변경하는 작업은 7개 안전조건을 모두 선언하고 dispatch
+전 검사를 통과해야 합니다.
 
 1. 기계가 평가할 수 있는 중단 조건
 2. 테스트된 롤백 또는 제한된 복구 경로
 3. 계산된 영향 범위 및 장애 반경 제한
 4. 성공한 what-if 또는 dry-run 증명
-5. 인과 순서를 적용해 획득한 리소스별 잠금
+5. 인과 순서를 적용해 획득한 logical-target 잠금. 관리 리소스 변경에는 리소스 ID를 사용
 6. 중복 억제를 포함한 안정적인 멱등성 키
-7. 결정, 권한, 실행 및 결과를 포함하는 추가 전용 감사 레코드
+7. Side effect 전에 내구화한 append-only audit intent와 실행 후 execution/outcome closure
 
-성공을 보고하기 전에 독립적인 효과 검증이 필요합니다. 새 capability는 shadow 모드에서
+잠금은 side-effect commit까지 유지합니다. 긴 관측 window는 잠금을 무기한 유지하는 대신 고정된
+대상 revision을 사용합니다. 순수 A0 read와 설명은 mutation rollback, dry-run 또는 mutation
+lock을 요구하지 않지만 read 계약의 권한, 제한된 증거, redaction, correlation 및 audit를
+유지합니다. 성공을 보고하기 전에 독립적인 효과 검증이 필요합니다. 새 capability는 shadow 모드에서
 시작합니다. 승격은 명시적이고 capability별로 수행되며 증거로 제한됩니다. 런타임, 환경,
 활성화 상태 및 포크 상태와 독립적입니다. 회귀 또는 필수 의존성의 사용 불가는 권한을
 자동으로 낮춥니다.
@@ -164,20 +204,27 @@ capability이며 Architecture Review Board 거버넌스는 모든 도메인에 �
 
 **FDAI-CONST-008 - 위험으로 제한된 자율성.** FDAI는 작업 위험에 따라 권한을 분류합니다.
 
-| 등급 | 권한 |
-|------|------|
-| A0 | 변경 없이 관측, 설명 및 시뮬레이션 |
-| A1 | 현재 정책 안에서 가역적이고 리소스 범위인 저위험 작업 실행 |
-| A2 | 측정되고 사전승인된 범위 안에서 승격된 워크플로우 실행 |
-| A3-H | 영향이 큰 작업을 실행별 독립적인 사람 승인까지 보류 |
-| A3-E | 유효한 상시 사람 권한에 따라 비파괴적이고 가역적인 비상 완화 실행 |
-| A4 | 금지, 자기 승인, 무제한, 테넌트 간 또는 검증할 수 없는 작업 차단 |
+표시 label은 A0-A4를 유지합니다. Machine record는 namespace가 있는 값(`autonomy.a0`,
+`autonomy.a1`, `autonomy.a2`, `autonomy.a3_h`, `autonomy.a3_e`, `autonomy.a4`)을 사용합니다.
+이는 채널 및 알림의 A1-A4 메시지 카테고리와 무관하며 구현은 숫자 suffix로 두 enum family를
+비교, join 또는 변환하면 안 됩니다.
+
+| 표시 등급 | Machine value | 권한 |
+|-----------|---------------|------|
+| A0 | `autonomy.a0` | 변경 없이 관측, 설명 및 시뮬레이션 |
+| A1 | `autonomy.a1` | 현재 정책 안에서 가역적이고 리소스 범위인 저위험 작업 실행 |
+| A2 | `autonomy.a2` | 측정되고 사전승인된 범위 안에서 승격된 워크플로우 실행 |
+| A3-H | `autonomy.a3_h` | 영향이 큰 작업을 실행별 독립적인 사람 승인까지 보류 |
+| A3-E | `autonomy.a3_e` | 유효한 상시 사람 권한에 따라 비파괴적이고 가역적인 비상 완화 실행 |
+| A4 | `autonomy.a4` | 금지, 자기 승인, 무제한, 테넌트 간 또는 검증할 수 없는 작업 차단 |
 
 A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인입니다. 다음 조건을 모두 만족할
 때만 유효합니다.
 
-- 지정된 책임자가 서비스, 인시던트 분류, ActionType, 범위, 트리거, 에스컬레이션 기한,
-  영향 경계, 중단 조건, 롤백, 유효기간 및 주 담당자와 백업 담당자를 승인했습니다.
+- 최소 2명의 normalized distinct human이 승인하며 accountable service owner와 Owner-level
+  authority를 포함합니다. 요청자와 실행자는 승인자가 될 수 없습니다.
+- 승인은 서비스, 인시던트 분류, ActionType, 범위, 트리거, 에스컬레이션 기한, 영향 경계,
+  중단 조건, 롤백, 유효 구간 및 현재 주 담당자와 백업 담당자를 명시합니다.
 - 권한은 리소스 그룹과 동등하거나 더 좁은 범위이며 자체 리비전, 정책 digest, ActionType 및
   워크플로우 버전, 대상 리비전 및 증거 리비전을 고정합니다. 변경 또는 취소가 발생하면 독립적인
   재승인 전까지 적용할 수 없습니다.
@@ -186,9 +233,13 @@ A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인�
   증거를 제공합니다.
 - 모든 담당자 인수인계에서 위임을 다시 확인합니다. 확인이 누락되거나 오래되거나 거절되면
   위임을 일시 중단합니다.
+- 취소는 즉시 적용되고 renewal은 기존 레코드를 연장하지 않고 새로운 immutable revision과
+  fresh quorum, evidence, responder confirmation 및 validity를 생성합니다.
 - 사람의 침묵을 측정하기 전에 선언된 채널 fallback으로 전달을 확인합니다. 모든 연락, 전달 및
   에스컬레이션 시도를 감사합니다.
 - 기한 만료 시 작업이 가역적이고 정확한 경계 안에 계속 있습니다.
+- 선언된 최대 실행시간 전체가 `valid_until` 전에 들어가야 합니다. 그렇지 않으면 실행 중
+  만료되는 권한으로 시작하지 않고 현재 사람 승인으로 돌아갑니다.
 - 감독자가 형식화된 위험 파이프라인으로 다시 진입하며 실행자를 직접 호출하지 않습니다.
 - 실행 직후 알림과 기한이 있는 사후 검토를 수행합니다.
 
@@ -213,6 +264,13 @@ A3-E는 응답 없음에서 추론한 승인이 아니라 미리 받은 승인�
 인스턴스는 활성 경계 안에서 선언된 매개 변수만 변경할 수 있습니다. Step, ActionType, guard,
 순서, 실패 edge 또는 보상을 바꾸면 새 immutable workflow version이 되어 shadow로 돌아갑니다.
 승인된 primitive를 사용해도 새 조합이 사전승인되지는 않습니다.
+
+Failure, cancellation 또는 timeout 이후 Process는 새 forward dispatch를 중단하고 정확한 partial
+state를 기록하며 적용된 step을 reverse dependency order로 normal typed pipeline을 통해
+compensate합니다. Compensation 및 독립적인 recovery verification 전에는 success를 보고할 수
+없습니다. Missing, failed 또는 unscorable compensation은 recovery-incomplete failure로 닫고 영향
+대상에 durable automation hold를 둡니다. Hold는 read 및 별도로 승인된 recovery만 허용하며 사람
+검토가 partial state를 recovered로 다시 표시할 수 없습니다.
 
 ## 제10조: 증거, 추적성 및 개정
 

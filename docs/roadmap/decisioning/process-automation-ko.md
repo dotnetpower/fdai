@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 52c567b304267389bde66bc32945a34aa380fae8
+translation_source_sha: bcdcdeeefc121e15a62f06fb5de5bfaf990cc372
 translation_revised: 2026-08-02
 ---
 
@@ -213,8 +213,16 @@ role-group mapping이 구성된 경우에만 허용 목록 기반 Entra adapter�
   `compensated_by` 액션을 dispatch 하여 역순으로 보상된다.
 - 보상 액션 자체가 `ActionType` 호출이므로 자기만의 rollback contract 와 audit
   엔트리를 가진다 - audit 없는 undo 는 없다.
-- `compensated_by` 가 없고 non-reversible `ActionType` 인 스텝은 부분 상태를
-  남기는 대신 실패를 HIL 로 라우팅하도록 워크플로를 강제한다.
+- `compensated_by` 가 없고 non-reversible `ActionType` 인 스텝은 forward dispatch를 중단하고
+  정확한 partial state를 기록하며 recovery를 HIL로 라우팅합니다. HIL은 partial state를
+  사라지게 하지 않습니다.
+- Applied step 이후 failure, cancellation 또는 timeout은 정상 terminal status 전에 reverse-
+  dependency compensation을 시작합니다. Parallel branch는 새 work를 받지 않고 applied receipt를
+  join한 뒤 compensation order를 계산합니다.
+- Missing, failed 또는 unscorable compensation은 `status=failed`,
+  `recovery_incomplete=true`, 적용/보상 receipt 및 영향 대상의 durable automation hold로 끝납니다.
+  Read와 별도로 승인된 Vidar recovery만 hold를 통과할 수 있습니다. 검증된 full compensation은
+  `status=compensated`를 사용할 수 있지만 partial outcome은 `succeeded`가 될 수 없습니다.
 
 P1 에서 러너는 선형 시퀀스 + 단일 `on_failure` 분기를 실행한다; 선언된
 `compensated_by` 매핑은 로드 시 검증되고 컴파일러가 노출하지만, risk-gate 통합과

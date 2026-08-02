@@ -168,10 +168,10 @@ do all of the following before proposing the change as complete:
    against all ten. A change that weakens judge/executor separation,
    single-writer, approval/execution separation, hard-dependency fail-safe, or
    the deterministic hot-path is not mergeable.
-5. **Uphold all seven safeguards for any autonomous action path.** Every autonomous
+5. **Uphold all seven safeguards for any autonomous state-changing path.** Every such
    action an agent initiates, judges, approves, executes, or audits MUST carry a
-   stop-condition, rollback path, blast-radius limit, dry-run receipt, resource lock,
-   idempotency key, and audit entry - and these MUST be present on the wire payload
+   stop-condition, rollback path, blast-radius limit, dry-run receipt, logical-target lock,
+   idempotency key, and audit intent plus terminal closure - and these MUST be present on the wire payload
    (e.g. `ActionRun`), not only in a constructor default. New behavior ships
    **shadow-first**. An irreversible action is not autonomous and remains HIL+quorum.
 6. **Enforce quorum for irreversible actions.** An `irreversible` ActionType MUST

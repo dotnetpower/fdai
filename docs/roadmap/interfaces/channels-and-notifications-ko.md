@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 536dbf1e2576144910c63e1741bce007103f6dc6
+translation_source_sha: a80f081ec9e12b90323a51d937bbfa811548b2cf
 translation_revised: 2026-08-02
 ---
 
@@ -78,6 +78,9 @@ flowchart LR
 ## 3. 카테고리 (A1-A4)
 
 모든 채널 메시지는 **카테고리 태그**를 운반하고 그 카테고리의 규칙을 준수해야 함.
+이 카테고리는 `notification.a1`부터 `notification.a4`까지의 machine category입니다. 헌법의
+`autonomy.a0`부터 `autonomy.a4`까지의 권한 등급과 무관하며 숫자 suffix는 두 enum family의
+동등성 또는 변환을 의미하지 않습니다.
 
 | 카테고리 | 방향 | 예시 | 필요한 인증 강도 |
 |----------|------|------|-----------------|

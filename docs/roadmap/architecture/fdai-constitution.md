@@ -50,6 +50,18 @@ The following outcomes are constitutional violations with a threshold of zero:
 - external truth inferred from an ontology or catalog write instead of authoritative observation;
 - learned output that raises authority without review and promotion evidence.
 
+Every decision-critical evidence receipt names its authority class, authenticated source identity,
+scope, purpose, query or detector version, event and recorded time, freshness policy, coverage or
+completeness, provenance digest, and synthetic status. Synthetic or fixture evidence may validate
+mechanics but never satisfies live readiness, production approval, or promotion evidence. An
+absence claim requires positive coverage and completeness proof; missing, censored, inaccessible,
+or unobserved data remains unknown rather than healthy.
+
+Effect verification is independent of the executor and its command channel. A broker, provider, or
+API receipt proves dispatch only. A distinct observer using an authoritative effect source closes
+the expected observation window. Conflicting authoritative sources remain an explicit conflict and
+lower autonomy; aggregation never averages the conflict away.
+
 ## Article 3: Agent-driven authority
 
 **FDAI-CONST-003 - Independent accountable agents.** Every capability and state transition has one
@@ -67,6 +79,12 @@ Single-writer ownership and separation of duties are absolute:
 - Bragi translates between natural language and typed tools; it never judges, approves, or executes.
 - Saga and Vidar are hard dependencies for mutation. Their loss lowers capability to shadow or
   no-op and never fails open.
+
+Dependency loss preserves only paths whose complete required contracts remain independently
+available. Read, deny, queue, and shadow evaluation may continue. A state change is blocked when
+its judge, executor, auditor, recovery path, required observer, context materializer, or applicable
+approval lane is unavailable. One component's heartbeat or cached output never substitutes for a
+missing authority or fresh evidence receipt.
 
 ## Article 4: Semantic, policy, and learning boundaries
 
@@ -94,6 +112,12 @@ Every active, candidate, or calculated threshold records its semantic type, unit
 range, exact version or digest, effective interval, evidence cutoff, algorithm or model version,
 promotion evidence, and rollback target. Replay resolves those exact values at the original
 decision cutoff; a latest value never rewrites a historical decision.
+
+Every decision context pins event time, recorded time, each fact's effective interval, the evidence
+cutoff, per-source freshness receipts, and the trusted UTC clock source. Late evidence creates a
+new revision and never rewrites the original context. Deadlines use trusted UTC for persisted
+instants and monotonic elapsed time within a process. Missing time authority, excessive clock skew,
+future-effective facts, or expired facts lowers autonomy and remains visible in replay.
 
 ## Article 5: Operating domains
 
@@ -123,6 +147,19 @@ Coverage requires the complete loop for each domain: observe, normalize, gather 
 plan, authorize, act, verify, and learn. Target, implemented, and planned status must remain
 explicitly separate.
 
+Each domain capability is covered only when its frozen scenario pack includes: a successful
+full-loop case, an explicit unknown or deny case, a cross-objective conflict, a partial failure and
+recovery case, an A3-E case or documented non-applicability, and deterministic replay with cited
+runtime evidence. Minimum domain outcomes are:
+
+| Capability | Required outcome proof |
+|------------|------------------------|
+| SRE | SLO or incident detection through independently verified recovery and recurrence closure |
+| ARB / Change Safety | graph diff and constraints through approval conditions and post-change verification |
+| FinOps | forecast or finding through realized savings while protected reliability objectives remain valid |
+| DR | failover or restore through data-integrity checks and measured RTO/RPO |
+| Chaos Engineering | explicit human-approved injection through continuous stop guards and verified recovery; A3-E injection is not applicable |
+
 ## Article 6: Objective precedence
 
 **FDAI-CONST-006 - Constraints before optimization.** FDAI first removes every option that violates
@@ -144,18 +181,23 @@ automatic arbitration result.
 
 ## Article 7: Autonomous-action safeguards
 
-**FDAI-CONST-007 - Seven safeguards on every autonomous mutation.** An autonomous mutation is
-ineligible unless all seven safeguards are present and verified:
+**FDAI-CONST-007 - Seven safeguards on every autonomous state change.** Any action that changes a
+managed resource, external system, durable artifact, approval state, or notification state is
+ineligible unless all seven safeguards are declared and its pre-dispatch checks pass:
 
 1. a machine-evaluable stop condition;
 2. a tested rollback or bounded recovery path;
 3. a computed impact scope and blast-radius limit;
 4. a successful what-if or dry-run receipt;
-5. a held per-resource lock with causal ordering;
+5. a held logical-target lock with causal ordering, using the resource identity for managed-resource changes;
 6. a stable idempotency key with duplicate suppression;
-7. an append-only audit record covering decision, authority, execution, and outcome.
+7. an append-only audit intent persisted before the side effect and closed with execution and outcome afterward.
 
-Independent effect verification is required before success can be reported. New capabilities begin
+The lock remains held through side-effect commit; long observation windows use the pinned target
+revision rather than holding a lock indefinitely. Pure A0 reads and explanations do not require
+mutation rollback, dry-run, or a mutation lock, but still require authorization, bounded evidence,
+redaction, correlation, and audit according to their read contract. Independent effect
+verification is required before success can be reported. New capabilities begin
 in shadow mode. Promotion is explicit, per capability, evidence-gated, and independent of runtime,
 environment, enabled state, and fork status. A regression or unavailable hard dependency lowers
 authority automatically.
@@ -164,21 +206,27 @@ authority automatically.
 
 **FDAI-CONST-008 - Risk-bounded autonomy.** FDAI classifies authority by action risk:
 
-| Class | Authority |
-|-------|-----------|
-| A0 | observe, explain, and simulate without mutation |
-| A1 | execute a reversible, resource-scoped, low-risk action inside current policy |
-| A2 | execute a promoted workflow inside a measured and pre-approved envelope |
-| A3-H | hold a high-impact action for independent per-execution human approval |
-| A3-E | execute a non-destructive, reversible emergency mitigation under valid standing human authorization |
-| A4 | deny prohibited, self-approved, unbounded, cross-tenant, or unverifiable action |
+The display labels remain A0-A4. Machine records use namespaced values (`autonomy.a0`,
+`autonomy.a1`, `autonomy.a2`, `autonomy.a3_h`, `autonomy.a3_e`, `autonomy.a4`). They are unrelated
+to the A1-A4 message categories in Channels and Notifications; implementations must never compare,
+join, or translate the two enum families by their numeric suffix.
+
+| Display class | Machine value | Authority |
+|---------------|---------------|-----------|
+| A0 | `autonomy.a0` | observe, explain, and simulate without mutation |
+| A1 | `autonomy.a1` | execute a reversible, resource-scoped, low-risk action inside current policy |
+| A2 | `autonomy.a2` | execute a promoted workflow inside a measured and pre-approved envelope |
+| A3-H | `autonomy.a3_h` | hold a high-impact action for independent per-execution human approval |
+| A3-E | `autonomy.a3_e` | execute a non-destructive, reversible emergency mitigation under valid standing human authorization |
+| A4 | `autonomy.a4` | deny prohibited, self-approved, unbounded, cross-tenant, or unverifiable action |
 
 A3-E is approval given in advance, not approval inferred from silence. It is valid only when all of
 these conditions hold:
 
-- a named accountable human approved the service, incident class, ActionTypes, scope, trigger,
-  escalation deadline, impact envelope, stop conditions, rollback, validity period, and primary
-  and backup responders;
+- at least two normalized, distinct humans approved it, including the accountable service owner and
+  an Owner-level authority; the requester and executor are ineligible approvers;
+- the approval names the service, incident class, ActionTypes, scope, trigger, escalation deadline,
+  impact envelope, stop conditions, rollback, validity interval, and current primary and backup responders;
 - the authorization is resource-group-equivalent or narrower and pins its own revision, policy
   digest, ActionType and workflow versions, target revision, and evidence revisions; any change or
   revocation makes it ineligible until independently approved again;
@@ -187,9 +235,13 @@ these conditions hold:
   experiment, or simulation provides equivalent scenario evidence;
 - every ownership handover re-confirms the delegation; missing, stale, or declined confirmation
   suspends it;
+- revocation takes effect immediately and renewal creates a new immutable revision with fresh
+  quorum, evidence, responder confirmation, and validity rather than extending the old record;
 - delivery through the declared channel fallback is confirmed before human silence is measured;
   every contact, delivery, and escalation attempt is audited;
 - the action remains reversible and inside the exact envelope when the deadline expires;
+- the action's declared maximum duration fits entirely before `valid_until`; otherwise it returns
+  to current human approval instead of starting under authority that will expire mid-run;
 - the supervisor re-enters the typed risk pipeline and never calls the executor directly;
 - immediate notification and time-bounded post-action review follow execution.
 
@@ -215,6 +267,13 @@ simulation or dry-run, scenario regression, and explicit promotion. A promoted w
 may vary only declared parameters inside their active bounds. Changing a step, ActionType, guard,
 order, failure edge, or compensation creates a new immutable workflow version that returns to
 shadow; approved primitives do not make a new composition pre-approved.
+
+After any failure, cancellation, or timeout, the Process stops new forward dispatch, records the
+exact partial state, and compensates applied steps in reverse dependency order through the normal
+typed pipeline. It cannot report success until compensation and independent recovery verification
+finish. Missing, failed, or unscorable compensation closes as an explicit recovery-incomplete
+failure and places a durable automation hold on affected targets. The hold permits reads and
+separately approved recovery only; human review cannot relabel partial state as recovered.
 
 ## Article 10: Evidence, traceability, and amendment
 

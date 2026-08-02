@@ -26,8 +26,8 @@ always prevails.
    implementation imports, and shared mutable workflow state are prohibited.
 2. **Deterministic-first:** Resolve repeatable decisions with deterministic rules. Adaptive T2
    decisions require mixed-model, verifier, grounding, risk, and approval gates.
-3. **Safe autonomy:** Every autonomous action requires all seven safeguards: a stop condition,
-   rollback, blast-radius limit, dry-run, per-resource lock, idempotency key, and audit record. New capabilities start in
+3. **Safe autonomy:** Every autonomous state-changing action requires all seven safeguards: a stop condition,
+   rollback, blast-radius limit, dry-run, logical-target lock, idempotency key, and two-phase audit record. New capabilities start in
    shadow and change mode only through the authoritative promotion registry; runtime, environment,
    and fork status never promote or demote them.
 4. **Evidence-governed:** Every decision and action is attributable, observable, and replayable.

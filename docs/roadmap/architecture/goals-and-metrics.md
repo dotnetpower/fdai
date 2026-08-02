@@ -54,9 +54,15 @@ Terms used across all metrics, fixed here to avoid ambiguity:
 
 - **Event**: one normalized, deduplicated item entering the control loop (post `event-ingest`),
   identified by its stable idempotency key. All per-event rates are computed over this unit.
-- **Scenario set**: a frozen, versioned collection of Resilience, Change Safety, and Cost
-  Governance cases used identically for baseline and treatment. Each release records the
-  scenario-set version (e.g. `v2026.07`).
+- **Scenario set**: a frozen, versioned collection spanning SRE, ARB / Change Safety, FinOps / Cost
+  Governance, DR, and Chaos Engineering capability packs, used identically for baseline and
+  treatment. Each release records the scenario-set and per-pack versions (e.g. `v2026.07`).
+
+> **Current coverage gap:** the committed `tests/scenarios/v2026.07` fixture set and schema still
+> encode the legacy `change`, `dr`, and `finops` groupings. They validate mechanics but do not yet
+> satisfy the Constitution's separate SRE, ARB, FinOps, DR, and Chaos capability-pack acceptance.
+> Until versioned pack manifests and the missing cases land, FDAI must not claim complete domain
+> coverage from that fixture set.
 - **Reference agent**: the fixed comparison system (documented, single-model, no tiering)
   measured in Phase 0. Its version is pinned per baseline run.
 - **Human touchpoint**: any action requiring a human decision or input (HIL approval, manual

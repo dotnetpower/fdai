@@ -26,6 +26,7 @@ def test_required_context_composes_every_matching_route() -> None:
     required = module.required_context(("src/fdai/delivery/operator_api/dev/factory.py",))
 
     assert ".github/copilot-instructions.md" in required
+    assert "docs/roadmap/architecture/fdai-constitution.md" in required
     assert ".github/instructions/coding-conventions.instructions.md" in required
     assert ".github/instructions/app-shape.instructions.md" in required
     assert "docs/roadmap/deployment/dev-and-deploy-parity.md" in required
