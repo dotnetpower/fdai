@@ -32,6 +32,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from fdai.agents._framework.arbitration import (
     _DEFAULT_PRIORITY,
+    ArbitrationOutcome,
     MultiObjectiveArbiter,
     RecentDecision,
     TemporalPolicy,
@@ -40,6 +41,7 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _ODIN
+from fdai.agents._framework.vertical_precedence import CrossVerticalPrecedence
 
 #: Bounded outcome vocabulary for the portfolio monitor. Anything a
 #: producer sends outside it folds into ``unknown`` rather than growing
@@ -102,6 +104,7 @@ class Odin(Agent):
         temporal_policy: TemporalPolicy | None = None,
         history: DecisionHistory | None = None,
         history_window: int = 10,
+        vertical_precedence: CrossVerticalPrecedence | None = None,
     ) -> None:
         super().__init__(spec=_ODIN)
         self.bus = bus
@@ -125,6 +128,7 @@ class Odin(Agent):
         self._temporal_policy = temporal_policy
         self._history: DecisionHistory = history or NoopDecisionHistory()
         self._history_window = history_window
+        self._vertical_precedence = vertical_precedence
         # Conversational grounding for the arbitration and portfolio tools.
         # Last decision only (not a log): the durable record is Saga's audit
         # chain, and retaining more here would duplicate it without the
@@ -170,12 +174,28 @@ class Odin(Agent):
         history: Sequence[RecentDecision] = ()
         if self._temporal_policy is not None and resource_id:
             history = await self._history.recent(resource_id, limit=self._history_window)
-        outcome = self._arbiter.resolve(
-            domains,
-            impacts,
-            history=history,
-            policy=self._temporal_policy,
+        precedence_winner = (
+            self._vertical_precedence.winner(domains)
+            if self._vertical_precedence is not None
+            else None
         )
+        if precedence_winner is None:
+            outcome = self._arbiter.resolve(
+                domains,
+                impacts,
+                history=history,
+                policy=self._temporal_policy,
+            )
+        else:
+            losers = tuple(domain for domain in domains if domain != precedence_winner)
+            outcome = ArbitrationOutcome(
+                winner=precedence_winner,
+                losers=losers,
+                objective_scores={domain: float(domain == precedence_winner) for domain in domains},
+                margin=1.0,
+                escalate_hil=False,
+                reason="initial_vertical_precedence",
+            )
         decision = ArbitrationDecision(
             correlation_id=str(request.get("correlation_id", "")),
             winning_domain=outcome.winner,

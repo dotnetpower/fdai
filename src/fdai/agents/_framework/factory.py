@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import Freyr
@@ -31,7 +32,7 @@ from fdai.agents.vidar import Vidar
 # defaults so tests can instantiate the pantheon without wiring
 # backends.
 _CLASSES: tuple[Callable[[], Agent], ...] = (
-    Odin,
+    lambda: Odin(vertical_precedence=InitialVerticalPrecedence()),
     Thor,
     Forseti,
     Huginn,

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: effc6bd86a40a76314128ad2abbc69c34a4b68e7
+translation_source_sha: c7d1b10922c18840b03fd5c532c2241fb0d5b023
 translation_revised: 2026-08-02
 ---
 
@@ -145,6 +145,12 @@ Odin은 `src/fdai/agents/_framework/arbitration.py`의 결정론적 **다목적*
 `MultiObjectiveArbiter`로 충돌을 해소합니다.
 
 - **헌법 적격성을 먼저 확인합니다.** Forseti와 risk gate는 안전, 보안, ID, 데이터 무결성, 복구 또는 서비스 목표 제약을 위반하는 선택지를 제거합니다. Odin은 적격 선택지만 받으며 어떤 점수도 실패한 강제 제약을 보상할 수 없습니다.
+
+- 초기 세 execution vertical로만 구성된 충돌은 먼저 고정 safety precedence
+  `resilience_safety_hold > resilience > change_safety > cost`를 사용합니다. 이 policy는
+  공유 `PrecedenceResolver`의 Pantheon adapter이며 impact magnitude가 active recovery 또는
+  change-safety hold를 상쇄할 수 없습니다. Unknown, duplicate, security 또는 capacity domain은
+  아래 weighted arbiter로 전달됩니다.
 
 - 각 도메인은 설정된 **가중치**를 가진다(기본은 우선순위 순서
   `resilience > security > change_safety > cost > capacity`에서 도출;
