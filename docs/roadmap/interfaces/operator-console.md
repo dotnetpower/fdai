@@ -253,6 +253,9 @@ flowchart TD
   - `chat_knowledge_context.py` reads exact prior-turn runbooks, source freshness, consented memory,
     and materialized learning without writing state; `chat_vision_prompt.py` projects validated images;
     `chat_verification_text.py` and `chat_verification_rendering.py` own terminal integrity and prose.
+  - `read_investigation_responder.py` renders every registered Heimdall read intent from typed
+    evidence fields. Missing evidence produces an explicit unavailable answer, and an unhandled
+    intent fails exhaustive type checking instead of falling back to generic success prose.
 
 English and Korean presentation literals in these layers are authored as NFC UTF-8. The repository
 gate rejects escaped Hangul prose and matching tokens, with exact rationale-bearing exceptions only

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 5c99d1b1809349529a2c0b0619a5056f94998639
+translation_source_sha: 658f2176b0547cbecb7f99b57631281d1e83aa83
 translation_revised: 2026-08-04
 ---
 
@@ -246,6 +246,9 @@ flowchart TD
   - `chat_knowledge_context.py`는 state write 없이 exact prior-turn runbook, source freshness, consented memory,
     materialized learning을 읽고, `chat_vision_prompt.py`는 검증된 image를 projection하며,
     `chat_verification_text.py`와 `chat_verification_rendering.py`는 terminal integrity와 prose를 소유합니다.
+  - `read_investigation_responder.py`는 등록된 모든 Heimdall read intent를 typed evidence field에서
+    렌더링합니다. Evidence가 없으면 명시적인 unavailable answer를 반환하며, 처리되지 않은 intent는
+    generic success prose로 fallback하지 않고 exhaustive type checking에서 실패합니다.
 
 이 layer의 영어 및 한국어 presentation literal은 NFC UTF-8로 작성합니다. Repository gate는 escape된
 Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만

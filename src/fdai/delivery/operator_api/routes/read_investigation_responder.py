@@ -7,7 +7,7 @@ import json
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Protocol, assert_never
 
 from fdai.agents import Bragi, Heimdall
 from fdai.core.read_investigation import (
@@ -39,6 +39,7 @@ from fdai.shared.providers.conversation_channel import (
 )
 from fdai.shared.providers.read_investigation import (
     ReadEvidenceEnvelope,
+    ReadEvidenceRecord,
     ReadInvestigationIntent,
     ReadLatencyProfileStore,
     ReadToolId,
@@ -266,7 +267,66 @@ def _render_answer(
             "resource can be outside the server-owned scope, or reader/provider authorization "
             "can be unavailable; this result does not guess between those causes."
         )
-    if intent is ReadInvestigationIntent.NETWORK_SECURITY and records:
+    if intent is ReadInvestigationIntent.RESOURCE_STATE:
+        if records:
+            latest = max(records, key=lambda record: record.occurred_at)
+            observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+            state = latest.state or latest.status
+            return (
+                f"{resource_name}의 관찰된 상태는 {state}이며 관찰 시각은 {observed}입니다."
+                if korean
+                else f"The observed state of {resource_name} is {state} at {observed}."
+            )
+        return (
+            f"{resource_name}의 현재 상태를 확인할 evidence가 없습니다."
+            if korean
+            else f"No evidence is available to confirm the current state of {resource_name}."
+        )
+    if intent is ReadInvestigationIntent.PLATFORM_HEALTH:
+        if records:
+            latest = max(records, key=lambda record: record.occurred_at)
+            observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+            health = latest.health_kind or latest.state or latest.status
+            return (
+                f"{resource_name}의 관찰된 플랫폼 상태는 {health}이며 관찰 시각은 {observed}입니다."
+                if korean
+                else f"The observed platform health of {resource_name} is {health} at {observed}."
+            )
+        return (
+            f"{resource_name}의 플랫폼 상태를 확인할 evidence가 없습니다."
+            if korean
+            else f"No evidence is available to confirm platform health for {resource_name}."
+        )
+    if intent is ReadInvestigationIntent.GUEST_SHUTDOWN:
+        shutdowns = sorted(
+            (
+                record
+                for record in records
+                if record.operation_kind in {"shutdown", "power_off", "guest_shutdown"}
+            ),
+            key=lambda record: record.occurred_at,
+            reverse=True,
+        )
+        if shutdowns:
+            latest = shutdowns[0]
+            observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+            return (
+                f"{resource_name}의 guest OS 종료 evidence가 {observed}에 관찰되었습니다."
+                if korean
+                else f"Guest OS shutdown evidence for {resource_name} was observed at {observed}."
+            )
+        return (
+            f"구성된 guest log에서 {resource_name}의 OS 종료 evidence를 찾지 못했습니다."
+            if korean
+            else f"No OS shutdown evidence for {resource_name} was found in configured guest logs."
+        )
+    if intent is ReadInvestigationIntent.NETWORK_SECURITY:
+        if not records:
+            return (
+                f"{resource_name}의 NSG 구성 evidence가 없습니다."
+                if korean
+                else f"No NSG configuration evidence is available for {resource_name}."
+            )
         allowed = [
             record
             for record in records
@@ -287,7 +347,13 @@ def _render_answer(
         )
         prefix = "확인된 inbound 허용 규칙" if korean else "observed inbound allow rules"
         return f"{resource_name} {prefix}: {rendered}.{caveat}"
-    if intent is ReadInvestigationIntent.NETWORK_PEERING and records:
+    if intent is ReadInvestigationIntent.NETWORK_PEERING:
+        if not records:
+            return (
+                f"{resource_name}의 VNet peering evidence가 없습니다."
+                if korean
+                else f"No VNet peering evidence is available for {resource_name}."
+            )
         rendered = "; ".join(_render_peering(record.details, record.status) for record in records)
         caveat = (
             " 반대편 VNet과 effective route를 확인하지 않은 연결은 단방향 증거입니다."
@@ -337,62 +403,70 @@ def _render_answer(
                 "Azure Activity Log."
             )
         )
-    if intent in {
-        ReadInvestigationIntent.CHANGE_ATTRIBUTION,
-        ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY,
-    }:
-        successful_stops = sorted(
-            (
-                record
-                for record in records
-                if record.status == "succeeded"
-                and record.operation_kind in {"stop", "deallocate", "power_off"}
-            ),
-            key=lambda record: record.occurred_at,
-            reverse=True,
+    if intent is ReadInvestigationIntent.CHANGE_ATTRIBUTION:
+        return _render_stop_history(resource_name=resource_name, records=records, korean=korean)
+    if intent is ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY:
+        return _render_stop_history(resource_name=resource_name, records=records, korean=korean)
+    assert_never(intent)
+
+
+def _render_stop_history(
+    *,
+    resource_name: str,
+    records: tuple[ReadEvidenceRecord, ...],
+    korean: bool,
+) -> str:
+    successful_stops = sorted(
+        (
+            record
+            for record in records
+            if record.status == "succeeded"
+            and record.operation_kind in {"stop", "deallocate", "power_off"}
+        ),
+        key=lambda record: record.occurred_at,
+        reverse=True,
+    )
+    if successful_stops:
+        latest = successful_stops[0]
+        observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+        operation = latest.operation_kind or "stop"
+        actor = (
+            f"{latest.actor_kind.value} ({latest.actor_ref})"
+            if latest.actor_kind is not None and latest.actor_ref is not None
+            else None
         )
-        if successful_stops:
-            latest = successful_stops[0]
-            observed = latest.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
-            operation = latest.operation_kind or "stop"
-            actor = (
-                f"{latest.actor_kind.value} ({latest.actor_ref})"
-                if latest.actor_kind is not None and latest.actor_ref is not None
-                else None
-            )
-            if korean:
-                actor_sentence = (
-                    f" 호출 주체는 {actor}입니다."
-                    if actor is not None
-                    else " 호출 주체는 Activity Log에서 확인되지 않았습니다."
-                )
-                return (
-                    f"{resource_name}의 최근 성공한 중지 작업은 {observed}에 Azure Activity Log에 "
-                    f"기록되었습니다. 작업 종류는 {operation}입니다.{actor_sentence} "
-                    "현재 중지 상태는 적어도 이 "
-                    "시점부터 이어진 것으로 확인됩니다."
-                )
-            actor_sentence = (
-                f" The caller was {actor}."
-                if actor is not None
-                else " The caller was not present in the Activity Log evidence."
-            )
-            return (
-                f"The latest successful stop for {resource_name} was recorded in Azure Activity "
-                f"Log at {observed}. The operation was {operation}.{actor_sentence} "
-                "The current stopped state is "
-                "confirmed from at least that time."
-            )
         if korean:
-            return (
-                f"최근 30일 Azure Activity Log에서 {resource_name}의 성공한 중지 작업을 "
-                "찾지 못해 시작 시각을 확정할 수 없습니다."
+            actor_sentence = (
+                f" 호출 주체는 {actor}입니다."
+                if actor is not None
+                else " 호출 주체는 Activity Log에서 확인되지 않았습니다."
             )
-        return (
-            f"No successful stop operation for {resource_name} was found in the last 30 days of "
-            "Azure Activity Log, so the start time is unconfirmed."
+            return (
+                f"{resource_name}의 최근 성공한 중지 작업은 {observed}에 Azure Activity Log에 "
+                f"기록되었습니다. 작업 종류는 {operation}입니다.{actor_sentence} "
+                "현재 중지 상태는 적어도 이 "
+                "시점부터 이어진 것으로 확인됩니다."
+            )
+        actor_sentence = (
+            f" The caller was {actor}."
+            if actor is not None
+            else " The caller was not present in the Activity Log evidence."
         )
-    return f"Read investigation for {resource_name}: {outcome}; evidence sources={len(evidence)}."
+        return (
+            f"The latest successful stop for {resource_name} was recorded in Azure Activity "
+            f"Log at {observed}. The operation was {operation}.{actor_sentence} "
+            "The current stopped state is "
+            "confirmed from at least that time."
+        )
+    if korean:
+        return (
+            f"최근 30일 Azure Activity Log에서 {resource_name}의 성공한 중지 작업을 "
+            "찾지 못해 시작 시각을 확정할 수 없습니다."
+        )
+    return (
+        f"No successful stop operation for {resource_name} was found in the last 30 days of "
+        "Azure Activity Log, so the start time is unconfirmed."
+    )
 
 
 def _render_nsg_rule(details: tuple[tuple[str, str], ...]) -> str:
