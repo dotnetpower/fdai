@@ -9,10 +9,10 @@
 # clobber in-progress work. Only a clean tree that is strictly behind gets
 # a `pull --rebase`.
 #
-# Interval (seconds) via FDAI_AUTOPULL_INTERVAL (default 180).
+# Interval (seconds) via FDAI_AUTOPULL_INTERVAL (default 600).
 set -uo pipefail
 
-interval="${FDAI_AUTOPULL_INTERVAL:-180}"
+interval="${FDAI_AUTOPULL_INTERVAL:-600}"
 toplevel="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
 if [ -z "$toplevel" ]; then
   echo "[auto-pull] not a git repository; exiting."

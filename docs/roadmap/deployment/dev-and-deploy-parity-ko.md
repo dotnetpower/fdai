@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 6d6a7167f30e0373c6836c016b535eceb84690de
-translation_revised: 2026-08-01
+translation_source_sha: 5f96a0818e2bcd3895766db222c21fa937b5c85f
+translation_revised: 2026-08-02
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -176,6 +176,10 @@ GitHub Actions extension은 참조한 action tag가 존재하고 다음 step에�
 YAML validation은 계속 활성 상태입니다. Remote action-tag 확인, repository workflow contract test 및
 GitHub Actions runtime validation이 authoritative하며 다른 workflow의 GitHub Actions language support는
 유지됩니다.
+
+Workspace는 Microsoft Terraform extension의 external language server를 비활성화하여 HashiCorp
+Terraform extension만 Terraform language server로 유지합니다. Terraform command는 계속 사용할 수
+있으며 diagnostic과 workspace indexing이 중복되지 않습니다.
 
 선택적 `dev-access: configure VPN on folder open` task는 workstation에 격리된 P2S 개발 접근
 stack의 local state가 있을 때만 활성화됩니다. VPN이 연결되어 있으면 FDAI runtime resource를

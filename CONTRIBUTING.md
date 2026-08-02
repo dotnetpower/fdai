@@ -43,7 +43,7 @@ test suite, no mypy, no build. Bypass once with `git push --no-verify` or
 
 Opening the repo in VS Code also runs two folderOpen tasks (see
 [`.vscode/tasks.json`](.vscode/tasks.json)): `hooks: install` wires both
-tracked hooks automatically, and `git: auto-pull` fetches every few
+tracked hooks automatically, and `git: auto-pull` fetches every 10
 minutes and rebases your local `main` **only when the working tree is
 clean** - keeping everyone close to the remote. Run `git: pull now`
 (rebase, autostash) from the task list any time you want to sync
