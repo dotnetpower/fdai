@@ -78,6 +78,25 @@ interface CommandDeckViewProps {
   readonly onStopStream: () => void;
 }
 
+function InvestigationNextSkeleton() {
+  return (
+    <div class="deck-next-skeleton" aria-hidden="true">
+      <span class="deck-next-skeleton-mark" />
+      <span class="deck-next-skeleton-stack">
+        <span class="deck-next-skeleton-card">
+          <span class="deck-next-skeleton-line is-label" />
+          <span class="deck-next-skeleton-line" />
+        </span>
+        <span class="deck-next-skeleton-session">
+          <span class="deck-next-skeleton-dot" />
+          <span class="deck-next-skeleton-line" />
+          <span class="deck-next-skeleton-pill" />
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export function CommandDeckView({
   open,
   layoutMode,
@@ -156,6 +175,11 @@ export function CommandDeckView({
   const recordCount = snapshot?.records
     ? Object.values(snapshot.records).reduce((count, records) => count + records.length, 0)
     : 0;
+  const lastTurn = turns[turns.length - 1];
+  const lastTurnIsInvestigation = lastTurn?.kind === "activity" ||
+    (lastTurn?.kind === "message" && lastTurn.source === "investigation");
+  const showInvestigationBridge = inFlight && lastTurnIsInvestigation &&
+    lastTurn?.streaming !== true;
   return (
     <>
       <CommandDeckLauncher
@@ -251,6 +275,7 @@ export function CommandDeckView({
                 aria-busy={pending}
                 onScroll={onTranscriptScroll}
               >
+              <div class="deck-transcript-inner">
               {resumedAt ? (
                 <div class="deck-resume-banner" role="status">
                   <span>{t("deck.resumedConversation", {
@@ -271,7 +296,8 @@ export function CommandDeckView({
                 const previousInFlow = previous?.kind === "activity" ||
                   (previous?.kind === "message" && previous.source === "investigation");
                 const nextInFlow = next?.kind === "activity" ||
-                  (next?.kind === "message" && next.source === "investigation");
+                  (next?.kind === "message" && next.source === "investigation") ||
+                  (showInvestigationBridge && index === turns.length - 1);
                 const progressIndex = turn.kind === "message" && turn.source === "investigation"
                   ? turns.slice(0, index).filter((candidate) =>
                       candidate.kind === "message" && candidate.source === "investigation").length
@@ -297,7 +323,7 @@ export function CommandDeckView({
                   />
                 );
               })}
-              {pending ? (
+              {showInvestigationBridge ? <InvestigationNextSkeleton /> : pending ? (
                 <RetrievalTrace
                   snapshot={snapshot}
                   health={health}
@@ -314,6 +340,7 @@ export function CommandDeckView({
                   {t("deck.jumpLatest")} ↓
                 </button>
               ) : null}
+              </div>
               </section>
             </div>
 
@@ -334,59 +361,61 @@ export function CommandDeckView({
               onSubmit(draft);
             }}
           >
-            {slashSuggestions.length > 0 ? (
-              <ul class="deck-slash-palette" aria-label={t("deck.slashCommands")}>
-                {slashSuggestions.map((command, index) => (
-                  <li key={command.name}>
-                    <button
-                      type="button"
-                      class={`deck-slash-item${index === slashActiveIndex ? " is-active" : ""}`}
-                      onMouseEnter={() => onSlashActiveIndex(index)}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        onRunSlashCommand(`/${command.name}`);
-                      }}
-                    >
-                      <span class="deck-slash-name">/{command.name}</span>
-                      <span class="deck-slash-summary muted">{command.summary}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <div class="deck-composer-scope">
-              <strong>{routeLabel}</strong>
-              <span>{t("deck.groundedRecords", { count: recordCount })}</span>
-              {snapshot ? <ContextFreshnessIndicator capturedAt={snapshot.capturedAt} /> : null}
-            </div>
-            <ComposerAttachments />
-            <textarea
-              ref={inputRef}
-              class="deck-input"
-              placeholder={t("deck.inputPlaceholderContext", { route: routeLabel })}
-              value={draft}
-              rows={1}
-              onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}
-              onKeyDown={onInputKeyDown}
-            />
-            <div class="deck-input-actions">
-              {inFlight ? (
-                <button
-                  type="button"
-                  class="deck-btn deck-btn-stop"
-                  onClick={onStopStream}
-                >
-                  {t("deck.stop")}
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  class="deck-btn deck-btn-primary"
-                  disabled={draft.trim().length === 0}
-                >
-                  {t("deck.send")}
-                </button>
-              )}
+            <div class="deck-composer-inner">
+              {slashSuggestions.length > 0 ? (
+                <ul class="deck-slash-palette" aria-label={t("deck.slashCommands")}>
+                  {slashSuggestions.map((command, index) => (
+                    <li key={command.name}>
+                      <button
+                        type="button"
+                        class={`deck-slash-item${index === slashActiveIndex ? " is-active" : ""}`}
+                        onMouseEnter={() => onSlashActiveIndex(index)}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          onRunSlashCommand(`/${command.name}`);
+                        }}
+                      >
+                        <span class="deck-slash-name">/{command.name}</span>
+                        <span class="deck-slash-summary muted">{command.summary}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <div class="deck-composer-scope">
+                <strong>{routeLabel}</strong>
+                <span>{t("deck.groundedRecords", { count: recordCount })}</span>
+                {snapshot ? <ContextFreshnessIndicator capturedAt={snapshot.capturedAt} /> : null}
+              </div>
+              <ComposerAttachments />
+              <textarea
+                ref={inputRef}
+                class="deck-input"
+                placeholder={t("deck.inputPlaceholderContext", { route: routeLabel })}
+                value={draft}
+                rows={1}
+                onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}
+                onKeyDown={onInputKeyDown}
+              />
+              <div class="deck-input-actions">
+                {inFlight ? (
+                  <button
+                    type="button"
+                    class="deck-btn deck-btn-stop"
+                    onClick={onStopStream}
+                  >
+                    {t("deck.stop")}
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    class="deck-btn deck-btn-primary"
+                    disabled={draft.trim().length === 0}
+                  >
+                    {t("deck.send")}
+                  </button>
+                )}
+              </div>
             </div>
           </form>
         </div>

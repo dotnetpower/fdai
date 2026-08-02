@@ -115,6 +115,10 @@ describe("upsertEvidenceBranch", () => {
       fileURLToPath(new URL("./retrieval-trace.tsx", import.meta.url)),
       "utf8",
     );
+    const view = readFileSync(
+      fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
+      "utf8",
+    );
     const reply = readFileSync(
       fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
       "utf8",
@@ -149,6 +153,15 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
     expect(retrieval).toContain('class="deck-turn-source"');
+    expect(view).toContain("function InvestigationNextSkeleton()");
+    expect(view).toContain("showInvestigationBridge");
+    expect(view).toContain("inFlight && lastTurnIsInvestigation");
+    expect(view).toContain("lastTurn?.streaming !== true");
+    expect(view).toContain('class="deck-composer-inner"');
+    expect(view).toContain('class="deck-transcript-inner"');
+    expect(styles).toContain(".deck-next-skeleton {");
+    expect(styles).toContain(".deck-composer-inner {");
+    expect(styles).toContain(".deck-transcript-inner {");
     expect(reply).toContain('<details\n          class="deck-llm-escalation"');
     expect(reply).toContain('class="deck-llm-escalation-chevron"');
     expect(trajectory).toContain("<IntentGraphPhase");

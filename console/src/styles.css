@@ -5770,13 +5770,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-floating .deck-digest,
 .deck-overlay-mode-dock .deck-conversations,
 .deck-overlay-mode-dock .deck-digest { display: none; }
-.deck-overlay-mode-floating .deck-transcript,
-.deck-overlay-mode-dock .deck-transcript { padding: 18px 14px 10px; }
+.deck-overlay-mode-floating .deck-transcript-inner,
+.deck-overlay-mode-dock .deck-transcript-inner { padding: 18px 14px 10px; }
 .deck-overlay-mode-floating .deck-input-row,
 .deck-overlay-mode-dock .deck-input-row {
-  gap: 8px;
   padding: 10px 12px 12px;
 }
+.deck-overlay-mode-floating .deck-composer-inner,
+.deck-overlay-mode-dock .deck-composer-inner { gap: 8px; }
 .deck-overlay-mode-floating .deck-btn-secondary,
 .deck-overlay-mode-dock .deck-btn-secondary { display: none; }
 .deck-overlay-mode-floating .deck-btn-primary,
@@ -6527,11 +6528,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-transcript {
   overflow-y: auto;
-  padding: 28px 32px 12px;
+  padding: 0;
+  font-size: 15px;
+}
+.deck-transcript-inner {
+  width: min(100%, 900px);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 22px 42px 12px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  font-size: 15px;
 }
 .deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
 .deck-resume-banner button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
@@ -6844,6 +6852,70 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-size: 12.5px;
   line-height: 1.55;
 }
+.deck-next-skeleton {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 19px minmax(0, 1fr);
+  gap: 11px;
+  width: min(100%, 780px);
+  animation: deck-investigation-enter .22s cubic-bezier(.22, 1, .36, 1) both;
+}
+.deck-next-skeleton::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -16px;
+  bottom: calc(100% - 9px);
+  left: 9px;
+  width: 1px;
+  background: var(--border);
+}
+.deck-next-skeleton-mark {
+  position: relative;
+  z-index: 1;
+  width: 19px;
+  height: 19px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in oklab, var(--accent) 20%, var(--border));
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 3px var(--bg-elevated);
+}
+.deck-next-skeleton-stack { min-width: 0; display: grid; gap: 8px; }
+.deck-next-skeleton-card {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--accent) 3%, var(--bg-elevated));
+}
+.deck-next-skeleton-session {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) 58px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 3px 7px;
+}
+.deck-next-skeleton-dot,
+.deck-next-skeleton-line,
+.deck-next-skeleton-pill {
+  display: block;
+  background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 45%, var(--bg-subtle) 65%);
+  background-size: 240% 100%;
+  animation: deck-next-skeleton-pulse 1.4s ease-in-out infinite;
+}
+.deck-next-skeleton-dot { width: 15px; height: 15px; border-radius: 50%; }
+.deck-next-skeleton-line { width: min(100%, 520px); height: 10px; border-radius: 5px; }
+.deck-next-skeleton-line.is-label { width: 88px; height: 7px; }
+.deck-next-skeleton-session .deck-next-skeleton-line { width: min(58%, 240px); }
+.deck-next-skeleton-pill { width: 58px; height: 19px; border-radius: 10px; }
+@keyframes deck-next-skeleton-pulse {
+  0%, 100% { background-position: 100% 0; }
+  50% { background-position: 0 0; }
+}
 .deck-investigation {
   position: relative;
   z-index: 1;
@@ -6854,7 +6926,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: transparent;
 }
 .deck-investigation.is-running {
-  animation: deck-investigation-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: deck-investigation-enter .32s cubic-bezier(.22, 1, .36, 1) both;
 }
 @keyframes deck-investigation-enter {
   from { opacity: 0; transform: translateY(5px); }
@@ -7054,7 +7126,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 4px 7px 4px 1px;
   border: 0;
   background: transparent;
-  animation: deck-investigation-rise 0.22s ease forwards;
+  animation: deck-investigation-rise .28s cubic-bezier(.22, 1, .36, 1) forwards;
 }
 .deck-investigation-item-disclosure { min-width: 0; }
 .deck-investigation-item-disclosure > summary {
@@ -7077,6 +7149,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-item-disclosure[open] > summary::after {
   transform: rotate(225deg) translate(-1px, -1px);
+}
+.deck-investigation-item-disclosure[open] > .deck-investigation-execution {
+  animation: deck-execution-detail-enter .18s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes deck-execution-detail-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
 }
 .deck-investigation-item-disclosure .deck-investigation-summary { padding-right: 18px; }
 .deck-investigation-summary {
@@ -8302,14 +8381,26 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 /* Input row ------------------------------------------------------------ */
 .deck-input-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 10px;
+  display: block;
   padding: 12px 20px 16px;
   border-top: 1px solid var(--border);
   background: var(--bg-elevated);
   position: relative;
 }
+.deck-composer-inner {
+  position: relative;
+  width: min(100%, 900px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+.deck-overlay-mode-workspace .deck-composer-inner {
+  box-sizing: border-box;
+  padding-inline: 13px;
+}
+.deck-overlay-mode-workspace .deck-btn-primary,
+.deck-overlay-mode-workspace .deck-btn-stop { min-width: 93px; }
 .deck-composer-scope { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--fg-muted); font-size: 12px; }
 .deck-composer-scope strong { overflow: hidden; color: var(--fg); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .deck-composer-scope > span::before { content: "\00b7"; margin-right: 8px; }
@@ -8720,7 +8811,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .deck-transcript { padding: 16px 12px 8px; }
+  .deck-transcript-inner { padding: 16px 12px 8px; }
   .deck-transcript-tools { overflow-x: auto; padding-inline: 12px; }
   .deck-transcript-tools button { flex: 0 0 auto; min-height: 40px; }
   .deck-turn { padding: 10px 12px; }
@@ -8730,10 +8821,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     overflow-wrap: anywhere;
   }
   .deck-input-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
     padding: 10px 12px 12px;
   }
+  .deck-composer-inner { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+  .deck-overlay-mode-workspace .deck-composer-inner { padding-inline: 0; }
+  .deck-overlay-mode-workspace .deck-btn-primary,
+  .deck-overlay-mode-workspace .deck-btn-stop { min-width: 0; }
+  .deck-input-actions { grid-column: 1 / -1; }
   .deck-composer-scope { flex-wrap: wrap; }
   .deck-composer-scope .deck-context-freshness { width: 100%; margin-left: 0; }
   .deck-input-actions { justify-content: flex-end; }
@@ -8758,6 +8852,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-rt-source,
   .deck-rt-source::after,
   .deck-investigation.is-running,
+  .deck-next-skeleton,
+  .deck-next-skeleton-dot,
+  .deck-next-skeleton-line,
+  .deck-next-skeleton-pill,
+  .deck-investigation-item-disclosure[open] > .deck-investigation-execution,
   .deck-investigation-spinner,
   .deck-branch-item,
   .deck-branch-item::after,
@@ -8769,6 +8868,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     animation: none !important;
   }
   .deck-investigation.is-running,
+  .deck-next-skeleton,
   .deck-branch-item {
     opacity: 1;
     transform: none;
