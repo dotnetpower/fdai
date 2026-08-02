@@ -399,10 +399,7 @@
       "from": "operator-api",
       "to": "postgres",
       "kind": "read",
-      "label": {
-        "en": "Audited projection",
-        "ko": "감사 projection"
-      }
+      "label": null
     },
     {
       "id": "core-to-resource-graph",

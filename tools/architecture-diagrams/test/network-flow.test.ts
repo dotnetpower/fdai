@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { layoutDiagram } from "../src/layout/elk.js";
+import { layoutIntegrityErrors } from "../src/layout/integrity.js";
 import { parseDiagram } from "../src/model/validate.js";
 import { renderSvg } from "../src/render/svg.js";
 
@@ -20,6 +21,19 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.ok(layout.width > layout.height);
   assert.equal(layout.edges.length, spec.edges.length);
   assert.ok(layout.edges.every((edge) => (edge.sections?.length ?? 0) > 0));
+  assert.deepEqual(layoutIntegrityErrors(spec, layout), []);
+  const explicitRoutes = new Set(
+    spec.edges
+      .filter((edge) => edge.route === "orthogonal")
+      .map((edge) => edge.id),
+  );
+  for (const edge of layout.edges.filter((candidate) => explicitRoutes.has(candidate.id))) {
+    const bends = (edge.sections ?? []).reduce(
+      (total, section) => total + (section.bendPoints?.length ?? 0),
+      0,
+    );
+    assert.ok(bends <= 2, `${edge.id} has ${bends} bends`);
+  }
   assert.equal([...svg.matchAll(/data-edge-id=/g)].length, spec.edges.length);
   assert.match(svg, /data-group-id="fdai-vnet"/);
   assert.match(svg, /data-group-id="container-apps-subnet"/);

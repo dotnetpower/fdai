@@ -55,7 +55,7 @@ export interface DiagramEdge {
   kind: EdgeKind;
   label?: LocalizedText;
   protocol?: string;
-  route?: "diagonal" | "curve";
+  route?: "diagonal" | "curve" | "orthogonal";
   step?: number;
 }
 

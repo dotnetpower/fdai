@@ -421,6 +421,112 @@ function boundaryPoint(
   };
 }
 
+function orthogonalRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+): ElkEdgeSection {
+  const sourceCenter = {
+    x: source.x + source.width / 2,
+    y: source.y + source.height / 2,
+  };
+  const targetCenter = {
+    x: target.x + target.width / 2,
+    y: target.y + target.height / 2,
+  };
+  const horizontal =
+    Math.abs(targetCenter.x - sourceCenter.x) >=
+    Math.abs(targetCenter.y - sourceCenter.y);
+  if (horizontal) {
+    const targetIsRight = targetCenter.x >= sourceCenter.x;
+    const startPoint = {
+      x: targetIsRight ? source.x + source.width : source.x,
+      y: sourceCenter.y,
+    };
+    const endPoint = {
+      x: targetIsRight ? target.x : target.x + target.width,
+      y: targetCenter.y,
+    };
+    if (startPoint.y === endPoint.y) {
+      return { id: `${edgeId}-orthogonal-route`, startPoint, endPoint };
+    }
+    const laneX = (startPoint.x + endPoint.x) / 2;
+    return {
+      id: `${edgeId}-orthogonal-route`,
+      startPoint,
+      bendPoints: [
+        { x: laneX, y: startPoint.y },
+        { x: laneX, y: endPoint.y },
+      ],
+      endPoint,
+    };
+  }
+
+  const targetIsBelow = targetCenter.y >= sourceCenter.y;
+  const startPoint = {
+    x: sourceCenter.x,
+    y: targetIsBelow ? source.y + source.height : source.y,
+  };
+  const endPoint = {
+    x: targetCenter.x,
+    y: targetIsBelow ? target.y : target.y + target.height,
+  };
+  if (startPoint.x === endPoint.x) {
+    return { id: `${edgeId}-orthogonal-route`, startPoint, endPoint };
+  }
+  const laneY = (startPoint.y + endPoint.y) / 2;
+  return {
+    id: `${edgeId}-orthogonal-route`,
+    startPoint,
+    bendPoints: [
+      { x: startPoint.x, y: laneY },
+      { x: endPoint.x, y: laneY },
+    ],
+    endPoint,
+  };
+}
+
+function routeLabelPosition(
+  section: ElkEdgeSection,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const points = [
+    section.startPoint,
+    ...(section.bendPoints ?? []),
+    section.endPoint,
+  ];
+  const segments = points.slice(1).map((end, index) => ({
+    start: points[index]!,
+    end,
+    length: Math.hypot(end.x - points[index]!.x, end.y - points[index]!.y),
+  }));
+  const horizontalSegments = segments.filter(
+    (segment) => segment.start.y === segment.end.y,
+  );
+  const targetSide = horizontalSegments
+    .filter((segment) => segment.length >= width + 24)
+    .at(-1);
+  const horizontal = horizontalSegments.sort(
+    (left, right) => right.length - left.length,
+  )[0];
+  const segment =
+    targetSide ??
+    horizontal ??
+    segments.sort((left, right) => right.length - left.length)[0];
+  if (!segment) return { x: section.startPoint.x, y: section.startPoint.y };
+  if (segment.start.y === segment.end.y) {
+    return {
+      x: (segment.start.x + segment.end.x) / 2 - width / 2,
+      y: segment.start.y - height - 6,
+    };
+  }
+  return {
+    x: segment.start.x + 8,
+    y: (segment.start.y + segment.end.y) / 2 - height / 2,
+  };
+}
+
 function applyExplicitRoutes(
   spec: DiagramSpec,
   edges: ElkExtendedEdge[],
@@ -430,29 +536,38 @@ function applyExplicitRoutes(
     const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
     if (
       !specEdge ||
-      (specEdge.route !== "diagonal" && specEdge.route !== "curve")
+      (specEdge.route !== "diagonal" &&
+        specEdge.route !== "curve" &&
+        specEdge.route !== "orthogonal")
     ) {
       return edge;
     }
     const source = nodes.get(endpointNodeId(specEdge.from));
     const target = nodes.get(endpointNodeId(specEdge.to));
     if (!source || !target) return edge;
-    const startPoint = boundaryPoint(source, target);
-    const endPoint = boundaryPoint(target, source);
+    const section = specEdge.route === "orthogonal"
+      ? orthogonalRouteSection(edge.id, source, target)
+      : {
+          id: `${edge.id}-diagonal-route`,
+          startPoint: boundaryPoint(source, target),
+          endPoint: boundaryPoint(target, source),
+        };
     const labels = edge.labels?.map((label) => ({
       ...label,
-      x: (startPoint.x + endPoint.x) / 2 - (label.width ?? 0) / 2,
-      y: (startPoint.y + endPoint.y) / 2 - (label.height ?? 0) / 2,
+      ...(specEdge.route === "orthogonal"
+        ? routeLabelPosition(section, label.width ?? 0, label.height ?? 0)
+        : {
+            x:
+              (section.startPoint.x + section.endPoint.x) / 2 -
+              (label.width ?? 0) / 2,
+            y:
+              (section.startPoint.y + section.endPoint.y) / 2 -
+              (label.height ?? 0) / 2,
+          }),
     }));
     const next: ElkExtendedEdge = {
       ...edge,
-      sections: [
-        {
-          id: `${edge.id}-diagonal-route`,
-          startPoint,
-          endPoint,
-        },
-      ],
+      sections: [section],
       ...(labels ? { labels } : {}),
     };
     delete next.container;

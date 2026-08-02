@@ -56,13 +56,13 @@ groups:
     parent: azure-region
     kind: layer
     presentation: panel
-    label: { en: Private service backends, ko: Private service backend }
+    label: { en: Private services, ko: Private service }
     direction: RIGHT
   - id: platform-services
     parent: azure-region
     kind: layer
     presentation: panel
-    label: { en: "Identity, control plane, and observability", ko: "Identity, control plane 및 observability" }
+    label: { en: Azure platform services, ko: Azure platform service }
     direction: RIGHT
   - id: governed-delivery
     kind: layer
@@ -224,11 +224,13 @@ edges:
     from: event-hubs-pe
     to: core-runtime
     kind: event
+    route: orthogonal
     label: { en: Kafka OAUTHBEARER :9093, ko: Kafka OAUTHBEARER :9093 }
   - id: api-to-event-pe
     from: operator-api
     to: event-hubs-pe
     kind: event
+    route: orthogonal
     label: { en: Typed proposal, ko: Typed proposal }
   - id: registry-to-pe
     from: container-registry
@@ -239,10 +241,12 @@ edges:
     from: registry-pe
     to: core-runtime
     kind: read
+    route: orthogonal
   - id: core-to-key-vault-pe
     from: core-runtime
     to: key-vault-pe
     kind: read
+    route: orthogonal
     step: 4
     label: { en: Native secret resolution, ko: Native secret resolution }
   - id: key-vault-pe-to-service
@@ -253,6 +257,7 @@ edges:
     from: core-runtime
     to: openai-pe
     kind: request
+    route: orthogonal
     step: 4
     label: { en: Verified T2 request, ko: 검증된 T2 요청 }
   - id: openai-pe-to-service
@@ -263,13 +268,14 @@ edges:
     from: core-runtime
     to: postgres
     kind: audit
+    route: orthogonal
     step: 5
     label: { en: State and audit, ko: 상태 및 감사 }
   - id: api-to-postgres
     from: operator-api
     to: postgres
     kind: read
-    label: { en: Audited projection, ko: 감사 projection }
+    route: orthogonal
   - id: core-to-resource-graph
     from: core-runtime
     to: resource-graph

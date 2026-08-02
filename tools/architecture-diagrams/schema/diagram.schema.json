@@ -147,7 +147,7 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal"] },
         "step": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },

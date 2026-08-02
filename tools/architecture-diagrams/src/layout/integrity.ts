@@ -94,6 +94,8 @@ export function layoutIntegrityErrors(
 ): string[] {
   const errors: string[] = [];
   const nodes = [...layout.nodes.values()];
+  const edgeLabelBoxes: Box[] = [];
+  const stepBadgeBoxes: Box[] = [];
 
   for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
     for (
@@ -131,15 +133,41 @@ export function layoutIntegrityErrors(
         errors.push(`Edge '${edge.id}' label has no complete layout box`);
         continue;
       }
+      edgeLabelBoxes.push(box);
       for (const node of nodes) {
         if (intersects(box, node, 2)) {
           errors.push(`Edge '${edge.id}' label overlaps node '${node.id}'`);
         }
       }
+      const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
+      if (specEdge?.step) {
+        const badge = {
+          id: edge.id,
+          x: box.x - 32,
+          y: box.y + box.height / 2 - 13,
+          width: 26,
+          height: 26,
+        };
+        stepBadgeBoxes.push(badge);
+        const endpointIds = new Set([
+          endpointElementId(specEdge.from),
+          endpointElementId(specEdge.to),
+        ]);
+        for (const node of nodes) {
+          if (endpointIds.has(node.id)) continue;
+          if (intersects(badge, node, 1)) {
+            errors.push(`Edge '${edge.id}' step badge overlaps node '${node.id}'`);
+          }
+        }
+      }
     }
 
     const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
-    if (specEdge?.route !== "diagonal" && specEdge?.route !== "curve") continue;
+    if (
+      specEdge?.route !== "diagonal" &&
+      specEdge?.route !== "curve" &&
+      specEdge?.route !== "orthogonal"
+    ) continue;
     const endpointIds = new Set([
       endpointElementId(specEdge.from),
       endpointElementId(specEdge.to),
@@ -165,10 +193,31 @@ export function layoutIntegrityErrors(
           if (endpointIds.has(node.id)) continue;
           if (segmentIntersectsBox(start, end, node, 3)) {
             errors.push(
-              `${specEdge.route === "curve" ? "Curved" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
+              `${specEdge.route === "curve" ? "Curved" : specEdge.route === "orthogonal" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
             );
           }
         }
+      }
+    }
+  }
+
+  for (let leftIndex = 0; leftIndex < edgeLabelBoxes.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < edgeLabelBoxes.length;
+      rightIndex += 1
+    ) {
+      const left = edgeLabelBoxes[leftIndex]!;
+      const right = edgeLabelBoxes[rightIndex]!;
+      if (intersects(left, right, 1)) {
+        errors.push(`Edge labels '${left.id}' and '${right.id}' overlap`);
+      }
+    }
+  }
+  for (const badge of stepBadgeBoxes) {
+    for (const label of edgeLabelBoxes) {
+      if (badge.id !== label.id && intersects(badge, label, 1)) {
+        errors.push(`Edge '${badge.id}' step badge overlaps label '${label.id}'`);
       }
     }
   }

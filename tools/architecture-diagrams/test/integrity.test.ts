@@ -74,6 +74,27 @@ test("reports an edge label that overlaps a node", () => {
   ]);
 });
 
+test("reports overlapping edge labels", () => {
+  const invalid = layout();
+  invalid.edges.push(
+    {
+      id: "first",
+      sources: ["a"],
+      targets: ["b"],
+      labels: [{ id: "first-label", x: 150, y: 20, width: 80, height: 24 }],
+    },
+    {
+      id: "second",
+      sources: ["b"],
+      targets: ["a"],
+      labels: [{ id: "second-label", x: 190, y: 20, width: 80, height: 24 }],
+    },
+  );
+  assert.deepEqual(layoutIntegrityErrors(spec, invalid), [
+    "Edge labels 'first' and 'second' overlap",
+  ]);
+});
+
 test("rejects a diagonal that crosses an unrelated node", () => {
   const diagonalSpec: DiagramSpec = {
     ...spec,
