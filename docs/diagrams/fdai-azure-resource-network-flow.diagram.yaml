@@ -6,14 +6,14 @@ locales:
   en:
     title: FDAI Azure resource network flow
     description: Azure resources, private network boundaries, identities, and governed operator flows for the FDAI deployment.
-    alt: An operator signs in through Microsoft Entra ID and uses either the FDAI Web Console on Azure Static Web Apps or the FDAI CLI. Both clients call the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, and Azure OpenAI connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet, while Azure Database for PostgreSQL runs in its delegated subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests.
+    alt: An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, and Azure OpenAI connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet, while Azure Database for PostgreSQL runs in its delegated subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests.
   ko:
     title: FDAI Azure resource network flow
     description: FDAI Azure 배포의 resource, private network, identity 및 통제된 flow입니다.
-    alt: 운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console 또는 FDAI CLI를 사용합니다. 두 client는 모두 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault 및 Azure OpenAI는 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행되고 Azure Database for PostgreSQL은 delegated subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다.
+    alt: 운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault 및 Azure OpenAI는 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행되고 Azure Database for PostgreSQL은 delegated subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다.
 canvas:
   width: 1600
-  height: 1120
+  height: 960
   direction: DOWN
   rootLayout: row
   padding: 24
@@ -24,6 +24,7 @@ groups:
     presentation: panel
     label: { en: Operator access, ko: 운영자 접근 }
     direction: RIGHT
+    layout: row
   - id: azure-region
     kind: cloud
     presentation: panel
@@ -41,6 +42,7 @@ groups:
     presentation: band
     label: { en: Container Apps infrastructure subnet, ko: Container Apps infrastructure subnet }
     direction: RIGHT
+    layout: row
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -93,23 +95,12 @@ nodes:
     presentation: icon
     label: { en: FDAI Web Console, ko: FDAI Web Console }
     description: { en: Browser-based projections and bounded governed requests, ko: Browser 기반 projection 및 범위가 제한된 통제 요청 }
-  - id: operator-cli
-    parent: operator-access
-    kind: service
-    label: { en: FDAI CLI, ko: FDAI CLI }
-    description: { en: Terminal client for the shared Operator API, ko: Shared Operator API를 사용하는 terminal client }
   - id: operator-api
     parent: container-apps-subnet
     kind: process
     icon: container-apps
     label: { en: Operator API Container App, ko: Operator API Container App }
     description: { en: Separate read and command transport identities with no executor permission, ko: Executor 권한 없이 분리된 read 및 command transport identity }
-  - id: core-runtime
-    parent: container-apps-subnet
-    kind: process
-    icon: container-apps
-    label: { en: FDAI core Container App, ko: FDAI core Container App }
-    description: { en: "Fifteen agents, trust router, safety checks, and privileged executor", ko: "15개 agent, trust router, 안전성 검토 및 권한 있는 executor" }
   - id: scheduled-jobs
     parent: container-apps-subnet
     kind: process
@@ -117,6 +108,12 @@ nodes:
     presentation: icon
     label: { en: Container Apps Jobs, ko: Container Apps Jobs }
     description: { en: "Inventory, detection, canary, measurement, and resilience jobs", ko: "Inventory, detection, canary, measurement 및 resilience job" }
+  - id: core-runtime
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: FDAI core Container App, ko: FDAI core Container App }
+    description: { en: "Fifteen agents, trust router, safety checks, and privileged executor", ko: "15개 agent, trust router, 안전성 검토 및 권한 있는 executor" }
   - id: event-hubs-pe
     parent: private-endpoint-subnet
     kind: service
@@ -212,31 +209,19 @@ edges:
     from: operator
     to: entra-id
     kind: request
+    route: orthogonal
     step: 1
-    label: { en: Sign in, ko: 로그인 }
   - id: entra-to-console
     from: entra-id
     to: operator-console
     kind: approval
-    label: { en: App Role token, ko: App Role token }
-  - id: entra-to-cli
-    from: entra-id
-    to: operator-cli
-    kind: approval
+    route: orthogonal
   - id: console-to-api
     from: operator-console
     to: operator-api
     kind: request
     route: orthogonal-horizontal
     step: 2
-    label: { en: HTTPS request, ko: HTTPS 요청 }
-  - id: cli-to-api
-    from: operator-cli
-    to: operator-api
-    kind: request
-    route: orthogonal-horizontal
-    step: 2
-    label: { en: HTTPS and SSE, ko: HTTPS 및 SSE }
   - id: event-pe-to-backend
     from: event-hubs-pe
     to: event-hubs
@@ -297,7 +282,6 @@ edges:
     to: resource-graph
     kind: read
     route: orthogonal
-    label: { en: Azure control-plane inventory read, ko: Azure control-plane inventory 조회 }
   - id: core-to-monitor
     from: core-runtime
     to: monitor

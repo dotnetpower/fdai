@@ -43,7 +43,7 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-group-id="private-endpoint-subnet"/);
   assert.match(svg, /data-group-id="postgres-subnet"/);
   assert.match(svg, /data-node-id="operator-console"/);
-  assert.match(svg, /data-node-id="operator-cli"/);
+  assert.doesNotMatch(svg, /data-node-id="operator-cli"/);
   for (const groupId of [
     "container-apps-subnet",
     "private-endpoint-subnet",
@@ -70,6 +70,15 @@ test("Azure resource network flow routes every compound edge", async () => {
   const governedDelivery = layout.groups.get("governed-delivery")!;
   assert.ok(operatorAccess.x + operatorAccess.width < azureRegion.x);
   assert.ok(azureRegion.x + azureRegion.width < governedDelivery.x);
+  assert.ok(Math.max(
+    operatorAccess.y,
+    azureRegion.y,
+    governedDelivery.y,
+  ) - Math.min(
+    operatorAccess.y,
+    azureRegion.y,
+    governedDelivery.y,
+  ) <= 1);
   const contentBottom = Math.max(
     operatorAccess.y + operatorAccess.height,
     azureRegion.y + azureRegion.height,
@@ -79,6 +88,15 @@ test("Azure resource network flow routes every compound edge", async () => {
   const vnet = layout.groups.get("fdai-vnet")!;
   const platformServices = layout.groups.get("platform-services")!;
   assert.ok(vnet.x + vnet.width < platformServices.x);
+  assert.ok(privateServices.y - (vnet.y + vnet.height) >= 24);
+  assert.ok(privateServices.y - (vnet.y + vnet.height) <= 32);
+  const operatorNodes = spec.nodes
+    .filter((node) => node.parent === "operator-access")
+    .map((node) => layout.nodes.get(node.id)!);
+  const operatorCenters = operatorNodes.map(
+    (node) => node.y + node.height / 2,
+  );
+  assert.ok(Math.max(...operatorCenters) - Math.min(...operatorCenters) <= 9);
   const platformNodes = spec.nodes
     .filter((node) => node.parent === "platform-services")
     .map((node) => layout.nodes.get(node.id)!);

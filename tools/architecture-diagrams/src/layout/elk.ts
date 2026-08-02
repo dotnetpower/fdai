@@ -376,6 +376,7 @@ function applyGroupPlacements(
   nodes: Map<string, PositionedShape>,
 ): number {
   let bottom = 0;
+  const touchedParents = new Set<string>();
   for (const groupSpec of spec.groups.filter(
     (group) => group.placement === "below" && group.parent,
   )) {
@@ -400,7 +401,7 @@ function applyGroupPlacements(
     const compactDeltaY = siblingTops.length
       ? Math.min(0, parent.y + 52 - Math.min(...siblingTops))
       : 0;
-    if (compactDeltaY) {
+    if (compactDeltaY && !groupSpec.alignWith) {
       for (const sibling of siblingGroups) {
         moveGroupTree(spec, sibling.id, 0, compactDeltaY, groups, nodes);
       }
@@ -419,10 +420,30 @@ function applyGroupPlacements(
         .filter((shape): shape is PositionedShape => Boolean(shape))
         .map((shape) => shape.y + shape.height),
     ];
-    const nextY = Math.max(parent.y + 52, ...siblingBottoms) + 24;
     const alignment = groupSpec.alignWith
       ? groups.get(groupSpec.alignWith)
       : parent;
+    let containingAlignment = alignment;
+    if (groupSpec.alignWith) {
+      let currentId = groupSpec.alignWith;
+      while (currentId) {
+        const current = spec.groups.find(
+          (candidate) => candidate.id === currentId,
+        );
+        if (!current?.parent || current.parent === parent.id) {
+          containingAlignment = groups.get(currentId) ?? alignment;
+          break;
+        }
+        currentId = current.parent;
+      }
+    }
+    const nextY = groupSpec.alignWith && alignment
+      ? Math.max(
+          alignment.y + alignment.height,
+          (containingAlignment?.y ?? alignment.y) +
+            (containingAlignment?.height ?? alignment.height),
+        ) + 24
+      : Math.max(parent.y + 52, ...siblingBottoms) + 24;
     const nextX = alignment
       ? alignment.x + (alignment.width - group.width) / 2
       : parent.x + (parent.width - group.width) / 2;
@@ -430,6 +451,7 @@ function applyGroupPlacements(
     const deltaY = nextY - group.y;
 
     moveGroupTree(spec, group.id, deltaX, deltaY, groups, nodes);
+    touchedParents.add(parent.id);
 
     const groupBottom = group.y + group.height;
     const childBottoms = [
@@ -465,6 +487,7 @@ function applyGroupPlacements(
       groups,
       nodes,
     );
+    touchedParents.add(parent.id);
     const childShapes = [
       ...spec.groups
         .filter((candidate) => candidate.parent === parent.id)
@@ -481,6 +504,29 @@ function applyGroupPlacements(
     );
     parent.height = Math.max(
       parent.height,
+      ...childShapes.map((shape) => shape.y + shape.height - parent.y + 28),
+    );
+    bottom = Math.max(bottom, parent.y + parent.height);
+  }
+  for (const parentId of touchedParents) {
+    const parent = groups.get(parentId);
+    if (!parent) continue;
+    const childShapes = [
+      ...spec.groups
+        .filter((candidate) => candidate.parent === parentId)
+        .map((candidate) => groups.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+      ...spec.nodes
+        .filter((candidate) => candidate.parent === parentId)
+        .map((candidate) => nodes.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+    ];
+    parent.width = Math.max(
+      56,
+      ...childShapes.map((shape) => shape.x + shape.width - parent.x + 28),
+    );
+    parent.height = Math.max(
+      80,
       ...childShapes.map((shape) => shape.y + shape.height - parent.y + 28),
     );
     bottom = Math.max(bottom, parent.y + parent.height);
@@ -512,8 +558,14 @@ function applyRootGroupFlow(
     const contentHeight = Math.max(...rootGroups.map((group) => group.height));
     let x = padding;
     for (const group of rootGroups) {
-      const y = padding + (contentHeight - group.height) / 2;
-      moveGroupTree(spec, group.id, x - group.x, y - group.y, groups, nodes);
+      moveGroupTree(
+        spec,
+        group.id,
+        x - group.x,
+        padding - group.y,
+        groups,
+        nodes,
+      );
       x += group.width + gap;
     }
     return {
@@ -641,13 +693,13 @@ function orthogonalHorizontalRouteSection(
       node.id !== source.id &&
       node.id !== target.id &&
       (targetIsRight
-        ? node.x + node.width <= endPoint.x
-        : node.x >= endPoint.x),
+        ? node.x >= startPoint.x && node.x < endPoint.x
+        : node.x + node.width <= startPoint.x && node.x > endPoint.x),
   );
-  const obstacleEdge = targetIsRight
-    ? Math.max(startPoint.x, ...candidates.map((node) => node.x + node.width))
-    : Math.min(startPoint.x, ...candidates.map((node) => node.x));
-  const laneX = obstacleEdge + (targetIsRight ? 24 : -24) +
+  const nearestObstacle = targetIsRight
+    ? Math.min(endPoint.x, ...candidates.map((node) => node.x))
+    : Math.max(endPoint.x, ...candidates.map((node) => node.x + node.width));
+  const laneX = (startPoint.x + nearestObstacle) / 2 +
     laneIndex * (targetIsRight ? 24 : -24);
   return {
     id: `${edgeId}-orthogonal-horizontal-route`,
