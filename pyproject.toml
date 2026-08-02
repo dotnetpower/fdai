@@ -165,7 +165,12 @@ fdai-benchmark-cybergym = { workspace = true }
 fdai-benchmark-sregym = { workspace = true }
 
 [tool.uv.workspace]
-members = ["evaluation-sdk", "benchmarks/sregym", "benchmarks/cybergym"]
+members = [
+    "evaluation-sdk",
+    "benchmarks/sregym",
+    "benchmarks/cybergym",
+    "extensions/code-assurance",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fdai"]
@@ -181,7 +186,7 @@ include = ["src/fdai", "README.md", "LICENSE", "pyproject.toml"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "extensions/code-assurance/src"]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.
 extend-exclude = ["mocks", "examples"]
@@ -195,6 +200,7 @@ ignore = []
 # Tests intentionally include hardcoded strings like "token" that trip the
 # bandit-style S1xx rules; asserts (S101) are the whole point of the suite.
 "tests/**" = ["S101", "S105", "S106"]
+"extensions/**/tests/**" = ["S101", "S105", "S106"]
 "benchmarks/**/tests/**" = ["S101", "S104"]
 # Developer helper scripts shell out to `git` / `python3` with hardcoded
 # argument lists - the S6xx subprocess warnings assume attacker-controlled
@@ -220,7 +226,7 @@ ignore = []
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src/fdai"]
+files = ["src/fdai", "extensions/code-assurance/src/fdai_code_assurance"]
 
 # aiokafka ships no py.typed marker and no stub package. It is only imported
 # by `delivery/azure/event_bus.py`; the adapter boundary in composition
@@ -237,9 +243,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests", "src/fdai"]
+testpaths = ["tests", "src/fdai", "extensions/code-assurance/tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
-pythonpath = ["."]
+pythonpath = [".", "extensions/code-assurance/src"]
 markers = [
     "integration: requires a live Postgres (pgvector). Skipped unless FDAI_DATABASE_URL is set.",
 ]

@@ -91,6 +91,7 @@ background work gains durable ledgers and bounded failover.
 | P1-23 | Heterogeneous model endpoint and gateway contract | P0-21 | Implemented: capability bindings separate Azure OpenAI or self-hosted provider, direct or APIM route, Azure or OpenAI-v1 protocol, Entra audience, typed capacity, features, and verified provenance; core quorum and narrator transports consume the binding fail closed |
 | P1-24 | PTU-aware capacity and APIM routing | P1-23 | Implemented: Standard TPM and regional/global/data-zone PTU validate separately, live Model Capacities discovery and exact Terraform PTU counts pass, and an optional existing-APIM policy enforces Entra, managed-identity backends, PTU-first bounded Standard spillover, and durable route evidence without changing day-zero inventory |
 | P1-25 | Model endpoint discovery and Settings inventory | P1-23 | Implemented: installable discovery validates concrete Azure OpenAI account/deployment and APIM API/backend/policy state, merges bindings atomically into protected resolved metadata, supports domain-separated signed GPU registration, and projects a sanitized read-only Settings inventory with runtime health |
+| P1-26 | Optional code-assurance package | P0-17 to P1-10 | Implemented: independent wheel contributes bounded read-only GitHub pull-request code/security tools, exact-SHA evidence, governed skills, package-carried tool metadata, disabled-first extension activation, and no GitHub write surface |
 
 The public extension kit lives at `examples/extension-kit/extension-kit.template.json` with the
 machine schema at `rule-catalog/schema/extension-kit.schema.json`. Run:
@@ -106,6 +107,13 @@ Validation is offline. It checks the strict manifest, archive SHA-256, host sema
 unique capability ids, disabled-first state, and a mandatory security review. Dynamic code,
 embedded credentials, direct executor access, network installers, and default-enforce behavior are
 schema-level failures.
+
+The optional `extensions/code-assurance/` workspace package stays outside the FDAI wheel. It uses
+`Pull requests: read` evidence only, caps files and patch characters, rechecks the immutable base and
+head SHAs after pagination, and reports omitted patches as incomplete coverage. Its two tools and
+skills start in shadow mode. A digest-bound `ExtensionPackage` installs disabled and requires the
+normal publisher-trust check before atomic activation; activation does not grant review-posting,
+approval, merge, or executor authority.
 
 Runtime trust uses separate `fdai.extension-signature.v1` and `fdai.skill-signature.v1` payload
 domains. The configured publisher source selects an Ed25519 public key; the signed payload binds

@@ -59,13 +59,16 @@ jobs:
         run: uv sync --extra dev --frozen
 
       - name: ruff format --check
-        run: uv run ruff format --check src tests
+        run: uv run ruff format --check src tests extensions/code-assurance
 
       - name: ruff check
-        run: uv run ruff check src tests
+        run: uv run ruff check src tests extensions/code-assurance
 
       - name: mypy --strict
         run: uv run mypy
+
+      - name: Build code-assurance extension
+        run: uv build --package fdai-code-assurance
 
   python-regression:
     name: pytest regression shard ${{ matrix.shard }}/3

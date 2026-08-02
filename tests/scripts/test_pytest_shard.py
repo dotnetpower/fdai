@@ -32,4 +32,5 @@ def test_change_scope_classification_skips_expensive_python_for_docs_and_console
     assert classify_paths(["alembic/versions/revision.py"]) == (True, False)
     assert classify_paths(["config/rbac-groups.yaml"]) == (True, False)
     assert classify_paths(["tools/seed_p1_rules.py"]) == (True, False)
+    assert classify_paths(["extensions/code-assurance/assets/skill.json"]) == (True, False)
     assert classify_paths(["tests/core/risk_gate/test_gate.py", "README.md"]) == (True, True)

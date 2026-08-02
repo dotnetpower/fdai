@@ -247,6 +247,12 @@ domain agents consume those canonical Events before publishing their owned advis
 | [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Temporary `0.1.x` compatibility facade for legacy benchmark callers. |
 | [benchmarks/](../../../benchmarks/) | Independently packaged SREGym and CyberGym drivers; see the [benchmark adapter design](../interfaces/benchmark-adapters.md). |
 
+## Optional extension packages
+
+| Path | Purpose |
+|------|---------|
+| [extensions/code-assurance/](../../../extensions/code-assurance/) | Independent shadow-first wheel with bounded read-only GitHub pull-request code/security review, self-contained capability bindings, and governed skill assets. |
+
 ## Composition and catalog
 
 | Path | Purpose |

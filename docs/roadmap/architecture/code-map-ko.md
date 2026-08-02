@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f0577ead5066d69a81ebaf157eca5ac752c3060e
+translation_source_sha: e863bb973be91ee80906fa082e96e1df81a1348d
 translation_revised: 2026-08-02
 ---
 # 코드 맵
@@ -251,6 +251,12 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | [src/fdai/evaluation/](../../../src/fdai/evaluation/) | Public host 구현, capability attenuation, artifact custody, workspace policy, typed ingress 및 result receipt입니다. |
 | [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Legacy benchmark caller를 위한 임시 `0.1.x` compatibility facade입니다. |
 | [benchmarks/](../../../benchmarks/) | 독립적으로 package된 SREGym 및 CyberGym driver입니다. [benchmark adapter 설계](../interfaces/benchmark-adapters-ko.md)를 참조하세요. |
+
+## Optional extension package
+
+| 경로 | 용도 |
+|------|------|
+| [extensions/code-assurance/](../../../extensions/code-assurance/) | Bounded read-only GitHub pull-request code/security review, self-contained capability binding, governed skill asset을 제공하는 독립 shadow-first wheel입니다. |
 
 ## Composition과 카탈로그
 

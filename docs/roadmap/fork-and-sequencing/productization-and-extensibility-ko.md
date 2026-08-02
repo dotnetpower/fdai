@@ -1,8 +1,8 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: ce88bac20cf2b801bc710c26215e1df24646aa5d
-translation_revised: 2026-07-23
+translation_source_sha: 642f8365a9884de3b990aff1c73f65d8b2be0fd0
+translation_revised: 2026-08-02
 ---
 # 제품화 및 확장성 계획
 
@@ -94,6 +94,7 @@ durable ledger와 bounded failover를 갖게 됩니다.
 | P1-23 | Heterogeneous model endpoint 및 gateway contract | P0-21 | 구현됨: capability binding이 Azure OpenAI 또는 self-hosted provider, direct 또는 APIM route, Azure 또는 OpenAI-v1 protocol, Entra audience, typed capacity, feature, verified provenance를 분리하며 core quorum 및 narrator transport가 binding을 fail closed 방식으로 사용 |
 | P1-24 | PTU-aware capacity 및 APIM routing | P1-23 | 구현됨: Standard TPM과 regional/global/data-zone PTU를 별도로 검증하고 live Model Capacities discovery 및 정확한 Terraform PTU count가 통과하며 optional existing-APIM policy가 day-zero inventory 변경 없이 Entra, managed-identity backend, PTU-first bounded Standard spillover, durable route evidence를 적용 |
 | P1-25 | Model endpoint discovery 및 Settings inventory | P1-23 | 구현됨: installable discovery가 concrete Azure OpenAI account/deployment 및 APIM API/backend/policy state를 검증하고 protected resolved metadata에 binding을 atomic merge하며 domain-separated signed GPU registration을 지원하고 runtime health가 있는 sanitized read-only Settings inventory를 projection |
+| P1-26 | Optional code-assurance package | P0-17부터 P1-10 | 구현됨: 독립 wheel이 bounded read-only GitHub pull-request code/security tool, exact-SHA evidence, governed skill, package-carried tool metadata, disabled-first extension activation을 제공하며 GitHub write surface는 없음 |
 
 Public extension kit는 `examples/extension-kit/extension-kit.template.json`에 있고 machine schema는
 `rule-catalog/schema/extension-kit.schema.json`에 있습니다. 다음을 실행합니다.
@@ -109,6 +110,13 @@ Validation은 offline입니다. Strict manifest, archive SHA-256, host semantic-
 capability id, disabled-first state, mandatory security review를 검사합니다. Dynamic code, embedded
 credential, direct executor access, network installer, default-enforce behavior는 schema-level
 failure입니다.
+
+Optional `extensions/code-assurance/` workspace package는 FDAI wheel 밖에 유지됩니다. `Pull
+requests: read` evidence만 사용하고 file 및 patch character를 제한하며 pagination 뒤 immutable base 및
+head SHA를 다시 확인하고 omitted patch를 incomplete coverage로 보고합니다. 두 tool과 skill은
+shadow mode에서 시작합니다. Digest-bound `ExtensionPackage`는 disabled 상태로 설치되고 atomic
+activation 전에 일반 publisher-trust 검사를 요구합니다. Activation은 review posting, approval,
+merge 또는 executor authority를 부여하지 않습니다.
 
 Runtime trust는 별도의 `fdai.extension-signature.v1` 및 `fdai.skill-signature.v1` payload domain을
 사용합니다. Configured publisher source가 Ed25519 public key를 선택하고 signed payload는 source,

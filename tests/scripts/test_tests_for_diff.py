@@ -34,6 +34,7 @@ def git_repo(tmp_path: Path) -> Path:
 
     for path in (
         "delivery/dev_operations_gateway",
+        "extensions/code-assurance/tests",
         "src/fdai/core/risk_gate",
         "tests/composition",
         "tests/config",
@@ -133,6 +134,17 @@ def test_selects_tests_for_tool_source(git_repo: Path) -> None:
         "tests/conversation/test_tool_consumer.py",
         "tests/tools",
     ]
+
+
+def test_selects_code_assurance_tests_for_packaged_skill_change(git_repo: Path) -> None:
+    skill = git_repo / "extensions" / "code-assurance" / "assets" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("review instructions\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["extensions/code-assurance/tests"]
 
 
 def test_unknown_python_source_falls_back_to_full_suite(git_repo: Path) -> None:

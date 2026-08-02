@@ -87,14 +87,14 @@ run_gate() {
 # ---- fast gates (always) ----------------------------------------------------
 
 if command -v uv >/dev/null 2>&1; then
-    run_gate "ruff format (src tests)" uv run ruff format --check src tests
-    run_gate "ruff lint (src tests)" uv run ruff check src tests
+    run_gate "ruff format (src tests extensions)" uv run ruff format --check src tests extensions/code-assurance
+    run_gate "ruff lint (src tests extensions)" uv run ruff check src tests extensions/code-assurance
 elif command -v ruff >/dev/null 2>&1; then
-    run_gate "ruff format (src tests)" ruff format --check src tests
-    run_gate "ruff lint (src tests)" ruff check src tests
+    run_gate "ruff format (src tests extensions)" ruff format --check src tests extensions/code-assurance
+    run_gate "ruff lint (src tests extensions)" ruff check src tests extensions/code-assurance
 else
     echo "verify.sh: 'ruff' not found on PATH; skipping (activate the venv first)" >&2
-    NAMES+=("ruff format (src tests)" "ruff lint (src tests)")
+    NAMES+=("ruff format (src tests extensions)" "ruff lint (src tests extensions)")
     RESULTS+=("SKIP" "SKIP")
 fi
 

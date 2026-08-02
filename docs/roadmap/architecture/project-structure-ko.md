@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4fb3c67ba7c94b7c63920c36ba6629959037a3be
+translation_source_sha: 70a5b8e8d8a7afe697fe99205fa265b7fa3f0791
 translation_revised: 2026-08-02
 ---
 
@@ -134,6 +134,8 @@ fdai/
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
 ├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음
+├── extensions/                # 독립적으로 package된 optional capability; FDAI wheel에 포함되지 않음
+│   └── code-assurance/         # read-only bounded GitHub PR code/security review + governed skill asset
 ├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 src/fdai/rule_catalog/ 에
 │   ├── schema/                 # JSON Schema 정의 (데이터)
 │   ├── vocabulary/             # canonical CSP-중립 어휘: resource-types.yaml, object-types/, link-types/

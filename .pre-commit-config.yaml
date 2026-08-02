@@ -34,6 +34,9 @@ repos:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+        # Governed bundle manifests are exact canonical JSON bytes; a trailing
+        # newline makes parse_skill_bundle_manifest reject the artifact.
+        exclude: ^extensions/code-assurance/src/fdai_code_assurance/assets/skill-bundle\.json$
       - id: check-merge-conflict
       - id: check-added-large-files
         args: ["--maxkb=1024"]

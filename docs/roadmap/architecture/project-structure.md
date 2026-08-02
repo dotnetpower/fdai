@@ -129,6 +129,8 @@ fdai/
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── evaluation-sdk/            # independently packageable neutral evaluation contracts and runner; no FDAI implementation imports
 ├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel
+├── extensions/                # independently packaged optional capabilities; not included in the FDAI wheel
+│   └── code-assurance/         # read-only bounded GitHub PR code/security review + governed skill assets
 ├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in src/fdai/rule_catalog/
 │   ├── schema/                 # JSON Schema definitions (data)
 │   ├── vocabulary/             # canonical CSP-neutral vocabularies: resource-types.yaml, object-types/, link-types/
