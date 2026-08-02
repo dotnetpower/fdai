@@ -463,6 +463,7 @@ def make_chat_route(
                             view_context,
                             resource_context=resource_context,
                             conversation_context=conversation_context,
+                            document_refs=document_evidence_refs,
                         ),
                     )
                 except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed

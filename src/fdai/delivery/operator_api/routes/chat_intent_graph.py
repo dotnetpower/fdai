@@ -472,9 +472,13 @@ def planner_context_envelope(
     *,
     resource_context: Mapping[str, str] | None,
     conversation_context: Mapping[str, str] | None,
+    document_refs: Sequence[str] = (),
 ) -> dict[str, object]:
     """Project bounded selector hints for decomposition, never evidence authority."""
     envelope: dict[str, object] = {"authority": "selector_hint"}
+    locale = _bounded_context_text(view_context.get("_locale"), 32)
+    if locale is not None:
+        envelope["locale"] = locale
     screen: dict[str, object] = {}
     for source, target, maximum in (
         ("routeId", "route_id", 128),
@@ -537,6 +541,11 @@ def planner_context_envelope(
             key: value[:256]
             for key, value in conversation_context.items()
             if key in {"kind", "incident_id", "correlation_id", "selected_agent"}
+        }
+    if document_refs:
+        envelope["documents"] = {
+            "authority": "governed_document_ingestion",
+            "evidence_refs": [reference[:256] for reference in document_refs[:8]],
         }
     attachments = view_context.get("_attachments")
     if isinstance(attachments, list):

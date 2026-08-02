@@ -331,6 +331,7 @@ def test_planner_context_envelope_is_bounded_and_allowlisted() -> None:
         {
             "routeId": "resilience",
             "routeLabel": "Resilience",
+            "_locale": "ko-KR",
             "headline": "MTTR is 12 minutes",
             "capturedAt": "2026-08-02T03:00:00Z",
             "facts": [
@@ -374,9 +375,13 @@ def test_planner_context_envelope_is_bounded_and_allowlisted() -> None:
             "selected_agent": "Heimdall",
             "private": "not-projected",
         },
+        document_refs=(
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002",
+        ),
     )
 
     assert envelope["authority"] == "selector_hint"
+    assert envelope["locale"] == "ko-KR"
     screen = envelope["screen"]
     assert isinstance(screen, dict)
     assert screen["facts"][0] == {
@@ -391,6 +396,12 @@ def test_planner_context_envelope_is_bounded_and_allowlisted() -> None:
     assert envelope["attachments"] == [
         {"name": "topology.png", "media_type": "image/png", "byte_size": 42}
     ]
+    assert envelope["documents"] == {
+        "authority": "governed_document_ingestion",
+        "evidence_refs": [
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002"
+        ],
+    }
     serialized = str(envelope)
     assert "must-not-leak" not in serialized
     assert "data:image" not in serialized

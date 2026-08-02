@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 36a9d0931400a8aaec009cda274757f4c88a6d1b
+translation_source_sha: fc248776c4fca8975cc52c14587eca9176a1173e
 translation_revised: 2026-08-02
 ---
 
@@ -40,8 +40,13 @@ Operator API는 이제 one-shot 및 streamed turn의 active planner로 structure
 sibling을 삭제하지 않고 partial result를 만듭니다.
 
 Subscription health는 server-owned scope를 사용하는 typed capability입니다. Agent 및 web capability는
-runtime provider가 bind된 경우에만 planner에 표시됩니다. Legacy single-tool parser는 제거 기간 중
-stored-turn compatibility와 focused rollback test에만 남습니다.
+request 시점에 provider가 ready 및 enabled인 경우에만 planner에 표시됩니다. 반복 read capability는 서로
+다른 validated argument를 사용할 수 있습니다. 실패한 dependency는 descendant를 skip하며 cancellation은
+active provider까지 전달됩니다. Legacy single-tool parser는 제거 기간 중 compatibility test에 남습니다.
+
+Terminal response는 raw provider payload가 아니라 redacted graph와 timestamp가 있는 goal receipt를
+저장합니다. Console은 Observed process에서 goal, dependency, status, evidence mode를 replay합니다. Action
+draft는 confirmation 직전에 현재 capability manifest에 대해 다시 검사합니다.
 
 ## Intent graph 계약
 
@@ -68,7 +73,8 @@ Planner는 model invocation 전에 조립된 bounded context envelope를 받습�
 - 현재 route, 선택한 object, semantic screen fact, unit, measurement window, source age입니다.
 - Principal-scoped conversation history와 operator locale입니다.
 - 검증된 image part와 immutable document evidence reference입니다.
-- RBAC, availability, enabled state, authority와 교차한 runtime capability입니다.
+- Route authorization 이후 availability, enabled state, authority로 필터링한 runtime capability입니다.
+    Draft는 submission route의 현재 RBAC 및 safety gate를 계속 통과해야 합니다.
 - 명시적인 web-search availability와 approved-domain policy입니다.
 
 `이 수치`, `여기`, `Bragi` 같은 참조는 typed context에 대해 해석합니다. 모호한 참조는 clarification
@@ -77,9 +83,9 @@ agent 요청으로 바뀌지 않습니다.
 
 ## Capability registry
 
-하나의 registry가 planner-visible descriptor와 resolver binding을 소유합니다. Descriptor에는 stable
-name, purpose, side-effect class, argument schema, evidence authority, owner, availability, enabled state,
-authority mode, unavailable reason, object type, freshness 특성이 포함됩니다.
+하나의 registry가 planner-visible descriptor를 소유하며 composition은 resolver binding을 typed provider
+seam 뒤에 유지합니다. Descriptor에는 stable name, purpose, side-effect class, argument schema, owner,
+availability, enabled state, authority mode, unavailable reason이 포함됩니다.
 
 Planner는 unavailable capability를 받지 않습니다. Subscription health, inventory, screen read, web
 search, agent-owned read는 같은 계약을 사용합니다. Language term, resource alias, service name은 Python
@@ -98,14 +104,16 @@ search, agent-owned read는 같은 계약을 사용합니다. Language term, res
 
 Web result는 untrusted evidence입니다. Sanitization, approved domain, retrieval time, claim verification이
 계속 필요합니다. Search가 unavailable이면 answer는 model knowledge를 표시하고 freshness 제한을
-설명하며 citation을 날조하지 않습니다. Raw chain-of-thought는 저장하거나 표시하지 않습니다. Bragi는
-간결한 conclusion, evidence, assumption, comparison basis, limitation, uncertainty를 제공합니다.
+설명하며 citation을 날조하지 않습니다. 이 fallback은 validated goal에 fresh evidence가 필요하지 않은
+경우에만 허용됩니다. Raw chain-of-thought는 저장하거나 표시하지 않습니다. Bragi는 간결한 conclusion,
+evidence, assumption, comparison basis, limitation, uncertainty를 제공합니다.
 
 ## Task DAG 컴파일
 
 Deterministic compiler는 검증된 read goal을 bounded task로 변환합니다. 독립 task는 동시에 실행하고,
 dependent task는 선언된 prerequisite를 기다립니다. 각 task에는 stable identity, capability, validated
-argument, deadline, evidence key, authority, dependency, correlation이 포함됩니다.
+argument, deadline, evidence key, authority, dependency, correlation, UTC lifecycle timestamp가 포함됩니다.
+Browser persistence는 bounded reference만 유지하고 provider body를 제거합니다.
 
 복합 subscription diagnosis는 inventory, Resource Health, metric, approved web benchmark read를 fan-out한
 후 시간 정렬과 correlation을 위해 join할 수 있습니다. unavailable branch 하나는 false success나 전체
@@ -127,6 +135,8 @@ Bragi는 evidence collection과 verification 이후 presentation을 streaming합
 
 Recommendation은 executable action이 아닙니다. 명시적인 변경 요청은 기존 안전성과 승인 경로로
 들어가는 typed draft를 만듭니다. Planner는 실행, 승인, promotion, policy 변경을 할 수 없습니다.
+Graph executor는 normal route 밖에서 호출돼도 모든 non-read goal을 거부하며, route는 confirmation data를
+반환하기 직전에 draft availability를 다시 검사합니다.
 
 ## Migration
 

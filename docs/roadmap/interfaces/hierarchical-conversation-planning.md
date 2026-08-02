@@ -38,8 +38,13 @@ the existing tool, web, and agent provider seams. Goal receipts remain in one ev
 a failed or unavailable goal produces a partial result without dropping successful siblings.
 
 Subscription health is a typed capability with server-owned scope. Agent and web capabilities are
-shown to the planner only when their runtime providers are bound. Legacy single-tool parsing remains
-only for stored-turn compatibility and focused rollback tests during removal.
+projected at request time only when their providers are ready and enabled. Repeated read capabilities
+can use distinct validated arguments. Failed dependencies skip their descendants, and cancellation
+reaches active providers. Legacy single-tool parsing remains for compatibility tests during removal.
+
+The terminal response persists a redacted graph and timestamped goal receipts, not raw provider
+payloads. The Console replays goals, dependencies, status, and evidence mode in Observed process.
+Action drafts are checked against the current capability manifest again before confirmation.
 
 ## Intent graph contract
 
@@ -65,7 +70,8 @@ The planner receives a bounded context envelope assembled before model invocatio
 - Current route, selected object, semantic screen facts, units, measurement window, and source age.
 - Principal-scoped conversation history and operator locale.
 - Validated image parts and immutable document evidence references.
-- Runtime capabilities intersected with RBAC, availability, enabled state, and authority.
+- Runtime capabilities projected after route authorization and filtered by availability, enabled
+    state, and authority. A draft still passes the submission route's current RBAC and safety gates.
 - Explicit web-search availability and the approved-domain policy.
 
 References such as `this value`, `here`, or `Bragi` resolve against typed context. Ambiguous
@@ -74,9 +80,9 @@ Bragi use separate namespaces, so a mythology question does not become an agent 
 
 ## Capability registry
 
-One registry owns planner-visible descriptors and resolver bindings. A descriptor contains its
-stable name, purpose, side-effect class, argument schema, evidence authority, owner, availability,
-enabled state, authority mode, unavailable reason, object types, and freshness characteristics.
+One registry owns planner-visible descriptors while composition keeps resolver bindings behind
+typed provider seams. A descriptor contains its stable name, purpose, side-effect class, argument
+schema, owner, availability, enabled state, authority mode, and unavailable reason.
 
 The planner never receives unavailable capabilities. Subscription health, inventory, screen reads,
 web search, and agent-owned reads use the same contract. Language terms, resource aliases, and
@@ -95,15 +101,17 @@ service names remain catalog or ontology data rather than Python question patter
 
 Web results are untrusted evidence. Sanitization, approved domains, retrieval time, and claim
 verification remain required. When search is unavailable, the answer labels model knowledge,
-states freshness limits, and never fabricates citations. Raw chain-of-thought is not persisted or
-shown. Bragi presents a concise conclusion, evidence, assumptions, comparison basis, limitations,
-and uncertainty.
+states freshness limits, and never fabricates citations. This fallback is allowed only when the
+validated goal doesn't require fresh evidence. Raw chain-of-thought is not persisted or shown.
+Bragi presents a concise conclusion, evidence, assumptions, comparison basis, limitations, and
+uncertainty.
 
 ## Task DAG compilation
 
 The deterministic compiler converts validated read goals into bounded tasks. Independent tasks run
 concurrently; dependent tasks wait for declared prerequisites. Each task carries a stable identity,
-capability, validated arguments, deadline, evidence keys, authority, dependencies, and correlation.
+capability, validated arguments, deadline, evidence keys, authority, dependencies, correlation, and
+UTC lifecycle timestamps. Browser persistence keeps bounded references and removes provider bodies.
 
 A compound subscription diagnosis can fan out inventory, Resource Health, metric, and approved web
 benchmark reads, then join them for time alignment and correlation. One unavailable branch produces
@@ -125,7 +133,8 @@ one evidence mode: `screen_grounded`, `operational_grounded`, `web_grounded`, `m
 
 A recommendation is not an executable action. An explicit change request produces a typed draft
 that enters the existing safety and approval path. The planner cannot execute, approve, promote, or
-change policy.
+change policy. The graph executor refuses every non-read goal even if called outside the normal
+route, and the route rechecks draft availability immediately before returning confirmation data.
 
 ## Migration
 
