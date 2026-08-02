@@ -151,6 +151,11 @@ class ChatWebSearchResolver:
     def probe_interval_seconds(self) -> int:
         return self._config.probe_interval_seconds
 
+    @property
+    def available(self) -> bool:
+        """Return whether policy and provider readiness allow search now."""
+        return self._policy.enabled and self._available
+
     async def benchmark(self, *, rounds: int | None = None) -> str | None:
         if not self._available:
             return None

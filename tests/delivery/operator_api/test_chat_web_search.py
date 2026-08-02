@@ -318,7 +318,9 @@ async def test_readiness_marks_blocked_tool_unavailable_without_retrying() -> No
         config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
     )
 
+    assert resolver.available is True
     assert await resolver.verify_availability() is False
+    assert resolver.available is False
     assert resolver.descriptor()["available"] is False
     assert resolver.descriptor()["unavailable_reason"] == "tool_blocked"
 
@@ -333,6 +335,17 @@ async def test_readiness_marks_blocked_tool_unavailable_without_retrying() -> No
         "sources": [],
     }
     assert provider.calls == 1
+
+
+def test_disabled_search_is_not_planner_available() -> None:
+    resolver = ChatWebSearchResolver(
+        provider=_Provider(),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+
+    resolver.update_settings(enabled=False, allowed_domains=("learn.microsoft.com",))
+
+    assert resolver.available is False
 
 
 async def test_explicit_search_can_fill_gap_after_internal_evidence() -> None:

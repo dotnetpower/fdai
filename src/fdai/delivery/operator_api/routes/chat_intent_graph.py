@@ -325,6 +325,8 @@ def _parse_goal(raw: object, by_name: Mapping[str, TurnTool]) -> IntentGoal:
             EvidenceMode.MODEL_KNOWLEDGE,
         }:
             raise ValueError("intent graph presentation goal is invalid")
+        if freshness and evidence_mode is EvidenceMode.MODEL_KNOWLEDGE:
+            raise ValueError("intent graph fresh evidence cannot use model knowledge")
     else:
         tool = by_name.get(capability)
         if tool is None:

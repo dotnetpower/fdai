@@ -224,6 +224,19 @@ def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
     assert graph.goals[0].capability is None
 
 
+def test_model_knowledge_cannot_satisfy_freshness_requirement() -> None:
+    raw_goal = _goal(
+        "latest",
+        capability=None,
+        evidence_mode="model_knowledge",
+        intent="status",
+    )
+    raw_goal["freshness_required"] = True
+
+    with pytest.raises(ValueError, match="fresh evidence"):
+        parse_intent_graph(_graph(raw_goal), tools=_tools())
+
+
 def test_planner_context_envelope_is_bounded_and_allowlisted() -> None:
     envelope = planner_context_envelope(
         {
