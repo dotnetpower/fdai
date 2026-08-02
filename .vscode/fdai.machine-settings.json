@@ -1,0 +1,17 @@
+{
+    "terraform.languageServer.indexing.ignoreDirectoryNames": [
+        ".git",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".terraform",
+        ".venv",
+        ".vite",
+        "__pycache__",
+        "dist",
+        "htmlcov",
+        "node_modules",
+        "playwright-report",
+        "test-results"
+    ]
+}

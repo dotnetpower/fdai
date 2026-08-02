@@ -174,9 +174,9 @@ the next step. Plain YAML validation remains active. Remote action-tag verificat
 workflow contract tests, and GitHub Actions runtime validation remain authoritative; no other
 workflow loses GitHub Actions language support.
 
-The workspace disables the Microsoft Terraform extension's external language server so the
-HashiCorp Terraform extension remains the single Terraform language server. Terraform commands
-remain available without duplicate diagnostics or duplicate workspace indexing.
+The shared FDAI profile and extension list keep HashiCorp Terraform as the single language server.
+The WSL bootstrap applies the path-free machine settings that Profile sync cannot carry. These
+editor settings never select identity, evidence, runtime, promotion, or execution authority.
 
 The optional `dev-access: configure VPN on folder open` task activates only when the workstation
 has local state for the isolated P2S development-access stack. A connected VPN causes the task to
