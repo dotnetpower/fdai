@@ -1,6 +1,6 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: 8a3231577232a0faa1e3f0f6de33c7a5c31e233f
+translation_source_sha: 5f74d62ef7e1b23da201b73895ad27d59cc6a62c
 translation_revised: 2026-08-02
 ---
 # 실행 권한 부여 온톨로지
@@ -217,6 +217,10 @@ provider-neutral bridge입니다. Stable requirement id 순서로 다음 단계�
   호출합니다.
 6. 모든 requirement decision을 보수적으로 축소합니다. 모든 결과가 `AUTHORIZED`인 경우에만 risk
   gate로 진행합니다.
+   Authorized requirement는 정확히 하나의 `executor_identity_ref`로 수렴해야 하며 identity가
+   없거나 여러 개면 risk evaluation 전에 fail closed합니다. 이 ref는 typed Action,
+   DirectApiRequest metadata 및 audit record로 복사되어 core가 provider client id를 알지 않고도
+   delivery가 bound workload identity를 선택하게 합니다.
 7. `GRANT_REQUIRED`인 경우 모든 missing requirement 및 scope를 combined decision digest, allowed
   grant mode, maximum duration, quorum 및 approver-role floor와 비교하여 검증한 후 각 pair별로
   canonical order의 proposal 하나를 제출합니다.

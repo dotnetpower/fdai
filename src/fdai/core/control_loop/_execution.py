@@ -95,6 +95,20 @@ class ControlLoopExecutionMixin:
     _risk_table: RiskTable | None
     _tool_executor: ToolCallShadowExecutor | None
 
+    @staticmethod
+    def _bind_authorized_identity(
+        action: Action,
+        authorization: ExecutionAuthorizationResult | None,
+    ) -> Action:
+        if authorization is None:
+            return action
+        if authorization.status is not ExecutionAuthorizationStatus.AUTHORIZED:
+            return action
+        identity_ref = authorization.executor_identity_ref
+        if identity_ref is None:  # pragma: no cover - result contract rejects this
+            raise ValueError("authorized execution identity is unavailable")
+        return action.model_copy(update={"executor_identity_ref": identity_ref})
+
     async def _evaluate_execution_authorization(
         self,
         *,
@@ -183,6 +197,7 @@ class ControlLoopExecutionMixin:
                 "action_type_id": action.action_type,
                 "decision": result.status.value,
                 "decision_digest": result.decision_digest,
+                "executor_identity_ref": result.executor_identity_ref,
                 "reason_codes": list(result.reason_codes),
                 "authorization": dict(result.audit_context),
                 "grant_requests": grant_requests,

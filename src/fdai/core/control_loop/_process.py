@@ -322,6 +322,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
                 },
             )
             continue
+        action = host._bind_authorized_identity(action, authorization)
 
         unified = await host._evaluate_and_audit(event=event, action=action, rule=rule)
         gate_decision = (

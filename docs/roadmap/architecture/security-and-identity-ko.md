@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: a1b539658ea7c14288343dc7db4c80548d5628b3
-translation_revised: 2026-08-01
+translation_source_sha: 71c28a37989e459afc15ddab5a5552d227bade52
+translation_revised: 2026-08-02
 ---
 
 # 보안과 아이덴티티
@@ -63,6 +63,12 @@ aggregate action-router identity 하나와 vertical identity 세 개를 유지�
 | `id-<workload><suffix>-change` | Change Safety delivery principal | fork-owned action whitelist 또는 측정된 custom role | Change Safety가 관리하는 resource group |
 | `id-<workload><suffix>-resilience` | Resilience 및 recovery delivery principal | fork-owned action whitelist 또는 측정된 custom role | 관리되는 recovery scope |
 | `id-<workload><suffix>-finops` | Cost Governance delivery principal | fork-owned action whitelist 또는 측정된 custom role | 관리되는 cost-optimization scope |
+
+Execution authorization은 provider-neutral ref `identity/change`, `identity/resilience`,
+`identity/finops`를 사용합니다. Terraform은 대응 UAMI를 attach하고 client id만 delivery
+composition에 노출합니다. Authorization result가 하나의 ref를 선택하면 Action과 direct-API
+request가 이를 보존하고 delivery router가 일치하는 `WorkloadIdentity`를 선택합니다. 알 수 없거나
+bind되지 않은 ref는 aggregate executor identity로 fallback하지 않고 거부됩니다.
 
 Read-only inventory, ingestion, canary와 다른 service identity는 이 executor set과 분리됩니다.
 Vertical identity 생성 자체는 resource permission을 부여하지 않으며 role assignment는 explicit

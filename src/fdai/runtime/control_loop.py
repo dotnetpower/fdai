@@ -262,6 +262,7 @@ def _build_control_loop(
     causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
     dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
     human_access_enabled: bool = True,
+    execution_identities: Mapping[str, WorkloadIdentity] | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -438,6 +439,7 @@ def _build_control_loop(
         human_access_enabled=human_access_enabled,
         promotion_registry=promotion_registry,
         action_types_by_name=action_types_by_name,
+        execution_identities=execution_identities,
     )
     tool_executor = _build_tool_executor(
         audit_store=audit_store,

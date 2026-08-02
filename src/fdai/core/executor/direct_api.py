@@ -417,6 +417,7 @@ class DirectApiShadowExecutor:
             audit_context={
                 "resource_ref": action.target_resource_ref,
                 "action_type": action.action_type,
+                "executor_identity_ref": action.executor_identity_ref,
                 "operation": action.operation.value,
                 "blast_radius_scope": action.blast_radius.scope.value,
                 "idempotency_fingerprint": _direct_api_fingerprint(action),
@@ -496,6 +497,14 @@ def _build_direct_api_request(action: Action) -> DirectApiRequest:
     rollback_ref = action.rollback_ref.kind.value
     if rollback_reference:
         rollback_ref = f"{rollback_ref}:{rollback_reference}"
+    metadata = {
+        "audit_ref": f"action:{action.action_id}",
+        "stop_condition": action.stop_condition,
+        "rollback_ref": rollback_ref,
+        "max_resources": str(action.blast_radius.count or 1),
+    }
+    if action.executor_identity_ref is not None:
+        metadata["executor_identity_ref"] = action.executor_identity_ref
     return DirectApiRequest(
         action_id=action.action_id,
         idempotency_key=action.idempotency_key,
@@ -506,12 +515,7 @@ def _build_direct_api_request(action: Action) -> DirectApiRequest:
         labels=(("enforce",) if action.mode is Mode.ENFORCE else ("shadow",)),
         mode=action.mode,
         stop_conditions=tuple(action.stop_conditions),
-        metadata={
-            "audit_ref": f"action:{action.action_id}",
-            "stop_condition": action.stop_condition,
-            "rollback_ref": rollback_ref,
-            "max_resources": str(action.blast_radius.count or 1),
-        },
+        metadata=metadata,
     )
 
 

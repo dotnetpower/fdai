@@ -1023,6 +1023,68 @@ def test_build_direct_api_executor_binds_operations_gateway(
     assert executor._allow_enforce is True
 
 
+def test_build_direct_api_executor_binds_vertical_identity_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_DIRECT_API_FAKE", raising=False)
+    monkeypatch.setenv("FDAI_DEV_OPERATIONS_GATEWAY_URL", "https://gateway.example.com")
+    monkeypatch.setenv("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "api-application-id")
+    from fdai.__main__ import _build_direct_api_executor
+    from fdai.core.executor.lock import ResourceLockManager
+    from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+    from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
+
+    aggregate = StaticWorkloadIdentity(audience="api-application-id", token="aggregate")
+    change = StaticWorkloadIdentity(audience="api-application-id", token="change")
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _request: httpx.Response(500)))
+    try:
+        executor = _build_direct_api_executor(
+            audit_store=InMemoryStateStore(),
+            resource_lock=ResourceLockManager(),
+            http_client=client,
+            identity=aggregate,
+            execution_identities={"identity/change": change},
+        )
+    finally:
+        asyncio.run(client.aclose())
+
+    assert executor is not None
+    assert isinstance(executor._executor, RoutedDirectApiExecutor)
+    assert "identity/change" in executor._executor.identity_routes
+
+
+def test_build_vertical_execution_identities_uses_dedicated_env_bindings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.runtime import bootstrap
+    from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
+
+    monkeypatch.setenv("FDAI_CHANGE_MI_CLIENT_ID", "change-client")
+    monkeypatch.setenv("FDAI_RESILIENCE_MI_CLIENT_ID", "resilience-client")
+    monkeypatch.setenv("FDAI_FINOPS_MI_CLIENT_ID", "finops-client")
+    bound: list[str] = []
+
+    def build(_client, *, client_id_env, require_client_id):  # type: ignore[no-untyped-def]
+        assert require_client_id is True
+        bound.append(client_id_env)
+        return StaticWorkloadIdentity(audience="audience", token=client_id_env)
+
+    monkeypatch.setattr(bootstrap, "_build_runtime_workload_identity", build)
+    client = httpx.AsyncClient()
+    try:
+        identities = bootstrap._build_vertical_execution_identities(http_client=client)
+    finally:
+        asyncio.run(client.aclose())
+
+    assert set(identities) == {"identity/change", "identity/resilience", "identity/finops"}
+    assert set(bound) == {
+        "FDAI_CHANGE_MI_CLIENT_ID",
+        "FDAI_RESILIENCE_MI_CLIENT_ID",
+        "FDAI_FINOPS_MI_CLIENT_ID",
+    }
+
+
 def test_build_direct_api_executor_rejects_partial_gateway_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

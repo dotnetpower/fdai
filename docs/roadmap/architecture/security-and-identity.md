@@ -62,6 +62,12 @@ adapters can select a principal by domain without changing `core/`.
 | `id-<workload><suffix>-resilience` | Resilience and recovery delivery principal | fork-owned action whitelist or measured custom role | governed recovery scopes |
 | `id-<workload><suffix>-finops` | Cost Governance delivery principal | fork-owned action whitelist or measured custom role | governed cost-optimization scopes |
 
+Execution authorization uses provider-neutral refs `identity/change`, `identity/resilience`, and
+`identity/finops`. Terraform attaches the corresponding UAMIs and exposes only their client ids to
+the delivery composition. The authorization result selects one ref; the Action and direct-API
+request preserve it, and the delivery router chooses the matching `WorkloadIdentity`. An unknown
+or unbound ref is refused rather than falling back to the aggregate executor identity.
+
 Read-only inventory, ingestion, canary, and other service identities remain separate from this
 executor set. Creating a vertical identity does not grant it resource permissions; those role
 assignments are explicit fork deployment policy.

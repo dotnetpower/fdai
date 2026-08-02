@@ -174,6 +174,11 @@ class _AuthorizationEvaluator:
             decision_digest=f"decision-{self.status.value}",
             evaluator_ref="test.authorization-evaluator",
             reason_codes=(f"test_{self.status.value}",),
+            executor_identity_ref=(
+                "identity/change"
+                if self.status is ExecutionAuthorizationStatus.AUTHORIZED
+                else None
+            ),
             grant_proposals=(proposal,) if proposal is not None else (),
         )
 
@@ -188,6 +193,13 @@ class _RaisingAuthorizationEvaluator:
 
 
 def test_authorization_result_rejects_sensitive_or_mutable_audit_context() -> None:
+    with pytest.raises(ValueError, match="identify one executor identity"):
+        ExecutionAuthorizationResult(
+            status=ExecutionAuthorizationStatus.AUTHORIZED,
+            decision_digest="decision-authorized",
+            evaluator_ref="test-evaluator",
+            reason_codes=("authorized",),
+        )
     with pytest.raises(ValueError, match="sensitive key"):
         ExecutionAuthorizationResult(
             status=ExecutionAuthorizationStatus.PROHIBITED,

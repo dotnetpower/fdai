@@ -195,6 +195,7 @@ def _build_direct_api_executor(
     human_access_enabled: bool = True,
     promotion_registry: Any = None,
     action_types_by_name: Mapping[str, Any] | None = None,
+    execution_identities: Mapping[str, WorkloadIdentity] | None = None,
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
 
@@ -217,6 +218,7 @@ def _build_direct_api_executor(
 
     fallback: DirectApiExecutor | None = None
     routes: dict[str, DirectApiExecutor] = {}
+    identity_routes: dict[str, DirectApiExecutor] = {}
     allow_enforce = False
     if gateway_url:
         if http_client is None or identity is None:
@@ -235,6 +237,15 @@ def _build_direct_api_executor(
             identity=identity,
             http_client=http_client,
         )
+        for identity_ref, selected_identity in (execution_identities or {}).items():
+            identity_routes[identity_ref] = AzureGatewayDirectApiExecutor(
+                config=AzureGatewayDirectApiConfig(
+                    base_url=gateway_url,
+                    audience=gateway_audience,
+                ),
+                identity=selected_identity,
+                http_client=http_client,
+            )
         allow_enforce = True
     elif fake_enabled:
         _LOGGER.info("direct_api_backend", extra={"backend": "recording"})
@@ -269,8 +280,12 @@ def _build_direct_api_executor(
 
         _LOGGER.info("direct_api_human_access_backend", extra={"backend": "entra"})
         routes.update({action_type: human_access for action_type in HUMAN_ACCESS_ACTIONS})
-    if routes:
-        executor = RoutedDirectApiExecutor(routes=routes, fallback=fallback)
+    if routes or identity_routes:
+        executor = RoutedDirectApiExecutor(
+            routes=routes,
+            identity_routes=identity_routes,
+            fallback=fallback,
+        )
     if executor is None:
         _LOGGER.info("direct_api_backend", extra={"backend": "none"})
         return None

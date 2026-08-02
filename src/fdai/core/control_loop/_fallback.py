@@ -73,6 +73,13 @@ class ControlLoopFallbackMixin:
 
     async def _dispatch_action(self, *, action: Action, rule: Rule) -> Any: ...
 
+    def _bind_authorized_identity(
+        self,
+        action: Action,
+        authorization: ExecutionAuthorizationResult | None,
+    ) -> Action:
+        raise NotImplementedError
+
     async def _request_hil_approval(
         self, *, action: Action, rule: Rule, correlation_id: str
     ) -> None: ...
@@ -353,6 +360,7 @@ class ControlLoopFallbackMixin:
                 change_safety_decision=cs_decision,
                 t1_decision=t1,
             )
+        action = self._bind_authorized_identity(action, authorization)
 
         unified = await self._evaluate_and_audit(event=event, action=action, rule=rule)
         if unified is None:
@@ -629,6 +637,7 @@ class ControlLoopFallbackMixin:
                 t1_decision=t1_decision,
                 t2_decision=t2,
             )
+        action = self._bind_authorized_identity(action, authorization)
 
         unified = await self._evaluate_and_audit(event=event, action=action, rule=rule)
         if unified is None:
