@@ -449,16 +449,16 @@ mutates no substrate, so it does not sit on that ladder.
 
 ### 5.1 PR-native (`pr_native`)
 
-- Executor builds a PR via
-  [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py).
-- On `auto` decision, the PR carries no `hil` label and the branch's
-  auto-merge policy accepts.
-- On `hil` decision, the PR carries the `hil` label and an approver
-  merges via the console.
+- Executor builds a PR via [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py).
+- On `auto` decision, the PR carries no `hil` label and the branch's auto-merge policy accepts.
+- On `hil` decision, the PR carries the `hil` label and an approver merges via the console.
 - Audit + rollback lean on git: revert commit is the rollback path.
+- The PR-native executor persists a content-addressed dry-run and audit intent before it calls the
+  publisher. An exception without an authoritative receipt records terminal
+  `publish_outcome_unknown`, stays out of the success cache, and propagates. Retry uses the same
+  idempotency key, so the publisher reconciles any remotely accepted PR before creating another.
 
-Best for: configuration changes, IaC patches, catalog updates,
-governance changes.
+Best for: configuration changes, IaC patches, catalog updates, governance changes.
 
 ### 5.2 Direct API (`direct_api`)
 

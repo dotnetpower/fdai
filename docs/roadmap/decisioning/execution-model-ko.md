@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 41058c5f08fa38a7dc0fad8447067e79458ed02a
+translation_source_sha: 894bfc1f2751fc8a781420c0f60576c46d8903e5
 translation_revised: 2026-08-02
 ---
 
@@ -440,16 +440,16 @@ RiskGate 는 `pr_manual` 로 downgrade MAY (upgrade 절대 안 함). 네 번째
 
 ### 5.1 PR-native (`pr_native`)
 
-- Executor 가
-  [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py)
-  로 PR 빌드.
-- `auto` 결정 시, PR 은 `hil` label 을 carry 안 함 → branch 의
-  auto-merge 정책이 accept.
+- Executor 가 [`GitOpsPrAdapter`](../../../src/fdai/delivery/gitops_pr/adapter.py) 로 PR 빌드.
+- `auto` 결정 시, PR 은 `hil` label 을 carry 안 함 → branch 의 auto-merge 정책이 accept.
 - `hil` 결정 시, PR 은 `hil` label 을 carry → approver 가 콘솔로 merge.
 - 감사 + rollback 은 git 에 lean: revert commit 이 rollback path.
+- PR-native executor는 publisher를 호출하기 전에 content-addressed dry-run과 audit intent를
+  영속화합니다. Authoritative receipt 없는 예외는 terminal `publish_outcome_unknown`을 기록하고
+  success cache에 넣지 않은 채 다시 전달합니다. Retry는 같은 idempotency key를 사용하므로
+  publisher는 새 PR 생성 전에 원격에서 수락된 PR이 있는지 reconcile해야 합니다.
 
-Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance
-변경.
+Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance 변경.
 
 ### 5.2 Direct API (`direct_api`)
 

@@ -44,6 +44,7 @@ publisher's own idempotency check (also keyed on
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Mapping
@@ -89,6 +90,11 @@ class ExecutorOutcome(StrEnum):
     """Duplicate delivery: the publisher (or the executor's in-process
     dedupe) returned an existing PR."""
 
+    PUBLISH_OUTCOME_UNKNOWN = "publish_outcome_unknown"
+    """The publisher raised after durable intent. The adapter may have
+    accepted the request, so the attempt closes as unknown and retry must
+    reconcile through the same idempotency key."""
+
     ABSTAINED_BLAST_RADIUS = "abstained_blast_radius"
     """Action requested a change to more resources / higher rate than the
     executor cap; escalate to HIL rather than partial-apply."""
@@ -102,7 +108,7 @@ class ExecutorOutcome(StrEnum):
     shadow-only. No PR opened; audit records the refusal."""
 
     REJECTED_INVARIANT = "rejected_invariant"
-    """Action was missing one of the four safety invariants (empty
+    """Action was missing a required action-level safeguard (empty
     ``stop_condition``, missing rollback, blast_radius, ...)."""
 
     REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
@@ -310,7 +316,16 @@ class ShadowExecutor:
                 patch=patch,
                 dry_run_receipt=dry_run_receipt,
             )
-            receipt = await self._publisher.publish(pr)
+            try:
+                receipt = await self._publisher.publish(pr)
+            except (Exception, asyncio.CancelledError) as publish_error:
+                await self._close_unknown_publish(
+                    action=action,
+                    rule=rule,
+                    dry_run_receipt=dry_run_receipt,
+                    publish_error=publish_error,
+                )
+                raise
 
             outcome = (
                 ExecutorOutcome.ALREADY_EXISTED
@@ -331,6 +346,29 @@ class ShadowExecutor:
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
+
+    async def _close_unknown_publish(
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        dry_run_receipt: str,
+        publish_error: BaseException,
+    ) -> None:
+        try:
+            await self._finish(
+                action=action,
+                rule=rule,
+                outcome=ExecutorOutcome.PUBLISH_OUTCOME_UNKNOWN,
+                reason="publisher outcome is unknown after an adapter error",
+                dry_run_receipt=dry_run_receipt,
+                remember=False,
+            )
+        except Exception as audit_error:
+            raise BaseExceptionGroup(
+                "publisher failed and terminal audit closure failed",
+                [publish_error, audit_error],
+            ) from publish_error
 
     async def _deduplicated_or_conflict(
         self,

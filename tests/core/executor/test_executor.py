@@ -206,7 +206,7 @@ async def test_audit_intent_is_durable_before_publisher_call() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publisher_failure_leaves_only_pending_intent() -> None:
+async def test_publisher_failure_closes_unknown_outcome_without_deduping() -> None:
     class _FailingPublisher(RecordingRemediationPrPublisher):
         async def publish(self, pr: RemediationPr) -> PublishReceipt:
             raise RuntimeError("publisher outcome unknown")
@@ -223,9 +223,63 @@ async def test_publisher_failure_leaves_only_pending_intent() -> None:
         await executor.execute(action=_action(idempotency_key="publisher-unknown"), rule=_rule())
 
     entries = list(audit.audit_entries)
-    assert len(entries) == 1
-    assert entries[0]["entry"]["audit_phase"] == "intent"
+    assert [row["entry"]["audit_phase"] for row in entries] == ["intent", "terminal"]
+    assert entries[1]["entry"]["outcome"] == "publish_outcome_unknown"
+    assert entries[1]["entry"]["reason"] == "publisher outcome is unknown after an adapter error"
+    assert entries[0]["entry"]["dry_run_receipt"] == entries[1]["entry"]["dry_run_receipt"]
     assert "publisher-unknown" not in executor._dedupe
+
+
+@pytest.mark.asyncio
+async def test_publisher_cancellation_closes_unknown_outcome_and_propagates() -> None:
+    class _CancelledPublisher(RecordingRemediationPrPublisher):
+        async def publish(self, pr: RemediationPr) -> PublishReceipt:
+            raise asyncio.CancelledError
+
+    audit = InMemoryStateStore()
+    executor = ShadowExecutor(
+        publisher=_CancelledPublisher(),
+        audit_store=audit,
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await executor.execute(action=_action(idempotency_key="publisher-cancelled"), rule=_rule())
+
+    assert [row["entry"]["outcome"] for row in audit.audit_entries] == [
+        "intent_persisted",
+        "publish_outcome_unknown",
+    ]
+    assert "publisher-cancelled" not in executor._dedupe
+
+
+@pytest.mark.asyncio
+async def test_publisher_and_terminal_audit_failures_are_both_preserved() -> None:
+    class _FailingPublisher(RecordingRemediationPrPublisher):
+        async def publish(self, pr: RemediationPr) -> PublishReceipt:
+            raise RuntimeError("publisher outcome unknown")
+
+    class _TerminalFailingAuditStore(InMemoryStateStore):
+        async def append_audit_entry(self, entry: Mapping[str, Any]) -> None:
+            if entry.get("audit_phase") == "terminal":
+                raise RuntimeError("terminal audit unavailable")
+            await super().append_audit_entry(entry)
+
+    executor = ShadowExecutor(
+        publisher=_FailingPublisher(),
+        audit_store=_TerminalFailingAuditStore(),
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+    )
+
+    with pytest.raises(ExceptionGroup) as caught:
+        await executor.execute(action=_action(idempotency_key="double-failure"), rule=_rule())
+
+    assert [str(error) for error in caught.value.exceptions] == [
+        "publisher outcome unknown",
+        "terminal audit unavailable",
+    ]
 
 
 @pytest.mark.asyncio
