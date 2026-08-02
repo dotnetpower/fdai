@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 4ed388897cdce5c6dc885061bd4d059ec7a6d4d3
+translation_source_sha: 457157ea1de86f082e5fd221a0aa8a547ee56078
 translation_revised: 2026-08-04
 ---
 
@@ -92,7 +92,7 @@ flowchart TD
     WEB["Web chat (Console SPA)"]
   end
   subgraph L2["Layer 2 - Conversation Coordinator"]
-    NARR["Narrator (LLM)\nt1.judge default\nt2.reasoner escalation"]
+    NARR["Narrator (LLM)\nT1 translation default\nT2 translation escalation"]
     INTENT["Intent classify\n(read | simulate | approve | breakglass)"]
     RBAC["RBAC gate\n(per-tool role floor)"]
     VERIF["Verifier re-check\n(no auto-execute)"]

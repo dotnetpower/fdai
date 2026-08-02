@@ -24,11 +24,12 @@ enforce operation in both local and deployed environments.
 
 ## Design at a glance
 
-FDAI uses one trace identity for every unit of work and creates an Incident only when the work
-represents an operational problem. Operator investigations create an Incident and publish an
-investigation ActionProposal under the same correlation. The ARB process remains a governance
-Process: its enforce mode records real approvals and decisions, while any resulting resource
-change re-enters the normal ActionType pipeline.
+FDAI uses one trace identity for every unit of work and creates an Incident only for an
+evidence-backed problem or an operator-confirmed problem-response request. Read-only discovery
+starts with a correlation ID and, when work is detached, a Process ID. An explicit operator
+investigation creates an Incident and publishes an investigation ActionProposal under the same
+correlation. The ARB process remains a governance Process: its enforce mode records real approvals
+and decisions, while any resulting resource change re-enters the normal ActionType pipeline.
 
 ```mermaid
 flowchart LR
@@ -56,7 +57,7 @@ in the incident roster.
 | `event_id` | Every ingress or stage-driving event | Identifies one immutable delivery attempt and supports replay. |
 | `correlation_id` | Every logical unit of work | Joins stage events, audit rows, chat turns, and related deliveries. For non-incident work, this is the primary trace identity. |
 | `process_id` | Multi-step Workflow runs | Deterministically identifies one Workflow, target, and trigger timestamp. It is not an Incident ID. |
-| `incident_id` | Confirmed or evidence-backed operational problems only | UUID5 derived from stable incident correlation keys. It groups member events and owns incident lifecycle state. |
+| `incident_id` | Evidence-backed problems or explicit operator-confirmed problem-response requests | UUID5 derived from stable incident correlation keys. It groups member events and owns incident lifecycle state. |
 
 The normalized Event declares an incident correlation policy:
 
@@ -74,9 +75,10 @@ problem-response request, not a read-only narrator question. The coordinator fol
 
 1. **Classify and scope:** Bragi translates the request into a registered investigation
    ActionType and extracts a bounded target. Invalid or ambiguous arguments stop before publish.
-2. **Open the Incident:** The incident lifecycle creates or reuses a deterministic Incident from
-   the operator session, target, and investigation kind. The response returns the Incident ID and
-   correlation ID immediately.
+2. **Open the Incident:** The explicit problem-response command is the operator confirmation. The
+  incident lifecycle creates or reuses a deterministic Incident from the operator session,
+  target, and investigation kind. A read-only discovery question never reaches this step. The
+  response returns the Incident ID and correlation ID immediately.
 3. **Publish the proposal:** The command surface publishes an `operator_request` ActionProposal
    with the Incident ID in typed metadata. It holds no executor identity.
 4. **Judge and gate:** The control loop runs T0 first, enriches from authoritative inventory,

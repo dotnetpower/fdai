@@ -94,7 +94,7 @@ flowchart TD
     WEB["Web chat (Console SPA)"]
   end
   subgraph L2["Layer 2 - Conversation Coordinator"]
-    NARR["Narrator (LLM)\nt1.judge default\nt2.reasoner escalation"]
+    NARR["Narrator (LLM)\nT1 translation default\nT2 translation escalation"]
     INTENT["Intent classify\n(read | simulate | approve | breakglass)"]
     RBAC["RBAC gate\n(per-tool role floor)"]
     VERIF["Verifier re-check\n(no auto-execute)"]

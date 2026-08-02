@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: b2c94ed62f248e9e1926391a45dcac00cc93abe4
+translation_source_sha: d9c01609b3c894a11d30d17836f9d19bc860de1a
 translation_revised: 2026-08-02
 ---
 
@@ -27,11 +27,13 @@ translation_revised: 2026-08-02
 
 ## 설계 요약
 
-FDAI는 모든 작업 단위에 하나의 trace identity를 사용하고, 운영 문제를 나타내는 작업에만
-Incident를 생성합니다. 오퍼레이터 investigation은 Incident를 생성하고 같은 correlation으로
-investigation ActionProposal을 게시합니다. ARB 프로세스는 governance Process로 유지됩니다.
-Enforce mode는 실제 approval 및 decision을 기록하지만, 그 결과 발생하는 resource 변경은
-일반 ActionType pipeline으로 다시 진입합니다.
+FDAI는 모든 작업 단위에 하나의 trace identity를 사용하고, evidence가 있는 문제 또는
+오퍼레이터가 명시적으로 확인한 문제 대응 요청에만 Incident를 생성합니다. 읽기 전용 discovery는
+correlation ID로 시작하며 작업이 분리되면 Process ID도 사용합니다. 명시적 오퍼레이터
+investigation은 Incident를 생성하고 같은 correlation으로 investigation ActionProposal을
+게시합니다. ARB 프로세스는 governance Process로 유지됩니다. Enforce mode는 실제 approval 및
+decision을 기록하지만, 그 결과 발생하는 resource 변경은 일반 ActionType pipeline으로 다시
+진입합니다.
 
 ```mermaid
 flowchart LR
@@ -59,7 +61,7 @@ trace 가능해야 합니다.
 | `event_id` | 모든 ingress 또는 stage-driving event | 하나의 변경 불가능한 delivery attempt를 식별하고 replay를 지원합니다. |
 | `correlation_id` | 모든 논리적 작업 단위 | Stage event, audit row, chat turn, 관련 delivery를 연결합니다. 비인시던트 작업의 기본 trace identity입니다. |
 | `process_id` | 다단계 Workflow run | Workflow, target, trigger timestamp 조합 하나를 결정론적으로 식별합니다. Incident ID가 아닙니다. |
-| `incident_id` | 확인되었거나 evidence가 있는 운영 문제만 | 안정적인 incident correlation key에서 파생한 UUID5입니다. Member event를 그룹화하고 incident lifecycle state를 소유합니다. |
+| `incident_id` | Evidence가 있는 문제 또는 오퍼레이터가 명시적으로 확인한 문제 대응 요청 | 안정적인 incident correlation key에서 파생한 UUID5입니다. Member event를 그룹화하고 incident lifecycle state를 소유합니다. |
 
 Normalized Event는 incident correlation policy를 선언합니다.
 
@@ -78,9 +80,10 @@ narrator 질문이 아니라 문제 대응 요청입니다. Coordinator는 다�
 1. **분류 및 범위 지정:** Bragi는 요청을 등록된 investigation ActionType으로 변환하고
    범위가 제한된 target을 추출합니다. 유효하지 않거나 모호한 argument는 게시 전에
    중단됩니다.
-2. **Incident 열기:** Incident lifecycle은 operator session, target, investigation kind를
-   사용하여 deterministic Incident를 만들거나 재사용합니다. 응답은 즉시 Incident ID와
-   correlation ID를 반환합니다.
+2. **Incident 열기:** 명시적 문제 대응 명령이 오퍼레이터 확인 역할을 합니다. Incident
+  lifecycle은 operator session, target, investigation kind를 사용하여 deterministic Incident를
+  만들거나 재사용합니다. 읽기 전용 discovery 질문은 이 단계로 진입하지 않습니다. 응답은 즉시
+  Incident ID와 correlation ID를 반환합니다.
 3. **Proposal 게시:** Command surface는 typed metadata에 Incident ID가 포함된
    `operator_request` ActionProposal을 게시합니다. 이 surface는 executor identity를 가지지
    않습니다.
