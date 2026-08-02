@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 3137230ab9f15093c84fd06152163819f9fee03b
-translation_revised: 2026-08-01
+translation_source_sha: 331858e730bddcea3f60f3147b6c0158a50e60d6
+translation_revised: 2026-08-03
 ---
 # FDAI 로드맵
 
@@ -127,6 +127,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 23 | [agent-workflows-ko.md](agents/agent-workflows-ko.md) | 판테온이 제품 capability로 조합하는 13개 cross-agent workflow입니다. Cost-aware remediation, predictive scale, operational readiness handoff, scheduled governed Python task, detection readiness assurance 등을 포함하며 각 workflow는 trigger, sequence diagram, exit criteria, promotion gate를 가집니다. |
 | 23b | [process-automation-ko.md](decisioning/process-automation-ko.md) | agent-workflows.md 의 머신-리더블 대응물: Workflow 카탈로그 스키마 (`rule-catalog/workflows/` 아래 catalog-as-code), `Process` ObjectType + `targets` / `advances` LinkType, compile-to-Runbook 컨트롤 루프 배선, saga 보상, shadow-first 거버넌스. 비즈니스 프로세스는 trust-router 가 한 번에 하나씩 dispatch 하는 `ActionType` 스텝의 순서 리스트다 |
 | 23c | [customer-workflow-automation-plan-ko.md](decisioning/customer-workflow-automation-plan-ko.md) | 도입 조직용 제공 계획: 준비도 기준선, 6개 rollout wave, 고객 adapter 경계, 승인 및 복구 작업, 동작 simulation, 승격 근거, 검증 matrix 및 production 완료 기준 |
+| 23d | [operational-planning-ko.md](decisioning/operational-planning-ko.md) | immutable context, versioned logic asset, bounded sandbox 및 twin simulation, hard constraint, arbitration, governed execution, effect closure, Planning Room projection을 사용하는 event-driven specialist planning |
 
 ### 프롬프트 서브시스템
 

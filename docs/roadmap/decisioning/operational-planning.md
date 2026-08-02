@@ -1,0 +1,255 @@
+---
+title: Operational Planning
+---
+# Operational Planning
+
+This document defines how FDAI's fixed 15-agent pantheon turns specialist evidence into a bounded
+plan, tests candidate effects without changing managed resources, and sends only an eligible
+selection through the existing decision and execution path. It reuses Workflow, Process,
+DecisionCase, ActionOption, typed ontology functions, and the Assurance Twin instead of adding a
+central planner or another authority surface.
+
+> **Authority boundary:** Planning, optimization, and simulation are A0 activities. They can
+> produce evidence and proposals, but they cannot approve, execute, promote, or claim an external
+> effect.
+>
+> **Agent boundary:** Agents exchange authority-bearing work through schema-validated events.
+> Read-only conversational deliberation may explain the same evidence, but its text never advances
+> a Process or changes a DecisionCase.
+>
+> **Implementation status:** The semantic decision path, specialist arbitration, Process journal,
+> typed function primitives, sandbox profiles, and Dynamic simulation exist separately. The
+> delivery plan in this document connects them into one replayable operational-planning workflow.
+
+## Design at a glance
+
+An operational-planning run is a version-pinned Workflow instance. Its Process journal records
+progress, while DecisionCase and ActionOption remain the immutable semantic decision artifacts.
+
+```mermaid
+flowchart LR
+    R[Typed planning request] --> P[Workflow and Process]
+    P --> C[Muninn context snapshot]
+    C --> F[Forseti DecisionCase]
+    F --> S[Specialist evidence]
+    S --> L[Versioned logic assets]
+    L --> X[Compute and twin simulation]
+    X --> H[Heimdall verification]
+    H --> O[Odin arbitration]
+    O --> V[Forseti verdict]
+    V --> A[Var approval when required]
+    A --> T[Thor execution]
+    T --> E[Observed outcome]
+    E --> N[Muninn and Norns learning]
+```
+
+## Reused authorities
+
+Operational planning adds no authoritative `PlanningSession` object and no sixteenth agent.
+
+| Concern | Existing authority | Planning use |
+|---------|--------------------|--------------|
+| Durable progress | Workflow declaration and Process snapshot plus journal | One shadow-first planning workflow records bounded phases and terminal state. |
+| Time-consistent facts | Muninn `OperationalContextSnapshot` | Every candidate uses one cutoff, release set, freshness receipt, and context digest. |
+| Options and effects | Forseti `DecisionCase`, `ActionOption`, and `ExpectedEffect` | The case includes no-action, hold, and executable candidates. |
+| Cross-objective arbitration | Odin `ArbitrationDecision` | Odin ranks only candidates that passed every hard constraint. |
+| Approval | Var `Approval` | Approval never comes from planning text or a simulation score. |
+| Execution | Thor `ActionRun` | A selected ActionType re-enters the normal risk, lock, dry-run, and audit path. |
+| Effect closure | Heimdall observation and `ObservedOutcome` | Provider acceptance remains distinct from observed convergence. |
+| Audit and learning | Saga, Muninn, and Norns | Rejected options and failed simulations remain evidence; they never self-promote. |
+
+Bragi can translate an operator request into typed ingress and render the read model. Bragi does
+not create a DecisionCase, select an option, approve a run, or call an executor.
+
+## Process lifecycle
+
+The Workflow runtime keeps its existing Process statuses. Planning phases are append-only child
+events so a new capability does not create another mutable state machine.
+
+```text
+context_frozen
+-> proposals_collected
+-> simulations_closed
+-> critiques_closed
+-> arbitration_closed
+-> selected | held | abstained
+```
+
+Each planning event records the Process id, correlation id, DecisionCase id, context digest,
+causation id, actor agent, evidence references, logic-release digest, and idempotency key.
+
+- **Duplicate delivery:** The same idempotency key is a no-op.
+- **Out-of-order delivery:** A child event that lacks its required predecessor is audited and sent
+  to dead-letter handling. It does not advance the Process snapshot.
+- **Late evidence:** A selected DecisionCase is never edited. Materially newer evidence opens a new
+  Process revision and a new DecisionCase.
+- **Stale target:** A selected plan whose target revision changed returns to planning or human
+  review. It never executes against the new revision.
+- **Budget exhaustion:** Incomplete required branches close as `held`. Completed branches are not
+  silently treated as a complete search.
+
+## Logic assets
+
+A logic asset is a versioned ontology function used to query, derive, validate, or plan. Prediction,
+optimization, and simulation are capability labels on those function kinds, not new execution
+paths.
+
+Every active logic declaration records:
+
+- exact function version, artifact digest, publisher, and ontology-release digest;
+- input and output JSON Schemas;
+- bounded ObjectSet read sets and evidence cutoff;
+- deterministic or seeded-stochastic execution class;
+- server-derived seed policy for replayable stochastic functions;
+- CPU, memory, timeout, output, network, and credential ceilings;
+- required role, allowed purposes, and allowed calling agents;
+- model or algorithm version, training or learning cutoff, and evidence grade;
+- shadow evidence, promotion criteria, and the prior version used for rollback.
+
+The function registry validates input and output schemas and caller authorization. A function never
+receives Thor's executor identity and cannot call a provider mutation. The invocation receipt binds
+the declaration digest, input digest, read-set watermarks, seed, output digest, duration, resource
+usage, redactions, and terminal status.
+
+## Candidate construction
+
+Forseti constructs a DecisionCase only after required specialist evidence closes. The initial
+vertical uses existing agent-owned artifacts:
+
+- Heimdall supplies forecast and observation evidence.
+- Freyr supplies capacity forecasts and sizing recommendations.
+- Njord supplies bounded cost evidence and recommendations.
+- Loki supplies resilience scenarios when the request includes an experiment.
+- Mimir validates referenced Rule, ActionType, Workflow, and logic declarations.
+
+An ActionOption records its proposing agent, logic invocation receipts, simulation receipts,
+assumptions, expected effect ranges, uncertainty, violated constraints, and evidence references.
+The no-action baseline is mandatory. A missing baseline makes the case invalid.
+
+## Constraints and optimization
+
+Candidate selection has three deterministic stages.
+
+1. **Hard-constraint eligibility:** Pure policy and ontology checks remove candidates that violate
+   safety, security, identity, data-integrity, recovery, approved SLO, RTO, RPO, impact, or change
+   constraints. Missing, stale, conflicting, or truncated evidence is ineligible, not a pass.
+2. **Pareto pruning:** Among eligible candidates, remove only an option that another option equals
+   or improves on every declared soft objective and improves at least one. Pareto pruning never
+   selects the winner.
+3. **Odin arbitration:** The existing weighted arbiter ranks surviving soft-objective tradeoffs.
+   A close margin, non-finite score, unsupported domain, or active/challenger divergence requires
+   human review.
+
+The initial optimizer enumerates at most 32 schema-valid candidates with deterministic ordering.
+An input that would exceed the cap is decomposed or held for review; it is never silently
+truncated. A solver adapter is added only after a frozen fixture demonstrates that bounded
+enumeration cannot express the required problem.
+
+## Simulation levels
+
+The word simulation covers three distinct authority envelopes.
+
+| Level | Purpose | Allowed access | Authority |
+|-------|---------|----------------|-----------|
+| Compute sandbox | Run a reviewed prediction, optimization, or validation artifact. | No credentials, no general network, bounded read tools, read-only workspace. | Evidence only. |
+| Assurance Twin branch | Apply candidate deltas to a copy-on-write ontology snapshot. | Frozen context and versioned effect models. | Evidence only. |
+| Non-production staging | Exercise a registered ActionType against an isolated real target. | Dedicated workload identity and exact staging scope. | Ordinary risk, approval, execution, rollback, and audit rules. |
+
+A successful compute or twin run does not satisfy staging or production authorization. A staging
+result contributes promotion evidence only when independent observation closes its expected effect.
+
+## Failure handling
+
+| Failure | Safe result |
+|---------|-------------|
+| Context is stale, incomplete, conflicting, or truncated | Invalidate automatic selection and open a new context revision or hold for review. |
+| Logic artifact, declaration digest, input schema, or output schema fails | Reject the invocation and mark the dependent candidate ineligible. |
+| Sandbox crashes, times out, exceeds budget, or attempts forbidden access | Emit a failed receipt, revoke its capability, and hold when the branch is required. |
+| Twin active model is absent or diverges from its challenger | Keep the branch unscorable or require review. |
+| Heimdall cannot independently close a result | Do not report simulation or action success. |
+| Saga or Vidar is unavailable | Planning reads may continue; no selected mutation can execute. |
+| Staging partially changes a target | Stop forward dispatch, compensate in reverse dependency order, and retain an automation hold until recovery is verified. |
+
+## Execution bridge
+
+An eligible selection compiles to an immutable MutationPlan with exact target revisions, read and
+write sets, expected effects, rollback or compensation, impact evidence, and a digest. The bridge
+submits the selected ActionType through typed ingress. It does not call Thor.
+
+Risk evaluation rechecks current policy, promotion state, role, environment, impact, approval,
+target revision, and all seven safeguards. Planning evidence can only preserve or lower the
+resulting authority. T2-generated candidate content also passes the ordinary mixed-model,
+grounding, schema, policy, and verifier checks before it can become an ActionOption.
+
+## Planning Room
+
+FDAI Console presents a Planning Room as a read projection over Process events, DecisionCase,
+ActionOption, and simulation receipts. It shows:
+
+- the process timeline and accountable agent for each contribution;
+- context cutoff, freshness, and unavailable evidence;
+- no-action and candidate branches with expected ranges;
+- logic and model versions, receipts, and simulation status;
+- hard-constraint exclusions, Pareto pruning, scores, margin, and rejected reasons;
+- approval, execution, rollback, and observed-outcome links when they exist.
+
+The Operator API may accept an authenticated, revision-bound request to start an A0 simulation or
+submit a selected proposal through typed ingress. The browser never receives an executor identity
+and never treats a hidden control as authorization.
+
+## Initial vertical
+
+The first complete vertical is predictive capacity planning for one generic compute workload.
+Heimdall provides current observations, Freyr proposes bounded replica counts, Njord estimates cost,
+and the Assurance Twin compares no-action and scale branches. Reliability and recovery constraints
+filter candidates before Odin considers cost and efficiency. `ops.scale-out` remains shadow-first
+and follows its existing approval and promotion gates.
+
+The frozen scenario pack includes:
+
+1. successful no-action versus scale-out planning and verified outcome closure;
+2. stale telemetry that produces an explicit hold;
+3. a reliability and cost conflict that requires arbitration;
+4. a sandbox timeout with no selected action;
+5. partial staging failure with compensation and recovery verification;
+6. duplicate, reordered, and restart replay;
+7. active and challenger model divergence;
+8. artifact tampering and sandbox escape attempts; and
+9. A3-E non-applicability for A0 planning, plus the referenced ActionType's own authority proof.
+
+## Delivery and exit criteria
+
+| Wave | Deliverable | Exit criteria |
+|------|-------------|---------------|
+| P0 | This design, ownership review, competency fixtures, and failure matrix. | Terms, authorities, and unknown handling are reviewed before schema work. |
+| P1 | Logic identity, invocation, constraint, and simulation receipt contracts. | Schema, release pinning, compatibility, and replay tests pass. |
+| P2 | Process child events and durable planning projection. | Duplicate, reorder, concurrency, restart, and retention tests pass. |
+| P3 | Authorized logic registry and compute sandbox. | Same input and seed produce byte-identical output; escape tests fail closed. |
+| P4 | Twin branches, hard filter, Pareto pruning, and Odin arbitration input. | No ineligible option is scored; incomplete search cannot select. |
+| P5 | MutationPlan and typed-ingress bridge. | Selected action and target revisions match exactly; shadow never mutates. |
+| P6 | Planning Room API and Console projection. | RBAC, redaction, provenance, loading, unavailable, and responsive UI tests pass. |
+| P7 | Frozen scenarios, non-production drill, and shadow measurement. | Complete evidence chain, rollback, replay, and outcome closure pass with zero safety escapes. |
+
+## Verification matrix
+
+| Concern | Required proof |
+|---------|----------------|
+| Agent ownership | Every contribution uses its owner's typed topic; no direct agent call or shared workflow state exists. |
+| Determinism | Identical release, context, inputs, seed, and receipts produce the same case and selection. |
+| Constraints | Every excluded option cites at least one failed hard constraint; only eligible survivors reach Odin. |
+| Isolation | Compute and twin runs have no provider credential or managed-resource mutation path. |
+| Replay | Process journal plus pinned releases reconstruct the same phases, options, scores, and terminal reason. |
+| Safety | Planning never raises authority; selected actions still satisfy approval and all seven safeguards. |
+| Effect closure | Prediction, simulation, and action success remain pending until independently observed or explicitly unscorable. |
+| Learning | Failed, refused, no-op, rollback, and recurrence controls remain in balanced evidence cohorts. |
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Shared decision and effect semantics | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
+| Typed functions and mutation plans | [FDAI Ontology Safety Infrastructure](../architecture/operating-ontology-platform.md) |
+| Workflow and Process runtime | [Process Automation](process-automation.md) |
+| Action eligibility and execution | [Execution Model](execution-model.md) |
+| Read-only graph simulation | [Assurance Twin](../operations/assurance-twin.md) |
+| Agent ownership and arbitration | [Agent Pantheon](../agents/agent-pantheon.md) |

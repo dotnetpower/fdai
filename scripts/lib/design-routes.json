@@ -1013,6 +1013,45 @@
       ]
     },
     {
+      "id": "operational-planning",
+      "paths": [
+        "docs/roadmap/decisioning/operational-planning*.md",
+        "src/fdai/core/operational_planning/**",
+        "src/fdai/delivery/operator_api/routes/operational_planning.py",
+        "console/src/routes/operational-planning*",
+        "rule-catalog/workflows/operational-planning.yaml",
+        "rule-catalog/views/operational-planning.yaml",
+        "tests/core/operational_planning/**",
+        "tests/delivery/operator_api/test_operational_planning.py",
+        "tests/scenarios/operational-planning/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/decisioning/operational-planning.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/decisioning/process-automation.md",
+        "docs/roadmap/decisioning/execution-model.md",
+        "docs/roadmap/operations/assurance-twin.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/operational-planning.md",
+        "docs/roadmap/decisioning/process-automation.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/operational_planning tests/delivery/operator_api/test_operational_planning.py",
+        "npm --prefix console test -- --run src/routes/operational-planning.test.tsx",
+        "python3 scripts/quality/architecture/check-document-size.py"
+      ]
+    },
+    {
       "id": "local-parity",
       "paths": [
         ".vscode/**",
