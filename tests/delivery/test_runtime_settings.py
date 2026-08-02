@@ -254,6 +254,14 @@ async def test_projection_sanitizes_integration_and_runtime_status() -> None:
     assert "FDAI_EMAIL_ENDPOINT" not in str(projection)
 
 
+async def test_runtime_projection_enables_workflow_observation_by_default() -> None:
+    service = RuntimeSettingsService(store=InMemoryStateStore(), env={}, durable=False)
+
+    projection = await service.projection(can_manage=False)
+
+    assert projection["runtime"]["workflow_observation_enabled"] is True
+
+
 async def test_malformed_integration_json_is_not_ready() -> None:
     service = RuntimeSettingsService(
         store=InMemoryStateStore(),

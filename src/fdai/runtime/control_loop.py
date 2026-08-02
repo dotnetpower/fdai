@@ -133,16 +133,21 @@ def _build_workflow_coordinator(
     process_store: Any | None = None,
     ontology_store: Any | None = None,
 ) -> WorkflowTriggerCoordinator | None:
-    """Assemble the shadow workflow coordinator, opt-in and fail-safe.
+    """Assemble the shadow workflow coordinator, enabled by default and fail-safe.
 
-    Disabled unless ``FDAI_WORKFLOW_SHADOW`` is truthy AND the catalog ships at
-    least one Workflow. Any load error (missing / malformed rbac-groups or
+    Disabled only when ``FDAI_WORKFLOW_SHADOW`` is explicitly false or the catalog
+    ships no Workflow. Any load error (missing / malformed rbac-groups or
     notifications matrix) logs and returns ``None`` so workflow wiring never
-    fails boot or perturbs the control loop; upstream default is off.
+    fails boot or perturbs the control loop.
     """
     if not workflows:
         return None
-    if os.environ.get("FDAI_WORKFLOW_SHADOW", "").lower() not in ("1", "true", "yes", "on"):
+    if os.environ.get("FDAI_WORKFLOW_SHADOW", "").strip().casefold() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
         return None
     config_dir = catalog_root.parent / "config"
     rbac_file = config_dir / "rbac-groups.yaml"

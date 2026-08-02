@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d06a096685a059b1c57efec1db263afc05b09fd6
+translation_source_sha: 06dea4fb1b6acd4b983837595620838a64b9c004
 translation_revised: 2026-08-02
 ---
 
@@ -520,7 +520,7 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `infra/modules/measurement-runners/`의 Container Apps Job entry point를 선택합니다. `baseline`은 고정된 scenario regression measurement를 실행하고 `growth`는 검토된 outcome을 pattern-growth intake로 전달합니다. Action authority는 promotion 및 risk gate가 독립적으로 관리합니다. |
 | `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 executor direct-API 경로를 in-memory shadow fake로 바꿉니다. Automated test는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations gateway를 찾지 못할 때만 - Terraform state에도 없고 resource group의 live Azure CLI probe(`func-*-devgw-*`와 해당 App Service Authentication audience)로도 복구되지 않을 때 - interactive local dev에서 이를 자동 주입하여 live backend 없이도 `execution_path: direct_api` dispatch를 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated test에서 executor tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive local startup은 executor를 연결하지 않습니다. |
-| `FDAI_WORKFLOW_SHADOW` | env | upstream | `1`이면 event-triggered catalog Workflow를 non-mutating shadow mode로 활성화합니다. Azure core app은 기본 설정입니다. |
+| `FDAI_WORKFLOW_SHADOW` | env | upstream | Event-triggered catalog Workflow는 기본적으로 non-mutating shadow mode로 실행됩니다. 명시적 maintenance disable에만 `0`, `false`, `no`, `off`를 설정합니다. |
 | `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` | env | deployment / local | Owner가 `mode=enforce`로 시작할 수 있는 Workflow 이름의 comma-separated 목록입니다. Event Hubs command transport가 필요하며 action step은 일반 promotion/risk/HIL/executor 경로로 재진입합니다. |
 | `KAFKA_TOPIC_EVENTS` / `FDAI_STAGE_TOPIC` | env | upstream / local | Deployed runtime과 Azure-backed interactive transport가 공유하는 event 및 stage topic입니다. Kafka bootstrap과 event topic이 모두 없으면 interactive local은 `aw.events`와 bounded local EventBus/SSE adapter를 사용합니다. |
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | upstream | alert-shaped event를 budgeted investigation -> typed proposal 경로로 처리합니다. proposal은 표준 risk/HIL/executor loop에 재진입합니다. |
