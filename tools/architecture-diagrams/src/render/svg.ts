@@ -20,6 +20,7 @@ import type {
 import {
   EDGE_FONT_SIZE,
   EDGE_LINE_HEIGHT,
+  GROUP_FONT_SIZE,
   NODE_FONT_SIZE,
   NODE_LINE_HEIGHT,
   edgeLabelGeometry,
@@ -320,7 +321,7 @@ function renderEdge(
           offsetY,
           profile === "azure-reference" ? 4 : 14,
         );
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}"><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -364,7 +365,10 @@ export async function renderSvg(
     .map((shape) => {
       const group = groupById.get(shape.id);
       if (!group) return "";
-      const groupLines = wrapText(group.label[locale], (shape.width - 36) / 14);
+      const groupLines = wrapText(
+        group.label[locale],
+        (shape.width - 36) / GROUP_FONT_SIZE,
+      );
       const presentation = group.presentation ?? "default";
       const radius = spec.canvas.profile === "azure-reference" ? 2 : 8;
       return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", 16, "start")}</g>`;
@@ -432,13 +436,14 @@ export async function renderSvg(
     .diagram-group[data-group-id="operator-console-layer"] .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: var(--fdai-diagram-cyan-dark, #35b4e3); }
     .diagram-group[data-group-id="operator-console-layer"] .group-header { fill: var(--fdai-diagram-delivery-header, #d9f8ff); }
     .diagram-group.group-network .group-surface, .diagram-group.group-subnet .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: #008272; }
-    .group-label { font-size: 14px; font-weight: 650; fill: var(--fdai-diagram-muted, #605e5c); }
+    .group-label { font-size: ${GROUP_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-muted, #605e5c); }
     .diagram-node > rect { fill: var(--fdai-diagram-node, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; filter: url(#node-shadow); }
     .diagram-node:hover > rect, .diagram-node:focus > rect, .diagram-node.is-active > rect { stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 3; }
     .diagram-node:focus { outline: none; }
-    .node-label { font-size: 13px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
+    .node-label { font-size: ${NODE_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
+    .diagram-edge[data-edge-route="orthogonal-above"][data-edge-step] > .edge-path { opacity: 0.52; stroke-width: 2; }
     .edge-label { cursor: pointer; }
     .edge-label rect { fill: var(--fdai-diagram-label-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease; }
     .edge-label-text, .legend-item text { font-size: 12px; font-weight: 600; fill: var(--fdai-diagram-muted, #605e5c); }
@@ -457,6 +462,15 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-surface { fill: #f3f2f1; stroke: #d2d0ce; stroke-width: 1; }
     svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-header { fill: #e9e9e9; }
     svg[data-profile="azure-reference"] .diagram-group[data-presentation="panel"] .group-surface { fill: #ffffff; stroke: #d2d0ce; stroke-width: 1; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="azure-region"] > .group-surface { fill: #f8fbfe; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="azure-region"] > .group-header { fill: #eef4fa; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="fdai-vnet"] > .group-surface { fill: #ffffff; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="platform-services"] > .group-surface { fill: #f5f9fc; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="platform-services"] > .group-header { fill: #e7f0f7; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="governed-delivery"] > .group-surface { fill: #f8fafc; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="governed-delivery"] > .group-header { fill: #eaf0f5; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-surface { fill: #fbfcfd; stroke: #c8d0d8; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-header { fill: #f1f4f6; }
     svg[data-profile="azure-reference"] .diagram-node > rect { filter: none; }
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"] > rect { fill: transparent; stroke: transparent; }
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:hover > rect,

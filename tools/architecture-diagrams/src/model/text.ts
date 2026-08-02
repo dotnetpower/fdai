@@ -5,6 +5,7 @@ import type {
   LocalizedText,
 } from "./types.js";
 
+export const GROUP_FONT_SIZE = 14;
 export const NODE_FONT_SIZE = 13;
 export const NODE_LINE_HEIGHT = 17;
 export const NODE_ICON_SIZE = 42;

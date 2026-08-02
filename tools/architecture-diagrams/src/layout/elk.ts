@@ -355,6 +355,7 @@ function applyDirectLayouts(
     );
   for (const groupSpec of explicitGroups) {
     const group = groups.get(groupSpec.id);
+    const childGap = groupSpec.gap ?? gap;
     const children = [
       ...spec.groups
         .filter((child) => child.parent === groupSpec.id)
@@ -377,10 +378,10 @@ function applyDirectLayouts(
       const naturalWidth =
         left * 2 +
         children.reduce((total, node) => total + node.width, 0) +
-        gap * (children.length - 1);
+        childGap * (children.length - 1);
       const targetWidth = Math.max(naturalWidth, groupSpec.width ?? 0);
       const rowGap = children.length > 1
-        ? gap + (targetWidth - naturalWidth) / (children.length - 1)
+        ? childGap + (targetWidth - naturalWidth) / (children.length - 1)
         : 0;
       let x = group.x + left;
       for (const child of children) {
@@ -403,10 +404,10 @@ function applyDirectLayouts(
         group.x + left + (contentWidth - child.width) / 2,
         y,
       );
-      y += child.height + gap;
+      y += child.height + childGap;
     }
     group.width = Math.max(left + contentWidth + left, groupSpec.width ?? 0);
-    group.height = y - gap - group.y + bottom;
+    group.height = y - childGap - group.y + bottom;
   }
 }
 
@@ -802,7 +803,7 @@ function orthogonalTrunkRouteSection(
     y: targetIsBelow ? target.y : target.y + target.height,
   };
   const direction = targetIsBelow ? 1 : -1;
-  const trunkY = (startPoint.y + endPoint.y) / 2 + lane * 18 * direction;
+  const trunkY = (startPoint.y + endPoint.y) / 2 + lane * 12 * direction;
   return {
     id: `${edgeId}-orthogonal-trunk-route`,
     startPoint,

@@ -61,6 +61,10 @@ Each `.diagram.yaml` file contains:
 - Single-direction edges with an explicit semantic kind.
 - A legend whenever line styles carry meaning.
 
+SVG is the mandatory canonical format. Diagrams default to SVG and PNG for
+backward compatibility, and can set `formats: [svg]` when no raster consumer
+exists.
+
 Deployment diagrams can opt into `canvas.profile: azure-reference` for a compact,
 icon-forward Azure reference style. In that profile, use semantic presentation
 values instead of pixel-level styling:
@@ -69,6 +73,8 @@ values instead of pixel-level styling:
   network boundaries, subnet bands, and surrounding surfaces.
 - Set a group to `layout: row` or `layout: column` when its direct child nodes
   or groups need a stable presentation independent of cross-group edges.
+- Set `gap` on an explicit row or column when routing corridors need more room
+  than the compact profile's default spacing.
 - Set icon-bearing nodes to `presentation: icon` when the official product icon
   should carry the visual hierarchy. FDAI-owned runtime components remain cards.
 - Set `step` on an edge to render a numbered flow badge separately from its

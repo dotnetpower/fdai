@@ -17,6 +17,7 @@ export interface DiagramGroup {
   description?: LocalizedText;
   direction?: Direction;
   layout?: "flow" | "row" | "column" | "free";
+  gap?: number;
   placement?: "top" | "below" | "right";
   alignWith?: string;
   width?: number;
@@ -75,6 +76,7 @@ export interface DiagramSpec {
   version: number;
   kind: "context" | "container" | "component" | "deployment" | "data-flow" | "network";
   updated?: string;
+  formats?: Array<"svg" | "png">;
   locales: Record<Locale, DiagramDocumentText>;
   canvas: {
     width: number;

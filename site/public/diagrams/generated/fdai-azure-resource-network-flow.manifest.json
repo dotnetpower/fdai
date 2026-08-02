@@ -16,12 +16,10 @@
   },
   "assets": {
     "en": {
-      "svg": "fdai-azure-resource-network-flow.en.svg",
-      "png": "fdai-azure-resource-network-flow.en.png"
+      "svg": "fdai-azure-resource-network-flow.en.svg"
     },
     "ko": {
-      "svg": "fdai-azure-resource-network-flow.ko.svg",
-      "png": "fdai-azure-resource-network-flow.ko.png"
+      "svg": "fdai-azure-resource-network-flow.ko.svg"
     }
   },
   "nodes": [
@@ -65,8 +63,8 @@
       "id": "operator-api",
       "kind": "process",
       "label": {
-        "en": "Operator API Container App",
-        "ko": "Operator API Container App"
+        "en": "Operator API",
+        "ko": "Operator API"
       },
       "description": {
         "en": "Separate read and command transport identities with no executor permission",
@@ -101,8 +99,8 @@
       "id": "scheduled-jobs",
       "kind": "process",
       "label": {
-        "en": "Container Apps Jobs",
-        "ko": "Container Apps Jobs"
+        "en": "Scheduled jobs",
+        "ko": "예약 job"
       },
       "description": {
         "en": "Inventory, detection, canary, measurement, and resilience jobs",
@@ -113,8 +111,8 @@
       "id": "core-runtime",
       "kind": "process",
       "label": {
-        "en": "FDAI core Container App",
-        "ko": "FDAI core Container App"
+        "en": "FDAI core",
+        "ko": "FDAI core"
       },
       "description": {
         "en": "Fifteen agents, trust router, safety checks, and privileged executor",
@@ -125,8 +123,8 @@
       "id": "ingestion-gateway",
       "kind": "process",
       "label": {
-        "en": "Ingestion Gateway (optional)",
-        "ko": "Ingestion Gateway (optional)"
+        "en": "Ingestion gateway (optional)",
+        "ko": "Ingestion gateway (optional)"
       },
       "description": {
         "en": "Authenticated document upload and governed ingestion",
@@ -233,8 +231,8 @@
       "id": "event-hubs",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Event Hubs",
-        "ko": "Azure Event Hubs"
+        "en": "Event Hubs",
+        "ko": "Event Hubs"
       },
       "description": {
         "en": "Kafka :9093 topics, control topics, replay, and dead-letter streams",
@@ -245,8 +243,8 @@
       "id": "container-registry",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Container Registry",
-        "ko": "Azure Container Registry"
+        "en": "Container Registry",
+        "ko": "Container Registry"
       },
       "description": {
         "en": "Signed images pinned by digest",
@@ -257,8 +255,8 @@
       "id": "key-vault",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Key Vault",
-        "ko": "Azure Key Vault"
+        "en": "Key Vault",
+        "ko": "Key Vault"
       },
       "description": {
         "en": "Native Container Apps secret references",
@@ -293,8 +291,8 @@
       "id": "postgres",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Database for PostgreSQL",
-        "ko": "Azure Database for PostgreSQL"
+        "en": "PostgreSQL",
+        "ko": "PostgreSQL"
       },
       "description": {
         "en": "State, append-only audit, operator memory, and pgvector",
@@ -305,8 +303,8 @@
       "id": "document-storage",
       "kind": "store",
       "label": {
-        "en": "ADLS Gen2 Storage Account (optional)",
-        "ko": "ADLS Gen2 Storage Account (optional)"
+        "en": "ADLS Gen2 (optional)",
+        "ko": "ADLS Gen2 (optional)"
       },
       "description": {
         "en": "Quarantine, governed source, and derived filesystems",
@@ -317,8 +315,8 @@
       "id": "workload-identities",
       "kind": "azure-service",
       "label": {
-        "en": "User-assigned managed identities",
-        "ko": "User-assigned managed identity"
+        "en": "Managed identities",
+        "ko": "Managed identity"
       },
       "description": {
         "en": "Separate executor, inventory, read, command, and job principals",
@@ -329,8 +327,8 @@
       "id": "resource-graph",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Resource Graph",
-        "ko": "Azure Resource Graph"
+        "en": "Resource Graph",
+        "ko": "Resource Graph"
       },
       "description": {
         "en": "Subscription and resource inventory through the Azure control plane",
@@ -341,8 +339,8 @@
       "id": "monitor",
       "kind": "azure-service",
       "label": {
-        "en": "Application Insights and Log Analytics",
-        "ko": "Application Insights 및 Log Analytics"
+        "en": "App Insights + Logs",
+        "ko": "App Insights + Logs"
       },
       "description": {
         "en": "Traces, metrics, logs, alerts, and correlation",
@@ -353,8 +351,8 @@
       "id": "managed-grafana",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Managed Grafana",
-        "ko": "Azure Managed Grafana"
+        "en": "Managed Grafana",
+        "ko": "Managed Grafana"
       },
       "description": {
         "en": "Governed dashboards over Azure Monitor data",
@@ -377,8 +375,8 @@
       "id": "teams-approval",
       "kind": "external",
       "label": {
-        "en": "Microsoft Teams",
-        "ko": "Microsoft Teams"
+        "en": "Teams",
+        "ko": "Teams"
       },
       "description": {
         "en": "Human approval with a separate approver identity",

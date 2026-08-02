@@ -1,6 +1,7 @@
 id: fdai-azure-resource-network-flow
 version: 1
 kind: deployment
+formats: [svg]
 updated: 2026-08-02
 locales:
   en:
@@ -29,7 +30,7 @@ groups:
   - id: azure-region
     kind: cloud
     presentation: panel
-    label: { en: Azure deployment region, ko: Azure 배포 region }
+    label: { en: Azure region, ko: Azure region }
     direction: DOWN
   - id: fdai-vnet
     parent: azure-region
@@ -37,12 +38,14 @@ groups:
     presentation: boundary
     label: { en: FDAI virtual network, ko: FDAI virtual network }
     direction: DOWN
+    layout: column
+    gap: 132
     placement: top
   - id: gateway-subnet
     parent: fdai-vnet
     kind: subnet
     presentation: band
-    label: { en: Private Application Gateway subnet, ko: Private Application Gateway subnet }
+    label: { en: Application Gateway subnet, ko: Application Gateway subnet }
     direction: RIGHT
     layout: row
     alignWith: private-endpoint-subnet
@@ -51,7 +54,7 @@ groups:
     parent: fdai-vnet
     kind: subnet
     presentation: band
-    label: { en: Container Apps infrastructure subnet, ko: Container Apps infrastructure subnet }
+    label: { en: Container Apps subnet, ko: Container Apps subnet }
     direction: RIGHT
     layout: row
     alignWith: private-endpoint-subnet
@@ -78,7 +81,7 @@ groups:
     parent: azure-region
     kind: layer
     presentation: panel
-    label: { en: Azure platform services, ko: Azure platform service }
+    label: { en: Platform services, ko: Platform service }
     direction: DOWN
     layout: column
     placement: right
@@ -86,21 +89,21 @@ groups:
   - id: governed-delivery
     kind: layer
     presentation: panel
-    label: { en: Governed delivery channels, ko: 통제된 전달 채널 }
+    label: { en: Delivery channels, ko: 전달 채널 }
     direction: DOWN
     layout: column
   - id: git-providers
     parent: governed-delivery
     kind: layer
     presentation: band
-    label: { en: Git delivery providers, ko: Git 전달 provider }
+    label: { en: Git providers, ko: Git provider }
     direction: RIGHT
     layout: row
   - id: approval-channels
     parent: governed-delivery
     kind: layer
     presentation: band
-    label: { en: Human approval channels, ko: 사람 승인 채널 }
+    label: { en: Approval channels, ko: 승인 채널 }
     direction: RIGHT
     layout: row
 nodes:
@@ -129,7 +132,7 @@ nodes:
     parent: container-apps-subnet
     kind: process
     icon: container-apps
-    label: { en: Operator API Container App, ko: Operator API Container App }
+    label: { en: Operator API, ko: Operator API }
     description: { en: Separate read and command transport identities with no executor permission, ko: Executor 권한 없이 분리된 read 및 command transport identity }
   - id: application-gateway
     parent: gateway-subnet
@@ -150,19 +153,19 @@ nodes:
     kind: process
     icon: container-apps
     presentation: icon
-    label: { en: Container Apps Jobs, ko: Container Apps Jobs }
+    label: { en: Scheduled jobs, ko: 예약 job }
     description: { en: "Inventory, detection, canary, measurement, and resilience jobs", ko: "Inventory, detection, canary, measurement 및 resilience job" }
   - id: core-runtime
     parent: container-apps-subnet
     kind: process
     icon: container-apps
-    label: { en: FDAI core Container App, ko: FDAI core Container App }
+    label: { en: FDAI core, ko: FDAI core }
     description: { en: "Fifteen agents, trust router, safety checks, and privileged executor", ko: "15개 agent, trust router, 안전성 검토 및 권한 있는 executor" }
   - id: ingestion-gateway
     parent: container-apps-subnet
     kind: process
     icon: container-apps
-    label: { en: Ingestion Gateway (optional), ko: Ingestion Gateway (optional) }
+    label: { en: Ingestion gateway (optional), ko: Ingestion gateway (optional) }
     description: { en: Authenticated document upload and governed ingestion, ko: 인증된 document upload 및 통제된 ingestion }
   - id: event-hubs-pe
     parent: private-endpoint-subnet
@@ -225,21 +228,21 @@ nodes:
     kind: azure-service
     icon: event-hubs
     presentation: icon
-    label: { en: Azure Event Hubs, ko: Azure Event Hubs }
+    label: { en: Event Hubs, ko: Event Hubs }
     description: { en: "Kafka :9093 topics, control topics, replay, and dead-letter streams", ko: "Kafka :9093 topic, control topic, replay 및 dead-letter stream" }
   - id: container-registry
     parent: private-service-backends
     kind: azure-service
     icon: container-registry
     presentation: icon
-    label: { en: Azure Container Registry, ko: Azure Container Registry }
+    label: { en: Container Registry, ko: Container Registry }
     description: { en: Signed images pinned by digest, ko: Digest로 고정된 서명 image }
   - id: key-vault
     parent: private-service-backends
     kind: azure-service
     icon: key-vault
     presentation: icon
-    label: { en: Azure Key Vault, ko: Azure Key Vault }
+    label: { en: Key Vault, ko: Key Vault }
     description: { en: Native Container Apps secret references, ko: Container Apps native secret 참조 }
   - id: azure-openai
     parent: private-service-backends
@@ -260,42 +263,42 @@ nodes:
     kind: azure-service
     icon: postgresql
     presentation: icon
-    label: { en: Azure Database for PostgreSQL, ko: Azure Database for PostgreSQL }
+    label: { en: PostgreSQL, ko: PostgreSQL }
     description: { en: "State, append-only audit, operator memory, and pgvector", ko: "상태, 추가 전용 감사, operator memory 및 pgvector" }
   - id: document-storage
     parent: private-service-backends
     kind: store
     icon: storage-account
     presentation: icon
-    label: { en: ADLS Gen2 Storage Account (optional), ko: ADLS Gen2 Storage Account (optional) }
+    label: { en: ADLS Gen2 (optional), ko: ADLS Gen2 (optional) }
     description: { en: "Quarantine, governed source, and derived filesystems", ko: "Quarantine, governed source 및 derived filesystem" }
   - id: workload-identities
     parent: platform-services
     kind: azure-service
     icon: managed-identity
     presentation: icon
-    label: { en: User-assigned managed identities, ko: User-assigned managed identity }
+    label: { en: Managed identities, ko: Managed identity }
     description: { en: "Separate executor, inventory, read, command, and job principals", ko: "분리된 executor, inventory, read, command 및 job principal" }
   - id: resource-graph
     parent: platform-services
     kind: azure-service
     icon: resource-graph
     presentation: icon
-    label: { en: Azure Resource Graph, ko: Azure Resource Graph }
+    label: { en: Resource Graph, ko: Resource Graph }
     description: { en: Subscription and resource inventory through the Azure control plane, ko: Azure control plane을 통한 subscription 및 resource inventory }
   - id: monitor
     parent: platform-services
     kind: azure-service
     icon: monitor
     presentation: icon
-    label: { en: Application Insights and Log Analytics, ko: Application Insights 및 Log Analytics }
+    label: { en: App Insights + Logs, ko: App Insights + Logs }
     description: { en: "Traces, metrics, logs, alerts, and correlation", ko: "Trace, metric, log, alert 및 correlation" }
   - id: managed-grafana
     parent: platform-services
     kind: azure-service
     icon: managed-grafana
     presentation: icon
-    label: { en: Azure Managed Grafana, ko: Azure Managed Grafana }
+    label: { en: Managed Grafana, ko: Managed Grafana }
     description: { en: Governed dashboards over Azure Monitor data, ko: Azure Monitor data 기반의 통제된 dashboard }
   - id: email-approval
     parent: approval-channels
@@ -309,7 +312,7 @@ nodes:
     kind: external
     icon: teams
     presentation: icon
-    label: { en: Microsoft Teams, ko: Microsoft Teams }
+    label: { en: Teams, ko: Teams }
     description: { en: Human approval with a separate approver identity, ko: 분리된 approver identity를 사용하는 사람 승인 }
   - id: slack-approval
     parent: approval-channels

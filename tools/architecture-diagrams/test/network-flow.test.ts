@@ -69,7 +69,7 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.doesNotMatch(source, /\bTBD\b/);
   assert.equal(
     spec.nodes.find((node) => node.id === "document-storage")!.label.en,
-    "ADLS Gen2 Storage Account (optional)",
+    "ADLS Gen2 (optional)",
   );
   assert.equal(
     spec.nodes.find((node) => node.id === "document-storage")!.icon,
@@ -121,6 +121,8 @@ test("Azure resource network flow routes every compound edge", async () => {
   );
   assert.ok(gatewaySubnet.y + gatewaySubnet.height < containerApps.y);
   assert.ok(containerApps.y + containerApps.height < privateEndpoints.y);
+  assert.equal(containerApps.y - gatewaySubnet.y - gatewaySubnet.height, 132);
+  assert.equal(privateEndpoints.y - containerApps.y - containerApps.height, 132);
   assert.ok(privateEndpoints.y + privateEndpoints.height < privateServices.y);
   const operatorAccess = layout.groups.get("operator-access")!;
   const azureRegion = layout.groups.get("azure-region")!;
@@ -171,6 +173,15 @@ test("Azure resource network flow routes every compound edge", async () => {
     assert.ok(gap >= 70, `operator access gap ${index} is ${gap}`);
   }
   assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Microsoft Entra ID");
+  assert.equal(
+    spec.nodes.find((node) => node.id === "monitor")!.label.en,
+    "App Insights + Logs",
+  );
+  for (const endpoint of spec.nodes.filter(
+    (node) => node.parent === "private-endpoint-subnet",
+  )) {
+    assert.doesNotMatch(endpoint.label.en, /private endpoint/iu);
+  }
   const orderedContainerApps = [
     "operator-api",
     "scheduled-jobs",
@@ -236,6 +247,22 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.ok(gitSection.bendPoints[1]!.y < gitSection.startPoint.y);
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-teams")!.step, 6);
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-github")!.step, 7);
+  assert.match(
+    svg,
+    /data-edge-id="core-to-teams"[^>]*data-edge-route="orthogonal-above"[^>]*data-edge-step="6"/,
+  );
+  assert.match(
+    svg,
+    /data-edge-route="orthogonal-above"\]\[data-edge-step\] > \.edge-path/,
+  );
+  assert.match(
+    svg,
+    /data-group-id="azure-region"\] > \.group-surface \{ fill: #f8fbfe;/,
+  );
+  assert.match(
+    svg,
+    /data-group-id="platform-services"\] > \.group-header \{ fill: #e7f0f7;/,
+  );
   assert.equal(
     spec.nodes.find((node) => node.id === "postgres")!.parent,
     "private-service-backends",

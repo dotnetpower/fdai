@@ -8,6 +8,12 @@
   "properties": {
     "id": { "$ref": "#/definitions/id" },
     "version": { "type": "integer", "minimum": 1 },
+    "formats": {
+      "type": "array",
+      "items": { "enum": ["svg", "png"] },
+      "contains": { "const": "svg" },
+      "uniqueItems": true
+    },
     "kind": {
       "enum": ["context", "container", "component", "deployment", "data-flow", "network"]
     },
@@ -101,6 +107,7 @@
         "description": { "$ref": "#/definitions/localizedText" },
         "direction": { "enum": ["RIGHT", "DOWN"] },
         "layout": { "enum": ["flow", "row", "column", "free"] },
+        "gap": { "type": "integer", "minimum": 8, "maximum": 240 },
         "placement": { "enum": ["top", "below", "right"] },
         "alignWith": { "$ref": "#/definitions/id" },
         "width": { "type": "integer", "minimum": 152, "maximum": 1200 }
