@@ -118,6 +118,11 @@
     .ex-final-copy { color: var(--ex-ink); font-size: 13.5px; line-height: 1.62; }
     .ex-final-copy p { margin: 0 0 9px; }
     .ex-final-copy code { color: #425467; }
+    .ex-final.is-streaming .ex-agent-source { color: var(--ex-blue); }
+    .ex-final.is-streaming .ex-turn-foot { visibility: hidden; }
+    .ex-stream-caret { width: 1px; height: 1em; display: inline-block; margin-left: 2px; vertical-align: -2px; background: var(--ex-blue); animation: ex-caret .45s steps(1, end) infinite; }
+    @keyframes ex-caret { 50% { opacity: 0; } }
+    .ex-final-reveal.is-visible { animation: ex-arrive .16s ease both; }
     .ex-result-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .ex-result-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 5px; background: #f8f9fa; color: var(--ex-muted); font-size: 10.5px; }
     .ex-result-chip strong { color: var(--ex-ink); }
@@ -294,7 +299,7 @@
         <article class="ex-turn is-bragi">
           <div class="ex-turn-body">
             <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">investigation / probe-diagnostics</span></header>
-            <p class="ex-answer-lead">I will check the deployed state first, then follow the local failure through the validator before changing anything.</p>
+            <p class="ex-answer-lead" aria-live="polite" aria-busy="false">I will check the deployed state first, then follow the local failure through the validator before changing anything.</p>
             <div class="ex-run" id="ex-run" aria-live="polite"></div>
             <div class="ex-turn-foot"><time class="ex-turn-time">10:42</time></div>
           </div>
@@ -303,8 +308,11 @@
           <div class="ex-turn-body">
             <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">llm:narrator-gpt-4-1-mini · 1090ms · 1.2k tok</span></header>
             <div class="ex-final-copy">
-              <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
-              <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
+              <div class="ex-stream-answer" aria-live="polite" aria-busy="false">
+                <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
+                <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
+              </div>
+              <div class="ex-final-reveal">
               <div class="ex-result-line">
                 <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>5</strong> commands inspected</span>
                 <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>1</strong> local file changed</span>
@@ -484,6 +492,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
                   </dl>
                 </div>
               </details>
+              </div>
             </div>
             <div class="ex-turn-foot"><time class="ex-turn-time">10:43</time></div>
           </div>
@@ -535,13 +544,76 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         }
       ];
       var runHost = document.getElementById("ex-run");
+      var answerLead = document.querySelector(".ex-answer-lead");
+      var answerLeadText = answerLead.textContent;
       var finalAnswer = document.getElementById("ex-final");
+      var finalParagraphs = Array.prototype.slice.call(finalAnswer.querySelectorAll(".ex-stream-answer p"));
+      var finalParagraphHtml = finalParagraphs.map(function (paragraph) { return paragraph.innerHTML; });
+      var finalParagraphText = finalParagraphs.map(function (paragraph) { return paragraph.textContent; });
+      var finalReveal = finalAnswer.querySelector(".ex-final-reveal");
+      var finalSource = finalAnswer.querySelector(".ex-agent-source");
+      var finalSourceText = finalSource.textContent;
+      var streamAnswer = finalAnswer.querySelector(".ex-stream-answer");
       var runToken = 0;
       var waits = [];
 
       function create(tag, className, text) { var node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
       function wait(ms, token) { return new Promise(function (resolve) { var timer = setTimeout(function () { resolve(token === runToken); }, ms); waits.push(timer); }); }
       function clearWaits() { waits.forEach(clearTimeout); waits = []; }
+      function prepareFinalAnswer() {
+        finalAnswer.classList.remove("is-visible", "is-streaming");
+        finalParagraphs.forEach(function (paragraph) { paragraph.textContent = ""; });
+        finalReveal.hidden = true;
+        finalReveal.classList.remove("is-visible");
+        finalSource.textContent = finalSourceText;
+        streamAnswer.setAttribute("aria-busy", "false");
+      }
+      function completeFinalAnswer() {
+        finalParagraphs.forEach(function (paragraph, index) { paragraph.innerHTML = finalParagraphHtml[index]; });
+        finalAnswer.classList.remove("is-streaming");
+        finalSource.textContent = finalSourceText;
+        streamAnswer.setAttribute("aria-busy", "false");
+        finalReveal.hidden = false;
+        finalReveal.classList.add("is-visible");
+      }
+      function streamChunks(text) {
+        var words = text.match(/\S+\s*/g) || [];
+        var chunks = [];
+        for (var index = 0; index < words.length; index += 3) chunks.push(words.slice(index, index + 3).join(""));
+        return chunks;
+      }
+      async function streamNodeText(node, text, token, delay) {
+        node.textContent = "";
+        node.setAttribute("aria-live", "polite");
+        node.setAttribute("aria-busy", "true");
+        var caret = create("span", "ex-stream-caret");
+        caret.setAttribute("aria-hidden", "true");
+        node.appendChild(caret);
+        var chunks = streamChunks(text);
+        for (var index = 0; index < chunks.length; index += 1) {
+          node.insertBefore(document.createTextNode(chunks[index]), caret);
+          if (!await wait(delay, token)) {
+            node.setAttribute("aria-busy", "false");
+            return false;
+          }
+        }
+        caret.remove();
+        node.setAttribute("aria-busy", "false");
+        return true;
+      }
+      async function streamFinalAnswer(token) {
+        finalAnswer.classList.add("is-visible", "is-streaming");
+        finalSource.textContent = "llm:narrator-gpt-4-1-mini · streaming";
+        streamAnswer.setAttribute("aria-busy", "true");
+        for (var paragraphIndex = 0; paragraphIndex < finalParagraphs.length; paragraphIndex += 1) {
+          var paragraph = finalParagraphs[paragraphIndex];
+          if (!await streamNodeText(paragraph, finalParagraphText[paragraphIndex], token, 14)) return false;
+          if (paragraphIndex < finalParagraphs.length - 1 && !await wait(24, token)) return false;
+        }
+        if (token !== runToken) return false;
+        completeFinalAnswer();
+        return true;
+      }
       function setExpanded(step, expanded) {
         var toggle = step.querySelector(".ex-step-toggle");
         var detail = step.querySelector(".ex-step-detail");
@@ -608,7 +680,10 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           progress.appendChild(create("span", "ex-progress-mark", "0" + (phaseIndex + 1)));
           var progressBody = create("div", "ex-progress-body");
           progressBody.appendChild(create("span", "ex-progress-label", phaseIndex === 0 ? "Starting work" : "Progress update"));
-          progressBody.appendChild(create("p", "ex-progress-copy", phase.update));
+          var progressCopy = create("p", "ex-progress-copy", "");
+          progressCopy.setAttribute("aria-live", "polite");
+          progressCopy.setAttribute("aria-busy", "false");
+          progressBody.appendChild(progressCopy);
           progress.appendChild(progressBody);
           phaseNode.appendChild(progress);
           var session = create("section", "ex-session is-running");
@@ -632,7 +707,9 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         runToken += 1;
         clearWaits();
         renderRun();
-        finalAnswer.classList.remove("is-visible");
+        answerLead.textContent = "";
+        answerLead.setAttribute("aria-busy", "false");
+        prepareFinalAnswer();
         return runToken;
       }
 
@@ -666,19 +743,27 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       function completeRun() {
         Array.prototype.forEach.call(runHost.children, function (phaseNode, phaseIndex) {
           phaseNode.classList.add("is-visible");
+          phaseNode.querySelector(".ex-progress-copy").textContent = PHASES[phaseIndex].update;
           completePhase(phaseNode, PHASES[phaseIndex]);
         });
+        answerLead.textContent = answerLeadText;
+        answerLead.setAttribute("aria-busy", "false");
         finalAnswer.classList.add("is-visible");
+        completeFinalAnswer();
       }
 
       async function run() {
         var token = reset();
         if (!await wait(450, token)) return;
+        if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
+        if (!await wait(120, token)) return;
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
           var phase = PHASES[phaseIndex];
           var phaseNode = runHost.children[phaseIndex];
           phaseNode.classList.add("is-visible");
-          if (!await wait(520, token)) return;
+          var progressCopy = phaseNode.querySelector(".ex-progress-copy");
+          if (!await streamNodeText(progressCopy, phase.update, token, 14)) return;
+          if (!await wait(160, token)) return;
           var stepsHost = phaseNode.querySelector(".ex-steps");
           var sessionMeta = phaseNode.querySelector(".ex-session-meta");
           for (var index = 0; index < phase.activities.length; index += 1) {
@@ -701,7 +786,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           completePhase(phaseNode, phase);
           if (!await wait(620, token)) return;
         }
-        finalAnswer.classList.add("is-visible");
+        await streamFinalAnswer(token);
       }
 
       document.getElementById("ex-replay").addEventListener("click", run);
