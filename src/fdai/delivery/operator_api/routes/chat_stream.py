@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -196,7 +196,7 @@ def make_chat_stream_route(
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     progress_metrics: ConversationProgressMetrics | None = None,
     turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
-    turn_tools: tuple[TurnTool, ...] = (),
+    turn_tools: tuple[TurnTool, ...] | Callable[[], tuple[TurnTool, ...]] = (),
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_STREAM_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
@@ -365,7 +365,7 @@ def make_chat_stream_route(
                         semantic_plan = await plan_semantic_turn(
                             turn_planner,
                             prompt=clean_prompt,
-                            tools=turn_tools,
+                            tools=turn_tools() if callable(turn_tools) else turn_tools,
                             history=history,
                             attachments=view_context.get("_attachments"),
                         )

@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -280,7 +280,7 @@ def make_chat_route(
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
-    turn_tools: tuple[TurnTool, ...] = (),
+    turn_tools: tuple[TurnTool, ...] | Callable[[], tuple[TurnTool, ...]] = (),
     handover_availability_publisher: object | None = None,
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_ROUTE_PATH,
@@ -451,7 +451,7 @@ def make_chat_route(
                     semantic_plan = await plan_semantic_turn(
                         turn_planner,
                         prompt=clean_prompt,
-                        tools=turn_tools,
+                        tools=turn_tools() if callable(turn_tools) else turn_tools,
                         history=history,
                         attachments=view_context.get("_attachments"),
                     )

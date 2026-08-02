@@ -78,9 +78,11 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
         instance_id="operator-api-test",
         response_timeout_seconds=1.0,
     )
+    assert client.available is False
     server_task = asyncio.create_task(server.run())
     try:
         await client.start()
+        assert client.available is True
         result = await client.delegate(
             prompt="@Huginn What have you been working on?",
             user_id="operator-1",
@@ -91,6 +93,7 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
         server_task.cancel()
         await asyncio.gather(server_task, return_exceptions=True)
 
+    assert client.available is False
     assert result is not None
     assert result["primary_agent"] == "Huginn"
     assert result["facts"]["dedup_size"] == 7
