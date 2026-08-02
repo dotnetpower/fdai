@@ -145,6 +145,13 @@ function bareNameOf(relPath) {
 async function* walkMarkdown(dir, baseDir = dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
+    if (
+      entry.name === "node_modules" ||
+      entry.name.startsWith("_") ||
+      entry.name.startsWith(".")
+    ) {
+      continue;
+    }
     const abs = join(dir, entry.name);
     if (entry.isDirectory()) {
       yield* walkMarkdown(abs, baseDir);
