@@ -20,6 +20,7 @@ from fdai.core.conversation_assurance import (
     PolicyStage,
     PolicyTransition,
     PolicyTrialMetrics,
+    PromotionConfig,
     cluster_failures,
     evaluate_policy_transition,
 )
@@ -169,6 +170,31 @@ def test_policy_advances_one_stage_after_guards_pass() -> None:
     transition = evaluate_policy_transition(_candidate(), _metrics())
 
     assert transition.to_stage is PolicyStage.CANARY_1
+
+
+def test_policy_requires_statistically_positive_gain_by_default() -> None:
+    transition = evaluate_policy_transition(
+        _candidate(),
+        _metrics(score_delta_lcb95=0.0),
+    )
+
+    assert transition.to_stage is PolicyStage.ROLLED_BACK
+    assert transition.reasons == ("score_regression",)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"min_samples": 0},
+        {"min_score_delta_lcb95": 0.0},
+        {"max_latency_delta_ms": -1.0},
+        {"max_locale_gap_delta": 1.1},
+        {"max_disagreement_rate_delta": 1.1},
+    ],
+)
+def test_invalid_promotion_thresholds_fail_at_configuration(kwargs: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="promotion"):
+        PromotionConfig(**kwargs)  # type: ignore[arg-type]
 
 
 async def test_candidate_store_scopes_and_replays_transitions() -> None:

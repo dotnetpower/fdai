@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 6889e82f6e4392f15e2994c60d0fdd641b9ca43d
+translation_source_sha: 6be0b8dc4431c8bee1a95fd5b433b3a2727d8a08
 translation_revised: 2026-08-04
 ---
 # 대화 품질 보증
@@ -235,6 +235,9 @@ $$
 
 `H`는 하드 실패 이탈 수입니다. 하드 이탈, 0보다 낮은 신뢰 하한, 비용 또는 지연 회귀, locale
 격차 또는 불일치 증가가 있으면 이전 immutable 정책을 자동 복원합니다.
+기본 minimum lower-confidence-bound gain은 `0.01`이므로 tie 또는 측정되지 않은 improvement는 다음
+stage로 진행하지 않습니다. 잘못된 sample, gain, latency, locale-gap 또는 disagreement threshold는
+runtime policy 생성 시 실패합니다.
 
 ## 운영자 이의 제기 화면
 

@@ -49,6 +49,8 @@ No value on one axis selects a value on another axis. In particular:
   execution venue or environment cannot turn partial or unavailable evidence into complete evidence.
 - Conversation route completion is not evidence authority. Deterministic assurance requires a
   nonempty terminal evidence manifest regardless of venue, environment, or answer source.
+- Chat-policy promotion requires a statistically positive measured gain. Venue, environment, or
+  deployment defaults cannot turn a tie into promotion evidence.
 - A fork may have zero or many deployments in any environment. Upstream may also be deployed
   directly.
 - Fork detection protects the upstream framework surface. It never changes runtime behavior,
