@@ -261,21 +261,6 @@ def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
         (
             _graph(
                 _goal(
-                    "first",
-                    capability="query_subscription_health",
-                    arguments={"lookback_seconds": 3600},
-                ),
-                _goal(
-                    "second",
-                    capability="query_subscription_health",
-                    arguments={"lookback_seconds": 7200},
-                ),
-            ),
-            "more than once",
-        ),
-        (
-            _graph(
-                _goal(
                     "restart",
                     capability="ops.restart-service",
                     arguments={"resource_ref": "service-example"},
@@ -288,6 +273,26 @@ def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
 def test_invalid_graphs_fail_closed(raw: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         parse_intent_graph(raw, tools=_tools())
+
+
+def test_graph_allows_repeated_read_capability_with_distinct_arguments() -> None:
+    graph = parse_intent_graph(
+        _graph(
+            _goal(
+                "current",
+                capability="query_subscription_health",
+                arguments={"lookback_seconds": 3600},
+            ),
+            _goal(
+                "baseline",
+                capability="query_subscription_health",
+                arguments={"lookback_seconds": 7200},
+            ),
+        ),
+        tools=_tools(),
+    )
+
+    assert [goal.arguments["lookback_seconds"] for goal in graph.goals] == [3600, 7200]
 
 
 def test_draft_only_allows_one_terminal_write_goal() -> None:

@@ -39,14 +39,14 @@ async def resolve_intent_graph_evidence(
     """Resolve graph goals by dependency wave and retain every terminal receipt."""
     merged = dict(view_context)
     pending = {goal.goal_id: goal for goal in graph.goals}
-    completed: set[str] = set()
+    terminal_statuses: dict[str, str] = {}
     receipts: list[dict[str, Any]] = []
     semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
     while pending:
         ready = [
             goal
             for goal in graph.goals
-            if goal.goal_id in pending and set(goal.depends_on).issubset(completed)
+            if goal.goal_id in pending and set(goal.depends_on).issubset(terminal_statuses)
         ]
         if not ready:
             raise RuntimeError("validated intent graph has no executable dependency wave")
@@ -67,11 +67,44 @@ async def resolve_intent_graph_evidence(
                 )
                 return goal, receipt
 
-        wave = await asyncio.gather(*(resolve(goal) for goal in ready))
-        for goal, receipt in wave:
+        executable = [
+            goal
+            for goal in ready
+            if all(terminal_statuses[dependency] == "completed" for dependency in goal.depends_on)
+        ]
+        wave = await asyncio.gather(*(resolve(goal) for goal in executable))
+        resolved = {goal.goal_id: receipt for goal, receipt in wave}
+        for goal in ready:
+            receipt = resolved.get(goal.goal_id)
+            if receipt is None:
+                blocked_by = [
+                    dependency
+                    for dependency in goal.depends_on
+                    if terminal_statuses[dependency] != "completed"
+                ]
+                receipt = {
+                    "goal_id": goal.goal_id,
+                    "intent": goal.intent.value,
+                    "capability": goal.capability,
+                    "evidence_mode": goal.evidence_mode.value,
+                    "status": "skipped",
+                    "duration_ms": 0,
+                    "depends_on": list(goal.depends_on),
+                    "reason": "dependency_not_completed",
+                    "blocked_by": blocked_by,
+                }
+                await progress_observer(
+                    _progress(
+                        f"{request_id}:{goal.goal_id}",
+                        goal,
+                        "unavailable",
+                        "Intent goal skipped because a dependency did not complete",
+                        0,
+                    )
+                )
             receipts.append(receipt)
             _merge_compatibility_evidence(merged, receipt)
-            completed.add(goal.goal_id)
+            terminal_statuses[goal.goal_id] = str(receipt["status"])
             pending.pop(goal.goal_id)
     aggregate_status = _aggregate_status(receipts)
     merged["_intent_graph_evidence"] = {

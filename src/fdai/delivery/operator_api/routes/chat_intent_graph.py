@@ -371,9 +371,6 @@ def _validate_authority(
     by_name: Mapping[str, TurnTool],
     posture: ActionPosture,
 ) -> str | None:
-    selected = [by_name[goal.capability] for goal in goals if goal.capability is not None]
-    if len({tool.name for tool in selected}) != len(selected):
-        raise ValueError("intent graph cannot select one capability more than once")
     writes = [
         goal
         for goal in goals

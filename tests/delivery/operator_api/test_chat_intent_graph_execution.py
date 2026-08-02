@@ -176,5 +176,65 @@ async def test_graph_executor_reports_partial_without_dropping_success() -> None
     assert ledger["goals"][2]["evidence"]["authority"] == "model_knowledge"
 
 
+async def test_graph_executor_skips_goal_with_unsuccessful_dependency() -> None:
+    resolver = _Tools()
+    events: list[Mapping[str, Any]] = []
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        events.append(event)
+
+    graph = _graph(
+        _goal("missing", "query_unavailable"),
+        _goal("dependent", "query_health", depends_on=["missing"]),
+    )
+
+    result = await resolve_intent_graph_evidence(
+        request_id="request-3",
+        prompt="use the first result in the second query",
+        graph=graph,
+        view_context={},
+        user_id="reader",
+        session_id="session-3",
+        planned_tool_resolver=resolver,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=observe,
+    )
+
+    goals = result["_intent_graph_evidence"]["goals"]
+    assert resolver.calls == ["query_unavailable"]
+    assert goals[1]["status"] == "skipped"
+    assert goals[1]["reason"] == "dependency_not_completed"
+    assert goals[1]["blocked_by"] == ["missing"]
+    assert events[-1]["status"] == "unavailable"
+
+
+async def test_graph_executor_runs_repeated_capability_for_each_goal() -> None:
+    resolver = _Tools()
+    graph = _graph(
+        _goal("first", "query_health"),
+        _goal("second", "query_health"),
+    )
+
+    result = await resolve_intent_graph_evidence(
+        request_id="request-4",
+        prompt="compare two health scopes",
+        graph=graph,
+        view_context={},
+        user_id="reader",
+        session_id="session-4",
+        planned_tool_resolver=resolver,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=lambda _event: _completed(),
+    )
+
+    assert resolver.calls == ["query_health", "query_health"]
+    assert [goal["status"] for goal in result["_intent_graph_evidence"]["goals"]] == [
+        "completed",
+        "completed",
+    ]
+
+
 async def _completed() -> None:
     return None
