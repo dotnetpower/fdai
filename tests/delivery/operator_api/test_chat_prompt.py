@@ -24,7 +24,6 @@ from fdai.delivery.operator_api.routes.chat import (
     _GLOSSARY,
     DEFAULT_MAX_CONTEXT_BYTES,
     DEFAULT_MAX_EXPLANATION_ITEMS,
-    DEFAULT_MAX_HISTORY_TURNS,
     DEFAULT_MAX_RECORDS_PER_KEY,
     _build_messages,
     _is_capability_query,
@@ -631,16 +630,19 @@ def test_snapshot_is_embedded_in_system() -> None:
     assert payload["_answer_plan"]["intent"] == "open_question"
 
 
-def test_history_is_bounded_and_sanitised() -> None:
-    history = [{"role": "user", "content": f"q{i}"} for i in range(DEFAULT_MAX_HISTORY_TURNS + 5)]
+def test_history_keeps_all_valid_turns_and_full_content() -> None:
+    long_content = "x" * 5_001
+    history = [{"role": "user", "content": f"q{i}"} for i in range(25)]
+    history.append({"role": "assistant", "content": long_content})
     # Interleave some invalid entries that must be dropped.
     history.append({"role": "system", "content": "should be dropped"})
     history.append({"role": "user", "content": ""})
     msgs = _build_messages("final", {}, history)
     convo = msgs[1:-1]  # exclude system + final user turn
-    assert len(convo) <= DEFAULT_MAX_HISTORY_TURNS
+    assert len(convo) == 26
     assert all(m["role"] in {"user", "assistant"} for m in convo)
     assert all(m["content"] for m in convo)
+    assert convo[-1]["content"] == long_content
     assert "should be dropped" not in [m["content"] for m in convo]
 
 

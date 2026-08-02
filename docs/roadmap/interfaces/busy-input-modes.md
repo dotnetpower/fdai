@@ -190,6 +190,11 @@ current-time turn samples it when that turn begins; neither path reuses an earli
 Queued input remains durable for the next turn. Inspection shows ordered pending entries and expiry.
 Consumption rechecks the current principal and marks one sequence consumed exactly once. Expired
 entries retain their idempotent history but leave the pending projection.
+The next turn rebuilds prior context from the complete durable transcript under the authenticated
+principal and conversation id. It preserves exact history within the context budget, retries
+bounded compaction when needed, and uses only the newest 20 principal-scoped turns when a store or
+compaction performance failure requires degradation. It never falls back to client-provided history
+when the durable store is configured.
 
 ## Web and channel surfaces
 

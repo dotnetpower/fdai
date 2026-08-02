@@ -446,6 +446,16 @@ context* - re-assembled every turn under a token budget so a long session
 never blows up the prompt. Memory (lossless, `O(L)` in session length)
 and prompt (bounded, constant ceiling) are deliberately distinct.
 
+The JSON and SSE chat routes resolve history from the durable store by the authenticated
+`(principal_id, conversation_id)` pair before follow-up planning. They never use client-provided
+history when that store is configured. The resolver reads the complete transcript without a turn
+limit and preserves every character while the history remains within the default 160,000-byte
+budget. Above that budget it compacts older chunks with two bounded attempts while retaining the
+newest 20 turns word-for-word. A read timeout, compaction timeout, provider error, or excessive
+compaction fan-out degrades to a second principal-scoped read of the newest 20 turns. If that read
+also fails, the route uses empty history instead of accepting a browser copy that could cross the
+authorization boundary.
+
 Assembly is the pure
 [`compose_working_context`](../../../src/fdai/core/working_context/composer.py)
 policy. It never caps the *number of turns*; it caps *tokens*, across four

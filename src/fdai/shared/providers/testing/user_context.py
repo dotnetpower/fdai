@@ -102,6 +102,11 @@ class InMemoryConversationHistoryStore:
         _validate_limit(limit)
         return tuple(self._turns.get((principal_id, conversation_id), ())[-limit:])
 
+    async def list_all_turns(
+        self, *, principal_id: str, conversation_id: str
+    ) -> tuple[ConversationTurnRecord, ...]:
+        return tuple(self._turns.get((principal_id, conversation_id), ()))
+
     async def latest_operator_turn_ids(
         self,
         *,

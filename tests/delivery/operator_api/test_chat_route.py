@@ -71,6 +71,7 @@ class _RecordingBackend(ChatBackend):
         self._model = model
         self._delay_ms = delay_ms
         self.view_context: dict[str, Any] | None = None
+        self.history: list[dict[str, str]] | None = None
         self.calls = 0
 
     async def answer(
@@ -78,10 +79,11 @@ class _RecordingBackend(ChatBackend):
         *,
         prompt: str,  # noqa: ARG002 - Protocol required
         view_context: dict[str, Any],
-        history: list[dict[str, str]],  # noqa: ARG002
+        history: list[dict[str, str]],
     ) -> dict[str, str]:
         self.calls += 1
         self.view_context = view_context
+        self.history = history
         await asyncio.sleep(self._delay_ms / 1000)
         return {"answer": "hello", "model": self._model}
 
@@ -1687,17 +1689,16 @@ class TestChatRouteInputCaps:
     """Bounded-input regression: a pathological body must 4xx instead of
     forcing the interpreter to allocate a large intermediate list."""
 
-    def test_history_list_over_hard_cap_is_400(self) -> None:
+    def test_history_over_two_hundred_items_is_preserved(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)
         client = TestClient(_app(backend))
-        # 201 items exceeds DEFAULT_MAX_HISTORY_ITEMS=200; each turn is
-        # small enough that the body-byte cap is not hit first.
         huge = [{"role": "user", "content": "x"}] * 201
         resp = client.post(
             "/chat",
             json={"prompt": "hi", "view_context": {}, "history": huge},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 200
+        assert backend.history == huge
 
     def test_history_not_a_list_is_400(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)

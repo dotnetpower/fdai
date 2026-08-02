@@ -265,6 +265,19 @@ class PostgresConversationHistoryStore(_PostgresBase):
         rows.reverse()
         return tuple(_turn(row) for row in rows)
 
+    async def list_all_turns(
+        self, *, principal_id: str, conversation_id: str
+    ) -> tuple[ConversationTurnRecord, ...]:
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "SELECT principal_id, conversation_id, turn_id, turn_index, role, content, "
+                "recorded_at, idempotency_key, metadata FROM conversation_turn "
+                "WHERE principal_id = %s AND conversation_id = %s ORDER BY turn_index",
+                (principal_id, conversation_id),
+            )
+            return tuple(_turn(row) for row in await cursor.fetchall())
+
     async def latest_operator_turn_ids(
         self,
         *,

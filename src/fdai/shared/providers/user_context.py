@@ -188,6 +188,10 @@ class ConversationHistoryStore(Protocol):
         self, *, principal_id: str, conversation_id: str, limit: int = 200
     ) -> Sequence[ConversationTurnRecord]: ...
 
+    async def list_all_turns(
+        self, *, principal_id: str, conversation_id: str
+    ) -> Sequence[ConversationTurnRecord]: ...
+
     async def latest_operator_turn_ids(
         self,
         *,

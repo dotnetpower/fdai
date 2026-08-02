@@ -98,7 +98,7 @@ class ChatBackend(Protocol):
     """Async chat backend seam.
 
     The backend receives the user's prompt, the current view context
-    (arbitrary JSON), and a short conversation history. It returns a
+    (arbitrary JSON), and exact or compacted principal-scoped conversation history. It returns a
     payload that MUST include ``answer`` (str) and ``model`` (str); it
     MAY include additional JSON-safe fields (e.g. ``router`` metadata
     from :class:`LatencyRoutedChatBackend`).

@@ -113,6 +113,12 @@ from fdai.delivery.operator_api.routes.chat_history import (
     completed_replay_payload,
     replay_metadata,
 )
+from fdai.delivery.operator_api.routes.chat_history_context import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    BackendChatHistoryCompressor,
+    ChatHistoryPolicy,
+    resolve_chat_history,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
@@ -144,7 +150,6 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
     _WHO_TOKEN,
     DEFAULT_MAX_CONTEXT_BYTES,
     DEFAULT_MAX_EXPLANATION_ITEMS,
-    DEFAULT_MAX_HISTORY_TURNS,
     DEFAULT_MAX_RECORDS_PER_KEY,
     _build_messages,
     _concept_answer,
@@ -168,7 +173,6 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
 )
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
-    DEFAULT_MAX_HISTORY_ITEMS,
     DEFAULT_MAX_SESSION_ID_CHARS,
     AnswerPreferenceResolver,
     AuthorizeFn,
@@ -272,6 +276,7 @@ def make_chat_route(
     turn_planner: TurnPlanner | None = None,
     turn_tools: tuple[TurnTool, ...] = (),
     handover_availability_publisher: object | None = None,
+    history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_ROUTE_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -281,6 +286,11 @@ def make_chat_route(
     read-only in the FDAI sense (no state mutation, no privileged call).
     Reader role is required (enforced by the shared ``authorize`` fn).
     """
+
+    history_compressor = BackendChatHistoryCompressor(
+        backend=backend,
+        max_summary_chars=history_policy.max_summary_chars,
+    )
 
     async def handler(request: Request) -> JSONResponse:
         user_id = await authorize(request)
@@ -352,15 +362,6 @@ def make_chat_route(
         history_raw = body.get("history", [])
         if not isinstance(history_raw, list):
             raise HTTPException(status_code=400, detail="history MUST be a list")
-        # Bound the input list BEFORE materializing dicts - a pathological
-        # payload of 10k+ one-char turns would slip past the body-byte cap
-        # (each turn is ~20 bytes) and force the interpreter to allocate a
-        # huge intermediate list only to slice to the last 8.
-        if len(history_raw) > DEFAULT_MAX_HISTORY_ITEMS:
-            raise HTTPException(
-                status_code=400,
-                detail=(f"history exceeds cap ({len(history_raw)} > {DEFAULT_MAX_HISTORY_ITEMS})"),
-            )
         history: list[dict[str, str]] = []
         for turn in history_raw:
             if isinstance(turn, dict):
@@ -371,6 +372,19 @@ def make_chat_route(
 
         clean_prompt = prompt.strip()
         _reject_direct_override(clean_prompt)
+        session_id = _session_id(body)
+        with (
+            with_correlation(_metering_correlation_id(user_id, session_id)),
+            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+        ):
+            history = await resolve_chat_history(
+                store=conversation_history_store,
+                principal_id=user_id,
+                conversation_id=session_id,
+                client_history=history,
+                compressor=history_compressor,
+                policy=history_policy,
+            )
         try:
             resource_context = parse_resource_context(body.get("resource_context"))
         except ValueError as exc:
@@ -401,7 +415,6 @@ def make_chat_route(
             preferences=answer_preferences,
         )
         view_context["_answer_plan"] = answer_plan.to_dict()
-        session_id = _session_id(body)
         if handover_availability_publisher is not None:
             task = asyncio.create_task(
                 handover_availability_publisher.publish(

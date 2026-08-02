@@ -69,6 +69,11 @@ from fdai.delivery.operator_api.routes.chat_history import (
     completed_replay_payload,
     replay_metadata,
 )
+from fdai.delivery.operator_api.routes.chat_history_context import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    BackendChatHistoryCompressor,
+    ChatHistoryPolicy,
+)
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
@@ -186,6 +191,7 @@ def make_chat_stream_route(
     progress_metrics: ConversationProgressMetrics | None = None,
     turn_planner: TurnPlanner | None = None,
     turn_tools: tuple[TurnTool, ...] = (),
+    history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_STREAM_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -200,6 +206,11 @@ def make_chat_stream_route(
     Read-only in the FDAI sense - no state mutation, no privileged call.
     """
 
+    history_compressor = BackendChatHistoryCompressor(
+        backend=backend,
+        max_summary_chars=history_policy.max_summary_chars,
+    )
+
     async def handler(request: Request) -> StreamingResponse:
         prepared = await prepare_chat_stream_request(
             request,
@@ -207,6 +218,9 @@ def make_chat_stream_route(
             model_preference_resolver=model_preference_resolver,
             answer_preference_resolver=answer_preference_resolver,
             document_evidence_resolver=document_evidence_resolver,
+            conversation_history_store=conversation_history_store,
+            history_compressor=history_compressor,
+            history_policy=history_policy,
             max_body_bytes=max_body_bytes,
         )
         user_id = prepared.user_id

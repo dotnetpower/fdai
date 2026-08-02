@@ -15,6 +15,12 @@ from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     resolve_document_refs,
 )
+from fdai.delivery.operator_api.routes.chat_history_context import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    ChatHistoryCompressor,
+    ChatHistoryPolicy,
+    resolve_chat_history,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
@@ -24,7 +30,6 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
     parse_resource_context,
 )
 from fdai.delivery.operator_api.routes.chat_route_common import (
-    DEFAULT_MAX_HISTORY_ITEMS,
     AnswerPreferenceResolver,
     AuthorizeFn,
     ModelPreferenceResolver,
@@ -36,6 +41,7 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
 from fdai.delivery.operator_api.routes.chat_stream_request import read_chat_stream_body
 from fdai.delivery.operator_api.routes.chat_vision_evidence import parse_vision_attachments
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
+from fdai.shared.providers.user_context import ConversationHistoryStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +73,9 @@ async def prepare_chat_stream_request(
     model_preference_resolver: ModelPreferenceResolver | None,
     answer_preference_resolver: AnswerPreferenceResolver | None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None,
+    conversation_history_store: ConversationHistoryStore | None,
+    history_compressor: ChatHistoryCompressor,
+    history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     max_body_bytes: int,
 ) -> PreparedChatStreamRequest:
     user_id = await authorize(request)
@@ -120,8 +129,6 @@ async def prepare_chat_stream_request(
     history_raw = body.get("history", [])
     if not isinstance(history_raw, list):
         raise HTTPException(status_code=400, detail="history MUST be a list")
-    if len(history_raw) > DEFAULT_MAX_HISTORY_ITEMS:
-        raise HTTPException(status_code=400, detail="history exceeds cap")
     history: list[dict[str, str]] = []
     for turn in history_raw:
         if isinstance(turn, dict):
@@ -132,6 +139,15 @@ async def prepare_chat_stream_request(
 
     clean_prompt = prompt.strip()
     _reject_direct_override(clean_prompt)
+    session_id = _session_id(body)
+    history = await resolve_chat_history(
+        store=conversation_history_store,
+        principal_id=user_id,
+        conversation_id=session_id,
+        client_history=history,
+        compressor=history_compressor,
+        policy=history_policy,
+    )
     try:
         resource_context = parse_resource_context(body.get("resource_context"))
     except ValueError as exc:
@@ -173,7 +189,7 @@ async def prepare_chat_stream_request(
         target_agent=_target_agent(body, conversation_context),
         history=history,
         answer_plan=answer_plan,
-        session_id=_session_id(body),
+        session_id=session_id,
         request_id=_request_id(body),
         include_model_trace=include_model_trace,
     )

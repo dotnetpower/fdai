@@ -115,6 +115,22 @@ async def test_conversation_atomic_allocation_exceeds_history_page_limit() -> No
 
     assert last is not None
     assert last.turn_index == 1001
+    assert (
+        len(
+            await store.list_all_turns(
+                principal_id="principal-a",
+                conversation_id="conversation-1",
+            )
+        )
+        == 1002
+    )
+    assert (
+        await store.list_all_turns(
+            principal_id="principal-b",
+            conversation_id="conversation-1",
+        )
+        == ()
+    )
 
 
 async def test_preferences_use_optimistic_revision_and_principal_partition() -> None:
