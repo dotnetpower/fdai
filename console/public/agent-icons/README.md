@@ -7,8 +7,10 @@ pairing the agent's Norse symbol with its pipeline role.
 ## Files
 
 - `<name>.svg` - one icon per agent (`odin.svg`, `thor.svg`, ...), lower-cased agent name.
+- `pantheon.svg` - one collective mark for diagrams and surfaces that represent all 15 agents.
 - `manifest.json` - machine-readable index: name, role, org-chart group, suggested accent
-  color, mythic glyph note, and file name. Render the set programmatically from this.
+  color, mythic glyph note, file name, and the separate collective mark. Render the set
+  programmatically from this.
 - Preview: [`mocks/ui/agent-icons.html`](../../../mocks/ui/agent-icons.html) is a
   self-contained gallery with size and background toggles.
 
@@ -63,5 +65,7 @@ for (const a of manifest.agents) {
 
 - The 15-agent pantheon is fixed upstream. If an agent is ever renamed in the ontology,
   rename its icon file and `manifest.json` entry in the same change so the set stays in sync.
+- The collective mark is not a sixteenth agent. Its six outer nodes represent the role groups,
+  and its center represents their coordinated runtime.
 - Draft v1. Regenerate or refine a single glyph without touching the others; each file is
   independent.

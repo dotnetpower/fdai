@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.0.0",
-  "description": "Agent Pantheon icon set. 15 line icons for the fixed FDAI agents, one per Norse-named agent. Stroke-based (stroke: currentColor, no fill) 24x24 glyphs that inherit text color and scale to any size. Accent is a suggested display color per org-chart group; the SVG itself carries no color so a consumer may override.",
+  "description": "Agent Pantheon icon set. 15 line icons for the fixed FDAI agents plus one collective mark for the complete pantheon. Stroke-based (stroke: currentColor, no fill) 24x24 glyphs that inherit text color and scale to any size. Accent is a suggested display color per org-chart group; the SVG itself carries no color so a consumer may override.",
   "grid": 24,
   "strokeWidth": 1.6,
   "recolor": "currentColor",
+  "collective": { "name": "Agent Pantheon", "role": "15-agent collective", "accent": "#44688e", "glyph": "six role groups connected to one coordination core", "file": "pantheon.svg" },
   "groups": {
     "command": { "label": "command", "accent": "#e5c76b" },
     "operations": { "label": "operations", "accent": "#f5a623" },

@@ -56,6 +56,8 @@ Each `.diagram.yaml` file contains:
   `console/public/agent-icons/manifest.json` pantheon set. Non-agent nodes
   without an explicit product icon render as text-only cards rather than
   profile initials.
+- A non-agent node that represents the complete fixed runtime can set
+  `icon: agent-pantheon`. This collective mark doesn't create a sixteenth agent.
 - Single-direction edges with an explicit semantic kind.
 - A legend whenever line styles carry meaning.
 
