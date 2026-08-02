@@ -5,13 +5,10 @@ applyTo: "src/fdai/core/**,src/fdai/agents/**,src/fdai/shared/contracts/**,src/f
 
 # Architecture
 
-This file defines the control-plane architecture. It complements the deployment topology in
-[app-shape.instructions.md](app-shape.instructions.md), the code/safety rules in
-[coding-conventions.instructions.md](coding-conventions.instructions.md), and the phased plan
-under [docs/roadmap](../../docs/roadmap/README.md). The [FDAI Constitution](../../docs/roadmap/architecture/fdai-constitution.md) is the higher design authority. All coverage, latency, and cost figures
-below are **targets to validate against a measured baseline**
-([goals-and-metrics.md](../../docs/roadmap/architecture/goals-and-metrics.md)), not guarantees; state no
-multiplier without measuring baseline and treatment on the same scenario set.
+This control-plane contract complements [App Shape](app-shape.instructions.md), [Coding Conventions](coding-conventions.instructions.md), and the [roadmap](../../docs/roadmap/README.md).
+The [FDAI Constitution](../../docs/roadmap/architecture/fdai-constitution.md) is higher authority.
+Coverage, latency, and cost are measured targets, not guarantees; no multiplier is stated without
+baseline and treatment on the same scenario set ([metrics](../../docs/roadmap/architecture/goals-and-metrics.md)).
 
 > **Related on-demand skills** (load when the task fits the description):
 > [`.github/skills/coding-hardening/SKILL.md`](../skills/coding-hardening/SKILL.md)
