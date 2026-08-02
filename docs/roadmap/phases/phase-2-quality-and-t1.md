@@ -17,7 +17,9 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../architect
 > and discovery-loop binding are incomplete. A T1 reuse with current case, topology, owner,
 > policy, dry-run, idempotency, and rollback evidence now becomes a typed Action and passes
 > execution authorization plus the unified risk gate; legacy reuse without that receipt remains
-> an inert shadow log. The percentages and Exit Criteria below are targets,
+> an inert shadow log. A quality-gate-eligible T2 candidate follows the same authorization-before-
+> risk order, so a prohibited or unresolved execution profile never reaches risk evaluation.
+> The percentages and Exit Criteria below are targets,
 > not claims of current attainment.
 
 ## Deliverables

@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 9f30d0740d1c0c43968a9a143994e662b2ba5abf
+translation_source_sha: 7007827637deec15432e4c503dfff12586cb2cfa
 translation_revised: 2026-07-21
 ---
 
@@ -21,7 +21,9 @@ translation_revised: 2026-07-21
 > Assurance Twin의 model-backed NL compiler와 discovery-loop binding은 아직 완료되지 않았습니다.
 > 현재 case, topology, owner, policy, dry-run, idempotency 및 rollback evidence가 있는 T1 reuse는
 > 이제 typed Action이 되어 execution authorization과 unified risk gate를 통과하며, 이 receipt가
-> 없는 legacy reuse는 inert shadow log로 남습니다.
+> 없는 legacy reuse는 inert shadow log로 남습니다. Quality gate를 통과한 T2 candidate도 같은
+> authorization-before-risk 순서를 따르므로 금지되었거나 unresolved 상태인 execution profile은
+> risk evaluation에 도달하지 않습니다.
 > 아래 percentage와 Exit 기준은 목표이며 현재 달성 주장으로 읽으면 안 됩니다.
 
 ## 산출물

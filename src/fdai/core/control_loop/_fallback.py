@@ -542,6 +542,26 @@ class ControlLoopFallbackMixin:
                 t2_decision=t2,
             )
 
+        authorization = await self._evaluate_execution_authorization(event=event, action=action)
+        if authorization is not None and not authorization.can_enter_risk_gate:
+            denied = authorization.status in {
+                ExecutionAuthorizationStatus.PROHIBITED,
+                ExecutionAuthorizationStatus.POLICY_CONFLICT,
+                ExecutionAuthorizationStatus.UNCONFIGURED,
+            }
+            return ControlLoopResult(
+                outcome=ControlLoopOutcome.DENIED if denied else ControlLoopOutcome.HIL,
+                tier="t2",
+                decision="deny" if denied else "hil",
+                resource_type=decision.resource_type,
+                citing_rule_ids=candidate.cited_rule_ids,
+                reason=f"execution_authorization:{authorization.status.value}",
+                event_id=event_id,
+                change_safety_decision=cs_decision,
+                t1_decision=t1_decision,
+                t2_decision=t2,
+            )
+
         unified = await self._evaluate_and_audit(event=event, action=action, rule=rule)
         if unified is None:
             return None
