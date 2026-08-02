@@ -59,7 +59,7 @@
     .ex-run { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 2px; }
     .ex-run::before { content: ""; position: absolute; z-index: 0; top: 24px; bottom: 35px; left: 9px; width: 1px; background: #cbd2d9; pointer-events: none; }
     .ex-phase { display: none; }
-    .ex-phase.is-visible { position: relative; z-index: 1; display: block; animation: ex-arrive .2s ease both; }
+    .ex-phase.is-visible { position: relative; z-index: 1; display: block; animation: ex-arrive .32s cubic-bezier(.22,1,.36,1) both; }
     .ex-progress-note { display: flex; align-items: flex-start; gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
     .ex-progress-mark { position: relative; z-index: 2; width: 19px; height: 19px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(53,109,155,.34); border-radius: 50%; background: #fff; color: var(--ex-blue); font: 700 7.5px "JetBrains Mono", monospace; box-shadow: 0 0 0 3px #fff; }
     .ex-progress-body { min-width: 0; padding: 7px 9px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fbfcfd; }
@@ -101,7 +101,7 @@
     .ex-chevron { width: 7px; height: 7px; border-right: 1.5px solid var(--ex-muted); border-bottom: 1.5px solid var(--ex-muted); transform: rotate(45deg) translateY(-2px); transition: transform .16s ease; }
     .ex-step-toggle[aria-expanded="true"] .ex-chevron { transform: rotate(225deg) translate(-1px, -1px); }
 
-    .ex-step-detail { max-height: 0; overflow: hidden; margin: 0 0 0 8px; border-radius: 6px; background: var(--ex-terminal); opacity: 0; transform: translateY(-3px); transition: max-height 90ms cubic-bezier(.2,0,.2,1), margin 90ms cubic-bezier(.2,0,.2,1), opacity 55ms linear, transform 90ms cubic-bezier(.2,0,.2,1), box-shadow 90ms linear; }
+    .ex-step-detail { max-height: 0; overflow: hidden; margin: 0 0 0 8px; border-radius: 6px; background: var(--ex-terminal); opacity: 0; transform: translateY(-4px); transition: max-height 180ms cubic-bezier(.22,1,.36,1), margin 180ms cubic-bezier(.22,1,.36,1), opacity 120ms ease, transform 180ms cubic-bezier(.22,1,.36,1), box-shadow 180ms ease; }
     .ex-step-detail.is-open { max-height: var(--ex-detail-height); margin: 2px 0 2px 8px; opacity: 1; transform: none; box-shadow: 0 4px 14px rgba(31,36,40,.12); }
     .ex-step-detail-inner { min-height: 0; overflow: hidden; }
     .ex-commandbar { min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #343b42; color: #aeb7c0; font-size: 10px; }
@@ -112,12 +112,14 @@
     .ex-terminal { min-height: 82px; margin: 0; padding: 10px 12px 12px; overflow-x: auto; color: #d7dde3; font: 11px/1.55 "JetBrains Mono", monospace; white-space: pre; }
     .ex-prompt { color: #7fb3dd; }
     .ex-output { color: #b8c1ca; }
+    .ex-output.is-entering { animation: ex-output-arrive .16s ease-out both; }
     .ex-output.is-success { color: #8fc394; }
     .ex-output.is-warning { color: #d5a66a; }
 
     .ex-final { display: none; opacity: 0; transform: translateY(4px); }
-    .ex-final.is-visible { display: block; animation: ex-arrive .24s ease forwards; }
-    @keyframes ex-arrive { to { opacity: 1; transform: none; } }
+    .ex-final.is-visible { display: block; animation: ex-arrive .3s cubic-bezier(.22,1,.36,1) forwards; }
+    @keyframes ex-arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    @keyframes ex-output-arrive { from { opacity: 0; } to { opacity: 1; } }
     .ex-final-copy { color: var(--ex-ink); font-size: 13.5px; line-height: 1.62; }
     .ex-final-copy p { margin: 0 0 9px; }
     .ex-final-copy code { color: #425467; }
@@ -125,7 +127,7 @@
     .ex-final.is-streaming .ex-turn-foot { visibility: hidden; }
     .ex-stream-caret { width: 1px; height: 1em; display: inline-block; margin-left: 2px; vertical-align: -2px; background: var(--ex-blue); animation: ex-caret .45s steps(1, end) infinite; }
     @keyframes ex-caret { 50% { opacity: 0; } }
-    .ex-final-reveal.is-visible { animation: ex-arrive .16s ease both; }
+    .ex-final-reveal.is-visible { animation: ex-arrive .24s cubic-bezier(.22,1,.36,1) both; }
     .ex-result-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .ex-result-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 5px; background: #f8f9fa; color: var(--ex-muted); font-size: 10.5px; }
     .ex-result-chip strong { color: var(--ex-ink); }
@@ -701,7 +703,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       function appendOutput(step, activity, line) {
-        var output = create("span", "ex-output", line + "\n");
+        var output = create("span", "ex-output is-entering", line + "\n");
         if (activity.success && (line.indexOf("passed") >= 0 || line.indexOf("Exit code 0") >= 0)) output.classList.add("is-success");
         if (activity.warning && (line.indexOf("unhealthy") >= 0 || line.indexOf("Exit code 1") >= 0)) output.classList.add("is-warning");
         step.querySelector(".ex-terminal").appendChild(output);
