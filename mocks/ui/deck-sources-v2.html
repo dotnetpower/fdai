@@ -160,11 +160,16 @@
     .ex-observed-event > details > summary::-webkit-details-marker { display: none; }
     .ex-observed-event > details > summary:hover { background: #f8f9fa; }
     .ex-observed-kind { justify-self: start; padding: 2px 5px; border-radius: 3px; background: #eef2f5; color: var(--ex-muted); font-size: 9px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+    .ex-observed-event[data-kind="sources"] .ex-observed-kind { background: rgba(53,109,155,.1); color: var(--ex-blue); }
     .ex-observed-event[data-kind="evidence"] .ex-observed-kind { background: rgba(79,125,85,.1); color: var(--ex-green); }
+    .ex-observed-event[data-kind="grounding"] .ex-observed-kind { background: rgba(79,125,85,.12); color: var(--ex-green); }
+    .ex-observed-event[data-kind="model"] .ex-observed-kind { background: rgba(92,74,99,.1); color: var(--cs-plum); }
     .ex-observed-event-label { min-width: 0; overflow: hidden; color: var(--ex-ink); font-size: 10.5px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
     .ex-observed-track { position: relative; height: 6px; overflow: hidden; border-radius: 3px; background: #e7eaee; }
     .ex-observed-track > span { position: absolute; top: 1px; bottom: 1px; min-width: 3px; border-radius: 2px; background: var(--ex-blue); }
     .ex-observed-event[data-kind="evidence"] .ex-observed-track > span { background: var(--ex-green); }
+    .ex-observed-event[data-kind="grounding"] .ex-observed-track > span { background: var(--ex-green); }
+    .ex-observed-event[data-kind="model"] .ex-observed-track > span { background: var(--cs-plum); }
     .ex-observed-event-duration { color: var(--ex-muted); font: 9.5px "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
     .ex-observed-event-outcome { color: var(--ex-green); font-size: 9px; font-weight: 750; text-align: right; }
     .ex-observed-event-chevron { width: 6px; height: 6px; border-right: 1.5px solid var(--ex-muted); border-bottom: 1.5px solid var(--ex-muted); transform: rotate(45deg) translateY(-2px); transition: transform 70ms ease; }
@@ -190,6 +195,12 @@
     .ex-observed-claims span { color: var(--ex-green); font-size: 8.5px; font-weight: 800; text-transform: uppercase; }
     .ex-observed-claims p { margin: 0; color: var(--ex-ink); font-size: 10px; line-height: 1.4; }
     .ex-observed-claims code { color: #425467; font: 8.5px "JetBrains Mono", monospace; }
+    .ex-observed-source-list { margin: 0 0 9px; padding: 0; list-style: none; }
+    .ex-observed-source-list li { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: baseline; gap: 7px; padding: 6px 0; border-top: 1px solid #e3e7eb; }
+    .ex-observed-source-list li:first-child { border-top: 0; }
+    .ex-observed-source-list span { color: var(--ex-blue); font-size: 8.5px; font-weight: 800; text-transform: uppercase; }
+    .ex-observed-source-list strong { color: var(--ex-ink); font-size: 10px; font-weight: 650; }
+    .ex-observed-source-list code { color: #425467; font: 8.5px "JetBrains Mono", monospace; }
     .ex-observed-signals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 13px 0 0; padding-top: 10px; border-top: 1px solid #e7eaee; }
     .ex-observed-signal { min-width: 0; margin: 0; padding: 0 12px; border-left: 1px solid #e7eaee; }
     .ex-observed-signal:first-child { padding-left: 0; border-left: 0; }
@@ -238,6 +249,8 @@
       .ex-observed-plan { grid-template-columns: 1fr; }
       .ex-observed-claims li { grid-template-columns: auto minmax(0, 1fr); }
       .ex-observed-claims code { grid-column: 2; }
+      .ex-observed-source-list li { grid-template-columns: 58px minmax(0, 1fr); }
+      .ex-observed-source-list code { grid-column: 2; }
       .ex-observed-signals { grid-template-columns: 1fr; gap: 8px; }
       .ex-observed-signal, .ex-observed-signal:first-child, .ex-observed-signal:last-child { padding: 0; border-left: 0; }
       .ex-composer { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px 12px 12px; }
@@ -288,7 +301,7 @@
         </article>
         <article class="ex-turn is-bragi ex-final" id="ex-final">
           <div class="ex-turn-body">
-            <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">llm:narrator-gpt-4-1-mini · 9000ms · 6 events</span></header>
+            <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">llm:narrator-gpt-4-1-mini · 1090ms · 1.2k tok</span></header>
             <div class="ex-final-copy">
               <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
               <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
@@ -303,7 +316,7 @@
                     <span class="ex-observed-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
                     <span><span class="ex-observed-kicker">Run record</span><span class="ex-observed-title">Observed process</span></span>
                   </span>
-                  <span class="ex-observed-summary">6 observed events / evidence 4/4 / <strong>verification passed</strong></span>
+                  <span class="ex-observed-summary">10 observed events / sources 4 / <strong>verification passed</strong></span>
                   <span class="ex-observed-duration">9.0s</span>
                   <span class="ex-observed-chevron" aria-hidden="true"></span>
                 </summary>
@@ -319,7 +332,7 @@
                   <section class="ex-observed-timeline" aria-labelledby="ex-observed-timeline-title">
                     <header class="ex-observed-timeline-head">
                       <h4 id="ex-observed-timeline-title">Observed execution timeline</h4>
-                      <span>6 observed events</span>
+                      <span>10 observed events</span>
                     </header>
                     <ol class="ex-observed-events">
                       <li class="ex-observed-event" data-kind="turn">
@@ -345,10 +358,25 @@
                           <div><dt>Intent</dt><dd><code>probe_diagnostics</code></dd></div><div><dt>Constraints</dt><dd>Read-only cloud / local edit</dd></div><div><dt>Evidence ref</dt><dd><code>phase:plan</code></dd></div>
                         </dl></div></details>
                       </li>
+                      <li class="ex-observed-event" data-kind="sources">
+                        <details name="ex-observed-event-detail"><summary>
+                          <span class="ex-observed-kind">Sources</span><span class="ex-observed-event-label">Deck sources snapshot</span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 6%; width: 2%;"></span></span>
+                          <span class="ex-observed-event-duration">180 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Captured view snapshot</span><ul class="ex-observed-source-list">
+                          <li><span>Screen</span><strong>Dashboard operational overview</strong><code>screen</code></li>
+                          <li><span>Records</span><strong>Incident records</strong><code>8 rows</code></li>
+                          <li><span>Records</span><strong>Inventory records</strong><code>13 rows</code></li>
+                          <li><span>Records</span><strong>Evidence records</strong><code>8 rows</code></li>
+                        </ul><dl class="ex-observed-event-facts">
+                          <div><dt>Route</dt><dd>Dashboard</dd></div><div><dt>Grounded records</dt><dd>29</dd></div><div><dt>Safety</dt><dd>Read-only snapshot</dd></div>
+                        </dl></div></details>
+                      </li>
                       <li class="ex-observed-event" data-kind="evidence">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Evidence</span><span class="ex-observed-event-label">Workspace search</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 6%; width: 8.9%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 8%; width: 8.9%;"></span></span>
                           <span class="ex-observed-event-duration">800 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Command and bounded output</span><pre class="ex-observed-data"><span class="is-command">$ rg -n "health|probe|status_code" scripts/ops tests/ops</span>
@@ -361,7 +389,7 @@ tests/ops/test_check_probe.py:28: def test_accepts_healthy_response():
                       <li class="ex-observed-event" data-kind="evidence">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Evidence</span><span class="ex-observed-event-label">Azure state query</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 14.9%; width: 18.9%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 16.9%; width: 18.9%;"></span></span>
                           <span class="ex-observed-event-duration">1700 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Query and bounded result</span><pre class="ex-observed-data"><span class="is-command">$ az graph query -q "Resources | where name == 'api-example' | project name, resourceGroup, properties.state"</span>
@@ -369,6 +397,45 @@ Name          Resource group   State
 api-example   rg-example-app   Running
 <span class="is-result">Query returned 1 resource</span></pre><dl class="ex-observed-event-facts">
                           <div><dt>Safety</dt><dd>Read-only</dd></div><div><dt>Result</dt><dd>1 running resource</dd></div><div><dt>Evidence ref</dt><dd><code>ev:azure-state</code></dd></div>
+                        </dl></div></details>
+                      </li>
+                      <li class="ex-observed-event" data-kind="grounding">
+                        <details name="ex-observed-event-detail"><summary>
+                          <span class="ex-observed-kind">Ground</span><span class="ex-observed-event-label">Selected grounding sources</span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 35.8%; width: 3.1%;"></span></span>
+                          <span class="ex-observed-event-duration">280 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Selected from Deck sources</span><ul class="ex-observed-source-list">
+                          <li><span>Screen</span><strong>Dashboard operational overview</strong><code>[1]</code></li>
+                          <li><span>Records</span><strong>API resource state</strong><code>[2]</code></li>
+                          <li><span>Evidence</span><strong>Validator source condition</strong><code>[3]</code></li>
+                          <li><span>Evidence</span><strong>Focused verification result</strong><code>[4]</code></li>
+                        </ul><dl class="ex-observed-event-facts">
+                          <div><dt>Selected</dt><dd>4 / 29 records</dd></div><div><dt>Basis</dt><dd>Relevance + authority</dd></div><div><dt>Side effect</dt><dd>Read-only</dd></div>
+                        </dl></div></details>
+                      </li>
+                      <li class="ex-observed-event" data-kind="model">
+                        <details name="ex-observed-event-detail"><summary>
+                          <span class="ex-observed-kind">Model</span><span class="ex-observed-event-label">Narrator generation</span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 38.9%; width: 12.1%;"></span></span>
+                          <span class="ex-observed-event-duration">1090 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Model call summary</span><dl class="ex-observed-event-facts">
+                          <div><dt>Model</dt><dd><code>narrator-gpt-4-1-mini</code></dd></div><div><dt>Input</dt><dd>Recorded plan + 4 grounded sources</dd></div><div><dt>Usage</dt><dd>1.2k tok</dd></div>
+                        </dl></div></details>
+                      </li>
+                      <li class="ex-observed-event" data-kind="grounding">
+                        <details name="ex-observed-event-detail"><summary>
+                          <span class="ex-observed-kind">Ground</span><span class="ex-observed-event-label">Bound claims to evidence</span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 51%; width: 3.4%;"></span></span>
+                          <span class="ex-observed-event-duration">310 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Claim-to-evidence map</span><ul class="ex-observed-claims">
+                          <li><span>Supported</span><p>The deployed probe endpoint is healthy.</p><code>ev:azure-state</code></li>
+                          <li><span>Supported</span><p>The validator rejected the expected HTTP 204 response.</p><code>ev:workspace</code></li>
+                          <li><span>Supported</span><p>The local change passed all focused checks.</p><code>ev:verification</code></li>
+                        </ul><dl class="ex-observed-event-facts">
+                          <div><dt>Manifest</dt><dd>4 / 4 entries</dd></div><div><dt>Evidence refs</dt><dd>3</dd></div><div><dt>Complete</dt><dd>Yes</dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="phase">
@@ -391,12 +458,9 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
                           <span class="ex-observed-track" aria-hidden="true"><span style="left: 99%; width: 1%;"></span></span>
                           <span class="ex-observed-event-duration">0 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
-                        <span class="ex-observed-detail-label">Claim-to-evidence map</span><ul class="ex-observed-claims">
-                          <li><span>Supported</span><p>The deployed probe endpoint is healthy.</p><code>ev:azure-state</code></li>
-                          <li><span>Supported</span><p>The validator rejected the expected HTTP 204 response.</p><code>ev:workspace</code></li>
-                          <li><span>Supported</span><p>The local change passed all focused checks.</p><code>ev:verification</code></li>
-                        </ul><dl class="ex-observed-event-facts">
-                          <div><dt>Narrator</dt><dd><code>Bragi</code></dd></div><div><dt>Claims</dt><dd>3 / 3 supported</dd></div><div><dt>Evidence ref</dt><dd><code>turn:answer</code></dd></div>
+                        <blockquote class="ex-observed-prompt"><span>Delivered answer excerpt</span><p>The probe endpoint is healthy in Azure. The local validator rejected a valid HTTP 204 response; the focused checks passed after the bounded fix.</p></blockquote>
+                        <dl class="ex-observed-event-facts">
+                          <div><dt>Narrator</dt><dd><code>Bragi</code></dd></div><div><dt>Citations</dt><dd>3 inline references</dd></div><div><dt>Evidence ref</dt><dd><code>turn:answer</code></dd></div>
                         </dl></div></details>
                       </li>
                     </ol>
