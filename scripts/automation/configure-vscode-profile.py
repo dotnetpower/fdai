@@ -15,6 +15,7 @@ EXTENSIONS_PATH = VSCODE_DIR / "extensions.json"
 PROFILE_PATH = VSCODE_DIR / "fdai.code-profile"
 MACHINE_TEMPLATE_PATH = VSCODE_DIR / "fdai.machine-settings.json"
 UNWANTED_TERRAFORM_EXTENSION = "ms-azuretools.vscode-azureterraform"
+TERRAFORM_LS_RESERVED_IGNORE_DIRECTORY_NAMES = frozenset({".terraform"})
 
 
 class ProfileContractError(ValueError):
@@ -77,6 +78,16 @@ def _profile_settings(profile: dict[str, object]) -> dict[str, object]:
     return settings
 
 
+def _validate_machine_settings(settings: dict[str, object]) -> None:
+    key = "terraform.languageServer.indexing.ignoreDirectoryNames"
+    ignored_names = _string_set(settings.get(key), label=key)
+    reserved_names = sorted(ignored_names & TERRAFORM_LS_RESERVED_IGNORE_DIRECTORY_NAMES)
+    if reserved_names:
+        raise ProfileContractError(
+            f"terraform-ls reserved ignore directory names are not configurable: {reserved_names}"
+        )
+
+
 def validate_artifacts(vscode_dir: Path = VSCODE_DIR) -> tuple[int, int]:
     extensions_path = vscode_dir / EXTENSIONS_PATH.name
     profile_path = vscode_dir / PROFILE_PATH.name
@@ -88,6 +99,7 @@ def validate_artifacts(vscode_dir: Path = VSCODE_DIR) -> tuple[int, int]:
         raise ProfileContractError("extension config and profile must be JSON objects")
     if not isinstance(machine_template, dict):
         raise ProfileContractError("machine settings template must be a JSON object")
+    _validate_machine_settings(machine_template)
     if profile.get("name") != "FDAI":
         raise ProfileContractError("profile name must be FDAI")
 
