@@ -45,11 +45,12 @@
     .ex-user-message { margin: 2px 0 0; color: var(--ex-ink); font-size: 13.5px; line-height: 1.6; }
     .ex-answer-lead { margin: 2px 0 10px; color: var(--ex-ink); font-size: 13.5px; line-height: 1.55; }
 
-    .ex-run { display: flex; flex-direction: column; gap: 2px; }
+    .ex-run { position: relative; display: flex; flex-direction: column; gap: 2px; }
+    .ex-run::before { content: ""; position: absolute; z-index: 0; top: 24px; bottom: 35px; left: 9px; width: 1px; background: #cbd2d9; }
     .ex-phase { display: none; }
-    .ex-phase.is-visible { display: block; animation: ex-arrive .2s ease both; }
-    .ex-progress-note { display: flex; gap: 9px; margin: 14px 0 8px; padding: 1px 3px; }
-    .ex-progress-mark { width: 16px; padding-top: 3px; flex: 0 0 auto; color: var(--ex-blue); font: 700 9px "JetBrains Mono", monospace; text-align: center; }
+    .ex-phase.is-visible { position: relative; z-index: 1; display: block; animation: ex-arrive .2s ease both; }
+    .ex-progress-note { display: flex; align-items: flex-start; gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
+    .ex-progress-mark { width: 19px; height: 19px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(53,109,155,.34); border-radius: 50%; background: #fff; color: var(--ex-blue); font: 700 7.5px "JetBrains Mono", monospace; box-shadow: 0 0 0 3px #fff; }
     .ex-progress-body { min-width: 0; padding: 7px 9px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fbfcfd; }
     .ex-progress-label { display: block; margin-bottom: 3px; color: var(--ex-blue); font-size: 9.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .ex-progress-copy { margin: 0; color: var(--ex-ink); font-size: 12.5px; line-height: 1.55; }
@@ -62,12 +63,11 @@
     .ex-session-badge { margin-left: auto; padding: 2px 7px; border: 1px solid rgba(53,109,155,.24); border-radius: 999px; background: rgba(53,109,155,.08); color: var(--ex-blue); font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
     .ex-session.is-complete .ex-session-badge { border-color: rgba(79,125,85,.24); background: rgba(79,125,85,.08); color: var(--ex-green); }
     .ex-spinner { width: 13px; height: 13px; flex: 0 0 auto; border: 2px solid rgba(53,109,155,.2); border-top-color: var(--ex-blue); border-radius: 50%; animation: ex-spin .72s linear infinite; }
-    .ex-session.is-complete .ex-spinner { animation: none; border: 0; border-radius: 0; }
-    .ex-session.is-complete .ex-spinner::before { content: "\2713"; color: var(--ex-green); font-weight: 900; }
+    .ex-session.is-complete .ex-spinner { width: 15px; height: 15px; display: grid; place-items: center; animation: none; border: 1px solid rgba(79,125,85,.4); border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #fff; }
+    .ex-session.is-complete .ex-spinner::before { content: "\2713"; color: var(--ex-green); font-size: 11px; font-weight: 900; line-height: 1; }
     @keyframes ex-spin { to { transform: rotate(360deg); } }
 
     .ex-steps { position: relative; margin: 0; padding: 0; list-style: none; }
-    .ex-steps::before { content: ""; position: absolute; top: 15px; bottom: 24px; left: 10px; width: 1px; background: #cbd2d9; }
     .ex-step { position: relative; padding: 0 0 8px 34px; }
     .ex-step::before {
       content: ""; position: absolute; z-index: 2; top: 17px; left: 5px; width: 9px; height: 9px;
@@ -204,6 +204,7 @@
       .ex-step-duration { display: none; }
       .ex-step { padding-left: 30px; }
       .ex-step::after { width: 11px; }
+      .ex-run::before { top: 22px; }
       .ex-progress-note { margin-top: 12px; }
       .ex-observed > summary { grid-template-columns: minmax(142px, auto) minmax(0, 1fr) 14px; gap: 8px; }
       .ex-observed-duration { display: none; }
