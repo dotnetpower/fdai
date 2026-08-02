@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/scenario-manifest/1.0.0",
+  "$id": "https://fdai.dev/schemas/scenario-manifest/1.1.0",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "scenario_set_version", "status", "capability_packs"],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "1.1.0"},
     "scenario_set_version": {"type": "string", "pattern": "^v\\d{4}\\.\\d{2}$"},
     "status": {"enum": ["incomplete", "complete"]},
     "capability_packs": {
@@ -25,15 +25,34 @@
               "additionalProperties": false,
               "required": ["successful_full_loop", "unknown_or_deny", "cross_objective_conflict", "partial_failure_recovery", "a3e_or_non_applicability", "deterministic_replay_with_evidence"],
               "properties": {
-                "successful_full_loop": {"type": "boolean"},
-                "unknown_or_deny": {"type": "boolean"},
-                "cross_objective_conflict": {"type": "boolean"},
-                "partial_failure_recovery": {"type": "boolean"},
-                "a3e_or_non_applicability": {"type": "boolean"},
-                "deterministic_replay_with_evidence": {"type": "boolean"}
+                "successful_full_loop": {"$ref": "#/$defs/coverageEvidence"},
+                "unknown_or_deny": {"$ref": "#/$defs/coverageEvidence"},
+                "cross_objective_conflict": {"$ref": "#/$defs/coverageEvidence"},
+                "partial_failure_recovery": {"$ref": "#/$defs/coverageEvidence"},
+                "a3e_or_non_applicability": {"$ref": "#/$defs/coverageEvidence"},
+                "deterministic_replay_with_evidence": {"$ref": "#/$defs/coverageEvidence"}
               }
             }
           }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "coverageEvidence": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/coverageEvidenceRecord"},
+      "uniqueItems": true
+    },
+    "coverageEvidenceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "test_ref"],
+      "properties": {
+        "scenario_id": {"type": "string", "minLength": 1},
+        "test_ref": {
+          "type": "string",
+          "pattern": "^tests/.+\\.py::test_[A-Za-z0-9_]+$"
         }
       }
     }

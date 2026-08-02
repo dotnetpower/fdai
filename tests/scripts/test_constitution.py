@@ -71,6 +71,36 @@ def test_traceability_rejects_missing_evidence_path(tmp_path: Path) -> None:
     assert any("missing path" in error for error in errors)
 
 
+def test_implemented_status_rejects_unregistered_existing_test(tmp_path: Path) -> None:
+    module = _load_module()
+    for relative in ("owner.md", "code.py", "test_code.py", "evidence.log"):
+        (tmp_path / relative).write_text("placeholder", encoding="utf-8")
+    manifest = {
+        "version": 1,
+        "requirements": [
+            {
+                "id": requirement_id,
+                "status": "implemented" if requirement_id == "FDAI-CONST-003" else "planned",
+                "owner_docs": ["owner.md"],
+                "implementation": ["code.py"],
+                "schemas": [],
+                "tests": ["test_code.py"],
+                "runtime_evidence": ["evidence.log"],
+                "gap": None if requirement_id == "FDAI-CONST-003" else "Not implemented.",
+            }
+            for requirement_id in module.EXPECTED_IDS
+        ],
+    }
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "constitution-traceability.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
+
+    errors = module._validate_traceability(tmp_path)
+
+    assert any("required proof test is not listed" in error for error in errors)
+
+
 def test_missing_requirement_id_is_rejected() -> None:
     module = _load_module()
     texts = _valid_texts(module)

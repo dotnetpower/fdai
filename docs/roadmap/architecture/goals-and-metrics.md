@@ -58,10 +58,11 @@ Terms used across all metrics, fixed here to avoid ambiguity:
   Governance, DR, and Chaos Engineering capability packs, used identically for baseline and
   treatment. Each release records the scenario-set and per-pack versions (e.g. `v2026.07`).
 
-> **Current coverage gap:** `tests/scenarios/v2026.07/manifest.json` now assigns every fixture to
-> SRE, ARB / Change Safety, FinOps, DR, or Chaos and validates each coverage dimension. It records
-> the set as `incomplete`: SRE has no scenario and every existing pack lacks one or more required
-> cases. FDAI must not claim complete domain coverage until all five packs are complete.
+> **Current coverage gap:** `tests/scenarios/v2026.07/manifest.json` assigns every fixture to SRE,
+> ARB / Change Safety, FinOps, DR, or Chaos. A coverage dimension counts only when it cites a
+> scenario owned by that pack and an existing executable test. The set remains `incomplete`: SRE
+> has no scenario and every existing pack lacks one or more required cases.
+> FDAI must not claim complete domain coverage until all five packs are complete.
 - **Reference agent**: the fixed comparison system (documented, single-model, no tiering)
   measured in Phase 0. Its version is pinned per baseline run.
 - **Human touchpoint**: any action requiring a human decision or input (HIL approval, manual

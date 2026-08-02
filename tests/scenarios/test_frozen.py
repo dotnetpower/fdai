@@ -46,6 +46,17 @@ def _load_manifest() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
 
 
+def _test_ref_exists(test_ref: str) -> bool:
+    relative_path, separator, test_name = test_ref.partition("::")
+    if not separator:
+        return False
+    path = Path(__file__).resolve().parents[2] / relative_path
+    if not path.is_file():
+        return False
+    pattern = re.compile(rf"^(?:async )?def {re.escape(test_name)}\(", re.MULTILINE)
+    return pattern.search(path.read_text(encoding="utf-8")) is not None
+
+
 # ---------------------------------------------------------------------------
 # Schema validity
 # ---------------------------------------------------------------------------
@@ -73,11 +84,28 @@ def test_capability_manifest_assigns_every_scenario_exactly_once() -> None:
     assert len(assigned) == len(set(assigned))
 
 
+def test_capability_coverage_references_owned_scenarios_and_tests() -> None:
+    manifest = _load_manifest()
+    for pack in manifest["capability_packs"].values():
+        scenario_ids = set(pack["scenario_ids"])
+        for evidence_records in pack["coverage"].values():
+            for evidence in evidence_records:
+                assert evidence["scenario_id"] in scenario_ids
+                assert _test_ref_exists(evidence["test_ref"])
+
+
 def test_complete_pack_requires_every_coverage_dimension() -> None:
     manifest = _load_manifest()
     for pack in manifest["capability_packs"].values():
+        expected_pack_status = (
+            "missing"
+            if not pack["scenario_ids"]
+            else "complete"
+            if all(pack["coverage"].values())
+            else "partial"
+        )
+        assert pack["status"] == expected_pack_status
         if pack["status"] == "complete":
-            assert pack["scenario_ids"]
             assert all(pack["coverage"].values())
     expected_status = (
         "complete"
