@@ -34,7 +34,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from fdai.agents._framework import runtime_health
+from fdai.agents._framework import factory, runtime_health
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
@@ -45,7 +45,6 @@ from fdai.agents._framework.conversation_tools import (
 )
 from fdai.agents._framework.deliberation import T2ConversationSynthesizer
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
-from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.kpi import KpiCollector
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
@@ -63,7 +62,6 @@ from fdai.agents._framework.tool_planner import (
 from fdai.agents._framework.tool_prefetch import prefetch_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 from fdai.agents.bragi import Bragi, RoutingDecision, Turn
-from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall, IncidentCandidateHook, ReadInvestigationHook
 from fdai.agents.huginn import DiscoveryProjector, Huginn
 from fdai.agents.muninn import Muninn
@@ -86,7 +84,6 @@ from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_learning import OperatingPatternCompiler
-from fdai.core.operational_planning import SpecialistPlanningCoordinator
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
@@ -153,7 +150,7 @@ class PantheonRuntime:
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
-        operational_planner: SpecialistPlanningCoordinator | None = None,
+        operational_planner: factory.PlanningCoordinator | None = None,
         catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
@@ -229,7 +226,7 @@ class PantheonRuntime:
             handler_max_retries=2,
             handler_observer=handler_observer,
         )
-        instantiated = instantiate_pantheon()
+        instantiated = factory.instantiate_pantheon()
         bind_catalog_review(instantiated, catalog_review)
         if conversation_embedding_model is not None or conversation_t2_synthesizer is not None:
             instantiated["Bragi"] = Bragi(
@@ -278,21 +275,14 @@ class PantheonRuntime:
                 case_retention_days=case_retention_days,
                 case_deletion_days=case_deletion_days,
             )
-        if any(
-            value is not None
-            for value in (
-                operator_rbac,
-                action_semantics,
-                operational_context_materializer,
-                operational_planner,
-            )
-        ):
-            instantiated["Forseti"] = Forseti(
-                rbac=operator_rbac,
-                action_semantics=action_semantics,
-                operational_context=operational_context_materializer,
-                operational_planner=operational_planner,
-            )
+        forseti = factory.configured_forseti(
+            rbac=operator_rbac,
+            action_semantics=action_semantics,
+            operational_context=operational_context_materializer,
+            operational_planner=operational_planner,
+        )
+        if forseti is not None:
+            instantiated["Forseti"] = forseti
         if (forecast_evaluator is None) != (forecast_closer is None) or (
             forecast_evaluator is None
         ) != (forecast_store is None):

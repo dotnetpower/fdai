@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
@@ -24,6 +25,10 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
+from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_planning import SpecialistPlanningCoordinator
+
+PlanningCoordinator = SpecialistPlanningCoordinator
 
 # Every pantheon subclass provides a zero-arg constructor that builds
 # its baseline in-memory dependencies. Wave-2+ subclasses accept
@@ -54,4 +59,25 @@ def instantiate_pantheon() -> dict[str, Agent]:
     return {cls().spec.name: cls() for cls in _CLASSES}
 
 
-__all__ = ["instantiate_pantheon"]
+def configured_forseti(
+    *,
+    rbac: dict[str, frozenset[str]] | None,
+    action_semantics: ActionSemanticsCatalog | None,
+    operational_context: OperationalContextMaterializer | None,
+    operational_planner: SpecialistPlanningCoordinator | None,
+) -> Forseti | None:
+    """Build Forseti only when composition supplies an optional binding."""
+    if all(
+        value is None
+        for value in (rbac, action_semantics, operational_context, operational_planner)
+    ):
+        return None
+    return Forseti(
+        rbac=rbac,
+        action_semantics=action_semantics,
+        operational_context=operational_context,
+        operational_planner=operational_planner,
+    )
+
+
+__all__ = ["PlanningCoordinator", "configured_forseti", "instantiate_pantheon"]
