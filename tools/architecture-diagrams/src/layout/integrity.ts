@@ -166,7 +166,8 @@ export function layoutIntegrityErrors(
     if (
       specEdge?.route !== "diagonal" &&
       specEdge?.route !== "curve" &&
-      specEdge?.route !== "orthogonal"
+      specEdge?.route !== "orthogonal" &&
+      specEdge?.route !== "orthogonal-above"
     ) continue;
     const endpointIds = new Set([
       endpointElementId(specEdge.from),
@@ -193,7 +194,7 @@ export function layoutIntegrityErrors(
           if (endpointIds.has(node.id)) continue;
           if (segmentIntersectsBox(start, end, node, 3)) {
             errors.push(
-              `${specEdge.route === "curve" ? "Curved" : specEdge.route === "orthogonal" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
+              `${specEdge.route === "curve" ? "Curved" : specEdge.route === "orthogonal" || specEdge.route === "orthogonal-above" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
             );
           }
         }

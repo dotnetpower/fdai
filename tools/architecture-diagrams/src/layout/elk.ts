@@ -486,6 +486,48 @@ function orthogonalRouteSection(
   };
 }
 
+function orthogonalAboveRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  nodes: Map<string, PositionedShape>,
+  laneIndex: number,
+): ElkEdgeSection {
+  const sourceCenterY = source.y + source.height / 2;
+  const targetCenterY = target.y + target.height / 2;
+  const sourceX = target.x >= source.x ? source.x + source.width : source.x;
+  const sourceCorridorX = target.x >= source.x ? sourceX + 24 : sourceX - 24;
+  const targetX = target.x >= source.x ? target.x : target.x + target.width;
+  const corridorX = target.x >= source.x ? targetX - 24 : targetX + 24;
+  const minimumX = Math.min(sourceCorridorX, corridorX);
+  const maximumX = Math.max(sourceCorridorX, corridorX);
+  const obstacleTop = Math.min(
+    source.y,
+    target.y,
+    ...[...nodes.values()]
+      .filter(
+        (node) =>
+          node.id !== source.id &&
+          node.id !== target.id &&
+          node.x < maximumX &&
+          node.x + node.width > minimumX,
+      )
+      .map((node) => node.y),
+  );
+  const laneY = obstacleTop - 36 - laneIndex * 28;
+  return {
+    id: `${edgeId}-orthogonal-above-route`,
+    startPoint: { x: sourceX, y: sourceCenterY },
+    bendPoints: [
+      { x: sourceCorridorX, y: sourceCenterY },
+      { x: sourceCorridorX, y: laneY },
+      { x: corridorX, y: laneY },
+      { x: corridorX, y: targetCenterY },
+    ],
+    endPoint: { x: targetX, y: targetCenterY },
+  };
+}
+
 function routeLabelPosition(
   section: ElkEdgeSection,
   width: number,
@@ -532,13 +574,19 @@ function applyExplicitRoutes(
   edges: ElkExtendedEdge[],
   nodes: Map<string, PositionedShape>,
 ): ElkExtendedEdge[] {
+  const aboveLaneByEdge = new Map(
+    spec.edges
+      .filter((edge) => edge.route === "orthogonal-above")
+      .map((edge, index) => [edge.id, index]),
+  );
   return edges.map((edge) => {
     const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
     if (
       !specEdge ||
       (specEdge.route !== "diagonal" &&
         specEdge.route !== "curve" &&
-        specEdge.route !== "orthogonal")
+      specEdge.route !== "orthogonal" &&
+      specEdge.route !== "orthogonal-above")
     ) {
       return edge;
     }
@@ -547,14 +595,22 @@ function applyExplicitRoutes(
     if (!source || !target) return edge;
     const section = specEdge.route === "orthogonal"
       ? orthogonalRouteSection(edge.id, source, target)
-      : {
-          id: `${edge.id}-diagonal-route`,
-          startPoint: boundaryPoint(source, target),
-          endPoint: boundaryPoint(target, source),
-        };
+      : specEdge.route === "orthogonal-above"
+        ? orthogonalAboveRouteSection(
+            edge.id,
+            source,
+            target,
+            nodes,
+            aboveLaneByEdge.get(edge.id) ?? 0,
+          )
+        : {
+            id: `${edge.id}-diagonal-route`,
+            startPoint: boundaryPoint(source, target),
+            endPoint: boundaryPoint(target, source),
+          };
     const labels = edge.labels?.map((label) => ({
       ...label,
-      ...(specEdge.route === "orthogonal"
+      ...(specEdge.route === "orthogonal" || specEdge.route === "orthogonal-above"
         ? routeLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : {
             x:

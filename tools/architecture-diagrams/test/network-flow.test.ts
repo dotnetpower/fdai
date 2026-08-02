@@ -39,4 +39,21 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-group-id="container-apps-subnet"/);
   assert.match(svg, /data-group-id="private-endpoint-subnet"/);
   assert.match(svg, /data-group-id="postgres-subnet"/);
+  assert.match(svg, /data-node-id="operator-console"/);
+  assert.match(svg, /data-node-id="operator-cli"/);
+  for (const edgeId of ["core-to-resource-graph", "core-to-git"]) {
+    const edge = layout.edges.find((candidate) => candidate.id === edgeId);
+    const section = edge?.sections?.[0];
+    assert.ok(section?.bendPoints?.length === 4, `${edgeId} must use an upper lane`);
+    assert.ok(
+      section.bendPoints[1]!.y < section.startPoint.y,
+      `${edgeId} must rise before crossing the diagram`,
+    );
+    assert.ok(
+      section.bendPoints.every(
+        (point) => point.y <= Math.max(section.startPoint.y, section.endPoint.y),
+      ),
+      `${edgeId} must not route below its endpoints`,
+    );
+  }
 });
