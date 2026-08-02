@@ -710,6 +710,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         and read_investigation_ledger_config is not None
         and reader_scope_ref is not None
     ):
+        from fdai.core.read_investigation import interactive_investigation_policy
         from fdai.delivery.operator_api.routes.read_investigation_responder import (
             HeimdallReadInvestigationChatDelegate,
             HeimdallReadInvestigationResponder,
@@ -733,6 +734,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 latency_store=read_latency_store,
                 scope_ref=reader_scope_ref,
                 scope_activity_provider=inventory_activity_provider,
+                policy=interactive_investigation_policy(),
             )
         )
     remote_agent_delegate = None

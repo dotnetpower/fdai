@@ -9,9 +9,9 @@ from typing import Any
 import httpx
 
 from fdai.core.read_investigation import (
-    InvestigationExecutionPolicy,
     ReadInvestigationRunStore,
     ReadInvestigationService,
+    interactive_investigation_policy,
 )
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.read_investigation import (
@@ -168,11 +168,7 @@ def build_local_read_investigation(
                 latency_store=latency_store,
                 scope_ref=scope_ref,
                 scope_activity_provider=inventory_activity_provider,
-                policy=InvestigationExecutionPolicy(
-                    direct_max_ms=20_000,
-                    streamed_max_ms=30_000,
-                    detach_on_multi_source=False,
-                ),
+                policy=interactive_investigation_policy(),
             )
         ),
         subscription_health_provider=AzureSubscriptionHealthProvider(

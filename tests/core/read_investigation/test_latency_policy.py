@@ -13,6 +13,7 @@ from fdai.core.read_investigation import (
     estimate_parallel_p95,
     estimate_plan_latency,
     estimate_sequential_p95,
+    interactive_investigation_policy,
     latency_profile,
     plan_read_investigation,
 )
@@ -131,4 +132,20 @@ def test_execution_policy_boundaries_and_forced_detach() -> None:
             PlanLatencyEstimate(100, 1_000, True, 80, False),
         )
         is ReadInvestigationExecutionMode.DETACHED
+    )
+
+
+def test_interactive_policy_preserves_local_and_deployed_mode_parity() -> None:
+    policy = interactive_investigation_policy()
+    multi_source = _plan(ReadInvestigationIntent.CHANGE_ATTRIBUTION)
+
+    assert policy.direct_max_ms == 20_000
+    assert policy.streamed_max_ms == 30_000
+    assert policy.detach_on_multi_source is False
+    assert (
+        policy.select(
+            multi_source,
+            PlanLatencyEstimate(1_000, 25_000, True, 80, True),
+        )
+        is ReadInvestigationExecutionMode.STREAMED
     )

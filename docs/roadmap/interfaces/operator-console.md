@@ -205,7 +205,7 @@ flowchart TD
   Before synthesis, the aggregator compares high-signal `state`, `status`, `verdict`, `mode`,
   `health`, and `outcome` fields only when two tools name the same `resource_id`, `scope_ref`, or
   `id`. Different values produce a structured conflict, preserve both evidence sets, change the
-  aggregate to `abstain`, and skip model rendering. Different identities are not compared.
+  aggregate to `abstain`, and skip model rendering. Different identities are not compared. Local and deployed interactive reads use one core-owned mode policy, so the same latency profile selects the same direct, streamed, or detached mode.
 - **Layer 1 (Core)** is exactly the deterministic core that already ships.
   The console adds no new judgment path, no new persistence store, and no
   new execution vector. A console tool call resolves to a call the

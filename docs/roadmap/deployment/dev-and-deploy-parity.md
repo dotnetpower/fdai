@@ -128,8 +128,7 @@ respectively, so a spawned process isn't presented as a ready service.
 The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is
 unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes
 continue to use a process lock only when the deployment configures one explicitly.
-The core runtime remains the only Pantheon owner. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the read
-API reaches Bragi's conversational port through bounded request and response logical topics on the
+The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the Operator API reaches Bragi's conversational port through bounded request and response logical topics on the
 existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before
 traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second
 initial Event Hubs group join. Production replicas share the server consumer group so one replica
@@ -137,7 +136,7 @@ answers each request. The singleton local core uses a process-scoped server grou
 begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a
 previous process. Requests carry salted SHA-256 user and session references rather than raw identities;
 timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
-specialist answer.
+specialist answer. The same latency profile selects the same direct, streamed, or detached mode; only measured provider latency and configured evidence availability can change it.
 The long-running core and Operator API tasks preserve their terminal output in
 `.fdai/logs/core-runtime.log` and `.fdai/logs/operator-api.log`. Every captured child-output line begins
 with a Python logging-style timestamp containing milliseconds and the local timezone abbreviation,

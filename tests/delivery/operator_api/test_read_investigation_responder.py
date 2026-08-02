@@ -419,7 +419,7 @@ async def test_chat_delegate_executes_measured_attribution_read() -> None:
     assert executor.calls == 1
 
 
-async def test_chat_delegate_executes_cold_streamed_attribution_read() -> None:
+async def test_chat_delegate_executes_cold_attribution_with_shared_interactive_policy() -> None:
     executor = _Executor()
     delegate = HeimdallReadInvestigationChatDelegate(
         responder=HeimdallReadInvestigationResponder(
@@ -436,7 +436,7 @@ async def test_chat_delegate_executes_cold_streamed_attribution_read() -> None:
     )
 
     assert result is not None
-    assert _facts(result)["mode"] == "streamed"
+    assert _facts(result)["mode"] == "direct"
     assert _facts(result)["status"] == "matched"
     assert executor.calls == 1
 

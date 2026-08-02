@@ -19,6 +19,7 @@ from fdai.core.read_investigation import (
     ReadInvestigationRequest,
     classify_read_investigation_intent,
     estimate_plan_latency,
+    interactive_investigation_policy,
     latency_profile,
     plan_read_investigation,
     read_tool_spec,
@@ -81,7 +82,7 @@ class HeimdallReadInvestigationResponder:
         self._executor = executor
         self._latency_store = latency_store
         self._scope_ref = scope_ref
-        self._policy = policy or InvestigationExecutionPolicy(streamed_max_ms=20_000)
+        self._policy = policy or interactive_investigation_policy()
         self._scope_activity_provider = scope_activity_provider
 
     async def __call__(

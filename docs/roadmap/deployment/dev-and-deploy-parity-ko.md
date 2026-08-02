@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d60d2144a87743422414d502b4cfe77aeefbae82
+translation_source_sha: 2c04fd7768aa6eb6354e67a2e459b5ab3cf427a0
 translation_revised: 2026-08-04
 ---
 
@@ -134,15 +134,14 @@ Vite local address 게시를 각각 확인한 뒤에만 background task를 ready
 표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로,
 `python -m fdai`를 직접 실행해도 singleton guard를 우회할 수 없습니다. Production runtime은 deployment에서
 명시적으로 구성한 경우에만 process lock을 계속 사용합니다.
-Core runtime만 Pantheon을 소유합니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존
-`aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
+Core runtime만 Pantheon을 소유하며 local 및 deployed interactive read는 같은 execution-mode policy를 사용합니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
 port에 접근합니다. Startup probe로 response consumer 준비를 확인한 후 traffic을 받습니다. Client는
 retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Production
 replica는 server consumer group을 공유하므로 request마다 replica 하나만 응답합니다. Singleton local
 core는 process-scoped server group을 사용하므로 재시작할 때 이전 process의 관련 없는 Pantheon traffic을
 replay하지 않고 physical topic의 현재 offset에서 시작합니다. Request는
 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
-answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
+answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다. 같은 latency profile은 같은 direct, streamed 또는 detached mode를 선택하며 측정된 provider latency와 구성된 evidence availability만 mode를 바꿀 수 있습니다.
 장기 실행 core 및 Operator API task의 terminal output은 `.fdai/logs/core-runtime.log`와
 `.fdai/logs/operator-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 millisecond와 local timezone
 약어를 포함한 Python logging style timestamp로 시작합니다. 예시는 `2026-07-28 15:25:53,717 KST`입니다.

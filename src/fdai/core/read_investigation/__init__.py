@@ -9,6 +9,7 @@ from fdai.core.read_investigation.catalog import (
 from fdai.core.read_investigation.execution_policy import (
     InvestigationExecutionPolicy,
     ReadInvestigationExecutionMode,
+    interactive_investigation_policy,
 )
 from fdai.core.read_investigation.idempotency import (
     MAX_READ_INVESTIGATION_ATTEMPTS,
@@ -51,6 +52,7 @@ __all__ = [
     "READ_TOOL_SPECS",
     "LatencyClass",
     "InvestigationExecutionPolicy",
+    "interactive_investigation_policy",
     "InMemoryReadInvestigationRunStore",
     "PlanLatencyEstimate",
     "MAX_READ_INVESTIGATION_ATTEMPTS",

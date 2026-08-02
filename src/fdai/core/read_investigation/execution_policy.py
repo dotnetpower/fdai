@@ -46,4 +46,18 @@ class InvestigationExecutionPolicy:
         return ReadInvestigationExecutionMode.DETACHED
 
 
-__all__ = ["InvestigationExecutionPolicy", "ReadInvestigationExecutionMode"]
+def interactive_investigation_policy() -> InvestigationExecutionPolicy:
+    """Return the shared policy for interactive local and deployed conversations."""
+
+    return InvestigationExecutionPolicy(
+        direct_max_ms=20_000,
+        streamed_max_ms=30_000,
+        detach_on_multi_source=False,
+    )
+
+
+__all__ = [
+    "InvestigationExecutionPolicy",
+    "ReadInvestigationExecutionMode",
+    "interactive_investigation_policy",
+]

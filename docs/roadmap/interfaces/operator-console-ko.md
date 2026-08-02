@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 658f2176b0547cbecb7f99b57631281d1e83aa83
+translation_source_sha: 8f8989d12ec693e54e20cc0533d51c9e695e6e1b
 translation_revised: 2026-08-04
 ---
 
@@ -199,7 +199,7 @@ flowchart TD
   Synthesis 전에 aggregator는 두 tool이 같은 `resource_id`, `scope_ref` 또는 `id`를 명시할 때만
   high-signal `state`, `status`, `verdict`, `mode`, `health`, `outcome` field를 비교합니다. 값이 다르면
   structured conflict와 양쪽 evidence를 보존하고 aggregate를 `abstain`으로 바꾼 뒤 model rendering을
-  skip합니다. 서로 다른 identity는 비교하지 않습니다.
+  skip합니다. 서로 다른 identity는 비교하지 않습니다. Local 및 deployed interactive read는 core가 소유한 하나의 mode policy를 사용하므로 같은 latency profile에서 같은 direct, streamed 또는 detached mode를 선택합니다.
 - **Layer 1 (Core)**은 이미 shipping 중인 deterministic core 그대로.
   콘솔은 새 판단 경로, 새 지속성 저장소, 새 execution vector를 추가하지
   않는다. 콘솔 tool call은 기존 pipeline이 이미 만드는 법을 아는 call

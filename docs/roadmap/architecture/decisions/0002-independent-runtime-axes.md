@@ -63,6 +63,8 @@ The default interactive local profile is a production-parity control-plane clien
   data plane. They never replace the browser principal or the executor identity.
 - The same agent pantheon, catalogs, promotion registry, risk gate, Process journal, and stage
   events run locally.
+- Interactive read investigations use the same execution-mode policy locally and when deployed.
+  Measured provider latency can change the selected mode; execution venue alone cannot.
 - Pantheon startup is default-on. An unset `FDAI_START_PANTHEON` enables all agents; only an
   explicit false value disables them. Event Hubs configuration selects the Azure transport, not
   whether the runtime exists. Without Event Hubs, a local in-process EventBus carries agent
