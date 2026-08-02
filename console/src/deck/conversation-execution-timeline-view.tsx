@@ -73,7 +73,7 @@ function formatClock(value: string): string {
 }
 
 function formatDuration(durationMs: number): string {
-  if (durationMs === 0) return t("deck.trajectory.pointInTime");
+  if (durationMs === 0) return "0 ms";
   if (durationMs < 1000) return `${durationMs} ms`;
   return `${(durationMs / 1000).toFixed(2)} s`;
 }

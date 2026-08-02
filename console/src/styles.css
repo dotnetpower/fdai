@@ -3,7 +3,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--fg-muted);
   font-size: 12px;
 }
@@ -5839,8 +5839,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: var(--bg-elevated);
 }
 .deck-overlay-mode-workspace .deck-header {
-  gap: 12px;
-  padding: 8px max(20px, calc((100% - 900px) / 2));
+  gap: 10px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 4px max(20px, calc((100% - 900px) / 2));
 }
 .deck-header-title {
   grid-area: title;
@@ -6028,10 +6030,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-transcript-tools { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 6px 20px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
 .deck-overlay-mode-workspace .deck-transcript-tools {
   width: min(100%, 900px);
+  min-height: 36px;
   margin: 0 auto;
+  padding-block: 2px;
   box-sizing: border-box;
   border-bottom: 0;
   background: transparent;
+}
+.deck-overlay-mode-workspace .deck-transcript-tools button {
+  min-height: 30px;
+  padding-block: 4px;
+  font-size: 12px;
 }
 .deck-transcript-tools button { min-height: 36px; padding: 7px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--fg-muted); font: inherit; font-size: 13px; cursor: pointer; }
 .deck-transcript-tools button:hover, .deck-transcript-tools button[aria-pressed="true"] { border-color: var(--border); background: var(--bg); color: var(--fg); }
@@ -6208,19 +6217,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-size: 11.5px;
   line-height: 1.5;
 }
-.deck-trajectory-cluster { min-width: 0; width: 100%; margin-top: 10px; }
+.deck-trajectory-cluster { min-width: 0; width: 100%; margin-top: 6px; }
 .deck-trajectory-results { display: flex; flex-wrap: wrap; gap: 6px; }
 .deck-trajectory-results > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 25px;
-  padding: 3px 7px;
+  min-height: 22px;
+  padding: 2px 6px;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: color-mix(in oklab, var(--bg-elevated) 86%, var(--bg));
   color: var(--fg-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 .deck-trajectory-results > span::before,
 .deck-trajectory-signals dd::before {
@@ -6242,12 +6251,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-results > span[data-state="not_observed"]::before,
 .deck-trajectory-signals > div[data-state="not_observed"] dd::before { background: var(--fg-muted); }
 .deck-trajectory {
-  --deck-font-heading: 14px;
-  --deck-font-body: 14px;
-  --deck-font-small: 12px;
-  --deck-font-label: 12px;
+  --deck-font-heading: 13px;
+  --deck-font-body: 12px;
+  --deck-font-small: 11px;
+  --deck-font-label: 11px;
   min-width: 0;
-  margin-top: 10px;
+  margin-top: 7px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -6259,7 +6268,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   grid-template-columns: minmax(158px, auto) minmax(0, 1fr) auto 14px;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
+  padding: 8px 11px;
   cursor: pointer;
   list-style: none;
 }
@@ -6281,18 +6290,21 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-glyph {
   width: 25px;
   height: 14px;
-  background: linear-gradient(90deg, var(--accent) 0 25%, transparent 25% 37.5%, var(--fg-muted) 37.5% 62.5%, transparent 62.5% 75%, var(--success) 75% 100%);
+  background:
+    linear-gradient(var(--accent), var(--accent)) left bottom / 7px 6px no-repeat,
+    linear-gradient(var(--fg-muted), var(--fg-muted)) center bottom / 7px 10px no-repeat,
+    linear-gradient(var(--success), var(--success)) right bottom / 7px 14px no-repeat;
   opacity: .85;
 }
 .deck-trajectory-stats { min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: .875rem; text-overflow: ellipsis; white-space: nowrap; }
 .deck-trajectory-duration { color: var(--fg-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
 .deck-trajectory-chevron { width: 7px; height: 7px; border-right: 1.5px solid var(--fg-muted); border-bottom: 1.5px solid var(--fg-muted); transform: rotate(45deg) translateY(-2px); transition: transform .16s ease; }
 .deck-trajectory[open] .deck-trajectory-chevron { transform: rotate(225deg) translate(-1px, -1px); }
-.deck-trajectory-body { padding: 4px 12px 14px; border-top: 1px solid var(--border); }
+.deck-trajectory-body { padding: 13px 12px 11px; border-top: 1px solid var(--border); background: var(--bg); }
 .deck-trajectory-phase-strip {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  margin: 12px 0 8px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -6423,9 +6435,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-signals > div { min-width: 0; padding: 0 12px; border-left: 1px solid var(--border); }
 .deck-trajectory-signals > div:first-child { padding-left: 0; border-left: 0; }
 .deck-trajectory-signals > div:last-child { padding-right: 0; }
-.deck-trajectory-signals dt { margin-bottom: 3px; color: var(--fg-muted); font-size: 12px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
-.deck-trajectory-signals dd { min-width: 0; display: flex; align-items: baseline; gap: 6px; margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 12px; line-height: 1.4; }
-.deck-execution-timeline { margin: 14px 0; padding-top: 11px; border-top: 1px solid var(--border); }
+.deck-trajectory-signals dt { margin-bottom: 3px; color: var(--fg-muted); font-size: 11px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+.deck-trajectory-signals dd { min-width: 0; display: flex; align-items: baseline; gap: 6px; margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 11px; line-height: 1.4; }
+.deck-execution-timeline { margin: 14px 0 0; padding-top: 11px; border-top: 1px solid var(--border); }
 .deck-execution-timeline > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .deck-execution-timeline > header h4 { margin: 0; font-size: .9375rem; }
 .deck-execution-timeline > header span { color: var(--fg-muted); font-size: .8125rem; }
@@ -6438,7 +6450,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-kind { justify-self: start; padding: 3px 6px; border-radius: 3px; background: var(--bg-elevated); color: var(--fg-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
 .deck-execution-timeline li[data-kind="evidence"] .deck-execution-kind { background: color-mix(in oklab, var(--success) 10%, var(--bg-elevated)); color: var(--success); }
 .deck-execution-timeline li[data-kind="model"] .deck-execution-kind { background: color-mix(in oklab, var(--accent) 10%, var(--bg-elevated)); color: var(--accent); }
-.deck-execution-label { min-width: 0; overflow: hidden; font-size: .875rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.deck-execution-label { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .deck-execution-track { position: relative; height: 6px; overflow: hidden; border-radius: 3px; background: color-mix(in oklab, var(--border) 72%, transparent); }
 .deck-execution-track > span { position: absolute; top: 1px; bottom: 1px; min-width: 3px; border-radius: 2px; background: var(--accent); }
 .deck-execution-timeline li[data-kind="evidence"] .deck-execution-track > span { background: var(--success); }
@@ -6447,8 +6459,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-timeline li[data-state="degraded"] .deck-execution-track > span,
 .deck-execution-timeline li[data-state="unverified"] .deck-execution-track > span { background: var(--warning); }
 .deck-execution-timeline li[data-state="failed"] .deck-execution-track > span { background: var(--danger); }
-.deck-execution-duration { color: var(--fg-muted); font-size: .75rem; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.deck-execution-outcome { color: var(--fg-muted); font-size: .75rem; font-weight: 700; text-align: right; }
+.deck-execution-duration { color: var(--fg-muted); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.deck-execution-outcome { color: var(--fg-muted); font-size: 11px; font-weight: 700; text-align: right; }
 .deck-execution-timeline li[data-state="completed"] .deck-execution-outcome { color: var(--success); }
 .deck-execution-timeline li[data-state="corrected"] .deck-execution-outcome,
 .deck-execution-timeline li[data-state="degraded"] .deck-execution-outcome,
@@ -6606,14 +6618,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   width: min(100%, 900px);
   min-height: 100%;
   margin: 0 auto;
-  padding: 22px 42px 12px;
+  padding: 16px 42px 10px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
-.deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
-.deck-resume-banner button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
+.deck-resume-banner button { min-height: 28px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .deck-jump {
   position: sticky;
   bottom: 8px;
@@ -6804,8 +6816,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-turn-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
+  gap: 8px;
+  margin-bottom: 5px;
 }
 .deck-turn-role {
   font-size: 10.5px;
@@ -7667,7 +7679,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 /* Grounded reply (deck/grounded-reply.tsx) - the streamed answer, the
  * "Grounded on N sources" pill, and the expandable citation slot. */
-.deck-gr { display: flex; flex-direction: column; gap: 8px; }
+.deck-gr { display: flex; flex-direction: column; gap: 5px; }
 .deck-llm-escalation {
   margin-top: 4px;
   border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--border));
@@ -7742,7 +7754,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-items: center;
   flex-wrap: wrap;
   gap: 3px 7px;
-  margin-top: 6px;
+  margin-top: 3px;
 }
 /* In the one-line footer the verification chip drops its box and reads as a
    plain colored mark + word, so it packs tightly next to the tools + pill. */
@@ -8014,8 +8026,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 /* Rich answer content: prose + tables + inline bar charts
    (deck/rich-content.tsx). Honest-data only: every cell / bar value is text
    the backend returned, grounded in the screen snapshot. */
-.deck-rich { display: flex; flex-direction: column; gap: 10px; }
-.deck-rich .deck-turn-line:not(:last-child) { margin-bottom: 4px; }
+.deck-rich { display: flex; flex-direction: column; gap: 7px; }
+.deck-rich .deck-turn-line:not(:last-child) { margin-bottom: 2px; }
 .deck-turn.is-context .deck-rich { gap: 3px; }
 .deck-turn.is-context .deck-rich .deck-turn-line { margin-bottom: 0; }
 .deck-rich-heading {
