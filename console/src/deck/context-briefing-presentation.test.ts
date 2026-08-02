@@ -14,7 +14,7 @@ describe("context briefing presentation", () => {
     );
 
     expect(presenter).toContain('turn.source === "context" ? " is-context" : ""');
-    expect(styles).toContain(".deck-rich { display: flex; flex-direction: column; gap: 10px; }");
+    expect(styles).toContain(".deck-rich { display: flex; flex-direction: column; gap: 7px; }");
     expect(styles).toContain(".deck-turn.is-context .deck-rich { gap: 3px; }");
     expect(styles).toContain(
       ".deck-turn.is-context .deck-rich .deck-turn-line { margin-bottom: 0; }",
