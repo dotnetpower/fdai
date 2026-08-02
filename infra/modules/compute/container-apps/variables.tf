@@ -55,6 +55,26 @@ variable "executor_identity_client_id" {
   type        = string
 }
 
+variable "t1_similarity_threshold" {
+  description = "Cosine-similarity floor for T1 reuse."
+  type        = number
+}
+
+variable "t1_min_success_rate" {
+  description = "Historical-success floor for T1 reuse."
+  type        = number
+}
+
+variable "quality_gate_confidence_threshold" {
+  description = "Aggregate confidence floor for T2 quality gating."
+  type        = number
+}
+
+variable "quality_gate_quorum" {
+  description = "Minimum independent-model agreement quorum."
+  type        = number
+}
+
 variable "inventory_identity_id" {
   description = "Dedicated read-only user-assigned MI resource id for inventory discovery."
   type        = string

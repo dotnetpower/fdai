@@ -112,6 +112,10 @@ class LlmConfig(_ConfigBase):
     mode: Annotated[str, Field(pattern=r"^(local-fake|azure)$")] = LlmMode.LOCAL_FAKE
     resolved_models_path: Annotated[str, Field(min_length=1)] | None = None
     capabilities: tuple[str, ...] = _DEFAULT_LLM_CAPABILITIES
+    t1_similarity_threshold: Annotated[float, Field(ge=0.0, le=1.0)] = 0.8
+    t1_min_success_rate: Annotated[float, Field(ge=0.0, le=1.0)] = 0.9
+    quality_gate_confidence_threshold: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    quality_gate_quorum: Annotated[int, Field(ge=2)] = 2
     t2_primary_latency_routing: bool = True
     """Latency routing of the T2 primary proposer among its same-publisher
     candidate pool (invariant-safe). Enforced on by default; takes effect

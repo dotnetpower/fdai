@@ -1108,6 +1108,31 @@ def test_build_control_loop_wires_rca_and_correlator(
     assert loop._inventory_age_provider is None
 
 
+def test_build_control_loop_uses_configured_tier_thresholds(app_config: AppConfig) -> None:
+    from fdai.__main__ import _build_control_loop
+    from fdai.composition import default_container
+
+    tuned = app_config.model_copy(
+        update={
+            "llm": app_config.llm.model_copy(
+                update={
+                    "t1_similarity_threshold": 0.86,
+                    "t1_min_success_rate": 0.94,
+                    "quality_gate_confidence_threshold": 0.81,
+                    "quality_gate_quorum": 2,
+                }
+            )
+        }
+    )
+
+    loop = _build_control_loop(default_container(tuned), http_client=None)
+
+    assert loop._t1_engine._config.similarity_threshold == 0.86
+    assert loop._t1_engine._config.min_success_rate == 0.94
+    assert loop._t2_engine._quality_gate._config.confidence_threshold == 0.81
+    assert loop._t2_engine._quality_gate._config.require_cross_check_quorum == 2
+
+
 def test_build_control_loop_requires_opa_in_production(
     monkeypatch: pytest.MonkeyPatch,
     app_config: AppConfig,

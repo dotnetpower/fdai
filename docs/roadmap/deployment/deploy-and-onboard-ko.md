@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2c1d42e74f148be71a71abb11c87df0e64e19dd4
+translation_source_sha: d06a096685a059b1c57efec1db263afc05b09fd6
 translation_revised: 2026-08-02
 ---
 
@@ -499,6 +499,8 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (기본 `.dlq`) |
 | `LLM_MODE` | env | deployment | 명시적 test/mock용 `local-fake` 또는 authoritative profile용 `azure`. Environment는 binding을 선택하지 않습니다. [dev-and-deploy-parity-ko.md § Parity 컨트랙트](dev-and-deploy-parity-ko.md#parity-컨트랙트-must) 참조. |
 | `LLM_RESOLVED_MODELS_PATH` | KV ref | deployment | `LLM_MODE=azure` 시 필수; 부트스트랩 resolver가 쓴 `resolved-models.json`을 가리킴 |
+| `T1_SIMILARITY_THRESHOLD` / `T1_MIN_SUCCESS_RATE` | env | deployment | Learned-action reuse 전 similarity와 historical success에 적용하는 검증된 `[0,1]` 하한입니다. 기본값은 `0.8`, `0.9`입니다. |
+| `QUALITY_GATE_CONFIDENCE_THRESHOLD` / `QUALITY_GATE_QUORUM` | env | deployment | T2에 적용하는 검증된 confidence 하한과 independent-model agreement quorum입니다. 기본값은 `0.7`, `2`이며 quorum은 2보다 작을 수 없습니다. |
 | `RULE_CATALOG_REF` | env | deployment | 카탈로그 스냅샷 git ref |
 | `AUTONOMY_MODE_DEFAULT` | env | deployment | **반드시** `shadow` 기본값 |
 | `FDAI_LOG_LEVEL` | env | upstream | 코어 앱의 Python 로거 레벨 (`DEBUG` / `INFO` / `WARNING` / `ERROR`). 기본 `INFO`. |

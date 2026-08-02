@@ -498,6 +498,8 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (default `.dlq`) |
 | `LLM_MODE` | env | deployment | `local-fake` for explicit tests/mocks or `azure` for authoritative profiles. Environment does not select the binding; see [dev-and-deploy-parity.md § Parity Contract](dev-and-deploy-parity.md#parity-contract-must). |
 | `LLM_RESOLVED_MODELS_PATH` | KV ref | deployment | required when `LLM_MODE=azure`; points at the `resolved-models.json` written by the bootstrap resolver |
+| `T1_SIMILARITY_THRESHOLD` / `T1_MIN_SUCCESS_RATE` | env | deployment | Validated `[0,1]` floors for similarity and historical success before learned-action reuse. Defaults are `0.8` and `0.9`. |
+| `QUALITY_GATE_CONFIDENCE_THRESHOLD` / `QUALITY_GATE_QUORUM` | env | deployment | Validated confidence floor and independent-model agreement quorum for T2. Defaults are `0.7` and `2`; quorum cannot be lower than two. |
 | `RULE_CATALOG_REF` | env | deployment | git ref of catalog snapshot |
 | `AUTONOMY_MODE_DEFAULT` | env | deployment | MUST default to `shadow` |
 | `FDAI_LOG_LEVEL` | env | upstream | Python logger level for the core app (`DEBUG` / `INFO` / `WARNING` / `ERROR`). Default `INFO`. |

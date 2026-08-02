@@ -42,6 +42,7 @@ from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.quality_gate import (
     HashedRuleEmbeddingIndex,
     QualityGate,
+    QualityGateConfig,
     RagGroundingSource,
     RuleBasedVerifier,
 )
@@ -67,7 +68,7 @@ from fdai.core.tiers.t0_deterministic.opa_evaluator import (
     MissingOpaBinaryError,
     OpaRegoEvaluator,
 )
-from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Tier
+from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Config, T1Tier
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
@@ -392,6 +393,10 @@ def _build_control_loop(
         embedding_model=llm_bindings.embedding_model,
         pattern_library=_build_pattern_library(),
         current_reuse_verifier=(current_reuse_verifier or container.current_reuse_verifier),
+        config=T1Config(
+            similarity_threshold=container.config.llm.t1_similarity_threshold,
+            min_success_rate=container.config.llm.t1_min_success_rate,
+        ),
     )
     rules_by_id = {rule.id: rule for rule in rules}
     quality_gate = QualityGate(
@@ -402,6 +407,10 @@ def _build_control_loop(
             embedding_index=HashedRuleEmbeddingIndex(),
         ),
         rubric_evaluator=llm_bindings.rubric_evaluator,
+        config=QualityGateConfig(
+            confidence_threshold=container.config.llm.quality_gate_confidence_threshold,
+            require_cross_check_quorum=container.config.llm.quality_gate_quorum,
+        ),
     )
     t2 = T2Tier(
         proposer=llm_bindings.require_t2_proposer(),

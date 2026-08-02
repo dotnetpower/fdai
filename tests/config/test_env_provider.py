@@ -60,6 +60,32 @@ def test_env_provider_rejects_invalid_enum_value() -> None:
     assert any("autonomy_mode_default" in i.key for i in exc.value.issues)
 
 
+def test_env_provider_reads_tier_and_quality_gate_thresholds() -> None:
+    env = {
+        **VALID_ENV,
+        "T1_SIMILARITY_THRESHOLD": "0.86",
+        "T1_MIN_SUCCESS_RATE": "0.94",
+        "QUALITY_GATE_CONFIDENCE_THRESHOLD": "0.81",
+        "QUALITY_GATE_QUORUM": "3",
+    }
+
+    cfg = EnvVarConfigProvider(env=env).get()
+
+    assert cfg.llm.t1_similarity_threshold == 0.86
+    assert cfg.llm.t1_min_success_rate == 0.94
+    assert cfg.llm.quality_gate_confidence_threshold == 0.81
+    assert cfg.llm.quality_gate_quorum == 3
+
+
+def test_env_provider_rejects_invalid_tier_thresholds() -> None:
+    env = {**VALID_ENV, "T1_SIMILARITY_THRESHOLD": "outside-range"}
+
+    with pytest.raises(ConfigError) as exc:
+        EnvVarConfigProvider(env=env).get()
+
+    assert any(issue.key == "T1_SIMILARITY_THRESHOLD" for issue in exc.value.issues)
+
+
 # ---------------------------------------------------------------------------
 # DI evidence: swap the ConfigProvider, downstream behaviour unchanged.
 # ---------------------------------------------------------------------------
