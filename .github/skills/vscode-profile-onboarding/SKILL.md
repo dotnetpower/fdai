@@ -1,6 +1,6 @@
 ---
 name: vscode-profile-onboarding
-description: "Configure, validate, troubleshoot, or explain the shared FDAI VS Code Profile for collaborators. Use when someone asks about VS Code setup, Profiles, extensions, WSL remote settings, editor slowness, onboarding, or importing fdai.code-profile."
+description: "Configure, validate, troubleshoot, or explain the shared FDAI VS Code Profile and local servers. Use when someone asks about VS Code setup, Profiles, extensions, WSL remote settings, editor slowness, onboarding, importing fdai.code-profile, or starting, running, restarting, or checking the Console web, design mock server, backend, local servers, or full stack."
 argument-hint: "Set up or diagnose the FDAI VS Code Profile"
 ---
 
@@ -46,6 +46,24 @@ maintainer's local VS Code state.
 6. Verify the active profile from the title bar or Manage-button badge. Confirm that HashiCorp
    Terraform is active and Microsoft Terraform is not installed in this profile.
 7. Run the validator again with `--check-machine-settings` in WSL and report any remaining gap.
+
+## Local server start requests
+
+- Treat an unqualified request to start the Console, Console web, local server, servers, backend,
+  or full stack as a request for the complete `Console Web: Full Stack` topology. Start or verify
+  all three required processes: `Console Web: Core Runtime`, `Console Web: Operator API`, and
+  `Console Web: Frontend`. A listening frontend or Operator API alone is not a complete start.
+- Use the existing VS Code tasks or launch configurations. Run `console: prepare full stack` before
+  starting any missing backend process. Do not replace the standard browser Entra profile with a
+  test, fixture, ingestion-gateway, or CLI-principal profile.
+- A request that also names the design or mock server starts `design mocks: serve (5373)` in
+  addition to the complete Console stack. The design server never substitutes for a Console
+  backend process.
+- Before reporting success, verify the Core Runtime process and Pantheon readiness, the Operator
+  API on `127.0.0.1:8010`, the frontend on `127.0.0.1:5273`, and, when requested, the design server
+  on `127.0.0.1:5373`. Do not infer backend readiness from a frontend HTTP `200` response.
+- Start only the specifically named component when the user explicitly narrows the request, such as
+  "frontend only", "Operator API only", or "design server only".
 
 ## Boundaries
 
