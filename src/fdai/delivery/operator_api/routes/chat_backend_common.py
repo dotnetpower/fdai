@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from collections.abc import Mapping
-from typing import Any, Final, NoReturn, Protocol
+from typing import Any, Final, Literal, NoReturn, Protocol
 
 import httpx
 from starlette.exceptions import HTTPException
@@ -59,6 +59,16 @@ _CONTENT_FILTER_MARKERS: Final[tuple[str, ...]] = (
     "content management policy",
 )
 
+ContentPolicyStage = Literal["input", "output", "history_compaction", "unknown"]
+
+
+class ChatContentPolicyError(Exception):
+    """A non-retryable provider content-policy decision with no copied body."""
+
+    def __init__(self, *, stage: ContentPolicyStage = "unknown") -> None:
+        self.stage = stage
+        super().__init__("chat request blocked by content policy")
+
 
 _DIRECT_OVERRIDE: Final = re.compile(
     r"\bignore\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|system)\b"
@@ -73,7 +83,7 @@ def _reject_direct_override(prompt: str) -> None:
     """Block explicit attempts to replace the trusted instruction hierarchy."""
 
     if _DIRECT_OVERRIDE.search(prompt):
-        raise HTTPException(status_code=422, detail="chat request blocked by content policy")
+        raise ChatContentPolicyError(stage="input")
 
 
 def _raise_upstream_error(status_code: int, body_text: str) -> NoReturn:
@@ -87,11 +97,42 @@ def _raise_upstream_error(status_code: int, body_text: str) -> NoReturn:
     the distinction is for honest telemetry and messaging, not control flow.
     """
     snippet = body_text[:200]
-    if status_code == 400 and any(m in snippet.lower() for m in _CONTENT_FILTER_MARKERS):
+    if any(marker in snippet.lower() for marker in _CONTENT_FILTER_MARKERS):
         _LOG.info("chat request blocked by upstream content policy")
-        raise HTTPException(status_code=422, detail="chat request blocked by content policy")
-    _LOG.warning("chat backend upstream returned %s (body=%s)", status_code, snippet)
+        raise ChatContentPolicyError(stage="unknown")
+    _LOG.warning("chat backend upstream returned %s", status_code)
     raise HTTPException(status_code=502, detail="chat upstream error")
+
+
+def _raise_if_content_filtered(envelope: object) -> None:
+    """Recognize provider filter receipts returned inside a successful envelope."""
+
+    if not isinstance(envelope, Mapping):
+        return
+    if _contains_filter_signal(envelope.get("prompt_filter_results")):
+        raise ChatContentPolicyError(stage="input")
+    if _contains_filter_signal(envelope.get("content_filter_results")):
+        raise ChatContentPolicyError(stage="output")
+    choices = envelope.get("choices")
+    if not isinstance(choices, list):
+        return
+    for choice in choices:
+        if not isinstance(choice, Mapping):
+            continue
+        if choice.get("finish_reason") == "content_filter":
+            raise ChatContentPolicyError(stage="output")
+        if _contains_filter_signal(choice.get("content_filter_results")):
+            raise ChatContentPolicyError(stage="output")
+
+
+def _contains_filter_signal(value: object) -> bool:
+    if isinstance(value, Mapping):
+        if value.get("filtered") is True:
+            return True
+        return any(_contains_filter_signal(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_filter_signal(item) for item in value)
+    return False
 
 
 class ChatBackend(Protocol):

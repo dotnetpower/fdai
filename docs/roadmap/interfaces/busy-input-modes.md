@@ -195,6 +195,10 @@ principal and conversation id. It preserves exact history within the context bud
 bounded compaction when needed, and uses only the newest 20 principal-scoped turns when a store or
 compaction performance failure requires degradation. It never falls back to client-provided history
 when the durable store is configured.
+If a queued or steered follow-up encounters a content-policy block from prior history, bounded
+isolation removes only the blocked turn from model context and keeps the durable turn unchanged.
+The same policy receipt follows every rerun, so steer cannot reintroduce omitted text or widen the
+model route. Output-policy blocks stop the turn without another model attempt.
 
 ## Web and channel surfaces
 

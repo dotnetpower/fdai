@@ -19,6 +19,7 @@ from fdai.delivery.operator_api.routes.chat_backend_common import (
     _completion_body_params,
     _default_chat_http_client,
     _metering_scope,
+    _raise_if_content_filtered,
     _raise_upstream_error,
     _structured_completion_body,
     _structured_content,
@@ -150,6 +151,7 @@ class AzureAdChatBackend:
             envelope = response.json()
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
+        _raise_if_content_filtered(envelope)
         choices = envelope.get("choices")
         if not isinstance(choices, list) or not choices:
             raise HTTPException(status_code=502, detail="chat upstream returned no choices")
@@ -229,6 +231,7 @@ class AzureAdChatBackend:
             envelope = response.json()
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
+        _raise_if_content_filtered(envelope)
         result = _structured_result(envelope)
         complete_model_call(
             trace_call,
@@ -315,7 +318,9 @@ class AzureAdChatBackend:
                     try:
                         obj = json.loads(data)
                     except ValueError:
+                        _LOG.warning("chat stream skipped malformed JSON frame")
                         continue
+                    _raise_if_content_filtered(obj)
                     maybe_usage = (
                         _usage_summary(obj.get("usage")) if isinstance(obj, dict) else None
                     )

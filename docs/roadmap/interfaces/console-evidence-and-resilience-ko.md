@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 59d30a4be99d8f1f0f64508fa15c396e8b6e4f86
+translation_source_sha: e6fdfb1401119c6ad3cb20efdbd45e3a33896ef4
 translation_revised: 2026-08-02
 ---
 
@@ -230,7 +230,7 @@ branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하�
 live turn이 같은 strict parser 및 trajectory view를 사용합니다. Unavailable 또는
 timed-out evidence는 시도이지 완료된 evidence가 아니며 unverified 작업에는 완료 styling을 적용하지
 않습니다. 누락된 activity는 observation coverage disclosure에 두며 작업 부재를 증명하지 않습니다.
-Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다.
+Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다. Server는 provider의 terminal content-policy 결정이 확인될 때까지 model token을 buffering합니다. Block은 partial token 또는 assistant answer를 노출하지 않고 content-free receipt만 기록하며 SSE와 JSON `422`에 같은 deterministic fallback을 사용하고, log에는 stage와 aggregate count만 남깁니다.
 
 Terminal timing은 최대 8개의 allowlisted semantic-plan, evidence, generation, quality-review 및
 verification phase를 포함합니다. 하나의 UTC anchor와 monotonic elapsed time으로 관측된 status, start,

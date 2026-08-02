@@ -10,7 +10,10 @@ from starlette.requests import Request
 
 from fdai.core.conversation.answer_plan import AnswerPlan, build_answer_plan
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
-from fdai.delivery.operator_api.routes.chat_backend_common import _reject_direct_override
+from fdai.delivery.operator_api.routes.chat_backend_common import (
+    ChatContentPolicyError,
+    _reject_direct_override,
+)
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     resolve_document_refs,
@@ -19,7 +22,7 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
     DEFAULT_CHAT_HISTORY_POLICY,
     ChatHistoryCompressor,
     ChatHistoryPolicy,
-    resolve_chat_history,
+    resolve_chat_history_result,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
@@ -60,6 +63,7 @@ class PreparedChatStreamRequest:
     conversation_context: dict[str, str] | None
     target_agent: str | None
     history: list[dict[str, str]]
+    history_metadata: dict[str, str]
     answer_plan: AnswerPlan
     session_id: str
     request_id: str
@@ -138,9 +142,12 @@ async def prepare_chat_stream_request(
                 history.append({"role": role, "content": content})
 
     clean_prompt = prompt.strip()
-    _reject_direct_override(clean_prompt)
+    try:
+        _reject_direct_override(clean_prompt)
+    except ChatContentPolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     session_id = _session_id(body)
-    history = await resolve_chat_history(
+    history_result = await resolve_chat_history_result(
         store=conversation_history_store,
         principal_id=user_id,
         conversation_id=session_id,
@@ -148,6 +155,7 @@ async def prepare_chat_stream_request(
         compressor=history_compressor,
         policy=history_policy,
     )
+    history = list(history_result.messages)
     try:
         resource_context = parse_resource_context(body.get("resource_context"))
     except ValueError as exc:
@@ -188,6 +196,7 @@ async def prepare_chat_stream_request(
         conversation_context=conversation_context,
         target_agent=_target_agent(body, conversation_context),
         history=history,
+        history_metadata=history_result.metadata(),
         answer_plan=answer_plan,
         session_id=session_id,
         request_id=_request_id(body),

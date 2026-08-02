@@ -46,6 +46,7 @@ from fdai.delivery.operator_api.routes.chat_backend_common import (
     _DIRECT_OVERRIDE,
     ChatBackend,
     ChatBackendUnavailableError,
+    ChatContentPolicyError,
     DisabledChatBackend,
     _completion_body_params,
     _default_chat_http_client,
@@ -80,6 +81,9 @@ from fdai.delivery.operator_api.routes.chat_busy_input import (
     answer_with_busy_input,
     await_with_interrupt,
 )
+from fdai.delivery.operator_api.routes.chat_content_policy import (
+    answer_with_content_policy_recovery,
+)
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     merge_document_verification,
@@ -110,6 +114,7 @@ from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
 )
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
+    append_content_policy_receipt,
     append_operator_turn,
     completed_replay_payload,
     replay_metadata,
@@ -118,7 +123,7 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
     DEFAULT_CHAT_HISTORY_POLICY,
     BackendChatHistoryCompressor,
     ChatHistoryPolicy,
-    resolve_chat_history,
+    resolve_chat_history_result,
 )
 from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
@@ -384,13 +389,16 @@ def make_chat_route(
                     history.append({"role": role, "content": content})
 
         clean_prompt = prompt.strip()
-        _reject_direct_override(clean_prompt)
+        try:
+            _reject_direct_override(clean_prompt)
+        except ChatContentPolicyError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         session_id = _session_id(body)
         with (
             with_correlation(_metering_correlation_id(user_id, session_id)),
             with_invocation_scope(InvocationScope.OPERATOR_CHAT),
         ):
-            history = await resolve_chat_history(
+            history_result = await resolve_chat_history_result(
                 store=conversation_history_store,
                 principal_id=user_id,
                 conversation_id=session_id,
@@ -398,6 +406,8 @@ def make_chat_route(
                 compressor=history_compressor,
                 policy=history_policy,
             )
+            history = list(history_result.messages)
+            history_metadata = history_result.metadata()
         try:
             resource_context = parse_resource_context(body.get("resource_context"))
         except ValueError as exc:
@@ -494,7 +504,10 @@ def make_chat_route(
                         request_id=request_id,
                         content=clean_prompt,
                         recorded_at=datetime.now(tz=UTC),
-                        metadata={"document_refs": list(document_evidence_refs)},
+                        metadata={
+                            "document_refs": list(document_evidence_refs),
+                            **history_metadata,
+                        },
                         ontology_projector=user_context_ontology_projector,
                     )
                 except UserContextConflictError as exc:
@@ -723,18 +736,31 @@ def make_chat_route(
                 async def invoke_backend(
                     active_history: list[dict[str, str]],
                 ) -> dict[str, Any]:
-                    if isinstance(backend, LatencyRoutedChatBackend):
+                    nonlocal history_metadata
+
+                    async def invoke_raw(candidate_history: list[dict[str, str]]) -> dict[str, Any]:
+                        if isinstance(backend, LatencyRoutedChatBackend):
+                            return await backend.answer(
+                                prompt=clean_prompt,
+                                view_context=view_context,
+                                history=candidate_history,
+                                preferred_model=preferred_model,
+                            )
                         return await backend.answer(
                             prompt=clean_prompt,
                             view_context=view_context,
-                            history=active_history,
-                            preferred_model=preferred_model,
+                            history=candidate_history,
                         )
-                    return await backend.answer(
-                        prompt=clean_prompt,
-                        view_context=view_context,
+
+                    backend_reply, recovery = await answer_with_content_policy_recovery(
+                        invoke=invoke_raw,
                         history=active_history,
+                        compressor=history_compressor,
+                        policy=history_policy,
                     )
+                    if recovery is not None:
+                        history_metadata = recovery.metadata()
+                    return backend_reply
 
                 with (
                     with_correlation(_metering_correlation_id(user_id, session_id)),
@@ -814,6 +840,30 @@ def make_chat_route(
                 status_code=501,
                 detail="chat backend not configured on this deployment",
             ) from None
+        except ChatContentPolicyError as exc:
+            await cancel_planning(planning_task)
+            if conversation_history_store is not None and operator_turn is not None:
+                try:
+                    await append_content_policy_receipt(
+                        store=conversation_history_store,
+                        principal_id=user_id,
+                        conversation_id=session_id,
+                        request_id=request_id,
+                        stage=exc.stage,
+                        recorded_at=datetime.now(tz=UTC),
+                        history_metadata=history_metadata,
+                    )
+                except Exception as receipt_error:  # noqa: BLE001 - preserve policy response
+                    _LOG.error(
+                        "chat content-policy receipt failed: %s",
+                        type(receipt_error).__name__,
+                        extra={"request_id": request_id},
+                    )
+                    raise HTTPException(
+                        status_code=503,
+                        detail="content policy receipt unavailable",
+                    ) from receipt_error
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception:
             await cancel_planning(planning_task)
             raise
@@ -834,6 +884,7 @@ def make_chat_route(
         if web_search is not None:
             enriched["web_search"] = web_search
         enriched["latency_ms"] = latency_ms
+        enriched["history_context"] = history_metadata
         enriched["answer_plan"] = answer_plan.to_dict()
         if isinstance(view_context.get("_intent_graph"), Mapping):
             enriched["intent_graph"] = dict(view_context["_intent_graph"])
@@ -867,7 +918,8 @@ def make_chat_route(
                         model=str(reply.get("model") or "unknown"),
                         view_context=view_context,
                         answer_planning=answer_planning,
-                    ),
+                    )
+                    | history_metadata,
                 ),
                 ontology_projector=user_context_ontology_projector,
             )

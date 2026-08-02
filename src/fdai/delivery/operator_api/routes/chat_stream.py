@@ -34,6 +34,7 @@ from fdai.delivery.operator_api.routes.chat_answer_quality import (
 from fdai.delivery.operator_api.routes.chat_backend_common import (
     ChatBackend,
     ChatBackendUnavailableError,
+    ChatContentPolicyError,
 )
 from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
 from fdai.delivery.operator_api.routes.chat_busy_input import (
@@ -42,6 +43,10 @@ from fdai.delivery.operator_api.routes.chat_busy_input import (
     answer_with_busy_input,
     append_next_steer,
     interruptible_events,
+)
+from fdai.delivery.operator_api.routes.chat_content_policy import (
+    answer_with_content_policy_recovery,
+    collect_stream_with_content_policy_recovery,
 )
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
@@ -65,6 +70,7 @@ from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
 )
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
+    append_content_policy_receipt,
     append_operator_turn,
     completed_replay_payload,
     replay_metadata,
@@ -250,6 +256,7 @@ def make_chat_stream_route(
         conversation_context = prepared.conversation_context
         target_agent = prepared.target_agent
         history = prepared.history
+        history_metadata = prepared.history_metadata
         answer_plan = prepared.answer_plan
         session_id = prepared.session_id
         request_id = prepared.request_id
@@ -279,7 +286,10 @@ def make_chat_stream_route(
                         request_id=request_id,
                         content=clean_prompt,
                         recorded_at=datetime.now(tz=UTC),
-                        metadata={"document_refs": list(document_evidence_refs)},
+                        metadata={
+                            "document_refs": list(document_evidence_refs),
+                            **history_metadata,
+                        },
                         ontology_projector=user_context_ontology_projector,
                     )
                 except UserContextConflictError as exc:
@@ -677,26 +687,48 @@ def make_chat_stream_route(
                     model_generated = True
                     steer_reruns = 0
                     while steer_reruns <= MAX_STEER_RERUNS:
-                        if isinstance(backend, LatencyRoutedChatBackend):
-                            upstream = backend.answer_stream(
-                                prompt=clean_prompt,
-                                view_context=enriched_context,
+
+                        async def invoke_stream(
+                            candidate_history: list[dict[str, str]],
+                        ) -> AsyncIterator[dict[str, Any]]:
+                            if isinstance(backend, LatencyRoutedChatBackend):
+                                async for candidate_event in backend.answer_stream(
+                                    prompt=clean_prompt,
+                                    view_context=enriched_context,
+                                    history=candidate_history,
+                                    preferred_model=preferred_model,
+                                ):
+                                    yield candidate_event
+                            else:
+                                async for candidate_event in stream(
+                                    prompt=clean_prompt,
+                                    view_context=enriched_context,
+                                    history=candidate_history,
+                                ):
+                                    yield candidate_event
+
+                        async def recovered_stream() -> AsyncIterator[dict[str, Any]]:
+                            nonlocal history_metadata
+                            buffered, recovery = await collect_stream_with_content_policy_recovery(
+                                invoke=invoke_stream,
                                 history=history,
-                                preferred_model=preferred_model,
+                                compressor=history_compressor,
+                                policy=history_policy,
                             )
-                        else:
-                            upstream = stream(
-                                prompt=clean_prompt,
-                                view_context=enriched_context,
-                                history=history,
-                            )
+                            if recovery is not None:
+                                history_metadata = recovery.metadata()
+                                if progress_metrics is not None:
+                                    progress_metrics.increment("history_policy_degraded")
+                            for buffered_event in buffered:
+                                yield buffered_event
+
                         provisional_answer = ""
                         with (
                             with_correlation(_metering_correlation_id(user_id, session_id)),
                             with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                         ):
                             events = _with_sse_heartbeats(
-                                upstream, interval=DEFAULT_STREAM_HEARTBEAT_S
+                                recovered_stream(), interval=DEFAULT_STREAM_HEARTBEAT_S
                             )
                             async for event in interruptible_events(
                                 events,
@@ -739,18 +771,35 @@ def make_chat_stream_route(
                     async def invoke_backend(
                         active_history: list[dict[str, str]],
                     ) -> dict[str, Any]:
-                        if isinstance(backend, LatencyRoutedChatBackend):
+                        nonlocal history_metadata
+
+                        async def invoke_raw(
+                            candidate_history: list[dict[str, str]],
+                        ) -> dict[str, Any]:
+                            if isinstance(backend, LatencyRoutedChatBackend):
+                                return await backend.answer(
+                                    prompt=clean_prompt,
+                                    view_context=enriched_context,
+                                    history=candidate_history,
+                                    preferred_model=preferred_model,
+                                )
                             return await backend.answer(
                                 prompt=clean_prompt,
                                 view_context=enriched_context,
-                                history=active_history,
-                                preferred_model=preferred_model,
+                                history=candidate_history,
                             )
-                        return await backend.answer(
-                            prompt=clean_prompt,
-                            view_context=enriched_context,
+
+                        backend_reply, recovery = await answer_with_content_policy_recovery(
+                            invoke=invoke_raw,
                             history=active_history,
+                            compressor=history_compressor,
+                            policy=history_policy,
                         )
+                        if recovery is not None:
+                            history_metadata = recovery.metadata()
+                            if progress_metrics is not None:
+                                progress_metrics.increment("history_policy_degraded")
+                        return backend_reply
 
                     with (
                         with_correlation(_metering_correlation_id(user_id, session_id)),
@@ -919,6 +968,7 @@ def make_chat_stream_route(
                     turn_timing=turn_timing.snapshot(),
                     trajectory_detail=None,
                 )
+                done_payload["history_context"] = history_metadata
                 trajectory_detail_snapshot = trajectory_detail.snapshot(
                     max_bytes=trajectory_detail_budget(done_payload)
                 )
@@ -939,7 +989,8 @@ def make_chat_stream_route(
                                 model=str(terminal_model or "unknown"),
                                 view_context=enriched_context,
                                 answer_planning=answer_planning,
-                            ),
+                            )
+                            | history_metadata,
                         ),
                         ontology_projector=user_context_ontology_projector,
                     )
@@ -972,6 +1023,38 @@ def make_chat_stream_route(
             except ChatBackendUnavailableError:
                 await cleanup()
                 yield frame("error", {"detail": "chat backend not configured"})
+            except ChatContentPolicyError as exc:
+                await cleanup()
+                if progress_metrics is not None:
+                    progress_metrics.increment("content_policy_blocks")
+                receipt_persisted = True
+                if conversation_history_store is not None and operator_turn is not None:
+                    try:
+                        await append_content_policy_receipt(
+                            store=conversation_history_store,
+                            principal_id=user_id,
+                            conversation_id=session_id,
+                            request_id=request_id,
+                            stage=exc.stage,
+                            recorded_at=datetime.now(tz=UTC),
+                            history_metadata=history_metadata,
+                        )
+                    except Exception as receipt_error:  # noqa: BLE001 - preserve stream error
+                        receipt_persisted = False
+                        _LOG.error(
+                            "chat stream content-policy receipt failed: %s",
+                            type(receipt_error).__name__,
+                            extra={"request_id": request_id},
+                        )
+                yield frame(
+                    "error",
+                    {
+                        "code": "content_policy_block",
+                        "stage": exc.stage,
+                        "receipt_persisted": receipt_persisted,
+                        "detail": str(exc),
+                    },
+                )
             except HTTPException as exc:
                 await cleanup()
                 yield frame("error", {"detail": str(exc.detail)})

@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 9a23d18086e978a533e41642ba68fa610dab67dc
+translation_source_sha: 8205ecd5d25145e00cc550e712d662dcba1a6536
 translation_revised: 2026-08-02
 ---
 
@@ -193,6 +193,10 @@ Queued input은 다음 turn을 위해 영구 저장됩니다. Inspection은 정�
 다시 구성합니다. Context 예산 안에서는 exact history를 보존하고, 필요한 경우 bounded compaction을
 재시도하며, store 또는 compaction 성능 실패로 degradation이 필요할 때만 동일 principal 범위의 최신
 20개 turn을 사용합니다. Durable store가 구성된 경우 client가 제공한 history로 fallback하지 않습니다.
+Queued 또는 steered follow-up에서 이전 history 때문에 content-policy block이 발생하면 bounded
+isolation이 blocked turn만 model context에서 제외하고 durable turn은 변경하지 않습니다. 같은 policy
+receipt를 모든 rerun에 적용하므로 steer가 omitted text를 다시 넣거나 model route를 넓힐 수 없습니다.
+Output-policy block은 다른 model을 시도하지 않고 turn을 중단합니다.
 
 ## Web 및 channel surface
 

@@ -206,6 +206,7 @@ export async function askBackendStream(
   let answerText = "";
   let doneData: Record<string, unknown> | null = null;
   let errored = false;
+  let errorCode: string | null = null;
   let interrupted = false;
   let turnInterrupted = false;
   let lastSequence = 0;
@@ -304,6 +305,11 @@ export async function askBackendStream(
       terminalSeen = true;
     } else if (event === "error") {
       errored = true;
+      errorCode = typeof object.code === "string" ? object.code : null;
+      if (errorCode === "content_policy_block") {
+        answerText = "";
+        terminalSeen = true;
+      }
     }
   };
 
@@ -344,6 +350,7 @@ export async function askBackendStream(
   if (callbacks.signal?.aborted) return stopped(emittedText);
   if (turnInterrupted) return stopped(answerText);
 
+  if (errorCode === "content_policy_block") return fallback("blocked by content policy");
   if (errored && answerText === "") return fallback("stream error");
   if (errored || interrupted) {
     partialTerminalCount += 1;
