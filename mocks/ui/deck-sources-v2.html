@@ -51,6 +51,9 @@
     .ex-agent-name { display: inline-flex; align-items: center; gap: 5px; color: var(--ex-ink); font-size: 12px; font-weight: 700; }
     .ex-agent-icon { width: 16px; height: 16px; flex: 0 0 auto; background: var(--ex-blue); -webkit-mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; }
     .ex-agent-source { max-width: min(60%, 420px); overflow: hidden; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--ex-line); border-radius: 4px; background: #fff; color: var(--ex-muted); font: 10px "JetBrains Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .ex-answer-preparing { min-height: 22px; display: none; align-items: center; gap: 7px; margin: 1px 0 8px; color: var(--ex-blue); font-size: 11px; font-weight: 650; }
+    .ex-answer-preparing.is-active { display: inline-flex; animation: ex-arrive .12s ease both; }
+    .ex-answer-preparing-spinner { width: 11px; height: 11px; border: 2px solid rgba(53,109,155,.2); border-top-color: var(--ex-blue); border-radius: 50%; animation: ex-spin .62s linear infinite; }
     .ex-answer-lead { margin: 2px 0 10px; color: var(--ex-ink); font-size: 13.5px; line-height: 1.55; }
 
     .ex-run { position: relative; display: flex; flex-direction: column; gap: 2px; }
@@ -299,6 +302,7 @@
         <article class="ex-turn is-bragi">
           <div class="ex-turn-body">
             <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">investigation / probe-diagnostics</span></header>
+            <div class="ex-answer-preparing" role="status" aria-live="polite"><span class="ex-answer-preparing-spinner" aria-hidden="true"></span><span>Preparing answer</span></div>
             <p class="ex-answer-lead" aria-live="polite" aria-busy="false">I will check the deployed state first, then follow the local failure through the validator before changing anything.</p>
             <div class="ex-run" id="ex-run" aria-live="polite"></div>
             <div class="ex-turn-foot"><time class="ex-turn-time">10:42</time></div>
@@ -325,7 +329,7 @@
                     <span><span class="ex-observed-kicker">Run record</span><span class="ex-observed-title">Observed process</span></span>
                   </span>
                   <span class="ex-observed-summary">11 observed events / sources 4 / <strong>verification passed</strong></span>
-                  <span class="ex-observed-duration">9.1s</span>
+                  <span class="ex-observed-duration">9.0s</span>
                   <span class="ex-observed-chevron" aria-hidden="true"></span>
                 </summary>
                 <div class="ex-observed-body">
@@ -356,8 +360,20 @@
                       </li>
                       <li class="ex-observed-event" data-kind="phase">
                         <details name="ex-observed-event-detail"><summary>
+                          <span class="ex-observed-kind">Phase</span><span class="ex-observed-event-label">Preparing answer</span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 0; width: 1.3%;"></span></span>
+                          <span class="ex-observed-event-duration">120 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Initial response setup</span><ol class="ex-observed-plan">
+                          <li>Acknowledge the operator question</li><li>Attach Dashboard view context</li><li>Open the progressive response stream</li><li>Queue the investigation plan</li>
+                        </ol><dl class="ex-observed-event-facts">
+                          <div><dt>Context</dt><dd>Dashboard / 29 records</dd></div><div><dt>Mode</dt><dd>Progressive response</dd></div><div><dt>Output</dt><dd>Bragi stream</dd></div>
+                        </dl></div></details>
+                      </li>
+                      <li class="ex-observed-event" data-kind="phase">
+                        <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Phase</span><span class="ex-observed-event-label">Semantic planning</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 1.3%; width: 4.6%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 1.3%; width: 4.7%;"></span></span>
                           <span class="ex-observed-event-duration">420 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Recorded response plan</span><ol class="ex-observed-plan">
@@ -369,7 +385,7 @@
                       <li class="ex-observed-event" data-kind="sources">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Sources</span><span class="ex-observed-event-label">Deck sources snapshot</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 5.9%; width: 2%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 6%; width: 2%;"></span></span>
                           <span class="ex-observed-event-duration">180 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Captured view snapshot</span><ul class="ex-observed-source-list">
@@ -384,7 +400,7 @@
                       <li class="ex-observed-event" data-kind="evidence">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Evidence</span><span class="ex-observed-event-label">Workspace search</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 7.9%; width: 8.8%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 8%; width: 8.9%;"></span></span>
                           <span class="ex-observed-event-duration">800 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Command and bounded output</span><pre class="ex-observed-data"><span class="is-command">$ rg -n "health|probe|status_code" scripts/ops tests/ops</span>
@@ -397,7 +413,7 @@ tests/ops/test_check_probe.py:28: def test_accepts_healthy_response():
                       <li class="ex-observed-event" data-kind="evidence">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Evidence</span><span class="ex-observed-event-label">Azure state query</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 16.7%; width: 18.6%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 16.9%; width: 18.9%;"></span></span>
                           <span class="ex-observed-event-duration">1700 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Query and bounded result</span><pre class="ex-observed-data"><span class="is-command">$ az graph query -q "Resources | where name == 'api-example' | project name, resourceGroup, properties.state"</span>
@@ -410,7 +426,7 @@ api-example   rg-example-app   Running
                       <li class="ex-observed-event" data-kind="grounding">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Ground</span><span class="ex-observed-event-label">Selected grounding sources</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 35.3%; width: 3.1%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 35.8%; width: 3.1%;"></span></span>
                           <span class="ex-observed-event-duration">280 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Selected from Deck sources</span><ul class="ex-observed-source-list">
@@ -425,7 +441,7 @@ api-example   rg-example-app   Running
                       <li class="ex-observed-event" data-kind="model">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Model</span><span class="ex-observed-event-label">Narrator generation</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 38.4%; width: 12%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 38.9%; width: 12.1%;"></span></span>
                           <span class="ex-observed-event-duration">1090 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Model call summary</span><dl class="ex-observed-event-facts">
@@ -435,7 +451,7 @@ api-example   rg-example-app   Running
                       <li class="ex-observed-event" data-kind="grounding">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Ground</span><span class="ex-observed-event-label">Bound claims to evidence</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 50.3%; width: 3.4%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 51%; width: 3.4%;"></span></span>
                           <span class="ex-observed-event-duration">310 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Claim-to-evidence map</span><ul class="ex-observed-claims">
@@ -449,7 +465,7 @@ api-example   rg-example-app   Running
                       <li class="ex-observed-event" data-kind="phase">
                         <details name="ex-observed-event-detail"><summary>
                           <span class="ex-observed-kind">Phase</span><span class="ex-observed-event-label">Verification</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 53.7%; width: 45%;"></span></span>
+                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 54.4%; width: 45.6%;"></span></span>
                           <span class="ex-observed-event-duration">4100 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
                         </summary><div class="ex-observed-event-detail">
                         <span class="ex-observed-detail-label">Verification command and result</span><pre class="ex-observed-data"><span class="is-command">$ pytest -q tests/ops/test_check_probe.py &amp;&amp; python scripts/ops/check_probe.py --resource api-example --dry-run</span>
@@ -458,18 +474,6 @@ tests/ops/test_check_probe.py ....  [100%]
 validator: healthy (204)
 Exit code 0</span></pre><dl class="ex-observed-event-facts">
                           <div><dt>Checks</dt><dd>4 / 4 passed</dd></div><div><dt>Exit code</dt><dd><code>0</code></dd></div><div><dt>Evidence ref</dt><dd><code>ev:verification</code></dd></div>
-                        </dl></div></details>
-                      </li>
-                      <li class="ex-observed-event" data-kind="phase">
-                        <details name="ex-observed-event-detail"><summary>
-                          <span class="ex-observed-kind">Phase</span><span class="ex-observed-event-label">Preparing answer</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 98.7%; width: 1.3%;"></span></span>
-                          <span class="ex-observed-event-duration">120 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail">
-                        <span class="ex-observed-detail-label">Final response assembly</span><ol class="ex-observed-plan">
-                          <li>Preserve the three supported claims</li><li>Attach inline evidence references</li><li>Apply the concise diagnosis format</li><li>Render in the operator locale</li>
-                        </ol><dl class="ex-observed-event-facts">
-                          <div><dt>Claims</dt><dd>3 supported</dd></div><div><dt>Citations</dt><dd>3 inline references</dd></div><div><dt>Output</dt><dd>Bragi response</dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="turn">
@@ -534,18 +538,12 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
             { icon: "+-", title: "Updated the probe validator", note: "Accepted any 2xx response without changing the command contract", duration: "0.6s", kind: "Edit", safety: "local file", command: "scripts/ops/check_probe.py", output: ["- if response.status_code != 200:", "+ if not 200 <= response.status_code < 300:", "1 file changed, 1 insertion, 1 deletion"] },
             { icon: "T", title: "Ran focused checks", note: "Validator tests and a dry-run verification passed", duration: "4.1s", kind: "Test", safety: "local execution", command: "pytest -q tests/ops/test_check_probe.py && python scripts/ops/check_probe.py --resource api-example --dry-run", output: ["tests/ops/test_check_probe.py ....                              [100%]", "4 passed in 0.31s", "validator: healthy (204)", "Exit code 0"], success: true }
           ]
-        },
-        {
-          update: "The fix is verified. I am assembling the supported claims, inline evidence references, and concise operator-facing answer.",
-          title: "Preparing answer", completeTitle: "Answer prepared", elapsed: "1 call - 0.1s",
-          activities: [
-            { icon: "A", title: "Prepared the grounded answer", note: "Bound three supported claims to inline evidence references", duration: "0.1s", kind: "Answer", safety: "presentation only", command: "Bragi response assembly", output: ["3 supported claims", "3 inline evidence references", "Format: concise diagnosis", "Answer ready"], success: true }
-          ]
         }
       ];
       var runHost = document.getElementById("ex-run");
       var answerLead = document.querySelector(".ex-answer-lead");
       var answerLeadText = answerLead.textContent;
+      var answerPreparing = document.querySelector(".ex-answer-preparing");
       var finalAnswer = document.getElementById("ex-final");
       var finalParagraphs = Array.prototype.slice.call(finalAnswer.querySelectorAll(".ex-stream-answer p"));
       var finalParagraphHtml = finalParagraphs.map(function (paragraph) { return paragraph.innerHTML; });
@@ -707,6 +705,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         runToken += 1;
         clearWaits();
         renderRun();
+        answerPreparing.classList.add("is-active");
         answerLead.textContent = "";
         answerLead.setAttribute("aria-busy", "false");
         prepareFinalAnswer();
@@ -748,6 +747,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         });
         answerLead.textContent = answerLeadText;
         answerLead.setAttribute("aria-busy", "false");
+        answerPreparing.classList.remove("is-active");
         finalAnswer.classList.add("is-visible");
         completeFinalAnswer();
       }
@@ -755,6 +755,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       async function run() {
         var token = reset();
         if (!await wait(450, token)) return;
+        answerPreparing.classList.remove("is-active");
         if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
         if (!await wait(120, token)) return;
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
