@@ -707,7 +707,7 @@ class HilResumeCoordinator:
                 "delegated": is_delegated,
                 "delegation_mode": delegation_mode,
                 "action_type": action.action_type,
-                "mode": Mode.SHADOW.value,
+                "mode": action.mode.value,
             },
         )
         return ResolveResult(

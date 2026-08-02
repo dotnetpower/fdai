@@ -4,7 +4,7 @@ version: 1.0.0
 operation: update
 interfaces:
 - ControlPlane
-rollback_contract: pr_revert
+rollback_contract: scripted
 irreversible: false
 default_mode: shadow
 promotion_gate:
@@ -23,12 +23,12 @@ stop_conditions:
 blast_radius:
   computation: static_enum
   static_bucket: resource
-description: Flip an ActionType's default_mode from shadow to enforce (bounded by promotion_gate).
-  Catalog-as-code change delivered as a reviewed PR.
+description: Apply one exact, durable operational-promotion receipt to the runtime ActionType
+  mode registry after Owner HIL. Demotion is the scripted rollback.
 category: governance
 trigger_kind:
   kind: operator_request
-execution_path: pr_native
+execution_path: direct_api
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_hil
@@ -44,6 +44,10 @@ argument_schema:
   additionalProperties: false
   required:
   - action_type_id
+  - target_mode
+  - fdai_revision
+  - scenario_set_version
+  - evidence_digest
   - justification
   properties:
     action_type_id:
@@ -53,8 +57,16 @@ argument_schema:
     target_mode:
       type: string
       enum:
-      - shadow
       - enforce
+    fdai_revision:
+      type: string
+      pattern: ^(?:[0-9a-f]{40}|[0-9a-f]{64})$
+    scenario_set_version:
+      type: string
+      pattern: ^[A-Za-z0-9._-]{1,160}$
+    evidence_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
     justification:
       type: string
       x-fdai-audit-safe: true
@@ -63,6 +75,6 @@ argument_schema:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: action-type:governance.promote-action-type@1.0.0
-  content_hash: sha256:2930418ed031ac4d1d419489ce30fba9262e3edc2520c084d3734aa2e5d3a4cb
+  content_hash: sha256:ac721fd4ab10c1e152df3a92fbdda7c2950f2a8753585eb056f6f92635c8bb47
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

@@ -960,6 +960,40 @@ def test_build_direct_api_executor_shares_audit_and_lock(
     assert got._resource_lock is lock
 
 
+def test_build_direct_api_executor_wires_durable_promotion_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_DIRECT_API_FAKE", raising=False)
+    from fdai.__main__ import _build_direct_api_executor
+    from fdai.core.executor.lock import ResourceLockManager
+    from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
+    from fdai.delivery.persistence import StateStoreActionPromotionRegistry
+    from fdai.delivery.promotion import PROMOTION_ACTION_TYPE
+    from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+    from fdai.runtime.configuration import _resolve_catalog_root
+    from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    audit = InMemoryStateStore()
+    registry = StateStoreActionPromotionRegistry(store=audit)
+    action_types = load_action_type_catalog(
+        _resolve_catalog_root() / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+
+    got = _build_direct_api_executor(
+        audit_store=audit,
+        resource_lock=ResourceLockManager(),
+        promotion_registry=registry,
+        action_types_by_name={item.name: item for item in action_types},
+    )
+
+    assert got is not None
+    assert got._allow_enforce is True
+    assert isinstance(got._executor, RoutedDirectApiExecutor)
+    assert PROMOTION_ACTION_TYPE in got._executor.routes
+
+
 def test_build_direct_api_executor_binds_operations_gateway(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -149,6 +149,7 @@ def _action(
     *,
     idempotency_key: str = "example-idem",
     target: str = "resource:example/rg/stg1",
+    mode: Mode = Mode.SHADOW,
 ) -> Action:
     return Action(
         schema_version="1.0.0",
@@ -168,7 +169,7 @@ def _action(
         ],
         rollback_ref=RollbackRef(kind=RollbackKind.PR_REVERT, reference="pr-99"),
         blast_radius=BlastRadius(scope=BlastRadiusScope.RESOURCE, count=1, rate_per_minute=5),
-        mode=Mode.SHADOW,
+        mode=mode,
         citing_rules=[_RULE_ID],
         created_at="2026-07-05T08:00:00Z",  # type: ignore[arg-type]
     )
@@ -965,6 +966,32 @@ async def test_role_scoped_approval_when_no_assignee() -> None:
         if e["entry"].get("action_kind") == "hil.approved.executed"
     ]
     assert executed[0]["delegation_mode"] == "role_scoped"
+
+
+@pytest.mark.asyncio
+async def test_hil_terminal_audit_preserves_enforce_action_mode() -> None:
+    coordinator, _, store, _ = _coordinator()
+    await coordinator.request_approval(
+        action=_action(mode=Mode.ENFORCE),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="c-enforce",
+        approval_id="aid-enforce",
+    )
+
+    result = await coordinator.resolve(
+        approval_id="aid-enforce",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTE_FAILED
+    terminal = [
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "hil.approved.execute_failed"
+    ]
+    assert terminal[-1]["mode"] == "enforce"
 
 
 @pytest.mark.asyncio

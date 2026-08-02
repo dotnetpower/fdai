@@ -144,6 +144,26 @@ def test_action_in_shadow_mode_returns_hil() -> None:
     assert "action_type_in_shadow_mode" in decision.reasons
 
 
+def test_promotion_authority_bootstrap_is_enforce_but_never_auto() -> None:
+    registry = ActionPromotionRegistry()
+    gate = RiskGate(registry=registry)
+    action_type = _shipped_action_types()["governance.promote-action-type"]
+    action = _action(action_type=action_type.name, citing_rules=["operator.promotion"])
+    rule = _shipped_rules_by_id()["object-storage.owner-tag.required"]
+
+    decision = gate.evaluate(
+        action=action,
+        rule=rule,
+        action_type=action_type,
+        inventory_age_seconds=60,
+    )
+
+    assert decision.outcome is RiskDecisionOutcome.HIL
+    assert decision.effective_mode is Mode.ENFORCE
+    assert "authority_mutation_requires_hil" in decision.reasons
+    assert "action_type_in_shadow_mode" not in decision.reasons
+
+
 # ---------------------------------------------------------------------------
 # Blast-radius invariants
 # ---------------------------------------------------------------------------

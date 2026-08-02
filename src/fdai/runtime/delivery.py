@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -192,6 +193,8 @@ def _build_direct_api_executor(
     http_client: httpx.AsyncClient | None = None,
     identity: WorkloadIdentity | None = None,
     human_access_enabled: bool = True,
+    promotion_registry: Any = None,
+    action_types_by_name: Mapping[str, Any] | None = None,
 ) -> DirectApiShadowExecutor | None:
     """Select the direct-API executor for this process.
 
@@ -213,6 +216,7 @@ def _build_direct_api_executor(
         raise RuntimeError("operations gateway URL and audience MUST be configured together")
 
     fallback: DirectApiExecutor | None = None
+    routes: dict[str, DirectApiExecutor] = {}
     allow_enforce = False
     if gateway_url:
         if http_client is None or identity is None:
@@ -236,6 +240,24 @@ def _build_direct_api_executor(
         _LOGGER.info("direct_api_backend", extra={"backend": "recording"})
         fallback = RecordingDirectApiExecutor()
 
+    if promotion_registry is not None and action_types_by_name:
+        from fdai.delivery.persistence import (
+            StateStoreActionPromotionRegistry,
+            StateStoreOperationalPromotionReceiptStore,
+        )
+        from fdai.delivery.promotion import (
+            PROMOTION_ACTION_TYPE,
+            OperationalPromotionDirectApiExecutor,
+        )
+
+        if isinstance(promotion_registry, StateStoreActionPromotionRegistry):
+            routes[PROMOTION_ACTION_TYPE] = OperationalPromotionDirectApiExecutor(
+                action_types=action_types_by_name,
+                receipts=StateStoreOperationalPromotionReceiptStore(audit_store),
+                registry=promotion_registry,
+            )
+            allow_enforce = True
+
     human_access = build_human_access_direct_api(
         audit_store=audit_store,
         http_client=http_client,
@@ -246,10 +268,9 @@ def _build_direct_api_executor(
         from fdai.delivery.identity import HUMAN_ACCESS_ACTIONS
 
         _LOGGER.info("direct_api_human_access_backend", extra={"backend": "entra"})
-        executor = RoutedDirectApiExecutor(
-            routes={action_type: human_access for action_type in HUMAN_ACCESS_ACTIONS},
-            fallback=fallback,
-        )
+        routes.update({action_type: human_access for action_type in HUMAN_ACCESS_ACTIONS})
+    if routes:
+        executor = RoutedDirectApiExecutor(routes=routes, fallback=fallback)
     if executor is None:
         _LOGGER.info("direct_api_backend", extra={"backend": "none"})
         return None

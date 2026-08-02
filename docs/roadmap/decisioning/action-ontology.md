@@ -289,10 +289,12 @@ authored in the ontology today; **only one currently has a live
 dispatcher** (the other three are catalog-as-code artifacts waiting on
 a PR-native writer to land in P2):
 
-- `governance.promote-action-type` - flip `default_mode` from shadow →
-  enforce for one ActionType (bounded by that ActionType's
-  `promotion_gate`).
-  **Dispatcher: not yet implemented (P2 backlog).**
+- `governance.promote-action-type` - apply one exact durable operational-promotion receipt to
+  the runtime mode registry for one ActionType. The ActionType remains unchanged in catalog;
+  the receipt is bounded by its `promotion_gate`, exact code/catalog revision, scenario set,
+  evidence digest, and Owner HIL.
+  **Dispatcher shipped:** `OperationalPromotionDirectApiExecutor` behind Thor. Shadow validates
+  without mutation; only the HIL-only authority bootstrap supplies enforce mode.
 - `governance.retire-rule` - remove a rule from the enforce set
   (shadow-only or full retire).
   **Dispatcher: not yet implemented (P2 backlog).**
@@ -306,8 +308,11 @@ a PR-native writer to land in P2):
   **Dispatcher shipped** in
   [`src/fdai/core/risk_gate/override_writer.py`](../../../src/fdai/core/risk_gate/override_writer.py).
 
-Governance actions always use `execution_path: pr_native` - they are
-catalog-as-code changes and MUST land as a reviewed diff.
+Governance actions use `execution_path: pr_native` because they are catalog-as-code changes and
+MUST land as reviewed diffs, with one closed exception: `governance.promote-action-type` uses
+`direct_api` to mutate only the durable runtime mode registry after Owner HIL and exact-receipt
+verification. It does not edit catalog data or a managed substrate. No other governance action
+may use this exception.
 
 ### 3.4 `tool.*`
 

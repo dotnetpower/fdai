@@ -1,9 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: b09d2b74b96237346a4cc92418870bb9dd8cd5bf
+translation_source_sha: dd1071d5d06f7d6ea447306f889e9fd34ebbe6b3
 translation_revised: 2026-08-01
----
 
 # Action 온톨로지
 
@@ -284,10 +283,12 @@ landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
 (나머지 셋은 P2 에서 land 될 PR-native writer 대기 중인
 catalog-as-code artifact):
 
-- `governance.promote-action-type` - 하나의 ActionType 의 `default_mode`
-  를 shadow → enforce 로 flip (해당 ActionType 의 `promotion_gate` 로
-  bounded).
-  **Dispatcher: not yet implemented (P2 backlog).**
+- `governance.promote-action-type` - 하나의 ActionType에 대한 exact durable
+  operational-promotion receipt를 runtime mode registry에 적용합니다. Catalog의 ActionType은
+  변경하지 않으며 receipt는 `promotion_gate`, exact code/catalog revision, scenario set,
+  evidence digest 및 Owner HIL로 제한됩니다.
+  **Dispatcher shipped:** Thor 뒤의 `OperationalPromotionDirectApiExecutor`. Shadow는 mutation
+  없이 검증하며 HIL-only authority bootstrap만 enforce mode를 제공합니다.
 - `governance.retire-rule` - enforce 집합에서 룰 제거 (shadow-only 또는
   full retire).
   **Dispatcher: not yet implemented (P2 backlog).**
@@ -301,8 +302,11 @@ catalog-as-code artifact):
   **Dispatcher shipped**:
   [`src/fdai/core/risk_gate/override_writer.py`](../../../src/fdai/core/risk_gate/override_writer.py).
 
-Governance 액션은 항상 `execution_path: pr_native` 사용 - catalog-as-code
-변경이고 reviewed diff 로 landing MUST.
+Governance action은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 reviewed
+diff로 landing해야 합니다. 닫힌 예외는 하나뿐입니다. `governance.promote-action-type`은 Owner
+HIL과 exact-receipt verification 이후 durable runtime mode registry만 변경하기 위해
+`direct_api`를 사용하며 catalog data나 managed substrate는 변경하지 않습니다. 다른 governance
+action은 이 예외를 사용할 수 없습니다.
 
 ### 3.4 `tool.*`
 

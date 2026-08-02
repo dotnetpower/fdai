@@ -436,6 +436,8 @@ def _build_control_loop(
         http_client=http_client,
         identity=identity,
         human_access_enabled=human_access_enabled,
+        promotion_registry=promotion_registry,
+        action_types_by_name=action_types_by_name,
     )
     tool_executor = _build_tool_executor(
         audit_store=audit_store,
