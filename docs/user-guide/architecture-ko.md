@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 6569f5c9e0d6aea7d88faf6c8089f678373848a6
-translation_revised: 2026-08-02
+translation_source_sha: 87a1be6317fe28593564349e650212cfc64881e0
+translation_revised: 2026-08-03
 ---
 
 # FDAI 아키텍처
@@ -69,19 +69,38 @@ Baseline 영역은 `enable_private_postgres=false`일 때 `postgresqlServer` pri
 설정하면 이 경로 대신 PostgreSQL Flexible Server를 delegated subnet에 배치하고 endpoint를
 생성하지 않습니다.
 Optional document-ingestion 경로는 Ingestion Gateway, Blob 및 DFS private endpoint와 ADLS
-Gen2 account를 표시합니다. Case-history storage와 development operations gateway는 각각의
-feature-specific profile에 남아 있습니다. APIM은 표시하지 않습니다.
+Gen2 account를 표시합니다. Case-history storage는 기본으로 활성화되지만 아직 그림에는
+표시하지 않습니다. Development operations gateway와 APIM은 각각의 feature-specific
+profile에 남아 있습니다.
 
 같은 보기에는 의도한 gateway, model platform, observability 및 delivery provider topology도
 겹쳐서 표시합니다. Product 및 network label을 안정적으로 유지하기 위해 상태는 다이어그램이
 아니라 이 문서에서 관리합니다.
 
-| Target-state 요소 | Day-zero baseline | 상태 |
-|-------------------|-------------------|------|
-| Application Gateway와 WAF policy가 있는 private Application Gateway subnet | 프로비전되지 않음 | TBD - Terraform profile을 추가하고 private operator access 경로를 검증합니다. |
-| Microsoft Foundry private endpoint와 Azure Managed Grafana | 프로비전되지 않음 | TBD - 각 서비스를 feature-specific deployment profile로 연결합니다. |
-| Email, Teams 및 Slack 승인 채널 | Adapter 선택지 | 배포별 TBD - 채널, credential, callback identity 및 fallback policy를 선택합니다. |
-| GitHub, GitLab 및 Azure DevOps 전달 provider | Provider 선택지 | 배포별 TBD - Git host를 선택하고 review 및 rollback binding을 구성합니다. |
+| Target-state 요소 | Terraform 상태 | 문서화 결정 |
+|-------------------|----------------|-------------|
+| Application Gateway와 WAF policy가 있는 private Application Gateway subnet | 프로비전되지 않음 | 계획된 topology로 그림에 유지합니다. 배포 가능한 경로로 취급하기 전에 Terraform profile을 추가합니다. |
+| Microsoft Foundry account, project 및 private endpoint | Opt-in feature profile | 그림에 유지합니다. 사용 가능 여부는 LLM 및 web-search 설정에 따라 달라집니다. |
+| Azure Managed Grafana | 프로비전되지 않음 | 계획된 observability topology로 그림에 유지합니다. |
+| Email, Teams 및 Slack 승인 채널 | Email은 opt-in이고 Teams와 Slack은 deployment adapter입니다. | Provider 선택지로 유지합니다. 각 배포에서 credential, callback identity 및 fallback policy를 선택합니다. |
+| GitHub, GitLab 및 Azure DevOps 전달 provider | Deployment adapter | Provider 선택지로 유지합니다. 각 배포에서 Git host와 review binding을 선택합니다. |
+
+모든 Terraform resource를 별도 node로 표시할 필요는 없습니다. Network boundary를 바꾸거나,
+별도 data path를 만들거나, 사용자가 보는 전달 endpoint인 resource만 직접 표시합니다. 해당
+경로를 지원하기만 하는 resource는 묶어서 표시하거나 문서로 설명합니다.
+
+| Terraform resource 또는 resource group | 그림 처리 | 이유 |
+|-----------------------------------------|-----------|------|
+| Operational Event Hubs namespace와 private endpoint | 다음 그림 개정에서 추가 | 항상 실행되는 두 번째 namespace이며 별도의 Kafka 및 private-link 경로가 있습니다. |
+| Case-history Blob account와 private endpoint | 다음 그림 개정에서 추가 | 기본으로 활성화되며 별도의 replay 및 case artifact 경로를 제공합니다. |
+| Container Apps environment | Aggregate로 유지 | Container Apps subnet boundary와 app/job node가 hosting 역할을 이미 전달합니다. |
+| Private DNS zone과 VNet link | Private endpoint 경로에 암시적으로 포함 | 각 zone과 link를 그리면 workload flow를 바꾸지 않으면서 모든 private endpoint를 중복 표시하게 됩니다. |
+| Action group, metric alert 및 diagnostic setting | App Insights 및 Logs에 aggregate | 별도 workload data path가 아니라 observability routing을 구현합니다. |
+| Event Grid realtime inventory topic | 이 private profile에서 제외 | Terraform은 private networking이 비활성화된 경우에만 이를 활성화합니다. |
+
+따라서 지금 즉시 그림을 확장할 필요는 없습니다. 다음 그림 업데이트에서는 operational
+Event Hubs와 case-history 경로만 추가하고, 나머지 누락은 의도적인 abstraction으로
+유지하는 것이 좋습니다.
 
 Azure Resource Graph 조회와 observability 쓰기는 Azure control-plane 및 telemetry contract를
 사용하므로 private data-plane 경로 밖에 표시합니다. Day-zero Terraform baseline은 여전히

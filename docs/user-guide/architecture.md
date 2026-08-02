@@ -69,19 +69,39 @@ The baseline portion shows the default private-networking profile, where
 Setting `enable_private_postgres=true` replaces that path with PostgreSQL
 Flexible Server in its delegated subnet and doesn't create the endpoint.
 The optional document-ingestion path shows its Ingestion Gateway, Blob and DFS
-private endpoints, and ADLS Gen2 account. Case-history storage and the development
-operations gateway remain in their feature-specific profiles. APIM isn't shown.
+private endpoints, and ADLS Gen2 account. Case-history storage is enabled by
+default but isn't drawn yet. The development operations gateway and APIM remain
+in their feature-specific profiles.
 
 The same view overlays the intended gateway, model platform, observability, and
 delivery-provider topology. Status remains in this document rather than on the
 diagram so product and network labels stay stable.
 
-| Target-state element | Day-zero baseline | Status |
-|----------------------|-------------------|--------|
-| Private Application Gateway subnet with Application Gateway and WAF policy | Not provisioned | TBD - add the Terraform profile and validate the private operator access path |
-| Microsoft Foundry private endpoint and Azure Managed Grafana | Not provisioned | TBD - bind each service through its feature-specific deployment profile |
-| Email, Teams, and Slack approval channels | Adapter choices | TBD per deployment - select channels, credentials, callback identity, and fallback policy |
-| GitHub, GitLab, and Azure DevOps delivery providers | Provider choices | TBD per deployment - select the Git host and configure review and rollback bindings |
+| Target-state element | Terraform status | Documentation decision |
+|----------------------|------------------|------------------------|
+| Private Application Gateway subnet with Application Gateway and WAF policy | Not provisioned | Keep in the diagram as planned topology; add its Terraform profile before treating the path as deployable |
+| Microsoft Foundry account, project, and private endpoint | Opt-in feature profile | Keep in the diagram; availability depends on LLM and web-search settings |
+| Azure Managed Grafana | Not provisioned | Keep in the diagram as planned observability topology |
+| Email, Teams, and Slack approval channels | Email is opt-in; Teams and Slack are deployment adapters | Keep as provider choices; each deployment selects credentials, callback identity, and fallback policy |
+| GitHub, GitLab, and Azure DevOps delivery providers | Deployment adapters | Keep as provider choices; each deployment selects the Git host and review bindings |
+
+The diagram does not need every Terraform resource as a separate node. Use the
+following inclusion rule: draw a resource when it changes a network boundary,
+creates a distinct data path, or is a user-visible delivery endpoint. Group or
+document resources that only support those paths.
+
+| Terraform resource or resource group | Diagram treatment | Reason |
+|--------------------------------------|-------------------|--------|
+| Operational Event Hubs namespace and its private endpoint | Add in the next diagram revision | It is an always-on second namespace with a distinct Kafka and private-link path |
+| Case-history Blob account and its private endpoint | Add in the next diagram revision | It is enabled by default and carries a distinct replay and case-artifact path |
+| Container Apps environment | Keep aggregated | The Container Apps subnet boundary and app/job nodes already communicate its hosting role |
+| Private DNS zones and VNet links | Keep implicit in private-endpoint paths | Drawing each zone and link would duplicate every private endpoint without changing the workload flow |
+| Action group, metric alerts, and diagnostic settings | Keep aggregated under App Insights and Logs | These resources implement observability routing rather than a separate workload data path |
+| Event Grid realtime inventory topic | Exclude from this private profile | Terraform enables it only when private networking is disabled |
+
+This means no immediate expansion is required. The next diagram update should
+add only the operational Event Hubs and case-history paths; the other omissions
+remain intentional abstractions.
 
 Azure Resource Graph reads and observability writes are shown outside the
 private data-plane path because they use Azure control-plane and telemetry
