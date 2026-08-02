@@ -132,9 +132,10 @@ class BackendIntentGraphPlanner:
         tools: Sequence[TurnTool],
         history: Sequence[Mapping[str, str]],
         attachments: object,
+        context: Mapping[str, object] | None = None,
     ) -> IntentGraph:
         bounded_tools = tuple(tools[:_MAX_CAPABILITIES])
-        planner_input = _planner_input(prompt, bounded_tools, history)
+        planner_input = _planner_input(prompt, bounded_tools, history, context=context)
         raw = await self._backend.complete_structured(
             system_prompt=INTENT_GRAPH_SYSTEM_PROMPT,
             user_content=vision_user_content(planner_input, attachments),
@@ -162,6 +163,7 @@ async def plan_semantic_turn(
     tools: Sequence[TurnTool],
     history: Sequence[Mapping[str, str]],
     attachments: object,
+    context: Mapping[str, object] | None = None,
 ) -> IntentGraph | TurnPlan:
     """Invoke context-aware graph planning or one validated legacy planner."""
     contextual = getattr(planner, "plan_turn_with_context", None)
@@ -171,6 +173,7 @@ async def plan_semantic_turn(
             tools=tools,
             history=history,
             attachments=attachments,
+            context=context,
         )
     else:
         plan_turn = getattr(planner, "plan_turn", None)
@@ -198,6 +201,7 @@ _MAX_CAPABILITIES: Final = 64
 _MAX_PROMPT_CHARS: Final = 8_000
 _MAX_HISTORY_TURNS: Final = 8
 _MAX_HISTORY_CHARS: Final = 1_500
+_MAX_SCREEN_FACTS: Final = 12
 _GOAL_ID: Final = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _GRAPH_FIELDS: Final = {"schema_version", "goals", "clarification", "confidence", "action_posture"}
 _GOAL_FIELDS: Final = {
@@ -420,6 +424,8 @@ def _planner_input(
     prompt: str,
     tools: Sequence[TurnTool],
     history: Sequence[Mapping[str, str]],
+    *,
+    context: Mapping[str, object] | None = None,
 ) -> str:
     return json.dumps(
         {
@@ -440,10 +446,106 @@ def _planner_input(
                 }
                 for turn in history[-_MAX_HISTORY_TURNS:]
             ],
+            "context": dict(context or {}),
         },
         ensure_ascii=False,
         separators=(",", ":"),
     )
+
+
+def planner_context_envelope(
+    view_context: Mapping[str, object],
+    *,
+    resource_context: Mapping[str, str] | None,
+    conversation_context: Mapping[str, str] | None,
+) -> dict[str, object]:
+    """Project bounded selector hints for decomposition, never evidence authority."""
+    envelope: dict[str, object] = {"authority": "selector_hint"}
+    screen: dict[str, object] = {}
+    for source, target, maximum in (
+        ("routeId", "route_id", 128),
+        ("routeLabel", "route_label", 128),
+        ("purpose", "purpose", 512),
+        ("headline", "headline", 512),
+        ("capturedAt", "captured_at", 64),
+    ):
+        value = _bounded_context_text(view_context.get(source), maximum)
+        if value is not None:
+            screen[target] = value
+    facts = view_context.get("facts")
+    projected_facts: list[dict[str, object]] = []
+    if isinstance(facts, list):
+        for raw_fact in facts[:_MAX_SCREEN_FACTS]:
+            if not isinstance(raw_fact, Mapping):
+                continue
+            key = _bounded_context_text(raw_fact.get("key"), 128)
+            value = raw_fact.get("value")
+            if key is None or not isinstance(value, str | int | float | bool | None):
+                continue
+            fact: dict[str, object] = {
+                "key": key,
+                "value": value[:256] if isinstance(value, str) else value,
+            }
+            for field, maximum in (
+                ("label", 128),
+                ("group", 128),
+                ("unit", 64),
+                ("window", 128),
+                ("observedAt", 64),
+            ):
+                text = _bounded_context_text(raw_fact.get(field), maximum)
+                if text is not None:
+                    fact[field] = text
+            projected_facts.append(fact)
+    if projected_facts:
+        screen["facts"] = projected_facts
+    explanations = view_context.get("explanations")
+    if isinstance(explanations, Mapping):
+        selection = explanations.get("selection")
+        if isinstance(selection, Mapping):
+            projected_selection = {
+                field: text
+                for field in ("entity_kind", "entity_id", "label")
+                if (text := _bounded_context_text(selection.get(field), 256)) is not None
+            }
+            if projected_selection:
+                screen["selection"] = projected_selection
+    if screen:
+        envelope["screen"] = screen
+    if resource_context:
+        envelope["resource"] = {
+            key: value[:512]
+            for key, value in resource_context.items()
+            if key in {"name", "resource_type", "evidence_ref", "event_at", "event_status"}
+        }
+    if conversation_context:
+        envelope["conversation"] = {
+            key: value[:256]
+            for key, value in conversation_context.items()
+            if key in {"kind", "incident_id", "correlation_id", "selected_agent"}
+        }
+    attachments = view_context.get("_attachments")
+    if isinstance(attachments, list):
+        projected_attachments = []
+        for attachment in attachments[:4]:
+            if not isinstance(attachment, Mapping):
+                continue
+            name = _bounded_context_text(attachment.get("name"), 256)
+            media_type = _bounded_context_text(attachment.get("media_type"), 64)
+            byte_size = attachment.get("byte_size")
+            if name is not None and media_type is not None and isinstance(byte_size, int):
+                projected_attachments.append(
+                    {"name": name, "media_type": media_type, "byte_size": byte_size}
+                )
+        if projected_attachments:
+            envelope["attachments"] = projected_attachments
+    return envelope
+
+
+def _bounded_context_text(value: object, maximum: int) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()[:maximum]
 
 
 __all__ = [
@@ -456,6 +558,7 @@ __all__ = [
     "IntentGraphPlanner",
     "apply_intent_graph_to_answer_plan",
     "intent_graph_schema",
+    "planner_context_envelope",
     "plan_semantic_turn",
     "parse_intent_graph",
 ]

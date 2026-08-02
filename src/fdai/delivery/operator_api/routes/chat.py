@@ -124,6 +124,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraphPlanner,
     apply_intent_graph_to_answer_plan,
     plan_semantic_turn,
+    planner_context_envelope,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
@@ -454,6 +455,11 @@ def make_chat_route(
                         tools=turn_tools() if callable(turn_tools) else turn_tools,
                         history=history,
                         attachments=view_context.get("_attachments"),
+                        context=planner_context_envelope(
+                            view_context,
+                            resource_context=resource_context,
+                            conversation_context=conversation_context,
+                        ),
                     )
                 except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
                     _LOG.warning(

@@ -9,6 +9,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     BackendIntentGraphPlanner,
     EvidenceMode,
     parse_intent_graph,
+    planner_context_envelope,
 )
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 
@@ -221,6 +222,77 @@ def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
     )
 
     assert graph.goals[0].capability is None
+
+
+def test_planner_context_envelope_is_bounded_and_allowlisted() -> None:
+    envelope = planner_context_envelope(
+        {
+            "routeId": "resilience",
+            "routeLabel": "Resilience",
+            "headline": "MTTR is 12 minutes",
+            "capturedAt": "2026-08-02T03:00:00Z",
+            "facts": [
+                {
+                    "key": "mttr",
+                    "label": "Mean time to recovery",
+                    "value": 12,
+                    "unit": "minutes",
+                    "window": "24h",
+                    "observedAt": "2026-08-02T03:00:00Z",
+                    "ignored": "not projected",
+                }
+            ],
+            "explanations": {
+                "selection": {
+                    "entity_kind": "service",
+                    "entity_id": "checkout-api",
+                    "label": "Checkout API",
+                }
+            },
+            "records": {"incidents": [{"secret": "must-not-leak"}]},
+            "_user": {"name": "must-not-leak"},
+            "_attachments": [
+                {
+                    "name": "topology.png",
+                    "media_type": "image/png",
+                    "byte_size": 42,
+                    "data_url": "data:image/png;base64,c2VjcmV0",
+                }
+            ],
+        },
+        resource_context={
+            "name": "checkout-api",
+            "resource_type": "container_app",
+            "evidence_ref": "inventory:checkout-api",
+            "resource_group": "not-projected",
+        },
+        conversation_context={
+            "kind": "incident",
+            "incident_id": "INC-42",
+            "selected_agent": "Heimdall",
+            "private": "not-projected",
+        },
+    )
+
+    assert envelope["authority"] == "selector_hint"
+    screen = envelope["screen"]
+    assert isinstance(screen, dict)
+    assert screen["facts"][0] == {
+        "key": "mttr",
+        "value": 12,
+        "label": "Mean time to recovery",
+        "unit": "minutes",
+        "window": "24h",
+        "observedAt": "2026-08-02T03:00:00Z",
+    }
+    assert screen["selection"]["entity_id"] == "checkout-api"
+    assert envelope["attachments"] == [
+        {"name": "topology.png", "media_type": "image/png", "byte_size": 42}
+    ]
+    serialized = str(envelope)
+    assert "must-not-leak" not in serialized
+    assert "data:image" not in serialized
+    assert "not-projected" not in serialized
 
 
 @pytest.mark.parametrize(
