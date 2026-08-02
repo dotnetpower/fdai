@@ -26,6 +26,7 @@ groups:
     label: { en: Operator access, ko: 운영자 접근 }
     direction: DOWN
     layout: column
+    gap: 32
     width: 184
   - id: azure-region
     kind: cloud
@@ -48,6 +49,7 @@ groups:
     label: { en: Application Gateway subnet, ko: Application Gateway subnet }
     direction: DOWN
     layout: column
+    gap: 32
     alignWith: private-endpoint-subnet
     width: 184
   - id: container-apps-subnet

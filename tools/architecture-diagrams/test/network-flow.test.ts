@@ -119,7 +119,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     gatewayChildren[1]!.y -
       gatewayChildren[0]!.y -
       gatewayChildren[0]!.height,
-    16,
+    32,
   );
   assert.equal(
     gatewayChildren[0]!.x + gatewayChildren[0]!.width / 2,
@@ -180,7 +180,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     const gap =
       orderedOperatorNodes[index]!.y -
       (orderedOperatorNodes[index - 1]!.y + orderedOperatorNodes[index - 1]!.height);
-    assert.equal(gap, 16, `operator access gap ${index} is ${gap}`);
+    assert.equal(gap, 32, `operator access gap ${index} is ${gap}`);
   }
   assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Microsoft Entra ID");
   assert.equal(
@@ -242,6 +242,13 @@ test("Azure resource network flow routes every compound edge", async () => {
   );
   const resourceGraphBends = resourceGraphEdge?.sections?.[0]?.bendPoints ?? [];
   assert.equal(resourceGraphBends.length, 4);
+  assert.equal(
+    Math.abs(
+      resourceGraphBends.at(-1)!.x -
+      resourceGraphEdge!.sections![0]!.endPoint.x,
+    ),
+    16,
+  );
   for (const edgeId of [
     "event-pe-to-core",
     "api-to-event-pe",
@@ -282,8 +289,8 @@ test("Azure resource network flow routes every compound edge", async () => {
   const teamsSection = layout.edges.find(
     (candidate) => candidate.id === "core-to-teams",
   )?.sections?.[0];
-  assert.ok(gitSection?.bendPoints?.length === 4);
-  assert.ok(teamsSection?.bendPoints?.length === 4);
+  assert.ok(gitSection?.bendPoints?.length === 3);
+  assert.ok(teamsSection?.bendPoints?.length === 5);
   assert.ok(gitSection.bendPoints[1]!.y < gitSection.startPoint.y);
   assert.ok(gitSection.bendPoints[1]!.y > 40);
   assert.ok(teamsSection.bendPoints[1]!.y > 40);
@@ -293,6 +300,18 @@ test("Azure resource network flow routes every compound edge", async () => {
     ),
     28,
   );
+  for (const edge of layout.edges) {
+    for (const section of edge.sections ?? []) {
+      const previous = section.bendPoints?.at(-1) ?? section.startPoint;
+      assert.ok(
+        Math.hypot(
+          section.endPoint.x - previous.x,
+          section.endPoint.y - previous.y,
+        ) >= 16,
+        `${edge.id} has a short terminal shaft`,
+      );
+    }
+  }
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-teams")!.step, 6);
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-github")!.step, 7);
   assert.match(
@@ -303,6 +322,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     svg,
     /data-edge-route="orthogonal-above"\]\[data-edge-step\] > \.edge-path/,
   );
+  assert.match(svg, /markerUnits="userSpaceOnUse" markerWidth="9"/);
   assert.match(
     svg,
     /data-group-id="azure-region"\] > \.group-surface \{ fill: #f8fbfe;/,

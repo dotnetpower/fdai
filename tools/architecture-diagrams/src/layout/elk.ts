@@ -908,15 +908,17 @@ function orthogonalAboveRouteSection(
   edgeId: string,
   source: PositionedShape,
   target: PositionedShape,
+  spec: DiagramSpec,
   nodes: Map<string, PositionedShape>,
   laneIndex: number,
 ): ElkEdgeSection {
   const sourceCenterY = source.y + source.height / 2;
   const targetCenterY = target.y + target.height / 2;
+  const targetCenterX = target.x + target.width / 2;
   const sourceX = target.x >= source.x ? source.x + source.width : source.x;
   const sourceCorridorX = target.x >= source.x ? sourceX + 24 : sourceX - 24;
   const targetX = target.x >= source.x ? target.x : target.x + target.width;
-  const corridorX = target.x >= source.x ? targetX - 8 : targetX + 8;
+  const corridorX = target.x >= source.x ? targetX - 16 : targetX + 16;
   const minimumX = Math.min(sourceCorridorX, corridorX);
   const maximumX = Math.max(sourceCorridorX, corridorX);
   const obstacleTop = Math.min(
@@ -933,6 +935,48 @@ function orthogonalAboveRouteSection(
       .map((node) => node.y),
   );
   const laneY = obstacleTop - 36 - laneIndex * 28;
+  const verticalApproachBlocked = [...nodes.values()].some(
+    (node) =>
+      node.id !== source.id &&
+      node.id !== target.id &&
+      node.x < targetCenterX &&
+      node.x + node.width > targetCenterX &&
+      node.y < target.y &&
+      node.y + node.height > laneY,
+  );
+  if (!verticalApproachBlocked) {
+    return {
+      id: `${edgeId}-orthogonal-above-route`,
+      startPoint: { x: sourceX, y: sourceCenterY },
+      bendPoints: [
+        { x: sourceCorridorX, y: sourceCenterY },
+        { x: sourceCorridorX, y: laneY },
+        { x: targetCenterX, y: laneY },
+      ],
+      endPoint: { x: targetCenterX, y: target.y },
+    };
+  }
+  const targetParent = spec.groups.find(
+    (group) => group.id === elementParent(spec, target.id),
+  );
+  if (targetParent?.layout === "row") {
+    const clearanceX = target.x >= source.x
+      ? target.x - 8
+      : target.x + target.width + 8;
+    const approachY = target.y - 16;
+    return {
+      id: `${edgeId}-orthogonal-above-route`,
+      startPoint: { x: sourceX, y: sourceCenterY },
+      bendPoints: [
+        { x: sourceCorridorX, y: sourceCenterY },
+        { x: sourceCorridorX, y: laneY },
+        { x: clearanceX, y: laneY },
+        { x: clearanceX, y: approachY },
+        { x: targetCenterX, y: approachY },
+      ],
+      endPoint: { x: targetCenterX, y: target.y },
+    };
+  }
   return {
     id: `${edgeId}-orthogonal-above-route`,
     startPoint: { x: sourceX, y: sourceCenterY },
@@ -1153,6 +1197,7 @@ function applyExplicitRoutes(
             edge.id,
             source,
             target,
+          spec,
             nodes,
             aboveLaneByEdge.get(edge.id) ?? 0,
           )
